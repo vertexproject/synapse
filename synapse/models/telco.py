@@ -409,7 +409,7 @@ modeldefs = (
                     'doc': 'The service account which is associated with the tracked device.'}),
 
                 # reporting related data
-                ('app', ('it:prod:softver', {}), {}),
+                ('app', ('it:software', {}), {}),
 
                 ('data', ('data', {}), {}),
                 # any other fields may be refs...

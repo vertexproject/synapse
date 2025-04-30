@@ -4,11 +4,41 @@ modeldefs = (
     ('doc', {
         'interfaces': (
 
+            ('doc:authorable', {
+                'doc': 'Properties common to authorable forms.',
+                'template': {'authorable': 'document'},
+                'props': (
+
+                    ('id', ('meta:id', {}), {
+                        'doc': 'The {authorable} ID.'}),
+
+                    ('name', ('base:name', {}), {
+                        'doc': 'The {authorable} name.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the {authorable} was created.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time that the {authorable} was last updated.'}),
+
+                    ('author', ('entity:actor', {}), {
+                        'doc': 'The contact information of the primary author.'}),
+
+                    ('contributors', ('array', {'type': 'entity:actor', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of contacts which contributed to the {authorable}.'}),
+
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The version of the {authorable}.'}),
+
+                    ('supersedes', ('array', {'type': '$self', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of {authorable}s which are superseded by this {authorable}.'}),
+                ),
+            }),
             ('doc:document', {
 
                 'doc': 'A common interface for documents.',
                 'interfaces': (
-                    ('doc:authored', {}),
+                    ('doc:authorable', {}),
                 ),
 
                 'template': {
@@ -19,12 +49,6 @@ modeldefs = (
 
                 'props': (
 
-                    ('id', ('meta:id', {}), {
-                        'doc': 'The {document} ID.'}),
-
-                    ('name', ('base:name', {}), {
-                        'doc': 'The {document} name.'}),
-
                     ('type', ('{type}', {}), {
                         'doc': 'The type of {document}.'}),
 
@@ -32,27 +56,8 @@ modeldefs = (
                         'disp': {'hint': 'text', 'syntax': '{syntax}'},
                         'doc': 'The text of the {document}.'}),
 
-                    ('created', ('time', {}), {
-                        'doc': 'The time that the {document} was created.'}),
-
-                    ('updated', ('time', {}), {
-                        'doc': 'The time that the {document} was last updated.'}),
-
-                    ('author', ('entity:actor', {}), {
-                        'doc': 'The contact information of the primary author.'}),
-
-                    ('contributors', ('array', {'type': 'entity:actor', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of contacts which contributed to the {document}.'}),
-
-                    ('version', ('it:semver', {}), {
-                        'doc': 'The version of the {document}.'}),
-
-                    ('supersedes', ('array', {'type': '$self', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of {documents} which are superseded by this {document}.'}),
-
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file which contains the {document}.'}),
-
                 ),
             }),
         ),

@@ -574,9 +574,9 @@ async def _onFormItDevStr(node):
 #     prop = node.get('vers')
 #     if not prop:
 #         return
-# 
+#
 #     await node.set('vers:norm', prop)
-# 
+#
 #     # form the semver properly or bruteforce parts
 #     try:
 #         valu, info = node.view.core.model.type('it:semver').norm(prop)
@@ -821,11 +821,11 @@ modeldefs = (
                 'doc': 'An identifier issued to a given host by a specific software application.'}),
 
             ('it:hardware', ('guid', {}), {
-                'prevnames': ('it:prod:hardware',),
+                'prevnames': ('it:hardware',),
                 'doc': 'A specification for a piece of IT hardware.'}),
 
-            ('it:prod:component', ('guid', {}), {
-                'doc': 'A specific instance of an it:prod:hardware most often as part of an it:host.'}),
+            ('it:component', ('guid', {}), {
+                'doc': 'A specific instance of an it:hardware most often as part of an it:host.'}),
 
             ('it:hardware:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -847,8 +847,9 @@ modeldefs = (
             ('it:os:android:intent', ('str', {}), {
                 'doc': 'An android intent string.'}),
 
+            # FIXME decomp ( and convert to software ) if keeping
             ('it:os:android:reqperm', ('comp', {'fields': (
-                                                    ('app', 'it:prod:soft'),
+                                                    ('app', 'it:software'),
                                                     ('perm', 'it:os:android:perm'))}), {
                 'doc': 'The given software requests the android permission.'}),
 
@@ -866,31 +867,6 @@ modeldefs = (
             # FIXME file container interface?
             ('it:software', ('guid', {}), {
                 'doc': 'A sofware family or specific version.'}),
-            # ('it:prod:softver', ('guid', {}), {
-            #    'doc': 'A specific version of a software product.'}),
-
-            # ('it:prod:softfile', ('comp', {'fields': (
-            #                             ('soft', 'it:prod:softver'),
-            #                             ('file', 'file:bytes'))}), {
-            #     'doc': 'A file is distributed by a specific software version.'}),
-
-            # ('it:prod:softreg', ('comp', {'fields': (
-            #                             ('softver', 'it:prod:softver'),
-            #                             ('regval', 'it:dev:regval'))}), {
-            #     'doc': 'A registry entry is created by a specific software version.'}),
-
-            # ('it:prod:softlib', ('comp', {'fields': (
-            #                             ('soft', 'it:prod:softver'),
-            #                             ('lib', 'it:prod:softver'))}), {
-            #     'doc': 'A software version contains a library software version.'}),
-
-            # ('it:prod:softos', ('comp', {'fields': (
-            #                             ('soft', 'it:prod:softver'),
-            #                             ('os', 'it:prod:softver'))}), {
-            #     'doc': 'The software version is known to be compatible with the given os software version.'}),
-
-            # ('it:hostsoft', ('comp', {'fields': (('host', 'it:host'), ('softver', 'it:prod:softver'))}), {
-            #    'doc': 'A version of a software product which is present on a given host.'}),
 
             # FIXME meta:name?
             ('it:av:signame', ('str', {'lower': True}), {
@@ -1019,19 +995,27 @@ modeldefs = (
 
                 'interfaces': (
                     ('meta:ruleish', {'template': {
-                        'document': 'YARA rule', 'syntax': 'yara'}),
+                        'document': 'YARA rule', 'syntax': 'yara'}}),
                 ),
                 'doc': 'A YARA rule unique identifier.'}),
+
+            ('it:app:yara:target', ('ndef', {'forms': ('file:bytes', 'it:exec:proc',
+                                                          'inet:ip', 'inet:fqdn', 'inet:url')}), {
+                'doc': 'An ndef type which is limited to forms which YARA rules can match.'}),
+
+            ('it:app:yara:match', ('guid', {}), {
+                'interfaces': (
+                    ('meta:matchish', {'template': {'rule': 'YARA rule',
+                                                    'rule:type': 'it:app:yara:rule',
+                                                    'match:type': 'it:app:yara:target'}}),
+                ),
+                'doc': 'A YARA rule which can match files, processes, or network traffic.'}),
 
             ('it:sec:stix:bundle', ('guid', {}), {
                 'doc': 'A STIX bundle.'}),
 
             ('it:sec:stix:indicator', ('guid', {}), {
                 'doc': 'A STIX indicator pattern.'}),
-
-            ('it:app:yara:match', ('guid', {}), {
-                'template': {'rule': 'YARA rule', 'rule:type': 'it:app:yara:rule'},
-                'doc': 'A YARA rule which can match files, processes, or network traffic.'}),
 
             ('it:app:snort:rule', ('guid', {}), {
                 'interfaces': (
@@ -1042,9 +1026,14 @@ modeldefs = (
             ('it:app:snort:match', ('guid', {}), {
                 'prevnames': ('it:app:snort:hit',),
                 'interfaces': (
-                    ('meta:matchish', {'rule': 'Snort rule'}),
+                    ('meta:matchish', {'template': {'rule': 'Snort rule',
+                                       'rule:type': 'it:app:snort:rule',
+                                       'target:type': 'it:app:snort:target'}}),
                 ),
                 'doc': 'An instance of a snort rule hit.'}),
+
+            ('it:app:snort:target', ('ndef', {'forms': ('inet:flow',)}), {
+                'doc': 'An ndef type which is limited to forms which snort rules can match.'}),
 
             # FIXME refactor
             ('it:reveng:function', ('guid', {}), {
@@ -1126,9 +1115,16 @@ modeldefs = (
             (('it:software', 'uses', 'risk:vuln'), {
                 'doc': 'The software uses the vulnerability.'}),
 
+            (('it:software', 'creates', 'file:filepath'), {
+                'doc': 'The software creates the file path.'}),
+
+            (('it:software', 'creates', 'it:dev:regval'), {
+                'doc': 'The software creates the windows registry value.'}),
+
             (('it:exec:query', 'found', None), {
                 'doc': 'The target node was returned as a result of running the query.'}),
 
+            # FIXME tighten these down...
             (('it:app:snort:rule', 'detects', None), {
                 'doc': 'The snort rule is intended for use in detecting the target node.'}),
 
@@ -1335,8 +1331,9 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The host where the account is registered.'}),
 
+                # FIXME service:account?
                 # ('domain', ('it:domain', {}), {
-                #     'doc': 'The authentication domain where the account is registered.'}),
+                    # 'doc': 'The authentication domain where the account is registered.'}),
 
                 ('posix:uid', ('int', {}), {
                     'ex': '1001',
@@ -1379,7 +1376,7 @@ modeldefs = (
                 #     'doc': 'The authentication domain where the group is registered.'}),
 
                 # FIXME need to make into a relationship form?
-                ('groups', ('array', {'type': 'it:group', 'uniq': True, 'sorted': True}), {
+                ('groups', ('array', {'type': 'it:host:group', 'uniq': True, 'sorted': True}), {
                     'doc': 'Groups that are a member of this group.'}),
 
                 ('posix:gid', ('int', {}), {
@@ -1739,8 +1736,9 @@ modeldefs = (
                     'doc': 'An array of MITRE ATT&CK data components that detect the ATT&CK technique.'}),
             )),
             ('it:mitre:attack:software', {}, (
-                ('software', ('it:prod:soft', {}), {
-                    'doc': 'Used to map an ATT&CK software to a synapse it:prod:soft.'}),
+
+                ('software', ('it:software', {}), {
+                    'doc': 'Used to map an ATT&CK software to a synapse it:software node.'}),
 
                 ('name', ('meta:name', {}), {
                     'doc': 'The primary name for the ATT&CK software.'}),
@@ -1891,22 +1889,12 @@ modeldefs = (
                 ('name', ('it:dev:str', {}), {
                     'doc': 'The name of the registry value within the key.'}),
 
-                # FIXME primitive scalar type for indexing?
+                # FIXME primitive scalar type for indexing? Or an ndef?
                 ('value', ('data', {}), {
                     'prevnames': ('str', 'int', 'bytes'),
                     'doc': 'The the value assigned to the name within the key.'}),
-
-                #('str', ('it:dev:str', {}), {
-                    #'doc': 'The value of the registry key, if the value is a string.'}),
-
-                #('int', ('it:dev:int', {}), {
-                    #'doc': 'The value of the registry key, if the value is an integer.'}),
-
-                #('bytes', ('file:bytes', {}), {
-                    #'doc': 'The file representing the value of the registry key, if the value is binary data.'}),
             )),
 
-            # TODO: all of the `id:dev:repo` forms need to be tied to the TBD inet:service model
             ('it:dev:repo:type:taxonomy', {}, ()),
             ('it:dev:repo', {}, (
                 ('name', ('str', {'lower': True, 'strip': True}), {
@@ -2090,14 +2078,14 @@ modeldefs = (
             )),
 
             ('it:hardware:type:taxonomy', {
-                'prevnames': ('it:prod:hardwaretype',)}, ()),
+                'prevnames': ('it:hardwaretype',)}, ()),
 
             ('it:hardware', {}, (
 
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of this hardware specification.'}),
 
-                ('type', ('it:prod:hardware:type:taxonomy', {}), {
+                ('type', ('it:hardware:type:taxonomy', {}), {
                     'doc': 'The type of hardware.'}),
 
                 ('desc', ('str', {}), {
@@ -2126,11 +2114,11 @@ modeldefs = (
 
                 # FIXME relationship form?
                 ('parts', ('array', {'type': 'it:hardware', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of it:prod:hardware parts included in this hardware specification.'}),
+                    'doc': 'An array of it:hardware parts included in this hardware specification.'}),
             )),
             ('it:component', {}, (
 
-                ('hardware', ('it:prod:hardware', {}), {
+                ('hardware', ('it:hardware', {}), {
                     'doc': 'The hardware specification of this component.'}),
 
                 ('serial', ('meta:id', {}), {
@@ -2140,44 +2128,43 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The it:host which has this component installed.'}),
             )),
-            ('it:prod:soft:taxonomy', {}, ()),
-            ('it:prod:soft', {}, (
+            # ('it:prod:soft', {}, (
 
-                ('id', ('meta:id', {}), {
-                    'doc': 'An ID for the software.'}),
+            #     ('id', ('meta:id', {}), {
+            #         'doc': 'An ID for the software.'}),
 
-                ('name', ('meta:name', {}), {
-                    'alts': ('names',),
-                    'doc': 'The name of the software.'}),
+            #     ('name', ('meta:name', {}), {
+            #         'alts': ('names',),
+            #         'doc': 'The name of the software.'}),
 
-                ('type', ('it:prod:soft:taxonomy', {}), {
-                    'doc': 'The software type.'}),
+            #     ('type', ('it:prod:soft:taxonomy', {}), {
+            #         'doc': 'The software type.'}),
 
-                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                    'doc': 'A list of alternate names for this software.'}),
+            #     ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+            #         'doc': 'A list of alternate names for this software.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A description of the software.'}),
+            #     ('desc', ('str', {}), {
+            #         'disp': {'hint': 'text'},
+            #         'doc': 'A description of the software.'}),
 
-                ('desc:short', ('str', {'lower': True}), {
-                    'doc': 'A short description of the software.'}),
+            #     ('desc:short', ('str', {'lower': True}), {
+            #         'doc': 'A short description of the software.'}),
 
-                ('cpe', ('it:sec:cpe', {}), {
-                    'doc': 'The NIST CPE 2.3 string specifying this software.'}),
+            #     ('cpe', ('it:sec:cpe', {}), {
+            #         'doc': 'The NIST CPE 2.3 string specifying this software.'}),
 
-                ('author', ('entity:actor', {}), {
-                    'doc': 'The contact information of the entity who authored the software.'}),
+            #     ('author', ('entity:actor', {}), {
+            #         'doc': 'The contact information of the entity who authored the software.'}),
 
-                ('url', ('inet:url', {}), {
-                    'doc': 'URL relevant for the software.'}),
+            #     ('url', ('inet:url', {}), {
+            #         'doc': 'URL relevant for the software.'}),
 
-                ('isos', ('bool', {}), {
-                    'doc': 'Set to True if the software is an operating system.'}),
+            #     ('isos', ('bool', {}), {
+            #         'doc': 'Set to True if the software is an operating system.'}),
 
-                ('islib', ('bool', {}), {
-                    'doc': 'Set to True if the software is a library.'}),
-            )),
+            #     ('islib', ('bool', {}), {
+            #         'doc': 'Set to True if the software is a library.'}),
+            # )),
 
             ('it:prod:softid', {}, (
 
@@ -2202,7 +2189,7 @@ modeldefs = (
 
             ('it:os:android:reqperm', {}, (
 
-                ('app', ('it:prod:softver', {}), {'ro': True,
+                ('app', ('it:software', {}), {'ro': True,
                     'doc': 'The android app which requests the permission.'}),
 
                 ('perm', ('it:os:android:perm', {}), {'ro': True,
@@ -2211,16 +2198,16 @@ modeldefs = (
 
             # ('it:prod:softos', {}, (
 
-            #     ('soft', ('it:prod:softver', {}), {'ro': True,
+            #     ('soft', ('it:software', {}), {'ro': True,
             #         'doc': 'The software which can run on the operating system.'}),
 
-            #     ('os', ('it:prod:softver', {}), {'ro': True,
+            #     ('os', ('it:software', {}), {'ro': True,
             #         'doc': 'The operating system which the software can run on.'}),
             # )),
 
             ('it:os:android:ilisten', {}, (
 
-                ('app', ('it:prod:softver', {}), {'ro': True,
+                ('app', ('it:software', {}), {'ro': True,
                     'doc': 'The app software which listens for the android intent.'}),
 
                 ('intent', ('it:os:android:intent', {}), {'ro': True,
@@ -2229,7 +2216,7 @@ modeldefs = (
 
             ('it:os:android:ibroadcast', {}, (
 
-                ('app', ('it:prod:softver', {}), {'ro': True,
+                ('app', ('it:software', {}), {'ro': True,
                     'doc': 'The app software which broadcasts the android intent.'}),
 
                 ('intent', ('it:os:android:intent', {}), {'ro': True,
@@ -2237,20 +2224,28 @@ modeldefs = (
 
             )),
 
+            ('it:software:type:taxonomy', {}, ()),
             ('it:software', {}, (
 
                 ('id', ('meta:id', {}), {
                     'doc': 'A unique ID for the software.'}),
+
+                ('type', ('it:software:type:taxonomy', {}), {
+                    'doc': 'The type of software.'}),
 
                 ('parent', ('it:software', {}), {
                     'doc': 'The parent software version or family.'}),
 
                 ('name', ('meta:name', {}), {
                     'alts': ('names',),
-                    'doc': 'The name of the sofware.'})
+                    'doc': 'The name of the sofware.'}),
 
                 ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'Observed/variant names for this software version.'}),
+
+                ('desc', ('str', {}), {
+                    'disp': {'hint': 'text'},
+                    'doc': 'A description of the software.'}),
 
                 ('released', ('time', {}), {
                     'doc': 'Timestamp for when the software was released.'}),
@@ -2266,90 +2261,48 @@ modeldefs = (
                     'doc': 'The NIST CPE 2.3 string specifying this software version.'}),
 
             )),
-            #('it:prod:softver', {}, (
 
-            #    ('software', ('it:prod:soft', {}), {
-            #        'doc': 'Software associated with this version instance.'}),
+            # # FIXME depends
+            # ('it:prod:softlib', {}, (
 
-            #    ('name', ('meta:name', {}), {
-            #        'alts': ('names',),
-            #        'doc': 'Name of the software version.'}),
+            #     ('soft', ('it:software', {}), {'ro': True,
+            #         'doc': 'The software version that contains the library.'}),
 
-            #    ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-            #        'doc': 'Observed/variant names for this software version.'}),
+            #     ('lib', ('it:software', {}), {'ro': True,
+            #         'doc': 'The library software version.'}),
+            # )),
 
-            #    ('desc', ('str', {}), {
-            #        'disp': {'hint': 'text'},
-            #        'doc': 'A description of the software.'}),
+            # # FIXME has?
+            # ('it:prod:softfile', {}, (
 
-            #    ('cpe', ('it:sec:cpe', {}), {
-            #        'doc': 'The NIST CPE 2.3 string specifying this software version.'}),
+            #     ('soft', ('it:software', {}), {'ro': True,
+            #         'doc': 'The software which distributes the file.'}),
 
-            #    ('cves', ('array', {'type': 'it:sec:cve', 'uniq': True, 'sorted': True}), {
-            #        'doc': 'A list of CVEs that apply to this software version.'}),
+            #     ('file', ('file:bytes', {}), {'ro': True,
+            #         'doc': 'The file distributed by the software.'}),
+            #     ('path', ('file:path', {}), {
+            #         'doc': 'The default installation path of the file.'}),
+            # )),
 
-            #    ('vers', ('it:dev:str', {}), {
-            #        'doc': 'Version string associated with this version instance.'}),
+            # ('it:prod:softreg', {}, (
 
-            #    ('vers:norm', ('str', {'lower': True}), {
-            #        'doc': 'Normalized version of the version string.'}),
+            #     ('softver', ('it:software', {}), {'ro': True,
+            #         'doc': 'The software which creates the registry entry.'}),
 
-            #    # FIXME form?
-            #    ('arch', ('it:dev:str', {}), {
-            #        'doc': 'Software architecture.'}),
+            #     ('regval', ('it:dev:regval', {}), {'ro': True,
+            #         'doc': 'The registry entry created by the software.'}),
+            # )),
 
-            #    ('released', ('time', {}), {
-            #        'doc': 'Timestamp for when this version of the software was released.'}),
+            #  FIXME - it:host:installed?
+            # ('it:hostsoft', {}, (
 
-            #    # FIXME semver virtual props even if parsing fails?
-            #    ('semver', ('it:semver', {}), {
-            #        'doc': 'System normalized semantic version number.'}),
+            #     ('host', ('it:host', {}), {'ro': True,
+            #         'doc': 'Host with the software.'}),
 
-            #    ('url', ('inet:url', {}), {
-            #        'doc': 'URL where a specific version of the software is available from.'}),
+            #     ('softver', ('it:software', {}), {'ro': True,
+            #         'doc': 'Software on the host.'})
 
-            #)),
-
-            ## FIXME depends
-            #('it:prod:softlib', {}, (
-
-            #    ('soft', ('it:prod:softver', {}), {'ro': True,
-            #        'doc': 'The software version that contains the library.'}),
-
-            #    ('lib', ('it:prod:softver', {}), {'ro': True,
-            #        'doc': 'The library software version.'}),
-            #)),
-
-            ## FIXME has?
-            #('it:prod:softfile', {}, (
-
-            #    ('soft', ('it:prod:softver', {}), {'ro': True,
-            #        'doc': 'The software which distributes the file.'}),
-
-            #    ('file', ('file:bytes', {}), {'ro': True,
-            #        'doc': 'The file distributed by the software.'}),
-            #    ('path', ('file:path', {}), {
-            #        'doc': 'The default installation path of the file.'}),
-            #)),
-
-            #('it:prod:softreg', {}, (
-
-            #    ('softver', ('it:prod:softver', {}), {'ro': True,
-            #        'doc': 'The software which creates the registry entry.'}),
-
-            #    ('regval', ('it:dev:regval', {}), {'ro': True,
-            #        'doc': 'The registry entry created by the software.'}),
-            #)),
-
-            #('it:hostsoft', {}, (
-
-            #    ('host', ('it:host', {}), {'ro': True,
-            #        'doc': 'Host with the software.'}),
-
-            #    ('softver', ('it:prod:softver', {}), {'ro': True,
-            #        'doc': 'Software on the host.'})
-
-            #)),
+            # )),
             ('it:av:signame', {}, ()),
 
             ('it:av:scan:result', {}, (
@@ -2360,7 +2313,7 @@ modeldefs = (
                 ('verdict', ('int', {'enums': suslevels}), {
                     'doc': 'The scanner provided verdict for the scan.'}),
 
-                ('scanner', ('it:prod:softver', {}), {
+                ('scanner', ('it:software', {}), {
                     'doc': 'The scanner software used to produce the result.'}),
 
                 ('scanner:name', ('meta:name', {}), {
@@ -2376,26 +2329,6 @@ modeldefs = (
                 ('target', ('ndef', {'forms': ('file:bytes', 'it:exec:proc', 'it:host',
                                                'inet:fqdn', 'inet:url', 'inet:ip')}), {
                     'doc': 'The target of the scan.'}),
-
-                # FIXME either/or props here...
-                # ('target:file', ('file:bytes', {}), {
-                #     'doc': 'The file that was scanned to produce the result.'}),
-
-                # ('target:proc', ('it:exec:proc', {}), {
-                #     'doc': 'The process that was scanned to produce the result.'}),
-
-                # ('target:host', ('it:host', {}), {
-                #     'doc': 'The host that was scanned to produce the result.'}),
-
-                # ('target:fqdn', ('inet:fqdn', {}), {
-                #     'doc': 'The FQDN that was scanned to produce the result.'}),
-
-                # ('target:url', ('inet:url', {}), {
-                #     'doc': 'The URL that was scanned to produce the result.'}),
-
-                # ('target:ip', ('inet:ip', {}), {
-                #     'doc': 'The IP address that was scanned to produce the result.',
-                #     'prevnames': ('target:ipv4', 'target:ipv6')}),
 
                 ('multi:scan', ('it:av:scan:result', {}), {
                     'doc': 'Set if this result was part of running multiple scanners.'}),
@@ -2972,7 +2905,7 @@ modeldefs = (
             ('it:app:yara:rule', {}, ()),
             ('it:app:yara:match', {}, (
                 ('target', ('ndef', {'forms': ('file:bytes', 'it:host:proc', 'inet:ip',
-                                               'inet:fqdn', 'inet:url'})}),
+                                               'inet:fqdn', 'inet:url')}), {
                     'doc': 'The node which matched the YARA rule.'}),
             )),
 
@@ -3063,7 +2996,7 @@ modeldefs = (
         #             ('it:dev:str', _onFormItDevStr),
         #         ),
         #         'props': (
-        #             ('it:prod:softver:vers', _onPropSoftverVers),
+        #             ('it:software:vers', _onPropSoftverVers),
         #         ),
         #     }
         # },

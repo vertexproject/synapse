@@ -40,7 +40,7 @@ modeldefs = (
                     'ex': 'A standard greeting',
                     'doc': 'A description of the meaning of the output.'}),
 
-                ('engine', ('it:prod:softver', {}), {
+                ('engine', ('it:software', {}), {
                     'doc': 'The translation engine version used.'}),
             )),
 

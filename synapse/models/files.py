@@ -535,10 +535,10 @@ modeldefs = (
                 ('mime:pe:richhdr', ('hash:sha256', {}), {
                     'doc': 'The sha256 hash of the rich header bytes.'}),
 
-                ('exe:compiler', ('it:prod:softver', {}), {
+                ('exe:compiler', ('it:software', {}), {
                     'doc': 'The software used to compile the file.'}),
 
-                ('exe:packer', ('it:prod:softver', {}), {
+                ('exe:packer', ('it:software', {}), {
                     'doc': 'The packer software used to encode the file.'}),
             )),
 

@@ -2861,7 +2861,7 @@ modeldefs = (
                 ('place:name', ('meta:name', {}), {
                     'doc': 'The name of the place that the message was sent from.'}),
 
-                ('client:software', ('it:prod:softver', {}), {
+                ('client:software', ('it:software', {}), {
                     'doc': 'The client software version used to send the message.'}),
 
                 ('client:software:name', ('meta:name', {}), {

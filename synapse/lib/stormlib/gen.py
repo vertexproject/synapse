@@ -34,12 +34,12 @@ class LibGen(s_stormtypes.Lib):
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A media:news node with the given URL.'}}},
-        {'name': 'softByName', 'desc': 'Returns it:prod:soft node by name, adding the node if it does not exist.',
+        {'name': 'softByName', 'desc': 'Returns it:software node by name, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the software.'},
                   ),
-                  'returns': {'type': 'node', 'desc': 'An it:prod:soft node with the given name.'}}},
+                  'returns': {'type': 'node', 'desc': 'An it:software node with the given name.'}}},
         {'name': 'vulnByCve', 'desc': 'Returns risk:vuln node by CVE and reporter, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -219,13 +219,9 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
+        // FIXME remove?
         function softByName(name) {
-            meta:name=$name
-            -> it:prod:soft
-            return($node)
-
-            $name = $lib.cast(meta:name, $name)
-            [ it:prod:soft=(gen, name, $name) :name=$name ]
+            [ it:sofware=({"name": $name}) ]
             return($node)
         }
 

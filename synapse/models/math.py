@@ -16,7 +16,7 @@ modeldefs = (
             (('risk:tool:software', 'uses', 'math:algorithm'), {
                 'doc': 'The tool uses the algorithm.'}),
 
-            (('it:prod:softver', 'uses', 'math:algorithm'), {
+            (('it:software', 'uses', 'math:algorithm'), {
                 'doc': 'The software uses the algorithm.'}),
 
             (('file:bytes', 'uses', 'math:algorithm'), {
