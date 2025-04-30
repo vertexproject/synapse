@@ -340,7 +340,7 @@ _DefaultConfig = {
             },
         },
 
-        'it:prod:soft': {
+        'it:software': {
             'default': 'tool',
             'stix': {
                 'tool': {
@@ -348,20 +348,7 @@ _DefaultConfig = {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
-                    },
-                },
-            },
-        },
-
-        'it:prod:softver': {
-            'default': 'tool',
-            'stix': {
-                'tool': {
-                    'props': {
-                        'name': '-> it:prod:soft {+:name return(:name)} return($node.repr())',
-                        'created': 'return($lib.stix.export.timestamp(.created))',
-                        'modified': 'return($lib.stix.export.timestamp(.created))',
-                        'tool_version': '+:vers return(:vers)',
+                        'tool_version': '+:version return(:version)',
                     },
                     'rels': (
                         # TODO
@@ -724,12 +711,9 @@ stixingest = {
         'tool': {
             'storm': '''
                 ($ok, $name) = $lib.trycast(meta:name, $object.name)
-                if $ok {
-                    meta:name=$name -> it:prod:soft
-                    return($node)
-                    [ it:prod:soft=* :name=$name ]
-                    return($node)
-                }
+                if (not $ok) { return() }
+                [ it:software=({"name": $object.name}) ]
+                return($node)
             ''',
         },
         'threat-actor': {
@@ -768,12 +752,9 @@ stixingest = {
         'malware': {
             'storm': '''
                 ($ok, $name) = $lib.trycast(meta:name, $object.name)
-                if $ok {
-                    meta:name=$name -> it:prod:soft
-                    return($node)
-                    [ it:prod:soft=* :name=$name ]
-                    return($node)
-                }
+                if (not $ok) { return() }
+                [ it:software=({"name": $object.name}) ]
+                return($node)
             ''',
         },
         'indicator': {

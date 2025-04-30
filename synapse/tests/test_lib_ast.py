@@ -1,5 +1,6 @@
 import math
 import asyncio
+import hashlib
 
 from unittest import mock
 
@@ -3147,8 +3148,8 @@ class AstTest(s_test.SynTest):
             self.len(0, await core.nodes('inet:ip=1.2.3.4  +(#foo and $lib.false)'))
             self.len(0, await core.nodes('inet:ip=1.2.3.4  +$(:asn + 20 >= 42)'))
 
-            opts = {'vars': {'asdf': b'asdf'}}
-            await core.nodes('[ file:bytes=$asdf ]', opts=opts)
+            opts = {'vars': {'sha256': hashlib.sha256(b'asdf').hexdigest()}}
+            await core.nodes('[ file:bytes=({"sha256": $sha256}) ]', opts=opts)
             await core.axon.put(b'asdf')
             self.len(1, await core.nodes('file:bytes +$lib.axon.has(:sha256)'))
 
@@ -3951,21 +3952,26 @@ class AstTest(s_test.SynTest):
 
             # Create node for the lift below
             q = '''
-            [ it:app:snort:hit=*
-                :flow={[ inet:flow=* :raw=({"foo": "bar"}) ]}
+            [ it:app:snort:match=*
+                :target={[ inet:flow=* :raw=({"foo": "bar"}) ]}
             ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
             # Lift node, get prop via implicit pivot, assign data prop to var, update var
-            q = f'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow'
-            nodes = await core.nodes(q)
+            nodes = await core.nodes('''
+                it:app:snort:match $raw = :target::raw $raw.baz="box" | spin | inet:flow
+            ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('raw'), {'foo': 'bar'})
 
-            q = f'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow [ :raw=$raw ]'
-            nodes = await core.nodes(q)
+            nodes = await core.nodes('''
+                it:app:snort:match
+                $raw = :target::raw
+                $raw.baz="box" | spin |
+                inet:flow [ :raw=$raw ]
+            ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('raw'), {'foo': 'bar', 'baz': 'box'})
 

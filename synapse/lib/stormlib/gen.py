@@ -221,7 +221,7 @@ class LibGen(s_stormtypes.Lib):
 
         // FIXME remove?
         function softByName(name) {
-            [ it:sofware=({"name": $name}) ]
+            [ it:software=({"name": $name}) ]
             return($node)
         }
 
@@ -343,47 +343,27 @@ class LibGen(s_stormtypes.Lib):
 
         function itAvScanResultByTarget(form, value, signame, scanner=$lib.null, time=$lib.null, try=$lib.false) {
 
-            ($ok, $value) = $__maybeCast($try, $form, $value)
+            ($ok, $target) = $__maybeCast($try, it:av:scan:result:target, ($form, $value))
             if (not $ok) { return() }
-
-            switch $form {
-                "file:bytes":   { $tprop = target:file }
-                "inet:fqdn":    { $tprop = target:fqdn }
-                "inet:ip":      { $tprop = target:ip   }
-                "inet:url":     { $tprop = target:url  }
-                "it:exec:proc": { $tprop = target:proc }
-                "it:host":      { $tprop = target:host }
-                *: {
-                    $lib.raise(BadArg, `Unsupported target form {$form}`)
-                }
-            }
 
             ($ok, $signame) = $__maybeCast($try, it:av:signame, $signame)
             if (not $ok) { return() }
 
+            $dict = ({"target": $target, "signame": $signame})
+
             if ($scanner != $lib.null) {
                 ($ok, $scanner) = $__maybeCast($try, meta:name, $scanner)
                 if (not $ok) { return() }
+                $dict."scanner:name" = $scanner
             }
 
             if ($time != $lib.null) {
                 ($ok, $time) = $__maybeCast($try, time, $time)
                 if (not $ok) { return() }
+                $dict.time = $time
             }
 
-            $tlift = `it:av:scan:result:{$tprop}`
-
-            *$tlift=$value +:signame=$signame
-            if ($time != $lib.null) { +:time=$time }
-            if ($scanner != $lib.null) { +:scanner:name=$scanner }
-            return($node)
-
-            [ it:av:scan:result=(gen, target, $form, $value, $signame, $scanner, $time)
-                :signame=$signame
-                :$tprop=$value
-                :scanner:name?=$scanner
-                :time?=$time
-            ]
+            [ it:av:scan:result=$dict ]
 
             return($node)
         }
@@ -398,44 +378,21 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
+        // FIXME remove?
         function fileBytesBySha256(sha256, try=$lib.false) {
-            ($ok, $sha256) = $__maybeCast($try, hash:sha256, $sha256)
-            if (not $ok) { return() }
-
-            file:bytes=$sha256
-            return($node)
-
-            file:bytes:sha256=$sha256
-            return($node)
-
-            [ file:bytes=$sha256 ]
+            [ file:bytes=({"$try": $try, "sha256": $sha256}) ]
             return($node)
         }
 
         function cryptoX509CertBySha256(sha256, try=$lib.false) {
-            ($ok, $sha256) = $__maybeCast($try, hash:sha256, $sha256)
-            if (not $ok) { return() }
 
-            $guid = $lib.guid(valu=$sha256)
+            ($ok, $sha256) = $lib.trycast(hash:sha256, $sha256)
+            if (not $ok and $try) { return() }
 
-            // Try to lift crypto:x509:cert by guid
-            crypto:x509:cert=$guid
-            return($node)
+            $file = {[ file:bytes=({"sha256": $sha256}) ]}
 
-            // Try to lift crypto:x509:cert by sha256
-            crypto:x509:cert:sha256=$sha256
-            return($node)
+            [ crypto:x509:cert=({"sha256": $sha256, "file": $file}) ]
 
-            // Try to lift crypto:x509:cert by file
-            file:bytes:sha256=$sha256 -> crypto:x509:cert:file
-            { -:sha256 [ :sha256 = $sha256 ] }
-            return($node)
-
-            // Create a new crypto:x509:cert with file and sha256
-            [ crypto:x509:cert=$guid
-                :file = $fileBytesBySha256($sha256)
-                :sha256 = $sha256
-            ]
             return($node)
         }
 
