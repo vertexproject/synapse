@@ -320,7 +320,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :scanner:name="visi scan"
                     :categories=("Foo  Bar", "baz faz")
                     :signame=omgwtfbbq
-                    :target=(file:bytes, 80e6c59d9c349ac15f716eaa825a23fa80e6c59d9c349ac15f716eaa825a23fa)
+                    :target={[ file:bytes=({"sha256": "80e6c59d9c349ac15f716eaa825a23fa80e6c59d9c349ac15f716eaa825a23fa"}) ]}
                     :multi:scan={[ it:av:scan:result=*
                         :scanner:name="visi total"
                         :multi:count=10
@@ -333,7 +333,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('time'), 1700179200000)
             self.eq(nodes[0].get('verdict'), 30)
             self.eq(nodes[0].get('scanner:name'), 'visi scan')
-            self.eq(nodes[0].get('target'), ('file:bytes', 'sha256:80e6c59d9c349ac15f716eaa825a23fa80e6c59d9c349ac15f716eaa825a23fa'))
+            self.eq(nodes[0].get('target'), ('file:bytes', '09d214b60cdc6378a45de889fbb084cc'))
             self.eq(nodes[0].get('signame'), 'omgwtfbbq')
             self.eq(nodes[0].get('categories'), ('baz faz', 'foo bar'))
 
@@ -1044,7 +1044,7 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_it_forms_hostexec(self):
         # forms related to the host execution model
         async with self.getTestCore() as core:
-            exe = 'sha256:' + 'a' * 64
+            exe = s_common.guid()
             port = 80
             tick = s_common.now()
             host = s_common.guid()
@@ -1054,7 +1054,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             pid = 20
             key = 'HKEY_LOCAL_MACHINE\\Foo\\Bar'
 
-            sandfile = 'sha256:' + 'b' * 64
+            sandfile = s_common.guid()
             addr4 = f'tcp://1.2.3.4:{port}'
             addr6 = f'udp://[::1]:{port}'
             url = 'http://www.google.com/sekrit.html'
@@ -1064,7 +1064,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             src_path = r'c:/temp/ping.exe'
             cmd0 = 'rar a -r yourfiles.rar *.txt'
             fpath = 'c:/temp/yourfiles.rar'
-            fbyts = 'sha256:' + 'b' * 64
+            fbyts = s_common.guid()
             pprops = {
                 'exe': exe,
                 'pid': pid,
@@ -1552,7 +1552,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            baseFile = s_common.ehex(s_common.buid())
+            baseFile = s_common.guid()
             func = s_common.guid()
             fva = 0x404438
             rank = 33
@@ -1576,11 +1576,11 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             fnode = await core.nodes('[it:reveng:filefunc=($file, $func) :va=$fva :rank=$rank :complexity=$cmplx :funccalls=$funccalls]', opts=fopt)
             self.len(1, fnode)
-            self.eq(f'sha256:{baseFile}', fnode[0].get('file'))
+            self.eq(baseFile, fnode[0].get('file'))
             self.eq(fva, fnode[0].get('va'))
             self.eq(rank, fnode[0].get('rank'))
             self.eq(complexity, fnode[0].get('complexity'))
-            self.eq((f'sha256:{baseFile}', func), fnode[0].get('funccalls')[0])
+            self.eq((baseFile, func), fnode[0].get('funccalls')[0])
 
             funcnode = await core.nodes('''
                 it:reveng:function [
@@ -1874,7 +1874,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             remote = s_common.guid()
             parent = s_common.guid()
             replyto = s_common.guid()
-            file = f"sha256:{hashlib.sha256(b'foobarbaz').hexdigest()}"
+            file = s_common.guid()
 
             props = {
                 'name': 'synapse',

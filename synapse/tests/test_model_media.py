@@ -13,7 +13,7 @@ class MediaModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             valu = 32 * 'a'
-            file0 = 64 * 'f'
+            file0 = s_common.guid()
             publisher = 32 * 'b'
             cont = s_common.guid()
             props = {
@@ -45,7 +45,7 @@ class MediaModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('media:news', valu))
             self.eq(node.get('url'), 'https://vertex.link/synapse')
             self.eq(node.get('url:fqdn'), 'vertex.link')
-            self.eq(node.get('file'), 'sha256:' + file0)
+            self.eq(node.get('file'), file0)
             self.eq(node.get('title'), 'synapse is awesome! ')
             self.eq(node.get('published'), 0)
             self.eq(node.get('updated'), 0)

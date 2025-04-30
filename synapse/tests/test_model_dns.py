@@ -56,7 +56,7 @@ class DnsModelTest(s_t_utils.SynTest):
     async def test_model_dns_request(self):
 
         async with self.getTestCore() as core:
-            file0 = 'a' * 64
+            file0 = s_common.guid()
             props = {
                 'time': '2018',
                 'query': ('1.2.3.4', 'vertex.link', 255),
@@ -77,7 +77,7 @@ class DnsModelTest(s_t_utils.SynTest):
             self.eq(node.get('query:name'), 'vertex.link')
             self.eq(node.get('query:name:fqdn'), 'vertex.link')
             self.eq(node.get('query:type'), 255)
-            self.eq(node.get('sandbox:file'), 'sha256:' + file0)
+            self.eq(node.get('sandbox:file'), file0)
             self.none(node.get('query:client'))
             self.len(1, await core.nodes('inet:server="udp://5.6.7.8:53"'))
             self.len(1, await core.nodes('inet:fqdn=vertex.link'))
@@ -144,9 +144,9 @@ class DnsModelTest(s_t_utils.SynTest):
             # IP is unknown
             props = {
                 'time': '2018',
-                'exe': f'guid:{"a" * 32}',
+                'exe': "a" * 32,
                 'query:name': 'notac2.someone.com',
-                'sandbox:file': f'guid:{"b" * 32}',
+                'sandbox:file': "b" * 32,
             }
             q = '''[(inet:dns:request=$valu :time=$p.time :query:name=$p."query:name"
                     :exe=$p.exe :sandbox:file=$p."sandbox:file")]'''
@@ -154,9 +154,9 @@ class DnsModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.none(node.get('query'))
-            self.eq(node.get('exe'), f'guid:{"a" * 32}')
+            self.eq(node.get('exe'), "a" * 32)
             self.eq(node.get('query:name'), 'notac2.someone.com')
-            self.eq(node.get('sandbox:file'), f'guid:{"b" * 32}')
+            self.eq(node.get('sandbox:file'), "b" * 32)
 
             nodes = await core.nodes('[inet:dns:request=(test,) :query:name="::ffff:8.7.6.5"]')
             self.len(1, nodes)

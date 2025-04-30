@@ -334,9 +334,10 @@ class InetModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             valu = s_common.guid()
+            file = s_common.guid()
             props = {
                 'time': 0,
-                'file': 64 * 'b',
+                'file': file,
                 'fqdn': 'vertex.link',
                 'client': 'tcp://127.0.0.1:45654',
                 'server': 'tcp://1.2.3.4:80'
@@ -347,7 +348,7 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:download', valu))
             self.eq(node.get('time'), 0)
-            self.eq(node.get('file'), 'sha256:' + 64 * 'b')
+            self.eq(node.get('file'), file)
             self.eq(node.get('fqdn'), 'vertex.link')
             self.eq(node.get('client'), 'tcp://127.0.0.1:45654')
             self.eq(node.get('server'), 'tcp://1.2.3.4:80')
@@ -395,12 +396,12 @@ class InetModelTest(s_t_utils.SynTest):
             dstcert = s_common.guid()
             shost = s_common.guid()
             sproc = s_common.guid()
-            sexe = 'sha256:' + 'b' * 64
+            sexe = s_common.guid()
             dhost = s_common.guid()
             dproc = s_common.guid()
-            dexe = 'sha256:' + 'c' * 64
+            dexe = s_common.guid()
             pfrom = s_common.guid()
-            sfile = 'sha256:' + 'd' * 64
+            sfile = s_common.guid()
             props = {
                 'from': pfrom,
                 'shost': shost,
@@ -765,14 +766,16 @@ class InetModelTest(s_t_utils.SynTest):
             server = s_common.guid()
             flow = s_common.guid()
             iden = s_common.guid()
+            body = s_common.guid()
+            sand = s_common.guid()
 
             props = {
-                'body': 64 * 'b',
+                'body': body,
                 'flow': flow,
                 'sess': sess,
                 'client:host': client,
                 'server:host': server,
-                'sandbox:file': 64 * 'c'
+                'sandbox:file': sand,
             }
             q = '''[inet:http:request=$valu
                 :time=2015
@@ -802,13 +805,13 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('method'), 'gEt')
             self.eq(node.get('query'), 'hoho=1&qaz=bar')
             self.eq(node.get('path'), '/woot/hehe/')
-            self.eq(node.get('body'), 'sha256:' + 64 * 'b')
+            self.eq(node.get('body'), body)
             self.eq(node.get('response:code'), 200)
             self.eq(node.get('response:reason'), 'OK')
             self.eq(node.get('response:headers'), (('baz', 'faz'),))
-            self.eq(node.get('response:body'), 'sha256:' + 64 * 'b')
+            self.eq(node.get('response:body'), body)
             self.eq(node.get('session'), sess)
-            self.eq(node.get('sandbox:file'), 'sha256:' + 64 * 'c')
+            self.eq(node.get('sandbox:file'), sand)
             self.eq(node.get('client'), 'tcp://1.2.3.4')
             self.eq(node.get('client:host'), client)
             self.eq(node.get('server'), 'tcp://5.5.5.5:443')
@@ -1366,15 +1369,16 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_servfile(self):
         async with self.getTestCore() as core:
-            valu = ('tcp://127.0.0.1:4040', 64 * 'f')
+            file = s_common.guid()
+            valu = ('tcp://127.0.0.1:4040', file)
             nodes = await core.nodes('[(inet:servfile=$valu :server:host=$host)]',
                                      opts={'vars': {'valu': valu, 'host': 32 * 'a'}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:servfile', ('tcp://127.0.0.1:4040', 'sha256:' + 64 * 'f')))
+            self.eq(node.ndef, ('inet:servfile', ('tcp://127.0.0.1:4040', file)))
             self.eq(node.get('server'), 'tcp://127.0.0.1:4040')
             self.eq(node.get('server:host'), 32 * 'a')
-            self.eq(node.get('file'), 'sha256:' + 64 * 'f')
+            self.eq(node.get('file'), file)
 
     async def test_url(self):
         formname = 'inet:url'
@@ -1959,13 +1963,14 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_urlfile(self):
         async with self.getTestCore() as core:
-            valu = ('https://vertex.link/a_cool_program.exe', 64 * 'f')
+            file = s_common.guid()
+            valu = ('https://vertex.link/a_cool_program.exe', file)
             nodes = await core.nodes('[inet:urlfile=$valu]', opts={'vars': {'valu': valu}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:urlfile', (valu[0], 'sha256:' + valu[1])))
+            self.eq(node.ndef, ('inet:urlfile', (valu[0], file)))
             self.eq(node.get('url'), 'https://vertex.link/a_cool_program.exe')
-            self.eq(node.get('file'), 'sha256:' + 64 * 'f')
+            self.eq(node.get('file'), file)
 
             url = await core.nodes('inet:url')
             self.len(1, url)
@@ -2700,18 +2705,17 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.get('instance'), platinst.ndef[1])
                 self.eq(node.get('channel'), gnrlchan.ndef[1])
 
-            q = '''
+            nodes = await core.nodes('''
             [ inet:service:message:attachment=(pbjtime.gif, blackout, developers, 1715856900000, vertex, slack)
-                :file={[ file:bytes=sha256:028241d9116a02059e99cb239c66d966e1b550926575ad7dcf0a8f076a352bcd ]}
+                :file={[ file:bytes=({"sha256": "028241d9116a02059e99cb239c66d966e1b550926575ad7dcf0a8f076a352bcd"}) ]}
                 :name=pbjtime.gif
                 :text="peanut butter jelly time"
             ]
-            '''
-            nodes = await core.nodes(q)
+            ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('file'), 'sha256:028241d9116a02059e99cb239c66d966e1b550926575ad7dcf0a8f076a352bcd')
             self.eq(nodes[0].get('name'), 'pbjtime.gif')
             self.eq(nodes[0].get('text'), 'peanut butter jelly time')
+            self.eq(nodes[0].get('file'), 'ff94f25eddbf0d452ddee5303c8b818e')
             attachment = nodes[0]
 
             q = '''
@@ -2744,7 +2748,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :place = { gen.geo.place nyc }
                 :file=*
 
-                :client:software = {[ it:prod:softver=* :name=woot ]}
+                :client:software = {[ it:software=* :name=woot ]}
                 :client:software:name = woot
             ]
             '''

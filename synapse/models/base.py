@@ -100,6 +100,9 @@ modeldefs = (
 
             # FIXME todo meta:rule:match?
             ('meta:rule', ('guid', {}), {
+                'interfaces': (
+                    ('meta:ruleish', {}),
+                ),
                 'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
 
             ('meta:activity', ('int', {'enums': prioenums, 'enums:strict': False}), {
@@ -216,6 +219,8 @@ modeldefs = (
                 'doc': 'The meta:note is about the target node.'}),
 
             # FIXME comment in once the edge interfaces lands
+            (('meta:ruleset', 'has', 'meta:rule'), {
+               'doc': 'The ruleset includes the rule.'}),
             # (('meta:ruleset', 'has', 'meta:ruleish'), {
             #    'doc': 'The meta:ruleset includes the rule.'}),
 
