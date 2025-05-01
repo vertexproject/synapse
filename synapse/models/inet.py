@@ -3826,6 +3826,11 @@ class InetModule(s_module.CoreModule):
 
                         ('type', ('inet:service:message:type:taxonomy', {}), {
                             'doc': 'The type of message.'}),
+
+                        ('mentions', ('array', {'type': 'ndef',
+                                                'typeopts': {'forms': ('inet:service:account', 'inet:service:group')},
+                                                'uniq': True, 'sorted': True}), {
+                            'doc': 'Contactable entities mentioned within the message.'}),
                     )),
 
                     ('inet:service:message:link', {}, (
