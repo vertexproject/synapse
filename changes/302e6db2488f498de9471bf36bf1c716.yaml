@@ -1,5 +1,5 @@
 ---
-desc: Deprecate ``$lib.str.concat()``, ``$lib.str.format()``, ``$lib.str.join()``.
+desc: Deprecate ``$lib.str.concat()``, ``$lib.str.format()``, and ``$lib.str.join()``.
 prs: []
 type: deprecation
 ...
