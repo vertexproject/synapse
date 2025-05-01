@@ -209,7 +209,7 @@ class Node(NodeBase):
                 for prop in props.keys():
                     retn['tagprops'][tag].setdefault(prop, iden)
 
-        return(retn)
+        return dict(retn)
 
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
@@ -769,7 +769,7 @@ class Node(NodeBase):
                 for propname, valt in propvals.items():
                     retn[tagname][propname] = valt[0]
 
-        return retn
+        return dict(retn)
 
     async def addTag(self, tag, valu=(None, None)):
         '''
