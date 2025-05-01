@@ -6,6 +6,24 @@
 Synapse Changelog
 *****************
 
+v3.0.0 - 2025-XX-YY
+===================
+
+Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
+changes.
+
+v2.209.0 - 2025-04-23
+=====================
+
+Features and Enhancements
+-------------------------
+- Added support for removing layer mirror and upstream configurations to the
+  ``layer.set`` Storm command.
+  (`#4238 <https://github.com/vertexproject/synapse/pull/4238>`_)
+- Updated view merge behavior to be less greedy with the IO loop, particularly
+  in cases involving nodes with a large number of edges.
+  (`#4250 <https://github.com/vertexproject/synapse/pull/4250>`_)
+
 v2.208.0 - 2025-04-17
 =====================
 

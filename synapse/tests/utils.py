@@ -339,6 +339,7 @@ testmodel = (
 
             ('test:arrayprop', ('guid', {}), {}),
             ('test:arrayform', ('array', {'type': 'int'}), {}),
+            ('test:arrayvirtform', ('array', {'type': 'time'}), {}),
 
             ('test:comp', ('comp', {'fields': (
                 ('hehe', 'test:int'),
@@ -395,8 +396,8 @@ testmodel = (
                 ('strsnosplit', ('array', {'type': 'test:str'}), {}),
                 ('strregexs', ('array', {'type': 'test:strregex', 'uniq': True, 'sorted': True}), {}),
             )),
-            ('test:arrayform', {}, (
-            )),
+            ('test:arrayform', {}, ()),
+            ('test:arrayvirtform', {}, ()),
             ('test:taxonomy', {}, ()),
             ('test:type10', {}, (
 
@@ -489,6 +490,7 @@ testmodel = (
             ('test:zeropad', {}, ()),
             ('test:ival', {}, (
                 ('interval', ('ival', {}), {}),
+                ('daymax', ('ival', {'precision': 'day', 'maxfill': True}), {}),
             )),
 
             ('test:pivtarg', {}, (
@@ -771,7 +773,7 @@ class HttpReflector(s_httpapi.Handler):
             for k, items in self.request.arguments.items():
                 for v in items:
                     d[k].append(v.decode())
-        return d
+        return dict(d)
 
     async def get(self):
         resp = {}

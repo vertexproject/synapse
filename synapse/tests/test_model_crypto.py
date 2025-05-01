@@ -145,7 +145,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('from'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.eq(node.get('fee'), '0.0001')
             self.eq(node.get('value'), '30')
-            self.eq(node.get('time'), 1635638400000)
+            self.eq(node.get('time'), 1635638400000000)
             self.eq(node.get('eth:gasused'), 10)
             self.eq(node.get('eth:gaslimit'), 20)
             self.eq(node.get('eth:gasprice'), '0.001')
@@ -168,7 +168,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('coin'), 'btc')
             self.eq(node.get('offset'), 12345)
             self.eq(node.get('hash'), '01020304')
-            self.eq(node.get('time'), 1638230400000)
+            self.eq(node.get('time'), 1638230400000000)
 
             nodes = await core.nodes('''
                 [
@@ -513,8 +513,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('serial'), "0000000000000000000000000000000000003039")
             self.eq(nodes[0].get('version'), 2)
 
-            self.eq(nodes[0].get('validity:notafter'), 1546300800000)
-            self.eq(nodes[0].get('validity:notbefore'), 1420070400000)
+            self.eq(nodes[0].get('validity:notafter'), 1546300800000000)
+            self.eq(nodes[0].get('validity:notbefore'), 1420070400000000)
 
             self.eq(nodes[0].get('md5'), TEST_MD5)
             self.eq(nodes[0].get('sha1'), TEST_SHA1)

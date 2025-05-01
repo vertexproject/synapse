@@ -797,7 +797,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:http:request', iden))
-            self.eq(node.get('time'), 1420070400000)
+            self.eq(node.get('time'), 1420070400000000)
             self.eq(node.get('flow'), flow)
             self.eq(node.get('method'), 'gEt')
             self.eq(node.get('query'), 'hoho=1&qaz=bar')
@@ -2023,7 +2023,7 @@ class InetModelTest(s_t_utils.SynTest):
             valu = s_common.guid()
             rec = s_common.guid()
             props = {
-                'time': 2554869000000,
+                'time': 2554869000000000,
                 'fqdn': 'arin.whois.net',
                 'ip': (4, 167772160),
                 'success': True,
@@ -2034,7 +2034,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:ipquery', valu))
-            self.eq(node.get('time'), 2554869000000)
+            self.eq(node.get('time'), 2554869000000000)
             self.eq(node.get('fqdn'), 'arin.whois.net')
             self.eq(node.get('success'), True)
             self.eq(node.get('rec'), rec)
@@ -2042,7 +2042,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             valu = s_common.guid()
             props = {
-                'time': 2554869000000,
+                'time': 2554869000000000,
                 'url': 'http://myrdap/rdap/?query=3300%3A100%3A1%3A%3Affff',
                 'ip': '3300:100:1::ffff',
                 'success': False,
@@ -2052,7 +2052,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:ipquery', valu))
-            self.eq(node.get('time'), 2554869000000)
+            self.eq(node.get('time'), 2554869000000000)
             self.eq(node.get('url'), 'http://myrdap/rdap/?query=3300%3A100%3A1%3A%3Affff')
             self.eq(node.get('success'), False)
             self.none(node.get('rec'))
@@ -2074,7 +2074,7 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:record', '0c63f6b67c9a3ca40f9f942957a718e9'))
             self.eq(node.get('fqdn'), 'woot.com')
-            self.eq(node.get('asof'), 1765929600000)
+            self.eq(node.get('asof'), 2554848000000000)
             self.eq(node.get('text'), 'yelling at pennywise@vertex.link loudly')
             self.eq(node.get('registrar'), 'cool registrar')
             self.eq(node.get('registrant'), 'cool registrant')
@@ -2090,9 +2090,9 @@ class InetModelTest(s_t_utils.SynTest):
             rec_ipv4 = s_common.guid()
             props = {
                 'net': '10.0.0.0/28',
-                'asof': 2554869000000,
-                'created': 2554858000000,
-                'updated': 2554858000000,
+                'asof': 2554869000000000,
+                'created': 2554858000000000,
+                'updated': 2554858000000000,
                 'text': 'this is  a bunch of \nrecord text 123123',
                 'asn': 12345,
                 'id': 'NET-10-0-0-0-1',
@@ -2116,9 +2116,9 @@ class InetModelTest(s_t_utils.SynTest):
             # FIXME virtual props
             # self.eq(node.get('net*min'), (4, 167772160))
             # self.eq(node.get('net*max'), (4, 167772175))
-            self.eq(node.get('asof'), 2554869000000)
-            self.eq(node.get('created'), 2554858000000)
-            self.eq(node.get('updated'), 2554858000000)
+            self.eq(node.get('asof'), 2554869000000000)
+            self.eq(node.get('created'), 2554858000000000)
+            self.eq(node.get('updated'), 2554858000000000)
             self.eq(node.get('text'), 'this is  a bunch of \nrecord text 123123')
             self.eq(node.get('asn'), 12345)
             self.eq(node.get('id'), 'NET-10-0-0-0-1')
@@ -2133,9 +2133,9 @@ class InetModelTest(s_t_utils.SynTest):
             rec_ipv6 = s_common.guid()
             props = {
                 'net': '2001:db8::/101',
-                'asof': 2554869000000,
-                'created': 2554858000000,
-                'updated': 2554858000000,
+                'asof': 2554869000000000,
+                'created': 2554858000000000,
+                'updated': 2554858000000000,
                 'text': 'this is  a bunch of \nrecord text 123123',
                 'asn': 12345,
                 'id': 'NET-10-0-0-0-0',
@@ -2159,9 +2159,9 @@ class InetModelTest(s_t_utils.SynTest):
             # FIXME virtual props
             # self.eq(node.get('net*min'), minv)
             # self.eq(node.get('net*max'), maxv)
-            self.eq(node.get('asof'), 2554869000000)
-            self.eq(node.get('created'), 2554858000000)
-            self.eq(node.get('updated'), 2554858000000)
+            self.eq(node.get('asof'), 2554869000000000)
+            self.eq(node.get('created'), 2554858000000000)
+            self.eq(node.get('updated'), 2554858000000000)
             self.eq(node.get('text'), 'this is  a bunch of \nrecord text 123123')
             self.eq(node.get('asn'), 12345)
             self.eq(node.get('id'), 'NET-10-0-0-0-0')
@@ -2572,13 +2572,13 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.eq(nodes[0].get('account'), blckacct.ndef[1])
             self.eq(nodes[0].get('group'), devsgrp.ndef[1])
-            self.eq(nodes[0].get('period'), (1685577600000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1685577600000000, 9223372036854775807))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('remover'), visiacct.ndef[1])
 
             self.eq(nodes[1].get('account'), visiacct.ndef[1])
             self.eq(nodes[1].get('group'), devsgrp.ndef[1])
-            self.eq(nodes[1].get('period'), (1420070400000, 9223372036854775807))
+            self.eq(nodes[1].get('period'), (1420070400000000, 9223372036854775807))
             self.none(nodes[1].get('creator'))
             self.none(nodes[1].get('remover'))
 
@@ -2594,7 +2594,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('http:session'))
             self.eq(nodes[0].get('creator'), blckacct.ndef[1])
-            self.eq(nodes[0].get('period'), (1715850000000, 1715856900000))
+            self.eq(nodes[0].get('period'), (1715850000000000, 1715856900000000))
             blcksess = nodes[0]
             self.len(1, await core.nodes('inet:service:session -> inet:http:session'))
 
@@ -2623,7 +2623,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('client'), client.ndef[1])
 
             q = '''
-            [ inet:service:message:link=(blackout, developers, 1715856900000, https://www.youtube.com/watch?v=dQw4w9WgXcQ, vertex, slack)
+            [ inet:service:message:link=(blackout, developers, 1715856900000000, https://www.youtube.com/watch?v=dQw4w9WgXcQ, vertex, slack)
                 :title="Deadpool & Wolverine | Official Teaser | In Theaters July 26"
                 :url="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
             ]
@@ -2653,7 +2653,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:channel', s_common.guid(('general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[0].get('name'), 'general')
-            self.eq(nodes[0].get('period'), (1420070400000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('instance'), platinst.ndef[1])
@@ -2687,12 +2687,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('inet:service:channel:member', s_common.guid(('visi', 'general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[0].get('account'), visiacct.ndef[1])
-            self.eq(nodes[0].get('period'), (1420070400000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807))
             self.eq(nodes[0].get('channel'), gnrlchan.ndef[1])
 
             self.eq(nodes[1].ndef, ('inet:service:channel:member', s_common.guid(('blackout', 'general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[1].get('account'), blckacct.ndef[1])
-            self.eq(nodes[1].get('period'), (1685577600000, 9223372036854775807))
+            self.eq(nodes[1].get('period'), (1685577600000000, 9223372036854775807))
             self.eq(nodes[1].get('channel'), gnrlchan.ndef[1])
 
             for node in nodes:
@@ -2701,7 +2701,7 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.get('channel'), gnrlchan.ndef[1])
 
             q = '''
-            [ inet:service:message:attachment=(pbjtime.gif, blackout, developers, 1715856900000, vertex, slack)
+            [ inet:service:message:attachment=(pbjtime.gif, blackout, developers, 1715856900000000, vertex, slack)
                 :file={[ file:bytes=sha256:028241d9116a02059e99cb239c66d966e1b550926575ad7dcf0a8f076a352bcd ]}
                 :name=pbjtime.gif
                 :text="peanut butter jelly time"
@@ -2716,20 +2716,20 @@ class InetModelTest(s_t_utils.SynTest):
 
             q = '''
             [
-                (inet:service:message=(blackout, developers, 1715856900000, vertex, slack)
+                (inet:service:message=(blackout, developers, 1715856900000000, vertex, slack)
                     :type=chat.group
                     :group=$devsiden
                     :public=$lib.false
                     :repost=*
                 )
 
-                (inet:service:message=(blackout, visi, 1715856900000, vertex, slack)
+                (inet:service:message=(blackout, visi, 1715856900000000, vertex, slack)
                     :type=chat.direct
                     :to=$visiiden
                     :public=$lib.false
                 )
 
-                (inet:service:message=(blackout, general, 1715856900000, vertex, slack)
+                (inet:service:message=(blackout, general, 1715856900000000, vertex, slack)
                     :type=chat.channel
                     :channel=$gnrliden
                     :public=$lib.true
@@ -2799,7 +2799,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('inet:service:message:type:taxonomy=chat.channel -> inet:service:message')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:service:message', 'c0d64c559e2f42d57b37b558458c068b'))
+            self.eq(nodes[0].ndef, ('inet:service:message', 'aa59b0c26bd8ce4af627af6326772384'))
             self.len(1, await core.nodes('inet:service:message:repost :repost -> inet:service:message'))
 
             q = '''
@@ -2847,13 +2847,13 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:service:bucket:name=foobar'))
 
             q = '''
-            [ inet:service:access=(api, blackout, 1715856900000, vertex, slack)
+            [ inet:service:access=(api, blackout, 1715856900000000, vertex, slack)
                 :account=$blckiden
                 :instance=$instiden
                 :platform=$platiden
                 :resource=$rsrciden
                 :success=$lib.true
-                :time=(1715856900000)
+                :time=(1715856900000000)
             ]
             '''
             opts = {'vars': {
@@ -2870,7 +2870,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('resource'), resource.ndef[1])
             self.true(nodes[0].get('success'))
-            self.eq(nodes[0].get('time'), 1715856900000)
+            self.eq(nodes[0].get('time'), 1715856900000000)
 
             q = '''
             [ inet:service:message=(visi, says, relax)

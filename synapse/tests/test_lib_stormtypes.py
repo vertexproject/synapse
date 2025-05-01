@@ -1219,7 +1219,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(1, nodes[0].ndef[1])
 
             q = 'test:str=woot $lib.fire(name=pode, pode=$node.pack(dorepr=True))'
-            msgs = await core.stormlist(q, opts={'repr': True})
+            msgs = await core.stormlist(q, opts={'node:opts': {'repr': True}})
             pode = [m[1] for m in msgs if m[0] == 'node'][0]
             apode = [m[1].get('data').get('pode') for m in msgs if m[0] == 'storm:fire'][0]
             self.eq(pode[0], ('test:str', 'woot'))
@@ -1793,18 +1793,18 @@ class StormTypesTest(s_test.SynTest):
             self.len(2, csv_rows)
             csv_rows.sort(key=lambda x: x[1].get('row')[1])
             self.eq(csv_rows[0],
-                    ('csv:row', {'row': ['test:str', '1234', '2001-01-01T00:00:00.000Z'],
+                    ('csv:row', {'row': ['test:str', '1234', '2001-01-01T00:00:00Z'],
                                  'table': 'mytable'}))
             self.eq(csv_rows[1],
-                    ('csv:row', {'row': ['test:str', '9876', '3001-01-01T00:00:00.000Z'],
+                    ('csv:row', {'row': ['test:str', '9876', '3001-01-01T00:00:00Z'],
                                  'table': 'mytable'}))
 
             q = 'test:str $hehe=$node.props.hehe $lib.csv.emit(:tick, $hehe)'
             mesgs = await core.stormlist(q, {'show': ('err', 'csv:row')})
             csv_rows = [m for m in mesgs if m[0] == 'csv:row']
             self.len(2, csv_rows)
-            self.eq(csv_rows[0], ('csv:row', {'row': [978307200000, None], 'table': None}))
-            self.eq(csv_rows[1], ('csv:row', {'row': [32535216000000, None], 'table': None}))
+            self.eq(csv_rows[0], ('csv:row', {'row': [978307200000000, None], 'table': None}))
+            self.eq(csv_rows[1], ('csv:row', {'row': [32535216000000000, None], 'table': None}))
 
             # Sad path case...
             q = '''
@@ -2574,7 +2574,7 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.eq(20000, await core.callStorm('return($lib.time.fromunix(20))'))
+            self.eq(20000000, await core.callStorm('return($lib.time.fromunix(20))'))
 
             query = '''$valu="10/1/2017 2:52"
             $parsed=$lib.time.parse($valu, "%m/%d/%Y %H:%M")
@@ -2582,7 +2582,7 @@ class StormTypesTest(s_test.SynTest):
             '''
             nodes = await core.nodes(query)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef[1], 1506826320000)
+            self.eq(nodes[0].ndef[1], 1506826320000000)
 
             query = '''$valu="10/1/2017 1:22-01:30"
             $parsed=$lib.time.parse($valu, "%m/%d/%Y %H:%M%z")
@@ -2590,7 +2590,7 @@ class StormTypesTest(s_test.SynTest):
             '''
             nodes = await core.nodes(query)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef[1], 1506826320000)
+            self.eq(nodes[0].ndef[1], 1506826320000000)
 
             query = '''$valu="10/1/2017 3:52+01:00"
             $parsed=$lib.time.parse($valu, "%m/%d/%Y %H:%M%z")
@@ -2598,7 +2598,7 @@ class StormTypesTest(s_test.SynTest):
             '''
             nodes = await core.nodes(query)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef[1], 1506826320000)
+            self.eq(nodes[0].ndef[1], 1506826320000000)
 
             # Sad case for parse
             query = '''$valu="10/1/2017 2:52"
@@ -2635,7 +2635,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('2001 03 04', mesgs)
 
             # Out of bounds case for datetime
-            query = '''[test:int=253402300800000]
+            query = '''[test:int=253402300800000000]
             $valu=$lib.time.format($node.value(), '%Y')'''
             mesgs = await core.stormlist(query)
             ernfos = [m[1] for m in mesgs if m[0] == 'err']
@@ -5285,12 +5285,12 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[test:guid=(beep,)] $node.props.size="12"')
             self.eq(12, nodes[0].get('size'))
             nodes = await core.nodes('[test:guid=(beep,)] $node.props.".seen"=2020')
-            self.eq((1577836800000, 1577836800001), nodes[0].get('.seen'))
+            self.eq((1577836800000000, 1577836800000001), nodes[0].get('.seen'))
 
             text = '$d=({}) test:guid=(beep,) { for ($name, $valu) in $node.props { $d.$name=$valu } } return ($d)'
             props = await core.callStorm(text)
             self.eq(12, props.get('size'))
-            self.eq((1577836800000, 1577836800001), props.get('.seen'))
+            self.eq((1577836800000000, 1577836800000001), props.get('.seen'))
             self.isin('.created', props)
 
             with self.raises(s_exc.NoSuchProp):

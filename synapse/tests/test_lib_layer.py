@@ -661,7 +661,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(tagv, nodes[0].getTag('foo.bar'))
 
             nodes = await core.nodes('inet:ip=1.2.3.4 [ +#foo.bar=2015 ]')
-            self.eq((1325376000000, 1420070400001), nodes[0].getTag('foo.bar'))
+            self.eq((1325376000000000, 1420070400000001), nodes[0].getTag('foo.bar'))
 
             await core.addTagProp('tval', ('ival', {}), {})
             await core.addTagProp('mintime', ('time', {'ismin': True}), {})
@@ -2635,6 +2635,11 @@ class LayerTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:arrayform*size*newp=(2, 3)')
+
+            self.len(1, await core.nodes('[ test:arrayvirtform=(2021?, 2022?) ]'))
+            self.len(1, await core.nodes('test:arrayvirtform'))
+            await core.nodes('test:arrayvirtform=(2021, 2022) | delnode')
+            self.len(0, await core.nodes('test:arrayvirtform'))
 
     async def test_layer_readahead(self):
 

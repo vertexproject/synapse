@@ -501,7 +501,7 @@ Synapse has two built-in universal properties:
 - ``.seen`` (an interval), a pair of date / time values that can optionally be used to represent
   when the object represented by a node existed or was observed.
 
-Times (date / time values) are stored as integers (epoch milliseconds) in Synapse and can be filtered using any
+Times (date / time values) are stored as integers (epoch microseconds) in Synapse and can be filtered using any
 standard comparison operator.
 
 Because intervals are a pair of date / time values, they can only be filtered using the equal to ( ``=`` )

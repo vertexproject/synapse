@@ -489,7 +489,7 @@ class GeoTest(s_t_utils.SynTest):
                     :phys:volume=1000m
                 ]
             ''')
-            self.eq(1655510400000, nodes[0].get('time'))
+            self.eq(1655510400000000, nodes[0].get('time'))
             self.eq('foobar', nodes[0].get('desc'))
             self.eq('woot', nodes[0].get('place:name'))
             self.len(1, await core.nodes('geo:telem -> geo:place +:name=woot'))

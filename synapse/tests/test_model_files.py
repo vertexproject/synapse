@@ -401,8 +401,8 @@ class FileTest(s_t_utils.SynTest):
                 self.eq('deep_value', n.get('author'))
                 self.eq('GME stonks', n.get('subject'))
                 self.eq('stonktrader3000', n.get('application'))
-                self.eq(1611100800000, n.get('created'))
-                self.eq(1611187200000, n.get('lastsaved'))
+                self.eq(1611100800000000, n.get('created'))
+                self.eq(1611187200000000, n.get('lastsaved'))
 
                 self.eq(f'guid:{fileguid}', n.get('file'))
                 self.eq(0, n.get('file:offs'))
@@ -493,7 +493,7 @@ class FileTest(s_t_utils.SynTest):
                 self.eq('aaaa', n.get('desc'))
                 self.eq('bbbb', n.get('comment'))
                 self.eq('foo bar', n.get('text'))
-                self.eq(1578236238000, n.get('created'))
+                self.eq(1578236238000000, n.get('created'))
                 self.eq('a6b4', n.get('imageid'))
                 self.eq(conguid, n.get('author'))
                 self.eq((38.9582839, -77.358946), n.get('latlong'))
@@ -578,9 +578,9 @@ class FileTest(s_t_utils.SynTest):
             self.eq('visi', nodes[0].get('user'))
             self.eq('what exe. much wow.', nodes[0].get('comment'))
 
-            self.eq(1688083200000, nodes[0].get('added'))
-            self.eq(1687996800000, nodes[0].get('created'))
-            self.eq(1687996800000, nodes[0].get('modified'))
+            self.eq(1688083200000000, nodes[0].get('added'))
+            self.eq(1687996800000000, nodes[0].get('created'))
+            self.eq(1687996800000000, nodes[0].get('modified'))
 
             self.eq(1000, nodes[0].get('posix:uid'))
             self.eq(1000, nodes[0].get('posix:gid'))
@@ -641,7 +641,7 @@ class FileTest(s_t_utils.SynTest):
             self.eq(node.get('target:attrs'), 0x20)
             self.eq(node.get('target:size'), 12345)
 
-            time = 1674673065284
+            time = 1674673065284000
             self.eq(node.get('target:created'), time)
             self.eq(node.get('target:accessed'), time)
             self.eq(node.get('target:written'), time)

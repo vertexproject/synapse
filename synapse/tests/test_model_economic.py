@@ -12,7 +12,7 @@ class EconTest(s_utils.SynTest):
             # test card number 4024007150779444
             card = (await core.nodes('[ econ:pay:card="*" :expr=201802 :name="Bob Smith" :cvv=123 :pin=1234 :pan=4024007150779444 ]'))[0]
             self.eq('bob smith', card.get('name'))
-            self.eq(1517443200000, card.get('expr'))
+            self.eq(1517443200000000, card.get('expr'))
             self.eq('4024007150779444', card.get('pan'))
             self.eq(4, card.get('pan:mii'))
             self.eq(402400, card.get('pan:iin'))
@@ -92,11 +92,10 @@ class EconTest(s_utils.SynTest):
             self.len(0, await core.nodes('econ:purchase:price +:price<=10.00'))
 
             self.eq(True, perc.get('paid'))
-            self.eq(1517529600000, perc.get('paid:time'))
+            self.eq(1517529600000000, perc.get('paid:time'))
 
-            self.eq(1517788800000, perc.get('settled'))
+            self.eq(1517788800000000, perc.get('settled'))
 
-            self.eq(1517529600000, perc.get('time'))
             self.eq(perc.get('place:loc'), 'us.ny.brooklyn')
 
             self.len(1, await core.nodes('econ:purchase -> geo:place'))
@@ -157,7 +156,7 @@ class EconTest(s_utils.SynTest):
             self.eq('stock.', nodes[0].get('type'))
             self.eq('nasdaq/tsla', nodes[0].get('ticker'))
             self.eq('9999', nodes[0].get('price'))
-            self.eq(1580515200000, nodes[0].get('time'))
+            self.eq(1580515200000000, nodes[0].get('time'))
 
             self.len(1, await core.nodes('econ:fin:security -> econ:fin:exchange +:name=nasdaq'))
 
@@ -170,7 +169,7 @@ class EconTest(s_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(1580601600000, nodes[0].get('time'))
+            self.eq(1580601600000000, nodes[0].get('time'))
             self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].get('security'))
             self.eq('9999', nodes[0].get('price'))
 
@@ -186,7 +185,7 @@ class EconTest(s_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq((1580601600000, 1580688000000), nodes[0].get('ival'))
+            self.eq((1580601600000000, 1580688000000000), nodes[0].get('ival'))
             self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].get('security'))
             self.eq('9999', nodes[0].get('price:open'))
             self.eq('9999.01', nodes[0].get('price:close'))
@@ -215,7 +214,7 @@ class EconTest(s_utils.SynTest):
                 ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('instrument'))
-            self.eq(nodes[0].get('time'), 1635638400000)
+            self.eq(nodes[0].get('time'), 1635638400000000)
             self.eq(nodes[0].get('amount'), '123.45')
             self.eq(nodes[0].get('currency'), 'usd')
             self.eq(nodes[0].get('delta'), '12')
@@ -285,7 +284,7 @@ class EconTest(s_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('account'))
-            self.eq(1710806400000, nodes[0].get('time'))
+            self.eq(1710806400000000, nodes[0].get('time'))
             self.eq('99', nodes[0].get('amount'))
 
             nodes = await core.nodes('''[
@@ -299,7 +298,7 @@ class EconTest(s_utils.SynTest):
             self.nn(nodes[0].get('account'))
             self.eq('99', nodes[0].get('starting:balance'))
             self.eq('999', nodes[0].get('ending:balance'))
-            self.eq((1709251200000, 1709251200001), nodes[0].get('period'))
+            self.eq((1709251200000000, 1709251200000001), nodes[0].get('period'))
 
             nodes = await core.nodes('''[
                 econ:bank:aba:rtn=123456789
@@ -322,7 +321,7 @@ class EconTest(s_utils.SynTest):
             self.len(1, nodes)
             self.eq('99', nodes[0].get('amount'))
             self.eq('usd', nodes[0].get('currency'))
-            self.eq(1710806400000, nodes[0].get('issued'))
+            self.eq(1710806400000000, nodes[0].get('issued'))
             self.len(1, await core.nodes('econ:acct:receipt -> econ:purchase'))
             self.len(1, await core.nodes('econ:acct:receipt :issuer -> entity:contact'))
             self.len(1, await core.nodes('econ:acct:receipt :recipient -> entity:contact'))
@@ -342,8 +341,8 @@ class EconTest(s_utils.SynTest):
             self.eq('99', nodes[0].get('amount'))
             self.eq('usd', nodes[0].get('currency'))
             self.eq(0, nodes[0].get('paid'))
-            self.eq(1710806400000, nodes[0].get('due'))
-            self.eq(1710806400000, nodes[0].get('issued'))
+            self.eq(1710806400000000, nodes[0].get('due'))
+            self.eq(1710806400000000, nodes[0].get('issued'))
             self.len(1, await core.nodes('econ:acct:invoice -> econ:purchase'))
             self.len(1, await core.nodes('econ:acct:invoice :issuer -> entity:contact'))
             self.len(1, await core.nodes('econ:acct:invoice :recipient -> entity:contact'))
