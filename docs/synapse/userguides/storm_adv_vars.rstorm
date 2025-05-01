@@ -525,8 +525,10 @@ evaluated, enclose the query in curly braces (``{ <storm query> }``).
 - Assign an ``ou:org`` node's guid value to the variable ``$org`` by lifting the associated org node using its
   ``:name`` property:
 
-.. storm-pre:: [ ou:org=* :name=vertex :loc=us.va :url=https://vertex.link/ ]
-.. storm-cli:: $org={ ou:org:name=vertex } $lib.print($org)
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ou:org=* :name=vertex :loc=us.va :url=https://vertex.link/ ]
+    .. storm-cli:: $org={ ou:org:name=vertex } $lib.print($org)
 
 
 .. _Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#power-up

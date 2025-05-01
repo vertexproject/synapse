@@ -500,11 +500,10 @@ class FileTest(s_t_utils.SynTest):
                 self.eq(6371137800, n.get('altitude'))
 
             nodes = await core.nodes(f'''[
-                ps:contact=$conguid
+                entity:contact=$conguid
                     :name="Steve Rogers"
                     :title="Captain"
-                    :orgname="U.S. Army"
-                    :address="569 Leaman Place, Brooklyn, NY, 11201, USA"
+                    :place:address="569 Leaman Place, Brooklyn, NY, 11201, USA"
             ]''', opts=opts)
 
             props = '''

@@ -378,7 +378,7 @@ class DnsModelTest(s_t_utils.SynTest):
                 [ inet:dns:dynreg=*
                     :created=202202
                     :fqdn=vertex.dyndns.com
-                    :contact={[ ps:contact=* :name=visi ]}
+                    :contact={[ entity:contact=* :name=visi ]}
                     :client=tcp://1.2.3.4
                     :provider={[ ou:org=* :name=dyndns ]}
                     :provider:name=dyndns

@@ -343,7 +343,7 @@ class InfoSecTest(s_test.SynTest):
             self.nn(norm)
             self.eq(flow.get('id'), norm.get('id'))
 
-            nodes = await core.nodes('ps:contact')
+            nodes = await core.nodes('entity:contact')
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'lauren parker')
             self.eq(nodes[0].get('email'), 'lparker@mitre.org')

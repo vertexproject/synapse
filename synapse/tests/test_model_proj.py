@@ -254,7 +254,7 @@ class ProjModelTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(proj, nodes[0].get('project'))
 
-            nodes = await core.nodes('proj:ticket [ :ext:creator={[ps:contact=* :name=visi ]} :ext:assignee={[ps:contact=* :name=bob ]} ]')
+            nodes = await core.nodes('proj:ticket [ :ext:creator={[entity:contact=* :name=visi ]} :ext:assignee={[entity:contact=* :name=bob ]} ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('creator'))
             self.nn(nodes[0].get('created'))
