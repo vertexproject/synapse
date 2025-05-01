@@ -62,6 +62,10 @@ modeldefs = (
 
             ('risk:threat', ('guid', {}), {
                 'interfaces': (
+
+                    ('entity:actor', {
+                        'template': {'contactable': 'threat'}}),
+
                     ('entity:abstract', {
                         'template': {'contactable': 'threat'}}),
                 ),

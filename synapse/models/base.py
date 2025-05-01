@@ -218,20 +218,8 @@ modeldefs = (
             (('meta:note', 'about', None), {
                 'doc': 'The meta:note is about the target node.'}),
 
-            # FIXME comment in once the edge interfaces lands
-            (('meta:ruleset', 'has', 'meta:rule'), {
+            (('meta:ruleset', 'has', 'meta:ruleish'), {
                'doc': 'The ruleset includes the rule.'}),
-            # (('meta:ruleset', 'has', 'meta:ruleish'), {
-            #    'doc': 'The meta:ruleset includes the rule.'}),
-
-            # (('meta:ruleset', 'has', 'inet:service:rule'), {
-            #    'doc': 'The meta:ruleset includes the inet:service:rule.'}),
-
-            # (('meta:ruleset', 'has', 'it:app:snort:rule'), {
-            #    'doc': 'The meta:ruleset includes the it:app:snort:rule.'}),
-
-            # (('meta:ruleset', 'has', 'it:app:yara:rule'), {
-            #    'doc': 'The meta:ruleset includes the it:app:yara:rule.'}),
 
             # FIXME meta:rule:match
             (('meta:rule', 'matches', None), {

@@ -1210,7 +1210,7 @@ modeldefs = (
         ),
 
         'edges': (
-            (('inet:whois:iprecord', 'ipwhois', 'inet:ip'), {
+            (('inet:whois:iprecord', 'has', 'inet:ip'), {
                 'doc': 'The source IP whois record describes the target IP address.'}),
         ),
 
@@ -1667,6 +1667,9 @@ modeldefs = (
                 'interfaces': (
                     ('inet:service:object', {
                         'template': {'service:base': 'subscriber'}}),
+
+                    ('entity:actor', {
+                        'template': {'contactable': 'subscriber'}}),
 
                     ('entity:abstract', {
                         'template': {'contactable': 'subscriber'}}),
