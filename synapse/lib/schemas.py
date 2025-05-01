@@ -4,6 +4,19 @@ import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 
+leadTermSchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
+        'term': {'type': 'number'},
+        'nexs': {'type': 'number'},
+        'time': {'type': 'number'},
+    },
+    'required': ['iden', 'term', 'nexs', 'name', 'time'],
+}
+reqValidLeadTerm = s_config.getJsValidator(leadTermSchema)
+
 easyPermSchema = {
     'type': 'object',
     'properties': {
