@@ -187,6 +187,20 @@ testDataSchema_v1 = {
         'size': {'type': 'number'},
         'stuff': {'type': ['number', 'null'], 'default': None},
         'woot': {'type': 'string'},
+        'blorp': {
+            'type': 'object',
+            'properties': {
+                'bleep': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'neato': {'type': 'string'}
+                        }
+                    }
+                }
+            }
+        }
     },
     'required': ['type', 'size', 'woot'],
     'additionalProperties': False,
@@ -251,6 +265,9 @@ class CellTest(s_t_utils.SynTest):
 
                 tick = s_common.now()
                 rootuser = cell.auth.rootuser.iden
+                fooser = await cell.auth.addUser('foo')
+                neatrole = await cell.auth.addRole('neatrole')
+                await fooser.grant(neatrole.iden)
 
                 with self.raises(s_exc.SchemaViolation):
                     versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
@@ -305,12 +322,47 @@ class CellTest(s_t_utils.SynTest):
                 info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 17, 'stuff': 15})
                 self.eq(versinfo, (await cell.getDriveData(iden))[0])
 
+                await cell.setDriveItemProp(iden, versinfo, ('stuff',), 1234)
+                data = await cell.getDriveData(iden)
+                self.eq(data[1]['stuff'], 1234)
+
                 # This will be done by the cell in a cell storage version migration...
                 async def migrate_v1(info, versinfo, data):
                     data['woot'] = 'woot'
                     return data
 
                 await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
+
+                versinfo['version'] = (1, 1, 1)
+                await cell.setDriveItemProp(iden, versinfo, 'stuff', 3829)
+                data = await cell.getDriveData(iden)
+                self.eq(data[0]['version'], (1, 1, 1))
+                self.eq(data[1]['stuff'], 3829)
+
+                await self.asyncraises(s_exc.NoSuchIden, cell.setDriveItemProp(s_common.guid(), versinfo, ('lolnope',), 'not real'))
+
+                await self.asyncraises(s_exc.BadArg, cell.setDriveItemProp(iden, versinfo, ('blorp', 0, 'neato'), 'my special string'))
+                data[1]['blorp'] = {
+                    'bleep': [{'neato': 'thing'}]
+                }
+                info, versinfo = await cell.setDriveData(iden, versinfo, data[1])
+                now = s_common.now()
+                versinfo['updated'] = now
+                await cell.setDriveItemProp(iden, versinfo, ('blorp', 'bleep', 0, 'neato'), 'my special string')
+                data = await cell.getDriveData(iden)
+                self.eq(now, data[0]['updated'])
+                self.eq('my special string', data[1]['blorp']['bleep'][0]['neato'])
+
+                versinfo['version'] = (1, 2, 1)
+                await cell.delDriveItemProp(iden, versinfo, ('blorp', 'bleep', 0, 'neato'))
+                vers, data = await cell.getDriveData(iden)
+                self.eq((1, 2, 1), vers['version'])
+                self.nn(data['blorp']['bleep'][0])
+                self.notin('neato', data['blorp']['bleep'][0])
+
+                await self.asyncraises(s_exc.NoSuchIden, cell.delDriveItemProp(s_common.guid(), versinfo, 'blorp'))
+
+                await self.asyncraises(s_exc.BadArg, cell.delDriveItemProp(iden, versinfo, ('lolnope', 'nopath')))
 
                 versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
                 self.eq('woot', data.get('woot'))
@@ -325,10 +377,10 @@ class CellTest(s_t_utils.SynTest):
                     await cell.getDriveInfo(iden, typename='newp')
 
                 self.nn(await cell.getDriveInfo(iden))
-                self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
+                self.len(4, [vers async for vers in cell.getDriveDataVersions(iden)])
 
                 await cell.delDriveData(iden)
-                self.len(1, [vers async for vers in cell.getDriveDataVersions(iden)])
+                self.len(3, [vers async for vers in cell.getDriveDataVersions(iden)])
 
                 await cell.delDriveInfo(iden)
 
@@ -352,8 +404,12 @@ class CellTest(s_t_utils.SynTest):
                 baziden = pathinfo[2].get('iden')
                 self.eq(pathinfo, await cell.drive.getItemPath(baziden))
 
-                info = await cell.setDriveInfoPerm(baziden, {'users': {rootuser: 3}, 'roles': {}})
-                self.eq(3, info['perm']['users'][rootuser])
+                info = await cell.setDriveInfoPerm(baziden, {'users': {rootuser: s_cell.PERM_ADMIN}, 'roles': {}})
+                # make sure drive perms work with easy perms
+                self.true(cell._hasEasyPerm(info, cell.auth.rootuser, s_cell.PERM_ADMIN))
+                # defaults to READ
+                self.true(cell._hasEasyPerm(info, fooser, s_cell.PERM_READ))
+                self.false(cell._hasEasyPerm(info, fooser, s_cell.PERM_EDIT))
 
                 with self.raises(s_exc.NoSuchIden):
                     # s_drive.rootdir is all 00s... ;)
