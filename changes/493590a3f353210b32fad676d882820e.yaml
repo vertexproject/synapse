@@ -1,0 +1,5 @@
+---
+desc: Added ``inet:service:message:hashtags`` to capture hashtags mentioned in a message.
+prs: []
+type: model
+...

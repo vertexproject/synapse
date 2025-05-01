@@ -3802,6 +3802,9 @@ class InetModule(s_module.CoreModule):
                         ('attachments', ('array', {'type': 'inet:service:message:attachment', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of files attached to the message.'}),
 
+                        ('hashtags', ('array', {'type': 'inet:web:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
+                            'doc': 'An array of hashtags mentioned within the message.'}),
+
                         ('place', ('geo:place', {}), {
                             'doc': 'The place that the message was sent from.'}),
 
@@ -3823,6 +3826,11 @@ class InetModule(s_module.CoreModule):
 
                         ('type', ('inet:service:message:type:taxonomy', {}), {
                             'doc': 'The type of message.'}),
+
+                        ('mentions', ('array', {'type': 'ndef',
+                                                'typeopts': {'forms': ('inet:service:account', 'inet:service:group')},
+                                                'uniq': True, 'sorted': True}), {
+                            'doc': 'Contactable entities mentioned within the message.'}),
                     )),
 
                     ('inet:service:message:link', {}, (
