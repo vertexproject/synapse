@@ -3864,7 +3864,7 @@ class InetModule(s_module.CoreModule):
                         ('period', ('ival', {}), {
                             'doc': 'The time period where the channel was available.'}),
 
-                        ('topic', ('str', {'strip': True}), {
+                        ('topic', ('media:topic', {}), {
                             'doc': 'The visible topic of the channel.'}),
                     )),
 

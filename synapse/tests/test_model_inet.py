@@ -3164,7 +3164,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :creator=$visiiden
                 :platform=$platiden
                 :instance=$instiden
-                :topic='my topic   '
+                :topic=' My Topic   '
             ]
             '''
             opts = {'vars': {
