@@ -3408,6 +3408,7 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [ inet:service:message=(visi, says, relax)
                 :title="Hehe Haha"
+                :hashtags="#hehe,#haha,#hehe"
                 :thread={[
                     inet:service:thread=*
                         :title="Woot  Woot"
@@ -3421,6 +3422,7 @@ class InetModelTest(s_t_utils.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
+            self.eq(['#haha', '#hehe'], nodes[0].get('hashtags'))
             self.len(1, await core.nodes('inet:service:message=(visi, says, hello) -> inet:service:thread:message'))
             self.len(1, await core.nodes('''
                 inet:service:message:title="hehe haha"
