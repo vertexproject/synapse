@@ -9128,9 +9128,9 @@ class LibCron(Lib):
                 'creator': self.runt.user.iden
                 }
 
-        iden = kwargs.get('iden')
-        if iden:
-            cdef['iden'] = iden
+        for k in ['iden', 'name', 'doc']:
+            if len(kwargs.get(k) or '') > 0:
+                cdef[k] = kwargs[k]
 
         view = kwargs.get('view')
         if not view:
@@ -9157,9 +9157,6 @@ class LibCron(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
         query = await tostr(query)
-
-        name = kwargs.get('name', '')
-        doc = kwargs.get('doc', '')
 
         for optname in ('day', 'hour', 'minute'):
             opts = kwargs.get(optname)
@@ -9208,8 +9205,6 @@ class LibCron(Lib):
             reqdicts.append({'now': True})
 
         cdef = {'storm': query,
-                'name': name,
-                'doc': doc,
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
@@ -9217,13 +9212,11 @@ class LibCron(Lib):
                 'creator': self.runt.user.iden
                 }
 
-        iden = kwargs.get('iden')
-        if iden:
-            cdef['iden'] = iden
+        for k in ['iden', 'name', 'doc']:
+            if len(kwargs.get(k) or '') > 0:
+                cdef[k] = kwargs[k]
 
-        view = kwargs.get('view')
-        if not view:
-            view = self.runt.view.iden
+        view = kwargs.get('view', self.runt.view.iden)
         cdef['view'] = view
 
         todo = s_common.todo('addCronJob', cdef)
