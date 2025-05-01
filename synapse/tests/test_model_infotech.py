@@ -742,7 +742,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('name'), 'balloon maker')
             self.eq(node.get('desc'), "Pennywise's patented balloon blower upper")
             self.eq(node.get('url'), 'https://vertex.link/products/balloonmaker')
-            self.eq(node.get('released'), 1522745062000)
+            self.eq(node.get('released'), 1522745062000000)
             # FIXME resiliant semver
             # self.eq(node.get('version'), 'V1.0.1-beta+exp.sha.5114f85')
             self.len(1, await core.nodes('it:software:name="balloon maker" -> it:software:type:taxonomy'))
@@ -1299,9 +1299,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(node.get('file'))
             self.nn(node.get('group'))
 
-            self.eq(node.get('created'), 1580601600000)
-            self.eq(node.get('modified'), 1580688000000)
-            self.eq(node.get('accessed'), 1580774400000)
+            self.eq(node.get('created'), 1580601600000000)
+            self.eq(node.get('modified'), 1580688000000000)
+            self.eq(node.get('accessed'), 1580774400000000)
             self.eq(node.get('path'), 'c:/temp/yourfiles.rar')
 
             self.len(1, await core.nodes('it:host:filepath:path*dir=c:/temp'))
@@ -1405,8 +1405,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('rule'))
             self.nn(nodes[0].get('target'))
-            self.eq(nodes[0].get('matched'), 1580601600000)
             self.eq(nodes[0].get('version'), 0x10000200003)
+            self.eq(nodes[0].get('matched'), 1580601600000000)
 
     async def test_it_app_snort(self):
 
