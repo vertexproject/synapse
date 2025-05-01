@@ -867,32 +867,32 @@ class TypesTest(s_t_utils.SynTest):
                 (ou:campaign=*)
             ]''')
 
-            self.len(1, await core.nodes('ou:campaign.created +:period*min=2020-01-01'))
-            self.len(2, await core.nodes('ou:campaign.created +:period*min<2022-01-01'))
-            self.len(3, await core.nodes('ou:campaign.created +:period*min<=2022-01-01'))
-            self.len(3, await core.nodes('ou:campaign.created +:period*min>=2022-01-01'))
-            self.len(2, await core.nodes('ou:campaign.created +:period*min>2022-01-01'))
-            self.len(1, await core.nodes('ou:campaign.created +:period*min@=2020'))
-            self.len(2, await core.nodes('ou:campaign.created +:period*min@=(2020-01-01, 2022-01-01)'))
+            self.len(1, await core.nodes('ou:campaign.created +:period[min]=2020-01-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period[min]<2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period[min]<=2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period[min]>=2022-01-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period[min]>2022-01-01'))
+            self.len(1, await core.nodes('ou:campaign.created +:period[min]@=2020'))
+            self.len(2, await core.nodes('ou:campaign.created +:period[min]@=(2020-01-01, 2022-01-01)'))
 
-            self.len(1, await core.nodes('ou:campaign.created +:period*max=2020-01-02'))
-            self.len(2, await core.nodes('ou:campaign.created +:period*max<2022-05-01'))
-            self.len(3, await core.nodes('ou:campaign.created +:period*max<=2022-05-01'))
-            self.len(3, await core.nodes('ou:campaign.created +:period*max>=2022-05-01'))
-            self.len(2, await core.nodes('ou:campaign.created +:period*max>2022-05-01'))
-            self.len(1, await core.nodes('ou:campaign.created +:period*max@=2022-05-01'))
-            self.len(2, await core.nodes('ou:campaign.created +:period*max@=(2020-01-02, 2022-05-01)'))
+            self.len(1, await core.nodes('ou:campaign.created +:period[max]=2020-01-02'))
+            self.len(2, await core.nodes('ou:campaign.created +:period[max]<2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period[max]<=2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period[max]>=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period[max]>2022-05-01'))
+            self.len(1, await core.nodes('ou:campaign.created +:period[max]@=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period[max]@=(2020-01-02, 2022-05-01)'))
 
-            self.len(1, await core.nodes('ou:campaign.created +:period*duration=1D'))
-            self.len(1, await core.nodes('ou:campaign.created +:period*duration<31D'))
-            self.len(2, await core.nodes('ou:campaign.created +:period*duration<=31D'))
-            self.len(4, await core.nodes('ou:campaign.created +:period*duration>=31D'))
-            self.len(3, await core.nodes('ou:campaign.created +:period*duration>31D'))
+            self.len(1, await core.nodes('ou:campaign.created +:period[duration]=1D'))
+            self.len(1, await core.nodes('ou:campaign.created +:period[duration]<31D'))
+            self.len(2, await core.nodes('ou:campaign.created +:period[duration]<=31D'))
+            self.len(4, await core.nodes('ou:campaign.created +:period[duration]>=31D'))
+            self.len(3, await core.nodes('ou:campaign.created +:period[duration]>31D'))
 
-            self.len(0, await core.nodes('ou:campaign.created +:period*min@=(2022-01-01, 2020-01-01)'))
+            self.len(0, await core.nodes('ou:campaign.created +:period[min]@=(2022-01-01, 2020-01-01)'))
 
             with self.raises(s_exc.NoSuchFunc):
-                await core.nodes('ou:campaign.created +:period*min@=({})')
+                await core.nodes('ou:campaign.created +:period[min]@=({})')
 
             self.eq(ival.getVirtType(['min']), model.types.get('time'))
 
@@ -1023,19 +1023,19 @@ class TypesTest(s_t_utils.SynTest):
             await core.nodes('[ risk:vulnerable=(foo,) :node=(it:dev:int, 1) ]')
             await core.nodes('[ risk:vulnerable=(bar,) :node=(inet:fqdn, foo.com) ]')
 
-            self.len(1, await core.nodes('risk:vulnerable.created +:node*form=it:dev:int'))
-            self.len(1, await core.nodes('risk:vulnerable.created +:node*form=inet:fqdn'))
-            self.len(0, await core.nodes('risk:vulnerable.created +:node*form=it:dev:str'))
+            self.len(1, await core.nodes('risk:vulnerable.created +:node[form]=it:dev:int'))
+            self.len(1, await core.nodes('risk:vulnerable.created +:node[form]=inet:fqdn'))
+            self.len(0, await core.nodes('risk:vulnerable.created +:node[form]=it:dev:str'))
 
-            self.len(1, await core.nodes('test:str.created +:ndefs*[form=it:dev:int]'))
-            self.len(0, await core.nodes('test:str.created +:ndefs*[form=it:dev:str]'))
+            self.len(1, await core.nodes('test:str.created +:ndefs*[[form]=it:dev:int]'))
+            self.len(0, await core.nodes('test:str.created +:ndefs*[[form]=it:dev:str]'))
 
-            self.eq('it:dev:int', await core.callStorm('risk:vulnerable=(foo,) return(:node*form)'))
+            self.eq('it:dev:int', await core.callStorm('risk:vulnerable=(foo,) return(:node[form])'))
 
-            self.none(await core.callStorm('[ risk:vulnerable=* ] return(:node*form)'))
+            self.none(await core.callStorm('[ risk:vulnerable=* ] return(:node[form])'))
 
             with self.raises(s_exc.NoSuchCmpr):
-                await core.nodes('test:str.created +:ndefs*[form>it:dev:str]')
+                await core.nodes('test:str.created +:ndefs*[[form]>it:dev:str]')
 
             ndef = core.model.type('test:ndef:formfilter1')
             ndef.norm(('inet:ip', '1.2.3.4'))

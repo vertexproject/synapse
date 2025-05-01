@@ -3215,7 +3215,7 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def nodesByProp(self, full, reverse=False, virt=None):
+    async def nodesByProp(self, full, reverse=False, virts=None):
 
         prop = self.core.model.prop(full)
         if prop is None:
@@ -3228,8 +3228,8 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         indx = None
-        if virt is not None:
-            indx = prop.type.getVirtIndx(virt)
+        if virts is not None:
+            indx = prop.type.getVirtIndx(virts)
 
         if prop.isform:
             genr = self.liftByProp(prop.name, None, reverse=reverse, indx=indx)

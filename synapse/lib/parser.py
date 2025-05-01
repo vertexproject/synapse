@@ -27,8 +27,7 @@ terminalEnglishMap = {
     'BASEPROP': 'base property name',
     'BOOL': 'boolean',
     'BREAK': 'break',
-    'BYNAME': 'named comparison operator name',
-    'BYNAMECMPR': 'named comparison operator cmpr',
+    'BYNAME': 'named comparison operator',
     'CATCH': 'catch',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
@@ -99,6 +98,7 @@ terminalEnglishMap = {
     'TRYMODSET': '?+= or ?-=',
     'TRYMODSETMULTI': '?++= or ?--=',
     'UNIVNAME': 'universal property',
+    'UNSET': 'unset',
     'EXPRUNIVNAME': 'universal property',
     'VARTOKN': 'variable',
     'EXPRVARTOKN': 'variable',
@@ -111,7 +111,7 @@ terminalEnglishMap = {
     'WILDTAGSEGNOVAR': 'tag segment potentially with asterisks',
     'YIELD': 'yield',
     '_ARRAYCONDSTART': '*[',
-    '_BYVIRT': '*',
+    '_BYVIRT': '[',
     '_COLONDOLLAR': ':$',
     '_COLONNOSPACE': ':',
     '_DEREF': '*',
@@ -464,13 +464,6 @@ class AstConverter(lark.Transformer):
         kids[0].reverseLift(astinfo)
         return kids[0]
 
-    @lark.v_args(meta=True)
-    def byname(self, meta, kids):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        names = [kid.valu for kid in kids[:-1]]
-        return s_ast.ByNameCmpr(astinfo, (names, kids[-1].valu), kids)
-
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
@@ -684,6 +677,7 @@ ruleClassMap = {
     'editpropdel': lambda astinfo, kids: s_ast.EditPropDel(astinfo, kids[1:]),
     'editpropset': s_ast.EditPropSet,
     'editcondpropset': s_ast.EditCondPropSet,
+    'editvirtpropset': s_ast.EditVirtPropSet,
     'editpropsetmulti': s_ast.EditPropSetMulti,
     'edittagadd': s_ast.EditTagAdd,
     'edittagdel': lambda astinfo, kids: s_ast.EditTagDel(astinfo, kids[1:]),
@@ -770,7 +764,7 @@ ruleClassMap = {
     'valulist': s_ast.List,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
-    'virtprop': s_ast.VirtProp,
+    'virtprops': s_ast.VirtProps,
     'whileloop': s_ast.WhileLoop,
     'wordtokn': lambda astinfo, kids: s_ast.Const(astinfo, ''.join([str(k.valu) for k in kids]))
 }

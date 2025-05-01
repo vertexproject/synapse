@@ -39,7 +39,7 @@ _editblock: "[" _editoper* "]"
 
 // A single edit operation
 _editoper: editnodeadd
-            | editpropset | edittagpropset | edittagadd | editcondpropset
+            | editpropset | edittagpropset | edittagadd | editcondpropset | editvirtpropset
             | editpropsetmulti | editpropdel | editunivdel | edittagpropdel | edittagdel
             | editparens | edgeaddn1 | edgedeln1 | edgeaddn2 | edgedeln2
 
@@ -50,6 +50,7 @@ editunivdel: EXPRMINUS univprop
 edittagdel: EXPRMINUS tagname
 editpropset: (relprop | univprop) (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
 editcondpropset: (relprop | univprop) condsetoper _valu
+editvirtpropset: (relprop | univprop) virtprops (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
 editpropsetmulti: relprop (MODSETMULTI | TRYMODSETMULTI) _valu
 editpropdel: EXPRMINUS relprop
 editnodeadd: formname (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
@@ -64,8 +65,9 @@ TRYMODSETMULTI.1: "?++=" | "?--="
 TRYSET.1: "?="
 SETTAGOPER: "?"
 
-condsetoper: ("*" VIRTNAME | _DEREF "$" _condvarvaluatom) "="
-    | ("*" VIRTNAME | _DEREF "$" _condvarvaluatom) "?=" -> condtrysetoper
+condsetoper: ("*" UNSET | _DEREF "$" _condvarvaluatom) "="
+    | ("*" UNSET | _DEREF "$" _condvarvaluatom) "?=" -> condtrysetoper
+UNSET: "unset"
 _condvarvaluatom: condvarvalue | condvarderef | condfunccall
 condvarvalue: VARTOKN -> varvalue
 
@@ -175,8 +177,8 @@ operrelprop: pivotprop _RIGHTPIVOT (pivottarg | pivottarglist) -> operrelprop_pi
            | pivotprop _RIGHTJOIN (pivottarg | pivottarglist) -> operrelprop_join
            | pivotprop _RIGHTJOIN "*" -> operrelprop_joinout
 
-pivotprop: relprop virtprop? -> relpropvalue
-pivottarg: (PROPS | UNIVNAME | WILDPROPS | _varvalu) virtprop?
+pivotprop: relprop virtprops? -> relpropvalue
+pivottarg: (PROPS | UNIVNAME | WILDPROPS | _varvalu) virtprops?
 pivottarglist: "(" pivottarg ("," pivottarg)* ")"
 
 rawpivot: _RIGHTPIVOT "{" query "}"
@@ -240,14 +242,14 @@ liftreverse: _REVERSE "(" (liftformtag | liftpropby | liftprop | liftbyarray | l
 
 _DEREF.3:  /\*(?=\$)/
 
-liftformtag: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu) tagname virtprop? [_cmpr _valu]
-liftpropby: ((PROPS | EMBEDPROPS | UNIVNAME) | _DEREF _varvalu) _cmpr _valu
-liftprop: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu) virtprop?
-liftbyarray: ((PROPS | EMBEDPROPS | UNIVNAME) | _DEREF _varvalu) "*[" _safe_cmpr _valu "]"
+liftformtag: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu) tagname virtprops? [_cmpr _valu]
+liftpropby: ((PROPS | EMBEDPROPS | UNIVNAME) | _DEREF _varvalu) virtprops? _cmpr _valu
+liftprop: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu) virtprops?
+liftbyarray: ((PROPS | EMBEDPROPS | UNIVNAME) | _DEREF _varvalu) "*[" (virtprops _cmpr |  _safe_cmpr) _valu "]"
 lifttagtag: (_HASH | _HASHSPACE) tagname [_cmpr _valu]
-liftbytag: (tagname | tagnamewithspace) virtprop? [_cmpr _valu]
-liftbytagprop: (tagprop | tagpropwithspace) virtprop? [_cmpr _valu]
-liftbyformtagprop: formtagprop virtprop? [_cmpr _valu]
+liftbytag: (tagname | tagnamewithspace) virtprops? [_cmpr _valu]
+liftbytagprop: (tagprop | tagpropwithspace) virtprops? [_cmpr _valu]
+liftbyformtagprop: formtagprop virtprops? [_cmpr _valu]
 
 tagprop: tagname _COLONNOSPACE (BASEPROP | _varvalu)
 tagpropwithspace: tagnamewithspace _COLONNOSPACE (BASEPROP | _varvalu) -> tagprop
@@ -318,14 +320,10 @@ _wildtagsegs:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*
 WILDTAGSEGNOVAR: /[\w*]+/
 
 // A comparison operator
-_cmpr: "*" byname | cmpr
-cmpr: CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
-byname: _bynames? BYNAME BYNAMECMPR
-_bynames: _bynames? BYNAME "*"
-BYNAME.2: /\w+/
-BYNAMECMPR.2: /[@?!<>^~=]*[<>=]/
+_cmpr: "*" BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
+BYNAME.2: /\w+[@?!<>^~=]*[<>=]/
 
-_safe_cmpr: byname | cmpr
+_safe_cmpr: BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
 
 CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
 CMPROTHER: /(?!<=|>=|=(?![@?!<>^~=])|<|>|!=|~=|\^=|\?)[@?!<>^~=][@!<>^~=]*(?![@?<>^~=])/
@@ -364,16 +362,16 @@ EXPRRELNAME: /(?<!\w):\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 exprunivprop: (EXPRUNIVNAME | "." _exprvarvalu) -> univprop
 EXPRUNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
 
-exprrelpropvalue: (exprrelprop | exprunivprop) virtprop? -> relpropvalue
+exprrelpropvalue: (exprrelprop | exprunivprop) virtprops? -> relpropvalue
 
-exprtagvalu: (exprtagname | exprtagnamewithspace) virtprop? -> tagvalu
+exprtagvalu: (exprtagname | exprtagnamewithspace) virtprops? -> tagvalu
 
 exprtagname: _HASH (_exprvarvalu | _exprtagsegs) -> tagname
 exprtagnamewithspace: _HASHSPACE (_exprvarvalu | _exprtagsegs) -> tagname
 _exprtagsegs:  EXPRTAGSEGNOVAR ( "." (EXPRTAGSEGNOVAR | "$" exprvarvalue))*
 EXPRTAGSEGNOVAR: /[\w]+/
 
-exprtagpropvalu: (exprtagprop | exprtagpropwithspace) virtprop? -> tagpropvalu
+exprtagpropvalu: (exprtagprop | exprtagpropwithspace) virtprops? -> tagpropvalu
 exprtagprop: exprtagname _EXPRCOLONNOSPACE (BASEPROP | _exprvarvalu) -> tagprop
 exprtagpropwithspace: exprtagnamewithspace _EXPRCOLONNOSPACE (BASEPROP | _exprvarvalu) -> tagprop
 _EXPRCOLONNOSPACE.2: /(?<!\s):/
@@ -399,16 +397,16 @@ _lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
 looklist: _lookvalu*
 
 valulist: "(" [listvalu ((",")|("," listvalu)+ ","?)] ")"
-tagvalu: (tagname | tagnamewithspace) virtprop?
-tagpropvalu: (tagprop | tagpropwithspace) virtprop?
+tagvalu: (tagname | tagnamewithspace) virtprops?
+tagpropvalu: (tagprop | tagpropwithspace) virtprops?
 
 _COLONDOLLAR: /(?<!\w|\'|\"):\$/
-relpropvalu: (RELNAME | _COLONDOLLAR _varvaluatom) virtprop?
-univpropvalu: univprop virtprop?
+relpropvalu: (RELNAME | _COLONDOLLAR _varvaluatom) virtprops?
+univpropvalu: univprop virtprops?
 
-virtprop: _BYVIRT _virtnames? VIRTNAME
-_BYVIRT.2: /(?<!\s)\*(?=[a-zA-Z]\w*)(?![a-zA-Z]\w*(\*[a-zA-Z]\w*)*[@?!<>^~=]*[<>=])/
-_virtnames: _virtnames? VIRTNAME _BYVIRT
+virtprops: _virtprop+
+_virtprop: _BYVIRT (VIRTNAME | _varvalu) "]"
+_BYVIRT.2: /(?<!\s)\[(?=\s*[a-zA-Z$]\w*\s*\])/
 VIRTNAME: /[a-zA-Z]\w*/
 
 embedquery: _EMBEDQUERYSTART query "}"
@@ -451,21 +449,21 @@ _cond: notcond | "(" _condexpr ")"
 _NOT: "not"
 notcond: _NOT _cond
 
-hasrelpropcond: (relprop | univprop) virtprop?
+hasrelpropcond: (relprop | univprop) virtprops?
 relpropcond: relpropvalue _cmpr _valu
-relpropvalue: (relprop | univprop) virtprop?
+relpropvalue: (relprop | univprop) virtprops?
 
-abspropcond: PROPS _cmpr _valu
-hasabspropcond: (PROPS | WILDPROPS) virtprop?
+abspropcond: PROPS virtprops? _cmpr _valu
+hasabspropcond: (PROPS | WILDPROPS) virtprops?
 
-tagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)  _cmpr _valu
-hastagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)
+tagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu) virtprops? _cmpr _valu
+hastagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu) virtprops?
 
-tagvalucond: tagmatch _cmpr _valu
+tagvalucond: tagmatch virtprops? _cmpr _valu
 tagcond: tagmatch
 
 condsubq: "{" query "}" [ _cmpr _valu]
-arraycond: (relprop | univprop) _ARRAYCONDSTART _safe_cmpr _valu "]"
+arraycond: (relprop | univprop) _ARRAYCONDSTART (virtprops _cmpr | _safe_cmpr) _valu "]"
 _ARRAYCONDSTART.3: "*["
 
 // Filter boolean conditions

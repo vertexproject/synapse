@@ -611,7 +611,7 @@ class SynModelTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('syn:deleted', node.ndef[0])
 
-            nodes = await core.nodes('diff | +syn:deleted*form=inet:ip', opts=viewopts2)
+            nodes = await core.nodes('diff | +syn:deleted[form]=inet:ip', opts=viewopts2)
             self.len(1, nodes)
             for node in nodes:
                 self.eq('syn:deleted', node.ndef[0])
@@ -623,10 +623,10 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq({'antivalu': True, 'form': 'inet:ip'}, sodes[0])
                 self.eq((10, 9, None), sodes[1]['props']['asn'])
 
-            q = 'diff | +syn:deleted*form=inet:ip return($node.getStorNodes())'
+            q = 'diff | +syn:deleted[form]=inet:ip return($node.getStorNodes())'
             self.eq((), await core.callStorm(q, opts=viewopts2))
 
-            q = 'diff | +syn:deleted*form=inet:ip return($node.getByLayer())'
+            q = 'diff | +syn:deleted[form]=inet:ip return($node.getByLayer())'
             self.eq({}, await core.callStorm(q, opts=viewopts2))
 
             await core.nodes('diff | merge --apply', opts=viewopts2)

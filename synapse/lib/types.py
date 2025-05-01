@@ -144,8 +144,7 @@ class Type:
     def getStorCmprs(self, cmpr, valu, virts=None):
 
         if virts:
-            substor = self.virts[virts[0]][0]
-            return substor.getStorCmprs(cmpr, valu, virts[1:])
+            return self.getVirtType(virts).getStorCmprs(cmpr, valu)
 
         func = self.storlifts.get(cmpr)
         if func is None:
@@ -154,13 +153,13 @@ class Type:
 
         return func(cmpr, valu)
 
-    def getVirtValu(self, name, valu):
-        if (virt := self.virts.get(name)) is None:
-            raise s_exc.NoSuchVirt.init(name, self)
+    def getVirtIndx(self, virts):
+        name = virts[0]
+        if len(virts) > 1:
+            if (virt := self.virts.get(name)) is None:
+                raise s_exc.NoSuchVirt.init(name, self)
+            return virt[0].getVirtIndx(virts[1:])
 
-        return virt[1](valu)
-
-    def getVirtIndx(self, name):
         indx = self.virtindx.get(name, s_common.novalu)
         if indx is s_common.novalu:
             raise s_exc.NoSuchVirt.init(name, self)
@@ -184,6 +183,16 @@ class Type:
         if len(virts) > 1:
             return (virt[1],) + virt[0].getVirtGetr(virts[1:])
         return (virt[1],)
+
+    def getVirtInfo(self, virts):
+        name = virts[0]
+        if (virt := self.virts.get(name)) is None:
+            raise s_exc.NoSuchVirt.init(name, self)
+
+        if len(virts) > 1:
+            vinfo = virt[0].getVirtInfo(virts[1:])
+            return vinfo[0], (virt[1],) + vinfo[1]
+        return virt[0], (virt[1],)
 
     def normVirt(self, name, valu, newvirt):
         func = self.virtstor.get(name, s_common.novalu)

@@ -986,8 +986,8 @@ class AstTest(s_test.SynTest):
             q = 'inet:ip=1.2.3.4/30 $addr=$node.repr() [( inet:http:request=($addr,) :server=$addr )]'
             self.len(8, await core.nodes(q))
 
-            self.len(4, await core.nodes('inet:cidr=1.2.3.4/30 -> inet:http:request:server*ip'))
-            self.len(4, await core.nodes('test:str=foo :cidr -> inet:http:request:server*ip'))
+            self.len(4, await core.nodes('inet:cidr=1.2.3.4/30 -> inet:http:request:server[ip]'))
+            self.len(4, await core.nodes('test:str=foo :cidr -> inet:http:request:server[ip]'))
 
             self.len(5, await core.nodes('inet:cidr=1.2.3.4/30', opts={'graph': {'refs': True}}))
 
@@ -2954,9 +2954,9 @@ class AstTest(s_test.SynTest):
         origprop = s_view.View.nodesByProp
         origvalu = s_view.View.nodesByPropValu
 
-        async def checkProp(self, name, reverse=False, virt=None):
+        async def checkProp(self, name, reverse=False, virts=None):
             calls.append(('prop', name))
-            async for node in origprop(self, name, reverse=reverse, virt=virt):
+            async for node in origprop(self, name, reverse=reverse, virts=virts):
                 yield node
 
         async def checkValu(self, name, cmpr, valu, reverse=False):
@@ -3751,11 +3751,12 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str +#taga*:score<(3+5)')
 
-            with self.raises(s_exc.BadSyntax):
-                await core.nodes('test:str +#taga*:score*min>=2023')
+            # with self.raises(s_exc.BadSyntax):
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('test:str +#taga*:score[min]>=2023')
 
-            with self.raises(s_exc.NoSuchCmpr):
-                await core.nodes('test:str +#tagaa:score*min>=2023')
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:str +#tagaa:score[min]>=2023')
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('$tag=taga* test:str +#$tag:score=2023')
@@ -3801,19 +3802,19 @@ class AstTest(s_test.SynTest):
                 (test:hasiface=bar :seen=$ival2)
             ]''', opts=opts)
 
-            self.len(1, await core.nodes('ou:campaign.created +#tag*min=2020'))
-            self.len(1, await core.nodes('ou:campaign.created +#tag*max=?'))
-            self.len(1, await core.nodes('ou:campaign.created +#tag*duration=?'))
-            self.len(1, await core.nodes('ou:campaign.created +#tag:ival*min=2020'))
-            self.len(1, await core.nodes('ou:campaign.created +:period*min=2020'))
-            self.len(1, await core.nodes('ou:campaign.created +ou:campaign:period*min=2020'))
-            self.len(1, await core.nodes('$var=tag ou:campaign.created +#$var*min=2020'))
-            self.len(1, await core.nodes('$valu=2020 ou:campaign.created +#tag*min=$valu'))
-            self.len(1, await core.nodes('test:ival +test:ival*min=2020'))
-            self.len(1, await core.nodes('test:ival +test:ival*max=?'))
-            self.len(1, await core.nodes('test:hasiface +test:interface:seen*min=2020'))
+            self.len(1, await core.nodes('ou:campaign.created +#tag[min]=2020'))
+            self.len(1, await core.nodes('ou:campaign.created +#tag[max]=?'))
+            self.len(1, await core.nodes('ou:campaign.created +#tag[duration]=?'))
+            self.len(1, await core.nodes('ou:campaign.created +#tag:ival[min]=2020'))
+            self.len(1, await core.nodes('ou:campaign.created +:period[min]=2020'))
+            self.len(1, await core.nodes('ou:campaign.created +ou:campaign:period[min]=2020'))
+            self.len(1, await core.nodes('$var=tag ou:campaign.created +#$var[min]=2020'))
+            self.len(1, await core.nodes('$valu=2020 ou:campaign.created +#tag[min]=$valu'))
+            self.len(1, await core.nodes('test:ival +test:ival[min]=2020'))
+            self.len(1, await core.nodes('test:ival +test:ival[max]=?'))
+            self.len(1, await core.nodes('test:hasiface +test:interface:seen[min]=2020'))
 
-            self.len(0, await core.nodes('#newp*min'))
+            self.len(0, await core.nodes('#newp[min]'))
 
             ival = core.model.type('ival')
 
@@ -3850,54 +3851,54 @@ class AstTest(s_test.SynTest):
             )
 
             for (lift, prop, tag) in tests:
-                await check(f'{lift}*min', prop, tag, ival._getMin)
-                await check(f'{lift}*max', prop, tag, ival._getMax)
-                await check(f'{lift}*duration', prop, tag, ival._getDuration)
+                await check(f'{lift}[min]', prop, tag, ival._getMin)
+                await check(f'{lift}[max]', prop, tag, ival._getMax)
+                await check(f'{lift}[duration]', prop, tag, ival._getDuration)
 
             queries = (
-                'ou:campaign:period*min=2020 return(:period*min)',
-                'ou:campaign#tag*min=2020 return(#tag*min)',
-                'ou:campaign#tag:ival*min=2020 return(#tag:ival*min)',
-                'ou:contribution return(:campaign::period*min)'
+                'ou:campaign:period[min]=2020 return(:period[min])',
+                'ou:campaign#tag[min]=2020 return(#tag[min])',
+                'ou:campaign#tag:ival[min]=2020 return(#tag:ival[min])',
+                'ou:contribution return(:campaign::period[min])'
             )
 
             for query in queries:
                 self.eq(1577836800000000, await core.callStorm(query))
 
-            await core.nodes('test:ival +test:ival*min=2020 | delnode')
-            self.len(0, await core.nodes('test:ival +test:ival*min=2020'))
+            await core.nodes('test:ival +test:ival[min]=2020 | delnode')
+            self.len(0, await core.nodes('test:ival +test:ival[min]=2020'))
 
-            await core.nodes('test:ival +test:ival*max=? | delnode')
-            self.len(0, await core.nodes('test:ival +test:ival*max=?'))
-
-            with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('#tag*newp')
+            await core.nodes('test:ival +test:ival[max]=? | delnode')
+            self.len(0, await core.nodes('test:ival +test:ival[max]=?'))
 
             with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('#tag $lib.print(#tag*newp)')
+                await core.nodes('#tag[newp]')
 
             with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('ou:campaign#tag*newp')
+                await core.nodes('#tag $lib.print(#tag[newp])')
 
             with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('ou:campaign:period*newp')
+                await core.nodes('ou:campaign#tag[newp]')
 
             with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('ou:campaign $lib.print(:period*newp)')
+                await core.nodes('ou:campaign:period[newp]')
 
-            self.eq(s_time.PREC_MICRO, await core.callStorm('[ it:exec:query=* :time=now ] return(:time*precision)'))
-            self.eq(s_time.PREC_MICRO, await core.callStorm('it:exec:query  [ :time*precision?=newp ] return(:time*precision)'))
-            self.eq(s_time.PREC_DAY, await core.callStorm('it:exec:query [ :time*precision=day ] return(:time*precision)'))
-            self.len(1, await core.nodes('it:exec:query +:time*precision=day'))
-            self.eq(s_time.PREC_HOUR, await core.callStorm('it:exec:query [ :time*precision=hour ] return(:time*precision)'))
-            self.none(await core.callStorm('it:exec:query [ -:time ] return(:time*precision)'))
-            self.eq(s_time.PREC_MONTH, await core.callStorm('[ it:exec:query=* :time=2024-03? ] return(:time*precision)'))
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('ou:campaign $lib.print(:period[newp])')
 
-            self.eq(s_time.PREC_MICRO, await core.callStorm('[ ou:asset=* .seen=now ] return(.seen*precision)'))
-            self.eq(s_time.PREC_DAY, await core.callStorm('ou:asset [ .seen*precision=day ] return(.seen*precision)'))
-            self.len(1, await core.nodes('ou:asset +.seen*precision=day'))
-            self.len(1, await core.nodes('ou:asset [ .seen*precision=month ] +.seen*precision=month'))
-            self.none(await core.callStorm('ou:asset [ -.seen ] return(.seen*precision)'))
+            self.eq(s_time.PREC_MICRO, await core.callStorm('[ it:exec:query=* :time=now ] return(:time[precision])'))
+            self.eq(s_time.PREC_MICRO, await core.callStorm('it:exec:query  [ :time[precision]?=newp ] return(:time[precision])'))
+            self.eq(s_time.PREC_DAY, await core.callStorm('it:exec:query [ :time[precision]=day ] return(:time[precision])'))
+            self.len(1, await core.nodes('it:exec:query +:time[precision]=day'))
+            self.eq(s_time.PREC_HOUR, await core.callStorm('it:exec:query [ :time[precision]=hour ] return(:time[precision])'))
+            self.none(await core.callStorm('it:exec:query [ -:time ] return(:time[precision])'))
+            self.eq(s_time.PREC_MONTH, await core.callStorm('[ it:exec:query=* :time=2024-03? ] return(:time[precision])'))
+
+            self.eq(s_time.PREC_MICRO, await core.callStorm('[ ou:asset=* .seen=now ] return(.seen[precision])'))
+            self.eq(s_time.PREC_DAY, await core.callStorm('ou:asset [ .seen[precision]=day ] return(.seen[precision])'))
+            self.len(1, await core.nodes('ou:asset +.seen[precision]=day'))
+            self.len(1, await core.nodes('ou:asset [ .seen[precision]=month ] +.seen[precision]=month'))
+            self.none(await core.callStorm('ou:asset [ -.seen ] return(.seen[precision])'))
 
     async def test_ast_righthand_relprop(self):
         async with self.getTestCore() as core:

@@ -2953,7 +2953,7 @@ class CortexTest(s_t_utils.SynTest):
             await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :src=tcp://5.6.7.8]} ]}]')
             await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :src=tcp://1.2.3.5]} ]}]')
 
-            self.len(2, await core.nodes('it:exec:url:http:request::flow::src*ip*in=(1.2.3.4, 5.6.7.8)'))
+            self.len(2, await core.nodes('it:exec:url:http:request::flow::src[ip]*in=(1.2.3.4, 5.6.7.8)'))
             self.len(2, await core.nodes('it:exec:url:http:request::flow::src::ip*in=(1.2.3.4, 5.6.7.8)'))
 
             await core.nodes('inet:ip=1.2.3.4 [:asn=5]')
@@ -2967,16 +2967,16 @@ class CortexTest(s_t_utils.SynTest):
             await core.nodes('[ ou:award=* :org={[ ou:org=* :names=(foo, bar) ]}]')
             await core.nodes('[ ou:award=* :org={[ ou:org=* :names=(baz, faz) ]}]')
 
-            self.len(2, await core.nodes('ou:award:org::name*alts=foo'))
-            self.len(1, await core.nodes('ou:award:org::name*alts=bar'))
-            self.len(2, await core.nodes('ou:award:org::name*alts*in=(bar, baz)'))
+            self.len(2, await core.nodes('ou:award:org::name[alts]=foo'))
+            self.len(1, await core.nodes('ou:award:org::name[alts]=bar'))
+            self.len(2, await core.nodes('ou:award:org::name[alts]*in=(bar, baz)'))
 
             await core.nodes('[ test:virtiface=* :server=tcp://1.2.3.4 ]')
             await core.nodes('[ test:virtiface=* :servers=(tcp://1.2.3.4, tcp://5.6.7.8) ]')
             await core.nodes('[ test:virtiface2=* :servers=(tcp://7.8.9.0,) ]')
 
-            self.len(2, await core.nodes('test:virtarray:server*alts*ip=1.2.3.4'))
-            self.len(2, await core.nodes('test:virtarray:server*alts*ip*in=(5.6.7.8, 7.8.9.0)'))
+            self.len(2, await core.nodes('test:virtarray:server[alts][ip]=1.2.3.4'))
+            self.len(2, await core.nodes('test:virtarray:server[alts][ip]*in=(5.6.7.8, 7.8.9.0)'))
 
 class CortexBasicTest(s_t_utils.SynTest):
     '''
