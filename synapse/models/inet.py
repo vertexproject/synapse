@@ -108,12 +108,20 @@ class Addr(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
+        self.defport = self.opts.get('defport', None)
+        self.defproto = self.opts.get('defproto', 'tcp')
+
     def _getPort(self, valu):
+
         parts = valu.split(':', 1)
         if len(parts) == 2:
             valu, port = parts
             port = self.modl.type('inet:port').norm(port)[0]
             return valu, port, f':{port}'
+
+        if self.defport:
+            return valu, self.defport, f':{self.defport}'
+
         return valu, None, ''
 
     def _normPyStr(self, valu):
@@ -123,7 +131,7 @@ class Addr(s_types.Str):
         # no protos use case sensitivity yet...
         valu = valu.lower()
 
-        proto = 'tcp'
+        proto = self.defproto
         parts = valu.split('://', 1)
         if len(parts) == 2:
             proto, valu = parts
@@ -3794,6 +3802,9 @@ class InetModule(s_module.CoreModule):
                         ('attachments', ('array', {'type': 'inet:service:message:attachment', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of files attached to the message.'}),
 
+                        ('hashtags', ('array', {'type': 'inet:web:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
+                            'doc': 'An array of hashtags mentioned within the message.'}),
+
                         ('place', ('geo:place', {}), {
                             'doc': 'The place that the message was sent from.'}),
 
@@ -3815,6 +3826,11 @@ class InetModule(s_module.CoreModule):
 
                         ('type', ('inet:service:message:type:taxonomy', {}), {
                             'doc': 'The type of message.'}),
+
+                        ('mentions', ('array', {'type': 'ndef',
+                                                'typeopts': {'forms': ('inet:service:account', 'inet:service:group')},
+                                                'uniq': True, 'sorted': True}), {
+                            'doc': 'Contactable entities mentioned within the message.'}),
                     )),
 
                     ('inet:service:message:link', {}, (

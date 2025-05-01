@@ -90,9 +90,16 @@ class UrlTest(s_t_utils.SynTestA):
             ('rando:this:is:valid:URI', None),
             ('rando:this:is@valid:URI', None),
             ('foo://user:password@host.com', 'foo://user:****@host.com'),
+            ('foo://user:password@[::1]:1234', 'foo://user:****@[::1]:1234'),
+            ('foo://user:password@::1/test', 'foo://user:****@::1/test'),
             ('foo://user:password@host.com:999', 'foo://user:****@host.com:999'),
             ('foo://user:@host.com', None),
             ('ssl://feeds00.v.link:43/*/feed/6a1f?cere=root@.vex.link', None),
+            ('ssl://user@00.aha.dev.synapse:27492?certname=user@dev.synapse', None),
+            ('ssl://user@00.aha.dev.synapse:27492/path?certname=user@dev.synapse', None),
+            ('aha://user:passwd@something.cool:274/path?arg=wow', 'aha://user:****@something.cool:274/path?arg=wow'),
+            ('aha://user:passwd@something.cool:274/path?arg=wow&wee=diggity',
+             'aha://user:****@something.cool:274/path?arg=wow&wee=diggity'),
         ]
 
         for in_, out in data:

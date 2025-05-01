@@ -1569,7 +1569,10 @@ class Layer(s_nexus.Pusher):
                 await self.initUpstreamSync(uplayr)
 
     async def initLayerPassive(self):
+        await self._stopMirror()
+        self._stopUpstream()
 
+    async def _stopMirror(self):
         if self.leadtask is not None:
             self.leadtask.cancel()
             self.leadtask = None
@@ -1578,6 +1581,7 @@ class Layer(s_nexus.Pusher):
             await self.leader.fini()
             self.leader = None
 
+    def _stopUpstream(self):
         [t.cancel() for t in self.activetasks]
         self.activetasks.clear()
 
@@ -2786,6 +2790,11 @@ class Layer(s_nexus.Pusher):
     async def setLayerInfo(self, name, valu):
         if name != 'readonly':
             self._reqNotReadOnly()
+
+        if name in ('mirror', 'upstream') and valu is not None:
+            mesg = 'Layer only supports setting "mirror" and "upstream" to None.'
+            raise s_exc.BadOptValu(mesg=mesg)
+
         return await self._push('layer:set', name, valu)
 
     @s_nexus.Pusher.onPush('layer:set')
@@ -2793,16 +2802,24 @@ class Layer(s_nexus.Pusher):
         '''
         Set a mutable layer property.
         '''
-        if name not in ('name', 'desc', 'logedits', 'readonly'):
+        if name not in ('name', 'desc', 'logedits', 'readonly', 'mirror', 'upstream'):
             mesg = f'{name} is not a valid layer info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
         if name == 'logedits':
             valu = bool(valu)
             self.logedits = valu
+
         elif name == 'readonly':
             valu = bool(valu)
             self.readonly = valu
+
+        elif name == 'mirror' and valu is None:
+            await self._stopMirror()
+            self.ismirror = False
+
+        elif name == 'upstream' and valu is None:
+            self._stopUpstream()
 
         # TODO when we can set more props, we may need to parse values.
         if valu is None:
@@ -4381,6 +4398,11 @@ class Layer(s_nexus.Pusher):
 
             async for verb, n2iden in self.iterNodeEdgesN1(buid):
                 edits.append((EDIT_EDGE_ADD, (verb, n2iden), ()))
+
+                if len(edits) >= 100:
+                    yield nodeedit
+                    edits = []
+                    nodeedit = (buid, form, edits)
 
             yield nodeedit
 

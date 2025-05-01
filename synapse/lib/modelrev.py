@@ -1455,7 +1455,7 @@ class ModelMigration_0_2_31:
 
         # Pick up and classify all bad CPE nodes
         for idx, layer in enumerate(self.layers):
-            logger.debug(f'Classifying nodes in layer {idx}')
+            logger.debug('Classifying nodes in layer %s %s', idx, layer.iden)
 
             async for buid, sode in layer.getStorNodesByForm('it:sec:cpe'):
 
@@ -1466,6 +1466,7 @@ class ModelMigration_0_2_31:
                 if (v2_2 := props.get('v2_2')) is not None:
                     propvalu, stortype = v2_2
                     if not s_infotech.isValidCpe22(propvalu):
+                        logger.debug(f'Queueing invalid v2_2 value for deletion iden={s_common.ehex(buid)} valu={propvalu}')
                         await self._queueEdit(
                             layer.iden,
                             (buid, 'it:sec:cpe', (
@@ -1499,7 +1500,7 @@ class ModelMigration_0_2_31:
 
         # Pick up all related CPE node info. The majority of the work happens in this loop
         for idx, layer in enumerate(self.layers):
-            logger.debug(f'Processing nodes in layer {idx}')
+            logger.debug('Processing nodes in layer %s %s', idx, layer.iden)
 
             for buid, node in self.nodes.items():
                 await self._loadNode(layer, buid, node=node)
@@ -1541,7 +1542,7 @@ class ModelMigration_0_2_31:
             await self.todos.clear()
 
             for idx, layer in enumerate(self.layers):
-                logger.debug(f'Processing references in layer {idx}')
+                logger.debug('Processing references in layer %s %s', idx, layer.iden)
 
                 async for entry in todotmp:
                     match entry:
@@ -1622,10 +1623,25 @@ class ModelMigration_0_2_31:
                     if propvalu is not None:
                         break
 
-                newvalu, _ = form.type.norm(propvalu)
-                await self.moveNode(buid, newvalu)
+                if propvalu is None: # pragma: no cover
+                    # We didn't find a v2_2 value so remove this node
+                    await self.removeNode(buid)
+                    removed += 1
 
-                migrated += 1
+                else:
+                    # We did find a v2_2 value so try to norm it and use that new value to move the node. If this fails,
+                    # remove the node.
+                    try:
+                        newvalu, _ = form.type.norm(propvalu)
+
+                    except s_exc.BadTypeValu: # pragma: no cover
+                        logger.debug('Unexpectedly encountered invalid v2_2 prop: iden=%s valu=%s', s_common.ehex(buid), propvalu)
+                        await self.removeNode(buid)
+                        removed += 1
+
+                    else:
+                        await self.moveNode(buid, newvalu)
+                        migrated += 1
 
             elif action == 'remove':
                 newvalu = None
@@ -1636,9 +1652,16 @@ class ModelMigration_0_2_31:
                     if propvalu is None:
                         continue
 
-                    newvalu, _ = form.type.norm(propvalu)
                     # This prop is going to be the new primary value so delete the secondary prop
                     await self.editPropDel(layriden, buid, 'it:sec:cpe', 'v2_2', propvalu, stortype)
+
+                    # We did find a v2_2 value so try to norm it and use that new value to move the node. If this fails,
+                    # remove the node.
+                    try:
+                        newvalu, _ = form.type.norm(propvalu)
+                    except s_exc.BadTypeValu: # pragma: no cover
+                        logger.debug('Unexpectedly encountered invalid v2_2 prop: iden=%s valu=%s', s_common.ehex(buid), propvalu)
+                        continue
 
                     # Oh yeah! Migrate the node instead of removing it
                     await self.moveNode(buid, newvalu)

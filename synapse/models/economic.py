@@ -317,20 +317,33 @@ class EconModule(s_module.CoreModule):
                 )),
 
                 ('econ:acct:balance', {}, (
+
                     ('time', ('time', {}), {
                         'doc': 'The time the balance was recorded.'}),
+
+                    ('instrument', ('econ:pay:instrument', {}), {
+                        'doc': 'The financial instrument holding the balance.'}),
+
                     ('pay:card', ('econ:pay:card', {}), {
-                        'doc': 'The payment card holding the balance.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :instrument.'}),
+
                     ('crypto:address', ('crypto:currency:address', {}), {
-                        'doc': 'The crypto currency address holding the balance.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :instrument.'}),
+
                     ('amount', ('econ:price', {}), {
                         'doc': 'The account balance at the time.'}),
+
                     ('currency', ('econ:currency', {}), {
                         'doc': 'The currency of the balance amount.'}),
+
                     ('delta', ('econ:price', {}), {
                         'doc': 'The change since last regular sample.'}),
+
                     ('total:received', ('econ:price', {}), {
                         'doc': 'The total amount of currency received by the account.'}),
+
                     ('total:sent', ('econ:price', {}), {
                         'doc': 'The total amount of currency sent from the account.'}),
                 )),

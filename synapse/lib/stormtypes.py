@@ -1235,7 +1235,7 @@ class LibBase(Lib):
             Examples:
                 Fire an event called ``demo`` with some data::
 
-                    cli> storm $foo='bar' $lib.fire('demo', foo=$foo, knight='ni')
+                    storm> $foo='bar' $lib.fire('demo', foo=$foo, knight='ni')
                     ...
                     ('storm:fire', {'type': 'demo', 'data': {'foo': 'bar', 'knight': 'ni'}})
                     ...
@@ -1268,7 +1268,7 @@ class LibBase(Lib):
             Examples:
                 Create a dictionary object with a key whose value is null, and call ``$lib.fire()`` with it::
 
-                    cli> storm $d=({"key": $lib.null}) $lib.fire('demo', d=$d)
+                    storm> $d=({"key": $lib.null}) $lib.fire('demo', d=$d)
                     ('storm:fire', {'type': 'demo', 'data': {'d': {'key': None}}})
             ''',
             'type': 'null', },
@@ -1295,7 +1295,7 @@ class LibBase(Lib):
             Examples:
                 Conditionally print a statement based on the constant value::
 
-                    cli> storm if $lib.true { $lib.print('Is True') } else { $lib.print('Is False') }
+                    storm> if $lib.true { $lib.print('Is True') } else { $lib.print('Is False') }
                     Is True
                 ''',
          'type': 'boolean', },
@@ -1305,10 +1305,10 @@ class LibBase(Lib):
             Examples:
                 Conditionally print a statement based on the constant value::
 
-                    cli> storm if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
+                    storm> if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
                     Is False''',
          'type': 'boolean', },
-        {'name': 'text', 'desc': 'Get a Storm Text object. This is deprecated; please use a list to append strings to, and then use ``$lib.str.join()`` to join them on demand.',
+        {'name': 'text', 'desc': "Get a Storm Text object. This is deprecated; please use a list to append strings to, and then use ``('.').join($listOfStr)`` to join them on demand.",
          'deprecated': {'eolvers': '3.0.0'},
          'type': {'type': 'function', '_funcname': '_text',
                   'args': (
@@ -1344,19 +1344,19 @@ class LibBase(Lib):
             Examples:
                 Print a simple string::
 
-                    cli> storm $lib.print("Hello world!")
+                    storm> $lib.print("Hello world!")
                     Hello world!
 
                 Format and print string based on variables::
 
-                    cli> storm $d=({"key1": (1), "key2": "two"})
+                    storm> $d=({"key1": (1), "key2": "two"})
                          for ($key, $value) in $d { $lib.print('{k} => {v}', k=$key, v=$value) }
                     key1 => 1
                     key2 => two
 
                 Use values off of a node to format and print string::
 
-                    cli> storm inet:ipv4:asn
+                    storm> inet:ipv4:asn
                          $lib.print("node: {ndef}, asn: {asn}", ndef=$node.ndef(), asn=:asn) | spin
                     node: ('inet:ipv4', 16909060), asn: 1138
 
@@ -1376,7 +1376,7 @@ class LibBase(Lib):
         Examples:
             Generate a sequence of integers based on the size of an array::
 
-                cli> storm $a=(foo,bar,(2)) for $i in $lib.range($lib.len($a)) {$lib.fire('test', indx=$i, valu=$a.$i)}
+                storm> $a=(foo,bar,(2)) for $i in $lib.range($lib.len($a)) {$lib.fire('test', indx=$i, valu=$a.$i)}
                 Executing query at 2021/03/22 19:25:48.835
                 ('storm:fire', {'type': 'test', 'data': {'index': 0, 'valu': 'foo'}})
                 ('storm:fire', {'type': 'test', 'data': {'index': 1, 'valu': 'bar'}})
@@ -1691,7 +1691,7 @@ class LibBase(Lib):
         s_common.deprecated('$lib.text()', curv='2.194.0')
         runt = s_scope.get('runt')
         if runt:
-            await runt.snap.warnonce('$lib.text() is deprecated. Please use a list to append strings to, and then use ``$lib.str.join()`` to join them on demand.')
+            await runt.snap.warnonce("$lib.text() is deprecated. Please use a list to append strings to, and then use ``('').join($listOfStr)`` to join them on demand.")
         valu = ''.join(args)
         return Text(valu)
 
@@ -2023,15 +2023,8 @@ class LibStr(Lib):
     A Storm Library for interacting with strings.
     '''
     _storm_locals = (
-        {'name': 'join', 'desc': '''
-            Join items into a string using a separator.
-
-            Examples:
-                Join together a list of strings with a dot separator::
-
-                    cli> storm $foo=$lib.str.join('.', ('rep', 'vtx', 'tag')) $lib.print($foo)
-
-                    rep.vtx.tag''',
+        {'name': 'join', 'desc': 'Join items into a string using a separator.',
+         # 'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``('').join($foo, $bar, $baz, ....)`` instead.'},
          'type': {'type': 'function', '_funcname': 'join',
                   'args': (
                       {'name': 'sepr', 'type': 'str', 'desc': 'The separator used to join strings with.', },
@@ -2039,22 +2032,14 @@ class LibStr(Lib):
                   ),
                   'returns': {'type': 'str', 'desc': 'The joined string.', }}},
         {'name': 'concat', 'desc': 'Concatenate a set of strings together.',
+         # 'deprecated': {'eolvers': 'v3.0.0', 'mesg': "Use ``('').join($foo, $bar, $baz, ....)`` instead."},
          'type': {'type': 'function', '_funcname': 'concat',
                   'args': (
                       {'name': '*args', 'type': 'any', 'desc': 'Items to join together.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The joined string.', }}},
-        {'name': 'format', 'desc': '''
-            Format a text string.
-
-            Examples:
-                Format a string with a fixed argument and a variable::
-
-                    cli> storm $list=(1,2,3,4)
-                         $str=$lib.str.format('Hello {name}, your list is {list}!', name='Reader', list=$list)
-                         $lib.print($str)
-
-                    Hello Reader, your list is ['1', '2', '3', '4']!''',
+        {'name': 'format', 'desc': 'Format a text string.',
+         # 'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``$mystr.format(foo=$bar)`` instead.'},
          'type': {'type': 'function', '_funcname': 'format',
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'The base text string.', },
@@ -2065,6 +2050,10 @@ class LibStr(Lib):
     )
     _storm_lib_path = ('str',)
 
+    # _lib_str_join_depr_mesg = '$lib.str.join(), use "$sepr.join($items)" instead.'
+    # _lib_str_concat_depr_mesg = "$lib.str.concat(), use ('').join($foo, $bar, $baz, ....) instead."
+    # _lib_str_format_depr_mesg = '$lib.str.format(), use "$mystr.format(foo=$bar)" instead.'
+
     def getObjLocals(self):
         return {
             'join': self.join,
@@ -2074,17 +2063,29 @@ class LibStr(Lib):
 
     @stormfunc(readonly=True)
     async def concat(self, *args):
+        # s_common.deprecated(self._lib_str_concat_depr_mesg)
+        # runt = s_scope.get('runt')
+        # if runt:
+        #     await runt.snap.warnonce(self._lib_str_concat_depr_mesg)
         strs = [await tostr(a) for a in args]
         return ''.join(strs)
 
     @stormfunc(readonly=True)
     async def format(self, text, **kwargs):
+        # s_common.deprecated(self._lib_str_format_depr_mesg)
+        # runt = s_scope.get('runt')
+        # if runt:
+        #     await runt.snap.warnonce(self._lib_str_format_depr_mesg)
         text = await kwarg_format(text, **kwargs)
 
         return text
 
     @stormfunc(readonly=True)
     async def join(self, sepr, items):
+        # s_common.deprecated(self._lib_str_join_depr_mesg)
+        # runt = s_scope.get('runt')
+        # if runt:
+        #     await runt.snap.warnonce(self._lib_str_join_depr_mesg)
         strs = [await tostr(item) async for item in toiter(items)]
         return sepr.join(strs)
 
@@ -2324,7 +2325,7 @@ class LibAxon(Lib):
             Examples:
                 Save a base64 encoded buffer to the Axon::
 
-                    cli> storm $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.axon.put($buf)
+                    storm> $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.axon.put($buf)
                          $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
 
                     size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08''',
@@ -2340,7 +2341,7 @@ class LibAxon(Lib):
                 Check if the Axon has a given file::
 
                     # This example assumes the Axon does have the bytes
-                    cli> storm if $lib.axon.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
+                    storm> if $lib.axon.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
                             $lib.print("Has bytes")
                         } else {
                             $lib.print("Does not have bytes")
@@ -2812,7 +2813,7 @@ class LibBytes(Lib):
             Examples:
                 Save a base64 encoded buffer to the Axon::
 
-                    cli> storm $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.bytes.put($buf)
+                    storm> $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.bytes.put($buf)
                          $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
 
                     size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08''',
@@ -2828,7 +2829,7 @@ class LibBytes(Lib):
                 Check if the Axon has a given file::
 
                     # This example assumes the Axon does have the bytes
-                    cli> storm if $lib.bytes.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
+                    storm> if $lib.bytes.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
                             $lib.print("Has bytes")
                         } else {
                             $lib.print("Does not have bytes")
@@ -3002,7 +3003,7 @@ class LibTime(Lib):
             Examples:
                 Convert a timestamp from seconds to millis and format it::
 
-                    cli> storm $seconds=1594684800 $millis=$lib.time.fromunix($seconds)
+                    storm> $seconds=1594684800 $millis=$lib.time.fromunix($seconds)
                          $str=$lib.time.format($millis, '%A %d, %B %Y') $lib.print($str)
 
                     Tuesday 14, July 2020''',
@@ -3017,7 +3018,7 @@ class LibTime(Lib):
             Examples:
                 Parse a string as for its month/day/year value into a timestamp::
 
-                    cli> storm $s='06/01/2020' $ts=$lib.time.parse($s, '%m/%d/%Y') $lib.print($ts)
+                    storm> $s='06/01/2020' $ts=$lib.time.parse($s, '%m/%d/%Y') $lib.print($ts)
 
                     1590969600000''',
          'type': {'type': 'function', '_funcname': '_parse',
@@ -3034,7 +3035,7 @@ class LibTime(Lib):
             Examples:
                 Format a timestamp into a string::
 
-                    cli> storm $now=$lib.time.now() $str=$lib.time.format($now, '%A %d, %B %Y') $lib.print($str)
+                    storm> $now=$lib.time.now() $str=$lib.time.format($now, '%A %d, %B %Y') $lib.print($str)
 
                     Tuesday 14, July 2020''',
          'type': {'type': 'function', '_funcname': '_format',
@@ -3933,6 +3934,16 @@ class LibQueue(Lib):
                   'returns': {'type': 'list',
                               'desc': 'A list of queue definitions the current user is allowed to interact with.', }}},
     )
+    _storm_lib_perms = (
+        {'perm': ('queue', 'add'), 'gate': 'cortex',
+         'desc': 'Permits a user to create a named queue.'},
+        {'perm': ('queue', 'get'), 'gate': 'queue',
+         'desc': 'Permits a user to access a queue. This allows the user to read from the queue and remove items from it.'},
+        {'perm': ('queue', 'put'), 'gate': 'queue',
+         'desc': 'Permits a user to put items into a queue.'},
+        {'perm': ('queue', 'del'), 'gate': 'queue',
+         'desc': 'Permits a user to delete a queue.'},
+    )
     _storm_lib_path = ('queue',)
 
     def getObjLocals(self):
@@ -4649,6 +4660,26 @@ class Str(Prim):
         {'name': 'json', 'desc': 'Parse a JSON string and return the deserialized data.',
          'type': {'type': 'function', '_funcname': '_methStrJson', 'args': (),
                   'returns': {'type': 'prim', 'desc': 'The JSON deserialized object.', }}},
+        {'name': 'join', 'desc': '''
+                Join items into a string using the current string as a separator.
+
+                Examples:
+                    Join together a list of strings with a dot separator::
+
+                        storm> $sepr='.' $foo=$sepr.join(('rep', 'vtx', 'tag')) $lib.print($foo)
+
+                        rep.vtx.tag
+
+                    Join values inline together with a dot separator::
+
+                        storm> $foo=('.').join(('rep', 'vtx', 'tag')) $lib.print($foo)
+
+                        rep.vtx.tag''',
+         'type': {'type': 'function', '_funcname': '_methStrJoin',
+                  'args': (
+                      {'name': 'items', 'type': 'list', 'desc': 'A list of items to join together.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The joined string.', }}},
     )
     _storm_typename = 'str'
     _ismutable = False
@@ -4679,6 +4710,7 @@ class Str(Prim):
             'reverse': self._methStrReverse,
             'format': self._methStrFormat,
             'json': self._methStrJson,
+            'join': self._methStrJoin,
         }
 
     def __int__(self):
@@ -4797,6 +4829,11 @@ class Str(Prim):
     @stormfunc(readonly=True)
     async def _methStrJson(self):
         return s_json.loads(self.valu)
+
+    @stormfunc(readonly=True)
+    async def _methStrJoin(self, items):
+        strs = [await tostr(item) async for item in toiter(items)]
+        return self.valu.join(strs)
 
 @registry.registerType
 class Bytes(Prim):
@@ -7632,10 +7669,18 @@ class Layer(Prim):
                 valu = None
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
+
         elif name == 'logedits':
             valu = await tobool(valu)
+
         elif name == 'readonly':
             valu = await tobool(valu)
+
+        elif name in ('mirror', 'upstream'):
+            if (valu := await toprim(valu)) is not None:
+                mesg = 'Layer only supports setting "mirror" and "upstream" to null.'
+                raise s_exc.BadOptValu(mesg=mesg)
+
         else:
             mesg = f'Layer does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)

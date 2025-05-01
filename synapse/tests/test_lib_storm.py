@@ -308,7 +308,7 @@ class StormTest(s_t_utils.SynTestA):
             ''')
             self.eq('valu=12', retn)
 
-            q = "$hehe=({'k': 'v'}) $fs=$lib.str.format('{v}56', v=$hehe) return((`{$hehe}56`, $fs))"
+            q = "$hehe=({'k': 'v'}) $fs=`{$hehe}56` return((`{$hehe}56`, $fs))"
             retn = await core.callStorm(q)
             self.eq("{'k': 'v'}56", retn[0])
             self.eq(retn[0], retn[1])
@@ -322,6 +322,14 @@ class StormTest(s_t_utils.SynTestA):
 
             self.eq("foo 'bar'", await core.callStorm("$foo=bar return(`foo '{$foo}'`)"))
             self.eq(r"\'''''bar'''", await core.callStorm(r"$foo=bar return(`\\'\''''{$foo}'''`)"))
+            self.eq(r"\bar", await core.callStorm(r"$foo=bar return(`\\{$foo}`)"))
+            self.eq(r"\`bar", await core.callStorm(r"$foo=bar return(`\\\`{$foo}`)"))
+            self.eq(r"\{bar", await core.callStorm(r"$foo=bar return(`\\\{{$foo}`)"))
+            self.eq(r"foo\bar", await core.callStorm(r"$foo=foo $bar=bar return(`{$foo}\\{$bar}`)"))
+            self.eq(r"foo \bar", await core.callStorm(r"$foo=foo $bar=bar return(`{$foo} \\{$bar}`)"))
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm(r"$foo=bar return(`\\{{$foo}`)")
 
     async def test_lib_storm_emit(self):
         async with self.getTestCore() as core:
@@ -2179,7 +2187,7 @@ class StormTest(s_t_utils.SynTestA):
             [ ou:org=(cov,) ]
 
             { for $i in $lib.range(1001) {
-                $prop = $lib.str.format('_test{i}', i=$i)
+                $prop = `_test{$i}`
                 [ :$prop = $i
                   +#$prop:score = $i
                   +($i)> { ou:org=(cov,) }
@@ -2825,6 +2833,75 @@ class StormTest(s_t_utils.SynTestA):
                 ('core:pkg:onload:complete', {'pkg': 'testload'})
             ]
             self.eq(exp, evnts)
+
+    async def test_storm_pkg_onload_active(self):
+        pkg = {
+            'name': 'testload',
+            'version': '0.3.0',
+            'modules': (
+                {
+                    'name': 'testload',
+                    'storm': 'function x() { return((0)) }',
+                },
+            ),
+            'onload': '''
+                $lib.print(testprint)
+                $lib.warn(testwarn)
+
+                $queue = $lib.queue.gen(onload:test)
+
+                $vers = $lib.globals.get(testload:version, (0))
+                $vers = ($vers + 1)
+                $lib.globals.set(testload:version, $vers)
+                $queue.put($vers)
+            '''
+        }
+
+        with self.getTestDir() as dirn:
+            dirn00 = s_common.gendir(dirn, 'core00')
+            dirn01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+
+                waiter = core00.waiter(2, 'core:pkg:onload:start', 'core:pkg:onload:complete')
+
+                await core00.addStormPkg(pkg)
+
+                events = await waiter.wait(timeout=10)
+                self.eq(events, [
+                    ('core:pkg:onload:start', {'pkg': 'testload'}),
+                    ('core:pkg:onload:complete', {'pkg': 'testload'}),
+                ])
+
+                self.eq((0, 1), await core00.callStorm('return($lib.queue.gen(onload:test).get((0), cull=(false)))'))
+
+            s_tools_backup.backup(dirn00, dirn01)
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+
+                self.eq((1, 2), await core00.callStorm('return($lib.queue.gen(onload:test).get((1), cull=(false)))'))
+
+                conf01 = {'mirror': core00.getLocalUrl()}
+
+                async with self.getTestCore(dirn=dirn01, conf=conf01) as core01:
+
+                    await core01.sync()
+
+                    waiter = core01.waiter(2, 'core:pkg:onload:start', 'core:pkg:onload:complete')
+
+                    await core01.promote()
+
+                    events = await waiter.wait(timeout=10)
+                    self.eq(events, [
+                        ('core:pkg:onload:start', {'pkg': 'testload'}),
+                        ('core:pkg:onload:complete', {'pkg': 'testload'}),
+                    ])
+
+                    self.eq((2, 3), await core01.callStorm('return($lib.queue.gen(onload:test).get((2), cull=(false)))'))
+
+                await core01.waitfini()
+
+            await core00.waitfini()
 
     async def test_storm_tree(self):
 
@@ -3657,9 +3734,9 @@ class StormTest(s_t_utils.SynTestA):
             orig = s_storm.ParallelCmd.pipeline
             tsks = {'cnt': 0}
 
-            async def pipecnt(self, runt, query, inq, outq):
+            async def pipecnt(self, runt, query, inq, outq, runtprims):
                 tsks['cnt'] += 1
-                await orig(self, runt, query, inq, outq)
+                await orig(self, runt, query, inq, outq, runtprims)
 
             with mock.patch('synapse.lib.storm.ParallelCmd.pipeline', pipecnt):
 
@@ -3688,6 +3765,42 @@ class StormTest(s_t_utils.SynTestA):
                 nodes = await core.nodes('parallel --size 4 {[ ou:org=* ]}')
                 self.len(4, nodes)
                 self.eq(4, tsks['cnt'])
+
+            self.len(20, await core.nodes('for $i in $lib.range(20) {[ test:str=$i ]}'))
+            q = '''
+            test:str
+            parallel --size 4 {
+                if (not $lib.vars.get(vals)) {
+                    $vals = ()
+                }
+                $vals.append($node.repr())
+                fini { $lib.fire(resu, vals=$vals) }
+            }
+            | spin
+            '''
+            vals = []
+            msgs = await core.stormlist(q)
+            for m in msgs:
+                if m[0] == 'storm:fire':
+                    vals.extend(m[1]['data']['vals'])
+
+            self.len(20, vals)
+
+            q = '''
+            $vals = ()
+            test:str
+            parallel --size 4 { $vals.append($node.repr()) }
+            fini { return($vals) }
+            '''
+            self.len(20, await core.callStorm(q))
+
+            q = '''
+            function test(n) { $lib.fire(foo, valu=$n.repr()) return() }
+            test:str
+            parallel --size 4 { $test($node) }
+            '''
+            msgs = await core.stormlist(q)
+            self.len(20, [m for m in msgs if m[0] == 'storm:fire' and m[1]['type'] == 'foo'])
 
     async def test_storm_yieldvalu(self):
 
@@ -5047,7 +5160,7 @@ class StormTest(s_t_utils.SynTestA):
                 batch $lib.true --size 5 ${
                     $vals=([])
                     for $n in $nodes { $vals.append($n.repr()) }
-                    $lib.print($lib.str.join(',', $vals))
+                    $lib.print((',').join($vals))
                 }
             '''
             msgs = await core.stormlist(q)
@@ -5062,7 +5175,7 @@ class StormTest(s_t_utils.SynTestA):
                 batch $lib.false --size 5 {
                     $vals=([])
                     for $n in $nodes { $vals.append($n.repr()) }
-                    $lib.print($lib.str.join(',', $vals))
+                    $lib.print((',').join($vals))
                 }
             '''
             msgs = await core.stormlist(q)
@@ -5168,7 +5281,7 @@ class StormTest(s_t_utils.SynTestA):
             msgs = await core.stormlist(q)
             self.stormHasNoErr(msgs)
 
-            await core.nodes('''$token=foo $lib.print(({"Authorization":$lib.str.format("Bearer {token}", token=$token)}))''')
+            await core.nodes('''$token=foo $lib.print(({"Authorization":`Bearer {$token}`}))''')
 
             q = '#rep.clearsky.dreamjob -># +syn:tag^=rep |uniq -syn:tag~=rep.clearsky'
             msgs = await core.stormlist(q)
@@ -5182,7 +5295,7 @@ class StormTest(s_t_utils.SynTestA):
             msgs = await core.stormlist(q)
             self.stormIsInWarn('Failed to decode iden: [ssl://svcrs:27492?certname=root=bar]', msgs)
 
-            q = "$foo=one $bar=two $lib.print($lib.str.concat($foo, '=', $bar))"
+            q = "$foo=one $bar=two $lib.print(`{$foo}={$bar}`)"
             msgs = await core.stormlist(q)
             self.stormIsInPrint("one=two", msgs)
 

@@ -589,7 +589,7 @@ stormcmds = (
         'storm': '''
 
             for $pdef in $lib.auth.getPermDefs() {
-                $perm = $lib.str.join(".", $pdef.perm)
+                $perm = ('.').join($pdef.perm)
 
                 if $cmdopts.find {
                     $find = $cmdopts.find.lower()
@@ -901,12 +901,14 @@ class User(s_stormtypes.Prim):
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'tell', 'desc': 'Send a tell notification to a user.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_methUserTell',
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'The text of the message to send.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'notify', 'desc': 'Send an arbitrary user notification.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_methUserNotify',
                   'args': (
                       {'name': 'mesgtype', 'type': 'str', 'desc': 'The notification type.', },
@@ -1153,6 +1155,8 @@ class User(s_stormtypes.Prim):
         return await self.value()
 
     async def _methUserTell(self, text):
+        s_common.deprecated('user.tell()', '2.210.0', '3.0.0')
+        await self.runt.snap.warnonce('user.tell() is deprecated.')
         self.runt.confirm(('tell', self.valu), default=True)
         mesgdata = {
             'text': await s_stormtypes.tostr(text),
@@ -1161,6 +1165,8 @@ class User(s_stormtypes.Prim):
         return await self.runt.snap.core.addUserNotif(self.valu, 'tell', mesgdata)
 
     async def _methUserNotify(self, mesgtype, mesgdata):
+        s_common.deprecated('user.notify()', '2.210.0', '3.0.0')
+        await self.runt.snap.warnonce('user.notify() is deprecated.')
         if not self.runt.isAdmin():
             mesg = '$user.notify() method requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)

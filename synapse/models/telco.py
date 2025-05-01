@@ -153,6 +153,10 @@ class TelcoModule(s_module.CoreModule):
                 ('tel:call', ('guid', {}), {
                     'doc': 'A guid for a telephone call record.'}),
 
+                ('tel:phone:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of phone number types.'}),
+
                 ('tel:txtmesg', ('guid', {}), {
                     'doc': 'A guid for an individual text message.'}),
 
@@ -189,14 +193,26 @@ class TelcoModule(s_module.CoreModule):
                     'doc': 'A mobile cell site which a phone may connect to.'
                 }),
 
+                # TODO - eventually break out ISO-3 country code into a sub
+                # https://en.wikipedia.org/wiki/TADIG_code
+                ('tel:mob:tadig', ('str', {'regex': '^[A-Z0-9]{5}$', 'strip': True}), {
+                    'doc': 'A Transferred Account Data Interchange Group number issued to a GSM carrier.'}),
+
             ),
 
             'forms': (
+
+                ('tel:phone:type:taxonomy', {}, ()),
                 ('tel:phone', {}, (
+
+                    ('type', ('tel:phone:type:taxonomy', {}), {
+                        'doc': 'The type of phone number.'}),
+
                     ('loc', ('loc', {}), {
-                        'doc': 'The location associated with the number.',
-                    }),
+                        'doc': 'The location associated with the number.'}),
+
                 )),
+
                 ('tel:call', {}, (
                     ('src', ('tel:phone', {}), {
                         'doc': 'The source phone number for a call.'
@@ -311,6 +327,9 @@ class TelcoModule(s_module.CoreModule):
                     ('loc', ('loc', {}), {
                         'doc': 'Location the carrier operates from.'
                     }),
+
+                    ('tadig', ('tel:mob:tadig', {}), {
+                        'doc': 'The TADIG code issued to the carrier.'}),
                 )),
                 ('tel:mob:cell', {}, (
                     ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier.', 'ro': True, }),
@@ -328,6 +347,8 @@ class TelcoModule(s_module.CoreModule):
                     ('place', ('geo:place', {}), {
                         'doc': 'The place associated with the latlong property.'}),
                 )),
+
+                ('tel:mob:tadig', {}, ()),
 
                 ('tel:mob:telem', {}, (
 

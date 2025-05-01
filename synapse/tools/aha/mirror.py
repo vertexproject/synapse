@@ -41,6 +41,7 @@ def build_status_list(members, cell_infos):
             'host': svcinfo.get('urlinfo', {}).get('host', ''),
             'port': str(svcinfo.get('urlinfo', {}).get('port', '')),
             'version': '<unknown>',
+            'synapse': '<unknown>',
             'nexs_indx': 0
         }
         if svcname in cell_infos:
@@ -49,7 +50,8 @@ def build_status_list(members, cell_infos):
             status.update({
                 'nexs_indx': cell_info.get('nexsindx', 0),
                 'role': 'follower' if cell_info.get('uplink') else 'leader',
-                'version': str(info.get('synapse', {}).get('verstring', '')),
+                'version': str(info.get('cell', {}).get('verstring', '')),
+                'synapse': str(info.get('synapse', {}).get('verstring', '')),
                 'online': 'True',
                 'ready': str(cell_info.get('ready', False))
             })
@@ -57,15 +59,15 @@ def build_status_list(members, cell_infos):
     return group_status
 
 def output_status(outp, vname, group_status):
-    header = ' {:<40} {:<10} {:<8} {:<7} {:<16} {:<9} {:<12} {:<10}'.format(
-        'name', 'role', 'online', 'ready', 'host', 'port', 'version', 'nexus idx')
+    header = ' {:<40} {:<10} {:<8} {:<7} {:<16} {:<9} {:<12} {:<12} {:<10}'.format(
+        'name', 'role', 'online', 'ready', 'host', 'port', 'version', 'synapse', 'nexus idx')
     outp.printf(header)
     outp.printf('#' * 120)
     outp.printf(vname)
     for status in group_status:
         if status['nexs_indx'] == 0:
             status['nexs_indx'] = '<unknown>'
-        line = ' {name:<40} {role:<10} {online:<8} {ready:<7} {host:<16} {port:<9} {version:<12} {nexs_indx:<10}'.format(**status)
+        line = ' {name:<40} {role:<10} {online:<8} {ready:<7} {host:<16} {port:<9} {version:<12} {synapse:<12} {nexs_indx:<10}'.format(**status)
         outp.printf(line)
 
 def check_sync_status(group_status):

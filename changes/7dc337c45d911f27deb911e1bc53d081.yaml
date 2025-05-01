@@ -1,0 +1,6 @@
+---
+desc: Deprecate ``$lib.notification``, ``user.notify()``, and ``user.tell()`` Storm
+  APIs.
+prs: []
+type: deprecation
+...

@@ -481,7 +481,7 @@ class Benchmarker:
 
     @benchmark({'remote'})
     async def do10AutoAdds(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        q = "inet:ipv4 $val=$lib.str.format('{num}.rev', num=$(1000000-$node.value())) [:dns:rev=$val]"
+        q = "$template='{num}.rev' inet:ipv4 $val=$template.format(num=$(1000000-$node.value())) [:dns:rev=$val]"
         count = await acountPodes(prox.storm(q, opts=self.opts))
         assert count == self.workfactor
         return self.workfactor
@@ -498,7 +498,7 @@ class Benchmarker:
         '''
         The same as do10AutoAdds without the adds (to isolate the autoadd part)
         '''
-        q = "inet:ipv4 $val=$lib.str.format('{num}.rev', num=$(1000000-$node.value()))"
+        q = "$template='{num}.rev' inet:ipv4 $val=$template.format(num=$(1000000-$node.value()))"
         count = await acountPodes(prox.storm(q, opts=self.opts))
         assert count == self.workfactor
         return self.workfactor

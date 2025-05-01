@@ -815,7 +815,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         },
         'modules': {
             'default': [],
-            'description': 'A list of module classes to load.',
+            'description': 'Deprecated. A list of module classes to load.',
             'type': 'array'
         },
         'storm:log': {
@@ -1397,6 +1397,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'del', '<form>'), 'gate': 'layer',
              'desc': 'Controls removing a specific form of node in a layer.'},
 
+            {'perm': ('node', 'edge', 'add'), 'gate': 'layer',
+             'desc': 'Controls adding light edges to a node.'},
+            {'perm': ('node', 'edge', 'del'), 'gate': 'layer',
+             'desc': 'Controls adding light edges to a node.'},
+
+            {'perm': ('node', 'edge', 'add', '<verb>'), 'gate': 'layer',
+             'desc': 'Controls adding a specific light edge to a node.'},
+            {'perm': ('node', 'edge', 'del', '<verb>'), 'gate': 'layer',
+             'desc': 'Controls adding a specific light edge to a node.'},
+
             {'perm': ('node', 'tag'), 'gate': 'layer',
              'desc': 'Controls editing any tag on any node in a layer.'},
             {'perm': ('node', 'tag', 'add'), 'gate': 'layer',
@@ -1570,6 +1580,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             for layer in self.layers.values():
                 await layer.initLayerActive()
+
+            for pkgdef in list(self.stormpkgs.values()):
+                self._runStormPkgOnload(pkgdef)
 
         self.runActiveTask(_runMigrations())
 
@@ -2628,6 +2641,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 return
 
         self.loadStormPkg(pkgdef)
+        self._runStormPkgOnload(pkgdef)
         self.pkgdefs.set(name, pkgdef)
 
         self._clearPermDefs()
@@ -2919,9 +2933,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self._initEasyPerm(gdef)
             self.pkggraphs[gdef['iden']] = gdef
 
+    def _runStormPkgOnload(self, pkgdef):
+        name = pkgdef.get('name')
         onload = pkgdef.get('onload')
+
         if onload is not None and self.isactive:
             async def _onload():
+                await self.fire('core:pkg:onload:start', pkg=name)
                 try:
                     async for mesg in self.storm(onload):
                         if mesg[0] == 'print':
@@ -2933,10 +2951,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         await asyncio.sleep(0)
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
-                except Exception:  # pragma: no cover
-                    logger.warning(f'onload failed for package: {name}')
+                except Exception as exc:  # pragma: no cover
+                    logger.warning(f'onload failed for package: {name}', exc_info=exc)
                 await self.fire('core:pkg:onload:complete', pkg=name)
-            self.schedCoro(_onload())
+
+            self.runActiveTask(_onload())
 
     # N.B. This function is intentionally not async in order to prevent possible user race conditions for code
     # executing outside of the nexus lock.
@@ -6371,6 +6390,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # allow module entry to be (ctor, conf) tuple
         if isinstance(ctor, (list, tuple)):
             ctor, conf = ctor
+
+        if not ctor.startswith(('synapse.tests', 'synapse.models')):
+            s_common.deprecated("'modules' Cortex config value", curv='2.206.0')
 
         modu = self._loadCoreModule(ctor, conf=conf)
         if modu is None:

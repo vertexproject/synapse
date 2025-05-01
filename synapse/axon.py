@@ -138,8 +138,8 @@ class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
 
         self.blobsize = await self.getAxon().size(sha256b)
         if self.blobsize is None:
-            self.set_status(404)
-            self.sendRestErr('NoSuchFile', f'SHA-256 not found: {s_common.ehex(sha256b)}')
+            self.sendRestErr('NoSuchFile', f'SHA-256 not found: {s_common.ehex(sha256b)}',
+                             status_code=s_httpapi.HTTPStatus.NOT_FOUND)
             return False
 
         status = 200
@@ -260,8 +260,8 @@ class AxonHttpBySha256V1(AxonFileHandler):
 
         sha256b = s_common.uhex(sha256)
         if not await self.getAxon().has(sha256b):
-            self.set_status(404)
-            self.sendRestErr('NoSuchFile', f'SHA-256 not found: {sha256}')
+            self.sendRestErr('NoSuchFile', f'SHA-256 not found: {sha256}',
+                             status_code=s_httpapi.HTTPStatus.NOT_FOUND)
             return
 
         resp = await self.getAxon().del_(sha256b)
@@ -1659,7 +1659,7 @@ class Axon(s_cell.Cell):
                         'code': resp.status,
                         'body': await resp.read(),
                         'reason': s_common.httpcodereason(resp.status),
-                        'headers': dict(resp.headers),
+                        'headers': {str(k): v for k, v in resp.headers.items()},
                     }
                     return info
 
@@ -1706,7 +1706,7 @@ class Axon(s_cell.Cell):
                         'url': str(resp.url),
                         'code': resp.status,
                         'reason': s_common.httpcodereason(resp.status),
-                        'headers': dict(resp.headers),
+                        'headers': {str(k): v for k, v in resp.headers.items()},
                     }
                     return info
 
@@ -1736,11 +1736,11 @@ class Axon(s_cell.Cell):
             'ok': True,
             'url': str(resp.real_url),
             'code': resp.status,
-            'headers': dict(resp.headers),
+            'headers': {str(k): v for k, v in resp.headers.items()},
             'reason': s_common.httpcodereason(resp.status),
             'request': {
                 'url': str(resp.request_info.real_url),
-                'headers': dict(resp.request_info.headers),
+                'headers': {str(k): v for k, v in resp.request_info.headers.items()},
                 'method': str(resp.request_info.method),
             }
         }

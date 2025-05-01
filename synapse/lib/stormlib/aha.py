@@ -691,6 +691,7 @@ The ready column indicates that a service has entered into the realtime change w
                     {"name": "host", "width": 16},
                     {"name": "port", "width": 8},
                     {"name": "version", "width": 12},
+                    {"name": "synapse", "width": 12},
                     {"name": "nexus idx", "width": 10},
                 ],
                 "separators": {
@@ -732,6 +733,7 @@ The ready column indicates that a service has entered into the realtime change w
                     'host': $svcinfo.urlinfo.host,
                     'port': $svcinfo.urlinfo.port,
                     'version': '<unknown>',
+                    'synapse_version': '<unknown>',
                     'nexs_indx': (0)
                 })
                 if ($cell_infos.$svcname) {
@@ -743,7 +745,8 @@ The ready column indicates that a service has entered into the realtime change w
                     } else {
                         $status.role = 'leader'
                     }
-                    $status.version = $info.synapse.verstring
+                    $status.version = $info.cell.verstring
+                    $status.synapse_version = $info.synapse.verstring
                 }
                 $group_status.append($status)
             }
@@ -779,6 +782,7 @@ The ready column indicates that a service has entered into the realtime change w
                     $status.host,
                     $status.port,
                     $status.version,
+                    $status.synapse_version,
                     $status.nexs_indx
                 )
                 $lib.print($printer.row($row))

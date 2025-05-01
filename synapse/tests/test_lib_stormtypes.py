@@ -156,7 +156,7 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm(q, opts=opts)
 
             # Push a handful of notifications and list a subset of them
-            q = '''$m=$lib.str.format('hello {i}', i=$i) return($lib.auth.users.byname(root).tell($m))'''
+            q = '''$m=`hello {$i}` return($lib.auth.users.byname(root).tell($m))'''
             for i in range(5):
                 opts = {'user': visi.iden, 'vars': {'i': i}}
                 await core.callStorm(q, opts=opts)
@@ -1071,7 +1071,7 @@ class StormTypesTest(s_test.SynTest):
             # exec vars do not populate upwards
             q = '''
             $foo = "that is one neato burrito"
-            $baz = ${ $bar=$lib.str.concat(wompwomp, $lib.guid()) $lib.print("in exec") }
+            $baz = ${ $bar=`wompwomp{$lib.guid()}` $lib.print("in exec") }
             $baz.exec()
             $lib.print("post exec {bar}", bar=$bar)
             [ test:str=$foo ]
@@ -1283,6 +1283,8 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_str(self):
         async with self.getTestCore() as core:
+
+            # TODO $lib.str.concat and rmat are deprecated should be removed in 3.0.0
             q = '$v=vertex $l=link $fqdn=$lib.str.concat($v, ".", $l)' \
                 ' [ inet:email=$lib.str.format("visi@{domain}", domain=$fqdn) ]'
             nodes = await core.nodes(q)
@@ -1310,7 +1312,7 @@ class StormTypesTest(s_test.SynTest):
             sobj = s_stormtypes.Str('beepbeep')
             self.len(8, sobj)
 
-            nodes = await core.nodes('$s = (foo, bar, baz) [ test:str=$lib.str.join(".", $s) ]')
+            nodes = await core.nodes("$s = (foo, bar, baz) [ test:str=('.').join($s) ]")
             self.eq('foo.bar.baz', nodes[0].ndef[1])
 
             nodes = await core.nodes('$s = foo-bar-baz [ test:str=$s.replace("-", ".") ]')
@@ -1405,6 +1407,14 @@ class StormTypesTest(s_test.SynTest):
             self.eq(r'foo\ bar\ baz', await core.callStorm('return($lib.regex.escape("foo bar baz"))'))
 
             self.eq(((1, 2, 3)), await core.callStorm('return(("[1, 2, 3]").json())'))
+
+            self.eq('hehe,haha', await core.callStorm("$sepr=',' $l=(hehe, haha) return( $sepr.join($l) )"))
+            self.eq('hehehaha', await core.callStorm("$sepr='' $l=(hehe, haha) return( $sepr.join($l) )"))
+            self.eq('a|++|b|++|c', await core.callStorm("$sepr='|++|' $l=(a, b, c) return( $sepr.join($l) )"))
+            self.eq('hehe,haha', await core.callStorm("$l=(hehe, haha) return( (',').join($l) )"))
+            self.eq('hehehaha', await core.callStorm("$l=(hehe, haha) return( ('').join($l) )"))
+            self.eq('', await core.callStorm("$sepr=',' $l=() return( $sepr.join($l) )"))
+            self.eq('', await core.callStorm("$sepr='' $l=() return( $sepr.join($l) )"))
 
             with self.raises(s_exc.BadJsonText):
                 await core.callStorm('return(("foo").json())')
@@ -1752,7 +1762,7 @@ class StormTypesTest(s_test.SynTest):
             $ipv4 = $node.repr()
             $loc = $node.repr(loc)
             $latlong = $node.repr(latlong, defv="??")
-            $valu = $lib.str.format("{ipv4} in {loc} at {latlong}", ipv4=$ipv4, loc=$loc, latlong=$latlong)
+            $valu = `{$ipv4} in {$loc} at {$latlong}`
             [ test:str=$valu ]
             +test:str
         '''
@@ -2454,7 +2464,7 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('pop valu is 0', mesgs)
 
                     listq = '''for ($key, $valu) in $lib.globals.list() {
-                    $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
+                    $string = `{$key} is {$valu}`
                     $lib.print($string)
                     }
                     '''
@@ -2498,7 +2508,7 @@ class StormTypesTest(s_test.SynTest):
                     self.len(1, await core.nodes('test:str=hehe'))
 
                     listq = '''for ($key, $valu) in $lib.user.vars.list() {
-                        $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
+                        $string = `{$key} is {$valu}`
                         $lib.print($string)
                     }
                     '''
@@ -2571,7 +2581,7 @@ class StormTypesTest(s_test.SynTest):
                     # core.vars, they only get the values they can read.
                     corelistq = '''
                     for ($key, $valu) in $lib.globals.list() {
-                        $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
+                        $string = `{$key} is {$valu}`
                         $lib.print($string)
                     }
                     '''
@@ -2725,6 +2735,21 @@ class StormTypesTest(s_test.SynTest):
             valu = await core.callStorm('return($lib.time.toUTC(2020, VISI))')
             self.false(valu[0])
             self.eq(valu[1]['err'], 'BadArg')
+
+            query = '''$valu="2020-10-01 01:30:00"
+            $parsed=$lib.time.parse($valu, "%Y-%m-%d %H:%M:%S")
+            $lib.print($lib.time.toUTC($parsed, US/Eastern))
+            '''
+            mesgs = await core.stormlist(query)
+            self.stormIsInPrint('1601530200000', mesgs)
+
+            query = '''$valu="2020-11-01 01:30:00"
+            $parsed=$lib.time.parse($valu, "%Y-%m-%d %H:%M:%S")
+            return($lib.time.toUTC($parsed, America/New_York))
+            '''
+            mesgs = await core.callStorm(query)
+            self.false(mesgs[0])
+            self.isin('Ambiguous time', mesgs[1]['errinfo']['mesg'])
 
     async def test_storm_lib_time_ticker(self):
 
@@ -3777,7 +3802,6 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             async with self.getTestCore() as core2:
 
-                await core2.nodes('[ inet:ipv4=1.2.3.4 ]')
                 url = core2.getLocalUrl('*/layer')
 
                 layriden = core2.view.layers[0].iden
@@ -3794,8 +3818,141 @@ class StormTypesTest(s_test.SynTest):
 
                 layr = core.getLayer(uplayr)
 
-                evnt = await layr.waitUpstreamOffs(layriden, offs)
-                self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+                async def query(q):
+                    '''
+                    Run a query on core2 and wait for it to sync to layr from core
+                    '''
+                    nodes = await core2.nodes(q)
+                    offs = await core2.view.layers[0].getEditIndx()
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
+                    self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+                    return nodes
+
+                vdef = {
+                    'layers': [layr.iden]
+                }
+
+                view00 = await core.addView(vdef)
+                self.nn(view00)
+
+                # No foobar in core
+                opts = {'view': view00.get('iden')}
+                nodes = await core.nodes('it:dev:str=foobar', opts=opts)
+                self.len(0, nodes)
+
+                # Add foobar in core2
+                nodes = await query('[ it:dev:str=foobar ]')
+                self.len(1, nodes)
+
+                # foobar shows up in core
+                nodes = await core.nodes('it:dev:str=foobar', opts=opts)
+                self.len(1, nodes)
+
+                self.len(1, layr.activetasks)
+
+                # The upstream key only accepts null
+                q = f'layer.set {uplayr} upstream (true)'
+                msgs = await core.stormlist(q)
+                self.stormIsInErr('Layer only supports setting "mirror" and "upstream" to null.', msgs)
+
+                with self.raises(s_exc.BadOptValu) as exc:
+                    await layr.setLayerInfo('upstream', False)
+                self.eq(exc.exception.get('mesg'), 'Layer only supports setting "mirror" and "upstream" to None.', msgs)
+
+                # Now remove the upstream configuration
+                q = f'layer.set {uplayr} upstream (null)'
+                msgs = await core.stormlist(q)
+                self.stormHasNoWarnErr(msgs)
+
+                layr = core.getLayer(uplayr)
+                self.len(0, layr.activetasks)
+                self.none(layr.layrinfo.get('upstream'))
+
+                with self.raises(TimeoutError):
+                    await query('[ it:dev:str=newp ]')
+
+                # No newp in core because layer upstream is disabled
+                nodes = await core.nodes('it:dev:str=newp', opts=opts)
+                self.len(0, nodes)
+
+    async def test_storm_lib_layer_mirror(self):
+        async with self.getTestCore() as core:
+            async with self.getTestCore() as core2:
+
+                url = core2.getLocalUrl('*/layer')
+
+                layers = set(core.layers.keys())
+                q = f'layer.add --mirror {url}'
+                mesgs = await core.stormlist(q)
+                uplayr = list(set(core.layers.keys()) - layers)[0]
+
+                q = f'layer.set {uplayr} name "woot woot"'
+                mesgs = await core.stormlist(q)
+                self.stormIsInPrint('(name: woot woot)', mesgs)
+
+                layr = core.getLayer(uplayr)
+
+                async def query(q):
+                    '''
+                    Run a query on core2 and wait for it to sync to layr from core
+                    '''
+                    nodes = await core2.nodes(q)
+                    offs = await core2.view.layers[0].getEditOffs()
+                    self.true(await layr.waitEditOffs(offs, timeout=10))
+                    return nodes
+
+                vdef = {
+                    'layers': [layr.iden]
+                }
+
+                view00 = await core.addView(vdef)
+                self.nn(view00)
+
+                # No foobar in core
+                opts = {'view': view00.get('iden')}
+                nodes = await core.nodes('it:dev:str=foobar', opts=opts)
+                self.len(0, nodes)
+
+                # Add foobar in core2
+                nodes = await query('[ it:dev:str=foobar ]')
+                self.len(1, nodes)
+
+                # foobar shows up in core
+                nodes = await core.nodes('it:dev:str=foobar', opts=opts)
+                self.len(1, nodes)
+
+                self.true(layr.ismirror)
+                self.nn(layr.leadtask)
+                self.nn(layr.leader)
+                self.len(0, layr.activetasks)
+
+                # The mirror key only accepts null
+                q = f'layer.set {uplayr} mirror (true)'
+                msgs = await core.stormlist(q)
+                self.stormIsInErr('Layer only supports setting "mirror" and "upstream" to null.', msgs)
+
+                with self.raises(s_exc.BadOptValu) as exc:
+                    await layr.setLayerInfo('mirror', False)
+                self.eq(exc.exception.get('mesg'), 'Layer only supports setting "mirror" and "upstream" to None.', msgs)
+
+                # Now remove the mirror configuration
+                q = f'layer.set {uplayr} mirror (null)'
+                msgs = await core.stormlist(q)
+                self.stormHasNoWarnErr(msgs)
+
+                layr = core.getLayer(uplayr)
+                self.none(layr.layrinfo.get('mirror'))
+                self.none(layr.leadtask)
+                self.none(layr.leader)
+                self.false(layr.ismirror)
+
+                # Add newp in core2
+                nodes = await query('[ it:dev:str=newp ]')
+                self.len(1, nodes)
+
+                # No newp in core because layer mirroring is disabled
+                nodes = await core.nodes('it:dev:str=newp', opts=opts)
+                self.len(0, nodes)
 
     async def test_storm_lib_view(self):
 
@@ -4919,7 +5076,7 @@ class StormTypesTest(s_test.SynTest):
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
                                              tzinfo=tz.utc).timestamp()
 
-                q = '{$lib.queue.get(foo).put(m3) $s=$lib.str.format("m3 {t} {i}", t=$auto.type, i=$auto.iden) $lib.log.info($s, ({"iden": $auto.iden})) }'
+                q = '{$lib.queue.get(foo).put(m3) $s=`m3 {$auto.type} {$auto.iden}` $lib.log.info($s, ({"iden": $auto.iden})) }'
                 text = f'cron.add --minute 17 {q}'
                 async with getCronJob(text) as guid:
                     with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'm3 cron') as stream:
@@ -6049,6 +6206,16 @@ class StormTypesTest(s_test.SynTest):
             self.eq({'d', 'c'}, ret)
 
             # str join
+            ret = await core.callStorm('$x=(foo,bar,baz) $y=("-").join($x) return($y)')
+            self.eq('foo-bar-baz', ret)
+
+            ret = await core.callStorm('$y=("-").join((foo, bar, baz)) return($y)')
+            self.eq('foo-bar-baz', ret)
+
+            ret = await core.callStorm('$x=abcd $y=("-").join($x) return($y)')
+            self.eq('a-b-c-d', ret)
+
+            # TODO $lib.str.join is deprecated and will be removed in 3.0.0
             ret = await core.callStorm('$x=(foo,bar,baz) $y=$lib.str.join("-", $x) return($y)')
             self.eq('foo-bar-baz', ret)
 
@@ -6069,7 +6236,7 @@ class StormTypesTest(s_test.SynTest):
 
             opts = {'user': visi.iden, 'vars': {'port': port}}
             wget = '''
-               $url = $lib.str.format("https://visi:secret@127.0.0.1:{port}/api/v1/healthcheck", port=$port)
+               $url = `https://visi:secret@127.0.0.1:{$port}/api/v1/healthcheck`
                return($lib.axon.wget($url, ssl=$lib.false))
            '''
             with self.raises(s_exc.AuthDeny):
