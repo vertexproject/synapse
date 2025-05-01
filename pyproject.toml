@@ -54,7 +54,7 @@ dependencies = [
     'python-dateutil>=2.8,<3.0',
     'pytz>=2023.3,<2025.3',
     'beautifulsoup4[html5lib]>=4.11.1,<5.0',
-    'orjson>=3.10.15,<4.0'
+    'vtx-yyjson>=4.2.0,<5.0.0',
 ]
 
 [project.optional-dependencies]
