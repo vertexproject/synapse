@@ -25,7 +25,7 @@ class PsModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('photo'))
             self.eq(nodes[0].get('name'), 'robert clown grey')
             self.eq(nodes[0].get('names'), ('billy bob',))
-            self.eq(nodes[0].get('lifespan'), (31536000000, 2554848000000))
+            self.eq(nodes[0].get('lifespan'), (31536000000000, 2554848000000000))
 
             self.len(2, await core.nodes('ps:person -> meta:name'))
             self.len(1, await core.nodes('ps:person :photo -> file:bytes'))
@@ -109,7 +109,7 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('job:type'), 'it.dev.')
             self.eq(nodes[0].get('employment:type'), 'fulltime.salary.')
             self.eq(nodes[0].get('title'), 'python developer')
-            self.eq(nodes[0].get('period'), (1627689600000, 1659225600000))
+            self.eq(nodes[0].get('period'), (1627689600000000, 1659225600000000))
             self.eq(nodes[0].get('pay'), '200000')
             self.eq(nodes[0].get('pay:currency'), 'usd')
 
@@ -148,7 +148,7 @@ class PsModelTest(s_t_utils.SynTest):
                 { -> ps:person [ :vitals={ps:vitals} ] }
             ''')
             self.len(1, nodes)
-            self.eq(1660521600000, nodes[0].get('asof'))
+            self.eq(1660521600000000, nodes[0].get('asof'))
 
             self.eq(1828, nodes[0].get('phys:height'))
             self.eq('45359.2', nodes[0].get('phys:mass'))

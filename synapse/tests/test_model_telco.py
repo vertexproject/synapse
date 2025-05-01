@@ -116,7 +116,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:mob:telem', guid))
-            self.eq(node.get('time'), 978307200000)
+            self.eq(node.get('time'), 978307200000000)
             self.eq(node.get('latlong'), (-1.0, 1.0))
             self.eq(node.get('place'), place)
             self.eq(node.get('host'), host)
@@ -231,7 +231,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('tel:call', guid))
             self.eq(node.get('src'), '17035551212')
             self.eq(node.get('dst'), '1234567890')
-            self.eq(node.get('time'), 978307200000)
+            self.eq(node.get('time'), 978307200000000)
             self.eq(node.get('duration'), 90)
             self.eq(node.get('connected'), True)
             self.eq(node.get('text'), 'I said some stuff')
@@ -260,7 +260,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('to'), '1234567890')
             self.eq(node.get('recipients'), ('5554443333', '5678901234'))
             self.eq(node.get('svctype'), 'sms')
-            self.eq(node.get('time'), 978307200000)
+            self.eq(node.get('time'), 978307200000000)
             self.eq(node.get('text'), 'I wrote some stuff')
             self.eq(node.get('file'), file)
             # add other valid message types

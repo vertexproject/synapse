@@ -178,7 +178,7 @@ modeldefs = (
                 ('institution', ('ou:org', {}), {
                     'doc': 'The organization providing educational services.'}),
 
-                ('period', ('ival', {'precision': 8, 'inclusive': True}), {
+                ('period', ('ival', {'precision': 'day', 'inclusive': True}), {
                     'prevnames': ('attended:first', 'attended:last'),
                     'doc': 'The period of time when the student attended the institution.'}),
 

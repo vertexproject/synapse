@@ -70,7 +70,7 @@ class DnsModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             req_ndef = node.ndef
-            self.eq(node.get('time'), 1514764800000)
+            self.eq(node.get('time'), 1514764800000000)
             self.eq(node.get('reply:code'), 0)
             self.eq(node.get('server'), 'udp://5.6.7.8:53')
             self.eq(node.get('query'), ('tcp://1.2.3.4', 'vertex.link', 255))
@@ -350,7 +350,7 @@ class DnsModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[inet:dns:answer=* :time=2018]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('time'), 1514764800000)
+            self.eq(node.get('time'), 1514764800000000)
 
     async def test_model_dns_wild(self):
 
@@ -386,7 +386,7 @@ class DnsModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(1643673600000, nodes[0].get('created'))
+            self.eq(1643673600000000, nodes[0].get('created'))
             self.eq('vertex.dyndns.com', nodes[0].get('fqdn'))
             self.eq('tcp://1.2.3.4', nodes[0].get('client'))
             self.nn(nodes[0].get('contact'))

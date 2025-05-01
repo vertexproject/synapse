@@ -235,8 +235,9 @@ the ``:identities:fqdns`` array property):
 Pivot from a set of ``ou:name`` nodes to any nodes that reference those names (this would include ``ou:org``
 nodes where the ``ou:name`` is present in the ``:name`` property or as an element in the ``:names`` array):
 
-
-.. storm-cli:: ou:name^=acme <- *
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: ou:name^=acme <- *
 
 
 .. _type-duration:
@@ -249,12 +250,12 @@ duration
 Indexing
 ++++++++
 
-A ``duration`` is stored as an integer value representing the number of milliseconds.
+A ``duration`` is stored as an integer value representing the number of microseconds.
 
 Parsing
 +++++++
 
-A ``duration`` is commonly specified using a string value (days / hours / minutes / seconds / milliseconds
+A ``duration`` is commonly specified using a string value (days / hours / minutes / seconds / microseconds
 as appropriate) with the following notation:
   
   ``##D hh:mm:ss.mmm``
@@ -263,7 +264,7 @@ The literal uppercase letter "D" is used to represent the number of days. When e
 string, single or double quotes are required in accordance with the standard rules for using
 :ref:`storm-whitespace-literals`.
   
-A ``duration`` can also be specified as the number of milliseconds expressed as an integer value
+A ``duration`` can also be specified as the number of microseconds expressed as an integer value
 enclosed in parentheses:
   
   ``(218262777)``
@@ -296,7 +297,7 @@ Or:
 .. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = (542783000) ]
 
 Values can be set at any level of granularity; e.g., ``[ :duration = 19D ]`` is acceptable, as are
-values to millisecond resolution.
+values to microsecond resolution.
 
 .. NOTE::
 
@@ -785,8 +786,10 @@ It is also possible to lift and filter guid nodes using a "sufficiently unique" 
 
 Lift a ``ps:contact`` node by a partial prefix match:
 
-.. storm-pre:: [ ps:contact=13c9663e5f553014eb50d00bb7c6945a :orgname="kaspersky lab" :name="seongsu park" ]
-.. storm-cli:: ps:contact ^= 13c9663e
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ps:contact=13c9663e5f553014eb50d00bb7c6945a :orgname="kaspersky lab" :name="seongsu park" ]
+    .. storm-cli:: ps:contact ^= 13c9663e
 
 The length of the value that is "sufficiently unique" will vary depending on the data in your instance of Synapse.
 If your selection criteria matches more than one node, Synapse will return all matches.
@@ -800,9 +803,11 @@ set for the secondary property.
 Set the ``:org`` property for a ``ps:contact`` node to the guid value of the associated ``ou:org`` node using
 a Storm query:
 
-.. storm-pre:: [ ps:contact=* :name='ron the cat' :title='cattribution analyst' ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ps:contact=* :name='ron the cat' :title='cattribution analyst' ]
 
-.. storm-cli:: ps:contact:name = 'ron the cat' [ :org = { ou:org:name = vertex } ]
+    .. storm-cli:: ps:contact:name = 'ron the cat' [ :org = { ou:org:name = vertex } ]
 
 .. NOTE::
   
@@ -1064,8 +1069,10 @@ When adding or modifying integer values, Synapse will accept integer, hex (prece
 
 Set the ``:count`` of the ``biz:bundle`` to 42:
 
-.. storm-pre:: [ biz:bundle=(350,) ]
-.. storm-cli:: biz:bundle=9688955d141aae88194277e74d82084d [ :count=42 ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ biz:bundle=(350,) ]
+    .. storm-cli:: biz:bundle=9688955d141aae88194277e74d82084d [ :count=42 ]
 
 Use a hex value to set the ``:ip:proto`` property for the ``inet:flow`` node to 6:
 
@@ -1338,8 +1345,10 @@ level of resolution within the dotted hierarchy:
 
 Lift all organizations located in Turkey (``tr``):
 
-.. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :loc=tr.istanbul ) ]
-.. storm-cli:: ou:org:loc ^= tr
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :loc=tr.istanbul ) ]
+    .. storm-cli:: ou:org:loc ^= tr
 
 
 Lift all IP addresses geolocated in the province of Ontario, Canada (``ca.on``):
@@ -1373,8 +1382,9 @@ be the final character in the expression (e.g., expressions such as ``:loc = us.
 invalid; the expressions will not generate an error but will fail to return any nodes).
 
 Lift all organizations located in Turkey:
-
-.. storm-cli:: ou:org:loc = tr.*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: ou:org:loc = tr.*
 
 Lift all IP addresses geolocated in the province of Ontario, Canada:
 
@@ -1544,8 +1554,10 @@ Lift all tags in the computer network operations (``cno``) tree:
 Lift all threats (``risk:threat`` nodes) whose ``:tag`` value is associated with Dell Secureworks threats
 whose name begins with "br":
 
-.. storm-pre:: [ (risk:threat=* :org:name='bronze elgin' :reporter:name=secureworks :tag=rep.secureworks.bronze_elgin) (risk:threat=* :org:name='bronze president' :reporter:name=secureworks :tag=rep.secureworks.bronze_president) ]
-.. storm-cli:: risk:threat:tag ^=rep.secureworks.br
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (risk:threat=* :org:name='bronze elgin' :reporter:name=secureworks :tag=rep.secureworks.bronze_elgin) (risk:threat=* :org:name='bronze president' :reporter:name=secureworks :tag=rep.secureworks.bronze_president) ]
+    .. storm-cli:: risk:threat:tag ^=rep.secureworks.br
 
 **Usage notes:**
 
@@ -1707,9 +1719,9 @@ with "j":
 time
 ----
 
-Synapse stores ``time`` types in Epoch milliseconds (millis) - that is, the number of milliseconds since 
+Synapse stores ``time`` types in Epoch microseconds (micros) - that is, the number of microseconds since 
 January 1, 1970. The ``time`` type is technically a date/time because it encompasses both a date and a time.
-A time value alone, such as 12:37 PM (12:37:00.000), is invalid.
+A time value alone, such as 12:37 PM (12:37:00.000000), is invalid.
 
 See also the section on :ref:`type-ival` (interval) types for details on how ``time`` types are used as 
 minimum / maximum pairs.
@@ -1726,15 +1738,15 @@ Parsing
 
 - **Explicit** times:
 
-  - Human-readable (YYYY/MM/DD hh:mm:ss.mmm):
+  - Human-readable (YYYY/MM/DD hh:mm:ss.mmmmmm):
   
     ``"2018/12/16 09:37:52.324"``
   
-  - Human-readable "Zulu" (YYYY/MM/DDThh:mm:ss.mmmZ):
+  - Human-readable "Zulu" (YYYY/MM/DDThh:mm:ss.mmmmmmZ):
   
     ``2018/12/16T09:37:52.324Z``
     
-  - Human-readable with time zone (YYYY-MM-DD hh:mm:ss.mmm+/-hh:mm). No spaces are allowed between the time value
+  - Human-readable with time zone (YYYY-MM-DD hh:mm:ss.mmmmmm+/-hh:mm). No spaces are allowed between the time value
     and the time zone offset:
   
     ``2018-12-16 09:37:52.324-04:00``
@@ -1746,13 +1758,13 @@ Parsing
       format on input, Synapse will automatically convert the value to UTC for storage. If no time zone is specified,
       Synapse will assume the value is in UTC.
 
-  - No formatting (YYYYMMDDhhmmssmmm):
+  - No formatting (YYYYMMDDhhmmssmmmmmm):
     
-    ``20181216093752324``
+    ``20181216093752324000``
   
-  - Epoch millis:
+  - Epoch micros:
     
-    ``(1544953072324)``
+    ``(1544953072324000)``
     
     .. TIP::
       
@@ -1783,9 +1795,9 @@ Parsing
   
   - the keyword ``now`` is used to represent the current date/time.
   - a question mark ( ``?`` ) is used to effectively represent an unspecified / indefinite time in the future
-    (technically equivalent to 9223372036854775807 millis, i.e., "some really high value that is probably the
-    heat death of the universe". Note that technically the largest valid millis value is 9999999999999 
-    (thirteen 9’s), which represents 2286/11/20 09:46:39.999).
+    (technically equivalent to 9223372036854775807 micros, i.e., "some really high value in the future".
+    Note that technically the largest valid micros value is 253402300799999999, which
+    represents 9999/12/31 23:59:59.999999).
     
     The question mark can be used as the maximum value of an interval (:ref:`type-ival`) type to specify that 
     the data or assessment associated with the ``ival`` should be considered valid indefinitely. (Contrast that
@@ -1800,16 +1812,16 @@ Lower Resolution Time Values and Wildcard Time Values
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``time`` values (including tag timestamps) must be entered at a minimum resolution of year (``YYYY``) and can
-be entered up to a maximum resolution of milliseconds (``YYYY/MM/DD hh:mm:ss.mmm``).
+be entered up to a maximum resolution of microseconds (``YYYY/MM/DD hh:mm:ss.mmmmmm``).
 
 Where lower resolution values are entered, Synapse will make logical assumptions about the intended date / time
 value and zero-fill the remainder of the equivalent epoch mills date / time. For example:
 
-- A value of ``2016`` will be interpreted as 12:00 AM on January 1, 2016 (``2016/01/01 00:00:00.000``).
-- A value of ``2018/10/27`` will be interpreted as 12:00 AM on that date (``2018/10/27 00:00:00.000``).
-- A value of ``"2020/03/16 05"`` will be interpreted as 05:00 AM on that date (``2020/03/16 05:00:00.000``).
+- A value of ``2016`` will be interpreted as 12:00 AM on January 1, 2016 (``2016/01/01 00:00:00.000000``).
+- A value of ``2018/10/27`` will be interpreted as 12:00 AM on that date (``2018/10/27 00:00:00.000000``).
+- A value of ``"2020/03/16 05"`` will be interpreted as 05:00 AM on that date (``2020/03/16 05:00:00.000000``).
 - A value of ``"2018/10/27 14:00-04:00"`` will be interpreted as 14:00 (2:00 PM) on that date with a 4 hour
-  offset from UTC (``2018/10/27 14:00:00.000-04:00``, stored in UTC as ``2018/10/27 18:00:00.000``).
+  offset from UTC (``2018/10/27 14:00:00.000-04:00``, stored in UTC as ``2018/10/27 18:00:00.000000``).
 
 Synapse also supports the use of the wildcard ( ``*`` ) character to specify a partial time value match:
 
@@ -1850,7 +1862,7 @@ be specified.
 
 In addition, when adding or modifying ``time`` types, a lower resolution time and a wildcard time behave
 identically. In other words, the following are equivalent Storm queries (both will set the ``:time`` value
-of the newly created DNS request node to ``2021/01/23 00:00:00.000``):
+of the newly created DNS request node to ``2021/01/23 00:00:00.000000``):
 
 .. storm-pre:: [ inet:dns:request="*" :time=2021/01/23 ]
 .. storm-pre:: [ inet:dns:request="*" :time=2021/01/23* ]

@@ -222,17 +222,17 @@ For example:
   
   inet:dns:a=('hurr.net', '5.6.7.8')
       .created = 2019-07-03T22:25:43.966Z
-      .seen = ('2018-10-03T00:47:29.000Z', '2018-10-04T18:26:06.000Z')
+      .seen = ('2018-10-03T00:47:29Z', '2018-10-04T18:26:06Z')
       :fqdn = hurr.net
       :ip = 5.6.7.8
   inet:dns:a=('derp.org', '4.4.4.4')
       .created = 2019-07-03T22:25:43.968Z
-      .seen = ('2019-06-09T09:00:18.000Z', '2019-07-03T15:07:52.000Z')
+      .seen = ('2019-06-09T09:00:18Z', '2019-07-03T15:07:52Z')
       :fqdn = derp.org
       :ip = 4.4.4.4
   inet:dns:a=('woot.com', '1.2.3.4')
       .created = 2019-07-03T22:25:43.962Z
-      .seen = ('2018-04-18T13:12:47.000Z', '2018-06-23T09:45:12.000Z')
+      .seen = ('2018-04-18T13:12:47Z', '2018-06-23T09:45:12Z')
       :fqdn = woot.com
       :ip = 1.2.3.4
   complete. 3 nodes in 12 ms (250/sec).
@@ -514,13 +514,13 @@ This exports the data from the relevant nodes as expected, but does so in the fo
 
 ::
   
-  woot.com,"(4, 16909060)","(1524057167000, 1529747112000)"
+  woot.com,"(4, 16909060)","(1524057167000000, 1529747112000000)"
 
 We have a few potential issues with our current output:
 
 - The IP address is exported using its raw value instead of in human-friendly dotted-decimal format.
 - The ``.seen`` value is exported into a single field as a combined ``"(<min>, <max>)"`` pair, not as individual comma-separated timestamps.
-- The ``.seen`` values are exported using their raw Epoch millis format instead of in human-friendly datetime strings.
+- The ``.seen`` values are exported using their raw Epoch micros format instead of in human-friendly datetime strings.
 
 We need to do some additional formatting to get the output we want in the CSV file.
 
@@ -544,7 +544,7 @@ We can tell ``$node.repr()`` to return the repr of a specific secondary property
   
   ($first, $last) = .seen
 
-However, simply splitting the value will result in the variables ``$first`` and ``$last`` storing (and emitting) the raw Epoch millis value of the time, not the human-readable repr value. Similar to the way in which we obtained the repr value for the ``:ip`` property, we need to assign the human-readable repr values of the ``.seen`` property to ``$first`` and ``$last``:
+However, simply splitting the value will result in the variables ``$first`` and ``$last`` storing (and emitting) the raw Epoch micros value of the time, not the human-readable repr value. Similar to the way in which we obtained the repr value for the ``:ip`` property, we need to assign the human-readable repr values of the ``.seen`` property to ``$first`` and ``$last``:
 
 ::
   
@@ -588,8 +588,8 @@ If we view the contents of ``export.csv``, we should see the following:
 
 ::
   
-  woot.com,1.2.3.4,2018/04/18 13:12:47.000,2018/06/23 09:45:12.000
-  hurr.net,5.6.7.8,2018/10/03 00:47:29.000,2018/10/04 18:26:06.000
-  derp.org,4.4.4.4,2019/06/09 09:00:18.000,2019/07/03 15:07:52.000
+  woot.com,1.2.3.4,2018/04/18 13:12:47,2018/06/23 09:45:12
+  hurr.net,5.6.7.8,2018/10/03 00:47:29,2018/10/04 18:26:06
+  derp.org,4.4.4.4,2019/06/09 09:00:18,2019/07/03 15:07:52
 
 

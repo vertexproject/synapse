@@ -1123,11 +1123,11 @@ class LibStixExport(s_stormtypes.Lib):
         },
 
         {
-            'name': 'timestamp', 'desc': 'Format an epoch milliseconds timestamp for use in STIX output.',
+            'name': 'timestamp', 'desc': 'Format an epoch microseconds timestamp for use in STIX output.',
              'type': {
                 'type': 'function', '_funcname': 'timestamp',
                 'args': (
-                    {'type': 'time', 'name': 'tick', 'desc': 'The epoch milliseconds timestamp.'},
+                    {'type': 'time', 'name': 'tick', 'desc': 'The epoch microseconds timestamp.'},
                 ),
                 'returns': {'type': 'str', 'desc': 'A STIX formatted timestamp string.'},
             }
@@ -1171,7 +1171,7 @@ class LibStixExport(s_stormtypes.Lib):
         return StixBundle(self, self.runt, config)
 
     def timestamp(self, tick):
-        dt = datetime.datetime.fromtimestamp(tick / 1000.0, datetime.UTC)
+        dt = datetime.datetime.fromtimestamp(tick / 1000000.0, datetime.UTC)
         millis = int(dt.microsecond / 1000)
         return f'{dt.strftime("%Y-%m-%dT%H:%M:%S")}.{millis:03d}Z'
 

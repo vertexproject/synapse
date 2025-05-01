@@ -1062,7 +1062,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('pkg.list --verbose')
             self.stormIsInPrint('not available', msgs)
 
-            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000}}
+            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000000}}
             await core.addStormPkg(pkg2)
             self.eq('4.5.6', await core.callStorm('return($lib.pkg.get(hoho).version)'))
             msgs = await core.stormlist('pkg.list --verbose')
@@ -1154,7 +1154,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq('11.22.33.44', ipv4)
 
             sodes = await core.callStorm('inet:ip=11.22.33.44 return($node.getStorNodes())', opts=opts)
-            self.eq((1577836800000, 1577836800001), sodes[0]['tags']['foo'])
+            self.eq((1577836800000000, 1577836800000001), sodes[0]['tags']['foo'])
             self.eq((99, 9, None), sodes[0]['props']['asn'])
             self.eq(((4, 185999660), 26, None), sodes[1]['valu'])
             self.eq(('unicast', 1, None), sodes[1]['props']['type'])
@@ -1172,14 +1172,14 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('inet:ip=11.22.33.44 | merge', opts=opts)
             self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip:asn = 99', msgs)
-            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo = ('2020-01-01T00:00:00.000Z', '2020-01-01T00:00:00.001Z')", msgs)
+            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
             self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo:score = 100", msgs)
             self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip DATA foo = 'bar'", msgs)
             self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip +(refs)> a0df14eab785847912993519f5606bbe741ad81afb51b81455ac6982a5686436', msgs)
 
             msgs = await core.stormlist('ps:person | merge --diff', opts=opts)
             self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip:asn = 99', msgs)
-            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo = ('2020-01-01T00:00:00.000Z', '2020-01-01T00:00:00.001Z')", msgs)
+            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
             self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo:score = 100", msgs)
             self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip DATA foo = 'bar'", msgs)
             self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip +(refs)> a0df14eab785847912993519f5606bbe741ad81afb51b81455ac6982a5686436', msgs)
@@ -1590,15 +1590,24 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     runt.reqAdmin(gateiden=layr)
 
+    async def test_storm_node_opts(self):
+
+        async with self.getTestCore() as core:
+
             await core.stormlist('[ inet:fqdn=vertex.link ]')
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
 
-            opts = {'view': fork, 'show:storage': True}
+            opts = {'view': fork, 'node:opts': {'show:storage': True}}
             msgs = await core.stormlist('inet:fqdn=vertex.link [ +#foo ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
             self.len(1, nodes)
             self.nn(nodes[0][1]['storage'][1]['props']['.created'])
             self.eq((None, None), nodes[0][1]['storage'][0]['tags']['foo'])
+
+            opts = {'node:opts': {'virts': True}}
+            msgs = await core.stormlist('[ it:exec:query=* :time=2025-04? ]', opts=opts)
+            nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
+            self.eq(nodes[0][1]['props']['time*precision'], 8)
 
     async def test_storm_diff_merge(self):
 
@@ -1868,7 +1877,7 @@ class StormTest(s_t_utils.SynTest):
 
             await core.nodes('diff | merge --exclude-props ou:org:url ".seen" --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.eq(nodes[0].get('lifespan'), (1609459200000, 9223372036854775807))
+            self.eq(nodes[0].get('lifespan'), (1609459200000000, 9223372036854775807000))
             self.none(nodes[0].get('url'))
             self.none(nodes[0].get('.seen'))
 
@@ -2093,8 +2102,8 @@ class StormTest(s_t_utils.SynTest):
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view2)
             sode = sodes[0]
             self.eq(sode['props'].get('desc')[0], 'layr1')
-            self.eq(sode['props'].get('.seen')[0], (1640995200000, 1640995200001))
-            self.eq(sode['tags'].get('hehe.haha'), (1640995200000, 1640995200001))
+            self.eq(sode['props'].get('.seen')[0], (1640995200000000, 1640995200000001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1640995200000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.len(1, await core.nodes('ou:org=(foo,) -(_bar)> *', opts=view2))
             data = await core.callStorm('ou:org=(foo,) return($node.data.get(foo))', opts=view2)
@@ -2123,8 +2132,8 @@ class StormTest(s_t_utils.SynTest):
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view3)
             sode = sodes[0]
             self.eq(sode['props'].get('desc')[0], 'layr1')
-            self.eq(sode['props'].get('.seen')[0], (1640995200000, 1672531200001))
-            self.eq(sode['tags'].get('hehe.haha'), (1640995200000, 1672531200001))
+            self.eq(sode['props'].get('.seen')[0], (1640995200000000, 1672531200000001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1672531200000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.eq(sode['tagprops'].get('two').get('score')[0], 1)
 
@@ -2140,8 +2149,8 @@ class StormTest(s_t_utils.SynTest):
 
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view2)
             sode = sodes[0]
-            self.eq(sode['props'].get('.seen')[0], (1640995200000, 1672531200001))
-            self.eq(sode['tags'].get('hehe.haha'), (1640995200000, 1672531200001))
+            self.eq(sode['props'].get('.seen')[0], (1640995200000000, 1672531200000001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1672531200000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.eq(sode['tagprops'].get('two').get('score')[0], 1)
             self.len(1, await core.nodes('ou:org=(foo,) -(_bar)> *', opts=view2))
@@ -2171,8 +2180,8 @@ class StormTest(s_t_utils.SynTest):
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view3)
             sode = sodes[0]
             self.eq(sode['props'].get('desc')[0], 'prio')
-            self.eq(sode['props'].get('.seen')[0], (1640995200000, 1704067200001))
-            self.eq(sode['tags'].get('hehe.haha'), (1640995200000, 1704067200001))
+            self.eq(sode['props'].get('.seen')[0], (1640995200000000, 1704067200000001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1704067200000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 2)
             self.eq(sode['tagprops'].get('two').get('score')[0], 2)
             self.len(1, await core.nodes('ou:org=(foo,) -(_bar)> *', opts=view3))
@@ -2250,7 +2259,7 @@ class StormTest(s_t_utils.SynTest):
             await nodes[0].getEmbeds({'newp::newp': {}})
             await nodes[0].getEmbeds({'asn::name::foo': {}})
 
-            opts = {'embeds': {'inet:ip': {'asn': ('name',)}}}
+            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('name',)}}}}
             msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
 
             nodes = [m[1] for m in msgs if m[0] == 'node']
@@ -2258,7 +2267,7 @@ class StormTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq('hehe', node[1]['embeds']['asn']['name'])
 
-            opts = {'embeds': {'ou:org': {'email::fqdn': ('zone',)}}}
+            opts = {'node:opts': {'embeds': {'ou:org': {'email::fqdn': ('zone',)}}}
             msgs = await core.stormlist('[ ou:org=* :place:country=* :email=visi@vertex.link ]', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
@@ -2273,10 +2282,10 @@ class StormTest(s_t_utils.SynTest):
                 'sha1': '40b8e76cff472e593bd0ba148c09fec66ae72362'
             }
             opts['view'] = fork
-            opts['show:storage'] = True
-            opts['embeds']['ou:org']['lol::nope'] = ('notreal',)
-            opts['embeds']['ou:org']['place:country::flag'] = ('md5', 'sha1')
-            opts['embeds']['ou:org']['place:country::tld'] = ('domain',)
+            opts['node:opts']['show:storage'] = True
+            opts['node:opts']['embeds']['ou:org']['lol::nope'] = ('notreal',)
+            opts['node:opts']['embeds']['ou:org']['place:country::flag'] = ('md5', 'sha1')
+            opts['node:opts']['embeds']['ou:org']['place:country::tld'] = ('domain',)
 
             await core.stormlist('pol:country [ :flag={[ file:bytes=* :md5=fa818a259cbed7ce8bc2a22d35a464fc ]} ]')
 
@@ -2360,15 +2369,17 @@ class StormTest(s_t_utils.SynTest):
             ''')
 
             opts = {
-                'embeds': {
-                    'risk:vulnerable': {
-                        'vuln': ['name'],
-                        'node': ['name'],
-                    },
-                    'inet:service:rule': {
-                        'object': ['mitigated', 'newp'],
-                        'object::node': ['name', 'newp'],
-                        'grantee': ['id', 'newp'],
+                'node:opts': {
+                    'embeds': {
+                        'risk:vulnerable': {
+                            'vuln': ['name'],
+                            'node': ['name'],
+                        },
+                        'inet:service:rule': {
+                            'object': ['mitigated', 'newp'],
+                            'object::node': ['name', 'newp'],
+                            'grantee': ['id', 'newp'],
+                        }
                     }
                 }
             }
@@ -3506,7 +3517,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(4, nodes)
 
             q = 'inet:ip=1.2.3.4 | tee --join { -> * } { <- * }'
-            msgs = await core.stormlist(q, opts={'links': True})
+            msgs = await core.stormlist(q, opts={'node:opts': {'links': True}})
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(4, nodes)
 
@@ -4200,10 +4211,10 @@ class StormTest(s_t_utils.SynTest):
         opts = pars.parse_args(['2022'])
         self.none(opts)
         errmesg = pars.exc.errinfo['mesg']
-        self.eq('Invalid choice for argument <foo> (choose from: 2022, 1672531200000): 1640995200000', errmesg)
+        self.eq('Invalid choice for argument <foo> (choose from: 2022, 1672531200000000): 1640995200000000', errmesg)
 
         pars.help()
-        self.eq('  <foo>                       : foohelp (choices: 2022, 1672531200000)', pars.mesgs[-1])
+        self.eq('  <foo>                       : foohelp (choices: 2022, 1672531200000000)', pars.mesgs[-1])
 
         # choices - nargs
         pars = s_storm.Parser()
@@ -4455,7 +4466,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq(sorted([n.ndef[1] for n in nodes]), ['test1', 'test2'])
 
             q = '[(test:str=refs) (test:str=foo)] $v=$node.value() | lift.byverb $v'
-            msgs = await core.stormlist(q, opts={'links': True})
+            msgs = await core.stormlist(q, opts={'node:opts': {'links': True}})
             nodes = [n[1] for n in msgs if n[0] == 'node']
             self.len(4, nodes)
             self.eq({n[0][1] for n in nodes},
