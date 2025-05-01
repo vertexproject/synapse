@@ -1211,7 +1211,10 @@ modeldefs = (
 
         'edges': (
             (('inet:whois:iprecord', 'has', 'inet:ip'), {
-                'doc': 'The source IP whois record describes the target IP address.'}),
+                'doc': 'The IP whois record describes the IP address.'}),
+
+            (('inet:cidr', 'has', 'inet:ip'), {
+                'doc': 'The CIDR block contains the IP address.'}),
         ),
 
         'types': (
@@ -1845,16 +1848,15 @@ modeldefs = (
 
                 ('broadcast', ('inet:ip', {}), {
                     'ro': True,
-                    'doc': 'The broadcast IP address from the CIDR notation.'
-                }),
+                    'doc': 'The broadcast IP address from the CIDR notation.'}),
+
                 ('mask', ('int', {}), {
                     'ro': True,
-                    'doc': 'The mask from the CIDR notation.'
-                }),
+                    'doc': 'The mask from the CIDR notation.'}),
+
                 ('network', ('inet:ip', {}), {
                     'ro': True,
-                    'doc': 'The network IP address from the CIDR notation.'
-                }),
+                    'doc': 'The network IP address from the CIDR notation.'}),
             )),
 
             ('inet:client', {}, (

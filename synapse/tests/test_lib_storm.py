@@ -1877,7 +1877,7 @@ class StormTest(s_t_utils.SynTest):
 
             await core.nodes('diff | merge --exclude-props ou:org:url ".seen" --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.eq(nodes[0].get('lifespan'), (1609459200000000, 9223372036854775807000))
+            self.eq(nodes[0].get('lifespan'), (1609459200000000, 9223372036854775807))
             self.none(nodes[0].get('url'))
             self.none(nodes[0].get('.seen'))
 
@@ -2267,7 +2267,7 @@ class StormTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq('hehe', node[1]['embeds']['asn']['name'])
 
-            opts = {'node:opts': {'embeds': {'ou:org': {'email::fqdn': ('zone',)}}}
+            opts = {'node:opts': {'embeds': {'ou:org': {'email::fqdn': ('zone',)}}}}
             msgs = await core.stormlist('[ ou:org=* :place:country=* :email=visi@vertex.link ]', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
