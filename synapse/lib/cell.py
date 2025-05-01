@@ -1731,7 +1731,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             for p in path[:-1]:
                 step = step[p]
             step[path[-1]] = valu
-        except (KeyError, IndexError) as exc:
+        except (KeyError, IndexError):
             raise s_exc.BadArg(mesg=f'Invalid path {path}')
 
         return await self.drive.setItemData(iden, vers, item)
@@ -1753,8 +1753,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             for p in path[:-1]:
                 step = step[p]
             del step[path[-1]]
-        except (KeyError, IndexError) as exc:
-            raise s_exc.BadArg(mesg=f'Invalid path {path}')
+        except (KeyError, IndexError):
+            return
 
         return await self.drive.setItemData(iden, vers, item)
 
