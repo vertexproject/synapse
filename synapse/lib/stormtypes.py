@@ -9158,6 +9158,9 @@ class LibCron(Lib):
 
         query = await tostr(query)
 
+        name = kwargs.get('name', '')
+        doc = kwargs.get('doc', '')
+
         for optname in ('day', 'hour', 'minute'):
             opts = kwargs.get(optname)
 
@@ -9205,6 +9208,8 @@ class LibCron(Lib):
             reqdicts.append({'now': True})
 
         cdef = {'storm': query,
+                'name': name,
+                'doc': doc,
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
