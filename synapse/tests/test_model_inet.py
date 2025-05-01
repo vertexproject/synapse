@@ -2074,7 +2074,7 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:record', '0c63f6b67c9a3ca40f9f942957a718e9'))
             self.eq(node.get('fqdn'), 'woot.com')
-            self.eq(node.get('asof'), 2554848000000000)
+            self.eq(node.get('asof'), 1765929600000000)
             self.eq(node.get('text'), 'yelling at pennywise@vertex.link loudly')
             self.eq(node.get('registrar'), 'cool registrar')
             self.eq(node.get('registrant'), 'cool registrant')
