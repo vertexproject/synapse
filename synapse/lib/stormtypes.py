@@ -8367,13 +8367,13 @@ class LibTrigger(Lib):
         iden = trig.iden
         edits = await toprim(edits)
 
+        viewedit = edits.pop('view', None)
         viewiden = trig.view.iden
         for name in edits:
-            self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
-
-        viewedit = None
-        if 'view' in edits:
-            viewedit = edits.pop('view')
+            if name == 'user':
+                self.runt.confirm(('trigger', 'set', 'user'))
+            else:
+                self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
 
         if edits:
             trigview = self.runt.view.core.getView(viewiden)
