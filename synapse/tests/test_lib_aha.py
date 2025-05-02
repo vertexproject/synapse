@@ -148,7 +148,7 @@ class AhaTest(s_test.SynTest):
                     self.len(1 * replaymult, await wait00.wait(timeout=6))
 
                     svc = await aha.getAhaSvc('0.cryo...')
-                    linkiden = svc.get('svcinfo', {}).get('online')
+                    linkiden = svc.get('online')
 
                     # Tear down the Aha cell.
                     await aha.__aexit__(None, None, None)
@@ -157,12 +157,12 @@ class AhaTest(s_test.SynTest):
                 async with self.getTestAha(dirn=dirn) as aha:
                     self.true(await asyncio.wait_for(stream.wait(), timeout=12))
                     svc = await aha.getAhaSvc('0.cryo...')
-                    self.notin('online', svc.get('svcinfo'))
+                    self.notin('online', svc)
 
                     # Try setting something down a second time
                     await aha.setAhaSvcDown('0.cryo...', linkiden)
                     svc = await aha.getAhaSvc('0.cryo...')
-                    self.notin('online', svc.get('svcinfo'))
+                    self.notin('online', svc)
 
     async def test_lib_aha_basics(self):
 
@@ -308,7 +308,7 @@ class AhaTest(s_test.SynTest):
                     result = info.get('result')
                     self.len(2, result)
                     self.eq({'0.cryo.synapse', 'cryo.synapse'},
-                            {svcinfo.get('name') for svcinfo in result})
+                            {svcdef.get('name') for svcdef in result})
 
                 # test Handler.reqNoBody() use...
                 async with sess.get(svcsurl, json={'foo': 'bar'}) as resp:
@@ -442,17 +442,17 @@ class AhaTest(s_test.SynTest):
 
                     self.none(await wait00.wait(timeout=2))
 
-                    svc = await aha.getAhaSvc('0.cryo...')
-                    self.none(svc)
+                    svcdef = await aha.getAhaSvc('0.cryo...')
+                    self.none(svcdef)
 
                     wait01 = aha.waiter(1 * replaymult, 'aha:svc:add')
                     aha.testerr = False
 
                     self.nn(await wait01.wait(timeout=2))
 
-                    svc = await aha.getAhaSvc('0.cryo...')
-                    self.nn(svc)
-                    self.nn(svc.get('svcinfo', {}).get('online'))
+                    svcdef = await aha.getAhaSvc('0.cryo...')
+                    self.nn(svcdef)
+                    self.nn(svcdef.get('online'))
 
                     async with await s_telepath.openurl('aha://0.cryo...') as proxy:
                         self.nn(await proxy.getCellIden())
@@ -949,7 +949,7 @@ class AhaTest(s_test.SynTest):
 
         async with self.getTestAha() as aha:  # type: s_aha.AhaCell
 
-            async with self.addSvcToAha(aha, '00.exec...', ExecTeleCaller) as conn:
+            async with self.addSvcToAha(aha, '00.exec', ExecTeleCaller) as conn:
                 ahaurl = aha.getMyUrl()
                 await conn.exectelecall(ahaurl, 'getNexsIndx')
 
@@ -992,23 +992,22 @@ class AhaTest(s_test.SynTest):
                     await svc1.sync()
 
                     # Get Aha services
-                    snfo = await aha.getAhaSvc('01.svc...')
-                    self.true(snfo['svcinfo']['ready'])
+                    svcdef = await aha.getAhaSvc('01.svc...')
+                    self.true(svcdef['ready'])
 
-                    online = snfo['svcinfo']['online']
-                    self.nn(online)
+                    self.nn(svcdef['online'])
 
                 # Restart aha
                 async with self.getTestAha(dirn=ahadirn) as aha:
 
-                    snfo = await aha._waitAhaSvcDown('01.svc...', timeout=10)
-                    self.none(snfo['svcinfo'].get('online'))
-                    self.false(snfo['svcinfo']['ready'])
+                    svcdef = await aha._waitAhaSvcDown('01.svc...', timeout=10)
+                    self.none(svcdef.get('online'))
+                    self.false(svcdef['ready'])
 
                     # svc01 has reconnected and the ready state has been re-registered
-                    snfo = await aha._waitAhaSvcOnline('01.svc...', timeout=10)
-                    self.nn(snfo['svcinfo']['online'])
-                    self.true(snfo['svcinfo']['ready'])
+                    svcdef = await aha._waitAhaSvcOnline('01.svc...', timeout=10)
+                    self.nn(svcdef['online'])
+                    self.true(svcdef['ready'])
 
     async def test_aha_service_pools(self):
 
@@ -1185,7 +1184,7 @@ class AhaTest(s_test.SynTest):
                     await svc1.sync()
 
                     snfo = self.nn(await aha.getAhaSvc('01.svc...'))
-                    self.true(snfo['svcinfo']['ready'])
+                    self.true(snfo['ready'])
 
                 # Now re-deploy the AHA Service and re-provision the two cells
                 # with the same AHA configuration
@@ -1208,7 +1207,7 @@ class AhaTest(s_test.SynTest):
 
                     # Get Aha services
                     snfo = self.nn(await aha.getAhaSvc('01.svc...'))
-                    self.true(snfo['svcinfo']['ready'])
+                    self.true(snfo['ready'])
 
     async def test_aha_provision_longname(self):
         # Run a long network name and try provisioning with values that would exceed CSR

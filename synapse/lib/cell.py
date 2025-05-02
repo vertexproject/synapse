@@ -1826,17 +1826,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         lisn = self.conf.get('dmon:listen')
         if lisn is None:
             return
-        print(f'LISN: {lisn}')
-        ahalead = self.conf.get('aha:leader')
 
         ready = await self.nexsroot.isNexsReady()
         svcdef = {
             'run': runiden,
             'iden': celliden,
-            'leader': ahalead,
             'ready': ready,
             'urlinfo': s_telepath.chopurl(lisn),
         }
+
+        leader = self.conf.get('aha:leader')
+        if leader is not None:
+            svcdef['leader'] = leader
 
         if isinstance(self.sockaddr, tuple):
             svcdef['urlinfo']['port'] = self.sockaddr[1]
@@ -1872,9 +1873,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                     await proxy.addAhaSvc(self.ahasvcname, svcdef)
 
-                    ahalead = self.conf.get('aha:leader')
-                    if self.isactive and ahalead is not None:
-                        await proxy.addAhaSvc(f'{ahalead}.{ahanetw}', svcdef)
+                    leader = self.conf.get('aha:leader')
+                    if self.isactive and leader is not None:
+                        await proxy.addAhaSvc(f'{leader}.{ahanetw}', svcdef)
 
                 except Exception as e:
                     extra = await self.getLogExtra()
