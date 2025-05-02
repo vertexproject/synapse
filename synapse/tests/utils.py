@@ -2409,12 +2409,12 @@ class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
         s_glob._clearGlobals()
 
     async def asyncTearDown(self):
-        # FIXME - This is for TESTING only.. remove me before merging.
-        tasks = asyncio.all_tasks()
-        for task in tasks:
-            if 'coro=<SynTestA.asyncTearDown()' in str(task):
+        await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=30)
+        for task in asyncio.all_tasks():
+            coro = task.get_coro()
+            if coro.__name__ == 'asyncTearDown':
                 continue
-            print(f'UNFINISHED TASK: {task}')
+            logger.warning(f'UNFINISHED TASK: {task}')
 
 ONLOAD_TIMEOUT = int(os.getenv('SYNDEV_PKG_LOAD_TIMEOUT', 30))  # seconds
 
