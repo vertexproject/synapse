@@ -2386,7 +2386,7 @@ class SynTest(_SynTestBase, unittest.TestCase):
                 setattr(self, s, s_glob.synchelp(attr))
 
 class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
-    syn_asyncteardown_timeout=30
+    syn_asyncteardown_timeout = 30
 
     def _setupAsyncioRunner(self):
         assert self._asyncioRunner is None, 'asyncio runner is already initialized'
