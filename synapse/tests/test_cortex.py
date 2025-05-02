@@ -5340,7 +5340,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 ip00 = await core00.nodes('[ inet:ip=3.3.3.3 ]')
 
                 await core00.nodes('$lib.queue.add(hehe)')
-                q = 'trigger.add node:add --form inet:fqdn --query {$lib.queue.get(hehe).put($node.repr())}'
+                q = 'trigger.add node:add --form inet:fqdn --storm {$lib.queue.get(hehe).put($node.repr())}'
                 msgs = await core00.stormlist(q)
 
                 ddef = await core00.callStorm('return($lib.dmon.add(${$lib.time.sleep(10)}, name=hehedmon))')
@@ -5596,7 +5596,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core00.nodes('[ inet:ip=1.2.3.4 ]')
                 await core00.nodes('$lib.queue.add(hehe)')
-                q = 'trigger.add node:add --form inet:fqdn --query {$lib.queue.get(hehe).put($node.repr())}'
+                q = 'trigger.add node:add --form inet:fqdn --storm {$lib.queue.get(hehe).put($node.repr())}'
                 await core00.nodes(q)
 
                 url = core00.getLocalUrl()
@@ -6473,9 +6473,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     tdef = {'cond': 'node:add', 'storm': '[test:str="foobar"]', 'form': 'test:int'}
                     opts = {'vars': {'tdef': tdef}}
                     trig = await core.callStorm('return($lib.trigger.add($tdef))', opts=opts)
-                    opts = {'vars': {'trig': trig['iden']}}
+                    opts = {'vars': {'trig': trig['iden'], 'edits': {'enabled': False}}}
 
-                    await core.callStorm('$lib.trigger.disable($trig)', opts=opts)
+                    await core.callStorm('$lib.trigger.mod($trig, $edits)', opts=opts)
                     await core.callStorm('return($lib.trigger.del($trig))', opts=opts)
 
                     async with self.getTestDmon() as dmon:
