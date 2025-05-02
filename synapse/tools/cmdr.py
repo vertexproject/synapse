@@ -9,6 +9,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.coro as s_coro
 import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ async def main(argv):  # pragma: no cover
 
     async with s_telepath.withTeleEnv():
         await _main(argv)
-
+    await s_coro.await_bg_tasks()
     return 0
 
 if __name__ == '__main__':  # pragma: no cover

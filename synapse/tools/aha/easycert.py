@@ -8,6 +8,7 @@ import cryptography.x509 as c_x509
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 
@@ -86,5 +87,10 @@ async def main(argv, outp=None):  # pragma: no cover
 
     return 0
 
+async def _main(argv, outp=s_output.stdout):  # pragma: no cover
+    ret = await main(argv, outp=outp)
+    await s_coro.await_bg_tasks()
+    return ret
+
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(main(sys.argv[1:])))
+    sys.exit(asyncio.run(_main(sys.argv[1:])))

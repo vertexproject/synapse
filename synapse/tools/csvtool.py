@@ -9,8 +9,8 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
-import synapse.lib.base as s_base
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.version as s_version
@@ -235,5 +235,10 @@ def makeargparser(outp):
     pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
     return pars
 
+async def _main(argv, outp=s_output.stdout):  # pragma: no cover
+    ret = await main(argv, outp=outp)
+    await s_coro.await_bg_tasks()
+    return ret
+
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(s_base.main(main(sys.argv[1:]))))
+    sys.exit(asyncio.run(_main(sys.argv[1:])))

@@ -11,6 +11,7 @@ import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
@@ -149,6 +150,11 @@ def makeargparser():
 
     return pars
 
-if __name__ == '__main__':  # pragma: no cover
+async def _main(argv, outp=s_output.stdout):  # pragma: no cover
     s_common.setlogging(logger, 'DEBUG')
-    asyncio.run(main(sys.argv[1:]))
+    ret = await main(argv, outp=outp)
+    await s_coro.await_bg_tasks()
+    return ret
+
+if __name__ == '__main__':  # pragma: no cover
+    sys.exit(asyncio.run(_main(sys.argv[1:])))
