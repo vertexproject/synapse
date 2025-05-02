@@ -242,6 +242,22 @@ reqValidVote = s_config.getJsValidator({
     'additionalProperties': False,
 })
 
+reqValidAhaSvcDef = s_config.getJsValidator({
+    'type': 'object', 'properties': {
+        'run': {'type': 'string', 'pattern': s_config.re_iden},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+        'ready': {'type': 'boolean'},
+        'leader': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+        'online': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'number', 'minval': 0},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'urlinfo': {'type': 'object'},
+    },
+    'additionalProperties': False,
+    'required': ['name', 'iden', 'creator', 'created', 'ready', 'urlinfo'],
+})
+
 reqValidAhaPoolDef = s_config.getJsValidator({
     'type': 'object', 'properties': {
         'name': {'type': 'string', 'minLength': 1},

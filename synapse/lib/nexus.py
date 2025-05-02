@@ -630,10 +630,7 @@ class NexsRoot(s_base.Base):
         try:
             await self.cell.ahaclient.waitready(timeout=5)
             proxy = await self.cell.ahaclient.proxy(timeout=5)
-            ahainfo = await proxy.getCellInfo()
-            ahavers = ahainfo['synapse']['version']
-            if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
-                await proxy.modAhaSvcInfo(self.cell.ahasvcname, {'ready': status})
+            await proxy.setAhaSvcReady(self.cell.ahasvcname, status)
 
         except Exception as e: # pragma: no cover
             logger.exception(f'Error trying to set aha ready: {status}')
