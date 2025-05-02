@@ -2411,6 +2411,8 @@ class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
         # FIXME - This is for TESTING only.. remove me before merging.
         tasks = asyncio.all_tasks()
         for task in tasks:
+            if 'coro=<SynTestA.asyncTearDown()' in str(task):
+                continue
             print(f'UNFINISHED TASK: {task}')
 
 ONLOAD_TIMEOUT = int(os.getenv('SYNDEV_PKG_LOAD_TIMEOUT', 30))  # seconds
