@@ -9,6 +9,10 @@ import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.tests.utils as s_t_utils
+from synapse.common import result
+from synapse.lib.coro import create_task
+from synapse.tests.test_tools_reload import ReloadToolTest
+
 
 class FakeError(Exception): pass
 
@@ -212,3 +216,26 @@ class CoroTest(s_t_utils.SynTest):
 
         with self.raises(Exception):
             await s_coro._parserforked(newp)
+
+    async def test_lib_coro_create_task(self):
+
+        async def sleep(n):
+            await asyncio.sleep(n)
+            if n == 0:
+                return 1 / 0
+            return n
+
+        create_task(sleep(0.1))
+        create_task(sleep(0.15))
+        create_task(sleep(0.2))
+        self.len(3, s_coro.bgtasks)
+        results = await s_coro.await_bg_tasks()
+        self.eq(set(results), {0.1, 0.15, 0.2})
+        self.len(0, s_coro.bgtasks)
+        results = await s_coro.await_bg_tasks()
+        self.eq(results, [])
+
+        create_task(sleep(0))
+        results = await s_coro.await_bg_tasks()
+        self.len(1, results)
+        self.isinstance(results[0], ZeroDivisionError)
