@@ -1026,6 +1026,10 @@ class TeleTest(s_t_utils.SynTestA):
                 self.len(1, await wait.wait(timeout=5))
                 self.len(12, prox.links)
 
+                # Cleanup our global state
+                prox2._all_proxies.remove(prox2)
+                await prox.fini()
+
     async def test_link_fini_breaking_tasks(self):
         foo = Foo()
 
