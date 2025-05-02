@@ -80,6 +80,7 @@ class CommonTest(s_t_utils.SynTestA):
         self.true(s_common.vertup('30.40.50') > (9, 0))
 
     def test_common_file_helpers(self):
+
         # genfile
         with self.getTestDir() as testdir:
             fd = s_common.genfile(testdir, 'woot', 'foo.bin')
