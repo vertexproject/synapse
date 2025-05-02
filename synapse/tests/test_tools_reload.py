@@ -2,7 +2,7 @@ import synapse.tools.reload as s_t_reload
 
 import synapse.tests.utils as s_test
 
-class ReloadToolTest(s_test.SynTest):
+class ReloadToolTest(s_test.SynTestA):
 
     async def test_tool_reload(self):
         outp = self.getTestOutp()

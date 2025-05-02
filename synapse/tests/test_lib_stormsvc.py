@@ -406,7 +406,7 @@ def patchcore(core, attr, newfunc):
     finally:
         setattr(core, attr, origvalu)
 
-class StormSvcTest(s_test.SynTest):
+class StormSvcTest(s_test.SynTestA):
 
     async def test_storm_svc_cmds(self):
 

@@ -3,7 +3,7 @@ from unittest import mock
 import synapse.tests.utils as s_test
 
 
-class StormScrapeTest(s_test.SynTest):
+class StormScrapeTest(s_test.SynTestA):
 
     async def test_storm_lib_scrape_iface(self):
         pkgdef = {

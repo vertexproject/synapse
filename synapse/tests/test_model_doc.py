@@ -1,6 +1,6 @@
 import synapse.tests.utils as s_tests
 
-class DocModelTest(s_tests.SynTest):
+class DocModelTest(s_tests.SynTestA):
 
     async def test_model_doc(self):
 

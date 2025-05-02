@@ -2,7 +2,7 @@ import synapse.exc as s_exc
 
 import synapse.tests.utils as s_test
 
-class StormlibCacheTest(s_test.SynTest):
+class StormlibCacheTest(s_test.SynTestA):
 
     async def test_storm_lib_cache_fixed(self):
 

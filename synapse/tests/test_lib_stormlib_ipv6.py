@@ -2,7 +2,7 @@ import synapse.exc as s_exc
 
 import synapse.tests.utils as s_test
 
-class StormIpv6Test(s_test.SynTest):
+class StormIpv6Test(s_test.SynTestA):
 
     async def test_storm_ipv6(self):
         async with self.getTestCore() as core:

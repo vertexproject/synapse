@@ -3,7 +3,7 @@ import synapse.lib.jsonstor as s_jsonstor
 
 import synapse.tests.utils as s_test
 
-class JsonStorTest(s_test.SynTest):
+class JsonStorTest(s_test.SynTestA):
 
     async def test_lib_jsonstor_popprop(self):
 

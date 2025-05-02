@@ -8,7 +8,7 @@ import synapse.lib.stormlib.cell as s_stormlib_cell
 import synapse.tests.utils as s_test
 import synapse.tests.test_lib_stormsvc as s_t_stormsvc
 
-class StormCellTest(s_test.SynTest):
+class StormCellTest(s_test.SynTestA):
 
     async def test_stormlib_cell(self):
 

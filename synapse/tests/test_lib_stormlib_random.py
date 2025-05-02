@@ -2,7 +2,7 @@ import synapse.exc as s_exc
 
 import synapse.tests.utils as s_test
 
-class TestLibStormRandom(s_test.SynTest):
+class TestLibStormRandom(s_test.SynTestA):
 
     async def test_stormlib_random_int(self):
         async with self.getTestCore() as core:

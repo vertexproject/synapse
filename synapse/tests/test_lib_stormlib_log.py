@@ -5,7 +5,7 @@ import synapse.tests.utils as s_test
 logname = 'synapse.storm.log'
 
 
-class LogTest(s_test.SynTest):
+class LogTest(s_test.SynTestA):
 
     async def test_stormlib_log(self):
 

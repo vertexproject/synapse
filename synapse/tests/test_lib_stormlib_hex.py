@@ -2,7 +2,7 @@ import synapse.exc as s_exc
 
 import synapse.tests.utils as s_test
 
-class StormLibHexTest(s_test.SynTest):
+class StormLibHexTest(s_test.SynTestA):
 
     async def test_stormlib_hex(self):
 

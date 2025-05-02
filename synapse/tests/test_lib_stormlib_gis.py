@@ -2,7 +2,7 @@ import synapse.exc as s_exc
 
 import synapse.tests.utils as s_test
 
-class StormLibGisTest(s_test.SynTest):
+class StormLibGisTest(s_test.SynTestA):
 
     async def test_stormlib_gis_bbox(self):
 

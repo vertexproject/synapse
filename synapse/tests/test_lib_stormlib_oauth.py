@@ -213,7 +213,7 @@ class HttpOAuth2Token(s_httpapi.Handler):
                 'error_description': 'bad refresh token'
             })
 
-class OAuthTest(s_test.SynTest):
+class OAuthTest(s_test.SynTestA):
 
     async def test_storm_oauth_v1(self):
         async with self.getTestCore() as core:

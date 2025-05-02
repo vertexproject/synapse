@@ -2407,9 +2407,15 @@ class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
         '''
         s_glob._clearGlobals()
 
+    async def asyncTearDown(self):
+        # FIXME - This is for TESTING only.. remove me before merging.
+        tasks = asyncio.all_tasks()
+        for task in tasks:
+            print(f'UNFINISHED TASK: {task}')
+
 ONLOAD_TIMEOUT = int(os.getenv('SYNDEV_PKG_LOAD_TIMEOUT', 30))  # seconds
 
-class StormPkgTest(SynTest):
+class StormPkgTest(SynTestA):
 
     vcr = None
     assetdir = None

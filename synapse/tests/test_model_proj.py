@@ -1,7 +1,7 @@
 import synapse.exc as s_exc
 import synapse.tests.utils as s_test
 
-class ProjModelTest(s_test.SynTest):
+class ProjModelTest(s_test.SynTestA):
 
     async def test_model_proj(self):
 

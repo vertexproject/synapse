@@ -1,7 +1,7 @@
 import synapse.exc as s_exc
 import synapse.tests.utils as s_test
 
-class MacroTest(s_test.SynTest):
+class MacroTest(s_test.SynTestA):
 
     async def test_stormlib_macro(self):
 

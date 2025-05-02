@@ -296,7 +296,7 @@ def vcrcallbacktst(recorder: vcr.VCR):
     assert isinstance(recorder, vcr.VCR), f'Wrong callback type, got a {type(recorder)}'
     callback_dict['called'] = True
 
-class RStormLibTest(s_test.SynTest):
+class RStormLibTest(s_test.SynTestA):
 
     async def test_lib_rstorm(self):
 

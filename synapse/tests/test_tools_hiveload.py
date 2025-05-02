@@ -29,7 +29,7 @@ htree1 = {
     },
 }
 
-class HiveLoadTest(s_test.SynTest):
+class HiveLoadTest(s_test.SynTestA):
 
     async def test_tools_hiveload_vercheck(self):
         with self.getTestDir() as dirn:

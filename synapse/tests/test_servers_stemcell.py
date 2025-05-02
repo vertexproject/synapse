@@ -14,7 +14,7 @@ import synapse.lib.jsonstor as s_jsonstor
 
 import synapse.servers.stemcell as s_stemcell
 
-class StemCellTest(s_test.SynTest):
+class StemCellTest(s_test.SynTestA):
 
     async def test_servers_stemcell(self):
 

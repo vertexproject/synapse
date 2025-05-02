@@ -6,7 +6,7 @@ import synapse.lib.output as s_output
 import synapse.tests.utils as s_test
 import synapse.tools.livebackup as s_t_livebackup
 
-class LivebackupTest(s_test.SynTest):
+class LivebackupTest(s_test.SynTestA):
 
     async def test_tools_livebackup(self):
         async with self.getTestCore() as core:

@@ -1,6 +1,6 @@
 import synapse.tests.utils as s_test
 
-class BeliefModelTest(s_test.SynTest):
+class BeliefModelTest(s_test.SynTestA):
 
     async def test_model_belief(self):
 

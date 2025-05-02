@@ -1,6 +1,6 @@
 import synapse.tests.utils as s_test
 
-class TransportTest(s_test.SynTest):
+class TransportTest(s_test.SynTestA):
 
     async def test_model_transport(self):
 

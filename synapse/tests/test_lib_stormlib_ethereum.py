@@ -1,6 +1,6 @@
 import synapse.tests.utils as s_test
 
-class EthereumTest(s_test.SynTest):
+class EthereumTest(s_test.SynTestA):
 
     async def test_storm_ethereum(self):
 

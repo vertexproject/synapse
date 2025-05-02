@@ -20,7 +20,7 @@ tree1 = {
     }
 }
 
-class HiveTest(s_test.SynTest):
+class HiveTest(s_test.SynTestA):
 
     async def test_hive_slab(self):
 

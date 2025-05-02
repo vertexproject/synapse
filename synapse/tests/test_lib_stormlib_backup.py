@@ -6,7 +6,7 @@ import synapse.common as s_common
 
 import synapse.tests.utils as s_test
 
-class BackupTest(s_test.SynTest):
+class BackupTest(s_test.SynTestA):
 
     async def test_stormlib_backup(self):
 

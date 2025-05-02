@@ -28,7 +28,7 @@ User: visi (04dddd4ff39e4ce00b36c7d526b9eac7)
       [1  ] - bar.baz
 '''.strip())
 
-class ModUserTest(s_test.SynTest):
+class ModUserTest(s_test.SynTestA):
 
     async def test_tools_moduser(self):
         async with self.getTestCore() as core:

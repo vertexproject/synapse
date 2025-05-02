@@ -3,7 +3,7 @@ import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_test
 
-class StormlibSpooledTest(s_test.SynTest):
+class StormlibSpooledTest(s_test.SynTestA):
     async def test_lib_spooled_set(self):
         async with self.getTestCore() as core:
             await core.nodes('[inet:ipv4=1.2.3.4 :asn=20]')

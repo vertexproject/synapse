@@ -18,7 +18,7 @@ import synapse.utils.getrefs as s_getrefs
 
 CORE_URL = 'http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json'
 
-class TestUtilsGetrefs(s_utils.SynTest):
+class TestUtilsGetrefs(s_utils.SynTestA):
 
     def getVcr(self):
         fn = f'{self.__class__.__name__}.{self._testMethodName}.yaml'

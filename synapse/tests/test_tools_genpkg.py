@@ -10,7 +10,7 @@ import synapse.tools.genpkg as s_genpkg
 
 dirname = os.path.dirname(__file__)
 
-class GenPkgTest(s_test.SynTest):
+class GenPkgTest(s_test.SynTestA):
 
     @staticmethod
     def setDirFileModes(dirn, mode):

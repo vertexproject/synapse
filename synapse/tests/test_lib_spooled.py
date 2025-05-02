@@ -4,7 +4,7 @@ import synapse.tests.utils as s_test
 
 import synapse.lib.spooled as s_spooled
 
-class SpooledTest(s_test.SynTest):
+class SpooledTest(s_test.SynTestA):
 
     async def test_spooled_set(self):
         async with await s_spooled.Set.anit(size=2) as sset:

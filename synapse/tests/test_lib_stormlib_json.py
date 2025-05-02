@@ -6,7 +6,7 @@ import synapse.lib.stormlib.json as s_json
 
 import synapse.tests.utils as s_test
 
-class JsonTest(s_test.SynTest):
+class JsonTest(s_test.SynTestA):
 
     async def test_stormlib_json(self):
 

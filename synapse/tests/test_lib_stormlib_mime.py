@@ -31,7 +31,7 @@ html01 = '''
 for fun
 '''
 
-class StormlibMimeTest(s_test.SynTest):
+class StormlibMimeTest(s_test.SynTestA):
 
     async def test_stormlib_mime_html(self):
 

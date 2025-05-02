@@ -13,7 +13,7 @@ async def getApiKeyByName(core, name):
     keys = {k.get('name'): k async for k in core.getApiKeys()}
     return keys.get(name)
 
-class ApiKeyTest(s_test.SynTest):
+class ApiKeyTest(s_test.SynTestA):
 
     async def test_tools_apikey(self):
         async with self.getTestCore() as core:

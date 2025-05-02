@@ -55,7 +55,7 @@ jsonsbuf = b'''
 {"fqdn": "woot.com"}
 '''.strip(b'\n')
 
-class StormTypesTest(s_test.SynTest):
+class StormTypesTest(s_test.SynTestA):
 
     async def test_stormtypes_copy(self):
 

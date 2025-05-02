@@ -17,7 +17,7 @@ import synapse.lib.version as s_version
 import synapse.tests.utils as s_tests
 import synapse.tests.test_axon as s_t_axon
 
-class HttpApiTest(s_tests.SynTest):
+class HttpApiTest(s_tests.SynTestA):
 
     async def test_reqauth(self):
 

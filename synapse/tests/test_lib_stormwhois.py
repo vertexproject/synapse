@@ -2,7 +2,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_test
 
-class StormWhoisTest(s_test.SynTest):
+class StormWhoisTest(s_test.SynTestA):
 
     async def test_storm_whois_guid(self):
 

@@ -304,7 +304,7 @@ VECTORS_UNNORMAL = [
     )
 ]
 
-class InfoSecTest(s_test.SynTest):
+class InfoSecTest(s_test.SynTestA):
 
     async def test_stormlib_infosec(self):
 

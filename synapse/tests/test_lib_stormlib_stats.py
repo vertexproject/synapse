@@ -115,7 +115,7 @@ chartipv4_byname = '''
 '''.strip()
 
 
-class StatsTest(s_test.SynTest):
+class StatsTest(s_test.SynTestA):
 
     async def test_stormlib_stats_countby(self):
 

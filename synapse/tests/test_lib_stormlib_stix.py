@@ -10,7 +10,7 @@ import synapse.tests.utils as s_test
 
 # flake8: noqa: E501
 
-class StormLibStixTest(s_test.SynTest):
+class StormLibStixTest(s_test.SynTestA):
 
     def bundeq(self, bund0, bund1):
 

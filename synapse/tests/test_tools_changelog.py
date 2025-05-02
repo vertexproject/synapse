@@ -2,7 +2,7 @@ import synapse.tests.utils as s_test_utils
 
 import synapse.tools.changelog as s_t_changelog
 
-class ChangelogToolTest(s_test_utils.SynTest):
+class ChangelogToolTest(s_test_utils.SynTestA):
 
     async def test_model_diff(self):
         outp = self.getTestOutp()

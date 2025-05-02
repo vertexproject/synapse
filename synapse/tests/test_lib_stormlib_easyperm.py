@@ -5,7 +5,7 @@ import synapse.lib.layer as s_layer
 
 import synapse.tests.utils as s_test
 
-class StormlibEasyPermTest(s_test.SynTest):
+class StormlibEasyPermTest(s_test.SynTestA):
 
     async def test_stormlib_easyperm_basics(self):
 

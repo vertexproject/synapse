@@ -47,7 +47,7 @@ class HttpBadJson(s_httpapi.Handler):
     async def get(self):
         self.write(b'{"foo": "bar\x80"}')
 
-class StormHttpTest(s_test.SynTest):
+class StormHttpTest(s_test.SynTestA):
 
     async def test_storm_http_get(self):
 

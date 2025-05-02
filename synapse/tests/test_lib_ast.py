@@ -121,7 +121,7 @@ foo_stormpkg = {
     ],
 }
 
-class AstTest(s_test.SynTest):
+class AstTest(s_test.SynTestA):
 
     async def test_mode_search(self):
 
