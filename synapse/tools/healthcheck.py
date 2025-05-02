@@ -114,4 +114,3 @@ async def _main(argv, outp=s_output.stdout):  # pragma: no cover
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(_main(sys.argv[1:])))
-
