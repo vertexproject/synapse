@@ -2386,6 +2386,7 @@ class SynTest(_SynTestBase, unittest.TestCase):
                 setattr(self, s, s_glob.synchelp(attr))
 
 class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
+    syn_asyncteardown_timeout=30
 
     def _setupAsyncioRunner(self):
         assert self._asyncioRunner is None, 'asyncio runner is already initialized'
@@ -2403,13 +2404,25 @@ class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
             Teardown a custom resource created in ``setUp()`` or ``asyncSetUp()``::
 
                 def teardown():
-                    super().tearDown()
                     self.my_custom_resource.close()
+                    super().tearDown()
         '''
         s_glob._clearGlobals()
 
     async def asyncTearDown(self):
-        await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=30)
+        '''
+        Test teardown method which awaits any registered Synapse background tasks.
+
+        Implementors who define their own ``asyncTearDown`` method should also call this via ``super()``.
+
+        Examples:
+            Teardown a custom resource created in ``asyncSetUp()``::
+
+                def asyncTearDown():
+                    await self.my_custom_resource.close()
+                    await super().asyncTearDown()
+        '''
+        await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=self.syn_asyncteardown_timeout)
         for task in asyncio.all_tasks():
             coro = task.get_coro()
             if coro.__name__ == 'asyncTearDown':
@@ -2464,8 +2477,8 @@ class _StormPkgTest:
         '''
         pass
 
-class StormPkgTest(SynTest, _StormPkgTest):
+class StormPkgTest(_StormPkgTest, SynTest):
     pass
 
-class StormPkgTestA(SynTestA, _StormPkgTest):
+class StormPkgTestA(_StormPkgTest, SynTestA):
     pass
