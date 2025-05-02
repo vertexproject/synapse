@@ -2377,6 +2377,7 @@ class _SynTestBase:
 
 class SynTest(_SynTestBase, unittest.TestCase):
     def __init__(self, *args, **kwargs):
+        s_common.deprecated('SynTest is deprecated, use SynTestA for isolated asyncio testign.')
         unittest.TestCase.__init__(self, *args, **kwargs)
         for s in dir(self):
             attr = getattr(self, s, None)
@@ -2417,8 +2418,7 @@ class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
 
 ONLOAD_TIMEOUT = int(os.getenv('SYNDEV_PKG_LOAD_TIMEOUT', 30))  # seconds
 
-class StormPkgTest(SynTestA):
-
+class _StormPkgTest:
     vcr = None
     assetdir = None
     pkgprotos = ()
@@ -2463,3 +2463,9 @@ class StormPkgTest(SynTestA):
         This is executed after the package has been loaded and a VCR context has been entered.
         '''
         pass
+
+class StormPkgTest(SynTest, _StormPkgTest):
+    pass
+
+class StormPkgTestA(SynTestA, _StormPkgTest):
+    pass
