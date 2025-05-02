@@ -127,7 +127,7 @@ def makeargparser():
 
 async def _main(argv, outp=s_output.stdout):  # pragma: no cover
     ret = await main(argv, outp=outp)
-    await s_coro.await_bg_tasks()
+    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
     return ret
 
 if __name__ == '__main__':  # pragma: no cover

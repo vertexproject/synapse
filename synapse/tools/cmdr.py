@@ -52,7 +52,7 @@ async def main(argv):  # pragma: no cover
 
     async with s_telepath.withTeleEnv():
         await _main(argv)
-    await s_coro.await_bg_tasks()
+    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
     return 0
 
 if __name__ == '__main__':  # pragma: no cover
