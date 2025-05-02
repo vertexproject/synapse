@@ -208,9 +208,10 @@ def run_telepath_sync_genr_break(url: str,
         assert len(msgs) == emesg, f'Got {len(msgs)} messages, expected {emesg}'
 
         # Get the link from the pool, add the fini callback and put it back
-        link = s_glob.sync(prox.getPoolLink())
+        # This involves reaching into the proxy internals to do so.
+        link = prox.links.popleft()
         link.onfini(evt1.set)
-        s_glob.sync(prox._putPoolLink(link))
+        prox.links.append(link)
 
         # Break from the generator right away, causing a
         # GeneratorExit in the GenrHelp object __iter__ method.
