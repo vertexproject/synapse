@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where an AHA promotion would result in services following fixed
+  mirror values, instead of dynamic mirror values.
+prs: []
+type: bug
+...
