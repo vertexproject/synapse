@@ -2394,6 +2394,36 @@ class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
         runner = asyncio.Runner(debug=_SYN_ASYNCIO_DEBUG)
         self._asyncioRunner = runner
 
+    async def _syn_task_check(self):
+        '''
+        Log warnings for unfinished synapse background tasks & unclosed asyncio tasks.
+        These messages likely indicate unclosed resources from test methods.
+        '''
+        all_tasks = asyncio.all_tasks()
+        for task in s_coro.bgtasks:
+            logger.warning(f'Unfinished Synapse background task, this may indicate unclosed resources: {task}')
+            if task in all_tasks:
+                all_tasks.remove(task)
+        for task in all_tasks:
+            if task.get_coro().__name__ == '_syn_task_check':
+                continue
+            logger.warning(f'Unfinished asyncio task, this may indicate unclosed resources: {task}')
+
+    async def asyncSetUp(self):
+        '''
+        Async test setup method. This registers cleanup() handlers to warn about unfinished tasks.
+
+        Implementors who define their own ``asyncSetUp`` method should also call this via ``super()``.
+
+        Examples:
+            Setup a custom resource via ``asyncSetUp()``::
+
+                async def asyncSetUp():
+                    await super().asyncSetUp()
+                    await self.my_custom_resource.doit()
+        '''
+        self.addAsyncCleanup(self._syn_task_check)
+
     def tearDown(self):
         '''
         Test teardown method which clears globals in ``synapse.glob`` which may have been set.
@@ -2408,22 +2438,6 @@ class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
                     super().tearDown()
         '''
         s_glob._clearGlobals()
-
-    async def asyncTearDown(self):
-        '''
-        Test teardown method which awaits any registered Synapse background tasks.
-
-        Implementors who define their own ``asyncTearDown`` method should also call this via ``super()``.
-
-        Examples:
-            Teardown a custom resource created in ``asyncSetUp()``::
-
-                def asyncTearDown():
-                    await self.my_custom_resource.close()
-                    await super().asyncTearDown()
-        '''
-        for task in s_coro.bgtasks:
-            logger.warning(f'Unfinished background task, this may indicate unclosed resources: {task}')
 
 ONLOAD_TIMEOUT = int(os.getenv('SYNDEV_PKG_LOAD_TIMEOUT', 30))  # seconds
 
