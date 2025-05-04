@@ -2422,12 +2422,8 @@ class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
                     await self.my_custom_resource.close()
                     await super().asyncTearDown()
         '''
-        await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=self.syn_asyncteardown_timeout)
-        for task in asyncio.all_tasks():
-            coro = task.get_coro()
-            if coro.__name__ == 'asyncTearDown':
-                continue
-            logger.warning(f'UNFINISHED TASK: {task}')
+        for task in s_coro.bgtasks:
+            logger.warning(f'Unfinished background task, this may indicate unclosed resources: {task}')
 
 ONLOAD_TIMEOUT = int(os.getenv('SYNDEV_PKG_LOAD_TIMEOUT', 30))  # seconds
 
