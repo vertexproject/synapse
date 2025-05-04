@@ -3342,16 +3342,20 @@ class AstTest(s_test.SynTestA):
             await self.asyncraises(s_exc.IsRuntForm, nodes[0].delEdge('foo', 'bar'))
 
             q = 'inet:ipv4=1.2.3.4 [ <(newp)+ { syn:prop } ]'
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Edges cannot be used with runt nodes', msgs)
 
             q = 'syn:prop [ -(newp)> { inet:ipv4=1.2.3.4 } ]'
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Edges cannot be used with runt nodes', msgs)
 
             q = 'inet:ipv4=1.2.3.4 [ <(newp)- { syn:prop } ]'
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Edges cannot be used with runt nodes', msgs)
 
             q = 'inet:ipv4=1.2.3.4 [ -(newp)> { syn:prop } ]'
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Edges cannot be used with runt nodes', msgs)
 
     async def test_ast_subgraph_2pass(self):
 

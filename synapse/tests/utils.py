@@ -2405,7 +2405,7 @@ class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
             if task in all_tasks:
                 all_tasks.remove(task)
         for task in all_tasks:
-            if task.get_coro().__name__ == '_syn_task_check':
+            if getattr(task.get_coro(), '__name__', '') == '_syn_task_check':
                 continue
             logger.warning(f'Unfinished asyncio task, this may indicate unclosed resources: {task}')
 
