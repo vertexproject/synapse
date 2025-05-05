@@ -106,10 +106,6 @@ class UtilsTest(s_test.SynTest):
 
             await lowuser.allow(('node', 'prop', 'set', 'file:bytes'))
 
-            opts = {
-                'user': lowuser.iden,
-                'vars': {'data': data}
-            }
             nodes = await core.nodes('yield $lib.utils.tofile($data)', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('file:bytes', f'sha256:{sha256}'))
