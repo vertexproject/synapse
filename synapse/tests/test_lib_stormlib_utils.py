@@ -72,6 +72,13 @@ class UtilsTest(s_test.SynTest):
             self.eq(nodes[0].nid, nid)
 
         async with self.getTestCore() as core:
+            # Type checking
+            with self.raises(s_exc.BadArg) as exc:
+                await core.nodes('yield $lib.utils.tofile(newpstring)')
+
+            mesg = '$lib.utils.tofile() requires a bytes argument.'
+            self.eq(exc.exception.get('mesg'), mesg)
+
             # Verify permission checks
 
             layriden = core.view.layers[0].iden
