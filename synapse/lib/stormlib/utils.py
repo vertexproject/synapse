@@ -35,10 +35,10 @@ class LibUtils(s_stormtypes.Lib):
          ''',
          'type': {'type': 'function', '_funcname': '_libUtilsToFile',
                   'args': (
-                      {'name': 'data', 'type': 'bytes',
+                      {'name': 'valu', 'type': 'bytes',
                        'desc': 'The file data.'},
                   ),
-                  'returns': {'type': 'file:bytes', 'desc': 'The file:bytes node representing the supplied data.'},
+                  'returns': {'type': 'node', 'desc': 'The file:bytes node representing the supplied data.'},
         }},
     )
     _storm_lib_path = ('utils',)
