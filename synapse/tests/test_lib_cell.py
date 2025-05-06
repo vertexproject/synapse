@@ -362,7 +362,7 @@ class CellTest(s_t_utils.SynTest):
 
                 await self.asyncraises(s_exc.NoSuchIden, cell.delDriveItemProp(s_common.guid(), versinfo, 'blorp'))
 
-                await self.asyncraises(s_exc.BadArg, cell.delDriveItemProp(iden, versinfo, ('lolnope', 'nopath')))
+                self.none(await cell.delDriveItemProp(iden, versinfo, ('lolnope', 'nopath')))
 
                 versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
                 self.eq('woot', data.get('woot'))
