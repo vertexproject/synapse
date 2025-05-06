@@ -35,7 +35,6 @@ class LibUtils(s_stormtypes.Lib):
     def getObjLocals(self):
         return {
             'todo': self._libUtilsTodo,
-            'tofile': self._libUtilsToFile,
             'type': self._libUtilsType,
         }
 
