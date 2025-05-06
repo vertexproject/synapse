@@ -17,7 +17,7 @@ class Axon2to3Test(s_test.SynTest):
             path = os.path.join(dirn, 'axon.lmdb')
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 hist = s_lmdbslab.Hist(slab, 'history')
-                
+
                 for tick, item in zip(ticks, items):
                     hist.add(item, tick=tick)
 
