@@ -1183,6 +1183,12 @@ class Model:
 
         return prop
 
+    def _reqIface(self, name):
+        iface = self.ifaces.get(name)
+        if iface is None:
+            raise s_exc.NoSuchIface.init(name)
+        return iface
+
     def _prepIfaceTemplate(self, iface, ifinfo, template=None):
 
         # outer interface templates take precedence
@@ -1190,7 +1196,7 @@ class Model:
             template = {}
 
         for subname, subinfo in iface.get('interfaces', ()):
-            subi = self.ifaces.get(subname)
+            subi = self._reqIface(subname)
             self._prepIfaceTemplate(subi, subinfo, template=template)
 
         template.update(iface.get('template', {}))

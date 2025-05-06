@@ -131,124 +131,9 @@ class FilePath(s_types.Str):
 
         return fullpath, {'subs': subs, 'virts': virts}
 
-class FileBytes(s_types.Str):
-
-    def postTypeInit(self):
-        s_types.Str.postTypeInit(self)
-        self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(list, self._normPyList)
-        self.setNormFunc(tuple, self._normPyList)
-        self.setNormFunc(bytes, self._normPyBytes)
-
-    def _normPyList(self, valu):
-        guid, info = self.modl.type('guid').norm(valu)
-        norm = f'guid:{guid}'
-        return norm, {}
-
-    def _normPyStr(self, valu):
-
-        if valu == '*':
-            guid = s_common.guid()
-            norm = f'guid:{guid}'
-            return norm, {}
-
-        if valu.find(':') == -1:
-            try:
-                # we're ok with un-adorned sha256s
-                if len(valu) == 64 and s_common.uhex(valu):
-                    valu = valu.lower()
-                    subs = {'sha256': valu}
-                    return f'sha256:{valu}', {'subs': subs}
-
-            except binascii.Error as e:
-                mesg = f'invalid unadorned file:bytes value: {e} - valu={valu}'
-                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
-
-            mesg = f'unadorned file:bytes value is not a sha256 - valu={valu}'
-            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
-
-        kind, kval = valu.split(':', 1)
-
-        if kind == 'base64':
-            try:
-                byts = base64.b64decode(kval)
-                return self._normPyBytes(byts)
-            except binascii.Error as e:
-                mesg = f'invalid file:bytes base64 value: {e} - valu={kval}'
-                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
-
-        kval = kval.lower()
-
-        if kind == 'hex':
-            try:
-                byts = s_common.uhex(kval)
-                return self._normPyBytes(byts)
-            except binascii.Error as e:
-                mesg = f'invalid file:bytes hex value: {e} - valu={kval}'
-                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
-
-        if kind == 'guid':
-
-            kval = kval.lower()
-            if not s_common.isguid(kval):
-                raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                        mesg=f'guid is not a guid - valu={kval}')
-
-            return f'guid:{kval}', {}
-
-        if kind == 'sha256':
-
-            if len(kval) != 64:
-                mesg = f'invalid length for sha256 value - valu={kval}'
-                raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
-
-            try:
-                s_common.uhex(kval)
-            except binascii.Error as e:
-                mesg = f'invalid file:bytes sha256 value: {e} - valu={kval}'
-                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
-
-            subs = {'sha256': kval}
-            return f'sha256:{kval}', {'subs': subs}
-
-        mesg = f'unable to norm as file:bytes - valu={valu}'
-        raise s_exc.BadTypeValu(name=self.name, valu=valu, kind=kind, mesg=mesg)
-
-    def _normPyBytes(self, valu):
-
-        sha256 = hashlib.sha256(valu).hexdigest()
-
-        norm = f'sha256:{sha256}'
-
-        subs = {
-            'md5': hashlib.md5(valu, usedforsecurity=False).hexdigest(),
-            'sha1': hashlib.sha1(valu, usedforsecurity=False).hexdigest(),
-            'sha256': sha256,
-            'sha512': hashlib.sha512(valu).hexdigest(),
-            'size': len(valu),
-        }
-        return norm, {'subs': subs}
-
-async def _hookFileBytesSha256(node, prop, norm):
-    # this gets called post-norm and curv checks
-    if node.ndef[1].startswith('sha256:'):
-        if node.ndef[1] != f'sha256:{norm}':
-            mesg = "Can't change :sha256 on a file:bytes with sha256 based primary property."
-            raise s_exc.BadTypeValu(mesg=mesg)
-
-async def _onSetFileBytesMime(node, oldv):
-    name = node.get('mime')
-    if name == '??':
-        return
-    await node.view.addNode('file:ismime', (node.ndef[1], name))
-
-
 modeldefs = (
     ('file', {
         'ctors': (
-
-            ('file:bytes', 'synapse.models.files.FileBytes', {}, {
-                'doc': 'The file bytes type with SHA256 based primary property.'}),
 
             ('file:base', 'synapse.models.files.FileBase', {}, {
                 'doc': 'A file name with no path.',
@@ -264,11 +149,12 @@ modeldefs = (
                 'props': (
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that the mime info was parsed from.'}),
+
                     ('file:offs', ('int', {}), {
                         'doc': 'The optional offset where the mime info was parsed from.'}),
+
                     ('file:data', ('data', {}), {
-                        'doc': 'A mime specific arbitrary data structure for non-indexed data.',
-                    }),
+                        'doc': 'A mime specific arbitrary data structure for non-indexed data.'}),
                 ),
                 'doc': 'Properties common to mime specific file metadata types.',
             }),
@@ -331,9 +217,11 @@ modeldefs = (
 
         'types': (
 
+            ('file:bytes', ('guid', {}), {
+                'doc': 'A file.'}),
+
             ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
-                'doc': 'A parent file that fully contains the specified child file.',
-            }),
+                'doc': 'A parent file that fully contains the specified child file.'}),
 
             ('file:attachment', ('guid', {}), {
                 'display': {
@@ -349,149 +237,127 @@ modeldefs = (
                 'doc': 'An archive entry representing a file and metadata within a parent archive file.'}),
 
             ('file:filepath', ('comp', {'fields': (('file', 'file:bytes'), ('path', 'file:path'))}), {
-                'doc': 'The fused knowledge of the association of a file:bytes node and a file:path.',
-            }),
+                'doc': 'The fused knowledge of the association of a file:bytes node and a file:path.'}),
 
             ('file:mime', ('str', {'lower': True}), {
-                'doc': 'A file mime name string.',
                 'ex': 'text/plain',
-            }),
-
-            ('file:ismime', ('comp', {'fields': (('file', 'file:bytes'), ('mime', 'file:mime'))}), {
-                'doc': 'Records one, of potentially multiple, mime types for a given file.',
-            }),
+                'doc': 'A file mime name string.'}),
 
             ('file:mime:msdoc', ('guid', {}), {
-                'doc': 'The GUID of a set of mime metadata for a Microsoft Word file.',
                 'interfaces': (
                     ('file:mime:msoffice', {}),
                 ),
-            }),
+                'doc': 'The GUID of a set of mime metadata for a Microsoft Word file.'}),
 
             ('file:mime:msxls', ('guid', {}), {
-                'doc': 'The GUID of a set of mime metadata for a Microsoft Excel file.',
                 'interfaces': (
                     ('file:mime:msoffice', {}),
                 ),
-            }),
+                'doc': 'The GUID of a set of mime metadata for a Microsoft Excel file.'}),
 
             ('file:mime:msppt', ('guid', {}), {
-                'doc': 'The GUID of a set of mime metadata for a Microsoft Powerpoint file.',
                 'interfaces': (
                     ('file:mime:msoffice', {}),
                 ),
-            }),
+                'doc': 'The GUID of a set of mime metadata for a Microsoft Powerpoint file.'}),
 
             ('file:mime:rtf', ('guid', {}), {
-                'doc': 'The GUID of a set of mime metadata for a .rtf file.',
                 'interfaces': (
                     ('file:mime:meta', {}),
                 ),
-            }),
+                'doc': 'The GUID of a set of mime metadata for a .rtf file.'}),
 
             ('file:mime:jpg', ('guid', {}), {
-                'doc': 'The GUID of a set of mime metadata for a .jpg file.',
                 'interfaces': (
                     ('file:mime:image', {}),
                 ),
-            }),
+                'doc': 'The GUID of a set of mime metadata for a .jpg file.'}),
 
             ('file:mime:tif', ('guid', {}), {
-                'doc': 'The GUID of a set of mime metadata for a .tif file.',
                 'interfaces': (
                     ('file:mime:image', {}),
                 ),
-            }),
+                'doc': 'The GUID of a set of mime metadata for a .tif file.'}),
 
             ('file:mime:gif', ('guid', {}), {
-                'doc': 'The GUID of a set of mime metadata for a .gif file.',
                 'interfaces': (
                     ('file:mime:image', {}),
                 ),
-            }),
+                'doc': 'The GUID of a set of mime metadata for a .gif file.'}),
 
             ('file:mime:png', ('guid', {}), {
-                'doc': 'The GUID of a set of mime metadata for a .png file.',
                 'interfaces': (
                     ('file:mime:image', {}),
                 ),
-            }),
+                'doc': 'The GUID of a set of mime metadata for a .png file.'}),
 
             ('file:mime:pe:section', ('comp', {'fields': (
                     ('file', 'file:bytes'),
                     ('name', 'str'),
                     ('sha256', 'hash:sha256'),
                 )}), {
-                'doc': 'The fused knowledge a file:bytes node containing a pe section.',
-            }),
+                'doc': 'The fused knowledge a file:bytes node containing a pe section.'}),
+
             ('file:mime:pe:resource', ('comp', {'fields': (
                     ('file', 'file:bytes'),
                     ('type', 'pe:resource:type'),
                     ('langid', 'pe:langid'),
                     ('resource', 'file:bytes'))}), {
-                'doc': 'The fused knowledge of a file:bytes node containing a pe resource.',
-            }),
+                'doc': 'The fused knowledge of a file:bytes node containing a pe resource.'}),
+
             ('file:mime:pe:export', ('comp', {'fields': (
                     ('file', 'file:bytes'),
                     ('name', 'str'))}), {
-                'doc': 'The fused knowledge of a file:bytes node containing a pe named export.',
-            }),
+                'doc': 'The fused knowledge of a file:bytes node containing a pe named export.'}),
+
             ('file:mime:pe:vsvers:keyval', ('comp', {'fields': (
                     ('name', 'str'),
                     ('value', 'str'))}), {
-                'doc': 'A key value pair found in a PE vsversion info structure.',
-            }),
+                'doc': 'A key value pair found in a PE vsversion info structure.'}),
+
             ('file:mime:pe:vsvers:info', ('comp', {'fields': (
                     ('file', 'file:bytes'),
                     ('keyval', 'file:mime:pe:vsvers:keyval'))}), {
-                'doc': 'knowledge of a file:bytes node containing vsvers info.',
-            }),
+                'doc': 'knowledge of a file:bytes node containing vsvers info.'}),
 
             ('pe:resource:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
-                'doc': 'The typecode for the resource.',
-            }),
+                'doc': 'The typecode for the resource.'}),
 
             ('pe:langid', ('int', {'enums': s_l_pe.getLangCodes()}), {
-                'doc': 'The PE language id.',
-            }),
+                'doc': 'The PE language id.'}),
 
             ('file:mime:macho:loadcmd', ('guid', {}), {
-                'doc': 'A generic load command pulled from the Mach-O headers.',
                 'interfaces': (
                     ('file:mime:macho:loadcmd', {}),
                 ),
-            }),
+                'doc': 'A generic load command pulled from the Mach-O headers.'}),
 
             ('file:mime:macho:version', ('guid', {}), {
-                'doc': 'A specific load command used to denote the version of the source used to build the Mach-O binary.',
                 'interfaces': (
                     ('file:mime:macho:loadcmd', {}),
                 ),
-            }),
+                'doc': 'A specific load command used to denote the version of the source used to build the Mach-O binary.'}),
 
             ('file:mime:macho:uuid', ('guid', {}), {
-                'doc': 'A specific load command denoting a UUID used to uniquely identify the Mach-O binary.',
                 'interfaces': (
                     ('file:mime:macho:loadcmd', {}),
                 ),
-            }),
+                'doc': 'A specific load command denoting a UUID used to uniquely identify the Mach-O binary.'}),
 
             ('file:mime:macho:segment', ('guid', {}), {
-                'doc': 'A named region of bytes inside a Mach-O binary.',
                 'interfaces': (
                     ('file:mime:macho:loadcmd', {}),
                 ),
-            }),
+                'doc': 'A named region of bytes inside a Mach-O binary.'}),
 
             ('file:mime:macho:section', ('guid', {}), {
-                'doc': 'A section inside a Mach-O binary denoting a named region of bytes inside a segment.',
-            }),
+                'doc': 'A section inside a Mach-O binary denoting a named region of bytes inside a segment.'}),
 
             ('file:mime:lnk', ('guid', {}), {
-                'doc': 'The GUID of the metadata pulled from a Windows shortcut or LNK file.',
-            }),
+                'doc': 'The GUID of the metadata pulled from a Windows shortcut or LNK file.'}),
         ),
         'edges': (
+
             (('file:bytes', 'refs', 'it:dev:str'), {
                 'doc': 'The source file contains the target string.'}),
         ),
@@ -515,6 +381,11 @@ modeldefs = (
                 ('mime', ('file:mime', {}), {
                     'doc': 'The "best" mime type name for the file.'}),
 
+                ('mimes', ('array', {'form': 'file:mime', 'sorted': True, 'uniq': True}), {
+                    'doc': 'An array of alternate mime types for the file.'}),
+
+                # FIXME do we want to split some of these out into mime specific forms?
+                # OMG in there a "fileish" interface we should use?
                 ('mime:x509:cn', ('str', {}), {
                     'doc': 'The Common Name (CN) attribute of the x509 Subject.'}),
 
@@ -540,25 +411,14 @@ modeldefs = (
                 ('mime:pe:richhdr', ('hash:sha256', {}), {
                     'doc': 'The sha256 hash of the rich header bytes.'}),
 
-                ('exe:compiler', ('it:prod:softver', {}), {
+                ('exe:compiler', ('it:software', {}), {
                     'doc': 'The software used to compile the file.'}),
 
-                ('exe:packer', ('it:prod:softver', {}), {
+                ('exe:packer', ('it:software', {}), {
                     'doc': 'The packer software used to encode the file.'}),
             )),
 
             ('file:mime', {}, ()),
-
-            ('file:ismime', {}, (
-                ('file', ('file:bytes', {}), {
-                    'ro': True,
-                    'doc': 'The file node that is an instance of the named mime type.',
-                }),
-                ('mime', ('file:mime', {}), {
-                    'ro': True,
-                    'doc': 'The mime type of the file.',
-                }),
-            )),
 
             ('file:mime:msdoc', {}, ()),
             ('file:mime:msxls', {}, ()),
@@ -577,68 +437,67 @@ modeldefs = (
             ('file:mime:pe:section', {}, (
                 ('file', ('file:bytes', {}), {
                     'ro': True,
-                    'doc': 'The file containing the section.',
-                }),
+                    'doc': 'The file containing the section.'}),
+
                 ('name', ('str', {}), {
                     'ro': True,
-                    'doc': 'The textual name of the section.',
-                }),
+                    'doc': 'The textual name of the section.'}),
+
                 ('sha256', ('hash:sha256', {}), {
                     'ro': True,
-                    'doc': 'The sha256 hash of the section. Relocations must be zeroed before hashing.',
-                }),
+                    'doc': 'The sha256 hash of the section. Relocations must be zeroed before hashing.'}),
             )),
 
             ('file:mime:pe:resource', {}, (
+
                 ('file', ('file:bytes', {}), {
                     'ro': True,
-                    'doc': 'The file containing the resource.',
-                }),
+                    'doc': 'The file containing the resource.'}),
+
                 ('type', ('pe:resource:type', {}), {
                     'ro': True,
-                    'doc': 'The typecode for the resource.',
-                }),
+                    'doc': 'The typecode for the resource.'}),
+
                 ('langid', ('pe:langid', {}), {
                     'ro': True,
-                    'doc': 'The language code for the resource.',
-                }),
+                    'doc': 'The language code for the resource.'}),
+
                 ('resource', ('file:bytes', {}), {
                     'ro': True,
-                    'doc': 'The sha256 hash of the resource bytes.',
-                }),
+                    'doc': 'The sha256 hash of the resource bytes.'}),
             )),
 
             ('file:mime:pe:export', {}, (
+
                 ('file', ('file:bytes', {}), {
                     'ro': True,
-                    'doc': 'The file containing the export.',
-                }),
+                    'doc': 'The file containing the export.'}),
+
                 ('name', ('str', {}), {
                     'ro': True,
-                    'doc': 'The name of the export in the file.',
-                }),
+                    'doc': 'The name of the export in the file.'}),
             )),
 
             ('file:mime:pe:vsvers:keyval', {}, (
+
                 ('name', ('str', {}), {
                     'ro': True,
-                    'doc': 'The key for the vsversion keyval pair.',
-                }),
+                    'doc': 'The key for the vsversion keyval pair.'}),
+
                 ('value', ('str', {}), {
                     'ro': True,
-                    'doc': 'The value for the vsversion keyval pair.',
-                }),
+                    'doc': 'The value for the vsversion keyval pair.'}),
             )),
 
             ('file:mime:pe:vsvers:info', {}, (
+
                 ('file', ('file:bytes', {}), {
                     'ro': True,
-                    'doc': 'The file containing the vsversion keyval pair.',
-                }),
+                    'doc': 'The file containing the vsversion keyval pair.'}),
+
                 ('keyval', ('file:mime:pe:vsvers:keyval', {}), {
                     'ro': True,
-                    'doc': 'The vsversion info keyval in this file:bytes node.',
-                }),
+                    'doc': 'The vsversion info keyval in this file:bytes node.'}),
             )),
 
             ('file:base', {}, (
@@ -647,14 +506,15 @@ modeldefs = (
             )),
 
             ('file:filepath', {}, (
+
                 ('file', ('file:bytes', {}), {
                     'ro': True,
-                    'doc': 'The file seen at a path.',
-                }),
+                    'doc': 'The file seen at a path.'}),
+
                 ('path', ('file:path', {}), {
                     'ro': True,
-                    'doc': 'The path a file was seen at.',
-                }),
+                    'doc': 'The path a file was seen at.'}),
+
             )),
 
             ('file:attachment', {}, (
@@ -711,15 +571,14 @@ modeldefs = (
             ('file:subfile', {}, (
                 ('parent', ('file:bytes', {}), {
                     'ro': True,
-                    'doc': 'The parent file containing the child file.',
-                }),
+                    'doc': 'The parent file containing the child file.'}),
+
                 ('child', ('file:bytes', {}), {
                     'ro': True,
-                    'doc': 'The child file contained in the parent file.',
-                }),
+                    'doc': 'The child file contained in the parent file.'}),
+
                 ('path', ('file:path', {}), {
-                    'doc': 'The path that the parent uses to refer to the child file.',
-                }),
+                    'doc': 'The path that the parent uses to refer to the child file.'}),
             )),
 
             ('file:path', {}, (
@@ -743,88 +602,106 @@ modeldefs = (
                     'doc': 'The UUID of the Mach-O application (as defined in an LC_UUID load command).'}),
             )),
             ('file:mime:macho:segment', {}, (
+
                 ('name', ('str', {}), {
                     'doc': 'The name of the Mach-O segment.'}),
+
                 ('memsize', ('int', {}), {
                     'doc': 'The size of the segment in bytes, when resident in memory, according to the load command structure.'}),
+
                 ('disksize', ('int', {}), {
                     'doc': 'The size of the segment in bytes, when on disk, according to the load command structure.'}),
+
                 ('sha256', ('hash:sha256', {}), {
                     'doc': 'The sha256 hash of the bytes of the segment.'}),
+
                 ('offset', ('int', {}), {
                     'doc': 'The file offset to the beginning of the segment.'}),
             )),
             ('file:mime:macho:section', {}, (
+
                 ('segment', ('file:mime:macho:segment', {}), {
                     'doc': 'The Mach-O segment that contains this section.'}),
+
                 ('name', ('str', {}), {
                     'doc': 'Name of the section.'}),
+
                 ('size', ('int', {}), {
                     'doc': 'Size of the section in bytes.'}),
+
                 ('type', ('int', {'enums': s_l_macho.getSectionTypes()}), {
                     'doc': 'The type of the section.'}),
+
                 ('sha256', ('hash:sha256', {}), {
                     'doc': 'The sha256 hash of the bytes of the Mach-O section.'}),
+
                 ('offset', ('int', {}), {
                     'doc': 'The file offset to the beginning of the section.'}),
             )),
 
             ('file:mime:lnk', {}, (
+
                 ('flags', ('int', {}), {
                     'doc': 'The flags specified by the LNK header that control the structure of the LNK file.'}),
+
                 ('entry:primary', ('file:path', {}), {
                     'doc': 'The primary file path contained within the FileEntry structure of the LNK file.'}),
+
                 ('entry:secondary', ('file:path', {}), {
                     'doc': 'The secondary file path contained within the FileEntry structure of the LNK file.'}),
+
                 ('entry:extended', ('file:path', {}), {
                     'doc': 'The extended file path contained within the extended FileEntry structure of the LNK file.'}),
+
                 ('entry:localized', ('file:path', {}), {
                     'doc': 'The localized file path reconstructed from references within the extended FileEntry structure of the LNK file.'}),
+
                 ('entry:icon', ('file:path', {}), {
                     'doc': 'The icon file path contained within the StringData structure of the LNK file.'}),
+
                 ('environment:path', ('file:path', {}), {
                     'doc': 'The target file path contained within the EnvironmentVariableDataBlock structure of the LNK file.'}),
+
                 ('environment:icon', ('file:path', {}), {
                     'doc': 'The icon file path contained within the IconEnvironmentDataBlock structure of the LNK file.'}),
+
                 ('iconindex', ('int', {}), {
                     'doc': 'A resource index for an icon within an icon location.'}),
+
                 ('working', ('file:path', {}), {
                     'doc': 'The working directory used when activating the link target.'}),
+
                 ('relative', ('str', {'strip': True}), {
                     'doc': 'The relative target path string contained within the StringData structure of the LNK file.'}),
+
                 ('arguments', ('it:cmd', {}), {
                     'doc': 'The command line arguments passed to the target file when the LNK file is activated.'}),
+
                 ('desc', ('str', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'The description of the LNK file contained within the StringData section of the LNK file.'}),
+
                 ('target:attrs', ('int', {}), {
                     'doc': 'The attributes of the target file according to the LNK header.'}),
+
                 ('target:size', ('int', {}), {
                     'doc': 'The size of the target file according to the LNK header. The LNK format specifies that this is only the lower 32 bits of the target file size.'}),
+
                 ('target:created', ('time', {}), {
                     'doc': 'The creation time of the target file according to the LNK header.'}),
+
                 ('target:accessed', ('time', {}), {
                     'doc': 'The access time of the target file according to the LNK header.'}),
+
                 ('target:written', ('time', {}), {
                     'doc': 'The write time of the target file according to the LNK header.'}),
 
                 ('driveserial', ('int', {}), {
                     'doc': 'The drive serial number of the volume the link target is stored on.'}),
+
                 ('machineid', ('it:hostname', {}), {
                     'doc': 'The NetBIOS name of the machine where the link target was last located.'}),
             )),
         ),
-        'hooks': {
-            'pre': {
-                'props': (
-                    ('file:bytes:sha256', _hookFileBytesSha256),
-                ),
-            },
-            'post': {
-                'props': (
-                    ('file:bytes:mime', _onSetFileBytesMime),
-                ),
-            },
-        },
     }),
 )

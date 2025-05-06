@@ -9,71 +9,22 @@ class FileTest(s_t_utils.SynTest):
     async def test_model_filebytes(self):
 
         async with self.getTestCore() as core:
-            valu = 'sha256:' + ('a' * 64)
-            fbyts = core.model.type('file:bytes')
-            norm, info = fbyts.norm(valu)
-            self.eq(info['subs']['sha256'], 'a' * 64)
-
-            norm, info = fbyts.norm('b' * 64)
-            self.eq(info['subs']['sha256'], 'b' * 64)
-
-            # Allow an arbitrary struct to be ground into a file:bytes guid.
-            norm, info = fbyts.norm(('md5', 'b' * 32))
-            self.eq(norm, 'guid:d32efb12cb5a0f83ffd12788572e1c88')
-            self.eq(info, {})
-
-            self.raises(s_exc.BadTypeValu, fbyts.norm, s_common.guid())
-            self.raises(s_exc.BadTypeValu, fbyts.norm, 'guid:0101')
-            self.raises(s_exc.BadTypeValu, fbyts.norm, 'helo:moto')
-            self.raises(s_exc.BadTypeValu, fbyts.norm, f'sha256:{s_common.guid()}')
-            self.raises(s_exc.BadTypeValu, fbyts.norm, 1.23)
 
             nodes = await core.nodes('''
-                [ file:bytes=$byts
-                    :exe:packer = {[ it:prod:softver=* :name="Visi Packer 31337" ]}
-                    :exe:compiler = {[ it:prod:softver=* :name="Visi Studio 31337" ]}
+                [ file:bytes=*
+                    :exe:packer = {[ it:software=* :name="Visi Packer 31337" ]}
+                    :exe:compiler = {[ it:software=* :name="Visi Studio 31337" ]}
                 ]
-            ''', opts={'vars': {'byts': b'visi'}})
-            pref = nodes[0].get('sha256')[:4]
-
+            ''')
             self.nn(nodes[0].get('exe:packer'))
             self.nn(nodes[0].get('exe:compiler'))
-            self.len(1, await core.nodes('file:bytes :exe:packer -> it:prod:softver +:name="Visi Packer 31337"'))
-            self.len(1, await core.nodes('file:bytes :exe:compiler -> it:prod:softver +:name="Visi Studio 31337"'))
-
-            self.len(1, await core.nodes('file:bytes:sha256^=$pref +file:bytes:sha256^=$pref', opts={'vars': {'pref': pref}}))
-
-            with self.raises(s_exc.BadTypeValu):
-                opts = {'vars': {'a': 'a' * 64}}
-                await core.nodes('file:bytes [:sha256=$a]', opts=opts)
-
-            badv = 'z' * 64
-            opts = {'vars': {'z': badv}}
-            msgs = await core.stormlist('[ file:bytes=$z ]', opts=opts)
-            self.stormIsInErr(f'invalid unadorned file:bytes value: Non-hexadecimal digit found - valu={badv}', msgs)
-
-            msgs = await core.stormlist('[ file:bytes=`sha256:{$z}` ]', opts=opts)
-            self.stormIsInErr(f'invalid file:bytes sha256 value: Non-hexadecimal digit found - valu={badv}', msgs)
-
-            msgs = await core.stormlist('[file:bytes=base64:foo]')
-            self.stormIsInErr(f'invalid file:bytes base64 value: Incorrect padding - valu=foo', msgs)
-
-            msgs = await core.stormlist('[file:bytes=hex:foo]')
-            self.stormIsInErr(f'invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
-
-            msgs = await core.stormlist('[file:bytes=hex:foo]')
-            self.stormIsInErr(f'invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
-
-            msgs = await core.stormlist('[file:bytes=guid:foo]')
-            self.stormIsInErr(f'guid is not a guid - valu=foo', msgs)
-
-            msgs = await core.stormlist('[file:bytes=newp:foo]')
-            self.stormIsInErr(f'unable to norm as file:bytes - valu=newp:foo', msgs)
+            self.len(1, await core.nodes('file:bytes :exe:packer -> it:software +:name="Visi Packer 31337"'))
+            self.len(1, await core.nodes('file:bytes :exe:compiler -> it:software +:name="Visi Studio 31337"'))
 
     async def test_model_filebytes_pe(self):
         # test to make sure pe metadata is well formed
         async with self.getTestCore() as core:
-            filea = 'a' * 64
+            filea = s_common.guid()
             exp_time = '201801010233'
             props = {
                 'imphash': 'e' * 32,
@@ -96,7 +47,7 @@ class FileTest(s_t_utils.SynTest):
             self.eq(fnode.get('mime:pe:richhdr'), 'f' * 64)
             # pe resource
             nodes = await core.nodes('[file:mime:pe:resource=$valu]',
-                                     opts={'vars': {'valu': (filea, 2, 0x409, 'd' * 64)}})
+                                     opts={'vars': {'valu': (filea, 2, 0x409, 'd' * 32)}})
             self.len(1, nodes)
             rnode = nodes[0]
             self.eq(rnode.get('langid'), 0x409)
@@ -131,59 +82,51 @@ class FileTest(s_t_utils.SynTest):
 
     async def test_model_filebytes_macho(self):
         async with self.getTestCore() as core:
-            file0 = 'a' * 64
-            nodes = await core.nodes('[file:bytes=$valu]', opts={'vars': {'valu': file0}})
-            self.len(1, nodes)
-            fnode = nodes[0]
 
-            # loadcmds
-            opts = {'vars': {'file': fnode.get('sha256')}}
-            gencmd = await core.nodes('''[
+            fileguid = s_common.guid()
+            opts = {'vars': {'file': fileguid}}
+
+            nodes = await core.nodes('''[
                 file:mime:macho:loadcmd=*
                     :file=$file
                     :type=27
                     :size=123456
             ]''', opts=opts)
-            self.len(1, gencmd)
-            gencmd = gencmd[0]
-            self.eq(27, gencmd.get('type'))
-            self.eq(123456, gencmd.get('size'))
-            self.eq('sha256:' + file0, gencmd.get('file'))
+            self.len(1, nodes)
+            self.eq(nodes[0].get('type'), 27)
+            self.eq(nodes[0].get('size'), 123456)
+            self.eq(nodes[0].get('file'), fileguid)
 
             # uuid
-            opts = {'vars': {'file': fnode.get('sha256')}}
-            uuid = await core.nodes(f'''[
+            nodes = await core.nodes('''[
                 file:mime:macho:uuid=*
                     :file=$file
                     :type=27
                     :size=32
                     :uuid=BCAA4A0BBF703A5DBCF972F39780EB67
             ]''', opts=opts)
-            self.len(1, uuid)
-            uuid = uuid[0]
-            self.eq('bcaa4a0bbf703a5dbcf972f39780eb67', uuid.get('uuid'))
-            self.eq('sha256:' + file0, uuid.get('file'))
+            self.len(1, nodes)
+            self.eq(nodes[0].get('file'), fileguid)
+            self.eq(nodes[0].get('uuid'), 'bcaa4a0bbf703a5dbcf972f39780eb67')
 
             # version
-            ver = await core.nodes(f'''[
+            nodes = await core.nodes('''[
                 file:mime:macho:version=*
                     :file=$file
                     :type=42
                     :size=32
                     :version="7605.1.33.1.4"
             ]''', opts=opts)
-            self.len(1, ver)
-            ver = ver[0]
-            self.eq('7605.1.33.1.4', ver.get('version'))
-            self.eq('sha256:' + file0, ver.get('file'))
-            self.eq(42, ver.get('type'))
-            self.eq(32, ver.get('size'))
-            self.eq('sha256:' + file0, ver.get('file'))
+            self.len(1, nodes)
+            self.eq(nodes[0].get('version'), '7605.1.33.1.4')
+            self.eq(nodes[0].get('file'), fileguid)
+            self.eq(nodes[0].get('type'), 42)
+            self.eq(nodes[0].get('size'), 32)
 
             # segment
             seghash = 'e' * 64
-            opts = {'vars': {'file': file0, 'sha256': seghash}}
-            seg = await core.nodes(f'''[
+            opts = {'vars': {'file': fileguid, 'sha256': seghash}}
+            nodes = await core.nodes('''[
                 file:mime:macho:segment=*
                     :file=$file
                     :type=1
@@ -194,34 +137,31 @@ class FileTest(s_t_utils.SynTest):
                     :sha256=$sha256
                     :offset=1234
             ]''', opts=opts)
-            self.len(1, seg)
-            seg = seg[0]
-            self.eq('sha256:' + file0, seg.get('file'))
-            self.eq(1, seg.get('type'))
-            self.eq(48, seg.get('size'))
-            self.eq('__TEXT', seg.get('name'))
-            self.eq(4092, seg.get('memsize'))
-            self.eq(8192, seg.get('disksize'))
-            self.eq(seghash, seg.get('sha256'))
-            self.eq(1234, seg.get('offset'))
+            self.len(1, nodes)
+            self.eq(nodes[0].get('file'), fileguid)
+            self.eq(nodes[0].get('type'), 1)
+            self.eq(nodes[0].get('size'), 48)
+            self.eq(nodes[0].get('name'), '__TEXT')
+            self.eq(nodes[0].get('memsize'), 4092)
+            self.eq(nodes[0].get('disksize'), 8192)
+            self.eq(nodes[0].get('sha256'), seghash)
+            self.eq(nodes[0].get('offset'), 1234)
 
             # section
-            opts = {'vars': {'seg': seg.ndef[1]}}
-            sect = await core.nodes(f'''[
+            nodes = await core.nodes('''[
                 file:mime:macho:section=*
-                    :segment=$seg
+                    :segment={ file:mime:macho:segment }
                     :name="__text"
                     :size=12
                     :type=0
                     :offset=5678
-            ]''', opts=opts)
-            self.len(1, sect)
-            sect = sect[0]
-            self.eq(seg.ndef[1], sect.get('segment'))
-            self.eq("__text", sect.get('name'))
-            self.eq(12, sect.get('size'))
-            self.eq(0, sect.get('type'))
-            self.eq(5678, sect.get('offset'))
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('segment'))
+            self.eq(nodes[0].get('name'), "__text")
+            self.eq(nodes[0].get('size'), 12)
+            self.eq(nodes[0].get('type'), 0)
+            self.eq(nodes[0].get('offset'), 5678)
 
     async def test_model_file_types(self):
 
@@ -314,38 +254,19 @@ class FileTest(s_t_utils.SynTest):
             self.none(node.get('base:ext'))
             self.none(node.get('dir'))
 
-            nodes = await core.nodes('[file:bytes=$valu]', opts={'vars': {'valu': 'hex:56565656'}})
-            self.len(1, nodes)
+            nodes = await core.nodes('[ file:bytes=* file:bytes=* ]')
+            self.len(2, nodes)
+
             node0 = nodes[0]
-
-            nodes = await core.nodes('[file:bytes=$valu]', opts={'vars': {'valu': 'base64:VlZWVg=='}})
-            self.len(1, nodes)
-            node1 = nodes[0]
-
-            nodes = await core.nodes('[file:bytes=$valu]', opts={'vars': {'valu': b'VVVV'}})
-            self.len(1, nodes)
-            node2 = nodes[0]
-
-            self.eq(node0.ndef, node1.ndef)
-            self.eq(node1.ndef, node2.ndef)
-
-            self.nn(node0.get('md5'))
-            self.nn(node0.get('sha1'))
-            self.nn(node0.get('sha256'))
-            self.nn(node0.get('sha512'))
-
-            nodes = await core.nodes('[file:bytes=$valu]', opts={'vars': {'valu': '*'}})
-            self.len(1, nodes)
-            fake = nodes[0]
-            self.true(fake.ndef[1].startswith('guid:'))
+            node1 = nodes[1]
 
             nodes = await core.nodes('[file:subfile=$valu :path="foo/embed.bin"]',
-                                     opts={'vars': {'valu': (node1.ndef[1], node2.ndef[1])}})
+                                     opts={'vars': {'valu': (node0.ndef[1], node1.ndef[1])}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], (node1.ndef[1], node2.ndef[1]))
-            self.eq(node.get('parent'), node1.ndef[1])
-            self.eq(node.get('child'), node2.ndef[1])
+            self.eq(node.ndef[1], (node0.ndef[1], node1.ndef[1]))
+            self.eq(node.get('parent'), node0.ndef[1])
+            self.eq(node.get('child'), node1.ndef[1])
             self.eq(node.get('path'), 'foo/embed.bin')
 
             fp = 'C:\\www\\woah\\really\\sup.exe'
@@ -363,38 +284,12 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('file:path=""'))
             self.len(1, await core.nodes('file:base="sup.exe"'))
 
-    async def test_model_file_ismime(self):
-
-        async with self.getTestCore() as core:
-
-            nodes = await core.nodes('[ file:bytes="*" :mime=text/PLAIN ]')
-
-            self.len(1, nodes)
-            guid = nodes[0].ndef[1]
-            self.eq('text/plain', nodes[0].get('mime'))
-
-            nodes = await core.nodes('file:mime=text/plain')
-            self.len(1, nodes)
-
-            opts = {'vars': {'guid': guid}}
-            nodes = await core.nodes('file:ismime:file=$guid', opts=opts)
-            self.len(1, nodes)
-
-            node = nodes[0]
-            self.eq(node.ndef, ('file:ismime', (guid, 'text/plain')))
-
-            nodes = await core.nodes('[ file:bytes=(nomime,) :mime="??" ]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('file:ismime:file=(nomime,)')
-            self.len(0, nodes)
-
     async def test_model_file_mime_msoffice(self):
 
         async with self.getTestCore() as core:
 
             fileguid = s_common.guid()
-            opts = {'vars': {'fileguid': f'guid:{fileguid}'}}
+            opts = {'vars': {'fileguid': fileguid}}
 
             def testmsoffice(n):
                 self.eq('lolz', n.get('title'))
@@ -404,7 +299,7 @@ class FileTest(s_t_utils.SynTest):
                 self.eq(1611100800000000, n.get('created'))
                 self.eq(1611187200000000, n.get('lastsaved'))
 
-                self.eq(f'guid:{fileguid}', n.get('file'))
+                self.eq(fileguid, n.get('file'))
                 self.eq(0, n.get('file:offs'))
                 self.eq(('foo', 'bar'), n.get('file:data'))
 
@@ -458,7 +353,7 @@ class FileTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             fileguid = s_common.guid()
-            opts = {'vars': {'fileguid': f'guid:{fileguid}'}}
+            opts = {'vars': {'fileguid': fileguid}}
 
             nodes = await core.nodes('''[
                 file:mime:rtf=*
@@ -469,7 +364,7 @@ class FileTest(s_t_utils.SynTest):
             ]''', opts=opts)
 
             self.len(1, nodes)
-            self.eq(f'guid:{fileguid}', nodes[0].get('file'))
+            self.eq(fileguid, nodes[0].get('file'))
             self.eq(0, nodes[0].get('file:offs'))
             self.eq(('foo', 'bar'), nodes[0].get('file:data'))
             self.eq('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', nodes[0].get('guid'))
@@ -481,13 +376,13 @@ class FileTest(s_t_utils.SynTest):
             fileguid = s_common.guid()
             conguid = s_common.guid()
             opts = {'vars': {
-                        'fileguid': f'guid:{fileguid}',
+                        'fileguid': fileguid,
                         'conguid': conguid
                 }
             }
 
             def testexif(n):
-                self.eq(f'guid:{fileguid}', n.get('file'))
+                self.eq(fileguid, n.get('file'))
                 self.eq(0, n.get('file:offs'))
                 self.eq(('foo', 'bar'), n.get('file:data'))
                 self.eq('aaaa', n.get('desc'))

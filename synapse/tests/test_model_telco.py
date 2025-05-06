@@ -213,6 +213,7 @@ class TelcoModelTest(s_t_utils.SynTest):
     async def test_telco_call(self):
         async with self.getTestCore() as core:
             guid = s_common.guid()
+            file = s_common.guid()
             props = {
                 'src': '+1 (703) 555-1212',
                 'dst': '123 456 7890',
@@ -220,7 +221,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                 'duration': 90,
                 'connected': True,
                 'text': 'I said some stuff',
-                'file': 'sha256:' + 64 * 'f',
+                'file': file,
             }
             q = '''[(tel:call=$valu :src=$p.src :dst=$p.dst :time=$p.time :duration=$p.duration
             :connected=$p.connected :text=$p.text :file=$p.file)]'''
@@ -234,11 +235,12 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('duration'), 90)
             self.eq(node.get('connected'), True)
             self.eq(node.get('text'), 'I said some stuff')
-            self.eq(node.get('file'), 'sha256:' + 64 * 'f')
+            self.eq(node.get('file'), file)
 
     async def test_telco_txtmesg(self):
         async with self.getTestCore() as core:
             guid = s_common.guid()
+            file = s_common.guid()
             props = {
                 'from': '+1 (703) 555-1212',
                 'to': '123 456 7890',
@@ -246,7 +248,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                 'svctype': 'sms',
                 'time': '2001',
                 'text': 'I wrote some stuff',
-                'file': 'sha256:' + 64 * 'b',
+                'file': file,
             }
             q = '''[(tel:txtmesg=$valu :from=$p.from :to=$p.to :recipients=$p.recipients :svctype=$p.svctype
             :time=$p.time :text=$p.text :file=$p.file)]'''
@@ -260,7 +262,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('svctype'), 'sms')
             self.eq(node.get('time'), 978307200000000)
             self.eq(node.get('text'), 'I wrote some stuff')
-            self.eq(node.get('file'), 'sha256:' + 64 * 'b')
+            self.eq(node.get('file'), file)
             # add other valid message types
             nodes = await core.nodes('[tel:txtmesg=* :svctype=mms]')
             self.len(1, nodes)

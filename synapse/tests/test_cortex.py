@@ -3990,7 +3990,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.callStorm('''[
                 (pol:country=$pol
                     :name="some government"
-                    :flag=fd0a257397ee841ccd3b6ba76ad59c70310fd402ea3c9392d363f754ddaa67b5
+                    :flag={[ file:bytes=({"sha256": "fd0a257397ee841ccd3b6ba76ad59c70310fd402ea3c9392d363f754ddaa67b5"}) ]}
                     <(refs)+ { [ pol:race=$race ] }
                     +#some.stuff)
                 (ou:org=$orgA
@@ -5195,7 +5195,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             q = '''
-            [ file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e
+            [ file:bytes=({"sha256": "2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e"})
                 :mime:pe:compiled="1992/06/19 22:22:17.000000"
             ]
             -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)'''

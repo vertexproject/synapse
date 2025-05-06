@@ -71,9 +71,7 @@ class StormLibStixTest(s_test.SynTest):
                 'targetorg': 'c915178f2ddd08145ff48ccbaa551873',
                 'attackorg': 'd820b6d58329662bc5cabec03ef72ffa',
 
-                'softver': 'a920b6d58329662bc5cabec03ef72ffa',
-                'prodsoft': 'a120b6d58329662bc5cabec03ef72ffa',
-
+                'software': 'a920b6d58329662bc5cabec03ef72ffa',
                 'sha256': '00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e',
             }}
 
@@ -96,8 +94,7 @@ class StormLibStixTest(s_test.SynTest):
                 (inet:service:account=(twitter, invisig0th) :platform={[inet:service:platform=* :name=twitter]} :id=invisig0th :user="visi stark" .seen=(2010,2021) :period=2010)
                 (auth:creds=* :service:account=(twitter, invisig0th) :passwd=secret)
                 (syn:tag=cno.mal.redtree :title="Redtree Malware" .seen=(2010, 2020))
-                (it:prod:soft=$prodsoft :name=rar)
-                (it:prod:softver=$softver :software=$prodsoft .seen=(1996, 2021) :vers=2.0.1)
+                (it:software=$software :name=rar :version=2.0.1)
                 inet:dns:a=(vertex.link, 1.2.3.4)
                 inet:dns:aaaa=(vertex.link, "::ff")
                 inet:dns:cname=(vertex.link, vtx.lk)
@@ -121,7 +118,7 @@ class StormLibStixTest(s_test.SynTest):
 
                 file:bytes
                 inet:email:message
-                it:prod:softver
+                it:software
 
                 it:app:yara:rule
                 it:app:snort:rule
@@ -337,7 +334,7 @@ class StormLibStixTest(s_test.SynTest):
             msgs = await core.stormlist('yield $lib.stix.import.ingest($stix)', opts={'view': viewiden, 'vars': {'stix': stix}})
             # self.stormHasNoWarnErr(msgs)
             self.len(1, await core.nodes('entity:contact:name="adversary bravo"', opts={'view': viewiden}))
-            self.len(1, await core.nodes('it:prod:soft', opts={'view': viewiden}))
+            self.len(1, await core.nodes('it:software', opts={'view': viewiden}))
 
             # Pass in a heavy dict object
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
@@ -346,7 +343,7 @@ class StormLibStixTest(s_test.SynTest):
             yield $lib.stix.import.ingest($data)'''
             msgs = await core.stormlist(q, opts={'view': viewiden, 'vars': {'stix': stix}})
             self.len(1, await core.nodes('entity:contact:name="adversary bravo"', opts={'view': viewiden}))
-            self.len(1, await core.nodes('it:prod:soft', opts={'view': viewiden}))
+            self.len(1, await core.nodes('it:software', opts={'view': viewiden}))
 
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
             stix = s_common.yamlload(self.getTestFilePath('stix_import', 'apt1.json'))

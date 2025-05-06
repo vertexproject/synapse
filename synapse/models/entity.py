@@ -5,7 +5,6 @@ modeldefs = (
 
             # FIXME phys:made? ( product :manufacturer :made=<time> etc
             # FIXME meta:sourced?
-            # FIXME attendable? entity:attended?
 
             ('entity:havable', {
                 'template': {'entity:havable': 'item'},
@@ -71,6 +70,7 @@ modeldefs = (
                     ('users', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate user names for the {contactable}.'}),
 
+                    # FIXME deconflict it:adid and it:prod:softid
                     # FIXME modify to it:adid having back linked props?
                     ('adid', ('it:adid', {}), {
                         'doc': 'The primary advertizing ID for the {contactable}.'}),
@@ -88,12 +88,8 @@ modeldefs = (
                 'doc': 'An interface for entities which have initiative to act.'}),
 
             ('entity:abstract', {
-                'interfaces': (
-                    ('entity:actor', {}),
-                ),
                 'props': (
-
-                    # FIXME name? :isreally :owner?
+                    # FIXME name for entity:abstract:resolved
                     ('resolved', ('entity:resolved', {}), {
                         'doc': 'The resolved entity to which this {contactable} belongs.'}),
                 ),
@@ -127,10 +123,12 @@ modeldefs = (
 
             ('entity:contact', ('guid', {}), {
                 'interfaces': (
+
                     ('entity:abstract', {
-                        'interfaces': ('entity:contactable', {
+                        'template': {'contactable': 'contact'}}),
+
+                    ('entity:actor', {
                             'template': {'contactable': 'contact'}}),
-                    }),
                 ),
 
                 'display': {
@@ -224,7 +222,7 @@ modeldefs = (
                 ('percent', ('hugenum', {}), {
                     'doc': 'The percentage of the item owned by the owner.'}),
 
-                # FIXME transaction / exchange event to allow theft or purchase?
+                # FIXME transaction / exchange event to allow theft or purchase (INTERFACE?!)
                 # ('purchase', ('econ:purchase', {}), {
                     # 'doc': 'The purchase event where the owner bought the item.'}),
 

@@ -243,7 +243,7 @@ class StormCliTest(s_test.SynTest):
             view = await core.callStorm('$view = $lib.view.get() $fork=$view.fork() return ( $fork.iden )')
 
             outp = s_output.OutPutStr()
-            await s_t_storm.main(('--view', view, url, f'[file:bytes={"a" * 64}]'), outp=outp)
+            await s_t_storm.main(('--view', view, url, '[file:bytes=246e7d5dab883eb28d345a33abcdb577]'), outp=outp)
             self.len(0, await core.nodes('file:bytes'))
             self.len(1, await core.nodes('file:bytes', opts={'view': view}))
 
@@ -262,7 +262,7 @@ class StormCliTest(s_test.SynTest):
 
                 outp = s_output.OutPutStr()
                 await s_t_storm.main(('--optsfile', optsfile, url, 'file:bytes'), outp=outp)
-                self.isin('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', str(outp))
+                self.isin('file:bytes=246e7d5dab883eb28d345a33abcdb577', str(outp))
 
     async def test_storm_tab_completion(self):
         class DummyStorm:

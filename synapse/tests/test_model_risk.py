@@ -184,7 +184,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :ext:assignee = {[ entity:contact=* :email=visi@vertex.link ]}
                     :url=https://vertex.link/alerts/WOOT-20
                     :id=WOOT-20
-                    :engine={[ it:prod:softver=* :name=visiware ]}
+                    :engine={[ it:software=* :name=visiware ]}
                     :host=*
                     :priority=high
                     :severity=highest
@@ -209,7 +209,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:alert -> it:host'))
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))
             self.len(1, await core.nodes('risk:alert -> risk:attack'))
-            self.len(1, await core.nodes('risk:alert :engine -> it:prod:softver'))
+            self.len(1, await core.nodes('risk:alert :engine -> it:software'))
             self.len(1, await core.nodes('risk:alert :service:account -> inet:service:account'))
             self.len(1, await core.nodes('risk:alert :service:platform -> inet:service:platform'))
             self.len(1, await core.nodes('risk:alert :service:instance -> inet:service:instance'))
@@ -536,8 +536,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(('beacon',), nodes[0].get('soft:names'))
 
             self.len(1, await core.nodes('risk:tool:software -> ou:org'))
-            self.len(1, await core.nodes('risk:tool:software -> it:prod:soft'))
             self.len(1, await core.nodes('risk:tool:software -> syn:tag'))
+            self.len(1, await core.nodes('risk:tool:software -> it:software'))
             self.len(1, await core.nodes('risk:tool:software -> it:mitre:attack:software'))
 
             self.len(1, nodes := await core.nodes('[ risk:tool:software=({"soft:name": "beacon"}) ]'))
@@ -546,15 +546,15 @@ class RiskModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ risk:vuln:soft:range=*
                     :vuln={[ risk:vuln=* :name=woot ]}
-                    :version:min={[ it:prod:softver=* :name=visisoft :vers=1.2.3 ]}
-                    :version:max={[ it:prod:softver=* :name=visisoft :vers=1.3.0 ]}
+                    :version:min={[ it:software=* :name=visisoft :version=1.2.3 ]}
+                    :version:max={[ it:software=* :name=visisoft :version=1.3.0 ]}
                 ]
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('vuln'))
             self.nn(nodes[0].get('version:min'))
             self.nn(nodes[0].get('version:max'))
-            self.len(2, await core.nodes('risk:vuln:name=woot -> risk:vuln:soft:range -> it:prod:softver'))
+            self.len(2, await core.nodes('risk:vuln:name=woot -> risk:vuln:soft:range -> it:software'))
 
     async def test_model_risk_vuln_technique(self):
         async with self.getTestCore() as core:

@@ -153,12 +153,12 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of industry types.'}),
 
-            # FIXME
+            # FIXME should ou:orgnet continue to exist? As a comp type?
             ('ou:orgnet', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net'))}), {
                 'doc': "An organization's IPv4 netblock."}),
 
             ('ou:position', ('guid', {}), {
-                'doc': 'A position within an org which can be organized into an org chart.'}),
+                'doc': 'A position within an org which can be organized into an org chart with replacable contacts.'}),
 
             ('ou:attendee', ('guid', {}), {
                 'doc': 'An individual attending an organized event.'}),
@@ -189,7 +189,7 @@ modeldefs = (
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        # FIXME
+                        # FIXME allow columns to use virtual props
                         # {'type': 'prop', 'opts': {'name': 'period*min'}},
                         # {'type': 'prop', 'opts': {'name': 'period*max'}},
                     ),

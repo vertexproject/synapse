@@ -62,6 +62,10 @@ modeldefs = (
 
             ('risk:threat', ('guid', {}), {
                 'interfaces': (
+
+                    ('entity:actor', {
+                        'template': {'contactable': 'threat'}}),
+
                     ('entity:abstract', {
                         'template': {'contactable': 'threat'}}),
                 ),
@@ -265,10 +269,10 @@ modeldefs = (
             (('risk:mitigation', 'uses', 'inet:service:rule'), {
                 'doc': 'The mitigation uses the service rule.'}),
 
-            (('risk:mitigation', 'uses', 'it:prod:softver'), {
+            (('risk:mitigation', 'uses', 'it:software'), {
                 'doc': 'The mitigation uses the software version.'}),
 
-            (('risk:mitigation', 'uses', 'it:prod:hardware'), {
+            (('risk:mitigation', 'uses', 'it:hardware'), {
                 'doc': 'The mitigation uses the hardware.'}),
 
             (('risk:leak', 'leaked', None), {
@@ -384,7 +388,7 @@ modeldefs = (
                 ('reporter:published', ('time', {}), {
                     'doc': 'The time that the reporting organization first publicly disclosed the tool.'}),
 
-                ('soft', ('it:prod:soft', {}), {
+                ('soft', ('it:software', {}), {
                     'doc': 'The authoritative software family for the tool.'}),
 
                 ('soft:name', ('meta:name', {}), {
@@ -546,12 +550,16 @@ modeldefs = (
                     'doc': 'An array of MITRE CWE values that apply to the vulnerability.'}),
             )),
 
+            # FIXME refactor? ( should this even exist? )
             ('risk:vuln:soft:range', {}, (
+
                 ('vuln', ('risk:vuln', {}), {
                     'doc': 'The vulnerability present in this software version range.'}),
-                ('version:min', ('it:prod:softver', {}), {
+
+                ('version:min', ('it:software', {}), {
                     'doc': 'The minimum version which is vulnerable in this range.'}),
-                ('version:max', ('it:prod:softver', {}), {
+
+                ('version:max', ('it:software', {}), {
                     'doc': 'The maximum version which is vulnerable in this range.'}),
             )),
 
@@ -614,7 +622,7 @@ modeldefs = (
                 ('ext:assignee', ('entity:contact', {}), {
                     'doc': 'The alert assignee contact information from an external system.'}),
 
-                ('engine', ('it:prod:softver', {}), {
+                ('engine', ('it:software', {}), {
                     'doc': 'The software that generated the alert.'}),
 
                 ('detected', ('time', {}), {

@@ -10,33 +10,34 @@ modeldefs = (
         ),
         'forms': (
             ('auth:creds', {}, (
+
                 ('email', ('inet:email', {}), {
-                    'doc': 'The email address used to identify the user.',
-                }),
+                    'doc': 'The email address used to identify the user.'}),
+
                 ('user', ('inet:user', {}), {
-                    'doc': 'The user name used to identify the user.',
-                }),
+                    'doc': 'The user name used to identify the user.'}),
+
                 ('phone', ('tel:phone', {}), {
-                    'doc': 'The phone number used to identify the user.',
-                }),
+                    'doc': 'The phone number used to identify the user.'}),
+
                 ('passwd', ('inet:passwd', {}), {
-                    'doc': 'The password used to authenticate.',
-                }),
+                    'doc': 'The password used to authenticate.'}),
+
                 ('passwdhash', ('it:auth:passwdhash', {}), {
-                    'doc': 'The password hash used to authenticate.',
-                }),
-                ('account', ('it:account', {}), {
-                    'doc': 'The account that the creds allow access to.',
-                }),
+                    'doc': 'The password hash used to authenticate.'}),
+
+                ('account', ('it:host:account', {}), {
+                    'doc': 'The account that the creds allow access to.'}),
+
                 ('website', ('inet:url', {}), {
-                    'doc': 'The base URL of the website that the credentials allow access to.',
-                }),
+                    'doc': 'The base URL of the website that the credentials allow access to.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host that the credentials allow access to.',
-                }),
+                    'doc': 'The host that the credentials allow access to.'}),
+
                 ('wifi:ssid', ('inet:wifi:ssid', {}), {
-                    'doc': 'The WiFi SSID that the credentials allow access to.',
-                }),
+                    'doc': 'The WiFi SSID that the credentials allow access to.'}),
+
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The service account that the credentials allow access to.'}),
                 # TODO x509, rfid, mat:item locks/keys

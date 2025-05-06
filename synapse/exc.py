@@ -288,6 +288,14 @@ class NoSuchVirt(SynErr):
             mesg = f'No virtual prop named {name} on type {ptyp.name}.'
         return NoSuchVirt(mesg=mesg, name=name, ptyp=ptyp.name)
 
+class NoSuchIface(SynErr):
+
+    @classmethod
+    def init(cls, name, mesg=None):
+        if mesg is None:
+            mesg = f'No interface named {name}.'
+        return NoSuchIface(mesg=mesg, name=name)
+
 class NoSuchEdge(SynErr):
 
     @classmethod

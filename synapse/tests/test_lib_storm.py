@@ -1877,7 +1877,7 @@ class StormTest(s_t_utils.SynTest):
 
             await core.nodes('diff | merge --exclude-props ou:org:url ".seen" --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.eq(nodes[0].get('lifespan'), (1609459200000000, 9223372036854775807000))
+            self.eq(nodes[0].get('lifespan'), (1609459200000000, 9223372036854775807))
             self.none(nodes[0].get('url'))
             self.none(nodes[0].get('.seen'))
 
@@ -2267,7 +2267,7 @@ class StormTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq('hehe', node[1]['embeds']['asn']['name'])
 
-            opts = {'node:opts': {'embeds': {'ou:org': {'email::fqdn': ('zone',)}}}
+            opts = {'node:opts': {'embeds': {'ou:org': {'email::fqdn': ('zone',)}}}}
             msgs = await core.stormlist('[ ou:org=* :place:country=* :email=visi@vertex.link ]', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
@@ -2357,7 +2357,7 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('''
                 [( risk:vulnerable=*
                     :mitigated=true
-                    :node={ [ it:prod:hardware=* :name=foohw ] return($node.ndef()) }
+                    :node={ [ it:hardware=* :name=foohw ] return($node.ndef()) }
                     :vuln={[ risk:vuln=* :name=barvuln ]}
                     +#test
                 )]
@@ -5533,23 +5533,25 @@ class StormTest(s_t_utils.SynTest):
 
             size, sha256 = await core.callStorm('return($lib.axon.put($buf))', {'vars': {'buf': b'asdfasdf'}})
 
-            self.len(1, await core.nodes(f'[ file:bytes={sha256} ]'))
+            opts = {'vars': {'sha256': sha256}}
+            self.len(1, await core.nodes('[ file:bytes=({"sha256": $sha256}) ]', opts=opts))
 
-            await core.nodes(f'file:bytes={sha256} | delnode')
-            self.len(0, await core.nodes(f'file:bytes={sha256}'))
+            opts = {'vars': {'sha256': sha256}}
+            await core.nodes('file:bytes | delnode')
+            self.len(0, await core.nodes('file:bytes'))
             self.true(await core.axon.has(s_common.uhex(sha256)))
 
-            self.len(1, await core.nodes(f'[ file:bytes={sha256} ]'))
+            self.len(1, await core.nodes('[ file:bytes=({"sha256": $sha256}) ]', opts=opts))
 
             async with core.getLocalProxy(user='visi') as asvisi:
 
                 with self.raises(s_exc.AuthDeny):
-                    await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
+                    await asvisi.callStorm('file:bytes | delnode --delbytes')
 
                 await visi.addRule((True, ('axon', 'del')))
 
-                await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
-                self.len(0, await core.nodes(f'file:bytes={sha256}'))
+                await asvisi.callStorm('file:bytes | delnode --delbytes')
+                self.len(0, await core.nodes('file:bytes'))
                 self.false(await core.axon.has(s_common.uhex(sha256)))
 
     async def test_lib_dmon_embed(self):

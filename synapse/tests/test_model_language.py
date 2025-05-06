@@ -21,7 +21,7 @@ class LangModuleTest(s_t_utils.SynTest):
             self.eq('es', nodes[0].get('input:lang'))
             self.eq('en.us', nodes[0].get('output:lang'))
             self.eq('Greetings', nodes[0].get('desc'))
-            self.len(1, await core.nodes('lang:translation -> it:prod:softver'))
+            self.len(1, await core.nodes('lang:translation -> it:software'))
 
             self.none(await core.callStorm('return($lib.gen.langByCode(neeeeewp, try=$lib.true))'))
             with self.raises(s_exc.BadTypeValu):
