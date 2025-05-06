@@ -1,5 +1,3 @@
-import synapse.exc as s_exc
-
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
