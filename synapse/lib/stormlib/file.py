@@ -28,6 +28,8 @@ class LibFile(s_stormtypes.Lib):
         }
 
     async def _libFileFromBytes(self, valu):
+        valu = await s_stormtypes.toprim(valu)
+
         if not isinstance(valu, bytes):
             mesg = '$lib.file.frombytes() requires a bytes argument.'
             raise s_exc.BadArg(mesg=mesg)

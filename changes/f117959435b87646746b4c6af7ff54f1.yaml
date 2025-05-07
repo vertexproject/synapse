@@ -1,6 +1,0 @@
----
-desc: Added ``$lib.file.frombytes()`` Storm API for uploading bytes to the connected
-  Axon and creating/updating the corresponding ``file:bytes`` node.
-prs: []
-type: feat
-...
