@@ -898,3 +898,15 @@ class TrigTest(s_t_utils.SynTest):
 
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }')
             self.len(0, await core.callStorm('return($lib.trigger.list())'))
+
+    async def test_trigger_no_edits(self):
+
+        async with self.getTestCore() as core:
+
+            tdef = {'cond': 'node:add', 'storm': '[ test:int=1 ]', 'form': 'test:str'}
+            opts = {'vars': {'tdef': tdef}}
+            q = 'return ($lib.trigger.add($tdef))'
+            node = await core.callStorm(q, opts=opts)
+            opts = {'vars': {'iden': node.get('iden')}}
+            ret = await core.callStorm('$lib.trigger.mod($iden, ({}))', opts=opts)
+            self.eq(ret, None)

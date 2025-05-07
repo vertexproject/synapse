@@ -8383,6 +8383,9 @@ class LibTrigger(Lib):
             trigmods = Trigger(self.runt, trig.tdef)
             await trigmods.setitem('view', viewedit)
 
+        if not edits and not viewedit:
+            return
+
         return trigmods
 
     @stormfunc(readonly=True)
