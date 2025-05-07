@@ -2412,7 +2412,10 @@ class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
         '''
-        Test setup method. This registeres sync cleanup handlers to clear any cached data about io loop references.
+        Test setup method
+
+        This registers a cleanup handler to clear any cached data about IOLoop references.
+        This registers an async cleanup handlers to warn about unfinished asyncio tasks.
 
         Implementors who define their own ``setUp`` method should also call this via ``super()``.
 
@@ -2423,22 +2426,8 @@ class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
                     super().setUp()
                     self.my_sync_resource = Foo()
         '''
-        self.addCleanup(s_glob._clearGlobals)
-
-    async def asyncSetUp(self):
-        '''
-        Async test setup method. This registers async cleanup() handlers to warn about unfinished tasks.
-
-        Implementors who define their own ``asyncSetUp`` method should also call this via ``super()``.
-
-        Examples:
-            Setup a custom resource via ``asyncSetUp()``::
-
-                async def asyncSetUp():
-                    await super().asyncSetUp()
-                    await self.my_custom_resource.doit()
-        '''
         self.addAsyncCleanup(self._syn_task_check)
+        self.addCleanup(s_glob._clearGlobals)
 
 ONLOAD_TIMEOUT = int(os.getenv('SYNDEV_PKG_LOAD_TIMEOUT', 30))  # seconds
 
