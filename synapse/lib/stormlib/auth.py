@@ -589,7 +589,7 @@ stormcmds = (
         'storm': '''
 
             for $pdef in $lib.auth.getPermDefs() {
-                $perm = $lib.str.join(".", $pdef.perm)
+                $perm = ('.').join($pdef.perm)
 
                 if $cmdopts.find {
                     $find = $cmdopts.find.lower()
@@ -643,6 +643,13 @@ class UserProfile(s_stormtypes.Prim):
     def __init__(self, runt, valu, path=None):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.runt = runt
+
+    async def _storm_contains(self, item):
+        item = await s_stormtypes.tostr(item)
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('auth', 'user', 'get', 'profile', item))
+        valu = await self.runt.view.core.getUserProfInfo(self.valu, item, default=s_common.novalu)
+        return valu is not s_common.novalu
 
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
@@ -822,6 +829,11 @@ class UserVars(s_stormtypes.Prim):
     def __init__(self, runt, valu, path=None):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.runt = runt
+
+    async def _storm_contains(self, item):
+        item = await s_stormtypes.tostr(item)
+        valu = await self.runt.view.core.getUserVarValu(self.valu, item, default=s_common.novalu)
+        return valu is not s_common.novalu
 
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
@@ -1046,7 +1058,7 @@ class User(s_stormtypes.Prim):
                       {'name': 'name', 'type': 'str',
                        'desc': 'The name of the API key.'},
                       {'name': 'duration', 'type': 'integer', 'default': None,
-                       'desc': 'Duration of time for the API key to be valid, in milliseconds.'},
+                       'desc': 'Duration of time for the API key to be valid, in microseconds.'},
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list, containing the secret API key and a dictionary containing metadata about the key.'}}},

@@ -34,6 +34,7 @@ Welcome to the Synapse documentation!
 
    synapse/support
 
+   synapse/300_changes
    synapse/changelog
 
 Indices and tables

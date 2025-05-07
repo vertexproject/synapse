@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
 
@@ -341,7 +342,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
         return self._nowtime
 
     async def test_lmdbslab_commit_warn(self):
-        with self.getTestDir() as dirn, patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1), \
+        with self.getTestDir() as dirn, patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MICROS', 1), \
                 patch('synapse.common.now', self.simplenow):
             path = os.path.join(dirn, 'test.lmdb')
             with self.getStructuredAsyncLoggerStream('synapse.lib.lmdbslab', 'Commit with') as stream:
@@ -369,7 +370,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
         # Make sure that we don't confuse the periodic commit with the max replay log commit
         with (self.getTestDir() as dirn,
-              patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1),
+              patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MICROS', 1),
               patch('synapse.lib.lmdbslab.Slab.COMMIT_PERIOD', 100)
               ):
             path = os.path.join(dirn, 'test.lmdb')
@@ -1671,6 +1672,36 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 subkv1 = safekv.getSubKeyVal('pref1')
                 subkv2 = subkv1.getSubKeyVal('pref2')
                 self.eq(list(subkv2.keys()), ['wow'])
+
+    async def test_lmdbslab_scan_grow(self):
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            mapsize = s_const.kibibyte * 32
+            async with await s_lmdbslab.Slab.anit(path, map_size=mapsize) as slab:
+
+                self.eq(slab.mapsize, mapsize)
+
+                def slabset(key, valu):
+                    slab.replace(s_msgpack.en(key), s_msgpack.en(valu))
+
+                def slabitems():
+                    for lkey, lval in slab.scanByFull():
+                        yield s_msgpack.un(lkey), s_msgpack.un(lval)
+
+                slabset('one', [1, 2, 3])
+                slabset('two', [2, 3, 4])
+
+                seen = set()
+                for key, valu in slabitems():
+                    self.notin(key, seen)
+                    seen.add(key)
+
+                    valu += ('A' * mapsize,)
+                    slabset(key, valu)
+
+                self.gt(slab.mapsize, mapsize)
 
     async def test_math(self):
         self.eq(16, s_lmdbslab._florpo2(16))

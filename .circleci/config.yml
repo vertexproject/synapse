@@ -42,7 +42,7 @@ commands:
           command: |
             python3 -m venv --copies venv
             . venv/bin/activate
-            python3 -m pip install -U wheel pip
+            python3 -m pip install -U wheel pip setuptools
             python3 -m pip install -U -r requirements_dev.txt
 
       - run:
@@ -89,7 +89,7 @@ commands:
           command: |
             python3 -m venv --copies venv
             . venv/bin/activate
-            python3 -m pip install -U wheel pip
+            python3 -m pip install -U wheel pip setuptools
 
       - run:
           name: install synapse requirements
@@ -137,14 +137,14 @@ commands:
 
       - restore_cache:
           keys:
-            - v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
+            - v6-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - do_venv_setup
 
       - save_cache:
           paths:
             - ./venv
-          key: v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
+          key: v6-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - do_test_execution
 
@@ -168,20 +168,20 @@ commands:
 
       - restore_cache:
           keys:
-            - v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
+            - v6-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
           name: install python dependencies
           command: |
             python3 -m venv venv
             . venv/bin/activate
-            python3 -m pip install -U wheel pip twine build "importlib_metadata==7.2.1"
+            python3 -m pip install -U wheel pip setuptools twine build
             python3 -m pip install -U -r requirements_dev.txt
 
       - save_cache:
           paths:
             - ./venv
-          key: v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
+          key: v6-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
           name: init .pypirc
@@ -222,7 +222,7 @@ commands:
             cp dist/*.tar.gz /tmp/sdisttest
             cd /tmp/sdisttest
             . ./venv/bin/activate
-            python3 -m pip install -U wheel pip twine "importlib_metadata==7.2.1"
+            python3 -m pip install -U pip twine setuptools
             python3 -m twine check *.tar.gz
             python3 -m pip install *.tar.gz
             python3 -c "$PYPI_SMOKE_CODE"
@@ -247,7 +247,7 @@ commands:
             cp dist/*.whl /tmp/wheeltest
             cd /tmp/wheeltest
             . ./venv/bin/activate
-            python3 -m pip install -U wheel pip twine "importlib_metadata==7.2.1"
+            python3 -m pip install -U wheel pip twine setuptools
             python3 -m twine check *.whl
             python3 -m pip install *.whl
             python3 -c "$PYPI_SMOKE_CODE"
@@ -512,35 +512,37 @@ commands:
 
 jobs:
 
-  python311:
+  python313:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.13
         environment:
-          PYVERS: 3.11
+          PYVERS: 3.13
           RUN_SYNTAX: 1
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_FILE: test_reports/${CIRCLE_SHA1}/.coverage
+          COVERAGE_FILE: test-reports/<< pipeline.git.revision >>/.coverage
           COVERAGE_ARGS: --cov synapse --cov-append
+          COVERAGE_CORE: sysmon
 
     working_directory: ~/repo
 
     steps:
       - test_steps_python
 
-  python311_replay:
+  python313_replay:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.13
         environment:
-          PYVERS: 3.11
+          PYVERS: 3.13
           RUN_SYNTAX: 1
           CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse
           SYNDEV_NEXUS_REPLAY: 1
+          COVERAGE_CORE: sysmon
 
     working_directory: ~/repo
 
@@ -549,9 +551,9 @@ jobs:
 
   doctests:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.13
         environment:
-          PYVERS: 3.11
+          PYVERS: 3.13
 
     working_directory: ~/repo
 
@@ -560,10 +562,10 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.13
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py311
+          PYTHON_TAG: py313
 
     steps:
       - deploy_pypi_prologue
@@ -572,10 +574,10 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.13
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py311
+          PYTHON_TAG: py313
 
     steps:
       - deploy_pypi_prologue
@@ -619,7 +621,7 @@ jobs:
 
   devpi_synapse_3xx:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.13
     steps:
       - checkout
       - run:
@@ -633,7 +635,7 @@ jobs:
       - deploy_to_devpi:
           devpi_base_url: ${DEVPI_BASE_URL}
           devpi_index: vertex/synapse-3xx
-          python_tag: py311
+          python_tag: py313
           tag_verify: false
           python_smoke_code: import synapse; print(synapse.version)
 
@@ -648,20 +650,21 @@ workflows:
             branches:
                only: /.*/
 
-      - python311:
+      - python313:
           filters:
             tags:
               only: /.*/
             branches:
               only: /.*/
 
-      - python311_replay:
+      - python313_replay:
           filters:
             tags:
               only: /.*/
             branches:
               only:
                 - master
+                - synapse-3xx
 
       - python_package_smoketest:
           filters:
@@ -674,8 +677,8 @@ workflows:
       - deploy_pypi:
           requires:
             - doctests
-            - python311
-            - python311_replay
+            - python313
+            - python313_replay
             - python_package_smoketest
           context:
             - PublicPypiAccess
@@ -690,8 +693,8 @@ workflows:
             - Devpi00Access
           requires:
             - doctests
-            - python311
-            - python311_replay
+            - python313
+            - python313_replay
             - python_package_smoketest
           filters:
             tags:
@@ -703,8 +706,8 @@ workflows:
       - gh-release/dorelease:
           requires:
             - doctests
-            - python311
-            - python311_replay
+            - python313
+            - python313_replay
             - python_package_smoketest
           context:
             - GithubMachine
@@ -718,7 +721,7 @@ workflows:
       - build_docker_branch:
           requires:
             - doctests
-            - python311
+            - python313
           context:
             - AWSEcrPusherOSS
             - SynapseDockerCloudUpload
@@ -727,11 +730,12 @@ workflows:
             branches:
               only:
                 - master
+                - synapse-3xx
 
       - build_docker_tag:
           requires:
             - doctests
-            - python311
+            - python313
           context:
             - AWSEcrPusherOSS
             - SynapseDockerCloudUpload
@@ -753,7 +757,7 @@ workflows:
                 - master
     jobs:
       - doctests
-      - python311
+      - python313
 
   weekly:
     triggers:
@@ -764,4 +768,4 @@ workflows:
               only:
                 - master
     jobs:
-      - python311_replay
+      - python313_replay

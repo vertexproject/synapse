@@ -62,20 +62,20 @@ from nodes of those forms.
 
 Examples:
     # Adds a tag to every inet:ipv4 added
-    trigger.add node:add --form inet:ipv4 --query {[ +#mytag ]}
+    trigger.add node:add --form inet:ipv4 --storm {[ +#mytag ]}
 
     # Adds a tag #todo to every node as it is tagged #aka
-    trigger.add tag:add --tag aka --query {[ +#todo ]}
+    trigger.add tag:add --tag aka --storm {[ +#todo ]}
 
     # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
-    trigger.add tag:add --form inet:ipv4 --tag aka --query {[ +#todo ]}
+    trigger.add tag:add --form inet:ipv4 --tag aka --storm {[ +#todo ]}
 
     # Adds a tag #todo to the N1 node of every refs edge add
-    trigger.add edge:add --verb refs --query {[ +#todo ]}
+    trigger.add edge:add --verb refs --storm {[ +#todo ]}
 
     # Adds a tag #todo to the N1 node of every seen edge delete, provided that
     # both nodes are of form file:bytes
-    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes --query {[ +#todo ]}
+    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes --storm {[ +#todo ]}
 '''
 
 addcrondescr = '''
@@ -493,7 +493,7 @@ stormcmds = (
                         if ( $defv = $lib.null ) {
                             $defv = $lib.false
                         }
-                        $text = `{$lib.str.join('.', $permdef.perm).ljust(32)} : {$permdef.desc} ( default: {$defv} )`
+                        $text = `{('.').join($permdef.perm).ljust(32)} : {$permdef.desc} ( default: {$defv} )`
                         $lib.print($text)
                     }
                 } else {
@@ -580,7 +580,7 @@ stormcmds = (
                 $ssl = $lib.true
                 if $cmdopts.ssl_noverify { $ssl = $lib.false }
 
-                $headers = ({'X-Synapse-Version': $lib.str.join('.', $lib.version.synapse())})
+                $headers = ({'X-Synapse-Version': ('.').join($lib.version.synapse())})
 
                 $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl, headers=$headers)
 
@@ -615,7 +615,7 @@ stormcmds = (
             $synv = $lib.version.synapse()
 
             if $synv {
-                $synv = $lib.str.join('.', $synv)
+                $synv = ('.').join($synv)
             }
 
             if $comm {
@@ -736,7 +736,7 @@ stormcmds = (
             ('--prop', {'help': 'Property to fire on.'}),
             ('--verb', {'help': 'Edge verb to fire on.'}),
             ('--n2form', {'help': 'The form of the n2 node to fire on.'}),
-            ('--query', {'help': 'Query for the trigger to execute.', 'required': True,
+            ('--storm', {'help': 'Storm query for the trigger to execute.', 'required': True,
                          'dest': 'storm', }),
             ('--async', {'default': False, 'action': 'store_true',
                          'help': 'Make the trigger run in the background.'}),
@@ -768,14 +768,26 @@ stormcmds = (
     },
     {
         'name': 'trigger.mod',
-        'descr': "Modify an existing trigger's query.",
+        'descr': "Modify an existing trigger.",
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-            ('query', {'help': 'New storm query for the trigger.'}),
+            ('--view', {'help': 'View to move the trigger to.'}),
+            ('--storm', {'help': 'New Storm query for the trigger.'}),
+            ('--user', {'help': 'User to run the trigger as.'}),
+            ('--async', {'help': 'Make the trigger run in the background.'}),
+            ('--enabled', {'help': 'Enable the trigger.'}),
+            ('--name', {'help': 'Human friendly name of the trigger.'}),
+            ('--form', {'help': 'Form to fire on.'}),
+            ('--tag', {'help': 'Tag to fire on.'}),
+            ('--prop', {'help': 'Property to fire on.'}),
         ),
         'storm': '''
-            $iden = $lib.trigger.mod($cmdopts.iden, $cmdopts.query)
-            $lib.print("Modified trigger: {iden}", iden=$iden)
+            $iden = $cmdopts.iden
+            $edits = $lib.copy($cmdopts)
+            $edits.help = $lib.undef
+            $edits.iden = $lib.undef
+            $cdef = $lib.trigger.mod($iden, $edits)
+            $lib.print(`Modified trigger: {$cdef.iden}`)
         ''',
     },
     {
@@ -863,28 +875,6 @@ stormcmds = (
         ''',
     },
     {
-        'name': 'trigger.enable',
-        'descr': 'Enable a trigger in the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-        ),
-        'storm': '''
-            $iden = $lib.trigger.enable($cmdopts.iden)
-            $lib.print("Enabled trigger: {iden}", iden=$iden)
-        ''',
-    },
-    {
-        'name': 'trigger.disable',
-        'descr': 'Disable a trigger in the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-        ),
-        'storm': '''
-            $iden = $lib.trigger.disable($cmdopts.iden)
-            $lib.print("Disabled trigger: {iden}", iden=$iden)
-        ''',
-    },
-    {
         'name': 'cron.add',
         'descr': addcrondescr,
         'cmdargs': (
@@ -918,10 +908,9 @@ stormcmds = (
                                   monthly=$cmdopts.monthly,
                                   yearly=$cmdopts.yearly,
                                   iden=$cmdopts.iden,
-                                  view=$cmdopts.view,)
-
-            if $cmdopts.doc { $cron.set(doc, $cmdopts.doc) }
-            if $cmdopts.name { $cron.set(name, $cmdopts.name) }
+                                  view=$cmdopts.view,
+                                  doc=$cmdopts.doc,
+                                  name=$cmdopts.name)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
@@ -1091,8 +1080,8 @@ stormcmds = (
                     $lib.print('entries:         incunit    incval required')
 
                     for $rec in $job.recs {
-                        $incunit = $lib.str.format('{incunit}', incunit=$rec.incunit).ljust(10)
-                        $incval = $lib.str.format('{incval}', incval=$rec.incval).ljust(6)
+                        $incunit = (`{$rec.incunit}`).ljust(10)
+                        $incval = (`{$rec.incval}`).ljust(6)
 
                         $lib.print('                 {incunit} {incval} {reqdict}',
                                    incunit=$incunit, incval=$incval, reqdict=$rec.reqdict)
@@ -1996,16 +1985,19 @@ class Runtime(s_base.Base):
         info.update({'mode': self.opts.get('mode', 'storm'), 'view': self.view.iden})
         self.view.core._logStormQuery(self.query.text, self.user, info=info)
 
+        nodeopts = self.opts.get('node:opts', {})
+
         # { form: ( embedprop, ... ) }
-        embeds = self.opts.get('embeds')
-        dorepr = self.opts.get('repr', False)
-        dopath = self.opts.get('path', False)
-        dolink = self.opts.get('links', False)
-        show_storage = self.opts.get('show:storage', False)
+        embeds = nodeopts.get('embeds')
+        dorepr = nodeopts.get('repr', False)
+        dopath = nodeopts.get('path', False)
+        dolink = nodeopts.get('links', False)
+        virts = nodeopts.get('virts', False)
+        show_storage = nodeopts.get('show:storage', False)
 
         async for node, path in self.execute():
 
-            pode = node.pack(dorepr=dorepr)
+            pode = node.pack(dorepr=dorepr, virts=virts)
             pode[1]['path'] = await path.pack(path=dopath)
 
             if (nodedata := path.getData(node.nid)) is not None:
@@ -2433,7 +2425,7 @@ class Parser:
                 desc = endpoint.get('desc', '')
                 base = f'    {path}'
                 wrap_desc = self._wrap_text(desc, wrap_w) if desc else ['']
-                self._printf(f'{base:<{base_w-2}}: {wrap_desc[0]}')
+                self._printf(f'{base:<{base_w - 2}}: {wrap_desc[0]}')
                 for ln in wrap_desc[1:]:
                     self._printf(f'{"":<{base_w}}{ln}')
 
@@ -2529,7 +2521,7 @@ class Parser:
 
         first = helplst[0][min_space:]
         wrap_first = self._wrap_text(first, wrap_w)
-        self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
+        self._printf(f'{base:<{base_w - 2}}: {wrap_first[0]}')
 
         for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
         for ln in helplst[1:]:

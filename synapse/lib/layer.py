@@ -238,9 +238,9 @@ STOR_FLAG_ARRAY = 0x8000
 
 # Edit types (etyp)
 
-EDIT_NODE_ADD = 0      # (<etyp>, (<valu>, <type>))
+EDIT_NODE_ADD = 0      # (<etyp>, (<valu>, <type>, <virts>))
 EDIT_NODE_DEL = 1      # (<etyp>, (<oldv>, <type>))
-EDIT_PROP_SET = 2      # (<etyp>, (<prop>, <valu>, <oldv>, <type>))
+EDIT_PROP_SET = 2      # (<etyp>, (<prop>, <valu>, <oldv>, <type>, <virts>))
 EDIT_PROP_DEL = 3      # (<etyp>, (<prop>, <oldv>, <type>))
 EDIT_TAG_SET = 4       # (<etyp>, (<tag>, <valu>, <oldv>))
 EDIT_TAG_DEL = 5       # (<etyp>, (<tag>, <oldv>))
@@ -772,6 +772,59 @@ class StorType:
     def decodeIndx(self, valu):  # pragma: no cover
         return s_common.novalu
 
+    def getVirtIndxVals(self, nid, form, prop, virts):
+
+        layr = self.layr
+        kvpairs = []
+
+        for name, (valu, vtyp) in virts.items():
+
+            abrv = layr.core.setIndxAbrv(INDX_VIRTUAL, form, prop, name)
+
+            if vtyp & STOR_FLAG_ARRAY:
+
+                arryabrv = layr.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, name)
+
+                for indx in layr.getStorIndx(vtyp, valu):
+                    kvpairs.append((arryabrv + indx, nid))
+                    layr.indxcounts.inc(arryabrv)
+
+                for indx in layr.getStorIndx(STOR_TYPE_MSGP, valu):
+                    kvpairs.append((abrv + indx, nid))
+                    layr.indxcounts.inc(abrv)
+
+            else:
+                for indx in layr.getStorIndx(vtyp, valu):
+                    kvpairs.append((abrv + indx, nid))
+                    layr.indxcounts.inc(abrv)
+
+        return kvpairs
+
+    def delVirtIndxVals(self, nid, form, prop, virts):
+
+        layr = self.layr
+
+        for name, (valu, vtyp) in virts.items():
+
+            abrv = layr.core.setIndxAbrv(INDX_VIRTUAL, form, prop, name)
+
+            if vtyp & STOR_FLAG_ARRAY:
+
+                arryabrv = layr.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, name)
+
+                for indx in layr.getStorIndx(vtyp, valu):
+                    layr.layrslab.delete(arryabrv + indx, nid, db=layr.indxdb)
+                    layr.indxcounts.inc(arryabrv, -1)
+
+                for indx in layr.getStorIndx(STOR_TYPE_MSGP, valu):
+                    layr.layrslab.delete(abrv + indx, nid, db=layr.indxdb)
+                    layr.indxcounts.inc(abrv, -1)
+
+            else:
+                for indx in layr.getStorIndx(vtyp, valu):
+                    layr.layrslab.delete(abrv + indx, nid, db=layr.indxdb)
+                    layr.indxcounts.inc(abrv, -1)
+
     async def _liftRegx(self, liftby, valu, reverse=False):
 
         regx = regex.compile(valu, flags=regex.I)
@@ -841,7 +894,7 @@ class StorTypeUtf8(StorType):
 
     def _getIndxByts(self, valu):
 
-        indx = valu.encode('utf8', 'surrogatepass')
+        indx = valu.encode('utf8')
         # cut down an index value to 256 bytes...
         if len(indx) <= 256:
             return indx
@@ -856,7 +909,7 @@ class StorTypeUtf8(StorType):
     def decodeIndx(self, bytz):
         if len(bytz) >= 256:
             return s_common.novalu
-        return bytz.decode('utf8', 'surrogatepass')
+        return bytz.decode('utf8')
 
 class StorTypeHier(StorType):
 
@@ -910,7 +963,7 @@ class StorTypeFqdn(StorTypeUtf8):
     def decodeIndx(self, bytz):
         if len(bytz) >= 256:
             return s_common.novalu
-        return bytz.decode('utf8', 'surrogatepass')[::-1]
+        return bytz.decode('utf8')[::-1]
 
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_UTF8)
@@ -1337,6 +1390,12 @@ class StorTypeTime(StorTypeInt):
             '@=': self._liftAtIval,
         })
 
+    def getVirtIndxVals(self, nid, form, prop, virts):
+        return ()
+
+    def delVirtIndxVals(self, nid, form, prop, virts):
+        return
+
     async def _liftAtIval(self, liftby, valu, reverse=False):
         minindx = self.getIntIndx(valu[0])
         maxindx = self.getIntIndx(valu[1] - 1)
@@ -1484,6 +1543,12 @@ class StorTypeIval(StorType):
 
     def decodeIndx(self, bytz):
         return (self.timetype.decodeIndx(bytz[:8]), self.timetype.decodeIndx(bytz[8:]))
+
+    def getVirtIndxVals(self, nid, form, prop, virts):
+        return ()
+
+    def delVirtIndxVals(self, nid, form, prop, virts):
+        return
 
 class StorTypeMsgp(StorType):
 
@@ -2514,6 +2579,11 @@ class Layer(s_nexus.Pusher):
     async def setLayerInfo(self, name, valu):
         if name != 'readonly':
             self._reqNotReadOnly()
+
+        if name in ('mirror', 'upstream') and valu is not None:
+            mesg = 'Layer only supports setting "mirror" and "upstream" to None.'
+            raise s_exc.BadOptValu(mesg=mesg)
+
         return await self._push('layer:set', name, valu)
 
     @s_nexus.Pusher.onPush('layer:set')
@@ -2521,16 +2591,24 @@ class Layer(s_nexus.Pusher):
         '''
         Set a mutable layer property.
         '''
-        if name not in ('name', 'desc', 'logedits', 'readonly'):
+        if name not in ('name', 'desc', 'logedits', 'readonly', 'mirror', 'upstream'):
             mesg = f'{name} is not a valid layer info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
         if name == 'logedits':
             valu = bool(valu)
             self.logedits = valu
+
         elif name == 'readonly':
             valu = bool(valu)
             self.readonly = valu
+
+        elif name == 'mirror' and valu is None:
+            await self._stopMirror()
+            self.ismirror = False
+
+        elif name == 'upstream' and valu is None:
+            self._stopUpstream()
 
         # TODO when we can set more props, we may need to parse values.
         if valu is None:
@@ -3108,9 +3186,10 @@ class Layer(s_nexus.Pusher):
             await self.layrslab.putmulti(kvpairs, db=self.indxdb)
 
         if self.logedits and nexsitem is not None:
-            nexsindx = nexsitem[0] if nexsitem is not None else None
-            offs = self.nodeeditlog.add(None, indx=nexsindx)
-            [(await wind.put((offs, nodeedits, meta))) for wind in tuple(self.windows)]
+            nexsindx = nexsitem[0]
+            if nexsindx >= self.nodeeditlog.index():
+                offs = self.nodeeditlog.add(None, indx=nexsindx)
+                [(await wind.put((offs, nodeedits, meta))) for wind in tuple(self.windows)]
 
         await asyncio.sleep(0)
         return nodeedits
@@ -3213,9 +3292,9 @@ class Layer(s_nexus.Pusher):
             oldv = None
 
         else:
-            oldv, oldt, _ = props.get(prop, (None, None, None))
+            oldv, oldt, oldvirts = props.get(prop, (None, None, None))
 
-            if valu == oldv:
+            if valu == oldv and virts == oldvirts:
                 return
 
             if oldv is not None:
@@ -3223,15 +3302,18 @@ class Layer(s_nexus.Pusher):
                 if stortype == STOR_TYPE_IVAL:
                     allv = oldv + valu
                     valu = (min(allv), max(allv))
+                    if valu == oldv and stortype == oldt and virts == oldvirts:
+                        return
 
                 elif stortype == STOR_TYPE_MINTIME:
                     valu = min(valu, oldv)
+                    if valu == oldv and stortype == oldt and virts == oldvirts:
+                        return
 
                 elif stortype == STOR_TYPE_MAXTIME:
                     valu = max(valu, oldv)
-
-                if valu == oldv and stortype == oldt:
-                    return
+                    if valu == oldv and stortype == oldt and virts == oldvirts:
+                        return
 
         return (
             (EDIT_PROP_SET, (prop, valu, oldv, stortype, virts)),
@@ -3613,7 +3695,9 @@ class Layer(s_nexus.Pusher):
                 kvpairs.append((maxabrv + indx, nid))
 
         if virts is not None:
-            kvpairs.extend(self.getVirtIndxVals(nid, form, None, virts))
+            if stortype & 0x8000:
+                stortype = stortype & 0x7fff
+            kvpairs.extend(self.stortypes[stortype].getVirtIndxVals(nid, form, None, virts))
 
         if sode.pop('antivalu', None) is not None:
             self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
@@ -3626,6 +3710,7 @@ class Layer(s_nexus.Pusher):
     async def _editNodeDel(self, nid, form, edit, sode, meta):
 
         if (valt := sode.pop('valu', None)) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         (valu, stortype, virts) = valt
@@ -3666,7 +3751,9 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(maxabrv + indx, nid, db=self.indxdb)
 
         if virts is not None:
-            self.delVirtIndxVals(nid, form, None, virts)
+            if stortype & 0x8000:
+                stortype = stortype & 0x7fff
+            self.stortypes[stortype].delVirtIndxVals(nid, form, None, virts)
 
         if self.nodeDelHook is not None:
             self.nodeDelHook()
@@ -3705,6 +3792,7 @@ class Layer(s_nexus.Pusher):
     async def _editNodeTombDel(self, nid, form, edit, sode, meta):
 
         if sode.pop('antivalu', None) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
@@ -3723,6 +3811,9 @@ class Layer(s_nexus.Pusher):
         oldv, oldt, oldvirts = sode['props'].get(prop, (None, None, None))
 
         if valu == oldv:
+            if virts != oldvirts:
+                sode['props'][prop] = (valu, stortype, virts)
+                self.dirty[nid] = sode
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
@@ -3764,6 +3855,8 @@ class Layer(s_nexus.Pusher):
 
             else:
 
+                realtype = oldt
+
                 for oldi in self.getStorIndx(oldt, oldv):
                     self.layrslab.delete(abrv + oldi, nid, db=self.indxdb)
                     self.indxcounts.inc(abrv, -1)
@@ -3799,10 +3892,10 @@ class Layer(s_nexus.Pusher):
                             univmaxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, prop)
                             self.layrslab.delete(univmaxabrv + oldi, nid, db=self.indxdb)
 
-        if oldvirts is not None:
-            self.delVirtIndxVals(nid, form, prop, oldvirts)
-            if univabrv is not None:
-                self.delVirtIndxVals(nid, None, prop, oldvirts)
+            if oldvirts is not None:
+                self.stortypes[realtype].delVirtIndxVals(nid, form, prop, oldvirts)
+                if univabrv is not None:
+                    self.stortypes[realtype].delVirtIndxVals(nid, None, prop, oldvirts)
 
         if (antiprops := sode.get('antiprops')) is not None:
             tomb = antiprops.pop(prop, None)
@@ -3883,9 +3976,13 @@ class Layer(s_nexus.Pusher):
                         kvpairs.append((univmaxabrv + indx, nid))
 
         if virts is not None:
-            kvpairs.extend(self.getVirtIndxVals(nid, form, prop, virts))
-            if univabrv is not None:
-                kvpairs.extend(self.getVirtIndxVals(nid, None, prop, virts))
+            if stortype & 0x8000:
+                stortype = stortype & 0x7fff
+
+            if (virtkeys := self.stortypes[stortype].getVirtIndxVals(nid, form, prop, virts)):
+                kvpairs.extend(virtkeys)
+                if univabrv is not None:
+                    kvpairs.extend(self.stortypes[stortype].getVirtIndxVals(nid, None, prop, virts))
 
         return kvpairs
 
@@ -3894,6 +3991,7 @@ class Layer(s_nexus.Pusher):
         prop = edit[1][0]
 
         if (valt := sode['props'].pop(prop, None)) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         valu, stortype, virts = valt
@@ -3934,6 +4032,8 @@ class Layer(s_nexus.Pusher):
 
         else:
 
+            realtype = stortype
+
             for indx in self.getStorIndx(stortype, valu):
                 self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
                 self.indxcounts.inc(abrv, -1)
@@ -3967,9 +4067,9 @@ class Layer(s_nexus.Pusher):
                     self.indxcounts.inc(univduraabrv, -1)
 
         if virts is not None:
-            self.delVirtIndxVals(nid, form, prop, virts)
+            self.stortypes[realtype].delVirtIndxVals(nid, form, prop, virts)
             if univabrv is not None:
-                self.delVirtIndxVals(nid, None, prop, virts)
+                self.stortypes[realtype].delVirtIndxVals(nid, None, prop, virts)
 
         if not self.mayDelNid(nid, sode):
             self.dirty[nid] = sode
@@ -4002,6 +4102,7 @@ class Layer(s_nexus.Pusher):
         prop = edit[1][0]
 
         if (antiprops := sode.get('antiprops')) is None or antiprops.pop(prop, None) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
@@ -4112,6 +4213,7 @@ class Layer(s_nexus.Pusher):
         tag = edit[1][0]
 
         if (oldv := sode['tags'].pop(tag, None)) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
@@ -4180,6 +4282,7 @@ class Layer(s_nexus.Pusher):
         tag = edit[1][0]
 
         if (antitags := sode.get('antitags')) is None or antitags.pop(tag, None) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
@@ -4288,10 +4391,8 @@ class Layer(s_nexus.Pusher):
 
         tag, prop, _, _ = edit[1]
 
-        if (tp_dict := sode['tagprops'].get(tag)) is None:
-            return ()
-
-        if (oldv := tp_dict.pop(prop, None)) is None:
+        if (tp_dict := sode['tagprops'].get(tag)) is None or (oldv := tp_dict.pop(prop, None)) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         (oldv, oldt) = oldv
@@ -4362,9 +4463,11 @@ class Layer(s_nexus.Pusher):
         tag, prop = edit[1]
 
         if (antitags := sode.get('antitagprops')) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         if (antiprops := antitags.get(tag)) is None or antiprops.pop(prop, None) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         if len(antiprops) == 0:
@@ -4405,7 +4508,8 @@ class Layer(s_nexus.Pusher):
 
         if self.dataslab.delete(nid + abrv + FLAG_NORM, db=self.nodedata):
             self.dataslab.delete(abrv + FLAG_NORM, nid, db=self.dataname)
-            self.mayDelNid(nid, sode)
+
+        self.mayDelNid(nid, sode)
 
         return ()
 
@@ -4435,6 +4539,7 @@ class Layer(s_nexus.Pusher):
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
 
         if not self.dataslab.delete(abrv + FLAG_TOMB, nid, db=self.dataname):
+            self.mayDelNid(nid, sode)
             return ()
 
         self.dataslab.delete(nid + abrv + FLAG_TOMB, db=self.nodedata)
@@ -4507,6 +4612,7 @@ class Layer(s_nexus.Pusher):
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
         if not self.layrslab.delete(vabrv + nid + FLAG_NORM, n2nid, db=self.indxdb):
+            self.mayDelNid(nid, sode)
             return ()
 
         self.layrslab.delete(self.edgen1abrv + nid + vabrv + FLAG_NORM, n2nid, db=self.indxdb)
@@ -4592,6 +4698,7 @@ class Layer(s_nexus.Pusher):
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
         if not self.layrslab.delete(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb):
+            self.mayDelNid(nid, sode)
             return ()
 
         self.layrslab.delete(vabrv + nid + FLAG_TOMB, n2nid, db=self.indxdb)
@@ -4706,56 +4813,6 @@ class Layer(s_nexus.Pusher):
             return retn
 
         return self.stortypes[stortype].indx(valu)
-
-    def getVirtIndxVals(self, nid, form, prop, virts):
-
-        kvpairs = []
-
-        for name, (valu, vtyp) in virts.items():
-
-            abrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, prop, name)
-
-            if vtyp & STOR_FLAG_ARRAY:
-
-                arryabrv = self.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, name)
-
-                for indx in self.getStorIndx(vtyp, valu):
-                    kvpairs.append((arryabrv + indx, nid))
-                    self.indxcounts.inc(arryabrv)
-
-                for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
-                    kvpairs.append((abrv + indx, nid))
-                    self.indxcounts.inc(abrv)
-
-            else:
-                for indx in self.getStorIndx(vtyp, valu):
-                    kvpairs.append((abrv + indx, nid))
-                    self.indxcounts.inc(abrv)
-
-        return kvpairs
-
-    def delVirtIndxVals(self, nid, form, prop, virts):
-
-        for name, (valu, vtyp) in virts.items():
-
-            abrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, prop, name)
-
-            if vtyp & STOR_FLAG_ARRAY:
-
-                arryabrv = self.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, name)
-
-                for indx in self.getStorIndx(vtyp, valu):
-                    self.layrslab.delete(arryabrv + indx, nid, db=self.indxdb)
-                    self.indxcounts.inc(arryabrv, -1)
-
-                for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
-                    self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
-                    self.indxcounts.inc(abrv, -1)
-
-            else:
-                for indx in self.getStorIndx(vtyp, valu):
-                    self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
-                    self.indxcounts.inc(abrv, -1)
 
     async def iterNodeEdgesN1(self, nid, verb=None):
 
@@ -5257,7 +5314,8 @@ class Layer(s_nexus.Pusher):
             form = ndef[0]
 
             edits = []
-            nodeedit = (s_common.int64un(nid), form, edits)
+            intnid = s_common.int64un(nid)
+            nodeedit = (intnid, form, edits)
 
             valt = sode.get('valu')
             if valt is not None:
@@ -5301,6 +5359,11 @@ class Layer(s_nexus.Pusher):
                     edits.append((EDIT_EDGE_TOMB, (verb, s_common.int64un(n2nid))))
                 else:
                     edits.append((EDIT_EDGE_ADD, (verb, s_common.int64un(n2nid))))
+
+                if len(edits) >= 100:
+                    yield nodeedit
+                    edits = []
+                    nodeedit = (intnid, form, edits)
 
             yield nodeedit
 

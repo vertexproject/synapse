@@ -522,6 +522,12 @@ class Agenda(s_base.Base):
                 iden (str)
                     Iden of the appointment.
 
+                name (str)
+                    A name for the appointment.
+
+                doc (str)
+                    A description of the appointment.
+
                 storm (str)
                     The Storm query to run.
 
@@ -602,6 +608,7 @@ class Agenda(s_base.Base):
         self._addappt(iden, appt)
 
         appt.doc = cdef.get('doc', '')
+        appt.name = cdef.get('name', '')
 
         await appt.save()
 

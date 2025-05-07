@@ -1310,6 +1310,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await view.initTrigTask()
                 await view.initMergeTask()
 
+            for pkgdef in list(self.stormpkgs.values()):
+                self._runStormPkgOnload(pkgdef)
+
         self.runActiveTask(_runMigrations())
 
         await self.initStormPool()
@@ -1879,9 +1882,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 await self.runStormDmon(iden, ddef)
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-
             except Exception as e:
                 logger.warning(f'initStormDmon ({iden}) failed: {e}')
 
@@ -1891,9 +1891,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             try:
                 await self._setStormSvc(sdef)
-
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
 
             except Exception as e:
                 logger.warning(f'initStormService ({iden}) failed: {e}')
@@ -2166,6 +2163,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 return
 
         self.loadStormPkg(pkgdef)
+        self._runStormPkgOnload(pkgdef)
         self.pkgdefs.set(name, pkgdef)
 
         self._clearPermDefs()
@@ -2245,9 +2243,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             await self._normStormPkg(pkgdef, validstorm=False)
             self.loadStormPkg(pkgdef)
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
 
         except Exception as e:
             name = pkgdef.get('name', '')
@@ -2442,9 +2437,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self._initEasyPerm(gdef)
             self.pkggraphs[gdef['iden']] = gdef
 
+    def _runStormPkgOnload(self, pkgdef):
+        name = pkgdef.get('name')
         onload = pkgdef.get('onload')
+
         if onload is not None and self.isactive:
             async def _onload():
+                await self.fire('core:pkg:onload:start', pkg=name)
                 try:
                     async for mesg in self.storm(onload):
                         if mesg[0] == 'print':
@@ -2456,10 +2455,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         await asyncio.sleep(0)
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
-                except Exception:  # pragma: no cover
-                    logger.warning(f'onload failed for package: {name}')
+                except Exception as exc:  # pragma: no cover
+                    logger.warning(f'onload failed for package: {name}', exc_info=exc)
                 await self.fire('core:pkg:onload:complete', pkg=name)
-            self.schedCoro(_onload())
+
+            self.runActiveTask(_onload())
 
     # N.B. This function is intentionally not async in order to prevent possible user race conditions for code
     # executing outside of the nexus lock.
@@ -2549,8 +2549,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             if self.isactive:
                 await self.runStormSvcEvent(iden, 'del')
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once py 3.8 only
-            raise
         except Exception as e:
             logger.exception(f'service.del hook for service {iden} failed with error: {e}')
 
@@ -2637,8 +2635,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         try:
             await self.runStormSvcEvent(iden, 'add')
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once py 3.8 only
-            raise
         except Exception as e:
             logger.exception(f'runStormSvcEvent service.add failed with error {e}')
             return
@@ -5337,7 +5333,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
 
                 curoffs = opts.setdefault('nexsoffs', await self.getNexsIndx() - 1)
-                miroffs = await s_common.wait_for(proxy.getNexsIndx(), timeout) - 1
+                miroffs = await asyncio.wait_for(proxy.getNexsIndx(), timeout) - 1
                 if (delta := curoffs - miroffs) <= MAX_NEXUS_DELTA:
                     return proxy
 

@@ -83,7 +83,7 @@ class StormCliTest(s_test.SynTest):
                     self.isin('.created = ', text)
                     self.isin('#bar', text)
                     self.isin('#baz:foo = 10', text)
-                    self.isin('#foo = (2012-01-01T00:00:00.000Z, 2012-01-01T00:00:00.001Z)', text)
+                    self.isin('#foo = (2012-01-01T00:00:00Z, 2012-01-01T00:00:00.000001Z)', text)
                     self.isin('complete. 1 nodes in', text)
 
                 outp = s_output.OutPutStr()
@@ -243,7 +243,7 @@ class StormCliTest(s_test.SynTest):
             view = await core.callStorm('$view = $lib.view.get() $fork=$view.fork() return ( $fork.iden )')
 
             outp = s_output.OutPutStr()
-            await s_t_storm.main(('--view', view, url, f'[file:bytes={"a"*64}]'), outp=outp)
+            await s_t_storm.main(('--view', view, url, f'[file:bytes={"a" * 64}]'), outp=outp)
             self.len(0, await core.nodes('file:bytes'))
             self.len(1, await core.nodes('file:bytes', opts={'view': view}))
 

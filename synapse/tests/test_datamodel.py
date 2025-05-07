@@ -290,7 +290,7 @@ class DataModelTest(s_t_utils.SynTest):
             syn:type:subof=comp $opts=:opts
             -> syn:form:type $valu=$node.value()
             for ($name, $thing) in $opts.fields {
-                $v=$lib.str.format('{v}:{t}', v=$valu, t=$name)  syn:prop=$v
+                $v=`{$valu}:{$name}`  syn:prop=$v
             }
             +syn:prop
             -:ro=1
@@ -315,6 +315,24 @@ class DataModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadArg):
                 core.model.addEdge(('meta:rule', 'matches', None), {})
+
+            core.model.addEdge(('inet:fqdn', 'zip', 'phys:object'), {})
+            edges = core.model.edgesbyn2.get('transport:air:craft')
+            self.true(core.model.edgeIsValid('inet:fqdn', 'zip', 'transport:air:craft'))
+            self.isin(('inet:fqdn', 'zip', 'phys:object'), [e.edgetype for e in edges])
+
+            core.model.addEdge(('phys:object', 'zop', 'inet:fqdn'), {})
+            edges = core.model.edgesbyn1.get('transport:air:craft')
+            self.isin(('phys:object', 'zop', 'inet:fqdn'), [e.edgetype for e in edges])
+
+            core.model.delEdge(('inet:fqdn', 'zip', 'phys:object'))
+            edges = core.model.edgesbyn2.get('transport:air:craft')
+            self.false(core.model.edgeIsValid('inet:fqdn', 'zip', 'transport:air:craft'))
+            self.notin(('inet:fqdn', 'zip', 'phys:object'), [e.edgetype for e in edges])
+
+            core.model.delEdge(('phys:object', 'zop', 'inet:fqdn'))
+            edges = core.model.edgesbyn1.get('transport:air:craft')
+            self.notin(('phys:object', 'zop', 'inet:fqdn'), [e.edgetype for e in edges])
 
             model = await core.getModelDict()
             self.isin(('meta:rule', 'matches', None), [e[0] for e in model['edges']])
