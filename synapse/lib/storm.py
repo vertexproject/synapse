@@ -786,8 +786,8 @@ stormcmds = (
             $edits = $lib.copy($cmdopts)
             $edits.help = $lib.undef
             $edits.iden = $lib.undef
-            $cdef = $lib.trigger.mod($iden, $edits)
-            $lib.print(`Modified trigger: {$cdef.iden}`)
+            $iden = $lib.trigger.mod($iden, $edits)
+            $lib.print(`Modified trigger: {$iden}`)
         ''',
     },
     {
