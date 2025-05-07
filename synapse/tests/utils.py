@@ -4,18 +4,21 @@ This contains the core test helper code used in Synapse.
 This gives the opportunity for third-party users of Synapse to test their
 code using some of the same helpers used to test Synapse.
 
-The core class, synapse.tests.utils.SynTest is a subclass of
+The core class, synapse.tests.utils.SynTestA is a subclass of
 unittest.IsolatedAsyncioTestCase, with several wrapper functions to allow for
-easier calls to assert* functions, with less typing.  There are also Synapse
-specific helpers, to load Cortexes and whole multi-component environments
-into memory.
+easier calls to assert* functions, with less typing. There are also Synapse
+specific helpers, to load Cortexes and whole multi-component environments.
 
-Since SynTest is built from unittest.IsolatedAsyncioTestCase, the use of
+Since SynTestA is built from unittest.IsolatedAsyncioTestCase, the use of
 SynTest is compatible with the unittest and pytest frameworks.  This does not
 lock users into a particular test framework; while at the same time allowing
 base use to be invoked via the built-in Unittest library. Customizations made
 using the various setup and teardown helpers available on
-``IsolatedAsyncioTestCase`` should first call our methods using ``super()``.
+``IsolatedAsyncioTestCase`` should first review our docstrings for any methods
+we have overridden.
+
+The previous class, SynTest, has been marked as deprecated and will be removed
+in Synapse 3.x.x. It should not be used in the same code-base as SynTestA.
 '''
 import io
 import os
@@ -2386,8 +2389,6 @@ class SynTest(_SynTestBase, unittest.TestCase):
                 setattr(self, s, s_glob.synchelp(attr))
 
 class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
-    syn_asyncteardown_timeout = 30
-
     def _setupAsyncioRunner(self):
         assert self._asyncioRunner is None, 'asyncio runner is already initialized'
         # TODO When moving to 3.13+, we have to update this to account for self.loop_factory
@@ -2409,9 +2410,24 @@ class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
                 continue
             logger.warning(f'Unfinished asyncio task, this may indicate unclosed resources: {task}')
 
+    def setUp(self):
+        '''
+        Test setup method. This registeres sync cleanup handlers to clear any cached data about io loop references.
+
+        Implementors who define their own ``setUp`` method should also call this via ``super()``.
+
+        Examples:
+            Setup a custom synchronous resource::
+
+                def teardown():
+                    super().setUp()
+                    self.my_sync_resource = Foo()
+        '''
+        self.addCleanup(s_glob._clearGlobals)
+
     async def asyncSetUp(self):
         '''
-        Async test setup method. This registers cleanup() handlers to warn about unfinished tasks.
+        Async test setup method. This registers async cleanup() handlers to warn about unfinished tasks.
 
         Implementors who define their own ``asyncSetUp`` method should also call this via ``super()``.
 
@@ -2423,21 +2439,6 @@ class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
                     await self.my_custom_resource.doit()
         '''
         self.addAsyncCleanup(self._syn_task_check)
-
-    def tearDown(self):
-        '''
-        Test teardown method which clears globals in ``synapse.glob`` which may have been set.
-
-        Implementors who define their own ``teardown`` method should also call this via ``super()``.
-
-        Examples:
-            Teardown a custom resource created in ``setUp()`` or ``asyncSetUp()``::
-
-                def teardown():
-                    self.my_custom_resource.close()
-                    super().tearDown()
-        '''
-        s_glob._clearGlobals()
 
 ONLOAD_TIMEOUT = int(os.getenv('SYNDEV_PKG_LOAD_TIMEOUT', 30))  # seconds
 
