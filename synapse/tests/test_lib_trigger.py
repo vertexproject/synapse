@@ -909,4 +909,4 @@ class TrigTest(s_t_utils.SynTest):
             node = await core.callStorm(q, opts=opts)
             opts = {'vars': {'iden': node.get('iden')}}
             ret = await core.callStorm('$lib.trigger.mod($iden, ({}))', opts=opts)
-            self.eq(ret, None)
+            self.none(ret)
