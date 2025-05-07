@@ -2376,8 +2376,8 @@ class _SynTestBase:
         return await core.schedCoro(coro())
 
 class SynTest(_SynTestBase, unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        s_common.deprecated('SynTest is deprecated, use SynTestA for isolated asyncio testign.')
+    def __init__(self, *args, **kwargs):  # pragma: no cover
+        s_common.deprecated('SynTest is deprecated, use SynTestA for isolated asyncio testing.')
         unittest.TestCase.__init__(self, *args, **kwargs)
         for s in dir(self):
             attr = getattr(self, s, None)
