@@ -4,7 +4,6 @@ import sys
 import socket
 import asyncio
 import logging
-import threading
 import multiprocessing
 
 from unittest import mock
@@ -12,7 +11,6 @@ from unittest import mock
 import cryptography.hazmat.primitives.hashes as c_hashes
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
@@ -342,7 +340,6 @@ class TeleTest(s_t_utils.SynTestA):
             proc = ctx.Process(target=run_telepath_sync_genr_break, args=(url, evt1, evt2))
             proc.start()
 
-            # TODO Reconcile this with master???
             self.true(await s_coro.executor(evt1.wait, timeout=30))
             self.true(await s_coro.executor(evt2.wait, timeout=30))
             proc.join(timeout=30)

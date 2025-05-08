@@ -781,7 +781,7 @@ class AhaTest(s_test.SynTestA):
                         self.false(axon3.isactive)
                         self.eq('aha://root@axon...', axon03.conf.get('mirror'))
 
-                        retn, outp = await self.execToolMain(s_a_list._main, [aha.getLocalUrl()])
+                        retn, outp = await self.execToolMain(s_a_list.main, [aha.getLocalUrl()])
                         self.eq(retn, 0)
                         outp.expect('Service              network                        leader')
                         outp.expect('00.axon              synapse                        True')

@@ -2238,7 +2238,7 @@ class CellTest(s_t_utils.SynTestA):
                             self.false(core00.isactive)
 
                             modinfo = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
-                            self.isin('01.core', modinfo.get('mirror', ''))
+                            self.eq('aha://root@core...', modinfo.get('mirror', ''))
                             modinfo = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
                             self.none(modinfo.get('mirror'))
 
@@ -2321,7 +2321,7 @@ class CellTest(s_t_utils.SynTestA):
                             self.false(core00.isactive)
 
                             modinfo = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
-                            self.isin('01.core', modinfo.get('mirror', ''))
+                            self.eq('aha://root@core...', modinfo.get('mirror', ''))
                             modinfo = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
                             self.none(modinfo.get('mirror'))
 
@@ -2333,7 +2333,7 @@ class CellTest(s_t_utils.SynTestA):
                             modinfo = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
                             self.none(modinfo.get('mirror'))
                             modinfo = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
-                            self.isin('00.core', modinfo.get('mirror', ''))
+                            self.eq('aha://root@core...', modinfo.get('mirror', ''))
 
                             # Backup the mirror (core01) which points to the core00
                             async with await axon00.upload() as upfd:
@@ -3285,6 +3285,7 @@ class CellTest(s_t_utils.SynTestA):
                     dirn00 = s_common.genpath(dirn, '00.cell')
                     dirn01 = s_common.genpath(dirn, '01.cell')
                     dirn02 = s_common.genpath(dirn, '02.cell')
+                    dirn0002 = s_common.genpath(dirn, '00.02.cell')
 
                     cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
                     cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
@@ -3301,24 +3302,43 @@ class CellTest(s_t_utils.SynTestA):
                         await cell01.handoff('some://url')
                     self.isin('01.cell is not the current leader', cm.exception.get('mesg'))
 
-                    # Note: The following behavior may change when SYN-7659 is addressed and greater
-                    # control over the topology update is available during the promotion process.
-                    # Promote 02.cell -> Promote 01.cell -> Promote 00.cell -> BadState exception
+                    # Promote 02.cell -> Promote 01.cell -> Promote 00.cell, without breaking the configured topology
                     await cell02.promote(graceful=True)
                     self.false(cell00.isactive)
+                    self.eq(cell00.conf.get('mirror'), 'aha://root@cell...')
                     self.false(cell01.isactive)
+                    self.eq(cell01.conf.get('mirror'), 'aha://root@cell...')
                     self.true(cell02.isactive)
+                    self.none(cell02.conf.get('mirror'))
                     await cell02.sync()
 
                     await cell01.promote(graceful=True)
                     self.false(cell00.isactive)
+                    self.eq(cell00.conf.get('mirror'), 'aha://root@cell...')
                     self.true(cell01.isactive)
+                    self.none(cell01.conf.get('mirror'))
                     self.false(cell02.isactive)
+                    self.eq(cell02.conf.get('mirror'), 'aha://root@cell...')
                     await cell02.sync()
 
+                    await cell00.promote(graceful=True)
+                    self.true(cell00.isactive)
+                    self.none(cell00.conf.get('mirror'))
+                    self.false(cell01.isactive)
+                    self.eq(cell01.conf.get('mirror'), 'aha://root@cell...')
+                    self.false(cell02.isactive)
+                    self.eq(cell02.conf.get('mirror'), 'aha://root@cell...')
+                    await cell02.sync()
+
+                    # A follower of a follower cannot be promoted up since its leader is not the active cell.
+                    cell0002 = await base.enter_context(self.addSvcToAha(aha, '00.02.cell', s_cell.Cell, dirn=dirn0002,
+                                                                      provinfo={'mirror': '02.cell'}))
+                    self.false(cell0002.isactive)
+                    self.eq(cell0002.conf.get('mirror'), 'aha://root@02.cell...')
                     with self.raises(s_exc.BadState) as cm:
-                        await cell00.promote(graceful=True)
-                    self.isin('02.cell is not the current leader', cm.exception.get('mesg'))
+                        await cell0002.promote(graceful=True)
+                    mesg = 'ahaname=02.cell is not the current leader and cannot handoff leadership to aha://00.02.cell.synapse.'
+                    self.isin(mesg, cm.exception.get('mesg'))
 
     async def test_cell_get_aha_proxy(self):
 

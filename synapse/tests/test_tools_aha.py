@@ -38,7 +38,7 @@ class AhaToolsTest(s_t_utils.SynTestA):
                     self.true(await waiter.wait(timeout=6))
 
                     argv = [ahaurl]
-                    retn, outp = await self.execToolMain(s_a_list._main, argv)
+                    retn, outp = await self.execToolMain(s_a_list.main, argv)
                     self.eq(retn, 0)
 
                     outp.expect('''
@@ -48,7 +48,7 @@ class AhaToolsTest(s_t_utils.SynTestA):
                     ''', whitespace=False)
 
                     argv = [ahaurl, 'demo.net']
-                    retn, outp = await self.execToolMain(s_a_list._main, argv)
+                    retn, outp = await self.execToolMain(s_a_list.main, argv)
                     self.eq(retn, 0)
                     outp.expect('Service              network', whitespace=False)
                     outp.expect('cell0                demo.net', whitespace=False)
@@ -56,7 +56,7 @@ class AhaToolsTest(s_t_utils.SynTestA):
         async with self.getTestCore() as core:
             curl = core.getLocalUrl()
             argv = [curl]
-            retn, outp = await self.execToolMain(s_a_list._main, argv)
+            retn, outp = await self.execToolMain(s_a_list.main, argv)
             self.eq(1, retn)
             outp.expect(f'Service at {curl} is not an Aha server')
 
@@ -67,18 +67,17 @@ class AhaToolsTest(s_t_utils.SynTestA):
                                          'dmon:listen': ephemeral_address}) as aha:
             _, port = aha.sockaddr
             ahaurl = f'tcp://root:root@127.0.0.1:{port}'
-
-            with self.getTestDir() as dirn:
+            with self.getTestSynDir() as syndir, self.getTestDir() as dirn:
                 argvbase = ['-a', ahaurl, '--certdir', dirn]
                 argv = argvbase + ['--ca', 'demo.net']
-                retn, outp = await self.execToolMain(s_a_easycert._main, argv)
+                retn, outp = await self.execToolMain(s_a_easycert.main, argv)
                 self.eq(retn, 0)
                 outp.expect('Saved CA cert')
                 outp.expect('cas/demo.net.crt')
 
                 argv = argvbase + ['--server', '--server-sans', 'DNS:beeper.demo.net,DNS:booper.demo.net',
                                    '--network', 'demo.net', 'beep.demo.net']
-                retn, outp = await self.execToolMain(s_a_easycert._main, argv)
+                retn, outp = await self.execToolMain(s_a_easycert.main, argv)
                 self.eq(retn, 0)
                 outp.expect('key saved')
                 outp.expect('hosts/beep.demo.net.key')
@@ -86,7 +85,7 @@ class AhaToolsTest(s_t_utils.SynTestA):
                 outp.expect('hosts/beep.demo.net.crt')
 
                 argv = argvbase + ['--network', 'demo.net', 'mallory@demo.net']
-                retn, outp = await self.execToolMain(s_a_easycert._main, argv)
+                retn, outp = await self.execToolMain(s_a_easycert.main, argv)
                 self.eq(retn, 0)
                 outp.expect('key saved')
                 outp.expect('users/mallory@demo.net.key')
