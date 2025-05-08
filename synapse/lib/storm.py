@@ -2064,7 +2064,7 @@ class Runtime(s_base.Base):
                     continue
 
                 if len(nodes) == 1:
-                    mesg = 'Ambiguous value for single node lookup: {propname}^={valu}'
+                    mesg = f'Ambiguous value for single node lookup: {propname}^={valu}'
                     raise s_exc.StormRuntimeError(mesg=mesg)
 
                 nodes.append(node)
