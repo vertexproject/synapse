@@ -2412,7 +2412,7 @@ class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
         '''
-        Test setup method
+        Test setup method. This is called prior to asyncSetUp.
 
         This registers a cleanup handler to clear any cached data about IOLoop references.
         This registers an async cleanup handlers to warn about unfinished asyncio tasks.
