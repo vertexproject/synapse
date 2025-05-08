@@ -384,6 +384,8 @@ class TypesTest(s_t_utils.SynTest):
                 ('0X12345678', '12345678'),
                 ('56:78', '00005678'),
                 ('12:34:56:78', '12345678'),
+                (-1, s_exc.BadTypeValu),
+                (-0xff, s_exc.BadTypeValu),
                 (1234, '000004d2'),
                 (0x12345678, '12345678'),
                 (0x123456789a, s_exc.BadTypeValu),
@@ -400,7 +402,7 @@ class TypesTest(s_t_utils.SynTest):
             ]
             t = core.model.type('test:hexpad')
             for v, b in testvectors:
-                if isinstance(b, (str, bytes)):
+                if isinstance(b, str):
                     r, subs = t.norm(v)
                     self.isinstance(r, str)
                     self.eq(subs, {})
@@ -413,6 +415,8 @@ class TypesTest(s_t_utils.SynTest):
                 ('0x12', '00000000000000000012'),
                 ('0x123', '00000000000000000123'),
                 ('0x1234', '00000000000000001234'),
+                (-1, s_exc.BadTypeValu),
+                (-0xff, s_exc.BadTypeValu),
                 (0x12, '00000000000000000012'),
                 (0x123, '00000000000000000123'),
                 (0x1234, '00000000000000001234'),
@@ -431,7 +435,7 @@ class TypesTest(s_t_utils.SynTest):
             ]
             t = core.model.type('test:zeropad')
             for v, b in testvectors:
-                if isinstance(b, (str, bytes)):
+                if isinstance(b, str):
                     r, subs = t.norm(v)
                     self.isinstance(r, str)
                     self.eq(subs, {})
@@ -447,6 +451,18 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:hexa=010001'))
             self.len(1, await core.nodes('test:hexa=(0x10001)'))
             self.len(1, await core.nodes('test:hexa=$byts', opts={'vars': {'byts': b'\x01\x00\x01'}}))
+
+            with self.raises(s_exc.BadTypeValu) as exc:
+                await core.callStorm('[test:hexa=(-10)]')
+            self.eq(exc.exception.get('mesg'), 'Hex converted integers cannot be negative.')
+
+            with self.raises(s_exc.BadTypeValu) as exc:
+                await core.callStorm('test:hexa=(-10)')
+            self.eq(exc.exception.get('mesg'), 'Hex converted integers cannot be negative.')
+
+            with self.raises(s_exc.BadTypeValu) as exc:
+                await core.callStorm('test:hexa^=(-10)')
+            self.eq(exc.exception.get('mesg'), 'Hex converted integers cannot be negative.')
 
             # Do some fancy prefix searches for test:hexa
             valus = ['deadb33f',

@@ -687,7 +687,13 @@ class Hex(Type):
             '^=': self._storLiftPref,
         })
 
-    def _preNormHex(self, text):
+    def _preNormHexInt(self, valu):
+        if valu < 0:
+            mesg = 'Hex converted integers cannot be negative.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+        return self._preNormHexStr(hex(valu))
+
+    def _preNormHexStr(self, text):
         text = text.strip().lower()
         if text.startswith('0x'):
             text = text[2:]
@@ -696,14 +702,14 @@ class Hex(Type):
     def _storLiftEq(self, cmpr, valu):
 
         if isinstance(valu, str):
-            valu = self._preNormHex(valu)
+            valu = self._preNormHexStr(valu)
             if valu.endswith('*'):
                 return (
                     ('^=', valu[:-1], self.stortype),
                 )
 
         if isinstance(valu, int):
-            valu = self._preNormHex(hex(valu))
+            valu = self._preNormHexInt(valu)
             if len(valu) % 2 != 0:
                 valu = f'0{valu}'
 
@@ -711,18 +717,19 @@ class Hex(Type):
 
     def _storLiftPref(self, cmpr, valu):
         if isinstance(valu, int):
-            valu = hex(valu)
+            valu = self._preNormHexInt(valu)
 
-        valu = self._preNormHex(valu)
+        valu = self._preNormHexStr(valu)
         return (
             ('^=', valu, self.stortype),
         )
 
     def _normPyInt(self, valu):
-        return self._normPyStr(hex(valu))
+        valu = self._preNormHexInt(valu)
+        return self._normPyStr(valu)
 
     def _normPyStr(self, valu):
-        valu = self._preNormHex(valu)
+        valu = self._preNormHexStr(valu)
 
         if not valu:
             raise s_exc.BadTypeValu(valu=valu, name='hex',
