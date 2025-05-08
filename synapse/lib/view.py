@@ -2330,13 +2330,16 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core.auth.delAuthGate(trig.iden)
 
     @s_nexus.Pusher.onPushAuto('trigger:set')
-    async def setTriggerInfo(self, iden, name, valu):
+    async def setTriggerInfo(self, iden, edits):
         trig = self.triggers.get(iden)
         if trig is None:
             raise s_exc.NoSuchIden(mesg=f"Trigger not found {iden=}", iden=iden)
-        await trig.set(name, valu)
+
+        for name, valu in edits.items():
+            await trig.set(name, valu)
 
         await self.core.feedBeholder('trigger:set', {'iden': trig.iden, 'view': trig.view.iden, 'name': name, 'valu': valu}, gates=[trig.iden])
+        return trig.pack()
 
     async def listTriggers(self):
         '''
