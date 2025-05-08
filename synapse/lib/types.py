@@ -651,9 +651,10 @@ class Hex(Type):
 
     def postTypeInit(self):
         self._size = self.opts.get('size')
+        self._zeropad = self.opts.get('zeropad')
 
         # This is for backward compat with v2.142.x where zeropad was a bool
-        self._zeropad = self.opts.get('zeropad')
+        # TODO: Remove this compat check in 3xx
         if isinstance(self._zeropad, bool):
             if self._zeropad:
                 self._zeropad = self._size
@@ -678,6 +679,7 @@ class Hex(Type):
         if self._size:
             self._zeropad = min(self._zeropad, self._size)
 
+        self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(bytes, self._normPyBytes)
         self.storlifts.update({
@@ -700,20 +702,27 @@ class Hex(Type):
                     ('^=', valu[:-1], self.stortype),
                 )
 
+        if isinstance(valu, int):
+            valu = self._preNormHex(hex(valu))
+            if len(valu) % 2 != 0:
+                valu = f'0{valu}'
+
         return self._storLiftNorm(cmpr, valu)
 
     def _storLiftPref(self, cmpr, valu):
+        if isinstance(valu, int):
+            valu = hex(valu)
+
         valu = self._preNormHex(valu)
         return (
             ('^=', valu, self.stortype),
         )
 
-    def _normPyStr(self, valu):
-        valu = valu.strip().lower()
-        if valu.startswith('0x'):
-            valu = valu[2:]
+    def _normPyInt(self, valu):
+        return self._normPyStr(hex(valu))
 
-        valu = valu.replace(' ', '').replace(':', '')
+    def _normPyStr(self, valu):
+        valu = self._preNormHex(valu)
 
         if not valu:
             raise s_exc.BadTypeValu(valu=valu, name='hex',

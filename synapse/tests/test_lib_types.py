@@ -384,6 +384,9 @@ class TypesTest(s_t_utils.SynTest):
                 ('0X12345678', '12345678'),
                 ('56:78', '00005678'),
                 ('12:34:56:78', '12345678'),
+                (1234, '000004d2'),
+                (0x12345678, '12345678'),
+                (0x123456789a, s_exc.BadTypeValu),
                 ('::', s_exc.BadTypeValu),
                 ('0x::', s_exc.BadTypeValu),
                 ('0x1234qwer', s_exc.BadTypeValu),
@@ -410,9 +413,15 @@ class TypesTest(s_t_utils.SynTest):
                 ('0x12', '00000000000000000012'),
                 ('0x123', '00000000000000000123'),
                 ('0x1234', '00000000000000001234'),
+                (0x12, '00000000000000000012'),
+                (0x123, '00000000000000000123'),
+                (0x1234, '00000000000000001234'),
                 ('0x123456', '00000000000000123456'),
                 ('0x12345678', '00000000000012345678'),
                 ('0x123456789abcdef123456789abcdef', '123456789abcdef123456789abcdef'),
+                (0x123456, '00000000000000123456'),
+                (0x12345678, '00000000000012345678'),
+                (0x123456789abcdef123456789abcdef, '123456789abcdef123456789abcdef'),
                 (b'\x12', '00000000000000000012'),
                 (b'\x12\x34', '00000000000000001234'),
                 (b'\x12\x34\x56', '00000000000000123456'),
@@ -436,6 +445,7 @@ class TypesTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('test:hexa', '010001'))
             self.len(1, await core.nodes('test:hexa=010001'))
+            self.len(1, await core.nodes('test:hexa=(0x10001)'))
             self.len(1, await core.nodes('test:hexa=$byts', opts={'vars': {'byts': b'\x01\x00\x01'}}))
 
             # Do some fancy prefix searches for test:hexa
@@ -467,9 +477,19 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:hexa=0xf00fb33b00000000]'))
             self.len(1, await core.nodes('test:hexa=0xf00fb33b00000000'))
             self.len(1, await core.nodes('test:hexa^=0xf00fb33b'))
+            self.len(1, await core.nodes('test:hexa^=(0xf00fb33b)'))
 
             # Check creating and lifting zeropadded hex types
-            self.len(3, await core.nodes('[test:zeropad=11 test:zeropad=0x22 test:zeropad=111]'))
+            q = '''
+            [
+                test:zeropad=11
+                test:zeropad=0x22
+                test:zeropad=111
+                test:zeropad=(0x33)
+                test:zeropad=(0x444)
+            ]
+            '''
+            self.len(5, await core.nodes(q))
             self.len(1, await core.nodes('test:zeropad=0x11'))
             self.len(1, await core.nodes('test:zeropad=0x111'))
             self.len(1, await core.nodes('test:zeropad=000000000011'))
@@ -479,6 +499,14 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:zeropad=000000000022'))
             self.len(1, await core.nodes('test:zeropad=00000000000000000022'))  # len=20
             self.len(0, await core.nodes('test:zeropad=0000000000000000000022'))  # len=22
+            self.len(1, await core.nodes('test:zeropad=(0x33)'))
+            self.len(1, await core.nodes('test:zeropad=000000000033'))
+            self.len(1, await core.nodes('test:zeropad=00000000000000000033'))  # len=20
+            self.len(0, await core.nodes('test:zeropad=0000000000000000000033'))  # len=22
+            self.len(1, await core.nodes('test:zeropad=(0x444)'))
+            self.len(1, await core.nodes('test:zeropad=000000000444'))
+            self.len(1, await core.nodes('test:zeropad=00000000000000000444'))  # len=20
+            self.len(0, await core.nodes('test:zeropad=0000000000000000000444'))  # len=22
 
     def test_int(self):
 
