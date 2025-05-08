@@ -2379,8 +2379,9 @@ class _SynTestBase:
         return await core.schedCoro(coro())
 
 class SynTest(_SynTestBase, unittest.TestCase):
+    _syn_depr_name = 'SynTest'
     def __init__(self, *args, **kwargs):  # pragma: no cover
-        s_common.deprecated('SynTest is deprecated, use SynTestA for isolated asyncio testing.')
+        s_common.deprecated(f'{self._syn_depr_name} is deprecated, use SynTestA for isolated asyncio testing.')
         unittest.TestCase.__init__(self, *args, **kwargs)
         for s in dir(self):
             attr = getattr(self, s, None)
@@ -2478,6 +2479,7 @@ class _StormPkgTest:
         pass
 
 class StormPkgTest(_StormPkgTest, SynTest):
+    _syn_depr_name = 'StormPkgTest'
     pass
 
 class StormPkgTestA(_StormPkgTest, SynTestA):
