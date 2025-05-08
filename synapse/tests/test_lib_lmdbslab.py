@@ -28,9 +28,10 @@ def getFileMapCount(filename):
     return count
 
 class LmdbSlabTest(s_t_utils.SynTestA):
-    def __init__(self, *args, **kwargs):
+
+    def setUp(self):
+        super().setUp()
         self._nowtime = 1000
-        s_t_utils.SynTestA.__init__(self, *args, **kwargs)
 
     async def test_lmdbslab_scankeys(self):
 
