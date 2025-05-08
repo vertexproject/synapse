@@ -4560,9 +4560,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _genUserApiKey(self, kdef):
         iden = s_common.uhex(kdef.get('iden'))
         user = s_common.uhex(kdef.get('user'))
-        self.slab.put(iden, user, db=self.apikeydb)
+        await self.slab.put(iden, user, db=self.apikeydb)
         lkey = user + b'apikey' + iden
-        self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
+        await self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
 
     async def getUserApiKey(self, iden):
         '''
@@ -4718,7 +4718,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.NoSuchIden(mesg=f'User API key does not exist: {iden}')
         kdef = s_msgpack.un(buf)
         kdef.update(vals)
-        self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
+        await self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
         return kdef
 
     async def delUserApiKey(self, iden):
