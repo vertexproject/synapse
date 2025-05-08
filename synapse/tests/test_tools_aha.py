@@ -17,7 +17,7 @@ import synapse.tools.aha.mirror as s_a_mirror
 import synapse.tools.aha.easycert as s_a_easycert
 import synapse.tools.aha.provision.user as s_a_provision_user
 
-class AhaToolsTest(s_t_utils.SynTest):
+class AhaToolsTest(s_t_utils.SynTestA):
 
     async def test_aha_list(self):
 

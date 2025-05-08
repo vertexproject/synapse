@@ -5,7 +5,7 @@ import synapse.lib.crypto.coin as s_coin
 
 import synapse.tests.utils as s_t_utils
 
-class CryptoCoinTest(s_t_utils.SynTest):
+class CryptoCoinTest(s_t_utils.SynTestA):
     def test_eip55(self):
         # Test bad input on eip55
         v = s_common.guid() + 'X'

@@ -3,7 +3,7 @@ import synapse.tests.utils as s_utils
 
 import synapse.common as s_common
 
-class EconTest(s_utils.SynTest):
+class EconTest(s_utils.SynTestA):
 
     async def test_model_econ(self):
 

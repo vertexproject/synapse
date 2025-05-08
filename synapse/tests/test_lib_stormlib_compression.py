@@ -7,7 +7,7 @@ import synapse.exc as s_exc
 
 import synapse.tests.utils as s_test
 
-class StormlibCompressionTest(s_test.SynTest):
+class StormlibCompressionTest(s_test.SynTestA):
 
     async def test_storm_lib_bytes_bzip2(self):
         async with self.getTestCore() as core:

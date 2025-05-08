@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class ZDE(s_exc.SynErr): pass
 
 
-class StructLogTest(s_test.SynTest):
+class StructLogTest(s_test.SynTestA):
 
     def test_structlog_base(self):
         stream = io.StringIO()

@@ -2,7 +2,7 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.lib.thishost as s_thishost
 
-class ThisTest(s_t_utils.SynTest):
+class ThisTest(s_t_utils.SynTestA):
 
     def test_thishost_hostname(self):
         self.nn(s_thishost.get('hostname'))

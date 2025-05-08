@@ -16,7 +16,7 @@ count_prop_01 = '''
 Total: 16
 '''
 
-class StormIndexTest(s_test.SynTest):
+class StormIndexTest(s_test.SynTestA):
 
     async def test_lib_stormlib_index(self):
 

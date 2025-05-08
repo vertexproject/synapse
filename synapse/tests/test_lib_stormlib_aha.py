@@ -8,7 +8,7 @@ import synapse.tests.utils as s_test
 
 import unittest.mock as mock
 
-class AhaLibTest(s_test.SynTest):
+class AhaLibTest(s_test.SynTestA):
 
     async def test_stormlib_aha_basics(self):
 

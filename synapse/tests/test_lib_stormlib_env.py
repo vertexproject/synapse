@@ -2,7 +2,7 @@ import os
 import synapse.exc as s_exc
 import synapse.tests.utils as s_test
 
-class StormLibEnvTest(s_test.SynTest):
+class StormLibEnvTest(s_test.SynTestA):
 
     async def test_stormlib_env(self):
 

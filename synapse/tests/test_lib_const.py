@@ -2,7 +2,7 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.lib.const as s_const
 
-class ConstTest(s_t_utils.SynTest):
+class ConstTest(s_t_utils.SynTestA):
     def test_const_kilos(self):
         self.eq(s_const.kilobyte, 10 ** 3)
         self.eq(s_const.megabyte, 10 ** 6)

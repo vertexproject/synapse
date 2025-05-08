@@ -51,7 +51,7 @@ def spawnHost(n, pipe: multiprocessing.Pipe):
         return
     sys.exit(ret)
 
-class LinkTest(s_test.SynTest):
+class LinkTest(s_test.SynTestA):
 
     async def test_link_raw(self):
 

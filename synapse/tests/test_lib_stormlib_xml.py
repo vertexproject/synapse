@@ -32,7 +32,7 @@ xml0 = '''
 def mockexc(text):
     raise Exception('newp')
 
-class XmlTest(s_test.SynTest):
+class XmlTest(s_test.SynTestA):
 
     async def test_stormlib_xml(self):
 

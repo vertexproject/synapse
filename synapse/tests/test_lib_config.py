@@ -34,7 +34,7 @@ class SchemaCell(s_cell.Cell):
         self.conf.req('apikey')
 
 
-class ConfTest(s_test.SynTest):
+class ConfTest(s_test.SynTestA):
 
     async def test_config_basics(self):
 

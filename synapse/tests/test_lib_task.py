@@ -11,7 +11,7 @@ class BossCell(s_cell.Cell):
         self.cboss = await s_boss.Boss.anit()
         self.onfini(self.cboss)
 
-class TaskTest(s_test.SynTest):
+class TaskTest(s_test.SynTestA):
 
     def test_loop_none(self):
         self.none(s_task.loop())

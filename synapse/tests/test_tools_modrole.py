@@ -22,7 +22,7 @@ Role: visi (145c3321a0cd0cd06de19174415a7aeb)
       [1  ] - bar.baz
 '''.strip())
 
-class ModRoleTest(s_test.SynTest):
+class ModRoleTest(s_test.SynTestA):
 
     async def test_tools_modrole(self):
         async with self.getTestCore() as core:

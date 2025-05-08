@@ -1408,7 +1408,7 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, DollarExpr: [VarValue: [Const: x]]]]]]',
 ]
 
-class GrammarTest(s_t_utils.SynTest):
+class GrammarTest(s_t_utils.SynTestA):
 
     def test_grammar(self):
         '''

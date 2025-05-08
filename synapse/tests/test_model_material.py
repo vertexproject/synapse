@@ -1,7 +1,7 @@
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
-class MatTest(s_t_utils.SynTest):
+class MatTest(s_t_utils.SynTestA):
 
     async def test_model_mat_spec_item(self):
         async with self.getTestCore() as core:

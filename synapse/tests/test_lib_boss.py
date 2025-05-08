@@ -11,7 +11,7 @@ class BossCell(s_cell.Cell):
         self.cboss = await s_boss.Boss.anit()
         self.onfini(self.cboss)
 
-class BossTest(s_test.SynTest):
+class BossTest(s_test.SynTestA):
 
     async def test_boss_base(self):
 

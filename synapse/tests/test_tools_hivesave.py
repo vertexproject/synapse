@@ -10,7 +10,7 @@ import synapse.lib.msgpack as s_msgpack
 
 import synapse.tools.hive.save as s_hivesave
 
-class HiveSaveTest(s_test.SynTest):
+class HiveSaveTest(s_test.SynTestA):
 
     async def test_tools_hivesave_vercheck(self):
         with self.getTestDir() as dirn:

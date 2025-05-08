@@ -4,7 +4,7 @@ import synapse.tests.utils as s_test
 def printlines(mesgs):
     return [part for m in mesgs if m[0] == 'print' for part in m[1]['mesg'].split('\n')]
 
-class TabularTest(s_test.SynTest):
+class TabularTest(s_test.SynTestA):
 
     async def test_stormlib_tabular(self):
 

@@ -5,7 +5,7 @@ import synapse.tests.utils as s_test
 b64alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 b58alpha = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
-class StormLibBaseXTest(s_test.SynTest):
+class StormLibBaseXTest(s_test.SynTestA):
 
     async def test_stormlib_basex(self):
 

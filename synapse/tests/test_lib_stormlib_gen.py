@@ -3,7 +3,7 @@ import synapse.common as s_common
 
 import synapse.tests.utils as s_test
 
-class StormLibGenTest(s_test.SynTest):
+class StormLibGenTest(s_test.SynTestA):
 
     async def test_stormlib_gen(self):
 

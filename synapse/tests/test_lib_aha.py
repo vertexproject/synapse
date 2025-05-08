@@ -42,7 +42,7 @@ class ExecTeleCaller(s_cell.Cell):
             resp = await meth(*args, **kwargs)
             return resp
 
-class AhaTest(s_test.SynTest):
+class AhaTest(s_test.SynTestA):
 
     async def test_lib_aha_clone(self):
 

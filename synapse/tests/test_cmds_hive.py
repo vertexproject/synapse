@@ -11,7 +11,7 @@ _json_output = '''[
   4
 ]'''
 
-class CmdHiveTest(s_t_utils.SynTest):
+class CmdHiveTest(s_t_utils.SynTestA):
 
     async def test_hive(self):
         with self.getTestDir() as dirn:

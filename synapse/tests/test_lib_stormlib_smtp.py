@@ -4,7 +4,7 @@ import email.mime.multipart as e_muiltipart
 from unittest import mock
 import synapse.tests.utils as s_test
 
-class SmtpTest(s_test.SynTest):
+class SmtpTest(s_test.SynTestA):
 
     async def test_storm_smtp(self):
 

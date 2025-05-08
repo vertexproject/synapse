@@ -4,7 +4,7 @@ import synapse.tests.utils as s_test
 
 dirname = os.path.abspath(os.path.dirname(__file__))
 
-class AcmeHelloTest(s_test.StormPkgTest):
+class AcmeHelloTest(s_test.StormPkgTestA):
 
     assetdir = os.path.join(dirname, 'testassets')
     pkgprotos = (os.path.join(dirname, 'acme-hello.yaml'),)

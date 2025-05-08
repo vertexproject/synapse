@@ -8,7 +8,7 @@ import synapse.lib.json as s_json
 
 import synapse.tests.utils as s_test
 
-class CortexLibTest(s_test.SynTest):
+class CortexLibTest(s_test.SynTestA):
 
     async def test_libcortex_httpapi_methods(self):
 

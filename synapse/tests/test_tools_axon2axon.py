@@ -1,7 +1,7 @@
 import synapse.tests.utils as s_test
 import synapse.tools.axon2axon as s_axon2axon
 
-class Axon2AxonTest(s_test.SynTest):
+class Axon2AxonTest(s_test.SynTestA):
 
     async def test_axon2axon(self):
 

@@ -8,7 +8,7 @@ import synapse.lib.hashset as s_hashset
 
 import synapse.tests.utils as s_test
 
-class CryptoHashesTest(s_test.SynTest):
+class CryptoHashesTest(s_test.SynTestA):
 
     async def test_stormlib_crypto_hashes(self):
 

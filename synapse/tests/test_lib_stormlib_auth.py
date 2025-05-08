@@ -95,7 +95,7 @@ Roles:
   ninjas
 '''.strip()
 
-class StormLibAuthTest(s_test.SynTest):
+class StormLibAuthTest(s_test.SynTestA):
 
     async def test_stormlib_auth(self):
 

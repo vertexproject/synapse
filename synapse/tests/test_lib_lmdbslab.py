@@ -27,10 +27,11 @@ def getFileMapCount(filename):
                 count += 1
     return count
 
-class LmdbSlabTest(s_t_utils.SynTest):
-    def __init__(self, *args, **kwargs):
+class LmdbSlabTest(s_t_utils.SynTestA):
+
+    def setUp(self):
+        super().setUp()
         self._nowtime = 1000
-        s_t_utils.SynTest.__init__(self, *args, **kwargs)
 
     async def test_lmdbslab_scankeys(self):
 
@@ -1649,7 +1650,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.gt(slab.mapsize, mapsize)
 
-class LmdbSlabMemLockTest(s_t_utils.SynTest):
+class LmdbSlabMemLockTest(s_t_utils.SynTestA):
 
     async def test_lmdbslabmemlock(self):
         self.thisHostMust(hasmemlocking=True)

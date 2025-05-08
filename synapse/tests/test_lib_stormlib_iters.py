@@ -6,7 +6,7 @@ import synapse.tests.utils as s_test
 
 import synapse.lib.stormlib.iters as s_stormlib_iters
 
-class StormLibItersTest(s_test.SynTest):
+class StormLibItersTest(s_test.SynTestA):
 
     async def test_stormlib_iters_zip(self):
 

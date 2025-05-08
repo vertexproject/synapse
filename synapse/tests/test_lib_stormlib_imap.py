@@ -121,7 +121,7 @@ def mock_create_client(self, host, port, *args, **kwargs):
     self.protocol = MockIMAPProtocol(host, port)
     return
 
-class ImapTest(s_test.SynTest):
+class ImapTest(s_test.SynTestA):
 
     async def test_storm_imap(self):
 

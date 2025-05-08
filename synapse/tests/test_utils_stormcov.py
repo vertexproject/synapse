@@ -15,7 +15,7 @@ import synapse.utils.stormcov as s_stormcov
 
 logger = logging.getLogger(__name__)
 
-class TestUtilsStormcov(s_utils.SynTest):
+class TestUtilsStormcov(s_utils.SynTestA):
     async def test_basics(self):
 
         opts = {"storm_dirs": "synapse/tests/files/stormcov"}

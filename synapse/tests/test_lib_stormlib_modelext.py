@@ -2,7 +2,7 @@ import synapse.tests.utils as s_test
 
 import synapse.exc as s_exc
 
-class StormtypesModelextTest(s_test.SynTest):
+class StormtypesModelextTest(s_test.SynTestA):
 
     async def test_lib_stormlib_modelext_base(self):
         async with self.getTestCore() as core:

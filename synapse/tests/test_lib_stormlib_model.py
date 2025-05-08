@@ -6,7 +6,7 @@ import synapse.lib.layer as s_layer
 
 import synapse.tests.utils as s_test
 
-class StormlibModelTest(s_test.SynTest):
+class StormlibModelTest(s_test.SynTestA):
 
     async def test_stormlib_model_basics(self):
 

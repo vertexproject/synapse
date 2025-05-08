@@ -4,18 +4,21 @@ This contains the core test helper code used in Synapse.
 This gives the opportunity for third-party users of Synapse to test their
 code using some of the same helpers used to test Synapse.
 
-The core class, synapse.tests.utils.SynTest is a subclass of unittest.TestCase,
-with several wrapper functions to allow for easier calls to assert* functions,
-with less typing.  There are also Synapse specific helpers, to load Cortexes and
-whole both multi-component environments into memory.
+The core class, synapse.tests.utils.SynTestA is a subclass of
+unittest.IsolatedAsyncioTestCase, with several wrapper functions to allow for
+easier calls to assert* functions, with less typing. There are also Synapse
+specific helpers, to load Cortexes and whole multi-component environments.
 
-Since SynTest is built from unittest.TestCase, the use of SynTest is
-compatible with the unittest, nose and pytest frameworks.  This does not lock
-users into a particular test framework; while at the same time allowing base
-use to be invoked via the built-in Unittest library, with one important exception:
-due to an unfortunate design approach, you cannot use the unittest module command
-line to run a *single* async unit test.  pytest works fine though.
+Since SynTestA is built from unittest.IsolatedAsyncioTestCase, the use of
+SynTest is compatible with the unittest and pytest frameworks.  This does not
+lock users into a particular test framework; while at the same time allowing
+base use to be invoked via the built-in Unittest library. Customizations made
+using the various setup and teardown helpers available on
+``IsolatedAsyncioTestCase`` should first review our docstrings for any methods
+we have overridden.
 
+The previous class, SynTest, has been marked as deprecated and will be removed
+in Synapse 3.x.x. It should not be used in the same code-base as SynTestA.
 '''
 import io
 import os
@@ -84,6 +87,11 @@ logging.getLogger('vcr').setLevel(logging.ERROR)
 
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
+
+_SYN_ASYNCIO_DEBUG = False
+# Check if DEBUG mode was set https://docs.python.org/3/library/asyncio-dev.html#debug-mode
+if (s_common.envbool('PYTHONASYNCIODEBUG') or s_common.envbool('PYTHONDEVMODE') or sys.flags.dev_mode):  # pragma: no cover
+    _SYN_ASYNCIO_DEBUG = True
 
 async def alist(coro):
     return [x async for x in coro]
@@ -1016,21 +1024,7 @@ class ReloadCell(s_cell.Cell):
 
         self.addReloadableSystem('badreload', func)
 
-class SynTest(unittest.TestCase):
-    '''
-    Mark all async test methods as s_glob.synchelp decorated.
-
-    Note:
-        This precludes running a single unit test via path using the unittest module.
-    '''
-    def __init__(self, *args, **kwargs):
-        unittest.TestCase.__init__(self, *args, **kwargs)
-
-        for s in dir(self):
-            attr = getattr(self, s, None)
-            # If s is an instance method and starts with 'test_', synchelp wrap it
-            if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
-                setattr(self, s, s_glob.synchelp(attr))
+class _SynTestBase:
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
@@ -2384,10 +2378,61 @@ class SynTest(unittest.TestCase):
             return await core.nodes(query, opts)
         return await core.schedCoro(coro())
 
+class SynTest(_SynTestBase, unittest.TestCase):
+    _syn_depr_name = 'SynTest'
+    def __init__(self, *args, **kwargs):  # pragma: no cover
+        s_common.deprecated(f'{self._syn_depr_name} is deprecated, use SynTestA for isolated asyncio testing.')
+        unittest.TestCase.__init__(self, *args, **kwargs)
+        for s in dir(self):
+            attr = getattr(self, s, None)
+            # If s is an instance method and starts with 'test_', synchelp wrap it
+            if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
+                setattr(self, s, s_glob.synchelp(attr))
+
+class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
+    def _setupAsyncioRunner(self):
+        assert self._asyncioRunner is None, 'asyncio runner is already initialized'
+        # TODO When moving to 3.13+, we have to update this to account for self.loop_factory
+        runner = asyncio.Runner(debug=_SYN_ASYNCIO_DEBUG)
+        self._asyncioRunner = runner
+
+    async def _syn_task_check(self):
+        '''
+        Log warnings for unfinished synapse background tasks & unclosed asyncio tasks.
+        These messages likely indicate unclosed resources from test methods.
+        '''
+        all_tasks = asyncio.all_tasks()
+        for task in s_coro.bgtasks:
+            logger.warning(f'Unfinished Synapse background task, this may indicate unclosed resources: {task}')
+            if task in all_tasks:
+                all_tasks.remove(task)
+        for task in all_tasks:
+            if getattr(task.get_coro(), '__name__', '') == '_syn_task_check':
+                continue
+            logger.warning(f'Unfinished asyncio task, this may indicate unclosed resources: {task}')
+
+    def setUp(self):
+        '''
+        Test setup method. This is called prior to asyncSetUp.
+
+        This registers a cleanup handler to clear any cached data about IOLoop references.
+        This registers an async cleanup handlers to warn about unfinished asyncio tasks.
+
+        Implementors who define their own ``setUp`` method should also call this via ``super()``.
+
+        Examples:
+            Setup a custom synchronous resource::
+
+                def teardown():
+                    super().setUp()
+                    self.my_sync_resource = Foo()
+        '''
+        self.addAsyncCleanup(self._syn_task_check)
+        self.addCleanup(s_glob._clearGlobals)
+
 ONLOAD_TIMEOUT = int(os.getenv('SYNDEV_PKG_LOAD_TIMEOUT', 30))  # seconds
 
-class StormPkgTest(SynTest):
-
+class _StormPkgTest:
     vcr = None
     assetdir = None
     pkgprotos = ()
@@ -2432,3 +2477,10 @@ class StormPkgTest(SynTest):
         This is executed after the package has been loaded and a VCR context has been entered.
         '''
         pass
+
+class StormPkgTest(_StormPkgTest, SynTest):
+    _syn_depr_name = 'StormPkgTest'
+    pass
+
+class StormPkgTestA(_StormPkgTest, SynTestA):
+    pass

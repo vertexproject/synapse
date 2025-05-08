@@ -8,7 +8,7 @@ import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.utils as s_t_utils
 
-class MsgPackTest(s_t_utils.SynTest):
+class MsgPackTest(s_t_utils.SynTestA):
 
     def test_msgpack_en(self):
         byts = s_msgpack.en(('hehe', 10))

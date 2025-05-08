@@ -54,7 +54,7 @@ def run_cli_till_print(url, evt1):
     asyncio.run(main())
     sys.exit(137)
 
-class StormCliTest(s_test.SynTest):
+class StormCliTest(s_test.SynTestA):
 
     async def test_tools_storm(self):
 

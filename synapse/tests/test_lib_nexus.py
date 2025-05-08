@@ -59,7 +59,7 @@ class SampleNexus2(SampleNexus, SampleMixin):
     async def doathing(self, eventdict):
         return await self._push('thing:doathing', eventdict, 'bar')
 
-class NexusTest(s_t_utils.SynTest):
+class NexusTest(s_t_utils.SynTestA):
 
     async def test_nexus(self):
 

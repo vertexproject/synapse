@@ -1,0 +1,8 @@
+---
+desc: Added a new test classes, ``synapse.tests.utils.SynTestA`` and ``synapse.tests.utils.StormPkgTestA``.
+  This test class inherits from ``unittest.IsolatedAsyncioTestCase``. Users of ``SynTest``
+  and ``StormPkgTest`` should cut over to using these new test classes. Projects should not mix the new
+  and old test classes together in the same Python process.
+prs: []
+type: note
+...

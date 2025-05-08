@@ -7,7 +7,7 @@ import synapse.tools.rstorm as s_rstorm
 import synapse.tests.utils as s_test
 import synapse.tests.test_lib_rstorm as s_test_rstorm
 
-class RStormToolTest(s_test.SynTest):
+class RStormToolTest(s_test.SynTestA):
 
     async def test_tool_rstorm(self):
 

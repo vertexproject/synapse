@@ -10,7 +10,7 @@ import synapse.tools.genpkg as s_genpkg
 
 dirname = os.path.dirname(__file__)
 
-class GenPkgTest(s_test.SynTest):
+class GenPkgTest(s_test.SynTestA):
 
     @staticmethod
     def setDirFileModes(dirn, mode):
@@ -260,7 +260,7 @@ class GenPkgTest(s_test.SynTest):
             msgs = await core.stormlist('dotstorm.bar')
             self.stormIsInPrint('hello bar', msgs)
 
-class TestStormPkgTest(s_test.StormPkgTest):
+class TestStormPkgTest(s_test.StormPkgTestA):
     assetdir = s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'testassets')
     pkgprotos = (s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'dotstorm.yaml'),)
 

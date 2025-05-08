@@ -14,7 +14,7 @@ import synapse.tests.utils as s_test
 def split(text):
     return textwrap.dedent(text).split('\n')
 
-class StormlibVaultTest(s_test.SynTest):
+class StormlibVaultTest(s_test.SynTestA):
 
     async def test_stormlib_vault(self):
 

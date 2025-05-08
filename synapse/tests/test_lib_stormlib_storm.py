@@ -5,7 +5,7 @@ import synapse.lib.parser as s_parser
 
 import synapse.tests.utils as s_test
 
-class LibStormTest(s_test.SynTest):
+class LibStormTest(s_test.SynTestA):
 
     async def test_lib_stormlib_storm_eval(self):
         async with self.getTestCore() as core:

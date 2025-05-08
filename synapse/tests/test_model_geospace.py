@@ -114,7 +114,7 @@ class GeoTstModule(s_module.CoreModule):
         )
 
 
-class GeoTest(s_t_utils.SynTest):
+class GeoTest(s_t_utils.SynTestA):
 
     async def test_types_forms(self):
         formlat = 'geo:latitude'

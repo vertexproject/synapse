@@ -14,7 +14,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.tests.utils as s_test
 
 
-class AuthTest(s_test.SynTest):
+class AuthTest(s_test.SynTestA):
 
     async def test_auth(self):
 

@@ -16,7 +16,7 @@ import synapse.tests.utils as s_tests
 def nope(*args, **kwargs):
     raise Exception('nope was called')
 
-class ModelRevTest(s_tests.SynTest):
+class ModelRevTest(s_tests.SynTestA):
 
     async def test_cortex_modelrev_init(self):
 

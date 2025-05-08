@@ -3,7 +3,7 @@ import synapse.common as s_common
 
 import synapse.tests.utils as s_test
 
-class PackTest(s_test.SynTest):
+class PackTest(s_test.SynTestA):
 
     async def test_stormlib_pack(self):
 

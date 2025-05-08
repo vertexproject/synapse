@@ -1,0 +1,6 @@
+---
+desc: Deprecated ``synapse.tests.utils.SynTest`` and ``synapse.tests.utils.StormPkgTest``.
+  These will be removed in Synapse 3.0.0.
+prs: []
+type: deprecation
+...

@@ -6,7 +6,7 @@ foo: bar
 baz: faz
 '''
 
-class YamlTest(s_test.SynTest):
+class YamlTest(s_test.SynTestA):
 
     async def test_stormlib_yaml(self):
         async with self.getTestCore() as core:

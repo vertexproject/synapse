@@ -10,7 +10,7 @@ import synapse.lib.json as s_json
 
 import synapse.tests.utils as s_test
 
-class JsonTest(s_test.SynTest):
+class JsonTest(s_test.SynTestA):
 
     async def test_lib_json_loads(self):
         self.eq({'a': 'b'}, s_json.loads('{"a": "b"}'))

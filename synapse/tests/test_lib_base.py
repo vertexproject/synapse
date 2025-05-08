@@ -45,7 +45,7 @@ class Hehe(s_base.Base):
         if self.foo == -1:
             raise s_exc.BadArg(mesg='boom')
 
-class BaseTest(s_t_utils.SynTest):
+class BaseTest(s_t_utils.SynTestA):
 
     async def test_base_basics(self):
         base = await s_base.Base.anit()
