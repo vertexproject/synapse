@@ -493,6 +493,94 @@ class AstTest(s_test.SynTest):
                 q = '$foo=newp [test:str=foo :hehe*$foo=heval]'
                 nodes = await core.nodes(q)
 
+            nodes = await core.nodes('[test:str=bar .seen=(2021, 2022)]')
+            nodes = await core.nodes('[test:str=bar .seen*always=(2021, 2023)]')
+            self.eq((1609459200000000, 1672531200000000), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar .seen*overwrite=2022]')
+            self.eq((1640995200000000, 1640995200000001), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar -.seen .seen*overwrite=2022]')
+            self.eq((1640995200000000, 1640995200000001), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar .seen=2020]')
+            nodes = await core.nodes('[test:str=bar .seen*min=2021]')
+            self.eq((1609459200000000, 1640995200000001), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar .seen*min=2027]')
+            self.eq((1798761600000000, 1798761600000001), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar -.seen .seen*min=2027]')
+            self.eq((1798761600000000, 1798761600000001), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar .seen=(2022, 2027)]')
+            nodes = await core.nodes('[test:str=bar .seen*max=2024]')
+            self.eq((1640995200000000, 1704067200000000), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar .seen*max=2019]')
+            self.eq((1546300799999999, 1546300800000000), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar -.seen .seen*max=2019]')
+            self.eq((1546300799999999, 1546300800000000), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar +#foo*unset=2022]')
+            nodes = await core.nodes('[test:str=bar +#foo*always=(2021, 2023)]')
+            self.eq((1609459200000000, 1672531200000000), nodes[0].get('#foo'))
+
+            nodes = await core.nodes('[test:str=bar +#foo*unset=2030]')
+            self.eq((1609459200000000, 1672531200000000), nodes[0].get('#foo'))
+
+            nodes = await core.nodes('[test:str=bar +#foo*overwrite=2022]')
+            self.eq((1640995200000000, 1640995200000001), nodes[0].get('#foo'))
+
+            nodes = await core.nodes('[test:str=bar +#foo=(2021, 2023)]')
+            nodes = await core.nodes('[test:str=bar +#foo*min=2022]')
+            self.eq((1640995200000000, 1672531200000000), nodes[0].get('#foo'))
+
+            nodes = await core.nodes('[test:str=bar -#foo +#foo*min=2022]')
+            self.eq((1640995200000000, 1640995200000001), nodes[0].get('#foo'))
+
+            nodes = await core.nodes('[test:str=bar +#foo=(2021, 2023)]')
+            nodes = await core.nodes('[test:str=bar +#foo*max=2022]')
+            self.eq((1609459200000000, 1640995200000000), nodes[0].get('#foo'))
+
+            nodes = await core.nodes('[test:str=bar -#foo +#foo*max=2022]')
+            self.eq((1640995199999999, 1640995200000000), nodes[0].get('#foo'))
+
+            nodes = await core.nodes('[test:str=bar +#bar*never=2022]')
+            self.none(nodes[0].get('#bar'))
+
+            nodes = await core.nodes('[test:str=bar +?#bar*max=newp]')
+            self.none(nodes[0].get('#bar'))
+
+            nodes = await core.nodes('[test:str=bar +#baz*unset=2022]')
+            self.eq((1640995200000000, 1640995200000001), nodes[0].get('#baz'))
+
+            nodes = await core.nodes('[test:str=bar -#baz +#baz +#baz*unset=2022]')
+            self.eq((1640995200000000, 1640995200000001), nodes[0].get('#baz'))
+
+            nodes = await core.nodes('$foo=(null) [test:str=notag +?#foo.$foo*min=2025]')
+            self.len(0, nodes[0].getTagNames())
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('[test:str=foo :hehe*min=newp]')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('[test:str=foo :hehe*max=newp]')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('[test:str=foo :hehe*overwrite=newp]')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('[test:str=foo +#foo*newp=2025]')
+
+            # Attempting to set a virt on a prop with no value raises BadTypeValu
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[test:str=newp .seen*precision=day]')
+
+            nodes = await core.nodes('[test:str=newp .seen*precision?=day]')
+            self.none(nodes[0].get('.seen'))
+
     async def test_ast_setmultioper(self):
         async with self.getTestCore() as core:
 
