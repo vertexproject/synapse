@@ -1647,7 +1647,7 @@ class LibBase(Lib):
         name = await tostr(name)
         valu = await toprim(valu)
 
-        parts = name.strip().split('*')
+        parts = name.strip().split('.')
         name = parts[0]
 
         typeitem = self._reqTypeByName(name)
@@ -2525,7 +2525,7 @@ class LibAxon(Lib):
             'md5': hashes.get('md5'),
             'sha1': hashes.get('sha1'),
             'sha256': sha256,
-            '.seen': now,
+            'seen': now,
         }
 
         filenode = await self.runt.view.addNode('file:bytes', sha256, props=props)
@@ -2536,7 +2536,7 @@ class LibAxon(Lib):
             if base:
                 await filenode.set('name', base)
 
-        props = {'.seen': now}
+        props = {'seen': now}
         urlfile = await self.runt.view.addNode('inet:urlfile', (original_url, sha256), props=props)
 
         history = resp.get('history')
@@ -2559,7 +2559,7 @@ class LibAxon(Lib):
             redirs.append((src, resp.get('url')))
 
             for valu in redirs:
-                props = {'.seen': now}
+                props = {'seen': now}
                 await self.runt.view.addNode('inet:urlredir', valu, props=props)
 
         return urlfile
@@ -6218,7 +6218,7 @@ class Node(Prim):
         virts = None
 
         if name is not None:
-            parts = name.strip().split('*')
+            parts = name.strip().split('.')
             if len(parts) > 1:
                 name = parts[0] or None
                 virts = parts[1:]
@@ -6887,30 +6887,52 @@ class Layer(Prim):
 
         await self.runt.reqUserCanReadLayer(iden)
 
-        prop = self.runt.view.core.model.prop(propname)
-        if prop is None:
-            mesg = f'The property {propname} does not exist.'
-            raise s_exc.NoSuchProp(mesg=mesg)
+        if propname[0] == ':':
+            prop = self.runt.view.core.model.reqUniv(propname[1:])
 
-        if prop.isform:
-            liftform = prop.name
-            liftprop = None
-        elif prop.isuniv:
-            liftform = None
-            liftprop = prop.name
-        else:
-            liftform = prop.form.name
-            liftprop = prop.name
+            if propvalu is None:
+                async for _, nid, _ in layr.liftByUniv(prop.name):
+                    yield await self.runt.view._joinStorNode(nid)
+                return
 
-        if propvalu is None:
-            async for _, nid, _ in layr.liftByProp(liftform, liftprop):
+            norm, info = prop.type.norm(propvalu)
+            cmprvals = prop.type.getStorCmprs(propcmpr, norm)
+            async for _, nid, _ in layr.liftByUnivValu(prop.name, cmprvals):
                 yield await self.runt.view._joinStorNode(nid)
-            return
 
-        norm, info = prop.type.norm(propvalu)
-        cmprvals = prop.type.getStorCmprs(propcmpr, norm)
-        async for _, nid, _ in layr.liftByPropValu(liftform, liftprop, cmprvals):
-            yield await self.runt.view._joinStorNode(nid)
+        elif propname[0] == '.':
+            name = propname[1:]
+            ptyp = self.runt.view.core.model.reqMetaType(name)
+
+            if propvalu is None:
+                async for _, nid, _ in layr.liftByMeta(name):
+                    yield await self.runt.view._joinStorNode(nid)
+                return
+
+            norm, info = ptyp.norm(propvalu)
+            cmprvals = ptyp.getStorCmprs(propcmpr, norm)
+            async for _, nid, _ in layr.liftByUnivValu(name, cmprvals):
+                yield await self.runt.view._joinStorNode(nid)
+
+        else:
+            prop = self.runt.view.core.model.reqProp(propname)
+
+            if prop.isform:
+                liftform = prop.name
+                liftprop = None
+            else:
+                liftform = prop.form.name
+                liftprop = prop.name
+
+            if propvalu is None:
+                async for _, nid, _ in layr.liftByProp(liftform, liftprop):
+                    yield await self.runt.view._joinStorNode(nid)
+                return
+
+            norm, info = prop.type.norm(propvalu)
+            cmprvals = prop.type.getStorCmprs(propcmpr, norm)
+            async for _, nid, _ in layr.liftByPropValu(liftform, liftprop, cmprvals):
+                yield await self.runt.view._joinStorNode(nid)
 
     @stormfunc(readonly=True)
     async def liftByNodeData(self, name):
@@ -7041,72 +7063,83 @@ class Layer(Prim):
     async def _methGetPropCount(self, propname, valu=undef):
         propname = await tostr(propname)
 
-        prop = self.runt.view.core.model.prop(propname)
-        if prop is None:
-            mesg = f'No property named {propname}'
-            raise s_exc.NoSuchProp(mesg=mesg)
-
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
 
-        if valu is undef:
+        if propname[0] == ':':
+            prop = self.runt.view.core.model.reqUniv(propname[1:])
+
+            if valu is undef:
+                return layr.getUnivCount(prop.name)
+
+            valu = await toprim(valu)
+            norm, info = prop.type.norm(valu)
+
+            return layr.getUnivValuCount(prop.name, prop.type.stortype, norm)
+
+        else:
+            prop = self.runt.view.core.model.reqProp(propname)
+
+            if valu is undef:
+                if prop.isform:
+                    return layr.getPropCount(prop.name, None)
+
+                return layr.getPropCount(prop.form.name, prop.name)
+
+            valu = await toprim(valu)
+            norm, info = prop.type.norm(valu)
+
             if prop.isform:
-                return await layr.getPropCount(prop.name, None)
+                return layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
 
-            if prop.isuniv:
-                return await layr.getPropCount(None, prop.name)
-
-            return await layr.getPropCount(prop.form.name, prop.name)
-
-        valu = await toprim(valu)
-        norm, info = prop.type.norm(valu)
-
-        if prop.isform:
-            return layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
-
-        if prop.isuniv:
-            return layr.getPropValuCount(None, prop.name, prop.type.stortype, norm)
-
-        return layr.getPropValuCount(prop.form.name, prop.name, prop.type.stortype, norm)
+            return layr.getPropValuCount(prop.form.name, prop.name, prop.type.stortype, norm)
 
     @stormfunc(readonly=True)
     async def _methGetPropArrayCount(self, propname, valu=undef):
         propname = await tostr(propname)
 
-        prop = self.runt.view.core.model.prop(propname)
-        if prop is None:
-            mesg = f'No property named {propname}'
-            raise s_exc.NoSuchProp(mesg=mesg)
-
-        if not prop.type.isarray:
-            mesg = f'Property is not an array type: {prop.type.name}.'
-            raise s_exc.BadTypeValu(mesg=mesg)
-
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
 
-        if valu is undef:
+        if propname[0] == ':':
+            prop = self.runt.view.core.model.reqUniv(propname[1:])
+
+            if not prop.type.isarray:
+                mesg = f'Property is not an array type: {prop.type.name}.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            if valu is undef:
+                return layr.getUnivArrayCount(prop.name)
+
+            valu = await toprim(valu)
+            atyp = prop.type.arraytype
+            norm, info = atyp.norm(valu)
+
+            return layr.getUnivArrayValuCount(prop.name, atyp.stortype, norm)
+
+        else:
+            prop = self.runt.view.core.model.reqProp(propname)
+
+            if not prop.type.isarray:
+                mesg = f'Property is not an array type: {prop.type.name}.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            if valu is undef:
+                if prop.isform:
+                    return layr.getPropArrayCount(prop.name, None)
+
+                return layr.getPropArrayCount(prop.form.name, prop.name)
+
+            valu = await toprim(valu)
+            atyp = prop.type.arraytype
+            norm, info = atyp.norm(valu)
+
             if prop.isform:
-                return await layr.getPropArrayCount(prop.name, None)
+                return layr.getPropArrayValuCount(prop.name, None, atyp.stortype, norm)
 
-            if prop.isuniv:
-                return await layr.getPropArrayCount(None, prop.name)
-
-            return await layr.getPropArrayCount(prop.form.name, prop.name)
-
-        valu = await toprim(valu)
-        atyp = prop.type.arraytype
-        norm, info = atyp.norm(valu)
-
-        if prop.isform:
-            return layr.getPropArrayValuCount(prop.name, None, atyp.stortype, norm)
-
-        if prop.isuniv:
-            return layr.getPropArrayValuCount(None, prop.name, atyp.stortype, norm)
-
-        return layr.getPropArrayValuCount(prop.form.name, prop.name, atyp.stortype, norm)
+            return layr.getPropArrayValuCount(prop.form.name, prop.name, atyp.stortype, norm)
 
     @stormfunc(readonly=True)
     async def _methGetTagPropCount(self, tag, propname, form=None, valu=undef):
@@ -7135,24 +7168,28 @@ class Layer(Prim):
     async def _methGetPropValues(self, propname):
         propname = await tostr(propname)
 
-        prop = self.runt.view.core.model.reqProp(propname)
-
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
 
-        formname = None
-        propname = None
-
-        if prop.isform:
-            formname = prop.name
+        if propname[0] == ':':
+            prop = self.runt.view.core.model.reqUniv(propname[1:])
+            async for indx, valu in layr.iterUnivValues(prop.name, prop.type.stortype):
+                yield valu
         else:
-            propname = prop.name
-            if not prop.isuniv:
-                formname = prop.form.name
+            prop = self.runt.view.core.model.reqProp(propname)
 
-        async for indx, valu in layr.iterPropValues(formname, propname, prop.type.stortype):
-            yield valu
+            formname = None
+            propname = None
+
+            if prop.isform:
+                formname = prop.name
+            else:
+                formname = prop.form.name
+                propname = prop.name
+
+            async for indx, valu in layr.iterPropValues(formname, propname, prop.type.stortype):
+                yield valu
 
     @stormfunc(readonly=True)
     async def _methLayerEdits(self, offs=0, wait=True, size=None, reverse=False):
@@ -7856,7 +7893,10 @@ class View(Prim):
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         view = self.runt.view.core.getView(viewiden)
 
-        return await view.getPropCount(propname, valu=valu)
+        if propname[0] == ':':
+            return await view.getUnivCount(propname[1:], valu=valu)
+        else:
+            return await view.getPropCount(propname, valu=valu)
 
     @stormfunc(readonly=True)
     async def _methGetTagPropCount(self, tag, propname, form=None, valu=undef):
@@ -7888,7 +7928,10 @@ class View(Prim):
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         view = self.runt.view.core.getView(viewiden)
 
-        return await view.getPropArrayCount(propname, valu=valu)
+        if propname[0] == ':':
+            return await view.getUnivArrayCount(propname[1:], valu=valu)
+        else:
+            return await view.getPropArrayCount(propname, valu=valu)
 
     @stormfunc(readonly=True)
     async def _methGetPropValues(self, propname):
@@ -7898,8 +7941,12 @@ class View(Prim):
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         view = self.runt.view.core.getView(viewiden)
 
-        async for valu in view.iterPropValues(propname):
-            yield valu
+        if propname[0] == ':':
+            async for valu in view.iterUnivValues(propname[1:]):
+                yield valu
+        else:
+            async for valu in view.iterPropValues(propname):
+                yield valu
 
     @stormfunc(readonly=True)
     async def _methGetChildren(self):

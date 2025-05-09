@@ -168,20 +168,20 @@ class DataModelTest(s_t_utils.SynTest):
 
         self.nn(modl.prop('foo:bar:x'))
         self.nn(modl.prop('foo:bar:y'))
-        self.nn(modl.prop('foo:bar.hehe'))
+        self.nn(modl.prop('foo:bar:hehe'))
 
         self.nn(modl.form('foo:bar').prop('x'))
         self.nn(modl.form('foo:bar').prop('y'))
-        self.nn(modl.form('foo:bar').prop('.hehe'))
+        self.nn(modl.form('foo:bar').prop('hehe'))
 
         self.len(3, modl.propsbytype['int'])
 
         modl.delFormProp('foo:bar', 'y')
 
         self.nn(modl.prop('foo:bar:x'))
-        self.nn(modl.prop('foo:bar.hehe'))
+        self.nn(modl.prop('foo:bar:hehe'))
         self.nn(modl.form('foo:bar').prop('x'))
-        self.nn(modl.form('foo:bar').prop('.hehe'))
+        self.nn(modl.form('foo:bar').prop('hehe'))
 
         self.len(2, modl.propsbytype['int'])
         self.none(modl.prop('foo:bar:y'))
@@ -189,8 +189,8 @@ class DataModelTest(s_t_utils.SynTest):
 
         modl.delUnivProp('hehe')
 
-        self.none(modl.prop('.hehe'))
-        self.none(modl.form('foo:bar').prop('.hehe'))
+        self.none(modl.prop('hehe'))
+        self.none(modl.form('foo:bar').prop('hehe'))
 
     async def test_datamodel_form_refs_cache(self):
         async with self.getTestCore() as core:
@@ -221,7 +221,7 @@ class DataModelTest(s_t_utils.SynTest):
 
             dstream.seek(0)
             ds = dstream.read()
-            self.isin('universal property .udep is using a deprecated type', ds)
+            self.isin('universal property udep is using a deprecated type', ds)
             self.isin('type test:dep:easy is based on a deprecated type test:dep:easy', ds)
             tstream.seek(0)
             ts = tstream.read()
@@ -238,8 +238,8 @@ class DataModelTest(s_t_utils.SynTest):
                 _ = await core.stormlist('[test:dep:easy=test2 :comp=(1, two)]')
                 self.true(await tstream.wait(6))
 
-            msgs = await core.stormlist('[test:str=tehe .pdep=beep]')
-            self.stormIsInWarn('property test:str.pdep is deprecated', msgs)
+            msgs = await core.stormlist('[test:str=tehe :pdep=beep]')
+            self.stormIsInWarn('property test:str:pdep is deprecated', msgs)
 
             # Extended props, custom universals and tagprops can all trigger deprecation notices
             mesg = 'tag property depr is using a deprecated type test:dep:easy'
@@ -247,7 +247,7 @@ class DataModelTest(s_t_utils.SynTest):
                 await core.addTagProp('depr', ('test:dep:easy', {}), {})
                 self.true(await dstream.wait(6))
 
-            mesg = 'universal property ._test is using a deprecated type test:dep:easy'
+            mesg = 'universal property _test is using a deprecated type test:dep:easy'
             with self.getAsyncLoggerStream('synapse.datamodel', mesg) as dstream:
                 await core.addUnivProp('_test', ('test:dep:easy', {}), {})
                 self.true(await dstream.wait(6))

@@ -59,7 +59,7 @@ class Type:
         self._cmpr_ctor_lift = {}  # if set, create a cmpr which is passed along with indx ops
 
         self.virts = {}
-        self.virtindx = {}
+        self.virtindx = {'created': 'created'}
         self.virtstor = {}
 
         self.pivs = {}

@@ -125,9 +125,9 @@ class TrigTest(s_t_utils.SynTest):
                 self.eq(triggers[0][1].tdef['storm'], '[inet:user=1] | testcmd')
 
                 iden = triggers[0][0]
-                await core.view.setTriggerInfo(iden, 'storm', '[inet:user=2 .test:univ=4] | testcmd')
+                await core.view.setTriggerInfo(iden, 'storm', '[inet:user=2 :test:univ=4] | testcmd')
                 triggers = await core.view.listTriggers()
-                self.eq(triggers[0][1].tdef['storm'], '[inet:user=2 .test:univ=4] | testcmd')
+                self.eq(triggers[0][1].tdef['storm'], '[inet:user=2 :test:univ=4] | testcmd')
 
                 # Sad cases
                 await self.asyncraises(s_exc.BadSyntax, core.view.setTriggerInfo(iden, 'storm', ' | | badstorm '))
@@ -224,15 +224,15 @@ class TrigTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:int=6'))
 
             # Prop set univ
-            tdef = {'cond': 'prop:set', 'storm': '[ test:guid="*" +#propsetuniv ]', 'prop': '.test:univ'}
+            tdef = {'cond': 'prop:set', 'storm': '[ test:guid="*" +#propsetuniv ]', 'prop': ':test:univ'}
             await view.addTrigger(tdef)
-            await core.nodes('[ test:type10=1 .test:univ=1 ]')
+            await core.nodes('[ test:type10=1 :test:univ=1 ]')
             self.len(1, await core.nodes('test:guid#propsetuniv'))
 
             # Prop set form specific univ
-            tdef = {'cond': 'prop:set', 'storm': '[ test:guid="*" +#propsetuniv2 ]', 'prop': 'test:str.test:univ'}
+            tdef = {'cond': 'prop:set', 'storm': '[ test:guid="*" +#propsetuniv2 ]', 'prop': 'test:str:test:univ'}
             await view.addTrigger(tdef)
-            await core.nodes('[ test:str=beep .test:univ=1 ]')
+            await core.nodes('[ test:str=beep :test:univ=1 ]')
             self.len(1, await core.nodes('test:guid#propsetuniv2'))
 
             # Add trigger with iden

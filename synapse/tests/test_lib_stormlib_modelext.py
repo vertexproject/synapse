@@ -34,12 +34,12 @@ class StormtypesModelextTest(s_test.SynTest):
                 $lib.model.ext.addForm(_test:typearry, array, ({"type": "_test:type"}), $forminfo)
             ''')
 
-            q = '[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 <(_copies)+ {[ inet:user=visi ]} ]'
+            q = '[ _visi:int=10 :tick=20210101 :_woot=30 +#lol:score=99 <(_copies)+ {[ inet:user=visi ]} ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('_visi:int', 10))
             self.eq(nodes[0].get('tick'), 1609459200000000)
-            self.eq(nodes[0].get('._woot'), 30)
+            self.eq(nodes[0].get('_woot'), 30)
             self.eq(nodes[0].getTagProp('lol', 'score'), 99)
 
             nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
@@ -84,9 +84,9 @@ class StormtypesModelextTest(s_test.SynTest):
             await core._delAllFormProp('_visi:int', 'tick', {})
             self.len(0, await core.nodes('_visi:int:tick'))
 
-            self.len(1, await core.nodes('._woot'))
+            self.len(1, await core.nodes(':_woot'))
             await core._delAllUnivProp('_woot', {})
-            self.len(0, await core.nodes('._woot'))
+            self.len(0, await core.nodes(':_woot'))
 
             self.len(1, await core.nodes('#lol:score'))
             await core._delAllTagProp('score', {})
@@ -119,7 +119,7 @@ class StormtypesModelextTest(s_test.SynTest):
             self.none(core.model.form('_test:typeform'))
             self.none(core.model.form('_test:typearry'))
             self.none(core.model.form('_visi:int'))
-            self.none(core.model.prop('._woot'))
+            self.none(core.model.prop('_woot'))
             self.none(core.model.prop('_visi:int:tick'))
             self.none(core.model.prop('test:int:_tick'))
             self.none(core.model.tagprop('score'))
@@ -245,11 +245,11 @@ class StormtypesModelextTest(s_test.SynTest):
             q = '''return ($lib.model.ext.addExtModel($model_defs))'''
             self.true(await core.callStorm(q, opts))
 
-            nodes = await core.nodes('[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 ]')
+            nodes = await core.nodes('[ _visi:int=10 :tick=20210101 :_woot=30 +#lol:score=99 ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('_visi:int', 10))
             self.eq(nodes[0].get('tick'), 1609459200000000)
-            self.eq(nodes[0].get('._woot'), 30)
+            self.eq(nodes[0].get('_woot'), 30)
             self.eq(nodes[0].getTagProp('lol', 'score'), 99)
 
             nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
@@ -345,11 +345,11 @@ class StormtypesModelextTest(s_test.SynTest):
             '''
             await core.nodes(q, opts)
 
-            nodes = await core.nodes('[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 ]')
+            nodes = await core.nodes('[ _visi:int=10 :tick=20210101 :_woot=30 +#lol:score=99 ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('_visi:int', 10))
             self.eq(nodes[0].get('tick'), 1609459200000000)
-            self.eq(nodes[0].get('._woot'), 30)
+            self.eq(nodes[0].get('_woot'), 30)
             self.eq(nodes[0].getTagProp('lol', 'score'), 99)
 
             nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
@@ -369,14 +369,14 @@ class StormtypesModelextTest(s_test.SynTest):
                 $lib.model.ext.addFormProp(test:int, _tick, (time, ({})), $docinfo)
             ''')
             fork = await core.callStorm('return ( $lib.view.get().fork().iden ) ')
-            nodes = await core.nodes('[test:int=1234 :_tick=2024 ._woot=1 +#hehe:score=10]')
+            nodes = await core.nodes('[test:int=1234 :_tick=2024 :_woot=1 +#hehe:score=10]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('._woot'), 1)
+            self.eq(nodes[0].get('_woot'), 1)
 
-            nodes = await core.nodes('test:int=1234 [:_tick=2023 ._woot=2 +#hehe:score=9]',
+            nodes = await core.nodes('test:int=1234 [:_tick=2023 :_woot=2 +#hehe:score=9]',
                                      opts={'view': fork})
             self.len(1, nodes)
-            self.eq(nodes[0].get('._woot'), 2)
+            self.eq(nodes[0].get('_woot'), 2)
 
             self.len(0, await core.nodes('test:int | delnode'))
 
@@ -393,10 +393,10 @@ class StormtypesModelextTest(s_test.SynTest):
 
             nodes = await core.nodes('[test:int=1234]')
             self.len(1, nodes)
-            self.none(nodes[0].get('._woot'))
+            self.none(nodes[0].get('_woot'))
             self.none(nodes[0].get('_tick'))
             nodes = await core.nodes('test:int=1234', opts={'view': fork})
-            self.none(nodes[0].get('._woot'))
+            self.none(nodes[0].get('_woot'))
             self.none(nodes[0].get('_tick'))
 
     async def test_lib_stormlib_behold_modelext(self):
@@ -443,8 +443,8 @@ class StormtypesModelextTest(s_test.SynTest):
 
                     univmesg = await sock.receive_json()
                     self.eq(univmesg['data']['event'], 'model:univ:add')
-                    self.eq(univmesg['data']['info']['name'], '._beep')
-                    self.eq(univmesg['data']['info']['full'], '._beep')
+                    self.eq(univmesg['data']['info']['name'], '_beep')
+                    self.eq(univmesg['data']['info']['full'], '_beep')
                     self.eq(univmesg['data']['info']['doc'], 'third string')
 
                     tagpmesg = await sock.receive_json()
@@ -470,7 +470,7 @@ class StormtypesModelextTest(s_test.SynTest):
 
                     deluniv = await sock.receive_json()
                     self.eq(deluniv['data']['event'], 'model:univ:del')
-                    self.eq(deluniv['data']['info']['prop'], '._beep')
+                    self.eq(deluniv['data']['info']['prop'], '_beep')
 
                     delprop = await sock.receive_json()
                     self.eq(delprop['data']['event'], 'model:prop:del')

@@ -28,6 +28,7 @@ class ProtoNode(s_node.NodeBase):
         self.node = node
         self.virts = norminfo.get('virts') if norminfo is not None else None
 
+        self.meta = {}
         self.tags = {}
         self.props = {}
         self.edges = set()
@@ -119,6 +120,9 @@ class ProtoNode(s_node.NodeBase):
 
         if not self.node or not self.node.hasvalu():
             edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype, self.virts)))
+
+        for name, valu in self.meta.items():
+            edits.append((s_layer.EDIT_META_SET, (name, valu, None, self.model.metatypes[name].stortype)))
 
         for name, valu in self.props.items():
             prop = self.form.props.get(name)
@@ -718,6 +722,13 @@ class ProtoNode(s_node.NodeBase):
             return self.node.getWithLayer(name, defv=defv)
 
         return defv, None
+
+    async def setMeta(self, name, valu):
+        if self.meta.get(name) == valu or (self.node is not None and self.node.getMeta(name) == valu):
+            return False
+
+        self.meta[name] = valu
+        return True
 
     async def _set(self, prop, valu, norminfo=None, ignore_ro=False):
 

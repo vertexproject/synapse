@@ -40,17 +40,16 @@ _editblock: "[" _editoper* "]"
 // A single edit operation
 _editoper: editnodeadd
             | editpropset | edittagpropset | edittagadd | editcondpropset | editvirtpropset
-            | editpropsetmulti | editpropdel | editunivdel | edittagpropdel | edittagdel
+            | editpropsetmulti | editpropdel | edittagpropdel | edittagdel
             | editparens | edgeaddn1 | edgedeln1 | edgeaddn2 | edgedeln2
 
 // Parenthesis in an edit block don't have incoming nodes
 editparens: "(" editnodeadd _editoper* ")"
 edittagadd: "+" [SETTAGOPER] tagname [(EQSPACE | EQNOSPACE) _valu]
-editunivdel: EXPRMINUS univprop
 edittagdel: EXPRMINUS tagname
-editpropset: (relprop | univprop) (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
-editcondpropset: (relprop | univprop) condsetoper _valu
-editvirtpropset: (relprop | univprop) virtprops (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
+editpropset: relprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
+editcondpropset: relprop condsetoper _valu
+editvirtpropset: relprop virtprops (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
 editpropsetmulti: relprop (MODSETMULTI | TRYMODSETMULTI) _valu
 editpropdel: EXPRMINUS relprop
 editnodeadd: formname (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
@@ -103,7 +102,7 @@ vareval: _varvalu
 
 // A variable assignment
 setvar: "$" VARTOKN "=" _valu
-setitem: "$" _varvaluatom "." (VARTOKN | "$" varvalue | formatstring | _derefexpr) (EQSPACE | EQNOSPACE) _valu
+setitem: "$" _varvaluatom _VARDEREF (VARTOKN | "$" varvalue | formatstring | _derefexpr) (EQSPACE | EQNOSPACE) _valu
 
 forloop: "for" ("$" VARTOKN | varlist) "in" _valu baresubquery
 whileloop: "while" _valu baresubquery
@@ -172,14 +171,14 @@ formpivotin: _LEFTPIVOT "*"
 
 formjoinin: _LEFTJOIN "*"
 
-operrelprop: pivotprop _RIGHTPIVOT (pivottarg | pivottarglist) -> operrelprop_pivot
-           | pivotprop _RIGHTPIVOT "*" -> operrelprop_pivotout
-           | pivotprop _RIGHTJOIN (pivottarg | pivottarglist) -> operrelprop_join
-           | pivotprop _RIGHTJOIN "*" -> operrelprop_joinout
+operrelprop: relprop virtprops? _RIGHTPIVOT (pivottarg | pivottarglist) -> operrelprop_pivot
+           | relprop virtprops? _RIGHTPIVOT "*" -> operrelprop_pivotout
+           | relprop virtprops? _RIGHTJOIN (pivottarg | pivottarglist) -> operrelprop_join
+           | relprop virtprops? _RIGHTJOIN "*" -> operrelprop_joinout
 
 pivotprop: relprop virtprops? -> relpropvalue
-pivottarg: (PROPS | UNIVNAME | WILDPROPS | _varvalu) virtprops?
-pivottarglist: "(" pivottarg ("," pivottarg)* ")"
+pivottarg.2: (PROPS | WILDPROPS | _varvalu | "(" _varvalu ")") virtprops?
+pivottarglist: "(" pivottarg ("," | ("," pivottarg)*) ")"
 
 rawpivot: _RIGHTPIVOT "{" query "}"
 
@@ -189,7 +188,7 @@ _RIGHTPIVOT.4: "->"
 _LEFTPIVOT.4:  /<\-[^0-9]/
 
 _liftprop: liftformtag | liftpropby | liftprop | liftbyarray
-            | liftbytagprop | liftbyformtagprop | liftbytag | lifttagtag
+            | liftbytagprop | liftbyformtagprop | liftbytag | lifttagtag | liftmeta | liftuniv | liftunivby | liftunivbyarray
             | liftreverse
 
 WILDCARD: "*"
@@ -238,14 +237,18 @@ edgeaddn2: _EDGEN2INIT _valu _EDGEADDN2FINI (baresubquery | _varvalu)
 edgedeln2: _EDGEN2INIT _valu _EDGEN2FINI (baresubquery | _varvalu)
 
 _REVERSE: /reverse(?=[\s\(])/
-liftreverse: _REVERSE "(" (liftformtag | liftpropby | liftprop | liftbyarray | lifttagtag | liftbytag | liftbytagprop | liftbyformtagprop) ")"
+liftreverse: _REVERSE "(" (liftformtag | liftpropby | liftprop | liftbyarray | lifttagtag | liftbytag | liftbytagprop | liftbyformtagprop | liftmeta | liftuniv | liftunivby | liftunivbyarray) ")"
 
 _DEREF.3:  /\*(?=\$)/
 
-liftformtag: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu) tagname virtprops? [_cmpr _valu]
-liftpropby: ((PROPS | EMBEDPROPS | UNIVNAME) | _DEREF _varvalu) virtprops? _cmpr _valu
-liftprop: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu) virtprops?
-liftbyarray: ((PROPS | EMBEDPROPS | UNIVNAME) | _DEREF _varvalu) "*[" (virtprops _cmpr |  _safe_cmpr) _valu "]"
+liftformtag: ((PROPS | WILDPROPS) | _DEREF _varvalu) tagname virtprops? [_cmpr _valu]
+liftmeta: virtprops [_cmpr _valu]
+liftuniv: relprop virtprops?
+liftunivby: relprop virtprops? _cmpr _valu
+liftunivbyarray: relprop "*[" (virtprops _cmpr | _safe_cmpr) _valu "]"
+liftpropby: ((PROPS | EMBEDPROPS) | _DEREF _varvalu) virtprops? _cmpr _valu
+liftprop: ((PROPS | WILDPROPS) | _DEREF _varvalu) virtprops?
+liftbyarray: ((PROPS | EMBEDPROPS) | _DEREF _varvalu) "*[" (virtprops _cmpr |  _safe_cmpr) _valu "]"
 lifttagtag: (_HASH | _HASHSPACE) tagname [_cmpr _valu]
 liftbytag: (tagname | tagnamewithspace) virtprops? [_cmpr _valu]
 liftbytagprop: (tagprop | tagpropwithspace) virtprops? [_cmpr _valu]
@@ -253,7 +256,7 @@ liftbyformtagprop: formtagprop virtprops? [_cmpr _valu]
 
 tagprop: tagname _COLONNOSPACE (BASEPROP | _varvalu)
 tagpropwithspace: tagnamewithspace _COLONNOSPACE (BASEPROP | _varvalu) -> tagprop
-formtagprop: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu) tagname _COLONNOSPACE (BASEPROP | _varvalu)
+formtagprop: ((PROPS | WILDPROPS) | _DEREF _varvalu) tagname _COLONNOSPACE (BASEPROP | _varvalu)
 _COLONNOSPACE.2: /(?<!\s):/
 
 _funcarg: (VARTOKN [EQNOSPACE _valu])
@@ -288,7 +291,7 @@ tagname: _HASH (_varvalu | _tagsegs)
 tagnamewithspace: _HASHSPACE (_varvalu | _tagsegs) -> tagname
 _HASH.2: /(?<!\s)#/
 _HASHSPACE.2: /(?<=\s)#/
-_tagsegs:  TAGSEGNOVAR ( "." (TAGSEGNOVAR | "$" varvalue))*
+_tagsegs:  TAGSEGNOVAR ( _VARDEREF (TAGSEGNOVAR | "$" tagsegvar))*
 TAGSEGNOVAR: /[\w]+/
 
 // A tag name with asterisks or $var as segment after the first segment
@@ -316,8 +319,9 @@ _MATCHHASHWILD.3: /\#
 )
 /x
 
-_wildtagsegs:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*
+_wildtagsegs:  WILDTAGSEGNOVAR ( _VARDEREF (WILDTAGSEGNOVAR | "$" tagsegvar))*
 WILDTAGSEGNOVAR: /[\w*]+/
+tagsegvar: VARTOKN -> varvalue
 
 // A comparison operator
 _cmpr: "*" BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
@@ -328,7 +332,7 @@ _safe_cmpr: BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPE
 CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
 CMPROTHER: /(?!<=|>=|=(?![@?!<>^~=])|<|>|!=|~=|\^=|\?)[@?!<>^~=][@!<>^~=]*(?![@?<>^~=])/
 
-_rootvalu: _varvalu | relpropvalue | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
+_rootvalu: _varvalu | relpropvalue | virtpropvalue | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
     | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | _dollarexprs
 
 // Common subset + stuff allowable in command arguments
@@ -344,7 +348,7 @@ exprdict: "{" ((_exprvalu | VARTOKN)  (":" | _EXPRCOLONNOSPACE) (_exprvalu | VAR
 exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
 
 // Just like _valu, but doesn't allow valu lists or unquoted strings
-_exprvalu: NUMBER | HEXNUMBER | OCTNUMBER | BOOL | NULL | exprlist | exprdict | _exprvarvalu | exprrelpropvalue
+_exprvalu: NUMBER | HEXNUMBER | OCTNUMBER | BOOL | NULL | exprlist | exprdict | _exprvarvalu | exprrelpropvalue | exprvirtpropvalue
     | exprtagvalu | exprtagpropvalu | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs | embedquery
 
@@ -352,23 +356,21 @@ _exprvalu: NUMBER | HEXNUMBER | OCTNUMBER | BOOL | NULL | exprlist | exprdict | 
 _innerdollarexprs: "$"? innerdollaroper
 ?!innerdollaroper: innerdollarexpr
     | innerdollaroper _exprcallargs -> funccall
-    | innerdollaroper "." (EXPRVARTOKN | "$" EXPRVARTOKN | formatstring | _innerderefexpr) -> varderef
+    | innerdollaroper _VARDEREF (EXPRVARTOKN | "$" EXPRVARTOKN | formatstring | _innerderefexpr) -> varderef
 _innerderefexpr: "$"? innerdollarexpr
 innerdollarexpr: "(" expror ")" -> dollarexpr
 
 exprrelprop: (EXPRRELNAME | _COLONDOLLAR _exprvarvaluatom) -> relprop
 EXPRRELNAME: /(?<!\w):\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 
-exprunivprop: (EXPRUNIVNAME | "." _exprvarvalu) -> univprop
-EXPRUNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
-
-exprrelpropvalue: (exprrelprop | exprunivprop) virtprops? -> relpropvalue
+exprrelpropvalue: exprrelprop virtprops? -> relpropvalue
+exprvirtpropvalue: virtprops -> virtpropvalue
 
 exprtagvalu: (exprtagname | exprtagnamewithspace) virtprops? -> tagvalu
 
 exprtagname: _HASH (_exprvarvalu | _exprtagsegs) -> tagname
 exprtagnamewithspace: _HASHSPACE (_exprvarvalu | _exprtagsegs) -> tagname
-_exprtagsegs:  EXPRTAGSEGNOVAR ( "." (EXPRTAGSEGNOVAR | "$" exprvarvalue))*
+_exprtagsegs:  EXPRTAGSEGNOVAR ( _VARDEREF (EXPRTAGSEGNOVAR | "$" exprvarvalue))*
 EXPRTAGSEGNOVAR: /[\w]+/
 
 exprtagpropvalu: (exprtagprop | exprtagpropwithspace) virtprops? -> tagpropvalu
@@ -381,7 +383,8 @@ _exprvarvaluatom: exprvarvalue | exprvarderef | exprfunccall
 exprvarvalue: EXPRVARTOKN -> varvalue
 EXPRVARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 
-!exprvarderef: _exprvarvaluatom "." (VARTOKN | "$" VARTOKN | formatstring | _derefexpr) -> varderef
+!exprvarderef: _exprvarvaluatom _VARDEREF (VARTOKN | "$" VARTOKN | formatstring | _derefexpr) -> varderef
+//_EXPRVARDEREF.3: /(?<!\s)\./
 
 exprfunccall: _exprvarvaluatom _exprcallargs -> funccall
 _exprcallargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
@@ -401,12 +404,10 @@ tagvalu: (tagname | tagnamewithspace) virtprops?
 tagpropvalu: (tagprop | tagpropwithspace) virtprops?
 
 _COLONDOLLAR: /(?<!\w|\'|\"):\$/
-relpropvalu: (RELNAME | _COLONDOLLAR _varvaluatom) virtprops?
-univpropvalu: univprop virtprops?
 
 virtprops: _virtprop+
-_virtprop: _BYVIRT (VIRTNAME | _varvalu) "]"
-_BYVIRT.2: /(?<!\s)\[(?=\s*[a-zA-Z$]\w*\s*\])/
+_virtprop: _VARDEREF (VIRTNAME | _varvalu)
+_BYVIRT.3: /(?<!\s)\.(?=\s*([a-zA-Z]\w*|\$\w+))/
 VIRTNAME: /[a-zA-Z]\w*/
 
 embedquery: _EMBEDQUERYSTART query "}"
@@ -426,7 +427,8 @@ _varvalu: "$" _varvaluatom
 _varvaluatom: varvalue | varderef | funccall
 varvalue: VARTOKN
 VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
-!varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN | formatstring | _derefexpr)
+!varderef: _varvaluatom _VARDEREF (VARTOKN | "$" VARTOKN | formatstring | _derefexpr)
+_VARDEREF.3: /\./
 
 funccall: _varvaluatom _callargs
 _callargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
@@ -440,6 +442,7 @@ filtoper: (EXPRPLUS | EXPRMINUS) _cond
 // TODO:  unify cond and dollarexpr
 _cond: notcond | "(" _condexpr ")"
     | hasrelpropcond | relpropcond
+    | hasvirtpropcond | virtpropcond
     | abspropcond | hasabspropcond
     | tagpropcond | hastagpropcond
     | tagcond | tagvalucond
@@ -449,9 +452,13 @@ _cond: notcond | "(" _condexpr ")"
 _NOT: "not"
 notcond: _NOT _cond
 
-hasrelpropcond: (relprop | univprop) virtprops?
+hasrelpropcond: relprop virtprops?
 relpropcond: relpropvalue _cmpr _valu
-relpropvalue: (relprop | univprop) virtprops?
+relpropvalue: relprop virtprops?
+
+hasvirtpropcond: virtprops
+virtpropcond: virtpropvalue _cmpr _valu
+virtpropvalue: virtprops
 
 abspropcond: PROPS virtprops? _cmpr _valu
 hasabspropcond: (PROPS | WILDPROPS) virtprops?
@@ -463,7 +470,7 @@ tagvalucond: tagmatch virtprops? _cmpr _valu
 tagcond: tagmatch
 
 condsubq: "{" query "}" [ _cmpr _valu]
-arraycond: (relprop | univprop) _ARRAYCONDSTART (virtprops _cmpr | _safe_cmpr) _valu "]"
+arraycond: relprop _ARRAYCONDSTART (virtprops _cmpr | _safe_cmpr) _valu "]"
 _ARRAYCONDSTART.3: "*["
 
 // Filter boolean conditions
@@ -481,34 +488,33 @@ formatstring: "`" (_formatexpr | FORMATTEXT)* "`"
 
 // Must be kept consistent with same regexes in synapse/lib/grammar.py
 // A full property.  Must contain at least 1 colon
-PROPS.3: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*(?![:.a-z0-9_\-])/
+PROPS.3: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+(?![:a-z0-9_\-])/
 
 // A full property containing a wildcard
-WILDPROPS.3: /[a-z_][a-z0-9_]*(:\*|(:[a-z0-9_]+)+([:.][a-z0-9_]+)*:?\*)(?![:.a-z0-9_\-\[])/
+WILDPROPS.3: /[a-z_][a-z0-9_]*(:\*|(:[a-z0-9_]+)+:?\*)(?![:a-z0-9_\-\[])/
 
 // A full property with embed properties
-EMBEDPROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+((\:\:|\:|\.)[a-z0-9_]+)*(?![:.a-z0-9_\-])/
+EMBEDPROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+((\:\:|\:)[a-z0-9_]+)*(?![:a-z0-9_\-])/
 
-// A universal property
-UNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
-univprop:  UNIVNAME | "." _varvalu
-// A full property or a universal property
+//METANAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*(:[a-z0-9_]+)*/
+
+// A full property
 formname: PROPS | _DEREF _varvalu
 // A relative property
 relprop: RELNAME | _COLONDOLLAR _varvaluatom
 
 // Similar to PROPS, but starts with a colon and allows :: as separator
-RELNAME: /(?<!\w):\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
+RELNAME: /(?<!\w):[a-z_][a-z0-9_]*(?:(\:\:|\:)[a-z_][a-z0-9_]*)*/
 
 // Similar to PROPS but does not require a colon
-BASEPROP: /[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
+BASEPROP: /[a-z_][a-z0-9_]*(?:(\:\:|\:)[a-z_][a-z0-9_]*)*/
 
 // The entry point for a $(...) expression.  The initial dollar sign is now optional
 _dollarexprs: "$"? dollaroper
 
 ?!dollaroper: dollarexpr
     | dollaroper _callargs -> funccall
-    | dollaroper "." (VARTOKN | "$" VARTOKN | formatstring | _derefexpr) -> varderef
+    | dollaroper _VARDEREF (VARTOKN | "$" VARTOKN | formatstring | _derefexpr) -> varderef
 _derefexpr: "$"? dollarexpr
 dollarexpr: "(" expror ")"
 

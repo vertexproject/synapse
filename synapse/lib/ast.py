@@ -1892,6 +1892,134 @@ class LiftFormTag(LiftOper):
         async for node in s_common.merggenr2(genrs, cmprkey=cmprkey, reverse=self.reverse):
             yield node
 
+class LiftMeta(LiftOper):
+
+    async def lift(self, runt, path):
+
+        names = await self.kids[0].compute(runt, path)
+        name = await tostr(names[0])
+
+        if (mtyp := runt.model.metatypes.get(name)) is None:
+            mesg = f'No meta property named {name}.'
+            raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
+
+        if len(self.kids) == 1:
+            async for node in runt.view.nodesByMeta(name, reverse=self.reverse):
+                yield node
+        else:
+            cmpr = self.kids[1].value()
+            valu = await self.kids[2].compute(runt, path)
+
+            async for node in runt.view.nodesByMetaValu(name, cmpr, valu, reverse=self.reverse):
+                yield node
+
+class LiftUniv(LiftOper):
+
+    async def lift(self, runt, path):
+
+        name = await tostr(await self.kids[0].compute(runt, path))
+        if (univ := runt.model.univ(name)) is None:
+            mesg = f'No universal property property named {name}.'
+            raise self.kids[0].addExcInfo(s_exc.NoSuchUniv(mesg=mesg, name=name))
+
+        vnames = None
+        if len(self.kids) == 2:
+            vnames = await self.kids[1].compute(runt, path)
+
+        genrs = []
+        for prop in runt.model.allunivs.get(name):
+            if prop.form is None or prop.isrunt:
+                continue
+
+            genrs.append(runt.view.nodesByProp(prop.full, reverse=self.reverse, virts=vnames))
+
+        if vnames:
+            vgetr = univ.type.getVirtGetr(vnames)
+            def cmprkey(node):
+                return node.get(name, virts=vgetr)
+        else:
+            def cmprkey(node):
+                return node.get(name)
+
+        async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
+            yield node
+
+class LiftUnivBy(LiftOper):
+
+    async def lift(self, runt, path):
+
+        name = await tostr(await self.kids[0].compute(runt, path))
+        if (univ := runt.model.univ(name)) is None:
+            mesg = f'No universal property property named {name}.'
+            raise self.kids[0].addExcInfo(s_exc.NoSuchUniv(mesg=mesg, name=name))
+
+        offs = 0
+        vnames = None
+        if len(self.kids) == 4:
+            offs = 1
+            vnames = await self.kids[1].compute(runt, path)
+
+        cmpr = await self.kids[offs + 1].compute(runt, path)
+        valu = await self.kids[offs + 2].compute(runt, path)
+
+        genrs = []
+        for prop in runt.model.allunivs.get(name):
+            if prop.form is None or prop.isrunt:
+                continue
+
+            genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=vnames))
+
+        if vnames:
+            vgetr = univ.type.getVirtGetr(vnames)
+            def cmprkey(node):
+                return node.get(name, virts=vgetr)
+        else:
+            def cmprkey(node):
+                return node.get(name)
+
+        async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
+            yield node
+
+class LiftUnivByArray(LiftOper):
+
+    async def lift(self, runt, path):
+
+        name = await tostr(await self.kids[0].compute(runt, path))
+        if (univ := runt.model.univ(name)) is None:
+            mesg = f'No universal property property named {name}.'
+            raise self.kids[0].addExcInfo(s_exc.NoSuchUniv(mesg=mesg, name=name))
+
+        if not univ.type.isarray:
+            mesg = f'Array syntax is invalid on non array type: {univ.type.name}.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        offs = 0
+        vnames = None
+        if len(self.kids) == 4:
+            offs = 1
+            vnames = await self.kids[1].compute(runt, path)
+
+        cmpr = await self.kids[offs + 1].compute(runt, path)
+        valu = await self.kids[offs + 2].compute(runt, path)
+
+        genrs = []
+        for prop in runt.model.allunivs.get(name):
+            if prop.form is None or prop.isrunt:
+                continue
+
+            genrs.append(runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virts=vnames))
+
+        if vnames:
+            getr = univ.type.arraytype.getVirtGetr(vnames)
+            def cmprkey(node):
+                return node.get(name, virts=getr)
+        else:
+            def cmprkey(node):
+                return node.get(name)
+
+        async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
+            yield node
+
 class LiftProp(LiftOper):
 
     async def lift(self, runt, path):
@@ -1949,12 +2077,7 @@ class LiftProp(LiftOper):
 
                 if hint[0] == 'relprop':
                     relpropname = hint[1].get('name')
-                    isuniv = hint[1].get('univ')
-
-                    if isuniv:
-                        fullname = ''.join([prop.full, relpropname])
-                    else:
-                        fullname = ':'.join([prop.full, relpropname])
+                    fullname = ':'.join([prop.full, relpropname])
 
                     prop = runt.model.prop(fullname)
                     if prop is None:
@@ -3036,7 +3159,6 @@ class HasRelPropCond(Cond):
 
         hint = {
             'name': name,
-            'univ': isinstance(relprop, UnivProp),
         }
 
         return (
@@ -3139,6 +3261,40 @@ class HasAbsPropCond(Cond):
             return cond
 
         raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+
+class HasVirtPropCond(Cond):
+
+    async def getCondEval(self, runt):
+
+        async def cond(node, path):
+            virts = await self.kids[0].compute(runt, path)
+            if len(virts) == 1 and virts[0] in ('created',):
+                return node.getMeta(virts[0]) is not None
+
+            getr = node.form.type.getVirtGetr(virts)
+            return node.valu(virts=getr) is not None
+
+        return cond
+
+class VirtPropCond(Cond):
+
+    async def getCondEval(self, runt):
+
+        cmpr = self.kids[1].value()
+
+        async def cond(node, path):
+
+            (ptyp, val1) = await self.kids[0].getTypeValu(runt, path)
+            if val1 is None:
+                return False
+
+            if (ctor := ptyp.getCmprCtor(cmpr)) is None:
+                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
+
+            val2 = await self.kids[2].compute(runt, path)
+            return ctor(val2)(val1)
+
+        return cond
 
 class ArrayCond(Cond):
 
@@ -3355,7 +3511,6 @@ class RelPropCond(Cond):
 
         hint = {
             'name': name,
-            'univ': isinstance(relprop, UnivProp),
             'cmpr': await self.kids[1].compute(runt, path),
             'valu': await self.kids[2].compute(runt, path),
         }
@@ -3511,6 +3666,41 @@ class PropValue(Value):
 
 class RelPropValue(PropValue):
     pass
+
+class VirtPropValue(PropValue):
+
+    def prepare(self):
+        self.const = None
+        if isinstance(self.kids[0], Const):
+            self.const = self.kids[0].value()
+
+    async def getTypeValu(self, runt, path):
+
+        if not path:
+            return None, None
+
+        node = path.node
+
+        if (virts := self.const) is None:
+            virts = await self.kids[0].compute(runt, path)
+
+        if len(virts) == 1 and virts[0] in ('created',):
+            return runt.model.type('time'), node.getMeta(virts[0])
+
+        (ptyp, getr) = node.form.type.getVirtInfo(virts)
+
+        if (valu := node.valu(virts=getr)) is None:
+            return ptyp, None
+
+        if isinstance(valu, (dict, list, tuple)):
+            # these get special cased because changing them affects the node
+            # while it's in the pipeline but the modification doesn't get stored
+            valu = s_msgpack.deepcopy(valu)
+
+        return ptyp, valu
+
+    async def compute(self, runt, path):
+        return (await self.getTypeValu(runt, path))[1]
 
 class TagValue(Value):
 
@@ -4195,13 +4385,6 @@ class PivotTargetList(List):
 class RelProp(PropName):
     pass
 
-class UnivProp(RelProp):
-    async def compute(self, runt, path):
-        valu = await tostr(await self.kids[0].compute(runt, path))
-        if self.isconst:
-            return valu
-        return '.' + valu
-
 class Edit(Oper):
     pass
 
@@ -4679,40 +4862,6 @@ class EditPropDel(Edit):
 
             await node.pop(name)
 
-            yield node, path
-
-            await asyncio.sleep(0)
-
-class EditUnivDel(Edit):
-
-    async def run(self, runt, genr):
-
-        self.reqNotReadOnly(runt)
-
-        univprop = self.kids[0]
-        assert isinstance(univprop, UnivProp)
-        if univprop.isconst:
-            name = await self.kids[0].compute(None, None)
-
-            univ = runt.model.props.get(name)
-            if univ is None:
-                mesg = f'No property named {name}.'
-                exc = s_exc.NoSuchProp(mesg=mesg, name=name)
-                raise self.kids[0].addExcInfo(exc)
-
-        async for node, path in genr:
-            if not univprop.isconst:
-                name = await univprop.compute(runt, path)
-
-                univ = runt.model.props.get(name)
-                if univ is None:
-                    mesg = f'No property named {name}.'
-                    exc = s_exc.NoSuchProp(mesg=mesg, name=name)
-                    raise self.kids[0].addExcInfo(exc)
-
-            runt.layerConfirm(('node', 'prop', 'del', name))
-
-            await node.pop(name)
             yield node, path
 
             await asyncio.sleep(0)

@@ -3300,33 +3300,43 @@ class DiffCmd(Cmd):
 
         if self.opts.prop:
 
+            layr = runt.view.wlyr
             propname = await s_stormtypes.tostr(self.opts.prop)
 
-            prop = self.runt.view.core.model.prop(propname)
-            if prop is None:
-                mesg = f'The property {propname} does not exist.'
-                raise s_exc.NoSuchProp(mesg=mesg)
+            if propname[0] == ':':
+                propname = propname[1:]
 
-            if prop.isform:
-                liftform = prop.name
-                liftprop = None
-            elif prop.isuniv:
-                liftform = None
-                liftprop = prop.name
+                if (prop := self.runt.view.core.model.univ(propname)) is None:
+                    mesg = f'The universal property {propname} does not exist.'
+                    raise s_exc.NoSuchProp(mesg=mesg)
+
+                async for _, nid, sode in layr.liftByUniv(propname):
+                    if (node := await self.runt.view._joinStorNode(nid)) is not None:
+                        yield node, runt.initPath(node)
+
+                async for nid in layr.iterUnivTombstones(propname):
+                    if (node := await self.runt.view._joinStorNode(nid)) is not None:
+                        yield node, runt.initPath(node)
+
             else:
-                liftform = prop.form.name
-                liftprop = prop.name
+                if (prop := self.runt.view.core.model.prop(propname)) is None:
+                    mesg = f'The property {propname} does not exist.'
+                    raise s_exc.NoSuchProp(mesg=mesg)
 
-            layr = runt.view.wlyr
-            async for _, nid, sode in layr.liftByProp(liftform, liftprop):
-                node = await self.runt.view._joinStorNode(nid)
-                if node is not None:
-                    yield node, runt.initPath(node)
+                if prop.isform:
+                    liftform = prop.name
+                    liftprop = None
+                else:
+                    liftform = prop.form.name
+                    liftprop = prop.name
 
-            async for nid in layr.iterPropTombstones(liftform, liftprop):
-                node = await self.runt.view._joinStorNode(nid)
-                if node is not None:
-                    yield node, runt.initPath(node)
+                async for _, nid, sode in layr.liftByProp(liftform, liftprop):
+                    if (node := await self.runt.view._joinStorNode(nid)) is not None:
+                        yield node, runt.initPath(node)
+
+                async for nid in layr.iterPropTombstones(liftform, liftprop):
+                    if (node := await self.runt.view._joinStorNode(nid)) is not None:
+                        yield node, runt.initPath(node)
 
             return
 
@@ -3391,14 +3401,12 @@ class CopyToCmd(Cmd):
 
                 proto = await editor.addNode(node.ndef[0], node.ndef[1])
 
+                await proto.setMeta('created', node.getMeta('created'))
+
                 for name, valu in node.getProps().items():
 
                     prop = node.form.prop(name)
                     if prop.info.get('ro'):
-                        if name == '.created':
-                            proto.props['.created'] = (valu, None)
-                            continue
-
                         curv = proto.get(name)
                         if curv is not None and curv != valu:
                             valurepr = prop.type.repr(curv)
@@ -3829,7 +3837,7 @@ class MergeCmd(Cmd):
 
                     prop = node.form.prop(name)
                     if propfilter is not None:
-                        if name[0] == '.':
+                        if prop.isuniv:
                             if propfilter(name):
                                 continue
                         else:
@@ -4229,6 +4237,7 @@ class MoveNodesCmd(Cmd):
                         else:
                             self.subs[layr].append((s_layer.EDIT_NODE_TOMB_DEL, ()))
 
+            await self._moveMeta(node, sodes, meta, delnode)
             await self._moveProps(node, sodes, meta, delnode)
             await self._moveTags(node, sodes, meta, delnode)
             await self._moveTagProps(node, sodes, meta, delnode)
@@ -4295,6 +4304,35 @@ class MoveNodesCmd(Cmd):
                 subedits = [(intnid, node.form.name, edits)]
                 await self.lyrs[srclayr].saveNodeEdits(subedits, meta=meta)
                 edits.clear()
+
+    async def _moveMeta(self, node, sodes, meta, delnode):
+
+        movevals = {}
+        form = node.form.name
+        nodeiden = node.iden()
+
+        for layr, sode in sodes.items():
+            if (mdict := sode.get('meta')) is None:
+                continue
+
+            for name, (valu, stortype) in mdict.items():
+                if (oldv := movevals.get(name)) is not s_common.novalu:
+                    if oldv is None:
+                        movevals[name] = valu
+
+                    elif stortype == s_layer.STOR_TYPE_MINTIME:
+                        movevals[name] = min(valu, oldv)
+
+        if not delnode:
+            for name, valu in movevals.items():
+                if not self.opts.apply:
+                    valurepr = self.runt.model.metatypes[name].repr(valu)
+                    await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}.{name} = {valurepr}')
+                else:
+                    stortype = self.runt.model.metatypes[name].stortype
+                    self.adds.append((s_layer.EDIT_META_SET, (name, valu, None, stortype)))
+
+        await self._sync(node, meta)
 
     async def _moveProps(self, node, sodes, meta, delnode):
 
@@ -4753,7 +4791,7 @@ class MaxCmd(Cmd):
         file:bytes#foo.bar | max :size
 
         // Yield the file:bytes node with the highest value for $tick
-        file:bytes#foo.bar +.seen ($tick, $tock) = .seen | max $tick
+        file:bytes#foo.bar +:seen ($tick, $tock) = :seen | max $tick
 
         // Yield the it:dev:str node with the longest length
         it:dev:str | max $lib.len($node.value())
@@ -4807,7 +4845,7 @@ class MinCmd(Cmd):
         file:bytes#foo.bar | min :size
 
         // Yield the file:bytes node with the lowest value for $tick
-        file:bytes#foo.bar +.seen ($tick, $tock) = .seen | min $tick
+        file:bytes#foo.bar +:seen ($tick, $tock) = :seen | min $tick
 
         // Yield the it:dev:str node with the shortest length
         it:dev:str | min $lib.len($node.value())

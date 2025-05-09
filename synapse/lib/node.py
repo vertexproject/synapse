@@ -16,6 +16,12 @@ class NodeBase:
 
     def repr(self, name=None, defv=None, virts=None):
 
+        # TODO: remove this
+        if name == '.created':
+            for sode in self.sodes:
+                if (meta := sode.get('meta')) is not None and (tick := meta.get('created')) is not None:
+                    return tick[0]
+
         if name is None:
             typeitem = self.form.type
             if virts is None:
@@ -289,6 +295,7 @@ class Node(NodeBase):
         pode = (self.ndef, {
             'nid': s_common.int64un(self.nid),
             'iden': self.iden(),
+            'meta': self.getMetaDict(),
             'tags': self._getTagsDict(),
             'props': self.getProps(virts=virts),
             'tagprops': self._getTagPropsDict(),
@@ -494,6 +501,12 @@ class Node(NodeBase):
         if name.startswith('#'):
             return self.getTag(name[1:], defval=defv)
 
+        # TODO: remove this
+        if name == '.created':
+            for sode in self.sodes:
+                if (meta := sode.get('meta')) is not None and (tick := meta.get('created')) is not None:
+                    return tick[0]
+
         for sode in self.sodes:
             if sode.get('antivalu') is not None:
                 return defv
@@ -692,6 +705,27 @@ class Node(NodeBase):
                 continue
 
             retn.append((tag, valu))
+
+        return retn
+
+    def getMeta(self, name):
+        for sode in self.sodes:
+            if (meta := sode.get('meta')) is not None and (valu := meta.get(name)) is not None:
+                return valu[0]
+
+    def getMetaDict(self):
+        retn = {}
+
+        for sode in reversed(self.sodes):
+            if sode.get('antivalu') is not None:
+                retn.clear()
+                continue
+
+            if (meta := sode.get('meta')) is None:
+                continue
+
+            for name, valu in meta.items():
+                retn[name] = valu
 
         return retn
 

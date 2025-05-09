@@ -276,40 +276,23 @@ class SynModelTest(s_t_utils.SynTest):
             self.none(node.get('relname'))
 
             # Including universal props
-            nodes = await core.nodes('syn:prop=".created"')
+            nodes = await core.nodes('syn:prop="test:comp:seen"')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(('syn:prop', '.created'), node.ndef)
+            self.eq(('syn:prop', 'test:comp:seen'), node.ndef)
             self.true(node.get('univ'))
             self.false(node.get('extmodel'))
-
-            nodes = await core.nodes('syn:prop="test:comp.created"')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(('syn:prop', 'test:comp.created'), node.ndef)
-
-            # Bound universal props don't actually show up as univ
-            self.false(node.get('univ'))
 
             nodes = await core.nodes('syn:prop:univ=1')
             self.ge(len(nodes), 2)
 
             # extmodel univs are represented
-            nodes = await core.nodes('syn:prop="._sneaky"')
+            nodes = await core.nodes('syn:prop="test:comp:_sneaky"')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(('syn:prop', '._sneaky'), node.ndef)
+            self.eq(('syn:prop', 'test:comp:_sneaky'), node.ndef)
             self.true(node.get('univ'))
             self.true(node.get('extmodel'))
-
-            nodes = await core.nodes('syn:prop="test:comp._sneaky"')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(('syn:prop', 'test:comp._sneaky'), node.ndef)
-            self.true(node.get('extmodel'))
-
-            # Bound universal props don't actually show up as univ
-            self.false(node.get('univ'))
 
             # Tag prop data is also represented
             nodes = await core.nodes('syn:tagprop=beep')
@@ -603,7 +586,7 @@ class SynModelTest(s_t_utils.SynTest):
             view2 = core.getView(viewiden2)
             viewopts2 = {'view': viewiden2}
 
-            await core.nodes('[ it:dev:str=foo .seen=2020 (inet:ip=1.2.3.4 :asn=10) ]')
+            await core.nodes('[ it:dev:str=foo :seen=2020 (inet:ip=1.2.3.4 :asn=10) ]')
             await core.nodes('it:dev:str=foo inet:ip=1.2.3.4 delnode', opts=viewopts2)
 
             nodes = await core.nodes('diff', opts=viewopts2)
@@ -611,7 +594,7 @@ class SynModelTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('syn:deleted', node.ndef[0])
 
-            nodes = await core.nodes('diff | +syn:deleted[form]=inet:ip', opts=viewopts2)
+            nodes = await core.nodes('diff | +syn:deleted.form=inet:ip', opts=viewopts2)
             self.len(1, nodes)
             for node in nodes:
                 self.eq('syn:deleted', node.ndef[0])
@@ -623,10 +606,10 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq({'antivalu': True, 'form': 'inet:ip'}, sodes[0])
                 self.eq((10, 9, None), sodes[1]['props']['asn'])
 
-            q = 'diff | +syn:deleted[form]=inet:ip return($node.getStorNodes())'
+            q = 'diff | +syn:deleted.form=inet:ip return($node.getStorNodes())'
             self.eq((), await core.callStorm(q, opts=viewopts2))
 
-            q = 'diff | +syn:deleted[form]=inet:ip return($node.getByLayer())'
+            q = 'diff | +syn:deleted.form=inet:ip return($node.getByLayer())'
             self.eq({}, await core.callStorm(q, opts=viewopts2))
 
             await core.nodes('diff | merge --apply', opts=viewopts2)

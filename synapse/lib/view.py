@@ -1070,6 +1070,53 @@ class View(s_nexus.Pusher):  # type: ignore
                 counts[name] += valu
         return counts
 
+    async def getUnivCount(self, name, valu=s_common.novalu):
+        if (prop := self.core.model.univ(name)) is None:
+            mesg = f'No universal property named {name}'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        count = 0
+
+        if valu is s_common.novalu:
+            for layr in self.layers:
+                await asyncio.sleep(0)
+                count += layr.getUnivCount(name)
+            return count
+
+        norm, info = prop.type.norm(valu)
+
+        for layr in self.layers:
+            await asyncio.sleep(0)
+            count += layr.getUnivValuCount(name, prop.type.stortype, norm)
+
+        return count
+
+    async def getUnivArrayCount(self, name, valu=s_common.novalu):
+        if (prop := self.core.model.univ(name)) is None:
+            mesg = f'No universal array property named {name}'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        if not prop.type.isarray:
+            mesg = f'Property is not an array type: {prop.type.name}.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        count = 0
+
+        if valu is s_common.novalu:
+            for layr in self.layers:
+                await asyncio.sleep(0)
+                count += layr.getUnivArrayCount(name)
+            return count
+
+        atyp = prop.type.arraytype
+        norm, info = atyp.norm(valu)
+
+        for layr in self.layers:
+            await asyncio.sleep(0)
+            count += layr.getUnivArrayValuCount(name, atyp.stortype, norm)
+
+        return count
+
     async def getPropCount(self, propname, valu=s_common.novalu):
         prop = self.core.model.prop(propname)
         if prop is None:
@@ -1083,14 +1130,13 @@ class View(s_nexus.Pusher):  # type: ignore
         if prop.isform:
             formname = prop.name
         else:
+            formname = prop.form.name
             propname = prop.name
-            if not prop.isuniv:
-                formname = prop.form.name
 
         if valu is s_common.novalu:
             for layr in self.layers:
                 await asyncio.sleep(0)
-                count += await layr.getPropCount(formname, propname)
+                count += layr.getPropCount(formname, propname)
             return count
 
         norm, info = prop.type.norm(valu)
@@ -1140,14 +1186,13 @@ class View(s_nexus.Pusher):  # type: ignore
         if prop.isform:
             formname = prop.name
         else:
+            formname = prop.form.name
             propname = prop.name
-            if not prop.isuniv:
-                formname = prop.form.name
 
         if valu is s_common.novalu:
             for layr in self.layers:
                 await asyncio.sleep(0)
-                count += await layr.getPropArrayCount(formname, propname)
+                count += layr.getPropArrayCount(formname, propname)
             return count
 
         atyp = prop.type.arraytype
@@ -1235,6 +1280,43 @@ class View(s_nexus.Pusher):  # type: ignore
             else:
                 valid = False
                 async for nid in self.layers[lidx].iterPropIndxNids(formname, propname, indx):
+                    for layr in self.layers[0:lidx]:
+                        if (sode := layr._getStorNode(nid)) is None:
+                            continue
+
+                        if sode['props'].get(propname) is not None:
+                            break
+                    else:
+                        valid = True
+
+                    if valid:
+                        lastvalu = valu
+                        yield valu
+                        break
+
+    async def iterUnivValues(self, name):
+
+        async def wrapgenr(lidx, genr):
+            async for indx, valu in genr:
+                yield indx, valu, lidx
+
+        prop = self.core.model.reqUniv(name)
+        genrs = []
+        for lidx, layr in enumerate(self.layers):
+            genr = layr.iterUnivValues(name, prop.type.stortype)
+            genrs.append(wrapgenr(lidx, genr))
+
+        lastvalu = None
+        async for indx, valu, lidx in s_common.merggenr2(genrs):
+            if valu == lastvalu:
+                continue
+
+            if lidx == 0:
+                lastvalu = valu
+                yield valu
+            else:
+                valid = False
+                async for nid in self.layers[lidx].iterUnivIndxNids(name, indx):
                     for layr in self.layers[0:lidx]:
                         if (sode := layr._getStorNode(nid)) is None:
                             continue
@@ -3215,6 +3297,58 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
+    async def nodesByMeta(self, name, form=None, reverse=False):
+        async for nid, srefs in self.liftByMeta(name, form=form, reverse=reverse):
+            node = await self._joinSodes(nid, srefs)
+            if node is not None:
+                yield node
+
+    async def liftByMeta(self, name, form=None, reverse=False):
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.wlyr.liftByMeta(name, form=form, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        def filt(sode):
+            if (meta := sode.get('meta')) is None:
+                return False
+
+            return meta.get(name) is not None
+
+        genrs = [layr.liftByMeta(name, form=form, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+            yield item
+
+    async def nodesByMetaValu(self, name, cmpr, valu, form=None, reverse=False):
+
+        if (mtyp := self.core.model.metatypes.get(name)) is None:
+            mesg = f'No meta property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
+
+        if not (cmprvals := mtyp.getStorCmprs(cmpr, valu)):
+            return
+
+        async for nid, srefs in self.liftByMetaValu(name, cmprvals, form=form, reverse=reverse):
+            if (node := await self._joinSodes(nid, srefs)) is not None:
+                yield node
+
+    async def liftByMetaValu(self, name, cmprvals, form=None, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.wlyr.liftByMetaValu(name, cmprvals, form=form, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        def filt(sode):
+            if (meta := sode.get('meta')) is None:
+                return False
+            return meta.get(name) is not None
+
+        for cval in cmprvals:
+            genrs = [layr.liftByMetaValu(name, (cval,), form=form, reverse=reverse) for layr in self.layers]
+            async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+                yield item
+
     async def nodesByProp(self, full, reverse=False, virts=None):
 
         prop = self.core.model.prop(full)
@@ -3233,10 +3367,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if prop.isform:
             genr = self.liftByProp(prop.name, None, reverse=reverse, indx=indx)
-
-        elif prop.isuniv:
-            genr = self.liftByProp(None, prop.name, reverse=reverse, indx=indx)
-
         else:
             genr = self.liftByProp(prop.form.name, prop.name, reverse=reverse, indx=indx)
 
@@ -3300,10 +3430,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if prop.isform:
             genr = self.liftByFormValu(prop.name, cmprvals, reverse=reverse, virts=virts)
-
-        elif prop.isuniv:
-            genr = self.liftByPropValu(None, prop.name, cmprvals, reverse=reverse, virts=virts)
-
         else:
             genr = self.liftByPropValu(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
 
