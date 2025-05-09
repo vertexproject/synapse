@@ -8383,7 +8383,7 @@ class LibTrigger(Lib):
             trigmods = Trigger(self.runt, trig.tdef)
             await trigmods.setitem('view', viewedit)
 
-        return trigmods
+        return iden
 
     @stormfunc(readonly=True)
     async def _methTriggerList(self, all=False):
