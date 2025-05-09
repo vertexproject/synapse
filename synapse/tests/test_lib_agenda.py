@@ -422,7 +422,7 @@ class AgendaTest(s_t_utils.SynTest):
                     while not stream.wait(0.1):
                         await asyncio.sleep(0)
 
-                    await core.nexsroot.waitOffs(strt + 6)
+                    await core.nexsroot.waitOffs(strt + 4)
 
                     self.eq(2, appt.startcount)
 

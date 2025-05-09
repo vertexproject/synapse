@@ -72,7 +72,6 @@ terminalEnglishMap = {
     'LPAR': '(',
     'LSQB': '[',
     'MCASEBARE': 'case multi-value',
-    'METANAME': 'metadata property',
     'MODSET': '+= or -=',
     'MODSETMULTI': '++= or --=',
     'NONQUOTEWORD': 'unquoted value',
@@ -110,7 +109,6 @@ terminalEnglishMap = {
     'WILDTAGSEGNOVAR': 'tag segment potentially with asterisks',
     'YIELD': 'yield',
     '_ARRAYCONDSTART': '*[',
-    '_BYVIRT': '.',
     '_COLONDOLLAR': ':$',
     '_COLONNOSPACE': ':',
     '_DEREF': '*',
@@ -125,7 +123,6 @@ terminalEnglishMap = {
     '_ELSE': 'else',
     '_EMBEDQUERYSTART': '${',
     '_EXPRCOLONNOSPACE': ':',
-    '_EXPRVARDEREF': '.',
     '_EMIT': 'emit',
     '_EMPTY': 'empty',
     '_FINI': 'fini',
@@ -142,10 +139,7 @@ terminalEnglishMap = {
     '_REVERSE': 'reverse',
     '_RIGHTJOIN': '-+>',
     '_RIGHTPIVOT': '->',
-    '_SETDEREF': '.',
     '_STOP': 'stop',
-    '_TAGSEP': '.',
-    '_VARDEREF': '.',
     '_WALKNJOINN1': '--+>',
     '_WALKNJOINN2': '<+--',
     '_WALKNPIVON1': '-->',
@@ -657,8 +651,7 @@ def parseEval(text):
     return Parser(text).eval()
 
 async def _forkedParseQuery(args):
-    return parseQuery(args[0], mode=args[1])
-    # return await s_coro._parserforked(parseQuery, args[0], mode=args[1])
+    return await s_coro._parserforked(parseQuery, args[0], mode=args[1])
 
 async def _forkedParseEval(text):
     return await s_coro._parserforked(parseEval, text)
