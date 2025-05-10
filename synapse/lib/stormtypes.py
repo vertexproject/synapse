@@ -9103,9 +9103,9 @@ class LibCron(Lib):
                 'creator': self.runt.user.iden
                 }
 
-        iden = kwargs.get('iden')
-        if iden:
-            cdef['iden'] = iden
+        for k in ['iden', 'name', 'doc']:
+            if len(kwargs.get(k) or '') > 0:
+                cdef[k] = kwargs[k]
 
         view = kwargs.get('view')
         if not view:
@@ -9187,13 +9187,11 @@ class LibCron(Lib):
                 'creator': self.runt.user.iden
                 }
 
-        iden = kwargs.get('iden')
-        if iden:
-            cdef['iden'] = iden
+        for k in ['iden', 'name', 'doc']:
+            if len(kwargs.get(k) or '') > 0:
+                cdef[k] = kwargs[k]
 
-        view = kwargs.get('view')
-        if not view:
-            view = self.runt.view.iden
+        view = kwargs.get('view', self.runt.view.iden)
         cdef['view'] = view
 
         todo = s_common.todo('addCronJob', cdef)
