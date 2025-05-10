@@ -179,24 +179,20 @@ async def _getAhaSvc(urlinfo, timeout=None):
             proxy = await client.proxy(timeout=timeout)
 
             cellinfo = await asyncio.wait_for(proxy.getCellInfo(), timeout=5)
-
-            kwargs = {}
             synvers = cellinfo['synapse']['version']
 
-            if synvers >= (2, 95, 0):
-                kwargs['filters'] = {
-                    'mirror': bool(s_common.yamlloads(urlinfo.get('mirror', 'false'))),
-                }
-
-            ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host, **kwargs), timeout=5)
-            if ahasvc is None:
+            if synvers < (3, 0, 0) or synvers >= (4, 0, 0): # pragma: no cover
+                logger.warning(f'Skipping incompatible AHA server version: {synvers}')
                 continue
 
-            svcinfo = ahasvc.get('svcinfo', {})
-            if not svcinfo.get('online'):
+            svcdef = await asyncio.wait_for(proxy.getAhaSvc(host), timeout=5)
+            if svcdef is None:
                 continue
 
-            return client, ahasvc
+            if svcdef.get('online') is None:
+                continue
+
+            return client, svcdef
 
         except Exception as e:
             if isinstance(ahaurl, str):
@@ -216,10 +212,9 @@ async def getAhaProxy(urlinfo):
     '''
     Return a telepath proxy by looking up a host from an AHA registry.
     '''
-    ahaclient, ahasvc = await _getAhaSvc(urlinfo, timeout=5)
+    ahaclient, svcdef = await _getAhaSvc(urlinfo, timeout=5)
 
-    svcinfo = ahasvc.get('svcinfo', {})
-    svcurlinfo = mergeAhaInfo(urlinfo, svcinfo.get('urlinfo', {}))
+    svcurlinfo = mergeAhaInfo(urlinfo, svcdef.get('urlinfo'))
 
     return await openinfo(svcurlinfo)
 
@@ -964,15 +959,15 @@ class ClientV2(s_base.Base):
 
                 if urlinfo.get('scheme') == 'aha':
 
-                    self.aha, svcinfo = await _getAhaSvc(urlinfo)
+                    self.aha, svcdef = await _getAhaSvc(urlinfo)
 
                     # if the service is a pool, enter pool mode and fire
                     # the topography sync task to manage pool members.
-                    services = svcinfo.get('services')
+                    services = svcdef.get('services')
                     if services is not None:
                         # we are an AHA pool!
                         if self.poolname is None:
-                            self.poolname = svcinfo.get('name')
+                            self.poolname = svcdef.get('name')
                             self.schedCoro(self._toposync())
                         return
 
