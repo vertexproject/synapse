@@ -181,7 +181,6 @@ class AhaApi(s_cell.CellApi):
         sess = s_common.guid(self.sess.iden)
 
         svcdef['online'] = sess
-        svcdef.setdefault('ready', True)
         svcdef.setdefault('urlinfo', {})
 
         # currently we only support SSL based telepath listeners
@@ -891,7 +890,7 @@ class AhaCell(s_cell.Cell):
             async with self.nexslock:
 
                 retn = await self.getAhaSvc(name)
-                if retn.get('online') is not None:
+                if retn is not None and retn.get('online') is not None:
                     return retn
 
                 waiter = self.waiter(1, f'aha:svc:add:{name}')
@@ -940,8 +939,12 @@ class AhaCell(s_cell.Cell):
         self._saveAhaSvcDef(svcdef)
         return True
 
-    @s_nexus.Pusher.onPushAuto('aha:svc:add')
     async def addAhaSvc(self, name, svcdef):
+        svcdef['created'] = s_common.now()
+        return await self._push('aha:svc:add', name, svcdef)
+
+    @s_nexus.Pusher.onPushAuto('aha:svc:add')
+    async def _addAhaSvc(self, name, svcdef):
 
         name = self._getAhaName(name)
 
@@ -950,8 +953,9 @@ class AhaCell(s_cell.Cell):
                      extra=await self.getLogExtra(name=name))
 
         svcdef['name'] = name
-        svcdef['created'] = s_common.now()
         svcdef['creator'] = self.getDmonUser()
+
+        svcdef.setdefault('ready', False)
 
         self._saveAhaSvcDef(svcdef)
 
