@@ -6,6 +6,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.output as s_coro
 import synapse.lib.output as s_output
 
 descr = '''
@@ -78,5 +79,10 @@ async def main(argv, outp=s_output.stdout):
             outp.printf(f'ERROR: {mesg}')
             return 1
 
+async def _main(argv, outp=s_output.stdout):  # pragma: no cover
+    ret = await main(argv, outp=outp)
+    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
+    return ret
+
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(main(sys.argv[1:])))
+    sys.exit(asyncio.run(_main(sys.argv[1:])))
