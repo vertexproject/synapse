@@ -62,6 +62,7 @@ import synapse.lib.stormlib.log as s_stormlib_log  # NOQA
 import synapse.lib.stormlib.xml as s_stormlib_xml  # NOQA
 import synapse.lib.stormlib.auth as s_stormlib_auth  # NOQA
 import synapse.lib.stormlib.cell as s_stormlib_cell  # NOQA
+import synapse.lib.stormlib.file as s_stormlib_file  # NOQA
 import synapse.lib.stormlib.imap as s_stormlib_imap  # NOQA
 import synapse.lib.stormlib.ipv6 as s_stormlib_ipv6  # NOQA
 import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
