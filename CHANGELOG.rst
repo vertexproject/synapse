@@ -11,6 +11,9 @@ v2.210.0 - 2025-05-12
 
 Model Changes
 -------------
+- Added ``entity:relationship`` to model relationships between entities.
+  Special thanks to Cisco Talos for collaborating on this addition.
+  (`#4285 <https://github.com/vertexproject/synapse/pull/4285>`_)
 - Added ``inet:service:message:hashtags`` to capture hashtags mentioned in a
   message.
   (`#4268 <https://github.com/vertexproject/synapse/pull/4268>`_)
@@ -22,9 +25,6 @@ Model Changes
 - Added ``inet:service:message:mentions`` to capture contactable entities
   mentioned within the message.
   (`#4273 <https://github.com/vertexproject/synapse/pull/4273>`_)
-- Added ``entity:relationship`` to model relationships between entities.
-  Special thanks to Cisco Talos for collaborating on this addition.
-  (`#4285 <https://github.com/vertexproject/synapse/pull/4285>`_)
 - See :ref:`userguide_model_v2_210_0` for more detailed model changes.
 
 Features and Enhancements
