@@ -3164,6 +3164,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :creator=$visiiden
                 :platform=$platiden
                 :instance=$instiden
+                :topic=' My Topic   '
             ]
             '''
             opts = {'vars': {
@@ -3175,6 +3176,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:channel', s_common.guid(('general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[0].get('name'), 'general')
+            self.eq(nodes[0].get('topic'), 'my topic')
             self.eq(nodes[0].get('period'), (1420070400000, 9223372036854775807))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
