@@ -662,7 +662,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 nodeedits = []
                 editor = s_editor.NodeEditor(self.parent, merge.get('creator'), meta=meta)
 
-                async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits():
+                async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits(meta=True):
                     nid = s_common.int64en(intnid)
 
                     if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
@@ -2115,7 +2115,7 @@ class View(s_nexus.Pusher):  # type: ignore
             nodeedits = []
             editor = s_editor.NodeEditor(self.parent, user, meta=meta)
 
-            async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits():
+            async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits(meta=True):
                 nid = s_common.int64en(intnid)
 
                 if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:

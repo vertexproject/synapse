@@ -122,13 +122,13 @@ class LayerApi(s_cell.CellApi):
         self.liftperm = ('layer', 'lift', self.layr.iden)
         self.writeperm = ('layer', 'write', self.layr.iden)
 
-    async def iterLayerNodeEdits(self):
+    async def iterLayerNodeEdits(self, *, meta=False):
         '''
         Scan the full layer and yield artificial nodeedit sets.
         '''
 
         await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.iterLayerNodeEdits():
+        async for item in self.layr.iterLayerNodeEdits(meta=meta):
             yield item
             await asyncio.sleep(0)
 
@@ -5368,7 +5368,7 @@ class Layer(s_nexus.Pusher):
                                 perm = perm_tags + key
                                 user.confirm(perm, gateiden=gateiden)
 
-    async def iterLayerNodeEdits(self):
+    async def iterLayerNodeEdits(self, meta=False):
         '''
         Scan the full layer and yield artificial sets of nodeedits.
         '''
@@ -5393,6 +5393,10 @@ class Layer(s_nexus.Pusher):
                 edits.append((EDIT_NODE_TOMB, ()))
                 yield nodeedit
                 continue
+
+            if meta and (mval := sode.get('meta')) is not None:
+                for name, (valu, stortype) in mval.items():
+                    edits.append((EDIT_META_SET, (name, valu, None, stortype)))
 
             for prop, (valu, stortype, virts) in sode.get('props', {}).items():
                 edits.append((EDIT_PROP_SET, (prop, valu, None, stortype, virts)))

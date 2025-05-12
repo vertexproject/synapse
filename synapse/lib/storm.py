@@ -3814,8 +3814,12 @@ class MergeCmd(Cmd):
                         await asyncio.sleep(0)
                         continue
 
+                    ctime = sode['meta']['created'][0]
+
                     if not doapply:
                         await runt.printf(f'{nodeiden} {form} = {node.repr()}')
+                        mtyp = self.runt.model.metatypes['created']
+                        await runt.printf(f'{nodeiden} {form}.created = {mtyp.repr(ctime)}')
                     else:
                         delnode = True
                         try:
@@ -3824,6 +3828,8 @@ class MergeCmd(Cmd):
                             await runt.warn(e.errinfo.get('mesg'))
                             await asyncio.sleep(0)
                             continue
+
+                        await protonode.setMeta('created', ctime)
 
                 elif doapply:
                     try:
