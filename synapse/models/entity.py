@@ -14,7 +14,7 @@ class EntityModule(s_module.CoreModule):
 
                 ('entity:relationship:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy', ),
-                    'doc': 'A hierarhical taxonomy of entity relationship types.'}),
+                    'doc': 'A hierarchical taxonomy of entity relationship types.'}),
 
                 ('entity:relationship', ('guid', {}), {
                     'doc': 'A directional relationship between two actor entities.'}),
