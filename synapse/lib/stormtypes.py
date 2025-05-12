@@ -6215,15 +6215,7 @@ class Node(Prim):
     async def _methNodeRepr(self, name=None, defv=None):
         name = await toprim(name)
         defv = await toprim(defv)
-        virts = None
-
-        if name is not None:
-            parts = name.strip().split('.')
-            if len(parts) > 1:
-                name = parts[0] or None
-                virts = parts[1:]
-
-        return self.valu.repr(name=name, virts=virts, defv=defv)
+        return self.valu.repr(name=name, defv=defv)
 
     @stormfunc(readonly=True)
     async def _methNodeIden(self):

@@ -14,18 +14,22 @@ logger = logging.getLogger(__name__)
 
 class NodeBase:
 
-    def repr(self, name=None, defv=None, virts=None):
+    def repr(self, name=None, defv=None):
 
-        # TODO: remove this
-        if name == '.created':
-            for sode in self.sodes:
-                if (meta := sode.get('meta')) is not None and (tick := meta.get('created')) is not None:
-                    return tick[0]
+        virts = None
+        if name is not None:
+            parts = name.strip().split('.')
+            if len(parts) > 1:
+                name = parts[0] or None
+                virts = parts[1:]
 
         if name is None:
             typeitem = self.form.type
             if virts is None:
                 return typeitem.repr(self.valu())
+
+            if (mtyp := self.view.core.model.metatypes.get(virts[0])) is not None:
+                return mtyp.repr(self.getMeta(virts[0]))
 
             virtgetr = typeitem.getVirtGetr(virts)
             virttype = typeitem.getVirtType(virts)
@@ -501,11 +505,13 @@ class Node(NodeBase):
         if name.startswith('#'):
             return self.getTag(name[1:], defval=defv)
 
-        # TODO: remove this
-        if name == '.created':
-            for sode in self.sodes:
-                if (meta := sode.get('meta')) is not None and (tick := meta.get('created')) is not None:
-                    return tick[0]
+        elif name.startswith('.'):
+            virts = name.split('.')[1:]
+            if (mtyp := self.view.core.model.metatypes.get(virts[0])) is not None:
+                return self.getMeta(virts[0])
+
+            virtgetr = typeitem.getVirtGetr(virts)
+            return self.valu(virts=virtgetr)
 
         for sode in self.sodes:
             if sode.get('antivalu') is not None:
