@@ -9,8 +9,8 @@ class EntityModule(s_module.CoreModule):
                 ('entity:name', ('str', {'onespace': True, 'lower': True}), {
                     'doc': 'A name used to refer to an entity.'}),
 
-                ('entity:actor', ('ndef', {'forms': ('ou:org', 'ps:person', 'ps:contact', 'risk:threat', 'inet:service:account')}), {
-                    'doc': 'An entity node with initiative to act.'}),
+                ('entity:actor', ('ndef', {'forms': ('ou:org', 'ps:person', 'ps:contact', 'risk:threat')}), {
+                    'doc': 'An entity which has initiative to act.'}),
 
                 ('entity:relationship:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy', ),
