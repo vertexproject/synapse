@@ -339,7 +339,7 @@ def makeargparser():
 
 async def _main(argv, outp=s_output.stdout):  # pragma: no cover
     s_common.setlogging(logger, 'DEBUG')
-    ret = await main(argv, outp=outp)
+    ret = await main(argv, outprint=outp)
     await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
     return ret
 
