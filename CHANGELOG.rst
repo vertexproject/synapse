@@ -41,7 +41,7 @@ Bugfixes
 
 Improved documentation
 ----------------------
-- Updated documentation to clarify `view.del` only deletes the view and does
+- Updated documentation to clarify ``view.del`` only deletes the view and does
   not remove any layers.
   (`#4261 <https://github.com/vertexproject/synapse/pull/4261>`_)
 
