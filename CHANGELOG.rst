@@ -47,7 +47,7 @@ Improved documentation
 
 Deprecations
 ------------
-- Deprecate ``$lib.notification``, ``user.notify()``, and ``user.tell()`` Storm
+- Deprecated ``$lib.notification``, ``user.notify()``, and ``user.tell()`` Storm
   APIs.
   (`#4267 <https://github.com/vertexproject/synapse/pull/4267>`_)
 
