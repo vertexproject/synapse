@@ -1,0 +1,6 @@
+---
+desc: 'Added the following properties to ``ps:contact``: ``:banner``, ``:passwd``,
+  ``:website``, ``:websites``.'
+prs: []
+type: model
+...
