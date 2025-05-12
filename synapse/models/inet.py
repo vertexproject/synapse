@@ -1354,14 +1354,6 @@ modeldefs = (
                 'doc': 'A single result from a web search.',
             }),
 
-            ('inet:web:hashtag', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {
-                # regex explanation:
-                # - starts with pound
-                # - one or more non-whitespace/non-pound character
-                # The minimum hashtag is a pound with a single non-whitespace character
-                'doc': 'A hashtag used in a web post.',
-            }),
-
             ('inet:whois:contact', ('comp', {'fields': (('rec', 'inet:whois:rec'), ('type', ('str', {'lower': True})))}), {
                 'doc': 'An individual contact from a domain whois record.'
             }),
@@ -2411,9 +2403,6 @@ modeldefs = (
                 ('text', ('str', {'lower': True}), {
                     'doc': 'Extracted/matched text from the matched content.'}),
             )),
-
-
-            ('inet:web:hashtag', {}, ()),
 
             ('inet:whois:contact', {}, (
                 ('rec', ('inet:whois:rec', {}), {

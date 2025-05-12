@@ -1,3 +1,6 @@
+import pytz
+import datetime
+
 import synapse.exc as s_exc
 
 import synapse.lib.time as s_time
@@ -186,3 +189,15 @@ class TimeTest(s_t_utils.SynTest):
     def test_time_toutc(self):
         tick = s_time.parse('2020-02-11 14:08:00.123')
         self.eq(s_time.toUTC(tick, 'EST'), tick + (s_time.onehour * 5))
+
+    def test_time_timestamp(self):
+        dt = datetime.datetime.strptime('2025-04-28T16:36:30.981123Z', '%Y-%m-%dT%H:%M:%S.%fZ')
+        self.eq(1745858190981123, s_time.timestamp(dt))
+
+        est = pytz.timezone('US/Eastern')
+        estdt = est.localize(dt)
+        self.eq(1745872590981123, s_time.timestamp(estdt))
+
+        utc = pytz.timezone('UTC')
+        utcdt = utc.localize(dt)
+        self.eq(1745858190981123, s_time.timestamp(utcdt))

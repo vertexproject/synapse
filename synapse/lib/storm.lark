@@ -291,7 +291,7 @@ tagname: _HASH (_varvalu | _tagsegs)
 tagnamewithspace: _HASHSPACE (_varvalu | _tagsegs) -> tagname
 _HASH.2: /(?<!\s)#/
 _HASHSPACE.2: /(?<=\s)#/
-_tagsegs:  TAGSEGNOVAR ( "." (TAGSEGNOVAR | "$" varvalue))*
+_tagsegs:  (TAGSEGNOVAR | formatstring) ("." (TAGSEGNOVAR | "$" varvalue | formatstring))*
 TAGSEGNOVAR: /[\w]+/
 
 // A tag name with asterisks or $var as segment after the first segment
@@ -367,9 +367,12 @@ exprvirtpropvalue: virtprops -> virtpropvalue
 
 exprtagvalu: (exprtagname | exprtagnamewithspace) virtprops? -> tagvalu
 
+exprformatstring: _EXPRBACKTICK (_formatexpr | FORMATTEXT)* _BACKTICK -> formatstring
+_EXPRBACKTICK: "`"
+
 exprtagname: _HASH (_exprvarvalu | _exprtagsegs) -> tagname
 exprtagnamewithspace: _HASHSPACE (_exprvarvalu | _exprtagsegs) -> tagname
-_exprtagsegs:  EXPRTAGSEGNOVAR ( "." (EXPRTAGSEGNOVAR | "$" exprvarvalue))*
+_exprtagsegs: (EXPRTAGSEGNOVAR | exprformatstring) ("." (EXPRTAGSEGNOVAR | "$" exprvarvalue | exprformatstring))*
 EXPRTAGSEGNOVAR: /[\w]+/
 
 exprtagpropvalu: (exprtagprop | exprtagpropwithspace) virtprops? -> tagpropvalu
@@ -480,7 +483,8 @@ SINGLEQUOTEDSTRING: /'[^']*'(?!')/
 
 FORMATTEXT.-1: /((?<!\\)(\\\\)*\\[`{]|[^`{])+/s
 _formatexpr: "{" expror "}"
-formatstring: "`" (_formatexpr | FORMATTEXT)* "`"
+formatstring: _BACKTICK (_formatexpr | FORMATTEXT)* _BACKTICK
+_BACKTICK: "`"
 
 // Must be kept consistent with same regexes in synapse/lib/grammar.py
 // A full property.  Must contain at least 1 colon
