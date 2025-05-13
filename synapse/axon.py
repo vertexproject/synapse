@@ -1,3 +1,4 @@
+import os
 import csv
 import struct
 import asyncio
@@ -826,6 +827,9 @@ class Axon(s_cell.Cell):
             self.axonmetrics.set('size:bytes', 0)
             self.axonmetrics.set('file:count', 0)
             self.cellvers.set('axon:metrics', 1)
+            self.cellvers.set('axon:history', 1)
+
+        await self._migrateAxonHistory()
 
         self.maxbytes = self.conf.get('max:bytes')
         self.maxcount = self.conf.get('max:count')
@@ -889,6 +893,41 @@ class Axon(s_cell.Cell):
 
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
+
+    async def _migrateAxonHistory(self):
+        vers = self.cellvers.get('axon:history', 0)
+        if vers < 1:
+            logger.warning('Migrating Axon history')
+
+            with s_common.getTempDir() as tmpdir:
+                temp_path = os.path.join(tmpdir, 'axon.lmdb')
+
+                count = 0
+                with open(temp_path, 'wb') as tmpfile:
+                    for tick, item in self.axonhist.carve(0):
+                        tmpfile.write(s_msgpack.en((tick, item)))
+                        count += 1
+                logger.debug(f"Found {count} history rows.")
+
+                self.axonslab.dropdb('history')
+                self.axonslab.initdb('history')
+
+                newslab = s_lmdbslab.Hist(self.axonslab, 'history')
+
+                migrated = 0
+                with open(temp_path, 'rb') as tmpfile:
+                    for tick, item in s_msgpack.iterfd(tmpfile):
+                        if tick < 1e15:
+                            newtick = tick * 1000
+                        else: # pragma: no cover
+                            newtick = tick
+                        newslab.add(item, tick=newtick)
+                        migrated += 1
+                logger.warning(f"Migrated {migrated} history rows in total.")
+
+            self.cellvers.set('axon:history', 1)
+
+            logger.warning('...Axon history migration complete!')
 
     async def _initBlobStor(self):
 

@@ -1199,3 +1199,20 @@ bar baz",vv
                 sha256 = hashlib.sha256(byts).digest()
                 self.eq(sizes[i], await axon.size(sha256))
                 self.eq(byts, b''.join([chunk async for chunk in axon.get(sha256)]))
+
+    async def test_axon_history_migration(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await s_axon.Axon.anit(dirn) as axon:
+                axon.cellvers.set('axon:history', 0)
+                for i in range(5):
+                    tick = 1000000000000 + i
+                    item = (b'foo%d' % i, 123 + i)
+                    axon.axonhist.add(item, tick=tick)
+                self.eq(axon.cellvers.get('axon:history'), 0)
+
+            async with await s_axon.Axon.anit(dirn) as axon:
+                self.eq(axon.cellvers.get('axon:history'), 1)
+                hist = list(axon.axonhist.carve(0))
+                self.len(5, hist)
