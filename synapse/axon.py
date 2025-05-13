@@ -914,8 +914,6 @@ class Axon(s_cell.Cell):
             for tick, item in oldhist.carve(0):
                 if tick < 1e15:
                     newtick = tick * 1000
-                else: # pragma: no cover
-                    newtick = tick
                 newhist.add(item, tick=newtick)
                 migrated += 1
             logger.warning(f"Migrated {migrated} history rows")
