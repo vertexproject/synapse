@@ -1,5 +1,0 @@
----
-desc: Added ``inet:service:channel:topic`` to capture the topic of the channel.
-prs: []
-type: model
-...
