@@ -1216,3 +1216,19 @@ bar baz",vv
                 self.eq(axon.cellvers.get('axon:history'), 1)
                 hist = list(axon.axonhist.carve(0))
                 self.len(5, hist)
+
+        with self.getTestDir() as dirn:
+
+            async with await s_axon.Axon.anit(dirn) as axon:
+                axon.cellvers.set('axon:history', 0)
+                for i in range(2):
+                    tick = 1000000000000 + i
+                    item = (b'foo%d' % i, 123 + i)
+                    axon.axonhist.add(item, tick=tick)
+                self.eq(axon.cellvers.get('axon:history'), 0)
+
+            with mock.patch('shutil.rmtree', side_effect=OSError("fail")):
+                with self.raises(s_exc.BadCoreStore) as cm:
+                    async with await s_axon.Axon.anit(dirn) as axon:
+                        pass
+                self.isin('Failed to trash slab', str(cm.exception))

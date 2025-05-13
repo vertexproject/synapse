@@ -823,13 +823,14 @@ class Axon(s_cell.Cell):
 
         self.axonmetrics = await self.axonslab.getHotCount('metrics')
 
-        if self.inaugural:
+        if not self.inaugural and self.cellvers.get('axon:history', 0) != 1:
+            await self._migrateAxonHistory()
+
+        elif self.inaugural:
             self.axonmetrics.set('size:bytes', 0)
             self.axonmetrics.set('file:count', 0)
             self.cellvers.set('axon:metrics', 1)
             self.cellvers.set('axon:history', 1)
-
-        await self._migrateAxonHistory()
 
         self.maxbytes = self.conf.get('max:bytes')
         self.maxcount = self.conf.get('max:count')
@@ -899,31 +900,48 @@ class Axon(s_cell.Cell):
         if vers < 1:
             logger.warning('Migrating Axon history')
 
-            with s_common.getTempDir() as tmpdir:
-                temp_path = os.path.join(tmpdir, 'axon.lmdb')
+            old_path = s_common.gendir(self.dirn, 'axon.lmdb')
+            new_path = s_common.gendir(self.dirn, 'axon_v2.lmdb')
 
-                count = 0
-                with open(temp_path, 'wb') as tmpfile:
-                    for tick, item in self.axonhist.carve(0):
-                        tmpfile.write(s_msgpack.en((tick, item)))
-                        count += 1
-                logger.debug(f"Found {count} history rows.")
+            await self.axonslab.fini()
+            oldslab = await s_lmdbslab.Slab.anit(old_path, readonly=True)
+            self.onfini(oldslab.fini)
 
-                self.axonslab.dropdb('history')
-                self.axonslab.initdb('history')
+            newslab = await s_lmdbslab.Slab.anit(new_path)
+            self.onfini(newslab.fini)
 
-                newslab = s_lmdbslab.Hist(self.axonslab, 'history')
+            for name in ['sizes', 'axonseqn', 'metrics']:
+                if oldslab.dbexists(name):
+                    oldslab.initdb(name)
+                    await oldslab.copydb(name, newslab, name)
 
-                migrated = 0
-                with open(temp_path, 'rb') as tmpfile:
-                    for tick, item in s_msgpack.iterfd(tmpfile):
-                        if tick < 1e15:
-                            newtick = tick * 1000
-                        else: # pragma: no cover
-                            newtick = tick
-                        newslab.add(item, tick=newtick)
-                        migrated += 1
-                logger.warning(f"Migrated {migrated} history rows in total.")
+            oldhist = s_lmdbslab.Hist(oldslab, 'history')
+            newhist = s_lmdbslab.Hist(newslab, 'history')
+            migrated = 0
+            for tick, item in oldhist.carve(0):
+                if tick < 1e15:
+                    newtick = tick * 1000
+                else: # pragma: no cover
+                    newtick = tick
+                newhist.add(item, tick=newtick)
+                migrated += 1
+            logger.warning(f"Migrated {migrated} history rows")
+
+            newslab.forcecommit()
+            await newslab.fini()
+
+            try:
+                await oldslab.fini()
+                await oldslab.trash(ignore_errors=False)
+            except s_exc.BadCoreStore as e:
+                raise
+
+            os.rename(new_path, old_path)
+
+            self.axonslab = await s_lmdbslab.Slab.anit(old_path)
+            self.sizes = self.axonslab.initdb('sizes')
+            self.axonhist = s_lmdbslab.Hist(self.axonslab, 'history')
+            self.axonseqn = s_slabseqn.SlabSeqn(self.axonslab, 'axonseqn')
 
             self.cellvers.set('axon:history', 1)
 
