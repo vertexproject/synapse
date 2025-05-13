@@ -1514,3 +1514,7 @@ for $i in $values {
             self.none(await core.callStorm(f'return($lib.cortex.getNidByIden({buid}))'))
 
             self.len(0, await core.nodes('yield (99999)'))
+
+            q = 'for ($buid, $sode) in $lib.layer.get().getStorNodes() { return($lib.cortex.getNdefByIden($buid)) }'
+            ndef = await core.callStorm(q)
+            self.eq(ndef, ('test:str', 'foo'))
