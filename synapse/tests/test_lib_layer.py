@@ -2421,11 +2421,11 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ps:contact:virtuniv.ip="::5"'))
             self.len(2, await core.nodes('ps:contact:virtuniv.ip*range=(127.0.0.5, 127.0.0.6)'))
 
-            self.len(6, await core.nodes(':virtuniv.ip'))
-            self.len(6, await core.nodes(':virtuniv.port'))
-            self.len(1, await core.nodes(':virtuniv.ip=127.0.0.5'))
-            self.len(1, await core.nodes(':virtuniv.ip="::5"'))
-            self.len(2, await core.nodes(':virtuniv.ip*range=(127.0.0.5, 127.0.0.6)'))
+            self.len(6, await core.nodes('univ:virtuniv.ip'))
+            self.len(6, await core.nodes('univ:virtuniv.port'))
+            self.len(1, await core.nodes('univ:virtuniv.ip=127.0.0.5'))
+            self.len(1, await core.nodes('univ:virtuniv.ip="::5"'))
+            self.len(2, await core.nodes('univ:virtuniv.ip*range=(127.0.0.5, 127.0.0.6)'))
 
             self.len(6, await core.nodes('ps:contact.created +:virtuniv.ip'))
             self.len(1, await core.nodes('ps:contact.created +:virtuniv.ip=127.0.0.4'))
@@ -2452,9 +2452,9 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('ou:org:virtunivarray*[.ip="::5"]'))
             self.len(3, await core.nodes('ou:org:virtunivarray*[.ip*range=(127.0.0.4, 127.0.0.5)]'))
 
-            self.len(2, await core.nodes(':virtunivarray*[.ip=127.0.0.4]'))
-            self.len(2, await core.nodes(':virtunivarray*[.ip="::5"]'))
-            self.len(3, await core.nodes(':virtunivarray*[.ip*range=(127.0.0.4, 127.0.0.5)]'))
+            self.len(2, await core.nodes('univ:virtunivarray*[.ip=127.0.0.4]'))
+            self.len(2, await core.nodes('univ:virtunivarray*[.ip="::5"]'))
+            self.len(3, await core.nodes('univ:virtunivarray*[.ip*range=(127.0.0.4, 127.0.0.5)]'))
 
             self.len(2, await core.nodes('ou:org.created +:virtunivarray*[.ip=127.0.0.4]'))
             self.len(2, await core.nodes('ou:org.created +:virtunivarray*[.ip="::5"]'))
@@ -2473,18 +2473,18 @@ class LayerTest(s_t_utils.SynTest):
             self.len(3, await core.nodes('test:virtiface:servers.size*range=(1, 3)'))
             self.len(0, await core.nodes('test:virtiface:servers.size*range=(3, 4)'))
 
-            nodes = await core.nodes(':virtunivarray.size=2')
+            nodes = await core.nodes('univ:virtunivarray.size=2')
             self.len(3, nodes)
-            self.eq(nodes[::-1], await core.nodes('reverse(:virtunivarray.size=2)'))
+            self.eq(nodes[::-1], await core.nodes('reverse(univ:virtunivarray.size=2)'))
 
-            nodes = await core.nodes(':virtunivarray.size*range=(2, 3)')
+            nodes = await core.nodes('univ:virtunivarray.size*range=(2, 3)')
             self.len(3, nodes)
-            self.eq(nodes[::-1], await core.nodes('reverse(:virtunivarray.size*range=(2, 3))'))
+            self.eq(nodes[::-1], await core.nodes('reverse(univ:virtunivarray.size*range=(2, 3))'))
 
             self.len(1, await core.nodes('test:virtiface:servers=("tcp://[::1]:12341", "tcp://[::2]:12342")'))
             self.len(1, await core.nodes('reverse(test:virtiface:servers=("tcp://[::1]:12341", "tcp://[::2]:12342"))'))
 
-            await core.nodes(':virtunivarray*[.ip=127.0.0.4] [ :virtunivarray=(tcp://127.0.0.1, tcp://127.0.0.2) ]')
+            await core.nodes('univ:virtunivarray*[.ip=127.0.0.4] [ :virtunivarray=(tcp://127.0.0.1, tcp://127.0.0.2) ]')
 
             self.len(0, await core.nodes('ou:org:virtunivarray*[.ip=127.0.0.4]'))
             self.len(2, await core.nodes('ou:org:virtunivarray*[.ip=127.0.0.1]'))

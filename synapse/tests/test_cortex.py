@@ -1533,7 +1533,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:compcomp~="^lulz"'))
             self.len(0, await core.nodes('test:compcomp~="^newp"'))
             self.len(1, await core.nodes('test:str~="zip"'))
-            self.len(1, await core.nodes(':favcolor~="^r"'))
+            self.len(1, await core.nodes('univ:favcolor~="^r"'))
 
     async def test_cortex_lift_reverse(self):
 
@@ -2685,11 +2685,11 @@ class CortexTest(s_t_utils.SynTest):
             core.model.addUnivProp('hehe', ('int', {}), {})
 
             self.len(1, await core.nodes('[ test:str=woot :hehe=20 ]'))
-            self.len(1, await core.nodes(':hehe'))
+            self.len(1, await core.nodes('univ:hehe'))
             self.len(1, await core.nodes('test:str:hehe=20'))
             self.len(0, await core.nodes('test:str:hehe=19'))
-            self.len(1, await core.nodes(':hehe [ -:hehe ]'))
-            self.len(0, await core.nodes(':hehe'))
+            self.len(1, await core.nodes('univ:hehe [ -:hehe ]'))
+            self.len(0, await core.nodes('univ:hehe'))
 
             self.none(await core._addUnivProp('hehe', ('int', {}), {}))
 
@@ -6061,7 +6061,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.len(1, await core.nodes('syn:prop:base="_visi"'))
                 self.len(1, await core.nodes('syn:prop=inet:ip:_woot'))
-                self.len(1, await core.nodes(':_woot=hehe'))
+                self.len(1, await core.nodes('univ:_woot=hehe'))
 
                 await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.', 'deprecated': True})
                 self.len(1, await core.nodes('[ _hehe:haha=10 ]'))
@@ -6111,13 +6111,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                 nodes = await core.nodes('inet:ip:_visi>30')
                 self.len(1, nodes)
 
-                nodes = await core.nodes(':_woot=hehe')
+                nodes = await core.nodes('univ:_woot=hehe')
                 self.len(1, nodes)
 
                 with self.raises(s_exc.CantDelUniv):
                     await core.delUnivProp('_woot')
 
-                await core.nodes(':_woot [ -:_woot ]')
+                await core.nodes('univ:_woot [ -:_woot ]')
 
                 self.nn(core.model.type('_test:type'))
                 self.nn(core.model.univ('_woot'))
@@ -6205,7 +6205,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     with self.raises(s_exc.CantDelUniv):
                         await prox.delUnivProp('_r100')
 
-                    self.len(1, await core.nodes(':_r100 [ -:_r100 ]'))
+                    self.len(1, await core.nodes('univ:_r100 [ -:_r100 ]'))
                     await prox.delUnivProp('_r100')
 
                     await prox.addFormProp('inet:ip', '_blah', ('int', {}), {})

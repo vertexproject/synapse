@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import ast
 import hashlib
 import collections
@@ -17,6 +18,18 @@ import synapse.lib.datfile as s_datfile
 
 # Note: this file is coupled strongly to synapse/lib/storm.lark.  Any changes to that file will probably require
 # changes here
+
+
+class PostLex(ABC):
+    @abstractmethod
+    def process(stream):
+        print('postlex---------------------------')
+        print('---------------------------')
+        print('---------------------------')
+        for s in stream:
+            print(s.type, s)
+            yield s
+    always_accept = ()
 
 # For easier-to-understand syntax errors
 terminalEnglishMap = {
@@ -113,6 +126,8 @@ terminalEnglishMap = {
     '_COLONDOLLAR': ':$',
     '_COLONNOSPACE': ':',
     '_DEREF': '*',
+    '_DOTSPACE': '.',
+    '_DOTNOSPACE': '.',
     '_EDGEADDN1INIT': '+(',
     '_EDGEADDN2FINI': ')+',
     '_EDGEN1FINI': ')>',
@@ -463,46 +478,11 @@ class AstConverter(lark.Transformer):
         kids[0].reverseLift(astinfo)
         return kids[0]
 
-    @lark.v_args(meta=True)
-    def operrelprop_join(self, meta, kids):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        # TODO: fix child astinfo
-        if len(kids) == 2:
-            prop = s_ast.RelPropValue(astinfo, [kids[0]])
-        else:
-            prop = s_ast.RelPropValue(astinfo, kids[:2])
-        return s_ast.PropPivot(astinfo, [prop, kids[-1]], isjoin=True)
-
-    @lark.v_args(meta=True)
-    def operrelprop_joinout(self, meta, kids):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        prop = s_ast.RelPropValue(astinfo, kids)
-        return s_ast.PropPivotOut(astinfo, [prop], isjoin=True)
-
-    @lark.v_args(meta=True)
-    def operrelprop_pivot(self, meta, kids):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        if len(kids) == 2:
-            prop = s_ast.RelPropValue(astinfo, [kids[0]])
-        else:
-            prop = s_ast.RelPropValue(astinfo, kids[:2])
-        return s_ast.PropPivot(astinfo, [prop, kids[-1]])
-
-    @lark.v_args(meta=True)
-    def operrelprop_pivotout(self, meta, kids):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        prop = s_ast.RelPropValue(astinfo, kids)
-        return s_ast.PropPivotOut(astinfo, [prop])
-
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
 LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdargs', 'evalvalu', 'search'],
-                       maybe_placeholders=False, propagate_positions=True, parser='lalr')
+                       maybe_placeholders=False, propagate_positions=True, parser='lalr') #, postlex=PostLex)
 
 class Parser:
     '''
@@ -748,15 +728,21 @@ ruleClassMap = {
     'ifclause': s_ast.IfClause,
     'kwarg': lambda astinfo, kids: s_ast.CallKwarg(astinfo, kids=tuple(kids)),
     'liftbytag': s_ast.LiftTag,
+    'liftbytagvalu': s_ast.LiftTagValu,
+    'liftbytagvirt': s_ast.LiftTagVirt,
+    'liftbytagvirtvalu': s_ast.LiftTagVirtValu,
     'liftformtag': s_ast.LiftFormTag,
+    'liftformtagvalu': s_ast.LiftFormTagValu,
+    'liftformtagvirt': s_ast.LiftFormTagVirt,
+    'liftformtagvirtvalu': s_ast.LiftFormTagVirtValu,
     'liftmeta': s_ast.LiftMeta,
-    'liftuniv': s_ast.LiftUniv,
-    'liftunivby': s_ast.LiftUnivBy,
-    'liftunivbyarray': s_ast.LiftUnivByArray,
     'liftprop': s_ast.LiftProp,
     'liftpropby': s_ast.LiftPropBy,
+    'liftpropvirt': s_ast.LiftPropVirt,
+    'liftpropvirtby': s_ast.LiftPropVirtBy,
     'lifttagtag': s_ast.LiftTagTag,
     'liftbyarray': s_ast.LiftByArray,
+    'liftbyarrayvirt': s_ast.LiftByArrayVirt,
     'liftbytagprop': s_ast.LiftTagProp,
     'liftbyformtagprop': s_ast.LiftFormTagProp,
     'looklist': s_ast.LookList,
@@ -770,6 +756,10 @@ ruleClassMap = {
     'n1walknpivo': s_ast.N1WalkNPivo,
     'n2walknpivo': s_ast.N2WalkNPivo,
     'notcond': s_ast.NotCond,
+    'operrelprop_join': lambda astinfo, kids: s_ast.PropPivot(astinfo, kids, isjoin=True),
+    'operrelprop_joinout': lambda astinfo, kids: s_ast.PropPivotOut(astinfo, kids, isjoin=True),
+    'operrelprop_pivot': s_ast.PropPivot,
+    'operrelprop_pivotout': s_ast.PropPivotOut,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
     'query': s_ast.Query,
@@ -791,8 +781,10 @@ ruleClassMap = {
     'tagmatch': s_ast.TagMatch,
     'tagprop': s_ast.TagProp,
     'tagvalu': s_ast.TagValue,
+    'tagvirtvalu': s_ast.TagVirtValue,
     'tagpropvalu': s_ast.TagPropValue,
     'tagvalucond': s_ast.TagValuCond,
+    'tagvirtcond': s_ast.TagVirtCond,
     'tagpropcond': s_ast.TagPropCond,
     'trycatch': s_ast.TryCatch,
     'valulist': s_ast.List,

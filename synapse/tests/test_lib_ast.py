@@ -1385,19 +1385,19 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('univarray'), (1, 2, 3))
 
-            nodes = await core.nodes(':univarray*[=2]')
+            nodes = await core.nodes('univ:univarray*[=2]')
             self.len(1, nodes)
 
             nodes = await core.nodes('test:int=10 [ :univarray=(1, 3) ]')
             self.len(1, nodes)
 
-            nodes = await core.nodes(':univarray*[=2]')
+            nodes = await core.nodes('univ:univarray*[=2]')
             self.len(0, nodes)
 
             nodes = await core.nodes('test:int=10 [ -:univarray ]')
             self.len(1, nodes)
 
-            nodes = await core.nodes(':univarray')
+            nodes = await core.nodes('univ:univarray')
             self.len(0, nodes)
 
     async def test_ast_embed_compute(self):
@@ -3838,6 +3838,9 @@ class AstTest(s_test.SynTest):
                 (test:hasiface=bar :seen=$ival2)
             ]''', opts=opts)
 
+            self.len(1, await core.nodes('ou:campaign.created +#(tag).min=2020'))
+            self.len(1, await core.nodes('ou:campaign.created +#(tag).max=?'))
+            self.len(1, await core.nodes('ou:campaign.created +#(tag).duration=?'))
             self.len(1, await core.nodes('ou:campaign.created +#tag:ival.min=2020'))
             self.len(1, await core.nodes('ou:campaign.created +:period.min=2020'))
             self.len(1, await core.nodes('ou:campaign.created +ou:campaign:period.min=2020'))
@@ -3845,7 +3848,7 @@ class AstTest(s_test.SynTest):
             self.len(1, await core.nodes('test:ival +test:ival.max=?'))
             self.len(1, await core.nodes('test:hasiface +test:interface:seen.min=2020'))
 
-            self.len(0, await core.nodes('#newp.min'))
+            self.len(0, await core.nodes('#(newp).min'))
 
             ival = core.model.type('ival')
 
@@ -3874,7 +3877,9 @@ class AstTest(s_test.SynTest):
 
             tests = (
                 ('test:ival', None, None),
+                ('#(tag)', '#tag', None),
                 ('#tag:ival', 'ival', 'tag'),
+                ('ou:campaign#(tag)', '#tag', None),
                 ('ou:campaign#tag:ival', 'ival', 'tag'),
                 ('ou:campaign:period', 'period', None),
             )
@@ -3886,6 +3891,7 @@ class AstTest(s_test.SynTest):
 
             queries = (
                 'ou:campaign:period.min=2020 return(:period.min)',
+                'ou:campaign#(tag).min=2020 return(#(tag).min)',
                 'ou:campaign#tag:ival.min=2020 return(#tag:ival.min)',
                 'ou:contribution return(:campaign::period.min)'
             )
@@ -3898,6 +3904,12 @@ class AstTest(s_test.SynTest):
 
             await core.nodes('test:ival +test:ival.max=? | delnode')
             self.len(0, await core.nodes('test:ival +test:ival.max=?'))
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('#(tag).newp')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('#tag $lib.print(#(tag).newp)')
 
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('ou:campaign:period.newp')

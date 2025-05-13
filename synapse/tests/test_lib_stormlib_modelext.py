@@ -84,9 +84,9 @@ class StormtypesModelextTest(s_test.SynTest):
             await core._delAllFormProp('_visi:int', 'tick', {})
             self.len(0, await core.nodes('_visi:int:tick'))
 
-            self.len(1, await core.nodes(':_woot'))
+            self.len(1, await core.nodes('univ:_woot'))
             await core._delAllUnivProp('_woot', {})
-            self.len(0, await core.nodes(':_woot'))
+            self.len(0, await core.nodes('univ:_woot'))
 
             self.len(1, await core.nodes('#lol:score'))
             await core._delAllTagProp('score', {})
