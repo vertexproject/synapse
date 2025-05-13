@@ -26,7 +26,6 @@ TerminalPygMap = {
     'CPPCOMMENT': p_t.Comment,
     'DEFAULTCASE': p_t.Keyword,
     'DOLLAR': p_t.Punctuation,
-    'DOT': p_t.Punctuation,
     'DOUBLEQUOTEDSTRING': p_t.Literal.String,
     'ELIF': p_t.Keyword,
     'EMBEDPROPS': p_t.Name,

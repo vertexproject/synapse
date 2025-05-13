@@ -1664,7 +1664,6 @@ class LiftTagVirtValu(LiftOper):
 
         async for node in runt.view.nodesByTagValu(tag, cmpr, valu, reverse=self.reverse):
             yield node
-            return
 
 class LiftByArray(LiftOper):
     '''
@@ -4399,9 +4398,6 @@ class FormatString(Value):
         return ''.join(reprs)
 
 class VarList(Const):
-    pass
-
-class Cmpr(Const):
     pass
 
 class Bool(Const):

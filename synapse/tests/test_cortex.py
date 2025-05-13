@@ -2484,14 +2484,14 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, [m for m in msgs if m[0] == 'node'])
             self.stormIsInWarn("Missing node corresponding to ndef ('test:str', 'ndefpivdst')", msgs)
 
-            # Bad pivot syntax go here - NOTE: These aren't bad syntax anymore, :lulz is a univ prop lift
-            # for q in ['test:pivcomp :lulz <- *',
-            #           'test:pivcomp :lulz <+- *',
-            #           'test:pivcomp :lulz <- test:str',
-            #           'test:pivcomp :lulz <+- test:str',
-            #           ]:
-            #     with self.raises(s_exc.BadSyntax):
-            #         await core.nodes(q)
+            # Bad pivot syntax go here
+            for q in ['test:pivcomp :lulz <- *',
+                      'test:pivcomp :lulz <+- *',
+                      'test:pivcomp :lulz <- test:str',
+                      'test:pivcomp :lulz <+- test:str',
+                      ]:
+                with self.raises(s_exc.BadSyntax):
+                    await core.nodes(q)
 
     async def test_cortex_storm_set_univ(self):
 
