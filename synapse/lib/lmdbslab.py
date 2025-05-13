@@ -1031,7 +1031,7 @@ class Slab(s_base.Base):
             shutil.rmtree(self.path, ignore_errors=ignore_errors)
         except Exception as e:
             mesg = f'Failed to trash slab: {self.path}'
-            raise s_exc.BadCoreStore(mesg=mesg, path=self.path) from None
+            raise s_exc.BadCoreStore(mesg=mesg, path=self.path) from e
 
     async def getHotCount(self, name):
         item = await HotCount.anit(self, name)
