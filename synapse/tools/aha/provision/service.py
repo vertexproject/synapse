@@ -6,7 +6,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.output as s_coro
+import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
 
 descr = '''
