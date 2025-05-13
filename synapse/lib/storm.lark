@@ -247,7 +247,7 @@ liftreverse: _REVERSE "(" (liftmeta
     | lifttagtag | liftbytag | liftbytagvalu | liftbytagvirt | liftbytagvirtvalu
     | liftbytagprop | liftbyformtagprop) ")"
 
-_DEREF.3:  /\*(?=\$)/
+_DEREF.3:  /\*(?=\(?\$)/
 
 liftformtag: ((PROPS | WILDPROPS) | _DEREF _varvalu) tagname
 liftformtagvalu: ((PROPS | WILDPROPS) | _DEREF _varvalu) tagname _cmpr _valu

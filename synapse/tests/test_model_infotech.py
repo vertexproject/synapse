@@ -1452,28 +1452,27 @@ class InfotechModelTest(s_t_utils.SynTest):
             ]
 
             for form in forms:
-                prop = f'{form}:path'
-                opts = {'vars': {'form': form}}
+                opts = {'vars': {'form': form, 'prop': f'{form}:path'}}
                 nodes = await core.nodes('[ *$form=($form, calc) :path="c:/windows/system32/calc.exe" ]', opts=opts)
                 self.len(1, nodes)
                 self.eq(nodes[0].get('path'), 'c:/windows/system32/calc.exe')
-                self.len(1, await core.nodes(f'{prop}.dir=c:/windows/system32', opts=opts))
-                self.len(1, await core.nodes(f'{prop}.base=calc.exe', opts=opts))
-                self.len(1, await core.nodes(f'{prop}.ext=exe', opts=opts))
+                self.len(1, await core.nodes(f'*($prop).dir=c:/windows/system32', opts=opts))
+                self.len(1, await core.nodes(f'*($prop).base=calc.exe', opts=opts))
+                self.len(1, await core.nodes(f'*($prop).ext=exe', opts=opts))
 
                 nodes = await core.nodes('*$form=($form, calc) [ :path="c:/users/blackout/script.ps1" ]', opts=opts)
                 self.len(1, nodes)
                 self.eq(nodes[0].get('path'), 'c:/users/blackout/script.ps1')
-                self.len(1, await core.nodes(f'{prop}.dir=c:/users/blackout', opts=opts))
-                self.len(1, await core.nodes(f'{prop}.base=script.ps1', opts=opts))
-                self.len(1, await core.nodes(f'{prop}.ext=ps1', opts=opts))
+                self.len(1, await core.nodes(f'*($prop).dir=c:/users/blackout', opts=opts))
+                self.len(1, await core.nodes(f'*($prop).base=script.ps1', opts=opts))
+                self.len(1, await core.nodes(f'*($prop).ext=ps1', opts=opts))
 
                 nodes = await core.nodes('*$form=($form, calc) [ :path="c:/users/admin/superscript.bat" ]', opts=opts)
                 self.len(1, nodes)
                 self.eq(nodes[0].get('path'), 'c:/users/admin/superscript.bat')
-                self.len(1, await core.nodes(f'{prop}.dir=c:/users/admin', opts=opts))
-                self.len(1, await core.nodes(f'{prop}.base=superscript.bat', opts=opts))
-                self.len(1, await core.nodes(f'{prop}.ext=bat', opts=opts))
+                self.len(1, await core.nodes(f'*($prop).dir=c:/users/admin', opts=opts))
+                self.len(1, await core.nodes(f'*($prop).base=superscript.bat', opts=opts))
+                self.len(1, await core.nodes(f'*($prop).ext=bat', opts=opts))
 
     async def test_it_app_yara(self):
 
