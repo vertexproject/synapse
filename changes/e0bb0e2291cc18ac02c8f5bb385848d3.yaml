@@ -1,5 +1,5 @@
 ---
-desc: Updated ``synapse.tools.genpkg`` to include Synapse version info in the powerup
+desc: Updated ``synapse.tools.genpkg`` to include Synapse version info in the Power-Up
   package definitions.
 prs: []
 type: feat
