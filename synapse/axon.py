@@ -811,8 +811,11 @@ class Axon(s_cell.Cell):
 
     async def initServiceStorage(self):  # type: ignore
 
-        path = s_common.gendir(self.dirn, 'axon.lmdb')
+        path = s_common.gendir(self.dirn, 'axon_v2.lmdb')
         self.axonslab = await s_lmdbslab.Slab.anit(path)
+
+        await self._migrateAxonHistory()
+
         self.sizes = self.axonslab.initdb('sizes')
         self.onfini(self.axonslab.fini)
 
@@ -823,14 +826,10 @@ class Axon(s_cell.Cell):
 
         self.axonmetrics = await self.axonslab.getHotCount('metrics')
 
-        if not self.inaugural and self.cellvers.get('axon:history', 0) != 1:
-            await self._migrateAxonHistory()
-
-        elif self.inaugural:
+        if self.inaugural:
             self.axonmetrics.set('size:bytes', 0)
             self.axonmetrics.set('file:count', 0)
             self.cellvers.set('axon:metrics', 1)
-            self.cellvers.set('axon:history', 1)
 
         self.maxbytes = self.conf.get('max:bytes')
         self.maxcount = self.conf.get('max:count')
@@ -896,27 +895,21 @@ class Axon(s_cell.Cell):
         health.update('axon', 'nominal', '', data=await self.metrics())
 
     async def _migrateAxonHistory(self):
-        vers = self.cellvers.get('axon:history', 0)
-        if vers < 1:
-            logger.warning('Migrating Axon history')
+        oldpath = s_common.genpath(self.dirn, 'axon.lmdb')
+        if not os.path.isdir(oldpath):
+            return
 
-            old_path = s_common.gendir(self.dirn, 'axon.lmdb')
-            new_path = s_common.gendir(self.dirn, 'axon_v2.lmdb')
+        logger.warning('Migrating Axon history')
 
-            await self.axonslab.fini()
-            oldslab = await s_lmdbslab.Slab.anit(old_path, readonly=True)
-            self.onfini(oldslab.fini)
-
-            newslab = await s_lmdbslab.Slab.anit(new_path)
-            self.onfini(newslab.fini)
+        async with await s_lmdbslab.Slab.anit(oldpath, readonly=True) as oldslab:
 
             for name in ['sizes', 'axonseqn', 'metrics']:
                 if oldslab.dbexists(name):
                     oldslab.initdb(name)
-                    await oldslab.copydb(name, newslab, name)
+                    await oldslab.copydb(name, self.axonslab, name)
 
             oldhist = s_lmdbslab.Hist(oldslab, 'history')
-            newhist = s_lmdbslab.Hist(newslab, 'history')
+            newhist = s_lmdbslab.Hist(self.axonslab, 'history')
             migrated = 0
             for tick, item in oldhist.carve(0):
                 if tick < 1e15:
@@ -927,25 +920,14 @@ class Axon(s_cell.Cell):
                 migrated += 1
             logger.warning(f"Migrated {migrated} history rows")
 
-            newslab.forcecommit()
-            await newslab.fini()
+            self.axonslab.forcecommit()
 
             try:
-                await oldslab.fini()
                 await oldslab.trash(ignore_errors=False)
             except s_exc.BadCoreStore as e:
                 raise
 
-            os.rename(new_path, old_path)
-
-            self.axonslab = await s_lmdbslab.Slab.anit(old_path)
-            self.sizes = self.axonslab.initdb('sizes')
-            self.axonhist = s_lmdbslab.Hist(self.axonslab, 'history')
-            self.axonseqn = s_slabseqn.SlabSeqn(self.axonslab, 'axonseqn')
-
-            self.cellvers.set('axon:history', 1)
-
-            logger.warning('...Axon history migration complete!')
+        logger.warning('...Axon history migration complete!')
 
     async def _initBlobStor(self):
 
