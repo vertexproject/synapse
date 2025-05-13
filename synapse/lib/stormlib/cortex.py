@@ -1340,7 +1340,7 @@ class CortexApi(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'str', 'desc': 'The ndef of the node or None if the node id is not found.'}}},
         {'name': 'getNdefByIden', 'desc': 'Get the ndef tuple for a node by its iden.',
-         'type': {'type': 'function', '_funcname': 'getNdefByIde',
+         'type': {'type': 'function', '_funcname': 'getNdefByIden',
                   'args': (
                       {'name': 'iden', 'type': 'int', 'desc': 'The iden of the node.'},
                   ),
