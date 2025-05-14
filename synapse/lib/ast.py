@@ -1662,7 +1662,7 @@ class LiftTagVirtValu(LiftOper):
         cmpr = await self.kids[2].compute(runt, path)
         valu = await toprim(await self.kids[3].compute(runt, path))
 
-        async for node in runt.view.nodesByTagValu(tag, cmpr, valu, reverse=self.reverse):
+        async for node in runt.view.nodesByTagValu(tag, f'{virt}{cmpr}', valu, reverse=self.reverse):
             yield node
 
 class LiftByArray(LiftOper):

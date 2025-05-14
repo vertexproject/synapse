@@ -3893,6 +3893,7 @@ class AstTest(s_test.SynTest):
                 await check(f'{lift}.duration', prop, tag, ival._getDuration)
 
             queries = (
+                '#(tag).min=2020 return(#(tag).min)',
                 'ou:campaign:period.min=2020 return(:period.min)',
                 'ou:campaign#(tag).min=2020 return(#(tag).min)',
                 'ou:campaign#tag:ival.min=2020 return(#tag:ival.min)',
