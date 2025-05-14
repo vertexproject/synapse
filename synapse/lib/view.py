@@ -2962,7 +2962,7 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.BadArg(f'getDeletedRuntNode() got an invalid nid: {nid}')
 
         sodes = await self.getStorNodes(nid)
-        pode = (('syn:deleted', ndef), {'props': {'sodes': sodes}})
+        pode = (('syn:deleted', ndef), {'props': {'nid': s_common.int64un(nid), 'sodes': sodes}})
 
         return s_node.RuntNode(self, pode, nid=nid)
 
