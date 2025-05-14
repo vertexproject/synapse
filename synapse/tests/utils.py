@@ -87,6 +87,11 @@ _SYN_ASYNCIO_DEBUG = False
 if (s_common.envbool('PYTHONASYNCIODEBUG') or s_common.envbool('PYTHONDEVMODE') or sys.flags.dev_mode):  # pragma: no cover
     _SYN_ASYNCIO_DEBUG = True
 
+# Number of times to sleep when tearing down tests with active bg tasks, in order to
+# allow background tasks to tear down cleanly.
+_SYNDEV_TASK_BG_ITER = int(os.getenv('SYNDEV_BG_TASK_ITER', 12))
+assert _SYNDEV_TASK_BG_ITER >= 0, f'SYNDEV_BG_TASK_ITER must be >=0, got {_SYNDEV_TASK_BG_ITER}'
+
 async def alist(coro):
     return [x async for x in coro]
 
@@ -948,6 +953,11 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         Log warnings for unfinished synapse background tasks & unclosed asyncio tasks.
         These messages likely indicate unclosed resources from test methods.
         '''
+        # We may have bg_tasks that are tearing down. If so, give them a few cycles to run before checking
+        # and reporting on them. The most common task here would be Telepath.Proxy._finiAllLinks.
+        if s_coro.bgtasks:
+            for _ in range(_SYNDEV_TASK_BG_ITER):
+                await asyncio.sleep(0)
         all_tasks = asyncio.all_tasks()
         for task in s_coro.bgtasks:
             logger.warning(f'Unfinished Synapse background task, this may indicate unclosed resources: {task}')
