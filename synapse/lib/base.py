@@ -1,5 +1,6 @@
 import gc
 import os
+import sys
 import atexit
 import signal
 import asyncio
@@ -82,7 +83,7 @@ class Base:
     '''
     def __init__(self):
         self.anitted = False
-        assert inspect.stack()[1].function == 'anit', 'Objects from Base must be constructed solely via "anit"'
+        assert sys._getframe(1).f_code.co_name == 'anit', 'Objects from Base must be constructed solely via "anit"'
 
     @classmethod
     async def anit(cls, *args, **kwargs):
