@@ -158,7 +158,7 @@ class SlabSeqn(s_t_utils.SynTest):
 
                 path = os.path.join(dirn, 'test.lmdb')
                 slab = await s_lmdbslab.Slab.anit(path, map_size=1000000)
-
+                base.onfini(slab)
                 seqn = s_slabseqn.SlabSeqn(slab, 'seqn:test')
 
                 await self.agenlen(0, seqn.aiter(0))
