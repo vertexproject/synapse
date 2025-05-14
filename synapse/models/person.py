@@ -402,13 +402,20 @@ modeldefs = (
                 ('crypto:address', ('crypto:currency:address', {}), {
                     'doc': 'A crypto currency address associated with the contact.'
                 }),
-
                 ('lang', ('lang:language', {}), {
                     'alts': ('langs',),
                     'doc': 'The language specified for the contact.'}),
-
                 ('langs', ('array', {'type': 'lang:language'}), {
                     'doc': 'An array of alternative languages specified for the contact.'}),
+                ('banner', ('file:bytes', {}), {
+                    'doc': 'The file representing the banner for the contact.'}),
+                ('passwd', ('inet:passwd', {}), {
+                    'doc': 'The current password for the contact.'}),
+                ('website', ('inet:url', {}), {
+                    'doc': 'A related URL specified by the contact (e.g., a personal or company web '
+                           'page, blog, etc.).'}),
+                ('websites', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                    'doc': 'Alternative related URLs specified by the contact.'}),
             )),
             ('ps:vitals', {}, (
                 ('asof', ('time', {}), {
@@ -446,19 +453,15 @@ modeldefs = (
 
             ('ps:skill:type:taxonomy', {}, ()),
             ('ps:skill', {}, (
-
                 ('name', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of the skill.'}),
-
                 ('type', ('ps:skill:type:taxonomy', {}), {
                     'doc': 'The type of skill as a taxonomy.'})
             )),
 
             ('ps:proficiency', {}, (
-
                 ('skill', ('ps:skill', {}), {
                     'doc': 'The skill in which the contact is proficient.'}),
-
                 ('contact', ('ps:contact', {}), {
                     'doc': 'The contact which is proficient in the skill.'}),
             )),

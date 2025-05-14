@@ -98,7 +98,6 @@ import synapse.lib.stormlib.easyperm as s_stormlib_easyperm  # NOQA
 import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # NOQA
 import synapse.lib.stormlib.modelext as s_stormlib_modelext  # NOQA
 import synapse.lib.stormlib.compression as s_stormlib_compression  # NOQA
-import synapse.lib.stormlib.notifications as s_stormlib_notifications  # NOQA
 
 logger = logging.getLogger(__name__)
 stormlogger = logging.getLogger('synapse.storm')
