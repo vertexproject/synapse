@@ -177,7 +177,8 @@ operrelprop: pivotprop _RIGHTPIVOT (pivottarg | pivottarglist) -> operrelprop_pi
            | pivotprop _RIGHTJOIN "*" -> operrelprop_joinout
 
 pivotprop: relprop virtprops? -> relpropvalue
-pivottarg: (PROPS | WILDPROPS | _varvalu | "(" _varvalu ")") virtprops?
+pivottarg: PROPS | WILDPROPS | _varvalu
+         | (PROPS | WILDPROPS | "(" _varvalu ")") virtprops -> pivottargvirt
 pivottarglist: "(" pivottarg ("," | ("," pivottarg)*) ")"
 
 rawpivot: _RIGHTPIVOT "{" query "}"
@@ -378,7 +379,7 @@ _innerdollarexprs: "$"? innerdollaroper
 _innerderefexpr: "$"? innerdollarexpr
 innerdollarexpr: "(" expror ")" -> dollarexpr
 
-exprrelprop: (EXPRRELNAME | _COLONDOLLAR _exprvarvaluatom) -> relprop
+exprrelprop: (EXPRRELNAME | _COLONDOLLAR _exprvarvaluatom | _COLONPAREN _exprvarvalu ")") -> relprop
 EXPRRELNAME: /(?<!\w):\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 
 exprrelpropvalue: exprrelprop virtprops? -> relpropvalue
@@ -426,6 +427,7 @@ tagvirtvalu: (tagnamevirt | tagnamevirtwithspace) virtprops
 tagpropvalu: (tagprop | tagpropwithspace) virtprops?
 
 _COLONDOLLAR: /(?<!\w|\'|\"):\$/
+_COLONPAREN: /(?<!\w|\'|\"):\(/
 
 virtprops: _virtprop+
 barevirtprops: _DOTSPACE VIRTNAME _virtprop* -> virtprops
@@ -466,7 +468,7 @@ filtoper: (EXPRPLUS | EXPRMINUS) _cond
 _cond: notcond | "(" _condexpr ")"
     | hasrelpropcond | relpropcond
     | hasvirtpropcond | virtpropcond
-    | abspropcond | hasabspropcond
+    | abspropcond | hasabspropcond | absvirtpropcond
     | tagpropcond | hastagpropcond
     | tagcond | tagvalucond | tagvirtcond
     | condsubq | arraycond
@@ -483,7 +485,8 @@ hasvirtpropcond: (virtprops | barevirtprops)
 virtpropcond: virtpropvalue _cmpr _valu
 virtpropvalue: (virtprops | barevirtprops)
 
-abspropcond: PROPS virtprops? _cmpr _valu
+abspropcond: PROPS _cmpr _valu
+absvirtpropcond: PROPS virtprops _cmpr _valu
 hasabspropcond: (PROPS | WILDPROPS) virtprops?
 
 tagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu) virtprops? _cmpr _valu
@@ -524,7 +527,7 @@ EMBEDPROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+((\:\:|\:)[a-z0-9_]+)*(?![:a-z0-9_\
 // A full property
 formname: PROPS | _DEREF _varvalu
 // A relative property
-relprop: RELNAME | _COLONDOLLAR _varvaluatom
+relprop: RELNAME | _COLONDOLLAR _varvaluatom | _COLONPAREN _varvalu ")"
 
 // Similar to PROPS, but starts with a colon and allows :: as separator
 RELNAME: /(?<!\w):[a-z_][a-z0-9_]*(?:(\:\:|\:)[a-z_][a-z0-9_]*)*/

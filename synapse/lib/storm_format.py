@@ -92,6 +92,7 @@ TerminalPygMap = {
     '_BACKTICK': p_t.Punctuation,
     '_COLONDOLLAR': p_t.Punctuation,
     '_COLONNOSPACE': p_t.Punctuation,
+    '_COLONPAREN': p_t.Punctuation,
     '_DEREF': p_t.Punctuation,
     '_DOTSPACE': p_t.Punctuation,
     '_DOTNOSPACE': p_t.Punctuation,

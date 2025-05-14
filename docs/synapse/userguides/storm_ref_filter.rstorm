@@ -271,17 +271,17 @@ Filter by Universal Property
 
 **Example:**
 
-*Filter the current working set to only include DNS A records (inet:dns:a nodes) that have a .seen property:*
+*Filter the current working set to only include DNS A records (inet:dns:a nodes) that have a :seen property:*
 
-.. storm-pre:: [ (inet:dns:a=(vertex.link,1.1.1.1) .seen=('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')) (inet:dns:a=(vertex.link,2.2.2.2)) ] +inet:dns:a.seen
+.. storm-pre:: [ (inet:dns:a=(vertex.link,1.1.1.1) :seen=('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')) (inet:dns:a=(vertex.link,2.2.2.2)) ] +inet:dns:a:seen
 ::
   
-  <query> +inet:dns:a.seen
+  <query> +inet:dns:a:seen
 
-.. storm-pre:: [ (inet:dns:a=(vertex.link,1.1.1.1) .seen=(2016/06/01,2020/06/01)) (inet:dns:a=(vertex.link,2.2.2.2)) ] +.seen
+.. storm-pre:: [ (inet:dns:a=(vertex.link,1.1.1.1) :seen=(2016/06/01,2020/06/01)) (inet:dns:a=(vertex.link,2.2.2.2)) ] +:seen
 ::
   
-  <query> +.seen
+  <query> +:seen
 
 
 .. _filter-prop-extend:
@@ -353,7 +353,7 @@ Full property names are **required**:
 
 - when filtering based on an interface property value.
 - in cases where multiple nodes in the inbound working set have the same relative property name (e.g.,
-  ``inet:dns:a:ip`` and ``inet:url:ip``, or a universal property such as ``.seen``) and you only wish to
+  ``inet:dns:a:ip`` and ``inet:url:ip``, or a universal property such as ``:seen``) and you only wish to
   filter based on the property of one of the forms.
 
 Each example below is shown using both the full property name (*<form>:<prop>*) and the relative
@@ -486,26 +486,21 @@ property value by using the name of the interface.
 
 .. _filter-prop-std-universal:
 
-Filter by Universal Property Value
-++++++++++++++++++++++++++++++++++
+Filter by Meta Property Value
++++++++++++++++++++++++++++++
 
-Synapse has two built-in universal properties:
+Synapse has one built-in meta property:
 
-- ``.created`` (a time) which represents the date and time a node was created in Synapse; and
-- ``.seen`` (an interval), a pair of date / time values that can optionally be used to represent
-  when the object represented by a node existed or was observed.
+- ``.created`` (a time) which represents the date and time a node was created in Synapse.
 
 Times (date / time values) are stored as integers (epoch microseconds) in Synapse and can be filtered using any
 standard comparison operator.
 
-Because intervals are a pair of date / time values, they can only be filtered using the equal to ( ``=`` )
-standard comparison operator to specify an **exact** match for the interval values.
-
 The :ref:`filter-interval` and :ref:`filter-range` extended comparison operators provide additional flexibility
 when filtering by times and intervals.
 
-See the :ref:`type-time` and :ref:`type-ival` sections of the :ref:`storm-ref-type-specific` guide for
-additional details on working with times and intervals in Synapse.
+See the :ref:`type-time` section of the :ref:`storm-ref-type-specific` guide for additional details on working
+with times in Synapse.
 
 **Syntax:**
 
@@ -525,19 +520,6 @@ additional details on working with times and intervals in Synapse.
 ::
   
   <query> +inet:fqdn.created >= 2024/01/01
-
-
-*Filter the current working set to include only the DNS A records (inet:dns:a nodes) whose .seen property exactly matches the specified interval:*
-
-.. storm-pre:: [ (inet:dns:a=(vertex.link,1.1.1.1) .seen=('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')) (inet:dns:a=(vertex.link,2.2.2.2)) ] +inet:dns:a.seen = ('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')
-::
-  
-  <query> +inet:dns:a.seen = ('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')
-
-.. storm-pre:: [ (inet:dns:a=(vertex.link,1.1.1.1) .seen=('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')) (inet:dns:a=(vertex.link,2.2.2.2)) ] +.seen = ('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')
-::
-  
-  <query> +.seen = ('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')
 
 
 .. filter-prop-std-extended
@@ -747,17 +729,17 @@ of times and intervals.
 
 **Examples:**
 
-*Filter the current working set to include only those DNS A records (inet:dns:a nodes) whose .seen values fall between July 1, 2022 and and August 1, 2022:*
+*Filter the current working set to include only those DNS A records (inet:dns:a nodes) whose :seen values fall between July 1, 2022 and and August 1, 2022:*
 
-.. storm-pre:: [ inet:dns:a=(easymathpath.com, 135.125.78.187) .seen=(2021/09/12 00:00:00, 2023/08/08 01:50:54.001) ] +inet:dns:a.seen @= ( 2022/07/01, 2022/08/01 )
+.. storm-pre:: [ inet:dns:a=(easymathpath.com, 135.125.78.187) :seen=(2021/09/12 00:00:00, 2023/08/08 01:50:54.001) ] +inet:dns:a:seen @= ( 2022/07/01, 2022/08/01 )
 ::
   
-  +inet:dns:a.seen @= ( 2022/07/01, 2022/08/01 )
+  +inet:dns:a:seen @= ( 2022/07/01, 2022/08/01 )
 
-.. storm-pre:: [ inet:dns:a=(easymathpath.com, 135.125.78.187) .seen=(2021/09/12 00:00:00, 2023/08/08 01:50:54.001) ] +.seen @= ( 2022/07/01, 2022/08/01 )
+.. storm-pre:: [ inet:dns:a=(easymathpath.com, 135.125.78.187) :seen=(2021/09/12 00:00:00, 2023/08/08 01:50:54.001) ] +:seen @= ( 2022/07/01, 2022/08/01 )
 ::
   
-  +.seen @= ( 2022/07/01, 2022/08/01 )
+  +:seen @= ( 2022/07/01, 2022/08/01 )
 
 *Filter the current working set to only include DNS requests (inet:dns:request nodes) that occurred on May 3, 2023 (between 05/03/2023 00:00:00 and 05/03/2023 23:59:59):*
 
@@ -782,15 +764,15 @@ of times and intervals.
 
 *Filter the current working set to only include DNS A records (inet:dns:a nodes) whose resolution time window includes the date December 1, 2023:*
 
-.. storm-pre:: inet:dns:a +inet:dns:a.seen @= 2023/12/01
+.. storm-pre:: inet:dns:a +inet:dns:a:seen @= 2023/12/01
 ::
   
-  <query> +inet:dns:a.seen @= 2023/12/01
+  <query> +inet:dns:a:seen @= 2023/12/01
 
-.. storm-pre:: inet:dns:a +.seen @= 2023/12/01
+.. storm-pre:: inet:dns:a +:seen @= 2023/12/01
 ::
   
-  <query> +.seen @= 2023/12/01
+  <query> +:seen @= 2023/12/01
 
 
 *Filter results to include only those domain WHOIS records (inet:whois:rec nodes) where the domain was registered (created) exactly on March 19, 2019 at 5:00 UTC:*
@@ -814,15 +796,15 @@ of times and intervals.
 
 *Filter the current working set to only include WHOIS email nodes (inet:whois:email) that were observed between July 1, 2023 and the present:*
 
-.. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +inet:whois:email.seen @= ( 2023/07/01, now )
+.. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) :seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +inet:whois:email:seen @= ( 2023/07/01, now )
 ::
   
-  <query> +inet:whois:email.seen @= ( 2023/07/01, now )
+  <query> +inet:whois:email:seen @= ( 2023/07/01, now )
 
-.. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +.seen @= ( 2023/07/01, now )
+.. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) :seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +:seen @= ( 2023/07/01, now )
 ::
   
-  <query> +.seen @= ( 2023/07/01, now )
+  <query> +:seen @= ( 2023/07/01, now )
 
 *Filter the current working set to only include the network flows (inet:flow nodes) that occurred within the past day:*
 
@@ -1678,25 +1660,25 @@ of activity).
 This example uses the :ref:`meth-node-globtags` method to select the set of tags on each node that match
 the specified expression (``cno.threat.*``) and :ref:`stormprims-list-size` to count the number of matches.
 
-*Filter the current working set of DNS A records (inet:dns:a nodes) to only include those whose .seen interval falls WITHIN the past 30 day window (e.g., where the <min> value of the .seen interval is greater than or equal to the date 30 days in the past:*
+*Filter the current working set of DNS A records (inet:dns:a nodes) to only include those whose :seen interval falls WITHIN the past 30 day window (e.g., where the <min> value of the :seen interval is greater than or equal to the date 30 days in the past:*
 
-.. storm-pre:: [ ( inet:dns:a = ( woot.com, 4.4.4.4 ) .seen = now ) ] $ival = $lib.cast( ival, ( now, -30 days ) ) ( $start, $stop ) = $ival inet:dns:a.seen @= $ival ( $min, $max ) = .seen +$( $min >= $start )
+.. storm-pre:: [ ( inet:dns:a = ( woot.com, 4.4.4.4 ) :seen = now ) ] $ival = $lib.cast( ival, ( now, -30 days ) ) ( $start, $stop ) = $ival inet:dns:a:seen @= $ival ( $min, $max ) = :seen +$( $min >= $start )
 ::
   
   $ival = $lib.cast( ival, ( now, -30 days ) )
   ( $start, $stop ) = $ival
-  inet:dns:a.seen @= $ival
-  ( $min, $max ) = .seen
+  inet:dns:a:seen @= $ival
+  ( $min, $max ) = :seen
   +$( $min >= $start )
 
-The interval comparison operator ( ``@=`` ) will lift or filter interval properties (such as ``.seen``) if
+The interval comparison operator ( ``@=`` ) will lift or filter interval properties (such as ``:seen``) if
 the node's interval has **any overlap** with the comparison value. Using current Storm syntax, this means
 it is not possible to directly lift or filter for interval values that fall **within** the comparison interval
 value.
 
 The above query uses **variables** (see :ref:`storm-adv-vars`) to calculate the date/time exactly 30 days
 prior to the current date/time ( ``$start`` and ``$stop`` ) and uses an expression filter to ensure that the
-*<min>* value of the node's ``.seen`` property is more recent than "30 days ago".
+*<min>* value of the node's ``:seen`` property is more recent than "30 days ago".
 
 The query is repeated here with inline comments to note what each line is doing:
 
@@ -1706,12 +1688,12 @@ The query is repeated here with inline comments to note what each line is doing:
                                                 // using the keyword "now" and the relative value "-30 days".
   ( $start, $stop ) = $ival                     // Set the variables $start and $stop to the individual date/times
                                                 // from $ival.                                               
-  inet:dns:a.seen @= $ival                      // Lift all inet:dns:a nodes whose .seen property has any **overlap**
+  inet:dns:a:seen @= $ival                      // Lift all inet:dns:a nodes whose :seen property has any **overlap**
                                                 // with the past 30 days.
-  ( $min, $max ) = .seen                        // Set the variables $min and $max to the individual date/times of the
-                                                // .seen interval
+  ( $min, $max ) = :seen                        // Set the variables $min and $max to the individual date/times of the
+                                                // :seen interval
   +$( $min >= $start )                          // Use an expression filter to ensure that the $min time of the node's
-                                                // .seen value is greater than or equal to the $start time of "30 days ago".
+                                                // :seen value is greater than or equal to the $start time of "30 days ago".
 
 
 .. _embed_prop_syntax:

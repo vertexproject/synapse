@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 import ast
 import hashlib
 import collections
@@ -18,18 +17,6 @@ import synapse.lib.datfile as s_datfile
 
 # Note: this file is coupled strongly to synapse/lib/storm.lark.  Any changes to that file will probably require
 # changes here
-
-
-class PostLex(ABC):
-    @abstractmethod
-    def process(stream):
-        print('postlex---------------------------')
-        print('---------------------------')
-        print('---------------------------')
-        for s in stream:
-            print(s.type, s)
-            yield s
-    always_accept = ()
 
 # For easier-to-understand syntax errors
 terminalEnglishMap = {
@@ -124,6 +111,7 @@ terminalEnglishMap = {
     '_BACKTICK': '`',
     '_COLONDOLLAR': ':$',
     '_COLONNOSPACE': ':',
+    '_COLONPAREN': ':(',
     '_DEREF': '*',
     '_DOTSPACE': '.',
     '_DOTNOSPACE': '.',
@@ -481,7 +469,7 @@ with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
 LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdargs', 'evalvalu', 'search'],
-                       maybe_placeholders=False, propagate_positions=True, parser='lalr') #, postlex=PostLex)
+                       maybe_placeholders=False, propagate_positions=True, parser='lalr')
 
 class Parser:
     '''
@@ -667,6 +655,7 @@ terminalClassMap = {
 # For AstConverter, one-to-one replacements from lark to synapse AST
 ruleClassMap = {
     'abspropcond': s_ast.AbsPropCond,
+    'absvirtpropcond': s_ast.AbsVirtPropCond,
     'argvquery': s_ast.ArgvQuery,
     'arraycond': s_ast.ArrayCond,
     'andexpr': s_ast.AndCond,
@@ -762,6 +751,7 @@ ruleClassMap = {
     'orexpr': s_ast.OrCond,
     'query': s_ast.Query,
     'pivottarg': s_ast.PivotTarget,
+    'pivottargvirt': s_ast.PivotTargetVirt,
     'pivottarglist': s_ast.PivotTargetList,
     'rawpivot': s_ast.RawPivot,
     'return': s_ast.Return,

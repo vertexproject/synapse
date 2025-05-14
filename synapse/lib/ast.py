@@ -3383,7 +3383,7 @@ class HasVirtPropCond(Cond):
 
         async def cond(node, path):
             virts = await self.kids[0].compute(runt, path)
-            if len(virts) == 1 and virts[0] in ('created',):
+            if len(virts) == 1 and virts[0] in runt.model.metatypes:
                 return node.getMeta(virts[0]) is not None
 
             getr = node.form.type.getVirtGetr(virts)
@@ -3436,7 +3436,7 @@ class ArrayCond(Cond):
 
             if not prop.type.isarray:
                 mesg = f'Array filter syntax is invalid for non-array prop {realprop}.'
-                raise self.kids[1].addExcInfo(s_exc.BadCmprType(mesg=mesg))
+                raise self.kids[offs + 1].addExcInfo(s_exc.BadCmprType(mesg=mesg))
 
             ptyp = prop.type.arraytype
             getr = None
@@ -3467,11 +3467,50 @@ class AbsPropCond(Cond):
         name = await self.kids[0].compute(runt, None)
         iface = False
 
-        offs = 0
-        virts = None
-        if len(self.kids) == 4:
-            offs = 1
-            virts = await self.kids[1].compute(runt, None)
+        if (prop := runt.model.props.get(name)) is None:
+            if (proplist := runt.model.ifaceprops.get(name)) is not None:
+                iface = True
+                prop = runt.model.props.get(proplist[0])
+            else:
+                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+
+        cmpr = await self.kids[1].compute(runt, None)
+
+        if (ctor := prop.type.getCmprCtor(cmpr)) is None:
+            raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
+
+        if prop.isform:
+            async def cond(node, path):
+                if node.ndef[0] != name:
+                    return False
+
+                val1 = node.ndef[1]
+                val2 = await self.kids[2].compute(runt, path)
+                return ctor(val2)(val1)
+
+            return cond
+
+        async def cond(node, path):
+            if not iface and node.ndef[0] != prop.form.name:
+                return False
+
+            if (val1 := node.get(prop.name)) is None:
+                return False
+
+            val2 = await self.kids[2].compute(runt, path)
+            return ctor(val2)(val1)
+
+        return cond
+
+class AbsVirtPropCond(Cond):
+
+    async def getCondEval(self, runt):
+
+        name = await self.kids[0].compute(runt, None)
+        virts = await self.kids[1].compute(runt, None)
+        cmpr = await self.kids[2].compute(runt, None)
+
+        iface = False
 
         if (prop := runt.model.props.get(name)) is None:
             if (proplist := runt.model.ifaceprops.get(name)) is not None:
@@ -3480,28 +3519,36 @@ class AbsPropCond(Cond):
             else:
                 raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
 
-        ptyp = prop.type
-        getr = None
-        if virts is not None:
-            (ptyp, getr) = ptyp.getVirtInfo(virts)
+        if prop.isform and len(virts) == 1 and (ptyp := runt.model.metatypes.get(virts[0])) is not None:
+            if (ctor := ptyp.getCmprCtor(cmpr)) is None:
+                raise self.kids[2].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
-        cmpr = await self.kids[offs + 1].compute(runt, None)
+            metaname = virts[0]
+
+            async def cond(node, path):
+                if node.ndef[0] != name:
+                    return False
+
+                val1 = node.getMeta(metaname)
+                val2 = await self.kids[3].compute(runt, path)
+                return ctor(val2)(val1)
+
+            return cond
+
+        (ptyp, getr) = prop.type.getVirtInfo(virts)
 
         if (ctor := ptyp.getCmprCtor(cmpr)) is None:
-            raise self.kids[offs + 1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
+            raise self.kids[2].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
         if prop.isform:
             async def cond(node, path):
                 if node.ndef[0] != name:
                     return False
 
-                if not getr:
-                    val1 = node.ndef[1]
-                else:
-                    if (val1 := node.valu(virts=getr)) is None:
-                        return False
+                if (val1 := node.valu(virts=getr)) is None:
+                    return False
 
-                val2 = await self.kids[offs + 2].compute(runt, path)
+                val2 = await self.kids[3].compute(runt, path)
                 return ctor(val2)(val1)
 
             return cond
@@ -3513,7 +3560,7 @@ class AbsPropCond(Cond):
             if (val1 := node.get(prop.name, virts=getr)) is None:
                 return False
 
-            val2 = await self.kids[offs + 2].compute(runt, path)
+            val2 = await self.kids[3].compute(runt, path)
             return ctor(val2)(val1)
 
         return cond
@@ -3635,7 +3682,7 @@ class TagVirtCond(Cond):
 
 class RelPropCond(Cond):
     '''
-    (:foo:bar or .univ) <cmpr> <value>
+    :foo:bar <cmpr> <value>
     '''
     async def getCondEval(self, runt):
 
@@ -3845,8 +3892,8 @@ class VirtPropValue(PropValue):
         if (virts := self.const) is None:
             virts = await self.kids[0].compute(runt, path)
 
-        if len(virts) == 1 and virts[0] in ('created',):
-            return runt.model.type('time'), node.getMeta(virts[0])
+        if len(virts) == 1 and (mtyp := runt.model.metatypes.get(virts[0])) is not None:
+            return mtyp, node.getMeta(virts[0])
 
         (ptyp, getr) = node.form.type.getVirtInfo(virts)
 
@@ -4490,19 +4537,49 @@ class PivotTarget(Value):
     def init(self, core):
         [k.init(core) for k in self.kids]
 
-        self.virts = None
+        self.constval = None
+        self.constprops = None
+        if isinstance(self.kids[0], Const):
+            self.constprops = self.getPropList(self.kids[0].value(), core.model)
+            self.constval = [(prop, None) for prop in self.constprops]
+
+    def getPropList(self, name, model):
+        if (prop := model.props.get(name)) is not None:
+            return (prop,)
+
+        proplist = model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
+        return [model.props.get(prop) for prop in proplist]
+
+    async def compute(self, runt, path):
+        if self.constval is not None:
+            return self.constval
+
+        valu = await self.kids[0].compute(runt, path)
+        if not isinstance(valu, list):
+            props = self.getPropList(valu, runt.model)
+        else:
+            props = []
+            for name in valu:
+                props += self.getPropList(name, runt.model)
+
+        return [(prop, None) for prop in props]
+
+class PivotTargetVirt(Value):
+
+    def init(self, core):
+        [k.init(core) for k in self.kids]
+
+        self.virts = self.kids[1]
         self.constvirts = None
-        if len(self.kids) == 2:
-            self.virts = self.kids[1]
-            if all(isinstance(k, Const) for k in self.virts.kids):
-                self.constvirts = [k.value() for k in self.virts.kids]
+        if all(isinstance(k, Const) for k in self.virts.kids):
+            self.constvirts = [k.value() for k in self.virts.kids]
 
         self.constprops = None
         if isinstance(self.kids[0], Const):
             self.constprops = self.getPropList(self.kids[0].value(), core.model)
 
         self.constval = None
-        if self.constprops and (self.virts is None or self.constvirts is not None):
+        if self.constprops and self.constvirts:
             self.constval = [(prop, self.constvirts) for prop in self.constprops]
 
     def getPropList(self, name, model):
@@ -4516,8 +4593,7 @@ class PivotTarget(Value):
         if self.constval is not None:
             return self.constval
 
-        virts = None
-        if self.virts is not None and (virts := self.constvirts) is None:
+        if (virts := self.constvirts) is None:
             virts = await self.virts.compute(runt, path)
 
         if (props := self.constprops) is None:

@@ -3838,6 +3838,9 @@ class AstTest(s_test.SynTest):
                 (test:hasiface=bar :seen=$ival2)
             ]''', opts=opts)
 
+            self.len(6, await core.nodes('ou:campaign.created +ou:campaign.created>2000'))
+            self.len(0, await core.nodes('ou:campaign.created +ou:campaign.created>now'))
+
             self.len(1, await core.nodes('ou:campaign.created +#(tag).min=2020'))
             self.len(1, await core.nodes('ou:campaign.created +#(tag).max=?'))
             self.len(1, await core.nodes('ou:campaign.created +#(tag).duration=?'))
@@ -3926,7 +3929,7 @@ class AstTest(s_test.SynTest):
             self.eq(s_time.PREC_MONTH, await core.callStorm('[ it:exec:query=* :time=2024-03? ] return(:time.precision)'))
 
             self.eq(s_time.PREC_MICRO, await core.callStorm('[ ou:asset=* :seen=now ] return(:seen.precision)'))
-            self.eq(s_time.PREC_DAY, await core.callStorm('ou:asset [ :seen.precision=day ] return(:seen.precision)'))
+            self.eq(s_time.PREC_DAY, await core.callStorm('ou:asset $prop=seen [ :($prop).precision=day ] return(:($prop).precision)'))
             self.len(1, await core.nodes('ou:asset +:seen.precision=day'))
             self.len(1, await core.nodes('ou:asset [ :seen.precision=month ] +:seen.precision=month'))
             self.none(await core.callStorm('ou:asset [ -:seen ] return(:seen.precision)'))

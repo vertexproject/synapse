@@ -146,7 +146,7 @@ The ``stormfile`` contains a Storm query to describe how the data from the CSV f
 Ingest Example 1
 ++++++++++++++++
 
-This example demonstrates loading a structured set of data to create nodes of a single form (in this case, DNS A records) and set secondary properties (in this case, the ``.seen`` universal property).
+This example demonstrates loading a structured set of data to create nodes of a single form (in this case, DNS A records) and set secondary properties (in this case, the ``:seen`` universal property).
 
 **CSV File:**
 
@@ -162,7 +162,7 @@ A CSV file (``testfile.csv``) contains a list of domains, the IP addresses the d
 .. NOTE::
   Because the file contains a header row, we need to use the ``--csv-header`` option to tell ``csvtool`` to skip the first row when ingesting data.
 
-We want to load the data in the CSV file into a Cortex as a set of DNS A records (``inet:dns:a`` nodes) with the first and last dates represented as the ``.seen`` universal property.
+We want to load the data in the CSV file into a Cortex as a set of DNS A records (``inet:dns:a`` nodes) with the first and last dates represented as the ``:seen`` universal property.
 
 **Stormfile:**
 
@@ -178,7 +178,7 @@ We then need a Storm query that tells the "for" loop what to do with each row - 
 
 ::
   
-  [ inet:dns:a = ( $fqdn, $ipv4 ) .seen=( $first, $last ) ]
+  [ inet:dns:a = ( $fqdn, $ipv4 ) :seen=( $first, $last ) ]
 
 We combine these elements to create our ``stormfile``, as follows:
 
@@ -186,7 +186,7 @@ We combine these elements to create our ``stormfile``, as follows:
   
   for ($fqdn, $ipv4, $first, $last) in $rows {
   
-      [ inet:dns:a = ( $fqdn, $ipv4 ) .seen=( $first, $last ) ]
+      [ inet:dns:a = ( $fqdn, $ipv4 ) :seen=( $first, $last ) ]
   
   }
 
@@ -222,17 +222,17 @@ For example:
   
   inet:dns:a=('hurr.net', '5.6.7.8')
       .created = 2019-07-03T22:25:43.966Z
-      .seen = ('2018-10-03T00:47:29Z', '2018-10-04T18:26:06Z')
+      :seen = ('2018-10-03T00:47:29Z', '2018-10-04T18:26:06Z')
       :fqdn = hurr.net
       :ip = 5.6.7.8
   inet:dns:a=('derp.org', '4.4.4.4')
       .created = 2019-07-03T22:25:43.968Z
-      .seen = ('2019-06-09T09:00:18Z', '2019-07-03T15:07:52Z')
+      :seen = ('2019-06-09T09:00:18Z', '2019-07-03T15:07:52Z')
       :fqdn = derp.org
       :ip = 4.4.4.4
   inet:dns:a=('woot.com', '1.2.3.4')
       .created = 2019-07-03T22:25:43.962Z
-      .seen = ('2018-04-18T13:12:47Z', '2018-06-23T09:45:12Z')
+      :seen = ('2018-04-18T13:12:47Z', '2018-06-23T09:45:12Z')
       :fqdn = woot.com
       :ip = 1.2.3.4
   complete. 3 nodes in 12 ms (250/sec).
@@ -501,14 +501,14 @@ In this case we want ``$lib.csv.emit()`` to include:
 
 - the domain (``:fqdn`` property of the ``inet:dns:a`` node).
 - the IP (``:ip`` property of the ``inet:dns:a`` node).
-- the first observed resolution (the first half of the ``.seen`` property).
-- the most recently observed resolution (the second half of the ``.seen`` property).
+- the first observed resolution (the first half of the ``:seen`` property).
+- the most recently observed resolution (the second half of the ``:seen`` property).
 
 As a first attempt, we could specify our output format as follows to export those properties:
 
 ::
   
-  $lib.csv.emit(:fqdn, :ip, .seen)
+  $lib.csv.emit(:fqdn, :ip, :seen)
 
 This exports the data from the relevant nodes as expected, but does so in the following format:
 
@@ -519,8 +519,8 @@ This exports the data from the relevant nodes as expected, but does so in the fo
 We have a few potential issues with our current output:
 
 - The IP address is exported using its raw value instead of in human-friendly dotted-decimal format.
-- The ``.seen`` value is exported into a single field as a combined ``"(<min>, <max>)"`` pair, not as individual comma-separated timestamps.
-- The ``.seen`` values are exported using their raw Epoch micros format instead of in human-friendly datetime strings.
+- The ``:seen`` value is exported into a single field as a combined ``"(<min>, <max>)"`` pair, not as individual comma-separated timestamps.
+- The ``:seen`` values are exported using their raw Epoch micros format instead of in human-friendly datetime strings.
 
 We need to do some additional formatting to get the output we want in the CSV file.
 
@@ -536,26 +536,26 @@ We can tell ``$node.repr()`` to return the repr of a specific secondary property
   
   $node.repr(ip)
 
-*.seen times*
+*:seen times*
 
-``.seen`` is an :ref:`type-ival` (interval) type whose property value is a paired set of minimum and maximum timestamps. To export the minimum and maximum as separate fields in our CSV file, we need to split the ``.seen`` value into two parts by assigning each timestamp to its own variable. We can do this as follows:
-
-::
-  
-  ($first, $last) = .seen
-
-However, simply splitting the value will result in the variables ``$first`` and ``$last`` storing (and emitting) the raw Epoch micros value of the time, not the human-readable repr value. Similar to the way in which we obtained the repr value for the ``:ip`` property, we need to assign the human-readable repr values of the ``.seen`` property to ``$first`` and ``$last``:
+``:seen`` is an :ref:`type-ival` (interval) type whose property value is a paired set of minimum and maximum timestamps. To export the minimum and maximum as separate fields in our CSV file, we need to split the ``:seen`` value into two parts by assigning each timestamp to its own variable. We can do this as follows:
 
 ::
   
-  ($first, $last) = $node.repr(".seen")
+  ($first, $last) = :seen
+
+However, simply splitting the value will result in the variables ``$first`` and ``$last`` storing (and emitting) the raw Epoch micros value of the time, not the human-readable repr value. Similar to the way in which we obtained the repr value for the ``:ip`` property, we need to assign the human-readable repr values of the ``:seen`` property to ``$first`` and ``$last``:
+
+::
+  
+  ($first, $last) = $node.repr("seen")
 
 **Stormfile**
 
 We can now combine all of these elements into a Storm query that:
 
 - Lifts the ``inet:dns:a`` nodes we want to export.
-- Splits the human-readable version of the ``.seen`` property into two time values and assigns them to variables.
+- Splits the human-readable version of the ``:seen`` property into two time values and assigns them to variables.
 - Generates ``$lib.csv.emit()`` messages to create the CSV rows.
 
 Our full stormfile query looks like this:
@@ -564,13 +564,13 @@ Our full stormfile query looks like this:
   
   inet:dns:a:fqdn=woot.com inet:dns:a:fqdn=hurr.net inet:dns:a:fqdn=derp.org
   
-  ($first, $last) = $node.repr(".seen")
+  ($first, $last) = $node.repr("seen")
   
   $lib.csv.emit(:fqdn, $node.repr(ip), $first, $last)
 
 .. WARNING::
   
-  The data submitted to ``$lib.csv.emit()`` to create the CSV rows **must** exist for every node processed by the function. For example, if one of the ``inet:dns:a`` nodes lifted by the Storm query and submitted to ``$lib.csv.emit()`` does not have a ``.seen`` property, Storm will generate an error and halt further processing, which may result in a partial export of the desired data.
+  The data submitted to ``$lib.csv.emit()`` to create the CSV rows **must** exist for every node processed by the function. For example, if one of the ``inet:dns:a`` nodes lifted by the Storm query and submitted to ``$lib.csv.emit()`` does not have a ``:seen`` property, Storm will generate an error and halt further processing, which may result in a partial export of the desired data.
   
   Subqueries (:ref:`storm-ref-subquery`) or various flow control processes (:ref:`storm-adv-control`) can be used to conditionally account for the presence or absence of data for a given node.
 
