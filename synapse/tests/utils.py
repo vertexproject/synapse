@@ -938,10 +938,13 @@ class ReloadCell(s_cell.Cell):
 
 class SynTest(unittest.IsolatedAsyncioTestCase):
     '''
-    Wrap all async test methods with s_glob.sync.
+    Synapse test base class.
 
-    Note:
-        This precludes running a single unit test via path using the unittest module.
+    This is a subclass of unittest.IsolatedAsyncioTestCase.
+
+    For performance reasons, the ioloop used to execute tests is not run in debug mode
+    by default. A test runner or implementor can use regular Python asyncio environment
+    variables or command line switches to enable asyncio debug mode.
     '''
     def _setupAsyncioRunner(self):
         assert self._asyncioRunner is None, 'asyncio runner is already initialized'
