@@ -913,19 +913,6 @@ class User(s_stormtypes.Prim):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'tell', 'desc': 'Send a tell notification to a user.',
-         'type': {'type': 'function', '_funcname': '_methUserTell',
-                  'args': (
-                      {'name': 'text', 'type': 'str', 'desc': 'The text of the message to send.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'notify', 'desc': 'Send an arbitrary user notification.',
-         'type': {'type': 'function', '_funcname': '_methUserNotify',
-                  'args': (
-                      {'name': 'mesgtype', 'type': 'str', 'desc': 'The notification type.', },
-                      {'name': 'mesgdata', 'type': 'dict', 'desc': 'The notification data.', },
-                  ),
-                  'returns': {'type': 'null', }}},
         {'name': 'addRule', 'desc': 'Add a rule to the User.',
          'type': {'type': 'function', '_funcname': '_methUserAddRule',
                   'args': (
@@ -1134,9 +1121,7 @@ class User(s_stormtypes.Prim):
     def getObjLocals(self):
         return {
             'get': self._methUserGet,
-            'tell': self._methUserTell,
             'gates': self._methGates,
-            'notify': self._methUserNotify,
             'roles': self._methUserRoles,
             'allowed': self._methUserAllowed,
             'grant': self._methUserGrant,
@@ -1159,22 +1144,6 @@ class User(s_stormtypes.Prim):
             'modApiKey': self._methModApiKey,
             'delApiKey': self._methDelApiKey,
         }
-
-    async def _methUserTell(self, text):
-        self.runt.confirm(('tell', self.valu), default=True)
-        mesgdata = {
-            'text': await s_stormtypes.tostr(text),
-            'from': self.runt.user.iden,
-        }
-        return await self.runt.view.core.addUserNotif(self.valu, 'tell', mesgdata)
-
-    async def _methUserNotify(self, mesgtype, mesgdata):
-        if not self.runt.isAdmin():
-            mesg = '$user.notify() method requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-        mesgtype = await s_stormtypes.tostr(mesgtype)
-        mesgdata = await s_stormtypes.toprim(mesgdata)
-        return await self.runt.view.core.addUserNotif(self.valu, mesgtype, mesgdata)
 
     async def _storUserName(self, name):
 
