@@ -94,6 +94,10 @@ class PsModelTest(s_t_utils.SynTest):
                 'users': ('visi', 'invisigoth'),
                 'crypto:address': 'btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
                 'langs': (lang00 := s_common.guid(),),
+                'banner': file0,
+                'passwd': 'hunter2',
+                'website': 'https://blogs.vertex.link/brutus',
+                'websites': ('https://foo.com', 'https://bar.com', 'https://foo.com'),
             }
             opts = {'vars': {'valu': con0, 'p': props}}
             q = '''[(ps:contact=$valu
@@ -114,6 +118,10 @@ class PsModelTest(s_t_utils.SynTest):
                     :death:place=$p."death:place" :death:place:loc=$p."death:place:loc"
                     :death:place:name=$p."death:place:name"
                     :service:accounts=(*, *) :langs=$p.langs
+                    :banner=$p.banner
+                    :passwd=$p.passwd
+                    :website=$p.website
+                    :websites=$p.websites
                         )]'''
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
@@ -154,6 +162,10 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(node.get('death:place:loc'), 'us.va.reston')
             self.eq(node.get('birth:place:name'), 'reston, va, usa, earth, sol, milkyway')
             self.eq(node.get('death:place:name'), 'reston, va, usa, earth, sol, milkyway')
+            self.eq(node.get('banner'), file0)
+            self.eq(node.get('passwd'), 'hunter2')
+            self.eq(node.get('website'), 'https://blogs.vertex.link/brutus')
+            self.eq(node.get('websites'), ('https://bar.com', 'https://foo.com'))
             self.len(1, await core.nodes('ps:contact :birth:place -> geo:place'))
             self.len(1, await core.nodes('ps:contact :death:place -> geo:place'))
             self.len(2, await core.nodes('ps:contact :service:accounts -> inet:service:account'))
