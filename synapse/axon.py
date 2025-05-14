@@ -912,8 +912,7 @@ class Axon(s_cell.Cell):
             newhist = s_lmdbslab.Hist(self.axonslab, 'history')
             migrated = 0
             for tick, item in oldhist.carve(0):
-                if tick < 1e15:
-                    newtick = tick * 1000
+                newtick = tick * 1000
                 newhist.add(item, tick=newtick)
                 migrated += 1
             logger.warning(f"Migrated {migrated} history rows")
