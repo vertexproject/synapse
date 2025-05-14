@@ -175,6 +175,11 @@ def create_task(coro):
 
     return task
 
+async def await_bg_tasks():
+    if not bgtasks:
+        return []
+    return await asyncio.gather(*tuple(bgtasks), return_exceptions=True)
+
 class GenrHelp:
 
     def __init__(self, genr):

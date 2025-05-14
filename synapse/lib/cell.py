@@ -2051,13 +2051,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             logger.debug(f'HANDOFF: Connected to {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
 
-            if self.iden != await cell.getCellIden(): # pragma: no cover
+            cellinfo = await cell.getCellInfo()
+            cnfo = cellinfo.get('cell')
+            if self.iden != cnfo.get('iden'):  # pragma: no cover
                 mesg = 'Mirror handoff remote cell iden does not match!'
                 raise s_exc.BadArg(mesg=mesg)
 
-            if self.runid == await cell.getCellRunId(): # pragma: no cover
+            if self.runid == cnfo.get('run'): # pragma: no cover
                 mesg = 'Cannot handoff mirror leadership to myself!'
                 raise s_exc.BadArg(mesg=mesg)
+
+            ahalead = cnfo.get('aha', {}).get('leader')
+            mirror_url = turl
+            if turl.startswith('aha://') and ahalead is not None:
+                ahauser = self.conf.get('aha:user')
+                if ahauser is not None:
+                    ahauser = f'{ahauser}@'
+                mirror_url = f'aha://{ahauser}{ahalead}...'
 
             logger.debug(f'HANDOFF: Obtaining nexus lock{_dispname}.')
 
@@ -2078,8 +2088,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.debug(f'HANDOFF: Setting the service as inactive{_dispname}.')
                 await self.setCellActive(False)
 
-                logger.debug(f'HANDOFF: Configuring service to sync from new leader{_dispname}.')
-                self.modCellConf({'mirror': turl})
+                logger.debug(f'HANDOFF: Configuring service to sync from new leader{_dispname} @ {s_urlhelp.sanitizeUrl(mirror_url)}.')
+                self.modCellConf({'mirror': mirror_url})
 
                 logger.debug(f'HANDOFF: Restarting the nexus{_dispname}.')
                 await self.nexsroot.startup()
