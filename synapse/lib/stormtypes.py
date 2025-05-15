@@ -6210,7 +6210,7 @@ class NodeData(Prim):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The data to store.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'list', 'desc': 'Get a list of the Node data (name, value) tuples on the Node.',
+        {'name': 'list', 'desc': 'Get a list of the Node data on the Node as (name, value) tuples.',
          'type': {'type': 'function', '_funcname': '_listNodeData',
                   'returns': {'type': 'list', 'desc': 'List of (name, value) tuples stored on the node.', }}},
         {'name': 'load',
