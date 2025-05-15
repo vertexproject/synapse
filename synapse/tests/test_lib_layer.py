@@ -837,6 +837,28 @@ class LayerTest(s_t_utils.SynTest):
             noedit = [(ipv4nid, 'inet:ip', [(s_layer.EDIT_EDGE_ADD, ('refs', tstrnid))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
+            q = '[ test:str=foo ]'
+            nodes = await core0.nodes(q)
+            nid = s_common.int64un(nodes[0].nid)
+
+            seen = s_time.parse('2020')
+            ival = (seen, seen + 1)
+            edit = [(nid, 'test:str', [(s_layer.EDIT_PROP_OVERWRITE, ('seen', ival, None, 12, None))])]
+            exp = [(nid, 'test:str', [(s_layer.EDIT_PROP_SET, ('seen', ival, None, 12, None))])]
+            self.eq(exp, await layr.calcEdits(edit, {}))
+
+            await core0.nodes('test:str=foo [:seen=2020]')
+            noedit = [(nid, 'test:str', [(s_layer.EDIT_PROP_OVERWRITE, ('seen', ival, None, 12, None))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
+
+            edit = [(nid, 'test:str', [(s_layer.EDIT_TAG_OVERWRITE, ('foo', ival, None))])]
+            exp = [(nid, 'test:str', [(s_layer.EDIT_TAG_SET, ('foo', ival, None))])]
+            self.eq(exp, await layr.calcEdits(edit, {}))
+
+            await core0.nodes('test:str=foo [+#foo=2020]')
+            noedit = [(nid, 'test:str', [(s_layer.EDIT_TAG_OVERWRITE, ('foo', ival, None))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
+
     async def test_layer_stornodeedits_nonexus(self):
         # test for migration methods that store nodeedits bypassing nexus
 
