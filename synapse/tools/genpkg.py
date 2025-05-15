@@ -123,6 +123,12 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
 
     genopts = pkgdef.pop('genopts', {})
 
+    # Stamp build info into the pkgdef if it doesn't already exist
+    pkgdef.setdefault('build', {})
+    pkgdef['build'].setdefault('time', s_common.now())
+    pkgdef['build'].setdefault('synapse:version', s_version.verstring)
+    pkgdef['build'].setdefault('synapse:commit', s_version.commit)
+
     logodef = pkgdef.get('logo')
     if logodef is not None:
 
@@ -265,12 +271,6 @@ async def main(argv, outp=s_output.stdout):
             return 1
     else:
         pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs)
-
-    pkgdef['build'] = {
-        'time': s_common.now(),
-        'synapse:version': s_version.verstring,
-        'synapse:commit': s_version.commit,
-    }
 
     if opts.signas is not None:
 
