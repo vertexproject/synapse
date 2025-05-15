@@ -212,7 +212,7 @@ class GeoTest(s_t_utils.SynTest):
                      'desc': 'The place where Vertex Project hangs out at!',
                      'address': '208 Datong Road, Pudong District, Shanghai, China',
                      'loc': 'us.hehe.haha',
-                     'photo': f'guid:{fbyts}',
+                     'photo': fbyts,
                      'latlong': '34.1341, -118.3215',
                      'bbox': '2.11, 2.12, -4.88, -4.9',
                      'radius': '1.337km'}
@@ -235,7 +235,7 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(node.get('radius'), 1337000)
             self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
             self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')
-            self.eq(node.get('photo'), f'guid:{fbyts}')
+            self.eq(node.get('photo'), fbyts)
 
             self.eq(node.get('bbox'), (2.11, 2.12, -4.88, -4.9))
             self.eq(node.repr('bbox'), '2.11,2.12,-4.88,-4.9')
@@ -247,7 +247,7 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('latlong'), (11.38, 20.01))
-            nodes = await core.nodes('[ geo:place=(hehe, haha) :names=("Foo  Bar ", baz) ] -> geo:name')
+            nodes = await core.nodes('[ geo:place=(hehe, haha) :names=("Foo  Bar ", baz) ] -> meta:name')
             self.eq(('baz', 'foo bar'), [n.ndef[1] for n in nodes])
 
             nodes = await core.nodes('geo:place=(hehe, haha)')

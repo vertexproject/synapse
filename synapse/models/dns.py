@@ -307,13 +307,14 @@ modeldefs = (
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which provides the dynamic DNS FQDN.'}),
 
-                ('provider:name', ('ou:name', {}), {
+                ('provider:name', ('meta:name', {}), {
                     'doc': 'The name of the organization which provides the dynamic DNS FQDN.'}),
 
                 ('provider:fqdn', ('inet:fqdn', {}), {
                     'doc': 'The FQDN of the organization which provides the dynamic DNS FQDN.'}),
 
-                ('contact', ('ps:contact', {}), {
+                # FIXME inet:service:account?
+                ('contact', ('entity:contact', {}), {
                     'doc': 'The contact information of the registrant.'}),
 
                 ('created', ('time', {}), {

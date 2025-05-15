@@ -6,7 +6,9 @@ modeldefs = (
                 'doc': 'A mathematical algorithm.'}),
 
             ('math:algorithm:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of algorithm types.'}),
         ),
         'edges': (
@@ -14,7 +16,7 @@ modeldefs = (
             (('risk:tool:software', 'uses', 'math:algorithm'), {
                 'doc': 'The tool uses the algorithm.'}),
 
-            (('it:prod:softver', 'uses', 'math:algorithm'), {
+            (('it:software', 'uses', 'math:algorithm'), {
                 'doc': 'The software uses the algorithm.'}),
 
             (('file:bytes', 'uses', 'math:algorithm'), {
@@ -29,7 +31,7 @@ modeldefs = (
 
             ('math:algorithm', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the algorithm.'}),
 
                 ('type', ('math:algorithm:type:taxonomy', {}), {

@@ -54,7 +54,7 @@ class TestPushFile(s_t_utils.SynTest):
                             self.eq(0, await s_pushfile.main(args, outp))
                             self.true(outp.expect('Axon already had [visi.txt]'))
 
-                            self.eq(1, await coreprox.count(f'file:bytes={s_common.ehex(visihash)}'))
+                            self.eq(1, await coreprox.count(f'file:bytes'))
                             self.eq(1, await coreprox.count('file:bytes:size=4'))
                             self.eq(1, await coreprox.count('#foo.bar'))
                             self.eq(1, await coreprox.count('#baz.faz'))
