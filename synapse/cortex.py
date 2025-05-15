@@ -758,6 +758,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.views = {}
         self.layers = {}
+        self.layeroffs = await self.slab.getHotCount('layeroffs')
         self.viewsbylayer = collections.defaultdict(list)
 
         self.stormcmds = {}
@@ -4783,6 +4784,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         pdef = pushs.pop(pushiden, None)
+        self.layeroffs.delete(f'push:{pushiden}')
         if pdef is None:
             return
 
@@ -4829,6 +4831,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         pdef = pulls.pop(pulliden, None)
+        self.layeroffs.delete(f'pull:{pulliden}')
         if pdef is None:
             return
 
@@ -4845,7 +4848,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async def push():
             async with await self.boss.promote(f'layer push: {layr.iden} {iden}', self.auth.rootuser):
                 async with await s_telepath.openurl(url) as proxy:
-                    await self._pushBulkEdits(layr, proxy, pdef)
+                    await self._handleBulkEdits('push', layr, proxy, pdef)
 
         self.addActiveCoro(push, iden=iden)
 
@@ -4857,7 +4860,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async def pull():
             async with await self.boss.promote(f'layer pull: {layr.iden} {iden}', self.auth.rootuser):
                 async with await s_telepath.openurl(url) as proxy:
-                    await self._pushBulkEdits(proxy, layr, pdef)
+                    await self._handleBulkEdits('pull', proxy, layr, pdef)
 
         self.addActiveCoro(pull, iden=iden)
 
@@ -4912,11 +4915,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return lnodeedits
 
-    async def _pushBulkEdits(self, layr0, layr1, pdef):
+    async def _handleBulkEdits(self, ptype, layr0, layr1, pdef):
 
         iden = pdef.get('iden')
         user = pdef.get('user')
-        gvar = f'push:{iden}'
+
         csize = pdef.get('chunk:size')
         qsize = pdef.get('queue:size')
 
@@ -4926,7 +4929,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async def fill():
 
                 try:
-                    filloffs = await self.getStormVar(gvar, -1)
+                    filloffs = self.layeroffs.get(f'{ptype}:{iden}', -1)
                     async for (offs, nodeedits) in layr0.syncNodeEdits(filloffs + 1, wait=True, compat=True):
                         await queue.put((offs, await self.remoteToLocalEdits(nodeedits)))
                     await queue.close()
@@ -4950,12 +4953,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     alledits.extend(edits)
                     if len(alledits) > csize:
                         await layr1.saveNodeEdits(alledits, meta)
-                        await self.setStormVar(gvar, offs)
+                        self.layeroffs.set(f'{ptype}:{iden}', offs)
                         alledits.clear()
 
                 if alledits:
                     await layr1.saveNodeEdits(alledits, meta)
-                    await self.setStormVar(gvar, offs)
+                    self.layeroffs.set(f'{ptype}:{iden}', offs)
 
     async def _checkNexsIndx(self):
         layroffs = [await layr.getEditIndx() for layr in list(self.layers.values())]

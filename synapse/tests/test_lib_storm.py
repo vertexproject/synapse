@@ -4878,7 +4878,8 @@ class StormTest(s_t_utils.SynTest):
                     'queue:size': 1000,
                 }
                 # this should fire the reader and exit cleanly when he explodes
-                await core._pushBulkEdits(LayrBork(), LayrBork(), fake)
+                await core._handleBulkEdits('push', LayrBork(), LayrBork(), fake)
+                await core._handleBulkEdits('pull', LayrBork(), LayrBork(), fake)
 
                 # a quick/ghetto test for coverage...
                 layr = core.getView().layers[0]
