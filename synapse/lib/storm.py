@@ -62,20 +62,20 @@ from nodes of those forms.
 
 Examples:
     # Adds a tag to every inet:ipv4 added
-    trigger.add node:add --form inet:ipv4 --query {[ +#mytag ]}
+    trigger.add node:add --form inet:ipv4 --storm {[ +#mytag ]}
 
     # Adds a tag #todo to every node as it is tagged #aka
-    trigger.add tag:add --tag aka --query {[ +#todo ]}
+    trigger.add tag:add --tag aka --storm {[ +#todo ]}
 
     # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
-    trigger.add tag:add --form inet:ipv4 --tag aka --query {[ +#todo ]}
+    trigger.add tag:add --form inet:ipv4 --tag aka --storm {[ +#todo ]}
 
     # Adds a tag #todo to the N1 node of every refs edge add
-    trigger.add edge:add --verb refs --query {[ +#todo ]}
+    trigger.add edge:add --verb refs --storm {[ +#todo ]}
 
     # Adds a tag #todo to the N1 node of every seen edge delete, provided that
     # both nodes are of form file:bytes
-    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes --query {[ +#todo ]}
+    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes --storm {[ +#todo ]}
 '''
 
 addcrondescr = '''
@@ -172,6 +172,14 @@ Examples:
 
     # Run a query at the end of the year Zulu
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
+'''
+
+viewdeldescr = '''
+Delete a view from the cortex.
+
+Notes:
+    Deleting a view with the `view.del` command does not delete any of the layers in the view.
+    To delete layers, you must use the `layer.del` command separately.
 '''
 
 wgetdescr = '''Retrieve bytes from a URL and store them in the axon. Yields inet:urlfile nodes.
@@ -642,7 +650,7 @@ stormcmds = (
     },
     {
         'name': 'view.del',
-        'descr': 'Delete a view from the cortex.',
+        'descr': viewdeldescr,
         'cmdargs': (
             ('iden', {'help': 'Iden of the view to delete.'}),
         ),
@@ -736,7 +744,7 @@ stormcmds = (
             ('--prop', {'help': 'Property to fire on.'}),
             ('--verb', {'help': 'Edge verb to fire on.'}),
             ('--n2form', {'help': 'The form of the n2 node to fire on.'}),
-            ('--query', {'help': 'Query for the trigger to execute.', 'required': True,
+            ('--storm', {'help': 'Storm query for the trigger to execute.', 'required': True,
                          'dest': 'storm', }),
             ('--async', {'default': False, 'action': 'store_true',
                          'help': 'Make the trigger run in the background.'}),
@@ -768,14 +776,26 @@ stormcmds = (
     },
     {
         'name': 'trigger.mod',
-        'descr': "Modify an existing trigger's query.",
+        'descr': "Modify an existing trigger.",
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-            ('query', {'help': 'New storm query for the trigger.'}),
+            ('--view', {'help': 'View to move the trigger to.'}),
+            ('--storm', {'help': 'New Storm query for the trigger.'}),
+            ('--user', {'help': 'User to run the trigger as.'}),
+            ('--async', {'help': 'Make the trigger run in the background.'}),
+            ('--enabled', {'help': 'Enable the trigger.'}),
+            ('--name', {'help': 'Human friendly name of the trigger.'}),
+            ('--form', {'help': 'Form to fire on.'}),
+            ('--tag', {'help': 'Tag to fire on.'}),
+            ('--prop', {'help': 'Property to fire on.'}),
         ),
         'storm': '''
-            $iden = $lib.trigger.mod($cmdopts.iden, $cmdopts.query)
-            $lib.print("Modified trigger: {iden}", iden=$iden)
+            $iden = $cmdopts.iden
+            $edits = $lib.copy($cmdopts)
+            $edits.help = $lib.undef
+            $edits.iden = $lib.undef
+            $iden = $lib.trigger.mod($iden, $edits)
+            $lib.print(`Modified trigger: {$iden}`)
         ''',
     },
     {
@@ -860,28 +880,6 @@ stormcmds = (
             } else {
                 $lib.print("No triggers found")
             }
-        ''',
-    },
-    {
-        'name': 'trigger.enable',
-        'descr': 'Enable a trigger in the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-        ),
-        'storm': '''
-            $iden = $lib.trigger.enable($cmdopts.iden)
-            $lib.print("Enabled trigger: {iden}", iden=$iden)
-        ''',
-    },
-    {
-        'name': 'trigger.disable',
-        'descr': 'Disable a trigger in the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-        ),
-        'storm': '''
-            $iden = $lib.trigger.disable($cmdopts.iden)
-            $lib.print("Disabled trigger: {iden}", iden=$iden)
         ''',
     },
     {
@@ -2122,7 +2120,7 @@ class Runtime(s_base.Base):
                     continue
 
                 if len(nodes) == 1:
-                    mesg = 'Ambiguous value for single node lookup: {propname}^={valu}'
+                    mesg = f'Ambiguous value for single node lookup: {propname}{cmpr}{valu}'
                     raise s_exc.StormRuntimeError(mesg=mesg)
 
                 nodes.append(node)

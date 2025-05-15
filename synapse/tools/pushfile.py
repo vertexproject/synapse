@@ -9,6 +9,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
 import synapse.lib.hashset as s_hashset
 
@@ -124,5 +125,10 @@ def makeargparser():
     pars.add_argument('-t', '--tags', help='comma separated list of tags to add to the nodes')
     return pars
 
+async def _main(argv, outp=s_output.stdout):  # pragma: no cover
+    ret = await main(argv, outp=outp)
+    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
+    return ret
+
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(main(sys.argv[1:])))
+    sys.exit(asyncio.run(_main(sys.argv[1:])))

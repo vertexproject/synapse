@@ -677,6 +677,49 @@ class AstTest(s_test.SynTest):
                 q = 'function foo() { return() } [test:str=bar +#$foo()]'
                 nodes = await core.nodes(q)
 
+    async def test_ast_backtick_tags(self):
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[test:int=1 +#`foo`]')
+            self.true(nodes[0].hasTag('foo'))
+            self.len(1, await core.nodes('test:int=1 +#`foo`'))
+            self.nn(await core.callStorm('test:int=1 return((#`foo`))'))
+
+            nodes = await core.nodes('[test:int=2 +#`foo`.bar]')
+            self.true(nodes[0].hasTag('foo.bar'))
+            self.len(1, await core.nodes('test:int=2 +#`foo`.bar'))
+            self.nn(await core.callStorm('test:int=2 return((#`foo`.bar))'))
+
+            nodes = await core.nodes('[test:int=3 +#foo.`bar`]')
+            self.true(nodes[0].hasTag('foo.bar'))
+            self.len(1, await core.nodes('test:int=3 +#foo.`bar`'))
+            self.nn(await core.callStorm('test:int=3 return((#foo.`bar`))'))
+
+            nodes = await core.nodes('$bar=baz [test:int=4 +#`foo.{$bar}`]')
+            self.true(nodes[0].hasTag('foo.baz'))
+            self.len(1, await core.nodes('$bar=baz test:int=4 +#`foo.{$bar}`'))
+            self.nn(await core.callStorm('$bar=baz test:int=4 return((#`foo.{$bar}`))'))
+
+            nodes = await core.nodes('$bar=baz.faz [test:int=5 +#`foo.{$bar}`]')
+            self.true(nodes[0].hasTag('foo.baz.faz'))
+            self.len(1, await core.nodes('$bar=baz.faz test:int=5 +#`foo.{$bar}`'))
+            self.nn(await core.callStorm('$bar=baz.faz test:int=5 return((#`foo.{$bar}`))'))
+
+            nodes = await core.nodes('$bar=baz.faz [test:int=6 +#`foo.{$bar}`.nice]')
+            self.true(nodes[0].hasTag('foo.baz.faz.nice'))
+            self.len(1, await core.nodes('$bar=baz.faz test:int=6 +#`foo.{$bar}`.nice'))
+            self.nn(await core.callStorm('$bar=baz.faz test:int=6 return((#`foo.{$bar}`.nice))'))
+
+            nodes = await core.nodes('$bar=baz.faz [test:int=7 +#cool.`foo.{$bar}`]')
+            self.true(nodes[0].hasTag('cool.foo.baz.faz'))
+            self.len(1, await core.nodes('$bar=baz.faz test:int=7 +#cool.`foo.{$bar}`'))
+            self.nn(await core.callStorm('$bar=baz.faz test:int=7 return((#cool.`foo.{$bar}`))'))
+
+            nodes = await core.nodes('$bar=baz.faz [test:int=8 +#cool.`foo.{$bar}`=2025]')
+            self.true(nodes[0].hasTag('cool.foo.baz.faz'))
+            self.len(1, await core.nodes('$bar=baz.faz test:int=8 +#cool.`foo.{$bar}`'))
+            self.nn(await core.callStorm('$bar=baz.faz test:int=8 return((#cool.`foo.{$bar}`))'))
+
     async def test_ast_var_in_deref(self):
 
         async with self.getTestCore() as core:

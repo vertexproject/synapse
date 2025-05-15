@@ -478,7 +478,7 @@ class ViewTest(s_t_utils.SynTest):
                 return($view.iden)
             ''')
 
-            await core.nodes('trigger.add node:add --form ou:org --query {[+#foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:add --form ou:org --storm {[+#foo]}', opts={'view': view})
 
             nodes = await core.nodes('[ ou:org=* ]')
             self.len(0, await core.nodes('ou:org', opts={'view': view}))
@@ -493,7 +493,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:org +#foo', opts={'view': view}))
 
             # test node:del triggers
-            await core.nodes('trigger.add node:del --form ou:org --query {[test:str=foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:del --form ou:org --storm {[test:str=foo]}', opts={'view': view})
 
             nextoffs = await core.getView(iden=view).layers[0].getEditIndx()
 
@@ -520,8 +520,8 @@ class ViewTest(s_t_utils.SynTest):
                 return($view.iden)
             ''')
 
-            await core.nodes('trigger.add node:add --form ou:org --query {[+#foo]}', opts={'view': view})
-            await core.nodes('trigger.add node:del --form inet:ip --query {[test:str=foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:add --form ou:org --storm {[+#foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:del --form inet:ip --storm {[test:str=foo]}', opts={'view': view})
 
             await core.nodes('[ ou:org=* ]')
             self.len(0, await core.nodes('ou:org', opts={'view': view}))
@@ -568,7 +568,7 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.addTagProp('score', ('int', {}), {})
 
-            await core.nodes('trigger.add node:del --query { $lib.globals.trig = $lib.true } --form test:str')
+            await core.nodes('trigger.add node:del --storm { $lib.globals.trig = $lib.true } --form test:str')
 
             await core.nodes('[ test:str=foo :hehe=hifoo +#test ]')
             await core.nodes('[ test:arrayprop=$arrayguid :strs=(faz, baz) ]', opts=opts)

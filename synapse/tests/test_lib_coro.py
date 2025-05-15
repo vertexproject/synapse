@@ -94,6 +94,8 @@ class CoroTest(s_t_utils.SynTest):
         self.eq([1, 2, 3], await woot().list())
 
     async def test_executor(self):
+        # Initialize s_glob vars
+        s_glob.initloop()
 
         def func(*args, **kwargs):
             tid = threading.get_ident()
@@ -212,3 +214,26 @@ class CoroTest(s_t_utils.SynTest):
 
         with self.raises(Exception):
             await s_coro._parserforked(newp)
+
+    async def test_lib_coro_create_task(self):
+
+        async def sleep(n):
+            await asyncio.sleep(n)
+            if n == 0:
+                return 1 / 0
+            return n
+
+        s_coro.create_task(sleep(0.1))
+        s_coro.create_task(sleep(0.15))
+        s_coro.create_task(sleep(0.2))
+        self.len(3, s_coro.bgtasks)
+        results = await s_coro.await_bg_tasks()
+        self.eq(set(results), {0.1, 0.15, 0.2})
+        self.len(0, s_coro.bgtasks)
+        results = await s_coro.await_bg_tasks()
+        self.eq(results, [])
+
+        s_coro.create_task(sleep(0))
+        results = await s_coro.await_bg_tasks()
+        self.len(1, results)
+        self.isinstance(results[0], ZeroDivisionError)

@@ -167,10 +167,10 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
-                'doc': 'A heirarhical taxonomy of entity relationship types.'}),
+                'doc': 'A hierarchical taxonomy of entity relationship types.'}),
 
             ('entity:relationship', ('guid', {}), {
-                'doc': 'A relationship between two entities.'}),
+                'doc': 'A directional relationship between two actor entities.'}),
 
             ('entity:had:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -231,17 +231,17 @@ modeldefs = (
             ('entity:relationship:type:taxonomy', {}, ()),
             ('entity:relationship', {}, (
 
-                ('source', ('entity:actor', {}), {
-                    'doc': 'The entity FIXME.'}),
-
-                ('target', ('entity:actor', {}), {
-                    'doc': 'The entity FIXME.'}),
-
                 ('type', ('entity:relationship:type:taxonomy', {}), {
                     'doc': 'The type of relationship.'}),
 
                 ('period', ('ival', {}), {
                     'doc': 'The time period when the relationship existed.'}),
+
+                ('source', ('entity:actor', {}), {
+                    'doc': 'The source entity in the relationship.'}),
+
+                ('target', ('entity:actor', {}), {
+                    'doc': 'The target entity in the relationship.'}),
             )),
         ),
     }),

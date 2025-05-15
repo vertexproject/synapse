@@ -237,16 +237,13 @@ modeldefs = (
 
             ('ps:skill:type:taxonomy', {}, ()),
             ('ps:skill', {}, (
-
                 ('name', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of the skill.'}),
-
                 ('type', ('ps:skill:type:taxonomy', {}), {
                     'doc': 'The type of skill as a taxonomy.'})
             )),
 
             ('ps:proficiency', {}, (
-
                 ('skill', ('ps:skill', {}), {
                     'doc': 'The skill in which the contact is proficient.'}),
 

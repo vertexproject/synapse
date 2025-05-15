@@ -1684,7 +1684,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             info = {
                 'name': name,
-                'perm': perm,
+                'permissions': perm,
                 'iden': s_common.guid(),
                 'created': tick,
                 'creator': user,
@@ -1713,6 +1713,50 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPushAuto('drive:set:perm')
     async def setDriveInfoPerm(self, iden, perm):
         return self.drive.setItemPerm(iden, perm)
+
+    @s_nexus.Pusher.onPushAuto('drive:data:path:set')
+    async def setDriveItemProp(self, iden, vers, path, valu):
+        if isinstance(path, str):
+            path = (path,)
+
+        data = await self.getDriveData(iden)
+        if data is None:
+            mesg = f'No drive item with ID {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        _, item = data
+
+        try:
+            step = item
+            for p in path[:-1]:
+                step = step[p]
+            step[path[-1]] = valu
+        except (KeyError, IndexError):
+            raise s_exc.BadArg(mesg=f'Invalid path {path}')
+
+        return await self.drive.setItemData(iden, vers, item)
+
+    @s_nexus.Pusher.onPushAuto('drive:data:path:del')
+    async def delDriveItemProp(self, iden, vers, path):
+        if isinstance(path, str):
+            path = (path,)
+
+        data = await self.getDriveData(iden)
+        if data is None:
+            mesg = f'No drive item with ID {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        _, item = data
+
+        try:
+            step = item
+            for p in path[:-1]:
+                step = step[p]
+            del step[path[-1]]
+        except (KeyError, IndexError):
+            return
+
+        return await self.drive.setItemData(iden, vers, item)
 
     @s_nexus.Pusher.onPushAuto('drive:set:path')
     async def setDriveInfoPath(self, iden, path):
@@ -2007,13 +2051,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             logger.debug(f'HANDOFF: Connected to {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
 
-            if self.iden != await cell.getCellIden(): # pragma: no cover
+            cellinfo = await cell.getCellInfo()
+            cnfo = cellinfo.get('cell')
+            if self.iden != cnfo.get('iden'):  # pragma: no cover
                 mesg = 'Mirror handoff remote cell iden does not match!'
                 raise s_exc.BadArg(mesg=mesg)
 
-            if self.runid == await cell.getCellRunId(): # pragma: no cover
+            if self.runid == cnfo.get('run'): # pragma: no cover
                 mesg = 'Cannot handoff mirror leadership to myself!'
                 raise s_exc.BadArg(mesg=mesg)
+
+            ahalead = cnfo.get('aha', {}).get('leader')
+            mirror_url = turl
+            if turl.startswith('aha://') and ahalead is not None:
+                ahauser = self.conf.get('aha:user')
+                if ahauser is not None:
+                    ahauser = f'{ahauser}@'
+                mirror_url = f'aha://{ahauser}{ahalead}...'
 
             logger.debug(f'HANDOFF: Obtaining nexus lock{_dispname}.')
 
@@ -2034,8 +2088,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.debug(f'HANDOFF: Setting the service as inactive{_dispname}.')
                 await self.setCellActive(False)
 
-                logger.debug(f'HANDOFF: Configuring service to sync from new leader{_dispname}.')
-                self.modCellConf({'mirror': turl})
+                logger.debug(f'HANDOFF: Configuring service to sync from new leader{_dispname} @ {s_urlhelp.sanitizeUrl(mirror_url)}.')
+                self.modCellConf({'mirror': mirror_url})
 
                 logger.debug(f'HANDOFF: Restarting the nexus{_dispname}.')
                 await self.nexsroot.startup()
@@ -4516,9 +4570,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _genUserApiKey(self, kdef):
         iden = s_common.uhex(kdef.get('iden'))
         user = s_common.uhex(kdef.get('user'))
-        self.slab.put(iden, user, db=self.apikeydb)
+        await self.slab.put(iden, user, db=self.apikeydb)
         lkey = user + b'apikey' + iden
-        self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
+        await self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
 
     async def getUserApiKey(self, iden):
         '''
@@ -4674,7 +4728,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.NoSuchIden(mesg=f'User API key does not exist: {iden}')
         kdef = s_msgpack.un(buf)
         kdef.update(vals)
-        self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
+        await self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
         return kdef
 
     async def delUserApiKey(self, iden):

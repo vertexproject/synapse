@@ -2420,8 +2420,6 @@ Storm includes ``trigger.*`` commands that allow you to create automated event-d
 - `trigger.add`_
 - `trigger.list`_
 - `trigger.mod`_
-- `trigger.disable`_
-- `trigger.enable`_
 - `trigger.del`_
 
 Help for individual ``trigger.*`` commands can be displayed using:
@@ -2477,38 +2475,6 @@ the trigger can be uniquely identified), which can be obtained using ``trigger.l
 **Syntax:**
 
 .. storm-cli:: trigger.mod --help
-
-
-.. _storm-trigger-disable:
-
-trigger.disable
-+++++++++++++++
-
-The ``trigger.disable`` command disables a trigger and prevents it from firing without removing it from
-the Cortex. To disable a trigger, you must provide the first portion of the trigger's iden (i.e., enough
-of the iden that the trigger can be uniquely identified), which can be obtained using ``trigger.list``.
-
-**Syntax:**
-
-.. storm-cli:: trigger.disable --help
-
-
-.. _storm-trigger-enable:
-
-trigger.enable
-++++++++++++++
-
-The ``trigger.enable`` command enables a disabled trigger. To enable a trigger, you must provide the
-first portion of the trigger's iden (i.e., enough of the iden that the trigger can be uniquely identified),
-which can be obtained using ``trigger.list``.
-
-.. NOTE::
-
-  Triggers are enabled by default upon creation.
-
-**Syntax:**
-
-.. storm-cli:: trigger.enable --help
 
 
 .. _storm-trigger-del:

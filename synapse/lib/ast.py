@@ -3853,7 +3853,7 @@ class TagName(Value):
         if self.isconst:
             return (self.constval,)
 
-        if not isinstance(self.kids[0], Const):
+        if not isinstance(self.kids[0], (Const, FormatString)):
             tags = []
             vals = await self.kids[0].compute(runt, path)
             vals = await s_stormtypes.toprim(vals)

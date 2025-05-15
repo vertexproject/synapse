@@ -1,6 +1,6 @@
-from synapse.tests.utils import SynTest
+import synapse.tests.utils as s_t_utils
 
-class IntlGovTest(SynTest):
+class IntlGovTest(s_t_utils.SynTest):
 
     async def test_models_intl(self):
 

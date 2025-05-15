@@ -85,3 +85,15 @@ def sync(coro, timeout=None):
     '''
     loop = initloop()
     return asyncio.run_coroutine_threadsafe(coro, loop).result(timeout)
+
+def _clearGlobals():
+    '''
+    reset loop / thrd vars. for unit test use.
+    '''
+    global _glob_loop
+    global _glob_thrd
+    if _glob_thrd is not None and _glob_thrd.name == 'SynLoop':
+        _glob_loop.stop()
+        _glob_thrd.join(timeout=30)
+    _glob_loop = None
+    _glob_thrd = None

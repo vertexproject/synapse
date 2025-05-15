@@ -1341,14 +1341,6 @@ modeldefs = (
             ('inet:search:result', ('guid', {}), {
                 'doc': 'A single result from a web search.'}),
 
-            # FIXME remove
-            ('inet:web:hashtag', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {
-                # regex explanation:
-                # - starts with pound
-                # - one or more non-whitespace/non-pound character
-                # The minimum hashtag is a pound with a single non-whitespace character
-                'doc': 'A hashtag used in a web post.'}),
-
             ('inet:whois:record', ('guid', {}), {
                 'prevnames': ('inet:whois:rec',),
                 'doc': 'An FQDN whois registration record.'}),
@@ -1785,7 +1777,6 @@ modeldefs = (
 
                 ('attachments', ('array', {'type': 'inet:email:message:attachment', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of files attached to the email message.'}),
-
             )),
 
             ('inet:email:header', {}, (
@@ -2437,9 +2428,6 @@ modeldefs = (
                     'doc': 'Extracted/matched text from the matched content.'}),
             )),
 
-
-            ('inet:web:hashtag', {}, ()),
-
             ('inet:whois:record', {}, (
 
                 ('asof', ('time', {}), {
@@ -2860,6 +2848,9 @@ modeldefs = (
                 ('attachments', ('array', {'type': 'inet:service:message:attachment', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of files attached to the message.'}),
 
+                ('hashtags', ('array', {'type': 'media:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
+                    'doc': 'An array of hashtags mentioned within the message.'}),
+
                 ('place', ('geo:place', {}), {
                     'doc': 'The place that the message was sent from.'}),
 
@@ -2877,6 +2868,11 @@ modeldefs = (
 
                 ('type', ('inet:service:message:type:taxonomy', {}), {
                     'doc': 'The type of message.'}),
+
+                ('mentions', ('array', {'type': 'ndef',
+                                        'typeopts': {'forms': ('inet:service:account', 'inet:service:group')},
+                                        'uniq': True, 'sorted': True}), {
+                    'doc': 'Contactable entities mentioned within the message.'}),
             )),
 
             ('inet:service:message:link', {}, (
@@ -2917,6 +2913,9 @@ modeldefs = (
 
                 ('period', ('ival', {}), {
                     'doc': 'The time period where the channel was available.'}),
+
+                ('topic', ('media:topic', {}), {
+                    'doc': 'The visible topic of the channel.'}),
             )),
 
             ('inet:service:thread', {}, (

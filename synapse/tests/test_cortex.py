@@ -146,12 +146,12 @@ class CortexTest(s_t_utils.SynTest):
                         self.false((await core01.getCellInfo())['cell']['uplink'])
                         # Note: The following mirror may change when SYN-7659 is addressed and greater
                         # control over the topology update is available during the promotion process.
-                        self.eq((await core00.getCellInfo())['cell']['mirror'], 'aha://01.cortex.synapse')
+                        self.eq((await core00.getCellInfo())['cell']['mirror'], 'aha://root@cortex...')
                         self.none((await core01.getCellInfo())['cell']['mirror'])
 
                         mods00 = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
                         mods01 = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
-                        self.eq(mods00, {'mirror': 'aha://01.cortex.synapse'})
+                        self.eq(mods00, {'mirror': 'aha://root@cortex...'})
                         self.eq(mods01, {'mirror': None})
 
                         await core00.nodes('[inet:ip=5.5.5.5]')
@@ -5341,7 +5341,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 ip00 = await core00.nodes('[ inet:ip=3.3.3.3 ]')
 
                 await core00.nodes('$lib.queue.add(hehe)')
-                q = 'trigger.add node:add --form inet:fqdn --query {$lib.queue.get(hehe).put($node.repr())}'
+                q = 'trigger.add node:add --form inet:fqdn --storm {$lib.queue.get(hehe).put($node.repr())}'
                 msgs = await core00.stormlist(q)
 
                 ddef = await core00.callStorm('return($lib.dmon.add(${$lib.time.sleep(10)}, name=hehedmon))')
@@ -5597,7 +5597,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core00.nodes('[ inet:ip=1.2.3.4 ]')
                 await core00.nodes('$lib.queue.add(hehe)')
-                q = 'trigger.add node:add --form inet:fqdn --query {$lib.queue.get(hehe).put($node.repr())}'
+                q = 'trigger.add node:add --form inet:fqdn --storm {$lib.queue.get(hehe).put($node.repr())}'
                 await core00.nodes(q)
 
                 url = core00.getLocalUrl()
@@ -6474,9 +6474,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     tdef = {'cond': 'node:add', 'storm': '[test:str="foobar"]', 'form': 'test:int'}
                     opts = {'vars': {'tdef': tdef}}
                     trig = await core.callStorm('return($lib.trigger.add($tdef))', opts=opts)
-                    opts = {'vars': {'trig': trig['iden']}}
+                    opts = {'vars': {'trig': trig['iden'], 'edits': {'enabled': False}}}
 
-                    await core.callStorm('$lib.trigger.disable($trig)', opts=opts)
+                    await core.callStorm('$lib.trigger.mod($trig, $edits)', opts=opts)
                     await core.callStorm('return($lib.trigger.del($trig))', opts=opts)
 
                     async with self.getTestDmon() as dmon:
@@ -7919,7 +7919,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     dirn01 = s_common.genpath(dirn, 'cell01')
 
                     core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
-                    provinfo = {'mirror': '00.core'}
+                    provinfo = {'mirror': 'core'}
                     core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01, provinfo=provinfo))
 
                     self.len(1, await core00.nodes('[inet:asn=0]'))
