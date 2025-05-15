@@ -120,5 +120,7 @@ Additional Changes
   of ``.get()``, ``.set()``, and ``.list()`` methods.
 - The ``repr()`` for times has been updated to ``ISO 8601`` format.
 - Wildcards in tag glob expressions will now allow zero length matches rather than requiring at least one character.
+- Added ``$lib.file.frombytes()`` Storm API for uploading bytes to the connected
+  Axon and creating/updating the corresponding ``file:bytes`` node.
 
 .. _Types section of the Synapse Data Model documentation: autodocs/datamodel_types.html

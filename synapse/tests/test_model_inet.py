@@ -8,43 +8,6 @@ logger = logging.getLogger(__name__)
 
 class InetModelTest(s_t_utils.SynTest):
 
-    async def test_model_inet_basics(self):
-        async with self.getTestCore() as core:
-            self.len(1, await core.nodes('[ inet:web:hashtag="#🫠" ]'))
-            self.len(1, await core.nodes('[ inet:web:hashtag="#🫠🫠" ]'))
-            self.len(1, await core.nodes('[ inet:web:hashtag="#·bar"]'))
-            self.len(1, await core.nodes('[ inet:web:hashtag="#foo·"]'))
-            self.len(1, await core.nodes('[ inet:web:hashtag="#foo〜"]'))
-            self.len(1, await core.nodes('[ inet:web:hashtag="#hehe" ]'))
-            self.len(1, await core.nodes('[ inet:web:hashtag="#foo·bar"]'))  # note the interpunct
-            self.len(1, await core.nodes('[ inet:web:hashtag="#foo〜bar"]'))  # note the wave dash
-            self.len(1, await core.nodes('[ inet:web:hashtag="#fo·o·······b·ar"]'))
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ inet:web:hashtag="foo" ]')
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ inet:web:hashtag="#foo#bar" ]')
-
-            # All unicode whitespace from:
-            # https://www.compart.com/en/unicode/category/Zl
-            # https://www.compart.com/en/unicode/category/Zp
-            # https://www.compart.com/en/unicode/category/Zs
-            whitespace = [
-                '\u0020', '\u00a0', '\u1680', '\u2000', '\u2001', '\u2002', '\u2003', '\u2004',
-                '\u2005', '\u2006', '\u2007', '\u2008', '\u2009', '\u200a', '\u202f', '\u205f',
-                '\u3000', '\u2028', '\u2029',
-            ]
-            for char in whitespace:
-                with self.raises(s_exc.BadTypeValu):
-                    await core.callStorm(f'[ inet:web:hashtag="#foo{char}bar" ]')
-
-                with self.raises(s_exc.BadTypeValu):
-                    await core.callStorm(f'[ inet:web:hashtag="#{char}bar" ]')
-
-                # These are allowed because strip=True
-                await core.callStorm(f'[ inet:web:hashtag="#foo{char}" ]')
-                await core.callStorm(f'[ inet:web:hashtag=" #foo{char}" ]')
-
     async def test_inet_jarm(self):
 
         async with self.getTestCore() as core:
@@ -2766,6 +2729,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :creator=$visiiden
                 :platform=$platiden
                 :instance=$instiden
+                :topic=' My Topic   '
             ]
             '''
             opts = {'vars': {
@@ -2777,6 +2741,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:channel', s_common.guid(('general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[0].get('name'), 'general')
+            self.eq(nodes[0].get('topic'), 'my topic')
             self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
@@ -2845,12 +2810,18 @@ class InetModelTest(s_t_utils.SynTest):
                     :group=$devsiden
                     :public=$lib.false
                     :repost=*
+                    :mentions=(
+                        (inet:service:group, $devsiden),
+                        (inet:service:account, $blckiden),
+                        (inet:service:account, $blckiden),
+                    )
                 )
 
                 (inet:service:message=(blackout, visi, 1715856900000000, vertex, slack)
                     :type=chat.direct
                     :to=$visiiden
                     :public=$lib.false
+                    :mentions?=((inet:service:message:attachment, $atchiden),)
                 )
 
                 (inet:service:message=(blackout, general, 1715856900000000, vertex, slack)
@@ -2898,10 +2869,15 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('group'), devsgrp.ndef[1])
             self.false(nodes[0].get('public'))
             self.eq(nodes[0].get('type'), 'chat.group.')
+            self.eq(
+                nodes[0].get('mentions'),
+                (('inet:service:account', blckacct.ndef[1]), ('inet:service:group', devsgrp.ndef[1]))
+            )
 
             self.eq(nodes[1].get('to'), visiacct.ndef[1])
             self.false(nodes[1].get('public'))
             self.eq(nodes[1].get('type'), 'chat.direct.')
+            self.none(nodes[1].get('mentions'))
 
             self.eq(nodes[2].get('channel'), gnrlchan.ndef[1])
             self.true(nodes[2].get('public'))
@@ -2999,6 +2975,7 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [ inet:service:message=(visi, says, relax)
                 :title="Hehe Haha"
+                :hashtags="#hehe,#haha,#hehe"
                 :thread={[
                     inet:service:thread=*
                         :title="Woot  Woot"
@@ -3012,6 +2989,7 @@ class InetModelTest(s_t_utils.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
+            self.eq(['#haha', '#hehe'], nodes[0].get('hashtags'))
             self.len(1, await core.nodes('inet:service:message=(visi, says, hello) -> inet:service:thread:message'))
             self.len(1, await core.nodes('''
                 inet:service:message:title="hehe haha"

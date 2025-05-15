@@ -3,14 +3,12 @@ import ssl
 import socket
 import asyncio
 import logging
-import threading
 
 from unittest import mock
 
 import cryptography.hazmat.primitives.hashes as c_hashes
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
@@ -281,48 +279,6 @@ class TeleTest(s_t_utils.SynTest):
         self.true(await s_coro.event_wait(evt, 2))
         self.true(prox.isfini)
         await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
-
-    def test_telepath_sync_genr_break(self):
-
-        try:
-            acm = self.getTestCoreAndProxy()
-            core, proxy = s_glob.sync(acm.__aenter__())
-
-            form = 'test:int'
-
-            q = '[' + ' '.join([f'{form}={i}' for i in range(10)]) + ' ]'
-
-            # This puts a link into the link pool
-            msgs = list(proxy.storm(q, opts={'show': ('node',)}))
-            self.len(12, msgs)
-
-            evt = threading.Event()
-
-            # Get the link from the pool, add the fini callback and put it back
-            link = s_glob.sync(proxy.getPoolLink())
-            link.onfini(evt.set)
-            s_glob.sync(proxy._putPoolLink(link))
-
-            # Grab the fresh link from the pool so our original link is up next again
-            link2 = s_glob.sync(proxy.getPoolLink())
-            s_glob.sync(proxy._putPoolLink(link2))
-
-            q = f'{form} | sleep 0.1'
-
-            # Break from the generator right away, causing a
-            # GeneratorExit in the GenrHelp object __iter__ method.
-            mesg = None
-            for mesg in proxy.storm(q):
-                break
-            # Ensure the query did yield an object
-            self.nn(mesg)
-
-            # Ensure the link we have a reference too was torn down
-            self.true(evt.wait(4))
-            self.true(link.isfini)
-
-        finally:
-            s_glob.sync(acm.__aexit__(None, None, None))
 
     async def test_telepath_tls_bad_cert(self):
         self.thisHostMustNot(platform='darwin')
@@ -955,6 +911,10 @@ class TeleTest(s_t_utils.SynTest):
                 wait = prox.waiter(1, 'pool:link:fini')
                 self.len(1, await wait.wait(timeout=5))
                 self.len(12, prox.links)
+
+                # Cleanup our global state
+                prox2._all_proxies.remove(prox2)
+                await prox.fini()
 
     async def test_link_fini_breaking_tasks(self):
         foo = Foo()

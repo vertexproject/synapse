@@ -101,88 +101,6 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.copy(({"lib": $lib})))')
 
-    async def test_stormtypes_notify(self):
-
-        async def testUserNotif(core):
-            visi = await core.auth.addUser('visi')
-
-            asvisi = {'user': visi.iden}
-            mesgindx = await core.callStorm('return($lib.auth.users.byname(root).tell(heya))', opts=asvisi)
-
-            msgs = await core.stormlist('''
-                for ($indx, $mesg) in $lib.notifications.list() {
-                    ($useriden, $mesgtime, $mesgtype, $mesgdata) = $mesg
-                    if ($mesgtype = "tell") {
-                        $lib.print("{user} says {text}", user=$mesgdata.from, text=$mesgdata.text)
-                    }
-                }
-            ''')
-            self.stormIsInPrint(f'{visi.iden} says heya', msgs)
-
-            opts = {'user': visi.iden, 'vars': {'indx': mesgindx}}
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm('$lib.notifications.del($indx)', opts=opts)
-
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm('return($lib.notifications.get($indx))', opts=opts)
-
-            opts = {'vars': {'indx': mesgindx}}
-            await core.callStorm('$lib.notifications.del($indx)', opts=opts)
-
-            msgs = await core.stormlist('''
-                for ($indx, $mesg) in $lib.notifications.list() {
-                    ($useriden, $mesgtime, $mesgtype, $mesgdata) = $mesg
-                    if ($mesgtype = "tell") {
-                        $lib.print("{user} says {text}", user=$mesgdata.from, text=$mesgdata.text)
-                    }
-                }
-            ''')
-            self.stormNotInPrint(f'{visi.iden} says heya', msgs)
-
-            indx = await core.callStorm('return($lib.auth.users.byname(root).notify(hehe, ({"haha": "hoho"})))')
-            opts = {'vars': {'indx': indx}}
-            mesg = await core.callStorm('return($lib.notifications.get($indx))', opts=opts)
-            self.eq(mesg[0], core.auth.rootuser.iden)
-            self.eq(mesg[2], 'hehe')
-            self.eq(mesg[3], {'haha': 'hoho'})
-
-            opts = {'user': visi.iden}
-            q = 'return($lib.auth.users.byname(root).notify(newp, ({"key": "valu"})))'
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm(q, opts=opts)
-
-            q = 'return($lib.auth.users.byname(root).notify(newp, ({"key": "valu"})))'
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm(q, opts=opts)
-
-            # Push a handful of notifications and list a subset of them
-            q = '''$m=`hello {$i}` return($lib.auth.users.byname(root).tell($m))'''
-            for i in range(5):
-                opts = {'user': visi.iden, 'vars': {'i': i}}
-                await core.callStorm(q, opts=opts)
-
-            q = '''for ($indx, $mesg) in $lib.notifications.list(size=$size) {
-                ($useriden, $mesgtime, $mesgtype, $mesgdata) = $mesg
-                $lib.print("{user} says {text}", user=$mesgdata.from, text=$mesgdata.text)
-            }'''
-            opts = {'vars': {'size': 3}}
-            msgs = await core.stormlist(q, opts=opts)
-            # We have a valid message that is the first item yielded
-            # but it is not a "tell" format.
-            self.stormIsInPrint('$lib.null says $lib.null', msgs)
-            self.stormIsInPrint('hello 4', msgs)
-            self.stormIsInPrint('hello 3', msgs)
-            self.stormNotInPrint('hello 2', msgs)
-
-        async with self.getTestCore() as core:
-            await testUserNotif(core)
-
-        # test with a remote jsonstor
-        async with self.getTestJsonStor() as jsonstor:
-            conf = {'jsonstor': jsonstor.getLocalUrl()}
-            async with self.getTestCore(conf=conf) as core:
-                await testUserNotif(core)
-
     async def test_stormtypes_jsonstor(self):
 
         async with self.getTestCore() as core:
@@ -4259,20 +4177,20 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('No triggers found', mesgs)
 
-            q = 'trigger.add node:add --form test:str --query {[ test:int=1 ]} --name trigger_test_str'
+            q = 'trigger.add node:add --form test:str --storm {[ test:int=1 ]} --name trigger_test_str'
             mesgs = await core.stormlist(q)
 
             await core.nodes('[ test:str=foo ]')
             self.len(1, await core.nodes('test:int'))
 
-            await core.nodes('trigger.add tag:add --form test:str --tag footag.* --query {[ +#count test:str=$auto.opts.tag ]}')
+            await core.nodes('trigger.add tag:add --form test:str --tag footag.* --storm {[ +#count test:str=$auto.opts.tag ]}')
 
             await core.nodes('[ test:str=bar +#footag.bar ]')
             await core.nodes('[ test:str=bar +#footag.bar ]')
             self.len(1, await core.nodes('#count'))
             self.len(1, await core.nodes('test:str=footag.bar'))
 
-            await core.nodes('trigger.add prop:set --disabled --prop test:type10:intprop --query {[ test:int=6 ]}')
+            await core.nodes('trigger.add prop:set --disabled --prop test:type10:intprop --storm {[ test:int=6 ]}')
 
             q = 'trigger.list'
             mesgs = await core.stormlist(q)
@@ -4286,13 +4204,17 @@ class StormTypesTest(s_test.SynTest):
             for trig in trigs:
                 self.eq(trig.get('user'), rootiden)
 
+            orgbuid = trigs[0].get('iden')
+            mesgs = await core.stormlist(f'trigger.mod {orgbuid} --name trigger_test_str')
+            self.stormHasNoErr(mesgs)
+
             goodbuid = trigs[1].get('iden')[:6]
             goodbuid2 = trigs[2].get('iden')[:6]
 
             # Trigger is created disabled, so no nodes yet
             self.len(0, await core.nodes('test:int=6'))
 
-            await core.nodes(f'trigger.enable {goodbuid2}')
+            await core.nodes(f'trigger.mod {goodbuid2} --enabled (true)')
 
             # Trigger is enabled, so it should fire
             await core.nodes('[ test:type10=1 :intprop=25 ]')
@@ -4304,61 +4226,61 @@ class StormTypesTest(s_test.SynTest):
             q = 'trigger.del deadbeef12341234'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            q = 'trigger.enable deadbeef12341234'
+            q = 'trigger.mod deadbeef12341234 --enabled (true)'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            q = 'trigger.disable deadbeef12341234'
+            q = 'trigger.mod deadbeef12341234 --enabled (false)'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            mesgs = await core.stormlist(f'trigger.disable {goodbuid2}')
-            self.stormIsInPrint('Disabled trigger', mesgs)
-
-            mesgs = await core.stormlist(f'trigger.enable {goodbuid2}')
-            self.stormIsInPrint('Enabled trigger', mesgs)
-
-            mesgs = await core.stormlist(f'trigger.mod {goodbuid2} {{[ test:str=different ]}}')
+            mesgs = await core.stormlist(f'trigger.mod {goodbuid2} --enabled (false)')
             self.stormIsInPrint('Modified trigger', mesgs)
 
-            q = 'trigger.mod deadbeef12341234 {#foo}'
+            mesgs = await core.stormlist(f'trigger.mod {goodbuid2} --enabled (true)')
+            self.stormIsInPrint('Modified trigger', mesgs)
+
+            mesgs = await core.stormlist(f'trigger.mod {goodbuid2} --storm {{[ test:str=different ]}}')
+            self.stormIsInPrint('Modified trigger', mesgs)
+
+            q = 'trigger.mod deadbeef12341234 --storm {#foo}'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            await core.nodes('trigger.add tag:add --tag another --query {[ +#count2 ]}')
+            await core.nodes('trigger.add tag:add --tag another --storm {[ +#count2 ]}')
 
             # Syntax mistakes
-            mesgs = await core.stormlist('trigger.mod "" {#foo}')
+            mesgs = await core.stormlist('trigger.mod "" --storm {#foo}')
             self.stormIsInErr('matches more than one', mesgs)
 
-            mesgs = await core.stormlist('trigger.add tag:add --prop another:thing --query {[ +#count2 ]}')
+            mesgs = await core.stormlist('trigger.add tag:add --prop another:thing --storm {[ +#count2 ]}')
             self.stormIsInErr("data must contain ['tag'] properties", mesgs)
 
-            mesgs = await core.stormlist('trigger.add tag:add --tag hehe.haha --prop another --query {[ +#count2 ]}')
+            mesgs = await core.stormlist('trigger.add tag:add --tag hehe.haha --prop another --storm {[ +#count2 ]}')
             self.stormIsInErr("data.prop must match pattern", mesgs)
 
-            mesgs = await core.stormlist('trigger.add tug:udd --prop another:newp --query {[ +#count2 ]}')
+            mesgs = await core.stormlist('trigger.add tug:udd --prop another:newp --storm {[ +#count2 ]}')
             self.stormIsInErr('data.cond must be one of', mesgs)
 
             mesgs = await core.stormlist('trigger.add tag:add --form inet:ip --tag test')
-            self.stormIsInErr('Missing a required option: --query', mesgs)
+            self.stormIsInErr('Missing a required option: --storm', mesgs)
 
-            mesgs = await core.stormlist('trigger.add node:add --form test:str --tag foo --query {test:str}')
+            mesgs = await core.stormlist('trigger.add node:add --form test:str --tag foo --storm {test:str}')
             self.stormIsInErr('tag must not be present for node:add or node:del', mesgs)
 
-            mesgs = await core.stormlist('trigger.add prop:set --tag foo --query {test:str}')
+            mesgs = await core.stormlist('trigger.add prop:set --tag foo --storm {test:str}')
             self.stormIsInErr("data must contain ['prop']", mesgs)
 
-            q = 'trigger.add prop:set --prop test:type10.intprop --tag foo --query {test:str}'
+            q = 'trigger.add prop:set --prop test:type10.intprop --tag foo --storm {test:str}'
             mesgs = await core.stormlist(q)
             self.stormIsInErr('form and tag must not be present for prop:set', mesgs)
 
-            mesgs = await core.stormlist('trigger.add node:add --tag tag1 --query {test:str}')
+            mesgs = await core.stormlist('trigger.add node:add --tag tag1 --storm {test:str}')
             self.stormIsInErr("data must contain ['form']", mesgs)
 
             # Bad storm syntax
-            mesgs = await core.stormlist('trigger.add node:add --form test:str --query {[ | | test:int=1 ] }')
+            mesgs = await core.stormlist('trigger.add node:add --form test:str --storm {[ | | test:int=1 ] }')
             self.stormIsInErr("Unexpected token '|' at line 1, column 49", mesgs)
 
             # (Regression) Just a command as the storm query
-            q = 'trigger.add node:add --form test:str --query {[ test:int=99 ] | spin }'
+            q = 'trigger.add node:add --form test:str --storm {[ test:int=99 ] | spin }'
             mesgs = await core.stormlist(q)
             await core.nodes('[ test:str=foo4 ]')
             self.len(1, await core.nodes('test:int=99'))
@@ -4389,7 +4311,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(trigdef.get('errcount'), 0)
             self.eq(trigdef.get('lasterrs'), ())
 
-            mesgs = await core.stormlist(f'trigger.mod {trigiden} {{$lib.newp}}')
+            mesgs = await core.stormlist(f'trigger.mod {trigiden} --storm {{$lib.newp}}')
             self.stormIsInPrint('Modified trigger', mesgs)
 
             await core.nodes('[ test:str=foo5 ]')
@@ -4435,13 +4357,31 @@ class StormTypesTest(s_test.SynTest):
             forkview = await core.callStorm('return($lib.view.get().fork().iden)')
 
             forkopts = {'view': forkview}
-            await core.nodes('trigger.add tag:add --view $view --tag neato.* --query {[ +#awesome ]}', opts={'vars': forkopts})
+            await core.nodes('trigger.add tag:add --view $view --tag neato.* --storm {[ +#awesome ]}', opts={'vars': forkopts})
             mesgs = await core.stormlist('trigger.list', opts=forkopts)
             self.stormNotInPrint(mainview[:8], mesgs)
             self.stormIsInPrint(forkview[:8], mesgs)
 
             trigs = await core.callStorm('return($lib.trigger.list())', opts=forkopts)
             othr = trigs[0].get('iden')
+
+            # move a trigger with the Storm command
+            mesgs = await core.stormlist(f'trigger.mod {othr} --view {mainview}')
+            self.stormIsInPrint('Modified trigger', mesgs)
+
+            mesgs = await core.stormlist('trigger.list', opts=forkopts)
+            self.stormIsInPrint('No triggers found', mesgs)
+            self.stormNotInPrint(othr, mesgs)
+
+            mesgs = await core.stormlist('trigger.list')
+            self.stormIsInPrint(othr, mesgs)
+            self.stormNotInPrint('No triggers found', mesgs)
+
+            mesgs = await core.stormlist(f'trigger.mod {othr} --view {forkview} --name "foobar"')
+            self.stormIsInPrint('Modified trigger', mesgs)
+
+            trigs = await core.callStorm('return($lib.trigger.list())', opts=forkopts)
+            self.eq(trigs[0].get('name'), 'foobar')
 
             # fetch a trigger from another view
             self.nn(await core.callStorm(f'return($lib.trigger.get({othr}))'))
@@ -4470,7 +4410,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(othr, mesgs)
 
             # fix that trigger in another view
-            await core.stormlist(f'trigger.mod {othr} {{ [ +#neato.trigger ] }}')
+            await core.stormlist(f'trigger.mod {othr} --storm {{ [ +#neato.trigger ] }}')
             othrtrig = await core.callStorm(f'return($lib.trigger.get({othr}))')
             self.eq('[ +#neato.trigger ]', othrtrig['storm'])
 
@@ -4508,13 +4448,13 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm(q, opts={'view': forkview, 'vars': {'trig': trig}})
 
             # toggle trigger in other view
-            mesgs = await core.stormlist(f'trigger.disable {othr}')
-            self.stormIsInPrint(f'Disabled trigger: {othr}', mesgs)
+            mesgs = await core.stormlist(f'trigger.mod {othr} --enabled (false)')
+            self.stormIsInPrint(f'Modified trigger: {othr}', mesgs)
 
-            mesgs = await core.stormlist(f'trigger.enable {othr}')
-            self.stormIsInPrint(f'Enabled trigger: {othr}', mesgs)
+            mesgs = await core.stormlist(f'trigger.mod {othr} --enabled (true)')
+            self.stormIsInPrint(f'Modified trigger: {othr}', mesgs)
 
-            mesgs = await core.stormlist(f'trigger.mod {othr} {{ [ +#burrito ] }}')
+            mesgs = await core.stormlist(f'trigger.mod {othr} --storm {{ [ +#burrito ] }}')
             self.stormIsInPrint(f'Modified trigger: {othr}', mesgs)
 
             await core.stormlist(f'trigger.del {othr}')
@@ -4529,15 +4469,15 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInPrint('No triggers found', mesgs)
 
-                q = f'trigger.mod {goodbuid2} {{[ test:str=yep ]}}'
+                q = f'trigger.mod {goodbuid2} --storm {{[ test:str=yep ]}}'
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('iden does not match any', mesgs)
 
-                q = f'trigger.disable {goodbuid2}'
+                q = f'trigger.mod {goodbuid2} --enabled (false)'
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('iden does not match any', mesgs)
 
-                q = f'trigger.enable {goodbuid2}'
+                q = f'trigger.mod {goodbuid2} --enabled (true)'
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('iden does not match any', mesgs)
 
@@ -4545,7 +4485,7 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('iden does not match any', mesgs)
 
-                q = 'trigger.add node:add --form test:str --query {[ test:int=1 ]}'
+                q = 'trigger.add node:add --form test:str --storm {[ test:int=1 ]}'
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('must have permission trigger.add', mesgs)
 
@@ -4566,16 +4506,19 @@ class StormTypesTest(s_test.SynTest):
 
                 await prox.addUserRule(bond.iden, (True, ('trigger', 'set')))
 
-                mesgs = await asbond.storm(f'trigger.mod {goodbuid2} {{[ test:str=yep ]}}').list()
+                mesgs = await asbond.storm(f'trigger.mod {goodbuid2} --storm {{[ test:str=yep ]}}').list()
                 self.stormIsInPrint('Modified trigger', mesgs)
 
-                mesgs = await asbond.storm(f'trigger.disable {goodbuid2}').list()
-                self.stormIsInPrint('Disabled trigger', mesgs)
+                mesgs = await asbond.storm(f'trigger.mod {goodbuid2} --enabled (false)').list()
+                self.stormIsInPrint('Modified trigger', mesgs)
 
-                mesgs = await asbond.storm(f'trigger.enable {goodbuid2}').list()
-                self.stormIsInPrint('Enabled trigger', mesgs)
+                mesgs = await asbond.storm(f'trigger.mod {goodbuid2} --enabled (true)').list()
+                self.stormIsInPrint('Modified trigger', mesgs)
 
                 await prox.addUserRule(bond.iden, (True, ('trigger', 'del')))
+
+                mesgs = await asbond.storm(f'trigger.mod {goodbuid2} --user {rootiden}').list()
+                self.stormIsInPrint('Modified trigger', mesgs)
 
                 mesgs = await asbond.storm(f'trigger.del {goodbuid2}').list()
                 self.stormIsInPrint('Deleted trigger', mesgs)
