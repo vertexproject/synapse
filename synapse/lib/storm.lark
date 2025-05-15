@@ -39,13 +39,15 @@ _editblock: "[" _editoper* "]"
 
 // A single edit operation
 _editoper: editnodeadd
-            | editpropset | edittagpropset | edittagadd | editcondpropset | editvirtpropset
+            | editpropset | edittagpropset | edittagadd | editcondpropset
+            | editvirtpropset | edittagvirtset
             | editpropsetmulti | editpropdel | edittagpropdel | edittagdel
             | editparens | edgeaddn1 | edgedeln1 | edgeaddn2 | edgedeln2
 
 // Parenthesis in an edit block don't have incoming nodes
 editparens: "(" editnodeadd _editoper* ")"
 edittagadd: "+" [SETTAGOPER] tagname [(EQSPACE | EQNOSPACE) _valu]
+edittagvirtset: "+" [SETTAGOPER] tagnamevirt virtprops (EQSPACE | EQNOSPACE) _valu
 edittagdel: EXPRMINUS tagname
 editpropset: relprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
 editcondpropset: relprop condsetoper _valu

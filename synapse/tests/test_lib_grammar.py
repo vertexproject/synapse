@@ -782,6 +782,14 @@ Queries = [
     '$bar=baz.faz [test:int=8 +#cool.`foo.{$bar}`=2025]',
     '$bar=baz.faz test:int=8 +#cool.`foo.{$bar}`',
     '$bar=baz.faz test:int=8 return((#cool.`foo.{$bar}`))',
+    '[ +#(foo).min=2020 ]',
+    '[ +#($foo).min=2020 ]',
+    '[ +#(foo).$var=2020 ]',
+    '[ +#($foo).$var=2020 ]',
+    '[ +?#(foo).min=2020 ]',
+    '[ +?#($foo).min=2020 ]',
+    '[ +?#(foo).$var=2020 ]',
+    '[ +?#($foo).$var=2020 ]',
 ]
 
 # Generated with print_parse_list below
@@ -1464,6 +1472,14 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: bar, Const: baz.faz], EditNodeAdd: [FormName: [Const: test:int], Const: =, Const: 8], EditTagAdd: [TagName: [Const: cool, FormatString: [Const: foo., VarValue: [Const: bar]]], Const: =, Const: 2025]]',
     'Query: [SetVarOper: [Const: bar, Const: baz.faz], LiftPropBy: [Const: test:int, Const: =, Const: 8], FiltOper: [Const: +, TagCond: [TagMatch: [Const: cool, FormatString: [Const: foo., VarValue: [Const: bar]]]]]]',
     'Query: [SetVarOper: [Const: bar, Const: baz.faz], LiftPropBy: [Const: test:int, Const: =, Const: 8], Return: [DollarExpr: [TagValue: [TagName: [Const: cool, FormatString: [Const: foo., VarValue: [Const: bar]]]]]]]',
+    'Query: [EditTagVirtSet: [TagName: [Const: foo], VirtProps: [Const: min], Const: =, Const: 2020]]',
+    'Query: [EditTagVirtSet: [TagName: [VarValue: [Const: foo]], VirtProps: [Const: min], Const: =, Const: 2020]]',
+    'Query: [EditTagVirtSet: [TagName: [Const: foo], VirtProps: [VarValue: [Const: var]], Const: =, Const: 2020]]',
+    'Query: [EditTagVirtSet: [TagName: [VarValue: [Const: foo]], VirtProps: [VarValue: [Const: var]], Const: =, Const: 2020]]',
+    'Query: [EditTagVirtSet: [Const: ?, TagName: [Const: foo], VirtProps: [Const: min], Const: =, Const: 2020]]',
+    'Query: [EditTagVirtSet: [Const: ?, TagName: [VarValue: [Const: foo]], VirtProps: [Const: min], Const: =, Const: 2020]]',
+    'Query: [EditTagVirtSet: [Const: ?, TagName: [Const: foo], VirtProps: [VarValue: [Const: var]], Const: =, Const: 2020]]',
+    'Query: [EditTagVirtSet: [Const: ?, TagName: [VarValue: [Const: foo]], VirtProps: [VarValue: [Const: var]], Const: =, Const: 2020]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):

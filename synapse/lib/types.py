@@ -1366,6 +1366,8 @@ class Ival(Type):
         }
 
         self.virtstor |= {
+            'min': self._storVirtMin,
+            'max': self._storVirtMax,
             'precision': self._storVirtPrec,
         }
 
@@ -1526,9 +1528,33 @@ class Ival(Type):
             return self.prec
         return vval[0]
 
+    def _storVirtMin(self, valu, newmin):
+        newv, norminfo = self.norm(newmin)
+        if valu is None:
+            return newv, {'norminfo': norminfo}
+
+        newv = (newv[0], max(newv[1], valu[1]))
+        return newv, {'norminfo': norminfo, 'overwrite': True}
+
+    def _storVirtMax(self, valu, newmax):
+        maxv, _ = self.tocktype.norm(newmax)
+        minv, _ = self.ticktype.norm(maxv - 1)
+        newv, norminfo = self._normPyIter((minv, maxv))
+
+        if valu is None:
+            return newv, {'norminfo': norminfo}
+
+        newv = (min(newv[0], valu[0]), newv[1])
+        return newv, {'norminfo': norminfo, 'overwrite': True}
+
     def _storVirtPrec(self, valu, newprec):
+        if valu is None:
+            mesg = 'Cannot set precision on an empty ival value.'
+            raise s_exc.BadTypeValu(name=self.name, mesg=mesg)
+
         prec = self.prectype.norm(newprec)[0]
-        return self._normPyIter(valu, prec=prec)
+        valu, norminfo = self._normPyIter(valu, prec=prec)
+        return valu, {'norminfo': norminfo}
 
     def getTagVirtIndx(self, name):
         indx = self.tagvirtindx.get(name, s_common.novalu)
@@ -2379,8 +2405,13 @@ class Time(IntBase):
         return vval[0]
 
     def _storVirtPrec(self, valu, newprec):
+        if valu is None:
+            mesg = 'Cannot set precision on an empty time value.'
+            raise s_exc.BadTypeValu(name=self.name, mesg=mesg)
+
         prec = self.prectype.norm(newprec)[0]
-        return self._normPyInt(valu, prec=prec)
+        valu, norminfo = self._normPyInt(valu, prec=prec)
+        return valu, {'norminfo': norminfo}
 
     def _ctorCmprAt(self, valu):
         return self.modl.types.get('ival')._ctorCmprAt(valu)
