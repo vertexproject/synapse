@@ -490,13 +490,20 @@ class PsModule(s_module.CoreModule):
                     ('crypto:address', ('crypto:currency:address', {}), {
                         'doc': 'A crypto currency address associated with the contact.'
                     }),
-
                     ('lang', ('lang:language', {}), {
                         'alts': ('langs',),
                         'doc': 'The language specified for the contact.'}),
-
                     ('langs', ('array', {'type': 'lang:language'}), {
                         'doc': 'An array of alternative languages specified for the contact.'}),
+                    ('banner', ('file:bytes', {}), {
+                        'doc': 'The file representing the banner for the contact.'}),
+                    ('passwd', ('inet:passwd', {}), {
+                        'doc': 'The current password for the contact.'}),
+                    ('website', ('inet:url', {}), {
+                        'doc': 'A related URL specified by the contact (e.g., a personal or company web '
+                               'page, blog, etc.).'}),
+                    ('websites', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Alternative related URLs specified by the contact.'}),
                 )),
                 ('ps:vitals', {}, (
                     ('asof', ('time', {}), {
