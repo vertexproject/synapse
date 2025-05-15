@@ -5398,32 +5398,34 @@ class EditEdgeDel(Edit):
 
 class EditTagAdd(Edit):
 
+    def __init__(self, astinfo, kids=(), istry=False):
+        Edit.__init__(self, astinfo, kids=kids)
+        self.excignore = ()
+        if istry:
+            self.excignore = (s_exc.BadTypeValu,)
+
     async def run(self, runt, genr):
 
         self.reqNotReadOnly(runt)
 
-        if len(self.kids) > 1 and isinstance(self.kids[0], Const) and (await self.kids[0].compute(runt, None)) == '?':
-            oper_offset = 1
-        else:
-            oper_offset = 0
-
-        excignore = (s_exc.BadTypeValu,) if oper_offset == 1 else ()
-
-        hasval = len(self.kids) > 2 + oper_offset
+        namekid = self.kids[0]
 
         valu = (None, None)
+        valukid = None
+        if len(self.kids) == 3:
+            valukid = self.kids[2]
 
         async for node, path in genr:
 
             try:
-                names = await self.kids[oper_offset].computeTagArray(runt, path, excignore=excignore)
-            except excignore:
+                names = await namekid.computeTagArray(runt, path, excignore=self.excignore)
+            except self.excignore:
                 yield node, path
                 await asyncio.sleep(0)
                 continue
 
-            if hasval:
-                valu = await self.kids[2 + oper_offset].compute(runt, path)
+            if valukid is not None:
+                valu = await valukid.compute(runt, path)
                 valu = await s_stormtypes.toprim(valu)
 
             for name in names:
@@ -5433,7 +5435,7 @@ class EditTagAdd(Edit):
                     runt.layerConfirm(('node', 'tag', 'add', *parts))
 
                     await node.addTag(name, valu=valu)
-                except excignore:
+                except self.excignore:
                     pass
 
             yield node, path
@@ -5442,28 +5444,27 @@ class EditTagAdd(Edit):
 
 class EditTagVirtSet(Edit):
 
+    def __init__(self, astinfo, kids=(), istry=False):
+        Edit.__init__(self, astinfo, kids=kids)
+        self.excignore = ()
+        if istry:
+            self.excignore = (s_exc.BadTypeValu,)
+
     async def run(self, runt, genr):
 
         self.reqNotReadOnly(runt)
 
-        if isinstance(self.kids[0], Const) and (await self.kids[0].compute(runt, None)) == '?':
-            oper_offset = 1
-        else:
-            oper_offset = 0
-
-        excignore = (s_exc.BadTypeValu,) if oper_offset == 1 else ()
-
-        namekid = self.kids[oper_offset]
-        virtkid = self.kids[oper_offset + 1]
-        valukid = self.kids[oper_offset + 3]
+        namekid = self.kids[0]
+        virtkid = self.kids[1]
+        valukid = self.kids[3]
 
         ival = runt.model.type('ival')
 
         async for node, path in genr:
 
             try:
-                names = await namekid.computeTagArray(runt, path, excignore=excignore)
-            except excignore:
+                names = await namekid.computeTagArray(runt, path, excignore=self.excignore)
+            except self.excignore:
                 yield node, path
                 await asyncio.sleep(0)
                 continue
@@ -5484,7 +5485,7 @@ class EditTagVirtSet(Edit):
 
                     await node.addTag(name, valu=newv, **opts)
 
-                except excignore:
+                except self.excignore:
                     pass
 
             yield node, path

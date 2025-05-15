@@ -46,8 +46,12 @@ _editoper: editnodeadd
 
 // Parenthesis in an edit block don't have incoming nodes
 editparens: "(" editnodeadd _editoper* ")"
-edittagadd: "+" [SETTAGOPER] tagname [(EQSPACE | EQNOSPACE) _valu]
-edittagvirtset: "+" [SETTAGOPER] tagnamevirt virtprops (EQSPACE | EQNOSPACE) _valu
+edittagadd: "+" tagname [(EQSPACE | EQNOSPACE) _valu]
+          | "+" "?" tagname [(EQSPACE | EQNOSPACE) _valu] -> edittagtryadd
+
+edittagvirtset: "+" tagnamevirt virtprops (EQSPACE | EQNOSPACE) _valu
+              | "+" "?" tagnamevirt virtprops (EQSPACE | EQNOSPACE) _valu -> edittagvirttryset
+
 edittagdel: EXPRMINUS tagname
 editpropset: relprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
 editcondpropset: relprop condsetoper _valu
@@ -64,7 +68,6 @@ TRYMODSET.1: "?+=" | "?-="
 MODSETMULTI.5: "++=" | "--="
 TRYMODSETMULTI.1: "?++=" | "?--="
 TRYSET.1: "?="
-SETTAGOPER: "?"
 
 condsetoper: ("*" UNSET | _DEREF "$" _condvarvaluatom) "="
     | ("*" UNSET | _DEREF "$" _condvarvaluatom) "?=" -> condtrysetoper
@@ -345,10 +348,10 @@ _wildtagsegs:  WILDTAGSEGNOVAR (_DOTNOSPACE (WILDTAGSEGNOVAR | "$" varvalue))*
 WILDTAGSEGNOVAR: /[\w*]+/
 
 // A comparison operator
-_cmpr: "*" BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
+_cmpr: "*" BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET
 BYNAME.2: /\w+[@?!<>^~=]*[<>=]/
 
-_safe_cmpr: BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
+_safe_cmpr: BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET
 
 CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
 CMPROTHER: /(?!<=|>=|=(?![@?!<>^~=])|<|>|!=|~=|\^=|\?)[@?!<>^~=][@!<>^~=]*(?![@?<>^~=])/
