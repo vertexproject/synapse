@@ -671,13 +671,9 @@ _reqValidPkgdefSchema = {
             'type': 'object',
             'properties': {
                 'time': {'type': 'number'},
-                'synapse:verstring': {
+                'synapse:version': {
                     'type': 'string',
                     'pattern': s_version.semverstr
-                },
-                'synapse:version': {
-                    'type': 'array',
-                    'items': {'type': 'number'}
                 },
                 'synapse:commit': {
                     'type': 'string',

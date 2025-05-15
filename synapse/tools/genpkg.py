@@ -268,8 +268,7 @@ async def main(argv, outp=s_output.stdout):
 
     pkgdef['build'] = {
         'time': s_common.now(),
-        'synapse:verstring': s_version.verstring,
-        'synapse:version': s_version.version,
+        'synapse:version': s_version.verstring,
         'synapse:commit': s_version.commit,
     }
 

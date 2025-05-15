@@ -165,8 +165,7 @@ class GenPkgTest(s_test.SynTest):
             build = pdef.get('build')
             self.nn(build)
             self.nn(build.get('time'))
-            self.eq(build.get('synapse:verstring'), s_version.verstring)
-            self.eq(build.get('synapse:version'), s_version.version)
+            self.eq(build.get('synapse:version'), s_version.verstring)
             self.eq(build.get('synapse:commit'), s_version.commit)
 
             # nodocs
