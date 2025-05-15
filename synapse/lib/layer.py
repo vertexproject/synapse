@@ -3512,9 +3512,8 @@ class Layer(s_nexus.Pusher):
         if sode is None or (tags := sode.get('tags')) is None:
             oldv = None
 
-        elif (oldv := tags.get(tag)) is not None:
-            if oldv == valu:
-                return
+        elif (oldv := tags.get(tag)) is not None and oldv == valu:
+            return
 
         return (
             (EDIT_TAG_SET, (tag, valu, oldv)),

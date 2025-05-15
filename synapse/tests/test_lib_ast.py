@@ -3984,9 +3984,12 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('[test:str=foo +#(foo).newp=2025]')
 
-            # Attempting to set a virt on a prop with no value raises BadTypeValu
+            # Attempting to set a precision on a prop with no value raises BadTypeValu
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[test:str=newp :seen.precision=day]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[it:exec:query=* :time.precision=day]')
 
             nodes = await core.nodes('[test:str=newp :seen.precision?=day]')
             self.none(nodes[0].get('seen'))
