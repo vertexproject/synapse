@@ -1,0 +1,6 @@
+---
+desc: Updated Storm ``hex`` type to allow setting/lifting with integers instead of
+  just hex strings.
+prs: []
+type: feat
+...

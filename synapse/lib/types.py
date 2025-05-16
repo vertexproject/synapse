@@ -730,8 +730,8 @@ class Hex(Type):
 
         if bits < valu.bit_length():
             mesg = 'Value is too large for specified width.'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=valu, reqwidth=bits,
-                                    width=valu.bit_length(), name=self.name)
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu, maxbits=bits,
+                                    bits=valu.bit_length(), name=self.name)
 
         mask = int('1' * bits, 2)
         valu = valu & mask

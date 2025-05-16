@@ -376,7 +376,7 @@ class TypesTest(s_t_utils.SynTest):
                     etype, mesg = expected
                     with self.raises(etype) as exc:
                         t.norm(valu)
-                    self.eq(exc.exception.get('mesg'), mesg)
+                    self.eq(exc.exception.get('mesg'), mesg, f'{valu=}')
 
             # width = 4
             testvectors4 = [
@@ -411,7 +411,7 @@ class TypesTest(s_t_utils.SynTest):
                     etype, mesg = expected
                     with self.raises(etype) as exc:
                         t.norm(valu)
-                    self.eq(exc.exception.get('mesg'), mesg)
+                    self.eq(exc.exception.get('mesg'), mesg, f'{valu=}')
 
             # size = 8, zeropad = True
             testvectors = [
@@ -448,24 +448,26 @@ class TypesTest(s_t_utils.SynTest):
                     etype, mesg = expected
                     with self.raises(etype) as exc:
                         t.norm(valu)
-                    self.eq(exc.exception.get('mesg'), mesg)
+                    self.eq(exc.exception.get('mesg'), mesg, f'{valu=}')
 
             # zeropad = 20
             testvectors = [
-                ('0x12', '00000000000000000012'),
-                ('0x123', '00000000000000000123'),
-                ('0x1234', '00000000000000001234'),
                 (-1, 'ffffffffffffffffffff'),
                 (-0xff, 'ffffffffffffffffff01'),
                 (0x12, '00000000000000000012'),
                 (0x123, '00000000000000000123'),
                 (0x1234, '00000000000000001234'),
-                ('0x123456', '00000000000000123456'),
-                ('0x12345678', '00000000000012345678'),
-                ('0x123456789abcdef123456789abcdef', '123456789abcdef123456789abcdef'),
                 (0x123456, '00000000000000123456'),
                 (0x12345678, '00000000000012345678'),
                 (0x123456789abcdef123456789abcdef, '123456789abcdef123456789abcdef'),
+                (-0x123456789abcdef123456789abcdef,
+                 (s_exc.BadTypeValu, 'Value is too large for specified width.')),
+                ('0x12', '00000000000000000012'),
+                ('0x123', '00000000000000000123'),
+                ('0x1234', '00000000000000001234'),
+                ('0x123456', '00000000000000123456'),
+                ('0x12345678', '00000000000012345678'),
+                ('0x123456789abcdef123456789abcdef', '123456789abcdef123456789abcdef'),
                 (b'\x12', '00000000000000000012'),
                 (b'\x12\x34', '00000000000000001234'),
                 (b'\x12\x34\x56', '00000000000000123456'),
@@ -475,10 +477,16 @@ class TypesTest(s_t_utils.SynTest):
             ]
             t = core.model.type('test:zeropad')
             for valu, expected in testvectors:
-                norm, subs = t.norm(valu)
-                self.isinstance(norm, str)
-                self.eq(subs, {})
-                self.eq(norm, expected)
+                if isinstance(expected, str):
+                    norm, subs = t.norm(valu)
+                    self.isinstance(norm, str)
+                    self.eq(subs, {})
+                    self.eq(norm, expected)
+                else:
+                    etype, mesg = expected
+                    with self.raises(etype) as exc:
+                        t.norm(valu)
+                    self.eq(exc.exception.get('mesg'), mesg, f'{valu=}')
 
             # Do some node creation and lifting
             nodes = await core.nodes('[test:hexa="01:00 01"]')
