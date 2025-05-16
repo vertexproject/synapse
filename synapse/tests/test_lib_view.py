@@ -339,6 +339,8 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('test:str=lowertag [ +#a.b.c ]', opts=opts)
 
             retn = await core.callStorm('test:str=lowertag return($node.getStorNodes())', opts=opts)
+
+            # Only leaf tag is added in our top layer
             self.isin('a.b.c', retn[0].get('tags'))
             self.notin('a.b', retn[0].get('tags'))
 
