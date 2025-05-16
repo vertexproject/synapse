@@ -1,42 +1,38 @@
-import synapse.lib.module as s_module
+modeldefs = (
+    ('entity', {
+        'types': (
+            ('entity:name', ('str', {'onespace': True, 'lower': True}), {
+                'doc': 'A name used to refer to an entity.'}),
 
-class EntityModule(s_module.CoreModule):
+            ('entity:actor', ('ndef', {'forms': ('ou:org', 'ps:person', 'ps:contact', 'risk:threat')}), {
+                'doc': 'An entity which has initiative to act.'}),
 
-    def getModelDefs(self):
-        return (('entity', {
+            ('entity:relationship:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': ('meta:taxonomy', ),
+                'doc': 'A hierarchical taxonomy of entity relationship types.'}),
 
-            'types': (
-                ('entity:name', ('str', {'onespace': True, 'lower': True}), {
-                    'doc': 'A name used to refer to an entity.'}),
+            ('entity:relationship', ('guid', {}), {
+                'doc': 'A directional relationship between two actor entities.'}),
+        ),
 
-                ('entity:actor', ('ndef', {'forms': ('ou:org', 'ps:person', 'ps:contact', 'risk:threat')}), {
-                    'doc': 'An entity which has initiative to act.'}),
+        'forms': (
+            ('entity:name', {}, ()),
 
-                ('entity:relationship:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy', ),
-                    'doc': 'A hierarchical taxonomy of entity relationship types.'}),
+            ('entity:relationship:type:taxonomy', {}, ()),
+            ('entity:relationship', {}, (
 
-                ('entity:relationship', ('guid', {}), {
-                    'doc': 'A directional relationship between two actor entities.'}),
-            ),
+                ('type', ('entity:relationship:type:taxonomy', {}), {
+                    'doc': 'The type of relationship.'}),
 
-            'forms': (
-                ('entity:name', {}, ()),
+                ('period', ('ival', {}), {
+                    'doc': 'The time period when the relationship existed.'}),
 
-                ('entity:relationship:type:taxonomy', {}, ()),
-                ('entity:relationship', {}, (
+                ('source', ('entity:actor', {}), {
+                    'doc': 'The source entity in the relationship.'}),
 
-                    ('type', ('entity:relationship:type:taxonomy', {}), {
-                        'doc': 'The type of relationship.'}),
-
-                    ('period', ('ival', {}), {
-                        'doc': 'The time period when the relationship existed.'}),
-
-                    ('source', ('entity:actor', {}), {
-                        'doc': 'The source entity in the relationship.'}),
-
-                    ('target', ('entity:actor', {}), {
-                        'doc': 'The target entity in the relationship.'}),
-                )),
-            ),
-        }),)
+                ('target', ('entity:actor', {}), {
+                    'doc': 'The target entity in the relationship.'}),
+            )),
+        ),
+    }),
+)

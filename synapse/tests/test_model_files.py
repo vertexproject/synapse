@@ -34,7 +34,7 @@ class FileTest(s_t_utils.SynTest):
                     :exe:compiler = {[ it:prod:softver=* :name="Visi Studio 31337" ]}
                 ]
             ''', opts={'vars': {'byts': b'visi'}})
-            pref = nodes[0].props.get('sha256')[:4]
+            pref = nodes[0].get('sha256')[:4]
 
             self.nn(nodes[0].get('exe:packer'))
             self.nn(nodes[0].get('exe:compiler'))
@@ -223,15 +223,6 @@ class FileTest(s_t_utils.SynTest):
             self.eq(0, sect.get('type'))
             self.eq(5678, sect.get('offset'))
 
-    async def test_model_filebytes_string(self):
-        async with self.getTestCore() as core:
-            file0 = 'a' * 64
-            nodes = await core.nodes('[file:string=($valu, foo)]', opts={'vars': {'valu': file0}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('file'), f'sha256:{file0}')
-            self.eq(node.get('string'), 'foo')
-
     async def test_model_file_types(self):
 
         async with self.getTestCore() as core:
@@ -297,6 +288,24 @@ class FileTest(s_t_utils.SynTest):
             self.none(node.get('base:ext'))
             self.none(node.get('dir'))
 
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ' /foo/bar'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '/foo/bar')
+
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': '\\foo\\bar'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '/foo/bar')
+
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ' '}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '')
+            self.none(node.get('base'))
+            self.none(node.get('base:ext'))
+            self.none(node.get('dir'))
+
             nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ''}})
             self.len(1, nodes)
             node = nodes[0]
@@ -330,14 +339,13 @@ class FileTest(s_t_utils.SynTest):
             fake = nodes[0]
             self.true(fake.ndef[1].startswith('guid:'))
 
-            nodes = await core.nodes('[file:subfile=$valu :name=embed.BIN :path="foo/embed.bin"]',
+            nodes = await core.nodes('[file:subfile=$valu :path="foo/embed.bin"]',
                                      opts={'vars': {'valu': (node1.ndef[1], node2.ndef[1])}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[1], (node1.ndef[1], node2.ndef[1]))
             self.eq(node.get('parent'), node1.ndef[1])
             self.eq(node.get('child'), node2.ndef[1])
-            self.eq(node.get('name'), 'embed.bin')
             self.eq(node.get('path'), 'foo/embed.bin')
 
             fp = 'C:\\www\\woah\\really\\sup.exe'
@@ -346,9 +354,9 @@ class FileTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.get('file'), node0.ndef[1])
             self.eq(node.get('path'), 'c:/www/woah/really/sup.exe')
-            self.eq(node.get('path:dir'), 'c:/www/woah/really')
-            self.eq(node.get('path:base'), 'sup.exe')
-            self.eq(node.get('path:base:ext'), 'exe')
+            self.len(1, await core.nodes('file:filepath:path*dir=c:/www/woah/really'))
+            self.len(1, await core.nodes('file:filepath:path*base=sup.exe'))
+            self.len(1, await core.nodes('file:filepath:path*ext=exe'))
 
             self.len(1, await core.nodes('file:path="c:/www/woah/really"'))
             self.len(1, await core.nodes('file:path="c:/www"'))
@@ -375,6 +383,12 @@ class FileTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('file:ismime', (guid, 'text/plain')))
 
+            nodes = await core.nodes('[ file:bytes=(nomime,) :mime="??" ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('file:ismime:file=(nomime,)')
+            self.len(0, nodes)
+
     async def test_model_file_mime_msoffice(self):
 
         async with self.getTestCore() as core:
@@ -387,8 +401,8 @@ class FileTest(s_t_utils.SynTest):
                 self.eq('deep_value', n.get('author'))
                 self.eq('GME stonks', n.get('subject'))
                 self.eq('stonktrader3000', n.get('application'))
-                self.eq(1611100800000, n.get('created'))
-                self.eq(1611187200000, n.get('lastsaved'))
+                self.eq(1611100800000000, n.get('created'))
+                self.eq(1611187200000000, n.get('lastsaved'))
 
                 self.eq(f'guid:{fileguid}', n.get('file'))
                 self.eq(0, n.get('file:offs'))
@@ -479,7 +493,7 @@ class FileTest(s_t_utils.SynTest):
                 self.eq('aaaa', n.get('desc'))
                 self.eq('bbbb', n.get('comment'))
                 self.eq('foo bar', n.get('text'))
-                self.eq(1578236238000, n.get('created'))
+                self.eq(1578236238000000, n.get('created'))
                 self.eq('a6b4', n.get('imageid'))
                 self.eq(conguid, n.get('author'))
                 self.eq((38.9582839, -77.358946), n.get('latlong'))
@@ -565,9 +579,9 @@ class FileTest(s_t_utils.SynTest):
             self.eq('visi', nodes[0].get('user'))
             self.eq('what exe. much wow.', nodes[0].get('comment'))
 
-            self.eq(1688083200000, nodes[0].get('added'))
-            self.eq(1687996800000, nodes[0].get('created'))
-            self.eq(1687996800000, nodes[0].get('modified'))
+            self.eq(1688083200000000, nodes[0].get('added'))
+            self.eq(1687996800000000, nodes[0].get('created'))
+            self.eq(1687996800000000, nodes[0].get('modified'))
 
             self.eq(1000, nodes[0].get('posix:uid'))
             self.eq(1000, nodes[0].get('posix:gid'))
@@ -584,7 +598,7 @@ class FileTest(s_t_utils.SynTest):
             nodes = await core.nodes(r'''[
                 file:mime:lnk=*
                     :entry:primary="c:\\some\\stuff\\prog~2\\cmd.exe"
-                    :entry:secondary="c:\\some\\stuff\program files\\cmd.exe"
+                    :entry:secondary="c:\\some\\stuff\\program files\\cmd.exe"
                     :entry:extended="c:\\some\\actual\\stuff\\I\\swear\\cmd.exe"
                     :entry:localized="c:\\some\\actual\\archivos\\I\\swear\\cmd.exe"
                     :entry:icon="%windir%\\system32\\notepad.exe"
@@ -628,7 +642,7 @@ class FileTest(s_t_utils.SynTest):
             self.eq(node.get('target:attrs'), 0x20)
             self.eq(node.get('target:size'), 12345)
 
-            time = 1674673065284
+            time = 1674673065284000
             self.eq(node.get('target:created'), time)
             self.eq(node.get('target:accessed'), time)
             self.eq(node.get('target:written'), time)

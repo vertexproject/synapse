@@ -34,17 +34,18 @@ class StormtypesModelextTest(s_test.SynTest):
                 $lib.model.ext.addForm(_test:typearry, array, ({"type": "_test:type"}), $forminfo)
             ''')
 
-            nodes = await core.nodes('[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 ]')
+            q = '[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 <(_copies)+ {[ inet:user=visi ]} ]'
+            nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('_visi:int', 10))
-            self.eq(nodes[0].get('tick'), 1609459200000)
+            self.eq(nodes[0].get('tick'), 1609459200000000)
             self.eq(nodes[0].get('._woot'), 30)
             self.eq(nodes[0].getTagProp('lol', 'score'), 99)
 
             nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 1234))
-            self.eq(nodes[0].get('_tick'), 1609459200000)
+            self.eq(nodes[0].get('_tick'), 1609459200000000)
 
             nodes = await core.nodes('[_test:typeform="  FoO BaR  "]')
             self.len(1, nodes)
@@ -72,6 +73,9 @@ class StormtypesModelextTest(s_test.SynTest):
 
             self.nn(core.model.edge(('inet:user', '_copies', None)))
 
+            with self.raises(s_exc.CantDelEdge):
+                await core.callStorm('$lib.model.ext.delEdge(inet:user, _copies, *)')
+
             # Grab the extended model definitions
             model_defs = await core.callStorm('return ( $lib.model.ext.getExtModel() )')
             self.isinstance(model_defs, dict)
@@ -88,7 +92,7 @@ class StormtypesModelextTest(s_test.SynTest):
             await core._delAllTagProp('score', {})
             self.len(0, await core.nodes('#lol:score'))
 
-            await core.callStorm('_visi:int=10 test:int=1234 _test:typeform | delnode')
+            await core.callStorm('inet:user=visi _visi:int=10 test:int=1234 _test:typeform | delnode')
             await core.callStorm('''
                 $lib.model.ext.delTagProp(score, force=(true))
                 $lib.model.ext.delUnivProp(_woot, force=(true))
@@ -184,7 +188,7 @@ class StormtypesModelextTest(s_test.SynTest):
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadEdgeDef):
-                q = f'''$lib.model.ext.addEdge(*, "_{'a'*201}", *, ({{}}))'''
+                q = f'''$lib.model.ext.addEdge(*, "_{'a' * 201}", *, ({{}}))'''
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadEdgeDef):
@@ -244,14 +248,14 @@ class StormtypesModelextTest(s_test.SynTest):
             nodes = await core.nodes('[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('_visi:int', 10))
-            self.eq(nodes[0].get('tick'), 1609459200000)
+            self.eq(nodes[0].get('tick'), 1609459200000000)
             self.eq(nodes[0].get('._woot'), 30)
             self.eq(nodes[0].getTagProp('lol', 'score'), 99)
 
             nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 1234))
-            self.eq(nodes[0].get('_tick'), 1609459200000)
+            self.eq(nodes[0].get('_tick'), 1609459200000000)
 
             # Reloading the same data works fine
             opts = {'vars': {'model_defs': model_defs}}
@@ -344,14 +348,14 @@ class StormtypesModelextTest(s_test.SynTest):
             nodes = await core.nodes('[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('_visi:int', 10))
-            self.eq(nodes[0].get('tick'), 1609459200000)
+            self.eq(nodes[0].get('tick'), 1609459200000000)
             self.eq(nodes[0].get('._woot'), 30)
             self.eq(nodes[0].getTagProp('lol', 'score'), 99)
 
             nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 1234))
-            self.eq(nodes[0].get('_tick'), 1609459200000)
+            self.eq(nodes[0].get('_tick'), 1609459200000000)
 
             self.nn(core.model.edge(('inet:user', '_copies', None)))
 

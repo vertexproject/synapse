@@ -248,7 +248,7 @@ Connection information:
 
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
                     $todo = $lib.utils.todo('getTasks')
-                    $lib.aha.callPeerGenr(null, $todo)
+                    for $info in $lib.aha.callPeerGenr(null, $todo) {}
                 '''))
 
                 # PeerApi
@@ -297,12 +297,12 @@ Connection information:
 
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
                     $todo = $lib.utils.todo('getCellInfo')
-                    $lib.aha.callPeerApi(newp..., $todo)
+                    for $info in $lib.aha.callPeerApi(newp..., $todo) {}
                 '''))
 
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
                     $todo = $lib.utils.todo('getCellInfo')
-                    $lib.aha.callPeerApi(null, $todo)
+                    for $info in $lib.aha.callPeerApi(null, $todo) {}
                 '''))
 
                 await self.asyncraises(s_exc.NoSuchMeth, core00.callStorm('''
@@ -321,11 +321,11 @@ Connection information:
                                   network='synapse')
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
                     $todo = $lib.utils.todo('getTasks')
-                    $lib.aha.callPeerGenr(noiden.cell..., $todo)
+                    for $info in $lib.aha.callPeerGenr(noiden.cell..., $todo) {}
                 '''))
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
                     $todo = $lib.utils.todo('getCellInfo')
-                    $lib.aha.callPeerApi(noiden.cell..., $todo)
+                    for $info in $lib.aha.callPeerApi(noiden.cell..., $todo) {}
                 '''))
 
                 msgs = await core00.stormlist('aha.svc.mirror')

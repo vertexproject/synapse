@@ -970,9 +970,8 @@ bar baz",vv
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
 
-                resp = await proxy.wget('http://vertex.link/', proxy=None)
-                self.false(resp.get('ok'))
-                self.isin('connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
+                with self.raises(s_exc.BadArg):
+                    resp = await proxy.wget('http://vertex.link/', proxy=None)
 
             resp = await proxy.wget('vertex.link')
             self.false(resp.get('ok'))
@@ -1065,9 +1064,8 @@ bar baz",vv
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
 
-                resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False, proxy=None)
-                self.false(resp.get('ok'))
-                self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
+                with self.raises(s_exc.BadArg):
+                    resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False, proxy=None)
 
             resp = await proxy.wput(sha256, 'vertex.link')
             self.false(resp.get('ok'))
@@ -1154,30 +1152,6 @@ bar baz",vv
                 resp = await axon.postfiles(fields, url)
                 self.true(resp.get('ok'))
 
-    async def test_axon_blob_v00_v01(self):
-
-        async with self.getRegrAxon('blobv00-blobv01') as axon:
-
-            sha256 = hashlib.sha256(b'asdfqwerzxcv').digest()
-            offsitems = list(axon.blobslab.scanByFull(db=axon.offsets))
-            self.eq(offsitems, (
-                (sha256 + (4).to_bytes(8, 'big'), (0).to_bytes(8, 'big')),
-                (sha256 + (8).to_bytes(8, 'big'), (1).to_bytes(8, 'big')),
-                (sha256 + (12).to_bytes(8, 'big'), (2).to_bytes(8, 'big')),
-            ))
-
-            bytslist = [b async for b in axon.get(sha256, 0, size=4)]
-            self.eq(b'asdf', b''.join(bytslist))
-
-            bytslist = [b async for b in axon.get(sha256, 2, size=4)]
-            self.eq(b'dfqw', b''.join(bytslist))
-
-            bytslist = [b async for b in axon.get(sha256, 2, size=6)]
-            self.eq(b'dfqwer', b''.join(bytslist))
-
-            metrics = await axon.metrics()
-            self.eq(metrics, {'size:bytes': 12, 'file:count': 1})
-
     async def test_axon_mirror(self):
 
         async with self.getTestAha() as aha:
@@ -1201,3 +1175,27 @@ bar baz",vv
 
             (size, sha256) = await axon01.put(b'vertex')
             self.eq(await axon00.size(sha256), await axon01.size(sha256))
+
+    async def test_axon_storvers01(self):
+
+        async with self.getTestAxon() as axon:
+
+            axon._setStorVers(0)
+            self.eq(0, axon._getStorVers())
+
+            data = [b'visi', b'vertex', b'synapse']
+            sizes = []
+
+            for byts in data:
+                async with await axon.upload() as fd:
+                    await fd.write(byts)
+                    size, sha256 = await fd.save()
+                    sizes.append(size)
+
+            self.eq(1, await axon._setStorVers01())
+            self.eq(1, axon._getStorVers())
+
+            for i, byts in enumerate(data):
+                sha256 = hashlib.sha256(byts).digest()
+                self.eq(sizes[i], await axon.size(sha256))
+                self.eq(byts, b''.join([chunk async for chunk in axon.get(sha256)]))

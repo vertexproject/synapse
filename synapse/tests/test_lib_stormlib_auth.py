@@ -322,13 +322,13 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormIsInPrint('default: false', msgs)
 
             msgs = await core.stormlist('auth.perms.list --find macro.')
-            self.stormIsInPrint('storm.macro.add', msgs)
-            self.stormIsInPrint('storm.macro.admin', msgs)
-            self.stormIsInPrint('storm.macro.edit', msgs)
+            self.stormIsInPrint('macro.add', msgs)
+            self.stormIsInPrint('macro.admin', msgs)
+            self.stormIsInPrint('macro.edit', msgs)
             self.stormNotInPrint('node.add.<form>', msgs)
 
             msgs = await core.stormlist('auth.perms.list --find url')
-            self.stormIsInPrint('storm.lib.telepath.open.<scheme>', msgs)
+            self.stormIsInPrint('telepath.open.<scheme>', msgs)
             self.stormIsInPrint('Controls the ability to open a telepath URL with a specific URI scheme.', msgs)
             self.stormNotInPrint('node.add.<form>', msgs)
 
@@ -490,10 +490,13 @@ class StormLibAuthTest(s_test.SynTest):
             othr = await core.auth.addUser('othr')
             asothr = {'user': othr.iden}
 
-            await core.callStorm('$lib.user.vars.set(foo, foovalu)', opts=asvisi)
+            await core.callStorm('$lib.user.vars.foo = foovalu', opts=asvisi)
 
             msgs = await core.stormlist('for $valu in $lib.user.vars { $lib.print($valu) }', opts=asvisi)
             self.stormIsInPrint("('foo', 'foovalu')", msgs)
+
+            self.true(await core.callStorm("return(('foo' in $lib.user.vars))", opts=asvisi))
+            self.false(await core.callStorm("return(('newp' in $lib.user.vars))", opts=asvisi))
 
             q = 'return($lib.auth.users.byname(visi).vars.foo)'
             self.eq('foovalu', await core.callStorm(q, opts=asvisi))
@@ -509,23 +512,21 @@ class StormLibAuthTest(s_test.SynTest):
             await core.callStorm('$lib.auth.users.byname(visi).vars.foo=$lib.undef')
             self.none(await core.callStorm('return($lib.auth.users.byname(visi).vars.foo)'))
 
-            with self.raises(s_exc.StormRuntimeError):
-                await core.callStorm('$lib.user.vars.set((1), newp)')
+            await core.callStorm('$lib.user.profile.bar = foovalu', opts=asvisi)
 
-            await core.callStorm('$lib.user.profile.set(bar, foovalu)', opts=asvisi)
+            self.eq('foovalu', await core.callStorm('return($lib.user.profile.bar)', opts=asvisi))
 
-            self.eq('foovalu', await core.callStorm('return($lib.user.profile.get(bar))', opts=asvisi))
+            self.true(await core.callStorm("return(('bar' in $lib.user.profile))", opts=asvisi))
+            self.false(await core.callStorm("return(('newp' in $lib.user.profile))", opts=asvisi))
 
-            self.eq((('bar', 'foovalu'),), await core.callStorm('return($lib.user.profile.list())', opts=asvisi))
+            q = "return(('newp' in $lib.auth.users.byname(visi).profile))"
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(q, opts=asothr))
 
             msgs = await core.stormlist('for $valu in $lib.user.profile { $lib.print($valu) }', opts=asvisi)
             self.stormIsInPrint("('bar', 'foovalu')", msgs)
 
-            await core.callStorm('$lib.user.profile.pop(bar)', opts=asvisi)
-            self.none(await core.callStorm('return($lib.user.profile.get(bar))', opts=asvisi))
-
-            with self.raises(s_exc.StormRuntimeError):
-                await core.callStorm('$lib.user.profile.set((1), newp)')
+            await core.callStorm('$lib.user.profile.bar = $lib.undef', opts=asvisi)
+            self.none(await core.callStorm('return($lib.user.profile.bar)', opts=asvisi))
 
     async def test_stormlib_auth_base(self):
 
@@ -619,15 +620,13 @@ class StormLibAuthTest(s_test.SynTest):
             udef = await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}})
             self.nn(udef)
             self.nn(await core.callStorm('return($lib.auth.users.byname(visi))'))
-            pdef = await core.callStorm('$info=$lib.auth.users.byname(visi).pack() $info.key=valu return($info)')
-            self.eq('valu', pdef.pop('key', None))
+            pdef = await core.callStorm('$info=$lib.auth.users.byname(visi) return($info)')
             self.eq(udef, pdef)
 
             self.eq(await core.callStorm('return($lib.auth.roles.byname(all).name)'), 'all')
             rdef = await core.callStorm('return($lib.auth.roles.byname(all))')
             self.eq(rdef.get('name'), 'all')
-            pdef = await core.callStorm('$info=$lib.auth.roles.byname(all).pack() $info.key=valu return($info)')
-            self.eq('valu', pdef.pop('key', None))
+            pdef = await core.callStorm('$info=$lib.auth.roles.byname(all) return($info)')
             self.eq(rdef, pdef)
 
             self.none(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': 'newp'}}))
@@ -986,10 +985,10 @@ class StormLibAuthTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return ( $lib.auth.roles.del(ninjas) )', opts=aslowuser)
 
-            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'users', 'add')))
-            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'users', 'del')))
-            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'roles', 'add')))
-            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'roles', 'del')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('auth', 'user', 'add')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('auth', 'user', 'del')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('auth', 'role', 'add')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('auth', 'role', 'del')))
             unfo = await core.callStorm('return ( $lib.auth.users.add(giggles) )', opts=aslowuser)
             iden = unfo.get('iden')
             msgs = await core.stormlist(f'$lib.auth.users.del({iden})', opts=aslowuser)

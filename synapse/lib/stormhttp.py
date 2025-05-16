@@ -68,7 +68,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
     async def rx(self, timeout=None):
 
         try:
-            _type, data, extra = await s_common.wait_for(self.resp.receive(), timeout=timeout)
+            _type, data, extra = await asyncio.wait_for(self.resp.receive(), timeout=timeout)
             if _type in (aiohttp.WSMsgType.BINARY, aiohttp.WSMsgType.TEXT):
                 return (True, s_json.loads(data))
             if _type == aiohttp.WSMsgType.CLOSED:  # pragma: no cover
@@ -98,7 +98,6 @@ class LibHttp(s_stormtypes.Lib):
 
     For APIs that accept a proxy argument, the following values are supported::
 
-        (null): Deprecated - Use the proxy defined by the http:proxy configuration option if set.
         (true): Use the proxy defined by the http:proxy configuration option if set.
         (false): Do not use the proxy defined by the http:proxy configuration option if set.
         <str>: A proxy URL string.
@@ -281,7 +280,7 @@ class LibHttp(s_stormtypes.Lib):
     )
     _storm_lib_path = ('inet', 'http')
     _storm_lib_perms = (
-        {'perm': ('storm', 'lib', 'inet', 'http', 'proxy'), 'gate': 'cortex',
+        {'perm': ('inet', 'http', 'proxy'), 'gate': 'cortex',
          'desc': 'Permits a user to specify the proxy used with `$lib.inet.http` APIs.'},
     )
 
@@ -352,7 +351,7 @@ class LibHttp(s_stormtypes.Lib):
         if params:
             kwargs['params'] = params
 
-        kwargs['ssl'] = self.runt.snap.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
+        kwargs['ssl'] = self.runt.view.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
 
         try:
             sess = await sock.enter_context(aiohttp.ClientSession(connector=connector, timeout=timeout))
@@ -408,7 +407,7 @@ class LibHttp(s_stormtypes.Lib):
 
         if fields:
             if any(['sha256' in field for field in fields]):
-                self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+                self.runt.confirm(('axon', 'wput'))
 
                 kwargs = {}
 
@@ -417,18 +416,18 @@ class LibHttp(s_stormtypes.Lib):
                     kwargs['proxy'] = proxy
 
                 if ssl_opts is not None:
-                    axonvers = self.runt.snap.core.axoninfo['synapse']['version']
+                    axonvers = self.runt.view.core.axoninfo['synapse']['version']
                     mesg = f'The ssl_opts argument requires an Axon Synapse version {s_stormtypes.AXON_MINVERS_SSLOPTS}, ' \
                            f'but the Axon is running {axonvers}'
                     s_version.reqVersion(axonvers, s_stormtypes.AXON_MINVERS_SSLOPTS, mesg=mesg)
                     kwargs['ssl_opts'] = ssl_opts
 
-                axon = self.runt.snap.core.axon
+                axon = self.runt.view.core.axon
                 info = await axon.postfiles(fields, url, headers=headers, params=params, method=meth,
                                             ssl=ssl_verify, timeout=timeout, **kwargs)
                 return HttpResp(info)
 
-        kwargs['ssl'] = self.runt.snap.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
+        kwargs['ssl'] = self.runt.view.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
 
         connector = None
         if proxyurl := await s_stormtypes.resolveCoreProxyUrl(proxy):
@@ -522,15 +521,20 @@ class HttpResp(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_httpRespJson',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'Specify an encoding to use.', 'default': None, },
-                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.', 'default': 'surrogatepass', },
+                      {'name': 'strict', 'type': 'boolean', 'default': False,
+                       'desc': 'If True, raise an exception on invalid string encoding rather than replacing the character.'},
                    ),
                    'returns': {'type': 'prim'}
                  }
         },
         {'name': 'msgpack', 'desc': 'Yield the msgpack deserialized objects.',
-            'type': {'type': 'function', '_funcname': '_httpRespMsgpack',
-                     'returns': {'name': 'Yields', 'type': 'prim', 'desc': 'Unpacked values.'}
-                     }
+         'type': {'type': 'function', '_funcname': '_httpRespMsgpack',
+                  'args': (
+                      {'name': 'strict', 'type': 'boolean', 'default': False,
+                       'desc': 'If True, raise an exception on invalid string encoding rather than replacing the character.'},
+                   ),
+                   'returns': {'name': 'Yields', 'type': 'prim', 'desc': 'Unpacked values.'}
+                 }
         },
     )
     _storm_typename = 'inet:http:resp'
@@ -555,10 +559,11 @@ class HttpResp(s_stormtypes.Prim):
             'msgpack': self._httpRespMsgpack,
         }
 
-    async def _httpRespJson(self, encoding=None, errors='surrogatepass'):
+    async def _httpRespJson(self, encoding=None, strict=False):
         try:
             valu = self.valu.get('body')
-            errors = await s_stormtypes.tostr(errors)
+            strict = await s_stormtypes.tobool(strict)
+            errors = 'strict' if strict else 'replace'
 
             if encoding is None:
                 encoding = s_json.detect_encoding(valu)
@@ -574,9 +579,11 @@ class HttpResp(s_stormtypes.Prim):
             mesg = f'Unable to decode HTTP response as json: {e.get("mesg")}'
             raise s_exc.BadJsonText(mesg=mesg)
 
-    async def _httpRespMsgpack(self):
+    async def _httpRespMsgpack(self, strict=False):
+        strict = await s_stormtypes.tobool(strict)
+
         byts = self.valu.get('body')
-        unpk = s_msgpack.Unpk()
+        unpk = s_msgpack.Unpk(strict=strict)
         for _, item in unpk.feed(byts):
             yield item
 

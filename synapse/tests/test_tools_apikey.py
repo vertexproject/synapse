@@ -42,7 +42,7 @@ class ApiKeyTest(s_test.SynTest):
             self.isin(f'  Created: {s_time.repr(rootkey00.get("created"))}', str(outp))
             self.isin(f'  Updated: {s_time.repr(rootkey00.get("updated"))}', str(outp))
             self.isin(f'  Expires: {s_time.repr(rootkey00.get("expires"))}', str(outp))
-            self.eq(rootkey00.get('expires'), rootkey00.get('created') + 120000)
+            self.eq(rootkey00.get('expires'), rootkey00.get('created') + 120000000)
 
             argv = (
                 '--svcurl', rooturl,
@@ -95,7 +95,7 @@ class ApiKeyTest(s_test.SynTest):
             self.isin(f'  Created: {s_time.repr(rootkey00.get("created"))}', str(outp))
             self.isin(f'  Updated: {s_time.repr(rootkey00.get("updated"))}', str(outp))
             self.isin(f'  Expires: {s_time.repr(rootkey00.get("expires"))}', str(outp))
-            self.eq(rootkey00.get('expires'), rootkey00.get('created') + 120000)
+            self.eq(rootkey00.get('expires'), rootkey00.get('created') + 120000000)
 
             argv = (
                 '--svcurl', rooturl,
