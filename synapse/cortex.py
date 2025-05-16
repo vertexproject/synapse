@@ -4746,6 +4746,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for ldef in self.layerdefs.values():
             await self._initLayr(ldef)
 
+    @s_nexus.Pusher.onPushAuto('layer:pull:offs')
+    async def setLayrPullOffs(self, iden, offs):
+        name = f'pull:{iden}'
+        if offs:
+            self.layeroffs.set(name, offs)
+        else:
+            self.layeroffs.delete(name)
+
+    @s_nexus.Pusher.onPushAuto('layer:push:offs')
+    async def setLayrPushOffs(self, iden, offs):
+        name = f'push:{iden}'
+        if offs:
+            self.layeroffs.set(name, offs)
+        else:
+            self.layeroffs.delete(name)
+
     @s_nexus.Pusher.onPushAuto('layer:push:add')
     async def addLayrPush(self, layriden, pdef):
 
@@ -4772,8 +4788,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.runLayrPush(layr, pdef)
 
-    @s_nexus.Pusher.onPushAuto('layer:push:del')
     async def delLayrPush(self, layriden, pushiden):
+        await self._push('layer:push:del', layriden, pushiden)
+        await self._push('layer:push:offs', pushiden, None)
+
+    @s_nexus.Pusher.onPush('layer:push:del')
+    async def _delLayrPush(self, layriden, pushiden):
 
         layr = self.layers.get(layriden)
         if layr is None:
@@ -4784,7 +4804,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         pdef = pushs.pop(pushiden, None)
-        self.layeroffs.delete(f'push:{pushiden}')
         if pdef is None:
             return
 
@@ -4819,8 +4838,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.runLayrPull(layr, pdef)
 
-    @s_nexus.Pusher.onPushAuto('layer:pull:del')
     async def delLayrPull(self, layriden, pulliden):
+        await self._push('layer:pull:del', layriden, pulliden)
+        await self._push('layer:pull:offs', pulliden, None)
+
+    @s_nexus.Pusher.onPush('layer:pull:del')
+    async def _delLayrPull(self, layriden, pulliden):
 
         layr = self.layers.get(layriden)
         if layr is None:
@@ -4831,7 +4854,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         pdef = pulls.pop(pulliden, None)
-        self.layeroffs.delete(f'pull:{pulliden}')
         if pdef is None:
             return
 
@@ -4920,6 +4942,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         iden = pdef.get('iden')
         user = pdef.get('user')
 
+        ptype_to_setoffs = {
+            'push': self.setLayrPushOffs,
+            'pull': self.setLayrPullOffs,
+        }
+        setLayrOffs = ptype_to_setoffs.get(ptype)
+
         csize = pdef.get('chunk:size')
         qsize = pdef.get('queue:size')
 
@@ -4953,12 +4981,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     alledits.extend(edits)
                     if len(alledits) > csize:
                         await layr1.saveNodeEdits(alledits, meta)
-                        self.layeroffs.set(f'{ptype}:{iden}', offs)
+                        await setLayrOffs(iden, offs)
                         alledits.clear()
 
                 if alledits:
                     await layr1.saveNodeEdits(alledits, meta)
-                    self.layeroffs.set(f'{ptype}:{iden}', offs)
+                    await setLayrOffs(iden, offs)
 
     async def _checkNexsIndx(self):
         layroffs = [await layr.getEditIndx() for layr in list(self.layers.values())]
