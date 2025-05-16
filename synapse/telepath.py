@@ -395,7 +395,7 @@ class Share(s_base.Base):
         '''
         if s_threads.iden() == self.tid:
             raise s_exc.SynErr(mesg='Use of synchronous context manager in async code')
-
+        s_common.deprecated('synapse.telepath.Share - synchronous context manager usage.')
         self._ctxobj = self.schedCoroSafePend(self.__aenter__())
         return self
 
@@ -466,7 +466,6 @@ class Method:
 
     @s_glob.synchelp
     async def __call__(self, *args, **kwargs):
-        s_common.deprecated('synaspe.telepath.Proxy - synchronous call use.')
         todo = (self.name, args, kwargs)
         return await self.proxy.task(todo, name=self.share)
 
@@ -826,7 +825,7 @@ class Proxy(s_base.Base):
         '''
         if s_threads.iden() == self.tid:
             raise s_exc.SynErr(mesg='Use of synchronous context manager in async code')
-        s_common.deprecated('syc')
+        s_common.deprecated('synapse.telepath.Proxy - synchronous context manager usage.')
         self._ctxobj = self.schedCoroSafePend(self.__aenter__())
         return self
 
