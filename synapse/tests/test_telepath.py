@@ -253,12 +253,12 @@ class TeleTest(s_t_utils.SynTest):
 
             # check a generator return channel
             genr = await prox.genr()
-            self.true(isinstance(genr, s_coro.GenrHelp))
-            self.eq((10, 20, 30), await genr.list())
+            self.eq((10, 20, 30), [v async for v in genr])
 
             # check generator explodes channel
             genr = await prox.genrboom()
-            await self.asyncraises(s_exc.SynErr, genr.list())
+            with self.raises(s_exc.SynErr) as cm:
+                [v async for v in genr]
 
             # check an async generator return channel
             genr = prox.corogenr(3)
@@ -842,7 +842,7 @@ class TeleTest(s_t_utils.SynTest):
             # We now have one link - spin up a generator to grab it
             self.len(1, prox.links)
             l0 = prox.links[0]
-            genr = await prox.genr()  # type: s_coro.GenrHelp
+            genr = await prox.genr()
             self.eq(await genr.genr.__anext__(), 10)
 
             # A new link is in the pool
@@ -854,7 +854,7 @@ class TeleTest(s_t_utils.SynTest):
             self.true(prox.links[1] is l0)
 
             # Grabbing a link will still spin up another since we are below low watermark
-            genr = await prox.genr()  # type: s_coro.GenrHelp
+            genr = await prox.genr()
             self.eq(await genr.genr.__anext__(), 10)
 
             self.len(2, prox.links)
@@ -868,7 +868,7 @@ class TeleTest(s_t_utils.SynTest):
             self.len(5, prox.links)
 
             # Grabbing a link no longer spins up a replacement
-            genr = await prox.genr()  # type: s_coro.GenrHelp
+            genr = await prox.genr()
             self.eq(await genr.genr.__anext__(), 10)
             self.len(4, prox.links)
 
