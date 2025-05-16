@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where applying a tag in a fork to a node which already had that
+  tag with a value in a parent view would additionally store that tag value in the
+  fork's write layer.
+prs: []
+type: bug
+...
