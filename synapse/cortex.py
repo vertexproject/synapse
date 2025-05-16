@@ -1406,7 +1406,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def setDeprLock(self, name, locked):
 
         todo = []
-        prop = self.model.prop(name)
+
+        if name[0] == ':':
+            prop = self.model.univ(name[1:])
+        else:
+            prop = self.model.prop(name)
+
         if prop is not None and prop.deprecated:
             todo.append(prop)
 
@@ -1434,10 +1439,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 continue
 
             # Skip universal properties on other props
-            if not prop.isform and prop.univ is not None:
+            if not prop.isform and prop.isuniv:
                 continue
 
             retn[prop.full] = prop.locked
+
+        for prop in self.model.univs.values():
+            if not prop.deprecated:
+                continue
+
+            retn[f':{prop.name}'] = prop.locked
 
         return retn
 
@@ -1451,21 +1462,24 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if locked:
                 continue
 
-            prop = self.model.props.get(propname)
-
-            for layr in self.layers.values():
-                if not prop.isform and prop.isuniv:
-                    if await layr.getPropCount(None, prop.name):
+            if propname[0] == ':':
+                name = propname[1:]
+                for layr in self.layers.values():
+                    if layr.getUnivCount(name):
                         break
-
                 else:
-                    if await layr.getPropCount(propname):
+                    count += 1
+            else:
+                prop = self.model.props.get(propname)
+
+                for layr in self.layers.values():
+                    if layr.getPropCount(propname):
                         break
 
-                    if await layr.getPropCount(prop.form.name, prop.name):
+                    if layr.getPropCount(prop.form.name, prop.name):
                         break
-            else:
-                count += 1
+                else:
+                    count += 1
 
         if count:
             mesg = f'Detected {count} deprecated properties unlocked and not in use, '
@@ -2924,24 +2938,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = 'ext univ name must start with "_"'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
 
-        base = '.' + name
-        if base in self.model.props:
-            raise s_exc.DupPropName(mesg=f'Cannot add duplicate universal property {base}',
+        if name in self.model.univs:
+            raise s_exc.DupPropName(mesg=f'Cannot add duplicate universal property {name}',
                                     prop=name)
         await self._push('model:univ:add', name, tdef, info)
 
     @s_nexus.Pusher.onPush('model:univ:add')
     async def _addUnivProp(self, name, tdef, info):
-        base = '.' + name
-        if base in self.model.props:
+        if name in self.model.univs:
             return
 
         self.model.addUnivProp(name, tdef, info)
 
         self.extunivs.set(name, (name, tdef, info))
         await self.fire('core:extmodel:change', prop=name, act='add', type='univ')
-        base = '.' + name
-        univ = self.model.univ(base)
+        univ = self.model.univ(name)
         if univ:
             await self.feedBeholder('model:univ:add', univ.pack())
 
@@ -3165,25 +3176,27 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         self.reqExtUniv(propname)
 
-        full = f'.{propname}'
-        prop = self.model.univ(full)
-
-        await self.setUnivLocked(full, True)
+        await self.setUnivLocked(propname, True)
 
         for layr in list(self.layers.values()):
 
-            genr = layr.iterUnivRows(full)
+            for prop in self.model.allunivs.get(propname):
+                if prop.form is None:
+                    continue
 
-            async for rows in s_coro.chunks(genr):
-                nodeedits = []
-                for nid, valu in rows:
-                    sode = layr._getStorNode(nid)
-                    nodeedits.append((s_common.int64un(nid), sode.get('form'), (
-                        (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
-                    )))
+                form = prop.form.name
+                genr = layr.iterPropRows(form, prop.name)
 
-                await layr.saveNodeEdits(nodeedits, meta)
-                await asyncio.sleep(0)
+                async for rows in s_coro.chunks(genr):
+                    nodeedits = []
+                    for nid, valu in rows:
+                        sode = layr._getStorNode(nid)
+                        nodeedits.append((s_common.int64un(nid), form, (
+                            (s_layer.EDIT_PROP_DEL, (propname, None, prop.type.stortype), ()),
+                        )))
+
+                    await layr.saveNodeEdits(nodeedits, meta)
+                    await asyncio.sleep(0)
 
     async def _delAllTagProp(self, propname, meta):
         '''
@@ -3267,25 +3280,28 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return await self._push('model:univ:del', prop)
 
     @s_nexus.Pusher.onPush('model:univ:del')
-    async def _delUnivProp(self, prop):
+    async def _delUnivProp(self, name):
         '''
         Remove an extended universal property from the cortex.
         '''
-        udef = self.extunivs.get(prop)
+        udef = self.extunivs.get(name)
         if udef is None:
             return
 
-        univname = '.' + prop
         for layr in self.layers.values():
-            async for item in layr.iterUnivRows(univname):
-                mesg = f'Nodes still exist with universal prop: {prop} in layer {layr.iden}'
-                raise s_exc.CantDelUniv(mesg=mesg)
+            for prop in self.model.allunivs.get(name):
+                if prop.form is None:
+                    continue
 
-        self.model.delUnivProp(prop)
-        self.extunivs.pop(prop, None)
-        self.modellocks.pop(f'univ/{prop}', None)
+                async for item in layr.iterPropRows(prop.form.name, name):
+                    mesg = f'Nodes still exist with universal prop: {name} in layer {layr.iden}'
+                    raise s_exc.CantDelUniv(mesg=mesg, name=name)
+
+        self.model.delUnivProp(name)
+        self.extunivs.pop(name, None)
+        self.modellocks.pop(f'univ/{name}', None)
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
-        await self.feedBeholder('model:univ:del', {'prop': univname})
+        await self.feedBeholder('model:univ:del', {'prop': name})
 
     async def addTagProp(self, name, tdef, info):
         if not isinstance(tdef, tuple):
@@ -3660,6 +3676,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             prop = self.model.prop(name)
             if prop is not None:
+                prop.locked = locked
+
+            if name[0] == ':' and (prop := self.model.univ(name[1:])) is not None:
                 prop.locked = locked
 
             _type = self.model.type(name)
