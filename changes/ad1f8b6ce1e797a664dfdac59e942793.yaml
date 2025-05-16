@@ -1,5 +1,5 @@
 ---
-desc: Deprecated ``synapse.coro.generhelp()`` and ``synapse.glob.GeneHelp()`` APIs.
+desc: Deprecated ``synapse.coro.genrhelp()`` and ``synapse.glob.GenrHelp()`` APIs.
 prs: []
 type: deprecation
 ...

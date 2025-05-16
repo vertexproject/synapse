@@ -1,5 +1,5 @@
 ---
-desc: Deprecated the synchronous use of ``synaspe.telepath.openurl()`` and the ability
+desc: Deprecated the synchronous use of ``synapse.telepath.openurl()`` and the ability
   to make Telepath RPC calls from synchronous Python code.
 prs: []
 type: deprecation
