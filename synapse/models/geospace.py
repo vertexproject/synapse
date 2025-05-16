@@ -393,31 +393,34 @@ class GeoModule(s_module.CoreModule):
                 'interfaces': (
                     ('geo:locatable', {
                         'doc': 'Properties common to items and events which may be geolocated.',
-                        'template': {'geo:locatable': 'item'},
+                        'template': {
+                            'geo:locatable': 'item'
+                            'geo:locatable:verb': 'was located',
+                        },
                         'props': (
                             ('place', ('geo:place', {}), {
-                                'doc': 'The place where the {geo:locatable} was located.'}),
+                                'doc': 'The place where the {geo:locatable} {geo:locatable:verb}.'}),
 
                             ('place:loc', ('loc', {}), {
-                                'doc': 'The geopolitical location of the {geo:locatable}.'}),
+                                'doc': 'The geopolitical location where the {geo:locatable} {geo:locatable:verb}.'}),
 
                             ('place:name', ('geo:name', {}), {
-                                'doc': 'The name of the place where the {geo:locatable} was located.'}),
+                                'doc': 'The name of the place where the {geo:locatable} {geo:locatable:verb}.'}),
 
                             ('place:address', ('geo:address', {}), {
-                                'doc': 'The postal address of the place where the {geo:locatable} was located.'}),
+                                'doc': 'The postal address of the place where the {geo:locatable} {geo:locatable:verb}.'}),
 
                             ('place:latlong', ('geo:latlong', {}), {
-                                'doc': 'The latlong where the {geo:locatable} was located.'}),
+                                'doc': 'The latlong where the {geo:locatable} {geo:locatable:verb}.'}),
 
                             ('place:latlong:accuracy', ('geo:dist', {}), {
-                                'doc': 'The accuracy of the latlong where the {geo:locatable} was located.'}),
+                                'doc': 'The accuracy of the latlong where the {geo:locatable} {geo:locatable:verb}.'}),
 
                             ('place:country', ('pol:country', {}), {
-                                'doc': 'The country where the {geo:locatable} was located.'}),
+                                'doc': 'The country where the {geo:locatable} {geo:locatable:verb}.'}),
 
                             ('place:country:code', ('pol:iso2', {}), {
-                                'doc': 'The country code where the {geo:locatable} was located.'}),
+                                'doc': 'The country code where the {geo:locatable} {geo:locatable:verb}.'}),
                         ),
                     }),
                 ),
