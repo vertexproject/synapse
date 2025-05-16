@@ -1,6 +1,0 @@
----
-desc: Updated documentation to clarify `view.del` only deletes the view and does not
-  remove any layers.
-prs: []
-type: doc
-...

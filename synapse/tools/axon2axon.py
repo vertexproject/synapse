@@ -8,6 +8,7 @@ import synapse.telepath as s_telepath
 import synapse.exc as s_exc
 import synapse.lib.cmd as s_cmd
 import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
@@ -42,5 +43,10 @@ async def main(argv, outp=s_output.stdout):
                     await fd.save()
     return 0
 
+async def _main(argv, outp=s_output.stdout):  # pragma: no cover
+    ret = await main(argv, outp=outp)
+    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
+    return ret
+
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(main(sys.argv[1:])))
+    sys.exit(asyncio.run(_main(sys.argv[1:])))
