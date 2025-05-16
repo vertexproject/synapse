@@ -338,42 +338,80 @@ class TypesTest(s_t_utils.SynTest):
             t = core.model.type('test:hexa')
             # Test norming to index values
             testvectors = [
-                ('0C', b'\x0c'),
-                ('0X010001', b'\x01\x00\x01'),
-                ('0FfF', b'\x0f\xff'),
-                ('f12A3e', b'\xf1\x2a\x3e'),
-                (b'\x01\x00\x01', b'\x01\x00\x01'),
+                (0xc, '0c'),
+                (-0xc, (s_exc.BadTypeValu, 'Negative integer conversion requires size or zeropad options.')),
+                ('c', '0c'),
+                ('0c', '0c'),
+                ('-0c', (s_exc.BadTypeValu, 'Non-hexadecimal digit found')),
+                ('0x0c', '0c'),
+                ('-0x0c', (s_exc.BadTypeValu, 'Non-hexadecimal digit found')),
+                (b'\x0c', '0c'),
+
+                (0x10001, '010001'),
+                ('10001', '010001'),
+                ('0x10001', '010001'),
+                ('010001', '010001'),
+                ('0x010001', '010001'),
+                (b'\x01\x00\x01', '010001'),
+
+                (0xFfF, '0fff'),
+                ('FfF', '0fff'),
+                ('0FfF', '0fff'),
+                ('0x0FfF', '0fff'),
+                (b'\x0F\xfF', '0fff'),
+
                 (b'\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\t\x98\xec\xf8B~',
-                 b'\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\t\x98\xec\xf8B~'),
-                (65537, s_exc.BadTypeValu),
+                 'd41d8cd98f00b204e9800998ecf8427e'),
+
+                ('01\udcfe0101', (s_exc.BadTypeValu, 'string argument should contain only ASCII characters')),
             ]
 
-            for v, b in testvectors:
-                if isinstance(b, bytes):
-                    r, subs = t.norm(v)
-                    self.isinstance(r, str)
+            for valu, expected in testvectors:
+                if isinstance(expected, str):
+                    norm, subs = t.norm(valu)
+                    self.isinstance(norm, str)
                     self.eq(subs, {})
+                    self.eq(norm, expected)
                 else:
-                    self.raises(b, t.norm, v)
+                    etype, mesg = expected
+                    with self.raises(etype) as exc:
+                        t.norm(valu)
+                    self.eq(exc.exception.get('mesg'), mesg)
 
             # width = 4
             testvectors4 = [
-                ('d41d', b'\xd4\x1d'),
-                (b'\x10\x01', b'\x10\x01'),
-                ('01', s_exc.BadTypeValu),
-                ('010101', s_exc.BadTypeValu),
-                (b'\x10\x01\xff', s_exc.BadTypeValu),
-                (b'\xff', s_exc.BadTypeValu),
-                ('01\udcfe0101', s_exc.BadTypeValu),
+                (0xc, (s_exc.BadTypeValu, 'Invalid width.')),
+                (-0xc, (s_exc.BadTypeValu, 'Invalid width.')),
+                ('0c', (s_exc.BadTypeValu, 'Invalid width.')),
+                ('0x0c', (s_exc.BadTypeValu, 'Invalid width.')),
+                (b'\x0c', (s_exc.BadTypeValu, 'Invalid width.')),
+
+                (0xd41d, 'd41d'),
+                ('d41d', 'd41d'),
+                ('0xd41d', 'd41d'),
+                (b'\xd4\x1d', 'd41d'),
+
+                (0x10001, (s_exc.BadTypeValu, 'Invalid width.')),
+                ('10001', (s_exc.BadTypeValu, 'Invalid width.')),
+                ('0x10001', (s_exc.BadTypeValu, 'Invalid width.')),
+                ('010001', (s_exc.BadTypeValu, 'Invalid width.')),
+                ('0x010001', (s_exc.BadTypeValu, 'Invalid width.')),
+                (b'\x01\x00\x01', (s_exc.BadTypeValu, 'Invalid width.')),
+
+                ('01\udcfe0101', (s_exc.BadTypeValu, 'string argument should contain only ASCII characters')),
             ]
             t = core.model.type('test:hex4')
-            for v, b in testvectors4:
-                if isinstance(b, bytes):
-                    r, subs = t.norm(v)
-                    self.isinstance(r, str)
+            for valu, expected in testvectors4:
+                if isinstance(expected, str):
+                    norm, subs = t.norm(valu)
+                    self.isinstance(norm, str)
                     self.eq(subs, {})
+                    self.eq(norm, expected)
                 else:
-                    self.raises(b, t.norm, v)
+                    etype, mesg = expected
+                    with self.raises(etype) as exc:
+                        t.norm(valu)
+                    self.eq(exc.exception.get('mesg'), mesg)
 
             # size = 8, zeropad = True
             testvectors = [
@@ -384,39 +422,41 @@ class TypesTest(s_t_utils.SynTest):
                 ('0X12345678', '12345678'),
                 ('56:78', '00005678'),
                 ('12:34:56:78', '12345678'),
-                (-1, s_exc.BadTypeValu),
-                (-0xff, s_exc.BadTypeValu),
+                (-1, 'ffffffff'),
+                (-0xff, 'ffffff01'),
                 (1234, '000004d2'),
                 (0x12345678, '12345678'),
-                (0x123456789a, s_exc.BadTypeValu),
-                ('::', s_exc.BadTypeValu),
-                ('0x::', s_exc.BadTypeValu),
-                ('0x1234qwer', s_exc.BadTypeValu),
-                ('0x123456789a', s_exc.BadTypeValu),
-                ('::', s_exc.BadTypeValu),
+                (0x123456789a, (s_exc.BadTypeValu, 'Invalid width.')),
+                ('::', (s_exc.BadTypeValu, 'No string left after stripping.')),
+                ('0x::', (s_exc.BadTypeValu, 'No string left after stripping.')),
+                ('0x1234qwer', (s_exc.BadTypeValu, 'Non-hexadecimal digit found')),
+                ('0x123456789a', (s_exc.BadTypeValu, 'Invalid width.')),
                 (b'\x12', '00000012'),
                 (b'\x12\x34', '00001234'),
                 (b'\x12\x34\x56', '00123456'),
                 (b'\x12\x34\x56\x78', '12345678'),
-                (b'\x12\x34\x56\x78\x9a', s_exc.BadTypeValu),
+                (b'\x12\x34\x56\x78\x9a', (s_exc.BadTypeValu, 'Invalid width.')),
             ]
             t = core.model.type('test:hexpad')
-            for v, b in testvectors:
-                if isinstance(b, str):
-                    r, subs = t.norm(v)
-                    self.isinstance(r, str)
+            for valu, expected in testvectors:
+                if isinstance(expected, str):
+                    norm, subs = t.norm(valu)
+                    self.isinstance(norm, str)
                     self.eq(subs, {})
-                    self.eq(r, b)
+                    self.eq(norm, expected)
                 else:
-                    self.raises(b, t.norm, v)
+                    etype, mesg = expected
+                    with self.raises(etype) as exc:
+                        t.norm(valu)
+                    self.eq(exc.exception.get('mesg'), mesg)
 
             # zeropad = 20
             testvectors = [
                 ('0x12', '00000000000000000012'),
                 ('0x123', '00000000000000000123'),
                 ('0x1234', '00000000000000001234'),
-                (-1, s_exc.BadTypeValu),
-                (-0xff, s_exc.BadTypeValu),
+                (-1, 'ffffffffffffffffffff'),
+                (-0xff, 'ffffffffffffffffff01'),
                 (0x12, '00000000000000000012'),
                 (0x123, '00000000000000000123'),
                 (0x1234, '00000000000000001234'),
@@ -434,14 +474,11 @@ class TypesTest(s_t_utils.SynTest):
                 (b'\x12\x34\x56\x78\x9a\xbc\xde\xf1\x23\x45\x67\x89\xab\xcd\xef', '123456789abcdef123456789abcdef'),
             ]
             t = core.model.type('test:zeropad')
-            for v, b in testvectors:
-                if isinstance(b, str):
-                    r, subs = t.norm(v)
-                    self.isinstance(r, str)
-                    self.eq(subs, {})
-                    self.eq(r, b)
-                else:
-                    self.raises(b, t.norm, v)
+            for valu, expected in testvectors:
+                norm, subs = t.norm(valu)
+                self.isinstance(norm, str)
+                self.eq(subs, {})
+                self.eq(norm, expected)
 
             # Do some node creation and lifting
             nodes = await core.nodes('[test:hexa="01:00 01"]')
@@ -454,15 +491,15 @@ class TypesTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu) as exc:
                 await core.callStorm('[test:hexa=(-10)]')
-            self.eq(exc.exception.get('mesg'), 'Hex converted integers cannot be negative.')
+            self.eq(exc.exception.get('mesg'), 'Negative integer conversion requires size or zeropad options.')
 
             with self.raises(s_exc.BadTypeValu) as exc:
                 await core.callStorm('test:hexa=(-10)')
-            self.eq(exc.exception.get('mesg'), 'Hex converted integers cannot be negative.')
+            self.eq(exc.exception.get('mesg'), 'Negative integer conversion requires size or zeropad options.')
 
             with self.raises(s_exc.BadTypeValu) as exc:
                 await core.callStorm('test:hexa^=(-10)')
-            self.eq(exc.exception.get('mesg'), 'Hex converted integers cannot be negative.')
+            self.eq(exc.exception.get('mesg'), 'Negative integer conversion requires size or zeropad options.')
 
             # Do some fancy prefix searches for test:hexa
             valus = ['deadb33f',
@@ -494,6 +531,8 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:hexa=0xf00fb33b00000000'))
             self.len(1, await core.nodes('test:hexa^=0xf00fb33b'))
             self.len(1, await core.nodes('test:hexa^=(0xf00fb33b)'))
+            self.len(1, await core.nodes('test:hexa^=0xf00fb33'))
+            self.len(1, await core.nodes('test:hexa^=(0xf00fb33)'))
 
             # Check creating and lifting zeropadded hex types
             q = '''

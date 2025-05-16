@@ -549,6 +549,10 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('serial'), '00000000000000000000000000000000000004d2')
 
+            nodes = await core.nodes('[ crypto:x509:cert=* :serial=(-1234) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('serial'), 'fffffffffffffffffffffffffffffffffffffb2e')
+
             nodes = await core.nodes('''
                 [
                     crypto:x509:crl=$crl

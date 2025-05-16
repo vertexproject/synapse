@@ -687,12 +687,6 @@ class Hex(Type):
             '^=': self._storLiftPref,
         })
 
-    def _preNormHexInt(self, valu):
-        if valu < 0:
-            mesg = 'Hex converted integers cannot be negative.'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
-        return self._preNormHexStr(hex(valu))
-
     def _preNormHexStr(self, text):
         text = text.strip().lower()
         if text.startswith('0x'):
@@ -708,36 +702,59 @@ class Hex(Type):
                     ('^=', valu[:-1], self.stortype),
                 )
 
-        if isinstance(valu, int):
-            valu = self._preNormHexInt(valu)
-            if len(valu) % 2 != 0:
-                valu = f'0{valu}'
-
         return self._storLiftNorm(cmpr, valu)
 
     def _storLiftPref(self, cmpr, valu):
         if isinstance(valu, int):
-            valu = self._preNormHexInt(valu)
+            valu = hex(self._preNormHexInt(valu)[0])
 
         valu = self._preNormHexStr(valu)
         return (
             ('^=', valu, self.stortype),
         )
 
-    def _normPyInt(self, valu):
-        valu = self._preNormHexInt(valu)
-        return self._normPyStr(valu)
+    def _preNormHexInt(self, valu):
+        if valu >= 0:
+            return valu, '0'
 
-    def _normPyStr(self, valu):
+        if not (bits := self._size or self._zeropad):
+            mesg = 'Negative integer conversion requires size or zeropad options.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu, name=self.name)
+
+        if not self._zeropad and self._size and len(self._preNormHexStr(hex(abs(valu)))) != self._size:
+            raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,
+                                    mesg='Invalid width.')
+
+        # Change from nibbles to bits
+        bits *= 4
+
+        if bits < valu.bit_length():
+            mesg = 'Value is too large for specified width.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu, reqwidth=bits,
+                                    width=valu.bit_length(), name=self.name)
+
+        mask = int('1' * bits, 2)
+        valu = valu & mask
+
+        return valu, 'f'
+
+    def _normPyInt(self, valu):
+        valu, fillchar = self._preNormHexInt(valu)
+        return self._normPyStr(hex(valu), fillchar=fillchar)
+
+    def _normPyStr(self, valu, fillchar='0'):
         valu = self._preNormHexStr(valu)
 
+        if len(valu) % 2 != 0:
+            valu = f'{fillchar}{valu}'
+
         if not valu:
-            raise s_exc.BadTypeValu(valu=valu, name='hex',
-                                    mesg='No string left after stripping')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='No string left after stripping.')
 
         if self._zeropad and len(valu) < self._zeropad:
             padlen = self._zeropad - len(valu)
-            valu = ('0' * padlen) + valu
+            valu = (fillchar * padlen) + valu
 
         try:
             # checks for valid hex width and does character
@@ -748,7 +765,7 @@ class Hex(Type):
 
         if self._size and len(valu) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,
-                                    mesg='invalid width')
+                                    mesg='Invalid width.')
         return valu, {}
 
     def _normPyBytes(self, valu):
