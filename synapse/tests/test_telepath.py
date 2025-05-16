@@ -843,36 +843,36 @@ class TeleTest(s_t_utils.SynTest):
             self.len(1, prox.links)
             l0 = prox.links[0]
             genr = await prox.genr()
-            self.eq(await genr.genr.__anext__(), 10)
+            self.eq(await genr.__anext__(), 10)
 
             # A new link is in the pool
             self.len(1, prox.links)
 
             # and upon exhuastion, the first link is put back
-            self.eq(await genr.list(), (20, 30))
+            self.eq([x async for x in genr], (20, 30))
             self.len(2, prox.links)
             self.true(prox.links[1] is l0)
 
             # Grabbing a link will still spin up another since we are below low watermark
             genr = await prox.genr()
-            self.eq(await genr.genr.__anext__(), 10)
+            self.eq(await genr.__anext__(), 10)
 
             self.len(2, prox.links)
 
-            self.eq(await genr.list(), (20, 30))
+            self.eq([x async for x in genr], (20, 30))
             self.len(3, prox.links)
 
             # Fill up pool above low watermark
             genrs = [await prox.genr() for _ in range(2)]
-            [await genr.list() for genr in genrs]
+            [[x async for x in genr] for genr in genrs]
             self.len(5, prox.links)
 
             # Grabbing a link no longer spins up a replacement
             genr = await prox.genr()
-            self.eq(await genr.genr.__anext__(), 10)
+            self.eq(await genr.__anext__(), 10)
             self.len(4, prox.links)
 
-            self.eq(await genr.list(), (20, 30))
+            self.eq([x async for x in genr], (20, 30))
             self.len(5, prox.links)
 
             # Tear down a link by hand and place it back
@@ -900,7 +900,7 @@ class TeleTest(s_t_utils.SynTest):
 
                 # Fill up pool above high watermark
                 genrs = [await prox.genr() for _ in range(13)]
-                [await genr.list() for genr in genrs]
+                [[x async for x in genr] for genr in genrs]
                 self.len(13, prox.links)
 
                 # Add a fini'd proxy for coverage
