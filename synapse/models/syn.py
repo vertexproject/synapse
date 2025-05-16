@@ -250,8 +250,10 @@ modeldefs = (
                     'doc': 'Storm service iden which provided the package.'}),
             )),
             ('syn:deleted', {'runt': True}, (
+                ('nid', ('int', {}), {
+                    'doc': 'The nid for the node that was deleted.', 'ro': True}),
                 ('sodes', ('data', {}), {
-                    'doc': 'The layer storage nodes for node the which was deleted.', 'ro': True}),
+                    'doc': 'The layer storage nodes for the node that was deleted.', 'ro': True}),
             )),
         ),
     }),

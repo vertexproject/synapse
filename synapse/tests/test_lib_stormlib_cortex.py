@@ -1505,8 +1505,16 @@ for $i in $values {
             ndef = await core.callStorm('return($lib.cortex.getNodeByNid($nid).ndef())', opts=opts)
             self.eq(ndef, ('test:str', 'foo'))
 
+            opts = {'vars': {'nid': nid}}
+            ndef = await core.callStorm('return($lib.cortex.getNdefByNid($nid))', opts=opts)
+            self.eq(ndef, ('test:str', 'foo'))
+
             buid = s_common.ehex(s_common.buid('newp'))
             self.none(await core.callStorm('return($lib.cortex.getIdenByNid((99999)))'))
             self.none(await core.callStorm(f'return($lib.cortex.getNidByIden({buid}))'))
 
             self.len(0, await core.nodes('yield (99999)'))
+
+            q = 'for ($buid, $sode) in $lib.layer.get().getStorNodes() { return($lib.cortex.getNdefByIden($buid)) }'
+            ndef = await core.callStorm(q)
+            self.eq(ndef, ('test:str', 'foo'))
