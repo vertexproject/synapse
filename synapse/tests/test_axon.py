@@ -23,6 +23,8 @@ import synapse.lib.json as s_json
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.slabseqn as s_slabseqn
 
 import synapse.tests.utils as s_t_utils
 
@@ -1199,3 +1201,54 @@ bar baz",vv
                 sha256 = hashlib.sha256(byts).digest()
                 self.eq(sizes[i], await axon.size(sha256))
                 self.eq(byts, b''.join([chunk async for chunk in axon.get(sha256)]))
+
+    async def test_axon_history_migration(self):
+
+        # Regression test: axon history migration
+        async with self.getRegrAxon('axon-axon_v2') as axon:
+
+            oldpath = s_common.genpath(axon.dirn, 'axon.lmdb')
+            newpath = s_common.genpath(axon.dirn, 'axon_v2.lmdb')
+
+            hist = list(axon.axonhist.carve(0))
+            self.true(all(tick >= 1e15 for tick, _ in hist))
+            self.len(8, hist)
+
+            sizes = [await axon.size(hashlib.sha256(b'foo%d' % i).digest()) for i in range(5)]
+            self.eq(sum(sizes), 20)
+
+            items = [x async for x in axon.hashes(0)]
+            self.eq(8, len(items))
+
+            file_count = axon.axonslab.get(b'file:count', db='metrics')
+            size_bytes = axon.axonslab.get(b'size:bytes', db='metrics')
+            self.eq(int.from_bytes(file_count, 'big'), 8)
+            self.eq(int.from_bytes(size_bytes, 'big'), 3023)
+
+            self.true(os.path.isdir(newpath))
+            self.false(os.path.isdir(oldpath))
+
+    async def test_axon_history_migration_fail(self):
+
+        with self.getTestDir() as dirn:
+
+            oldpath = s_common.genpath(dirn, 'axon.lmdb')
+            newpath = s_common.genpath(dirn, 'axon_v2.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(oldpath) as slab:
+                hist = s_lmdbslab.Hist(slab, 'history')
+                for i in range(5):
+                    tick = 1000000000000 + i
+                    item = (b'foo%d' % i, 123 + i)
+                    hist.add(item, tick=tick)
+                slab.forcecommit()
+
+            self.true(os.path.isdir(oldpath))
+            self.false(os.path.isdir(newpath))
+
+            with mock.patch('shutil.rmtree', side_effect=OSError("fail")):
+                with self.raises(s_exc.BadCoreStore) as cm:
+                    async with await s_axon.Axon.anit(dirn) as axon:
+                        pass
+                self.isin('Failed to trash slab', str(cm.exception))
+            self.true(os.path.isdir(oldpath))

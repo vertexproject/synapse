@@ -1016,7 +1016,7 @@ class Slab(s_base.Base):
     def __repr__(self):
         return 'Slab: %r' % (self.path,)
 
-    async def trash(self):
+    async def trash(self, ignore_errors=True):
         '''
         Deletes underlying storage
         '''
@@ -1027,7 +1027,11 @@ class Slab(s_base.Base):
         except FileNotFoundError:  # pragma: no cover
             pass
 
-        shutil.rmtree(self.path, ignore_errors=True)
+        try:
+            shutil.rmtree(self.path, ignore_errors=ignore_errors)
+        except Exception as e:
+            mesg = f'Failed to trash slab: {self.path}'
+            raise s_exc.BadCoreStore(mesg=mesg, path=self.path) from e
 
     async def getHotCount(self, name):
         item = await HotCount.anit(self, name)

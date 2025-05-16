@@ -1,3 +1,4 @@
+import os
 import csv
 import struct
 import asyncio
@@ -810,8 +811,11 @@ class Axon(s_cell.Cell):
 
     async def initServiceStorage(self):  # type: ignore
 
-        path = s_common.gendir(self.dirn, 'axon.lmdb')
+        path = s_common.gendir(self.dirn, 'axon_v2.lmdb')
         self.axonslab = await s_lmdbslab.Slab.anit(path)
+
+        await self._migrateAxonHistory()
+
         self.sizes = self.axonslab.initdb('sizes')
         self.onfini(self.axonslab.fini)
 
@@ -889,6 +893,38 @@ class Axon(s_cell.Cell):
 
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
+
+    async def _migrateAxonHistory(self):
+        oldpath = s_common.genpath(self.dirn, 'axon.lmdb')
+        if not os.path.isdir(oldpath):
+            return
+
+        logger.warning('Migrating Axon history')
+
+        async with await s_lmdbslab.Slab.anit(oldpath, readonly=True) as oldslab:
+
+            for name in ['sizes', 'axonseqn', 'metrics']:
+                if oldslab.dbexists(name):
+                    oldslab.initdb(name)
+                    await oldslab.copydb(name, self.axonslab, name)
+
+            oldhist = s_lmdbslab.Hist(oldslab, 'history')
+            newhist = s_lmdbslab.Hist(self.axonslab, 'history')
+            migrated = 0
+            for tick, item in oldhist.carve(0):
+                newtick = tick * 1000
+                newhist.add(item, tick=newtick)
+                migrated += 1
+            logger.warning(f"Migrated {migrated} history rows")
+
+            self.axonslab.forcecommit()
+
+            try:
+                await oldslab.trash(ignore_errors=False)
+            except s_exc.BadCoreStore as e:
+                raise
+
+        logger.warning('...Axon history migration complete!')
 
     async def _initBlobStor(self):
 
