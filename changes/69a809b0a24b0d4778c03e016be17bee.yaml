@@ -1,0 +1,6 @@
+---
+desc: Deprecate ``inet:web:*`` forms, ``inet:search:query:acct`` property, and ``inet:service:message:hashtags``
+  property.
+prs: []
+type: deprecation
+...

@@ -1390,36 +1390,44 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user')), 'sepr': '/'}), {
+                        'deprecated': True,
                         'doc': 'An account with a given Internet-based site or service.',
                         'ex': 'twitter.com/invisig0th'
                     }),
 
                     ('inet:web:action', ('guid', {}), {
+                        'deprecated': True,
                         'doc': 'An instance of an account performing an action at an Internet-based site or service.'
                     }),
 
                     ('inet:web:chprofile', ('guid', {}), {
+                        'deprecated': True,
                         'doc': 'A change to a web account. Used to capture historical properties associated with '
                                ' an account, as opposed to current data in the inet:web:acct node.'
                     }),
 
                     ('inet:web:file', ('comp', {'fields': (('acct', 'inet:web:acct'), ('file', 'file:bytes'))}), {
+                        'deprecated': True,
                         'doc': 'A file posted by a web account.'
                     }),
 
                     ('inet:web:attachment', ('guid', {}), {
+                        'deprecated': True,
                         'doc': 'An instance of a file being sent to a web service by an account.'}),
 
                     ('inet:web:follows', ('comp', {'fields': (('follower', 'inet:web:acct'), ('followee', 'inet:web:acct'))}), {
+                        'deprecated': True,
                         'doc': 'A web account follows or is connected to another web account.'
                     }),
 
                     ('inet:web:group', ('comp', {'fields': (('site', 'inet:fqdn'), ('id', 'inet:group')), 'sepr': '/'}), {
+                        'deprecated': True,
                         'doc': 'A group hosted within or registered with a given Internet-based site or service.',
                         'ex': 'somesite.com/mycoolgroup'
                     }),
 
                     ('inet:web:logon', ('guid', {}), {
+                        'deprecated': True,
                         'doc': 'An instance of an account authenticating to an Internet-based site or service.'
                     }),
                     ('inet:web:memb', ('comp', {'fields': (('acct', 'inet:web:acct'), ('group', 'inet:web:group'))}), {
@@ -1427,26 +1435,32 @@ class InetModule(s_module.CoreModule):
                         'doc': 'Deprecated. Please use inet:web:member.'
                     }),
                     ('inet:web:member', ('guid', {}), {
+                        'deprecated': True,
                         'doc': 'Represents a web account membership in a channel or group.',
                     }),
                     ('inet:web:mesg', ('comp', {'fields': (('from', 'inet:web:acct'), ('to', 'inet:web:acct'), ('time', 'time'))}), {
+                        'deprecated': True,
                         'doc': 'A message sent from one web account to another web account or channel.',
                         'ex': '((twitter.com, invisig0th), (twitter.com, gobbles), 20041012130220)'
                     }),
 
                     ('inet:web:post', ('guid', {}), {
+                        'deprecated': True,
                         'doc': 'A post made by a web account.'
                     }),
 
                     ('inet:web:post:link', ('guid', {}), {
+                        'deprecated': True,
                         'doc': 'A link contained within post text.'
                     }),
 
                     ('inet:web:instance', ('guid', {}), {
+                        'deprecated': True,
                         'doc': 'An instance of a web service such as slack or discord.'
                     }),
 
                     ('inet:web:channel', ('guid', {}), {
+                        'deprecated': True,
                         'doc': 'A channel within a web service or instance such as slack or discord.'
                     }),
 
@@ -1455,6 +1469,7 @@ class InetModule(s_module.CoreModule):
                         # - starts with pound
                         # - one or more non-whitespace/non-pound character
                         # The minimum hashtag is a pound with a single non-whitespace character
+                        'deprecated': True,
                         'doc': 'A hashtag used in a web post.',
                     }),
 
@@ -2650,6 +2665,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The time the web search was issued.',
                         }),
                         ('acct', ('inet:web:acct', {}), {
+                            'deprecated': True,
                             'doc': 'The account that the query was issued as.',
                         }),
                         ('host', ('it:host', {}), {
@@ -3803,6 +3819,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'An array of files attached to the message.'}),
 
                         ('hashtags', ('array', {'type': 'inet:web:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
+                            # DISCUSS - what is the appropriate way to handle this property?
+                            # 'deprecated': True,
                             'doc': 'An array of hashtags mentioned within the message.'}),
 
                         ('place', ('geo:place', {}), {
