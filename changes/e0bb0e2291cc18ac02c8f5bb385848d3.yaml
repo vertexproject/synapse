@@ -1,0 +1,6 @@
+---
+desc: Updated ``synapse.tools.genpkg`` to include the Synapse version info used
+  to build the Power-Up in the package definitions.
+prs: []
+type: feat
+...
