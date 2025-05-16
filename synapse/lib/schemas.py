@@ -73,6 +73,7 @@ _LayerPushPullSchema = {
     'properties': {
         'url': {'type': 'string'},
         'time': {'type': 'number'},
+        'soffs': {'type': 'number', 'minval': 0},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'queue:size': {'type': 'integer', 'default': s_const.layer_pdef_qsize,
