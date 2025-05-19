@@ -3819,8 +3819,6 @@ class InetModule(s_module.CoreModule):
                             'doc': 'An array of files attached to the message.'}),
 
                         ('hashtags', ('array', {'type': 'inet:web:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
-                            # DISCUSS - what is the appropriate way to handle this property?
-                            # 'deprecated': True,
                             'doc': 'An array of hashtags mentioned within the message.'}),
 
                         ('place', ('geo:place', {}), {
