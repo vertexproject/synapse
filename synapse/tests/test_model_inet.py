@@ -2729,6 +2729,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :creator=$visiiden
                 :platform=$platiden
                 :instance=$instiden
+                :topic=' My Topic   '
             ]
             '''
             opts = {'vars': {
@@ -2740,6 +2741,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:channel', s_common.guid(('general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[0].get('name'), 'general')
+            self.eq(nodes[0].get('topic'), 'my topic')
             self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
@@ -2808,12 +2810,18 @@ class InetModelTest(s_t_utils.SynTest):
                     :group=$devsiden
                     :public=$lib.false
                     :repost=*
+                    :mentions=(
+                        (inet:service:group, $devsiden),
+                        (inet:service:account, $blckiden),
+                        (inet:service:account, $blckiden),
+                    )
                 )
 
                 (inet:service:message=(blackout, visi, 1715856900000000, vertex, slack)
                     :type=chat.direct
                     :to=$visiiden
                     :public=$lib.false
+                    :mentions?=((inet:service:message:attachment, $atchiden),)
                 )
 
                 (inet:service:message=(blackout, general, 1715856900000000, vertex, slack)
@@ -2861,10 +2869,15 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('group'), devsgrp.ndef[1])
             self.false(nodes[0].get('public'))
             self.eq(nodes[0].get('type'), 'chat.group.')
+            self.eq(
+                nodes[0].get('mentions'),
+                (('inet:service:account', blckacct.ndef[1]), ('inet:service:group', devsgrp.ndef[1]))
+            )
 
             self.eq(nodes[1].get('to'), visiacct.ndef[1])
             self.false(nodes[1].get('public'))
             self.eq(nodes[1].get('type'), 'chat.direct.')
+            self.none(nodes[1].get('mentions'))
 
             self.eq(nodes[2].get('channel'), gnrlchan.ndef[1])
             self.true(nodes[2].get('public'))
@@ -2962,6 +2975,7 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [ inet:service:message=(visi, says, relax)
                 :title="Hehe Haha"
+                :hashtags="#hehe,#haha,#hehe"
                 :thread={[
                     inet:service:thread=*
                         :title="Woot  Woot"
@@ -2975,6 +2989,7 @@ class InetModelTest(s_t_utils.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
+            self.eq(['#haha', '#hehe'], nodes[0].get('hashtags'))
             self.len(1, await core.nodes('inet:service:message=(visi, says, hello) -> inet:service:thread:message'))
             self.len(1, await core.nodes('''
                 inet:service:message:title="hehe haha"
