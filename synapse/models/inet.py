@@ -1409,14 +1409,12 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:file', ('comp', {'fields': (('acct', 'inet:web:acct'), ('file', 'file:bytes'))}), {
                         'deprecated': True,
-                        # DISCUSS - What is the appropriate inet:service:* analog for this fused knowledge?
-                        'doc': 'A file posted by a web account.'
+                        'doc': 'Deprecated. Please use inet:service:message and inet:service:message:attachment.'
                     }),
 
                     ('inet:web:attachment', ('guid', {}), {
                         'deprecated': True,
-                        # DISCUSS - What is the appropriate inet:service:* analog for this instance knowledge?
-                        'doc': 'An instance of a file being sent to a web service by an account.'}),
+                        'doc': 'Deprecated. Please use inet:service:message and inet:service:message:attachment.'}),
 
                     ('inet:web:follows', ('comp', {'fields': (('follower', 'inet:web:acct'), ('followee', 'inet:web:acct'))}), {
                         'deprecated': True,
