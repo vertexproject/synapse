@@ -2984,7 +2984,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             typeinfo['interfaces'] = tuple(ifaces)
 
         self.model.addType(formname, basetype, typeopts, typeinfo)
-        self.model.addForm(formname, {}, ())
+        self.model.addForm(formname, typeinfo, ())
 
         self.extforms.set(formname, (formname, basetype, typeopts, typeinfo))
         await self.fire('core:extmodel:change', form=formname, act='add', type='form')
@@ -5460,21 +5460,107 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
                     self._logStormQuery(text, user, info=info)
 
+                    forms, nid_to_form, nodec = {}, {}, 0
+                    used_forms, used_types, used_props, used_univs, used_tagprops = set(), set(), set(), set(), set()
+
                     async for node, path in runt.execute():
+
+                        # Forms
+                        if node.form.isext:
+                            used_forms.add(node.form.name)
+
+                        # Types
+                        form = self.model.forms[node.form.name]
+                        for base in form.type.info.get('bases', ()):
+                            if base.startswith('_'):
+                                used_types.add(base)
+
+                        # Props
+                        for prop in node.form.props.values():
+                            for base in prop.type.info.get('bases', ()):
+                                if base.startswith('_'):
+                                    used_types.add(base)
+                            if (node.form.isext or prop.isext) and not prop.name.startswith('.'):
+                                if node.get(prop.name) is not None:
+                                    used_props.add((node.form.name, prop.name))
+
+                        # Tagprops
+                        all_tagprops = node._getTagPropsDict()
+                        for tagname, tagpropdict in all_tagprops.items():
+                            for tagprop, valu in tagpropdict.items():
+                                if valu is not None:
+                                    used_tagprops.add(tagprop)
+
+                        # Univprops
+                        for prop in node.form.props.values():
+                            if prop.isext and prop.name.startswith('._'):
+                                univ_name = prop.name[1:]
+                                if node.get(prop.name) is not None:
+                                    used_univs.add(univ_name)
+
                         await spooldict.set(node.nid, (node.lastlayr(), node.pack()))
+                        forms[node.form.name] = forms.get(node.form.name, 0) + 1
+                        nid_to_form[node.nid] = node.form.name
+                        nodec += 1
+
+                    # Edges
+                    ext_edges = set()
+                    for (src_form, verb, tgt_form), edgeinfo in self.model.edges.items():
+                        if verb.startswith('_'):
+                            ext_edges.add((src_form, verb, tgt_form))
+
+                    extmodel = await self.getExtModel()
+                    model_ext = {
+                        'forms': [f for f in extmodel.get('forms', []) if f[0] in used_forms],
+                        'types': [t for t in extmodel.get('types', []) if t[0] in used_types],
+                        'props': [p for p in extmodel.get('props', []) if (p[0], p[1]) in used_props],
+                        'tagprops': [tp for tp in extmodel.get('tagprops', []) if tp[0] in used_tagprops],
+                        'univs': [u for u in extmodel.get('univs', []) if u[0] in used_univs],
+                    }
+
+                    node_edges = {}
+                    edges_meta = {}
+                    for nid1, (stoplayr, pode1) in spooldict.items():
+                        src_form = nid_to_form[nid1]
+                        for nid2, pode2 in spooldict.items():
+                            tgt_form = nid_to_form[nid2]
+                            n2buid = self.getBuidByNid(nid2)
+                            async for verb in view.iterEdgeVerbs(nid1, nid2, stop=stoplayr):
+                                node_edges.setdefault(nid1, []).append((verb, s_common.ehex(n2buid)))
+                                edges_meta.setdefault(src_form, {}).setdefault(verb, set()).add(tgt_form)
+
+                    edges_meta = {k: {vk: sorted(list(vv)) for vk, vv in v.items()} for k, v in edges_meta.items()}
+                    used_edges = set()
+                    for (src_form, verb, tgt_form) in ext_edges:
+                        tgt_forms = edges_meta.get(src_form, {}).get(verb, [])
+                        if tgt_form is None:
+                            if tgt_forms:
+                                used_edges.add((src_form, verb, tgt_form))
+                        else:
+                            if tgt_form in tgt_forms:
+                                used_edges.add((src_form, verb, tgt_form))
+
+                    model_ext['edges'] = [edge for edge in extmodel.get('edges', []) if edge[0] in used_edges]
+
+                    metadata = {
+                        'type': 'meta',
+                        'export_ver': 1, # int or semver?
+                        'forms': forms,
+                        'edges': edges_meta,
+                        'count': nodec,
+                        'model_ext': model_ext,
+                        'creatorname': user.name,
+                        'created': s_common.now(),
+                        'synapse_minver': s_version.verstring,
+                        'synapse_ver': s_version.verstring,
+                        'query': text, # could be taskinfo
+                    }
+
+                    s_schemas.reqValidExportStormMeta(metadata)
+                    yield metadata
 
                     for nid1, (stoplayr, pode1) in spooldict.items():
-                        await asyncio.sleep(0)
-
-                        edges = []
-
-                        for nid2, pode2 in spooldict.items():
-                            await asyncio.sleep(0)
-
-                            async for verb in view.iterEdgeVerbs(nid1, nid2, stop=stoplayr):
-                                n2buid = self.getBuidByNid(nid2)
-                                edges.append((verb, s_common.ehex(n2buid)))
-
+                        edges = node_edges.get(nid1)
                         if edges:
                             pode1[1]['edges'] = edges
 

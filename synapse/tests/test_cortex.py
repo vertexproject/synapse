@@ -6965,6 +6965,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                         self.true(len(tasks) == 1 and tasks[0].info.get('view') == core.view.iden)
                     podes.append(p)
 
+                meta = podes.pop(0)
+                self.eq(meta['model_ext'], {
+                    'forms': (),
+                    'types': (),
+                    'props': (),
+                    'tagprops': (
+                        ('file', ('file:path', {}), {'doc': 'something happened to it'}),
+                        ('rank', ('int', {}), {'doc': 'be a shame if'}),
+                        ('user', ('str', {}), {'doc': 'real nice tagprop ya got there'}),
+                    ),
+                    'univs': (),
+                    'edges': (),
+                })
+
                 self.len(2, podes)
                 news = [p for p in podes if p[0][0] == 'media:news'][0]
                 email = [p for p in podes if p[0][0] == 'inet:email'][0]
@@ -6991,7 +7005,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(2, await proxy.feedFromAxon(sha256))
 
                 opts['limit'] = 1
-                self.len(1, await alist(proxy.exportStorm('media:news inet:email', opts=opts)))
+                self.len(2, await alist(proxy.exportStorm('media:news inet:email', opts=opts)))
 
             async with self.getHttpSess(port=port) as sess:
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export')
@@ -7016,6 +7030,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 byts = await resp.read()
 
                 podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
+                meta = podes.pop(0)
+                self.eq(meta['edges'], {'media:news': {'refs': ('inet:email',)}})
 
                 news = [p for p in podes if p[0][0] == 'media:news'][0]
                 email = [p for p in podes if p[0][0] == 'inet:email'][0]
@@ -7048,6 +7064,58 @@ class CortexBasicTest(s_t_utils.SynTest):
             size, sha256 = await core.exportStormToAxon('.created')
             byts = b''.join([b async for b in core.axon.get(s_common.uhex(sha256))])
             self.isin(b'vertex.link', byts)
+
+    async def test_cortex_export_metadata(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addType('_foo:bar', 'str', {}, {'doc': 'test _foo:bar str type'})
+            await core.addForm('_baz:haha', '_foo:bar', {}, {'doc': 'The baz:haha form.'})
+            await core.nodes('[ _baz:haha="newp" ]')
+
+            await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.'})
+            await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})
+            await core.addUnivProp('_sneaky', ('bool', {}), {'doc': 'Note if a node is sneaky.'})
+            await core.nodes('[ _hehe:haha=42 :visi="woot" ._sneaky=(true) ]')
+
+            await core.addFormProp('inet:email', '_visi', ('str', {}), {})
+            await core.addEdge(('media:news', '_linksto', None), {'doc': 'copies of a user'})
+            await core.nodes('[ inet:email=visi@vertex.link :_visi="woot"]')
+            await core.nodes('[ media:news=* :title="Vertex Project Winning" +(_linksto)> { inet:email=visi@vertex.link } ]')
+
+            meta = await anext(core.exportStorm('_baz:haha'))
+            self.eq(meta['model_ext'], {
+                "forms": [
+                    ["_baz:haha", "_foo:bar", {}, {"doc": "The baz:haha form."}]
+                ],
+                "types": [
+                    ["_foo:bar", "str", {}, {"doc": "test _foo:bar str type"}]
+                ],
+                "props": [],
+                "tagprops": [],
+                "univs": [],
+                "edges": []
+            })
+
+            meta = await anext(core.exportStorm('_hehe:haha=42'))
+            self.eq(meta['model_ext'], {
+                'forms': [('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.'})],
+                'types': [],
+                'props': [('_hehe:haha', 'visi', ('str', {}), {})],
+                'tagprops': [],
+                'univs': [('_sneaky', ('bool', {}), {'doc': 'Note if a node is sneaky.'})],
+                'edges': []
+            })
+
+            meta = await anext(core.exportStorm('media:news inet:email'))
+            self.eq(meta['model_ext'], {
+                'forms': [],
+                'types': [],
+                'props': [('inet:email', '_visi', ('str', {}), {})],
+                'tagprops': [],
+                'univs': [],
+                'edges': [(('media:news', '_linksto', None), {'doc': 'copies of a user'})]
+            })
 
     async def test_cortex_lookup_mode(self):
         async with self.getTestCoreAndProxy() as (_core, proxy):
@@ -7995,7 +8063,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     q = 'inet:asn=0'
                     qhash = s_storm.queryhash(q)
                     with self.getStructuredAsyncLoggerStream('synapse') as stream:
-                        self.len(1, await alist(core00.exportStorm(q)))
+                        self.len(2, await alist(core00.exportStorm(q)))
 
                     data = stream.getvalue()
                     self.notin('Timeout', data)
@@ -8121,7 +8189,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.isin('Timeout waiting for query mirror', data)
 
                     with self.getLoggerStream('synapse') as stream:
-                        self.len(1, await alist(core00.exportStorm('inet:asn=0')))
+                        self.len(2, await alist(core00.exportStorm('inet:asn=0')))
 
                     stream.seek(0)
                     data = stream.read()
@@ -8178,7 +8246,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.isin('Storm query mirror pool is empty, running query locally.', data)
 
                     with self.getLoggerStream('synapse') as stream:
-                        self.len(1, await alist(core00.exportStorm('inet:asn=0')))
+                        self.len(2, await alist(core00.exportStorm('inet:asn=0')))
 
                     stream.seek(0)
                     data = stream.read()

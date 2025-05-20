@@ -1212,3 +1212,100 @@ _httpLoginV1Schema = {
     'required': ['user', 'passwd'],
 }
 reqValidHttpLoginV1 = s_config.getJsValidator(_httpLoginV1Schema)
+
+_exportStormMetaSchema = {
+    'type': 'object',
+    'properties': {
+        'type': {'type': 'string', 'enum': ['meta']},
+        'export_ver': {'type': 'integer', 'minimum': 1},
+        'forms': {
+            'type': 'object',
+            'patternProperties': {
+                '^.*$': {'type': 'integer', 'minimum': 0}
+            },
+            'description': 'Dictionary mapping form names to their counts in the export.'
+        },
+        'edges': {
+            'type': 'object',
+            'patternProperties': {
+                '^.*$': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^.*$': {
+                            'type': 'array',
+                            'items': {'type': 'string'},
+                        }
+                    }
+                }
+            },
+            'description': 'Mapping of source form to verbs to target forms.'
+        },
+        'model_ext': {
+            'type': 'object',
+            'properties': {
+                'forms': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'array',
+                        'minItems': 4,
+                        'maxItems': 4,
+                        'items': [{'type': 'string'}, {'type': 'string'}, {'type': 'object'}, {'type': 'object'}]
+                    }
+                },
+                'props': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'array',
+                        'minItems': 4,
+                        'maxItems': 4,
+                        'items': [{'type': 'string'}, {'type': 'string'}, {'type': 'array'}, {'type': 'object'}]
+                    }
+                },
+                'univs': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'array',
+                        'minItems': 3,
+                        'maxItems': 3,
+                        'items': [{'type': 'string'}, {'type': 'array'}, {'type': 'object'}]
+                    }
+                },
+                'tagprops': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'array',
+                        'minItems': 3,
+                        'maxItems': 3,
+                        'items': [{'type': 'string'}, {'type': 'array'}, {'type': 'object'}]
+                    }
+                },
+                'types': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'array',
+                        'minItems': 4,
+                        'maxItems': 4,
+                        'items': [{'type': 'string'}, {'type': 'string'}, {'type': 'object'}, {'type': 'object'}]
+                    }
+                },
+            },
+            'description': 'Additional model information about extended forms, properties, tagprops, and univprops.'
+        },
+        'count': {'type': 'integer', 'minimum': 0, 'description': 'Number of nodes exported.'},
+        'synapse_minver': {
+            'type': 'string',
+            'description': 'Minimum version of Synapse required to import the export.'
+        },
+        'synapse_ver': {
+            'type': 'string',
+            'description': 'Version of Synapse that exported the data.'
+        },
+        'creatorname': {'type': 'string', 'description': 'User who ran the export.'},
+        'created': {'type': 'integer', 'minimum': 0, 'description': 'Timestamp of the export.'},
+        'query': {'type': 'string', 'description': 'The Storm query string.'},
+    },
+    'required': ['type', 'forms', 'count', 'creatorname', 'query', 'created', 'synapse_minver', 'synapse_ver'],
+    'additionalProperties': False,
+}
+
+reqValidExportStormMeta = s_config.getJsValidator(_exportStormMetaSchema)
