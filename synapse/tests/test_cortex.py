@@ -7069,9 +7069,19 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.addType('_foo:bar', 'str', {}, {'doc': 'test _foo:bar str type'})
+            await core.addType('_foo:bar', 'str', {}, {'doc': '_foo:bar str type'})
             await core.addForm('_baz:haha', '_foo:bar', {}, {'doc': 'The baz:haha form.'})
             await core.nodes('[ _baz:haha="newp" ]')
+
+            await core.addType('_foo:prop', 'str', {}, {'doc': '_foo:prop custom property type'})
+            await core.addForm('_test:form', 'str', {}, {'doc': '_test:form custom form type'})
+            await core.addFormProp('_test:form', 'myprop', ('_foo:prop', {}), {'doc': 'custom prop with custom type'})
+            await core.nodes('[ _test:form=val :myprop="customval" ]')
+
+            await core.addType('_foo:base', 'str', {}, {'doc': '_foo:base str type'})
+            await core.addType('_foo:baz', '_foo:base', {}, {'doc': '_foo:bar inherits base'})
+            await core.addForm('_baz:inher', '_foo:baz', {}, {'doc': 'The baz:inher form.'})
+            await core.nodes('[ _baz:inher="inheritance" ]')
 
             await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.'})
             await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})
@@ -7079,9 +7089,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.nodes('[ _hehe:haha=42 :visi="woot" ._sneaky=(true) ]')
 
             await core.addFormProp('inet:email', '_visi', ('str', {}), {})
-            await core.addEdge(('media:news', '_linksto', None), {'doc': 'copies of a user'})
+            await core.addEdge(('media:news', '_linksto', None), {'doc': 'links to a node'})
+            await core.addEdge(('inet:email', '_linksfrom', 'media:news'), {'doc': 'links from a node'})
             await core.nodes('[ inet:email=visi@vertex.link :_visi="woot"]')
             await core.nodes('[ media:news=* :title="Vertex Project Winning" +(_linksto)> { inet:email=visi@vertex.link } ]')
+            await core.nodes('[ media:news=* :title="Vertex Project Winning" <(_linksfrom)+ { inet:email=visi@vertex.link } ]')
 
             meta = await anext(core.exportStorm('_baz:haha'))
             self.eq(meta['model_ext'], {
@@ -7089,12 +7101,40 @@ class CortexBasicTest(s_t_utils.SynTest):
                     ["_baz:haha", "_foo:bar", {}, {"doc": "The baz:haha form."}]
                 ],
                 "types": [
-                    ["_foo:bar", "str", {}, {"doc": "test _foo:bar str type"}]
+                    ["_foo:bar", "str", {}, {"doc": "_foo:bar str type"}]
                 ],
                 "props": [],
                 "tagprops": [],
                 "univs": [],
                 "edges": []
+            })
+
+            meta = await anext(core.exportStorm('_test:form'))
+            self.eq(meta['model_ext'], {
+                "forms": [
+                    [ "_test:form", "str", {}, {"doc": "_test:form custom form type"} ]
+                ],
+                "types": [
+                    [ "_foo:prop", "str", {}, {"doc": "_foo:prop custom property type"} ]
+                ],
+                "props": [
+                    [ "_test:form", "myprop", [ "_foo:prop", {} ], {"doc": "custom prop with custom type"} ]
+                ],
+                "tagprops": [],
+                "univs": [],
+                "edges": []
+            })
+
+            meta = await anext(core.exportStorm('_baz:inher'))
+            self.eq(meta['model_ext'], {
+                'forms': [('_baz:inher', '_foo:baz', {}, {'doc': 'The baz:inher form.'})],
+                'types': [
+                    ('_foo:base', 'str', {}, {'doc': '_foo:base str type'}),
+                    ('_foo:baz', '_foo:base', {}, {'doc': '_foo:bar inherits base'})],
+                'props': [],
+                'tagprops': [],
+                'univs': [],
+                'edges': []
             })
 
             meta = await anext(core.exportStorm('_hehe:haha=42'))
@@ -7114,7 +7154,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'props': [('inet:email', '_visi', ('str', {}), {})],
                 'tagprops': [],
                 'univs': [],
-                'edges': [(('media:news', '_linksto', None), {'doc': 'copies of a user'})]
+                'edges': [
+                    (('inet:email', '_linksfrom', 'media:news'), {'doc': 'links from a node'}),
+                    (('media:news', '_linksto', None), {'doc': 'links to a node'})
+                ]
             })
 
     async def test_cortex_lookup_mode(self):

@@ -5477,9 +5477,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                         # Props
                         for prop in node.form.props.values():
-                            for base in prop.type.info.get('bases', ()):
-                                if base.startswith('_'):
-                                    used_types.add(base)
+                            if prop.type.name.startswith('_'):
+                                used_types.add(prop.type.name)
                             if (node.form.isext or prop.isext) and not prop.name.startswith('.'):
                                 if node.get(prop.name) is not None:
                                     used_props.add((node.form.name, prop.name))
