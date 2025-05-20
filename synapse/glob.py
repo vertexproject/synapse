@@ -73,19 +73,6 @@ def iAmLoop():
     initloop()
     return threading.current_thread() == _glob_thrd
 
-def sync(coro, timeout=None):
-    '''
-    Schedule a coroutine to run on the global loop and return it's result.
-
-    Args:
-        coro (coroutine): The coroutine instance.
-
-    Notes:
-        This API is thread safe and should only be called by non-loop threads.
-    '''
-    loop = initloop()
-    return asyncio.run_coroutine_threadsafe(coro, loop).result(timeout)
-
 def _clearGlobals():
     '''
     reset loop / thrd vars. for unit test use.
