@@ -7112,13 +7112,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             meta = await anext(core.exportStorm('_test:form'))
             self.eq(meta['model_ext'], {
                 "forms": [
-                    [ "_test:form", "str", {}, {"doc": "_test:form custom form type"} ]
+                    ["_test:form", "str", {}, {"doc": "_test:form custom form type"}]
                 ],
                 "types": [
-                    [ "_foo:prop", "str", {}, {"doc": "_foo:prop custom property type"} ]
+                    ["_foo:prop", "str", {}, {"doc": "_foo:prop custom property type"}]
                 ],
                 "props": [
-                    [ "_test:form", "myprop", [ "_foo:prop", {} ], {"doc": "custom prop with custom type"} ]
+                    ["_test:form", "myprop", ["_foo:prop", {}], {"doc": "custom prop with custom type"}]
                 ],
                 "tagprops": [],
                 "univs": [],
