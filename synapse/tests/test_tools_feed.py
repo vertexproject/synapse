@@ -35,7 +35,6 @@ class FeedTest(s_t_utils.SynTest):
                         pode = (('test:int', i), {})
                         _ = fd.write(s_json.dumps(pode, newline=True))
 
-
                 argv = ['--cortex', curl,
                         '--summary',
                         jsonlfp]
@@ -236,7 +235,6 @@ class FeedTest(s_t_utils.SynTest):
                 with s_common.genfile(mpkfp) as fd:
                     fd.write(s_msgpack.en(meta))
                     fd.write(s_msgpack.en((('_baz:haha', 'newp'), {})))
-                    #fd.write(s_msgpack.en((('foo:bar', 'val2'), {'baz': 20})))
 
                 argv = ['--cortex', curl,
                         '--summary',
