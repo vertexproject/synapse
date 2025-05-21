@@ -4848,19 +4848,19 @@ class StormTypesTest(s_test.SynTest):
                 ##################
 
                 # Test 'at' command
-                q = 'cron.at {#foo}'
+                q = 'cron.at --view $lib.view.get().iden {#foo}'
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('At least', mesgs)
 
-                q = 'cron.at --minute +1p3arsec {#foo}'
+                q = 'cron.at --view $lib.view.get().iden --minute +1p3arsec {#foo}'
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Trouble parsing', mesgs)
 
-                q = 'cron.at --day +1'
+                q = 'cron.at --view $lib.view.get().iden --day +1'
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('The argument <query> is required', mesgs)
 
-                q = 'cron.at --dt nope {#foo}'
+                q = 'cron.at --view $lib.view.get().iden --dt nope {#foo}'
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Trouble parsing', mesgs)
 
