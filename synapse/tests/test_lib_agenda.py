@@ -678,7 +678,7 @@ class AgendaTest(s_t_utils.SynTest):
             croniden = atjob[0]['iden']
             await core.callStorm('cron.del $croniden', opts={'vars': {'croniden': croniden}})
 
-            await prox.callStorm('cron.at --now { [test:int=97] | $lib.queue.get(testq).put($node) }')
+            await prox.callStorm('cron.at --view $lib.view.get().iden --now { [test:int=97] | $lib.queue.get(testq).put($node) }')
             retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
             await core.callStorm('$lib.queue.get(testq).cull(4)')
             self.eq((4, 97), retn)
@@ -1103,7 +1103,7 @@ class AgendaTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             with self.getAsyncLoggerStream('synapse.lib.agenda', 'issued warning: oh hai') as stream:
                 q = '$lib.warn("oh hai")'
-                msgs = await core.stormlist('cron.at --now $q', opts={'vars': {'q': q}})
+                msgs = await core.stormlist('cron.at --view $lib.view.get().iden --now $q', opts={'vars': {'q': q}})
                 self.stormHasNoWarnErr(msgs)
                 self.true(await stream.wait(timeout=6))
 
@@ -1124,7 +1124,7 @@ class AgendaTest(s_t_utils.SynTest):
                     $lib.time.sleep(6)
                 }
                 '''
-                msgs = await core00.stormlist('cron.at --now $q', opts={'vars': {'q': q}})
+                msgs = await core00.stormlist('cron.at --view $lib.view.get().iden --now $q', opts={'vars': {'q': q}})
                 self.stormHasNoWarnErr(msgs)
 
                 crons00 = await core00.callStorm('return($lib.cron.list())')
@@ -1178,7 +1178,7 @@ class AgendaTest(s_t_utils.SynTest):
                     $lib.time.sleep(6)
                 }
                 '''
-                msgs = await core00.stormlist('cron.at --now $q', opts={'vars': {'q': q}})
+                msgs = await core00.stormlist('cron.at --view $lib.view.get().iden --now $q', opts={'vars': {'q': q}})
                 self.stormHasNoWarnErr(msgs)
 
                 crons00 = await core00.callStorm('return($lib.cron.list())')

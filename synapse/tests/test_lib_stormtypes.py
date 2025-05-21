@@ -4868,7 +4868,7 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Query parameter is required', mesgs)
 
-                q = "cron.at --minute +5,+10 {$lib.queue.get(foo).put(at1)}"
+                q = "cron.at --view $lib.view.get().iden --minute +5,+10 {$lib.queue.get(foo).put(at1)}"
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('Created cron job', msgs)
 
@@ -4895,7 +4895,7 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
 
-                async with getCronJob("cron.at --day +1,+7 {$lib.queue.get(foo).put(at2)}"):
+                async with getCronJob("cron.at --view $lib.view.get().iden --day +1,+7 {$lib.queue.get(foo).put(at2)}"):
 
                     unixtime += DAYSECS
                     core.agenda._wake_event.set()
@@ -4908,7 +4908,7 @@ class StormTypesTest(s_test.SynTest):
 
                 ##################
 
-                async with getCronJob("cron.at --dt 202104170415 {$lib.queue.get(foo).put(at3)}") as guid:
+                async with getCronJob("cron.at --view $lib.view.get().iden --dt 202104170415 {$lib.queue.get(foo).put(at3)}") as guid:
 
                     unixtime = datetime.datetime(year=2021, month=4, day=17, hour=4, minute=15,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
@@ -4942,7 +4942,7 @@ class StormTypesTest(s_test.SynTest):
                 ##################
 
                 # Test --now
-                q = "cron.at --now {$lib.queue.get(foo).put(atnow)}"
+                q = "cron.at --view $lib.view.get().iden --now {$lib.queue.get(foo).put(atnow)}"
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('Created cron job', msgs)
 
@@ -4952,7 +4952,7 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
 
-                q = "cron.at --now --minute +5 {$lib.queue.get(foo).put(atnow)}"
+                q = "cron.at --view $lib.view.get().iden --now --minute +5 {$lib.queue.get(foo).put(atnow)}"
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('Created cron job', msgs)
 
@@ -4973,7 +4973,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
 
                 opts = {'vars': {'iden': '21d87b933f43ca3b192d2579d3a6a08e'}}
-                q = "cron.at --iden $iden --hour 4 {[test:guid=$lib.guid()]}"
+                q = "cron.at --view $lib.view.get().iden --iden $iden --hour 4 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInPrint('Created cron job: 21d87b933f43ca3b192d2579d3a6a08e', msgs)
 
@@ -5047,7 +5047,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint('Deleted cron job: ', msgs)
 
                 # Test that stating a failed cron prints failures
-                async with getCronJob("cron.at --now {$lib.queue.get(foo).put(atnow) $lib.newp}") as guid:
+                async with getCronJob("cron.at --view $lib.view.get().iden --now {$lib.queue.get(foo).put(atnow) $lib.newp}") as guid:
                     self.eq('atnow', await getNextFoo())
                     mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
                     print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
