@@ -207,11 +207,10 @@ class Node:
 
             embdnode = retn.get(nodepath)
             if embdnode is None:
-                embdnode = retn[nodepath] = {}
-                embdnode['*'] = s_common.ehex(node.buid)
+                embdnode = retn[nodepath] = {'iden': s_common.ehex(node.buid), 'form': node.form.name, 'props': {}}
 
             for relp in relprops:
-                embdnode[relp] = node.props.get(relp)
+                embdnode['props'][relp] = node.props.get(relp)
 
         return retn
 

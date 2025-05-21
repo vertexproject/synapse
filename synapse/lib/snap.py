@@ -742,17 +742,15 @@ class Snap(s_base.Base):
         return runt
 
     async def _joinEmbedStor(self, storage, embeds):
-        for nodePath, relProps in embeds.items():
+        for nodePath, embd in embeds.items():
             await asyncio.sleep(0)
-            iden = relProps.get('*')
+            iden = embd.get('iden')
             if not iden:
                 continue
 
             stor = await self.view.getStorNodes(s_common.uhex(iden))
-            for relProp in relProps.keys():
+            for relProp in embd['props'].keys():
                 await asyncio.sleep(0)
-                if relProp == '*':
-                    continue
 
                 for idx, layrstor in enumerate(stor):
                     await asyncio.sleep(0)
