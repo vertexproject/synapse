@@ -276,6 +276,18 @@ class CoreApi(s_cell.CellApi):
         view = self.cell.getView()
         self.user.confirm(perms, gateiden=view.wlyr.iden)
 
+    async def importStormMeta(self, meta, extmodel=False, viewiden=None):
+        view = self.cell.getView(viewiden, user=self.user)
+        if view is None:
+            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
+
+        self.user.confirm(('feed:data',), gateiden=view.wlyr.iden)
+
+        s_schemas.reqValidExportStormMeta(meta)
+        if extmodel:
+            await self.cell.addExtModel(meta['model_ext'])
+        return
+
     async def addFeedData(self, items, *, viewiden=None):
 
         view = self.cell.getView(viewiden, user=self.user)
@@ -5594,8 +5606,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async def fill():
                 nonlocal feedexc
                 try:
-
+                    first = True
                     async for item in self.axon.iterMpkFile(sha256):
+                        if first:
+                            try:
+                                s_schemas.reqValidExportStormMeta(item)
+                            except s_exc.SchemaViolation:
+                                raise s_exc.BadDataValu(mesg=f'Invalid syn.nodes data.')
+                            first = False
+                            continue
                         await q.put(item)
 
                 except Exception as e:

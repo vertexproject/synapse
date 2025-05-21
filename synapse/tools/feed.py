@@ -47,38 +47,72 @@ def getItems(*paths):
             logger.warning('Unsupported file path: [%s]', path)
     return items
 
-async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0, viewiden=None):
+async def ingest_items(core, items, outp, path, bname, viewiden=None, offset=None, chunksize=1000, debug=False):
+    tick = time.time()
+    outp.printf(f'Adding items from [{path}]')
+    foff = -1
+    for chunk in s_common.chunks(items, chunksize):
+        clen = len(chunk)
+        if offset and foff + clen <= offset:
+            foff += clen
+            continue
+        await core.addFeedData(chunk, viewiden=viewiden)
+        foff += clen
+        outp.printf(f'Added [{clen}] items from [{bname}] - offset [{foff}]')
+    tock = time.time()
+    outp.printf(f'Done consuming from [{bname}]')
+    outp.printf(f'Took [{tock - tick}] seconds.')
+    if debug: # pragma: no cover
+        await s_t_storm.runItemStorm(core, outp=outp)
 
+async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0, viewiden=None, extend_model=False, summary=False):
     items = getItems(*paths)
-    for path, item in items:
-
-        bname = os.path.basename(path)
-
-        tick = time.time()
-        outp.printf(f'Adding items from [{path}]')
-
-        foff = -1
-        for chunk in s_common.chunks(item, chunksize):
-
-            clen = len(chunk)
-            if offset and foff + clen <= offset:
-                # We have not yet encountered a chunk which
-                # will include the offset size.
-                foff += clen
+    if (summary or extend_model):
+        for path, _ in items:
+            if not (path.endswith('.mpk') or path.endswith('.nodes')):
+                outp.printf(f'Warning: --summary and --extend-model are only supported for .mpk/.nodes files. Skipping [{path}].')
                 continue
 
-            await core.addFeedData(chunk, viewiden=viewiden)
+    for path, item in items:
+        bname = os.path.basename(path)
+        is_synnode3 = path.endswith('.mpk') or path.endswith('.nodes')
 
-            foff += clen
-            outp.printf(f'Added [{clen}] items from [{bname}] - offset [{foff}]')
+        if is_synnode3:
 
-        tock = time.time()
+            genr = s_msgpack.iterfile(path)
+            meta = next(genr)
 
-        outp.printf(f'Done consuming from [{bname}]')
-        outp.printf(f'Took [{tock - tick}] seconds.')
+            if not (isinstance(meta, dict) and meta.get('type') == 'meta'):
+                outp.printf(f'Warning: {path} is not a valid syn.nodes file!')
+                continue # Next file
 
-    if debug:
-        await s_t_storm.runItemStorm(core, outp=outp)
+            if summary:
+                outp.printf(f"Summary for [{bname}]:")
+                outp.printf(f"  Creator: {meta.get('creatorname')}")
+                outp.printf(f"  Created: {meta.get('created')}")
+                outp.printf(f"  Forms: {meta.get('forms')}")
+                outp.printf(f"  Count: {meta.get('count')}")
+                model_ext = meta.get('model_ext', {})
+                nonempty_exts = {k: v for k, v in model_ext.items() if v}
+                if nonempty_exts:
+                    outp.printf("  Model Extensions:")
+                    for k, v in nonempty_exts.items():
+                        outp.printf(f"    {k}:")
+                        for item in v:
+                            outp.printf(f"      {item}")
+                else:
+                    outp.printf("  Model Extensions: (none)")
+                continue  # Skip ingest
+
+            if extend_model:
+                await core.importStormMeta(meta, extmodel=True, viewiden=viewiden)
+                outp.printf(f"Extended model elements from metadata in [{bname}]")
+
+            await ingest_items(core, genr, outp, path, bname, viewiden=viewiden, offset=offset, chunksize=chunksize, debug=debug)
+            continue # Next file
+
+        # all other supported file types
+        await ingest_items(core, item, outp, path, bname, viewiden=viewiden, offset=offset, chunksize=chunksize, debug=debug)
 
 async def main(argv, outp=None):
 
@@ -101,6 +135,8 @@ async def main(argv, outp=None):
             await addFeedData(prox, outp, opts.debug,
                         chunksize=opts.chunksize,
                         offset=opts.offset,
+                        extend_model=opts.extend_model,
+                        summary=opts.summary,
                         *opts.files)
 
     elif opts.cortex:
@@ -116,7 +152,10 @@ async def main(argv, outp=None):
                     return 1
                 await addFeedData(core, outp, opts.debug,
                                   chunksize=opts.chunksize,
-                                  offset=opts.offset, viewiden=opts.view,
+                                  offset=opts.offset,
+                                  viewiden=opts.view,
+                                  extend_model=opts.extend_model,
+                                  summary=opts.summary,
                                   *opts.files)
 
     else:  # pragma: no cover
@@ -135,6 +174,11 @@ def makeargparser():
     muxp.add_argument('--test', '-t', default=False, action='store_true',
                       help='Perform a local ingest against a temporary cortex.')
 
+
+    pars.add_argument('--extend-model', '-e', default=False, action='store_true',
+                      help='Extend the model with the data.')
+    pars.add_argument('--summary', '-s', default=False, action='store_true',
+                      help='Show a summary of the data. Do not add any data.')
     pars.add_argument('--debug', '-d', default=False, action='store_true',
                       help='Drop to interactive prompt to inspect cortex after loading data.')
     pars.add_argument('--chunksize', type=int, action='store', default=1000,

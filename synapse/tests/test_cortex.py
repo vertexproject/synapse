@@ -7000,6 +7000,15 @@ class CortexBasicTest(s_t_utils.SynTest):
                 sha256 = s_common.ehex(sha256b)
 
                 opts = {'view': altview, 'vars': {'sha256': sha256}}
+                with self.raises(s_exc.BadDataValu):
+                    await proxy.callStorm('return($lib.feed.fromAxon($sha256))', opts=opts)
+
+                # try-again w/ meta node: concat the bytes and add back to the axon
+                byts = s_msgpack.en(meta) + b''.join(s_msgpack.en(p) for p in podes)
+                size, sha256b = await core.axon.put(byts)
+                sha256 = s_common.ehex(sha256b)
+                opts['vars']['sha256'] = sha256
+
                 self.eq(2, await proxy.callStorm('return($lib.feed.fromAxon($sha256))', opts=opts))
                 self.len(1, await core.nodes('media:news -(refs)> *', opts={'view': altview}))
                 self.eq(2, await proxy.feedFromAxon(sha256))
