@@ -174,7 +174,6 @@ def makeargparser():
     muxp.add_argument('--test', '-t', default=False, action='store_true',
                       help='Perform a local ingest against a temporary cortex.')
 
-
     pars.add_argument('--extend-model', '-e', default=False, action='store_true',
                       help='Extend the model with the data.')
     pars.add_argument('--summary', '-s', default=False, action='store_true',
