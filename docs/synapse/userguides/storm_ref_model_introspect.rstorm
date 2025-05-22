@@ -90,13 +90,16 @@ Example Queries
 
 - Display all forms **referenced by** a specific form (i.e., the specified form contains secondary properties that are themselves forms):
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
 
 .. storm-cli:: syn:prop:form = inet:whois:rec :type -> syn:form
 
 
 - Display all forms that **reference** a specific form (i.e., the specified form is a secondary property of another form):
 
-
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
 .. storm-cli:: syn:form = inet:whois:rec -> syn:prop:type :form -> syn:form
 
 

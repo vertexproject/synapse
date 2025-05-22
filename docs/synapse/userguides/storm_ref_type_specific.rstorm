@@ -341,6 +341,9 @@ This includes:
 file\:bytes
 -----------
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 ``file:bytes`` is a special type used to represent any file (i.e., any arbitrary set of bytes). Note that a
 file can be represented as a node within a Cortex regardless of whether the file itself (the specific set of
 bytes) is available (i.e., stored in an Axon). This is essential as many other data model elements allow
@@ -405,7 +408,9 @@ specified, but is not required (it will be added automatically on node creation)
 primary property value as a SHA256 hash and also set the ``:sha256`` secondary property. Any other secondary
 properties must be set manually.
 
-.. storm-cli:: [ file:bytes = 44daad9dbd84c92fa9ec52649b028b4c0f7d285407685778d09bad4b397747d0 ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: [ file:bytes = 44daad9dbd84c92fa9ec52649b028b4c0f7d285407685778d09bad4b397747d0 ]
 
 Because the SHA256 is considered unique (for now) for our purposes, the node is fully deconflictable. If
 additional secondary properties such as ``:size`` or other hashes are obtained later, or if the actual file
@@ -477,8 +482,10 @@ For some lift and filter operations, you may optionally specify ``file:bytes`` n
 partial match of the node's primary property. For example, the prefix operator ( ``^=`` ) may be used to specify
 a unique prefix for the ``file:bytes`` node's SHA256 or guid value:
 
-.. storm-pre:: [ file:bytes=sha256:021b4ce5c4d9eb45ed016fe7d87abe745ea961b712a08ea4c6b1b81d791f1eca :md5=8934aeed5d213fe29e858eee616a6ec7 :sha1=a7e576f41f7f100c1d03f478b05c7812c1db48ad :size=182820 :name=adobeupdater.exe ]
-.. storm-cli:: file:bytes^=sha256:021b4ce5
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:021b4ce5c4d9eb45ed016fe7d87abe745ea961b712a08ea4c6b1b81d791f1eca :md5=8934aeed5d213fe29e858eee616a6ec7 :sha1=a7e576f41f7f100c1d03f478b05c7812c1db48ad :size=182820 :name=adobeupdater.exe ]
+    .. storm-cli:: file:bytes^=sha256:021b4ce5
 
 **Usage Notes:**
 
@@ -1081,8 +1088,10 @@ Use a hex value to set the ``:ip:proto`` property for the ``inet:flow`` node to 
 
 Use an octal value to set the ``:posix:perms`` property for the ``file:archive:entry`` node to 755:
 
-.. storm-pre:: [ file:archive:entry=(sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b,20230811 11:33:00, ozzie) :user=ozzie :added="20230811 11:33:00" :file=sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b ]
-.. storm-cli:: file:archive:entry=3a24e1008b43bc2f1e35b3e872f201fc [ :posix:perms=0o426 ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:archive:entry=(sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b,20230811 11:33:00, ozzie) :user=ozzie :added="20230811 11:33:00" :file=sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b ]
+    .. storm-cli:: file:archive:entry=3a24e1008b43bc2f1e35b3e872f201fc [ :posix:perms=0o426 ]
 
 Insertion
 +++++++++
@@ -1108,8 +1117,10 @@ Lift all ``inet:flow`` nodes tagged with ``#my.tag`` and filter to include only 
 
 Use an octal value to lift all ``it:group`` nodes where the ``:posix:gid`` values equate to 278:
 
-.. storm-pre:: [ it:group=(research, a6f4147c23421ef47a1fabea899b3aeb, threat researchers group) :desc="threat researchers group" :name="research" :host=a6f4147c23421ef47a1fabea899b3aeb :posix:gid=278 ] 
-.. storm-cli:: it:group:posix:gid=0o426
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ it:group=(research, a6f4147c23421ef47a1fabea899b3aeb, threat researchers group) :desc="threat researchers group" :name="research" :host=a6f4147c23421ef47a1fabea899b3aeb :posix:gid=278 ]
+    .. storm-cli:: it:group:posix:gid=0o426
 
 
 .. _type-ival:
@@ -1971,8 +1982,10 @@ Range Custom Operator
 Lift a set of ``file:bytes`` nodes whose PE compiled time is between January 1, 2019 and today:
 
 
-.. storm-pre:: [ ( file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/10/07 12:42:45' ) ( file:bytes=sha256:bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce :mime:pe:compiled='2021/04/13 00:23:14' ) ]
-.. storm-cli:: file:bytes:mime:pe:compiled*range=(2019/01/01, now)
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/10/07 12:42:45' ) ( file:bytes=sha256:bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce :mime:pe:compiled='2021/04/13 00:23:14' ) ]
+    .. storm-cli:: file:bytes:mime:pe:compiled*range=(2019/01/01, now)
 
 .. NOTE::
   
