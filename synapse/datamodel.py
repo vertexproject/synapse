@@ -134,6 +134,9 @@ class Prop:
 
             self.onSet(depfunc)
 
+        if self.typedef[0] == 'text' and 'disp' not in self.info:
+            self.info['disp'] = {'hint': 'text'}
+
     def __repr__(self):
         return f'DataModel Prop: {self.full}'
 

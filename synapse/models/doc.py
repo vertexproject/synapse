@@ -113,8 +113,7 @@ modeldefs = (
             ('doc:requirement:type:taxonomy', {}, ()),
             ('doc:requirement', {}, (
 
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('summary', ('text', {}), {
                     'doc': 'A summary of the requirement definition.'}),
 
                 ('optional', ('bool', {}), {
@@ -133,8 +132,7 @@ modeldefs = (
                 ('contact', ('ps:contact', {}), {
                     'doc': 'Contact information for subject of the resume.'}),
 
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('summary', ('text', {}), {
                     'doc': 'The summary of qualifications from the resume.'}),
 
                 ('workhist', ('array', {'type': 'ps:workhist', 'sorted': True, 'uniq': True}), {

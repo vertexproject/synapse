@@ -766,8 +766,7 @@ modeldefs = (
                     'doc': 'The relative target path string contained within the StringData structure of the LNK file.'}),
                 ('arguments', ('it:cmd', {}), {
                     'doc': 'The command line arguments passed to the target file when the LNK file is activated.'}),
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'The description of the LNK file contained within the StringData section of the LNK file.'}),
                 ('target:attrs', ('int', {}), {
                     'doc': 'The attributes of the target file according to the LNK header.'}),
