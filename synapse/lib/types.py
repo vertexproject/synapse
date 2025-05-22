@@ -32,7 +32,7 @@ class Type:
     # ( due to hot-loop needs in the storm runtime )
     isarray = False
 
-    def __init__(self, modl, name, info, opts):
+    def __init__(self, modl, name, info, opts, skipinit=False):
         '''
         Construct a new Type object.
 
@@ -58,6 +58,12 @@ class Type:
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
         self._cmpr_ctor_lift = {}  # if set, create a cmpr which is passed along with indx ops
 
+        self.virts = {}
+        self.virtindx = {}
+        self.virtstor = {}
+
+        self.pivs = {}
+
         self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('!=', self._ctorCmprNe)
         self.setCmprCtor('~=', self._ctorCmprRe)
@@ -78,7 +84,28 @@ class Type:
         self.locked = False
         self.deprecated = bool(self.info.get('deprecated', False))
 
-        self.postTypeInit()
+        if not skipinit:
+            self.postTypeInit()
+
+            normopts = dict(self.opts)
+            for optn, valu in normopts.items():
+                if isinstance(valu, float):
+                    normopts[optn] = str(valu)
+
+            ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
+            self.typehash = sys.intern(s_common.guid((ctor, s_common.flatten(normopts))))
+
+    def _initType(self):
+        inits = [self.postTypeInit]
+
+        subof = self.subof
+        while subof is not None:
+            styp = self.modl.type(subof)
+            inits.append(styp.postTypeInit)
+            subof = styp.subof
+
+        for init in inits[::-1]:
+            init()
 
         normopts = dict(self.opts)
         for optn, valu in normopts.items():
@@ -91,8 +118,6 @@ class Type:
     def _storLiftSafe(self, cmpr, valu):
         try:
             return self.storlifts['=']('=', valu)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
         except Exception:
             return ()
 
@@ -116,18 +141,59 @@ class Type:
     def _storLiftRegx(self, cmpr, valu):
         return ((cmpr, valu, self.stortype),)
 
-    def getStorCmprs(self, cmpr, valu):
+    def getStorCmprs(self, cmpr, valu, virts=None):
+
+        if virts:
+            substor = self.virts[virts[0]][0]
+            return substor.getStorCmprs(cmpr, valu, virts[1:])
 
         func = self.storlifts.get(cmpr)
         if func is None:
             mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
-            raise s_exc.NoSuchCmpr(mesg=mesg)
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
 
         return func(cmpr, valu)
 
-    def getStorNode(self, form):
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
+    def getVirtValu(self, name, valu):
+        if (virt := self.virts.get(name)) is None:
+            raise s_exc.NoSuchVirt.init(name, self)
+
+        return virt[1](valu)
+
+    def getVirtIndx(self, name):
+        indx = self.virtindx.get(name, s_common.novalu)
+        if indx is s_common.novalu:
+            raise s_exc.NoSuchVirt.init(name, self)
+
+        return indx
+
+    def getVirtType(self, virts):
+        name = virts[0]
+        if (virt := self.virts.get(name)) is None:
+            raise s_exc.NoSuchVirt.init(name, self)
+
+        if len(virts) > 1:
+            return virt[0].getVirtType(virts[1:])
+        return virt[0]
+
+    def getVirtGetr(self, virts):
+        name = virts[0]
+        if (virt := self.virts.get(name)) is None:
+            raise s_exc.NoSuchVirt.init(name, self)
+
+        if len(virts) > 1:
+            return (virt[1],) + virt[0].getVirtGetr(virts[1:])
+        return (virt[1],)
+
+    def normVirt(self, name, valu, newvirt):
+        func = self.virtstor.get(name, s_common.novalu)
+        if func is s_common.novalu:
+            mesg = f'No editable virtual prop named {name} on type {self.name}.'
+            raise s_exc.NoSuchVirt.init(name, self, mesg=mesg)
+
+        return func(valu, newvirt)
+
+    def getRuntPode(self):
 
         ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
         props = {
@@ -142,15 +208,8 @@ class Type:
         if self.subof is not None:
             props['subof'] = self.subof
 
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms,
+        return (('syn:type', self.name), {
+            'props': props,
         })
 
     def getCompOffs(self, name):
@@ -164,11 +223,18 @@ class Type:
         return self.norm(node.ndef[1])
 
     def pack(self):
-        return {
+        info = {
             'info': dict(self.info),
             'opts': dict(self.opts),
             'stortype': self.stortype,
+            'lift_cmprs': list(self.storlifts.keys()),
+            'filter_cmprs': list(self._cmpr_ctors.keys()),
         }
+
+        if self.virts:
+            info['virts'] = {name: valu[0].name for (name, valu) in self.virts.items()}
+
+        return info
 
     def getTypeDef(self):
         basename = self.info['bases'][-1]
@@ -333,7 +399,7 @@ class Type:
         '''
         return newv
 
-    def extend(self, name, opts, info):
+    def extend(self, name, opts, info, skipinit=False):
         '''
         Extend this type to construct a sub-type.
 
@@ -354,7 +420,7 @@ class Type:
         topt = self.opts.copy()
         topt.update(opts)
 
-        tobj = self.__class__(self.modl, name, tifo, topt)
+        tobj = self.__class__(self.modl, name, tifo, topt, skipinit=skipinit)
         tobj.subof = self.name
         return tobj
 
@@ -435,22 +501,66 @@ class Array(Type):
             raise s_exc.BadTypeDef(mesg=mesg)
 
         self.arraytype = basetype.clone(typeopts)
+        self.arraytypehash = self.arraytype.typehash
 
         if isinstance(self.arraytype, Array):
             mesg = 'Array type of array values is not (yet) supported.'
             raise s_exc.BadTypeDef(mesg)
 
         if self.arraytype.deprecated:
-            if self.info.get('custom'):
-                mesg = f'The Array type {self.name} is based on a deprecated type {self.arraytype.name} type which ' \
-                       f'which will be removed in 3.0.0'
-                logger.warning(mesg)
+            mesg = f'The Array type {self.name} is based on a deprecated type {self.arraytype.name} type which ' \
+                   f'which will be removed in 4.0.0'
+            logger.warning(mesg)
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 
         self.stortype = s_layer.STOR_FLAG_ARRAY | self.arraytype.stortype
+
+        self.inttype = self.modl.type('int')
+
+        self.virts |= {
+            'size': (self.inttype, self._getSize),
+        }
+
+        self.virtlifts = {
+            'size': {'range=': self._storLiftSizeRange}
+        }
+
+        for oper in ('=', '<', '>', '<=', '>='):
+            self.virtlifts['size'][oper] = self._storLiftSize
+
+    def getStorCmprs(self, cmpr, valu, virts=None):
+        if virts:
+            lifts = self.virtlifts
+            for virt in virts:
+                if (lifts := lifts.get(virt)) is None:
+                    raise s_exc.NoSuchVirt.init(virt, self)
+        else:
+            lifts = self.storlifts
+
+        if (func := lifts.get(cmpr)) is None:
+            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
+
+        return func(cmpr, valu)
+
+    def _getSize(self, valu):
+        return len(valu[0])
+
+    def _storLiftSize(self, cmpr, valu):
+        norm, _ = self.inttype.norm(valu)
+        return (
+            (cmpr, norm, s_layer.STOR_TYPE_ARRAY),
+        )
+
+    def _storLiftSizeRange(self, cmpr, valu):
+        minx = self.inttype.norm(valu[0])[0]
+        maxx = self.inttype.norm(valu[1])[0]
+        return (
+            (cmpr, (minx, maxx), s_layer.STOR_TYPE_ARRAY),
+        )
 
     def _normPyStr(self, text):
         if self.splitstr is None:
@@ -463,6 +573,7 @@ class Array(Type):
 
         adds = []
         norms = []
+        virts = {}
 
         form = self.modl.form(self.arraytype.name)
 
@@ -472,6 +583,9 @@ class Array(Type):
             if form is not None:
                 adds.append((form.name, norm, info))
             norms.append(norm)
+
+            if (virt := info.get('virts')) is not None:
+                virts[norm] = virt
 
         if self.isuniq:
 
@@ -489,7 +603,22 @@ class Array(Type):
         if self.issorted:
             norms = tuple(sorted(norms))
 
-        return tuple(norms), {'adds': adds}
+        norminfo = {'adds': adds}
+
+        if virts:
+            realvirts = {}
+
+            for norm in norms:
+                if (virt := virts.get(norm)) is not None:
+                    for vkey, (vval, vtyp) in virt.items():
+                        if (curv := realvirts.get(vkey)) is not None:
+                            curv[0].append(vval)
+                        else:
+                            realvirts[vkey] = ([vval], vtyp | s_layer.STOR_FLAG_ARRAY)
+
+            norminfo['virts'] = realvirts
+
+        return tuple(norms), norminfo
 
     def repr(self, valu):
         rval = [self.arraytype.repr(v) for v in valu]
@@ -595,7 +724,7 @@ class FieldHelper(collections.defaultdict):
             _type = basetype.clone(opts)
         if _type.deprecated:
             mesg = f'The type {self.tname} field {key} uses a deprecated ' \
-                   f'type {_type.name} which will removed in 3.0.0'
+                   f'type {_type.name} which will removed in 4.0.0'
             logger.warning(mesg)
         self.setdefault(key, _type)
         return _type
@@ -761,10 +890,7 @@ class HugeNum(Type):
         ('modulo', None),  # type: ignore
     )
 
-    def __init__(self, modl, name, info, opts):
-
-        Type.__init__(self, modl, name, info, opts)
-
+    def postTypeInit(self):
         self.setCmprCtor('>', self._ctorCmprGt)
         self.setCmprCtor('<', self._ctorCmprLt)
         self.setCmprCtor('>=', self._ctorCmprGe)
@@ -891,9 +1017,9 @@ class HugeNum(Type):
 
 class IntBase(Type):
 
-    def __init__(self, modl, name, info, opts):
+    def __init__(self, modl, name, info, opts, skipinit=False):
 
-        Type.__init__(self, modl, name, info, opts)
+        Type.__init__(self, modl, name, info, opts, skipinit=skipinit)
 
         self.setCmprCtor('>=', self._ctorCmprGe)
         self.setCmprCtor('<=', self._ctorCmprLe)
@@ -1091,9 +1217,9 @@ class Float(Type):
 
     stortype = s_layer.STOR_TYPE_FLOAT64
 
-    def __init__(self, modl, name, info, opts):
+    def __init__(self, modl, name, info, opts, skipinit=False):
 
-        Type.__init__(self, modl, name, info, opts)
+        Type.__init__(self, modl, name, info, opts, skipinit=skipinit)
 
         self.setCmprCtor('>=', self._ctorCmprGe)
         self.setCmprCtor('<=', self._ctorCmprLe)
@@ -1202,34 +1328,94 @@ class Ival(Type):
     '''
     stortype = s_layer.STOR_TYPE_IVAL
 
+    _opt_defs = (
+        ('precision', 'microsecond'),
+    )
+
     def postTypeInit(self):
         self.futsize = 0x7fffffffffffffff
-        self.maxsize = 253402300799999  # 9999/12/31 23:59:59.999
+        self.maxsize = 253402300799999999  # 9999/12/31 23:59:59.999999
 
-        self.timetype = self.modl.type('time')
+        precstr = self.opts.get('precision')
+        self.prec = s_time.precisions.get(precstr)
+
+        if self.prec is None:
+            mesg = f'Ival type ({self.name}) has invalid precision: {precstr}.'
+            raise s_exc.BadTypeDef(mesg=mesg)
+
+        self.prectype = self.modl.type('timeprecision')
+
+        self.ticktype = self.modl.type('time').clone({'precision': precstr})
+        self.tocktype = self.modl.type('time').clone({'precision': precstr, 'maxfill': True})
+        self.duratype = self.modl.type('duration')
+
+        self.virts |= {
+            'min': (self.ticktype, self._getMin),
+            'max': (self.tocktype, self._getMax),
+            'duration': (self.duratype, self._getDuration),
+            'precision': (self.prectype, self._getPrec),
+        }
+
+        self.virtstor |= {
+            'precision': self._storVirtPrec,
+        }
+
+        self.virtindx |= {
+            'min': None,
+            'max': s_layer.INDX_IVAL_MAX,
+            'duration': s_layer.INDX_IVAL_DURATION
+        }
+
+        self.tagvirtindx = {
+            'min': s_layer.INDX_TAG,
+            'max': s_layer.INDX_TAG_MAX,
+            'duration': s_layer.INDX_TAG_DURATION
+        }
 
         # Range stuff with ival's don't make sense
-        # self.indxcmpr.pop('range=', None)
+        self.storlifts.pop('range=', None)
         self._cmpr_ctors.pop('range=', None)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
+
         # _ctorCmprAt implements its own custom norm-style resolution
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyIter)
         self.setNormFunc(tuple, self._normPyIter)
-        self.setNormFunc(decimal.Decimal, self._normPyInt)
+        self.setNormFunc(decimal.Decimal, self._normPyDecimal)
         self.setNormFunc(s_stormtypes.Number, self._normNumber)
         self.storlifts.update({
             '@=': self._storLiftAt,
         })
+
+        for part in ('min', 'max'):
+            self.storlifts[f'{part}@='] = self._storLiftPartAt
+
+        for part in ('min', 'max'):
+            for oper in ('=', '<', '>', '<=', '>='):
+                self.storlifts[f'{part}{oper}'] = self._storLiftPart
+
+        for oper in ('=', '<', '>', '<=', '>='):
+            self.storlifts[f'duration{oper}'] = self._storLiftDuration
+
+    def getStorCmprs(self, cmpr, valu, virts=None):
+        if virts:
+            cmpr = f'{virts[0]}{cmpr}'
+
+        func = self.storlifts.get(cmpr)
+        if func is None:
+            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
+
+        return func(cmpr, valu)
 
     def _storLiftAt(self, cmpr, valu):
 
         if type(valu) not in (list, tuple):
             return self._storLiftNorm(cmpr, valu)
 
-        ticktock = self.timetype.getTickTock(valu)
+        ticktock = self.ticktype.getTickTock(valu)
         return (
             ('@=', ticktock, self.stortype),
         )
@@ -1275,25 +1461,83 @@ class Ival(Type):
 
         return cmpr
 
+    def _storLiftPart(self, cmpr, valu):
+        norm, _ = self.ticktype.norm(valu)
+        return (
+            (cmpr, norm, self.stortype),
+        )
+
+    def _storLiftPartAt(self, cmpr, valu):
+
+        if type(valu) not in (list, tuple):
+            return self._storLiftNorm(cmpr, valu)
+
+        ticktock = self.ticktype.getTickTock(valu)
+        return (
+            (cmpr, ticktock, self.stortype),
+        )
+
+    def _storLiftDuration(self, cmpr, valu):
+        norm, _ = self.duratype.norm(valu)
+        return (
+            (cmpr, norm, self.stortype),
+        )
+
+    def _getMin(self, valu):
+        if valu is None:
+            return None
+
+        if len(valu) == 3:
+            return valu[0][0]
+        return valu[0]
+
+    def _getMax(self, valu):
+        if valu is None:
+            return None
+        if len(valu) == 3:
+            return valu[0][1]
+        return valu[1]
+
+    def _getDuration(self, valu):
+        if valu is None:
+            return None
+
+        if len(valu) == 3:
+            ival = valu[0]
+        else:
+            ival = valu
+
+        if ival[1] == self.futsize:
+            return self.duratype.maxval
+
+        return ival[1] - ival[0]
+
+    def _getPrec(self, valu):
+        if (virts := valu[2]) is None or (vval := virts.get('precision')) is None:
+            return self.prec
+        return vval[0]
+
+    def _storVirtPrec(self, valu, newprec):
+        prec = self.prectype.norm(newprec)[0]
+        return self._normPyIter(valu, prec=prec)
+
+    def getTagVirtIndx(self, name):
+        indx = self.tagvirtindx.get(name, s_common.novalu)
+        if indx is s_common.novalu:
+            raise s_exc.NoSuchVirt.init(name, self)
+
+        return indx
+
     def _normPyInt(self, valu):
-        minv, _ = self.timetype._normPyInt(valu)
-        maxv, info = self.timetype._normPyInt(minv + 1)
-        return (minv, maxv), info
+        minv, _ = self.ticktype._normPyInt(valu)
+        maxv, _ = self.tocktype._normPyInt(minv + 1)
+        return (minv, maxv), {}
+
+    def _normPyDecimal(self, valu):
+        return self._normPyInt(int(valu))
 
     def _normNumber(self, valu):
-        minv, _ = self.timetype._normPyInt(valu.valu)
-        maxv, info = self.timetype._normPyInt(minv + 1)
-        return (minv, maxv), info
-
-    def _normRelStr(self, valu, relto=None):
-        valu = valu.strip().lower()
-        # assumes the relative string starts with a - or +
-
-        delt = s_time.delta(valu)
-        if not relto:
-            relto = s_common.now()
-
-        return self.timetype._normPyInt(delt + relto)[0]
+        return self._normPyInt(int(valu.valu))
 
     def _normPyStr(self, valu):
         valu = valu.strip().lower()
@@ -1304,13 +1548,13 @@ class Ival(Type):
         if ',' in valu:
             return self._normByTickTock(valu.split(',', 1))
 
-        minv, _ = self.timetype.norm(valu)
-        # Norm is guaranteed to be a valid time value, but norm +1 may not be
-        maxv, info = self.timetype._normPyInt(minv + 1)
-        return (minv, maxv), info
+        minv, _ = self.ticktype.norm(valu)
+        maxv, _ = self.tocktype._normPyInt(minv + 1)
 
-    def _normPyIter(self, valu):
-        (minv, maxv), info = self._normByTickTock(valu)
+        return (minv, maxv), {}
+
+    def _normPyIter(self, valu, prec=None):
+        (minv, maxv), info = self._normByTickTock(valu, prec=prec)
 
         if minv == maxv:
             maxv = maxv + 1
@@ -1326,16 +1570,16 @@ class Ival(Type):
 
         return (minv, maxv), info
 
-    def _normByTickTock(self, valu):
+    def _normByTickTock(self, valu, prec=None):
         if len(valu) != 2:
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                     mesg='Ival _normPyIter requires 2 items')
 
-        tick, tock = self.timetype.getTickTock(valu)
+        tick, tock = self.ticktype.getTickTock(valu, prec=prec)
 
-        minv, _ = self.timetype._normPyInt(tick)
-        maxv, _ = self.timetype._normPyInt(tock)
-        return (minv, maxv), {}
+        minv, info = self.ticktype._normPyInt(tick, prec=prec)
+        maxv, _ = self.tocktype._normPyInt(tock, prec=prec)
+        return (minv, maxv), info
 
     def merge(self, oldv, newv):
         mint = min(oldv[0], newv[0])
@@ -1343,8 +1587,8 @@ class Ival(Type):
         return (mint, maxt)
 
     def repr(self, norm):
-        mint = self.timetype.repr(norm[0])
-        maxt = self.timetype.repr(norm[1])
+        mint = self.ticktype.repr(norm[0])
+        maxt = self.tocktype.repr(norm[1])
         return (mint, maxt)
 
 class Loc(Type):
@@ -1425,6 +1669,16 @@ class Ndef(Type):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 
+        self.storlifts |= {
+            'form=': self._storLiftForm
+        }
+
+        nameopts = {'lower': True, 'strip': True}
+        self.formnametype = Str(self.modl, 'formname', {}, nameopts)
+        self.virts |= {
+            'form': (self.formnametype, self._getForm),
+        }
+
         self.formfilter = None
 
         self.forms = self.opts.get('forms')
@@ -1449,6 +1703,32 @@ class Ndef(Type):
                 return True
 
             self.formfilter = filtfunc
+
+    def getStorCmprs(self, cmpr, valu, virts=None):
+        if virts:
+            cmpr = f'{virts[0]}{cmpr}'
+
+        if (func := self.storlifts.get(cmpr)) is None:
+            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
+
+        return func(cmpr, valu)
+
+    def _storLiftForm(self, cmpr, valu):
+        valu = valu.lower().strip()
+        if self.modl.form(valu) is None:
+            raise s_exc.NoSuchForm.init(valu)
+
+        return (
+            (cmpr, valu, self.stortype),
+        )
+
+    def _getForm(self, valu):
+        valu = valu[0]
+        if isinstance(valu[0], str):
+            return valu[0]
+
+        return (v[0] for v in valu)
 
     def _normStormNode(self, valu):
         return self._normPyTuple(valu.ndef)
@@ -1489,106 +1769,6 @@ class Ndef(Type):
 
         repv = form.type.repr(formvalu)
         return (formname, repv)
-
-class Edge(Type):
-
-    stortype = s_layer.STOR_TYPE_MSGP
-
-    def getCompOffs(self, name):
-        return self.fieldoffs.get(name)
-
-    def postTypeInit(self):
-
-        self.deprecated = True
-
-        self.fieldoffs = {'n1': 0, 'n2': 1}
-
-        self.ndeftype = self.modl.types.get('ndef')  # type: Ndef
-
-        self.n1forms = None
-        self.n2forms = None
-
-        self.n1forms = self.opts.get('n1:forms', None)
-        self.n2forms = self.opts.get('n2:forms', None)
-
-        self.setNormFunc(list, self._normPyTuple)
-        self.setNormFunc(tuple, self._normPyTuple)
-
-    def _initEdgeBase(self, n1, n2):
-
-        subs = {}
-
-        n1, info = self.ndeftype.norm(n1)
-
-        if self.n1forms is not None:
-            if n1[0] not in self.n1forms:
-                raise s_exc.BadTypeValu(valu=n1[0], name=self.name, mesg='Invalid source node for edge type')
-
-        subs['n1'] = n1
-        subs['n1:form'] = n1[0]
-
-        n2, info = self.ndeftype.norm(n2)
-
-        if self.n2forms is not None:
-            if n2[0] not in self.n2forms:
-                raise s_exc.BadTypeValu(valu=n2[0], name=self.name, mesg='Invalid dest node for edge type')
-
-        subs['n2'] = n2
-        subs['n2:form'] = n2[0]
-
-        return (n1, n2), {'subs': subs}
-
-    def _normPyTuple(self, valu):
-
-        if len(valu) != 2:
-            mesg = 'edge requires (ndef, ndef)'
-            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=valu)
-
-        n1, n2 = valu
-        return self._initEdgeBase(n1, n2)
-
-    def repr(self, norm):
-        n1, n2 = norm
-        n1repr = self.ndeftype.repr(n1)
-        n2repr = self.ndeftype.repr(n2)
-        return (n1repr, n2repr)
-
-class TimeEdge(Edge):
-
-    stortype = s_layer.STOR_TYPE_MSGP
-
-    def getCompOffs(self, name):
-        return self.fieldoffs.get(name)
-
-    def postTypeInit(self):
-        Edge.postTypeInit(self)
-        self.fieldoffs['time'] = 2
-
-    def _normPyTuple(self, valu):
-
-        if len(valu) != 3:
-            mesg = f'timeedge requires (ndef, ndef, time), got {valu}'
-            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=valu)
-
-        n1, n2, tick = valu
-
-        tick, info = self.modl.types.get('time').norm(tick)
-
-        (n1, n2), info = self._initEdgeBase(n1, n2)
-
-        info['subs']['time'] = tick
-
-        return (n1, n2, tick), info
-
-    def repr(self, norm):
-
-        n1, n2, tick = norm
-
-        n1repr = self.ndeftype.repr(n1)
-        n2repr = self.ndeftype.repr(n2)
-        trepr = self.modl.type('time').repr(tick)
-
-        return (n1repr, n2repr, trepr)
 
 class Data(Type):
 
@@ -2041,6 +2221,8 @@ class Duration(IntBase):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
+        self.maxval = 2 ** ((8 * 8) - 1)
+
     def _normPyInt(self, valu):
         return valu, {}
 
@@ -2050,6 +2232,9 @@ class Duration(IntBase):
         if not text:
             mesg = 'Duration string must have non-zero length.'
             raise s_exc.BadTypeValu(mesg=mesg)
+
+        if text == '?':
+            return self.maxval, {}
 
         dura = 0
 
@@ -2087,13 +2272,17 @@ class Duration(IntBase):
         days, rem = divmod(valu, s_time.oneday)
         hours, rem = divmod(rem, s_time.onehour)
         minutes, rem = divmod(rem, s_time.onemin)
-        seconds, millis = divmod(rem, s_time.onesec)
+        seconds, micros = divmod(rem, s_time.onesec)
 
         retn = ''
         if days:
             retn += f'{days}D '
 
-        retn += f'{hours:02}:{minutes:02}:{seconds:02}.{millis:03}'
+        mstr = ''
+        if micros > 0:
+            mstr = f'.{micros:06d}'.rstrip('0')
+
+        retn += f'{hours:02}:{minutes:02}:{seconds:02}{mstr}'
         return retn
 
 class Time(IntBase):
@@ -2103,24 +2292,47 @@ class Time(IntBase):
     _opt_defs = (
         ('ismin', False),  # type: ignore
         ('ismax', False),
+        ('maxfill', False),
+        ('precision', 'microsecond'),
     )
 
     def postTypeInit(self):
 
         self.futsize = 0x7fffffffffffffff
-        self.maxsize = 253402300799999  # 9999/12/31 23:59:59.999
+        self.maxsize = 253402300799999999  # 9999/12/31 23:59:59.999999
 
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(decimal.Decimal, self._normPyDecimal)
+        self.setNormFunc(s_stormtypes.Number, self._normNumber)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
 
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')
 
+        precstr = self.opts.get('precision')
+        self.prec = s_time.precisions.get(precstr)
+
+        if self.prec is None:
+            mesg = f'Time type ({self.name}) has invalid precision: {precstr}.'
+            raise s_exc.BadTypeDef(mesg=mesg)
+
+        self.maxfill = self.opts.get('maxfill')
+        self.prectype = self.modl.type('timeprecision')
+        self.precfunc = s_time.precfuncs.get(self.prec)
+
         self.storlifts.update({
             '@=': self._liftByIval,
         })
+
+        self.virts |= {
+            'precision': (self.prectype, self._getPrec),
+        }
+
+        self.virtstor |= {
+            'precision': self._storVirtPrec,
+        }
 
         if self.ismin:
             self.stortype = s_layer.STOR_TYPE_MINTIME
@@ -2152,14 +2364,23 @@ class Time(IntBase):
             (cmpr, ticktock, self.stortype),
         )
 
+    def _getPrec(self, valu):
+        if (virts := valu[2]) is None or (vval := virts.get('precision')) is None:
+            return self.prec
+        return vval[0]
+
+    def _storVirtPrec(self, valu, newprec):
+        prec = self.prectype.norm(newprec)[0]
+        return self._normPyInt(valu, prec=prec)
+
     def _ctorCmprAt(self, valu):
         return self.modl.types.get('ival')._ctorCmprAt(valu)
 
-    def _normPyStr(self, valu):
+    def _normPyStr(self, valu, prec=None):
 
         valu = valu.strip().lower()
         if valu == 'now':
-            return self._normPyInt(s_common.now())
+            return self._normPyInt(s_common.now(), prec=prec)
 
         # an unspecififed time in the future...
         if valu == '?':
@@ -2179,20 +2400,49 @@ class Time(IntBase):
             bgn, end = valu.split(splitter, 1)
             delt = s_time.delta(splitter + end)
             if bgn:
-                bgn = self._normPyStr(bgn)[0] + base
+                bgn = self._normPyStr(bgn, prec=prec)[0] + base
             else:
                 bgn = s_common.now()
 
-            return self._normPyInt(delt + bgn)
+            return self._normPyInt(delt + bgn, prec=prec)
 
-        valu = s_time.parse(valu, base=base, chop=True)
-        return self._normPyInt(valu)
+        valu, strprec = s_time.parseprec(valu, base=base, chop=True)
+        if prec is None:
+            prec = strprec
 
-    def _normPyInt(self, valu):
-        if valu > self.maxsize and valu != self.futsize:
+        return self._normPyInt(valu, prec=prec)
+
+    def _normPyInt(self, valu, prec=None):
+        if valu == self.futsize:
+            return valu, {}
+
+        if valu > self.maxsize:
             mesg = f'Time exceeds max size [{self.maxsize}] allowed for a non-future marker, got {valu}'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=valu, name=self.name)
-        return valu, {}
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu, prec=prec, maxfill=self.maxfill, name=self.name)
+
+        if prec is None or prec == self.prec:
+            valu = self.precfunc(valu, maxfill=self.maxfill)
+            return valu, {}
+
+        if (precfunc := s_time.precfuncs.get(prec)) is None:
+            mesg = f'Invalid time precision specifier {prec}'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu, prec=prec, name=self.name)
+
+        valu = precfunc(valu, maxfill=self.maxfill)
+        return valu, {'virts': {'precision': (prec, self.prectype.stortype)}}
+
+    def _normPyDecimal(self, valu, prec=None):
+        return self._normPyInt(int(valu), prec=prec)
+
+    def _normNumber(self, valu, prec=None):
+        return self._normPyInt(int(valu.valu), prec=prec)
+
+    def norm(self, valu, prec=None):
+        func = self._type_norms.get(type(valu))
+        if func is None:
+            raise s_exc.BadTypeValu(name=self.name, mesg='no norm for type: %r.' % (type(valu),))
+
+        return func(valu, prec=prec)
 
     def merge(self, oldv, newv):
 
@@ -2211,7 +2461,7 @@ class Time(IntBase):
 
         return s_time.repr(valu)
 
-    def _getLiftValu(self, valu, relto=None):
+    def _getLiftValu(self, valu, relto=None, prec=None):
 
         if isinstance(valu, str):
 
@@ -2229,16 +2479,17 @@ class Time(IntBase):
                 if relto is None:
                     relto = s_common.now()
 
-                return self._normPyInt(delt + relto)[0]
+                return self._normPyInt(delt + relto, prec=prec)[0]
 
-        return self.norm(valu)[0]
+        return self.norm(valu, prec=prec)[0]
 
-    def getTickTock(self, vals):
+    def getTickTock(self, vals, prec=None):
         '''
         Get a tick, tock time pair.
 
         Args:
             vals (list): A pair of values to norm.
+            prec (int): An optional time precision value.
 
         Returns:
             (int, int): A ordered pair of integers.
@@ -2250,7 +2501,7 @@ class Time(IntBase):
         val0, val1 = vals
 
         try:
-            _tick = self._getLiftValu(val0)
+            _tick = self._getLiftValu(val0, prec=prec)
         except ValueError:
             mesg = f'Unable to process the value for val0 in _getLiftValu, got {val0}'
             raise s_exc.BadTypeValu(name=self.name, valu=val0,
@@ -2266,11 +2517,11 @@ class Time(IntBase):
                 _tick = _tick - delt
             elif val1.startswith('-'):
                 sortval = True
-                _tock = self._getLiftValu(val1, relto=_tick)
+                _tock = self._getLiftValu(val1, relto=_tick, prec=prec)
             else:
-                _tock = self._getLiftValu(val1, relto=_tick)
+                _tock = self._getLiftValu(val1, relto=_tick, prec=prec)
         else:
-            _tock = self._getLiftValu(val1, relto=_tick)
+            _tock = self._getLiftValu(val1, relto=_tick, prec=prec)
 
         if sortval and _tick >= _tock:
             tick = min(_tick, _tock)
@@ -2371,3 +2622,38 @@ class Time(IntBase):
                     )
 
         return IntBase._storLiftNorm(self, cmpr, valu)
+
+class TimePrecision(IntBase):
+
+    stortype = s_layer.STOR_TYPE_U8
+
+    _opt_defs = (
+        ('signed', False),
+    )
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+
+    def _normPyStr(self, valu):
+
+        if (ival := s_common.intify(valu)) is not None:
+            if ival not in s_time.preclookup:
+                raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='Invalid time precision value.')
+            return int(ival), {}
+
+        sval = valu.lower().strip()
+        if (retn := s_time.precisions.get(sval)) is not None:
+            return retn, {}
+        raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='Invalid time precision value.')
+
+    def _normPyInt(self, valu):
+        valu = int(valu)
+        if valu not in s_time.preclookup:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='Invalid time precision value.')
+        return valu, {}
+
+    def repr(self, valu):
+        if (rval := s_time.preclookup.get(valu)) is not None:
+            return rval
+        raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='Invalid time precision value.')

@@ -16,6 +16,6 @@ class EntityModelTest(s_test.SynTest):
 
             self.len(1, nodes)
             self.eq(nodes[0].get('type'), 'tasks.')
-            self.eq(nodes[0].get('period'), (1640995200000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1640995200000000, 9223372036854775807))
             self.eq(nodes[0].get('source'), ('ou:org', '3332a704ed21dc3274d5731acc54a0ee'))
             self.eq(nodes[0].get('target'), ('risk:threat', 'e15738ebae52273300b51c08eaad3a36'))
