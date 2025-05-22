@@ -754,7 +754,7 @@ class Snap(s_base.Base):
             stor = await self.view.getStorNodes(s_common.uhex(iden))
             for relProp in relProps.keys():
                 await asyncio.sleep(0)
-                if relProp == '*':
+                if relProp[0] == '*':
                     continue
 
                 for idx, layrstor in enumerate(stor):
