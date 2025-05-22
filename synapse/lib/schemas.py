@@ -684,9 +684,18 @@ _reqValidPkgdefSchema = {
             'pattern': s_version.semverstr,
         },
         'build': {
-            'type' 'object'
+            'type': 'object',
             'properties': {
                 'time': {'type': 'number'},
+                'synapse:version': {
+                    'type': 'string',
+                    'pattern': s_version.semverstr
+                },
+                'synapse:commit': {
+                    'type': 'string',
+                    # Note: This pattern allows empty string for dev environments
+                    'pattern': '^[0-9a-fA-F]*$'
+                },
             },
             'required': ['time'],
         },

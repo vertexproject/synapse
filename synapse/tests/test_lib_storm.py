@@ -2398,6 +2398,28 @@ class StormTest(s_t_utils.SynTest):
             self.eq('barvuln', embeds['vuln']['name'])
             self.eq('foohw', embeds['node']['name'])
 
+            # embed through `econ:pay:instrument` type that extends from `ndef`
+            await core.nodes('''
+                [ econ:acct:payment=* :from:instrument={ [ econ:pay:card=(testcard,) :name=infime ] } ]
+            ''')
+
+            opts = {
+                'node:opts': {
+                    'embeds': {
+                        'econ:acct:payment': {
+                            'from:instrument': ['name'],
+                        }
+                    }
+                }
+            }
+            msgs = await core.stormlist('econ:acct:payment', opts=opts)
+            node = [m[1] for m in msgs if m[0] == 'node'][0]
+            self.eq('econ:acct:payment', node[0][0])
+
+            embeds = node[1]['embeds']
+            self.eq(23, embeds['from:instrument']['*'])
+            self.eq('infime', embeds['from:instrument']['name'])
+
     async def test_storm_wget(self):
 
         async def _getRespFromSha(core, mesgs):
