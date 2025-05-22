@@ -2418,7 +2418,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq('econ:acct:payment', node[0][0])
 
             embeds = node[1]['embeds']
-            self.eq(23, embeds['from:instrument']['*'])
+            self.eq(24, embeds['from:instrument']['*'])
             self.eq('infime', embeds['from:instrument']['name'])
 
     async def test_storm_wget(self):
