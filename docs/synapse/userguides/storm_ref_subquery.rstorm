@@ -85,8 +85,11 @@ For example, the following query will return zero nodes, even though the ``yield
 
 - Pivot from a set of FQDNs to any files (binaries) that query those FQDNs. Use a subquery with the ``yield`` option to return the file nodes as well as the original FQDNs.
 
-.. storm-pre:: [ (inet:fqdn=macsol.org) (file:bytes=sha256:cc5f23669712ce42efa66054acefbe29a967c53e59206fbc78670672ea3978bd) (inet:dns:request=495a07881e3825d7d1f9c4622a16e71b :exe=cc5f23669712ce42efa66054acefbe29a967c53e59206fbc78670672ea3978bd :query:name=macsol.org :query:name:fqdn=macsol.org) ]
-.. storm-pre:: inet:fqdn yield { -> inet:dns:request:query:name +:exe -> file:bytes }
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (inet:fqdn=macsol.org) (file:bytes=sha256:cc5f23669712ce42efa66054acefbe29a967c53e59206fbc78670672ea3978bd) (inet:dns:request=495a07881e3825d7d1f9c4622a16e71b :exe=cc5f23669712ce42efa66054acefbe29a967c53e59206fbc78670672ea3978bd :query:name=macsol.org :query:name:fqdn=macsol.org) ]
+    .. storm-pre:: inet:fqdn yield { -> inet:dns:request:query:name +:exe -> file:bytes }
+
 ::
 
     <inet:fqdn> yield { -> inet:dns:request:query:name +:exe -> file:bytes }

@@ -196,8 +196,11 @@ Lift by Secondary Property
 
 *Lift all file (file:bytes) nodes that have a PDB path (:mime:pe:pdbpath property):*
 
-.. storm-pre:: [ (file:bytes=sha256:c2135ccc8a46d4bda7b6052df92035a134b83b8f78b8ba078621d537db021bc7 :size=70144 :mime='application/vnd.microsoft.portable-executable' :mime:pe:compiled='2011/04/26 09:08:59' :mime:pe:pdbpath='c:/documents and settings/k/桌面/etenfalcon（修改）/release/servicedll.pdb') (file:bytes=sha256:2a3da413f9f0554148469ea715f2776ab40e86925fb68cc6279ffc00f4f410dd :size=334347 :mime='application/vnd.microsoft.portable-executable' :mime:pe:compiled='2023/05/29 16:03:32' :mime:pe:pdbpath='d:/projects/winrar/sfx/build/sfxrar32/release/sfxrar.pdb') ]
-.. storm-pre:: file:bytes:mime:pe:pdbpath
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:c2135ccc8a46d4bda7b6052df92035a134b83b8f78b8ba078621d537db021bc7 :size=70144 :mime='application/vnd.microsoft.portable-executable' :mime:pe:compiled='2011/04/26 09:08:59' :mime:pe:pdbpath='c:/documents and settings/k/桌面/etenfalcon（修改）/release/servicedll.pdb') (file:bytes=sha256:2a3da413f9f0554148469ea715f2776ab40e86925fb68cc6279ffc00f4f410dd :size=334347 :mime='application/vnd.microsoft.portable-executable' :mime:pe:compiled='2023/05/29 16:03:32' :mime:pe:pdbpath='d:/projects/winrar/sfx/build/sfxrar32/release/sfxrar.pdb') ]
+    .. storm-pre:: file:bytes:mime:pe:pdbpath
+
 ::
   
   file:bytes:mime:pe:pdbpath
@@ -299,9 +302,10 @@ namespace element.
 **Examples:**
 
 *Lift all of the files (file:bytes) nodes that have a VirusTotal "reputation" extended property (:_virustotal:reputation property):*
-
-.. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ]
-.. storm-pre:: file:bytes:_virustotal:reputation
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ]
+    .. storm-pre:: file:bytes:_virustotal:reputation
 ::
   
   file:bytes:_virustotal:reputation
@@ -432,26 +436,30 @@ Lift by Secondary Property Value
   inet:dns:a:fqdn = hugesoft.org
 
 *Lift all the files with a PE compiled time of 1992-06-19 22:22:17:*
-
-.. storm-pre:: [file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000"]
-.. storm-pre:: file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000"]
+    .. storm-pre:: file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
 ::
   
   file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
 
 *Lift all the files with a PE compiled time that falls within the year 2019:*
 
-.. storm-pre:: [ ( file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/03/26 11:14:00.000' ) ( file:bytes=sha256:bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce :mime:pe:compiled='2019/06/12 22:02:16.000' ) ]
-.. storm-pre:: file:bytes:mime:pe:compiled = 2019*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/03/26 11:14:00.000' ) ( file:bytes=sha256:bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce :mime:pe:compiled='2019/06/12 22:02:16.000' ) ]
+    .. storm-pre:: file:bytes:mime:pe:compiled = 2019*
 ::
   
   file:bytes:mime:pe:compiled = 2019*
 
 
 *Lift files whose size is less than 1MB:*
-
-.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :size=16384 ]
-.. storm-pre:: file:bytes:size < 1000000
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :size=16384 ]
+    .. storm-pre:: file:bytes:size < 1000000
 ::
   
   file:bytes:size < 1000000
@@ -468,9 +476,10 @@ Lift by Secondary Property Value
   inet:whois:rec:created > 2023/01/01
 
 *Lift PE files that were compiled during the year 2012 or earlier:*
-
-.. storm-pre:: [ file:bytes=sha256:a142625512e5372a1728595be19dbee23eea50524b4827cb64ed5aaeaaa0270b :mime:pe:compiled='2010/01/07 02:53:12.000']
-.. storm-pre:: file:bytes:mime:pe:compiled <= 2012*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:a142625512e5372a1728595be19dbee23eea50524b4827cb64ed5aaeaaa0270b :mime:pe:compiled='2010/01/07 02:53:12.000']
+    .. storm-pre:: file:bytes:mime:pe:compiled <= 2012*
 ::
   
   file:bytes:mime:pe:compiled <= 2012*
@@ -602,8 +611,10 @@ operator is supported. If the extended property is an integer, any of the standa
 
 *Lift all files with a VirusTotal "reputation" score less than -50:*
 
-.. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ]
-.. storm-pre:: file:bytes:_virustotal:reputation < -50
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ]
+    .. storm-pre:: file:bytes:_virustotal:reputation < -50
 ::
   
   file:bytes:_virustotal:reputation < -50
@@ -667,9 +678,10 @@ The extended comparator ``~=`` is used to lift nodes based on PCRE-compatible re
 
 *Lift all files with PDB paths containing the string "rouji":*
 
-
-.. storm-pre:: [file:bytes=sha256:cebb47280cd00814e1c085c5bc3fbac0e9f91168999091f199a1b1d209edd814 :mime:pe:pdbpath="d:/my documents/visual studio projects/rouji/svcmain.pdb"]
-.. storm-pre:: file:bytes:mime:pe:pdbpath ~= rouji
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [file:bytes=sha256:cebb47280cd00814e1c085c5bc3fbac0e9f91168999091f199a1b1d209edd814 :mime:pe:pdbpath="d:/my documents/visual studio projects/rouji/svcmain.pdb"]
+    .. storm-pre:: file:bytes:mime:pe:pdbpath ~= rouji
 ::
   
   file:bytes:mime:pe:pdbpath ~= rouji
@@ -854,6 +866,7 @@ used to lift nodes based on comparisons among various combinations of times and 
 - **Comparing times to times:** When using a time with the ``@=`` operator to lift nodes based on a time property,
   Synapse returns nodes whose timestamp is an **exact match** of the specified time. In other words, in this case
   the interval comparator ( ``@=`` ) behaves like the equal to comparator ( ``=`` ).
+
 - When specifying date / time and interval values, Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``),
   and wildcard values (e.g., ``YYYY/MM*``). Wildcard time syntax may provide a simpler and more intuitive means to specify
   some intervals. For example ``inet:whois:rec:asof=2018*`` is equivalent to ``inet:whois:rec:asof@=('2018/01/01', '2019/01/01')``.
@@ -899,17 +912,19 @@ within a specified range of values. The comparator can be used with types such a
 **Examples:**
 
 *Lift all files whose size is between 1000 and 100000 bytes:*
-
-.. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=2000]
-.. storm-pre:: file:bytes:size *range= ( 1000, 100000 )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=2000]
+    .. storm-pre:: file:bytes:size *range= ( 1000, 100000 )
 ::
   
   file:bytes:size *range= ( 1000, 100000 )
 
 *Lift all files whose VirusTotal "reputation" score is between -20 and 20:*
-
-.. storm-pre:: [ ( file:bytes=sha256:d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f :_virustotal:reputation=-16 ) ( file:bytes=sha256:d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac :_virustotal:reputation=8 ) ]
-.. storm-pre:: file:bytes:_virustotal:reputation *range= ( -20, 20 )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( file:bytes=sha256:d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f :_virustotal:reputation=-16 ) ( file:bytes=sha256:d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac :_virustotal:reputation=8 ) ]
+    .. storm-pre:: file:bytes:_virustotal:reputation *range= ( -20, 20 )
 ::
   
   file:bytes:_virustotal:reputation *range= ( -20, 20 )
@@ -937,6 +952,10 @@ within a specified range of values. The comparator can be used with types such a
 
 - When specifying a range, **both** the minimum and maximum values are included in the range. This is the
   equivalent of "greater than or equal to *<min>* and less than or equal to *<max>*").
+
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 - When specifying a range of time values, Synapse allows the use of both lower resolution values (e.g.,
   ``YYYY/MM/DD``) and wildcard values (e.g., ``YYYY/MM*``) for the minimum and/or maximum range values.
   In some cases, wildcard time syntax may provide a simpler and more intuitive means to specify some

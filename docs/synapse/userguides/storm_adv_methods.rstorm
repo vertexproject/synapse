@@ -69,6 +69,9 @@ for a full list.
   As demonstrated below, some node constructors can "intelligently" leverage the relevant aspects of the full
   node object (the value of the ``$node`` variable) when creating new nodes.
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 - Use the ``$node`` variable to create multiple whois name server records (``inet:whois:recns``) for the name
   server ``ns1.somedomain.com`` from a set of inbound whois record nodes for the domain ``woot.com``:
 

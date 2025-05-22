@@ -363,10 +363,11 @@ The query above uses the wildcard ( ``*`` ) as a partial match for any form name
 followed by zero or more characters.
 
 *Pivot from a set of files to all host execution nodes (all nodes of all forms that inherit the it:host:activity interface - e.g., it:exec:file:add, it:exec:url, etc.) associated with those files:*
-
-.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (it:exec:file:write=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:mutex=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) ]
-.. storm-pre:: file:bytes -> it:host:activity
-.. storm-pre:: file:bytes -> it:host:activity:exe
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (it:exec:file:write=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:mutex=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) ]
+    .. storm-pre:: file:bytes -> it:host:activity
+    .. storm-pre:: file:bytes -> it:host:activity:exe
 
 ::
   
@@ -583,9 +584,10 @@ You must use explicit syntax to specify both the source and target properties.
     <inet:whois:rec nodes> -> inet:fqdn -> inet:dns:a
 
 *Pivot from a set of DNS requests (inet:dns:request nodes) to all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that share the same file as their :exe property:*
-
-.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (inet:dns:request=* :query:name:fqdn=woot.com :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:file:write=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/scvhost.exe') (it:exec:file:read=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/autoexec.bat') ]
-.. storm-pre:: inet:dns:request :exe -> it:host:activity:exe
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (inet:dns:request=* :query:name:fqdn=woot.com :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:file:write=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/scvhost.exe') (it:exec:file:read=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/autoexec.bat') ]
+    .. storm-pre:: inet:dns:request :exe -> it:host:activity:exe
 
 ::
   
@@ -825,9 +827,10 @@ of the three tags ``#rep``, ``#rep.eset``, and ``#rep.eset.sednit``), all three 
 
 *Pivot from a set of nodes to the tags (syn:tag nodes) for all tags applied to those nodes:*
 
-
-.. storm-pre:: [ file:bytes=sha256:b6e7343b9250ad141db66c7bb2cd18c8a6939ff6cdff616683ba6b6a4ff7aa91 +#cno.mal ]
-.. storm-pre:: file:bytes -> #*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:b6e7343b9250ad141db66c7bb2cd18c8a6939ff6cdff616683ba6b6a4ff7aa91 +#cno.mal ]
+    .. storm-pre:: file:bytes -> #*
 
 ::
   
@@ -848,9 +851,11 @@ double asterisk is used to match **across** tag elements.
 
 *Pivot from a set of nodes to the tags (syn:tag nodes) associated with any third-party reporting where the third tag element is "bisonal":*
 
-.. storm-pre:: [ file:bytes=sha256:89f250599e09f8631040e73cd9ea5e515d87e3d1d989f484686893becec1a9bc +#rep.alienvault.bisonal +#rep.malwarebazaar.bisonal +#rep.malwarebazaar.3p.intezer.bisonal ]
-.. storm-pre:: file:bytes -> #rep.*.bisonal
-.. storm-pre:: file:bytes -+> #rep.**bisonal
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:89f250599e09f8631040e73cd9ea5e515d87e3d1d989f484686893becec1a9bc +#rep.alienvault.bisonal +#rep.malwarebazaar.bisonal +#rep.malwarebazaar.3p.intezer.bisonal ]
+    .. storm-pre:: file:bytes -> #rep.*.bisonal
+    .. storm-pre:: file:bytes -+> #rep.**bisonal
 
 ::
   
@@ -887,8 +892,10 @@ Pivot to the ``syn:tag`` node for a specific tag by specifying the exact tag as 
 
 *Pivot from a set of nodes to the syn:tag node for the tag "cno.ttp.phish.attach":*
 
-.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 +#cno.ttp.phish.attach ]
-.. storm-pre:: file:bytes -> #cno.ttp.phish.attach
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 +#cno.ttp.phish.attach ]
+    .. storm-pre:: file:bytes -> #cno.ttp.phish.attach
 
 ::
   
