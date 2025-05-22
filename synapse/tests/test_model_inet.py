@@ -3401,7 +3401,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :success=$lib.true
                 :time=(1715856900000)
                 :app={[ inet:service:app=({"name": "slack web"}) ]}
-                :client:app={[ inet:service:app=({"name": "slack web"}) ]}
+                :client:app={[ inet:service:app=({"name": "slack web"}) :desc="The slack web application"]}
             ]
             '''
             opts = {'vars': {

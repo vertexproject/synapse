@@ -3697,6 +3697,10 @@ class InetModule(s_module.CoreModule):
                                              'typeopts': {'onespace': True, 'lower': True},
                                              'sorted': True, 'uniq': True}), {
                             'doc': 'An array of alternate names for the application.'}),
+
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A description of the platform specific application.'}),
                     )),
 
                     ('inet:service:account', {}, (
