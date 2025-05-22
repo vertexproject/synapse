@@ -4155,58 +4155,58 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCmpr) as cm:
                 await core.nodes('inet:ip=1.2.3.4 +{ -> inet:dns:a } @ 2')
 
-            await core.nodes('[ risk:attack=* +(uses)> {[ test:str=foo ]} ]')
-            await core.nodes('[ risk:attack=* +(uses)> {[ test:str=bar ]} ]')
+            await core.nodes('[ risk:attack=* +(used)> {[ test:str=foo ]} ]')
+            await core.nodes('[ risk:attack=* +(used)> {[ test:str=bar ]} ]')
 
-            q = 'risk:attack +{ -(uses)> * $valu=$node.value() } $lib.print($valu)'
+            q = 'risk:attack +{ -(used)> * $valu=$node.value() } $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(uses)> * $valu=$node.value() } = 1 $lib.print($valu)'
+            q = 'risk:attack +{ -(used)> * $valu=$node.value() } = 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(uses)> * $valu=$node.value() } = 2 $lib.print($valu)'
+            q = 'risk:attack -{ -(used)> * $valu=$node.value() } = 2 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(uses)> * $valu=$node.value() } > 0 $lib.print($valu)'
+            q = 'risk:attack +{ -(used)> * $valu=$node.value() } > 0 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(uses)> * $valu=$node.value() } > 1 $lib.print($valu)'
+            q = 'risk:attack -{ -(used)> * $valu=$node.value() } > 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(uses)> * $valu=$node.value() } >= 1 $lib.print($valu)'
+            q = 'risk:attack +{ -(used)> * $valu=$node.value() } >= 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(uses)> * $valu=$node.value() } >= 2 $lib.print($valu)'
+            q = 'risk:attack -{ -(used)> * $valu=$node.value() } >= 2 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(uses)> * $valu=$node.value() } < 2 $lib.print($valu)'
+            q = 'risk:attack +{ -(used)> * $valu=$node.value() } < 2 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(uses)> * $valu=$node.value() } < 1 $lib.print($valu)'
+            q = 'risk:attack -{ -(used)> * $valu=$node.value() } < 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(uses)> * $valu=$node.value() } <= 1 $lib.print($valu)'
+            q = 'risk:attack +{ -(used)> * $valu=$node.value() } <= 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(uses)> * $valu=$node.value() } <= 0 $lib.print($valu)'
+            q = 'risk:attack -{ -(used)> * $valu=$node.value() } <= 0 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(uses)> * $valu=$node.value() } != 0 $lib.print($valu)'
+            q = 'risk:attack +{ -(used)> * $valu=$node.value() } != 0 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(uses)> * $valu=$node.value() } != 1 $lib.print($valu)'
+            q = 'risk:attack -{ -(used)> * $valu=$node.value() } != 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 

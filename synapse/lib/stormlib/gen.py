@@ -169,24 +169,6 @@ class LibGen(s_stormtypes.Lib):
             return(($lib.true, $lib.cast($type, $valu)))
         }
 
-        function orgIdType(name) {
-            ou:id:type:name=$name
-            return($node)
-
-            [ ou:id:type=(gen, name, $name) :name=$name ]
-            return($node)
-        }
-
-        function orgIdNumber(type, value) {
-            $idtype = $orgIdType($type)
-
-            ou:id:number=($idtype, $value)
-            return($node)
-
-            [ ou:id:number=($idtype, $value) ]
-            return($node)
-        }
-
         function orgByName(name, try=$lib.false) {
             [ ou:org=({"name": $name, "$try": $try}) ]
             return($node)

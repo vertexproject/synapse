@@ -57,7 +57,7 @@ _DefaultConfig = {
                         ('originates-from', 'location', ':org -> ou:org -> geo:place'),
                         ('targets', 'identity', '-> risk:attack -(targets)> ou:org'),
                         ('targets', 'identity', '-> risk:attack -(targets)> ps:person'),
-                        ('targets', 'vulnerability', '-> risk:attack -(uses)> risk:vuln'),
+                        ('targets', 'vulnerability', '-> risk:attack -(used)> risk:vuln'),
                     ),
                 },
             },
@@ -96,7 +96,7 @@ _DefaultConfig = {
                         ('attributed-to', 'identity', ''),
                         ('located-at', 'location', '-> geo:place'),
                         ('targets', 'identity', '-> ou:campaign -> risk:attack -(targets)> ou:org'),
-                        ('targets', 'vulnerability', '-> ou:campaign -> risk:attack -(uses)> risk:vuln'),
+                        ('targets', 'vulnerability', '-> ou:campaign -> risk:attack -(used)> risk:vuln'),
                         # ('impersonates', 'identity', ''),
                     ),
                 },
@@ -807,7 +807,7 @@ stixingest = {
             $n2node.props.org = $n1node
         '''},
 
-        {'type': (None, 'uses', None), 'storm': 'yield $n1node [ +(uses)> { yield $n2node } ]'},
+        {'type': (None, 'uses', None), 'storm': 'yield $n1node [ +(used)> { yield $n2node } ]'},
         {'type': (None, 'indicates', None), 'storm': 'yield $n1node [ +(indicates)> { yield $n2node } ]'},
 
         # nothing to do... they are the same for us...

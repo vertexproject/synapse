@@ -39,9 +39,9 @@ class StormlibModelTest(s_test.SynTest):
             self.eq('score', await core.callStorm('return($lib.model.tagprop(score).name)'))
             self.eq('int', await core.callStorm('return($lib.model.tagprop(score).type.name)'))
 
-            self.eq('risk:attack', await core.callStorm('return($lib.model.edge(risk:attack, uses, risk:vuln).n1form)'))
-            self.eq('uses', await core.callStorm('return($lib.model.edge(risk:attack, uses, risk:vuln).verb)'))
-            self.eq('risk:vuln', await core.callStorm('return($lib.model.edge(risk:attack, uses, risk:vuln).n2form)'))
+            self.eq('risk:attack', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).n1form)'))
+            self.eq('used', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).verb)'))
+            self.eq('risk:vuln', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).n2form)'))
             self.none(await core.callStorm('return($lib.model.edge(risk:attack, newp, risk:vuln))'))
 
             self.true(await core.callStorm('return(($lib.model.prop(".created").form = $lib.null))'))
@@ -79,11 +79,11 @@ class StormlibModelTest(s_test.SynTest):
             mesgs = await core.stormlist("$item=$lib.model.tagprop('score') $lib.print($item.type)")
             self.stormIsInPrint("model:type: ('int', ('base'", mesgs)
 
-            mesgs = await core.stormlist('$lib.print($lib.model.edge(risk:attack, uses, risk:vuln))')
-            self.stormIsInPrint("model:edge: (('risk:attack', 'uses', 'risk:vuln'), {'doc':", mesgs)
+            mesgs = await core.stormlist('$lib.print($lib.model.edge(risk:attack, used, risk:vuln))')
+            self.stormIsInPrint("model:edge: (('risk:attack', 'used', 'risk:vuln'), {'doc':", mesgs)
 
-            mesgs = await core.stormlist('$lib.pprint($lib.model.edge(risk:attack, uses, risk:vuln))')
-            self.stormIsInPrint("(('risk:attack', 'uses', 'risk:vuln'),\n {'doc':", mesgs)
+            mesgs = await core.stormlist('$lib.pprint($lib.model.edge(risk:attack, used, risk:vuln))')
+            self.stormIsInPrint("(('risk:attack', 'used', 'risk:vuln'),\n {'doc':", mesgs)
 
     async def test_stormlib_model_depr(self):
 

@@ -312,8 +312,8 @@ class StormLibStixTest(s_test.SynTest):
             [(risk:vuln=(vuln3,) :name="bobs version of cve-2013-001" :cve="cve-2013-0001")]
             [(ou:org=(bob1,) :name="bobs whitehatz")]
             [(ou:campaign=(campaign1,) :name="bob hax" :org=(bob1,) )]
-            [(risk:attack=(attk1,) +(uses)> {risk:vuln=(vuln1,)} :campaign=(campaign1,) )]
-            [(risk:attack=(attk2,) +(uses)> {risk:vuln=(vuln3,)} :campaign=(campaign1,) )]
+            [(risk:attack=(attk1,) +(used)> {risk:vuln=(vuln1,)} :campaign=(campaign1,) )]
+            [(risk:attack=(attk2,) +(used)> {risk:vuln=(vuln3,)} :campaign=(campaign1,) )]
             ''')
 
             bund = await core.callStorm('''
