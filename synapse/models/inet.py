@@ -1633,7 +1633,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:access:action:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A heirarchical taxonomy of service actions.'}),
+                        'doc': 'A hierarchical taxonomy of service actions.'}),
 
                     ('inet:service:access', ('guid', {}), {
                         'interfaces': ('inet:service:action',),
