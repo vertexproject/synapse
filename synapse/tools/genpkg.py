@@ -18,6 +18,7 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.schemas as s_schemas
+import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +122,12 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     pkgname = pkgdef.get('name')
 
     genopts = pkgdef.pop('genopts', {})
+
+    # Stamp build info into the pkgdef if it doesn't already exist
+    pkgdef.setdefault('build', {})
+    pkgdef['build'].setdefault('time', s_common.now())
+    pkgdef['build'].setdefault('synapse:version', s_version.verstring)
+    pkgdef['build'].setdefault('synapse:commit', s_version.commit)
 
     logodef = pkgdef.get('logo')
     if logodef is not None:
@@ -258,8 +265,6 @@ async def main(argv, outp=s_output.stdout):
     else:
         pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs)
 
-    pkgdef['build'] = {'time': s_common.now()}
-
     if opts.signas is not None:
 
         s_certdir.addCertPath(opts.certdir)
@@ -275,6 +280,8 @@ async def main(argv, outp=s_output.stdout):
             'cert': cert,
             'sign': sign,
         }
+
+    s_schemas.reqValidPkgdef(pkgdef)
 
     if not opts.save and not opts.push:
         outp.printf('Neither --push nor --save provided.  Nothing to do.')

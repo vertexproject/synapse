@@ -478,6 +478,9 @@ class ProtoNode(s_node.NodeBase):
             self.tags[tagnode.valu] = valu
             return tagnode
 
+        elif valu == (None, None):
+            return tagnode
+
         valu = s_time.ival(*valu, *curv)
         self.tags[tagnode.valu] = valu
         self.tagdels.discard(tagnode.valu)

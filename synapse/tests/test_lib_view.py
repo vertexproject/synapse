@@ -295,6 +295,20 @@ class ViewTest(s_t_utils.SynTest):
             self.len(100, nodeedit[0][2])
             self.len(2, nodeedit[1][2])
 
+            await core.nodes('[ test:str=lowertag +#a.b=2020]')
+
+            vdef2 = await core.view.fork()
+            opts = {'view': vdef2['iden']}
+            await core.nodes('test:str=lowertag [ +#a.b.c ]', opts=opts)
+
+            retn = await core.callStorm('test:str=lowertag return($node.getStorNodes())', opts=opts)
+
+            # Only leaf tag is added in our top layer
+            self.isin('a.b.c', retn[0].get('tags'))
+            self.notin('a.b', retn[0].get('tags'))
+
+            self.isin('a.b', retn[1].get('tags'))
+
     async def test_view_merge_ival(self):
 
         async with self.getTestCore() as core:

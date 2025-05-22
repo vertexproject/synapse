@@ -5775,9 +5775,9 @@ class NodeData(Prim):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The data to store.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'list', 'desc': 'Get a list of the Node data names on the Node.',
+        {'name': 'list', 'desc': 'Get a list of the Node data on the Node as (name, value) tuples.',
          'type': {'type': 'function', '_funcname': '_listNodeData',
-                  'returns': {'type': 'list', 'desc': 'List of the names of values stored on the node.', }}},
+                  'returns': {'type': 'list', 'desc': 'List of (name, value) tuples stored on the node.', }}},
         {'name': 'load',
          'desc': 'Load the Node data onto the Node so that the Node data is packed and returned by the runtime.',
          'type': {'type': 'function', '_funcname': '_loadNodeData',
@@ -6769,6 +6769,15 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'getTombstones',
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Tuple of iden, tombstone type, and type specific info.'}}},
+        {'name': 'getEdgeTombstones', 'desc': '''
+            Get (n1nid, verb, n2nid) tuples representing edge tombstones stored in the layer.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getEdgeTombstones',
+                  'args': (
+                      {'name': 'verb', 'type': 'str', 'default': None,
+                       'desc': 'The optional verb to lift edge tombstones for.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of n1nid, verb, n2nid.'}}},
         {'name': 'delTombstone', 'desc': '''
             Delete a tombstone stored in the layer.
             ''',
@@ -6856,6 +6865,7 @@ class Layer(Prim):
             'getEdgesByN2': self.getEdgesByN2,
             'delTombstone': self.delTombstone,
             'getTombstones': self.getTombstones,
+            'getEdgeTombstones': self.getEdgeTombstones,
             'getNodeData': self.getNodeData,
             'getMirrorStatus': self.getMirrorStatus,
         }
@@ -7293,6 +7303,15 @@ class Layer(Prim):
         layr = self.runt.view.core.getLayer(layriden)
 
         async for item in layr.iterTombstones():
+            yield item
+
+    @stormfunc(readonly=True)
+    async def getEdgeTombstones(self, verb=None):
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
+
+        async for item in layr.iterEdgeTombstones(verb=verb):
             yield item
 
     @stormfunc(readonly=True)

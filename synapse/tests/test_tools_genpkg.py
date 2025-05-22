@@ -3,6 +3,9 @@ import stat
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+import synapse.lib.version as s_version
+
 import synapse.tests.utils as s_test
 import synapse.tests.files as s_files
 
@@ -158,6 +161,12 @@ class GenPkgTest(s_test.SynTest):
 
             wflow = pdef['optic']['workflows']['testpkg-baz']
             self.eq(wflow, {'name': 'real-baz', 'desc': 'this is the real baz desc'})
+
+            build = pdef.get('build')
+            self.nn(build)
+            self.nn(build.get('time'))
+            self.eq(build.get('synapse:version'), s_version.verstring)
+            self.eq(build.get('synapse:commit'), s_version.commit)
 
             # nodocs
             nodocspath = s_common.genpath(core.dirn, 'testpkg_nodocs.json')
