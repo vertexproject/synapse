@@ -3690,6 +3690,7 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:app', {}, (
 
                         ('name', ('str', {'lower': True, 'onespace': True}), {
+                            'alts': ('names',),
                             'doc': 'The name of the platform specific application.'}),
 
                         ('names', ('array', {'type': 'str',
