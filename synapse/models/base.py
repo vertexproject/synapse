@@ -19,6 +19,9 @@ modeldefs = (
     ('base', {
         'types': (
 
+            ('date', ('time', {'precision': 'day'}), {
+                'doc': 'A date precision time value.'}),
+
             ('base:id', ('str', {'strip': True}), {
                 'doc': 'A base type for ID strings.'}),
 

@@ -323,46 +323,36 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('place'), '39f8d9599cd663b00013bfedf69dcf53')
             self.eq(nodes[0].get('website'), 'http://arrowcon.org/2018/dinner')
 
-            nodes = await core.nodes('[ ou:id:type=* :org=* :name=foobar :names=(alt1,alt2) :url="http://foobar.com/ids"]')
+            nodes = await core.nodes('''[
+                ou:id=*
+                    :value=Woot99
+                    :issuer={[ ou:org=* :name="ny dmv" ]}
+                    :issuer:name="ny dmv"
+                    :recipient={[ entity:contact=* :name=visi ]}
+                    :type=us.state.dmv.driverslicense
+                    :issued=20250525
+                    :updated=20250525
+                    :status=valid
+            ]''')
+
             self.len(1, nodes)
-            self.nn(nodes[0].get('org'))
-            self.eq('foobar', nodes[0].get('name'))
-            self.eq(('alt1', 'alt2'), nodes[0].get('names'))
-            self.eq('http://foobar.com/ids', nodes[0].get('url'))
+            self.eq(nodes[0].get('value'), 'Woot99')
+            self.eq(nodes[0].get('issuer:name'), 'ny dmv')
+            self.eq(nodes[0].get('status'), 'valid.')
+            self.eq(nodes[0].get('type'), 'us.state.dmv.driverslicense.')
+            self.eq(nodes[0].get('issued'), 1748131200000000)
+            self.eq(nodes[0].get('updated'), 1748131200000000)
 
-            iden = await core.callStorm('ou:id:type return($node.value())')
-
-            self.len(1, alts := await core.nodes('[ ou:id:type=({"name": "foobar"}) ]'))
-            self.eq(nodes[0].ndef, alts[0].ndef)
-
-            self.len(1, alts := await core.nodes('[ ou:id:type=({"name": "alt1"}) ]'))
-            self.eq(nodes[0].ndef, alts[0].ndef)
-
-            opts = {'vars': {'type': iden}}
-            nodes = await core.nodes('''
-                [ ou:id:number=($type, visi)
-                    :status=woot
-                    :issued=202002
-                    :expires=2021
-                    :issuer={[ entity:contact=* :name=visi ]}
-                ]
-            ''', opts=opts)
+            nodes = await core.nodes('''[
+                ou:id:update=*
+                    :id={ ou:id }
+                    :updated=20250525
+                    :status=suspended
+            ]''')
             self.len(1, nodes)
-            self.nn(nodes[0].get('issuer'))
-            self.eq(('ou:id:number', (iden, 'visi')), nodes[0].ndef)
-            self.eq(iden, nodes[0].get('type'))
-            self.eq('visi', nodes[0].get('value'))
-            self.eq('woot', nodes[0].get('status'))
-            self.eq(1580515200000000, nodes[0].get('issued'))
-            self.eq(1609459200000000, nodes[0].get('expires'))
-            self.len(1, await core.nodes('ou:id:number -> entity:contact +:name=visi'))
-
-            opts = {'vars': {'type': iden}}
-            nodes = await core.nodes('[ ou:id:update=* :number=($type, visi) :status=revoked :time=202003]', opts=opts)
-            self.len(1, nodes)
-            self.eq((iden, 'visi'), nodes[0].get('number'))
-            self.eq('revoked', nodes[0].get('status'))
-            self.eq(1583020800000000, nodes[0].get('time'))
+            self.eq(nodes[0].get('updated'), 1748131200000000)
+            self.eq(nodes[0].get('status'), 'suspended.')
+            self.len(1, await core.nodes('ou:id:update -> ou:id'))
 
             nodes = await core.nodes('[ ou:org=* :desc=hehe :dns:mx=(hehe.com, haha.com)]')
             self.len(1, nodes)

@@ -277,17 +277,23 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of technique types.'}),
 
-            ('ou:id:type', ('guid', {}), {
-                'doc': 'A type of id number issued by an org.'}),
+            ('ou:id', ('guid', {}), {
+                'doc': 'An ID value issued by an organization.'}),
 
-            ('ou:id:value', ('str', {'strip': True}), {
-                'doc': 'The value of an org:id:number.'}),
+            ('ou:id:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of ID types.'}),
 
-            ('ou:id:number', ('comp', {'fields': (('type', 'ou:id:type'), ('value', 'ou:id:value'))}), {
-                'doc': 'A unique id number issued by a specific organization.'}),
+            ('ou:id:status:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of ID status values.'}),
 
             ('ou:id:update', ('guid', {}), {
-                'doc': 'A status update to an org:id:number.'}),
+                'doc': 'An update to an ID status.'}),
 
             ('ou:award:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -548,53 +554,45 @@ modeldefs = (
 
             )),
             # FIXME refactor ou:id
-            ('ou:id:type', {}, (
+            ('ou:id:type:taxonomy', {}, ()),
+            ('ou:id:status:taxonomy', {}, ()),
+            ('ou:id', {}, (
 
-                ('org', ('ou:org', {}), {
-                    'doc': 'The org which issues id numbers of this type.'}),
+                ('type', ('ou:id:type:taxonomy', {}), {
+                    'doc': 'The type of ID issued.'}),
 
-                ('name', ('str', {}), {
-                    'alts': ('names',),
-                    'doc': 'The friendly name of the ID number type.'}),
+                ('status', ('ou:id:status:taxonomy', {}), {
+                    'ex': 'valid',
+                    'doc': 'The most recently known status of the ID.'}),
 
-                ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True}), {
-                    'doc': 'An array of alternate names for the ID number type.'}),
+                ('value', ('meta:id', {}), {
+                    'doc': 'The ID value.'}),
 
-                ('url', ('inet:url', {}), {
-                    'doc': 'The official URL of the issuer.'}),
+                ('issued', ('date', {}), {
+                    'doc': 'The date when the ID was initially issued.'}),
 
-            )),
-            ('ou:id:number', {}, (
+                ('updated', ('date', {}), {
+                    'doc': 'The date when the ID was most recently updated.'}),
 
-                ('type', ('ou:id:type', {}), {
-                    'doc': 'The type of org ID.', 'ro': True}),
+                ('issuer', ('ou:org', {}), {
+                    'doc': 'The organization which issued the ID.'}),
 
-                ('value', ('ou:id:value', {}), {
-                    'doc': 'The value of the org ID.', 'ro': True}),
+                ('issuer:name', ('meta:name', {}), {
+                    'doc': 'The name of the issuer.'}),
 
-                ('status', ('str', {'lower': True, 'strip': True}), {
-                    'doc': 'A freeform status such as valid, suspended, expired.'}),
-
-                ('issued', ('time', {}), {
-                    'doc': 'The time at which the org issued the ID number.'}),
-
-                ('expires', ('time', {}), {
-                    'doc': 'The time at which the ID number expires.'}),
-
-                # FIXME ou:office?
-                ('issuer', ('entity:contact', {}), {
-                    'doc': 'The contact information of the office which issued the ID number.'}),
+                ('recipient', ('entity:actor', {}), {
+                    'doc': 'The entity which was issued the ID.'}),
             )),
             ('ou:id:update', {}, (
-                ('number', ('ou:id:number', {}), {
-                    'doc': 'The id number that was updated.',
-                }),
-                ('status', ('str', {'strip': True, 'lower': True}), {
-                    'doc': 'The updated status of the id number.',
-                }),
-                ('time', ('time', {}), {
-                    'doc': 'The date/time that the id number was updated.',
-                }),
+
+                ('id', ('ou:id', {}), {
+                    'doc': 'The ID which was updated.'}),
+
+                ('updated', ('date', {}), {
+                    'doc': 'The time the ID status was updated.'}),
+
+                ('status', ('ou:id:status:taxonomy', {}), {
+                    'doc': 'The new status of the ID.'}),
             )),
             ('ou:goal:type:taxonomy', {}, ()),
             ('ou:goal', {}, (

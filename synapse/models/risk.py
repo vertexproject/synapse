@@ -89,7 +89,7 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of alert types.'}),
 
             ('risk:alert', ('guid', {}), {
-                'doc': 'An instance of an alert which indicates the presence of a risk.'}),
+                'doc': 'An alert which indicates the presence of a risk.'}),
 
             ('risk:compromise', ('guid', {}), {
                 'display': {
@@ -214,43 +214,58 @@ modeldefs = (
         ),
         'edges': (
             # some explicit examples...
+
             (('risk:attack', 'uses', 'ou:technique'), {
                 'doc': 'The attacker used the technique in the attack.'}),
+
             (('risk:threat', 'uses', 'ou:technique'), {
                 'doc': 'The threat cluster uses the technique.'}),
+
             (('risk:tool:software', 'uses', 'ou:technique'), {
                 'doc': 'The tool uses the technique.'}),
-            (('risk:compromise', 'uses', 'ou:technique'), {
+
+            (('risk:compromise', 'used', 'ou:technique'), {
                 'doc': 'The attacker used the technique in the compromise.'}),
-            (('risk:extortion', 'uses', 'ou:technique'), {
+
+            (('risk:extortion', 'used', 'ou:technique'), {
                 'doc': 'The attacker used the technique to extort the victim.'}),
 
-            (('risk:attack', 'uses', 'risk:vuln'), {
+            (('risk:attack', 'used', 'risk:vuln'), {
                 'doc': 'The attack used the vulnerability.'}),
+
             (('risk:threat', 'uses', 'risk:vuln'), {
                 'doc': 'The threat cluster uses the vulnerability.'}),
+
             (('risk:tool:software', 'uses', 'risk:vuln'), {
                 'doc': 'The tool uses the vulnerability.'}),
+
             (('ou:technique', 'uses', 'risk:vuln'), {
                 'doc': 'The technique uses the vulnerability.'}),
 
-            (('risk:attack', 'targets', 'ou:industry'), {
+            (('risk:attack', 'targeted', 'ou:industry'), {
                 'doc': 'The attack targeted the industry.'}),
-            (('risk:compromise', 'targets', 'ou:industry'), {
+
+            (('risk:compromise', 'targeted', 'ou:industry'), {
                 'doc': "The compromise was assessed to be based on the victim's role in the industry."}),
+
             (('risk:threat', 'targets', 'ou:industry'), {
                 'doc': 'The threat cluster targets the industry.'}),
 
             (('risk:threat', 'targets', None), {
                 'doc': 'The threat cluster targeted the target node.'}),
+
             (('risk:threat', 'uses', None), {
                 'doc': 'The threat cluster uses the target node.'}),
-            (('risk:attack', 'targets', None), {
+
+            (('risk:attack', 'targeted', None), {
                 'doc': 'The attack targeted the target node.'}),
-            (('risk:attack', 'uses', None), {
+
+            (('risk:attack', 'used', None), {
                 'doc': 'The attack used the target node to facilitate the attack.'}),
+
             (('risk:tool:software', 'uses', None), {
                 'doc': 'The tool uses the target node.'}),
+
             (('risk:compromise', 'stole', None), {
                 'doc': 'The target node was stolen or copied as a result of the compromise.'}),
 
@@ -652,6 +667,7 @@ modeldefs = (
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The service account which generated the alert.'}),
             )),
+
             ('risk:compromise:type:taxonomy', {
                 'prevnames': ('risk:compromisetype',)}, ()),
 
