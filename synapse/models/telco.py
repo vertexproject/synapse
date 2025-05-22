@@ -230,7 +230,7 @@ modeldefs = (
                 ('connected', ('bool', {}), {
                     'doc': 'Indicator of whether the call was connected.',
                 }),
-                ('text', ('str', {}), {
+                ('text', ('text', {}), {
                     'doc': 'The text transcription of the call.',
                     'disp': {'hint': 'text'},
                 }),
@@ -254,7 +254,7 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time the message was sent.'
                 }),
-                ('text', ('str', {}), {
+                ('text', ('text', {}), {
                     'doc': 'The text of the message.',
                     'disp': {'hint': 'text'},
                 }),

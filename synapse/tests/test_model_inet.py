@@ -2434,6 +2434,7 @@ class InetModelTest(s_t_utils.SynTest):
             [ inet:service:platform=(slack,)
                 :url="https://slack.com"
                 :name=Slack
+                :desc=' Slack is a team communication platform.\n\n Be less busy.'
                 :provider={ ou:org:name=$provname }
                 :provider:name=$provname
             ]
@@ -2443,6 +2444,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('inet:service:platform', s_common.guid(('slack',))))
             self.eq(nodes[0].get('url'), 'https://slack.com')
             self.eq(nodes[0].get('name'), 'slack')
+            self.eq(nodes[0].get('desc'), ' Slack is a team communication platform.\n\n Be less busy.')
             self.eq(nodes[0].get('provider'), provider.ndef[1])
             self.eq(nodes[0].get('provider:name'), provname.lower())
             platform = nodes[0]

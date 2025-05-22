@@ -17,12 +17,12 @@ modeldefs = (
                 ('file', ('file:bytes', {}), {
                     'doc': 'The (optional) file blob containing or published as the news.'}),
 
-                ('title', ('str', {'lower': True}), {
+                ('title', ('text', {'lower': True}), {
                     'ex': 'mars lander reaches mars',
                     'disp': {'hint': 'text'},
                     'doc': 'Title/Headline for the news.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'ex': 'lorum ipsum',
                     'disp': {'hint': 'text'},
                     'doc': 'A brief summary of the news item.'}),

@@ -27,7 +27,7 @@ modeldefs = (
                     ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate names for the {ou:attendable}.'}),
 
-                    ('desc', ('str', {}), {
+                    ('desc', ('text', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'An organizer provided description of the {ou:attendable}.'}),
 
@@ -607,7 +607,7 @@ modeldefs = (
                 ('type', ('ou:goal:type:taxonomy', {}), {
                     'doc': 'A type taxonomy entry for the goal.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the goal.'}),
             )),
@@ -673,7 +673,7 @@ modeldefs = (
                     'doc': 'The campaign type taxonomy.',
                     'prevnames': ('camptype',)}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the campaign.'}),
 
@@ -772,7 +772,7 @@ modeldefs = (
                 ('sophistication', ('meta:sophistication', {}), {
                     'doc': 'The assessed sophistication of the technique.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the technique.'}),
 
@@ -811,7 +811,7 @@ modeldefs = (
                 ('vitals', ('ou:vitals', {}), {
                     'doc': 'The most recent/accurate ou:vitals for the org.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the organization.'}),
 
@@ -995,7 +995,7 @@ modeldefs = (
                 ('isic', ('array', {'type': 'ou:isic', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of ISIC codes that map to the industry.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the industry.'}),
             )),

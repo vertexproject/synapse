@@ -286,7 +286,7 @@ modeldefs = (
                 ('nft:meta:name', ('str', {}), {
                         'doc': 'The name field from the NFT metadata.'}),
 
-                ('nft:meta:description', ('str', {}), {
+                ('nft:meta:description', ('text', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'The description field from the NFT metadata.'}),
 

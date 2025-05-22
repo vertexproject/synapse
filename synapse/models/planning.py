@@ -38,7 +38,7 @@ modeldefs = (
                     'ex': 'mitre att&ck flow',
                     'doc': 'The name of the planning system.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A summary of the purpose and use case for the planning system.'}),
 
@@ -62,7 +62,7 @@ modeldefs = (
                     'ex': 'Reconnaissance Phase',
                     'doc': 'The title of the phase.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A summary of the definition of the phase.'}),
 
@@ -82,7 +82,7 @@ modeldefs = (
                     'ex': 'Network Reconnaissance Procedure',
                     'doc': 'The name of the procedure.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A summary of the purpose and use cases for the procedure.'}),
 

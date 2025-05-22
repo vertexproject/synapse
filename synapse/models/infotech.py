@@ -1424,7 +1424,7 @@ modeldefs = (
                 ('image', ('file:bytes', {}), {
                     'doc': 'The image file.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A brief description of the screenshot.'})
             )),
@@ -1521,7 +1521,7 @@ modeldefs = (
                     'doc': 'The CWE description field.',
                     'ex': 'Buffer Copy without Checking Size of Input (Classic Buffer Overflow)'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'The CWE description field.'}),
 
@@ -1584,7 +1584,7 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time that the scan was started.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'Description of the scan and scope.'}),
 
@@ -1653,7 +1653,7 @@ modeldefs = (
                 ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of alternate names for the ATT&CK group.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the ATT&CK group.'}),
 
@@ -1682,7 +1682,7 @@ modeldefs = (
                 ('matrix', ('it:mitre:attack:matrix', {}), {
                     'doc': 'The ATT&CK matrix which defines the tactic.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the ATT&CK tactic.'}),
 
@@ -1706,7 +1706,7 @@ modeldefs = (
                 ('isnow', ('it:mitre:attack:technique', {}), {
                     'doc': 'If deprecated, this field may contain the current value for the technique.'}),
 
-                ('desc', ('str', {'strip': True}), {
+                ('desc', ('text', {'strip': True}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the ATT&CK technique.'}),
 
@@ -1738,7 +1738,7 @@ modeldefs = (
                 ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'Associated names for the ATT&CK software.'}),
 
-                ('desc', ('str', {'strip': True}), {
+                ('desc', ('text', {'strip': True}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the ATT&CK software.'}),
 
@@ -1763,7 +1763,7 @@ modeldefs = (
                 ('matrix', ('it:mitre:attack:matrix', {}), {
                     'doc': 'The ATT&CK matrix which defines the mitigation.'}),
 
-                ('desc', ('str', {'strip': True}), {
+                ('desc', ('text', {'strip': True}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the ATT&CK mitigation.'}),
 
@@ -1785,7 +1785,7 @@ modeldefs = (
                 ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of alternate names for the ATT&CK campaign.'}),
 
-                ('desc', ('str', {'strip': True}), {
+                ('desc', ('text', {'strip': True}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the ATT&CK campaign.'}),
 
@@ -1847,7 +1847,7 @@ modeldefs = (
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the datasource.'}),
 
-                ('description', ('str', {}), {
+                ('description', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the datasource.'}),
 
@@ -1860,7 +1860,7 @@ modeldefs = (
                     'ro': True,
                     'doc': 'The name of the data component.'}),
 
-                ('description', ('str', {}), {
+                ('description', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the data component.'}),
 
@@ -1890,7 +1890,7 @@ modeldefs = (
                 ('name', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'The name of the repository.',
                 }),
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A free-form description of the repository.'}),
 
@@ -1951,7 +1951,7 @@ modeldefs = (
                 ('branch', ('it:dev:repo:branch', {}), {
                     'doc': 'The name of the branch the commit was made to.'}),
 
-                ('mesg', ('str', {}), {
+                ('mesg', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'The commit message describing the changes in the commit.'}),
 
@@ -1985,7 +1985,7 @@ modeldefs = (
                 ('title', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'The title of the issue.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'The text describing the issue.'}),
 
@@ -2007,7 +2007,7 @@ modeldefs = (
                 ('title', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'The human friendly name of the label.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'The description of the label.'}),
 
@@ -2026,7 +2026,7 @@ modeldefs = (
                 ('issue', ('it:dev:repo:issue', {}), {
                     'doc': 'The issue thread that the comment was made in.',
                 }),
-                ('text', ('str', {}), {
+                ('text', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'The body of the comment.',
                 }),
@@ -2046,7 +2046,7 @@ modeldefs = (
                 ('diff', ('it:dev:repo:diff', {}), {
                     'doc': 'The diff the comment is being added to.'}),
 
-                ('text', ('str', {}), {
+                ('text', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'The body of the comment.'}),
 
@@ -2078,7 +2078,7 @@ modeldefs = (
                 ('type', ('it:hardware:type:taxonomy', {}), {
                     'doc': 'The type of hardware.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A brief description of the hardware.'}),
 
@@ -2233,7 +2233,7 @@ modeldefs = (
                 ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'Observed/variant names for this software version.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the software.'}),
 

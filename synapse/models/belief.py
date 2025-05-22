@@ -24,7 +24,7 @@ modeldefs = (
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the belief system.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the belief system.'}),
 
@@ -43,7 +43,7 @@ modeldefs = (
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the tenet.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the tenet.'}),
             )),

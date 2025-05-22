@@ -110,7 +110,7 @@ modeldefs = (
                 ('type', ('proj:project:type:taxonomy', {}), {
                     'doc': 'The project type.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'The project description.'}),
 
