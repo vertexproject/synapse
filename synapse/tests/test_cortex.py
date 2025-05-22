@@ -5194,11 +5194,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
-            q = '''
-            [ file:bytes=({"sha256": "2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e"})
-                :mime:pe:compiled="1992/06/19 22:22:17.000000"
-            ]
-            -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)'''
+            q = '''[test:guid=(g0,) :tick="1992/06/19 22:22:17.000000"]
+            -(test:guid:size <= 16384 and test:guid:tick < 2014/01/01)'''
             self.len(1, await core.nodes(q))
 
     async def test_storm_filter(self):

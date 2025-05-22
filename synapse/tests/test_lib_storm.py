@@ -5281,8 +5281,8 @@ class StormTest(s_t_utils.SynTest):
             q = 'iden			Jul 17, 2019, 8:14:22 PM		10	 hostname'
             msgs = await core.stormlist(q)
             self.stormIsInWarn('Failed to decode iden: [Jul]', msgs)
-            self.stormIsInWarn('Failed to decode iden: [17, ]', msgs)
-            self.stormIsInWarn('Failed to decode iden: [2019, ]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [17,]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [2019,]', msgs)
             self.stormIsInWarn('Failed to decode iden: [8:14:22]', msgs)
             self.stormIsInWarn('Failed to decode iden: [PM]', msgs)
             self.stormIsInWarn('iden must be 32 bytes [10]', msgs)
