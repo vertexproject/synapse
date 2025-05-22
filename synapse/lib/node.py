@@ -181,7 +181,7 @@ class Node:
 
             if prop.modl.form(prop.type.name) is not None:
                 buid = s_common.buid((prop.type.name, valu))
-            elif prop.type.name == 'ndef':
+            elif prop.type.name == 'ndef' or 'ndef' in prop.type.info.get('bases'):
                 buid = s_common.buid(valu)
             else:
                 return None
