@@ -1146,7 +1146,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.eq(t.norm('00:00:00:00:00:00'), ('00:00:00:00:00:00', {}))
             self.eq(t.norm('FF:ff:FF:ff:FF:ff'), ('ff:ff:ff:ff:ff:ff', {}))
-            self.raises(s_exc.BadTypeValu, t.norm, ' FF:ff:FF:ff:FF:ff ')
+            self.eq(t.norm(' FF:ff:FF:ff:FF:ff'), ('ff:ff:ff:ff:ff:ff', {}))
             self.raises(s_exc.BadTypeValu, t.norm, 'GG:ff:FF:ff:FF:ff')
 
             # Form Tests ======================================================
@@ -1982,7 +1982,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[inet:user="cool User "]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:user', 'cool user '))
+            self.eq(node.ndef, ('inet:user', 'cool user'))
 
     async def test_whois_collection(self):
 

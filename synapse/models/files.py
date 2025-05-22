@@ -151,7 +151,10 @@ modeldefs = (
                         'doc': 'The file that the mime info was parsed from.'}),
 
                     ('file:offs', ('int', {}), {
-                        'doc': 'The optional offset where the mime info was parsed from.'}),
+                        'doc': 'The offset of the metadata within the file.'}),
+
+                    ('file:size', ('int', {}), {
+                        'doc': 'The size of the metadata within the file.'}),
 
                     ('file:data', ('data', {}), {
                         'doc': 'A mime specific arbitrary data structure for non-indexed data.'}),
@@ -247,19 +250,26 @@ modeldefs = (
                 'interfaces': (
                     ('file:mime:msoffice', {}),
                 ),
-                'doc': 'The GUID of a set of mime metadata for a Microsoft Word file.'}),
+                'doc': 'Metadata about a Microsoft Word file.'}),
 
             ('file:mime:msxls', ('guid', {}), {
                 'interfaces': (
                     ('file:mime:msoffice', {}),
                 ),
-                'doc': 'The GUID of a set of mime metadata for a Microsoft Excel file.'}),
+                'doc': 'Metadata about a Microsoft Excel file.'}),
 
             ('file:mime:msppt', ('guid', {}), {
                 'interfaces': (
                     ('file:mime:msoffice', {}),
                 ),
-                'doc': 'The GUID of a set of mime metadata for a Microsoft Powerpoint file.'}),
+                'doc': 'Metadata about a Microsoft Powerpoint file.'}),
+
+            ('file:mime:pe', ('guid', {}), {
+                'interfaces': (
+                    ('file:mime:meta', {}),
+                ),
+                'doc': 'Metadata about a Microsoft Portable Executable (PE) file.',
+            }),
 
             ('file:mime:rtf', ('guid', {}), {
                 'interfaces': (
@@ -291,34 +301,26 @@ modeldefs = (
                 ),
                 'doc': 'The GUID of a set of mime metadata for a .png file.'}),
 
-            ('file:mime:pe:section', ('comp', {'fields': (
-                    ('file', 'file:bytes'),
-                    ('name', 'str'),
-                    ('sha256', 'hash:sha256'),
-                )}), {
-                'doc': 'The fused knowledge a file:bytes node containing a pe section.'}),
+            ('file:mime:pe:section', ('guid', {}), {
+                'interfaces': (
+                    ('file:mime:meta', {}),
+                ),
+                'doc': 'A PE section contained in a file.'}),
 
-            ('file:mime:pe:resource', ('comp', {'fields': (
-                    ('file', 'file:bytes'),
-                    ('type', 'pe:resource:type'),
-                    ('langid', 'pe:langid'),
-                    ('resource', 'file:bytes'))}), {
-                'doc': 'The fused knowledge of a file:bytes node containing a pe resource.'}),
+            ('file:mime:pe:resource', ('guid', {}), {
+                'interfaces': (
+                    ('file:mime:meta', {}),
+                ),
+                'doc': 'A PE resource contained in a file.'}),
 
-            ('file:mime:pe:export', ('comp', {'fields': (
-                    ('file', 'file:bytes'),
-                    ('name', 'str'))}), {
-                'doc': 'The fused knowledge of a file:bytes node containing a pe named export.'}),
+            ('file:mime:pe:export', ('guid', {}), {
+                'interfaces': (
+                    ('file:mime:meta', {}),
+                ),
+                'doc': 'A named PE export contained in a file.'}),
 
-            ('file:mime:pe:vsvers:keyval', ('comp', {'fields': (
-                    ('name', 'str'),
-                    ('value', 'str'))}), {
-                'doc': 'A key value pair found in a PE vsversion info structure.'}),
-
-            ('file:mime:pe:vsvers:info', ('comp', {'fields': (
-                    ('file', 'file:bytes'),
-                    ('keyval', 'file:mime:pe:vsvers:keyval'))}), {
-                'doc': 'knowledge of a file:bytes node containing vsvers info.'}),
+            ('file:mime:pe:vsvers:keyval', ('comp', {'fields': (('name', 'str'), ('value', 'str'))}), {
+                'doc': 'A key value pair found in a PE VS_VERSIONINFO structure.'}),
 
             ('pe:resource:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
                 'doc': 'The typecode for the resource.'}),
@@ -381,41 +383,15 @@ modeldefs = (
                 ('mime', ('file:mime', {}), {
                     'doc': 'The "best" mime type name for the file.'}),
 
-                ('mimes', ('array', {'form': 'file:mime', 'sorted': True, 'uniq': True}), {
+                ('mimes', ('array', {'type': 'file:mime', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternate mime types for the file.'}),
 
-                # FIXME do we want to split some of these out into mime specific forms?
-                # OMG in there a "fileish" interface we should use?
-                ('mime:x509:cn', ('str', {}), {
-                    'doc': 'The Common Name (CN) attribute of the x509 Subject.'}),
+                # FIXME file:mime:exe interface?
+                # ('exe:compiler', ('it:software', {}), {
+                #     'doc': 'The software used to compile the file.'}),
 
-                ('mime:pe:size', ('int', {}), {
-                    'doc': 'The size of the executable file according to the PE file header.'}),
-
-                ('mime:pe:imphash', ('hash:md5', {}), {
-                    'doc': 'The PE import hash of the file as calculated by pefile; '
-                           'https://github.com/erocarrera/pefile .'}),
-
-                ('mime:pe:compiled', ('time', {}), {
-                    'doc': 'The compile time of the file according to the PE header.'}),
-
-                ('mime:pe:pdbpath', ('file:path', {}), {
-                    'doc': 'The PDB string according to the PE.'}),
-
-                ('mime:pe:exports:time', ('time', {}), {
-                    'doc': 'The export time of the file according to the PE.'}),
-
-                ('mime:pe:exports:libname', ('str', {}), {
-                    'doc': 'The export library name according to the PE.'}),
-
-                ('mime:pe:richhdr', ('hash:sha256', {}), {
-                    'doc': 'The sha256 hash of the rich header bytes.'}),
-
-                ('exe:compiler', ('it:software', {}), {
-                    'doc': 'The software used to compile the file.'}),
-
-                ('exe:packer', ('it:software', {}), {
-                    'doc': 'The packer software used to encode the file.'}),
+                # ('exe:packer', ('it:software', {}), {
+                #     'doc': 'The packer software used to encode the file.'}),
             )),
 
             ('file:mime', {}, ()),
@@ -434,70 +410,73 @@ modeldefs = (
                     'doc': 'The parsed GUID embedded in the .rtf file.'}),
             )),
 
+            ('file:mime:pe', {}, (
+
+                ('size', ('int', {}), {
+                    'doc': 'The size of the executable file according to the PE file header.'}),
+
+                ('imphash', ('hash:md5', {}), {
+                    'doc': 'The PE import hash of the file as calculated by pefile; '
+                           'https://github.com/erocarrera/pefile .'}),
+
+                ('richheader', ('hash:sha256', {}), {
+                    'doc': 'The sha256 hash of the rich header bytes.'}),
+
+                ('compiled', ('time', {}), {
+                    'doc': 'The PE compile time of the file.'}),
+
+                ('pdbpath', ('file:path', {}), {
+                    'doc': 'The PDB file path.'}),
+
+                ('exports:time', ('time', {}), {
+                    'doc': 'The export time of the file.'}),
+
+                ('exports:libname', ('str', {}), {
+                    'doc': 'The export library name according to the PE.'}),
+
+                ('versioninfo', ('array', {'type': 'file:mime:pe:vsvers:keyval', 'sorted': True, 'uniq': True}), {
+                    'doc': 'The VS_VERSIONINFO key/value data from the PE file.'}),
+            )),
+
             ('file:mime:pe:section', {}, (
-                ('file', ('file:bytes', {}), {
-                    'ro': True,
-                    'doc': 'The file containing the section.'}),
 
                 ('name', ('str', {}), {
-                    'ro': True,
                     'doc': 'The textual name of the section.'}),
 
                 ('sha256', ('hash:sha256', {}), {
-                    'ro': True,
                     'doc': 'The sha256 hash of the section. Relocations must be zeroed before hashing.'}),
             )),
 
             ('file:mime:pe:resource', {}, (
 
-                ('file', ('file:bytes', {}), {
-                    'ro': True,
-                    'doc': 'The file containing the resource.'}),
-
                 ('type', ('pe:resource:type', {}), {
-                    'ro': True,
                     'doc': 'The typecode for the resource.'}),
 
                 ('langid', ('pe:langid', {}), {
-                    'ro': True,
                     'doc': 'The language code for the resource.'}),
 
-                ('resource', ('file:bytes', {}), {
-                    'ro': True,
-                    'doc': 'The sha256 hash of the resource bytes.'}),
+                ('sha256', ('hash:sha256', {}), {
+                    'doc': 'The SHA256 hash of the resource bytes.'}),
             )),
 
             ('file:mime:pe:export', {}, (
 
-                ('file', ('file:bytes', {}), {
-                    'ro': True,
-                    'doc': 'The file containing the export.'}),
-
                 ('name', ('str', {}), {
-                    'ro': True,
                     'doc': 'The name of the export in the file.'}),
+
+                ('rva', ('int', {}), {
+                    'doc': 'The Relative Virtul Address of the exported function entry point.'}),
             )),
 
             ('file:mime:pe:vsvers:keyval', {}, (
 
                 ('name', ('str', {}), {
                     'ro': True,
-                    'doc': 'The key for the vsversion keyval pair.'}),
+                    'doc': 'The key for the VS_VERSIONINFO keyval pair.'}),
 
                 ('value', ('str', {}), {
                     'ro': True,
-                    'doc': 'The value for the vsversion keyval pair.'}),
-            )),
-
-            ('file:mime:pe:vsvers:info', {}, (
-
-                ('file', ('file:bytes', {}), {
-                    'ro': True,
-                    'doc': 'The file containing the vsversion keyval pair.'}),
-
-                ('keyval', ('file:mime:pe:vsvers:keyval', {}), {
-                    'ro': True,
-                    'doc': 'The vsversion info keyval in this file:bytes node.'}),
+                    'doc': 'The value for the VS_VERSIONINFO keyval pair.'}),
             )),
 
             ('file:base', {}, (

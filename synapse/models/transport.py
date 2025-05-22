@@ -431,30 +431,44 @@ modeldefs = (
                     'doc': 'The tail/registration number at the time the aircraft flew this flight.'}),
             )),
             ('transport:air:telem', {}, (
+
                 ('flight', ('transport:air:flight', {}), {
                     'doc': 'The flight being measured.'}),
+
                 ('latlong', ('geo:latlong', {}), {
                     'doc': 'The lat/lon of the aircraft at the time.'}),
+
                 ('loc', ('loc', {}), {
                     'doc': 'The location of the aircraft at the time.'}),
+
+                # FIXME geo:locatable
                 ('place', ('geo:place', {}), {
                     'doc': 'The place that the lat/lon geocodes to.'}),
+
                 ('accuracy', ('geo:dist', {}), {
                     'doc': 'The horizontal accuracy of the latlong sample.'}),
+
                 ('course', ('transport:direction', {}), {
                     'doc': 'The direction, in degrees from true North, that the aircraft is traveling.'}),
+
                 ('heading', ('transport:direction', {}), {
                     'doc': 'The direction, in degrees from true North, that the nose of the aircraft is pointed.'}),
+
                 ('speed', ('velocity', {}), {
                     'doc': 'The ground speed of the aircraft at the time.'}),
+
                 ('airspeed', ('velocity', {}), {
                     'doc': 'The air speed of the aircraft at the time.'}),
+
                 ('verticalspeed', ('velocity', {'relative': True}), {
                     'doc': 'The relative vertical speed of the aircraft at the time.'}),
+
                 ('altitude', ('geo:altitude', {}), {
                     'doc': 'The altitude of the aircraft at the time.'}),
+
                 ('altitude:accuracy', ('geo:dist', {}), {
                     'doc': 'The vertical accuracy of the altitude measurement.'}),
+
                 ('time', ('time', {}), {
                     'doc': 'The time the telemetry sample was taken.'})
             )),
@@ -470,9 +484,6 @@ modeldefs = (
 
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the vessel.'}),
-
-                ('beam', ('geo:dist', {}), {
-                    'doc': 'The official overall vessel beam.'}),
 
                 ('flag', ('iso:3166:cc', {}), {
                     'doc': 'The country the vessel is flagged to.'}),

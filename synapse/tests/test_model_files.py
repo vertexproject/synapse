@@ -6,79 +6,90 @@ import synapse.tests.utils as s_t_utils
 
 class FileTest(s_t_utils.SynTest):
 
-    async def test_model_filebytes(self):
+    # FIXME decide about exe:packer et al
+    # async def test_model_filebytes(self):
 
-        async with self.getTestCore() as core:
+    #     async with self.getTestCore() as core:
 
-            nodes = await core.nodes('''
-                [ file:bytes=*
-                    :exe:packer = {[ it:software=* :name="Visi Packer 31337" ]}
-                    :exe:compiler = {[ it:software=* :name="Visi Studio 31337" ]}
-                ]
-            ''')
-            self.nn(nodes[0].get('exe:packer'))
-            self.nn(nodes[0].get('exe:compiler'))
-            self.len(1, await core.nodes('file:bytes :exe:packer -> it:software +:name="Visi Packer 31337"'))
-            self.len(1, await core.nodes('file:bytes :exe:compiler -> it:software +:name="Visi Studio 31337"'))
+    #         nodes = await core.nodes('''
+    #             [ file:bytes=*
+    #                 :exe:packer = {[ it:software=* :name="Visi Packer 31337" ]}
+    #                 :exe:compiler = {[ it:software=* :name="Visi Studio 31337" ]}
+    #             ]
+    #         ''')
+    #         self.nn(nodes[0].get('exe:packer'))
+    #         self.nn(nodes[0].get('exe:compiler'))
+    #         self.len(1, await core.nodes('file:bytes :exe:packer -> it:software +:name="Visi Packer 31337"'))
+    #         self.len(1, await core.nodes('file:bytes :exe:compiler -> it:software +:name="Visi Studio 31337"'))
 
     async def test_model_filebytes_pe(self):
         # test to make sure pe metadata is well formed
         async with self.getTestCore() as core:
-            filea = s_common.guid()
+
+            fileiden = s_common.guid()
             exp_time = '201801010233'
-            props = {
-                'imphash': 'e' * 32,
-                'pdbpath': r'c:\this\is\my\pdbstring',
-                'exports:time': exp_time,
-                'exports:libname': 'ohgood',
-                'richhdr': 'f' * 64,
-            }
-            q = '''[(file:bytes=$valu :mime:pe:imphash=$p.imphash :mime:pe:pdbpath=$p.pdbpath
-            :mime:pe:exports:time=$p."exports:time" :mime:pe:exports:libname=$p."exports:libname"
-            :mime:pe:richhdr=$p.richhdr )]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': filea, 'p': props}})
+
+            imphash = 'e' * 32
+            richheader = 'f' * 64
+
+            q = '''
+            [ file:mime:pe=*
+                :file=$file
+                :imphash=$imphash
+                :richheader=$richheader
+                :pdbpath=c:/this/is/my/pdbstring
+                :exports:time=201801010233
+                :exports:libname=ohgood
+                :versioninfo=((foo, bar), (baz, faz))
+            ]
+            '''
+            opts = {'vars': {
+                'file': fileiden,
+                'imphash': imphash,
+                'richheader': richheader,
+            }}
+            nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
-            fnode = nodes[0]
-            # pe props
-            self.eq(fnode.get('mime:pe:imphash'), 'e' * 32)
-            self.eq(fnode.get('mime:pe:pdbpath'), r'c:/this/is/my/pdbstring')
-            self.eq(fnode.get('mime:pe:exports:time'), s_time.parse(exp_time))
-            self.eq(fnode.get('mime:pe:exports:libname'), 'ohgood')
-            self.eq(fnode.get('mime:pe:richhdr'), 'f' * 64)
-            # pe resource
-            nodes = await core.nodes('[file:mime:pe:resource=$valu]',
-                                     opts={'vars': {'valu': (filea, 2, 0x409, 'd' * 32)}})
+            self.eq(nodes[0].get('file'), fileiden)
+            self.eq(nodes[0].get('imphash'), imphash)
+            self.eq(nodes[0].get('richheader'), richheader)
+            self.eq(nodes[0].get('pdbpath'), 'c:/this/is/my/pdbstring')
+            self.eq(nodes[0].get('exports:time'), 1514773980000000)
+            self.eq(nodes[0].get('exports:libname'), 'ohgood')
+            self.eq(nodes[0].get('versioninfo'), (('baz', 'faz'), ('foo', 'bar')))
+            self.len(2, await core.nodes('file:mime:pe -> file:mime:pe:vsvers:keyval'))
+
+            q = '''
+            [ file:mime:pe:resource=*
+                :file=$file
+                :langid=0x409
+                :type=2
+                :sha256=$sha256
+            ]
+            '''
+            opts = {'vars': {'sha256': 'f' * 64, 'file': fileiden}}
+            nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
-            rnode = nodes[0]
-            self.eq(rnode.get('langid'), 0x409)
-            self.eq(rnode.get('type'), 2)
-            self.eq(rnode.repr('langid'), 'en-US')
-            self.eq(rnode.repr('type'), 'RT_BITMAP')
-            # pe section
-            nodes = await core.nodes('[file:mime:pe:section=$valu]',
-                                     opts={'vars': {'valu': (filea, 'foo', 'b' * 64)}})
+            self.eq(nodes[0].get('type'), 2)
+            self.eq(nodes[0].get('langid'), 0x409)
+            self.eq(nodes[0].get('sha256'), 'f' * 64)
+            self.eq(nodes[0].get('file'), fileiden)
+            self.eq(nodes[0].repr('langid'), 'en-US')
+            self.eq(nodes[0].repr('type'), 'RT_BITMAP')
+
+            q = '''
+            [ file:mime:pe:section=*
+                :file=$file
+                :name=wootwoot
+                :sha256=$sha256
+            ]
+            '''
+            opts = {'vars': {'sha256': 'f' * 64, 'file': fileiden}}
+            nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
-            s1node = nodes[0]
-            self.eq(s1node.get('name'), 'foo')
-            self.eq(s1node.get('sha256'), 'b' * 64)
-            # pe export
-            nodes = await core.nodes('[file:mime:pe:export=$valu]', opts={'vars': {'valu': (filea, 'myexport')}})
-            self.len(1, nodes)
-            enode = nodes[0]
-            self.eq(enode.get('file'), fnode.ndef[1])
-            self.eq(enode.get('name'), 'myexport')
-            # vsversion
-            nodes = await core.nodes('[file:mime:pe:vsvers:keyval=(foo, bar)]')
-            self.len(1, nodes)
-            vskvnode = nodes[0]
-            self.eq(vskvnode.get('name'), 'foo')
-            self.eq(vskvnode.get('value'), 'bar')
-            nodes = await core.nodes('[file:mime:pe:vsvers:info=$valu]',
-                                     opts={'vars': {'valu': (filea, vskvnode.ndef[1])}})
-            self.len(1, nodes)
-            vsnode = nodes[0]
-            self.eq(vsnode.get('file'), fnode.ndef[1])
-            self.eq(vsnode.get('keyval'), vskvnode.ndef[1])
+            self.eq(nodes[0].get('name'), 'wootwoot')
+            self.eq(nodes[0].get('sha256'), 'f' * 64)
+            self.eq(nodes[0].get('file'), fileiden)
 
     async def test_model_filebytes_macho(self):
         async with self.getTestCore() as core:

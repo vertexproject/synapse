@@ -47,7 +47,7 @@ class MediaModelTest(s_t_utils.SynTest):
             self.eq(node.get('url'), 'https://vertex.link/synapse')
             self.eq(node.get('url:fqdn'), 'vertex.link')
             self.eq(node.get('file'), file0)
-            self.eq(node.get('title'), 'synapse is awesome! ')
+            self.eq(node.get('title'), 'synapse is awesome!')
             self.eq(node.get('published'), 0)
             self.eq(node.get('updated'), 0)
             self.eq(node.get('publisher'), publisher)

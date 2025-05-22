@@ -1299,7 +1299,7 @@ modeldefs = (
                 'ex': '(1.2.3.4, 1.2.3.20)',
                 'doc': 'An IP address range.'}),
 
-            ('inet:passwd', ('str', {}), {
+            ('inet:passwd', ('str', {'strip': False}), {
                 'doc': 'A password string.'}),
 
             ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
@@ -1358,7 +1358,7 @@ modeldefs = (
             ('inet:wifi:ap', ('comp', {'fields': (('ssid', 'inet:wifi:ssid'), ('bssid', 'inet:mac'))}), {
                 'doc': 'An SSID/MAC address combination for a wireless access point.'}),
 
-            ('inet:wifi:ssid', ('str', {}), {
+            ('inet:wifi:ssid', ('str', {'strip': False}), {
                 'ex': 'The Vertex Project',
                 'doc': 'A WiFi service set identifier (SSID) name.'}),
 
@@ -2166,36 +2166,35 @@ modeldefs = (
                     'doc': 'The interface name.'}),
 
                 ('network', ('it:network', {}), {
-                    'doc': 'The guid of the it:network the interface connected to.'
-                }),
+                    'doc': 'The guid of the it:network the interface connected to.'}),
+
                 ('type', ('inet:iface:type:taxonomy', {}), {
-                    'doc': 'The interface type.'
-                }),
+                    'doc': 'The interface type.'}),
+
                 ('mac', ('inet:mac', {}), {
-                    'doc': 'The ethernet (MAC) address of the interface.'
-                }),
+                    'doc': 'The ethernet (MAC) address of the interface.'}),
+
                 ('ip', ('inet:ip', {}), {
                     'doc': 'The IP address of the interface.',
                     'prevnames': ('ipv4', 'ipv6')}),
 
                 ('phone', ('tel:phone', {}), {
-                    'doc': 'The telephone number of the interface.'
-                }),
+                    'doc': 'The telephone number of the interface.'}),
+
                 ('wifi:ap:ssid', ('inet:wifi:ssid', {}), {
-                    'doc': 'The SSID of the wifi AP the interface connected to.'
-                }),
+                    'doc': 'The SSID of the wifi AP the interface connected to.'}),
+
                 ('wifi:ap:bssid', ('inet:mac', {}), {
-                    'doc': 'The BSSID of the wifi AP the interface connected to.'
-                }),
+                    'doc': 'The BSSID of the wifi AP the interface connected to.'}),
+
                 ('adid', ('it:adid', {}), {
-                    'doc': 'An advertising ID associated with the interface.',
-                }),
+                    'doc': 'An advertising ID associated with the interface.'}),
+
                 ('mob:imei', ('tel:mob:imei', {}), {
-                    'doc': 'The IMEI of the interface.'
-                }),
+                    'doc': 'The IMEI of the interface.'}),
+
                 ('mob:imsi', ('tel:mob:imsi', {}), {
-                    'doc': 'The IMSI of the interface.'
-                }),
+                    'doc': 'The IMSI of the interface.'}),
             )),
 
             ('inet:ip', {
@@ -2473,25 +2472,25 @@ modeldefs = (
             )),
 
             ('inet:whois:ipquery', {}, (
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the request was made.'
-                }),
+                    'doc': 'The time the request was made.'}),
+
                 ('url', ('inet:url', {}), {
-                    'doc': 'The query URL when using the HTTP RDAP Protocol.'
-                }),
+                    'doc': 'The query URL when using the HTTP RDAP Protocol.'}),
+
                 ('fqdn', ('inet:fqdn', {}), {
-                    'doc': 'The FQDN of the host server when using the legacy WHOIS Protocol.'
-                }),
+                    'doc': 'The FQDN of the host server when using the legacy WHOIS Protocol.'}),
+
                 ('ip', ('inet:ip', {}), {
                     'doc': 'The IP address queried.',
                     'prevnames': ('ipv4', 'ipv6')}),
 
                 ('success', ('bool', {}), {
-                    'doc': 'Whether the host returned a valid response for the query.'
-                }),
+                    'doc': 'Whether the host returned a valid response for the query.'}),
+
                 ('rec', ('inet:whois:iprecord', {}), {
-                    'doc': 'The resulting record from the query.'
-                }),
+                    'doc': 'The resulting record from the query.'}),
             )),
 
             ('inet:whois:iprecord', {}, (

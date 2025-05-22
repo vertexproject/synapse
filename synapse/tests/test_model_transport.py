@@ -78,7 +78,6 @@ class TransportTest(s_test.SynTest):
                     :imo="IMO 1234567"
                     :built=2020
                     :model="Speed Boat 9000"
-                    :beam=10m
                     :operator={[ entity:contact=* ]}
                 ]'''))[0]
             self.eq('123456789', vessel.get('mmsi'))
@@ -88,7 +87,6 @@ class TransportTest(s_test.SynTest):
             self.eq('us', vessel.get('flag'))
             self.eq('imo1234567', vessel.get('imo'))
             self.eq(1577836800000000, vessel.get('built'))
-            self.eq(10000, vessel.get('beam'))
             self.nn(vessel.get('operator'))
 
             self.len(1, await core.nodes('transport:sea:vessel:imo^="IMO 123"'))

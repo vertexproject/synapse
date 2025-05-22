@@ -16,7 +16,6 @@ modeldefs = (
                     'doc': 'The org with the Internet Content Provider ID.',
                 }),
             )),
-            # TODO - Add 'org' as a secondary property to mcud?
             ('gov:cn:mucd', {}, ()),
         )
     }),
@@ -33,7 +32,6 @@ modeldefs = (
         ),
 
         'forms': (
-            # FIXME ?
             ('iso:oid', {}, (
                 ('descr', ('str', {}), {
                     'doc': 'A description of the value or meaning of the OID.'}),

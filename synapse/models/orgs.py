@@ -392,6 +392,7 @@ modeldefs = (
 
             ('ou:opening', {}, (
 
+                # FIXME threat actors have openings too?
                 ('org', ('ou:org', {}), {
                     'doc': 'The org which has the opening.'}),
 
