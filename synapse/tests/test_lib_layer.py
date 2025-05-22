@@ -1062,6 +1062,16 @@ class LayerTest(s_t_utils.SynTest):
 
             await hastombs(opts=viewopts2)
 
+            q = 'for $edge in $lib.layer.get().getEdgeTombstones() { $lib.print($edge) }'
+            msgs = await core.stormlist(q, opts=viewopts2)
+            self.stormIsInPrint("(0, '_bar', 6)", msgs)
+            self.stormIsInPrint("(7, '_foo', 0)", msgs)
+
+            q = 'for $edge in $lib.layer.get().getEdgeTombstones(_bar) { $lib.print($edge) }'
+            msgs = await core.stormlist(q, opts=viewopts2)
+            self.stormIsInPrint("(0, '_bar', 6)", msgs)
+            self.stormNotInPrint("(7, '_foo', 0)", msgs)
+
             await view2.merge()
             await checkempty()
             await notombs()
