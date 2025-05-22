@@ -1455,59 +1455,46 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('version'), 0x10000200003)
             self.eq(nodes[0].get('matched'), 1420070400000000)
 
-    async def test_it_reveng(self):
+    async def test_it_function(self):
 
         async with self.getTestCore() as core:
 
-            baseFile = s_common.guid()
-            func = s_common.guid()
-            fva = 0x404438
-            rank = 33
-            complexity = 60
-            funccalls = ((baseFile, func), )
-            fopt = {'vars': {'file': baseFile,
-                             'func': func,
-                             'fva': fva,
-                             'rank': rank,
-                             'cmplx': complexity,
-                             'funccalls': funccalls}}
-            vstr = 'VertexBrandArtisanalBinaries'
-            sopt = {'vars': {'func': func,
-                             'string': vstr}}
-            name = "FunkyFunction"
-            descrp = "Test Function"
-            impcalls = ("libr.foo", "libr.foo2", "libr.foo3")
-            funcopt = {'vars': {'name': name,
-                                'descrp': descrp,
-                                'impcalls': impcalls}}
+            fileiden = s_common.guid()
 
-            fnode = await core.nodes('[it:reveng:filefunc=($file, $func) :va=$fva :rank=$rank :complexity=$cmplx :funccalls=$funccalls]', opts=fopt)
-            self.len(1, fnode)
-            self.eq(baseFile, fnode[0].get('file'))
-            self.eq(fva, fnode[0].get('va'))
-            self.eq(rank, fnode[0].get('rank'))
-            self.eq(complexity, fnode[0].get('complexity'))
-            self.eq((baseFile, func), fnode[0].get('funccalls')[0])
+            q = '''[
+                it:dev:function=*
+                    :id=ZIP10
+                    :name=woot_woot
+                    :description="Woot woot"
+                    :strings=(foo, bar, foo)
+                    :impcalls=(foo, bar, foo)
+            ]'''
 
-            funcnode = await core.nodes('''
-                it:reveng:function [
-                    :name=$name
-                    :description=$descrp
-                    :impcalls=$impcalls
-                    :strings=(bar,foo,foo)
-            ]''', opts=funcopt)
-            self.len(1, funcnode)
-            self.eq(name, funcnode[0].get('name'))
-            self.eq(descrp, funcnode[0].get('description'))
-            self.len(len(impcalls), funcnode[0].get('impcalls'))
-            self.eq(impcalls[0], funcnode[0].get('impcalls')[0])
-            self.sorteq(('bar', 'foo'), funcnode[0].get('strings'))
+            opts = {'vars': {'file': fileiden}}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('id'), 'ZIP10')
+            self.eq(nodes[0].get('name'), 'woot_woot')
+            self.eq(nodes[0].get('description'), 'Woot woot')
+            self.eq(nodes[0].get('strings'), ('bar', 'foo'))
+            self.eq(nodes[0].get('impcalls'), ('bar', 'foo'))
+            self.len(1, await core.nodes('it:dev:function :name -> it:dev:str'))
+            self.len(2, await core.nodes('it:dev:function :strings -> it:dev:str'))
+            self.len(2, await core.nodes('it:dev:function :impcalls -> it:dev:str'))
 
-            nodes = await core.nodes('it:reveng:function -> it:dev:str')
-            self.len(2, nodes)
-
-            nodes = await core.nodes(f'file:bytes={baseFile} -> it:reveng:filefunc -> it:reveng:function -> it:reveng:impfunc')
-            self.len(len(impcalls), nodes)
+            q = '''[
+                it:dev:function:sample=*
+                    :file=*
+                    :function={ it:dev:function }
+                    :va=0x404438
+                    :calls=(*, *)
+            ]'''
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('va'), 0x404438)
+            self.len(1, await core.nodes('it:dev:function:sample:va=0x404438 -> file:bytes'))
+            self.len(1, await core.nodes('it:dev:function:sample:va=0x404438 -> it:dev:function'))
+            self.len(2, await core.nodes('it:dev:function:sample:va=0x404438 :calls -> it:dev:function:sample'))
 
     async def test_infotech_cpes(self):
 

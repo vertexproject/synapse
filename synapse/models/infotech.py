@@ -722,16 +722,8 @@ modeldefs = (
             ('it:mitre:attack:flow', ('guid', {}), {
                 'doc': 'A MITRE ATT&CK Flow diagram.'}),
 
-            ('it:dev:str', ('str', {}), {
+            ('it:dev:str', ('str', {'strip': False}), {
                 'doc': 'A developer selected string.'}),
-
-            # FIXME unify to it:dev:str?
-            ('it:dev:pipe', ('str', {}), {
-                'doc': 'A string representing a named pipe.'}),
-
-            # FIXME unify to it:dev:str?
-            ('it:dev:mutex', ('str', {}), {
-                'doc': 'A string representing a mutex.'}),
 
             ('it:dev:int', ('int', {}), {
                 'doc': 'A developer selected integer constant.'}),
@@ -1036,14 +1028,14 @@ modeldefs = (
                 'doc': 'An ndef type which is limited to forms which snort rules can match.'}),
 
             # FIXME refactor
-            ('it:reveng:function', ('guid', {}), {
-                'doc': 'A function inside an executable.'}),
+            ('it:dev:function', ('guid', {}), {
+                'doc': 'A function inside an executable file.'}),
 
-            ('it:reveng:filefunc', ('comp', {'fields': (('file', 'file:bytes'), ('function', 'it:reveng:function'))}), {
+            ('it:dev:function:sample', ('guid', {}), {
+                'interfaces': (
+                    ('file:mime:meta', {}),
+                ),
                 'doc': 'An instance of a function in an executable.'}),
-
-            ('it:reveng:impfunc', ('str', {'lower': True}), {
-                'doc': 'A function from an imported library.'}),
 
             ('it:sec:c2:config', ('guid', {}), {
                 'doc': 'An extracted C2 config from an executable.'}),
@@ -1876,10 +1868,8 @@ modeldefs = (
                     'ro': True,
                     'doc': 'The datasource this data component belongs to.'}),
             )),
+
             ('it:dev:int', {}, ()),
-            # FIXME revisit pipes/mutexes
-            ('it:dev:pipe', {}, ()),
-            ('it:dev:mutex', {}, ()),
             ('it:dev:regkey', {}, ()),
             ('it:dev:regval', {}, (
 
@@ -2574,7 +2564,7 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time the mutex was created.'}),
 
-                ('name', ('it:dev:mutex', {}), {
+                ('name', ('it:dev:str', {}), {
                     'doc': 'The mutex string.'}),
 
                 ('sandbox:file', ('file:bytes', {}), {
@@ -2594,7 +2584,7 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time the named pipe was created.'}),
 
-                ('name', ('it:dev:pipe', {}), {
+                ('name', ('it:dev:str', {}), {
                     'doc': 'The named pipe string.'}),
 
                 ('sandbox:file', ('file:bytes', {}), {
@@ -2909,41 +2899,49 @@ modeldefs = (
                     'doc': 'The node which matched the YARA rule.'}),
             )),
 
-            # FIXME it:dev:function
-            ('it:reveng:function', {}, (
-                ('name', ('str', {}), {
+            ('it:dev:function', {}, (
+
+                ('id', ('meta:id', {}), {
+                    'doc': 'An identifier for the function.'}),
+
+                ('name', ('it:dev:str', {}), {
                     'doc': 'The name of the function.'}),
+
                 ('description', ('str', {}), {
-                    'doc': 'Notes concerning the function.'}),
-                ('impcalls', ('array', {'type': 'it:reveng:impfunc', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Calls to imported library functions within the scope of the function.',
-                }),
-                ('strings', ('array', {'type': 'it:dev:str', 'uniq': True}), {
-                    'doc': 'An array of strings referenced within the function.',
-                }),
+                    'doc': 'A description of the function.'}),
+
+                ('impcalls', ('array', {
+                        'type': 'it:dev:str',
+                        'typeopts': {'lower': True},
+                        'uniq': True, 'sorted': True}), {
+                    'doc': 'Calls to imported library functions within the scope of the function.'}),
+
+                ('strings', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of strings referenced within the function.'}),
             )),
 
-            # it:dev:codefile?
-            ('it:reveng:filefunc', {}, (
-                ('function', ('it:reveng:function', {}), {
-                    'ro': True,
-                    'doc': 'The guid matching the function.'}),
+            ('it:dev:function:sample', {}, (
+
                 ('file', ('file:bytes', {}), {
-                    'ro': True,
-                    'doc': 'The file that contains the function.'}),
+                    'doc': 'The file which contains the function.'}),
+
+                ('function', ('it:dev:function', {}), {
+                    'doc': 'The function contained within the file.'}),
+
                 ('va', ('int', {}), {
                     'doc': 'The virtual address of the first codeblock of the function.'}),
-                ('rank', ('int', {}), {
-                    'doc': 'The function rank score used to evaluate if it exhibits interesting behavior.'}),
-                ('complexity', ('int', {}), {
-                    'doc': 'The complexity of the function.'}),
-                ('funccalls', ('array', {'type': 'it:reveng:filefunc', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Other function calls within the scope of the function.',
-                }),
-            )),
 
-            # FIXME rename
-            ('it:reveng:impfunc', {}, ()),
+                # FIXME discuss where these belong...
+                # ('rank', ('int', {}), {
+                #     'doc': 'The function rank score used to evaluate if it exhibits interesting behavior.'}),
+
+                # meta:complexity?
+                # ('complexity', ('int', {}), {
+                #     'doc': 'The complexity of the function.'}),
+
+                ('calls', ('array', {'type': 'it:dev:function:sample', 'uniq': True, 'sorted': True}), {
+                    'doc': 'Other function calls within the scope of the function.'}),
+            )),
 
             ('it:sec:c2:config', {}, (
 
@@ -2968,9 +2966,10 @@ modeldefs = (
                 ('dns:resolvers', ('array', {'type': 'inet:server'}), {
                     'doc': 'An array of inet:servers to use when resolving DNS names.'}),
 
-                ('mutex', ('it:dev:mutex', {}), {
+                ('mutex', ('it:dev:str', {}), {
                     'doc': 'The mutex that the software uses to prevent multiple-installations.'}),
 
+                # FIXME meta:id?
                 ('campaigncode', ('it:dev:str', {}), {
                     'doc': 'The operator selected string used to identify the campaign or group of targets.'}),
 
@@ -2990,15 +2989,5 @@ modeldefs = (
                     'doc': 'An array of HTTP headers that the sample should transmit to the C2 server.'}),
             )),
         ),
-        # 'hooks': {
-        #     'post': {
-        #         'forms': (
-        #             ('it:dev:str', _onFormItDevStr),
-        #         ),
-        #         'props': (
-        #             ('it:software:vers', _onPropSoftverVers),
-        #         ),
-        #     }
-        # },
     }),
 )
