@@ -76,13 +76,6 @@ class AhaTest(s_test.SynTest):
                     self.len(ahacount + 1, serv0)
                     self.eq(serv0, serv1)
 
-                    # ensure some basic functionality is being properly mirrored
-
-                    #cabyts = await aha0.genCaCert('mirrorca')
-                    #await aha1.sync()
-                    #mirbyts = await aha1.genCaCert('mirrorca')
-                    #self.eq(cabyts, mirbyts)
-
                     iden = s_common.guid()
                     online = s_common.guid()
                     # Adding, downing, and removing service is also nexusified
@@ -145,8 +138,6 @@ class AhaTest(s_test.SynTest):
                     replaymult = 2
 
                 purl = await aha.addAhaSvcProv('0.cryo')
-
-                #wait00 = aha.waiter(1 * replaymult, 'aha:svc:add')
 
                 conf = {'aha:provision': purl}
                 async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
@@ -272,13 +263,6 @@ class AhaTest(s_test.SynTest):
                     self.len(2, svcs)
                     names = [s['name'] for s in svcs]
                     self.sorteq(('cryo.synapse', '0.cryo.synapse'), names)
-
-                    #self.none(await ahaproxy.getCaCert('vertex.link'))
-                    #cacert0 = await ahaproxy.genCaCert('vertex.link')
-                    #cacert1 = await ahaproxy.genCaCert('vertex.link')
-                    #self.nn(cacert0)
-                    #self.eq(cacert0, cacert1)
-                    #self.eq(cacert0, await ahaproxy.getCaCert('vertex.link'))
 
                     csrpem = cryo.certdir.genHostCsr('cryo.vertex.link').decode()
 
@@ -760,7 +744,7 @@ class AhaTest(s_test.SynTest):
                         self.false(axon3.isactive)
                         self.eq('aha://root@axon...', axon03.conf.get('mirror'))
 
-                        retn, outp = await self.execToolMain(s_a_list._main, [aha.getLocalUrl()])
+                        retn, outp = await self.execToolMain(s_a_list.main, [aha.getLocalUrl()])
                         self.eq(retn, 0)
                         outp.expect('Service network leader', whitespace=False)
                         outp.expect('00.axon synapse true', whitespace=False)

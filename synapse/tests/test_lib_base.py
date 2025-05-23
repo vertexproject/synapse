@@ -86,6 +86,11 @@ class BaseTest(s_t_utils.SynTest):
             await Hehe.anit(-1)
         self.eq(cm.exception.get('mesg'), 'boom')
 
+        if __debug__:
+            with self.raises(AssertionError) as cm:
+                Hehe()
+            self.eq(str(cm.exception), 'Objects from Base must be constructed solely via "anit"')
+
     async def test_coro_fini(self):
 
         event = asyncio.Event()

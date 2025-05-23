@@ -174,6 +174,14 @@ Examples:
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
 '''
 
+viewdeldescr = '''
+Delete a view from the cortex.
+
+Notes:
+    Deleting a view with the `view.del` command does not delete any of the layers in the view.
+    To delete layers, you must use the `layer.del` command separately.
+'''
+
 wgetdescr = '''Retrieve bytes from a URL and store them in the axon. Yields inet:urlfile nodes.
 
 Examples:
@@ -642,7 +650,7 @@ stormcmds = (
     },
     {
         'name': 'view.del',
-        'descr': 'Delete a view from the cortex.',
+        'descr': viewdeldescr,
         'cmdargs': (
             ('iden', {'help': 'Iden of the view to delete.'}),
         ),
@@ -786,8 +794,8 @@ stormcmds = (
             $edits = $lib.copy($cmdopts)
             $edits.help = $lib.undef
             $edits.iden = $lib.undef
-            $cdef = $lib.trigger.mod($iden, $edits)
-            $lib.print(`Modified trigger: {$cdef.iden}`)
+            $iden = $lib.trigger.mod($iden, $edits)
+            $lib.print(`Modified trigger: {$iden}`)
         ''',
     },
     {
@@ -2112,7 +2120,7 @@ class Runtime(s_base.Base):
                     continue
 
                 if len(nodes) == 1:
-                    mesg = 'Ambiguous value for single node lookup: {propname}^={valu}'
+                    mesg = f'Ambiguous value for single node lookup: {propname}{cmpr}{valu}'
                     raise s_exc.StormRuntimeError(mesg=mesg)
 
                 nodes.append(node)

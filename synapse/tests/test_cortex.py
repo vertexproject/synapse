@@ -146,12 +146,12 @@ class CortexTest(s_t_utils.SynTest):
                         self.false((await core01.getCellInfo())['cell']['uplink'])
                         # Note: The following mirror may change when SYN-7659 is addressed and greater
                         # control over the topology update is available during the promotion process.
-                        self.eq((await core00.getCellInfo())['cell']['mirror'], 'aha://01.cortex.synapse')
+                        self.eq((await core00.getCellInfo())['cell']['mirror'], 'aha://root@cortex...')
                         self.none((await core01.getCellInfo())['cell']['mirror'])
 
                         mods00 = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
                         mods01 = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
-                        self.eq(mods00, {'mirror': 'aha://01.cortex.synapse'})
+                        self.eq(mods00, {'mirror': 'aha://root@cortex...'})
                         self.eq(mods01, {'mirror': None})
 
                         await core00.nodes('[inet:ip=5.5.5.5]')
@@ -4538,6 +4538,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(0, await core1.nodes('test:int=8 -#newtag.1234'))
 
             core1.view.layers[0].readonly = True
+            data = [(('test:int', 8), {'tags': {'test.1235': (None, None)}})]
             await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData(data))
 
             await core1.nodes('model.deprecated.lock test:deprform:deprprop2')
@@ -7918,7 +7919,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     dirn01 = s_common.genpath(dirn, 'cell01')
 
                     core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
-                    provinfo = {'mirror': '00.core'}
+                    provinfo = {'mirror': 'core'}
                     core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01, provinfo=provinfo))
 
                     self.len(1, await core00.nodes('[inet:asn=0]'))

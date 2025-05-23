@@ -1,5 +1,6 @@
 import gc
 import os
+import sys
 import atexit
 import signal
 import asyncio
@@ -82,7 +83,7 @@ class Base:
     '''
     def __init__(self):
         self.anitted = False
-        assert inspect.stack()[1].function == 'anit', 'Objects from Base must be constructed solely via "anit"'
+        assert sys._getframe(1).f_code.co_name == 'anit', 'Objects from Base must be constructed solely via "anit"'
 
     @classmethod
     async def anit(cls, *args, **kwargs):
@@ -129,7 +130,6 @@ class Base:
         self.isfini = False
         self.anitted = True  # For assertion purposes
         self.finievt = asyncio.Event()
-        self.entered = False
 
         # hold a weak ref to other bases we should fini if they
         # are still around when we go down...
@@ -205,7 +205,6 @@ class Base:
 
     async def __aenter__(self):
         assert asyncio.get_running_loop() == self.loop
-        self.entered = True
         return self
 
     async def __aexit__(self, exc, cls, tb):

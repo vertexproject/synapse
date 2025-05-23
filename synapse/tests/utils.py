@@ -4,18 +4,18 @@ This contains the core test helper code used in Synapse.
 This gives the opportunity for third-party users of Synapse to test their
 code using some of the same helpers used to test Synapse.
 
-The core class, synapse.tests.utils.SynTest is a subclass of unittest.TestCase,
-with several wrapper functions to allow for easier calls to assert* functions,
-with less typing.  There are also Synapse specific helpers, to load Cortexes and
-whole both multi-component environments into memory.
+The core class, synapse.tests.utils.SynTest is a subclass of
+unittest.IsolatedAsyncioTestCase, with several wrapper functions to allow for
+easier calls to assert* functions, with less typing. There are also Synapse
+specific helpers, to load Cortexes and whole multi-component environments.
 
-Since SynTest is built from unittest.TestCase, the use of SynTest is
-compatible with the unittest, nose and pytest frameworks.  This does not lock
-users into a particular test framework; while at the same time allowing base
-use to be invoked via the built-in Unittest library, with one important exception:
-due to an unfortunate design approach, you cannot use the unittest module command
-line to run a *single* async unit test.  pytest works fine though.
-
+Since SynTest is built from unittest.IsolatedAsyncioTestCase, the use of
+SynTest is compatible with the unittest and pytest frameworks.  This does not
+lock users into a particular test framework; while at the same time allowing
+base use to be invoked via the built-in Unittest library. Customizations made
+using the various setup and teardown helpers available on
+``IsolatedAsyncioTestCase`` should first review our docstrings for any methods
+we have overridden.
 '''
 import io
 import os
@@ -81,6 +81,16 @@ logging.getLogger('vcr').setLevel(logging.ERROR)
 
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
+
+_SYN_ASYNCIO_DEBUG = False
+# Check if DEBUG mode was set https://docs.python.org/3/library/asyncio-dev.html#debug-mode
+if (s_common.envbool('PYTHONASYNCIODEBUG') or s_common.envbool('PYTHONDEVMODE') or sys.flags.dev_mode):  # pragma: no cover
+    _SYN_ASYNCIO_DEBUG = True
+
+# Number of times to sleep when tearing down tests with active bg tasks, in order to
+# allow background tasks to tear down cleanly.
+_SYNDEV_TASK_BG_ITER = int(os.getenv('SYNDEV_BG_TASK_ITER', 12))
+assert _SYNDEV_TASK_BG_ITER >= 0, f'SYNDEV_BG_TASK_ITER must be >=0, got {_SYNDEV_TASK_BG_ITER}'
 
 async def alist(coro):
     return [x async for x in coro]
@@ -926,26 +936,60 @@ class ReloadCell(s_cell.Cell):
 
         self.addReloadableSystem('badreload', func)
 
-class SynTest(unittest.TestCase):
+class SynTest(unittest.IsolatedAsyncioTestCase):
     '''
-    Wrap all async test methods with s_glob.sync.
+    Synapse test base class.
 
-    Note:
-        This precludes running a single unit test via path using the unittest module.
+    This is a subclass of unittest.IsolatedAsyncioTestCase.
+
+    For performance reasons, the ioloop used to execute tests is not run in debug mode
+    by default. A test runner or implementor can use regular Python asyncio environment
+    variables or command line switches to enable asyncio debug mode.
     '''
-    def __init__(self, *args, **kwargs):
-        unittest.TestCase.__init__(self, *args, **kwargs)
+    def _setupAsyncioRunner(self):
+        assert self._asyncioRunner is None, 'asyncio runner is already initialized'
+        runner = asyncio.Runner(debug=_SYN_ASYNCIO_DEBUG, loop_factory=self.loop_factory)
+        self._asyncioRunner = runner
 
-        def synchelp(f):
-            def wrap(*args, **kwargs):
-                return s_glob.sync(f(*args, **kwargs))
-            return wrap
+    async def _syn_task_check(self):
+        '''
+        Log warnings for unfinished synapse background tasks & unclosed asyncio tasks.
+        These messages likely indicate unclosed resources from test methods.
+        '''
+        # We may have bg_tasks that are tearing down. If so, give them a few cycles to run before checking
+        # and reporting on them. The most common task here would be Telepath.Proxy._finiAllLinks.
+        if s_coro.bgtasks:
+            for _ in range(_SYNDEV_TASK_BG_ITER):
+                await asyncio.sleep(0)
+        all_tasks = asyncio.all_tasks()
+        for task in s_coro.bgtasks:
+            logger.warning(f'Unfinished Synapse background task, this may indicate unclosed resources: {task}')
+            if task in all_tasks:
+                all_tasks.remove(task)
+        for task in all_tasks:
+            if getattr(task.get_coro(), '__name__', '') == '_syn_task_check':
+                continue
+            logger.warning(f'Unfinished asyncio task, this may indicate unclosed resources: {task}')
 
-        for s in dir(self):
-            attr = getattr(self, s, None)
-            # If s is an instance method and starts with 'test_', synchelp wrap it
-            if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
-                setattr(self, s, synchelp(attr))
+    def setUp(self):
+        '''
+        Test setup method. This is called prior to asyncSetUp.
+
+        This registers a cleanup handler to clear any cached data about IOLoop references.
+        This registers an async cleanup handler to warn about unfinished asyncio tasks.
+
+        Implementors who define their own ``setUp`` method should also call this first via ``super()``.
+
+        Examples:
+
+            Setup a custom synchronous resource::
+
+                def teardown():
+                    super().setUp()
+                    self.my_sync_resource = Foo()
+        '''
+        self.addAsyncCleanup(self._syn_task_check)
+        self.addCleanup(s_glob._clearGlobals)
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
@@ -2089,7 +2133,6 @@ class SynTest(unittest.TestCase):
         Assert that the length of an object is equal to X
         '''
         gtyps = (
-            s_coro.GenrHelp,
             s_telepath.Genr,
             s_telepath.GenrIter,
             types.GeneratorType)

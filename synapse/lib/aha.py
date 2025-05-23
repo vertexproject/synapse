@@ -162,7 +162,6 @@ class AhaApi(s_cell.CellApi):
         Args:
             network (str): Optionally specify a network to filter on.
         '''
-        #await self._reqUserAllowed(('aha', 'service', 'get'))
         async for info in self.cell.getAhaSvcs():
             yield info
 
@@ -234,7 +233,6 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.delAhaSvc(name)
 
     async def getCaCert(self):
-        #await self._reqUserAllowed(('aha', 'ca', 'get'))
         return await self.cell.getCaCert()
 
     async def signHostCsr(self, csrtext, *, sans=None):
@@ -592,7 +590,7 @@ class AhaCell(s_cell.Cell):
             if s_common.flatten(server) == s_common.flatten(oldv):
                 return False
 
-        self.slab.put(lkey, s_msgpack.en(server), db='aha:servers')
+        await self.slab.put(lkey, s_msgpack.en(server), db='aha:servers')
 
         return True
 
@@ -1002,7 +1000,7 @@ class AhaCell(s_cell.Cell):
     def _savePoolInfo(self, poolinfo):
         s_schemas.reqValidAhaPoolDef(poolinfo)
         name = poolinfo.get('name')
-        self.slab.put(name.encode(), s_msgpack.en(poolinfo), db='aha:pools')
+        self.slab._put(name.encode(), s_msgpack.en(poolinfo), db='aha:pools')
 
     def _loadPoolInfo(self, name):
         byts = self.slab.get(name.encode(), db='aha:pools')
@@ -1342,11 +1340,6 @@ class AhaCell(s_cell.Cell):
 
     async def getAhaUrls(self, user='root'):
 
-        # for backward compat...
-        #urls = self.conf.get('aha:urls')
-        #if urls is not None:
-            #return urls
-
         network = self.conf.req('aha:network')
 
         urls = []
@@ -1400,7 +1393,7 @@ class AhaCell(s_cell.Cell):
     async def _addAhaClone(self, clone):
         iden = clone.get('iden')
         lkey = s_common.uhex(iden)
-        self.slab.put(lkey, s_msgpack.en(clone), db='aha:clones')
+        await self.slab.put(lkey, s_msgpack.en(clone), db='aha:clones')
 
     async def addAhaSvcProv(self, name, provinfo=None):
 
@@ -1509,7 +1502,7 @@ class AhaCell(s_cell.Cell):
     @s_nexus.Pusher.onPush('aha:svc:prov:add')
     async def _addAhaSvcProv(self, provinfo):
         iden = provinfo.get('iden')
-        self.slab.put(iden.encode(), s_msgpack.en(provinfo), db='aha:provs')
+        await self.slab.put(iden.encode(), s_msgpack.en(provinfo), db='aha:provs')
         return iden
 
     @s_nexus.Pusher.onPushAuto('aha:svc:prov:clear')
@@ -1586,7 +1579,7 @@ class AhaCell(s_cell.Cell):
     @s_nexus.Pusher.onPush('aha:enroll:add')
     async def _addAhaUserEnroll(self, userinfo):
         iden = userinfo.get('iden')
-        self.slab.put(iden.encode(), s_msgpack.en(userinfo), db='aha:enrolls')
+        await self.slab.put(iden.encode(), s_msgpack.en(userinfo), db='aha:enrolls')
         return iden
 
     @s_nexus.Pusher.onPushAuto('aha:enroll:del')
