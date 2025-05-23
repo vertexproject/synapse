@@ -1396,15 +1396,12 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:action', ('guid', {}), {
                         'deprecated': True,
-                        # DISCUSS - What is the appropriate inet:service analog for this generic guid form?
-                        'doc': 'An instance of an account performing an action at an Internet-based site or service.'
+                        'doc': 'Deprecated. Please use inet:service:access.',
                     }),
 
                     ('inet:web:chprofile', ('guid', {}), {
                         'deprecated': True,
-                        # DISCUSS - This is really an overfit case of inet:web:action ?
-                        'doc': 'A change to a web account. Used to capture historical properties associated with '
-                               ' an account, as opposed to current data in the inet:web:acct node.'
+                        'doc': 'Deprecated. Please use inet:service:access.',
                     }),
 
                     ('inet:web:file', ('comp', {'fields': (('acct', 'inet:web:acct'), ('file', 'file:bytes'))}), {
