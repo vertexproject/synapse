@@ -2410,6 +2410,9 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.IsReadOnly(mesg=mesg)
 
         for nodedefn in nodedefs:
+            if isinstance(nodedefn, dict):
+                continue
+
             node = await self._addNodeDef(nodedefn, user=user, runt=runt)
             if node is not None:
                 yield node
