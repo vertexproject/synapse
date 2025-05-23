@@ -651,9 +651,10 @@ class Hex(Type):
 
     def postTypeInit(self):
         self._size = self.opts.get('size')
+        self._zeropad = self.opts.get('zeropad')
 
         # This is for backward compat with v2.142.x where zeropad was a bool
-        self._zeropad = self.opts.get('zeropad')
+        # TODO: Remove this compat check in 3xx
         if isinstance(self._zeropad, bool):
             if self._zeropad:
                 self._zeropad = self._size
@@ -678,6 +679,7 @@ class Hex(Type):
         if self._size:
             self._zeropad = min(self._zeropad, self._size)
 
+        self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(bytes, self._normPyBytes)
         self.storlifts.update({
@@ -685,7 +687,7 @@ class Hex(Type):
             '^=': self._storLiftPref,
         })
 
-    def _preNormHex(self, text):
+    def _preNormHexStr(self, text):
         text = text.strip().lower()
         if text.startswith('0x'):
             text = text[2:]
@@ -694,7 +696,7 @@ class Hex(Type):
     def _storLiftEq(self, cmpr, valu):
 
         if isinstance(valu, str):
-            valu = self._preNormHex(valu)
+            valu = self._preNormHexStr(valu)
             if valu.endswith('*'):
                 return (
                     ('^=', valu[:-1], self.stortype),
@@ -703,25 +705,56 @@ class Hex(Type):
         return self._storLiftNorm(cmpr, valu)
 
     def _storLiftPref(self, cmpr, valu):
-        valu = self._preNormHex(valu)
+        if isinstance(valu, int):
+            valu = hex(self._preNormHexInt(valu)[0])
+
+        valu = self._preNormHexStr(valu)
         return (
             ('^=', valu, self.stortype),
         )
 
-    def _normPyStr(self, valu):
-        valu = valu.strip().lower()
-        if valu.startswith('0x'):
-            valu = valu[2:]
+    def _preNormHexInt(self, valu):
+        if valu >= 0:
+            return valu, '0'
 
-        valu = valu.replace(' ', '').replace(':', '')
+        if not (bits := self._size or self._zeropad):
+            mesg = 'Negative integer conversion requires size or zeropad options.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu, name=self.name)
+
+        if not self._zeropad and self._size and len(self._preNormHexStr(hex(abs(valu)))) != self._size:
+            raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,
+                                    mesg='Invalid width.')
+
+        # Change from nibbles to bits
+        bits *= 4
+
+        if bits < valu.bit_length():
+            mesg = 'Value is too large for specified width.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu, maxbits=bits,
+                                    bits=valu.bit_length(), name=self.name)
+
+        mask = int('1' * bits, 2)
+        valu = valu & mask
+
+        return valu, 'f'
+
+    def _normPyInt(self, valu):
+        valu, fillchar = self._preNormHexInt(valu)
+        return self._normPyStr(hex(valu), fillchar=fillchar)
+
+    def _normPyStr(self, valu, fillchar='0'):
+        valu = self._preNormHexStr(valu)
+
+        if len(valu) % 2 != 0:
+            valu = f'{fillchar}{valu}'
 
         if not valu:
-            raise s_exc.BadTypeValu(valu=valu, name='hex',
-                                    mesg='No string left after stripping')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='No string left after stripping.')
 
         if self._zeropad and len(valu) < self._zeropad:
             padlen = self._zeropad - len(valu)
-            valu = ('0' * padlen) + valu
+            valu = (fillchar * padlen) + valu
 
         try:
             # checks for valid hex width and does character
@@ -732,7 +765,7 @@ class Hex(Type):
 
         if self._size and len(valu) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,
-                                    mesg='invalid width')
+                                    mesg='Invalid width.')
         return valu, {}
 
     def _normPyBytes(self, valu):
