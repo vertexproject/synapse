@@ -1,0 +1,6 @@
+---
+desc: '- Removed the readonly attribute from the ``ou:conference:event:conference``
+  property.'
+prs: []
+type: model
+...
