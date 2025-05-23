@@ -19,7 +19,7 @@ class ProtoNode(s_node.NodeBase):
     '''
     A prototype node used for staging node adds using a NodeEditor.
     '''
-    def __init__(self, editor, buid, form, valu, node, norminfo):
+    def __init__(self, editor, buid, form, valu, node, norminfo, overwrite=False):
         self.editor = editor
         self.model = editor.view.core.model
         self.form = form
@@ -27,6 +27,7 @@ class ProtoNode(s_node.NodeBase):
         self.buid = buid
         self.node = node
         self.virts = norminfo.get('virts') if norminfo is not None else None
+        self.overwrite = overwrite
 
         self.meta = {}
         self.tags = {}
@@ -118,6 +119,10 @@ class ProtoNode(s_node.NodeBase):
 
         edits = []
 
+        propedit, tagedit = (s_layer.EDIT_PROP_SET, s_layer.EDIT_TAG_SET)
+        if self.overwrite:
+            propedit, tagedit = (s_layer.EDIT_PROP_OVERWRITE, s_layer.EDIT_TAG_OVERWRITE)
+
         if not self.node or not self.node.hasvalu():
             edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype, self.virts)))
 
@@ -126,7 +131,7 @@ class ProtoNode(s_node.NodeBase):
 
         for name, valu in self.props.items():
             prop = self.form.props.get(name)
-            edits.append((s_layer.EDIT_PROP_SET, (name, valu[0], None, prop.type.stortype, valu[1])))
+            edits.append((propedit, (name, valu[0], None, prop.type.stortype, valu[1])))
 
         for name in self.propdels:
             prop = self.form.props.get(name)
@@ -136,7 +141,7 @@ class ProtoNode(s_node.NodeBase):
             edits.append((s_layer.EDIT_PROP_TOMB, (name,)))
 
         for name, valu in self.tags.items():
-            edits.append((s_layer.EDIT_TAG_SET, (name, valu, None)))
+            edits.append((tagedit, (name, valu, None)))
 
         for name in sorted(self.tagdels, key=lambda t: len(t), reverse=True):
             edits.append((s_layer.EDIT_TAG_DEL, (name, None)))
@@ -455,7 +460,7 @@ class ProtoNode(s_node.NodeBase):
         if self.node is not None:
             return self.node.getTag(tag, defval=defval)
 
-    async def addTag(self, tag, valu=(None, None), tagnode=None):
+    async def addTag(self, tag, valu=(None, None), norminfo=None, tagnode=None):
 
         if tagnode is None:
             tagnode = await self._getRealTag(tag)
@@ -463,7 +468,7 @@ class ProtoNode(s_node.NodeBase):
         if isinstance(valu, list):
             valu = tuple(valu)
 
-        if valu != (None, None):
+        if norminfo is None and valu != (None, None):
             try:
                 valu, _ = self.model.type('ival').norm(valu)
             except s_exc.BadTypeValu as e:
@@ -482,7 +487,9 @@ class ProtoNode(s_node.NodeBase):
             self.tags[tagnode.valu] = valu
             return tagnode
 
-        valu = s_time.ival(*valu, *curv)
+        if not self.overwrite:
+            valu = s_time.ival(*valu, *curv)
+
         self.tags[tagnode.valu] = valu
         self.tagdels.discard(tagnode.valu)
         self.tagtombs.discard(tagnode.valu)
@@ -730,7 +737,7 @@ class ProtoNode(s_node.NodeBase):
         self.meta[name] = valu
         return True
 
-    async def _set(self, prop, valu, norminfo=None, ignore_ro=False):
+    async def _set(self, prop, valu, norminfo=None):
 
         if prop.locked:
             raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.', prop=prop.full)
@@ -760,7 +767,7 @@ class ProtoNode(s_node.NodeBase):
         if curv == (valu, virts):
             return False
 
-        if not ignore_ro and prop.info.get('ro') and curv[0] is not None:
+        if prop.info.get('ro') and curv[0] is not None:
             raise s_exc.ReadOnlyProp(mesg=f'Property is read only: {prop.full}.')
 
         if self.node is not None:
@@ -772,12 +779,12 @@ class ProtoNode(s_node.NodeBase):
 
         return valu, norminfo
 
-    async def set(self, name, valu, norminfo=None, ignore_ro=False):
+    async def set(self, name, valu, norminfo=None):
         prop = self.form.props.get(name)
         if prop is None:
             raise s_exc.NoSuchProp(mesg=f'No property named {name} on form {self.form.name}.')
 
-        retn = await self._set(prop, valu, norminfo=norminfo, ignore_ro=ignore_ro)
+        retn = await self._set(prop, valu, norminfo=norminfo)
         if retn is False:
             return False
 
@@ -994,11 +1001,11 @@ class NodeEditor:
 
         return ops
 
-    def loadNode(self, node):
+    def loadNode(self, node, overwrite=False):
         protonode = self.protonodes.get(node.ndef)
         if protonode is None:
             norminfo = node.valuvirts()
-            protonode = ProtoNode(self, node.buid, node.form, node.ndef[1], node, norminfo)
+            protonode = ProtoNode(self, node.buid, node.form, node.ndef[1], node, norminfo, overwrite=overwrite)
             self.protonodes[node.ndef] = protonode
         return protonode
 

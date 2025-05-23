@@ -401,14 +401,13 @@ class Node(NodeBase):
 
         return retn
 
-    async def set(self, name, valu, init=False, norminfo=None):
+    async def set(self, name, valu, norminfo=None, overwrite=False):
         '''
         Set a property on the node.
 
         Args:
             name (str): The name of the property.
             valu (obj): The value of the property.
-            init (bool): Set to True to disable read-only enforcement
 
         Returns:
             (bool): True if the property was changed.
@@ -417,7 +416,7 @@ class Node(NodeBase):
             mesg = 'Cannot set property in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        async with self.view.getNodeEditor(self) as editor:
+        async with self.view.getNodeEditor(self, overwrite=overwrite) as editor:
             return await editor.set(name, valu, norminfo=norminfo)
 
     def has(self, name, virts=None):
@@ -615,7 +614,7 @@ class Node(NodeBase):
 
         return False
 
-    async def pop(self, name, init=False):
+    async def pop(self, name):
         '''
         Remove a property from a node and return the value
         '''
@@ -811,7 +810,7 @@ class Node(NodeBase):
 
         return dict(retn)
 
-    async def addTag(self, tag, valu=(None, None)):
+    async def addTag(self, tag, valu=(None, None), norminfo=None, overwrite=False):
         '''
         Add a tag to a node.
 
@@ -823,10 +822,10 @@ class Node(NodeBase):
         Returns:
             None: This returns None.
         '''
-        async with self.view.getNodeEditor(self) as protonode:
+        async with self.view.getNodeEditor(self, overwrite=overwrite) as protonode:
             await protonode.addTag(tag, valu=valu)
 
-    async def delTag(self, tag, init=False):
+    async def delTag(self, tag):
         '''
         Delete a tag from the node.
         '''
@@ -1109,16 +1108,16 @@ class RuntNode(NodeBase):
             valu = virt((valu,))
         return valu
 
-    async def set(self, name, valu):
+    async def set(self, name, valu, overwrite=False):
         prop = self._reqValidProp(name)
         norm = prop.type.norm(valu)[0]
         return await self.view.core.runRuntPropSet(self, prop, norm)
 
-    async def pop(self, name, init=False):
+    async def pop(self, name):
         prop = self._reqValidProp(name)
         return await self.view.core.runRuntPropDel(self, prop)
 
-    async def addTag(self, name, valu=None):
+    async def addTag(self, name, valu=None, norminfo=None, overwrite=False):
         mesg = f'You can not add a tag to a runtime only node (form: {self.form.name})'
         raise s_exc.IsRuntForm(mesg=mesg)
 

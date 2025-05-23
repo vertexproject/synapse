@@ -312,7 +312,7 @@ class View(s_nexus.Pusher):  # type: ignore
         return saveoff, nodeedits
 
     @contextlib.asynccontextmanager
-    async def getNodeEditor(self, node, runt=None, transaction=False, user=None):
+    async def getNodeEditor(self, node, runt=None, transaction=False, user=None, overwrite=False):
 
         if node.form.isrunt:
             mesg = f'Cannot edit runt nodes: {node.form.name}.'
@@ -329,7 +329,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         errs = False
         editor = s_editor.NodeEditor(self, user)
-        protonode = editor.loadNode(node)
+        protonode = editor.loadNode(node, overwrite=overwrite)
 
         try:
             yield protonode
