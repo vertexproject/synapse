@@ -1,6 +1,0 @@
----
-desc: Fixed the documentation for ``$node.data.list()`` to specify that it returns (name, value)
-  tuples, not just names.
-prs: []
-type: doc
-...
