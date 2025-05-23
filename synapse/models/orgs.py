@@ -1241,7 +1241,6 @@ class OuModule(s_module.CoreModule):
                  )),
                 ('ou:conference:event', {}, (
                     ('conference', ('ou:conference', {}), {
-                        'ro': True,
                         'doc': 'The conference to which the event is associated.',
                     }),
                     ('organizer', ('ps:contact', {}), {
