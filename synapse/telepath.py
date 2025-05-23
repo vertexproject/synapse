@@ -364,25 +364,6 @@ class Share(s_base.Base):
         setattr(self, name, meth)
         return meth
 
-    def __enter__(self):
-        '''
-        Convenience function to enable using Proxy objects as synchronous context managers.
-
-        Note:
-            This should never be used by synapse core code.  This is for sync client code convenience only.
-        '''
-        if s_threads.iden() == self.tid:
-            raise s_exc.SynErr(mesg='Use of synchronous context manager in async code')
-
-        self._ctxobj = self.schedCoroSafePend(self.__aenter__())
-        return self
-
-    def __exit__(self, *args):
-        '''
-        This should never be used by synapse core code.  This is for sync client code convenience only.
-        '''
-        return self.schedCoroSafePend(self._ctxobj.__aexit__(*args))
-
 class Genr(Share):
 
     async def __anit__(self, proxy, iden):
@@ -408,21 +389,6 @@ class Genr(Share):
 
         finally:
             await self.fini()
-
-    def __iter__(self):
-
-        try:
-            while not self.isfini:
-
-                for retn in s_glob.sync(self.queue.slice()):
-
-                    if retn is None:
-                        return
-
-                    yield s_common.result(retn)
-
-        finally:
-            s_glob.sync(self.fini())
 
 sharetypes = {
     'share': Share,
@@ -467,11 +433,6 @@ class GenrIter:
         async for item in genr:
             yield item
             await asyncio.sleep(0)
-
-    def __iter__(self):
-        genr = s_glob.sync(self.proxy.task(self.todo, name=self.share))
-        for item in genr:
-            yield item
 
 class GenrMethod(Method):
 
@@ -696,25 +657,6 @@ class Proxy(s_base.Base):
 
         self.links.append(link)
 
-    def __enter__(self):
-        '''
-        Convenience function to enable using Proxy objects as synchronous context managers.
-
-        Note:
-            This must not be used from async code, and it should never be used in core synapse code.
-        '''
-        if s_threads.iden() == self.tid:
-            raise s_exc.SynErr(mesg='Use of synchronous context manager in async code')
-        self._ctxobj = self.schedCoroSafePend(self.__aenter__())
-        return self
-
-    def __exit__(self, *args):
-        '''
-        Note:
-            This should never be used by core synapse code.
-        '''
-        return self.schedCoroSafePend(self._ctxobj.__aexit__(*args))
-
     async def _onShareFini(self, mesg):
 
         iden = mesg[1].get('share')
@@ -810,7 +752,7 @@ class Proxy(s_base.Base):
                     # TODO: devise a tx/rx strategy to recover these links...
                     await link.fini()
 
-            return s_coro.GenrHelp(genrloop())
+            return genrloop()
 
         if mesg[0] == 't2:share':
             iden = mesg[1].get('iden')

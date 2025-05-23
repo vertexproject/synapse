@@ -55,7 +55,7 @@ class BackupTest(s_t_utils.SynTest):
                 slabpath = s_common.gendir(dirn, 'tmp', 'test.lmdb')
                 async with await s_lmdbslab.Slab.anit(slabpath) as slab:
                     foo = slab.initdb('foo')
-                    slab.put(b'\x00\x01', b'hehe', db=foo)
+                    await slab.put(b'\x00\x01', b'hehe', db=foo)
 
             with self.getTestDir() as dirn2:
 

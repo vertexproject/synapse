@@ -66,7 +66,7 @@ class Hist:
         if tick is None:
             tick = s_common.now()
         lkey = tick.to_bytes(8, 'big')
-        self.slab.put(lkey, s_msgpack.en(item), dupdata=True, db=self.db)
+        self.slab._put(lkey, s_msgpack.en(item), dupdata=True, db=self.db)
 
     def carve(self, tick, tock=None):
 
@@ -141,7 +141,7 @@ class SlabDict:
         '''
         byts = s_msgpack.en(valu)
         lkey = self.pref + name.encode('utf8')
-        self.slab.put(lkey, byts, db=self.db)
+        self.slab._put(lkey, byts, db=self.db)
         self.info[name] = valu
         return valu
 
@@ -230,7 +230,7 @@ class SafeKeyVal:
 
         name = self.reqValidName(name)
 
-        self.slab.put(name, s_msgpack.en(valu), db=self.valudb)
+        self.slab._put(name, s_msgpack.en(valu), db=self.valudb)
         return valu
 
     def pop(self, name, defv=None):
@@ -363,8 +363,8 @@ class SlabAbrv:
 
         self.offs += 1
 
-        self.slab.put(byts, abrv, db=self.name2abrv)
-        self.slab.put(abrv, realbyts, db=self.abrv2name)
+        self.slab._put(byts, abrv, db=self.name2abrv)
+        self.slab._put(abrv, realbyts, db=self.abrv2name)
 
         return abrv
 
@@ -647,7 +647,7 @@ class MultiQueue(s_base.Base):
 
         for item in items:
 
-            putv = self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata)
+            putv = await self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata)
             assert putv, 'Put failed'
 
             self.sizes.inc(name, 1)
@@ -759,20 +759,18 @@ class MultiQueue(s_base.Base):
             indx = s_common.int64en(offs)
 
             if offs >= self.offsets.get(name, 0):
-                self.slab.put(abrv + indx, s_msgpack.en(item), db=self.qdata)
+                await self.slab.put(abrv + indx, s_msgpack.en(item), db=self.qdata)
                 offs = self.offsets.set(name, offs + 1)
                 self.sizes.inc(name, 1)
                 wake = True
             else:
                 byts = self.slab.get(abrv + indx, db=self.qdata)
-                self.slab.put(abrv + indx, s_msgpack.en(item), db=self.qdata)
+                await self.slab.put(abrv + indx, s_msgpack.en(item), db=self.qdata)
 
                 if byts is None:
                     self.sizes.inc(name, 1)
 
                 offs += 1
-
-            await asyncio.sleep(0)
 
         if wake:
             evnt = self.waiters.get(name)
@@ -807,7 +805,7 @@ class GuidStor:
     def set(self, iden, name, valu):
         bidn = s_common.uhex(iden)
         byts = s_msgpack.en(valu)
-        self.slab.put(bidn + name.encode(), byts, db=self.db)
+        self.slab._put(bidn + name.encode(), byts, db=self.db)
 
     async def dict(self, iden):
         bidn = s_common.uhex(iden)
@@ -1018,7 +1016,7 @@ class Slab(s_base.Base):
     def __repr__(self):
         return 'Slab: %r' % (self.path,)
 
-    async def trash(self):
+    async def trash(self, ignore_errors=True):
         '''
         Deletes underlying storage
         '''
@@ -1029,7 +1027,11 @@ class Slab(s_base.Base):
         except FileNotFoundError:  # pragma: no cover
             pass
 
-        shutil.rmtree(self.path, ignore_errors=True)
+        try:
+            shutil.rmtree(self.path, ignore_errors=ignore_errors)
+        except Exception as e:
+            mesg = f'Failed to trash slab: {self.path}'
+            raise s_exc.BadCoreStore(mesg=mesg, path=self.path) from e
 
     async def getHotCount(self, name):
         item = await HotCount.anit(self, name)
@@ -1713,8 +1715,13 @@ class Slab(s_base.Base):
     def delete(self, lkey, val=None, db=None):
         return self._xact_action(self.delete, lmdb.Transaction.delete, lkey, val, db=db)
 
-    def put(self, lkey, lval, dupdata=False, overwrite=True, append=False, db=None):
-        return self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, overwrite=overwrite,
+    async def put(self, lkey, lval, dupdata=False, overwrite=True, append=False, db=None):
+        ret = self._put(lkey, lval, dupdata, overwrite, append, db)
+        await asyncio.sleep(0)
+        return ret
+
+    def _put(self, lkey, lval, dupdata=False, overwrite=True, append=False, db=None):
+        return self._xact_action(self._put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, overwrite=overwrite,
                                  append=append, db=db)
 
     def replace(self, lkey, lval, db=None):
