@@ -1,3 +1,4 @@
+import os
 import csv
 import struct
 import asyncio
@@ -810,8 +811,11 @@ class Axon(s_cell.Cell):
 
     async def initServiceStorage(self):  # type: ignore
 
-        path = s_common.gendir(self.dirn, 'axon.lmdb')
+        path = s_common.gendir(self.dirn, 'axon_v2.lmdb')
         self.axonslab = await s_lmdbslab.Slab.anit(path)
+
+        await self._migrateAxonHistory()
+
         self.sizes = self.axonslab.initdb('sizes')
         self.onfini(self.axonslab.fini)
 
@@ -890,6 +894,38 @@ class Axon(s_cell.Cell):
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
 
+    async def _migrateAxonHistory(self):
+        oldpath = s_common.genpath(self.dirn, 'axon.lmdb')
+        if not os.path.isdir(oldpath):
+            return
+
+        logger.warning('Migrating Axon history')
+
+        async with await s_lmdbslab.Slab.anit(oldpath, readonly=True) as oldslab:
+
+            for name in ['sizes', 'axonseqn', 'metrics']:
+                if oldslab.dbexists(name):
+                    oldslab.initdb(name)
+                    await oldslab.copydb(name, self.axonslab, name)
+
+            oldhist = s_lmdbslab.Hist(oldslab, 'history')
+            newhist = s_lmdbslab.Hist(self.axonslab, 'history')
+            migrated = 0
+            for tick, item in oldhist.carve(0):
+                newtick = tick * 1000
+                newhist.add(item, tick=newtick)
+                migrated += 1
+            logger.warning(f"Migrated {migrated} history rows")
+
+            self.axonslab.forcecommit()
+
+            try:
+                await oldslab.trash(ignore_errors=False)
+            except s_exc.BadCoreStore as e:
+                raise
+
+        logger.warning('...Axon history migration complete!')
+
     async def _initBlobStor(self):
 
         self.byterange = True
@@ -919,8 +955,6 @@ class Axon(s_cell.Cell):
         # TODO: need LMDB to support getting value size without getting value
         for lkey, byts in self.blobslab.scanByFull(db=self.blobs):
 
-            await asyncio.sleep(0)
-
             blobsha = lkey[:32]
 
             if blobsha != cursha:
@@ -929,7 +963,7 @@ class Axon(s_cell.Cell):
 
             offs += len(byts)
 
-            self.blobslab.put(cursha + offs.to_bytes(8, 'big'), lkey[32:], db=self.offsets)
+            await self.blobslab.put(cursha + offs.to_bytes(8, 'big'), lkey[32:], db=self.offsets)
 
         return self._setStorVers(1)
 
@@ -940,7 +974,7 @@ class Axon(s_cell.Cell):
         return int.from_bytes(byts, 'big')
 
     def _setStorVers(self, version):
-        self.blobslab.put(b'version', version.to_bytes(8, 'big'), db=self.metadata)
+        self.blobslab._put(b'version', version.to_bytes(8, 'big'), db=self.metadata)
         return version
 
     def _initAxonHttpApi(self):
@@ -1254,7 +1288,7 @@ class Axon(s_cell.Cell):
         self.axonmetrics.inc('file:count')
         self.axonmetrics.inc('size:bytes', valu=size)
 
-        self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
+        await self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
         return True
 
     async def _saveFileGenr(self, sha256, genr, size):
@@ -1276,8 +1310,8 @@ class Axon(s_cell.Cell):
         ikey = indx.to_bytes(8, 'big')
         okey = offs.to_bytes(8, 'big')
 
-        self.blobslab.put(sha256 + ikey, byts, db=self.blobs)
-        self.blobslab.put(sha256 + okey, ikey, db=self.offsets)
+        await self.blobslab.put(sha256 + ikey, byts, db=self.blobs)
+        await self.blobslab.put(sha256 + okey, ikey, db=self.offsets)
 
     def _offsToIndx(self, sha256, offs):
         lkey = sha256 + offs.to_bytes(8, 'big')

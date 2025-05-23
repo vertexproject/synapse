@@ -2034,21 +2034,21 @@ class Layer(s_nexus.Pusher):
         modlprop = self.core.model.prop(f'{form}:{prop}')
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
         for indx in self.stortypes[modlprop.type.stortype].indx(valu):
-            self.layrslab.put(abrv + indx, nid, db=self.indxdb)
+            self.layrslab._put(abrv + indx, nid, db=self.indxdb)
             self.indxcounts.inc(abrv)
 
     def _testAddPropArrayIndx(self, nid, form, prop, valu):
         modlprop = self.core.model.prop(f'{form}:{prop}')
         abrv = self.core.setIndxAbrv(INDX_ARRAY, form, prop)
         for indx in self.getStorIndx(modlprop.type.stortype, valu):
-            self.layrslab.put(abrv + indx, nid, db=self.indxdb)
+            self.layrslab._put(abrv + indx, nid, db=self.indxdb)
             self.indxcounts.inc(abrv)
 
     def _testAddTagIndx(self, nid, form, tag):
         tagabrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
         tagformabrv = self.core.setIndxAbrv(INDX_TAG, form, tag)
-        self.layrslab.put(tagabrv, nid, db=self.indxdb)
-        self.layrslab.put(tagformabrv, nid, db=self.indxdb)
+        self.layrslab._put(tagabrv, nid, db=self.indxdb)
+        self.layrslab._put(tagformabrv, nid, db=self.indxdb)
         self.indxcounts.inc(tagabrv)
         self.indxcounts.inc(tagformabrv)
 
@@ -2058,8 +2058,8 @@ class Layer(s_nexus.Pusher):
 
         tagprop = self.core.model.tagprop(prop)
         for indx in self.stortypes[tagprop.type.stortype].indx(valu):
-            self.layrslab.put(tpabrv + indx, nid, db=self.indxdb)
-            self.layrslab.put(ftpabrv + indx, nid, db=self.indxdb)
+            self.layrslab._put(tpabrv + indx, nid, db=self.indxdb)
+            self.layrslab._put(ftpabrv + indx, nid, db=self.indxdb)
             self.indxcounts.inc(tpabrv)
             self.indxcounts.inc(ftpabrv)
 
@@ -4487,8 +4487,8 @@ class Layer(s_nexus.Pusher):
         name, valu, oldv = edit[1]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
 
-        self.dataslab.put(nid + abrv + FLAG_NORM, s_msgpack.en(valu), db=self.nodedata)
-        self.dataslab.put(abrv + FLAG_NORM, nid, db=self.dataname)
+        await self.dataslab.put(nid + abrv + FLAG_NORM, s_msgpack.en(valu), db=self.nodedata)
+        await self.dataslab.put(abrv + FLAG_NORM, nid, db=self.dataname)
 
         if oldv is None and self.dataslab.delete(abrv + FLAG_TOMB, nid, db=self.dataname):
             self.dataslab.delete(nid + abrv + FLAG_TOMB, db=self.nodedata)
@@ -4518,10 +4518,10 @@ class Layer(s_nexus.Pusher):
         name = edit[1][0]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
 
-        if not self.dataslab.put(abrv + FLAG_TOMB, nid, db=self.dataname, overwrite=False):
+        if not await self.dataslab.put(abrv + FLAG_TOMB, nid, db=self.dataname, overwrite=False):
             return ()
 
-        self.dataslab.put(nid + abrv + FLAG_TOMB, s_msgpack.en(None), db=self.nodedata)
+        await self.dataslab.put(nid + abrv + FLAG_TOMB, s_msgpack.en(None), db=self.nodedata)
         self.dirty[nid] = sode
 
         kvpairs = [(INDX_TOMB + abrv, nid)]
@@ -4659,7 +4659,7 @@ class Layer(s_nexus.Pusher):
 
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
-        if not self.layrslab.put(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb, overwrite=False):
+        if not await self.layrslab.put(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb, overwrite=False):
             return ()
 
         n2sode = self._genStorNode(n2nid)
@@ -4676,6 +4676,8 @@ class Layer(s_nexus.Pusher):
             (self.edgen2abrv + n2nid + vabrv + FLAG_TOMB, nid),
             (self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv)
         ]
+
+        self.indxcounts.inc(INDX_TOMB + vabrv)
 
         if sode.get('form') is None:
             sode['form'] = form
@@ -4716,6 +4718,8 @@ class Layer(s_nexus.Pusher):
         else:
             sode['n1antiverbs'][verb] = newvalu
             self.dirty[nid] = sode
+
+        self.indxcounts.inc(INDX_TOMB + vabrv, -1)
 
         n2sode = self._genStorNode(n2nid)
         newvalu = n2sode['n2antiverbs'].get(verb, 0) - 1
@@ -5070,9 +5074,37 @@ class Layer(s_nexus.Pusher):
             yield abrv, lkey[-1:] == FLAG_TOMB
 
     async def iterPropTombstones(self, form, prop):
-        abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
+        try:
+            abrv = self.core.getIndxAbrv(INDX_PROP, form, prop)
+        except s_exc.NoSuchAbrv:
+            return
+
         for _, nid in self.layrslab.scanByPref(INDX_TOMB + abrv, db=self.indxdb):
             yield nid
+
+    async def iterEdgeTombstones(self, verb=None):
+        if verb is not None:
+            try:
+                abrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
+            except s_exc.NoSuchAbrv:
+                return
+
+            for lkey in self.layrslab.scanKeysByPref(INDX_TOMB + abrv, db=self.indxdb):
+                n1nid = s_common.int64un(lkey[10:18])
+                for _, n2nid in self.layrslab.scanByDups(lkey, db=self.indxdb):
+                    yield (n1nid, verb, s_common.int64un(n2nid))
+            return
+
+        for byts, abrv in self.core.indxabrv.iterByPref(INDX_EDGE_VERB):
+            if self.indxcounts.get(INDX_TOMB + abrv) == 0:
+                continue
+
+            verb = s_msgpack.un(byts[2:])[0]
+
+            for lkey in self.layrslab.scanKeysByPref(INDX_TOMB + abrv, db=self.indxdb):
+                n1nid = s_common.int64un(lkey[10:18])
+                for _, n2nid in self.layrslab.scanByDups(lkey, db=self.indxdb):
+                    yield (n1nid, verb, s_common.int64un(n2nid))
 
     async def iterTombstones(self):
 
@@ -5084,12 +5116,12 @@ class Layer(s_nexus.Pusher):
             if tombtype == INDX_EDGE_VERB:
                 n1nid = lkey[10:18]
 
-                for _, n2nid in self.layrslab.scanByPref(lkey, db=self.indxdb):
+                for _, n2nid in self.layrslab.scanByDups(lkey, db=self.indxdb):
                     yield (n1nid, tombtype, (tombinfo[0], n2nid))
 
             else:
 
-                for _, nid in self.layrslab.scanByPref(lkey, db=self.indxdb):
+                for _, nid in self.layrslab.scanByDups(lkey, db=self.indxdb):
                     yield (nid, tombtype, tombinfo)
 
     async def confirmLayerEditPerms(self, user, gateiden, delete=False):
