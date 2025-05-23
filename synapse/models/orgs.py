@@ -509,8 +509,7 @@ modeldefs = (
                 ('type', ('ou:goal:type:taxonomy', {}), {
                     'doc': 'A type taxonomy entry for the goal.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the goal.'}),
             )),
             ('ou:campaign:type:taxonomy', {
@@ -569,8 +568,7 @@ modeldefs = (
                     'doc': 'The campaign type taxonomy.',
                     'prevnames': ('camptype',)}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the campaign.'}),
 
                 ('period', ('ival', {}), {
@@ -655,8 +653,7 @@ modeldefs = (
                 ('sophistication', ('meta:sophistication', {}), {
                     'doc': 'The assessed sophistication of the technique.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the technique.'}),
 
                 ('tag', ('syn:tag', {}), {
@@ -698,9 +695,8 @@ modeldefs = (
                 ('vitals', ('ou:vitals', {}), {
                     'doc': 'The most recent/accurate ou:vitals for the org.',
                 }),
-                ('desc', ('str', {}), {
-                    'doc': 'A description of the org.',
-                    'disp': {'hint': 'text'}
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the org.'
                 }),
                 ('logo', ('file:bytes', {}), {
                     'doc': 'An image file representing the logo for the organization.',
@@ -885,8 +881,7 @@ modeldefs = (
                 ('isic', ('array', {'type': 'ou:isic', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of ISIC codes that map to the industry.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the industry.'}),
             )),
             ('ou:industryname', {}, ()),
@@ -981,9 +976,8 @@ modeldefs = (
                     'doc': 'The full name of the presentation.',
                     'ex': 'Synapse 101 - 2021/06/22'}),
 
-                ('desc', ('str', {'lower': True}), {
-                    'doc': 'A description of the presentation.',
-                    'disp': {'hint': 'text'}}),
+                ('desc', ('text', {'lower': True}), {
+                    'doc': 'A description of the presentation.'}),
 
                 ('time', ('time', {}), {
                     'doc': 'The scheduled presentation start time.'}),
@@ -1047,10 +1041,9 @@ modeldefs = (
                 ('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of alternate names for the conference.'}),
 
-                ('desc', ('str', {'lower': True}), {
+                ('desc', ('text', {'lower': True}), {
                     'doc': 'A description of the conference.',
                     'ex': 'annual cybersecurity conference',
-                    'disp': {'hint': 'text'},
                 }),
                 ('base', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'The base name which is shared by all conference instances.',
@@ -1086,10 +1079,9 @@ modeldefs = (
                     'doc': 'The name of the conference event.',
                     'ex': 'foobar conference dinner',
                 }),
-                ('desc', ('str', {'lower': True}), {
+                ('desc', ('text', {'lower': True}), {
                     'doc': 'A description of the conference event.',
                     'ex': 'foobar conference networking dinner at ridge hotel',
-                    'disp': {'hint': 'text'},
                 }),
                 ('url', ('inet:url', ()), {
                     'doc': 'The inet:url node for the conference event website.',
@@ -1118,10 +1110,9 @@ modeldefs = (
                     'doc': 'A name for a series of recurring contests.',
                     'ex': 'defcon ctf',
                 }),
-                ('desc', ('str', {'lower': True}), {
+                ('desc', ('text', {'lower': True}), {
                     'doc': 'A description of the contest.',
                     'ex': 'the capture-the-flag event hosted at defcon 2020',
-                    'disp': {'hint': 'text'},
                 }),
                 ('url', ('inet:url', {}), {
                     'doc': 'The contest website URL.'
@@ -1201,8 +1192,7 @@ modeldefs = (
                 ('type', ('ou:requirement:type:taxonomy', {}), {
                     'doc': 'The type of requirement.'}),
 
-                ('text', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('text', ('text', {}), {
                     'doc': 'The text of the stated requirement.'}),
 
                 ('optional', ('bool', {}), {

@@ -35,8 +35,7 @@ modeldefs = (
                 ('type', ('math:algorithm:type:taxonomy', {}), {
                     'doc': 'The type of algorithm.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the algorithm.'}),
 
                 ('created', ('time', {}), {

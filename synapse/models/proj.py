@@ -105,8 +105,7 @@ modeldefs = (
                 ('type', ('proj:project:type:taxonomy', {}), {
                     'doc': 'The project type.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'The project description.'}),
 
                 ('creator', ('syn:user', {}), {

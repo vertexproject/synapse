@@ -1734,8 +1734,7 @@ modeldefs = (
                 ('subject', ('str', {}), {
                     'doc': 'The email message subject parsed from the "subject" header.'}),
 
-                ('body', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('body', ('text', {}), {
                     'doc': 'The body of the email message.'}),
 
                 ('date', ('time', {}), {
@@ -1919,8 +1918,7 @@ modeldefs = (
                 ('dst:txbytes', ('int', {}), {
                     'doc': 'The number of bytes sent by the destination host.'
                 }),
-                ('dst:handshake', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('dst:handshake', ('text', {}), {
                     'doc': 'A text representation of the initial handshake sent by the server.'
                 }),
                 ('src', ('inet:client', {}), {
@@ -1950,8 +1948,7 @@ modeldefs = (
                 ('tot:txbytes', ('int', {}), {
                     'doc': 'The number of bytes sent in both directions.'
                 }),
-                ('src:handshake', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('src:handshake', ('text', {}), {
                     'doc': 'A text representation of the initial handshake sent by the client.'
                 }),
                 ('dst:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
@@ -2367,9 +2364,8 @@ modeldefs = (
 
             ('inet:search:query', {}, (
 
-                ('text', ('str', {}), {
+                ('text', ('text', {}), {
                     'doc': 'The search query text.',
-                    'disp': {'hint': 'text'},
                 }),
                 ('time', ('time', {}), {
                     'doc': 'The time the web search was issued.',
@@ -2469,9 +2465,8 @@ modeldefs = (
                     'ro': True,
                     'doc': 'The date of the whois record.'
                 }),
-                ('text', ('str', {'lower': True}), {
-                    'doc': 'The full text of the whois record.',
-                    'disp': {'hint': 'text'},
+                ('text', ('text', {'lower': True}), {
+                    'doc': 'The full text of the whois record.'
                 }),
                 ('created', ('time', {}), {
                     'doc': 'The "created" time from the whois record.'
@@ -2564,13 +2559,11 @@ modeldefs = (
                 ('updated', ('time', {}), {
                     'doc': 'The "last updated" time from the record.'
                 }),
-                ('text', ('str', {'lower': True}), {
-                    'doc': 'The full text of the record.',
-                    'disp': {'hint': 'text'},
+                ('text', ('text', {'lower': True}), {
+                    'doc': 'The full text of the record.'
                 }),
-                ('desc', ('str', {'lower': True}), {
-                    'doc': 'Notes concerning the record.',
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {'lower': True}), {
+                    'doc': 'Notes concerning the record.'
                 }),
                 ('asn', ('inet:asn', {}), {
                     'doc': 'The associated Autonomous System Number (ASN).'
@@ -2752,8 +2745,7 @@ modeldefs = (
                     'ex': 'twitter',
                     'doc': 'A friendly name for the platform.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the service platform.'}),
 
                 ('provider', ('ou:org', {}), {
@@ -2780,8 +2772,7 @@ modeldefs = (
                     'ex': 'synapse users slack',
                     'doc': 'The name of the service instance.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the service instance.'}),
 
                 ('period', ('ival', {}), {
@@ -2922,8 +2913,7 @@ modeldefs = (
                 ('title', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The message title.'}),
 
-                ('text', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('text', ('text', {}), {
                     'doc': 'The text body of the message.'}),
 
                 ('status', ('inet:service:object:status', {}), {
@@ -3041,8 +3031,7 @@ modeldefs = (
                 ('name', ('str', {'onespace': True, 'lower': True}), {
                     'doc': 'The name of the service resource.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the service resource.'}),
 
                 ('url', ('inet:url', {}), {

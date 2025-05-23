@@ -22,8 +22,7 @@ modeldefs = (
                 ('name', ('str', {'onespace': True, 'lower': True}), {
                     'doc': 'The name of the belief system.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the belief system.'}),
 
                 ('type', ('belief:system:type:taxonomy', {}), {
@@ -41,8 +40,7 @@ modeldefs = (
                 ('name', ('str', {'onespace': True, 'lower': True}), {
                     'doc': 'The name of the tenet.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the tenet.'}),
             )),
 

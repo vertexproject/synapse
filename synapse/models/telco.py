@@ -230,9 +230,8 @@ modeldefs = (
                 ('connected', ('bool', {}), {
                     'doc': 'Indicator of whether the call was connected.',
                 }),
-                ('text', ('str', {}), {
+                ('text', ('text', {}), {
                     'doc': 'The text transcription of the call.',
-                    'disp': {'hint': 'text'},
                 }),
                 ('file', ('file:bytes', {}), {
                     'doc': 'A file containing related media.',
@@ -254,10 +253,8 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time the message was sent.'
                 }),
-                ('text', ('str', {}), {
-                    'doc': 'The text of the message.',
-                    'disp': {'hint': 'text'},
-                }),
+                ('text', ('text', {}), {
+                    'doc': 'The text of the message.'}),
                 ('file', ('file:bytes', {}), {
                     'doc': 'A file containing related media.',
                 }),

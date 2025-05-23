@@ -61,8 +61,7 @@ modeldefs = (
                 ('title', ('str', {}), {
                     'doc': 'The title of the RFP.',
                 }),
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('summary', ('text', {}), {
                     'doc': 'A brief summary of the RFP.',
                 }),
                 ('status', ('biz:deal:status:taxonomy', {}), {
@@ -208,8 +207,7 @@ modeldefs = (
                     'doc': 'The contact info of the entity which performs the service.'}),
                 ('name', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of the service being performed.'}),
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('summary', ('text', {}), {
                     'doc': 'A brief summary of the service.'}),
                 ('type', ('biz:service:type:taxonomy', {}), {
                     'doc': 'A taxonomy of service types.'}),
@@ -225,9 +223,8 @@ modeldefs = (
                     'doc': 'The type of product.',
                 }),
                 # TODO ('upc', ('biz:upc', {}), {}),
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'doc': 'A brief summary of the product.',
-                    'disp': {'hint': 'text'},
                 }),
                 ('maker', ('ps:contact', {}), {
                     'doc': 'A contact for the maker of the product.',
