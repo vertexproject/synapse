@@ -23,7 +23,7 @@ class AhaToolsTest(s_t_utils.SynTest):
 
         async with self.getTestAha() as aha:
 
-            waiter = aha.waiter(2, 'aha:svcadd')
+            waiter = aha.waiter(2, 'aha:svc:add')
             conf0 = {'aha:provision': await aha.addAhaSvcProv('cell0')}
 
             provinfo = {'aha:network': 'example.net'}
@@ -228,7 +228,7 @@ class AhaToolsTest(s_t_utils.SynTest):
                 svcinfo['urlinfo']['hostname'] = 'nonexistent.host'
                 await aha.addAhaSvc('no.primary', svcinfo)
 
-            async with aha.waiter(3, 'aha:svcadd', timeout=10):
+            async with aha.waiter(3, 'aha:svc:add', timeout=10):
 
                 conf = {'aha:provision': await aha.addAhaSvcProv('00.cell')}
                 cell00 = await aha.enter_context(self.getTestCell(conf=conf))
@@ -323,7 +323,7 @@ class AhaToolsTest(s_t_utils.SynTest):
                     self.eq(1, retn)
                     outp.expect(f'Service at {curl} is not an Aha server')
 
-            async with aha.waiter(1, 'aha:svcadd', timeout=10):
+            async with aha.waiter(1, 'aha:svc:add', timeout=10):
 
                 conf = {'aha:provision': await aha.addAhaSvcProv('02.cell', {'mirror': 'cell'})}
                 cell02 = await aha.enter_context(self.getTestCell(conf=conf))

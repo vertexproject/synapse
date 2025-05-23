@@ -24,7 +24,7 @@ class AhaLibTest(s_test.SynTest):
                 replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
                 nevents = 10 if replay else 5
 
-                waiter = aha.waiter(nevents, 'aha:svcadd')
+                waiter = aha.waiter(nevents, 'aha:svc:add')
 
                 cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
                 cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
@@ -206,7 +206,7 @@ Connection information:
                 dirn01 = s_common.genpath(dirn, 'cell01')
                 dirn02 = s_common.genpath(dirn, 'cell02')
 
-                async with aha.waiter(3, 'aha:svcadd', timeout=10):
+                async with aha.waiter(3, 'aha:svc:add', timeout=10):
 
                     cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
                     cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,

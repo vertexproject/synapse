@@ -1544,14 +1544,14 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             The config data for the cell is pushed into dirn/cell.yaml.
             The cells are created with the ``ctor.anit()`` function.
         '''
-        ahanetw = aha.conf.req('aha:network')
-        svcfull = f'{svcname}.{ahanetw}'
         onetime = await aha.addAhaSvcProv(svcname, provinfo=provinfo)
 
         conf = self.getCellConf(conf=conf)
         conf['aha:provision'] = onetime
 
-        waiter = aha.waiter(1, f'aha:svcadd:{svcfull}')
+        print(f'addSvcToAha({svcname}) {conf}')
+
+        waiter = aha.waiter(1, 'aha:svc:add')
         with self.mayTestDir(dirn) as dirn:
             s_common.yamlsave(conf, dirn, 'cell.yaml')
             async with await ctor.anit(dirn) as svc:

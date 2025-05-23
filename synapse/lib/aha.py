@@ -147,7 +147,6 @@ class AhaApi(s_cell.CellApi):
             return None
 
         realname = svcdef.get('name')
-        await self._reqUserAllowed(('aha', 'service', 'get', realname))
 
         svcdef = s_msgpack.deepcopy(svcdef)
 
@@ -165,7 +164,6 @@ class AhaApi(s_cell.CellApi):
         Args:
             network (str): Optionally specify a network to filter on.
         '''
-        await self._reqUserAllowed(('aha', 'service', 'get'))
         async for info in self.cell.getAhaSvcs():
             yield info
 
@@ -219,8 +217,6 @@ class AhaApi(s_cell.CellApi):
         Return list of AHA svcdef dictionaries for mirrors of a service.
         '''
         name = self.cell._getAhaName(name)
-
-        await self._reqUserAllowed(('aha', 'service', 'get', name))
 
         svcdef = await self.cell._getAhaSvc(name)
         if svcdef is None:
@@ -896,10 +892,10 @@ class AhaCell(s_cell.Cell):
                 if retn.get('online') is not None:
                     return retn
 
-                waiter = self.waiter(1, f'aha:svcadd:{name}')
+                waiter = self.waiter(1, 'aha:svc:add')
 
             if await waiter.wait(timeout=timeout) is None:
-                raise s_exc.TimeOut(mesg=f'Timeout waiting for aha:svcadd:{name}')
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for service online: {name}')
 
     async def _waitAhaSvcDown(self, name, timeout=None):
 
@@ -935,7 +931,7 @@ class AhaCell(s_cell.Cell):
         svcdef['ready'] = ready
         s_schemas.reqValidAhaSvcDef(svcdef)
 
-        self.slab.put(name.encode(), s_msgpack.en(svcdef), db='aha:services')
+        self.slab._put(name.encode(), s_msgpack.en(svcdef), db='aha:services')
 
         return True
 
@@ -954,7 +950,7 @@ class AhaCell(s_cell.Cell):
 
         s_schemas.reqValidAhaSvcDef(svcdef)
 
-        self.slab.put(name.encode(), s_msgpack.en(svcdef), db='aha:services')
+        self.slab._put(name.encode(), s_msgpack.en(svcdef), db='aha:services')
 
         await self.fire('aha:svc:add', svcdef=svcdef)
 
@@ -1141,7 +1137,7 @@ class AhaCell(s_cell.Cell):
         svcdef.pop('online', None)
         svcdef['ready'] = False
 
-        self.slab.put(name.encode(), s_msgpack.en(svcdef), db='aha:services')
+        self.slab._put(name.encode(), s_msgpack.en(svcdef), db='aha:services')
 
         # Check if we have any links which may need to be removed
         current_sessions = {s_common.guid(iden): sess for iden, sess in self.dmon.sessions.items()}
@@ -1338,11 +1334,6 @@ class AhaCell(s_cell.Cell):
 
     async def getAhaUrls(self, user='root'):
 
-        # for backward compat...
-        #urls = self.conf.get('aha:urls')
-        #if urls is not None:
-            #return urls
-
         network = self.conf.req('aha:network')
 
         urls = []
@@ -1443,7 +1434,6 @@ class AhaCell(s_cell.Cell):
         # if the relative name contains a dot, we are a mirror peer.
         peer = name.find('.') != -1
         leader = name.rsplit('.', 1)[-1]
-
         if peer:
             conf.setdefault('aha:leader', leader)
 
@@ -1457,15 +1447,8 @@ class AhaCell(s_cell.Cell):
         if user is None:
             user = await self.auth.addUser(ahauser)
 
-        perms = [
-            ('aha', 'service', 'get', netw),
-            ('aha', 'service', 'add', netw, name),
-        ]
-        if peer:
-            perms.append(('aha', 'service', 'add', netw, leader))
-        for perm in perms:
-            if user.allowed(perm):
-                continue
+        perm = ('aha', 'service', 'add')
+        if not user.allowed(perm):
             await user.allow(perm)
 
         iden = await self._push('aha:svc:prov:add', provinfo)
@@ -1566,8 +1549,6 @@ class AhaCell(s_cell.Cell):
 
         if user is None:
             user = await self.auth.addUser(username)
-
-        await user.allow(('aha', 'service', 'get', network))
 
         userinfo = {
             'name': name,

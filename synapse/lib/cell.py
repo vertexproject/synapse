@@ -1537,18 +1537,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             async def onlink(proxy):
                 ahauser = self.conf.get('aha:user', 'root')
                 newurls = await proxy.getAhaUrls(user=ahauser)
-                oldurls = self.conf.get('aha:registry')
-                # FIXME aha:registry -> aha:servers?
-                #if isinstance(oldurls, str):
-                    #oldurls = (oldurls,)
-                #elif isinstance(oldurls, list):
-                    #oldurls = tuple(oldurls)
-                if newurls and newurls != oldurls:
-                    #if oldurls[0].startswith('tcp://'):
-                        #s_common.deprecated('aha:registry: tcp:// client values.')
-                        #logger.warning('tcp:// based aha:registry options are deprecated and will be removed in Synapse v3.0.0')
-                        #return
 
+                # FIXME migrate these?
+                oldurls = self.conf.get('aha:registry')
+                if newurls and newurls != oldurls:
                     self.modCellConf({'aha:registry': newurls})
                     self.ahaclient.setBootUrls(newurls)
 
@@ -1826,7 +1818,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         lisn = self.conf.get('dmon:listen')
         if lisn is None:
             return
-        print(f'LISN: {lisn}')
+
         ahalead = self.conf.get('aha:leader')
 
         ready = await self.nexsroot.isNexsReady()
@@ -3957,6 +3949,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.warning(f'Bootstrap mirror from: {murl} DONE!')
 
     async def getMirrorUrls(self):
+
         if self.ahaclient is None:
             raise s_exc.BadConfValu(mesg='Enumerating mirror URLs is only supported when AHA is configured')
 
