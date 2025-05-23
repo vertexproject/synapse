@@ -85,8 +85,11 @@ For example, the following query will return zero nodes, even though the ``yield
 
 - Pivot from a set of FQDNs to any files (binaries) that query those FQDNs. Use a subquery with the ``yield`` option to return the file nodes as well as the original FQDNs.
 
-.. storm-pre:: [ (inet:fqdn=macsol.org) (file:bytes=sha256:cc5f23669712ce42efa66054acefbe29a967c53e59206fbc78670672ea3978bd) (inet:dns:request=495a07881e3825d7d1f9c4622a16e71b :exe=cc5f23669712ce42efa66054acefbe29a967c53e59206fbc78670672ea3978bd :query:name=macsol.org :query:name:fqdn=macsol.org) ]
-.. storm-pre:: inet:fqdn yield { -> inet:dns:request:query:name +:exe -> file:bytes }
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (inet:fqdn=macsol.org) (file:bytes=sha256:cc5f23669712ce42efa66054acefbe29a967c53e59206fbc78670672ea3978bd) (inet:dns:request=495a07881e3825d7d1f9c4622a16e71b :exe=cc5f23669712ce42efa66054acefbe29a967c53e59206fbc78670672ea3978bd :query:name=macsol.org :query:name:fqdn=macsol.org) ]
+    .. storm-pre:: inet:fqdn yield { -> inet:dns:request:query:name +:exe -> file:bytes }
+
 ::
 
     <inet:fqdn> yield { -> inet:dns:request:query:name +:exe -> file:bytes }
@@ -127,8 +130,10 @@ without needing to enter (type, copy and paste) the form's primary property.
 
 *Lift all of the contacts (ps:contact nodes) for The Vertex Project:*
 
-.. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name=vertex :names+=('the vertex project')) (ps:contact=* :org=4b0c2c5671874922ce001d69215d032f :name='ron the cat') ]
-.. storm-pre:: ps:contact:org = { ou:org:name = vertex }
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name=vertex :names+=('the vertex project')) (ps:contact=* :org=4b0c2c5671874922ce001d69215d032f :name='ron the cat') ]
+    .. storm-pre:: ps:contact:org = { ou:org:name = vertex }
 
 ::
   
@@ -136,8 +141,10 @@ without needing to enter (type, copy and paste) the form's primary property.
 
 *Set the :id:number property of a contact (ps:contact node) to the ID number whose value is 444-44-4444:*
 
-.. storm-pre:: [ ou:id:number=(d41d8cd98f00b204e9800998ecf8427e,111-11-1111) ou:id:number=(d41d8cd98f00b204e9800998ecf8427e,444-44-4444) ]
-.. storm-pre:: ps:contact:name='ron the cat' [ :id:number = { ou:id:number:value = 444-44-4444 } ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ou:id:number=(d41d8cd98f00b204e9800998ecf8427e,111-11-1111) ou:id:number=(d41d8cd98f00b204e9800998ecf8427e,444-44-4444) ]
+    .. storm-pre:: ps:contact:name='ron the cat' [ :id:number = { ou:id:number:value = 444-44-4444 } ]
 
 ::
   

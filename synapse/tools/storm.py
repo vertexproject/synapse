@@ -136,7 +136,7 @@ class PushFileCmd(StormCliCmd):
             'name': os.path.basename(opts.filepath),
         }}
 
-        return await self._cmd_cli.storm('[ file:bytes=$sha256 ] { -:name [:name=$name] }', opts=opts)
+        return await self._cmd_cli.storm('[ file:bytes=({"sha256": $sha256}) ] { -:name [:name=$name] }', opts=opts)
 
 class PullFileCmd(StormCliCmd):
     '''

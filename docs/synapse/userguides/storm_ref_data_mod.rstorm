@@ -396,20 +396,24 @@ a more "human friendly" method.
 
 *Use a subquery to assign an organization's (ou:org) guid as the secondary property of a ps:contact node:*
 
-.. storm-pre:: [ ou:org=0fa690c06970d2d2ae74e43a18f46c2a :url=https://www.justice.gov/ :name="U.S. Department of Justice" ]
-.. storm-pre:: [ ps:contact=d41d8cd98f00b204e9800998ecf8427e :orgname="U.S. Department of Justice" :address="950 Pennsylvania Avenue NW, Washington, DC, 20530-0001" :phone="+1 202-514-2000" :loc="us.dc.washington" ]
-.. storm-cli:: ps:contact:orgname="U.S. Department of Justice" [ :org={ ou:org:name="U.S. Department of Justice" } ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ou:org=0fa690c06970d2d2ae74e43a18f46c2a :url=https://www.justice.gov/ :name="U.S. Department of Justice" ]
+    .. storm-pre:: [ ps:contact=d41d8cd98f00b204e9800998ecf8427e :orgname="U.S. Department of Justice" :address="950 Pennsylvania Avenue NW, Washington, DC, 20530-0001" :phone="+1 202-514-2000" :loc="us.dc.washington" ]
+    .. storm-cli:: ps:contact:orgname="U.S. Department of Justice" [ :org={ ou:org:name="U.S. Department of Justice" } ]
 
 In the example above, the subquery ``ou:org:name="U.S. Department of Justice"`` is used to lift the organization node with
 that ``:name`` property value and assign the ``ou:org`` node's guid value to the ``:org`` property of the ``ps:contact`` node.
 
 *Use a subquery to assign one or more industries (ou:industry) to an organization (ou:org):*
 
-.. storm-pre:: [ ou:org=2848b564bf1e68563e3fea4ce27299f3 :name=apple :names=(apple, "apple, inc.") :phone="+1 408-996-1010" :loc=us.ca.cupertino]
-.. storm-pre:: [ps:contact="*" :orgname="Apple" :address="1 Apple Park Way, Cupertino, CA 95014" :phone="+1 202-514-2000" :loc="us.ca.cupertino"]
-.. storm-pre:: [ ou:industry="*" :name="Computers and Electronics" ]
-.. storm-pre:: [ ou:industry="*" :name="Telecommunications" ]
-.. storm-cli:: ou:org:name=apple [ :industries+={ ou:industry:name="computers and electronics" ou:industry:name="telecommunications" } ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ou:org=2848b564bf1e68563e3fea4ce27299f3 :name=apple :names=(apple, "apple, inc.") :phone="+1 408-996-1010" :loc=us.ca.cupertino]
+    .. storm-pre:: [ps:contact="*" :orgname="Apple" :address="1 Apple Park Way, Cupertino, CA 95014" :phone="+1 202-514-2000" :loc="us.ca.cupertino"]
+    .. storm-pre:: [ ou:industry="*" :name="Computers and Electronics" ]
+    .. storm-pre:: [ ou:industry="*" :name="Telecommunications" ]
+    .. storm-cli:: ou:org:name=apple [ :industries+={ ou:industry:name="computers and electronics" ou:industry:name="telecommunications" } ]
 
 In the example above, the subquery is used to lift the specified industry nodes (``ou:industry``) and assign both nodes'
 guid values to the ``ou:org:industries`` property for Apple's organization node.
@@ -526,9 +530,11 @@ See :ref:`data-light-edge` for details on light edges.
 
 *Link the inet:whois:iprec netblock registration (whois) record to any IP address within the specified netblock range (as referenced by the Storm expression) that already exists in Synapse using an "ipwhois" light edge:*
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( inet:whois:iprec=6aa3294c11baddd193a545c6f29207d5 :name=OVH-CUST-3399212 :net:min=198.50.240.220 :net:max=198.50.240.223 ) ]
+    .. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ip=198.50.240.220-198.50.240.223 } ]
 
-.. storm-pre:: [ ( inet:whois:iprec=6aa3294c11baddd193a545c6f29207d5 :name=OVH-CUST-3399212 :net:min=198.50.240.220 :net:max=198.50.240.223 ) ]
-.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ip=198.50.240.220-198.50.240.223 } ]
 ::
 
     inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ip=198.50.240.220-198.50.240.223 } ]
@@ -536,8 +542,9 @@ See :ref:`data-light-edge` for details on light edges.
 
 *Link the inet:whois:iprec netblock registration (whois) record to every IP in the specified netblock range (as referenced by the Storm expression) using an "ipwhois" light edge, creating the IPs if they do not exist:*
 
-
-.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ip=198.50.240.220-198.50.240.223 ] } ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ip=198.50.240.220-198.50.240.223 ] } ]
 ::
 
     inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ip=198.50.240.220-198.50.240.223 ] } ]
@@ -612,8 +619,10 @@ See :ref:`data-light-edge` for details on light edges.
 
 *Delete the "ipwhois" light edge linking IP 1.2.3.4 to the specified netblock registration (whois) record:*
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ip=1.2.3.4 } ]
 
-.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ip=1.2.3.4 } ]
 ::
 
     inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ip=1.2.3.4 } ]
