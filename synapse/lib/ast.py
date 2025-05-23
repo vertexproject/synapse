@@ -5436,6 +5436,7 @@ class EditTagAdd(Edit):
 
                     await node.addTag(name, valu=valu)
                 except self.excignore:
+                    await asyncio.sleep(0)
                     pass
 
             yield node, path
@@ -5486,6 +5487,7 @@ class EditTagVirtSet(Edit):
                     await node.addTag(name, valu=newv, **opts)
 
                 except self.excignore:
+                    await asyncio.sleep(0)
                     pass
 
             yield node, path
