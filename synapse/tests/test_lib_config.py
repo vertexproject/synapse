@@ -164,8 +164,8 @@ class ConfTest(s_test.SynTest):
         # We can ensure that certain vars are loaded
         self.eq('Funky string time!', conf.req('key:string'))
         # And throw if they are not, or if the requested key isn't even schema valid
-        self.raises(s_exc.NeedConfValu, conf.reqConfValu, 'key:bool:nodefval')
-        self.raises(s_exc.BadArg, conf.reqConfValu, 'key:newp')
+        self.raises(s_exc.NeedConfValu, conf.req, 'key:bool:nodefval')
+        self.raises(s_exc.BadArg, conf.req, 'key:newp')
 
         # Since we're an Mutable mapping, we have some dict methods available to us
         self.len(8, conf)  # __len__
@@ -379,6 +379,12 @@ class ConfTest(s_test.SynTest):
         item = validator({'key:number': 123})
         self.eq(item['key:number'], 123)
         self.notin('key:string', item)
+
+        item = validator({'key:multi': 123})
+        self.eq(item['key:multi'], 123)
+
+        item = validator({'key:multi': '123'})
+        self.eq(item['key:multi'], '123')
 
     async def test_config_ref_handler(self):
 
