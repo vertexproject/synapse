@@ -1005,9 +1005,6 @@ class ClientV2(s_base.Base):
 
             try:
                 ahaproxy = await self.aha.proxy()
-
-                await reset()
-
                 async for mesg in ahaproxy.iterPoolTopo(self.poolname):
                     hand = self.mesghands.get(mesg[0])
                     if hand is None:  # pragma: no cover
@@ -1019,6 +1016,7 @@ class ClientV2(s_base.Base):
             except Exception as e:
                 logger.warning(f'AHA pool topology task restarting: {e}')
                 await self.waitfini(timeout=1)
+                await reset()
 
     async def proxy(self, timeout=None):
 

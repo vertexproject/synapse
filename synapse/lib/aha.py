@@ -631,6 +631,10 @@ class AhaCell(s_cell.Cell):
 
             # subscribe to changes
             self.poolwindows[name].append(wind)
+
+            # for testing to eliminate a race...
+            await self.fire('pool:topo:add', name=name)
+
             async def onfini():
                 self.poolwindows[name].remove(wind)
 
@@ -923,7 +927,7 @@ class AhaCell(s_cell.Cell):
         s_schemas.reqValidAhaSvcDef(svcdef)
 
         name = svcdef.get('name')
-        self.slab.put(name.encode(), s_msgpack.en(svcdef), db='aha:services')
+        self.slab._put(name.encode(), s_msgpack.en(svcdef), db='aha:services')
 
     @s_nexus.Pusher.onPushAuto('aha:svc:set:ready')
     async def setAhaSvcReady(self, name, ready):
@@ -1066,6 +1070,7 @@ class AhaCell(s_cell.Cell):
 
     @s_nexus.Pusher.onPushAuto('aha:pool:del')
     async def delAhaPool(self, name):
+
         name = self._getAhaName(name)
         byts = self.slab.pop(name.encode(), db='aha:pools')
 
