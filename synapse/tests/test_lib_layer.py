@@ -1399,8 +1399,8 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
             self.eq(nodes[0].get('asn'), 33)
-            self.true(nodes[0].getTag('foo.bar'), (None, None))
-            self.true(nodes[0].getTagProp('foo.bar', 'confidence'), 22)
+            self.eq(nodes[0].getTag('foo.bar'), (None, None))
+            self.eq(nodes[0].getTagProp('foo.bar', 'confidence'), 22)
 
             self.eq(10004, await core.count('.created'))
             self.len(2, await core.nodes('syn:tag~=foo'))

@@ -2100,14 +2100,12 @@ class SynTest(unittest.TestCase):
         '''
         Assert X is True
         '''
-        self.isinstance(x, bool)
         self.assertTrue(x, msg=msg)
 
     def false(self, x, msg=None):
         '''
         Assert X is False
         '''
-        self.isinstance(x, bool)
         self.assertFalse(x, msg=msg)
 
     def nn(self, x, msg=None):
