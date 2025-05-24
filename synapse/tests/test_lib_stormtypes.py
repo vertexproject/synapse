@@ -1205,35 +1205,33 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_lib_str(self):
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('$s = woot [ test:int=$s.startswith(w) ]')
-            self.eq(1, nodes[0].ndef[1])
+            self.true(await core.callStorm('$s = woot return($s.startswith(w))'))
 
-            nodes = await core.nodes('$s = woot [ test:int=$s.endswith(visi) ]')
-            self.eq(0, nodes[0].ndef[1])
+            self.false(await core.callStorm('$s = woot return($s.endswith(visi))'))
 
-            nodes = await core.nodes('$s = woot [ test:str=$s.rjust(10) ]')
-            self.eq('      woot', nodes[0].ndef[1])
+            valu = await core.callStorm('$s = woot return($s.rjust(10))')
+            self.eq('      woot', valu)
 
-            nodes = await core.nodes('$s = woot [ test:str=$s.rjust(10, x) ]')
-            self.eq('xxxxxxwoot', nodes[0].ndef[1])
+            valu = await core.callStorm('$s = woot return($s.rjust(10, x))')
+            self.eq('xxxxxxwoot', valu)
 
-            nodes = await core.nodes('$s = woot [ test:str=$s.ljust(10) ]')
-            self.eq('woot      ', nodes[0].ndef[1])
+            valu = await core.callStorm('$s = woot return($s.ljust(10))')
+            self.eq('woot      ', valu)
 
-            nodes = await core.nodes('$s = woot [ test:str=$s.ljust(10, x) ]')
-            self.eq('wootxxxxxx', nodes[0].ndef[1])
+            valu = await core.callStorm('$s = woot return($s.ljust(10, x))')
+            self.eq('wootxxxxxx', valu)
 
             sobj = s_stormtypes.Str('beepbeep')
             self.len(8, sobj)
 
-            nodes = await core.nodes("$s = (foo, bar, baz) [ test:str=('.').join($s) ]")
-            self.eq('foo.bar.baz', nodes[0].ndef[1])
+            valu = await core.callStorm('$s = (foo, bar, baz) return((".").join($s))')
+            self.eq('foo.bar.baz', valu)
 
-            nodes = await core.nodes('$s = foo-bar-baz [ test:str=$s.replace("-", ".") ]')
-            self.eq('foo.bar.baz', nodes[0].ndef[1])
+            valu = await core.callStorm('$s = foo-bar-baz return($s.replace("-", "."))')
+            self.eq('foo.bar.baz', valu)
 
-            nodes = await core.nodes('$s = foo-bar-baz [ test:str=$s.replace("-", ".", 1) ]')
-            self.eq('foo.bar-baz', nodes[0].ndef[1])
+            valu = await core.callStorm('$s = foo-bar-baz return($s.replace("-", ".", 1))')
+            self.eq('foo.bar-baz', valu)
 
             q = '$foo=" foo " return ( $foo.strip() )'
             self.eq('foo', await core.callStorm(q))
