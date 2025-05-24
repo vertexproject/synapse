@@ -69,7 +69,6 @@ class NodeTest(s_t_utils.SynTest):
             node = nodes[0]
 
             self.true(node.has('tick'))
-            self.true(node.has('.created'))
             self.false(node.has('nope'))
             self.false(node.has('.nope'))
 
@@ -85,14 +84,10 @@ class NodeTest(s_t_utils.SynTest):
             self.true(await node.set('tick', 123456))
             with self.raises(s_exc.NoSuchProp):
                 await node.set('notreal', 12345)
-            with self.raises(s_exc.ReadOnlyProp):
-                await node.set('.created', 12345)
 
             # Pop tests - these are destructive to the node
             with self.raises(s_exc.NoSuchProp):
                 await node.pop('nope')
-            with self.raises(s_exc.ReadOnlyProp):
-                await node.pop('.created')
             self.true(await node.pop('tick'))
             self.false(await node.pop('tick'))
 
@@ -170,7 +165,6 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(s_node.reprTagProps(strpode, 'test.foo'), [])
 
             props = s_node.props(strpode)
-            self.isin('.created', props)
             self.isin('tick', props)
             self.notin('newp', props)
 
