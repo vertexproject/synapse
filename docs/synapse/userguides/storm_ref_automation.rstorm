@@ -333,7 +333,7 @@ at 0200 UTC.
 .. storm-pre:: [ (media:news=* :publisher:name='ron the cat' :title='my article') (media:news=* :title='your article') ]
 .. storm-pre:: media:news:publisher:name [ -:publisher:name ]
 
-.. storm-cli:: cron.at --hour 2 { media:news:publisher:name [ -:publisher:name ] }
+.. storm-cli:: cron.at --view $lib.view.get().iden --hour 2 { media:news:publisher:name [ -:publisher:name ] }
 
 We can view the details of this cron job using the ``cron.list`` command:
 
