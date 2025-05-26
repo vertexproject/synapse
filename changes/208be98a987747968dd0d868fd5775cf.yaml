@@ -1,0 +1,6 @@
+---
+desc: Added ``$lib.gen.platformByNameOrUrl()`` helper function to create ``inet:service:platform``
+  nodes by name or URL.
+prs: []
+type: feat
+...

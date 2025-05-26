@@ -164,10 +164,29 @@ class LibGen(s_stormtypes.Lib):
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'An inet:tls:servercert node with the given server and SHA256.'}}},
+        {'name': 'platformByNameOrUrl',
+         'desc': 'Returns an inet:service:platform by name, or by URL if name is not valid, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'name', 'type': ['str', 'inet:service:platform:name'], 'default': None,
+                       'desc': 'The platform name.'},
+                      {'name': 'url', 'type': ['str', 'inet:url'], 'default': None,
+                       'desc': 'The URL for the platform.'},
+                      {'name': 'provider', 'type': ['str', 'ou:name'], 'default': None,
+                       'desc': 'The provider name, which will be used for deconfliction if specified.'},
+                      {'name': 'site', 'type': ['str', 'inet:fqdn'], 'default': None,
+                       'desc': 'The platform site, which is used to construct a URL if the URL argument is not valid.'},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
+                  ),
+                  'returns': {'type': 'node',
+                              'desc': 'An inet:service:platform node with the given name or URL.'}}},
     )
     _storm_lib_path = ('gen',)
 
     _storm_query = '''
+        $fqdn_t = $lib.model.type(inet:fqdn)
+
         function __maybeCast(try, type, valu) {
             if $try {
                 return($lib.trycast($type, $valu))
@@ -503,6 +522,48 @@ class LibGen(s_stormtypes.Lib):
             if (not $crypto) { return() }
 
             [ inet:tls:servercert=($server, $crypto) ]
+            return($node)
+        }
+
+        function platformByNameOrUrl(name=(null), url=(null), provider=(null), site=(null), try=(false)) {
+
+            $ctor = ({})
+
+            ($ok, $provider) = $__maybeCast($try, ou:name, $provider)
+            if $ok {
+                $ctor."provider:name" = $provider
+                $ctor."$props" = ({"provider": $orgByName($provider)})
+            }
+
+            ($ok, $url) = $__maybeCast($try, inet:url, $url)
+            if (not $ok and $site) {
+                try {
+                    $info = $fqdn_t.norm($site)
+                    if (not $info.1.subs.issuffix) {
+                        $url = `https://{$info.0}`
+                    }
+                } catch BadTypeValu as _ { }
+            }
+
+            ($ok, $name) = $__maybeCast($try, inet:service:platform:name, $name)
+            if $ok {
+
+                $ctor.name = $name
+
+                [ inet:service:platform=$ctor
+                    :url*unset?=$url
+                ]
+
+                { -(:url=$url) [ :urls?+=$url ] }
+
+            } elif $url {
+
+                $ctor.url = $url
+
+                [ inet:service:platform=$ctor ]
+
+            }
+
             return($node)
         }
     '''
