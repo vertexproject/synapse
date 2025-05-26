@@ -1,0 +1,6 @@
+---
+desc: Fixed a bug with ``$lib.json.schema()`` which would prevent passing a list to
+  specify the valid types for an object property.
+prs: []
+type: bug
+...
