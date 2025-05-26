@@ -367,6 +367,8 @@ class LibHttp(s_stormtypes.Lib):
             raise
 
         except Exception as e:  # pragma: no cover
+            if isinstance(e, aiohttp.ClientOSError) and isinstance(e.__cause__, aiohttp_socks.ProxyConnectionError):
+                e = e.__cause__
             await sock.fini()
             return s_common.retnexc(e)
 
@@ -480,6 +482,9 @@ class LibHttp(s_stormtypes.Lib):
             except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:
+                if isinstance(e, aiohttp.ClientOSError) and isinstance(e.__cause__, aiohttp_socks.ProxyConnectionError):
+                    e = e.__cause__
+
                 logger.exception(f'Error during http {meth} @ {url}')
                 err = s_common.err(e)
                 errmsg = err[1].get('mesg')
