@@ -168,7 +168,7 @@ class LibGen(s_stormtypes.Lib):
          'desc': 'Returns an inet:service:platform by name, or by URL if name is not valid, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'name', 'type': ['str', 'inet:service:platform:name'], 'default': None,
+                      {'name': 'name', 'type': ['str'], 'default': None,
                        'desc': 'The platform name.'},
                       {'name': 'url', 'type': ['str', 'inet:url'], 'default': None,
                        'desc': 'The URL for the platform.'},
