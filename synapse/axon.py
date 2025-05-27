@@ -1711,8 +1711,6 @@ class Axon(s_cell.Cell):
                     return info
 
             except Exception as e:
-                if isinstance(e, aiohttp.ClientOSError) and isinstance(e.__cause__, aiohttp_socks.ProxyConnectionError):
-                    e = e.__cause__
                 logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')
                 err = s_common.err(e)
                 errmsg = err[1].get('mesg')
@@ -1850,8 +1848,6 @@ class Axon(s_cell.Cell):
                 raise
 
             except Exception as e:
-                if isinstance(e.__cause__, aiohttp_socks.ProxyConnectionError):
-                    e = e.__cause__
                 logger.exception(f'Failed to wget {s_urlhelp.sanitizeUrl(url)}')
                 err = s_common.err(e)
                 errmsg = err[1].get('mesg')
