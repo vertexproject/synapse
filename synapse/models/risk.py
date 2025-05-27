@@ -433,6 +433,7 @@ modeldefs = (
                     'doc': 'A taxonomy type entry for the mitigation.'}),
 
                 ('desc', ('text', {}), {
+                    'disp': {'hint': 'text'},
                     'doc': 'A description of the mitigation approach for the vulnerability.'}),
 
                 ('reporter', ('ou:org', {}), {
