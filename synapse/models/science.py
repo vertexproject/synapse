@@ -50,7 +50,7 @@ modeldefs = (
                 ('type', ('sci:hypothesis:type:taxonomy', {}), {
                     'doc': 'The type of hypothesis as a user defined taxonomy.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A summary of the hypothesis.'}),
             )),
@@ -62,7 +62,7 @@ modeldefs = (
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the experiment.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A summary of the experiment.'}),
 
@@ -82,7 +82,7 @@ modeldefs = (
                 ('experiment', ('sci:experiment', {}), {
                     'doc': 'The experiment which produced the observation.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A summary of the observation.'}),
 
@@ -98,7 +98,7 @@ modeldefs = (
                 ('observation', ('sci:observation', {}), {
                     'doc': 'The observation which supports or refutes the hypothesis.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A summary of how the observation supports or refutes the hypothesis.'}),
 

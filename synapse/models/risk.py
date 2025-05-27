@@ -432,7 +432,7 @@ modeldefs = (
                 ('type', ('risk:mitigation:type:taxonomy', {}), {
                     'doc': 'A taxonomy type entry for the mitigation.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the mitigation approach for the vulnerability.'}),
 
@@ -463,7 +463,7 @@ modeldefs = (
                 ('type', ('risk:vuln:type:taxonomy', {}), {
                     'doc': 'A taxonomy type entry for the vulnerability.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the vulnerability.'}),
 
@@ -509,7 +509,7 @@ modeldefs = (
                 ('cve', ('it:sec:cve', {}), {
                     'doc': 'The CVE ID of the vulnerability.'}),
 
-                ('cve:desc', ('str', {}), {
+                ('cve:desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'The description of the vulnerability according to the CVE database.'}),
 
@@ -611,7 +611,7 @@ modeldefs = (
                 ('name', ('base:name', {}), {
                     'doc': 'A brief name for the alert.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A free-form description / overview of the alert.'}),
 
@@ -676,7 +676,7 @@ modeldefs = (
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the compromise event.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A prose description of the compromise event.'}),
 
@@ -763,7 +763,7 @@ modeldefs = (
                 'prevnames': ('risk:attacktype',)}, ()),
 
             ('risk:attack', {}, (
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'doc': 'A description of the attack.',
                     'disp': {'hint': 'text'},
                 }),
@@ -824,7 +824,7 @@ modeldefs = (
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the leak event.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the leak event.'}),
 
@@ -917,7 +917,7 @@ modeldefs = (
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the extortion event.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the extortion event.'}),
 

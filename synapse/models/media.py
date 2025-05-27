@@ -22,7 +22,7 @@ modeldefs = (
                     'disp': {'hint': 'text'},
                     'doc': 'Title/Headline for the news.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'ex': 'lorum ipsum',
                     'disp': {'hint': 'text'},
                     'doc': 'A brief summary of the news item.'}),

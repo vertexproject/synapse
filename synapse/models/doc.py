@@ -52,7 +52,7 @@ modeldefs = (
                     ('type', ('{type}', {}), {
                         'doc': 'The type of {document}.'}),
 
-                    ('text', ('str', {}), {
+                    ('text', ('text', {}), {
                         'disp': {'hint': 'text', 'syntax': '{syntax}'},
                         'doc': 'The text of the {document}.'}),
 
@@ -142,7 +142,7 @@ modeldefs = (
             ('doc:requirement:type:taxonomy', {}, ()),
             ('doc:requirement', {}, (
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A summary of the requirement definition.'}),
 
@@ -162,7 +162,7 @@ modeldefs = (
                 ('contact', ('entity:individual', {}), {
                     'doc': 'Contact information for subject of the resume.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'The summary of qualifications from the resume.'}),
 

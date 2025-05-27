@@ -137,6 +137,10 @@ modeldefs = (
 
             ('markdown', ('str', {}), {
                 'doc': 'A markdown string.'}),
+
+            ('text', ('str', {'strip': False}), {
+                'doc': 'A multi-line, free form text string.'}),
+
         ),
         'interfaces': (
             ('meta:taxonomy', {
@@ -145,7 +149,7 @@ modeldefs = (
                     ('title', ('str', {}), {
                         'doc': 'A brief title of the definition.'}),
 
-                    ('desc', ('str', {}), {
+                    ('desc', ('text', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A definition of the taxonomy entry.'}),
 
@@ -173,7 +177,7 @@ modeldefs = (
                 ),
                 'props': (
 
-                    ('desc', ('str', {}), {
+                    ('desc', ('text', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the {document}.'}),
 
@@ -183,7 +187,7 @@ modeldefs = (
                     ('enabled', ('bool', {}), {
                         'doc': 'The enabled status of the {document}.'}),
 
-                    ('text', ('str', {}), {
+                    ('text', ('text', {}), {
                         'disp': {'hint': 'text', 'syntax': '{syntax}'},
                         'doc': 'The text of the {document}.'})
                 ),
@@ -298,7 +302,7 @@ modeldefs = (
                 ('type', ('meta:note:type:taxonomy', {}), {
                     'doc': 'The note type.'}),
 
-                ('text', ('str', {}), {
+                ('text', ('text', {}), {
                     'disp': {'hint': 'text', 'syntax': 'markdown'},
                     'doc': 'The analyst authored note text.'}),
 
@@ -322,7 +326,7 @@ modeldefs = (
                 ('title', ('str', {}), {
                     'ex': 'The history of the Vertex Project',
                     'doc': 'A title for the timeline.'}),
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A prose summary of the timeline.'}),
                 ('type', ('meta:timeline:type:taxonomy', {}), {
@@ -340,7 +344,7 @@ modeldefs = (
                 ('title', ('str', {}), {
                     'doc': 'A title for the event.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A prose summary of the event.'}),
 
@@ -369,7 +373,7 @@ modeldefs = (
                 ('type', ('meta:ruleset:type:taxonomy', {}), {
                     'doc': 'The ruleset type.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the ruleset.'}),
 

@@ -65,7 +65,7 @@ modeldefs = (
                 ('title', ('str', {}), {
                     'doc': 'The title of the RFP.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A brief summary of the RFP.'}),
 
@@ -188,7 +188,7 @@ modeldefs = (
                 ('provider', ('entity:actor', {}), {
                     'doc': 'The contact info of the entity which performs the service.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A brief summary of the service.'}),
 
@@ -209,7 +209,7 @@ modeldefs = (
                     'doc': 'The type of product.'}),
 
                 # TODO ('upc', ('biz:upc', {}), {}),
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A brief summary of the product.'}),
 
