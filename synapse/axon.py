@@ -1850,7 +1850,7 @@ class Axon(s_cell.Cell):
                 raise
 
             except Exception as e:
-                if isinstance(e, aiohttp.ClientOSError) and isinstance(e.__cause__, aiohttp_socks.ProxyConnectionError):
+                if isinstance(e.__cause__, aiohttp_socks.ProxyConnectionError):
                     e = e.__cause__
                 logger.exception(f'Failed to wget {s_urlhelp.sanitizeUrl(url)}')
                 err = s_common.err(e)
