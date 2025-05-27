@@ -5543,6 +5543,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         await asyncio.sleep(0)
                         src_form = pode1[0][0]
                         for nid2, pode2 in spooldict.items():
+                            await asyncio.sleep(0)
                             tgt_form = pode2[1][0][0]
                             n2buid = self.getBuidByNid(nid2)
                             async for verb in view.iterEdgeVerbs(nid1, nid2, stop=stoplayr):
