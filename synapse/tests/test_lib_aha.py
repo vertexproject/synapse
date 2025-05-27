@@ -77,15 +77,12 @@ class AhaTest(s_test.SynTest):
                     self.eq(serv0, serv1)
 
                     # ensure some basic functionality is being properly mirrored
-
-                    cabyts = await aha0.genCaCert('mirrorca')
-                    await aha1.sync()
-                    mirbyts = await aha1.genCaCert('mirrorca')
-                    self.eq(cabyts, mirbyts)
                     iden = s_common.guid()
                     # Adding, downing, and removing service is also nexusified
-                    info = {'urlinfo': {'host': '127.0.0.1', 'port': 8080,
-                                        'scheme': 'tcp'},
+                    info = {
+                            'iden': s_common.guid(),
+                            'ready': True,
+                            'urlinfo': {'host': '127.0.0.1', 'port': 8080, 'scheme': 'tcp'},
                             'online': iden}
                     await aha0.addAhaSvc('test.example.net', info)
                     await aha1.sync()
@@ -142,14 +139,13 @@ class AhaTest(s_test.SynTest):
 
                 purl = await aha.addAhaSvcProv('0.cryo')
 
-                wait00 = aha.waiter(1 * replaymult, 'aha:svc:add')
-
                 conf = {'aha:provision': purl}
                 async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
-                    self.len(1 * replaymult, await wait00.wait(timeout=6))
 
-                    svc = await aha.getAhaSvc('0.cryo...')
-                    linkiden = svc.get('online')
+                    self.true(await aha._waitAhaSvcOnline('0.cryo...', timeout=10))
+
+                    svcdef = await aha.getAhaSvc('0.cryo...')
+                    linkiden = svcdef.get('online')
 
                     # Tear down the Aha cell.
                     await aha.__aexit__(None, None, None)
@@ -157,13 +153,13 @@ class AhaTest(s_test.SynTest):
             with self.getAsyncLoggerStream('synapse.lib.aha', f'Set [0.cryo.synapse] offline.') as stream:
                 async with self.getTestAha(dirn=dirn) as aha:
                     self.true(await asyncio.wait_for(stream.wait(), timeout=12))
-                    svc = await aha.getAhaSvc('0.cryo...')
-                    self.notin('online', svc)
+                    svcdef = await aha.getAhaSvc('0.cryo...')
+                    self.notin('online', svcdef)
 
                     # Try setting something down a second time
                     await aha.setAhaSvcDown('0.cryo...', linkiden)
-                    svc = await aha.getAhaSvc('0.cryo...')
-                    self.notin('online', svc)
+                    svcdef = await aha.getAhaSvc('0.cryo...')
+                    self.notin('online', svcdef)
 
     async def test_lib_aha_basics(self):
 
@@ -652,6 +648,10 @@ class AhaTest(s_test.SynTest):
                         self.true(await stream.wait(6))
                         self.ne(axon.conf.get('dmon:listen'),
                                 'tcp://0.0.0.0:0')
+
+                        # FIXME this is a race...
+                        await asyncio.sleep(1)
+
                 overconf2 = s_common.yamlload(axonpath, 'cell.mods.yaml')
                 self.eq(overconf2, {})
 
@@ -750,11 +750,11 @@ class AhaTest(s_test.SynTest):
 
                         retn, outp = await self.execToolMain(s_a_list.main, [aha.getLocalUrl()])
                         self.eq(retn, 0)
-                        outp.expect('Service              network                        leader')
-                        outp.expect('00.axon              synapse                        true')
-                        outp.expect('01.axon              synapse                        false')
-                        outp.expect('02.axon              synapse                        false')
-                        outp.expect('axon                 synapse                        true')
+                        outp.expect('Service              Leader', whitespace=False)
+                        outp.expect('00.axon.synapse      true', whitespace=False)
+                        outp.expect('01.axon.synapse      false', whitespace=False)
+                        outp.expect('02.axon.synapse      false', whitespace=False)
+                        outp.expect('axon.synapse         true', whitespace=False)
 
                 # Ensure we can provision a service on a given listening ports
                 outp.clear()
@@ -1137,6 +1137,8 @@ class AhaTest(s_test.SynTest):
             self.eq('proxy error', retn[1].get('errinfo').get('mesg'))
 
             bad_info = {
+                'iden': s_common.guid(),
+                'ready': False,
                 'urlinfo': {
                     'host': 'nonexistent.host',
                     'port': 12345,

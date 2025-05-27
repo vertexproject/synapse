@@ -1549,8 +1549,6 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         conf = self.getCellConf(conf=conf)
         conf['aha:provision'] = onetime
 
-        print(f'addSvcToAha({svcname}) {conf}')
-
         waiter = aha.waiter(1, 'aha:svc:add')
         with self.mayTestDir(dirn) as dirn:
             s_common.yamlsave(conf, dirn, 'cell.yaml')

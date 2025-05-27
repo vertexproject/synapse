@@ -628,7 +628,7 @@ class AhaCell(s_cell.Cell):
                     logger.warning(f'Pool ({name}) includes service ({svcname}) which does not exist.')
                     continue
 
-                await wind.put(('svc:add', svcitem))
+                await wind.put(('svc:add', svcdef))
 
             # subscribe to changes
             self.poolwindows[name].append(wind)
@@ -889,7 +889,7 @@ class AhaCell(s_cell.Cell):
             async with self.nexslock:
 
                 retn = await self.getAhaSvc(name)
-                if retn.get('online') is not None:
+                if retn is not None and retn.get('online') is not None:
                     return retn
 
                 waiter = self.waiter(1, 'aha:svc:add')

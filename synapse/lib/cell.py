@@ -951,8 +951,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string',
         },
         'aha:registry': {
-            'description': 'The telepath URL of the aha service registry.',
-            'type': ['string', 'array'],
+            'description': 'A list of telepath URLs of the aha service registry.',
+            'type': ['array'],
             'items': {'type': 'string'},
         },
         'aha:provision': {
@@ -1539,7 +1539,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 newurls = await proxy.getAhaUrls(user=ahauser)
 
                 # FIXME migrate these?
-                oldurls = self.conf.get('aha:registry')
+                oldurls = tuple(self.conf.get('aha:registry'))
                 if newurls and newurls != oldurls:
                     self.modCellConf({'aha:registry': newurls})
                     self.ahaclient.setBootUrls(newurls)
@@ -1819,16 +1819,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if lisn is None:
             return
 
-        ahalead = self.conf.get('aha:leader')
+        leader = self.conf.get('aha:leader')
 
         ready = await self.nexsroot.isNexsReady()
         svcdef = {
             'run': runiden,
             'iden': celliden,
-            'leader': ahalead,
             'ready': ready,
             'urlinfo': s_telepath.chopurl(lisn),
         }
+
+        if leader is not None:
+            svcdef['leader'] = leader
 
         if isinstance(self.sockaddr, tuple):
             svcdef['urlinfo']['port'] = self.sockaddr[1]
