@@ -4746,21 +4746,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for ldef in self.layerdefs.values():
             await self._initLayr(ldef)
 
-    @s_nexus.Pusher.onPushAuto('layer:pull:offs')
-    async def setLayrPullOffs(self, iden, offs):
-        name = f'pull:{iden}'
-        if offs:
-            self.layeroffs.set(name, offs)
+    async def setLayrSyncOffs(self, iden, offs):
+        if offs is not None:
+            self.layeroffs.set(iden, offs)
         else:
-            self.layeroffs.delete(name)
-
-    @s_nexus.Pusher.onPushAuto('layer:push:offs')
-    async def setLayrPushOffs(self, iden, offs):
-        name = f'push:{iden}'
-        if offs:
-            self.layeroffs.set(name, offs)
-        else:
-            self.layeroffs.delete(name)
+            self.layeroffs.delete(iden)
 
     @s_nexus.Pusher.onPushAuto('layer:push:add')
     async def addLayrPush(self, layriden, pdef):
@@ -4788,12 +4778,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.runLayrPush(layr, pdef)
 
+    @s_nexus.Pusher.onPushAuto('layer:push:del')
     async def delLayrPush(self, layriden, pushiden):
-        await self._push('layer:push:del', layriden, pushiden)
-        await self._push('layer:push:offs', pushiden, None)
-
-    @s_nexus.Pusher.onPush('layer:push:del')
-    async def _delLayrPush(self, layriden, pushiden):
 
         layr = self.layers.get(layriden)
         if layr is None:
@@ -4804,6 +4790,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         pdef = pushs.pop(pushiden, None)
+        await self.setLayrSyncOffs(pushiden, None)
         if pdef is None:
             return
 
@@ -4838,12 +4825,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.runLayrPull(layr, pdef)
 
+    @s_nexus.Pusher.onPushAuto('layer:pull:del')
     async def delLayrPull(self, layriden, pulliden):
-        await self._push('layer:pull:del', layriden, pulliden)
-        await self._push('layer:pull:offs', pulliden, None)
-
-    @s_nexus.Pusher.onPush('layer:pull:del')
-    async def _delLayrPull(self, layriden, pulliden):
 
         layr = self.layers.get(layriden)
         if layr is None:
@@ -4854,6 +4837,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         pdef = pulls.pop(pulliden, None)
+        await self.setLayrSyncOffs(pulliden, None)
         if pdef is None:
             return
 
@@ -4870,7 +4854,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async def push():
             async with await self.boss.promote(f'layer push: {layr.iden} {iden}', self.auth.rootuser):
                 async with await s_telepath.openurl(url) as proxy:
-                    await self._handleBulkEdits('push', layr, proxy, pdef)
+                    await self._pushBulkEdits(layr, proxy, pdef)
 
         self.addActiveCoro(push, iden=iden)
 
@@ -4882,7 +4866,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async def pull():
             async with await self.boss.promote(f'layer pull: {layr.iden} {iden}', self.auth.rootuser):
                 async with await s_telepath.openurl(url) as proxy:
-                    await self._handleBulkEdits('pull', proxy, layr, pdef)
+                    await self._pushBulkEdits(proxy, layr, pdef)
 
         self.addActiveCoro(pull, iden=iden)
 
@@ -4937,16 +4921,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return lnodeedits
 
-    async def _handleBulkEdits(self, ptype, layr0, layr1, pdef):
+    async def _pushBulkEdits(self, layr0, layr1, pdef):
 
         iden = pdef.get('iden')
         user = pdef.get('user')
-
-        ptype_to_setoffs = {
-            'push': self.setLayrPushOffs,
-            'pull': self.setLayrPullOffs,
-        }
-        setLayrOffs = ptype_to_setoffs.get(ptype)
 
         csize = pdef.get('chunk:size')
         qsize = pdef.get('queue:size')
@@ -4957,7 +4935,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async def fill():
 
                 try:
-                    filloffs = self.layeroffs.get(f'{ptype}:{iden}', -1)
+                    filloffs = self.layeroffs.get(iden, -1)
                     async for (offs, nodeedits) in layr0.syncNodeEdits(filloffs + 1, wait=True, compat=True):
                         await queue.put((offs, await self.remoteToLocalEdits(nodeedits)))
                     await queue.close()
@@ -4981,12 +4959,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     alledits.extend(edits)
                     if len(alledits) > csize:
                         await layr1.saveNodeEdits(alledits, meta)
-                        await setLayrOffs(iden, offs)
+                        await self.setLayrSyncOffs(iden, offs)
                         alledits.clear()
 
                 if alledits:
                     await layr1.saveNodeEdits(alledits, meta)
-                    await setLayrOffs(iden, offs)
+                    await self.setLayrSyncOffs(iden, offs)
 
     async def _checkNexsIndx(self):
         layroffs = [await layr.getEditIndx() for layr in list(self.layers.values())]

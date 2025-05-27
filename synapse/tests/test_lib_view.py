@@ -657,9 +657,9 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:str=chicken'))
             baseoffs = await layr.getEditOffs()
 
-            async def waitPTypeOffs(core_, ptype_, iden_, offs_):
+            async def waitPushOffs(core_, iden_, offs_):
                 while True:
-                    if core_.layeroffs.get(f'{ptype_}:{iden_}', -1) >= offs_:
+                    if core_.layeroffs.get(iden_, -1) >= offs_:
                         return
                     await asyncio.sleep(0)
 
@@ -680,7 +680,7 @@ class ViewTest(s_t_utils.SynTest):
                     return(($pdef.iden, $view.iden, $lyr.iden))
                 ''', opts=opts)
 
-                await asyncio.wait_for(waitPTypeOffs(core2, 'pull', puller_iden, baseoffs), timeout=5)
+                await asyncio.wait_for(waitPushOffs(core2, puller_iden, baseoffs), timeout=5)
                 self.len(1, await core2.nodes('test:str=chicken', opts={'view': puller_view}))
                 puller_offs = await core2.getLayer(iden=puller_layr).getEditOffs()
 
@@ -698,7 +698,7 @@ class ViewTest(s_t_utils.SynTest):
                     return($pdef.iden)
                 ''', opts=opts)
 
-                await asyncio.wait_for(waitPTypeOffs(core, 'push', pushee_iden, baseoffs), timeout=5)
+                await asyncio.wait_for(waitPushOffs(core, pushee_iden, baseoffs), timeout=5)
                 self.len(1, await core2.nodes('test:str=chicken', opts={'view': pushee_view}))
                 pushee_offs = await core2.getLayer(iden=pushee_layr).getEditOffs()
 

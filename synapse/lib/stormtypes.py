@@ -7371,12 +7371,12 @@ class Layer(Prim):
         pushs = ldef.get('pushs')
         if pushs is not None:
             for iden, pdef in pushs.items():
-                pdef['offs'] = self.runt.view.core.layeroffs.get(f'push:{iden}', -1)
+                pdef['offs'] = self.runt.view.core.layeroffs.get(iden, -1)
 
         pulls = ldef.get('pulls')
         if pulls is not None:
             for iden, pdef in pulls.items():
-                pdef['offs'] = self.runt.view.core.layeroffs.get(f'pull:{iden}', -1)
+                pdef['offs'] = self.runt.view.core.layeroffs.get(iden, -1)
 
         return ldef
 
