@@ -241,7 +241,7 @@ modeldefs = (
             )),
             ('syn:cmd', {'runt': True, 'liftfunc': 'synapse.models.syn._liftRuntSynCmd'}, (
                 ('doc', ('text', {'strip': True}), {
-                    'doc': 'Description of the command.'
+                    'doc': 'Description of the command.',
                     'disp': {'hint': 'text'},
                 }),
                 ('package', ('str', {'strip': True}), {

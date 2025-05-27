@@ -52,7 +52,7 @@ modeldefs = (
                     ('type', ('{type}', {}), {
                         'doc': 'The type of {document}.'}),
 
-                    ('text', ('str', {}), {
+                    ('text', ('text', {}), {
                         'disp': {'hint': 'text', 'syntax': '{syntax}'},
                         'doc': 'The text of the {document}.'}),
 

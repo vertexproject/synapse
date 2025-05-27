@@ -187,7 +187,7 @@ modeldefs = (
                     ('enabled', ('bool', {}), {
                         'doc': 'The enabled status of the {document}.'}),
 
-                    ('text', ('str', {}), {
+                    ('text', ('text', {}), {
                         'disp': {'hint': 'text', 'syntax': '{syntax}'},
                         'doc': 'The text of the {document}.'})
                 ),
@@ -302,7 +302,7 @@ modeldefs = (
                 ('type', ('meta:note:type:taxonomy', {}), {
                     'doc': 'The note type.'}),
 
-                ('text', ('str', {}), {
+                ('text', ('text', {}), {
                     'disp': {'hint': 'text', 'syntax': 'markdown'},
                     'doc': 'The analyst authored note text.'}),
 
