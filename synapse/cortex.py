@@ -283,7 +283,8 @@ class CoreApi(s_cell.CellApi):
 
         self.user.confirm(('feed:data',), gateiden=view.wlyr.iden)
 
-        s_schemas.reqValidExportStormMeta(meta)
+        self.cell._reqValidExportStormMeta(meta)
+
         if extmodel:
             await self.cell.addExtModel(meta['model_ext'])
         return
@@ -1209,6 +1210,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'data', 'del', '<key>'), 'gate': 'layer',
              'ex': 'node.data.del.hehe',
              'desc': 'Permits a user to remove node data in a given layer for a specific key.'},
+
+            {'perm': ('feed', 'data'), 'gate': 'layer',
+             'desc': 'Controls access to feeding/importing data into a layer.'},
 
             {'perm': ('pkg', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding storm packages.'},
@@ -5472,8 +5476,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
                     self._logStormQuery(text, user, info=info)
 
-                    forms, nid_to_form, nodec = {}, {}, 0
-                    used_forms, used_types, used_props, used_univs, used_tagprops = set(), set(), set(), set(), set()
+                    forms = collections.Counter()
+                    nodec = 0
+                    used_forms = set()
+                    used_types = set()
+                    used_props = set()
+                    used_univs = set()
+                    used_tagprops = set()
 
                     async for node, path in runt.execute():
 
@@ -5510,8 +5519,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                                     used_univs.add(univ_name)
 
                         await spooldict.set(node.nid, (node.lastlayr(), node.pack()))
-                        forms[node.form.name] = forms.get(node.form.name, 0) + 1
-                        nid_to_form[node.nid] = node.form.name
+                        forms[node.form.name] += 1
                         nodec += 1
 
                     # Edges
@@ -5532,9 +5540,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     node_edges = {}
                     edges_meta = {}
                     for nid1, (stoplayr, pode1) in spooldict.items():
-                        src_form = nid_to_form[nid1]
+                        await asyncio.sleep(0)
+                        src_form = pode1[0][0]
                         for nid2, pode2 in spooldict.items():
-                            tgt_form = nid_to_form[nid2]
+                            tgt_form = pode2[1][0][0]
                             n2buid = self.getBuidByNid(nid2)
                             async for verb in view.iterEdgeVerbs(nid1, nid2, stop=stoplayr):
                                 node_edges.setdefault(nid1, []).append((verb, s_common.ehex(n2buid)))
@@ -5555,22 +5564,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                     metadata = {
                         'type': 'meta',
-                        'export_ver': 1, # int or semver?
+                        'vers': 1,
                         'forms': forms,
                         'edges': edges_meta,
                         'count': nodec,
                         'model_ext': model_ext,
                         'creatorname': user.name,
+                        'creatoriden': user.iden,
                         'created': s_common.now(),
-                        'synapse_minver': s_version.verstring,
                         'synapse_ver': s_version.verstring,
-                        'query': text, # could be taskinfo
+                        'query': text,
                     }
 
                     s_schemas.reqValidExportStormMeta(metadata)
                     yield metadata
 
                     for nid1, (stoplayr, pode1) in spooldict.items():
+                        await asyncio.sleep(0)
                         edges = node_edges.get(nid1)
                         if edges:
                             pode1[1]['edges'] = edges
@@ -5583,6 +5593,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await fd.write(s_msgpack.en(pode))
             size, sha256 = await fd.save()
             return (size, s_common.ehex(sha256))
+
+    def _reqValidExportStormMeta(self, meta, synver_range='>=3.0.0,<4.0.0'):
+        '''
+        Validate an export storm meta dict for schema, version, and synapse version compatibility.
+
+        Raises:
+            s_exc.BadDataValu: If the schema is invalid, vers is unsupported, or synapse_ver is malformed.
+            s_exc.BadVersion: If the synapse_ver is not in the supported range.
+        '''
+        try:
+            s_schemas.reqValidExportStormMeta(meta)
+        except s_exc.SchemaViolation as e:
+            raise s_exc.BadDataValu(mesg=f'Invalid syn.nodes data.')
+
+        if meta['vers'] != 1:
+            raise s_exc.BadDataValu(mesg=f"Unsupported export version: {meta['vers']}")
+
+        meta_syn_vers = meta['synapse_ver']
+        parts = s_version.parseSemver(meta_syn_vers)
+        if parts is None:
+            raise s_exc.BadDataValu(mesg=f"Malformed synapse version: {meta_syn_vers}")
+        meta_syn_vers_tupl = (parts['major'], parts['minor'], parts['patch'])
+        s_version.reqVersion(meta_syn_vers_tupl, synver_range)
 
     async def feedFromAxon(self, sha256, opts=None):
 
@@ -5609,12 +5642,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     first = True
                     async for item in self.axon.iterMpkFile(sha256):
                         if first:
-                            try:
-                                s_schemas.reqValidExportStormMeta(item)
-                            except s_exc.SchemaViolation:
-                                raise s_exc.BadDataValu(mesg=f'Invalid syn.nodes data.')
+                            self._reqValidExportStormMeta(item)
                             first = False
                             continue
+
                         await q.put(item)
 
                 except Exception as e:

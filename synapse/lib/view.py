@@ -2411,6 +2411,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         for nodedefn in nodedefs:
             if isinstance(nodedefn, dict):
+                self.core._reqValidExportStormMeta(nodedefn)
                 continue
 
             node = await self._addNodeDef(nodedefn, user=user, runt=runt)

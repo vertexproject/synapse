@@ -1217,7 +1217,7 @@ _exportStormMetaSchema = {
     'type': 'object',
     'properties': {
         'type': {'type': 'string', 'enum': ['meta']},
-        'export_ver': {'type': 'integer', 'minimum': 1},
+        'vers': {'type': 'integer', 'minimum': 1},
         'forms': {
             'type': 'object',
             'patternProperties': {
@@ -1292,19 +1292,16 @@ _exportStormMetaSchema = {
             'description': 'Additional model information about extended forms, properties, tagprops, and univprops.'
         },
         'count': {'type': 'integer', 'minimum': 0, 'description': 'Number of nodes exported.'},
-        'synapse_minver': {
-            'type': 'string',
-            'description': 'Minimum version of Synapse required to import the export.'
-        },
         'synapse_ver': {
             'type': 'string',
             'description': 'Version of Synapse that exported the data.'
         },
         'creatorname': {'type': 'string', 'description': 'User who ran the export.'},
+        'creatoriden': {'type': 'string', 'pattern': s_config.re_iden, 'description': 'User iden who ran the export.'},
         'created': {'type': 'integer', 'minimum': 0, 'description': 'Timestamp of the export.'},
         'query': {'type': 'string', 'description': 'The Storm query string.'},
     },
-    'required': ['type', 'forms', 'count', 'creatorname', 'query', 'created', 'synapse_minver', 'synapse_ver'],
+    'required': ['type', 'vers', 'forms', 'count', 'synapse_ver', 'creatorname', 'creatoriden', 'created', 'query'],
     'additionalProperties': False,
 }
 

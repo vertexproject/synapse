@@ -211,8 +211,9 @@ class FeedTest(s_t_utils.SynTest):
                 'count': 1,
                 'created': 1747831406876525,
                 'creatorname': 'root',
+                'creatoriden': core.auth.rootuser.iden,
                 'edges': {},
-                'export_ver': 1,
+                'vers': 1,
                 'forms': {'_baz:haha': 1},
                 'model_ext': {'edges': [],
                             'forms': [('_baz:haha',
@@ -224,7 +225,6 @@ class FeedTest(s_t_utils.SynTest):
                             'types': [('_foo:bar', 'str', {}, {'doc': '_foo:bar str type'})],
                             'univs': []},
                 'query': '_baz:haha',
-                'synapse_minver': '3.0.0',
                 'synapse_ver': '3.0.0',
                 'type': 'meta'
             }
