@@ -137,21 +137,15 @@ class AhaApi(s_cell.CellApi):
         async for item in self.cell.callAhaPeerGenr(iden, todo, timeout=timeout, skiprun=skiprun):
             yield item
 
-    # FIXME do we still need filters or can pools be preferred?
-    async def getAhaSvc(self, name, *, filters=None):
+    async def getAhaSvc(self, name):
         '''
         Return an AHA service description dictionary for a service name.
         '''
-        svcdef = await self.cell.getAhaSvc(name, filters=filters)
+        svcdef = await self.cell.getAhaSvc(name)
         if svcdef is None:
             return None
 
-        realname = svcdef.get('name')
-
-        svcdef = s_msgpack.deepcopy(svcdef)
-
         # suggest that the user of the remote service is the same
-        # FIXME is this still correct?
         username = self.user.name.split('@')[0]
         svcdef['urlinfo']['user'] = username
 
@@ -1154,20 +1148,12 @@ class AhaCell(s_cell.Cell):
         if client is not None:
             await client.fini()
 
-    async def getAhaSvc(self, name, filters=None):
+    async def getAhaSvc(self, name):
 
         name = self._getAhaName(name)
 
         svcdef = await self._getAhaSvc(name)
         if svcdef is not None:
-            # if they requested a mirror, try to locate one
-            if filters is not None and filters.get('mirror'):
-                iden = svcdef.get('iden')
-                mirrors = await self.getAhaSvcMirrors(iden)
-
-                if mirrors:
-                    return random.choice(mirrors)
-
             return svcdef
 
         pooldef = await self.getAhaPool(name)

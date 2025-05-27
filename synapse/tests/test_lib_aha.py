@@ -1099,6 +1099,9 @@ class AhaTest(s_test.SynTest):
                             ahaproxy = await pool.aha.proxy()
                             await ahaproxy.fini()
 
+                        # ensure we get reconnected before moving on...
+                        await pool.aha.proxy()
+
                         # wait for the pool to be notified of the topology change
                         async with pool.waiter(1, 'svc:del', timeout=10):
 

@@ -45,8 +45,6 @@ class AhaLibTest(s_test.SynTest):
                 self.eq('00.cell.synapse', svc.get('name'))
                 svc = await core00.callStorm('return( $lib.aha.get(cell...))')
                 self.eq('cell.synapse', svc.get('name'))
-                svc = await core00.callStorm('$f=({"mirror": (true)}) return( $lib.aha.get(cell..., filters=$f))')
-                self.eq('01.cell.synapse', svc.get('name'))
 
                 # List the aha services available
                 msgs = await core00.stormlist('aha.svc.list --nexus')

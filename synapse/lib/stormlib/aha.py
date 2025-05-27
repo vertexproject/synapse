@@ -41,10 +41,8 @@ class AhaLib(s_stormtypes.Lib):
         ''',
          'type': {'type': 'function', '_funcname': '_methAhaGet',
                   'args': (
-                      {'name': 'svcname', 'type': 'str',
-                       'desc': 'The name of the AHA service to look up. It is easiest to use the relative name of a service, ending with "...".', },
-                      {'name': 'filters', 'type': 'dict', 'default': None,
-                       'desc': 'An optional dictionary of filters to use when resolving the AHA service.'}
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'The name of the AHA service to look up.', },
                   ),
                   'returns': {'type': ('null', 'dict'),
                               'desc': 'The AHA service information dictionary, or ``(null))``.', }}},
@@ -157,12 +155,11 @@ class AhaLib(s_stormtypes.Lib):
         return await proxy.delAhaSvc(svc.get('svcname'), network=svc.get('svcnetw'))
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methAhaGet(self, svcname, filters=None):
+    async def _methAhaGet(self, name):
         self.runt.reqAdmin()
-        svcname = await s_stormtypes.tostr(svcname)
-        filters = await s_stormtypes.toprim(filters)
+        name = await s_stormtypes.tostr(name)
         proxy = await self.runt.view.core.reqAhaProxy()
-        return await proxy.getAhaSvc(svcname, filters=filters)
+        return await proxy.getAhaSvc(name)
 
     async def _methCallPeerApi(self, svcname, todo, timeout=None, skiprun=None):
         '''
