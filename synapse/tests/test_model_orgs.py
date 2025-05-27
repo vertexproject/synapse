@@ -364,8 +364,24 @@ class OuModelTest(s_t_utils.SynTest):
                 'place': place0,
                 'url': 'http://arrowcon.org/2018/dinner',
             }
-            q = '''[(ou:conference:event=$valu :name=$p.name :desc=$p.desc :start=$p.start :end=$p.end
-                    :conference=$p.conference :contact=$p.contact :place=$p.place :url=$p.url)]'''
+            q = '''
+            [ ou:conference:event=$valu
+                :name=$p.name
+                :desc=$p.desc
+                :start=$p.start
+                :end=$p.end
+                :conference=$p.conference
+                :contact=$p.contact
+                :place=$p.place
+                :url=$p.url
+            ]
+
+            // :conference should not be RO
+            [ -:conference ]
+
+            // Put the value back
+            [ :conference=$p.conference ]
+            '''
             nodes = await core.nodes(q, opts={'vars': {'valu': c0, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
