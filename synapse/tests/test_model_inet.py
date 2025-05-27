@@ -2971,7 +2971,9 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [ inet:service:platform=(slack,)
                 :url="https://slack.com"
+                :urls=(https://slacker.com,)
                 :name=Slack
+                :names=("slack chat",)
                 :provider={ ou:org:name=$provname }
                 :provider:name=$provname
             ]
@@ -2980,10 +2982,18 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:platform', s_common.guid(('slack',))))
             self.eq(nodes[0].get('url'), 'https://slack.com')
+            self.eq(nodes[0].get('urls'), ('https://slacker.com',))
             self.eq(nodes[0].get('name'), 'slack')
+            self.eq(nodes[0].get('names'), ('slack chat',))
             self.eq(nodes[0].get('provider'), provider.ndef[1])
             self.eq(nodes[0].get('provider:name'), provname.lower())
             platform = nodes[0]
+
+            nodes = await core.nodes('[ inet:service:platform=({"name": "slack chat"}) ]')
+            self.eq(nodes[0].ndef, platform.ndef)
+
+            nodes = await core.nodes('[ inet:service:platform=({"url": "https://slacker.com"}) ]')
+            self.eq(nodes[0].ndef, platform.ndef)
 
             q = '''
             [ inet:service:instance=(vertex, slack)
@@ -3383,12 +3393,15 @@ class InetModelTest(s_t_utils.SynTest):
 
             q = '''
             [ inet:service:access=(api, blackout, 1715856900000, vertex, slack)
+                :action=foo.bar
                 :account=$blckiden
                 :instance=$instiden
                 :platform=$platiden
                 :resource=$rsrciden
                 :success=$lib.true
                 :time=(1715856900000)
+                :app={[ inet:service:app=({"name": "slack web"}) ]}
+                :client:app={[ inet:service:app=({"name": "slack web"}) :desc="The slack web application"]}
             ]
             '''
             opts = {'vars': {
@@ -3400,12 +3413,14 @@ class InetModelTest(s_t_utils.SynTest):
             }}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
+            self.eq(nodes[0].get('action'), 'foo.bar.')
             self.eq(nodes[0].get('account'), blckacct.ndef[1])
             self.eq(nodes[0].get('instance'), platinst.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('resource'), resource.ndef[1])
             self.true(nodes[0].get('success'))
             self.eq(nodes[0].get('time'), 1715856900000)
+            self.eq(nodes[0].get('app'), nodes[0].get('client:app'))
 
             q = '''
             [ inet:service:message=(visi, says, relax)
