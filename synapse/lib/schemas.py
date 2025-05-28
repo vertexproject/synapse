@@ -1310,7 +1310,7 @@ _exportStormMetaSchema = {
         'created': {'type': 'integer', 'minimum': 0, 'description': 'Timestamp of the export.'},
         'query': {'type': 'string', 'description': 'The Storm query string.'},
     },
-    'required': ['type', 'vers', 'forms', 'count', 'synapse_ver', 'creatorname', 'creatoriden', 'created', 'query'],
+    'required': ['type', 'vers', 'forms', 'count', 'synapse_ver'],
     'additionalProperties': False,
 }
 

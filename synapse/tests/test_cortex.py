@@ -7001,8 +7001,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 sha256 = s_common.ehex(sha256b)
 
                 opts = {'view': altview, 'vars': {'sha256': sha256}}
-                with self.raises(s_exc.BadDataValu):
+                with self.raises(s_exc.BadDataValu) as cm:
                     await proxy.callStorm('return($lib.feed.fromAxon($sha256))', opts=opts)
+                self.isin('Invalid syn.nodes data.', cm.exception.get('mesg'))
 
                 # try-again w/ meta node: concat the bytes and add back to the axon
                 byts = s_msgpack.en(meta) + b''.join(s_msgpack.en(p) for p in podes)
