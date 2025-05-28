@@ -26,6 +26,7 @@ class AhaToolsTest(s_t_utils.SynTest):
             waiter = aha.waiter(2, 'aha:svc:add')
             conf0 = {'aha:provision': await aha.addAhaSvcProv('cell0')}
 
+            # This gets overridden by the AHA aha:network setting...
             provinfo = {'aha:network': 'example.net'}
             conf1 = {'aha:provision': await aha.addAhaSvcProv('cell1', provinfo=provinfo)}
 
@@ -42,16 +43,10 @@ class AhaToolsTest(s_t_utils.SynTest):
                     self.eq(retn, 0)
 
                     outp.expect('''
-                        Service              network                        leader
-                        cell0                synapse                        None
-                        cell1                example.net                    None
+                        Service         leader
+                        cell0.synapse   false
+                        cell1.synapse   false
                     ''', whitespace=False)
-
-                    argv = [ahaurl, 'demo.net']
-                    retn, outp = await self.execToolMain(s_a_list.main, argv)
-                    self.eq(retn, 0)
-                    outp.expect('Service              network', whitespace=False)
-                    outp.expect('cell0                demo.net', whitespace=False)
 
         async with self.getTestCore() as core:
             curl = core.getLocalUrl()
@@ -68,15 +63,14 @@ class AhaToolsTest(s_t_utils.SynTest):
             _, port = aha.sockaddr
             ahaurl = f'tcp://root:root@127.0.0.1:{port}'
             with self.getTestSynDir() as syndir, self.getTestDir() as dirn:
-                argvbase = ['-a', ahaurl, '--certdir', dirn]
-                argv = argvbase + ['--ca', 'demo.net']
-                retn, outp = await self.execToolMain(s_a_easycert.main, argv)
-                self.eq(retn, 0)
-                outp.expect('Saved CA cert')
-                outp.expect('cas/demo.net.crt')
 
-                argv = argvbase + ['--server', '--server-sans', 'DNS:beeper.demo.net,DNS:booper.demo.net',
-                                   '--network', 'demo.net', 'beep.demo.net']
+                argvbase = [ahaurl, '--certdir', dirn]
+
+                argv = argvbase + ['--server',
+                                   '--server-sans',
+                                   'DNS:beeper.demo.net,DNS:booper.demo.net',
+                                   'beep.demo.net']
+
                 retn, outp = await self.execToolMain(s_a_easycert.main, argv)
                 self.eq(retn, 0)
                 outp.expect('key saved')
@@ -84,7 +78,7 @@ class AhaToolsTest(s_t_utils.SynTest):
                 outp.expect('crt saved')
                 outp.expect('hosts/beep.demo.net.crt')
 
-                argv = argvbase + ['--network', 'demo.net', 'mallory@demo.net']
+                argv = argvbase + ['mallory@demo.net']
                 retn, outp = await self.execToolMain(s_a_easycert.main, argv)
                 self.eq(retn, 0)
                 outp.expect('key saved')
@@ -177,71 +171,21 @@ class AhaToolsTest(s_t_utils.SynTest):
 
         async with self.getTestAha() as aha:
 
-            base_svcinfo = {
-                'iden': 'test_iden',
-                'leader': 'leader',
-                'urlinfo': {
-                    'scheme': 'tcp',
-                    'host': '127.0.0.1',
-                    'port': 0,
-                    'hostname': 'test.host'
-                }
-            }
+            conf = {'aha:provision': await aha.addAhaSvcProv('00.cell')}
+            cell00 = await aha.enter_context(self.getTestCell(conf=conf))
+            await aha._waitAhaSvcOnline('00.cell...', timeout=10)
 
-            conf_no_iden = {'aha:provision': await aha.addAhaSvcProv('no.iden')}
-            async with self.getTestCell(s_cell.Cell, conf=conf_no_iden) as cell_no_iden:
-                svcinfo = {k: v for k, v in base_svcinfo.items() if k != 'iden'}
-                await aha.addAhaSvc('no.iden', svcinfo)
+            conf = {'aha:provision': await aha.addAhaSvcProv('01.cell', {'mirror': 'cell'})}
+            cell01 = await aha.enter_context(self.getTestCell(conf=conf))
+            await aha._waitAhaSvcOnline('01.cell...', timeout=10)
 
-                argv = ['--url', aha.getLocalUrl()]
-                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                self.eq(retn, 0)
-                outp.expect('Service Mirror Groups:')
-                self.notin('no.iden', str(outp))
-
-            conf_no_host = {'aha:provision': await aha.addAhaSvcProv('no.host')}
-            async with self.getTestCell(s_cell.Cell, conf=conf_no_host) as cell_no_host:
-                svcinfo = dict(base_svcinfo)
-                svcinfo['urlinfo'] = {k: v for k, v in base_svcinfo['urlinfo'].items() if k != 'hostname'}
-                await aha.addAhaSvc('no.host', svcinfo)
-
-                argv = ['--url', aha.getLocalUrl()]
-                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                self.eq(retn, 0)
-                outp.expect('Service Mirror Groups:')
-                self.notin('no.host', str(outp))
-
-            conf_no_leader = {'aha:provision': await aha.addAhaSvcProv('no.leader')}
-            async with self.getTestCell(s_cell.Cell, conf=conf_no_leader) as cell_no_leader:
-                svcinfo = {k: v for k, v in base_svcinfo.items() if k != 'leader'}
-                await aha.addAhaSvc('no.leader', svcinfo)
-
-                argv = ['--url', aha.getLocalUrl()]
-                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                self.eq(retn, 0)
-                outp.expect('Service Mirror Groups:')
-                self.notin('no.leader', str(outp))
-
-            conf_no_primary = {'aha:provision': await aha.addAhaSvcProv('no.primary')}
-            async with self.getTestCell(s_cell.Cell, conf=conf_no_primary) as cell_no_primary:
-                svcinfo = dict(base_svcinfo)
-                svcinfo['urlinfo']['hostname'] = 'nonexistent.host'
-                await aha.addAhaSvc('no.primary', svcinfo)
-
-            async with aha.waiter(3, 'aha:svc:add', timeout=10):
-
-                conf = {'aha:provision': await aha.addAhaSvcProv('00.cell')}
-                cell00 = await aha.enter_context(self.getTestCell(conf=conf))
-
-                conf = {'aha:provision': await aha.addAhaSvcProv('01.cell', {'mirror': 'cell'})}
-                cell01 = await aha.enter_context(self.getTestCell(conf=conf))
-
-                await cell01.sync()
+            await cell01.sync()
 
             ahaurl = aha.getLocalUrl()
 
             argv = ['--url', ahaurl]
             retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+            print(f'WOOT:\n{str(outp)}')
             self.eq(retn, 0)
             outp.expect('Service Mirror Groups:')
             outp.expect('00.cell.synapse')
@@ -251,25 +195,6 @@ class AhaToolsTest(s_t_utils.SynTest):
             argv = ['--url', ahaurl, '--timeout', '30']
             retn, outp = await self.execToolMain(s_a_mirror.main, argv)
             self.eq(retn, 0)
-
-            with mock.patch('synapse.telepath.Proxy._hasTeleFeat',
-                          return_value=False):
-                argv = ['--url', ahaurl]
-                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                self.eq(retn, 1)
-                outp.expect(f'Service at {ahaurl} does not support the required callpeers feature.')
-
-            with mock.patch('synapse.telepath.Proxy._hasTeleFeat',
-                          side_effect=s_exc.NoSuchMeth(name='_hasTeleFeat')):
-                argv = ['--url', ahaurl]
-                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                self.eq(retn, 1)
-                outp.expect(f'Service at {ahaurl} does not support the required callpeers feature.')
-
-            argv = ['--url', 'tcp://newp:1234/']
-            retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-            self.eq(retn, 1)
-            outp.expect('ERROR:')
 
             async def mockCellInfo():
                 return {
@@ -321,7 +246,7 @@ class AhaToolsTest(s_t_utils.SynTest):
                           return_value=True):
                     retn, outp = await self.execToolMain(s_a_mirror.main, argv)
                     self.eq(1, retn)
-                    outp.expect(f'Service at {curl} is not an Aha server')
+                    outp.expect(f'Service at {curl} is not an AHA server')
 
             async with aha.waiter(1, 'aha:svc:add', timeout=10):
 

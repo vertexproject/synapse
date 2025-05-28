@@ -1538,7 +1538,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 ahauser = self.conf.get('aha:user', 'root')
                 newurls = await proxy.getAhaUrls(user=ahauser)
 
-                # FIXME migrate these?
                 oldurls = tuple(self.conf.get('aha:registry'))
                 if newurls and newurls != oldurls:
                     self.modCellConf({'aha:registry': newurls})

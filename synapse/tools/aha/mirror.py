@@ -1,6 +1,7 @@
 import sys
 import asyncio
 import argparse
+import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -11,71 +12,13 @@ import synapse.lib.output as s_output
 import synapse.lib.version as s_version
 
 descr = '''
-Query the Aha server for the service cluster status of mirrors.
+Query the AHA server for the service cluster status of mirrors.
 
 Examples:
 
     python -m synapse.tools.aha.mirror --timeout 30
 
 '''
-
-async def get_cell_infos(prox, iden, members, timeout):
-    cell_infos = {}
-    if iden is not None:
-        todo = s_common.todo('getCellInfo')
-        async for svcname, (ok, info) in prox.callAhaPeerApi(iden, todo, timeout=timeout):
-            if not ok:
-                continue
-            cell_infos[svcname] = info
-    return cell_infos
-
-def build_status_list(members, cell_infos):
-    group_status = []
-    for svc in members:
-        svcname = svc.get('name')
-        svcinfo = svc.get('svcinfo', {})
-        status = {
-            'name': svcname,
-            'role': '<unknown>',
-            'online': str('online' in svcinfo),
-            'ready': 'True',
-            'host': svcinfo.get('urlinfo', {}).get('host', ''),
-            'port': str(svcinfo.get('urlinfo', {}).get('port', '')),
-            'version': '<unknown>',
-            'synapse': '<unknown>',
-            'nexs_indx': 0
-        }
-        if svcname in cell_infos:
-            info = cell_infos[svcname]
-            cell_info = info.get('cell', {})
-            status.update({
-                'nexs_indx': cell_info.get('nexsindx', 0),
-                'role': 'follower' if cell_info.get('uplink') else 'leader',
-                'version': str(info.get('cell', {}).get('verstring', '')),
-                'synapse': str(info.get('synapse', {}).get('verstring', '')),
-                'online': 'True',
-                'ready': str(cell_info.get('ready', False))
-            })
-        group_status.append(status)
-    return group_status
-
-def output_status(outp, vname, group_status):
-    header = ' {:<40} {:<10} {:<8} {:<7} {:<16} {:<9} {:<12} {:<12} {:<10}'.format(
-        'name', 'role', 'online', 'ready', 'host', 'port', 'version', 'synapse', 'nexus idx')
-    outp.printf(header)
-    outp.printf('#' * 120)
-    outp.printf(vname)
-    for status in group_status:
-        if status['nexs_indx'] == 0:
-            status['nexs_indx'] = '<unknown>'
-        line = ' {name:<40} {role:<10} {online:<8} {ready:<7} {host:<16} {port:<9} {version:<12} {synapse:<12} {nexs_indx:<10}'.format(**status)
-        outp.printf(line)
-
-def check_sync_status(group_status):
-    indices = {status['nexs_indx'] for status in group_status}
-    known_count = sum(1 for status in group_status)
-    return len(indices) == 1 and known_count == len(group_status)
-
 def timeout_type(valu):
     try:
         ivalu = int(valu)
@@ -98,90 +41,75 @@ async def main(argv, outp=s_output.stdout):
     async with s_telepath.withTeleEnv():
         try:
             async with await s_telepath.openurl(opts.url) as prox:
-                try:
-                    if not prox._hasTeleFeat('callpeers', vers=1):
-                        outp.printf(f'Service at {opts.url} does not support the required callpeers feature.')
-                        return 1
-                except s_exc.NoSuchMeth:
-                    outp.printf(f'Service at {opts.url} does not support the required callpeers feature.')
-                    return 1
+
                 classes = prox._getClasses()
+
+                # FIXME we need a less fragile way to do this
                 if 'synapse.lib.aha.AhaApi' not in classes:
-                    outp.printf(f'Service at {opts.url} is not an Aha server')
+                    outp.printf(f'Service at {opts.url} is not an AHA server')
                     return 1
 
-                virtual_services, member_servers = {}, {}
-                async for svc in prox.getAhaSvcs():
-                    name = svc.get('name', '')
-                    svcinfo = svc.get('svcinfo', {})
-                    urlinfo = svcinfo.get('urlinfo', {})
-                    hostname = urlinfo.get('hostname', '')
+                virtuals = {}
+                mirrors = collections.defaultdict(list)
+
+                async for svcdef in prox.getAhaSvcs():
+
+                    name = svcdef.get('name')
+                    urlinfo = svcdef.get('urlinfo', {})
+
+                    hostname = urlinfo.get('hostname')
+                    if hostname is None:
+                        continue
+
+                    leader = svcdef.get('leader')
+                    if leader is None:
+                        continue
+
+                    print(f'SVCDEF {svcdef}')
+
+                    cellinfo = None
+                    if svcdef.get('online') is not None:
+                        cellinfo = await prox.callAhaSvcApi(realsvc.get('name'), todo, timeout=opts.timeout)
 
                     if name != hostname:
-                        virtual_services[name] = svc
+                        virtuals[name] = svcdef
                     else:
-                        member_servers[name] = svc
+                        mirrors[name].append(svcdef)
 
-                mirror_groups = {}
-                for vname, vsvc in virtual_services.items():
-                    vsvc_info = vsvc.get('svcinfo', {})
-                    vsvc_iden = vsvc_info.get('iden')
-                    vsvc_leader = vsvc_info.get('leader')
-                    vsvc_hostname = vsvc_info.get('urlinfo', {}).get('hostname', '')
+                todo = s_common.todo('getCellInfo')
 
-                    if not vsvc_iden or not vsvc_hostname or not vsvc_leader:
+                for virtname, svcdef in virtuals.items():
+
+                    iden = svcdef.get('iden')
+                    leader = svcdef.get('leader')
+
+                    svcdefs = mirrors.get(name)
+                    if svcdefs is None:
                         continue
 
-                    primary_member = member_servers.get(vsvc_hostname)
-                    if not primary_member:
-                        continue
+                    oupt.printf('Mirror Group: {virtname}')
+                    outp.printf('{"Name":<40} {"Leader":<10} {"Ready":<7} {"Host":<16} {"Port":<5} {"Version":<12} {"Synapse":<12} {"Nexus Index":<11}')
+                    for realsvc in svcdefs:
 
-                    members = [primary_member] + [
-                        msvc for mname, msvc in member_servers.items()
-                        if mname != vsvc_hostname and
-                        msvc.get('svcinfo', {}).get('iden') == vsvc_iden and
-                        msvc.get('svcinfo', {}).get('leader') == vsvc_leader
-                    ]
+                        online = realsvc.get('online')
 
-                    if len(members) > 1:
-                        mirror_groups[vname] = members
+                        ready = str(realsvc.get('ready')).lower()
+                        port = realsvc['urlinfo'].get('port')
+                        hostname = realsvc['urlinfo'].get('hostname')
 
-                outp.printf('Service Mirror Groups:')
-                for vname, members in mirror_groups.items():
-                    iden = members[0].get('svcinfo', {}).get('iden')
+                        nexsindx = '<offline>'
+                        isleader = '<offline>'
 
-                    cell_infos = await get_cell_infos(prox, iden, members, opts.timeout)
-                    group_status = build_status_list(members, cell_infos)
-                    output_status(outp, vname, group_status)
+                        if online is not None:
 
-                    if check_sync_status(group_status):
-                        outp.printf('Group Status: In Sync')
-                    else:
-                        outp.printf(f'Group Status: Out of Sync')
-                        if opts.wait:
-                            leader_nexs = None
-                            for status in group_status:
-                                if status['role'] == 'leader' and isinstance(status['nexs_indx'], int):
-                                    leader_nexs = status['nexs_indx']
+                            cellinfo = await prox.callAhaSvcApi(realsvc.get('name'), todo, timeout=opts.timeout)
 
-                            if leader_nexs is not None:
-                                while True:
-                                    responses = []
-                                    todo = s_common.todo('waitNexsOffs', leader_nexs - 1, timeout=opts.timeout)
-                                    async for svcname, (ok, info) in prox.callAhaPeerApi(iden, todo, timeout=opts.timeout):
-                                        if ok and info:
-                                            responses.append((svcname, info))
+                            nexsindx = str(cellinfo.get('nexsindx'))
+                            isleader = str(cellinfo.get('uplink') is None).lower()
 
-                                    if len(responses) == len(members):
-                                        cell_infos = await get_cell_infos(prox, iden, members, opts.timeout)
-                                        group_status = build_status_list(members, cell_infos)
+                        outp.printf(f'{name:<40} {isleader:<10} {ready:<7} {hostname:<32} {port:<5} {version:<12} {synvers:<12} {nexsindx:<11}')
 
-                                        outp.printf('\nUpdated status:')
-                                        output_status(outp, vname, group_status)
-
-                                        if check_sync_status(group_status):
-                                            outp.printf('Group Status: In Sync')
-                                            break
+                    outp.printf('')
 
                 return 0
 

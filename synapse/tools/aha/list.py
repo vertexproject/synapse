@@ -21,16 +21,18 @@ async def main(argv, outp=s_output.stdout):
         return 1
 
     async with s_telepath.withTeleEnv():
+
         async with await s_telepath.openurl(argv[0]) as prox:
             try:
                 s_version.reqVersion(prox._getSynVers(), reqver)
             except s_exc.BadVersion as e:  # pragma: no cover
                 valu = s_version.fmtVersion(*e.get('valu'))
-                outp.printf(f'Proxy version {valu} is outside of the aha supported range ({reqver}).')
+                outp.printf(f'AHA server version {valu} is outside of the supported range ({reqver}).')
                 return 1
+
             classes = prox._getClasses()
             if 'synapse.lib.aha.AhaApi' not in classes:
-                outp.printf(f'Service at {argv[0]} is not an Aha server')
+                outp.printf(f'Service at {argv[0]} is not an AHA server')
                 return 1
 
             mesg = f"{'Service':<50s} {'Leader':<6} {'Online':<6} {'Scheme':<6} {'Host':<20} {'Port':<5}"
