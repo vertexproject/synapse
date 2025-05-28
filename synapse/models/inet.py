@@ -3587,18 +3587,22 @@ class InetModule(s_module.CoreModule):
                     ('inet:tls:ja4:sample', {}, (
 
                         ('ja4', ('inet:tls:ja4', {}), {
+                            'ro': True,
                             'doc': 'The JA4 TLS client fingerprint.'}),
 
                         ('client', ('inet:client', {}), {
+                            'ro': True,
                             'doc': 'The client which initiated the TLS handshake with a JA4 fingerprint.'}),
                     )),
 
                     ('inet:tls:ja4s:sample', {}, (
 
                         ('ja4s', ('inet:tls:ja4s', {}), {
+                            'ro': True,
                             'doc': 'The JA4S TLS server fingerprint.'}),
 
                         ('server', ('inet:server', {}), {
+                            'ro': True,
                             'doc': 'The server which responded to the TLS handshake with a JA4S fingerprint.'}),
                     )),
 
