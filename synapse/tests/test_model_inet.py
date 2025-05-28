@@ -3498,3 +3498,32 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:service:subscription -> inet:service:subscription:level:taxonomy'))
             self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:bank:account'))
             self.len(1, await core.nodes('inet:service:subscription :subscriber -> inet:service:tenant'))
+
+    async def test_model_inet_tls_ja4(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:tls:ja4:sample=(1.2.3.4, t13d190900_9dc949149365_97f8aa674fd9) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ja4'), 't13d190900_9dc949149365_97f8aa674fd9')
+            self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
+            self.len(1, await core.nodes('inet:tls:ja4:sample -> inet:client'))
+            self.len(1, await core.nodes('inet:tls:ja4:sample -> inet:tls:ja4'))
+
+            nodes = await core.nodes('[ inet:tls:ja4s:sample=(1.2.3.4:443, t130200_1301_a56c5b993250) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ja4s'), 't130200_1301_a56c5b993250')
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:443')
+            self.len(1, await core.nodes('inet:tls:ja4s:sample -> inet:server'))
+            self.len(1, await core.nodes('inet:tls:ja4s:sample -> inet:tls:ja4s'))
+
+            nodes = await core.nodes('''[
+                inet:tls:handshake=*
+                    :client:ja4=t13d190900_9dc949149365_97f8aa674fd9
+                    :server:ja4s=t130200_1301_a56c5b993250
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('client:ja4'), 't13d190900_9dc949149365_97f8aa674fd9')
+            self.eq(nodes[0].get('server:ja4s'), 't130200_1301_a56c5b993250')
+            self.len(1, await core.nodes('inet:tls:handshake :client:ja4 -> inet:tls:ja4'))
+            self.len(1, await core.nodes('inet:tls:handshake :server:ja4s -> inet:tls:ja4s'))
