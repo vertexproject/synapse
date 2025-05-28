@@ -5609,12 +5609,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.BadDataValu(mesg=f'Invalid syn.nodes data.')
 
         if meta['vers'] != 1:
-            raise s_exc.BadDataValu(mesg=f"Unsupported export version: {meta['vers']}")
+            raise s_exc.BadVersion(mesg=f"Unsupported export version: {meta['vers']}", expected=1, got=meta['vers'])
 
         meta_syn_vers = meta['synapse_ver']
         parts = s_version.parseSemver(meta_syn_vers)
         if parts is None:
-            raise s_exc.BadDataValu(mesg=f"Malformed synapse version: {meta_syn_vers}")
+            raise s_exc.BadVersion(mesg=f"Malformed synapse version: {meta_syn_vers}", reqvers=meta_syn_vers)
         meta_syn_vers_tupl = (parts['major'], parts['minor'], parts['patch'])
         s_version.reqVersion(meta_syn_vers_tupl, synver_range)
 
