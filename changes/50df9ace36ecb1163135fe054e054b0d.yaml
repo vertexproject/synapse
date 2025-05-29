@@ -1,6 +1,0 @@
----
-desc: Fixed bug with embeds including types that extend from ``ndef``.
-prs:
-- 4307
-type: bug
-...
