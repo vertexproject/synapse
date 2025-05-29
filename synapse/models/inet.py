@@ -36,8 +36,8 @@ ipv4max = 2 ** 32 - 1
 rfc6598 = ipaddress.IPv4Network('100.64.0.0/10')
 
 # defined from https://x.com/4A4133/status/1887269972545839559
-ja4_regex = r'^([tqd])([sd\d]\d)([di])(\d{2})(\d{2})([a-z0-9]{2})_([0-9a-f]{12})_([0-9a-f]{12})$'
-ja4s_regex = r'^([tq])([sd\d]\d)(\d{2})([a-z0-9]{2})_([0-9a-f]{4})_([0-9a-f]{12})$'
+ja4_regex = r'^([tqd])([sd\d]\d)([di])(\d{2})(\d{2})([a-zA-Z0-9]{2})_([0-9a-f]{12})_([0-9a-f]{12})$'
+ja4s_regex = r'^([tq])([sd\d]\d)(\d{2})([a-zA-Z0-9]{2})_([0-9a-f]{4})_([0-9a-f]{12})$'
 
 def getAddrType(ip):
 
@@ -1682,10 +1682,10 @@ class InetModule(s_module.CoreModule):
                     ('inet:tls:handshake', ('guid', {}), {
                         'doc': 'An instance of a TLS handshake between a server and client.'}),
 
-                    ('inet:tls:ja4', ('str', {'lower': True, 'strip': True, 'regex': ja4_regex}), {
+                    ('inet:tls:ja4', ('str', {'strip': True, 'regex': ja4_regex}), {
                         'doc': 'A JA4 TLS client fingerprint.'}),
 
-                    ('inet:tls:ja4s', ('str', {'lower': True, 'strip': True, 'regex': ja4s_regex}), {
+                    ('inet:tls:ja4s', ('str', {'strip': True, 'regex': ja4s_regex}), {
                         'doc': 'A JA4S TLS server fingerprint.'}),
 
                     ('inet:tls:ja4:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja4', 'inet:tls:ja4'))}), {
