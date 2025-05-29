@@ -18,7 +18,7 @@ Model Changes
 Features and Enhancements
 -------------------------
 - Embedded node values returned from Storm now include the node's form under
-  the key ``$form``.
+  the key ``$form``, and the iden under the key ``$iden``.
   (`#4306 <https://github.com/vertexproject/synapse/pull/4306>`_)
 
 Bugfixes
