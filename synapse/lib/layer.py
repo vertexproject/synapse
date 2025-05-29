@@ -4753,6 +4753,8 @@ class Layer(s_nexus.Pusher):
             (self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv)
         ]
 
+        self.indxcounts.inc(INDX_TOMB + vabrv)
+
         if sode.get('form') is None:
             sode['form'] = form
             formabrv = self.core.setIndxAbrv(INDX_FORM, form)
@@ -4792,6 +4794,8 @@ class Layer(s_nexus.Pusher):
         else:
             sode['n1antiverbs'][verb] = newvalu
             self.dirty[nid] = sode
+
+        self.indxcounts.inc(INDX_TOMB + vabrv, -1)
 
         n2sode = self._genStorNode(n2nid)
         newvalu = n2sode['n2antiverbs'].get(verb, 0) - 1
@@ -5142,6 +5146,30 @@ class Layer(s_nexus.Pusher):
         for _, nid in self.layrslab.scanByPref(INDX_TOMB + abrv, db=self.indxdb):
             yield nid
 
+    async def iterEdgeTombstones(self, verb=None):
+        if verb is not None:
+            try:
+                abrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
+            except s_exc.NoSuchAbrv:
+                return
+
+            for lkey in self.layrslab.scanKeysByPref(INDX_TOMB + abrv, db=self.indxdb):
+                n1nid = s_common.int64un(lkey[10:18])
+                for _, n2nid in self.layrslab.scanByDups(lkey, db=self.indxdb):
+                    yield (n1nid, verb, s_common.int64un(n2nid))
+            return
+
+        for byts, abrv in self.core.indxabrv.iterByPref(INDX_EDGE_VERB):
+            if self.indxcounts.get(INDX_TOMB + abrv) == 0:
+                continue
+
+            verb = s_msgpack.un(byts[2:])[0]
+
+            for lkey in self.layrslab.scanKeysByPref(INDX_TOMB + abrv, db=self.indxdb):
+                n1nid = s_common.int64un(lkey[10:18])
+                for _, n2nid in self.layrslab.scanByDups(lkey, db=self.indxdb):
+                    yield (n1nid, verb, s_common.int64un(n2nid))
+
     async def iterTombstones(self):
 
         for lkey in self.layrslab.scanKeysByPref(INDX_TOMB, db=self.indxdb):
@@ -5152,12 +5180,12 @@ class Layer(s_nexus.Pusher):
             if tombtype == INDX_EDGE_VERB:
                 n1nid = lkey[10:18]
 
-                for _, n2nid in self.layrslab.scanByPref(lkey, db=self.indxdb):
+                for _, n2nid in self.layrslab.scanByDups(lkey, db=self.indxdb):
                     yield (n1nid, tombtype, (tombinfo[0], n2nid))
 
             else:
 
-                for _, nid in self.layrslab.scanByPref(lkey, db=self.indxdb):
+                for _, nid in self.layrslab.scanByDups(lkey, db=self.indxdb):
                     yield (nid, tombtype, tombinfo)
 
     async def confirmLayerEditPerms(self, user, gateiden, delete=False):

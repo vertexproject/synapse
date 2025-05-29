@@ -180,45 +180,6 @@ async def await_bg_tasks():
         return []
     return await asyncio.gather(*tuple(bgtasks), return_exceptions=True)
 
-class GenrHelp:
-
-    def __init__(self, genr):
-        assert genr is not None
-        self.genr = genr
-
-    def __aiter__(self):
-        return self.genr
-
-    def __iter__(self):
-
-        try:
-
-            while True:
-                item = s_glob.sync(self.genr.__anext__())
-                yield item
-
-        except StopAsyncIteration:
-            return
-
-        except GeneratorExit:
-            # Raised if a synchronous consumer exited an iterator early.
-            # Signal the generator to close down.
-            s_glob.sync(self.genr.aclose())
-            raise
-
-    async def spin(self):
-        async for x in self.genr:
-            pass
-
-    async def list(self):
-        return [x async for x in self.genr]
-
-def genrhelp(f):
-    @functools.wraps(f)
-    def func(*args, **kwargs):
-        return GenrHelp(f(*args, **kwargs))
-    return func
-
 def _exectodo(que, todo, logconf):
     # This is a new process: configure logging
     s_common.setlogging(logger, **logconf)
