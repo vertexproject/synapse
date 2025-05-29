@@ -2908,10 +2908,10 @@ class InetModelTest(s_t_utils.SynTest):
                         :flow=*
                         :server=$server
                         :server:cert=*
-                        :server:fingerprint:ja3=$ja3s
+                        :server:ja3s=$ja3s
                         :client=$client
                         :client:cert=*
-                        :client:fingerprint:ja3=$ja3
+                        :client:ja3=$ja3
                 ]
             ''', opts={'vars': props})
             self.len(1, nodes)
@@ -2920,8 +2920,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('server:cert'))
             self.nn(nodes[0].get('client:cert'))
 
-            self.eq(props['ja3'], nodes[0].get('client:fingerprint:ja3'))
-            self.eq(props['ja3s'], nodes[0].get('server:fingerprint:ja3'))
+            self.eq(props['ja3'], nodes[0].get('client:ja3'))
+            self.eq(props['ja3s'], nodes[0].get('server:ja3s'))
 
             self.eq(props['client'], nodes[0].get('client'))
             self.eq(props['server'], nodes[0].get('server'))
@@ -3498,3 +3498,32 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:service:subscription -> inet:service:subscription:level:taxonomy'))
             self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:bank:account'))
             self.len(1, await core.nodes('inet:service:subscription :subscriber -> inet:service:tenant'))
+
+    async def test_model_inet_tls_ja4(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:tls:ja4:sample=(1.2.3.4, t13d190900_9dc949149365_97f8aa674fd9) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ja4'), 't13d190900_9dc949149365_97f8aa674fd9')
+            self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
+            self.len(1, await core.nodes('inet:tls:ja4:sample -> inet:client'))
+            self.len(1, await core.nodes('inet:tls:ja4:sample -> inet:tls:ja4'))
+
+            nodes = await core.nodes('[ inet:tls:ja4s:sample=(1.2.3.4:443, t130200_1301_a56c5b993250) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ja4s'), 't130200_1301_a56c5b993250')
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:443')
+            self.len(1, await core.nodes('inet:tls:ja4s:sample -> inet:server'))
+            self.len(1, await core.nodes('inet:tls:ja4s:sample -> inet:tls:ja4s'))
+
+            nodes = await core.nodes('''[
+                inet:tls:handshake=*
+                    :client:ja4=t13d190900_9dc949149365_97f8aa674fd9
+                    :server:ja4s=t130200_1301_a56c5b993250
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('client:ja4'), 't13d190900_9dc949149365_97f8aa674fd9')
+            self.eq(nodes[0].get('server:ja4s'), 't130200_1301_a56c5b993250')
+            self.len(1, await core.nodes('inet:tls:handshake :client:ja4 -> inet:tls:ja4'))
+            self.len(1, await core.nodes('inet:tls:handshake :server:ja4s -> inet:tls:ja4s'))
