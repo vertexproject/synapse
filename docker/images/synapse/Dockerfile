@@ -4,16 +4,18 @@
 # synapse and its dependencies pre-installed.  It does not start any
 # services.
 
-FROM vertexproject/vtx-base-image:py311
+ARG BASE="vertexproject/vtx-base-image:py311"
 
-ENV SYN_LOG_LEVEL="INFO"
+FROM ${BASE}
 
 COPY synapse /build/synapse/synapse
 COPY README.rst /build/synapse/README.rst
 COPY pyproject.toml /build/synapse/pyproject.toml
-
 COPY docker/rmlist.txt /build/synapse/rmlist.txt
 COPY docker/bootstrap.sh /build/synapse/bootstrap.sh
+
 RUN /build/synapse/bootstrap.sh
+
+ENV SYN_LOG_LEVEL="INFO"
 
 VOLUME /vertex/storage
