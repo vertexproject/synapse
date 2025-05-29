@@ -9122,9 +9122,14 @@ class LibCron(Lib):
                 'creator': self.runt.user.iden
                 }
 
-        for k in ['iden', 'name', 'doc']:
-            if len(kwargs.get(k) or '') > 0:
-                cdef[k] = kwargs[k]
+        iden = kwargs.get('iden')
+        if iden:
+            cdef['iden'] = iden
+
+        for key in ['name', 'doc']:
+            valu = await tostr(kwargs.get(key), noneok=True)
+            if valu is not None:
+                cdef[key] = valu
 
         view = kwargs.get('view')
         if not view:
@@ -9206,12 +9211,19 @@ class LibCron(Lib):
                 'creator': self.runt.user.iden
                 }
 
-        for k in ['iden', 'name', 'doc']:
-            if len(kwargs.get(k) or '') > 0:
-                cdef[k] = kwargs[k]
+        iden = kwargs.get('iden')
+        if iden:
+            cdef['iden'] = iden
 
-        view = kwargs.get('view', self.runt.view.iden)
+        view = kwargs.get('view')
+        if not view:
+            view = self.runt.view.iden
         cdef['view'] = view
+
+        for key in ['name', 'doc']:
+            valu = await tostr(kwargs.get(key), noneok=True)
+            if valu is not None:
+                cdef[key] = valu
 
         todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), view),)
