@@ -1,5 +1,5 @@
 ---
-desc: Make embeds include the embedded node form as ``*form``.
+desc: Embedded node values returned from Storm now include the node's form under the key ``*form``.
 prs: []
 type: feat
 ...
