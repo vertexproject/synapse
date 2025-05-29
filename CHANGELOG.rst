@@ -6,6 +6,27 @@
 Synapse Changelog
 *****************
 
+v2.212.0 - 2025-05-29
+=====================
+
+Model Changes
+-------------
+- Added forms for JA4/JA4S TLS fingerprints, samples, and handshakes.
+  (`#4319 <https://github.com/vertexproject/synapse/pull/4319>`_)
+- See :ref:`userguide_model_v2_212_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Embedded node values returned from Storm now include the node's form under
+  the key ``$form``.
+  (`#4306 <https://github.com/vertexproject/synapse/pull/4306>`_)
+
+Bugfixes
+--------
+- Fixed a bug with ``$lib.json.schema()`` which would prevent passing a list to
+  specify the valid types for an object property.
+  (`#4314 <https://github.com/vertexproject/synapse/pull/4314>`_)
+
 v2.211.0 - 2025-05-23
 =====================
 
