@@ -3527,3 +3527,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('server:ja4s'), 't130200_1301_a56c5b993250')
             self.len(1, await core.nodes('inet:tls:handshake :client:ja4 -> inet:tls:ja4'))
             self.len(1, await core.nodes('inet:tls:handshake :server:ja4s -> inet:tls:ja4s'))
+
+            ja4_t = core.model.type('inet:tls:ja4')
+            ja4s_t = core.model.type('inet:tls:ja4s')
+            self.eq('t13d1909Tg_9dc949149365_97f8aa674fd9', ja4_t.norm(' t13d1909Tg_9dc949149365_97f8aa674fd9 ')[0])
+            self.eq('t1302Tg_1301_a56c5b993250', ja4s_t.norm(' t1302Tg_1301_a56c5b993250 ')[0])
+            with self.raises(s_exc.BadTypeValu):
+                ja4_t.norm('t13d190900_9dc949149365_97f8aa674fD9')
+            with self.raises(s_exc.BadTypeValu):
+                ja4s_t.norm('t130200_1301_a56c5B993250')
