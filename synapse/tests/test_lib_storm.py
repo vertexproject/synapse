@@ -2251,16 +2251,18 @@ class StormTest(s_t_utils.SynTest):
             nodes = [m[1] for m in msgs if m[0] == 'node']
 
             node = nodes[0]
+            self.eq('inet:asn', node[1]['embeds']['asn']['$form'])
             self.eq('hehe', node[1]['embeds']['asn']['name'])
-            self.eq('796d67b92a6ffe9b88fa19d115b46ab6712d673a06ae602d41de84b1464782f2', node[1]['embeds']['asn']['*'])
+            self.eq('796d67b92a6ffe9b88fa19d115b46ab6712d673a06ae602d41de84b1464782f2', node[1]['embeds']['asn']['$iden'])
 
             opts = {'embeds': {'ou:org': {'hq::email': ('user',)}}}
             msgs = await core.stormlist('[ ou:org=* :country=* :hq=* ] { -> ps:contact [ :email=visi@vertex.link ] }', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
 
+            self.eq('inet:email', node[1]['embeds']['hq::email']['$form'])
             self.eq('visi', node[1]['embeds']['hq::email']['user'])
-            self.eq('2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899', node[1]['embeds']['hq::email']['*'])
+            self.eq('2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899', node[1]['embeds']['hq::email']['$iden'])
 
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
 
@@ -2373,10 +2375,17 @@ class StormTest(s_t_utils.SynTest):
             self.eq(['inet:service:rule', 'risk:vulnerable'], [n[0][0] for n in nodes])
 
             embeds = nodes[0][1]['embeds']
+
+            self.nn(embeds['object']['$iden'])
+            self.eq('risk:vulnerable', embeds['object']['$form'])
             self.eq(1, embeds['object']['mitigated'])
             self.eq(None, embeds['object']['newp'])
+
+            self.nn(embeds['object::node']['$iden'])
+            self.eq('it:prod:hardware', embeds['object::node']['$form'])
             self.eq('foohw', embeds['object::node']['name'])
             self.eq(None, embeds['object::node']['newp'])
+            self.eq('inet:service:account', embeds['grantee']['$form'])
             self.eq('foocon', embeds['grantee']['id'])
             self.eq(None, embeds['grantee']['newp'])
 

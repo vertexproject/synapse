@@ -1,0 +1,5 @@
+---
+desc: Embedded node values returned from Storm now include the node's form under the key ``$form``.
+prs: []
+type: feat
+...
