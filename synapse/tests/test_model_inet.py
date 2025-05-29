@@ -2908,10 +2908,10 @@ class InetModelTest(s_t_utils.SynTest):
                         :flow=*
                         :server=$server
                         :server:cert=*
-                        :server:fingerprint:ja3=$ja3s
+                        :server:ja3s=$ja3s
                         :client=$client
                         :client:cert=*
-                        :client:fingerprint:ja3=$ja3
+                        :client:ja3=$ja3
                 ]
             ''', opts={'vars': props})
             self.len(1, nodes)
@@ -2920,8 +2920,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('server:cert'))
             self.nn(nodes[0].get('client:cert'))
 
-            self.eq(props['ja3'], nodes[0].get('client:fingerprint:ja3'))
-            self.eq(props['ja3s'], nodes[0].get('server:fingerprint:ja3'))
+            self.eq(props['ja3'], nodes[0].get('client:ja3'))
+            self.eq(props['ja3s'], nodes[0].get('server:ja3s'))
 
             self.eq(props['client'], nodes[0].get('client'))
             self.eq(props['server'], nodes[0].get('server'))

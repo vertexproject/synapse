@@ -36,7 +36,7 @@ ipv4max = 2 ** 32 - 1
 rfc6598 = ipaddress.IPv4Network('100.64.0.0/10')
 
 # defined from https://x.com/4A4133/status/1887269972545839559
-ja4_regex = r'^([tqd])(\d{2})([di])(\d{2})(\d{2})([a-z0-9]{2})_([0-9a-f]{12})_([0-9a-f]{12})$'
+ja4_regex = r'^([tqd])([sd\d]\d)([di])(\d{2})(\d{2})([a-z0-9]{2})_([0-9a-f]{12})_([0-9a-f]{12})$'
 ja4s_regex = r'^([tq])(\d{2})(\d{2})([a-z0-9]{2})_([0-9a-f]{4})_([0-9a-f]{12})$'
 
 def getAddrType(ip):
@@ -3620,8 +3620,8 @@ class InetModule(s_module.CoreModule):
                         ('server:cert', ('crypto:x509:cert', {}), {
                             'doc': 'The x509 certificate sent by the server during the handshake.'}),
 
-                        ('server:fingerprint:ja3', ('hash:md5', {}), {
-                            'doc': 'The JA3S fingerprint of the server.'}),
+                        ('server:ja3s', ('hash:md5', {}), {
+                            'doc': 'The JA3S fingerprint of the server response.'}),
 
                         ('server:ja4s', ('inet:tls:ja4s', {}), {
                             'doc': 'The JA4S fingerprint of the server response.'}),
@@ -3632,11 +3632,19 @@ class InetModule(s_module.CoreModule):
                         ('client:cert', ('crypto:x509:cert', {}), {
                             'doc': 'The x509 certificate sent by the client during the handshake.'}),
 
-                        ('client:fingerprint:ja3', ('hash:md5', {}), {
-                            'doc': 'The JA3 fingerprint of the client.'}),
+                        ('client:ja3', ('hash:md5', {}), {
+                            'doc': 'The JA3 fingerprint of the client request.'}),
 
                         ('client:ja4', ('inet:tls:ja4', {}), {
                             'doc': 'The JA4 fingerprint of the client request.'}),
+
+                        ('client:fingerprint:ja3', ('hash:md5', {}), {
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :client:ja3.'}),
+
+                        ('server:fingerprint:ja3', ('hash:md5', {}), {
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :server:ja3s.'}),
                     )),
 
                     ('inet:tls:ja3s:sample', {}, (
