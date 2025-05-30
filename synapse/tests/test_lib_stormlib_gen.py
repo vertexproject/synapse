@@ -344,3 +344,116 @@ class StormLibGenTest(s_test.SynTest):
             nodes = await core.nodes('yield $lib.gen.cryptoX509CertBySha256($sha256)', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].repr(), crypto)
+
+    async def test_stormlib_gen_platform(self):
+
+        async with self.getTestCore() as core:
+
+            # deconflict by url
+            opts = {'vars': {'url': 'https://vertex.com', 'provider': 'vertex', 'try': True}}
+            scmd = 'yield $lib.gen.platformByNameOrUrl(url=$url, provider=$provider, try=$try)'
+
+            nodes = await core.nodes(scmd, opts=opts)
+            self.len(1, nodes)
+            self.eq('https://vertex.com', nodes[0].get('url'))
+            self.none(nodes[0].get('name'))
+            self.eq('vertex', nodes[0].get('provider:name'))
+            self.nn(prov00 := nodes[0].get('provider'))
+            self.eq('inet:service:platform', nodes[0].ndef[0])
+            plat00 = nodes[0].ndef[1]
+
+            nodes = await core.nodes(scmd, opts=opts)
+            self.len(1, nodes)
+            self.eq(plat00, nodes[0].ndef[1])
+            self.eq(prov00, nodes[0].get('provider'))
+
+            # deconflict by name only (takes precedence over url)
+            opts['vars']['name'] = 'collapsar'
+            scmd = 'yield $lib.gen.platformByNameOrUrl(name=$name, url=$url, provider=$provider, try=$try)'
+
+            nodes = await core.nodes(scmd, opts=opts)
+            self.len(1, nodes)
+            self.eq('https://vertex.com', nodes[0].get('url'))
+            self.none(nodes[0].get('urls'))
+            self.eq('collapsar', nodes[0].get('name'))
+            self.eq('vertex', nodes[0].get('provider:name'))
+            self.eq(prov00, nodes[0].get('provider'))
+            plat01 = nodes[0].ndef[1]
+            self.ne(plat00, plat01)
+
+            nodes = await core.nodes(scmd, opts=opts)
+            self.len(1, nodes)
+            self.eq(plat01, nodes[0].ndef[1])
+
+            # site can be used to create url
+            opts = {'vars': {'site': 'vertex.com', 'provider': 'vertex', 'try': True}}
+            scmd = 'yield $lib.gen.platformByNameOrUrl(site=$site, provider=$provider, try=$try)'
+
+            nodes = await core.nodes(scmd, opts=opts)
+            self.len(1, nodes)
+            self.eq('https://vertex.com', nodes[0].get('url'))
+            self.eq(plat00, nodes[0].ndef[1])
+
+            # url will not overwrite if name is used for deconfliction
+            opts = {'vars': {'name': 'collapsar', 'site': 'vertexproject.com', 'provider': 'vertex', 'try': True}}
+            scmd = 'yield $lib.gen.platformByNameOrUrl(name=$name, site=$site, provider=$provider, try=$try)'
+
+            nodes = await core.nodes(scmd, opts=opts)
+            self.len(1, nodes)
+            self.eq(plat01, nodes[0].ndef[1])
+            self.eq('https://vertex.com', nodes[0].get('url'))
+            self.eq(('https://vertexproject.com',), nodes[0].get('urls'))
+
+            # url alts deconfliction
+            opts = {'vars': {'url': 'https://vertexproject.com', 'provider': 'vertex', 'try': True}}
+            scmd = 'yield $lib.gen.platformByNameOrUrl(url=$url, provider=$provider, try=$try)'
+
+            nodes = await core.nodes(scmd, opts=opts)
+            self.len(1, nodes)
+            self.eq(plat01, nodes[0].ndef[1])
+            self.eq('https://vertex.com', nodes[0].get('url'))
+            self.eq(('https://vertexproject.com',), nodes[0].get('urls'))
+
+            # name alts deconfliction
+            opts = {'vars': {'name': 'collapsar', 'altname': 'charon', 'provider': 'vertex', 'try': True}}
+            scmd = 'yield $lib.gen.platformByNameOrUrl(name=$altname, provider=$provider, try=$try)'
+
+            self.len(1, await core.nodes('inet:service:platform:name=$name [ :names+=$altname ]', opts=opts))
+
+            nodes = await core.nodes(scmd, opts=opts)
+            self.len(1, nodes)
+            self.eq('collapsar', nodes[0].get('name'))
+            self.eq(('charon',), nodes[0].get('names'))
+            self.eq(plat01, nodes[0].ndef[1])
+
+            # deconflicting w/provider name is optional
+            opts = {'vars': {'name': 'collapsar', 'try': True}}
+            scmd = 'yield $lib.gen.platformByNameOrUrl(name=$name, try=$try)'
+
+            nodes = await core.nodes(scmd, opts=opts)
+            self.len(1, nodes)
+            self.eq('vertex', nodes[0].get('provider:name'))
+            self.eq(prov00, nodes[0].get('provider'))
+            self.eq(plat01, nodes[0].ndef[1])
+
+            # prevent common error of a name being used as a site
+            opts = {'vars': {'site': 'whoops', 'try': True}}
+            scmd = 'yield $lib.gen.platformByNameOrUrl(site=$site, try=$try)'
+            self.len(0, await core.nodes(scmd, opts=opts))
+
+            # invalid values w/try=false
+
+            with self.raises(s_exc.BadTypeValu) as cm:
+                opts = {'vars': {'name': None, 'url': None, 'provider': None}}
+                await core.nodes('$lib.gen.platformByNameOrUrl(name=$name, url=$url, provider=$provider)', opts=opts)
+            self.eq('ou:name', cm.exception.errinfo['name'])
+
+            with self.raises(s_exc.BadTypeValu) as cm:
+                opts = {'vars': {'name': None, 'url': None, 'provider': 'foo'}}
+                await core.nodes('$lib.gen.platformByNameOrUrl(name=$name, url=$url, provider=$provider)', opts=opts)
+            self.eq('inet:url', cm.exception.errinfo['name'])
+
+            with self.raises(s_exc.BadTypeValu) as cm:
+                opts = {'vars': {'name': None, 'url': 'https://vertex.link', 'provider': 'foo'}}
+                await core.nodes('$lib.gen.platformByNameOrUrl(name=$name, url=$url, provider=$provider)', opts=opts)
+            self.eq('str', cm.exception.errinfo['name'])
