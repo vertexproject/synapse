@@ -4746,10 +4746,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for ldef in self.layerdefs.values():
             await self._initLayr(ldef)
 
-    @s_nexus.Pusher.onPush('layer:sync:offs:set')
     async def setLayrSyncOffs(self, iden, offs):
-        return await self._setLayrSyncOffs(iden, offs)
+        await self._push('layer:sync:offs:set', iden, offs)
 
+    @s_nexus.Pusher.onPush('layer:sync:offs:set')
     async def _setLayrSyncOffs(self, iden, offs):
         if offs is not None:
             self.layeroffs.set(iden, offs)
