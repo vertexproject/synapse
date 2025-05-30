@@ -481,13 +481,13 @@ class ProtoNode(s_node.NodeBase):
         if curv is None:
             self.tags[tagnode.valu] = valu
             return tagnode
-          
+
         elif valu == (None, None):
             return tagnode
 
         if merge:
             valu = s_time.ival(*valu, *curv)
-            
+
         self.tags[tagnode.valu] = valu
         self.tagdels.discard(tagnode.valu)
         self.tagtombs.discard(tagnode.valu)
