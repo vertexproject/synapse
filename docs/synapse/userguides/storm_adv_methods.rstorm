@@ -53,7 +53,7 @@ for a full list.
 
 - Print the value of ``$node`` for an ``inet:dns:a`` node:
 
-.. storm-pre:: [inet:dns:a=(woot.com,54.173.9.236) .seen=("2016/12/28 20:46:31.000","2016/12/28 20:46:31.001")]
+.. storm-pre:: [inet:dns:a=(woot.com,54.173.9.236) :seen=("2016/12/28 20:46:31.000","2016/12/28 20:46:31.001")]
 .. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node) | spin
 
 - Print the value of ``$node`` for an ``inet:fqdn`` node with tags present:
@@ -229,11 +229,6 @@ See :ref:`meth-node-value` to return the raw value of a property.
 
 .. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr(ip)) | spin
 
-
-- Print the repr of the ``.seen`` universal property value of an ``inet:dns:a`` node:
-
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr(".seen")) | spin
-    
 
 .. _meth-node-tags:
 

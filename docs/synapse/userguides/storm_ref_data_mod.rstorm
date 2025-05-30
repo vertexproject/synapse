@@ -350,15 +350,6 @@ The same syntax is used to apply a new property or modify an existing property.
     <inet:ip> [ :loc=us.oh.wilmington ]
 
 
-*Add (or modify) a universal property:*
-
-
-.. storm-pre:: inet:dns:a [ .seen=("2017/08/01 01:23", "2017/08/01 04:56") ]
-::
-
-    <inet:dns:a> [ .seen=("2017/08/01 01:23", "2017/08/01 04:56") ]
-
-
 **Usage Notes:**
 
 - Specifying a property will set the *<prop> = <pval>* if it does not exist, or modify (overwrite) the *<prop> = <pval>*

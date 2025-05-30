@@ -397,6 +397,8 @@ testmodel = (
             ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
             ('virtuniv', ('inet:server', {}), {'doc': 'A test universal prop with virtual props.'}),
             ('virtunivarray', ('array', {'type': 'inet:server'}), {'doc': 'A test universal array prop with virtual props.'}),
+            ('minuniv', ('time', {'ismin': True}), {'doc': 'A test universal property with ismin=True.'}),
+            ('rouniv', ('time', {}), {'doc': 'A readonly test universal property.', 'ro': True}),
         ),
 
         'forms': (
