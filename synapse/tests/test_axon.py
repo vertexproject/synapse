@@ -1161,7 +1161,7 @@ bar baz",vv
             axon00dirn = s_common.gendir(aha.dirn, 'tmp', 'axon00')
             axon01dirn = s_common.gendir(aha.dirn, 'tmp', 'axon01')
 
-            waiter = aha.waiter(2, 'aha:svcadd')
+            waiter = aha.waiter(2, 'aha:svc:add')
 
             axon00url = await aha.addAhaSvcProv('00.axon', {'https:port': None})
             axon01url = await aha.addAhaSvcProv('01.axon', {'https:port': None, 'mirror': '00.axon'})

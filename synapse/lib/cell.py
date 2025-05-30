@@ -935,7 +935,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'boolean',
         },
         'aha:name': {
-            'description': 'The name of the cell service in the aha service registry.',
+            'description': 'The name of the cell service in the AHA service registry.',
             'type': 'string',
         },
         'aha:user': {
@@ -951,8 +951,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string',
         },
         'aha:registry': {
-            'description': 'The telepath URL of the aha service registry.',
-            'type': ['string', 'array'],
+            'description': 'A list of telepath URLs of the aha service registry.',
+            'type': ['array'],
             'items': {'type': 'string'},
         },
         'aha:provision': {
@@ -963,24 +963,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'aha:admin': {
             'description': 'An AHA client certificate CN to register as a local admin user.',
             'type': 'string',
-        },
-        'aha:svcinfo': {
-            'description': 'An AHA svcinfo object. If set, this overrides self discovered Aha service information.',
-            'type': 'object',
-            'properties': {
-                'urlinfo': {
-                    'type': 'object',
-                    'properties': {
-                        'host': {'type': 'string'},
-                        'port': {'type': 'integer'},
-                        'schema': {'type': 'string'}
-                    },
-                    'required': ('host', 'port', 'scheme', )
-                }
-            },
-            'required': ('urlinfo', ),
-            'hidedocs': True,
-            'hidecmdl': True,
         },
         'inaugural': {
             'description': 'Data used to drive configuration of the service upon first startup.',
@@ -1555,17 +1537,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             async def onlink(proxy):
                 ahauser = self.conf.get('aha:user', 'root')
                 newurls = await proxy.getAhaUrls(user=ahauser)
-                oldurls = self.conf.get('aha:registry')
-                if isinstance(oldurls, str):
-                    oldurls = (oldurls,)
-                elif isinstance(oldurls, list):
-                    oldurls = tuple(oldurls)
-                if newurls and newurls != oldurls:
-                    if oldurls[0].startswith('tcp://'):
-                        s_common.deprecated('aha:registry: tcp:// client values.')
-                        logger.warning('tcp:// based aha:registry options are deprecated and will be removed in Synapse v3.0.0')
-                        return
 
+                oldurls = tuple(self.conf.get('aha:registry'))
+                if newurls and newurls != oldurls:
                     self.modCellConf({'aha:registry': newurls})
                     self.ahaclient.setBootUrls(newurls)
 
@@ -1834,49 +1808,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.addHttpsPort(port)
             logger.info(f'https listening: {port}')
 
-    async def getAhaInfo(self):
-
-        # Default to static information
-        ahainfo = self.conf.get('aha:svcinfo')
-        if ahainfo is not None:
-            return ahainfo
-
-        # If we have not setup our dmon listener yet, do not generate ahainfo
-        if self.sockaddr is None:
-            return None
-
-        turl = self.conf.get('dmon:listen')
-
-        # Dynamically generate the aha info based on config and runtime data.
-        urlinfo = s_telepath.chopurl(turl)
-
-        urlinfo.pop('host', None)
-        if isinstance(self.sockaddr, tuple):
-            urlinfo['port'] = self.sockaddr[1]
-
+    async def _getAhaSvcDef(self):
+        # return the AHA service definition for this Cell
+        # ( to be used in registering with our AHA server )
         celliden = self.getCellIden()
         runiden = await self.getCellRunId()
-        ahalead = self.conf.get('aha:leader')
 
-        # If we are active, then we are ready by definition.
-        # If we are not active, then we have to check the nexsroot
-        # and see if the nexsroot is marked as ready or not. This
-        # status is set on mirrors when they have entered into the
-        # real-time change window.
-        if self.isactive:
-            ready = True
-        else:
-            ready = await self.nexsroot.isNexsReady()
+        lisn = self.conf.get('dmon:listen')
+        if lisn is None:
+            return
 
-        ahainfo = {
+        leader = self.conf.get('aha:leader')
+
+        ready = await self.nexsroot.isNexsReady()
+        svcdef = {
             'run': runiden,
             'iden': celliden,
-            'leader': ahalead,
-            'urlinfo': urlinfo,
             'ready': ready,
+            'urlinfo': s_telepath.chopurl(lisn),
         }
 
-        return ahainfo
+        if leader is not None:
+            svcdef['leader'] = leader
+
+        if isinstance(self.sockaddr, tuple):
+            svcdef['urlinfo']['port'] = self.sockaddr[1]
+
+        return svcdef
 
     async def _initAhaService(self):
 
@@ -1891,12 +1849,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if ahanetw is None:
             return
 
-        ahainfo = await self.getAhaInfo()
-        if ahainfo is None:
-            return
-
-        ahalead = self.conf.get('aha:leader')
-
         self.ahasvcname = f'{ahaname}.{ahanetw}'
 
         async def _runAhaRegLoop():
@@ -1906,13 +1858,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 try:
                     proxy = await self.ahaclient.proxy()
 
-                    info = await self.getAhaInfo()
-                    await proxy.addAhaSvc(ahaname, info, network=ahanetw)
+                    svcdef = await self._getAhaSvcDef()
+                    if svcdef is None:
+                        await self.waitfini(1)
+                        continue
+
+                    await proxy.addAhaSvc(self.ahasvcname, svcdef)
+
+                    ahalead = self.conf.get('aha:leader')
                     if self.isactive and ahalead is not None:
-                        await proxy.addAhaSvc(ahalead, info, network=ahanetw)
+                        await proxy.addAhaSvc(f'{ahalead}.{ahanetw}', svcdef)
 
                 except Exception as e:
-                    logger.exception(f'Error registering service {self.ahasvcname} with AHA: {e}')
+                    extra = await self.getLogExtra()
+                    logger.warning(f'Error registering service with AHA: {e}', extra=extra)
                     await self.waitfini(1)
 
                 else:
@@ -2104,17 +2063,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.NeedConfValu(mesg=mesg)
         return await self.ahaclient.proxy(timeout=timeout)
 
-    async def _setAhaActive(self):
+    async def _setAhaActive(self, active):
 
         if self.ahaclient is None:
             return
 
-        ahainfo = await self.getAhaInfo()
-        if ahainfo is None:
+        svcdef = await self._getAhaSvcDef()
+        if svcdef is None:
             return
 
-        ahalead = self.conf.get('aha:leader')
-        if ahalead is None:
+        leader = self.conf.get('aha:leader')
+        if leader is None:
             return
 
         try:
@@ -2125,17 +2084,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return None
 
         # if we went inactive, bump the aha proxy
-        if not self.isactive:
+        if not active:
             await proxy.fini()
             return
 
-        ahanetw = self.conf.req('aha:network')
         try:
-            await proxy.addAhaSvc(ahalead, ahainfo, network=ahanetw)
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
+            network = self.conf.get('aha:network')
+            await proxy.addAhaSvc(f'{leader}.{network}', svcdef)
         except Exception as e:  # pragma: no cover
-            logger.warning(f'_setAhaActive failed: {e}')
+            logger.warning(f'addAhaSvc() failed: {e}')
 
     def isActiveCoro(self, iden):
         return self.activecoros.get(iden) is not None
@@ -2247,7 +2204,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.activebase = None
             await self.initServicePassive()
 
-        await self._setAhaActive()
+        await self._setAhaActive(active)
 
     def runActiveTask(self, coro):
         # an API for active coroutines to use when running an
@@ -3993,6 +3950,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.warning(f'Bootstrap mirror from: {murl} DONE!')
 
     async def getMirrorUrls(self):
+
         if self.ahaclient is None:
             raise s_exc.BadConfValu(mesg='Enumerating mirror URLs is only supported when AHA is configured')
 

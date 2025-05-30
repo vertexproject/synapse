@@ -237,6 +237,14 @@ class HandlerBase:
         self.sendAuthRequired()
         return False
 
+    async def reqNoBody(self):
+
+        if not self.request.body:
+            return True
+
+        self.sendRestErr('BadArg', 'Request body should not be specified.', status_code=HTTPStatus.BAD_REQUEST)
+        return False
+
     async def isUserAdmin(self):
         '''
         Check if the current authenticated user is an admin or not.
