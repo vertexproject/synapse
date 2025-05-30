@@ -343,8 +343,10 @@ class Node(NodeBase):
 
             embdnode = retn.get(nodepath)
             if embdnode is None:
-                embdnode = retn[nodepath] = {}
-                embdnode['*'] = s_common.int64un(node.nid)
+                embdnode = retn[nodepath] = {
+                    '$nid': s_common.int64un(node.nid),
+                    '$form': node.form.name,
+                }
 
             for relp in relprops:
                 embdnode[relp] = node.get(relp)

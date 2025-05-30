@@ -12,6 +12,58 @@ v3.0.0 - 2025-XX-YY
 Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
 changes.
 
+v2.212.0 - 2025-05-29
+=====================
+
+Model Changes
+-------------
+- Added forms for JA4/JA4S TLS fingerprints, samples, and handshakes.
+  (`#4319 <https://github.com/vertexproject/synapse/pull/4319>`_)
+- See :ref:`userguide_model_v2_212_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Embedded node values returned from Storm now include the node's form under
+  the key ``$form``, and the iden under the key ``$iden``.
+  (`#4306 <https://github.com/vertexproject/synapse/pull/4306>`_)
+
+Bugfixes
+--------
+- Fixed a bug with ``$lib.json.schema()`` which would prevent passing a list to
+  specify the valid types for an object property.
+  (`#4314 <https://github.com/vertexproject/synapse/pull/4314>`_)
+
+v2.211.0 - 2025-05-23
+=====================
+
+Model Changes
+-------------
+- Removed the readonly attribute from the ``ou:conference:event:conference``
+  property.
+  (`#4301 <https://github.com/vertexproject/synapse/pull/4301>`_)
+- See :ref:`userguide_model_v2_211_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated ``synapse.tools.genpkg`` to include the Synapse version info used to
+  build the Power-Up in the package definitions.
+  (`#4290 <https://github.com/vertexproject/synapse/pull/4290>`_)
+
+Bugfixes
+--------
+- Fixed an issue where applying a tag in a fork to a node which already had
+  that tag with a value in a parent view would additionally store that tag
+  value in the fork's write layer.
+  (`#4303 <https://github.com/vertexproject/synapse/pull/4303>`_)
+- Fixed bug with embeds including types that extend from ``ndef``.
+  (`#4307 <https://github.com/vertexproject/synapse/pull/4307>`_)
+
+Improved documentation
+----------------------
+- Fixed the documentation for ``$node.data.list()`` to specify that it returns
+  (name, value) tuples, not just names.
+  (`#4297 <https://github.com/vertexproject/synapse/pull/4297>`_)
+
 v2.210.0 - 2025-05-12
 =====================
 
