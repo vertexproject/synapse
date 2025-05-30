@@ -128,6 +128,10 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.getAhaUrls(user=user)
 
     @s_cell.adminapi()
+    async def callAhaSvcApi(self, name, todo, *, timeout=None):
+        return await self.cell.callAhaSvcApi(name, todo, timeout=timeout)
+
+    @s_cell.adminapi()
     async def callAhaPeerApi(self, iden, todo, *, timeout=None, skiprun=None):
         async for item in self.cell.callAhaPeerApi(iden, todo, timeout=timeout, skiprun=skiprun):
             yield item
@@ -169,7 +173,7 @@ class AhaApi(s_cell.CellApi):
               must maintain the telepath link.
         '''
         name = self.cell._getAhaName(name)
-        await self._reqUserAllowed(('aha', 'service', 'add', name))
+        await self._reqUserAllowed(('aha', 'service', 'add'))
 
         # dont disclose the real session...
         sess = s_common.guid(self.sess.iden)
@@ -203,7 +207,7 @@ class AhaApi(s_cell.CellApi):
 
     async def setAhaSvcReady(self, name, ready):
         name = self.cell._getAhaName(name)
-        await self._reqUserAllowed(('aha', 'service', 'add', name))
+        await self._reqUserAllowed(('aha', 'service', 'add'))
         return await self.cell.setAhaSvcReady(name, ready)
 
     async def getAhaSvcMirrors(self, name):
@@ -223,11 +227,10 @@ class AhaApi(s_cell.CellApi):
         Remove an AHA service entry.
         '''
         name = self.cell._getAhaName(name)
-        await self._reqUserAllowed(('aha', 'service', 'del', name))
+        await self._reqUserAllowed(('aha', 'service', 'del'))
         return await self.cell.delAhaSvc(name)
 
     async def getCaCert(self):
-        await self._reqUserAllowed(('aha', 'ca', 'get'))
         return await self.cell.getCaCert()
 
     async def signHostCsr(self, csrtext, *, sans=None):
@@ -643,7 +646,7 @@ class AhaCell(s_cell.Cell):
     async def callAhaSvcApi(self, name, todo, timeout=None):
         name = self._getAhaName(name)
         svcdef = await self._getAhaSvc(name)
-        return self._callAhaSvcApi(svcdef, todo, timeout=timeout)
+        return await self._callAhaSvcApi(svcdef, todo, timeout=timeout)
 
     async def _callAhaSvcApi(self, svcdef, todo, timeout=None):
         try:

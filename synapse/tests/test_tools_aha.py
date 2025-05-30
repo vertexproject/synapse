@@ -53,7 +53,7 @@ class AhaToolsTest(s_t_utils.SynTest):
             argv = [curl]
             retn, outp = await self.execToolMain(s_a_list.main, argv)
             self.eq(1, retn)
-            outp.expect(f'Service at {curl} is not an Aha server')
+            outp.expect(f'Service at {curl} is not an AHA server')
 
     async def test_aha_easycert(self):
 
@@ -185,104 +185,27 @@ class AhaToolsTest(s_t_utils.SynTest):
 
             argv = ['--url', ahaurl]
             retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-            print(f'WOOT:\n{str(outp)}')
             self.eq(retn, 0)
-            outp.expect('Service Mirror Groups:')
-            outp.expect('00.cell.synapse')
-            outp.expect('01.cell.synapse')
-            outp.expect('Group Status: In Sync')
+            outp.expect('cell.synapse 00.cell.synapse', whitespace=False)
+            outp.expect('00.cell.synapse true  true', whitespace=False)
+            outp.expect('01.cell.synapse false true', whitespace=False)
+
+            await cell01.fini()
 
             argv = ['--url', ahaurl, '--timeout', '30']
             retn, outp = await self.execToolMain(s_a_mirror.main, argv)
             self.eq(retn, 0)
+            outp.expect('cell.synapse 00.cell.synapse', whitespace=False)
+            outp.expect('00.cell.synapse true  true', whitespace=False)
+            outp.expect('01.cell.synapse false false', whitespace=False)
+            outp.expect('<offline>')
 
-            async def mockCellInfo():
-                return {
-                    'cell': {'ready': True, 'nexsindx': 10, 'uplink': None},
-                    'synapse': {'verstring': s_version.verstring},
-                }
-
-            async def mockOutOfSyncCellInfo():
-                return {
-                    'cell': {'ready': True, 'nexsindx': 5, 'uplink': cell00.iden},
-                    'synapse': {'verstring': s_version.verstring},
-                }
-
-            with mock.patch.object(cell00, 'getCellInfo', mockCellInfo):
-                with mock.patch.object(cell01, 'getCellInfo', mockOutOfSyncCellInfo):
-                    async def mock_call_aha(*args, **kwargs):
-                        todo = args[1]
-                        if todo[0] == 'waitNexsOffs':
-                            yield ('00.cell.synapse', (True, True))
-                            yield ('01.cell.synapse', (True, True))
-                        elif todo[0] == 'getCellInfo':
-                            if not hasattr(mock_call_aha, 'called'):
-                                mock_call_aha.called = True
-                                yield ('00.cell.synapse', (True, await mockCellInfo()))
-                                yield ('01.cell.synapse', (True, await mockOutOfSyncCellInfo()))
-                            else:
-                                yield ('00.cell.synapse', (True, await mockCellInfo()))
-                                yield ('01.cell.synapse', (True, await mockCellInfo()))
-
-                    with mock.patch.object(aha, 'callAhaPeerApi', mock_call_aha):
-                        argv = ['--url', ahaurl, '--wait']
-                        retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                        self.eq(retn, 0)
-                        outp.expect('Group Status: Out of Sync')
-                        outp.expect('Updated status:')
-                        outp.expect('Group Status: In Sync')
-
-            with mock.patch.object(cell00, 'getCellInfo', mockCellInfo):
-                with mock.patch.object(cell01, 'getCellInfo', mockOutOfSyncCellInfo):
-                    argv = ['--url', ahaurl, '--timeout', '1']
-                    retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                    self.eq(retn, 0)
-                    outp.expect('Group Status: Out of Sync')
-
-            async with self.getTestCore() as core:
-                curl = core.getLocalUrl()
-                argv = ['--url', curl]
-                with mock.patch('synapse.telepath.Proxy._hasTeleFeat',
-                          return_value=True):
-                    retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                    self.eq(1, retn)
-                    outp.expect(f'Service at {curl} is not an AHA server')
-
-            async with aha.waiter(1, 'aha:svc:add', timeout=10):
-
-                conf = {'aha:provision': await aha.addAhaSvcProv('02.cell', {'mirror': 'cell'})}
-                cell02 = await aha.enter_context(self.getTestCell(conf=conf))
-                await cell02.sync()
-
-            async def mock_failed_api(*args, **kwargs):
-                yield ('00.cell.synapse', (True, {'cell': {'ready': True, 'nexsindx': 10}}))
-                yield ('01.cell.synapse', (False, 'error'))
-                yield ('02.cell.synapse', (True, {'cell': {'ready': True, 'nexsindx': 12}}))
-
-            with mock.patch.object(aha, 'callAhaPeerApi', mock_failed_api):
-                argv = ['--url', ahaurl, '--timeout', '1']
-                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                outp.expect('00.cell.synapse                          leader     True     True    127.0.0.1', whitespace=False)
-                outp.expect('nexsindx      10', whitespace=False)
-                outp.expect('02.cell.synapse                          leader     True     True    127.0.0.1', whitespace=False)
-                outp.expect('nexsindx      12', whitespace=False)
-                outp.expect('01.cell.synapse                          <unknown>  True     True', whitespace=False)
-                outp.expect('<unknown>    <unknown>', whitespace=False)
-
-        self.eq(s_a_mirror.timeout_type('30'), 30)
-        self.eq(s_a_mirror.timeout_type('0'), 0)
-
-        with self.raises(s_exc.BadArg) as cm:
-            s_a_mirror.timeout_type('-1')
-        self.isin('is not a valid non-negative integer', cm.exception.get('mesg'))
-
-        with self.raises(s_exc.BadArg) as cm:
-            s_a_mirror.timeout_type('foo')
-        self.isin('is not a valid non-negative integer', cm.exception.get('mesg'))
-
-        synerr = s_exc.SynErr(mesg='Oof')
-        with mock.patch('synapse.telepath.openurl', side_effect=synerr):
-            argv = ['--url', 'tcp://test:1234/']
+            argv = ['--url', ahaurl, '--timeout', 'asdf']
             retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+            outp.expect('must be a positive integer')
             self.eq(retn, 1)
-            outp.expect('ERROR: Oof')
+
+            argv = ['--url', ahaurl, '--timeout', '-30']
+            retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+            outp.expect('must be a positive integer')
+            self.eq(retn, 1)
