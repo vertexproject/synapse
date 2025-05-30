@@ -1,0 +1,5 @@
+---
+desc: Updated the Docker image to support the latest Python 3.11 maintenance release.
+prs: []
+type: feat
+...

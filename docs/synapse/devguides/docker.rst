@@ -89,13 +89,13 @@ Developers working with Synapse images should consider the following items:
   your use cases. Python patch level updates will not be included in
   the changelogs.
 
-* The ``synapse`` package, and supporting packages, are currently installed
-  to the distribution Python environment. The version of ``pip`` installed in
-  the containers is PEP668_ aware. If you are installing your own Python
-  packages to the distribution Python environment with ```pip``, you will
-  need to add the ``--break-system-packages`` argument::
+* The ``synapse`` package and its dependencies are installed in an isolated
+  Docker-managed Python environment. While our container's ``pip`` retains
+  PEP668_ compatibility checks, enforcement is not triggered as a result. If you
+  are installing your own Python packages to the distribution, you can do so
+  without any special flags::
 
-    python -m pip install --break-system-packages yourTargetPackage
+    python -m pip install yourTargetPackage
 
 .. _dev_docker_verification:
 
