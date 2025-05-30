@@ -595,90 +595,6 @@ class LayerTest(s_t_utils.SynTest):
         for valu, indx in ((v, stor.indx(v)) for v in vals):
             self.eq(valu, stor.decodeIndx(indx[0]))
 
-    async def test_layer_stortype_merge(self):
-
-        async with self.getTestCore() as core:
-
-            layr = core.getLayer()
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 :minuniv=now :seen=(2012,2014) +#foo.bar=(2012, 2014) ]')
-
-            nid = nodes[0].nid
-            ival = nodes[0].get('seen')
-            tick = nodes[0].get('minuniv')
-            tagv = nodes[0].getTag('foo.bar')
-
-            newival = (ival[0] + 100, ival[1] - 100)
-            newtagv = (tagv[0] + 100, tagv[1] - 100)
-
-            nodeedits = [
-                (s_common.int64un(nid), 'inet:ip', (
-                    (s_layer.EDIT_PROP_SET, ('seen', newival, ival, s_layer.STOR_TYPE_IVAL, None)),
-                )),
-            ]
-
-            await layr.saveNodeEdits(nodeedits, {})
-
-            self.len(1, await core.nodes('inet:ip=1.2.3.4 +:seen=(2012,2014)'))
-
-            nodeedits = [
-                (s_common.int64un(nid), 'inet:ip', (
-                    (s_layer.EDIT_PROP_SET, ('minuniv', tick + 200, tick, s_layer.STOR_TYPE_MINTIME, None)),
-                )),
-            ]
-
-            await layr.saveNodeEdits(nodeedits, {})
-
-            nodes = await core.nodes('inet:ip=1.2.3.4')
-            self.eq(tick, nodes[0].get('minuniv'))
-
-            nodeedits = [
-                (s_common.int64un(nid), 'inet:ip', (
-                    (s_layer.EDIT_PROP_SET, ('minuniv', tick - 200, tick, s_layer.STOR_TYPE_MINTIME, None)),
-                )),
-            ]
-
-            await layr.saveNodeEdits(nodeedits, {})
-
-            nodes = await core.nodes('inet:ip=1.2.3.4')
-            self.eq(tick - 200, nodes[0].get('minuniv'))
-
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
-            self.eq(tick - 200, nodes[0].get('minuniv'))
-
-            nodeedits = [
-                (s_common.int64un(nid), 'inet:ip', (
-                    (s_layer.EDIT_TAG_SET, ('foo.bar', newtagv, tagv)),
-                )),
-            ]
-
-            await layr.saveNodeEdits(nodeedits, {})
-
-            nodes = await core.nodes('inet:ip=1.2.3.4')
-            self.eq(tagv, nodes[0].getTag('foo.bar'))
-
-            nodes = await core.nodes('inet:ip=1.2.3.4 [ +#foo.bar=2015 ]')
-            self.eq((1325376000000000, 1420070400000001), nodes[0].getTag('foo.bar'))
-
-            await core.addTagProp('tval', ('ival', {}), {})
-            await core.addTagProp('mintime', ('time', {'ismin': True}), {})
-            await core.addTagProp('maxtime', ('time', {'ismax': True}), {})
-
-            await core.nodes('[test:str=tagprop +#foo:tval=2021]')
-            await core.nodes('test:str=tagprop [+#foo:tval=2023]')
-
-            self.eq(1, await core.count('#foo:tval@=2022'))
-
-            await core.nodes('test:str=tagprop [+#foo:mintime=2021 +#foo:maxtime=2013]')
-            await core.nodes('test:str=tagprop [+#foo:mintime=2023 +#foo:maxtime=2011]')
-
-            self.eq(1, await core.count('#foo:mintime=2021'))
-            self.eq(1, await core.count('#foo:maxtime=2013'))
-
-            await core.nodes('test:str=tagprop [+#foo:mintime=2020 +#foo:maxtime=2015]')
-
-            self.eq(1, await core.count('#foo:mintime=2020'))
-            self.eq(1, await core.count('#foo:maxtime=2015'))
-
     async def test_layer_nodeedits_created(self):
 
         async with self.getTestCore() as core:
@@ -835,28 +751,6 @@ class LayerTest(s_t_utils.SynTest):
             self.eq([], await layr.calcEdits(noedit, {}))
 
             noedit = [(ipv4nid, 'inet:ip', [(s_layer.EDIT_EDGE_ADD, ('refs', tstrnid))])]
-            self.eq([], await layr.calcEdits(noedit, {}))
-
-            q = '[ test:str=foo ]'
-            nodes = await core0.nodes(q)
-            nid = s_common.int64un(nodes[0].nid)
-
-            seen = s_time.parse('2020')
-            ival = (seen, seen + 1)
-            edit = [(nid, 'test:str', [(s_layer.EDIT_PROP_OVERWRITE, ('seen', ival, None, 12, None))])]
-            exp = [(nid, 'test:str', [(s_layer.EDIT_PROP_SET, ('seen', ival, None, 12, None))])]
-            self.eq(exp, await layr.calcEdits(edit, {}))
-
-            await core0.nodes('test:str=foo [:seen=2020]')
-            noedit = [(nid, 'test:str', [(s_layer.EDIT_PROP_OVERWRITE, ('seen', ival, None, 12, None))])]
-            self.eq([], await layr.calcEdits(noedit, {}))
-
-            edit = [(nid, 'test:str', [(s_layer.EDIT_TAG_OVERWRITE, ('foo', ival, None))])]
-            exp = [(nid, 'test:str', [(s_layer.EDIT_TAG_SET, ('foo', ival, None))])]
-            self.eq(exp, await layr.calcEdits(edit, {}))
-
-            await core0.nodes('test:str=foo [+#foo=2020]')
-            noedit = [(nid, 'test:str', [(s_layer.EDIT_TAG_OVERWRITE, ('foo', ival, None))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
     async def test_layer_stornodeedits_nonexus(self):

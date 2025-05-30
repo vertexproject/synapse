@@ -1534,7 +1534,7 @@ class Ival(Type):
             return newv, {'norminfo': norminfo}
 
         newv = (newv[0], max(newv[1], valu[1]))
-        return newv, {'norminfo': norminfo, 'overwrite': True}
+        return newv, {'norminfo': norminfo, 'merge': False}
 
     def _storVirtMax(self, valu, newmax):
         maxv, _ = self.tocktype.norm(newmax)
@@ -1545,7 +1545,7 @@ class Ival(Type):
             return newv, {'norminfo': norminfo}
 
         newv = (min(newv[0], valu[0]), newv[1])
-        return newv, {'norminfo': norminfo, 'overwrite': True}
+        return newv, {'norminfo': norminfo, 'merge': False}
 
     def _storVirtPrec(self, valu, newprec):
         if valu is None:
