@@ -935,7 +935,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'boolean',
         },
         'aha:name': {
-            'description': 'The name of the cell service in the aha service registry.',
+            'description': 'The name of the cell service in the AHA service registry.',
             'type': 'string',
         },
         'aha:user': {
