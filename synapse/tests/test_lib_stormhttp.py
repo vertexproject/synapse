@@ -631,9 +631,9 @@ class StormHttpTest(s_test.SynTest):
             self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
 
             q = '$resp=$lib.inet.http.get("http://vertex.link") return(($resp.code, $resp.err))'
-            code, (errname, _) = await core.callStorm(q)
+            code, (errname, errinfo) = await core.callStorm(q)
             self.eq(code, -1)
-            self.eq('ProxyConnectionError', errname)
+            self.isin("connect to proxy 127.0.0.1:1", errinfo.get('mesg'))
 
             msgs = await core.stormlist('$resp=$lib.inet.http.get("http://vertex.link", proxy=(null)) $lib.print($resp.err)')
             self.stormIsInErr('HTTP proxy argument must be a string or bool.', msgs)
@@ -657,7 +657,7 @@ class StormHttpTest(s_test.SynTest):
             self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             resp = await core.callStorm('return($lib.inet.http.get(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
-            self.eq('ProxyConnectionError', resp['err'][0])
+            self.isin("connect to proxy 127.0.0.1:1", resp['err'][1].get('mesg'))
 
             # test $lib.axon proxy API
             asvisi = {'user': visi.iden}
@@ -736,13 +736,13 @@ class StormHttpTest(s_test.SynTest):
             opts = {'vars': {'proxy': 'socks5://user:pass@127.0.0.1:1'}, 'user': visi.iden}
 
             resp = await core.callStorm(q1, opts=opts)
-            self.eq('ProxyConnectionError', resp['err'][0])
+            self.isin("connect to proxy 127.0.0.1:1", resp['err'][1].get('mesg'))
 
             resp = await core.callStorm(q2, opts=opts)
-            self.eq('ProxyConnectionError', resp['err'][0])
+            self.isin("connect to proxy 127.0.0.1:1", resp['err'][1].get('mesg'))
 
             resp = await core.callStorm(q3, opts=opts)
-            self.eq('ProxyConnectionError', resp['err'][0])
+            self.isin("connect to proxy 127.0.0.1:1", resp['err'][1].get('mesg'))
 
             opts = {'vars': {'proxy': False}, 'user': visi.iden}
 
