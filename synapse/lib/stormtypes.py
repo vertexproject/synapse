@@ -9131,7 +9131,9 @@ class LibCron(Lib):
             if valu is not None:
                 cdef[key] = valu
 
-        view = kwargs.get('view')
+        view = await toprim(kwargs.get('view'))
+        if isinstance(view, dict):
+            view = view.get('iden', None)
         if not view:
             view = self.runt.view.iden
         cdef['view'] = view
@@ -9215,7 +9217,9 @@ class LibCron(Lib):
         if iden:
             cdef['iden'] = iden
 
-        view = kwargs.get('view')
+        view = await toprim(kwargs.get('view'))
+        if isinstance(view, dict):
+            view = view.get('iden', None)
         if not view:
             view = self.runt.view.iden
         cdef['view'] = view

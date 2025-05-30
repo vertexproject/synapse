@@ -4556,9 +4556,36 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            view00 = await core.callStorm('return($lib.view.get().iden)')
+            fork00 = await core.callStorm('return($lib.view.get().fork().iden)')
+
             cdef = await core.callStorm('return($lib.cron.add(query="{[tel:mob:telem=*]}", hourly=30))')
             self.eq('', cdef.get('doc'))
             self.eq('', cdef.get('name'))
+            self.eq(view00, cdef.get('view'))
+
+            cdef = await core.callStorm('return($lib.cron.add(view=$lib.view.get().iden, query="{}", hourly=30))')
+            self.eq('', cdef.get('doc'))
+            self.eq('', cdef.get('name'))
+            self.eq(view00, cdef.get('view'))
+
+            q = '''$view=$lib.view.get($fork)
+            $cron = $lib.cron.add(query="{}", hourly=30, name='test cron', doc='fancy doc', view=$view)
+            return($cron)
+            '''
+            cdef = await core.callStorm(q, opts={'vars': {'fork': fork00}})
+            self.eq('fancy doc', cdef.get('doc'))
+            self.eq('test cron', cdef.get('name'))
+            self.eq(fork00, cdef.get('view'))
+
+            q = '''$view=$lib.view.get($fork)
+            $cron = $lib.cron.at(query="{}", day="+1", name='test cron at', doc='fancy at', view=$view)
+            return($cron)
+            '''
+            cdef = await core.callStorm(q, opts={'vars': {'fork': fork00}})
+            self.eq('fancy at', cdef.get('doc'))
+            self.eq('test cron at', cdef.get('name'))
+            self.eq(fork00, cdef.get('view'))
 
             iden = cdef.get('iden')
             opts = {'vars': {'iden': iden}}
