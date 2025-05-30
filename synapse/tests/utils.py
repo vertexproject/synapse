@@ -909,6 +909,10 @@ test_schema = {
                 'description': 'Foo String',
                 'type': 'string',
             },
+            'key:multi': {
+                'description': 'String or integer',
+                'type': ['string', 'integer'],
+            }
         },
         'type': 'object',
     }

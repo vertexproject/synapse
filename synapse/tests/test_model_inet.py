@@ -2473,10 +2473,10 @@ class InetModelTest(s_t_utils.SynTest):
                         :flow=*
                         :server=$server
                         :server:cert=*
-                        :server:fingerprint:ja3=$ja3s
+                        :server:ja3s=$ja3s
                         :client=$client
                         :client:cert=*
-                        :client:fingerprint:ja3=$ja3
+                        :client:ja3=$ja3
                 ]
             ''', opts={'vars': props})
             self.len(1, nodes)
@@ -2485,8 +2485,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('server:cert'))
             self.nn(nodes[0].get('client:cert'))
 
-            self.eq(props['ja3'], nodes[0].get('client:fingerprint:ja3'))
-            self.eq(props['ja3s'], nodes[0].get('server:fingerprint:ja3'))
+            self.eq(props['ja3'], nodes[0].get('client:ja3'))
+            self.eq(props['ja3s'], nodes[0].get('server:ja3s'))
 
             self.eq(props['client'], nodes[0].get('client'))
             self.eq(props['server'], nodes[0].get('server'))
@@ -2536,7 +2536,9 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [ inet:service:platform=(slack,)
                 :url="https://slack.com"
+                :urls=(https://slacker.com,)
                 :name=Slack
+                :names=("slack chat",)
                 :provider={ ou:org:name=$provname }
                 :provider:name=$provname
             ]
@@ -2545,10 +2547,18 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:platform', s_common.guid(('slack',))))
             self.eq(nodes[0].get('url'), 'https://slack.com')
+            self.eq(nodes[0].get('urls'), ('https://slacker.com',))
             self.eq(nodes[0].get('name'), 'slack')
+            self.eq(nodes[0].get('names'), ('slack chat',))
             self.eq(nodes[0].get('provider'), provider.ndef[1])
             self.eq(nodes[0].get('provider:name'), provname.lower())
             platform = nodes[0]
+
+            nodes = await core.nodes('[ inet:service:platform=({"name": "slack chat"}) ]')
+            self.eq(nodes[0].ndef, platform.ndef)
+
+            nodes = await core.nodes('[ inet:service:platform=({"url": "https://slacker.com"}) ]')
+            self.eq(nodes[0].ndef, platform.ndef)
 
             q = '''
             [ inet:service:instance=(vertex, slack)
@@ -2948,12 +2958,15 @@ class InetModelTest(s_t_utils.SynTest):
 
             q = '''
             [ inet:service:access=(api, blackout, 1715856900000000, vertex, slack)
+                :action=foo.bar
                 :account=$blckiden
                 :instance=$instiden
                 :platform=$platiden
                 :resource=$rsrciden
                 :success=$lib.true
                 :time=(1715856900000000)
+                :app={[ inet:service:app=({"name": "slack web"}) ]}
+                :client:app={[ inet:service:app=({"name": "slack web"}) :desc="The slack web application"]}
             ]
             '''
             opts = {'vars': {
@@ -2965,12 +2978,14 @@ class InetModelTest(s_t_utils.SynTest):
             }}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
+            self.eq(nodes[0].get('action'), 'foo.bar.')
             self.eq(nodes[0].get('account'), blckacct.ndef[1])
             self.eq(nodes[0].get('instance'), platinst.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('resource'), resource.ndef[1])
             self.true(nodes[0].get('success'))
             self.eq(nodes[0].get('time'), 1715856900000000)
+            self.eq(nodes[0].get('app'), nodes[0].get('client:app'))
 
             q = '''
             [ inet:service:message=(visi, says, relax)
@@ -3066,3 +3081,41 @@ class InetModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[inet:ip=192.168.001.001.abc]')
+
+    async def test_model_inet_tls_ja4(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:tls:ja4:sample=(1.2.3.4, t13d190900_9dc949149365_97f8aa674fd9) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ja4'), 't13d190900_9dc949149365_97f8aa674fd9')
+            self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
+            self.len(1, await core.nodes('inet:tls:ja4:sample -> inet:client'))
+            self.len(1, await core.nodes('inet:tls:ja4:sample -> inet:tls:ja4'))
+
+            nodes = await core.nodes('[ inet:tls:ja4s:sample=(1.2.3.4:443, t130200_1301_a56c5b993250) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ja4s'), 't130200_1301_a56c5b993250')
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:443')
+            self.len(1, await core.nodes('inet:tls:ja4s:sample -> inet:server'))
+            self.len(1, await core.nodes('inet:tls:ja4s:sample -> inet:tls:ja4s'))
+
+            nodes = await core.nodes('''[
+                inet:tls:handshake=*
+                    :client:ja4=t13d190900_9dc949149365_97f8aa674fd9
+                    :server:ja4s=t130200_1301_a56c5b993250
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('client:ja4'), 't13d190900_9dc949149365_97f8aa674fd9')
+            self.eq(nodes[0].get('server:ja4s'), 't130200_1301_a56c5b993250')
+            self.len(1, await core.nodes('inet:tls:handshake :client:ja4 -> inet:tls:ja4'))
+            self.len(1, await core.nodes('inet:tls:handshake :server:ja4s -> inet:tls:ja4s'))
+
+            ja4_t = core.model.type('inet:tls:ja4')
+            ja4s_t = core.model.type('inet:tls:ja4s')
+            self.eq('t13d1909Tg_9dc949149365_97f8aa674fd9', ja4_t.norm(' t13d1909Tg_9dc949149365_97f8aa674fd9 ')[0])
+            self.eq('t1302Tg_1301_a56c5b993250', ja4s_t.norm(' t1302Tg_1301_a56c5b993250 ')[0])
+            with self.raises(s_exc.BadTypeValu):
+                ja4_t.norm('t13d190900_9dc949149365_97f8aa674fD9')
+            with self.raises(s_exc.BadTypeValu):
+                ja4s_t.norm('t130200_1301_a56c5B993250')

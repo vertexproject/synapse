@@ -46,11 +46,13 @@ class JsonTest(s_test.SynTest):
             q = '''$schemaObj = $lib.json.schema($schema)
             $item=({})
             $item."key:integer"=(4)
+            $item."key:multi"=(4)
             return ( $schemaObj.validate($item) )
             '''
             isok, valu = await core.callStorm(q, opts=opts)
             self.true(isok)
             self.eq(4, valu.get('key:integer'))
+            self.eq(4, valu.get('key:multi'))
             self.eq('Default string!', valu.get('key:string'))
 
             q = '''$schemaObj = $lib.json.schema($schema)
@@ -68,12 +70,13 @@ class JsonTest(s_test.SynTest):
 
             q = '''
             $schemaObj = $lib.json.schema($schema, use_default=$lib.false)
-            $item = ({"key:integer": 4})
+            $item = ({"key:integer": 4, "key:multi": "4"})
             return($schemaObj.validate($item))
             '''
             isok, valu = await core.callStorm(q, opts={'vars': {'schema': s_test.test_schema}})
             self.true(isok)
             self.eq(4, valu.get('key:integer'))
+            self.eq('4', valu.get('key:multi'))
             self.notin('key:string', valu)
 
             # Print a json schema obj
