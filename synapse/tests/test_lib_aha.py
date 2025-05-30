@@ -266,7 +266,7 @@ class AhaTest(s_test.SynTest):
 
                 async with aha.getLocalProxy() as ahaproxy:
 
-                    svcs = [x async for x in ahaproxy.getAhaSvcs('synapse')]
+                    svcs = [x async for x in ahaproxy.getAhaSvcs(network='synapse')]
                     self.len(2, svcs)
                     names = [s['name'] for s in svcs]
                     self.sorteq(('cryo.synapse', '0.cryo.synapse'), names)
@@ -674,7 +674,6 @@ class AhaTest(s_test.SynTest):
                 # provisioning data
                 overconf = {
                     'dmon:listen': 'tcp://0.0.0.0:0',  # This is removed
-                    'nexslog:async': True,  # just set as a demonstrative value
                 }
                 s_common.yamlsave(overconf, axonpath, 'cell.mods.yaml')
 
@@ -686,7 +685,7 @@ class AhaTest(s_test.SynTest):
                         self.ne(axon.conf.get('dmon:listen'),
                                 'tcp://0.0.0.0:0')
                 overconf2 = s_common.yamlload(axonpath, 'cell.mods.yaml')
-                self.eq(overconf2, {'nexslog:async': True})
+                self.eq(overconf2, {})
 
                 # tests startup logic that recognizes it's already done
                 with self.getAsyncLoggerStream('synapse.lib.cell', ) as stream:
@@ -822,7 +821,7 @@ class AhaTest(s_test.SynTest):
                 clonurls = []
                 async with aha.getLocalProxy() as proxy:
                     provurls.append(await proxy.addAhaSvcProv('00.cell'))
-                    provurls.append(await proxy.addAhaSvcProv('01.cell', {'mirror': 'cell'}))
+                    provurls.append(await proxy.addAhaSvcProv('01.cell', provinfo={'mirror': 'cell'}))
                     enrlursl.append(await proxy.addAhaUserEnroll('bob'))
                     enrlursl.append(await proxy.addAhaUserEnroll('alice'))
                     clonurls.append(await proxy.addAhaClone('hehe.haha.com'))
@@ -1089,6 +1088,10 @@ class AhaTest(s_test.SynTest):
 
                     msgs = await core00.stormlist('$lib.print($lib.aha.pool.get(pool00.synapse))')
                     self.stormIsInPrint('aha:pool: pool00.synapse', msgs)
+
+                    pdef = await core00.callStorm('return($lib.aha.pool.get(pool00.synapse))')
+                    self.eq('pool00.synapse', pdef.get('name'))
+                    self.isin('00.synapse', pdef.get('services'))
 
                     async with await s_telepath.open('aha://pool00...') as pool:
 

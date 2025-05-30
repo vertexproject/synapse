@@ -46,7 +46,7 @@ async def main(argv, outp=s_output.stdout):
             if opts.ingest:
 
                 if opts.msgpack:
-                    items = list(s_msgpack.iterfd(sys.stdin.buffer))
+                    items = list(s_msgpack.iterfd(sys.stdin.buffer, strict=True))
                     await tank.puts(items)
                     return 0
 
@@ -54,7 +54,7 @@ async def main(argv, outp=s_output.stdout):
                 await tank.puts(items)
                 return 0
 
-            async for item in tank.slice(opts.offset, opts.size):
+            async for item in tank.slice(opts.offset, size=opts.size):
 
                 if opts.jsonl:
                     outp.printf(s_json.dumps(item[1], sort_keys=True).decode())

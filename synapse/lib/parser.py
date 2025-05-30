@@ -27,13 +27,14 @@ terminalEnglishMap = {
     'BASEPROP': 'base property name',
     'BOOL': 'boolean',
     'BREAK': 'break',
-    'BYNAME': 'named comparison operator',
+    'BYNAME': 'named comparison operator name',
+    'BYNAMECMPR': 'named comparison operator cmpr',
     'CATCH': 'catch',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
     'CMDOPT': 'command line option',
     'CMDNAME': 'command name',
-    'CMDRTOKN': 'An unquoted string parsed as a cmdr arg',
+    'CMDTOKN': 'An unquoted string parsed as a cmd arg',
     'CMPR': 'comparison operator',
     'CMPROTHER': 'comparison operator',
     'COLON': ':',
@@ -75,6 +76,7 @@ terminalEnglishMap = {
     'MODSET': '+= or -=',
     'MODSETMULTI': '++= or --=',
     'NONQUOTEWORD': 'unquoted value',
+    'NOTIN': 'not in',
     'NOTOP': 'not',
     'NULL': 'null',
     'NUMBER': 'number',
@@ -97,10 +99,10 @@ terminalEnglishMap = {
     'TRYMODSET': '?+= or ?-=',
     'TRYMODSETMULTI': '?++= or ?--=',
     'UNIVNAME': 'universal property',
-    'UNSET': 'unset',
     'EXPRUNIVNAME': 'universal property',
     'VARTOKN': 'variable',
     'EXPRVARTOKN': 'variable',
+    'VIRTNAME': 'virtual prop name',
     'VBAR': '|',
     'WHILE': 'while',
     'WHITETOKN': 'An unquoted string terminated by whitespace',
@@ -109,6 +111,8 @@ terminalEnglishMap = {
     'WILDTAGSEGNOVAR': 'tag segment potentially with asterisks',
     'YIELD': 'yield',
     '_ARRAYCONDSTART': '*[',
+    '_BACKTICK': '`',
+    '_BYVIRT': '*',
     '_COLONDOLLAR': ':$',
     '_COLONNOSPACE': ':',
     '_DEREF': '*',
@@ -122,6 +126,7 @@ terminalEnglishMap = {
     '_EDGEN2JOININIT': '<+(',
     '_ELSE': 'else',
     '_EMBEDQUERYSTART': '${',
+    '_EXPRBACKTICK': '`',
     '_EXPRCOLONNOSPACE': ':',
     '_EMIT': 'emit',
     '_EMPTY': 'empty',
@@ -311,20 +316,6 @@ class AstConverter(lark.Transformer):
         return s_ast.VarList(astinfo, [k.valu for k in kids])
 
     @lark.v_args(meta=True)
-    def operrelprop_pivot(self, meta, kids, isjoin=False):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        relprop, rest = kids[0], kids[1:]
-        if not rest:
-            return s_ast.PropPivotOut(astinfo, kids=kids, isjoin=isjoin)
-        pval = s_ast.RelPropValue(astinfo, kids=(relprop,))
-        return s_ast.PropPivot(astinfo, kids=(pval, *kids[1:]), isjoin=isjoin)
-
-    @lark.v_args(meta=True)
-    def operrelprop_join(self, meta, kids):
-        return self.operrelprop_pivot(meta, kids, isjoin=True)
-
-    @lark.v_args(meta=True)
     def stormcmdargs(self, meta, kids):
         newkids = []
         for kid in kids:
@@ -380,7 +371,7 @@ class AstConverter(lark.Transformer):
         return s_ast.FuncArgs(astinfo, newkids)
 
     @lark.v_args(meta=True)
-    def cmdrargs(self, meta, kids):
+    def cmdargs(self, meta, kids):
         argv = []
         indx = 0
 
@@ -420,7 +411,7 @@ class AstConverter(lark.Transformer):
                     continue
 
             # pragma: no cover
-            mesg = f'Unhandled AST node type in cmdrargs: {kid!r}'
+            mesg = f'Unhandled AST node type in cmdargs: {kid!r}'
             self.raiseBadSyntax(mesg, kid.astinfo)
 
         return argv
@@ -475,10 +466,17 @@ class AstConverter(lark.Transformer):
         kids[0].reverseLift(astinfo)
         return kids[0]
 
+    @lark.v_args(meta=True)
+    def byname(self, meta, kids):
+        kids = self._convert_children(kids)
+        astinfo = self.metaToAstInfo(meta)
+        names = [kid.valu for kid in kids[:-1]]
+        return s_ast.ByNameCmpr(astinfo, (names, kids[-1].valu), kids)
+
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
-LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu', 'search'],
+LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdargs', 'evalvalu', 'search'],
                        maybe_placeholders=False, propagate_positions=True, parser='lalr')
 
 class Parser:
@@ -599,12 +597,12 @@ class Parser:
         newtree.text = self.text
         return newtree
 
-    def cmdrargs(self):
+    def cmdargs(self):
         '''
         Parse command args that might have storm queries as arguments
         '''
         try:
-            tree = LarkParser.parse(self.text, start='cmdrargs')
+            tree = LarkParser.parse(self.text, start='cmdargs')
             return AstConverter(self.text).transform(tree)
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e) from None
@@ -654,6 +652,7 @@ terminalClassMap = {
     'OCTNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'BOOL': lambda astinfo, x: s_ast.Bool(astinfo, x == 'true'),
     'NULL': lambda astinfo, x: s_ast.Const(astinfo, None),
+    'NOTIN': lambda astinfo, x: s_ast.Const(astinfo, 'not in'),
     'SINGLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, x[1:-1]),  # drop quotes
     'NONQUOTEWORD': massage_vartokn,
     'VARTOKN': massage_vartokn,
@@ -668,6 +667,7 @@ ruleClassMap = {
     'andexpr': s_ast.AndCond,
     'baresubquery': s_ast.SubQuery,
     'catchblock': s_ast.CatchBlock,
+    'cmpr': lambda astinfo, kids: s_ast.Cmpr(astinfo, kids[0].valu),
     'condsetoper': s_ast.CondSetOper,
     'condtrysetoper': lambda astinfo, kids: s_ast.CondSetOper(astinfo, kids, errok=True),
     'condsubq': s_ast.SubqCond,
@@ -692,7 +692,6 @@ ruleClassMap = {
     'edittagpropset': s_ast.EditTagPropSet,
     'edittagpropdel': lambda astinfo, kids: s_ast.EditTagPropDel(astinfo, kids[1:]),
     'editunivdel': lambda astinfo, kids: s_ast.EditUnivDel(astinfo, kids[1:]),
-    'editunivset': s_ast.EditPropSet,
     'expror': s_ast.ExprOrNode,
     'exprand': s_ast.ExprAndNode,
     'exprnot': s_ast.UnaryExprNode,
@@ -708,14 +707,12 @@ ruleClassMap = {
     'formatstring': s_ast.FormatString,
     'formjoin_formpivot': lambda astinfo, kids: s_ast.FormPivot(astinfo, kids, isjoin=True),
     'formjoin_pivotout': lambda astinfo, _: s_ast.PivotOut(astinfo, isjoin=True),
-    'formjoinin_pivotin': lambda astinfo, kids: s_ast.PivotIn(astinfo, kids, isjoin=True),
-    'formjoinin_pivotinfrom': lambda astinfo, kids: s_ast.PivotInFrom(astinfo, kids, isjoin=True),
+    'formjoinin': lambda astinfo, kids: s_ast.PivotIn(astinfo, kids, isjoin=True),
     'formpivot_': s_ast.FormPivot,
     'formpivot_pivotout': s_ast.PivotOut,
     'formpivot_pivottotags': s_ast.PivotToTags,
     'formpivot_jointags': lambda astinfo, kids: s_ast.PivotToTags(astinfo, kids, isjoin=True),
-    'formpivotin_': s_ast.PivotIn,
-    'formpivotin_pivotinfrom': s_ast.PivotInFrom,
+    'formpivotin': s_ast.PivotIn,
     'formtagprop': s_ast.FormTagProp,
     'hasabspropcond': s_ast.HasAbsPropCond,
     'hasrelpropcond': s_ast.HasRelPropCond,
@@ -742,14 +739,19 @@ ruleClassMap = {
     'n1walknpivo': s_ast.N1WalkNPivo,
     'n2walknpivo': s_ast.N2WalkNPivo,
     'notcond': s_ast.NotCond,
+    'operrelprop_join': lambda astinfo, kids: s_ast.PropPivot(astinfo, kids, isjoin=True),
+    'operrelprop_joinout': lambda astinfo, kids: s_ast.PropPivotOut(astinfo, kids, isjoin=True),
+    'operrelprop_pivot': s_ast.PropPivot,
+    'operrelprop_pivotout': s_ast.PropPivotOut,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
     'query': s_ast.Query,
+    'pivottarg': s_ast.PivotTarget,
+    'pivottarglist': s_ast.PivotTargetList,
     'rawpivot': s_ast.RawPivot,
     'return': s_ast.Return,
     'relprop': lambda astinfo, kids: s_ast.RelProp(astinfo, [s_ast.Const(k.astinfo, k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropcond': s_ast.RelPropCond,
-    'relpropvalu': lambda astinfo, kids: s_ast.RelPropValue(astinfo, [s_ast.Const(k.astinfo, k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropvalue': s_ast.RelPropValue,
     'search': s_ast.Search,
     'setitem': lambda astinfo, kids: s_ast.SetItemOper(astinfo, [kids[0], kids[1], kids[3]]),
@@ -767,10 +769,10 @@ ruleClassMap = {
     'tagpropcond': s_ast.TagPropCond,
     'trycatch': s_ast.TryCatch,
     'univprop': s_ast.UnivProp,
-    'univpropvalu': s_ast.UnivPropValue,
     'valulist': s_ast.List,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
+    'virtprop': s_ast.VirtProp,
     'whileloop': s_ast.WhileLoop,
     'wordtokn': lambda astinfo, kids: s_ast.Const(astinfo, ''.join([str(k.valu) for k in kids]))
 }

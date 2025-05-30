@@ -12,7 +12,7 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-reqver = '>=2.11.0,<3.0.0'
+reqver = '>=3.0.0,<4.0.0'
 
 async def main(argv, outp=s_output.stdout):
 
@@ -43,7 +43,7 @@ async def main(argv, outp=s_output.stdout):
 
             svcs = []
             ldrs = set()
-            async for svc in prox.getAhaSvcs(network):
+            async for svc in prox.getAhaSvcs(network=network):
                 svcinfo = svc.get('svcinfo')
                 if svcinfo and svc.get('svcname') == svcinfo.get('leader'):
                     ldrs.add(svcinfo.get('run'))
