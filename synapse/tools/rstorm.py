@@ -5,6 +5,7 @@ import argparse
 
 import synapse.common as s_common
 
+import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
 import synapse.lib.rstorm as s_rstorm
 
@@ -32,6 +33,11 @@ async def main(argv, outp=s_output.stdout):
         for line in lines:
             outp.printf(line, addnl=False)
 
-if __name__ == '__main__':
+async def _main(argv, outp=s_output.stdout):  # pragma: no cover
     s_common.setlogging(logger)
-    sys.exit(asyncio.run(main(sys.argv[1:])))
+    ret = await main(argv, outp=outp)
+    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
+    return ret
+
+if __name__ == '__main__':
+    sys.exit(asyncio.run(_main(sys.argv[1:])))

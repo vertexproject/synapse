@@ -36,6 +36,10 @@ rfc6598 = ipaddress.IPv4Network('100.64.0.0/10')
 
 urlfangs = regex.compile('^(hxxp|hxxps)$')
 
+# defined from https://x.com/4A4133/status/1887269972545839559
+ja4_regex = r'^([tqd])([sd\d]\d)([di])(\d{2})(\d{2})([a-zA-Z0-9]{2})_([0-9a-f]{12})_([0-9a-f]{12})$'
+ja4s_regex = r'^([tq])([sd\d]\d)(\d{2})([a-zA-Z0-9]{2})_([0-9a-f]{4})_([0-9a-f]{12})$'
+
 def getAddrType(ip):
 
     if ip.is_multicast:
@@ -1431,6 +1435,11 @@ modeldefs = (
             ('inet:service:platform', ('guid', {}), {
                 'doc': 'A network platform which provides services.'}),
 
+            ('inet:service:app', ('guid', {}), {
+                'interfaces': ('inet:service:object',),
+                'template': {'service:base': 'application'},
+                'doc': 'A platform specific application.'}),
+
             ('inet:service:instance', ('guid', {}), {
                 'doc': 'An instance of the platform such as Slack or Discord instances.'}),
 
@@ -1522,6 +1531,10 @@ modeldefs = (
                 'template': {'service:base': 'emote'},
                 'doc': 'An emote or reaction by an account.'}),
 
+            ('inet:service:access:action:taxonomy', ('taxonomy', {}), {
+                'interfaces': ('meta:taxonomy',),
+                'doc': 'A hierarchical taxonomy of service actions.'}),
+
             ('inet:service:access', ('guid', {}), {
                 'interfaces': ('inet:service:action',),
                 'doc': 'Represents a user access request to a service resource.'}),
@@ -1564,6 +1577,18 @@ modeldefs = (
 
             ('inet:tls:handshake', ('guid', {}), {
                 'doc': 'An instance of a TLS handshake between a server and client.'}),
+
+            ('inet:tls:ja4', ('str', {'strip': True, 'regex': ja4_regex}), {
+                'doc': 'A JA4 TLS client fingerprint.'}),
+
+            ('inet:tls:ja4s', ('str', {'strip': True, 'regex': ja4s_regex}), {
+                'doc': 'A JA4S TLS server fingerprint.'}),
+
+            ('inet:tls:ja4:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja4', 'inet:tls:ja4'))}), {
+                'doc': 'A JA4 TLS client fingerprint used by a client.'}),
+
+            ('inet:tls:ja4s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja4s', 'inet:tls:ja4s'))}), {
+                'doc': 'A JA4S TLS server fingerprint used by a server.'}),
 
             ('inet:tls:ja3s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja3s', 'hash:md5'))}), {
                 'doc': 'A JA3 sample taken from a server.'}),
@@ -1664,6 +1689,9 @@ modeldefs = (
                 'interfaces': ('inet:service:base',),
                 'props': (
 
+                    ('app', ('inet:service:app', {}), {
+                        'doc': 'The app which handled the action.'}),
+
                     ('time', ('time', {}), {
                         'doc': 'The time that the account initiated the action.'}),
 
@@ -1693,6 +1721,9 @@ modeldefs = (
 
                     ('client', ('inet:client', {}), {
                         'doc': 'The network address of the client which initiated the action.'}),
+
+                    ('client:app', ('inet:service:app', {}), {
+                        'doc': 'The client service app which initiated the action.'}),
 
                     ('client:host', ('it:host', {}), {
                         'doc': 'The client host which initiated the action.'}),
@@ -2688,23 +2719,62 @@ modeldefs = (
                     'doc': 'The server that was sampled to compute the JARM hash.'}),
             )),
 
+            ('inet:tls:ja4', {}, ()),
+            ('inet:tls:ja4s', {}, ()),
+
+            ('inet:tls:ja4:sample', {}, (
+
+                ('ja4', ('inet:tls:ja4', {}), {
+                    'ro': True,
+                    'doc': 'The JA4 TLS client fingerprint.'}),
+
+                ('client', ('inet:client', {}), {
+                    'ro': True,
+                    'doc': 'The client which initiated the TLS handshake with a JA4 fingerprint.'}),
+            )),
+
+            ('inet:tls:ja4s:sample', {}, (
+
+                ('ja4s', ('inet:tls:ja4s', {}), {
+                    'ro': True,
+                    'doc': 'The JA4S TLS server fingerprint.'}),
+
+                ('server', ('inet:server', {}), {
+                    'ro': True,
+                    'doc': 'The server which responded to the TLS handshake with a JA4S fingerprint.'}),
+            )),
+
             ('inet:tls:handshake', {}, (
+
                 ('time', ('time', {}), {
                     'doc': 'The time the handshake was initiated.'}),
+
                 ('flow', ('inet:flow', {}), {
                     'doc': 'The raw inet:flow associated with the handshake.'}),
+
                 ('server', ('inet:server', {}), {
                     'doc': 'The TLS server during the handshake.'}),
+
                 ('server:cert', ('crypto:x509:cert', {}), {
                     'doc': 'The x509 certificate sent by the server during the handshake.'}),
-                ('server:fingerprint:ja3', ('hash:md5', {}), {
-                    'doc': 'The JA3S finger of the server.'}),
+
+                ('server:ja3s', ('hash:md5', {}), {
+                    'doc': 'The JA3S fingerprint of the server response.'}),
+
+                ('server:ja4s', ('inet:tls:ja4s', {}), {
+                    'doc': 'The JA4S fingerprint of the server response.'}),
+
                 ('client', ('inet:client', {}), {
                     'doc': 'The TLS client during the handshake.'}),
+
                 ('client:cert', ('crypto:x509:cert', {}), {
                     'doc': 'The x509 certificate sent by the client during the handshake.'}),
-                ('client:fingerprint:ja3', ('hash:md5', {}), {
-                    'doc': 'The JA3 fingerprint of the client.'}),
+
+                ('client:ja3', ('hash:md5', {}), {
+                    'doc': 'The JA3 fingerprint of the client request.'}),
+
+                ('client:ja4', ('inet:tls:ja4', {}), {
+                    'doc': 'The JA4 fingerprint of the client request.'}),
             )),
 
             ('inet:tls:ja3s:sample', {}, (
@@ -2746,11 +2816,21 @@ modeldefs = (
 
                 ('url', ('inet:url', {}), {
                     'ex': 'https://twitter.com',
+                    'alts': ('urls',),
                     'doc': 'The primary URL of the platform.'}),
+
+                ('urls', ('array', {'type': 'inet:url', 'sorted': True, 'uniq': True}), {
+                    'doc': 'An array of alternate URLs for the platform.'}),
 
                 ('name', ('str', {'onespace': True, 'lower': True}), {
                     'ex': 'twitter',
+                    'alts': ('names',),
                     'doc': 'A friendly name for the platform.'}),
+
+                ('names', ('array', {'type': 'str',
+                                     'typeopts': {'onespace': True, 'lower': True},
+                                     'sorted': True, 'uniq': True}), {
+                    'doc': 'An array of alternate names for the platform.'}),
 
                 ('desc', ('str', {}), {
                     'disp': {'hint': 'text'},
@@ -2798,6 +2878,22 @@ modeldefs = (
 
                 ('tenant', ('inet:service:tenant', {}), {
                     'doc': 'The tenant which contains the instance.'}),
+            )),
+
+            ('inet:service:app', {}, (
+
+                ('name', ('str', {'lower': True, 'onespace': True}), {
+                    'alts': ('names',),
+                    'doc': 'The name of the platform specific application.'}),
+
+                ('names', ('array', {'type': 'str',
+                                     'typeopts': {'onespace': True, 'lower': True},
+                                     'sorted': True, 'uniq': True}), {
+                    'doc': 'An array of alternate names for the application.'}),
+
+                ('desc', ('str', {}), {
+                    'disp': {'hint': 'text'},
+                    'doc': 'A description of the platform specific application.'}),
             )),
 
             ('inet:service:account', {}, (
@@ -3071,6 +3167,9 @@ modeldefs = (
             )),
 
             ('inet:service:access', {}, (
+
+                ('action', ('inet:service:access:action:taxonomy', {}), {
+                    'doc': 'The platform specific action which this access records.'}),
 
                 ('resource', ('inet:service:resource', {}), {
                     'doc': 'The resource which the account attempted to access.'}),

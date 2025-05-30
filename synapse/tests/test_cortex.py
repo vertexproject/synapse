@@ -4536,6 +4536,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(0, await core1.nodes('test:int=8 -#newtag.1234'))
 
             core1.view.layers[0].readonly = True
+            data = [(('test:int', 8), {'tags': {'test.1235': (None, None)}})]
             await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData(data))
 
             await core1.nodes('model.deprecated.lock test:deprform:deprprop2')

@@ -909,6 +909,10 @@ test_schema = {
                 'description': 'Foo String',
                 'type': 'string',
             },
+            'key:multi': {
+                'description': 'String or integer',
+                'type': ['string', 'integer'],
+            }
         },
         'type': 'object',
     }
@@ -2135,7 +2139,6 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         Assert that the length of an object is equal to X
         '''
         gtyps = (
-            s_coro.GenrHelp,
             s_telepath.Genr,
             s_telepath.GenrIter,
             types.GeneratorType)
