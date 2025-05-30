@@ -4746,7 +4746,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for ldef in self.layerdefs.values():
             await self._initLayr(ldef)
 
+    @s_nexus.Pusher.onPush('layer:sync:offs:set')
     async def setLayrSyncOffs(self, iden, offs):
+        return await self._setLayrSyncOffs(iden, offs)
+
+    async def _setLayrSyncOffs(self, iden, offs):
         if offs is not None:
             self.layeroffs.set(iden, offs)
         else:
@@ -4790,7 +4794,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         pdef = pushs.pop(pushiden, None)
-        await self.setLayrSyncOffs(pushiden, None)
+        await self._setLayrSyncOffs(pushiden, None)
         if pdef is None:
             return
 
@@ -4837,7 +4841,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         pdef = pulls.pop(pulliden, None)
-        await self.setLayrSyncOffs(pulliden, None)
+        await self._setLayrSyncOffs(pulliden, None)
         if pdef is None:
             return
 
