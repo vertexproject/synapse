@@ -3379,8 +3379,7 @@ class Layer(s_nexus.Pusher):
 
             if oldv is not None:
                 if stortype == STOR_TYPE_MINTIME:
-                    valu = min(valu, oldv)
-                    if valu == oldv:
+                    if valu >= oldv:
                         return
 
         return (
@@ -3399,24 +3398,6 @@ class Layer(s_nexus.Pusher):
 
             if valu == oldv and virts == oldvirts:
                 return
-
-            if oldv is not None:
-                # merge intervals and min times
-                if stortype == STOR_TYPE_IVAL:
-                    allv = oldv + valu
-                    valu = (min(allv), max(allv))
-                    if valu == oldv and stortype == oldt and virts == oldvirts:
-                        return
-
-                elif stortype == STOR_TYPE_MINTIME:
-                    valu = min(valu, oldv)
-                    if valu == oldv and stortype == oldt and virts == oldvirts:
-                        return
-
-                elif stortype == STOR_TYPE_MAXTIME:
-                    valu = max(valu, oldv)
-                    if valu == oldv and stortype == oldt and virts == oldvirts:
-                        return
 
         return (
             (EDIT_PROP_SET, (prop, valu, oldv, stortype, virts)),
@@ -3469,14 +3450,8 @@ class Layer(s_nexus.Pusher):
         if sode is None or (tags := sode.get('tags')) is None:
             oldv = None
 
-        elif (oldv := tags.get(tag)) is not None:
-
-            if oldv != (None, None) and valu != (None, None):
-                allv = oldv + valu
-                valu = (min(allv), max(allv))
-
-            if oldv == valu:
-                return
+        elif (oldv := tags.get(tag)) is not None and oldv == valu:
+            return
 
         return (
             (EDIT_TAG_SET, (tag, valu, oldv)),
@@ -3529,22 +3504,8 @@ class Layer(s_nexus.Pusher):
 
         if sode is not None and (tagprops := sode.get('tagprops')) is not None:
             if (tp_dict := tagprops.get(tag)) is not None:
-                if (valt := tp_dict.get(prop)) is not None:
-
-                    oldv, oldt = valt
-
-                    if stortype == STOR_TYPE_IVAL:
-                        allv = oldv + valu
-                        valu = (min(allv), max(allv))
-
-                    elif stortype == STOR_TYPE_MINTIME:
-                        valu = min(valu, oldv)
-
-                    elif stortype == STOR_TYPE_MAXTIME:
-                        valu = max(valu, oldv)
-
-                    if valu == oldv and stortype == oldt:
-                        return
+                if (valt := tp_dict.get(prop)) is not None and valt == (valu, stortype):
+                    return
 
         return (
             (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype)),
