@@ -414,9 +414,9 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
             $attack_flow = $objs_bytype."attack-flow".0
             $created_by = $objs_byid.($attack_flow.created_by_ref)
 
-            ($ok, $name) = $lib.trycast(ps:name, $created_by.name)
+            ($ok, $name) = $lib.trycast(meta:name, $created_by.name)
             if (not $ok) {
-                $lib.warn(`Error casting contact name to ou:name: {$created_by.name}`)
+                $lib.warn(`Error casting contact name to meta:name: {$created_by.name}`)
                 return()
             }
 
@@ -432,7 +432,7 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
                 :created ?= $attack_flow.created
                 :updated ?= $attack_flow.modified
                 :author:user ?= $lib.user.iden
-                :author:contact = {[ ps:contact = (attack-flow, $name, $contact_information)
+                :author:contact = {[ entity:contact = (attack-flow, $name, $contact_information)
                                         :name = $name
                                         :email = $contact_information
                                     ]}

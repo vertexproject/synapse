@@ -28,7 +28,7 @@ class BeliefModelTest(s_test.SynTest):
 
             nodes = await core.nodes('''[
                 belief:subscriber=*
-                    :contact={[ ps:contact=* :name=visi ]}
+                    :contact={[ entity:contact=* :name=visi ]}
                     :system={ belief:system:type=hehe.haha }
                     :began=20230209
                     :ended=20230210

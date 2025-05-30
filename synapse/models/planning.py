@@ -11,7 +11,9 @@ modeldefs = (
                 'doc': 'A procedure consisting of steps.'}),
 
             ('plan:procedure:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of procedure types.'}),
 
             ('plan:procedure:variable', ('guid', {}), {
@@ -32,15 +34,15 @@ modeldefs = (
         'forms': (
             ('plan:system', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('meta:name', {}), {
                     'ex': 'mitre att&ck flow',
                     'doc': 'The name of the planning system.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A summary of the purpose and use case for the planning system.'}),
 
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:actor', {}), {
                     'doc': 'The contact of the person or organization which authored the system.'}),
 
                 ('created', ('time', {}), {
@@ -60,7 +62,7 @@ modeldefs = (
                     'ex': 'Reconnaissance Phase',
                     'doc': 'The title of the phase.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A summary of the definition of the phase.'}),
 
@@ -80,11 +82,11 @@ modeldefs = (
                     'ex': 'Network Reconnaissance Procedure',
                     'doc': 'The name of the procedure.'}),
 
-                ('summary', ('str', {}), {
+                ('summary', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A summary of the purpose and use cases for the procedure.'}),
 
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:actor', {}), {
                     'doc': 'The contact of the person or organization which authored the procedure.'}),
 
                 ('created', ('time', {}), {
@@ -110,9 +112,10 @@ modeldefs = (
             )),
             ('plan:procedure:variable', {}, (
 
-                ('name', ('str', {}), {
+                ('name', ('str', {'strip': True}), {
                     'doc': 'The name of the variable.'}),
 
+                # FIXME taxonomy (TODO: grep type)
                 ('type', ('str', {}), {
                     'doc': 'The type for the input. Types are specific to the planning system.'}),
 

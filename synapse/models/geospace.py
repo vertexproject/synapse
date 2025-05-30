@@ -387,32 +387,35 @@ modeldefs = (
         ),
 
         'interfaces': (
+
+            # FIXME carve this up so geo:place can inherit and have consistent props
             ('geo:locatable', {
                 'doc': 'Properties common to items and events which may be geolocated.',
                 'template': {'geo:locatable': 'item'},
+                'prefix': 'place',
                 'props': (
-                    ('place', ('geo:place', {}), {
+                    ('', ('geo:place', {}), {
                         'doc': 'The place where the {geo:locatable} was located.'}),
 
-                    ('place:loc', ('loc', {}), {
+                    ('loc', ('loc', {}), {
                         'doc': 'The geopolitical location of the {geo:locatable}.'}),
 
-                    ('place:name', ('geo:name', {}), {
+                    ('name', ('meta:name', {}), {
                         'doc': 'The name of the place where the {geo:locatable} was located.'}),
 
-                    ('place:address', ('geo:address', {}), {
+                    ('address', ('geo:address', {}), {
                         'doc': 'The postal address of the place where the {geo:locatable} was located.'}),
 
-                    ('place:latlong', ('geo:latlong', {}), {
+                    ('latlong', ('geo:latlong', {}), {
                         'doc': 'The latlong where the {geo:locatable} was located.'}),
 
-                    ('place:latlong:accuracy', ('geo:dist', {}), {
+                    ('latlong:accuracy', ('geo:dist', {}), {
                         'doc': 'The accuracy of the latlong where the {geo:locatable} was located.'}),
 
-                    ('place:country', ('pol:country', {}), {
+                    ('country', ('pol:country', {}), {
                         'doc': 'The country where the {geo:locatable} was located.'}),
 
-                    ('place:country:code', ('pol:iso2', {}), {
+                    ('country:code', ('pol:iso2', {}), {
                         'doc': 'The country code where the {geo:locatable} was located.'}),
                 ),
             }),
@@ -421,21 +424,26 @@ modeldefs = (
         'types': (
 
             ('geo:telem', ('guid', {}), {
-                'interfaces': ('phys:object', 'geo:locatable'),
-                'template': {'phys:object': 'object', 'geo:locatable': 'object'},
+                'interfaces': (
+                    ('phys:object', {
+                        'template': {'phys:object': 'object'}}),
+
+                    ('geo:locatable', {
+                        'prefix': 'place',
+                        'template': {'geo:locatable': 'object'}}),
+                ),
                 'doc': 'The geospatial position and physical characteristics of a node at a given time.'}),
 
             ('geo:json', ('data', {'schema': geojsonschema}), {
                 'doc': 'GeoJSON structured JSON data.'}),
 
-            ('geo:name', ('str', {'lower': True, 'onespace': True}), {
-                'doc': 'An unstructured place name or address.'}),
-
             ('geo:place', ('guid', {}), {
                 'doc': 'A GUID for a geographic place.'}),
 
             ('geo:place:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of place types.',
             }),
 
@@ -445,24 +453,22 @@ modeldefs = (
             ('geo:longitude', ('float', {'min': -180.0, 'max': 180.0,
                                'minisvalid': False, 'maxisvalid': True}), {
                 'ex': '31.337',
-                'doc': 'A longitude in floating point notation.',
-            }),
+                'doc': 'A longitude in floating point notation.'}),
+
             ('geo:latitude', ('float', {'min': -90.0, 'max': 90.0,
                               'minisvalid': True, 'maxisvalid': True}), {
                 'ex': '31.337',
-                'doc': 'A latitude in floating point notation.',
-            }),
+                'doc': 'A latitude in floating point notation.'}),
 
             ('geo:bbox', ('comp', {'sepr': ',', 'fields': (
                                         ('xmin', 'geo:longitude'),
                                         ('xmax', 'geo:longitude'),
                                         ('ymin', 'geo:latitude'),
                                         ('ymax', 'geo:latitude'))}), {
-                'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.',
-            }),
+                'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.'}),
+
             ('geo:altitude', ('geo:dist', {'baseoff': 6371008800}), {
-                'doc': 'A negative or positive offset from Mean Sea Level (6,371.0088km from Earths core).'
-            }),
+                'doc': 'A negative or positive offset from Mean Sea Level (6,371.0088km from Earths core).'}),
         ),
 
         'edges': (
@@ -471,8 +477,6 @@ modeldefs = (
         ),
 
         'forms': (
-
-            ('geo:name', {}, ()),
 
             ('geo:telem', {}, (
 
@@ -491,17 +495,17 @@ modeldefs = (
 
             ('geo:place', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'A type specific identifier such as an airport ID.'}),
 
-                ('name', ('geo:name', {}), {
+                ('name', ('meta:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the place.'}),
 
                 ('type', ('geo:place:type:taxonomy', {}), {
                     'doc': 'The type of place.'}),
 
-                ('names', ('array', {'type': 'geo:name', 'sorted': True, 'uniq': True}), {
+                ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternative place names.'}),
 
                 ('desc', ('str', {}), {

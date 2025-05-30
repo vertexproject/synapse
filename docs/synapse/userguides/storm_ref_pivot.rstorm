@@ -363,10 +363,11 @@ The query above uses the wildcard ( ``*`` ) as a partial match for any form name
 followed by zero or more characters.
 
 *Pivot from a set of files to all host execution nodes (all nodes of all forms that inherit the it:host:activity interface - e.g., it:exec:file:add, it:exec:url, etc.) associated with those files:*
-
-.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (it:exec:file:write=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:mutex=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) ]
-.. storm-pre:: file:bytes -> it:host:activity
-.. storm-pre:: file:bytes -> it:host:activity:exe
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (it:exec:file:write=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:mutex=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) ]
+    .. storm-pre:: file:bytes -> it:host:activity
+    .. storm-pre:: file:bytes -> it:host:activity:exe
 
 ::
   
@@ -565,7 +566,9 @@ You must use explicit syntax to specify both the source and target properties.
 
 *Pivot from the WHOIS records (inet:whois:rec nodes) for a set of domains to the DNS A records (inet:dns:a nodes) for the same domains:*
 
-.. storm-pre:: [inet:whois:rec=(woot.com, 2017/07/17 00:00:00.000)] :fqdn -> inet:dns:a:fqdn
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [inet:whois:rec=(woot.com, 2017/07/17 00:00:00.000)] :fqdn -> inet:dns:a:fqdn
 
 ::
   
@@ -581,9 +584,10 @@ You must use explicit syntax to specify both the source and target properties.
     <inet:whois:rec nodes> -> inet:fqdn -> inet:dns:a
 
 *Pivot from a set of DNS requests (inet:dns:request nodes) to all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that share the same file as their :exe property:*
-
-.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (inet:dns:request=* :query:name:fqdn=woot.com :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:file:write=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/scvhost.exe') (it:exec:file:read=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/autoexec.bat') ]
-.. storm-pre:: inet:dns:request :exe -> it:host:activity:exe
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (inet:dns:request=* :query:name:fqdn=woot.com :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:file:write=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/scvhost.exe') (it:exec:file:read=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/autoexec.bat') ]
+    .. storm-pre:: inet:dns:request :exe -> it:host:activity:exe
 
 ::
   
@@ -823,9 +827,10 @@ of the three tags ``#rep``, ``#rep.eset``, and ``#rep.eset.sednit``), all three 
 
 *Pivot from a set of nodes to the tags (syn:tag nodes) for all tags applied to those nodes:*
 
-
-.. storm-pre:: [ file:bytes=sha256:b6e7343b9250ad141db66c7bb2cd18c8a6939ff6cdff616683ba6b6a4ff7aa91 +#cno.mal ]
-.. storm-pre:: file:bytes -> #*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:b6e7343b9250ad141db66c7bb2cd18c8a6939ff6cdff616683ba6b6a4ff7aa91 +#cno.mal ]
+    .. storm-pre:: file:bytes -> #*
 
 ::
   
@@ -846,9 +851,11 @@ double asterisk is used to match **across** tag elements.
 
 *Pivot from a set of nodes to the tags (syn:tag nodes) associated with any third-party reporting where the third tag element is "bisonal":*
 
-.. storm-pre:: [ file:bytes=sha256:89f250599e09f8631040e73cd9ea5e515d87e3d1d989f484686893becec1a9bc +#rep.alienvault.bisonal +#rep.malwarebazaar.bisonal +#rep.malwarebazaar.3p.intezer.bisonal ]
-.. storm-pre:: file:bytes -> #rep.*.bisonal
-.. storm-pre:: file:bytes -+> #rep.**bisonal
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:89f250599e09f8631040e73cd9ea5e515d87e3d1d989f484686893becec1a9bc +#rep.alienvault.bisonal +#rep.malwarebazaar.bisonal +#rep.malwarebazaar.3p.intezer.bisonal ]
+    .. storm-pre:: file:bytes -> #rep.*.bisonal
+    .. storm-pre:: file:bytes -+> #rep.**bisonal
 
 ::
   
@@ -885,8 +892,10 @@ Pivot to the ``syn:tag`` node for a specific tag by specifying the exact tag as 
 
 *Pivot from a set of nodes to the syn:tag node for the tag "cno.ttp.phish.attach":*
 
-.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 +#cno.ttp.phish.attach ]
-.. storm-pre:: file:bytes -> #cno.ttp.phish.attach
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 +#cno.ttp.phish.attach ]
+    .. storm-pre:: file:bytes -> #cno.ttp.phish.attach
 
 ::
   
@@ -1091,8 +1100,10 @@ Specify the name (verb) of the edge you want to traverse to navigate a single ed
 
 *Traverse the "uses" light edge from a threat cluster (risk:threat node) to the tools or malware (risk:tool:software nodes) used by the cluster:*
 
-.. storm-pre:: [ (risk:threat=* :org:name='vicious wombat' :reporter:name=thesilence) ] [ +(uses)> { [ risk:tool:software=* ] } ]
-.. storm-pre:: risk:threat -(uses)> risk:tool:software
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (risk:threat=* :org:name='vicious wombat' :reporter:name=thesilence) ] [ +(uses)> { [ risk:tool:software=* ] } ]
+    .. storm-pre:: risk:threat -(uses)> risk:tool:software
 
 ::
   
@@ -1109,8 +1120,10 @@ Specify the name (verb) of the edge you want to traverse to navigate a single ed
 
 *Traverse the "ipwhois" light edge from a set of IP addresses (inet:ip nodes) to the network registration / network WHOIS records (inet:whois:iprec nodes) the IPs are associated with:*
 
-.. storm-pre:: [ (inet:whois:iprec=* :asof=now :name=LVLT-GOGL-8-8-8 :net:min=8.8.8.0 :net:max=8.8.8.255) ] [ +(ipwhois)> { [ inet:ip=8.8.8.8 ] } ]
-.. storm-pre:: inet:ip <(ipwhois)- inet:whois:iprec
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (inet:whois:iprec=* :asof=now :name=LVLT-GOGL-8-8-8 :net:min=8.8.8.0 :net:max=8.8.8.255) ] [ +(ipwhois)> { [ inet:ip=8.8.8.8 ] } ]
+    .. storm-pre:: inet:ip <(ipwhois)- inet:whois:iprec
 
 ::
   
@@ -1191,8 +1204,10 @@ Use the wildcard (asterisk) character ( ``*`` ) to traverse any edges present in
 
 *For a vulnerability (risk:vuln node), navigate to any forms that are connected to the vulnerability by any edge:*
 
-.. storm-pre:: [ risk:vuln=* ] [ <(uses)+ { risk:threat:org:name='vicious wombat' } ]
-.. storm-pre:: risk:vuln <(*)- *
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ risk:vuln=* ] [ <(uses)+ { risk:threat:org:name='vicious wombat' } ]
+    .. storm-pre:: risk:vuln <(*)- *
 
 ::
   
@@ -1254,8 +1269,10 @@ operation ( ``-> *`` ) with a wildcard (any / all edges) edge traversal operatio
 
 *Pivot from a set of IP netblock registration records (inet:whois:iprec nodes) to all nodes associated with the records' secondary properties and all nodes linked to the records by light edges:*
 
-.. storm-pre:: [ (inet:whois:iprec="*" :net:min=89.249.65.0 :net:max=89.249.65.255) ] [ +(ipwhois)> { [ inet:ip=89.249.65.153 ] } ]
-.. storm-pre:: inet:whois:iprec --> *
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (inet:whois:iprec="*" :net:min=89.249.65.0 :net:max=89.249.65.255) ] [ +(ipwhois)> { [ inet:ip=89.249.65.153 ] } ]
+    .. storm-pre:: inet:whois:iprec --> *
 
 ::
   
@@ -1321,8 +1338,10 @@ primary to secondary property, secondary to secondary property, etc.)
 
 *Pivot from a set of organizations (ou:org nodes) to any associated contacts (ps:contact nodes), retaining the organizations in the results:*
 
-.. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name=vertex  :hq=d41d8cd98f00b204e9800998ecf8427e) (ps:contact=d41d8cd98f00b204e9800998ecf8427e :orgname=vertex :org=4b0c2c5671874922ce001d69215d032f) ]
-.. storm-pre:: ou:org -+> ps:contact
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name=vertex  :hq=d41d8cd98f00b204e9800998ecf8427e) (ps:contact=d41d8cd98f00b204e9800998ecf8427e :orgname=vertex :org=4b0c2c5671874922ce001d69215d032f) ]
+    .. storm-pre:: ou:org -+> ps:contact
 
 ::
   
@@ -1339,7 +1358,9 @@ primary to secondary property, secondary to secondary property, etc.)
 
 *Pivot from a set of domain WHOIS records (inet:whois:rec nodes) to the DNS A records (inet:dns:a nodes) associated with the FQDNs, retaining the WHOIS records in the results:*
 
-.. storm-pre:: inet:whois:rec :fqdn -+> inet:dns:a:fqdn
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:rec :fqdn -+> inet:dns:a:fqdn
 
 ::
   
@@ -1419,9 +1440,11 @@ or with a wildcard to represent any / all edges (e.g., ``-(*)+>`` ).
 
 *Join a threat cluster (risk:threat node) with any nodes used or targeted by the cluster:*
 
-.. storm-pre:: [ ( risk:threat=* :org:name='sparkling unicorn' ) (risk:vuln=* :cve=cve-2012-0158) ]
-.. storm-pre:: risk:threat:org:name='sparkling unicorn' [ +(uses)> { risk:vuln:cve=cve-2012-0158 } ] [ +(targets)> { ou:org:name=vertex } ]
-.. storm-pre:: risk:threat -( (uses, targets) )+> *
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( risk:threat=* :org:name='sparkling unicorn' ) (risk:vuln=* :cve=cve-2012-0158) ]
+    .. storm-pre:: risk:threat:org:name='sparkling unicorn' [ +(uses)> { risk:vuln:cve=cve-2012-0158 } ] [ +(targets)> { ou:org:name=vertex } ]
+    .. storm-pre:: risk:threat -( (uses, targets) )+> *
 
 ::
   

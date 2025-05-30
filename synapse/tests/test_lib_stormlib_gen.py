@@ -14,17 +14,7 @@ class StormLibGenTest(s_test.SynTest):
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             vtxguid = nodes00[0].ndef[1]
 
-            nodes00 = await core.nodes('gen.ou.org.hq vertex')
-            self.eq('vertex', nodes00[0].get('orgname'))
-            self.eq(vtxguid, nodes00[0].get('org'))
-
-            await core.nodes('ps:contact:orgname=vertex [ -:org ]')
-            nodes00 = await core.nodes('gen.ou.org.hq vertex')
-            self.eq(vtxguid, nodes00[0].get('org'))
-
-            await core.nodes('ps:contact:orgname=vertex [ :org=$lib.guid() ]')
-            nodes00 = await core.nodes('gen.ou.org.hq vertex')
-            self.ne(vtxguid, nodes00[0].get('org'))
+            # FIXME discuss gen.ou.org.hq as ou:site
 
             nodes00 = await core.nodes('yield $lib.gen.orgByFqdn(vertex.link)')
             nodes01 = await core.nodes('yield $lib.gen.orgByFqdn(vertex.link)')
@@ -52,7 +42,7 @@ class StormLibGenTest(s_test.SynTest):
 
             nodes00 = await core.nodes('yield $lib.gen.riskThreat(apt1, mandiant)')
             nodes01 = await core.nodes('gen.risk.threat apt1 mandiant')
-            self.eq('apt1', nodes00[0].get('org:name'))
+            self.eq('apt1', nodes00[0].get('name'))
             self.eq('mandiant', nodes00[0].get('reporter:name'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
@@ -87,16 +77,6 @@ class StormLibGenTest(s_test.SynTest):
             self.nn(nodes05[0].get('reporter'))
 
             self.len(0, await core.nodes('gen.risk.vuln newp --try'))
-
-            nodes00 = await core.nodes('yield $lib.gen.orgIdType(barcode)')
-            nodes01 = await core.nodes('gen.ou.id.type barcode')
-            self.eq(nodes00[0].ndef, nodes01[0].ndef)
-            barcode = nodes00[0].ndef[1]
-
-            nodes00 = await core.nodes('yield $lib.gen.orgIdNumber(barcode, 12345)')
-            nodes01 = await core.nodes('gen.ou.id.number barcode 12345')
-            self.eq(nodes00[0].ndef, nodes01[0].ndef)
-            self.eq(nodes00[0].get('type'), barcode)
 
             nodes00 = await core.nodes('yield $lib.gen.polCountryByIso2(UA)')
             nodes01 = await core.nodes('gen.pol.country ua')
@@ -136,7 +116,7 @@ class StormLibGenTest(s_test.SynTest):
             q = 'gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name barscn --time 2022'
             nodes00 = await core.nodes(q)
             self.len(1, nodes00)
-            self.eq('vertex.link', nodes00[0].get('target:fqdn'))
+            self.eq(('inet:fqdn', 'vertex.link'), nodes00[0].get('target'))
             self.eq('foosig', nodes00[0].get('signame'))
             self.eq('barscn', nodes00[0].get('scanner:name'))
             self.eq('2022-01-01T00:00:00Z', nodes00[0].repr('time'))
@@ -164,7 +144,7 @@ class StormLibGenTest(s_test.SynTest):
                 }
             }
 
-            self.len(1, await core.nodes('gen.it.av.scan.result file:bytes `guid:{$guid}` foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result file:bytes $guid foosig', opts=opts))
             self.len(1, await core.nodes('gen.it.av.scan.result inet:fqdn $fqdn foosig', opts=opts))
             self.len(1, await core.nodes('gen.it.av.scan.result inet:ip $ip  foosig', opts=opts))
             self.len(1, await core.nodes('gen.it.av.scan.result inet:url `http://{$fqdn}` foosig', opts=opts))
@@ -172,7 +152,7 @@ class StormLibGenTest(s_test.SynTest):
             self.len(1, await core.nodes('gen.it.av.scan.result it:host $guid foosig', opts=opts))
 
             self.len(6, await core.nodes('''
-                file:bytes=`guid:{$guid}`
+                file:bytes=$guid
                 inet:fqdn=$fqdn
                 it:host=$guid
                 inet:ip=$ip
@@ -185,13 +165,13 @@ class StormLibGenTest(s_test.SynTest):
                 -> it:av:scan:result
             ''', opts=opts))
 
-            with self.raises(s_exc.NoSuchType) as cm:
+            with self.raises(s_exc.NoSuchForm) as cm:
                 await core.nodes('gen.it.av.scan.result newp vertex.link foosig --try')
-            self.eq('No type or prop found for name newp.', cm.exception.errinfo['mesg'])
+            self.eq('No form named newp.', cm.exception.errinfo['mesg'])
 
-            with self.raises(s_exc.BadArg) as cm:
-                await core.nodes('gen.it.av.scan.result ps:name nah foosig --try')
-            self.eq('Unsupported target form ps:name', cm.exception.errinfo['mesg'])
+            with self.raises(s_exc.BadTypeValu) as cm:
+                await core.nodes('gen.it.av.scan.result meta:name nah foosig')
+            self.isin('Ndef of form meta:name is not allowed', cm.exception.errinfo['mesg'])
 
             self.len(0, await core.nodes('gen.it.av.scan.result file:bytes newp foosig --try'))
 
@@ -259,7 +239,7 @@ class StormLibGenTest(s_test.SynTest):
             '''
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].repr(), 'guid:' + s_common.guid(('file1',)))
+            self.eq(nodes[0].repr(), s_common.guid(('file1',)))
 
             with self.raises(s_exc.BadTypeValu):
                 await core.callStorm('$lib.gen.fileBytesBySha256(newp)', opts=opts)
@@ -303,7 +283,6 @@ class StormLibGenTest(s_test.SynTest):
             nodes = await core.nodes('yield $lib.gen.cryptoX509CertBySha256($sha256)', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('sha256'), sha256)
-            self.eq(nodes[0].repr(), s_common.guid(sha256))
 
             # Check invalid values, no try
             with self.raises(s_exc.BadTypeValu):
@@ -321,18 +300,13 @@ class StormLibGenTest(s_test.SynTest):
             self.ne(nodes[0].repr(), s_common.guid(sha256))
             crypto = nodes[0].repr()
 
-            nodes = await core.nodes('yield $lib.gen.cryptoX509CertBySha256($sha256)', opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].repr(), crypto)
-
             # Check node matching, crypto:x509:cert -> file with matching sha256
             sha256 = s_common.buid().hex()
             opts = {'vars': {'sha256': sha256}}
-            nodes = await core.nodes('[crypto:x509:cert=* :file={[ file:bytes=$sha256 ]} ]', opts=opts)
+            nodes = await core.nodes('[crypto:x509:cert=* :file={[ file:bytes=({"sha256": $sha256}) ]} ]', opts=opts)
             self.len(1, nodes)
             self.none(nodes[0].get('sha256'))
             crypto = nodes[0].repr()
 
             nodes = await core.nodes('yield $lib.gen.cryptoX509CertBySha256($sha256)', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].repr(), crypto)

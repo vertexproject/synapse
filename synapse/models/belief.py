@@ -6,7 +6,9 @@ modeldefs = (
                 'doc': 'A belief system such as an ideology, philosophy, or religion.'}),
 
             ('belief:system:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of belief system types.'}),
 
             ('belief:tenet', ('guid', {}), {
@@ -19,10 +21,10 @@ modeldefs = (
 
             ('belief:system', {}, (
 
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the belief system.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the belief system.'}),
 
@@ -38,17 +40,17 @@ modeldefs = (
 
             ('belief:tenet', {}, (
 
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the tenet.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the tenet.'}),
             )),
 
             ('belief:subscriber', {}, (
 
-                ('contact', ('ps:contact', {}), {
+                ('contact', ('entity:actor', {}), {
                     'doc': 'The contact which subscribes to the belief system.'}),
 
                 ('system', ('belief:system', {}), {

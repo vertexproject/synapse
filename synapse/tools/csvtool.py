@@ -199,7 +199,7 @@ def makeargparser(outp):
             }
 
             "person name": {
-                [ ps:name=$valu ]
+                [ meta:name=$valu ]
             }
 
             *: {

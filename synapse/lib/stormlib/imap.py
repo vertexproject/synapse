@@ -352,8 +352,8 @@ class ImapServer(s_stormtypes.StormType):
         props['size'] = size
         props['mime'] = 'message/rfc822'
 
-        filenode = await self.runt.view.addNode('file:bytes', props['sha256'], props=props)
-        return filenode
+        valu = {'sha256': props['sha256'], '$props': props}
+        return await self.runt.view.addNode('file:bytes', valu)
 
     async def delete(self, uid_set):
         uid_set = await s_stormtypes.tostr(uid_set)
