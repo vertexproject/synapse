@@ -387,6 +387,8 @@ modeldefs = (
         ),
 
         'interfaces': (
+
+            # FIXME carve this up so geo:place can inherit and have consistent props
             ('geo:locatable', {
                 'doc': 'Properties common to items and events which may be geolocated.',
                 'template': {'geo:locatable': 'item'},
@@ -451,24 +453,22 @@ modeldefs = (
             ('geo:longitude', ('float', {'min': -180.0, 'max': 180.0,
                                'minisvalid': False, 'maxisvalid': True}), {
                 'ex': '31.337',
-                'doc': 'A longitude in floating point notation.',
-            }),
+                'doc': 'A longitude in floating point notation.'}),
+
             ('geo:latitude', ('float', {'min': -90.0, 'max': 90.0,
                               'minisvalid': True, 'maxisvalid': True}), {
                 'ex': '31.337',
-                'doc': 'A latitude in floating point notation.',
-            }),
+                'doc': 'A latitude in floating point notation.'}),
 
             ('geo:bbox', ('comp', {'sepr': ',', 'fields': (
                                         ('xmin', 'geo:longitude'),
                                         ('xmax', 'geo:longitude'),
                                         ('ymin', 'geo:latitude'),
                                         ('ymax', 'geo:latitude'))}), {
-                'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.',
-            }),
+                'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.'}),
+
             ('geo:altitude', ('geo:dist', {'baseoff': 6371008800}), {
-                'doc': 'A negative or positive offset from Mean Sea Level (6,371.0088km from Earths core).'
-            }),
+                'doc': 'A negative or positive offset from Mean Sea Level (6,371.0088km from Earths core).'}),
         ),
 
         'edges': (

@@ -283,7 +283,7 @@ modeldefs = (
                 ('nft:meta', ('data', {}), {
                         'doc': 'The raw NFT metadata.'}),
 
-                ('nft:meta:name', ('str', {}), {
+                ('nft:meta:name', ('base:name', {}), {
                         'doc': 'The name field from the NFT metadata.'}),
 
                 ('nft:meta:description', ('text', {}), {

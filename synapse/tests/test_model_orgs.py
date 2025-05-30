@@ -68,7 +68,7 @@ class OuModelTest(s_t_utils.SynTest):
                 'org': org0,
                 'goal': goal,
                 'goals': (goal, altgoal),
-                'actors': (acto,),
+                'actors': (('entity:contact', acto),),
                 'type': 'get.pizza',
                 'name': 'MyName',
                 'names': ('foo', 'bar', 'Bar'),
@@ -96,7 +96,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('org'), org0)
             self.eq(node.get('goal'), goal)
             self.eq(node.get('goals'), sorted((goal, altgoal)))
-            self.eq(node.get('actors'), (acto,))
+            self.eq(node.get('actors'), (('entity:contact', acto),))
             self.eq(node.get('name'), 'myname')
             self.eq(node.get('names'), ('bar', 'foo'))
             self.eq(node.get('type'), 'mytype.')
@@ -249,21 +249,19 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('ou:org:names*[=$name]', opts=opts)
             self.len(0, nodes)  # primary ou:org:name is not in ou:org:names
 
-            nodes = await core.nodes('[ou:orgnet=$valu]',
-                                     opts={'vars': {'valu': (guid0, ('192.168.1.1', '192.168.1.127'))}})
+            opts = {'vars': {'org': guid0, 'net': ('192.168.1.1', '192.168.1.127')}}
+            nodes = await core.nodes('[ou:orgnet=({"org": $org, "net": $net})]', opts=opts)
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], (guid0, ((4, 3232235777), (4, 3232235903))))
-            self.eq(node.get('net'), ((4, 3232235777), (4, 3232235903)))
             self.eq(node.get('org'), guid0)
+            self.eq(node.get('net'), ((4, 3232235777), (4, 3232235903)))
 
-            nodes = await core.nodes('[ou:orgnet=$valu]',
-                                     opts={'vars': {'valu': (guid0, ('fd00::1', 'fd00::127'))}})
+            opts = {'vars': {'org': guid0, 'net': ('fd00::1', 'fd00::127')}}
+            nodes = await core.nodes('[ou:orgnet=({"org": $org, "net": $net})]', opts=opts)
             self.len(1, nodes)
             node = nodes[0]
             minv = (6, 0xfd000000000000000000000000000001)
             maxv = (6, 0xfd000000000000000000000000000127)
-            self.eq(node.ndef[1], (guid0, (minv, maxv)))
             self.eq(node.get('net'), (minv, maxv))
             self.eq(node.get('org'), guid0)
 

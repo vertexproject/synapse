@@ -55,7 +55,7 @@ modeldefs = (
                     ('email', ('inet:email', {}), {
                         'doc': 'The primary email address for the {contactable}.'}),
 
-                    ('emails', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                    ('emails', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate email addresses for the {contactable}.'}),
 
                     ('phone', ('tel:phone', {}), {
@@ -75,7 +75,7 @@ modeldefs = (
                     ('adid', ('it:adid', {}), {
                         'doc': 'The primary advertizing ID for the {contactable}.'}),
 
-                    ('adids', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
+                    ('adids', ('array', {'type': 'it:adid', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate user names for the {contactable}.'}),
                 ),
                 'doc': 'An interface for forms which contain contact info.'}),
@@ -212,6 +212,9 @@ modeldefs = (
 
                 ('actor', ('entity:actor', {}), {
                     'doc': 'The entity which owns the item.'}),
+
+                ('type', ('entity:had:type:taxonomy', {}), {
+                    'doc': 'A taxonomy for different types of posession.'}),
 
                 ('item', ('entity:havable', {}), {
                     'doc': 'The item owned by the entity.'}),

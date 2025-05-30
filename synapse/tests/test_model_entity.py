@@ -18,6 +18,23 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('names'), ('visi k', 'visi stark'))
             self.eq(nodes[0].get('email'), 'visi@vertex.link')
 
+            nodes = await core.nodes('''
+                $item = {[ inet:fqdn=vertex.link ]}
+                $actor = {[ entity:contact=({"name": "visi"}) ]}
+
+                [ entity:had=({"actor": $actor.ndef(), "item": $item.ndef()})
+                    :type=owner
+                    :period=(2016, ?)
+                    :percent=50
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('type'), 'owner.')
+            self.eq(nodes[0].get('percent'), '50')
+            self.eq(nodes[0].get('period'), (1451606400000000, 9223372036854775807))
+            self.len(1, await core.nodes('entity:had :item -> inet:fqdn'))
+            self.len(1, await core.nodes('entity:had :actor -> * +:name=visi'))
+
     async def test_entity_relationship(self):
 
         async with self.getTestCore() as core:

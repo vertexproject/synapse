@@ -22,21 +22,21 @@ modeldefs = (
 
             ('lang:translation', {}, (
 
-                ('input', ('str', {}), {
+                ('input', ('lang:phrase', {}), {
                     'ex': 'hola',
                     'doc': 'The input text.'}),
 
                 ('input:lang', ('lang:code', {}), {
                     'doc': 'The input language code.'}),
 
-                ('output', ('str', {}), {
+                ('output', ('lang:phrase', {}), {
                     'ex': 'hi',
                     'doc': 'The output text.'}),
 
                 ('output:lang', ('lang:code', {}), {
                     'doc': 'The output language code.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'ex': 'A standard greeting',
                     'doc': 'A description of the meaning of the output.'}),
 

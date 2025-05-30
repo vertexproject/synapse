@@ -153,9 +153,8 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of industry types.'}),
 
-            # FIXME should ou:orgnet continue to exist? As a comp type?
-            ('ou:orgnet', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net'))}), {
-                'doc': "An organization's IPv4 netblock."}),
+            ('ou:orgnet', ('guid', {}), {
+                'doc': 'An IP address block which belongs to an orgnaization.'}),
 
             ('ou:position', ('guid', {}), {
                 'doc': 'A position within an org which can be organized into an org chart with replacable contacts.'}),
@@ -398,7 +397,6 @@ modeldefs = (
 
             ('ou:opening', {}, (
 
-                # FIXME threat actors have openings too?
                 ('org', ('ou:org', {}), {
                     'doc': 'The org which has the opening.'}),
 
@@ -553,7 +551,7 @@ modeldefs = (
                     'doc': 'The organization which issues the award.'}),
 
             )),
-            # FIXME refactor ou:id
+
             ('ou:id:type:taxonomy', {}, ()),
             ('ou:id:status:taxonomy', {}, ()),
             ('ou:id', {}, (
@@ -565,6 +563,7 @@ modeldefs = (
                     'ex': 'valid',
                     'doc': 'The most recently known status of the ID.'}),
 
+                # FIXME interface for issued IDs and make this an ndef prop?
                 ('value', ('meta:id', {}), {
                     'doc': 'The ID value.'}),
 
@@ -634,12 +633,11 @@ modeldefs = (
                     'alts': ('goals',),
                     'doc': 'The assessed primary goal of the campaign.'}),
 
-                # FIXME social media taglines?
                 ('slogan', ('lang:phrase', {}), {
                     'doc': 'The slogan used by the campaign.'}),
 
                 # TODO: move to contribution?
-                ('actors', ('array', {'type': 'entity:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
+                ('actors', ('array', {'type': 'entity:actor', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'Actors who participated in the campaign.'}),
 
                 ('goals', ('array', {'type': 'ou:goal', 'split': ',', 'uniq': True, 'sorted': True}), {
@@ -663,8 +661,7 @@ modeldefs = (
                     'doc': 'The name of the organization reporting on the campaign.'}),
 
                 ('sophistication', ('meta:sophistication', {}), {
-                    'doc': 'The assessed sophistication of the campaign.',
-                }),
+                    'doc': 'The assessed sophistication of the campaign.'}),
 
                 ('timeline', ('meta:timeline', {}), {
                     'doc': 'A timeline of significant events related to the campaign.'}),
@@ -728,7 +725,6 @@ modeldefs = (
             )),
             ('ou:contribution', {}, (
 
-                # FIXME entity:actor?
                 ('from', ('entity:actor', {}), {
                     'doc': 'The actor who made the contribution.'}),
 
@@ -799,7 +795,6 @@ modeldefs = (
                 'prevnames': ('ou:orgtype',)}, ()),
 
             ('ou:org', {}, (
-                # FIXME discuss :hq property as geo:place / ou:site / entity:site
 
                 ('motto', ('lang:phrase', {}), {
                     'doc': 'The motto used by the organization.'}),
@@ -822,12 +817,13 @@ modeldefs = (
                     'doc': 'The industries associated with the org.'}),
 
                 # FIXME: invert this or use org ID?
-                # ('us:cage', ('gov:us:cage', {}), {
-                    # 'doc': 'The Commercial and Government Entity (CAGE) code for the organization.'}),
+                ('gov:us:cage', ('gov:us:cage', {}), {
+                    'prevnames': ('us:cage',),
+                    'doc': 'The US Commercial and Government Entity (CAGE) code for the organization.'}),
 
                 # FIXME discuss
-                # ('subs', ('array', {'type': 'ou:org', 'uniq': True, 'sorted': True}), {
-                #   'doc': 'An set of sub-organizations.'}),
+                ('subs', ('array', {'type': 'ou:org', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An set of sub-organizations.'}),
 
                 ('orgchart', ('ou:position', {}), {
                     'doc': 'The root node for an orgchart made up ou:position nodes.'}),
@@ -1003,16 +999,13 @@ modeldefs = (
                 'prevnames': ('ou:orgnet4', 'ou:orgnet6')}, (
 
                 ('org', ('ou:org', {}), {
-                    'ro': True,
-                    'doc': 'The org guid which owns the netblock.',
-                }),
+                    'doc': 'The org guid which owns the netblock.'}),
+
                 ('net', ('inet:net', {}), {
-                    'ro': True,
-                    'doc': 'Netblock owned by the organization.',
-                }),
-                ('name', ('str', {'lower': True, 'strip': True}), {
-                    'doc': 'The name that the organization assigns to this netblock.'
-                }),
+                    'doc': 'Netblock owned by the organization.'}),
+
+                ('name', ('base:name', {}), {
+                    'doc': 'The name that the organization assigns to this netblock.'}),
             )),
             ('ou:attendee', {}, (
 
