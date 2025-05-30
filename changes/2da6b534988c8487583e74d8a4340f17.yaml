@@ -1,6 +1,0 @@
----
-desc: Added ``inet:service:message:mentions`` to capture contactable entities mentioned
-  within the message.
-prs: []
-type: model
-...

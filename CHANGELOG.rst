@@ -6,6 +6,82 @@
 Synapse Changelog
 *****************
 
+v2.211.0 - 2025-05-23
+=====================
+
+Model Changes
+-------------
+- Removed the readonly attribute from the ``ou:conference:event:conference``
+  property.
+  (`#4301 <https://github.com/vertexproject/synapse/pull/4301>`_)
+- See :ref:`userguide_model_v2_211_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated ``synapse.tools.genpkg`` to include the Synapse version info used to
+  build the Power-Up in the package definitions.
+  (`#4290 <https://github.com/vertexproject/synapse/pull/4290>`_)
+
+Bugfixes
+--------
+- Fixed an issue where applying a tag in a fork to a node which already had
+  that tag with a value in a parent view would additionally store that tag
+  value in the fork's write layer.
+  (`#4303 <https://github.com/vertexproject/synapse/pull/4303>`_)
+- Fixed bug with embeds including types that extend from ``ndef``.
+  (`#4307 <https://github.com/vertexproject/synapse/pull/4307>`_)
+
+Improved documentation
+----------------------
+- Fixed the documentation for ``$node.data.list()`` to specify that it returns
+  (name, value) tuples, not just names.
+  (`#4297 <https://github.com/vertexproject/synapse/pull/4297>`_)
+
+v2.210.0 - 2025-05-12
+=====================
+
+Model Changes
+-------------
+- Added ``entity:relationship`` to model relationships between entities.
+  Special thanks to Cisco Talos for collaborating on this addition.
+  (`#4285 <https://github.com/vertexproject/synapse/pull/4285>`_)
+- Added ``inet:service:message:hashtags`` to capture hashtags mentioned in a
+  message.
+  (`#4268 <https://github.com/vertexproject/synapse/pull/4268>`_)
+- Added the following properties to ``ps:contact``: ``:banner``, ``:passwd``,
+  ``:website``, ``:websites``.
+  (`#4269 <https://github.com/vertexproject/synapse/pull/4269>`_)
+- Added ``inet:service:channel:topic`` to capture the topic of the channel.
+  (`#4271 <https://github.com/vertexproject/synapse/pull/4271>`_)
+- Added ``inet:service:message:mentions`` to capture contactable entities
+  mentioned within the message.
+  (`#4273 <https://github.com/vertexproject/synapse/pull/4273>`_)
+- See :ref:`userguide_model_v2_210_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated JSON library backend from ``orjson`` to ``vtx-yyjson`` which has
+  large integer support.
+  (`#4251 <https://github.com/vertexproject/synapse/pull/4251>`_)
+
+Bugfixes
+--------
+- Fixed an issue where an AHA promotion would result in services following
+  fixed mirror values, instead of dynamic mirror values.
+  (`#4246 <https://github.com/vertexproject/synapse/pull/4246>`_)
+
+Improved documentation
+----------------------
+- Updated documentation to clarify ``view.del`` only deletes the view and does
+  not remove any layers.
+  (`#4261 <https://github.com/vertexproject/synapse/pull/4261>`_)
+
+Deprecations
+------------
+- Deprecated ``$lib.notification``, ``user.notify()``, and ``user.tell()`` Storm
+  APIs.
+  (`#4267 <https://github.com/vertexproject/synapse/pull/4267>`_)
+
 v2.209.0 - 2025-04-23
 =====================
 

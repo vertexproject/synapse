@@ -1535,6 +1535,11 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:platform', ('guid', {}), {
                         'doc': 'A network platform which provides services.'}),
 
+                    ('inet:service:app', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'application'},
+                        'doc': 'A platform specific application.'}),
+
                     ('inet:service:instance', ('guid', {}), {
                         'doc': 'An instance of the platform such as Slack or Discord instances.'}),
 
@@ -1625,6 +1630,10 @@ class InetModule(s_module.CoreModule):
                         'interfaces': ('inet:service:object',),
                         'template': {'service:base': 'emote'},
                         'doc': 'An emote or reaction by an account.'}),
+
+                    ('inet:service:access:action:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A hierarchical taxonomy of service actions.'}),
 
                     ('inet:service:access', ('guid', {}), {
                         'interfaces': ('inet:service:action',),
@@ -1774,6 +1783,9 @@ class InetModule(s_module.CoreModule):
                         'interfaces': ('inet:service:base',),
                         'props': (
 
+                            ('app', ('inet:service:app', {}), {
+                                'doc': 'The app which handled the action.'}),
+
                             ('time', ('time', {}), {
                                 'doc': 'The time that the account initiated the action.'}),
 
@@ -1806,6 +1818,9 @@ class InetModule(s_module.CoreModule):
 
                             ('client:host', ('it:host', {}), {
                                 'doc': 'The client host which initiated the action.'}),
+
+                            ('client:app', ('inet:service:app', {}), {
+                                'doc': 'The client service app which initiated the action.'}),
 
                             ('server', ('inet:server', {}), {
                                 'doc': 'The network address of the server which handled the action.'}),
@@ -3608,11 +3623,21 @@ class InetModule(s_module.CoreModule):
 
                         ('url', ('inet:url', {}), {
                             'ex': 'https://twitter.com',
+                            'alts': ('urls',),
                             'doc': 'The primary URL of the platform.'}),
+
+                        ('urls', ('array', {'type': 'inet:url', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of alternate URLs for the platform.'}),
 
                         ('name', ('str', {'onespace': True, 'lower': True}), {
                             'ex': 'twitter',
+                            'alts': ('names',),
                             'doc': 'A friendly name for the platform.'}),
+
+                        ('names', ('array', {'type': 'str',
+                                             'typeopts': {'onespace': True, 'lower': True},
+                                             'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of alternate names for the platform.'}),
 
                         ('desc', ('str', {}), {
                             'disp': {'hint': 'text'},
@@ -3660,6 +3685,22 @@ class InetModule(s_module.CoreModule):
 
                         ('tenant', ('inet:service:tenant', {}), {
                             'doc': 'The tenant which contains the instance.'}),
+                    )),
+
+                    ('inet:service:app', {}, (
+
+                        ('name', ('str', {'lower': True, 'onespace': True}), {
+                            'alts': ('names',),
+                            'doc': 'The name of the platform specific application.'}),
+
+                        ('names', ('array', {'type': 'str',
+                                             'typeopts': {'onespace': True, 'lower': True},
+                                             'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of alternate names for the application.'}),
+
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A description of the platform specific application.'}),
                     )),
 
                     ('inet:service:account', {}, (
@@ -3871,6 +3912,9 @@ class InetModule(s_module.CoreModule):
 
                         ('period', ('ival', {}), {
                             'doc': 'The time period where the channel was available.'}),
+
+                        ('topic', ('media:topic', {}), {
+                            'doc': 'The visible topic of the channel.'}),
                     )),
 
                     ('inet:service:thread', {}, (
@@ -3933,6 +3977,9 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:service:access', {}, (
+
+                        ('action', ('inet:service:access:action:taxonomy', {}), {
+                            'doc': 'The platform specific action which this access records.'}),
 
                         ('resource', ('inet:service:resource', {}), {
                             'doc': 'The resource which the account attempted to access.'}),
