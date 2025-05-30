@@ -1993,20 +1993,26 @@ class Runtime(s_base.Base):
 
     async def _joinEmbedStor(self, storage, embeds):
         for nodePath, relProps in embeds.items():
+
             await asyncio.sleep(0)
-            if (nid := relProps.get('*')) is None:
+
+            if (nid := relProps.get('$nid')) is None:
                 continue
 
             nid = s_common.int64en(nid)
 
             stor = await self.view.getStorNodes(nid)
             for relProp in relProps.keys():
+
                 await asyncio.sleep(0)
-                if relProp == '*':
+
+                if relProp[0] == '$':
                     continue
 
                 for idx, layrstor in enumerate(stor):
+
                     await asyncio.sleep(0)
+
                     props = layrstor.get('props')
                     if not props:
                         continue
