@@ -9126,10 +9126,12 @@ class LibCron(Lib):
         if iden:
             cdef['iden'] = iden
 
-        view = await toprim(kwargs.get('view'))
-        if isinstance(view, dict):
-            view = view.get('iden', None)
-        if not view:
+        if (view := kwargs.get('view')) is not None:
+            if isinstance(view, View):
+                view = await view.deref('iden')
+            else:
+                view = await tostr(view)
+        else:
             view = self.runt.view.iden
         cdef['view'] = view
 
@@ -9212,10 +9214,12 @@ class LibCron(Lib):
         if iden:
             cdef['iden'] = iden
 
-        view = await toprim(kwargs.get('view'))
-        if isinstance(view, dict):
-            view = view.get('iden', None)
-        if not view:
+        if (view := kwargs.get('view')) is not None:
+            if isinstance(view, View):
+                view = await view.deref('iden')
+            else:
+                view = await tostr(view)
+        else:
             view = self.runt.view.iden
         cdef['view'] = view
 
