@@ -1,0 +1,6 @@
+---
+desc: Something friendly about constant time tobool checks for container primtive
+  objects in Storm.
+prs: []
+type: feat
+...
