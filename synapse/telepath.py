@@ -1627,6 +1627,7 @@ async def openinfo(info):
         path = info.get('path')
         if ':' in path:
             path, name = path.split(':')
+        name = info.get('name', name)
         link = await s_link.unixconnect(path)
 
     elif scheme in ('tcp', 'ssl'):
