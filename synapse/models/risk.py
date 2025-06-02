@@ -136,7 +136,6 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of software tool types.'}),
 
-            # FIXME
             ('risk:availability', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),

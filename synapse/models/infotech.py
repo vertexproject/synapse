@@ -1033,7 +1033,7 @@ modeldefs = (
 
             ('it:dev:function:sample', ('guid', {}), {
                 'interfaces': (
-                    ('file:mime:meta', {}),
+                    ('file:mime:meta', {'template': {'metadata': 'function'}}),
                 ),
                 'doc': 'An instance of a function in an executable.'}),
 

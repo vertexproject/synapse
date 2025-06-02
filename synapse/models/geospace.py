@@ -388,7 +388,6 @@ modeldefs = (
 
         'interfaces': (
 
-            # FIXME carve this up so geo:place can inherit and have consistent props
             ('geo:locatable', {
                 'doc': 'Properties common to items and events which may be geolocated.',
                 'template': {'geo:locatable': 'item'},
@@ -400,11 +399,12 @@ modeldefs = (
                     ('loc', ('loc', {}), {
                         'doc': 'The geopolitical location of the {geo:locatable}.'}),
 
+                    # FIXME meta:named interface?
                     ('name', ('meta:name', {}), {
-                        'doc': 'The name of the place where the {geo:locatable} was located.'}),
+                        'doc': 'The name where the {geo:locatable} was located.'}),
 
                     ('address', ('geo:address', {}), {
-                        'doc': 'The postal address of the place where the {geo:locatable} was located.'}),
+                        'doc': 'The postal address where the {geo:locatable} was located.'}),
 
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'The latlong where the {geo:locatable} was located.'}),
@@ -412,11 +412,23 @@ modeldefs = (
                     ('latlong:accuracy', ('geo:dist', {}), {
                         'doc': 'The accuracy of the latlong where the {geo:locatable} was located.'}),
 
+                    ('altitude', ('geo:altitude', {}), {
+                        'doc': 'The altitude where the {geo:locatable} was located.'}),
+
+                    ('altitude:accuracy', ('geo:dist', {}), {
+                        'doc': 'The accuracy of the altitude where the {geo:locatable} was located.'}),
+
                     ('country', ('pol:country', {}), {
                         'doc': 'The country where the {geo:locatable} was located.'}),
 
                     ('country:code', ('pol:iso2', {}), {
                         'doc': 'The country code where the {geo:locatable} was located.'}),
+
+                    ('bbox', ('geo:bbox', {}), {
+                        'doc': 'A bounding box which encompasses the {geo:locatable}.'}),
+
+                    ('geojson', ('geo:json', {}), {
+                        'doc': 'A GeoJSON representation of where the {geo:locatable} was located.'}),
                 ),
             }),
         ),
@@ -429,7 +441,6 @@ modeldefs = (
                         'template': {'phys:object': 'object'}}),
 
                     ('geo:locatable', {
-                        'prefix': 'place',
                         'template': {'geo:locatable': 'object'}}),
                 ),
                 'doc': 'The geospatial position and physical characteristics of a node at a given time.'}),
@@ -438,7 +449,11 @@ modeldefs = (
                 'doc': 'GeoJSON structured JSON data.'}),
 
             ('geo:place', ('guid', {}), {
-                'doc': 'A GUID for a geographic place.'}),
+                'interfaces': (
+                    ('geo:locatable', {'prefix': '',
+                        'template': {'geo:locatable': 'place'}}),
+                ),
+                'doc': 'A geographic place.'}),
 
             ('geo:place:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -498,36 +513,20 @@ modeldefs = (
                 ('id', ('meta:id', {}), {
                     'doc': 'A type specific identifier such as an airport ID.'}),
 
+                ('type', ('geo:place:type:taxonomy', {}), {
+                    'doc': 'The type of place.'}),
+
+                # FIXME should geo:locatable have :names?
                 ('name', ('meta:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the place.'}),
 
-                ('type', ('geo:place:type:taxonomy', {}), {
-                    'doc': 'The type of place.'}),
-
                 ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternative place names.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
+                    'disp': {'hint': 'text'},
                     'doc': 'A long form description of the place.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'The geo-political location string for the node.'}),
-
-                ('address', ('geo:address', {}), {
-                    'doc': 'The street/mailing address for the place.'}),
-
-                ('geojson', ('geo:json', {}), {
-                    'doc': 'A GeoJSON representation of the place.'}),
-
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The lat/long position for the place.'}),
-
-                ('bbox', ('geo:bbox', {}), {
-                    'doc': 'A bounding box which encompasses the place.'}),
-
-                ('radius', ('geo:dist', {}), {
-                    'doc': 'An approximate radius to use for bounding box calculation.'}),
 
                 ('photo', ('file:bytes', {}), {
                     'doc': 'The image file to use as the primary image of the place.'}),

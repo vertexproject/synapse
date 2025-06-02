@@ -6,8 +6,9 @@ modeldefs = (
 
             ('edu:class', ('guid', {}), {
                 'interfaces': (
-                    # FIXME attendable?
-                    ('geo:locatable', {}),
+                    ('ou:attendable', {'template': {
+                        'ou:attendable': 'class',
+                        'geo:locatable': 'class'}}),
                 ),
                 'doc': 'An instance of an edu:course taught at a given time.'}),
 
@@ -32,6 +33,9 @@ modeldefs = (
                 'doc': 'A person.'}),
 
             ('ps:workhist', ('guid', {}), {
+                'interfaces': (
+                    ('econ:valuable', {'prefix': 'pay', 'template': {'econ:valuable': 'pay'}}),
+                ),
                 'doc': "An entry in a contact's work history."}),
 
             ('ps:vitals', ('guid', {}), {
@@ -109,17 +113,6 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'prevnames': ('started', 'ended', 'duration'),
                     'doc': 'The period of time that the contact worked for the organization.'}),
-
-                # FIXME come up with a unversalized protocol for nested price/asof/currency
-                ('pay', ('econ:price', {}), {
-                    'doc': 'The estimated/average yearly pay for the work.'}),
-
-                ('pay:asof', ('time', {}), {
-                    'doc': 'The time that the pay is adjusted for.'}),
-
-                ('pay:currency', ('econ:currency', {}), {
-                    'prevnames': ('currency',),
-                    'doc': 'The currency that the yearly pay was delivered in.'}),
             )),
             ('edu:course', {}, (
 
@@ -166,8 +159,6 @@ modeldefs = (
 
                 ('virtual:provider', ('entity:actor', {}), {
                     'doc': 'Contact info for the virtual infrastructure provider.'}),
-
-                # FIXME event interface?
             )),
             ('ps:education', {}, (
 
@@ -210,7 +201,6 @@ modeldefs = (
             )),
 
             ('ps:person', {}, (
-                 # FIXME vitals interface?
                 ('vitals', ('ps:vitals', {}), {
                     'doc': 'The most recent vitals for the person.'}),
             )),

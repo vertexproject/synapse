@@ -146,15 +146,16 @@ modeldefs = (
 
         'interfaces': (
             ('file:mime:meta', {
+                'template': {'metadata': 'metadata'},
                 'props': (
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that the mime info was parsed from.'}),
 
                     ('file:offs', ('int', {}), {
-                        'doc': 'The offset of the metadata within the file.'}),
+                        'doc': 'The offset of the {metadata} within the file.'}),
 
                     ('file:size', ('int', {}), {
-                        'doc': 'The size of the metadata within the file.'}),
+                        'doc': 'The size of the {metadata} within the file.'}),
 
                     ('file:data', ('data', {}), {
                         'doc': 'A mime specific arbitrary data structure for non-indexed data.'}),

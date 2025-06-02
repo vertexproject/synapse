@@ -56,6 +56,7 @@ modeldefs = (
 
             ('biz:service:type:taxonomy', {}, ()),
 
+            # FIXME doc:document interface?
             ('biz:rfp', {}, (
 
                 ('id', ('meta:id', {}), {

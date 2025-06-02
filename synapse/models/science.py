@@ -28,8 +28,8 @@ modeldefs = (
         ),
 
         'edges': (
-            # FIXME tense
-            (('sci:experiment', 'uses', None), {
+
+            (('sci:experiment', 'used', None), {
                 'doc': 'The experiment used the target nodes when it was run.'}),
 
             (('sci:observation', 'has', None), {

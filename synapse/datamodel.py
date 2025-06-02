@@ -1238,17 +1238,20 @@ class Model:
 
         iface = convert(iface)
 
-        if prefix:
+        if prefix is not None:
 
             props = []
             for propname, typeinfo, propinfo in iface.get('props'):
 
-                if propname:
-                    propname = f'{prefix}:{propname}'
-                else:
-                    propname = prefix
+                if prefix:
+                    if propname:
+                        propname = f'{prefix}:{propname}'
+                    else:
+                        propname = prefix
 
-                props.append((propname, typeinfo, propinfo))
+                # allow a property named by the prefix to fall away if prefix is ""
+                if propname:
+                    props.append((propname, typeinfo, propinfo))
 
             iface['props'] = tuple(props)
 

@@ -125,16 +125,17 @@ modeldefs = (
             }),
             ('econ:valuable', {
                 'template': {'econ:valuable': 'item'},
+                'prefix': 'price',
                 'props': (
 
-                    ('price', ('econ:price', {}), {
+                    ('', ('econ:price', {}), {
                         'doc': 'The value of the {econ:valuable}.'}),
 
-                    ('price:asof', ('time', {}), {
-                        'doc': 'The time the price was determined.'}),
+                    ('asof', ('time', {}), {
+                        'doc': 'The time the value was determined.'}),
 
-                    ('price:currency', ('econ:currency', {}), {
-                        'doc': 'The currency used to represent the price.'}),
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency used to represent the value.'}),
                 ),
                 'doc': 'Properties common to forms with intrinsic monitary value.'}),
             # FIXME econ valuable interface and econ:value=<guid> history
