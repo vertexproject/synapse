@@ -2273,9 +2273,9 @@ class StormTest(s_t_utils.SynTest):
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
 
-            self.eq('inet:email', node[1]['embeds']['hq::email']['$form'])
-            self.eq('visi', node[1]['embeds']['hq::email']['user'])
-            self.eq(5, node[1]['embeds']['hq::email']['$nid'])
+            self.eq('vertex.link', node[1]['embeds']['email::fqdn']['zone'])
+            self.eq(5, node[1]['embeds']['email::fqdn']['$nid'])
+            self.eq('inet:fqdn', node[1]['embeds']['email::fqdn']['$form'])
 
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
 
@@ -2397,7 +2397,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq(None, embeds['object']['newp'])
 
             self.nn(embeds['object::node']['$nid'])
-            self.eq('it:prod:hardware', embeds['object::node']['$form'])
+            self.eq('it:hardware', embeds['object::node']['$form'])
             self.eq('foohw', embeds['object::node']['name'])
             self.eq(None, embeds['object::node']['newp'])
             self.eq('inet:service:account', embeds['grantee']['$form'])
