@@ -1,0 +1,7 @@
+---
+desc: Fixed bug in ``synapse.lib.telepath.openurl`` where a share name specified via
+  the ``name`` keyword argument would be ignored if a share name was also specified
+  in the URL.
+prs: []
+type: bug
+...
