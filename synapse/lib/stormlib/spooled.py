@@ -107,3 +107,6 @@ class SpooledSet(s_stormtypes.Set):
 
     async def value(self):
         return set([x async for x in self.valu])
+
+    async def bool(self):
+        return bool(len(self.valu))

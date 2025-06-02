@@ -124,6 +124,17 @@ class StormlibSpooledTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts={'vars': {'items': [True, 'neato', False, 9001]}})
             self.stormIsInPrint("The set is {'neato'}", msgs)
 
+            q = '''
+            $set = $lib.spooled.set()
+            for $v in $lib.range($n) {
+                $set.add($v)
+            }
+            if $set { return ( (true) ) }
+            else { return ( (false) ) }
+            '''
+            self.false(await core.callStorm(q, opts={'vars': {'n': 0}}))
+            self.true(await core.callStorm(q, opts={'vars': {'n': 1}}))
+
             # force a fallback
             q = '''
                 $set = $lib.spooled.set()
