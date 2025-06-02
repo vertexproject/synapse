@@ -1,6 +1,5 @@
 ---
-desc: Something friendly about constant time tobool checks for container primtive
-  objects in Storm.
+desc: Improve performance of boolean evaluation of container types such as lists and dictionaries in Storm.
 prs: []
 type: feat
 ...
