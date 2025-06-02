@@ -525,8 +525,7 @@ modeldefs = (
                     'doc': 'An array of alternative place names.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A long form description of the place.'}),
+                    'doc': 'A description of the place.'}),
 
                 ('photo', ('file:bytes', {}), {
                     'doc': 'The image file to use as the primary image of the place.'}),

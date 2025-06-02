@@ -658,7 +658,6 @@ modeldefs = (
                     'doc': 'The command line arguments passed to the target file when the LNK file is activated.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The description of the LNK file contained within the StringData section of the LNK file.'}),
 
                 ('target:attrs', ('int', {}), {

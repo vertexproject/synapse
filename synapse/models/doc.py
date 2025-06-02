@@ -53,7 +53,7 @@ modeldefs = (
                         'doc': 'The type of {document}.'}),
 
                     ('text', ('text', {}), {
-                        'disp': {'hint': 'text', 'syntax': '{syntax}'},
+                        'display': {'syntax': '{syntax}'},
                         'doc': 'The text of the {document}.'}),
 
                     ('file', ('file:bytes', {}), {
@@ -143,7 +143,6 @@ modeldefs = (
             ('doc:requirement', {}, (
 
                 ('summary', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A summary of the requirement definition.'}),
 
                 ('optional', ('bool', {}), {
@@ -163,7 +162,6 @@ modeldefs = (
                     'doc': 'Contact information for subject of the resume.'}),
 
                 ('summary', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The summary of qualifications from the resume.'}),
 
                 ('workhist', ('array', {'type': 'ps:workhist', 'sorted': True, 'uniq': True}), {

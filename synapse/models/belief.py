@@ -25,7 +25,6 @@ modeldefs = (
                     'doc': 'The name of the belief system.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the belief system.'}),
 
                 ('type', ('belief:system:type:taxonomy', {}), {
@@ -44,7 +43,6 @@ modeldefs = (
                     'doc': 'The name of the tenet.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the tenet.'}),
             )),
 

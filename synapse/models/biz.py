@@ -67,7 +67,6 @@ modeldefs = (
                     'doc': 'The title of the RFP.'}),
 
                 ('summary', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A brief summary of the RFP.'}),
 
                 ('status', ('biz:deal:status:taxonomy', {}), {
@@ -190,7 +189,6 @@ modeldefs = (
                     'doc': 'The contact info of the entity which performs the service.'}),
 
                 ('summary', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A brief summary of the service.'}),
 
                 ('type', ('biz:service:type:taxonomy', {}), {
@@ -211,7 +209,6 @@ modeldefs = (
 
                 # TODO ('upc', ('biz:upc', {}), {}),
                 ('summary', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A brief summary of the product.'}),
 
                 # FIXME: manufactur?

@@ -39,7 +39,6 @@ modeldefs = (
                     'doc': 'The name of the planning system.'}),
 
                 ('summary', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A summary of the purpose and use case for the planning system.'}),
 
                 ('author', ('entity:actor', {}), {
@@ -63,7 +62,6 @@ modeldefs = (
                     'doc': 'The title of the phase.'}),
 
                 ('summary', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A summary of the definition of the phase.'}),
 
                 ('index', ('int', {}), {
@@ -83,7 +81,6 @@ modeldefs = (
                     'doc': 'The name of the procedure.'}),
 
                 ('summary', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A summary of the purpose and use cases for the procedure.'}),
 
                 ('author', ('entity:actor', {}), {

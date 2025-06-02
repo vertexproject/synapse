@@ -1425,7 +1425,6 @@ modeldefs = (
                     'doc': 'The image file.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A brief description of the screenshot.'})
             )),
             ('it:dev:str', {}, (
@@ -1522,7 +1521,6 @@ modeldefs = (
                     'ex': 'Buffer Copy without Checking Size of Input (Classic Buffer Overflow)'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The CWE description field.'}),
 
                 ('url', ('inet:url', {}), {
@@ -1585,7 +1583,6 @@ modeldefs = (
                     'doc': 'The time that the scan was started.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'Description of the scan and scope.'}),
 
                 ('id', ('str', {}), {
@@ -1654,7 +1651,6 @@ modeldefs = (
                     'doc': 'An array of alternate names for the ATT&CK group.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the ATT&CK group.'}),
 
                 ('isnow', ('it:mitre:attack:group', {}), {
@@ -1683,7 +1679,6 @@ modeldefs = (
                     'doc': 'The ATT&CK matrix which defines the tactic.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the ATT&CK tactic.'}),
 
                 ('url', ('inet:url', {}), {
@@ -1706,8 +1701,7 @@ modeldefs = (
                 ('isnow', ('it:mitre:attack:technique', {}), {
                     'doc': 'If deprecated, this field may contain the current value for the technique.'}),
 
-                ('desc', ('text', {'strip': True}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the ATT&CK technique.'}),
 
                 ('url', ('inet:url', {}), {
@@ -1738,8 +1732,7 @@ modeldefs = (
                 ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'Associated names for the ATT&CK software.'}),
 
-                ('desc', ('text', {'strip': True}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the ATT&CK software.'}),
 
                 ('isnow', ('it:mitre:attack:software', {}), {
@@ -1763,8 +1756,7 @@ modeldefs = (
                 ('matrix', ('it:mitre:attack:matrix', {}), {
                     'doc': 'The ATT&CK matrix which defines the mitigation.'}),
 
-                ('desc', ('text', {'strip': True}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the ATT&CK mitigation.'}),
 
                 ('url', ('inet:url', {}), {
@@ -1785,8 +1777,7 @@ modeldefs = (
                 ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of alternate names for the ATT&CK campaign.'}),
 
-                ('desc', ('text', {'strip': True}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the ATT&CK campaign.'}),
 
                 ('url', ('inet:url', {}), {
@@ -1848,7 +1839,6 @@ modeldefs = (
                     'doc': 'The name of the datasource.'}),
 
                 ('description', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the datasource.'}),
 
                 ('references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
@@ -1861,7 +1851,6 @@ modeldefs = (
                     'doc': 'The name of the data component.'}),
 
                 ('description', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the data component.'}),
 
                 ('datasource', ('it:mitre:attack:datasource', {}), {
@@ -1891,7 +1880,6 @@ modeldefs = (
                     'doc': 'The name of the repository.',
                 }),
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A free-form description of the repository.'}),
 
                 ('url', ('inet:url', {}), {
@@ -1952,7 +1940,6 @@ modeldefs = (
                     'doc': 'The name of the branch the commit was made to.'}),
 
                 ('mesg', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The commit message describing the changes in the commit.'}),
 
                 ('id', ('meta:id', {}), {
@@ -1986,7 +1973,6 @@ modeldefs = (
                     'doc': 'The title of the issue.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The text describing the issue.'}),
 
                 ('updated', ('time', {}), {
@@ -2008,7 +1994,6 @@ modeldefs = (
                     'doc': 'The human friendly name of the label.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The description of the label.'}),
 
             )),
@@ -2027,7 +2012,6 @@ modeldefs = (
                     'doc': 'The issue thread that the comment was made in.',
                 }),
                 ('text', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The body of the comment.',
                 }),
                 ('replyto', ('it:dev:repo:issue:comment', {}), {
@@ -2047,7 +2031,6 @@ modeldefs = (
                     'doc': 'The diff the comment is being added to.'}),
 
                 ('text', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The body of the comment.'}),
 
                 ('replyto', ('it:dev:repo:diff:comment', {}), {
@@ -2079,7 +2062,6 @@ modeldefs = (
                     'doc': 'The type of hardware.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A brief description of the hardware.'}),
 
                 ('cpe', ('it:sec:cpe', {}), {
@@ -2102,7 +2084,6 @@ modeldefs = (
                 ('released', ('time', {}), {
                     'doc': 'The initial release date for this hardware.'}),
 
-                # FIXME relationship form?
                 ('parts', ('array', {'type': 'it:hardware', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of it:hardware parts included in this hardware specification.'}),
             )),
@@ -2118,43 +2099,6 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The it:host which has this component installed.'}),
             )),
-            # ('it:prod:soft', {}, (
-
-            #     ('id', ('meta:id', {}), {
-            #         'doc': 'An ID for the software.'}),
-
-            #     ('name', ('meta:name', {}), {
-            #         'alts': ('names',),
-            #         'doc': 'The name of the software.'}),
-
-            #     ('type', ('it:prod:soft:taxonomy', {}), {
-            #         'doc': 'The software type.'}),
-
-            #     ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-            #         'doc': 'A list of alternate names for this software.'}),
-
-            #     ('desc', ('str', {}), {
-            #         'disp': {'hint': 'text'},
-            #         'doc': 'A description of the software.'}),
-
-            #     ('desc:short', ('str', {'lower': True}), {
-            #         'doc': 'A short description of the software.'}),
-
-            #     ('cpe', ('it:sec:cpe', {}), {
-            #         'doc': 'The NIST CPE 2.3 string specifying this software.'}),
-
-            #     ('author', ('entity:actor', {}), {
-            #         'doc': 'The contact information of the entity who authored the software.'}),
-
-            #     ('url', ('inet:url', {}), {
-            #         'doc': 'URL relevant for the software.'}),
-
-            #     ('isos', ('bool', {}), {
-            #         'doc': 'Set to True if the software is an operating system.'}),
-
-            #     ('islib', ('bool', {}), {
-            #         'doc': 'Set to True if the software is a library.'}),
-            # )),
 
             ('it:prod:softid', {}, (
 
@@ -2185,15 +2129,6 @@ modeldefs = (
                 ('perm', ('it:os:android:perm', {}), {'ro': True,
                     'doc': 'The android permission requested by the app.'}),
             )),
-
-            # ('it:prod:softos', {}, (
-
-            #     ('soft', ('it:software', {}), {'ro': True,
-            #         'doc': 'The software which can run on the operating system.'}),
-
-            #     ('os', ('it:software', {}), {'ro': True,
-            #         'doc': 'The operating system which the software can run on.'}),
-            # )),
 
             ('it:os:android:ilisten', {}, (
 
@@ -2234,7 +2169,6 @@ modeldefs = (
                     'doc': 'Observed/variant names for this software version.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the software.'}),
 
                 ('released', ('time', {}), {
@@ -2403,7 +2337,6 @@ modeldefs = (
                     'doc': 'The file considered the "main" executable for the process. For example, rundll32.exe may be considered the "main" executable for DLLs loaded by that program.'}),
 
                 ('cmd', ('it:cmd', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The command string used to launch the process, including any command line parameters.'}),
 
                 ('cmd:history', ('it:cmd:history', {}), {

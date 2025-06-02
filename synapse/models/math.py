@@ -38,7 +38,6 @@ modeldefs = (
                     'doc': 'The type of algorithm.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the algorithm.'}),
 
                 ('created', ('time', {}), {

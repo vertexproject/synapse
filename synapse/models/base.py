@@ -158,7 +158,6 @@ modeldefs = (
                         'doc': 'A brief title of the definition.'}),
 
                     ('desc', ('text', {}), {
-                        'disp': {'hint': 'text'},
                         'doc': 'A definition of the taxonomy entry.'}),
 
                     ('sort', ('int', {}), {
@@ -185,7 +184,6 @@ modeldefs = (
                 'props': (
 
                     ('desc', ('text', {}), {
-                        'disp': {'hint': 'text'},
                         'doc': 'A description of the {document}.'}),
 
                     ('url', ('inet:url', {}), {
@@ -195,7 +193,7 @@ modeldefs = (
                         'doc': 'The enabled status of the {document}.'}),
 
                     ('text', ('text', {}), {
-                        'disp': {'hint': 'text', 'syntax': '{syntax}'},
+                        'display': {'syntax': '{syntax}'},
                         'doc': 'The text of the {document}.'})
                 ),
             }),
@@ -310,7 +308,7 @@ modeldefs = (
                     'doc': 'The note type.'}),
 
                 ('text', ('text', {}), {
-                    'disp': {'hint': 'text', 'syntax': 'markdown'},
+                    'display': {'syntax': 'markdown'},
                     'doc': 'The analyst authored note text.'}),
 
                 ('author', ('entity:actor', {}), {
@@ -330,12 +328,14 @@ modeldefs = (
             )),
 
             ('meta:timeline', {}, (
+
                 ('title', ('str', {}), {
                     'ex': 'The history of the Vertex Project',
                     'doc': 'A title for the timeline.'}),
+
                 ('summary', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A prose summary of the timeline.'}),
+
                 ('type', ('meta:timeline:type:taxonomy', {}), {
                     'doc': 'The type of timeline.'}),
             )),
@@ -352,7 +352,6 @@ modeldefs = (
                     'doc': 'A title for the event.'}),
 
                 ('summary', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A prose summary of the event.'}),
 
                 # FIXME period
@@ -381,7 +380,6 @@ modeldefs = (
                     'doc': 'The ruleset type.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the ruleset.'}),
 
                 # FIXME authored interface?

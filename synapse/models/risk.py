@@ -432,7 +432,6 @@ modeldefs = (
                     'doc': 'A taxonomy type entry for the mitigation.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the mitigation approach for the vulnerability.'}),
 
                 ('reporter', ('ou:org', {}), {
@@ -463,7 +462,6 @@ modeldefs = (
                     'doc': 'A taxonomy type entry for the vulnerability.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the vulnerability.'}),
 
                 ('severity', ('meta:severity', {}), {
@@ -509,7 +507,6 @@ modeldefs = (
                     'doc': 'The CVE ID of the vulnerability.'}),
 
                 ('cve:desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The description of the vulnerability according to the CVE database.'}),
 
                 ('cve:url', ('inet:url', {}), {
@@ -611,7 +608,6 @@ modeldefs = (
                     'doc': 'A brief name for the alert.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A free-form description / overview of the alert.'}),
 
                 ('status', ('int', {'enums': alertstatus}), {
@@ -676,7 +672,6 @@ modeldefs = (
                     'doc': 'The name of the compromise event.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A prose description of the compromise event.'}),
 
                 ('reporter', ('ou:org', {}), {
@@ -762,10 +757,10 @@ modeldefs = (
                 'prevnames': ('risk:attacktype',)}, ()),
 
             ('risk:attack', {}, (
+
                 ('desc', ('text', {}), {
-                    'doc': 'A description of the attack.',
-                    'disp': {'hint': 'text'},
-                }),
+                    'doc': 'A description of the attack.'}),
+
                 ('type', ('risk:attack:type:taxonomy', {}), {
                     'ex': 'cno.phishing',
                     'doc': 'A type for the attack, as a taxonomy entry.'}),
@@ -824,7 +819,6 @@ modeldefs = (
                     'doc': 'The name of the leak event.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the leak event.'}),
 
                 ('reporter', ('ou:org', {}), {
@@ -917,7 +911,6 @@ modeldefs = (
                     'doc': 'The name of the extortion event.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the extortion event.'}),
 
                 ('reporter', ('ou:org', {}), {

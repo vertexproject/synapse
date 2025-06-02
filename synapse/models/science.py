@@ -51,7 +51,6 @@ modeldefs = (
                     'doc': 'The type of hypothesis as a user defined taxonomy.'}),
 
                 ('summary', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A summary of the hypothesis.'}),
             )),
 
@@ -63,7 +62,6 @@ modeldefs = (
                     'doc': 'The name of the experiment.'}),
 
                 ('summary', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A summary of the experiment.'}),
 
                 ('time', ('time', {}), {
@@ -83,7 +81,6 @@ modeldefs = (
                     'doc': 'The experiment which produced the observation.'}),
 
                 ('summary', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A summary of the observation.'}),
 
                 ('time', ('time', {}), {
@@ -99,7 +96,6 @@ modeldefs = (
                     'doc': 'The observation which supports or refutes the hypothesis.'}),
 
                 ('summary', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A summary of how the observation supports or refutes the hypothesis.'}),
 
                 ('refutes', ('bool', {}), {

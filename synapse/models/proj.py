@@ -111,7 +111,6 @@ modeldefs = (
                     'doc': 'The project type.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The project description.'}),
 
                 ('creator', ('syn:user', {}), {

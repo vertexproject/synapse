@@ -1782,7 +1782,6 @@ modeldefs = (
                     'doc': 'The email message subject parsed from the "subject" header.'}),
 
                 ('body', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The body of the email message.'}),
 
                 ('date', ('time', {}), {
@@ -1944,17 +1943,17 @@ modeldefs = (
                     'doc': 'The duration of the flow in seconds.'}),
 
                 ('from', ('guid', {}), {
-                    'doc': 'The ingest source file/iden. Used for reparsing.'
-                }),
+                    'doc': 'The ingest source file/iden. Used for reparsing.'}),
+
                 ('dst', ('inet:server', {}), {
-                    'doc': 'The destination address / port for a connection.'
-                }),
+                    'doc': 'The destination address / port for a connection.'}),
+
                 ('dst:host', ('it:host', {}), {
-                    'doc': 'The guid of the destination host.'
-                }),
+                    'doc': 'The guid of the destination host.'}),
+
                 ('dst:proc', ('it:exec:proc', {}), {
-                    'doc': 'The guid of the destination process.'
-                }),
+                    'doc': 'The guid of the destination process.'}),
+
                 ('dst:exe', ('file:bytes', {}), {
                     'doc': 'The file (executable) that received the connection.'}),
 
@@ -1962,15 +1961,14 @@ modeldefs = (
                     'doc': 'An array of files sent by the destination host.'}),
 
                 ('dst:txcount', ('int', {}), {
-                    'doc': 'The number of packets sent by the destination host.'
-                }),
+                    'doc': 'The number of packets sent by the destination host.'}),
+
                 ('dst:txbytes', ('int', {}), {
-                    'doc': 'The number of bytes sent by the destination host.'
-                }),
+                    'doc': 'The number of bytes sent by the destination host.'}),
+
                 ('dst:handshake', ('text', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A text representation of the initial handshake sent by the server.'
-                }),
+                    'doc': 'A text representation of the initial handshake sent by the server.'}),
+
                 ('src', ('inet:client', {}), {
                     'doc': 'The source address / port for a connection.'}),
 
@@ -1999,7 +1997,6 @@ modeldefs = (
                     'doc': 'The number of bytes sent in both directions.'}),
 
                 ('src:handshake', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A text representation of the initial handshake sent by the client.'}),
 
                 ('dst:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
@@ -2315,9 +2312,7 @@ modeldefs = (
                     'doc': 'The server which presented the banner string.'}),
 
                 ('text', ('it:dev:str', {}), {'ro': True,
-                    'doc': 'The banner text.',
-                    'disp': {'hint': 'text'},
-                }),
+                    'doc': 'The banner text.'}),
             )),
 
             # FIXME dedup with urlfile?
@@ -2423,7 +2418,6 @@ modeldefs = (
             ('inet:search:query', {}, (
 
                 ('text', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The search query text.'}),
 
                 ('time', ('time', {}), {
@@ -2468,7 +2462,6 @@ modeldefs = (
                     'doc': 'The domain associated with the whois record.'}),
 
                 ('text', ('text', {'lower': True}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The full text of the whois record.'}),
 
                 ('created', ('time', {}), {
@@ -2541,7 +2534,6 @@ modeldefs = (
                     'doc': 'The "last updated" time from the record.'}),
 
                 ('text', ('text', {'lower': True}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The full text of the record.'}),
 
                 ('asn', ('inet:asn', {}), {
@@ -2747,7 +2739,6 @@ modeldefs = (
                     'doc': 'An array of alternate names for the platform.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the service platform.'}),
 
                 ('provider', ('ou:org', {}), {
@@ -2775,7 +2766,6 @@ modeldefs = (
                     'doc': 'The name of the service instance.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the service instance.'}),
 
                 ('period', ('ival', {}), {
@@ -2805,8 +2795,7 @@ modeldefs = (
                                      'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternate names for the application.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the platform specific application.'}),
             )),
 
@@ -2926,7 +2915,6 @@ modeldefs = (
                     'doc': 'The message title.'}),
 
                 ('text', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'The text body of the message.'}),
 
                 ('status', ('inet:service:object:status', {}), {
@@ -3045,7 +3033,6 @@ modeldefs = (
                     'doc': 'The name of the service resource.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the service resource.'}),
 
                 ('url', ('inet:url', {}), {

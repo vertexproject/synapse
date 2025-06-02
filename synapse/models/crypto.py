@@ -269,29 +269,30 @@ modeldefs = (
             ('crypto:smart:token', {}, (
 
                 ('contract', ('crypto:smart:contract', {}), {
-                        'doc': 'The smart contract which defines and manages the token.', 'ro': True, }),
+                    'ro': True,
+                    'doc': 'The smart contract which defines and manages the token.'}),
 
                 ('tokenid', ('hugenum', {}), {
-                        'doc': 'The token ID.', 'ro': True, }),
+                    'ro': True,
+                    'doc': 'The token ID.'}),
 
                 ('owner', ('crypto:currency:address', {}), {
-                        'doc': 'The address which currently owns the token.'}),
+                    'doc': 'The address which currently owns the token.'}),
 
                 ('nft:url', ('inet:url', {}), {
-                        'doc': 'The URL which hosts the NFT metadata.'}),
+                    'doc': 'The URL which hosts the NFT metadata.'}),
 
                 ('nft:meta', ('data', {}), {
-                        'doc': 'The raw NFT metadata.'}),
+                    'doc': 'The raw NFT metadata.'}),
 
                 ('nft:meta:name', ('base:name', {}), {
-                        'doc': 'The name field from the NFT metadata.'}),
+                    'doc': 'The name field from the NFT metadata.'}),
 
                 ('nft:meta:description', ('text', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'The description field from the NFT metadata.'}),
+                    'doc': 'The description field from the NFT metadata.'}),
 
                 ('nft:meta:image', ('inet:url', {}), {
-                        'doc': 'The image URL from the NFT metadata.'}),
+                    'doc': 'The image URL from the NFT metadata.'}),
             )),
             ('crypto:currency:coin', {}, (
 

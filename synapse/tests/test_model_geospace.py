@@ -301,34 +301,18 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
-            # A telemetry node for example by the observatory
-            guid3 = s_common.guid()
-            props = {'latlong': '34.118660, -118.300470'}
-            opts = {'vars': {'valu': guid3, 'p': props}}
-            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
-            nodes = await core.nodes(q, opts=opts)
-            self.len(1, nodes)
-
-            # A telemetry node for example by the HQ
-            guid4 = s_common.guid()
-            props = {'latlong': '34.13412, -118.32153'}
-            opts = {'vars': {'valu': guid4, 'p': props}}
-            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
-            nodes = await core.nodes(q, opts=opts)
-            self.len(1, nodes)
-
             # Far away nodes to test bounding box
             guid5 = s_common.guid()
             props = {'latlong': '35.118660, -118.300470'}
             opts = {'vars': {'valu': guid5, 'p': props}}
-            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
+            q = '[(tel:mob:telem=$valu :place:latlong=$p.latlong)]'
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
             guid6 = s_common.guid()
             props = {'latlong': '33.118660, -118.300470'}
             opts = {'vars': {'valu': guid6, 'p': props}}
-            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
+            q = '[(tel:mob:telem=$valu :place:latlong=$p.latlong)]'
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 

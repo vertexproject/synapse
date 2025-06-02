@@ -28,7 +28,6 @@ modeldefs = (
                         'doc': 'An array of alternate names for the {ou:attendable}.'}),
 
                     ('desc', ('text', {}), {
-                        'disp': {'hint': 'text'},
                         'doc': 'An organizer provided description of the {ou:attendable}.'}),
 
                     ('family', ('meta:name', {}), {
@@ -607,7 +606,6 @@ modeldefs = (
                     'doc': 'A type taxonomy entry for the goal.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the goal.'}),
             )),
             ('ou:campaign:type:taxonomy', {
@@ -671,7 +669,6 @@ modeldefs = (
                     'prevnames': ('camptype',)}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the campaign.'}),
 
                 ('period', ('ival', {}), {
@@ -769,7 +766,6 @@ modeldefs = (
                     'doc': 'The assessed sophistication of the technique.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the technique.'}),
 
                 ('tag', ('syn:tag', {}), {
@@ -807,7 +803,6 @@ modeldefs = (
                     'doc': 'The most recent/accurate ou:vitals for the org.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the organization.'}),
 
                 ('logo', ('file:bytes', {}), {
@@ -992,7 +987,6 @@ modeldefs = (
                     'doc': 'An array of ISIC codes that map to the industry.'}),
 
                 ('desc', ('text', {}), {
-                    'disp': {'hint': 'text'},
                     'doc': 'A description of the industry.'}),
             )),
             ('ou:orgnet', {

@@ -182,9 +182,7 @@ modeldefs = (
                     'doc': 'Set to an updated tag if the tag has been renamed.'}),
 
                 ('doc', ('text', {}), {
-                    'doc': 'A short definition for the tag.',
-                    'disp': {'hint': 'text'},
-                }),
+                    'doc': 'A short definition for the tag.'}),
 
                 ('doc:url', ('inet:url', {}), {
                     'doc': 'A URL link to additional documentation about the tag.'}),
@@ -240,12 +238,13 @@ modeldefs = (
                     'doc': 'The synapse type for this tagprop.', 'ro': True}),
             )),
             ('syn:cmd', {'runt': True, 'liftfunc': 'synapse.models.syn._liftRuntSynCmd'}, (
+
                 ('doc', ('text', {'strip': True}), {
-                    'doc': 'Description of the command.',
-                    'disp': {'hint': 'text'},
-                }),
+                    'doc': 'Description of the command.'}),
+
                 ('package', ('str', {'strip': True}), {
                     'doc': 'Storm package which provided the command.'}),
+
                 ('svciden', ('guid', {'strip': True}), {
                     'doc': 'Storm service iden which provided the package.'}),
             )),
