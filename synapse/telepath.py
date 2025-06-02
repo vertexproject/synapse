@@ -1575,6 +1575,89 @@ class TeleSSLObject(ssl.SSLObject):
         self.context.telessl = self
         return ssl.SSLObject.do_handshake(self)
 
+def _opencell(info):
+    # cell:///path/to/celldir:share
+    # cell://rel/path/to/celldir:share
+    path = info.get('path')
+
+    # support cell://<relpath>/<to>/<cell>
+    # by detecting host...
+    host = info.get('host')
+    if host:
+        path = path.strip('/')
+        path = os.path.join(host, path)
+
+    name = '*'
+    if ':' in path:
+        path, name = path.split(':')
+
+    name = info.get('name', name)
+
+    return os.path.join(path, 'sock'), name
+
+def _openunix(info):
+    # unix:///path/to/sock:share
+    name = '*'
+    path = info.get('path')
+    if ':' in path:
+        path, name = path.split(':')
+
+    return path, name
+
+def _opennetw(info):
+    host = info.get('host')
+    port = info.get('port')
+
+    path = info.get('path')
+    name = info.get('name', path[1:])
+
+    if port is None:
+        port = 27492
+
+    hostname = None
+
+    sslctx = None
+
+    linkinfo = {}
+
+    if info.get('scheme') == 'ssl':
+
+        user = info.get('user')
+        passwd = info.get('passwd')
+
+        certdir = info.get('certdir')
+        certhash = info.get('certhash')
+        certname = info.get('certname')
+        hostname = info.get('hostname', host)
+
+        linkinfo['certhash'] = certhash
+        linkinfo['hostname'] = hostname
+
+        if certdir is None:
+            certdir = s_certdir.getCertDir()
+
+        # if a TLS connection specifies a user with no password
+        # attempt to auto-resolve a user certificate for the given
+        # host/network.
+        if certname is None and user is not None and passwd is None:
+            certname = f'{user}@{hostname}'
+
+        if certhash is None:
+            sslctx = certdir.getClientSSLContext(certname=certname)
+        else:
+            sslctx = ssl.create_default_context()
+            sslctx.check_hostname = False
+            sslctx.verify_mode = ssl.CERT_NONE
+            sslctx.sslobject_class = TeleSSLObject
+
+        # do hostname checking manually to avoid DNS lookups
+        # ( to support dynamic IP addresses on services )
+        sslctx.check_hostname = False
+
+        linkinfo['ssl'] = sslctx
+
+    return host, port, linkinfo, name
+
 async def openinfo(info):
 
     scheme = info.get('scheme')
@@ -1590,9 +1673,6 @@ async def openinfo(info):
             raise s_exc.BadUrl(mesg=f'Unknown discovery protocol [{disc}].',
                                disc=disc)
 
-    host = info.get('host')
-    port = info.get('port')
-
     auth = None
 
     user = info.get('user')
@@ -1601,81 +1681,15 @@ async def openinfo(info):
         auth = (user, {'passwd': passwd})
 
     if scheme == 'cell':
-        # cell:///path/to/celldir:share
-        # cell://rel/path/to/celldir:share
-        path = info.get('path')
-
-        # support cell://<relpath>/<to>/<cell>
-        # by detecting host...
-        host = info.get('host')
-        if host:
-            path = path.strip('/')
-            path = os.path.join(host, path)
-
-        name = '*'
-        if ':' in path:
-            path, name = path.split(':')
-
-        name = info.get('name', name)
-
-        full = os.path.join(path, 'sock')
+        full, name = _opencell(info)
         link = await s_link.unixconnect(full)
 
     elif scheme == 'unix':
-        # unix:///path/to/sock:share
-        name = '*'
-        path = info.get('path')
-        if ':' in path:
-            path, name = path.split(':')
+        path, name = _openunix(info)
         link = await s_link.unixconnect(path)
 
     elif scheme in ('tcp', 'ssl'):
-
-        path = info.get('path')
-        name = info.get('name', path[1:])
-
-        if port is None:
-            port = 27492
-
-        hostname = None
-
-        sslctx = None
-
-        linkinfo = {}
-
-        if scheme == 'ssl':
-
-            certdir = info.get('certdir')
-            certhash = info.get('certhash')
-            certname = info.get('certname')
-            hostname = info.get('hostname', host)
-
-            linkinfo['certhash'] = certhash
-            linkinfo['hostname'] = hostname
-
-            if certdir is None:
-                certdir = s_certdir.getCertDir()
-
-            # if a TLS connection specifies a user with no password
-            # attempt to auto-resolve a user certificate for the given
-            # host/network.
-            if certname is None and user is not None and passwd is None:
-                certname = f'{user}@{hostname}'
-
-            if certhash is None:
-                sslctx = certdir.getClientSSLContext(certname=certname)
-            else:
-                sslctx = ssl.create_default_context()
-                sslctx.check_hostname = False
-                sslctx.verify_mode = ssl.CERT_NONE
-                sslctx.sslobject_class = TeleSSLObject
-
-            # do hostname checking manually to avoid DNS lookups
-            # ( to support dynamic IP addresses on services )
-            sslctx.check_hostname = False
-
-            linkinfo['ssl'] = sslctx
-
+        host, port, linkinfo, name = _opennetw(info)
         link = await s_link.connect(host, port, linkinfo=linkinfo)
 
     else:
