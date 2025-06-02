@@ -6,14 +6,6 @@ modeldefs = (
             # FIXME phys:made? ( product :manufacturer :made=<time> etc
             # FIXME meta:sourced?
 
-            ('entity:havable', {
-                'template': {'entity:havable': 'item'},
-                'props': (
-                    ('ownership', ('entity:ownership', {}), {
-                        'doc': 'The most recently known ownership of the {entity:havable}.'}),
-                ),
-                'doc': 'An interface used to describe items that can be possessed by an entity.'}),
-
             ('entity:contactable', {
 
                 'template': {'contactable': 'entity'},
@@ -172,17 +164,15 @@ modeldefs = (
             ('entity:relationship', ('guid', {}), {
                 'doc': 'A directional relationship between two actor entities.'}),
 
-            ('entity:had:type:taxonomy', ('taxonomy', {}), {
+            ('entity:posession:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
-                'doc': 'A heirarchical taxonomy of types of possession.'}),
+                'doc': 'A hierarchical taxonomy of types of possession.'}),
 
-            ('entity:had', ('guid', {}), {
-                'doc': 'A representation of possession of an item over time.'}),
+            ('entity:posession', ('guid', {}), {
+                'doc': 'An item which is possessed by an entity.'}),
 
-            ('entity:havable', ('ndef', {'interface': 'entity:havable'}), {
-                'doc': 'An item which may be possessed by an entity.'}),
         ),
 
         'edges': (),
@@ -206,18 +196,17 @@ modeldefs = (
                     'doc': 'The current version of this historical contact.'}),
             )),
             # FIXME posession with an :ownership=<bool>?
-            ('entity:had:type:taxonomy', {}, ()),
-            ('entity:had', {}, (
-                # FIXME ou:org -> :had -> :item
+            ('entity:posession:type:taxonomy', {}, ()),
+            ('entity:posession', {}, (
 
-                ('actor', ('entity:actor', {}), {
-                    'doc': 'The entity which owns the item.'}),
+                ('item', ('meta:havable', {}), {
+                    'doc': 'The item owned by the entity.'}),
+
+                ('contact', ('entity:actor', {}), {
+                    'doc': 'The entity which posessed the item.'}),
 
                 ('type', ('entity:had:type:taxonomy', {}), {
                     'doc': 'A taxonomy for different types of posession.'}),
-
-                ('item', ('entity:havable', {}), {
-                    'doc': 'The item owned by the entity.'}),
 
                 ('period', ('ival', {}), {
                     'doc': 'The time period when the entity had the item.'}),
@@ -225,11 +214,8 @@ modeldefs = (
                 ('percent', ('hugenum', {}), {
                     'doc': 'The percentage of the item owned by the owner.'}),
 
-                # FIXME transaction / exchange event to allow theft or purchase (INTERFACE?!)
-                # ('purchase', ('econ:purchase', {}), {
-                    # 'doc': 'The purchase event where the owner bought the item.'}),
+                # TODO: add a purchase property to link back to a purchase event?
 
-                # FIXME shares:count / shares:total
             )),
             ('entity:relationship:type:taxonomy', {}, ()),
             ('entity:relationship', {}, (

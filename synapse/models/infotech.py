@@ -644,9 +644,12 @@ modeldefs = (
                 'prevnames': ('it:group',),
                 'doc': 'A local group on a host.'}),
 
-            ('it:host:logon', ('guid', {}), {
+            ('it:host:login', ('guid', {}), {
                 # FIXME host activity interface?
                 'prevnames': ('it:logon',),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
                 'doc': 'A host specific logon event.'}),
 
             ('it:hosturl', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
@@ -1378,36 +1381,27 @@ modeldefs = (
                 ('windows:sid', ('it:os:windows:sid', {}), {
                     'doc': 'The Microsoft Windows Security Identifier of the group.'}),
             )),
-            ('it:host:logon', {}, (
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the logon occurred.'}),
+            ('it:host:login', {}, (
 
                 ('success', ('bool', {}), {
                     'doc': 'Set to false to indicate an unsuccessful logon attempt.'}),
 
-                ('logoff:time', ('time', {}), {
-                    'doc': 'The time the logon session ended.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host that the account logged in to.'}),
-
+                # FIXME add to it:host:activity?
                 ('account', ('it:host:account', {}), {
                     'doc': 'The account that logged in.'}),
 
                 ('creds', ('auth:creds', {}), {
-                    'doc': 'The credentials that were used for the logon.'}),
+                    'doc': 'The credentials that were used to login.'}),
 
                 ('duration', ('duration', {}), {
-                    'doc': 'The duration of the logon session.'}),
+                    'doc': 'The duration of the login session.'}),
 
-                # FIXME client
-                ('client:host', ('it:host', {}), {
-                    'doc': 'The host where the logon originated.'}),
-
-                ('client:ip', ('inet:ip', {}), {
+                ('client', ('inet:client', {}), {
                     'prevnames': ('client:ipv4', 'client:ipv6'),
-                    'doc': 'The IP where the logon originated.'}),
+                    'doc': 'The remote client where the login originated.'}),
+
+                ('client:host', ('it:host', {}), {
+                    'doc': 'The host where the login originated.'}),
             )),
             ('it:hosturl', {}, (
 

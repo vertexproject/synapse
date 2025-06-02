@@ -135,14 +135,14 @@ modeldefs = (
                 },
                 'doc': 'A node which represents an aggregate count of a specific type.'}),
 
-            ('markdown', ('str', {}), {
-                'doc': 'A markdown string.'}),
+            ('meta:havable', ('ndef', {'interface': 'meta:havable'}), {
+                'doc': 'An item which may be possessed by an entity.'}),
 
             ('text', ('str', {'strip': False}), {
                 'doc': 'A multi-line, free form text string.'}),
-
         ),
         'interfaces': (
+
             ('meta:observable', {
                 'doc': 'Properties common to forms which can be observed.',
                 'template': {'observable': 'node'},
@@ -151,6 +151,35 @@ modeldefs = (
                         'doc': 'The {observable} was observed during the time interval.'}),
                 ),
             }),
+
+            ('meta:havable', {
+                'doc': 'An interface used to describe items that can be possessed by an entity.',
+            }),
+
+            ('meta:sourced', {
+                'doc': 'Properties common to forms which are created on a per-source basis.',
+                'template': {'sourced': 'item'},
+                'props': (
+
+                    # TODO: id?
+
+                    ('name', ('meta:name', {}), {
+                        'doc': 'The primary name of the {sourced} according to the source.'}),
+
+                    ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
+                        'doc': 'A list of alternate names for the {sourced} according to the source.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {sourced}, according to the source.'}),
+
+                    ('source', ('entity:actor', {}), {
+                        'doc': 'The entity which was the source of the {sourced}.'}),
+
+                    ('source:name', ('meta:name', {}), {
+                        'doc': 'The name of the entity which was the source of the {sourced}.'}),
+                ),
+            }),
+
             ('meta:taxonomy', {
                 'doc': 'Properties common to taxonomies.',
                 'props': (
