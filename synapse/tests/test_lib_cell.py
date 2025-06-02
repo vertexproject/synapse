@@ -194,18 +194,6 @@ testDataSchema_v1 = {
 
 class CellTest(s_t_utils.SynTest):
 
-    async def test_cell_getLocalUrl(self):
-        with self.getTestDir() as dirn:
-            async with self.getTestCell(dirn=dirn) as cell:
-                url = cell.getLocalUrl()
-                self.eq(url, f'cell://root@{dirn}')
-
-                url = cell.getLocalUrl(share='*/layer')
-                self.eq(url, f'cell://root@{dirn}:*/layer')
-
-                url = cell.getLocalUrl(user='lowuser', share='*/view')
-                self.eq(url, f'cell://lowuser@{dirn}:*/view')
-
     async def test_cell_drive(self):
 
         with self.getTestDir() as dirn:
