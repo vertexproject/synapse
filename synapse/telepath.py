@@ -1602,8 +1602,6 @@ def _openunix(info):
     if ':' in path:
         path, name = path.split(':')
 
-    name = info.get('name', name)
-
     return path, name
 
 def _opennetw(info):
