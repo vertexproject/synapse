@@ -1392,8 +1392,9 @@ modeldefs = (
                 'doc': 'A network platform which provides services.'}),
 
             ('inet:service:app', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'application'},
+                'interfaces': (
+                    ('inet:service:object', {'template': {'service:base': 'application'}}),
+                ),
                 'doc': 'A platform specific application.'}),
 
             ('inet:service:instance', ('guid', {}), {

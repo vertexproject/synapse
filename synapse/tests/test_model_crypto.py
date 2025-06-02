@@ -350,7 +350,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(('eth', 'aaaa'), node.get('owner'))
             self.eq('https://coin.vertex.link/nfts/30', node.get('nft:url'))
             self.eq({'name': 'WootWoot'}, node.get('nft:meta'))
-            self.eq('WootWoot', node.get('nft:meta:name'))
+            self.eq('wootwoot', node.get('nft:meta:name'))
             self.eq('LoLoL', node.get('nft:meta:description'))
             self.eq('https://vertex.link/favicon.ico', node.get('nft:meta:image'))
 
