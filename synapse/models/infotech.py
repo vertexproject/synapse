@@ -1162,7 +1162,7 @@ modeldefs = (
                 ('hardware', ('it:hardware', {}), {
                     'doc': 'The hardware specification for this host.'}),
 
-                ('serial', ('str', {}), {
+                ('serial', ('base:id', {}), {
                     'doc': 'The serial number of the host.'}),
 
                 ('operator', ('entity:contact', {}), {

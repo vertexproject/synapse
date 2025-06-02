@@ -143,6 +143,14 @@ modeldefs = (
 
         ),
         'interfaces': (
+            ('meta:observable', {
+                'doc': 'Properties common to forms which can be observed.',
+                'template': {'observable': 'node'},
+                'props': (
+                    ('seen', ('ival', {}), {
+                        'doc': 'The {observable} was observed during the time interval.'}),
+                ),
+            }),
             ('meta:taxonomy', {
                 'doc': 'Properties common to taxonomies.',
                 'props': (
@@ -171,9 +179,8 @@ modeldefs = (
             }),
             ('meta:ruleish', {
                 'doc': 'Properties which are common to rules used in evaluation systems.',
-                'template': {'document': 'rule', 'syntax': ''},
                 'interfaces': (
-                    ('doc:authorable', {}),
+                    ('doc:authorable', {'template': {'document': 'rule', 'syntax': ''}}),
                 ),
                 'props': (
 

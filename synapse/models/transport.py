@@ -191,10 +191,10 @@ modeldefs = (
                     ('manufacturer:name', ('meta:name', {}), {
                         'doc': 'The name of the organization which manufactured the {phys:object}.'}),
 
-                    ('model', ('str', {'lower': True, 'onespace': True}), {
+                    ('model', ('base:name', {}), {
                         'doc': 'The model of the {phys:object}.'}),
 
-                    ('serial', ('str', {'strip': True}), {
+                    ('serial', ('base:id', {}), {
                         'doc': 'The manufacturer assigned serial number of the {phys:object}.'}),
 
                     ('max:occupants', ('int', {'min': 0}), {
