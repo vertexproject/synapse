@@ -1610,7 +1610,7 @@ def _opennetw(info):
     host = info.get('host')
     port = info.get('port')
 
-    path = info.get('path')
+    path = info.get('path', '/*')
     name = info.get('name', path[1:])
 
     if port is None:
@@ -1669,7 +1669,7 @@ async def openinfo(info):
 
     if '+' in scheme:
         scheme, disc = scheme.split('+', 1)
-        if disc == 'consul':  # pragma: no cover
+        if disc == 'consul':
             raise s_exc.FeatureNotSupported(mesg='Consul is no longer supported.')
         else:
             raise s_exc.BadUrl(mesg=f'Unknown discovery protocol [{disc}].',
