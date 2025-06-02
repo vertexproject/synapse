@@ -134,7 +134,7 @@ class JsonLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _jsonSchema(self, schema, use_default=True):
-        schema = await s_stormtypes.toprim(schema)
+        schema = await s_stormtypes.toprim(schema, use_list=True)
         use_default = await s_stormtypes.tobool(use_default)
         # We have to ensure that we have a valid schema for making the object.
         try:

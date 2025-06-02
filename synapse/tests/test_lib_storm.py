@@ -2265,6 +2265,7 @@ class StormTest(s_t_utils.SynTest):
             nodes = [m[1] for m in msgs if m[0] == 'node']
 
             node = nodes[0]
+            self.eq('inet:asn', node[1]['embeds']['asn']['$form'])
             self.eq('hehe', node[1]['embeds']['asn']['name'])
 
             opts = {'node:opts': {'embeds': {'ou:org': {'email::fqdn': ('zone',)}}}}
@@ -2272,8 +2273,9 @@ class StormTest(s_t_utils.SynTest):
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
 
-            self.eq('vertex.link', node[1]['embeds']['email::fqdn']['zone'])
-            self.eq(5, node[1]['embeds']['email::fqdn']['*'])
+            self.eq('inet:email', node[1]['embeds']['hq::email']['$form'])
+            self.eq('visi', node[1]['embeds']['hq::email']['user'])
+            self.eq(5, node[1]['embeds']['hq::email']['$nid'])
 
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
 
@@ -2388,10 +2390,17 @@ class StormTest(s_t_utils.SynTest):
             self.eq(['inet:service:rule', 'risk:vulnerable'], [n[0][0] for n in nodes])
 
             embeds = nodes[0][1]['embeds']
+
+            self.nn(embeds['object']['$nid'])
+            self.eq('risk:vulnerable', embeds['object']['$form'])
             self.eq(1, embeds['object']['mitigated'])
             self.eq(None, embeds['object']['newp'])
+
+            self.nn(embeds['object::node']['$nid'])
+            self.eq('it:prod:hardware', embeds['object::node']['$form'])
             self.eq('foohw', embeds['object::node']['name'])
             self.eq(None, embeds['object::node']['newp'])
+            self.eq('inet:service:account', embeds['grantee']['$form'])
             self.eq('foocon', embeds['grantee']['id'])
             self.eq(None, embeds['grantee']['newp'])
 
@@ -2418,7 +2427,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq('econ:acct:payment', node[0][0])
 
             embeds = node[1]['embeds']
-            self.eq(24, embeds['from:instrument']['*'])
+            self.eq(24, embeds['from:instrument']['$nid'])
             self.eq('infime', embeds['from:instrument']['name'])
 
     async def test_storm_wget(self):
