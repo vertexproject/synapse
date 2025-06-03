@@ -2488,12 +2488,12 @@ modeldefs = (
             )),
 
             ('inet:whois:email', {}, (
+
                 ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                    'doc': 'The domain with a whois record containing the email address.',
-                }),
+                    'doc': 'The domain with a whois record containing the email address.'}),
+
                 ('email', ('inet:email', {}), {'ro': True,
-                    'doc': 'The email address associated with the domain whois record.',
-                }),
+                    'doc': 'The email address associated with the domain whois record.'}),
             )),
 
             ('inet:whois:ipquery', {}, (
