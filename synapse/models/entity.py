@@ -202,10 +202,10 @@ modeldefs = (
                 ('item', ('meta:havable', {}), {
                     'doc': 'The item owned by the entity.'}),
 
-                ('contact', ('entity:actor', {}), {
+                ('actor', ('entity:actor', {}), {
                     'doc': 'The entity which posessed the item.'}),
 
-                ('type', ('entity:had:type:taxonomy', {}), {
+                ('type', ('entity:posession:type:taxonomy', {}), {
                     'doc': 'A taxonomy for different types of posession.'}),
 
                 ('period', ('ival', {}), {

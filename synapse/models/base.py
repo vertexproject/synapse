@@ -161,9 +161,11 @@ modeldefs = (
                 'template': {'sourced': 'item'},
                 'props': (
 
-                    # TODO: id?
+                    ('id', ('meta:id', {}), {
+                        'doc': 'A unique ID given to the {sourced} by the source.'}),
 
                     ('name', ('meta:name', {}), {
+                        'alts': ('names',),
                         'doc': 'The primary name of the {sourced} according to the source.'}),
 
                     ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
@@ -173,9 +175,11 @@ modeldefs = (
                         'doc': 'A description of the {sourced}, according to the source.'}),
 
                     ('source', ('entity:actor', {}), {
+                        'prevnames': ('reporter',),
                         'doc': 'The entity which was the source of the {sourced}.'}),
 
                     ('source:name', ('meta:name', {}), {
+                        'prevnames': ('reporter:name',),
                         'doc': 'The name of the entity which was the source of the {sourced}.'}),
                 ),
             }),

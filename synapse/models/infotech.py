@@ -645,12 +645,8 @@ modeldefs = (
                 'doc': 'A local group on a host.'}),
 
             ('it:host:login', ('guid', {}), {
-                # FIXME host activity interface?
                 'prevnames': ('it:logon',),
-                'interfaces': (
-                    ('it:host:activity', {}),
-                ),
-                'doc': 'A host specific logon event.'}),
+                'doc': 'A host specific login session.'}),
 
             ('it:hosturl', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
                 'doc': 'A url hosted on or served by a host or system.'}),
@@ -1382,6 +1378,12 @@ modeldefs = (
                     'doc': 'The Microsoft Windows Security Identifier of the group.'}),
             )),
             ('it:host:login', {}, (
+
+                ('host', ('it:host', {}), {
+                    'doc': 'The host on which the activity occurred.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The period when the login session was active.'}),
 
                 ('success', ('bool', {}), {
                     'doc': 'Set to false to indicate an unsuccessful logon attempt.'}),

@@ -637,7 +637,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                         // FIXME
                         //:domain={[ it:domain=* :org=$org :name=vertex :desc="the vertex project domain" ]}
 
-                    (it:host:logon=* :time=20210314 :logoff:time=202103140201 :account=$acct :host=$host :duration=(:logoff:time - :time))
+                    (it:host:login=* :period=(20210314,202103140201) :account=$acct :host=$host)
                 ]
             ''')
             self.len(2, nodes)
@@ -649,10 +649,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.nn(nodes[1].get('host'))
             self.nn(nodes[1].get('account'))
-            self.eq(1615680000000000, nodes[1].get('time'))
-            self.eq(1615687260000000, nodes[1].get('logoff:time'))
-            self.eq(7260000000, nodes[1].get('duration'))
-            self.eq('02:01:00', nodes[1].repr('duration'))
+            self.eq(nodes[1].get('period'), (1615680000000000, 1615687260000000))
 
             # Sample SIDs from here:
             # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/81d92bba-d22b-4a8c-908a-554ab29148ab
@@ -682,7 +679,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('for $sid in $sids {[ it:host:account=* :windows:sid=$sid ]}', opts=opts)
             self.len(88, nodes)
 
-            nodes = await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:logon +:time>=2021 -> it:host')
+            nodes = await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login -> it:host')
             self.len(1, nodes)
             self.eq('it:host', nodes[0].ndef[0])
 

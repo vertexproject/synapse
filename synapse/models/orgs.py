@@ -139,6 +139,9 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of contract types.'}),
 
             ('ou:industry', ('guid', {}), {
+                'interfaces': (
+                    ('meta:sourced', {'template': {'sourced': 'industry'}}),
+                ),
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
@@ -244,11 +247,14 @@ modeldefs = (
 
             ('ou:campaign', ('guid', {}), {
                 'doc': "Represents an org's activity in pursuit of a goal.",
+                'interfaces': (
+                    ('meta:sourced', {'template': {'sourced': 'campaign'}}),
+                ),
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'names'}},
-                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'source:name'}},
                         {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
                 }}),
@@ -261,10 +267,13 @@ modeldefs = (
 
             ('ou:technique', ('guid', {}), {
                 'doc': 'A specific technique used to achieve a goal.',
+                'interfaces': (
+                    ('meta:sourced', {'template': {'sourced': 'technique'}}),
+                ),
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'source:name'}},
                         {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
                 }}),
@@ -356,35 +365,32 @@ modeldefs = (
         ),
         'edges': (
 
-            (('ou:campaign', 'uses', 'ou:technique'), {
+            (('ou:campaign', 'used', 'ou:technique'), {
                 'doc': 'The campaign used the technique.'}),
 
+            # FIXME entity:actor...
             (('ou:org', 'uses', 'ou:technique'), {
                 'doc': 'The org uses the technique.'}),
 
             (('risk:vuln', 'uses', 'ou:technique'), {
                 'doc': 'The vulnerability uses the technique.'}),
 
+            # FIXME usable?
             (('ou:org', 'uses', None), {
                 'doc': 'The ou:org makes use of the target node.'}),
 
             (('ou:org', 'targets', None), {
                 'doc': 'The organization targets the target node.'}),
 
-            (('ou:campaign', 'targets', None), {
+            # FIXME targetable?
+            (('ou:campaign', 'targeted', None), {
                 'doc': 'The campaign targeted the target nodes.'}),
 
-            (('ou:campaign', 'uses', None), {
+            (('ou:campaign', 'used', None), {
                 'doc': 'The campaign made use of the target node.'}),
 
             (('ou:contribution', 'includes', None), {
                 'doc': 'The contribution includes the specific node.'}),
-
-            (('ou:org', 'has', None), {
-                'doc': 'The organization is or was in possession of the target node.'}),
-
-            (('ou:org', 'owns', None), {
-                'doc': 'The organization owns or owned the target node.'}),
         ),
         'forms': (
 
@@ -613,20 +619,6 @@ modeldefs = (
 
             ('ou:campaign', {}, (
 
-                ('id', ('meta:id', {}), {
-                    'prevnames': ('id',),
-                    'doc': 'The campaign ID.'}),
-
-                # political campaign, funding round, ad campaign, fund raising
-                ('org', ('ou:org', {}), {
-                    'doc': 'The org carrying out the campaign.'}),
-
-                ('org:name', ('meta:name', {}), {
-                    'doc': 'The name of the org responsible for the campaign. Used for entity resolution.'}),
-
-                ('org:fqdn', ('inet:fqdn', {}), {
-                    'doc': 'The FQDN of the org responsible for the campaign. Used for entity resolution.'}),
-
                 ('goal', ('ou:goal', {}), {
                     'alts': ('goals',),
                     'doc': 'The assessed primary goal of the campaign.'}),
@@ -635,6 +627,12 @@ modeldefs = (
                     'doc': 'The slogan used by the campaign.'}),
 
                 # TODO: move to contribution?
+                ('actor', ('entity:actor', {}), {
+                    'doc': 'The primary actor responsible for executing the campaign.'}),
+
+                ('actor:name', ('meta:name', {}), {
+                    'doc': 'The name of the primary actor responsible for executing the campaign.'}),
+
                 ('actors', ('array', {'type': 'entity:actor', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'Actors who participated in the campaign.'}),
 
@@ -644,23 +642,10 @@ modeldefs = (
                 ('success', ('bool', {}), {
                     'doc': 'Records the success/failure status of the campaign if known.'}),
 
-                ('name', ('meta:name', {}), {
-                    'alts': ('names',),
-                    'ex': 'operation overlord',
-                    'doc': 'A terse name of the campaign.'}),
-
-                ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
-                    'doc': 'An array of alternate names for the campaign.'}),
-
-                ('reporter', ('ou:org', {}), {
-                    'doc': 'The organization reporting on the campaign.'}),
-
-                ('reporter:name', ('meta:name', {}), {
-                    'doc': 'The name of the organization reporting on the campaign.'}),
-
                 ('sophistication', ('meta:sophistication', {}), {
                     'doc': 'The assessed sophistication of the campaign.'}),
 
+                # FIXME meta:timeline interface...
                 ('timeline', ('meta:timeline', {}), {
                     'doc': 'A timeline of significant events related to the campaign.'}),
 
@@ -668,12 +653,10 @@ modeldefs = (
                     'doc': 'The campaign type taxonomy.',
                     'prevnames': ('camptype',)}),
 
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the campaign.'}),
-
                 ('period', ('ival', {}), {
                     'doc': 'The time interval when the organization was running the campaign.'}),
 
+                # FIXME econ:valuable
                 ('cost', ('econ:price', {}), {
                     'doc': 'The actual cost to the organization.'}),
 
@@ -704,6 +687,7 @@ modeldefs = (
                 ('tag', ('syn:tag', {}), {
                     'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
 
+                # FIXME dirty up mitre rather than ou:campaign
                 ('mitre:attack:campaign', ('it:mitre:attack:campaign', {}), {
                     'doc': 'A mapping to a MITRE ATT&CK campaign if applicable.'}),
 
@@ -756,33 +740,19 @@ modeldefs = (
             )),
             ('ou:technique', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'The normalized name of the technique.'}),
-
                 ('type', ('ou:technique:type:taxonomy', {}), {
                     'doc': 'The taxonomy classification of the technique.'}),
 
                 ('sophistication', ('meta:sophistication', {}), {
                     'doc': 'The assessed sophistication of the technique.'}),
 
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the technique.'}),
-
                 ('tag', ('syn:tag', {}), {
                     'doc': 'The tag used to annotate nodes where the technique was employed.'}),
 
+                # FIXME dirty up mitre model
                 ('mitre:attack:technique', ('it:mitre:attack:technique', {}), {
                     'doc': 'A mapping to a MITRE ATT&CK technique if applicable.'}),
 
-                ('reporter', ('ou:org', {}), {
-                    'doc': 'The organization reporting on the technique.'}),
-
-                ('reporter:name', ('meta:name', {}), {
-                    'doc': 'The name of the organization reporting on the technique.'}),
-
-                ('id', ('meta:id', {}), {
-                    'prevnames': ('id',),
-                    'doc': 'The technique ID.'}),
             )),
             ('ou:technique:type:taxonomy', {
                 'prevnames': ('ou:technique:taxonomy',)}, ()),
@@ -960,22 +930,8 @@ modeldefs = (
             ('ou:industry:type:taxonomy', {}, ()),
             ('ou:industry', {}, (
 
-                ('name', ('meta:name', {}), {
-                    'alts': ('names',),
-                    'doc': 'The name of the industry.'}),
-
-                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of alternative names for the industry.'}),
-
                 ('type', ('ou:industry:type:taxonomy', {}), {
                     'doc': 'A taxonomy entry for the industry.'}),
-
-                # FIXME source?
-                ('reporter', ('entity:actor', {}), {
-                    'doc': 'The organization reporting on the industry.'}),
-
-                ('reporter:name', ('meta:name', {}), {
-                    'doc': 'The name of the organization reporting on the industry.'}),
 
                 ('sic', ('array', {'type': 'ou:sic', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of SIC codes that map to the industry.'}),
@@ -985,9 +941,6 @@ modeldefs = (
 
                 ('isic', ('array', {'type': 'ou:isic', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of ISIC codes that map to the industry.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the industry.'}),
             )),
             ('ou:orgnet', {
                 'prevnames': ('ou:orgnet4', 'ou:orgnet6')}, (

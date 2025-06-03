@@ -22,7 +22,7 @@ class EntityModelTest(s_t_utils.SynTest):
                 $item = {[ inet:fqdn=vertex.link ]}
                 $actor = {[ entity:contact=({"name": "visi"}) ]}
 
-                [ entity:had=({"actor": $actor.ndef(), "item": $item.ndef()})
+                [ entity:posession=({"actor": $actor.ndef(), "item": $item.ndef()})
                     :type=owner
                     :period=(2016, ?)
                     :percent=50
@@ -32,8 +32,8 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('type'), 'owner.')
             self.eq(nodes[0].get('percent'), '50')
             self.eq(nodes[0].get('period'), (1451606400000000, 9223372036854775807))
-            self.len(1, await core.nodes('entity:had :item -> inet:fqdn'))
-            self.len(1, await core.nodes('entity:had :actor -> * +:name=visi'))
+            self.len(1, await core.nodes('entity:posession :item -> inet:fqdn'))
+            self.len(1, await core.nodes('entity:posession :actor -> * +:name=visi'))
 
     async def test_entity_relationship(self):
 
@@ -44,11 +44,11 @@ class EntityModelTest(s_t_utils.SynTest):
                     :type=tasks
                     :period=(2022, ?)
                     :source={[ ou:org=({"name": "China Ministry of State Security (MSS)"}) ]}
-                    :target={[ risk:threat=({"name": "APT34", "reporter:name": "vertex"}) ]}
+                    :target={[ risk:threat=({"name": "APT34", "source:name": "vertex"}) ]}
             ]''')
 
             self.len(1, nodes)
             self.eq(nodes[0].get('type'), 'tasks.')
             self.eq(nodes[0].get('period'), (1640995200000000, 9223372036854775807))
             self.eq(nodes[0].get('source'), ('ou:org', '3332a704ed21dc3274d5731acc54a0ee'))
-            self.eq(nodes[0].get('target'), ('risk:threat', 'c0b2aeb72e61e692bdee1554bf931819'))
+            self.eq(nodes[0].get('target'), ('risk:threat', '0396f471ec63fedb7a6276f3a95f27b1'))

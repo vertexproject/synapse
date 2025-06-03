@@ -16,19 +16,19 @@ class OuModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ ou:technique=*
+                    :id=Foo
                     :name=Woot
                     :type=lol.woot
                     :desc=Hehe
                     :tag=woot.woot
                     :mitre:attack:technique=T0001
                     :sophistication=high
-                    :reporter=$lib.gen.orgByName(vertex)
-                    :reporter:name=vertex
-                    :id=Foo
+                    :source=$lib.gen.orgByName(vertex)
+                    :source:name=vertex
                 ]
             ''')
             self.len(1, nodes)
-            self.nn('reporter')
+            self.nn('source')
             self.eq('woot', nodes[0].get('name'))
             self.eq('Hehe', nodes[0].get('desc'))
             self.eq('lol.woot.', nodes[0].get('type'))
@@ -36,11 +36,11 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('Foo', nodes[0].get('id'))
             self.eq('T0001', nodes[0].get('mitre:attack:technique'))
             self.eq(40, nodes[0].get('sophistication'))
-            self.eq('vertex', nodes[0].get('reporter:name'))
+            self.eq('vertex', nodes[0].get('source:name'))
             self.len(1, await core.nodes('ou:technique -> syn:tag'))
             self.len(1, await core.nodes('ou:technique -> ou:technique:type:taxonomy'))
             self.len(1, await core.nodes('ou:technique -> it:mitre:attack:technique'))
-            self.len(1, await core.nodes('ou:technique :reporter -> ou:org'))
+            self.len(1, await core.nodes('ou:technique :source -> ou:org'))
 
             props = {
                 'name': 'MyGoal',
@@ -61,61 +61,52 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, nodes := await core.nodes('[ ou:goal=({"name": "foo goal"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
 
-            altgoal = s_common.guid()
-            timeline = s_common.guid()
-
-            props = {
-                'org': org0,
-                'goal': goal,
-                'goals': (goal, altgoal),
-                'actors': (('entity:contact', acto),),
-                'type': 'get.pizza',
-                'name': 'MyName',
-                'names': ('foo', 'bar', 'Bar'),
-                'type': 'MyType',
-                'desc': 'MyDesc',
-                'success': 1,
-                'sophistication': 'high',
-                'tag': 'cno.camp.31337',
-                'reporter': '*',
-                'reporter:name': 'vertex',
-                'timeline': timeline,
-                'mitre:attack:campaign': 'C0011',
-            }
-            q = '''[(ou:campaign=$valu :org=$p.org :goal=$p.goal :goals=$p.goals :actors=$p.actors
-            :type=$p.type :name=$p.name :names=$p.names :type=$p.type :desc=$p.desc :success=$p.success
-            :sophistication=$p.sophistication :tag=$p.tag
-            :reporter=$p.reporter :reporter:name=$p."reporter:name" :timeline=$p.timeline
-            :mitre:attack:campaign=$p."mitre:attack:campaign"
-            :id=Foo :slogan="For The People"
-            )]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': camp, 'p': props}})
+            nodes = await core.nodes('''
+                [ ou:campaign=*
+                    :id=Foo
+                    :type=MyType
+                    :name=MyName
+                    :names=(Foo, Bar)
+                    :slogan="For The People"
+                    :desc=MyDesc
+                    :success=1
+                    :sophistication=high
+                    :tag=cno.camp.31337
+                    :source={[ ou:org=({"name": "vertex"}) ]}
+                    :source:name=vertex
+                    :goal={[ ou:goal=({"name": "foo goal"}) ]}
+                    :goals={[
+                        ou:goal=({"name": "alt00 goal"})
+                        ou:goal=({"name": "alt01 goal"})
+                    ]}
+                    :actor={[ entity:contact=* ]}
+                    :actors={[ entity:contact=* ]}
+                    :mitre:attack:campaign=C0011
+                ]
+            ''')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('tag'), 'cno.camp.31337')
-            self.eq(node.get('org'), org0)
-            self.eq(node.get('goal'), goal)
-            self.eq(node.get('goals'), sorted((goal, altgoal)))
-            self.eq(node.get('actors'), (('entity:contact', acto),))
-            self.eq(node.get('name'), 'myname')
-            self.eq(node.get('names'), ('bar', 'foo'))
-            self.eq(node.get('type'), 'mytype.')
-            self.eq(node.get('desc'), 'MyDesc')
-            self.eq(node.get('id'), 'Foo')
-            self.eq(node.get('success'), 1)
-            self.eq(node.get('sophistication'), 40)
-            self.eq(node.get('timeline'), timeline)
-            self.nn(node.get('reporter'))
-            self.eq(node.get('reporter:name'), 'vertex')
-            self.eq(node.get('mitre:attack:campaign'), 'C0011')
-            self.eq(node.get('slogan'), 'for the people')
+            self.eq(nodes[0].get('id'), 'Foo')
+            self.eq(nodes[0].get('tag'), 'cno.camp.31337')
+            self.eq(nodes[0].get('name'), 'myname')
+            self.eq(nodes[0].get('names'), ('bar', 'foo'))
+            self.eq(nodes[0].get('type'), 'mytype.')
+            self.eq(nodes[0].get('desc'), 'MyDesc')
+            self.eq(nodes[0].get('success'), 1)
+            self.eq(nodes[0].get('sophistication'), 40)
+            self.nn(nodes[0].get('source'))
+            self.eq(nodes[0].get('source:name'), 'vertex')
+            self.eq(nodes[0].get('mitre:attack:campaign'), 'C0011')
+            self.eq(nodes[0].get('slogan'), 'for the people')
+            self.len(3, await core.nodes('ou:campaign -> ou:goal'))
 
-            opts = {'vars': {'altgoal': altgoal}}
-            self.len(1, nodes := await core.nodes('[ ou:campaign=({"name": "foo", "goal": $altgoal}) ]', opts=opts))
-            self.eq(node.ndef, nodes[0].ndef)
+            self.len(1, nodes01 := await core.nodes('''
+                $goal = { ou:goal:name="alt00 goal" }
+                [ ou:campaign=({"name": "foo", "goal": $goal}) ]
+            '''))
+            self.eq(nodes[0].ndef, nodes01[0].ndef)
 
-            self.len(1, await core.nodes(f'ou:campaign={camp} :slogan -> lang:phrase'))
-            nodes = await core.nodes(f'ou:campaign={camp} -> it:mitre:attack:campaign')
+            self.len(1, await core.nodes(f'ou:campaign:id=Foo :slogan -> lang:phrase'))
+            nodes = await core.nodes(f'ou:campaign:id=Foo -> it:mitre:attack:campaign')
             self.len(1, nodes)
             nodes = nodes[0]
             self.eq(nodes.ndef, ('it:mitre:attack:campaign', 'C0011'))
@@ -662,21 +653,21 @@ class OuModelTest(s_t_utils.SynTest):
                 :sic="1234,5678"
                 :isic=C1393
                 :desc="Moldy cheese"
-                :reporter={[ ou:org=* :name=vertex ]}
-                :reporter:name=vertex
+                :source={[ ou:org=* :name=vertex ]}
+                :source:name=vertex
             ] '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
             node = nodes[0]
-            self.nn(nodes[0].get('reporter'))
+            self.nn(nodes[0].get('source'))
             self.eq('foo bar', nodes[0].get('name'))
-            self.eq('vertex', nodes[0].get('reporter:name'))
+            self.eq('vertex', nodes[0].get('source:name'))
             self.sorteq(('1234', '5678'), nodes[0].get('sic'))
             self.sorteq(('11111', '22222'), nodes[0].get('naics'))
             self.sorteq(('C1393', ), nodes[0].get('isic'))
             self.eq('Moldy cheese', nodes[0].get('desc'))
 
-            self.len(1, await core.nodes('ou:industry :reporter -> ou:org'))
+            self.len(1, await core.nodes('ou:industry :source -> ou:org'))
 
             self.len(1, nodes := await core.nodes('[ ou:industry=({"name": "faz"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
