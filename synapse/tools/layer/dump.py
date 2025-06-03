@@ -55,8 +55,8 @@ async def main(argv, outp=s_output.stdout):
 
             finished = False
 
-            start = opts.offset
-            end = None
+            soffs = opts.offset
+            eoffs = None
 
             while not finished:
 
@@ -67,12 +67,23 @@ async def main(argv, outp=s_output.stdout):
 
                 with tempfile.NamedTemporaryFile(dir=opts.outdir, delete=False, **kwargs) as fd:
 
-                    genr = layer.syncNodeEdits2(start, wait=False)
+                    genr = layer.syncNodeEdits2(soffs, wait=False)
 
                     # Pull the first edit so we can get the starting offset
-                    first = await anext(aiter(genr))
+                    nodeiter = aiter(genr)
+                    first = await anext(nodeiter)
 
-                    start = first[0]
+                    offset = first[0]
+                    if soffs != offset:
+                        if soffs != 0:
+                            mesg = f'ERROR: First offset ({offset}) differs from requested starting offset ({soffs}).'
+                            outp.printf(mesg)
+                            return 1
+
+                        mesg = f'WARNING: First offset ({offset}) differs from requested starting offset ({soffs}).'
+                        outp.printf(mesg)
+
+                    soffs = first[0]
 
                     count = 1
 
@@ -83,7 +94,7 @@ async def main(argv, outp=s_output.stdout):
                             'hdrvers': 1,
                             'celliden': celliden,
                             'layriden': opts.iden,
-                            'offset': start,
+                            'offset': soffs,
                             'chunksize': opts.chunksize,
                             'tick': s_common.now(),
                             'cellvers': cellvers,
@@ -93,19 +104,12 @@ async def main(argv, outp=s_output.stdout):
                     # Now write the first edit that we already pulled
                     fd.write(s_msgpack.en(('edit', first)))
 
-                    async for nodeedit in genr:
+                    async for nodeedit in nodeiter:
 
                         # Write individual edits to file
                         fd.write(s_msgpack.en(('edit', nodeedit)))
 
-                        end = nodeedit[0]
-
-                        if count == 0 and start != end:
-                            mesg = f'ERROR: First offset ({end}) differs from requested starting offset ({start}).'
-                            outp.printf(mesg)
-                            if start != 0:
-                                return 1
-                            start = end
+                        eoffs = nodeedit[0]
 
                         count += 1
 
@@ -117,17 +121,17 @@ async def main(argv, outp=s_output.stdout):
 
                     # Write footer to file
                     fd.write(s_msgpack.en(('fini', {
-                        'offset': end,
+                        'offset': eoffs,
                         'tock': s_common.now(),
                     })))
 
                     tmpname = fd.name
 
-                path = os.path.join(opts.outdir, f'{celliden}.{opts.iden}.{start}-{end}.nodeedits')
+                path = os.path.join(opts.outdir, f'{celliden}.{opts.iden}.{soffs}-{eoffs}.nodeedits')
                 os.rename(tmpname, path)
 
                 # Update start offset for next loop
-                start = end + 1
+                soffs = eoffs + 1
 
             outp.printf(f'Successfully exported layer {opts.iden} from cortex {celliden}.')
 
