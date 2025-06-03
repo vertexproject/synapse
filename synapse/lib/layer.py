@@ -1918,6 +1918,9 @@ class Layer(s_nexus.Pusher):
         self.timetype = self.stortypes[STOR_TYPE_TIME]
         self.ivaltimetype = self.stortypes[STOR_TYPE_IVAL].timetype
 
+        self.createdabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'created')
+        self.updatedabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'updated')
+
         await self._initLayerStorage()
 
         self.editors = [
@@ -3260,7 +3263,6 @@ class Layer(s_nexus.Pusher):
 
         utime = meta['time']
         ubyts = self.timetype.getIntIndx(utime)
-        univabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'updated')
 
         for (nid, form, edits) in nodeedits:
 
@@ -3280,11 +3282,11 @@ class Layer(s_nexus.Pusher):
 
                 if (last := sode['meta'].get('updated')) is not None:
                     oldbyts = self.timetype.getIntIndx(last[0])
-                    self.layrslab.delete(univabrv + oldbyts, nid, db=self.indxdb)
                     self.layrslab.delete(metaabrv + oldbyts, nid, db=self.indxdb)
+                    self.layrslab.delete(self.updatedabrv + oldbyts, nid, db=self.indxdb)
 
                 kvpairs.append((metaabrv + ubyts, nid))
-                kvpairs.append((univabrv + ubyts, nid))
+                kvpairs.append((self.updatedabrv + ubyts, nid))
 
                 sode['meta']['updated'] = (utime, STOR_TYPE_TIME)
 
@@ -3334,9 +3336,8 @@ class Layer(s_nexus.Pusher):
             ubyts = self.timetype.getIntIndx(last[0])
 
             metaabrv = self.core.getIndxAbrv(INDX_VIRTUAL, form, None, 'updated')
-            univabrv = self.core.getIndxAbrv(INDX_VIRTUAL, None, None, 'updated')
-            self.layrslab.delete(univabrv + ubyts, nid, db=self.indxdb)
             self.layrslab.delete(metaabrv + ubyts, nid, db=self.indxdb)
+            self.layrslab.delete(self.updatedabrv + ubyts, nid, db=self.indxdb)
 
         self.dirty.pop(nid, None)
         self.nidcache.pop(nid, None)
@@ -3794,9 +3795,8 @@ class Layer(s_nexus.Pusher):
         cbyts = self.timetype.getIntIndx(ctime)
 
         metaabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, None, 'created')
-        univabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'created')
         kvpairs.append((metaabrv + cbyts, nid))
-        kvpairs.append((univabrv + cbyts, nid))
+        kvpairs.append((self.createdabrv + cbyts, nid))
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
 
@@ -3886,9 +3886,8 @@ class Layer(s_nexus.Pusher):
         cbyts = self.timetype.getIntIndx(ctime)
 
         metaabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, None, 'created')
-        univabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'created')
         self.layrslab.delete(metaabrv + cbyts, nid, db=self.indxdb)
-        self.layrslab.delete(univabrv + cbyts, nid, db=self.indxdb)
+        self.layrslab.delete(self.createdabrv + cbyts, nid, db=self.indxdb)
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
 
