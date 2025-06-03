@@ -399,7 +399,7 @@ modeldefs = (
                     'doc': 'A type for the tool, as a taxonomy entry.'}),
 
                 ('used', ('ival', {}), {
-                    'doc': 'An interval for when the tool is assessed to have been deployed.'}),
+                    'doc': "The source's assessed interval for when the tool has been deployed."}),
 
                 ('availability', ('risk:availability', {}), {
                     'doc': "The source's assessed availability of the tool."}),
@@ -423,11 +423,11 @@ modeldefs = (
                 ('software:name', ('meta:name', {}), {
                     'alts': ('software:names',),
                     'prevnames': ('soft:name',),
-                    'doc': 'The reporting organization\'s name for the tool.'}),
+                    'doc': "The source's name for the tool."}),
 
                 ('software:names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'prevnames': ('soft:names',),
-                    'doc': 'An array of alternate names for the tool, according to the source.'}),
+                    'doc': "The source's alternate names for the tool."}),
 
                 ('mitre:attack:software', ('it:mitre:attack:software', {}), {
                     'doc': 'A mapping to a MITRE ATT&CK software if applicable.'}),
@@ -497,7 +497,7 @@ modeldefs = (
                     'doc': 'A URL linking this vulnerability to the CVE description.'}),
 
                 ('cve:references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of documentation URLs provided by the CVE database.'}),
+                    'doc': 'Documentation URLs provided by the CVE database.'}),
 
                 ('cvss:v2', ('cvss:v2', {}), {
                     'doc': 'The CVSS v2 vector for the vulnerability.'}),
@@ -542,7 +542,7 @@ modeldefs = (
                     'doc': 'The CVSS v3.1 environmental score for the vulnerability.'}),
 
                 ('cwes', ('array', {'type': 'it:sec:cwe', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of MITRE CWE values that apply to the vulnerability.'}),
+                    'doc': 'MITRE CWE values that apply to the vulnerability.'}),
             )),
 
             # FIXME refactor? ( should this even exist? )
@@ -714,7 +714,7 @@ modeldefs = (
                     'doc': 'The assessed primary goal of the attacker for the compromise.'}),
 
                 ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
-                    'doc': 'An array of assessed attacker goals for the compromise.'}),
+                    'doc': 'Additional assessed attacker goals for the compromise.'}),
             )),
             ('risk:attack:type:taxonomy', {
                 'prevnames': ('risk:attacktype',)}, ()),
