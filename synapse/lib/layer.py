@@ -3332,13 +3332,11 @@ class Layer(s_nexus.Pusher):
 
         if (last := sode['meta'].get('updated')) is not None:
             ubyts = self.timetype.getIntIndx(last[0])
-            try:
-                metaabrv = self.core.getIndxAbrv(INDX_VIRTUAL, form, None, 'updated')
-                univabrv = self.core.getIndxAbrv(INDX_VIRTUAL, None, None, 'updated')
-                self.layrslab.delete(univabrv + ubyts, nid, db=self.indxdb)
-                self.layrslab.delete(metaabrv + ubyts, nid, db=self.indxdb)
-            except s_exc.NoSuchAbrv:
-                pass
+
+            metaabrv = self.core.getIndxAbrv(INDX_VIRTUAL, form, None, 'updated')
+            univabrv = self.core.getIndxAbrv(INDX_VIRTUAL, None, None, 'updated')
+            self.layrslab.delete(univabrv + ubyts, nid, db=self.indxdb)
+            self.layrslab.delete(metaabrv + ubyts, nid, db=self.indxdb)
 
         self.dirty.pop(nid, None)
         self.nidcache.pop(nid, None)
