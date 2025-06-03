@@ -184,20 +184,30 @@ modeldefs = (
             }),
             ('file:mime:image', {
                 'props': (
+
+                    ('id', ('meta:id', {}), {
+                        'prevnames': ('imageid',),
+                        'doc': 'MIME specific unique identifier extracted from metadata.'}),
+
                     ('desc', ('str', {}), {
                         'doc': 'MIME specific description field extracted from metadata.'}),
+
                     ('comment', ('str', {}), {
                         'doc': 'MIME specific comment field extracted from metadata.'}),
+
                     ('created', ('time', {}), {
                         'doc': 'MIME specific creation timestamp extracted from metadata.'}),
-                    ('imageid', ('str', {}), {
-                        'doc': 'MIME specific unique identifier extracted from metadata.'}),
+
                     ('author', ('entity:contact', {}), {
                         'doc': 'MIME specific contact information extracted from metadata.'}),
+
+                    # FIXME geo:locatable?
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'MIME specific lat/long information extracted from metadata.'}),
+
                     ('altitude', ('geo:altitude', {}), {
                         'doc': 'MIME specific altitude information extracted from metadata.'}),
+
                     ('text', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The text contained within the image.'}),
                 ),
