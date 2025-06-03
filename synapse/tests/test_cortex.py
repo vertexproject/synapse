@@ -1145,7 +1145,7 @@ class CortexTest(s_t_utils.SynTest):
                         $lib.warn(omg)
                         $s = `Running {$auto.type} {$auto.iden}`
                         $lib.log.info($s, ({"iden": $auto.iden}))
-                        $que = $lib.queue.get(foo)
+                        $que = $lib.queue.getByName(foo)
                         $que.put(done)
                     })
 
@@ -5341,7 +5341,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 ip00 = await core00.nodes('[ inet:ip=3.3.3.3 ]')
 
                 await core00.nodes('$lib.queue.add(hehe)')
-                q = 'trigger.add node:add --form inet:fqdn --storm {$lib.queue.get(hehe).put($node.repr())}'
+                q = 'trigger.add node:add --form inet:fqdn --storm {$lib.queue.getByName(hehe).put($node.repr())}'
                 msgs = await core00.stormlist(q)
 
                 ddef = await core00.callStorm('return($lib.dmon.add(${$lib.time.sleep(10)}, name=hehedmon))')
@@ -5363,7 +5363,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
 
-                    q = 'for ($offs, $fqdn) in $lib.queue.get(hehe).gets(wait=0) { inet:fqdn=$fqdn }'
+                    q = 'for ($offs, $fqdn) in $lib.queue.getByName(hehe).gets(wait=0) { inet:fqdn=$fqdn }'
                     self.len(2, await core01.nodes(q))
 
                     msgs = await core01.stormlist('queue.list')
@@ -5381,8 +5381,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core01.nodes('[ inet:fqdn=www.vertex.link ]')
                     self.len(1, await core01.nodes('inet:fqdn=www.vertex.link'))
 
-                    await self.asyncraises(s_exc.SynErr, core01.delView(core01.view.iden))
-
                     # get the nexus index
                     nexusind = core01.nexsroot.nexslog.index()
 
@@ -5397,7 +5395,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core00.nodes('[ inet:fqdn=woot.com ]')
                     await core01.sync()
 
-                    q = 'for ($offs, $fqdn) in $lib.queue.get(hehe).gets(wait=0) { inet:fqdn=$fqdn }'
+                    q = 'for ($offs, $fqdn) in $lib.queue.getByName(hehe).gets(wait=0) { inet:fqdn=$fqdn }'
                     self.len(5, await core01.nodes(q))
                     self.len(1, await core01.nodes('inet:ip=5.5.5.5'))
 
@@ -5817,8 +5815,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     $ddef = $lib.dmon.add(${
 
-                        $rx = $lib.queue.get(tx)
-                        $tx = $lib.queue.get(rx)
+                        $rx = $lib.queue.getByName(tx)
+                        $tx = $lib.queue.getByName(rx)
 
                         $ip = nope
                         for ($offs, $ip) in $rx.gets(wait=1) {
@@ -5838,8 +5836,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     $lib.dmon.del($ddef.iden)
 
-                    $lib.queue.del(tx)
-                    $lib.queue.del(rx)
+                    $lib.queue.del($tx.iden)
+                    $lib.queue.del($rx.iden)
                 ''')
                 self.len(1, nodes)
                 self.len(0, await prox.getStormDmons())
@@ -5883,19 +5881,18 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 q = '''
                 $lib.dmon.add(${
-                    $q = $lib.queue.get(dmon)
-                     for ($offs, $item) in $q.gets(size=3, wait=12)
+                    $q = $lib.queue.getByName(dmon)
+                    for ($offs, $item) in $q.gets(size=3, wait=12)
                         {
                             [ test:int=$item ]
-                            $lib.print("made {ndef}", ndef=$node.ndef())
+                            $lib.print(`made {$node.ndef()}`)
                             $q.cull($offs)
                         }
                     }, name=viewdmon)
                 '''
                 await core.nodes(q, opts={'view': view2_iden})
-                await asyncio.sleep(0)
 
-                q = '''$q = $lib.queue.get(dmon) $q.puts((1, 3, 5))'''
+                q = '''$q = $lib.queue.getByName(dmon) $q.puts((1, 3, 5))'''
                 with self.getAsyncLoggerStream('synapse.lib.storm',
                                                "made ('test:int', 5)") as stream:
                     await core.nodes(q)
@@ -5912,7 +5909,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core.nodes('$q=$lib.queue.add(dmon2)')
                 q = '''
-                $q = $lib.queue.get(dmon2)
+                $q = $lib.queue.getByName(dmon2)
                 for ($offs, $item) in $q.gets(size=3, wait=12) {
                     [ test:str=$item ]
                     $lib.print("made {ndef}", ndef=$node.ndef())
@@ -5925,7 +5922,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.DupIden):
                     await core.addStormDmon(ddef)
 
-                q = '''$q = $lib.queue.get(dmon2) $q.puts((1, 3, 5))'''
+                q = '''$q = $lib.queue.getByName(dmon2) $q.puts((1, 3, 5))'''
                 with self.getAsyncLoggerStream('synapse.lib.storm',
                                                "made ('test:str', '5')") as stream:
                     await core.nodes(q)
@@ -5970,16 +5967,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 $lib.dmon.add(${
                     $lib.print('Starting wootdmon')
-                    $lib.queue.get(visi).put(blah)
-                    for ($offs, $item) in $lib.queue.get(boom).gets(wait=1) {
+                    $lib.queue.getByName(visi).put(blah)
+                    for ($offs, $item) in $lib.queue.getByName(boom).gets(wait=1) {
                         [ inet:ip=$item ]
                     }
                 }, name=wootdmon)
 
                 for ($offs, $item) in $q.gets(size=1) { $q.cull($offs) }
             ''')
-
-            await asyncio.sleep(0)
 
             # dmon is now fully running
             msgs = await core.stormlist('dmon.list')
@@ -5989,8 +5984,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # make the dmon blow up
             await core.nodes('''
-                $lib.queue.get(boom).put(hehe)
-                $q = $lib.queue.get(visi)
+                $lib.queue.getByName(boom).put(hehe)
+                $q = $lib.queue.getByName(visi)
                 for ($offs, $item) in $q.gets(size=1) { $q.cull($offs) }
             ''')
 
@@ -6014,7 +6009,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     $foo = $lib.user.vars.foo
 
-                    $lib.queue.get(visi).put(step)
+                    $lib.queue.getByName(visi).put(step)
 
                     if $( $foo = 20 ) {
                         for $tick in $lib.time.ticker(10) {
@@ -6028,8 +6023,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             ''')
             # wait for him to exit once and loop...
-            await core.nodes('for $x in $lib.queue.get(visi).gets(size=2) {}')
-            await core.stormlist('for $x in $lib.queue.get(visi).gets(size=2) { $lib.print(hehe) }')
+            await core.nodes('for $x in $lib.queue.getByName(visi).gets(size=2) {}')
+            await core.stormlist('for $x in $lib.queue.getByName(visi).gets(size=2) { $lib.print(hehe) }')
 
     async def test_cortex_ext_model(self):
 

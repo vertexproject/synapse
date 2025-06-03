@@ -861,6 +861,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.cmddefs = self.cortexdata.getSubKeyVal('storm:cmds:')
         self.pkgdefs = self.cortexdata.getSubKeyVal('storm:packages:')
         self.svcdefs = self.cortexdata.getSubKeyVal('storm:services:')
+        self.quedefs = self.cortexdata.getSubKeyVal('storm:queues:')
 
         await self._initDeprLocks()
         await self._warnDeprLocks()
@@ -870,7 +871,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.dynitems.update({
             'cron': self.agenda,
             'cortex': self,
-            'multiqueue': self.multiqueue,
         })
 
         self._initVaults()
@@ -1624,48 +1624,64 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return copy.deepcopy(gdef)
 
     async def addCoreQueue(self, name, info):
-
-        if self.multiqueue.exists(name):
+        if self.quedefs.get(name) is not None:
             mesg = f'Queue named {name} already exists!'
             raise s_exc.DupName(mesg=mesg)
 
+        iden = s_common.guid()
+        info['iden'] = iden
+        info['name'] = name
+
         await self._push('queue:add', name, info)
+        return info
 
     @s_nexus.Pusher.onPush('queue:add')
     async def _addCoreQueue(self, name, info):
-        if self.multiqueue.exists(name):
-            return
-
-        await self.auth.addAuthGate(f'queue:{name}', 'queue')
-
-        creator = info.get('creator')
-        if creator is not None:
-            user = await self.auth.reqUser(creator)
-            await user.setAdmin(True, gateiden=f'queue:{name}', logged=False)
-
-        await self.multiqueue.add(name, info)
+        iden = info.get('iden')
+        if not self.multiqueue.exists(iden):
+            self.quedefs.set(name, info)
+            await self.multiqueue.add(iden, info)
 
     async def listCoreQueues(self):
-        return self.multiqueue.list()
+        cqueues = []
+        for name, info in self.quedefs.items():
+            cqueueiden = info.get('iden')
+            cqueue = {'name': name, 'iden': cqueueiden}
+            cqueues.append(self.multiqueue.status(cqueueiden) | cqueue)
+        return cqueues
 
-    async def getCoreQueue(self, name):
-        return self.multiqueue.status(name)
+    async def getCoreQueue(self, iden):
+        '''
+        Get the status of a queue by iden.
+
+        Args:
+            iden (str): The iden of the queue.
+
+        Returns:
+            (dict): The meta data of the queue.
+
+        Raises:
+            s_exc.NoSuchName: If the queue does not exist.
+        '''
+        return self.multiqueue.status(iden)
+
+    async def getCoreQueueIdenByName(self, name):
+        info = self.quedefs.get(name)
+        if info is not None:
+            return info
+        return
 
     async def delCoreQueue(self, name):
-
-        if not self.multiqueue.exists(name):
-            mesg = f'No queue named {name} exists!'
-            raise s_exc.NoSuchName(mesg=mesg)
-
+        await self.getCoreQueue(name)
         await self._push('queue:del', name)
-        await self.auth.delAuthGate(f'queue:{name}')
 
     @s_nexus.Pusher.onPush('queue:del')
-    async def _delCoreQueue(self, name):
-        if not self.multiqueue.exists(name):
-            return
-
-        await self.multiqueue.rem(name)
+    async def _delCoreQueue(self, iden):
+        info = self.multiqueue.status(iden)
+        if info is not None:
+            await self.multiqueue.rem(iden)
+        name = info.get('meta', {}).get('name')
+        self.quedefs.pop(name, None)
 
     async def coreQueueGet(self, name, offs=0, cull=True, wait=False):
         if offs and cull:

@@ -416,11 +416,11 @@ class TrigTest(s_t_utils.SynTest):
 
             root = await core.auth.getUserByName('root')
 
-            tdef = {'iden': '1', 'user': root.iden, 'cond': 'tag:add', 'storm': '$lib.queue.get(foo).put(count0)',
+            tdef = {'iden': '1', 'user': root.iden, 'cond': 'tag:add', 'storm': '$lib.queue.getByName(foo).put(count0)',
                     'tag': 'foo.*.bar', 'enabled': True}
             trig1 = await core.view.triggers.load(tdef)
 
-            tdef = {'iden': '2', 'user': root.iden, 'cond': 'tag:del', 'storm': '$lib.queue.get(foo).put(count1)',
+            tdef = {'iden': '2', 'user': root.iden, 'cond': 'tag:del', 'storm': '$lib.queue.getByName(foo).put(count1)',
                     'tag': 'baz.*.faz', 'form': 'test:guid', 'enabled': True}
             trig2 = await core.view.triggers.load(tdef)
 
@@ -428,7 +428,7 @@ class TrigTest(s_t_utils.SynTest):
 
             async def popNextFoo():
                 return await core.callStorm('''
-                    return ($lib.queue.get(foo).pop().index(1))
+                    return ($lib.queue.getByName(foo).pop().index(1))
                 ''')
 
             await core.nodes('[ test:guid="*" +#foo.asdf.bar ]')
@@ -450,7 +450,7 @@ class TrigTest(s_t_utils.SynTest):
 
             await core.nodes('#baz.asdf.faz [ -#baz.asdf.faz ]')
 
-            self.eq(0, await core.callStorm('return ($lib.queue.get(foo).size())'))
+            self.eq(0, await core.callStorm('return ($lib.queue.getByName(foo).size())'))
 
     async def test_trigger_running_perms(self):
         async with self.getTestCore() as core:

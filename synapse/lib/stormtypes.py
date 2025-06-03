@@ -3621,8 +3621,14 @@ class LibQueue(Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to delete.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get an existing Storm Queue object.',
+        {'name': 'get', 'desc': 'Get an existing Storm Queue object by iden.',
          'type': {'type': 'function', '_funcname': '_methQueueGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The iden of the Queue to get.', },
+                  ),
+                  'returns': {'type': 'queue', 'desc': 'A ``queue`` object.', }}},
+        {'name': 'getByName', 'desc': 'Get an existing Storm Queue object by name.',
+         'type': {'type': 'function', '_funcname': '_methQueueGetByName',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to get.', },
                   ),
@@ -3650,6 +3656,7 @@ class LibQueue(Lib):
             'gen': self._methQueueGen,
             'del': self._methQueueDel,
             'get': self._methQueueGet,
+            'getByName': self._methQueueGetByName,
             'list': self._methQueueList,
         }
 
@@ -3660,40 +3667,45 @@ class LibQueue(Lib):
             'creator': self.runt.user.iden,
         }
 
-        todo = s_common.todo('addCoreQueue', name, info)
-        gatekeys = ((self.runt.user.iden, ('queue', 'add'), None),)
-        info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
-
-        return Queue(self.runt, name, info)
+        self.runt.confirm(('queue', 'add'))
+        qdef = await self.runt.view.core.addCoreQueue(name, info)
+        iden = qdef.get('iden')
+        return Queue(self.runt, name, iden, info)
 
     @stormfunc(readonly=True)
     async def _methQueueGet(self, name):
-        todo = s_common.todo('getCoreQueue', name)
-        gatekeys = ((self.runt.user.iden, ('queue', 'get'), f'queue:{name}'),)
-        info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        self.runt.confirm(('queue', 'get', name))
+        info = await self.runt.view.core.getCoreQueue(name)
+        name = info.get('meta').get('name')
+        iden = info.get('meta').get('iden')
+        return Queue(self.runt, name, iden, info)
 
-        return Queue(self.runt, name, info)
+    async def _methQueueGetByName(self, name):
+        info = await self.runt.view.core.getCoreQueueIdenByName(name)
+        if info is None:
+            raise s_exc.NoSuchName(mesg=f'No queue with name {name}', name=name)
+
+        iden = info.get('iden')
+        self.runt.confirm(('queue', 'get', iden))
+        return await self._methQueueGet(iden)
 
     async def _methQueueGen(self, name):
         try:
-            return await self._methQueueGet(name)
+            return await self._methQueueGetByName(name)
         except s_exc.NoSuchName:
             return await self._methQueueAdd(name)
 
     async def _methQueueDel(self, name):
-        todo = s_common.todo('delCoreQueue', name)
-        gatekeys = ((self.runt.user.iden, ('queue', 'del',), f'queue:{name}'), )
-        await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        self.runt.confirm(('queue', 'del', name))
+        await self.runt.view.core.delCoreQueue(name)
 
     @stormfunc(readonly=True)
     async def _methQueueList(self):
         retn = []
 
-        todo = s_common.todo('listCoreQueues')
-        qlist = await self.dyncall('cortex', todo)
-
+        qlist = await self.runt.view.core.listCoreQueues()
         for queue in qlist:
-            if not allowed(('queue', 'get'), f"queue:{queue['name']}"):
+            if not self.runt.allowed(('queue', 'get', queue['iden'])):
                 continue
 
             retn.append(queue)
@@ -3706,6 +3718,7 @@ class Queue(StormType):
     A StormLib API instance of a named channel in the Cortex multiqueue.
     '''
     _storm_locals = (
+        {'name': 'iden', 'desc': 'The iden of the Queue.', 'type': 'str', },
         {'name': 'name', 'desc': 'The name of the Queue.', 'type': 'str', },
         {'name': 'get', 'desc': 'Get a particular item from the Queue.',
          'type': {'type': 'function', '_funcname': '_methQueueGet',
@@ -3768,17 +3781,17 @@ class Queue(StormType):
     _storm_typename = 'queue'
     _ismutable = False
 
-    def __init__(self, runt, name, info):
+    def __init__(self, runt, name, iden, info):
 
         StormType.__init__(self)
         self.runt = runt
         self.name = name
+        self.iden = iden
         self.info = info
-
-        self.gateiden = f'queue:{name}'
 
         self.locls.update(self.getObjLocals())
         self.locls['name'] = self.name
+        self.locls['iden'] = self.iden
 
     def __hash__(self):
         return hash((self._storm_typename, self.name))
@@ -3801,63 +3814,52 @@ class Queue(StormType):
 
     async def _methQueueCull(self, offs):
         offs = await toint(offs)
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
-        await self.runt.view.core.coreQueueCull(self.name, offs)
+        await self.runt.view.core.coreQueueCull(self.iden, offs)
 
     @stormfunc(readonly=True)
     async def _methQueueSize(self):
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
-        return await self.runt.view.core.coreQueueSize(self.name)
+        self.runt.confirm(('queue', 'get', self.iden))
+        return await self.runt.view.core.coreQueueSize(self.iden)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
         wait = await toint(wait)
         offs = await toint(offs)
         size = await toint(size, noneok=True)
 
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
-
-        async for item in self.runt.view.core.coreQueueGets(self.name, offs, cull=cull, wait=wait, size=size):
+        self.runt.confirm(('queue', 'get', self.iden))
+        async for item in self.runt.view.core.coreQueueGets(self.iden, offs, cull=cull, wait=wait, size=size):
             yield item
 
     async def _methQueuePuts(self, items):
         items = await toprim(items)
-        gatekeys = self._getGateKeys('put')
-        await self.runt.reqGateKeys(gatekeys)
-        return await self.runt.view.core.coreQueuePuts(self.name, items)
+
+        self.runt.confirm(('queue', 'put', self.iden))
+        return await self.runt.view.core.coreQueuePuts(self.iden, items)
 
     async def _methQueueGet(self, offs=0, cull=True, wait=True):
         offs = await toint(offs)
         wait = await toint(wait)
 
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
-
-        return await self.runt.view.core.coreQueueGet(self.name, offs, cull=cull, wait=wait)
+        self.runt.confirm(('queue', 'get', self.iden))
+        return await self.runt.view.core.coreQueueGet(self.iden, offs, cull=cull, wait=wait)
 
     async def _methQueuePop(self, offs=None, wait=False):
         offs = await toint(offs, noneok=True)
         wait = await tobool(wait)
 
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
+        self.runt.confirm(('queue', 'get', self.iden))
 
         # emulate the old behavior on no argument
         core = self.runt.view.core
         if offs is None:
-            async for item in core.coreQueueGets(self.name, 0, wait=wait):
-                return await core.coreQueuePop(self.name, item[0])
+            async for item in core.coreQueueGets(self.iden, 0, wait=wait):
+                return await core.coreQueuePop(self.iden, item[0])
             return
 
-        return await core.coreQueuePop(self.name, offs)
+        return await core.coreQueuePop(self.iden, offs)
 
     async def _methQueuePut(self, item):
         return await self._methQueuePuts((item,))
-
-    def _getGateKeys(self, perm):
-        return ((self.runt.user.iden, ('queue', perm), self.gateiden),)
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.name}'
