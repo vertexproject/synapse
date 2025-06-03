@@ -170,12 +170,14 @@ modeldefs = (
                         'template': {
                             'ou:attendable': 'meet',
                             'geo:locatable': 'meet'}}),
+                    ('lang:transcript', {}),
                 ),
                 'doc': 'A meeting of people which has no title or sponsor.'}),
 
             ('ou:preso', ('guid', {}), {
                 'interfaces': (
                     ('ou:attendable', {}),
+                    ('lang:transcript', {}),
                 ),
                 'doc': 'A webinar, conference talk, or other type of presentation.'}),
 
@@ -207,6 +209,7 @@ modeldefs = (
                 'prevnames': ('ou:conference:event',),
                 'interfaces': (
                     ('ou:attendable', {}),
+                    ('lang:transcript', {}),
                 ),
                 'doc': 'An generic organized event.'}),
 

@@ -9,6 +9,7 @@ modeldefs = (
                     ('ou:attendable', {'template': {
                         'ou:attendable': 'class',
                         'geo:locatable': 'class'}}),
+                    ('lang:transcript', {}),
                 ),
                 'doc': 'An instance of an edu:course taught at a given time.'}),
 

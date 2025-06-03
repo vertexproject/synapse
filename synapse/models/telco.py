@@ -149,6 +149,9 @@ modeldefs = (
         'types': (
 
             ('tel:call', ('guid', {}), {
+                'interfaces': (
+                    ('lang:transcript', {}),
+                ),
                 'doc': 'A guid for a telephone call record.'}),
 
             ('tel:phone:type:taxonomy', ('taxonomy', {}), {
@@ -233,10 +236,6 @@ modeldefs = (
 
                 ('connected', ('bool', {}), {
                     'doc': 'Indicator of whether the call was connected.'}),
-
-                # FIXME transcriptable?
-                ('text', ('text', {}), {
-                    'doc': 'The text transcription of the call.'}),
 
                 ('recording', ('file:bytes', {}), {
                     'doc': 'An audio file which recorded the call.'}),
