@@ -66,8 +66,8 @@ modeldefs = (
                 ('title', ('str', {}), {
                     'doc': 'The title of the RFP.'}),
 
-                ('summary', ('text', {}), {
-                    'doc': 'A brief summary of the RFP.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the RFP.'}),
 
                 ('status', ('biz:deal:status:taxonomy', {}), {
                     'doc': 'The status of the RFP.'}),
@@ -188,8 +188,8 @@ modeldefs = (
                 ('provider', ('entity:actor', {}), {
                     'doc': 'The contact info of the entity which performs the service.'}),
 
-                ('summary', ('text', {}), {
-                    'doc': 'A brief summary of the service.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the service.'}),
 
                 ('type', ('biz:service:type:taxonomy', {}), {
                     'doc': 'A taxonomy of service types.'}),
@@ -208,8 +208,8 @@ modeldefs = (
                     'doc': 'The type of product.'}),
 
                 # TODO ('upc', ('biz:upc', {}), {}),
-                ('summary', ('text', {}), {
-                    'doc': 'A brief summary of the product.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the product.'}),
 
                 # FIXME: manufactur?
                 ('maker', ('entity:actor', {}), {

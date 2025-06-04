@@ -3,13 +3,10 @@ modeldefs = (
         'forms': (
             ('media:news:type:taxonomy', {'prevnames': ('media:news:taxonomy',)}, ()),
             ('media:news', {}, (
+
                 ('url', ('inet:url', {}), {
                     'ex': 'http://cnn.com/news/mars-lander.html',
                     'doc': 'The (optional) URL where the news was published.'}),
-
-                ('url:fqdn', ('inet:fqdn', {}), {
-                    'ex': 'cnn.com',
-                    'doc': 'The FQDN within the news URL.'}),
 
                 ('type', ('media:news:type:taxonomy', {}), {
                     'doc': 'A taxonomy for the type of article or report.'}),
@@ -17,7 +14,7 @@ modeldefs = (
                 ('file', ('file:bytes', {}), {
                     'doc': 'The (optional) file blob containing or published as the news.'}),
 
-                ('title', ('str', {'lower': True}), {
+                ('title', ('base:name', {}), {
                     'ex': 'mars lander reaches mars',
                     'doc': 'Title/Headline for the news.'}),
 
@@ -25,11 +22,11 @@ modeldefs = (
                     'ex': 'lorum ipsum',
                     'doc': 'A brief summary of the news item.'}),
 
-                ('publisher', ('ou:org', {}), {
-                    'doc': 'The organization which published the news.'}),
+                ('publisher', ('entity:actor', {}), {
+                    'doc': 'The entity which published the news.'}),
 
                 ('publisher:name', ('meta:name', {}), {
-                    'doc': 'The name of the publishing org used to publish the news.'}),
+                    'doc': 'The name of the entity which publish the news.'}),
 
                 ('published', ('time', {}), {
                     'ex': '20161201180433',

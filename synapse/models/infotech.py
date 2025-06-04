@@ -838,7 +838,6 @@ modeldefs = (
             ('it:os:android:intent', ('str', {}), {
                 'doc': 'An android intent string.'}),
 
-            # FIXME decomp ( and convert to software ) if keeping
             ('it:os:android:reqperm', ('comp', {'fields': (
                                                     ('app', 'it:software'),
                                                     ('perm', 'it:os:android:perm'))}), {
@@ -855,12 +854,10 @@ modeldefs = (
                                           )}), {
                 'doc': 'The given software broadcasts the given Android intent.'}),
 
-            # FIXME file container interface?
             ('it:software', ('guid', {}), {
                 'doc': 'A sofware family or specific version.'}),
 
-            # FIXME meta:name?
-            ('it:av:signame', ('str', {'lower': True}), {
+            ('it:av:signame', ('base:name', {}), {
                 'doc': 'An antivirus signature name.'}),
 
             ('it:av:scan:result', ('guid', {}), {
@@ -1026,7 +1023,6 @@ modeldefs = (
             ('it:app:snort:target', ('ndef', {'forms': ('inet:flow',)}), {
                 'doc': 'An ndef type which is limited to forms which snort rules can match.'}),
 
-            # FIXME refactor
             ('it:dev:function', ('guid', {}), {
                 'doc': 'A function inside an executable file.'}),
 
@@ -1272,26 +1268,14 @@ modeldefs = (
                     'doc': 'The service account which generated the log event.'}),
 
             )),
-            # ('it:domain', {}, (
-
-            #     ('name', ('meta:name', {}), {
-            #         'doc': 'The name of the domain.'}),
-
-            #     ('desc', ('str', {}), {
-            #         'doc': 'A brief description of the domain.'}),
-
-            #     ('org', ('ou:org', {}), {
-            #         'doc': 'The org that operates the given domain.'}),
-            # )),
 
             ('it:network:type:taxonomy', {}, ()),
             ('it:network', {}, (
 
-                # FIXME is this an inet:service:object?
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the network.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'doc': 'A brief description of the network.'}),
 
                 ('type', ('it:network:type:taxonomy', {}), {
@@ -1322,10 +1306,6 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The host where the account is registered.'}),
 
-                # FIXME service:account?
-                # ('domain', ('it:domain', {}), {
-                    # 'doc': 'The authentication domain where the account is registered.'}),
-
                 ('posix:uid', ('int', {}), {
                     'ex': '1001',
                     'doc': 'The user ID of the account.'}),
@@ -1348,6 +1328,9 @@ modeldefs = (
                 ('windows:sid', ('it:os:windows:sid', {}), {
                     'doc': 'The Microsoft Windows Security Identifier of the account.'}),
 
+                ('service:account', ('inet:service:account', {}), {
+                    'doc': 'The optional service account which the local account maps to.'}),
+
                 # FIXME need to make into a relationship form?
                 ('groups', ('array', {'type': 'it:host:group', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of groups that the account is a member of.'}),
@@ -1357,18 +1340,11 @@ modeldefs = (
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the group.'}),
 
-                ('desc', ('str', {}), {
+                ('desc', ('text', {}), {
                     'doc': 'A brief description of the group.'}),
 
                 ('host', ('it:host', {}), {
                     'doc': 'The host where the group was created.'}),
-
-                # ('domain', ('it:domain', {}), {
-                #     'doc': 'The authentication domain where the group is registered.'}),
-
-                # FIXME need to make into a relationship form?
-                ('groups', ('array', {'type': 'it:host:group', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Groups that are a member of this group.'}),
 
                 ('posix:gid', ('int', {}), {
                     'ex': '1001',
@@ -1376,6 +1352,13 @@ modeldefs = (
 
                 ('windows:sid', ('it:os:windows:sid', {}), {
                     'doc': 'The Microsoft Windows Security Identifier of the group.'}),
+
+                ('service:group', ('inet:service:group', {}), {
+                    'doc': 'The optional service group which the local group maps to.'}),
+
+                # FIXME need to make into a relationship form?
+                ('groups', ('array', {'type': 'it:host:group', 'uniq': True, 'sorted': True}), {
+                    'doc': 'Groups that are a member of this group.'}),
             )),
             ('it:host:login', {}, (
 
@@ -1388,7 +1371,6 @@ modeldefs = (
                 ('success', ('bool', {}), {
                     'doc': 'Set to false to indicate an unsuccessful logon attempt.'}),
 
-                # FIXME add to it:host:activity?
                 ('account', ('it:host:account', {}), {
                     'doc': 'The account that logged in.'}),
 
@@ -1636,15 +1618,11 @@ modeldefs = (
 
             ('it:mitre:attack:group', {}, (
 
-                # FIXME actor?
-                ('org', ('ou:org', {}), {
-                    'doc': 'Used to map an ATT&CK group to a synapse ou:org.'}),
-
                 ('name', ('meta:name', {}), {
                     'doc': 'The primary name for the ATT&CK group.'}),
 
                 ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of alternate names for the ATT&CK group.'}),
+                    'doc': 'Alternate names for the ATT&CK group.'}),
 
                 ('desc', ('text', {}), {
                     'doc': 'A description of the ATT&CK group.'}),
@@ -1656,15 +1634,15 @@ modeldefs = (
                     'doc': 'The URL that documents the ATT&CK group.'}),
 
                 ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'An array of URLs that document the ATT&CK group.'}),
+                    'doc': 'URLs that document the ATT&CK group.'}),
 
                 ('techniques', ('array', {'type': 'it:mitre:attack:technique',
                                           'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ATT&CK technique IDs used by the group.'}),
+                    'doc': 'ATT&CK technique IDs used by the group.'}),
 
                 ('software', ('array', {'type': 'it:mitre:attack:software',
                                         'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ATT&CK software IDs used by the group.'}),
+                    'doc': 'ATT&CK software IDs used by the group.'}),
             )),
             ('it:mitre:attack:tactic', {}, (
 
@@ -1681,7 +1659,7 @@ modeldefs = (
                     'doc': 'The URL that documents the ATT&CK tactic.'}),
 
                 ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'An array of URLs that document the ATT&CK tactic.'}),
+                    'doc': 'URLs that document the ATT&CK tactic.'}),
             )),
             ('it:mitre:attack:technique', {}, (
 
@@ -1704,18 +1682,18 @@ modeldefs = (
                     'doc': 'The URL that documents the ATT&CK technique.'}),
 
                 ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'An array of URLs that document the ATT&CK technique.'}),
+                    'doc': 'URLs that document the ATT&CK technique.'}),
 
                 ('parent', ('it:mitre:attack:technique', {}), {
                     'doc': 'The parent ATT&CK technique on this sub-technique.'}),
 
                 ('tactics', ('array', {'type': 'it:mitre:attack:tactic',
                                        'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ATT&CK tactics that include this technique.'}),
+                    'doc': 'ATT&CK tactics that include this technique.'}),
 
                 ('data:components', ('array', {'type': 'it:mitre:attack:data:component',
                                                'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of MITRE ATT&CK data components that detect the ATT&CK technique.'}),
+                    'doc': 'MITRE ATT&CK data components that detect the ATT&CK technique.'}),
             )),
             ('it:mitre:attack:software', {}, (
 
@@ -1738,11 +1716,11 @@ modeldefs = (
                     'doc': 'The URL that documents the ATT&CK software.'}),
 
                 ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'An array of URLs that document the ATT&CK software.'}),
+                    'doc': 'URLs that document the ATT&CK software.'}),
 
                 ('techniques', ('array', {'type': 'it:mitre:attack:technique',
                                           'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of techniques used by the software.'}),
+                    'doc': 'Techniques used by the software.'}),
             )),
             ('it:mitre:attack:mitigation', {}, (
                 # TODO map to an eventual risk:mitigation
@@ -1759,11 +1737,11 @@ modeldefs = (
                     'doc': 'The URL that documents the ATT&CK mitigation.'}),
 
                 ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'An array of URLs that document the ATT&CK mitigation.'}),
+                    'doc': 'URLs that document the ATT&CK mitigation.'}),
 
                 ('addresses', ('array', {'type': 'it:mitre:attack:technique',
                                          'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.'}),
+                    'doc': 'ATT&CK technique IDs addressed by the mitigation.'}),
             )),
             ('it:mitre:attack:campaign', {}, (
 
@@ -1834,7 +1812,7 @@ modeldefs = (
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the datasource.'}),
 
-                ('description', ('text', {}), {
+                ('desc', ('text', {}), {
                     'doc': 'A description of the datasource.'}),
 
                 ('references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
@@ -1846,7 +1824,7 @@ modeldefs = (
                     'ro': True,
                     'doc': 'The name of the data component.'}),
 
-                ('description', ('text', {}), {
+                ('desc', ('text', {}), {
                     'doc': 'A description of the data component.'}),
 
                 ('datasource', ('it:mitre:attack:datasource', {}), {
@@ -1872,9 +1850,10 @@ modeldefs = (
 
             ('it:dev:repo:type:taxonomy', {}, ()),
             ('it:dev:repo', {}, (
+
                 ('name', ('str', {'lower': True, 'strip': True}), {
-                    'doc': 'The name of the repository.',
-                }),
+                    'doc': 'The name of the repository.'}),
+
                 ('desc', ('text', {}), {
                     'doc': 'A free-form description of the repository.'}),
 
@@ -2063,8 +2042,7 @@ modeldefs = (
                 ('cpe', ('it:sec:cpe', {}), {
                     'doc': 'The NIST CPE 2.3 string specifying this hardware.'}),
 
-                # FIXME actor? phy:manufactured?
-                ('manufacturer', ('ou:org', {}), {
+                ('manufacturer', ('entity:actor', {}), {
                     'doc': 'The organization that manufactures this hardware.'}),
 
                 ('manufacturer:name', ('meta:name', {}), {
@@ -2073,8 +2051,7 @@ modeldefs = (
                 ('model', ('base:name', {}), {
                     'doc': 'The model name or number for this hardware specification.'}),
 
-                # FIXME semver?
-                ('version', ('str', {'lower': True, 'onespace': True}), {
+                ('version', ('it:semver', {}), {
                     'doc': 'Version string associated with this hardware specification.'}),
 
                 ('released', ('time', {}), {
@@ -2170,7 +2147,6 @@ modeldefs = (
                 ('released', ('time', {}), {
                     'doc': 'Timestamp for when the software was released.'}),
 
-                # FIXME semver virtual props even if parsing fails?
                 ('version', ('it:semver', {}), {
                     'doc': 'System normalized semantic version number.'}),
 
@@ -2795,7 +2771,7 @@ modeldefs = (
                 ('revoked', ('bool', {}), {
                     'doc': 'The revoked field from the STIX indicator.'}),
 
-                ('description', ('str', {}), {
+                ('desc', ('str', {}), {
                     'doc': 'The description field from the STIX indicator.'}),
 
                 ('pattern', ('str', {}), {
@@ -2836,7 +2812,7 @@ modeldefs = (
                 ('name', ('it:dev:str', {}), {
                     'doc': 'The name of the function.'}),
 
-                ('description', ('str', {}), {
+                ('desc', ('text', {}), {
                     'doc': 'A description of the function.'}),
 
                 ('impcalls', ('array', {
@@ -2860,13 +2836,8 @@ modeldefs = (
                 ('va', ('int', {}), {
                     'doc': 'The virtual address of the first codeblock of the function.'}),
 
-                # FIXME discuss where these belong...
-                # ('rank', ('int', {}), {
-                #     'doc': 'The function rank score used to evaluate if it exhibits interesting behavior.'}),
-
-                # meta:complexity?
-                # ('complexity', ('int', {}), {
-                #     'doc': 'The complexity of the function.'}),
+                ('complexity', ('meta:complexity', {}), {
+                    'doc': 'The complexity of the function.'}),
 
                 ('calls', ('array', {'type': 'it:dev:function:sample', 'uniq': True, 'sorted': True}), {
                     'doc': 'Other function calls within the scope of the function.'}),
@@ -2898,7 +2869,6 @@ modeldefs = (
                 ('mutex', ('it:dev:str', {}), {
                     'doc': 'The mutex that the software uses to prevent multiple-installations.'}),
 
-                # FIXME meta:id?
                 ('campaigncode', ('it:dev:str', {}), {
                     'doc': 'The operator selected string used to identify the campaign or group of targets.'}),
 

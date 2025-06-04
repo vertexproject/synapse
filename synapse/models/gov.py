@@ -33,8 +33,10 @@ modeldefs = (
 
         'forms': (
             ('iso:oid', {}, (
-                ('descr', ('str', {}), {
+
+                ('desc', ('str', {}), {
                     'doc': 'A description of the value or meaning of the OID.'}),
+
                 ('identifier', ('str', {}), {
                     'doc': 'The string identifier for the deepest tree element.'}),
             )),

@@ -166,17 +166,23 @@ modeldefs = (
 
             ('ou:meet', ('guid', {}), {
                 'interfaces': (
+
                     ('ou:attendable', {
                         'template': {
                             'ou:attendable': 'meet',
                             'geo:locatable': 'meet'}}),
+
                     ('lang:transcript', {}),
                 ),
                 'doc': 'A meeting of people which has no title or sponsor.'}),
 
             ('ou:preso', ('guid', {}), {
                 'interfaces': (
-                    ('ou:attendable', {}),
+
+                    ('ou:attendable', {'template': {
+                        'ou:attendable': 'presentation',
+                        'geo:locatable': 'presentation'}),
+
                     ('lang:transcript', {}),
                 ),
                 'doc': 'A webinar, conference talk, or other type of presentation.'}),
@@ -208,7 +214,10 @@ modeldefs = (
             ('ou:event', ('guid', {}), {
                 'prevnames': ('ou:conference:event',),
                 'interfaces': (
-                    ('ou:attendable', {}),
+                    ('ou:attendable', {
+                        'template': {
+                            'ou:attendable': 'event',
+                            'geo:locatable': 'event'}}),
                     ('lang:transcript', {}),
                 ),
                 'doc': 'An generic organized event.'}),
@@ -371,9 +380,8 @@ modeldefs = (
             (('ou:campaign', 'used', 'ou:technique'), {
                 'doc': 'The campaign used the technique.'}),
 
-            # FIXME entity:actor...
-            (('ou:org', 'uses', 'ou:technique'), {
-                'doc': 'The org uses the technique.'}),
+            (('entity:actor', 'used', 'ou:technique'), {
+                'doc': 'The actor used the technique.'}),
 
             (('risk:vuln', 'uses', 'ou:technique'), {
                 'doc': 'The vulnerability uses the technique.'}),
@@ -382,7 +390,7 @@ modeldefs = (
             (('ou:org', 'uses', None), {
                 'doc': 'The ou:org makes use of the target node.'}),
 
-            (('ou:org', 'targets', None), {
+            (('ou:org', 'targeted', None), {
                 'doc': 'The organization targets the target node.'}),
 
             # FIXME targetable?
@@ -392,7 +400,7 @@ modeldefs = (
             (('ou:campaign', 'used', None), {
                 'doc': 'The campaign made use of the target node.'}),
 
-            (('ou:contribution', 'includes', None), {
+            (('ou:contribution', 'included', None), {
                 'doc': 'The contribution includes the specific node.'}),
         ),
         'forms': (

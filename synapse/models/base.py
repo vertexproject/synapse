@@ -181,6 +181,12 @@ modeldefs = (
                     ('source:name', ('meta:name', {}), {
                         'prevnames': ('reporter:name',),
                         'doc': 'The name of the entity which was the source of the {sourced}.'}),
+
+                    ('source:created', ('time', {}), {
+                        'doc': 'The time when the source first created the {sourced}.'}),
+
+                    ('source:updated', ('time', {}), {
+                        'doc': 'The time when the source last updated the {sourced}.'}),
                 ),
             }),
 
@@ -366,8 +372,8 @@ modeldefs = (
                     'ex': 'The history of the Vertex Project',
                     'doc': 'A title for the timeline.'}),
 
-                ('summary', ('text', {}), {
-                    'doc': 'A prose summary of the timeline.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the timeline.'}),
 
                 ('type', ('meta:timeline:type:taxonomy', {}), {
                     'doc': 'The type of timeline.'}),
@@ -384,8 +390,8 @@ modeldefs = (
                 ('title', ('str', {}), {
                     'doc': 'A title for the event.'}),
 
-                ('summary', ('text', {}), {
-                    'doc': 'A prose summary of the event.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the event.'}),
 
                 # FIXME period
                 ('time', ('time', {}), {

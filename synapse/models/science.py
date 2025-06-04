@@ -50,8 +50,8 @@ modeldefs = (
                 ('type', ('sci:hypothesis:type:taxonomy', {}), {
                     'doc': 'The type of hypothesis as a user defined taxonomy.'}),
 
-                ('summary', ('text', {}), {
-                    'doc': 'A summary of the hypothesis.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the hypothesis.'}),
             )),
 
             # TODO eventually link to a procedure form
@@ -61,8 +61,8 @@ modeldefs = (
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the experiment.'}),
 
-                ('summary', ('text', {}), {
-                    'doc': 'A summary of the experiment.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the experiment.'}),
 
                 ('time', ('time', {}), {
                     'doc': 'The time when the experiment was initiated.'}),
@@ -80,8 +80,8 @@ modeldefs = (
                 ('experiment', ('sci:experiment', {}), {
                     'doc': 'The experiment which produced the observation.'}),
 
-                ('summary', ('text', {}), {
-                    'doc': 'A summary of the observation.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the observation.'}),
 
                 ('time', ('time', {}), {
                     'doc': 'The time that the observation occurred.'}),
@@ -95,8 +95,8 @@ modeldefs = (
                 ('observation', ('sci:observation', {}), {
                     'doc': 'The observation which supports or refutes the hypothesis.'}),
 
-                ('summary', ('text', {}), {
-                    'doc': 'A summary of how the observation supports or refutes the hypothesis.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of how the observation supports or refutes the hypothesis.'}),
 
                 ('refutes', ('bool', {}), {
                     'doc': 'Set to true if the evidence refutes the hypothesis or false if it supports the hypothesis.'}),

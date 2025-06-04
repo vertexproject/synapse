@@ -38,8 +38,8 @@ modeldefs = (
                     'ex': 'mitre att&ck flow',
                     'doc': 'The name of the planning system.'}),
 
-                ('summary', ('text', {}), {
-                    'doc': 'A summary of the purpose and use case for the planning system.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the planning system.'}),
 
                 ('author', ('entity:actor', {}), {
                     'doc': 'The contact of the person or organization which authored the system.'}),
@@ -57,12 +57,13 @@ modeldefs = (
                     'doc': 'The primary URL which documents the planning system.'}),
             )),
             ('plan:phase', {}, (
+
                 ('title', ('str', {}), {
                     'ex': 'Reconnaissance Phase',
                     'doc': 'The title of the phase.'}),
 
-                ('summary', ('text', {}), {
-                    'doc': 'A summary of the definition of the phase.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the definition of the phase.'}),
 
                 ('index', ('int', {}), {
                     'doc': 'The index of this phase within the phases of the system.'}),
@@ -80,8 +81,8 @@ modeldefs = (
                     'ex': 'Network Reconnaissance Procedure',
                     'doc': 'The name of the procedure.'}),
 
-                ('summary', ('text', {}), {
-                    'doc': 'A summary of the purpose and use cases for the procedure.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the purpose and use cases for the procedure.'}),
 
                 ('author', ('entity:actor', {}), {
                     'doc': 'The contact of the person or organization which authored the procedure.'}),
@@ -130,12 +131,13 @@ modeldefs = (
                 ('procedure', ('plan:procedure', {}), {
                     'doc': 'The procedure which defines the step.'}),
 
+                # FIXME base:title? -> :name=<base:name>?
                 ('title', ('str', {}), {
                     'ex': 'Scan the IPv4 address range for open ports',
                     'doc': 'The title of the step.'}),
 
-                ('summary', ('str', {}), {
-                    'doc': 'A summary of the tasks executed within the step.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the tasks executed within the step.'}),
 
                 ('outputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of variables defined in this step.'}),

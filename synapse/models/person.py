@@ -72,17 +72,12 @@ modeldefs = (
                 }}),
         ),
         'edges': (
-            # FIXME
-            # (('entity:contact', 'has', None), {
-            #     'doc': 'The contact is or was in possession of the target node.'}),
-            # (('ps:person', 'has', None), {
-            #     'doc': 'The person is or was in possession of the target node.'}),
-            # (('entity:contact', 'owns', None), {
-            #     'doc': 'The contact owns or owned the target node.'}),
-            # (('ps:person', 'owns', None), {
-            #     'doc': 'The person owns or owned the target node.'}),
+
+            (('ps:education', 'included', 'edu:class'), {
+                'doc': 'The class was taken by the student as part of their education process.'}),
         ),
         'forms': (
+
             ('ps:workhist', {}, (
 
                 ('contact', ('entity:individual', {}), {
@@ -129,7 +124,6 @@ modeldefs = (
                     'prevnames': ('code',),
                     'doc': 'The course catalog number or ID.'}),
 
-                # FIXME actor? (educator?)
                 ('institution', ('ou:org', {}), {
                     'doc': 'The org or department which teaches the course.'}),
 
@@ -166,17 +160,12 @@ modeldefs = (
                 ('student', ('entity:individual', {}), {
                     'doc': 'The student who attended the educational institution.'}),
 
-                # FIXME entity:multi?
                 ('institution', ('ou:org', {}), {
                     'doc': 'The organization providing educational services.'}),
 
                 ('period', ('ival', {'precision': 'day', 'inclusive': True}), {
                     'prevnames': ('attended:first', 'attended:last'),
                     'doc': 'The period of time when the student attended the institution.'}),
-
-                # FIXME NEWP
-                ('classes', ('array', {'type': 'edu:class', 'uniq': True, 'sorted': True}), {
-                    'doc': 'The classes attended by the student.'}),
 
                 ('achievement', ('ps:achievement', {}), {
                     'doc': 'The degree or certificate awarded to the individual.'}),

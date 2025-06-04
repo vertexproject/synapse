@@ -13,7 +13,7 @@ class BizModelTest(s_t_utils.SynTest):
                 [ biz:rfp=*
                     :id = WOO123
                     :title = HeHeHaHa
-                    :summary = ZipZop
+                    :desc = ZipZop
                     :status = foo.bar
                     :url = "https://vertex.link"
                     :file = *
@@ -28,7 +28,7 @@ class BizModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('id'), 'WOO123')
             self.eq(nodes[0].get('title'), 'HeHeHaHa')
-            self.eq(nodes[0].get('summary'), 'ZipZop')
+            self.eq(nodes[0].get('desc'), 'ZipZop')
             self.eq(nodes[0].get('status'), 'foo.bar.')
             self.eq(nodes[0].get('url'), 'https://vertex.link')
             self.eq(nodes[0].get('posted'), 1627689600000000)
@@ -99,7 +99,7 @@ class BizModelTest(s_t_utils.SynTest):
                 [ biz:product=*
                     :name = WootWoot
                     :type = woot.woot
-                    :summary = WootWithWootSauce
+                    :desc = WootWithWootSauce
                     :price:retail = 29.99
                     :price:bottom = 3.20
                 ]
@@ -108,7 +108,7 @@ class BizModelTest(s_t_utils.SynTest):
 
             self.eq(nodes[0].get('name'), 'wootwoot')
             self.eq(nodes[0].get('type'), 'woot.woot.')
-            self.eq(nodes[0].get('summary'), 'WootWithWootSauce')
+            self.eq(nodes[0].get('desc'), 'WootWithWootSauce')
             self.eq(nodes[0].get('price:retail'), '29.99')
             self.eq(nodes[0].get('price:bottom'), '3.2')
 
@@ -122,7 +122,7 @@ class BizModelTest(s_t_utils.SynTest):
                     :service={[ biz:service=*
                         :name=wootsvc
                         :type=awesome
-                        :summary="hehe haha"
+                        :desc="hehe haha"
                         :provider={ entity:contact:name=visi | limit 1}
                         :launched=20230124
                     ]}

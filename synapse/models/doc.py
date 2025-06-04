@@ -127,6 +127,19 @@ modeldefs = (
                             'type': 'doc:resume:type:taxonomy'}}),
                 ),
                 'doc': 'A CV/resume document.'}),
+
+            ('doc:report:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (('meta:taxonomy', {}),),
+                'doc': 'A taxonomy of report types.'}),
+
+            ('doc:report', ('guid', {}), {
+                'interfaces': (
+                    ('doc:document', {'template': {
+                        'document': 'report',
+                        'documents': 'reports',
+                        'type': 'doc:report:type:taxonomy'}),
+                ),
+                'doc': 'A report.'}),
         ),
         'forms': (
 
@@ -142,8 +155,8 @@ modeldefs = (
             ('doc:requirement:type:taxonomy', {}, ()),
             ('doc:requirement', {}, (
 
-                ('summary', ('text', {}), {
-                    'doc': 'A summary of the requirement definition.'}),
+                ('text', ('text', {}), {
+                    'doc': 'The requirement definition.'}),
 
                 ('optional', ('bool', {}), {
                     'doc': 'Set to true if the requirement is optional as defined by the standard.'}),
@@ -173,6 +186,9 @@ modeldefs = (
                 ('achievements', ('array', {'type': 'ps:achievement', 'sorted': True, 'uniq': True}), {
                     'doc': 'Achievements described in the resume.'}),
 
+            )),
+            ('doc:report:type:taxonomy', {}, ()),
+            ('doc:report', {}, (
             )),
         ),
         'edges': (),

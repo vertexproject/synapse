@@ -185,7 +185,7 @@ modeldefs = (
                     ('built', ('time', {}), {
                         'doc': 'The date when the {phys:object} was built.'}),
 
-                    ('manufacturer', ('ou:org', {}), {
+                    ('manufacturer', ('entity:actor', {}), {
                         'doc': 'The organization which manufactured the {phys:object}.'}),
 
                     ('manufacturer:name', ('meta:name', {}), {
