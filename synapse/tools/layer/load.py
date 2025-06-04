@@ -65,6 +65,11 @@ async def main(argv, outp=s_output.stdout):
 
             info = await cell.getCellInfo()
 
+            if (celltype := info['cell']['type']) != 'cortex':
+                mesg = f'ERROR: load tool only works on cortexes, not {celltype}.'
+                outp.printf(mesg)
+                return 1
+
             if (synver := info.get('cell').get('version')) < reqver:
                 synstr = s_version.fmtVersion(*synver)
                 reqstr = s_version.fmtVersion(*reqver)

@@ -34,48 +34,6 @@ class LayerTest(s_test.SynTest):
             chunksize = 10
 
             with self.getTestDir() as dirn:
-                # Handle no edits from offset
-                argv = (
-                    '--url', url,
-                    '--chunksize', str(chunksize),
-                    '--outdir', dirn,
-                    '--offset', '10000',
-                    layr00iden,
-                )
-
-                outp = s_output.OutPutStr()
-                self.eq(1, await s_t_dump.main(argv, outp=outp))
-                self.isin(f'ERROR: No edits to export starting from offset (10000).', str(outp))
-
-                # Handle outdir being an existing file
-                filename = s_common.genpath(dirn, 'newp')
-                s_common.genfile(filename).close()
-
-                argv = (
-                    '--url', url,
-                    '--chunksize', str(chunksize),
-                    '--outdir', filename,
-                    layr00iden,
-                )
-
-                outp = s_output.OutPutStr()
-                self.eq(1, await s_t_dump.main(argv, outp=outp))
-                self.isin(f'ERROR: Specified output directory {filename} exists but is not a directory.', str(outp))
-
-                # Handle requested starting offset being different than returned offset
-                argv = (
-                    '--url', url,
-                    '--chunksize', str(chunksize),
-                    '--outdir', dirn,
-                    '--offset', str(soffs - 1),
-                    layr00iden,
-                )
-
-                outp = s_output.OutPutStr()
-                self.eq(1, await s_t_dump.main(argv, outp=outp))
-                self.isin(f'ERROR: First offset ({soffs}) differs from requested starting offset ({soffs - 1}).', str(outp))
-
-                # Happy path
                 argv = (
                     '--url', url,
                     '--chunksize', str(chunksize),
@@ -116,6 +74,81 @@ class LayerTest(s_test.SynTest):
                 self.eq(msgs[11][1].get('offset'), soffs + 9)
                 self.nn(msgs[11][1].get('tock'))
                 self.isinstance(msgs[11][1].get('tock'), int)
+
+    async def test_tools_layer_dump_errors(self):
+
+        # Non-cortex cell
+        async with self.getTestCell() as cell:
+            with self.getTestDir() as dirn:
+                with s_common.genfile(dirn, 'newp') as fd:
+                    filename = fd.name
+                    fd.write(s_msgpack.en(('init', {'offset': 0, 'cellvers': s_version.version})))
+
+                url = cell.getLocalUrl()
+                argv = ('--url', url, s_common.guid(), filename)
+                outp = s_output.OutPutStr()
+                self.eq(1, await s_t_load.main(argv, outp=outp))
+                self.isin(f'ERROR: load tool only works on cortexes, not cell.', str(outp))
+
+        async with self.getTestCore() as core:
+
+            url = core.getLocalUrl()
+
+            layr00 = await core.addLayer()
+            layr00iden = layr00.get('iden')
+            view00 = await core.addView({'layers': [layr00iden]})
+
+            soffs = await core.getNexsIndx()
+
+            opts = {'view': view00.get('iden')}
+            nodes = await core.nodes('[ inet:ipv4=192.168.1.0/24 ]', opts=opts)
+            self.len(256, nodes)
+
+            eoffs = soffs + 256
+
+            chunksize = 10
+
+            with self.getTestDir() as dirn:
+                # Handle no edits from offset
+                argv = (
+                    '--url', url,
+                    '--chunksize', str(chunksize),
+                    '--outdir', dirn,
+                    '--offset', '9000',
+                    layr00iden,
+                )
+
+                outp = s_output.OutPutStr()
+                self.eq(1, await s_t_dump.main(argv, outp=outp))
+                self.isin(f'ERROR: No edits to export starting from offset (9000).', str(outp))
+
+                # Handle outdir being an existing file
+                filename = s_common.genpath(dirn, 'newp')
+                s_common.genfile(filename).close()
+
+                argv = (
+                    '--url', url,
+                    '--chunksize', str(chunksize),
+                    '--outdir', filename,
+                    layr00iden,
+                )
+
+                outp = s_output.OutPutStr()
+                self.eq(1, await s_t_dump.main(argv, outp=outp))
+                self.isin(f'ERROR: Specified output directory {filename} exists but is not a directory.', str(outp))
+
+                # Handle requested starting offset being different than returned offset
+                argv = (
+                    '--url', url,
+                    '--chunksize', str(chunksize),
+                    '--outdir', dirn,
+                    '--offset', str(soffs - 1),
+                    layr00iden,
+                )
+
+                outp = s_output.OutPutStr()
+                self.eq(1, await s_t_dump.main(argv, outp=outp))
+                self.isin(f'ERROR: First offset ({soffs}) differs from requested starting offset ({soffs - 1}).', str(outp))
 
     async def test_tools_layer_load(self):
         async with self.getTestCore() as core:
@@ -200,6 +233,19 @@ class LayerTest(s_test.SynTest):
     async def test_tools_layer_load_errors(self):
 
         iden = s_common.guid()
+
+        # Non-cortex cell
+        with self.getTestDir() as dirn:
+            with s_common.genfile(dirn, 'newp') as fd:
+                filename = fd.name
+                fd.write(s_msgpack.en(('init', {'offset': 0, 'cellvers': s_version.version})))
+
+            async with self.getTestCell() as cell:
+                url = cell.getLocalUrl()
+                argv = ('--url', url, iden, filename)
+                outp = s_output.OutPutStr()
+                self.eq(1, await s_t_load.main(argv, outp=outp))
+                self.isin(f'ERROR: load tool only works on cortexes, not cell.', str(outp))
 
         # Non-existent file
         argv = (iden, 'newp')

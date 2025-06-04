@@ -42,6 +42,11 @@ async def main(argv, outp=s_output.stdout):
 
             info = await cell.getCellInfo()
 
+            if (celltype := info['cell']['type']) != 'cortex':
+                mesg = f'ERROR: dump tool only works on cortexes, not {celltype}.'
+                outp.printf(mesg)
+                return 1
+
             celliden = info['cell']['iden']
             cellvers = info['cell']['version']
 
@@ -49,7 +54,7 @@ async def main(argv, outp=s_output.stdout):
 
             # Handle no edits to export
             if opts.offset >= await layer.getEditIndx():
-                mesg = f'ERROR: No edits to export starting from offset (10000).'
+                mesg = f'ERROR: No edits to export starting from offset ({opts.offset}).'
                 outp.printf(mesg)
                 return 1
 
