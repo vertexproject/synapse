@@ -207,8 +207,13 @@ class Node:
 
             embdnode = retn.get(nodepath)
             if embdnode is None:
-                embdnode = retn[nodepath] = {}
-                embdnode['*'] = s_common.ehex(node.buid)
+                iden = node.iden()
+                # TODO deprecate / remove use of * once we can minver optic
+                embdnode = retn[nodepath] = {
+                    '*': iden,
+                    '$iden': iden,
+                    '$form': node.form.name,
+                }
 
             for relp in relprops:
                 embdnode[relp] = node.props.get(relp)

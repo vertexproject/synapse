@@ -746,19 +746,25 @@ class Snap(s_base.Base):
 
     async def _joinEmbedStor(self, storage, embeds):
         for nodePath, relProps in embeds.items():
+
             await asyncio.sleep(0)
-            iden = relProps.get('*')
+
+            iden = relProps.get('$iden')
             if not iden:
                 continue
 
             stor = await self.view.getStorNodes(s_common.uhex(iden))
             for relProp in relProps.keys():
+
                 await asyncio.sleep(0)
-                if relProp == '*':
+
+                if relProp[0] in ('*', '$'):
                     continue
 
                 for idx, layrstor in enumerate(stor):
+
                     await asyncio.sleep(0)
+
                     props = layrstor.get('props')
                     if not props:
                         continue
