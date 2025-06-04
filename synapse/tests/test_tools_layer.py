@@ -291,10 +291,13 @@ class LayerTest(s_test.SynTest):
                     }
                 )))
 
-                fd.write(s_msgpack.en(('fini', {
-                    'offset': eoffs,
-                    'tock': s_common.now(),
-                })))
+                fd.write(s_msgpack.en((
+                    'fini',
+                    {
+                        'offset': eoffs,
+                        'tock': s_common.now(),
+                    }
+                )))
 
             async with self.getTestCore() as core:
                 url = core.getLocalUrl()
