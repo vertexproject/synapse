@@ -3624,7 +3624,7 @@ class LibQueue(Lib):
         {'name': 'get', 'desc': 'Get an existing Storm Queue object by iden.',
          'type': {'type': 'function', '_funcname': '_methQueueGet',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The iden of the Queue to get.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Queue to get.', },
                   ),
                   'returns': {'type': 'queue', 'desc': 'A ``queue`` object.', }}},
         {'name': 'getByName', 'desc': 'Get an existing Storm Queue object by name.',
@@ -3680,13 +3680,13 @@ class LibQueue(Lib):
         iden = info.get('meta').get('iden')
         return Queue(self.runt, name, iden, info)
 
+    @stormfunc(readonly=True)
     async def _methQueueGetByName(self, name):
         info = await self.runt.view.core.getCoreQueueIdenByName(name)
         if info is None:
             raise s_exc.NoSuchName(mesg=f'No queue with name {name}', name=name)
 
         iden = info.get('iden')
-        self.runt.confirm(('queue', 'get', iden))
         return await self._methQueueGet(iden)
 
     async def _methQueueGen(self, name):
@@ -3814,6 +3814,7 @@ class Queue(StormType):
 
     async def _methQueueCull(self, offs):
         offs = await toint(offs)
+        self.runt.confirm(('queue', 'get', self.iden))
         await self.runt.view.core.coreQueueCull(self.iden, offs)
 
     @stormfunc(readonly=True)
