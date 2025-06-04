@@ -33,36 +33,23 @@ async def main(argv, outp=s_output.stdout):
     for filename in opts.files:
         if not os.path.exists(filename) or not os.path.isfile(filename):
             mesg = f'Invalid input file specified: {filename}.'
-            raise s_exc.BadArg(mesg=mesg, filename=filename)
+            outp.printf(mesg)
+            return 1
 
         genr = s_msgpack.iterfile(filename)
         header = next(genr)
         if header[0] != 'init':
             mesg = f'Invalid header in {filename}.'
-            raise s_exc.BadDataValu(mesg=mesg)
+            outp.printf(mesg)
+            return 1
 
         infiles.append((header[1], filename, genr))
 
     # Sort the files based on their offset
     infiles = sorted(infiles, key=lambda x: x[0].get('offset'))
 
-    reqver = infiles[0][0].get('cellvers')
-
-    # Check we have contiguity
-    offset = infiles[0][0].get('offset')
-    chunksize = infiles[0][0].get('chunksize')
-    for header, *_ in infiles[1:]:
-        curo = header.get('offset')
-
-        if offset + chunksize != curo:
-            mesg = 'Non-continguous nodeedits provided.'
-            raise s_exc.BadDataValu(mesg=mesg)
-
-        offset = curo
-        chunksize = header.get('chunksize')
-
-        if (synver := header.get('cellvers')) > reqver:
-            reqver = synver
+    # Get the highest cellvers from all the input files
+    reqver = max([infile[0].get('cellvers') for infile in infiles])
 
     outp.printf('Processing the following nodeedits:')
     outp.printf('Offset           | Filename')
@@ -81,21 +68,22 @@ async def main(argv, outp=s_output.stdout):
                 synstr = s_version.fmtVersion(*synver)
                 reqstr = s_version.fmtVersion(*reqver)
                 mesg = f'Synapse version mismatch ({synstr} < {reqstr}).'
-                raise s_exc.BadVersion(mesg, vers=synstr, reqver=reqstr)
+                outp.printf(mesg)
+                return 1
 
         async with await s_telepath.openurl(opts.url, name=f'*/layer/{opts.iden}') as layer:
             for header, filename, genr in infiles:
-                start = header.get('offset')
+                soffs = header.get('offset')
                 tick = header.get('tick')
 
-                outp.printf(f'Processing {filename}, offset={start}, tick={s_time.repr(tick)}.')
+                outp.printf(f'Processing {filename}, offset={soffs}, tick={s_time.repr(tick)}.')
 
-                end = None
+                eoffs = soffs
                 fini = None
 
                 for item in genr:
                     match item:
-                        case ('edit', (end, edit, meta)):
+                        case ('edit', (eoffs, edit, meta)):
                             await layer.saveNodeEdits(edit, meta=meta)
 
                         case ('fini', info):
@@ -104,19 +92,22 @@ async def main(argv, outp=s_output.stdout):
 
                         case _:
                             mtype = item[0]
-                            mesg = f'Unexpected message type: {mtype}'
-                            raise s_exc.BadDataValu(mesg=mesg, mtype=mtype)
+                            mesg = f'Unexpected message type: {mtype}.'
+                            outp.printf(mesg)
+                            return 1
 
                 if fini is None:
-                    mesg = f'Incomplete/corrupt export {filename}.'
-                    raise s_exc.BadDataValu(mesg, filename=filename)
+                    mesg = f'Incomplete/corrupt export: {filename}.'
+                    outp.printf(mesg)
+                    return 1
 
-                elif (offset := fini.get('offset')) != end:
-                    mesg = f'Incomplete/corrupt export {filename}, expected offset {end}, got {offset}.'
-                    raise s_exc.BadDataValu(mesg, filename=filename, expected=end, got=offset)
+                elif (offset := fini.get('offset')) != eoffs:
+                    mesg = f'Incomplete/corrupt export: {filename}. Expected offset {offset}, got {eoffs}.'
+                    outp.printf(mesg)
+                    return 1
 
                 else:
-                    outp.printf(f'Completed {filename} with {end + 1 - start} edits ({start} - {end}).')
+                    outp.printf(f'Completed {filename} with {eoffs + 1 - soffs} edits ({soffs} - {eoffs}).')
 
     return 0
 

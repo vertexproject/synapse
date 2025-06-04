@@ -1,10 +1,10 @@
 import os
 
-import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_test
 
@@ -171,3 +171,135 @@ class LayerTest(s_test.SynTest):
                 self.isin(f'{soffs:<16d} | {files[0]}', str(outp))
                 self.isin(f'Processing {files[0]}, offset={soffs}, tick=', str(outp))
                 self.isin(f'Completed {files[0]} with {eoffs - soffs} edits ({soffs} - {eoffs - 1}).', str(outp))
+
+    async def test_tools_layer_load_errors(self):
+
+        iden = s_common.guid()
+
+        # Non-existent file
+        argv = (iden, 'newp')
+        outp = s_output.OutPutStr()
+        self.eq(1, await s_t_load.main(argv, outp=outp))
+        self.isin('Invalid input file specified: newp.', str(outp))
+
+        # Input file is a directory
+        with self.getTestDir() as dirn:
+            argv = (iden, dirn)
+            outp = s_output.OutPutStr()
+            self.eq(1, await s_t_load.main(argv, outp=outp))
+            self.isin(f'Invalid input file specified: {dirn}.', str(outp))
+
+        # Input file doesn't have an init message first
+        with self.getTestDir() as dirn:
+            with s_common.genfile(dirn, 'noinit.nodeedits') as fd:
+                filename = fd.name
+                fd.write(s_msgpack.en(('newp', {})))
+
+            argv = (iden, filename)
+            outp = s_output.OutPutStr()
+            self.eq(1, await s_t_load.main(argv, outp=outp))
+            self.isin(f'Invalid header in {filename}.', str(outp))
+
+        # Invalid/too high cell version
+        with self.getTestDir() as dirn:
+            version = (99, 99, 0)
+            verstr = '.'.join(map(str, version))
+
+            with s_common.genfile(dirn, 'cellvers00.nodeedits') as fd:
+                file00 = fd.name
+                fd.write(s_msgpack.en(('init', {'offset': 0, 'cellvers': s_version.version})))
+
+            with s_common.genfile(dirn, 'cellvers01.nodeedits') as fd:
+                file01 = fd.name
+                fd.write(s_msgpack.en(('init', {'offset': 0, 'cellvers': version})))
+
+            async with self.getTestCore() as core:
+                url = core.getLocalUrl()
+                argv = ('--url', url, iden, file00, file01)
+                outp = s_output.OutPutStr()
+                self.eq(1, await s_t_load.main(argv, outp=outp))
+                self.isin(f'Synapse version mismatch ({s_version.verstring} < {verstr}).', str(outp))
+
+        # Invalid message type
+        with self.getTestDir() as dirn:
+            with s_common.genfile(dirn, 'badtype.nodeedits') as fd:
+                filename = fd.name
+                fd.write(s_msgpack.en((
+                    'init',
+                    {
+                        'hdrvers': 1,
+                        'celliden': s_common.guid(),
+                        'layriden': s_common.guid(),
+                        'offset': 0,
+                        'chunksize': 10000,
+                        'tick': s_common.now(),
+                        'cellvers': s_version.version,
+                    }
+                )))
+
+                fd.write(s_msgpack.en(('newp', {})))
+
+            async with self.getTestCore() as core:
+                url = core.getLocalUrl()
+                layriden = core.getView().layers[0].iden
+                argv = ('--url', url, layriden, filename)
+                outp = s_output.OutPutStr()
+                self.eq(1, await s_t_load.main(argv, outp=outp))
+                self.isin('Unexpected message type: newp.', str(outp))
+
+        # Missing fini
+        with self.getTestDir() as dirn:
+            with s_common.genfile(dirn, 'badtype.nodeedits') as fd:
+                filename = fd.name
+                fd.write(s_msgpack.en((
+                    'init',
+                    {
+                        'hdrvers': 1,
+                        'celliden': s_common.guid(),
+                        'layriden': s_common.guid(),
+                        'offset': 0,
+                        'chunksize': 10000,
+                        'tick': s_common.now(),
+                        'cellvers': s_version.version,
+                    }
+                )))
+
+            async with self.getTestCore() as core:
+                url = core.getLocalUrl()
+                layriden = core.getView().layers[0].iden
+                argv = ('--url', url, layriden, filename)
+                outp = s_output.OutPutStr()
+                self.eq(1, await s_t_load.main(argv, outp=outp))
+                self.isin(f'Incomplete/corrupt export: {filename}.', str(outp))
+
+        # Fini offset mismatch
+        with self.getTestDir() as dirn:
+            soffs = 0
+            eoffs = 1000
+            with s_common.genfile(dirn, 'badtype.nodeedits') as fd:
+                filename = fd.name
+                fd.write(s_msgpack.en((
+                    'init',
+                    {
+                        'hdrvers': 1,
+                        'celliden': s_common.guid(),
+                        'layriden': s_common.guid(),
+                        'offset': soffs,
+                        'chunksize': 10000,
+                        'tick': s_common.now(),
+                        'cellvers': s_version.version,
+                    }
+                )))
+
+                fd.write(s_msgpack.en(('fini', {
+                    'offset': eoffs,
+                    'tock': s_common.now(),
+                })))
+
+            async with self.getTestCore() as core:
+                url = core.getLocalUrl()
+                layriden = core.getView().layers[0].iden
+                argv = ('--url', url, layriden, filename)
+                outp = s_output.OutPutStr()
+                self.eq(1, await s_t_load.main(argv, outp=outp))
+                self.isin(f'Incomplete/corrupt export: {filename}. Expected offset {eoffs}, got {soffs}.', str(outp))

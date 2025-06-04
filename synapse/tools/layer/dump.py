@@ -62,7 +62,7 @@ async def main(argv, outp=s_output.stdout):
 
                 kwargs = {}
 
-                if s_common.majmin >= (3, 12):
+                if s_common.majmin >= (3, 12): # pragma: no cover
                     kwargs['delete_on_close'] = False
 
                 with tempfile.NamedTemporaryFile(dir=opts.outdir, delete=False, **kwargs) as fd:
