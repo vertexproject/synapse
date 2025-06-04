@@ -161,6 +161,7 @@ class LayerTest(s_test.SynTest):
                 # Import to layr01
                 argv = (
                     '--url', url,
+                    '--dryrun',
                     layr01iden,
                     files[0],
                 )
@@ -169,8 +170,32 @@ class LayerTest(s_test.SynTest):
                 self.eq(0, await s_t_load.main(argv, outp=outp))
                 self.isin('Processing the following nodeedits:', str(outp))
                 self.isin(f'{soffs:<16d} | {files[0]}', str(outp))
-                self.isin(f'Processing {files[0]}, offset={soffs}, tick=', str(outp))
-                self.isin(f'Completed {files[0]} with {eoffs - soffs} edits ({soffs} - {eoffs - 1}).', str(outp))
+                self.isin(f'Loading {files[0]}, offset={soffs}, tick=', str(outp))
+                self.isin(f'Successfully loaded {files[0]} with {eoffs - soffs} edits ({soffs} - {eoffs - 1}).', str(outp))
+
+                # Verify layr01 is empty
+                opts = {'view': view01.get('iden')}
+                nodes = await core.nodes('inet:ipv4', opts=opts)
+                self.len(0, nodes)
+
+                # Import to layr01
+                argv = (
+                    '--url', url,
+                    layr01iden,
+                    files[0],
+                )
+
+                outp = s_output.OutPutStr()
+                self.eq(0, await s_t_load.main(argv, outp=outp))
+                self.isin('Processing the following nodeedits:', str(outp))
+                self.isin(f'{soffs:<16d} | {files[0]}', str(outp))
+                self.isin(f'Loading {files[0]}, offset={soffs}, tick=', str(outp))
+                self.isin(f'Successfully loaded {files[0]} with {eoffs - soffs} edits ({soffs} - {eoffs - 1}).', str(outp))
+
+                # Verify layr01 has data now
+                opts = {'view': view01.get('iden')}
+                nodes = await core.nodes('inet:ipv4', opts=opts)
+                self.len(256, nodes)
 
     async def test_tools_layer_load_errors(self):
 

@@ -20,6 +20,7 @@ Import node edits to a Synapse layer.
 async def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='layer.load', description=descr)
+    pars.add_argument('--dryrun', action='store_true', help="Process files but don't apply changes.")
     pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
 
     pars.add_argument('iden', help='The iden of the layer to import to.')
@@ -76,7 +77,7 @@ async def main(argv, outp=s_output.stdout):
                 soffs = header.get('offset')
                 tick = header.get('tick')
 
-                outp.printf(f'Processing {filename}, offset={soffs}, tick={s_time.repr(tick)}.')
+                outp.printf(f'Loading {filename}, offset={soffs}, tick={s_time.repr(tick)}.')
 
                 eoffs = soffs
                 fini = None
@@ -84,6 +85,9 @@ async def main(argv, outp=s_output.stdout):
                 for item in genr:
                     match item:
                         case ('edit', (eoffs, edit, meta)):
+                            if opts.dryrun:
+                                continue
+
                             await layer.saveNodeEdits(edit, meta=meta)
 
                         case ('fini', info):
@@ -107,7 +111,7 @@ async def main(argv, outp=s_output.stdout):
                     return 1
 
                 else:
-                    outp.printf(f'Completed {filename} with {eoffs + 1 - soffs} edits ({soffs} - {eoffs}).')
+                    outp.printf(f'Successfully loaded {filename} with {eoffs + 1 - soffs} edits ({soffs} - {eoffs}).')
 
     return 0
 
