@@ -727,7 +727,7 @@ class Hex(Type):
             byts = valu.to_bytes(bytelen, 'big', signed=(valu < 0))
             hexval = s_common.ehex(byts)
 
-        except OverflowError as e:
+        except OverflowError as e: # pragma: no cover
             mesg = 'Invalid width.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
