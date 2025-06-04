@@ -687,7 +687,7 @@ class Hex(Type):
             '^=': self._storLiftPref,
         })
 
-    def _preNormHexStr(self, text):
+    def _preNormHex(self, text):
         text = text.strip().lower()
         if text.startswith('0x'):
             text = text[2:]
@@ -696,7 +696,7 @@ class Hex(Type):
     def _storLiftEq(self, cmpr, valu):
 
         if isinstance(valu, str):
-            valu = self._preNormHexStr(valu)
+            valu = self._preNormHex(valu)
             if valu.endswith('*'):
                 return (
                     ('^=', valu[:-1], self.stortype),
@@ -710,7 +710,7 @@ class Hex(Type):
             mesg = f'Hex prefix lift values must be str, not {vtyp}.'
             raise s_exc.BadTypeValu(mesg=mesg, type=vtyp)
 
-        valu = self._preNormHexStr(valu)
+        valu = self._preNormHex(valu)
         return (
             ('^=', valu, self.stortype),
         )
@@ -738,7 +738,7 @@ class Hex(Type):
         return hexval, {}
 
     def _normPyStr(self, valu):
-        valu = self._preNormHexStr(valu)
+        valu = self._preNormHex(valu)
 
         if len(valu) % 2 != 0:
             valu = f'0{valu}'
