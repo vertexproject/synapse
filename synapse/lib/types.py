@@ -705,48 +705,43 @@ class Hex(Type):
         return self._storLiftNorm(cmpr, valu)
 
     def _storLiftPref(self, cmpr, valu):
-        if isinstance(valu, int):
-            valu = hex(self._preNormHexInt(valu)[0])
+        if not isinstance(valu, str):
+            vtyp = type(valu).__name__
+            mesg = f'Hex prefix lift values must be str, not {vtyp}.'
+            raise s_exc.BadTypeValu(mesg=mesg, type=vtyp)
 
         valu = self._preNormHexStr(valu)
         return (
             ('^=', valu, self.stortype),
         )
 
-    def _preNormHexInt(self, valu):
-        if valu >= 0:
-            return valu, '0'
+    def _normPyInt(self, valu):
+        extra = 7
+        if valu < 0:
+            # Negative values need a little more space to store the sign
+            extra = 8
 
-        if not (bits := self._size or self._zeropad):
-            mesg = 'Negative integer conversion requires size or zeropad options.'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=valu, name=self.name)
+        bytelen = max((valu.bit_length() + extra) // 8, self._zeropad // 2)
 
-        if not self._zeropad and self._size and len(self._preNormHexStr(hex(abs(valu)))) != self._size:
+        try:
+            byts = valu.to_bytes(bytelen, 'big', signed=(valu < 0))
+            hexval = s_common.ehex(byts)
+
+        except OverflowError as e:
+            mesg = 'Invalid width.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        if self._size and len(hexval) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,
                                     mesg='Invalid width.')
 
-        # Change from nibbles to bits
-        bits *= 4
+        return hexval, {}
 
-        if bits < valu.bit_length():
-            mesg = 'Value is too large for specified width.'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=valu, maxbits=bits,
-                                    bits=valu.bit_length(), name=self.name)
-
-        mask = int('1' * bits, 2)
-        valu = valu & mask
-
-        return valu, 'f'
-
-    def _normPyInt(self, valu):
-        valu, fillchar = self._preNormHexInt(valu)
-        return self._normPyStr(hex(valu), fillchar=fillchar)
-
-    def _normPyStr(self, valu, fillchar='0'):
+    def _normPyStr(self, valu):
         valu = self._preNormHexStr(valu)
 
         if len(valu) % 2 != 0:
-            valu = f'{fillchar}{valu}'
+            valu = f'0{valu}'
 
         if not valu:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
@@ -754,7 +749,7 @@ class Hex(Type):
 
         if self._zeropad and len(valu) < self._zeropad:
             padlen = self._zeropad - len(valu)
-            valu = (fillchar * padlen) + valu
+            valu = ('0' * padlen) + valu
 
         try:
             # checks for valid hex width and does character

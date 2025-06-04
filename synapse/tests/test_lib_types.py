@@ -339,7 +339,7 @@ class TypesTest(s_t_utils.SynTest):
             # Test norming to index values
             testvectors = [
                 (0xc, '0c'),
-                (-0xc, (s_exc.BadTypeValu, 'Negative integer conversion requires size or zeropad options.')),
+                (-0xc, 'f4'),
                 ('c', '0c'),
                 ('0c', '0c'),
                 ('-0c', (s_exc.BadTypeValu, 'Non-hexadecimal digit found')),
@@ -378,7 +378,7 @@ class TypesTest(s_t_utils.SynTest):
                         t.norm(valu)
                     self.eq(exc.exception.get('mesg'), mesg, f'{valu=}')
 
-            # width = 4
+            # size = 4
             testvectors4 = [
                 (0xc, (s_exc.BadTypeValu, 'Invalid width.')),
                 (-0xc, (s_exc.BadTypeValu, 'Invalid width.')),
@@ -460,8 +460,7 @@ class TypesTest(s_t_utils.SynTest):
                 (0x123456, '00000000000000123456'),
                 (0x12345678, '00000000000012345678'),
                 (0x123456789abcdef123456789abcdef, '123456789abcdef123456789abcdef'),
-                (-0x123456789abcdef123456789abcdef,
-                 (s_exc.BadTypeValu, 'Value is too large for specified width.')),
+                (-0x123456789abcdef123456789abcdef, 'edcba9876543210edcba9876543211'),
                 ('0x12', '00000000000000000012'),
                 ('0x123', '00000000000000000123'),
                 ('0x1234', '00000000000000001234'),
@@ -497,17 +496,15 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:hexa=(0x10001)'))
             self.len(1, await core.nodes('test:hexa=$byts', opts={'vars': {'byts': b'\x01\x00\x01'}}))
 
-            with self.raises(s_exc.BadTypeValu) as exc:
-                await core.callStorm('[test:hexa=(-10)]')
-            self.eq(exc.exception.get('mesg'), 'Negative integer conversion requires size or zeropad options.')
+            nodes = await core.nodes('[test:hexa=(-10)]')
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'f6')
 
-            with self.raises(s_exc.BadTypeValu) as exc:
-                await core.callStorm('test:hexa=(-10)')
-            self.eq(exc.exception.get('mesg'), 'Negative integer conversion requires size or zeropad options.')
+            self.len(1, await core.nodes('test:hexa=(-10)'))
 
             with self.raises(s_exc.BadTypeValu) as exc:
                 await core.callStorm('test:hexa^=(-10)')
-            self.eq(exc.exception.get('mesg'), 'Negative integer conversion requires size or zeropad options.')
+            self.eq(exc.exception.get('mesg'), 'Hex prefix lift values must be str, not int.')
 
             # Do some fancy prefix searches for test:hexa
             valus = ['deadb33f',
@@ -538,9 +535,13 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:hexa=0xf00fb33b00000000]'))
             self.len(1, await core.nodes('test:hexa=0xf00fb33b00000000'))
             self.len(1, await core.nodes('test:hexa^=0xf00fb33b'))
-            self.len(1, await core.nodes('test:hexa^=(0xf00fb33b)'))
             self.len(1, await core.nodes('test:hexa^=0xf00fb33'))
-            self.len(1, await core.nodes('test:hexa^=(0xf00fb33)'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:hexa^=(0xf00fb33b)')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:hexa^=(0xf00fb33)')
 
             # Check creating and lifting zeropadded hex types
             q = '''
