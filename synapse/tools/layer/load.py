@@ -17,6 +17,63 @@ descr = '''
 Import node edits to a Synapse layer.
 '''
 
+async def importLayer(infiles, opts, outp):
+
+    async with await s_telepath.openurl(opts.url) as cell:
+
+        info = await cell.getCellInfo()
+
+        if (celltype := info['cell']['type']) != 'cortex':
+            mesg = f'Layer load tool only works on cortexes, not {celltype}.'
+            raise s_exc.TypeMismatch(mesg=mesg)
+
+        # Get the highest cellvers from all the input files
+        reqver = max([infile[0].get('cellvers') for infile in infiles])
+
+        if (synver := info.get('cell').get('version')) < reqver:
+            synstr = s_version.fmtVersion(*synver)
+            reqstr = s_version.fmtVersion(*reqver)
+            mesg = f'Synapse version mismatch ({synstr} < {reqstr}).'
+            raise s_exc.BadVersion(mesg=mesg)
+
+    async with await s_telepath.openurl(opts.url, name=f'*/layer/{opts.iden}') as layer:
+        for header, filename, genr in infiles:
+            soffs = header.get('offset')
+            tick = header.get('tick')
+
+            outp.printf(f'Loading {filename}, offset={soffs}, tick={s_time.repr(tick)}.')
+
+            eoffs = soffs
+            fini = None
+
+            for item in genr:
+                match item:
+                    case ('edit', (eoffs, edit, meta)):
+                        if opts.dryrun:
+                            continue
+
+                        await layer.saveNodeEdits(edit, meta=meta)
+
+                    case ('fini', info):
+                        fini = info
+                        break
+
+                    case _:
+                        mtype = item[0]
+                        mesg = f'Unexpected message type: {mtype}.'
+                        raise s_exc.BadMesgFormat(mesg=mesg)
+
+            if fini is None:
+                mesg = f'Incomplete/corrupt export: {filename}.'
+                raise s_exc.BadDataValu(mesg=mesg)
+
+            elif (offset := fini.get('offset')) != eoffs:
+                mesg = f'Incomplete/corrupt export: {filename}. Expected offset {offset}, got {eoffs}.'
+                raise s_exc.BadDataValu(mesg=mesg)
+
+            else:
+                outp.printf(f'Successfully loaded {filename} with {eoffs + 1 - soffs} edits ({soffs} - {eoffs}).')
+
 async def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='layer.load', description=descr)
@@ -49,9 +106,6 @@ async def main(argv, outp=s_output.stdout):
     # Sort the files based on their offset
     infiles = sorted(infiles, key=lambda x: x[0].get('offset'))
 
-    # Get the highest cellvers from all the input files
-    reqver = max([infile[0].get('cellvers') for infile in infiles])
-
     outp.printf('Processing the following nodeedits:')
     outp.printf('Offset           | Filename')
     outp.printf('-----------------|----------')
@@ -60,63 +114,12 @@ async def main(argv, outp=s_output.stdout):
         outp.printf(f'{offset:<16d} | {filename}')
 
     async with s_telepath.withTeleEnv():
-
-        async with await s_telepath.openurl(opts.url) as cell:
-
-            info = await cell.getCellInfo()
-
-            if (celltype := info['cell']['type']) != 'cortex':
-                mesg = f'ERROR: load tool only works on cortexes, not {celltype}.'
-                outp.printf(mesg)
-                return 1
-
-            if (synver := info.get('cell').get('version')) < reqver:
-                synstr = s_version.fmtVersion(*synver)
-                reqstr = s_version.fmtVersion(*reqver)
-                mesg = f'Synapse version mismatch ({synstr} < {reqstr}).'
-                outp.printf(mesg)
-                return 1
-
-        async with await s_telepath.openurl(opts.url, name=f'*/layer/{opts.iden}') as layer:
-            for header, filename, genr in infiles:
-                soffs = header.get('offset')
-                tick = header.get('tick')
-
-                outp.printf(f'Loading {filename}, offset={soffs}, tick={s_time.repr(tick)}.')
-
-                eoffs = soffs
-                fini = None
-
-                for item in genr:
-                    match item:
-                        case ('edit', (eoffs, edit, meta)):
-                            if opts.dryrun:
-                                continue
-
-                            await layer.saveNodeEdits(edit, meta=meta)
-
-                        case ('fini', info):
-                            fini = info
-                            break
-
-                        case _:
-                            mtype = item[0]
-                            mesg = f'Unexpected message type: {mtype}.'
-                            outp.printf(mesg)
-                            return 1
-
-                if fini is None:
-                    mesg = f'Incomplete/corrupt export: {filename}.'
-                    outp.printf(mesg)
-                    return 1
-
-                elif (offset := fini.get('offset')) != eoffs:
-                    mesg = f'Incomplete/corrupt export: {filename}. Expected offset {offset}, got {eoffs}.'
-                    outp.printf(mesg)
-                    return 1
-
-                else:
-                    outp.printf(f'Successfully loaded {filename} with {eoffs + 1 - soffs} edits ({soffs} - {eoffs}).')
+        try:
+            await importLayer(infiles, opts, outp)
+        except s_exc.SynErr as exc:
+            mesg = exc.get('mesg')
+            outp.printf(f'ERROR: {mesg}.')
+            return 1
 
     return 0
 

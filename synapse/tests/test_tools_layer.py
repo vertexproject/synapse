@@ -44,7 +44,7 @@ class LayerTest(s_test.SynTest):
 
                 outp = s_output.OutPutStr()
                 self.eq(0, await s_t_dump.main(argv, outp=outp))
-                self.isin(f'Successfully exported layer {layr00iden} from cortex {core.iden}.', str(outp))
+                self.isin(f'Successfully exported layer {layr00iden}.', str(outp))
 
                 for ii in range(soffs, eoffs - chunksize, chunksize):
                     path = s_common.genpath(dirn, f'{core.iden}.{layr00iden}.{ii}-{ii + chunksize - 1}.nodeedits')
@@ -75,6 +75,39 @@ class LayerTest(s_test.SynTest):
                 self.nn(msgs[11][1].get('tock'))
                 self.isinstance(msgs[11][1].get('tock'), int)
 
+            # Test state tracking
+            # with self.getTestDir() as dirn:
+            #     argv = (
+            #         '--url', url,
+            #         '--chunksize', str(chunksize),
+            #         '--outdir', dirn,
+            #         '--offset', str(soffs),
+            #         layr00iden,
+            #     )
+
+            #     outp = s_output.OutPutStr()
+            #     self.eq(0, await s_t_dump.main(argv, outp=outp))
+            #     self.isin(f'Successfully exported layer {layr00iden}.', str(outp))
+
+            #     state = s_common.yamlload(dirn, 'layer.dump.yaml')
+            #     self.eq(state, {'offset:next': eoffs})
+
+            #     opts = {'view': view00.get('iden')}
+            #     nodes = await core.nodes('[ inet:ipv4=10.0.0.1 ]', opts=opts)
+            #     self.len(1, nodes)
+
+            #     argv = (
+            #         '--url', url,
+            #         '--outdir', s_common.genpath(dirn, 'next'),
+            #         '--state', s_common.genpath(dirn, 'state.yaml'),
+            #         '--offset', str(soffs),
+            #         layr00iden,
+            #     )
+
+            #     outp = s_output.OutPutStr()
+            #     self.eq(0, await s_t_dump.main(argv, outp=outp))
+            #     self.isin(f'Successfully exported layer {layr00iden}.', str(outp))
+
     async def test_tools_layer_dump_errors(self):
 
         # Non-cortex cell
@@ -88,7 +121,7 @@ class LayerTest(s_test.SynTest):
                 argv = ('--url', url, s_common.guid(), filename)
                 outp = s_output.OutPutStr()
                 self.eq(1, await s_t_load.main(argv, outp=outp))
-                self.isin(f'ERROR: load tool only works on cortexes, not cell.', str(outp))
+                self.isin(f'ERROR: Layer load tool only works on cortexes, not cell.', str(outp))
 
         async with self.getTestCore() as core:
 
@@ -137,18 +170,18 @@ class LayerTest(s_test.SynTest):
                 self.eq(1, await s_t_dump.main(argv, outp=outp))
                 self.isin(f'ERROR: Specified output directory {filename} exists but is not a directory.', str(outp))
 
-                # Handle requested starting offset being different than returned offset
+                # Invalid layer iden
+                newpiden = s_common.guid()
                 argv = (
                     '--url', url,
                     '--chunksize', str(chunksize),
                     '--outdir', dirn,
-                    '--offset', str(soffs - 1),
-                    layr00iden,
+                    newpiden,
                 )
 
                 outp = s_output.OutPutStr()
                 self.eq(1, await s_t_dump.main(argv, outp=outp))
-                self.isin(f'ERROR: First offset ({soffs}) differs from requested starting offset ({soffs - 1}).', str(outp))
+                self.isin(f'ERROR: No such layer {newpiden}.', str(outp))
 
     async def test_tools_layer_load(self):
         async with self.getTestCore() as core:
@@ -181,14 +214,14 @@ class LayerTest(s_test.SynTest):
 
                 outp = s_output.OutPutStr()
                 self.eq(0, await s_t_dump.main(argv, outp=outp))
-                self.isin(f'Successfully exported layer {layr00iden} from cortex {core.iden}.', str(outp))
+                self.isin(f'Successfully exported layer {layr00iden}.', str(outp))
 
                 # Verify layr01 is empty
                 opts = {'view': view01.get('iden')}
                 nodes = await core.nodes('inet:ipv4', opts=opts)
                 self.len(0, nodes)
 
-                files = [os.path.join(dirn, k) for k in os.listdir(dirn)]
+                files = [os.path.join(dirn, k) for k in os.listdir(dirn) if k.endswith('.nodeedits')]
                 self.len(1, files)
 
                 # Import to layr01
@@ -245,7 +278,7 @@ class LayerTest(s_test.SynTest):
                 argv = ('--url', url, iden, filename)
                 outp = s_output.OutPutStr()
                 self.eq(1, await s_t_load.main(argv, outp=outp))
-                self.isin(f'ERROR: load tool only works on cortexes, not cell.', str(outp))
+                self.isin(f'ERROR: Layer load tool only works on cortexes, not cell.', str(outp))
 
         # Non-existent file
         argv = (iden, 'newp')
