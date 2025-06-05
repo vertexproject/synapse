@@ -1874,6 +1874,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'leader': ahalead,
             'urlinfo': urlinfo,
             'ready': ready,
+            'isleader': self.isactive,
         }
 
         return ahainfo
@@ -1907,9 +1908,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     proxy = await self.ahaclient.proxy()
 
                     info = await self.getAhaInfo()
-                    await proxy.addAhaSvc(ahaname, info, network=ahanetw)
+                    await proxy.addAhaSvc(f'{ahaname}...', info)
                     if self.isactive and ahalead is not None:
-                        await proxy.addAhaSvc(ahalead, info, network=ahanetw)
+                        await proxy.addAhaSvc(f'{ahalead}...', info)
 
                 except Exception as e:
                     logger.exception(f'Error registering service {self.ahasvcname} with AHA: {e}')
@@ -2129,9 +2130,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await proxy.fini()
             return
 
-        ahanetw = self.conf.req('aha:network')
         try:
-            await proxy.addAhaSvc(ahalead, ahainfo, network=ahanetw)
+            await proxy.addAhaSvc(f'{ahalead}...', ahainfo)
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:  # pragma: no cover
