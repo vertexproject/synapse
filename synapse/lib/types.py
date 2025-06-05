@@ -728,8 +728,8 @@ class Hex(Type):
             hexval = s_common.ehex(byts)
 
         except OverflowError as e: # pragma: no cover
-            mesg = 'Invalid width.'
-            raise s_exc.BadTypeValu(mesg=mesg)
+            mesg = f'Invalid width for {valu}.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name)
 
         if self._size and len(hexval) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,
