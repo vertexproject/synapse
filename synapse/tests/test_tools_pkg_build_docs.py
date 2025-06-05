@@ -3,6 +3,7 @@ import os
 import sys
 import json
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
@@ -71,11 +72,13 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
                 sys.stdin = old_stdin
 
             # pandoc failure
+            outp = self.getTestOutp()
             oldv = s_t_build_docs.PANDOC_FILTER
             try:
                 s_t_build_docs.PANDOC_FILTER = os.path.join(dirn, 'newp.py')
-                with self.raises(AssertionError) as cm:
-                    await s_t_build_docs.main([os.path.join(dirn, 'testpkg.yaml'),])
-                self.isin('Error converting', str(cm.exception))
+                with self.raises(s_exc.SynErr) as cm:
+                    await s_t_build_docs.main([os.path.join(dirn, 'testpkg.yaml'),], outp=outp)
+                self.isin('Error converting', cm.exception.get('mesg'))
+                outp.expect('ERR: Error running filter')
             finally:
                 s_t_build_docs.PANDOC_FILTER = oldv

@@ -8,6 +8,7 @@ import subprocess
 
 import regex as re
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
@@ -32,12 +33,12 @@ def hasPandoc():
         return True
     return False
 
-async def buildPkgDocs(opts):
+async def buildPkgDocs(outp: s_output.OutPut, pkgpath: str, rst_only: bool =False):
 
-    pkgpath = opts.pkgfile
     logger.info(f'Building pkg for {pkgpath}')
     pkgdef = s_common.yamlload(pkgpath)
-    assert pkgdef is not None
+    if pkgdef is None:
+        raise s_exc.BadArg(mesg=f'Package does not exist or does not contain yaml: {pkgpath}')
 
     dirn = os.path.dirname(s_common.genpath(pkgpath))
 
@@ -66,7 +67,7 @@ async def buildPkgDocs(opts):
         pkgdocs, pkgname = await s_autodoc.docStormpkg(pkgpath)
         with s_common.genfile(docsdir, 'stormpackage.rst') as fd:
             text = pkgdocs.getRstText()
-            if opts.rst_only is False:
+            if rst_only is False:
                 # Leave this in place if we're only generating RST
                 text = text.replace('.. highlight:: none\n', '')
             fd.write(text.encode())
@@ -88,7 +89,7 @@ async def buildPkgDocs(opts):
         logger.info(f'Executing rstorm for {argv}')
         await s_rstorm.main(argv)
 
-        if opts.rst_only:
+        if rst_only:
             logger.info(f'rst_only enabled, done processing {name}')
             continue
 
@@ -126,11 +127,12 @@ async def buildPkgDocs(opts):
 
         r = subprocess.run(args, capture_output=True)
 
-        # Re-dump stderr (logging) to our stderr
+        # Re-write stderr (logging) to our outp
         for line in r.stderr.decode().splitlines():
-            sys.stderr.write(line + '\n')
+            outp.printf(f'ERR: {line}')
 
-        assert r.returncode == 0, f'Error converting {builtrst} to {builtmd}'
+        if r.returncode != 0:
+            raise s_exc.SynErr(mesg=f'Error converting {builtrst} to {builtmd}')
 
         logger.info(f'Done converting {builtrst} to {builtmd}')
 
@@ -156,7 +158,7 @@ async def buildPkgDocs(opts):
 prog = 'synapse.tools.pkg.build_docs'
 desc = 'A tool for building storm package docs from RStorm into markdown. This tool requires pandoc to be available.'
 
-async def main(argv):
+async def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog=prog, description=desc)
     pars.add_argument('pkgfile', metavar='<pkgfile>', help='Path to a storm package prototype yml file.')
@@ -169,7 +171,7 @@ async def main(argv):
         logger.error('Pandoc is not available, can only run rst/rstorm output.')
         return 1
 
-    await buildPkgDocs(opts)
+    await buildPkgDocs(outp, opts.pkgfile, rst_only=opts.rst_only)
 
     return 0
 
