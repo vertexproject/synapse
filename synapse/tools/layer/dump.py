@@ -53,6 +53,10 @@ async def exportLayer(opts, outp):
 
         finished = False
 
+        genr = layer.syncNodeEdits2(soffs, wait=False)
+
+        nodeiter = aiter(genr)
+
         while not finished:
 
             kwargs = {}
@@ -62,11 +66,12 @@ async def exportLayer(opts, outp):
 
             with tempfile.NamedTemporaryFile(dir=opts.outdir, delete=False, **kwargs) as fd:
 
-                genr = layer.syncNodeEdits2(soffs, wait=False)
+                try:
+                    # Pull the first edit so we can get the starting offset
+                    first = await anext(nodeiter)
+                except StopAsyncIteration:
+                    break
 
-                # Pull the first edit so we can get the starting offset
-                nodeiter = aiter(genr)
-                first = await anext(nodeiter)
                 soffs = first[0]
 
                 count = 1
