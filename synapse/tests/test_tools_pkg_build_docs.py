@@ -13,6 +13,11 @@ import synapse.tools.pkg.pandoc_filter as s_t_pandoc_filter
 
 class TestPkgBuildDocs(s_t_utils.SynTest):
 
+    def setUp(self):
+        if not s_t_build_docs.hasPandoc():
+            self.skip('pandoc is not available')
+        super().setUp()
+
     async def test_pkg_builddocs(self):
 
         with self.getTestDir(mirror='testpkg_build_docs') as dirn:
