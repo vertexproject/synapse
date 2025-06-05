@@ -651,9 +651,10 @@ class Hex(Type):
 
     def postTypeInit(self):
         self._size = self.opts.get('size')
+        self._zeropad = self.opts.get('zeropad')
 
         # This is for backward compat with v2.142.x where zeropad was a bool
-        self._zeropad = self.opts.get('zeropad')
+        # TODO: Remove this compat check in 3xx
         if isinstance(self._zeropad, bool):
             if self._zeropad:
                 self._zeropad = self._size
@@ -678,6 +679,7 @@ class Hex(Type):
         if self._size:
             self._zeropad = min(self._zeropad, self._size)
 
+        self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(bytes, self._normPyBytes)
         self.storlifts.update({
@@ -703,21 +705,47 @@ class Hex(Type):
         return self._storLiftNorm(cmpr, valu)
 
     def _storLiftPref(self, cmpr, valu):
+        if not isinstance(valu, str):
+            vtyp = type(valu).__name__
+            mesg = f'Hex prefix lift values must be str, not {vtyp}.'
+            raise s_exc.BadTypeValu(mesg=mesg, type=vtyp, name=self.name)
+
         valu = self._preNormHex(valu)
         return (
             ('^=', valu, self.stortype),
         )
 
-    def _normPyStr(self, valu):
-        valu = valu.strip().lower()
-        if valu.startswith('0x'):
-            valu = valu[2:]
+    def _normPyInt(self, valu):
+        extra = 7
+        if valu < 0:
+            # Negative values need a little more space to store the sign
+            extra = 8
 
-        valu = valu.replace(' ', '').replace(':', '')
+        bytelen = max((valu.bit_length() + extra) // 8, self._zeropad // 2)
+
+        try:
+            byts = valu.to_bytes(bytelen, 'big', signed=(valu < 0))
+            hexval = s_common.ehex(byts)
+
+        except OverflowError as e: # pragma: no cover
+            mesg = f'Invalid width for {valu}.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name)
+
+        if self._size and len(hexval) != self._size:
+            raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,
+                                    mesg='Invalid width.')
+
+        return hexval, {}
+
+    def _normPyStr(self, valu):
+        valu = self._preNormHex(valu)
+
+        if len(valu) % 2 != 0:
+            valu = f'0{valu}'
 
         if not valu:
-            raise s_exc.BadTypeValu(valu=valu, name='hex',
-                                    mesg='No string left after stripping')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='No string left after stripping.')
 
         if self._zeropad and len(valu) < self._zeropad:
             padlen = self._zeropad - len(valu)
@@ -732,7 +760,7 @@ class Hex(Type):
 
         if self._size and len(valu) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,
-                                    mesg='invalid width')
+                                    mesg='Invalid width.')
         return valu, {}
 
     def _normPyBytes(self, valu):
