@@ -1158,9 +1158,10 @@ class AhaCell(s_cell.Cell):
         svcentry = await self.jsonstor.getPathObj(path)
 
         if svcentry is not None:
+
             # if they requested a mirror, try to locate one
             if filters is not None and filters.get('mirror'):
-                ahanetw = svcentry.get('ahanetw')
+
                 svcinfo = svcentry.get('svcinfo')
                 if svcinfo is None: # pragma: no cover
                     return svcentry
@@ -1195,7 +1196,6 @@ class AhaCell(s_cell.Cell):
     async def getAhaSvcMirrors(self, iden):
 
         retn = {}
-        skip = None
 
         async for svcentry in self.getAhaSvcs():
 
@@ -1212,15 +1212,10 @@ class AhaCell(s_cell.Cell):
             if not svcinfo.get('ready'):
                 continue
 
-            # if we run across the leader, skip ( and mark his run )
-            if svcentry.get('svcname') == svcinfo.get('leader'):
-                skip = svcinfo.get('run')
+            if svcinfo.get('isleader'):
                 continue
 
             retn[svcinfo.get('run')] = svcentry
-
-        if skip is not None:
-            retn.pop(skip, None)
 
         return list(retn.values())
 

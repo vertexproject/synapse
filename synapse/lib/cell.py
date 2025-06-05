@@ -3993,6 +3993,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.warning(f'Bootstrap mirror from: {murl} DONE!')
 
     async def getMirrorUrls(self):
+
         if self.ahaclient is None:
             raise s_exc.BadConfValu(mesg='Enumerating mirror URLs is only supported when AHA is configured')
 
@@ -4004,7 +4005,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'Service must be configured with AHA to enumerate mirror URLs'
             raise s_exc.NoSuchName(mesg=mesg, name=self.ahasvcname)
 
-        return [f'aha://{svc["svcname"]}.{svc["svcnetw"]}' for svc in mirrors]
+        print(repr(mirrors))
+
+        return [f'aha://{svc["name"]}' for svc in mirrors]
 
     @classmethod
     async def initFromArgv(cls, argv, outp=None):
