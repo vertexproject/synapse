@@ -2592,10 +2592,10 @@ class CellTest(s_t_utils.SynTest):
                     viewiden = view.get('iden')
 
                     opts = {'view': viewiden}
-                    with self.getLoggerStream('synapse.lib.lmdbslab',
+                    with self.getAsyncLoggerStream('synapse.lib.lmdbslab',
                                               'Error during slab resize callback - foo') as stream:
-                        nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ipv4=$x]}', opts=opts)
-                        self.true(stream.wait(1))
+                        msgs = await core.stormlist('for $x in $lib.range(200) {[test:int=$x]}', opts=opts)
+                        self.true(await stream.wait(timeout=30))
 
         async with self.getTestCore() as core:
 

@@ -1,0 +1,6 @@
+---
+desc: Updated the scrape logic for ``inet:url`` to recognize URLs surrounded by smart
+  quotes (``U+2018``, ``U+2019``, ``U+201C``, ``U+201D``).
+prs: []
+type: feat
+...
