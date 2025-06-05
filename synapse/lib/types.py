@@ -708,7 +708,7 @@ class Hex(Type):
         if not isinstance(valu, str):
             vtyp = type(valu).__name__
             mesg = f'Hex prefix lift values must be str, not {vtyp}.'
-            raise s_exc.BadTypeValu(mesg=mesg, type=vtyp)
+            raise s_exc.BadTypeValu(mesg=mesg, type=vtyp, name=self.name)
 
         valu = self._preNormHex(valu)
         return (
