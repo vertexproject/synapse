@@ -66,6 +66,15 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
             self.eq('', text)
 
         with self.getTestDir(mirror='testpkg_build_docs') as dirn:
+
+            # Missing input files
+            testpkgfp = os.path.join(dirn, 'newp.yaml')
+            self.false(os.path.isfile(testpkgfp))
+            argv = [testpkgfp, ]
+            with self.raises(s_exc.BadArg) as cm:
+                await s_t_build_docs.main(argv)
+            self.isin('Package does not exist or does not contain yaml', cm.exception.get('mesg'))
+
             # pandoc api version check coverage
             old_stdin = sys.stdin
             try:
