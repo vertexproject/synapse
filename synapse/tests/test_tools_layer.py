@@ -76,37 +76,45 @@ class LayerTest(s_test.SynTest):
                 self.isinstance(msgs[11][1].get('tock'), int)
 
             # Test state tracking
-            # with self.getTestDir() as dirn:
-            #     argv = (
-            #         '--url', url,
-            #         '--chunksize', str(chunksize),
-            #         '--outdir', dirn,
-            #         '--offset', str(soffs),
-            #         layr00iden,
-            #     )
+            with self.getTestDir() as dirn:
+                # Check state file is written
+                argv = (
+                    '--url', url,
+                    '--chunksize', str(chunksize),
+                    '--outdir', dirn,
+                    '--offset', str(soffs),
+                    layr00iden,
+                )
 
-            #     outp = s_output.OutPutStr()
-            #     self.eq(0, await s_t_dump.main(argv, outp=outp))
-            #     self.isin(f'Successfully exported layer {layr00iden}.', str(outp))
+                outp = s_output.OutPutStr()
+                self.eq(0, await s_t_dump.main(argv, outp=outp))
+                self.isin(f'Successfully exported layer {layr00iden}.', str(outp))
 
-            #     state = s_common.yamlload(dirn, 'layer.dump.yaml')
-            #     self.eq(state, {'offset:next': eoffs})
+                state = s_common.yamlload(dirn, f'{core.iden}.{layr00iden}.yaml')
+                self.eq(state, {'offset:next': eoffs})
 
-            #     opts = {'view': view00.get('iden')}
-            #     nodes = await core.nodes('[ inet:ipv4=10.0.0.1 ]', opts=opts)
-            #     self.len(1, nodes)
+                # Check state file is read
+                opts = {'view': view00.get('iden')}
+                nodes = await core.nodes('[ inet:ipv4=10.0.0.0/24 ]', opts=opts)
+                self.len(256, nodes)
 
-            #     argv = (
-            #         '--url', url,
-            #         '--outdir', s_common.genpath(dirn, 'next'),
-            #         '--state', s_common.genpath(dirn, 'state.yaml'),
-            #         '--offset', str(soffs),
-            #         layr00iden,
-            #     )
+                state = {'offset:next': eoffs + 1}
+                statefile = s_common.genpath(dirn, 'state.yaml')
+                s_common.yamlsave(state, statefile)
 
-            #     outp = s_output.OutPutStr()
-            #     self.eq(0, await s_t_dump.main(argv, outp=outp))
-            #     self.isin(f'Successfully exported layer {layr00iden}.', str(outp))
+                argv = (
+                    '--url', url,
+                    '--outdir', s_common.genpath(dirn, 'next'),
+                    '--statefile', statefile,
+                    layr00iden,
+                )
+
+                outp = s_output.OutPutStr()
+                self.eq(0, await s_t_dump.main(argv, outp=outp))
+                self.isin(f'Successfully exported layer {layr00iden}.', str(outp))
+
+                state = s_common.yamlload(dirn, statefile)
+                self.eq(state, {'offset:next': eoffs + 256})
 
     async def test_tools_layer_dump_errors(self):
 

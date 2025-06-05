@@ -17,30 +17,41 @@ descr = '''
 Export node edits from a Synapse layer.
 '''
 
-async def exportLayer(opts):
+async def exportLayer(opts, outp):
 
     async with await s_telepath.openurl(opts.url) as cell:
 
         info = await cell.getCellInfo()
 
         if (celltype := info['cell']['type']) != 'cortex':
-            mesg = f'Layer dump tool only works on cortexes, not {celltype}.'
+            mesg = f'Layer dump tool only works on cortexes, not {celltype}'
             raise s_exc.TypeMismatch(mesg=mesg)
 
         celliden = info['cell']['iden']
         cellvers = info['cell']['version']
 
+    # Find and read state file
+    state = {}
+    statefile = opts.statefile
+    if statefile is None:
+        statefile = s_common.genpath(opts.outdir, f'{celliden}.{opts.iden}.yaml')
+
+    if (data := s_common.yamlload(statefile)) is not None:
+        state = data
+
+    if (soffs := opts.offset) is None:
+        soffs = state.get('offset:next', 0)
+
+    eoffs = None
+
     async with await s_telepath.openurl(opts.url, name=f'*/layer/{opts.iden}') as layer:
 
         # Handle no edits to export
-        if opts.offset >= await layer.getEditIndx():
-            mesg = f'No edits to export starting from offset ({opts.offset}).'
+        if soffs >= await layer.getEditIndx():
+            mesg = f'No edits to export starting from offset ({soffs})'
             raise s_exc.BadArg(mesg=mesg)
 
         finished = False
-
-        soffs = opts.offset
-        eoffs = None
 
         while not finished:
 
@@ -66,11 +77,11 @@ async def exportLayer(opts):
                     {
                         'hdrvers': 1,
                         'celliden': celliden,
+                        'cellvers': cellvers,
                         'layriden': opts.iden,
                         'offset': soffs,
                         'chunksize': opts.chunksize,
                         'tick': s_common.now(),
-                        'cellvers': cellvers,
                     }
                 )))
 
@@ -102,9 +113,14 @@ async def exportLayer(opts):
 
             path = os.path.join(opts.outdir, f'{celliden}.{opts.iden}.{soffs}-{eoffs}.nodeedits')
             os.rename(tmpname, path)
+            outp.printf(f'Wrote layer node edits {soffs}-{eoffs} to {path}.')
 
             # Update start offset for next loop
             soffs = eoffs + 1
+
+    # Save state file
+    state['offset:next'] = eoffs + 1
+    s_common.yamlsave(state, statefile)
 
     return 0
 
@@ -112,9 +128,10 @@ async def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='layer.dump', description=descr)
     pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
-    pars.add_argument('--offset', default=0, type=int, help='The starting offset of the node edits to export.')
+    pars.add_argument('--offset', default=None, type=int, help='The starting offset of the node edits to export.')
     pars.add_argument('--chunksize', default=100_000, type=int, help='The number of node edits to store in a single file.')
     pars.add_argument('--outdir', default='.', help='The directory to save the exported node edits to.')
+    pars.add_argument('--statefile', type=str, default=None, help='Path to the state tracking file for this layer dump.')
 
     pars.add_argument('iden', help='The iden of the layer to export.')
 
@@ -129,7 +146,7 @@ async def main(argv, outp=s_output.stdout):
 
     async with s_telepath.withTeleEnv():
         try:
-            await exportLayer(opts)
+            await exportLayer(opts, outp)
         except s_exc.SynErr as exc:
             mesg = exc.get('mesg')
             outp.printf(f'ERROR: {mesg}.')
