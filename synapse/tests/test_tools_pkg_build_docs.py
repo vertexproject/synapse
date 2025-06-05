@@ -13,7 +13,7 @@ import synapse.tools.pkg.pandoc_filter as s_t_pandoc_filter
 
 class TestPkgBuildDocs(s_t_utils.SynTest):
 
-    async def test_buildpkg(self):
+    async def test_pkg_builddocs(self):
 
         with self.getTestDir(mirror='testpkg_build_docs') as dirn:
             testpkgfp = os.path.join(dirn, 'testpkg.yaml')
