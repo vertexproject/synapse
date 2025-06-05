@@ -126,10 +126,10 @@ class LayerTest(s_test.SynTest):
                     fd.write(s_msgpack.en(('init', {'offset': 0, 'cellvers': s_version.version})))
 
                 url = cell.getLocalUrl()
-                argv = ('--url', url, s_common.guid(), filename)
+                argv = ('--url', url, s_common.guid())
                 outp = s_output.OutPutStr()
-                self.eq(1, await s_t_load.main(argv, outp=outp))
-                self.isin(f'ERROR: Layer load tool only works on cortexes, not cell.', str(outp))
+                self.eq(1, await s_t_dump.main(argv, outp=outp))
+                self.isin(f'ERROR: Layer dump tool only works on cortexes, not cell.', str(outp))
 
         async with self.getTestCore() as core:
 

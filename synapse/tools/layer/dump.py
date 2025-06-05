@@ -69,7 +69,7 @@ async def exportLayer(opts, outp):
                 try:
                     # Pull the first edit so we can get the starting offset
                     first = await anext(nodeiter)
-                except StopAsyncIteration:
+                except StopAsyncIteration: # pragma: no cover
                     break
 
                 soffs = first[0]
