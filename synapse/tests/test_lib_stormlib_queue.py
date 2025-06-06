@@ -59,78 +59,6 @@ class TestLibStormQueue(s_test.SynTest):
             val = await core.callStorm(f'$q = $lib.queue.get({iden}) return($q.get().1)')
             self.eq(val, 'woot')
 
-    async def test_stormlib_queue_all_perms(self):
-
-        async def delRules(user):
-            for rule in list(user.getRules()):
-                await user.delRule(rule)
-
-        async with self.getTestCore() as core:
-            user = await core.auth.addUser('permuser')
-            opts = {'user': user.iden}
-
-            # No permissions, all actions denied
-            for storm, exc in [
-                ('$lib.queue.add(q)', s_exc.AuthDeny),
-                ('$lib.queue.get(q)', s_exc.AuthDeny),
-                ('$lib.queue.del(q)', s_exc.AuthDeny),
-            ]:
-                with self.raises(exc):
-                    await core.callStorm(storm, opts=opts)
-
-            # Grant add only, other actions denied
-            await user.addRule((True, ('queue', 'add')))
-            qiden = await core.callStorm('$q = $lib.queue.add(q) return($q.iden)', opts=opts)
-            for storm, exc in [
-                ('$lib.queue.get(q)', s_exc.AuthDeny),
-                ('$lib.queue.getByName(q)', s_exc.AuthDeny),
-                ('$lib.queue.del(q)', s_exc.AuthDeny),
-                ('$q = $lib.queue.get(q) $q.put(woot)', s_exc.AuthDeny),
-            ]:
-                with self.raises(exc):
-                    await core.callStorm(storm, opts=opts)
-
-            # Grant get only, other actions denied
-            await delRules(user)
-            await user.addRule((True, ('queue', 'get')))
-            await core.callStorm('$lib.queue.getByName(q)', opts=opts)
-            for storm, exc in [
-                ('$lib.queue.add(q2)', s_exc.AuthDeny),
-                ('$lib.queue.del(q)', s_exc.AuthDeny),
-                ('$q = $lib.queue.getByName(q) $q.put(woot)', s_exc.AuthDeny),
-            ]:
-                with self.raises(exc):
-                    await core.callStorm(storm, opts=opts)
-
-            # Grant get/put, other actions denied
-            await delRules(user)
-            await user.addRule((True, ('queue', 'get')))
-            await user.addRule((True, ('queue', 'put')))
-            await core.callStorm('$q = $lib.queue.getByName(q) $q.put(woot)', opts=opts)
-            for storm, exc in [
-                ('$lib.queue.add(q2)', s_exc.AuthDeny),
-                ('$lib.queue.del(q)', s_exc.AuthDeny),
-            ]:
-                with self.raises(exc):
-                    await core.callStorm(storm, opts=opts)
-
-            # Grant del only, other actions denied
-            await delRules(user)
-            await user.addRule((True, ('queue', 'del')))
-            await core.callStorm(f'$lib.queue.del({qiden})', opts=opts)
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm('$lib.queue.add(q2)', opts=opts)
-
-            # Grant all
-            await delRules(user)
-            for perm in ['add', 'get', 'put', 'del']:
-                await user.addRule((True, ('queue', perm)))
-            await core.callStorm('$lib.queue.add(q)', opts=opts)
-            await core.callStorm('$lib.queue.getByName(q)', opts=opts)
-            await core.callStorm('$q = $lib.queue.getByName(q) $q.put(woot)', opts=opts)
-            qiden = await core.callStorm('$q = $lib.queue.getByName(q) return($q.iden)', opts=opts)
-            await core.callStorm(f'$lib.queue.del({qiden})', opts=opts)
-
     async def test_stormlib_queue_iden_perms(self):
         async with self.getTestCore() as core:
             user = await core.auth.addUser('idenspec')
@@ -150,3 +78,28 @@ class TestLibStormQueue(s_test.SynTest):
             qlist = await core.callStorm('return($lib.queue.list())', opts=opts)
             self.true(any(q['name'] == 'idq' for q in qlist))
             self.false(any(q['name'] == 'idq2' for q in qlist))
+
+    async def test_stormlib_queue_authgate_perms(self):
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            user = await core.auth.addUser('authgateuser')
+            qiden = await core.callStorm('$q = $lib.queue.add(authgateq) return($q.iden)')
+
+            async with core.getLocalProxy(user='authgateuser') as usercore:
+                with self.raises(s_exc.AuthDeny):
+                    await usercore.callStorm(f'$lib.queue.get({qiden})')
+
+            rule = (True, ('queue', 'get'))
+            await user.addRule(rule, gateiden=qiden)
+            async with core.getLocalProxy(user='authgateuser') as usercore:
+                await usercore.callStorm(f'$lib.queue.get({qiden})')
+
+            rule = (True, ('queue', 'put'))
+            await prox.addUserRule(user.iden, rule, gateiden=qiden)
+            async with core.getLocalProxy(user='authgateuser') as usercore:
+                await usercore.callStorm(f'$q = $lib.queue.get({qiden}) $q.put(woot)')
+
+            rule = (True, ('queue', 'del'))
+            await prox.addUserRule(user.iden, rule, gateiden=qiden)
+            async with core.getLocalProxy(user='authgateuser') as usercore:
+                await usercore.callStorm(f'$lib.queue.del({qiden})')
