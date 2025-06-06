@@ -45,12 +45,12 @@ class AxonToolsTest(s_t_utils.SynTest):
                         self.eq(out, blob)
 
     async def test_axon_dump_and_load_args(self):
-        argv = [ '--wrong-size', '1000' ]
+        argv = ['--wrong-size', '1000']
         outp = s_output.OutPutStr()
         self.eq(1, await axon_dump.main(argv, outp=outp))
         self.isin('usage: synapse.tools.axon.dump', str(outp))
 
-        argv = [ '--wrong-size', '1000' ]
+        argv = ['--wrong-size', '1000']
         outp = s_output.OutPutStr()
         self.eq(1, await axon_load.main(argv, outp=outp))
         self.isin('usage: synapse.tools.axon.load', str(outp))
@@ -67,7 +67,7 @@ class AxonToolsTest(s_t_utils.SynTest):
                 with open(blobsfile, 'wb') as fd:
                     fd.write(s_msgpack.en(('blob:init', {})))
                 url = f'cell://baduser:badpass@/{axon.dirn}'
-                argv = [ '--url', url, blobsfile ]
+                argv = ['--url', url, blobsfile]
                 outp = s_output.OutPutStr()
                 self.eq(1, await axon_load.main(argv, outp=outp))
                 self.isin('No such user', str(outp))
@@ -85,7 +85,7 @@ class AxonToolsTest(s_t_utils.SynTest):
                 dumpdir = os.path.join(testdir, 'dumpdir')
                 os.makedirs(dumpdir)
                 url = f'cell://baduser:badpass@/{axon.dirn}'
-                argv = [ '--url', url, '--offset', '0', dumpdir ]
+                argv = ['--url', url, '--offset', '0', dumpdir]
                 outp = s_output.OutPutStr()
                 self.eq(1, await axon_dump.main(argv, outp=outp))
                 self.isin('No such user', str(outp))
@@ -300,7 +300,7 @@ class AxonToolsTest(s_t_utils.SynTest):
                 dumpfile = os.path.join(dumpdir, os.listdir(dumpdir)[0])
                 with open(dumpfile, 'rb') as fd:
                     items = list(s_msgpack.iterfd(fd))
-                for i in range(len(items)-1, -1, -1):
+                for i in range(len(items) -1, -1, -1):
                     if type(items[i]) is bytes:
                         items = items[:i]
                         break
@@ -362,7 +362,6 @@ class AxonToolsTest(s_t_utils.SynTest):
                 ]
                 outp = s_output.OutPutStr()
                 self.eq(0, await axon_load.main(argv, outp=outp))
-                
                 outstr = str(outp)
                 idx1 = outstr.find(valid1)
                 idx2 = outstr.find(valid2)

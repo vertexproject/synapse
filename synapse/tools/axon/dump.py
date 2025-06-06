@@ -41,7 +41,7 @@ async def dumpBlobs(opts, outp):
     except Exception as e:
         mesg = f'Error connecting to Axon url: {e}'
         return (False, mesg)
-    
+
     try:
         cellinfo = await axon.getCellInfo()
         if (celltype := cellinfo['cell']['type']) != 'axon':
@@ -122,7 +122,7 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--url', default='cell:///vertex/storage', help='Telepath URL for the Axon.')
     pars.add_argument('--offset', type=int, default=0, help='Starting offset in the Axon.')
     pars.add_argument('--limit', type=int, default=None, help='Optional ending offset (exclusive).')
-    pars.add_argument('--rotate-size', type=int, default=DEFAULT_ROTATE_SIZE, 
+    pars.add_argument('--rotate-size', type=int, default=DEFAULT_ROTATE_SIZE,
                       help='Rotate to a new .blobs file if the current file exceeds this size in bytes (default: 4GB).')
     pars.add_argument('outdir', nargs='?', default='.', help='Directory to dump blob files.')
 
