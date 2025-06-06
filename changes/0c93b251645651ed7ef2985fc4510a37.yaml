@@ -1,0 +1,7 @@
+---
+desc: Added ``synapse.tools.layer.dump`` and ``synapse.tools.layer.load`` command
+  line tools for exporting node edits from one layer and importing them to a layer
+  on a different cortex.
+prs: []
+type: feat
+...
