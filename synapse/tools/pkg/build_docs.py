@@ -19,8 +19,6 @@ import synapse.tools.autodoc as s_autodoc
 
 logger = logging.getLogger(__name__)
 
-logging.getLogger('vcr').setLevel(logging.WARNING)
-
 _TOOLDIR = os.path.split(__file__)[0]
 PANDOC_FILTER = os.path.join(_TOOLDIR, 'pandoc_filter.py')
 
