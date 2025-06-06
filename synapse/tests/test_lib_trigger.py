@@ -898,3 +898,28 @@ class TrigTest(s_t_utils.SynTest):
             opts = {'vars': {'iden': node.get('iden')}}
             ret = await core.callStorm('return($lib.trigger.mod($iden, ({})))', opts=opts)
             self.eq(ret, node.get('iden'))
+
+    async def test_trigger_interface(self):
+
+        async with self.getTestCore() as core:
+
+            tdef = {'cond': 'prop:set', 'storm': '[ test:int=1 ]', 'prop': 'test:interface:size'}
+            opts = {'vars': {'tdef': tdef}}
+            q = 'return ($lib.trigger.add($tdef))'
+            node = await core.callStorm(q, opts=opts)
+
+            tdef = {'cond': 'prop:set', 'storm': '[ test:int=2 ]', 'prop': 'inet:proto:request:client'}
+            opts = {'vars': {'tdef': tdef}}
+            node = await core.callStorm(q, opts=opts)
+
+            self.len(0, await core.nodes('test:int'))
+
+            await core.nodes('[ test:hasiface=iface1 :size=10 ]')
+            nodes = await core.nodes('test:int')
+            self.len(1, nodes)
+            self.eq(1, nodes[0].valu())
+
+            await core.nodes('[ test:hasiface=iface2 :client=1.2.3.4 ]')
+            nodes = await core.nodes('test:int')
+            self.len(2, nodes)
+            self.eq(2, nodes[1].valu())
