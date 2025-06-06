@@ -1918,6 +1918,9 @@ class Layer(s_nexus.Pusher):
         self.timetype = self.stortypes[STOR_TYPE_TIME]
         self.ivaltimetype = self.stortypes[STOR_TYPE_IVAL].timetype
 
+        self.createdabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'created')
+        self.updatedabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'updated')
+
         await self._initLayerStorage()
 
         self.editors = [
@@ -3257,6 +3260,10 @@ class Layer(s_nexus.Pusher):
             None
         '''
         kvpairs = []
+
+        utime = meta['time']
+        ubyts = self.timetype.getIntIndx(utime)
+
         for (nid, form, edits) in nodeedits:
 
             nid = s_common.int64en(nid)
@@ -3269,6 +3276,19 @@ class Layer(s_nexus.Pusher):
                     await self.layrslab.putmulti(kvpairs, db=self.indxdb)
                     kvpairs.clear()
                     await asyncio.sleep(0)
+
+            if nid in self.dirty:
+                metaabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, None, 'updated')
+
+                if (last := sode['meta'].get('updated')) is not None:
+                    oldbyts = self.timetype.getIntIndx(last[0])
+                    self.layrslab.delete(metaabrv + oldbyts, nid, db=self.indxdb)
+                    self.layrslab.delete(self.updatedabrv + oldbyts, nid, db=self.indxdb)
+
+                kvpairs.append((metaabrv + ubyts, nid))
+                kvpairs.append((self.updatedabrv + ubyts, nid))
+
+                sode['meta']['updated'] = (utime, STOR_TYPE_TIME)
 
         if kvpairs:
             await self.layrslab.putmulti(kvpairs, db=self.indxdb)
@@ -3305,11 +3325,19 @@ class Layer(s_nexus.Pusher):
             return False
 
         # no more refs in this layer.  time to pop it...
+        form = sode.get('form')
         try:
-            abrv = self.core.getIndxAbrv(INDX_FORM, sode.get('form'))
+            abrv = self.core.getIndxAbrv(INDX_FORM, form)
             self.layrslab.delete(abrv, val=nid, db=self.indxdb)
         except s_exc.NoSuchAbrv:
             pass
+
+        if (last := sode['meta'].get('updated')) is not None:
+            ubyts = self.timetype.getIntIndx(last[0])
+
+            metaabrv = self.core.getIndxAbrv(INDX_VIRTUAL, form, None, 'updated')
+            self.layrslab.delete(metaabrv + ubyts, nid, db=self.indxdb)
+            self.layrslab.delete(self.updatedabrv + ubyts, nid, db=self.indxdb)
 
         self.dirty.pop(nid, None)
         self.nidcache.pop(nid, None)
@@ -3768,9 +3796,7 @@ class Layer(s_nexus.Pusher):
 
         metaabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, None, 'created')
         kvpairs.append((metaabrv + cbyts, nid))
-
-        univabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'created')
-        kvpairs.append((univabrv + cbyts, nid))
+        kvpairs.append((self.createdabrv + cbyts, nid))
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
 
@@ -3861,9 +3887,7 @@ class Layer(s_nexus.Pusher):
 
         metaabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, None, 'created')
         self.layrslab.delete(metaabrv + cbyts, nid, db=self.indxdb)
-
-        univabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'created')
-        self.layrslab.delete(univabrv + cbyts, nid, db=self.indxdb)
+        self.layrslab.delete(self.createdabrv + cbyts, nid, db=self.indxdb)
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
 
@@ -4570,6 +4594,8 @@ class Layer(s_nexus.Pusher):
             self.dataslab.delete(nid + abrv + FLAG_TOMB, db=self.nodedata)
             self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
 
+        self.dirty[nid] = sode
+
         if sode.get('form') is None:
             sode['form'] = form
             formabrv = self.core.setIndxAbrv(INDX_FORM, form)
@@ -4585,7 +4611,8 @@ class Layer(s_nexus.Pusher):
         if self.dataslab.delete(nid + abrv + FLAG_NORM, db=self.nodedata):
             self.dataslab.delete(abrv + FLAG_NORM, nid, db=self.dataname)
 
-        self.mayDelNid(nid, sode)
+        if not self.mayDelNid(nid, sode):
+            self.dirty[nid] = sode
 
         return ()
 
@@ -5423,8 +5450,9 @@ class Layer(s_nexus.Pusher):
                 continue
 
             if meta and (mval := sode.get('meta')) is not None:
-                for name, (valu, stortype) in mval.items():
-                    edits.append((EDIT_META_SET, (name, valu, None, stortype)))
+                if (cval := mval.get('created')) is not None:
+                    (valu, stortype) = cval
+                    edits.append((EDIT_META_SET, ('created', valu, None, stortype)))
 
             for prop, (valu, stortype, virts) in sode.get('props', {}).items():
                 edits.append((EDIT_PROP_SET, (prop, valu, None, stortype, virts)))

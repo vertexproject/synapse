@@ -606,6 +606,7 @@ class Model:
         self.addBaseType(item)
 
         self.metatypes['created'] = self.getTypeClone(('time', {'ismin': True}))
+        self.metatypes['updated'] = self.getTypeClone(('time', {}))
 
         # add the base universal properties...
         self.addUnivProp('seen', ('ival', {}), {

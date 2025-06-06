@@ -604,7 +604,9 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(node.get('nid'), node.intnid())
                 sodes = node.get('sodes')
                 self.len(2, sodes)
-                self.eq({'antivalu': True, 'form': 'inet:ip'}, sodes[0])
+                self.true(sodes[0]['antivalu'])
+                self.eq('inet:ip', sodes[0]['form'])
+                self.nn(sodes[0]['meta']['updated'])
                 self.eq((10, 9, None), sodes[1]['props']['asn'])
 
             q = 'diff | +syn:deleted.form=inet:ip return($node.getStorNodes())'

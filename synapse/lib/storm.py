@@ -4322,16 +4322,14 @@ class MoveNodesCmd(Cmd):
         nodeiden = node.iden()
 
         for layr, sode in sodes.items():
-            if (mdict := sode.get('meta')) is None:
+            if (mdict := sode.get('meta')) is None or (valu := mdict.get('created')) is None:
                 continue
 
-            for name, (valu, stortype) in mdict.items():
-                if (oldv := movevals.get(name)) is not s_common.novalu:
-                    if oldv is None:
-                        movevals[name] = valu
-
-                    elif stortype == s_layer.STOR_TYPE_MINTIME:
-                        movevals[name] = min(valu, oldv)
+            if (oldv := movevals.get('created')) is not s_common.novalu:
+                if oldv is None:
+                    movevals['created'] = valu[0]
+                else:
+                    movevals['created'] = min(valu[0], oldv)
 
         if not delnode:
             for name, valu in movevals.items():
