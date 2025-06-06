@@ -300,7 +300,7 @@ class AxonToolsTest(s_t_utils.SynTest):
                 dumpfile = os.path.join(dumpdir, os.listdir(dumpdir)[0])
                 with open(dumpfile, 'rb') as fd:
                     items = list(s_msgpack.iterfd(fd))
-                for i in range(len(items) -1, -1, -1):
+                for i in range(len(items) - 1, -1, -1):
                     if type(items[i]) is bytes:
                         items = items[:i]
                         break
