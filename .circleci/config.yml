@@ -126,6 +126,13 @@ commands:
             if [ -n "${RUN_SYNTAX}" ]; then pycodestyle scripts; fi;
 
       - run:
+          name: install pandoc
+          command: |
+            curl -L -o pandoc-amd64.deb https://github.com/jgm/pandoc/releases/download/3.1.9/pandoc-3.1.9-1-amd64.deb
+            sha256sum --check .circleci/pandoc.deb.sha256
+            sudo dpkg -i pandoc-amd64.deb
+
+      - run:
           name: checkout regression repo
           command: |
             git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
