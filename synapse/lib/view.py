@@ -1230,12 +1230,12 @@ class View(s_nexus.Pusher):  # type: ignore
                         if (sode := layr._getStorNode(nid)) is None:
                             continue
 
-                        if propname is None:
-                            if sode.get('antivalu') is not None:
-                                break
-                        else:
-                            if sode['props'].get(propname) is not None or sode['antiprops'].get(propname) is not None:
-                                break
+                        if sode.get('antivalu') is not None:
+                            break
+
+                        if propname is not None and (sode['props'].get(propname) is not None or
+                                                     sode['antiprops'].get(propname) is not None):
+                            break
                     else:
                         valid = True
 

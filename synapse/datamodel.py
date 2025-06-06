@@ -643,17 +643,15 @@ class Model:
             return (prop,)
 
         if (props := self.ifaceprops.get(name)) is not None:
-            return props
+            return [self.props.get(prop) for prop in props]
 
         mesg = None
-        if (prevname := self.propprevnames.get(name)) is not None:
+
+        if ((prevname := self.propprevnames.get(name)) is not None or
+            (prevname := self.formprevnames.get(name)) is not None):
             mesg = f'No property named {name}. Did you mean {prevname}?'
 
-        exc = s_exc.NoSuchProp.init(name, mesg=mesg)
-        if extra is not None:
-            exc = extra(exc)
-
-        raise exc
+        raise s_exc.NoSuchProp.init(name, mesg=mesg)
 
     def reqMetaType(self, name):
         if (mtyp := self.metatypes.get(name)) is not None:
