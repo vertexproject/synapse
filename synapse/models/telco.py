@@ -149,10 +149,15 @@ modeldefs = (
         'types': (
 
             ('tel:call', ('guid', {}), {
+                'interfaces': (
+                    ('lang:transcript', {}),
+                ),
                 'doc': 'A guid for a telephone call record.'}),
 
             ('tel:phone:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A taxonomy of phone number types.'}),
 
             ('tel:txtmesg', ('guid', {}), {
@@ -171,29 +176,33 @@ modeldefs = (
                 'doc': 'Fused knowledge of an IMSI assigned phone number.'}),
 
             ('tel:mob:telem', ('guid', {}), {
+                'interfaces': (
+                    ('geo:locatable', {'template': {'geo:locatable': 'telemetry sample'}}),
+                ),
                 'doc': 'A single mobile telemetry measurement.'}),
 
             ('tel:mob:mcc', ('str', {'regex': '^[0-9]{3}$', 'strip': True}), {
-                'doc': 'ITU Mobile Country Code.',
-            }),
+                'doc': 'ITU Mobile Country Code.'}),
 
             ('tel:mob:mnc', ('str', {'regex': '^[0-9]{2,3}$', 'strip': True}), {
-                'doc': 'ITU Mobile Network Code.',
-            }),
+                'doc': 'ITU Mobile Network Code.'}),
 
             ('tel:mob:carrier', ('comp', {'fields': (('mcc', 'tel:mob:mcc'), ('mnc', 'tel:mob:mnc'))}), {
-                'doc': 'The fusion of a MCC/MNC.'
-            }),
+                'doc': 'The fusion of a MCC/MNC.'}),
 
             ('tel:mob:cell:radio:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of cell radio types.'}),
 
             ('tel:mob:cell', ('comp', {'fields': (('carrier', 'tel:mob:carrier'),
                                                   ('lac', ('int', {})),
                                                   ('cid', ('int', {})))}), {
-                'doc': 'A mobile cell site which a phone may connect to.'
-            }),
+                'interfaces': (
+                    ('geo:locatable', {'template': {'geo:locatable': 'cell tower'}}),
+                ),
+                'doc': 'A mobile cell site which a phone may connect to.'}),
 
             # TODO - eventually break out ISO-3 country code into a sub
             # https://en.wikipedia.org/wiki/TADIG_code
@@ -215,76 +224,71 @@ modeldefs = (
             )),
 
             ('tel:call', {}, (
+
                 ('src', ('tel:phone', {}), {
-                    'doc': 'The source phone number for a call.'
-                }),
+                    'doc': 'The source phone number for a call.'}),
+
                 ('dst', ('tel:phone', {}), {
-                    'doc': 'The destination phone number for a call.'
-                }),
-                ('time', ('time', {}), {
-                    'doc': 'The time the call was initiated.'
-                }),
-                ('duration', ('int', {}), {
-                    'doc': 'The duration of the call in seconds.'
-                }),
+                    'doc': 'The destination phone number for a call.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The time period when the call took place.'}),
+
                 ('connected', ('bool', {}), {
-                    'doc': 'Indicator of whether the call was connected.',
-                }),
-                ('text', ('str', {}), {
-                    'doc': 'The text transcription of the call.',
-                    'disp': {'hint': 'text'},
-                }),
-                ('file', ('file:bytes', {}), {
-                    'doc': 'A file containing related media.',
-                }),
+                    'doc': 'Indicator of whether the call was connected.'}),
+
+                ('recording', ('file:bytes', {}), {
+                    'doc': 'An audio file which recorded the call.'}),
             )),
             ('tel:txtmesg', {}, (
+
                 ('from', ('tel:phone', {}), {
-                    'doc': 'The phone number assigned to the sender.'
-                }),
+                    'doc': 'The phone number assigned to the sender.'}),
+
                 ('to', ('tel:phone', {}), {
-                    'doc': 'The phone number assigned to the primary recipient.'
-                }),
+                    'doc': 'The phone number assigned to the primary recipient.'}),
+
                 ('recipients', ('array', {'type': 'tel:phone', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of phone numbers for additional recipients of the message.',
-                }),
+                    'doc': 'An array of phone numbers for additional recipients of the message.'}),
+
                 ('svctype', ('str', {'enums': 'sms,mms,rcs', 'strip': True, 'lower': True}), {
-                    'doc': 'The message service type (sms, mms, rcs).',
-                }),
+                    'doc': 'The message service type (sms, mms, rcs).'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the message was sent.'
-                }),
-                ('text', ('str', {}), {
-                    'doc': 'The text of the message.',
-                    'disp': {'hint': 'text'},
-                }),
+                    'doc': 'The time the message was sent.'}),
+
+                ('text', ('text', {}), {
+                    'doc': 'The text of the message.'}),
+
                 ('file', ('file:bytes', {}), {
-                    'doc': 'A file containing related media.',
-                }),
+                    'doc': 'A file containing related media.'}),
             )),
             ('tel:mob:tac', {}, (
+
                 ('org', ('ou:org', {}), {
-                    'doc': 'The org guid for the manufacturer.',
-                }),
+                    'doc': 'The org guid for the manufacturer.'}),
+
                 ('manu', ('str', {'lower': True}), {
-                    'doc': 'The TAC manufacturer name.',
-                }),
-                ('model', ('str', {'lower': True}), {
-                    'doc': 'The TAC model name.',
-                }),
-                ('internal', ('str', {'lower': True}), {
-                    'doc': 'The TAC internal model name.',
-                }),
+                    'doc': 'The TAC manufacturer name.'}),
+                # FIXME manufactured
+
+                ('model', ('meta:name', {}), {
+                    'doc': 'The TAC model name.'}),
+
+                ('internal', ('meta:name', {}), {
+                    'doc': 'The TAC internal model name.'}),
+
             )),
             ('tel:mob:imei', {}, (
+
                 ('tac', ('tel:mob:tac', {}), {
                     'ro': True,
-                    'doc': 'The Type Allocate Code within the IMEI.'
-                }),
+                    'doc': 'The Type Allocate Code within the IMEI.'}),
+
                 ('serial', ('int', {}), {
                     'ro': True,
-                    'doc': 'The serial number within the IMEI.',
-                })
+                    'doc': 'The serial number within the IMEI.'})
+
             )),
             ('tel:mob:imsi', {}, (
                 ('mcc', ('tel:mob:mcc', {}), {
@@ -293,41 +297,41 @@ modeldefs = (
                 }),
             )),
             ('tel:mob:imid', {}, (
+
                 ('imei', ('tel:mob:imei', {}), {
                     'ro': True,
-                    'doc': 'The IMEI for the phone hardware.'
-                }),
+                    'doc': 'The IMEI for the phone hardware.'}),
+
                 ('imsi', ('tel:mob:imsi', {}), {
                     'ro': True,
-                    'doc': 'The IMSI for the phone subscriber.'
-                }),
+                    'doc': 'The IMSI for the phone subscriber.'}),
             )),
             ('tel:mob:imsiphone', {}, (
+
                 ('phone', ('tel:phone', {}), {
                     'ro': True,
-                    'doc': 'The phone number assigned to the IMSI.'
-                }),
+                    'doc': 'The phone number assigned to the IMSI.'}),
+
                 ('imsi', ('tel:mob:imsi', {}), {
                     'ro': True,
-                    'doc': 'The IMSI with the assigned phone number.'
-                }),
+                    'doc': 'The IMSI with the assigned phone number.'}),
             )),
             ('tel:mob:mcc', {}, (
                 ('loc', ('loc', {}), {'doc': 'Location assigned to the MCC.'}),
             )),
             ('tel:mob:carrier', {}, (
+
                 ('mcc', ('tel:mob:mcc', {}), {
-                    'ro': True,
-                }),
+                    'ro': True}),
+
                 ('mnc', ('tel:mob:mnc', {}), {
-                    'ro': True,
-                }),
+                    'ro': True}),
+
                 ('org', ('ou:org', {}), {
-                    'doc': 'Organization operating the carrier.'
-                }),
+                    'doc': 'Organization operating the carrier.'}),
+
                 ('loc', ('loc', {}), {
-                    'doc': 'Location the carrier operates from.'
-                }),
+                    'doc': 'Location the carrier operates from.'}),
 
                 ('tadig', ('tel:mob:tadig', {}), {
                     'doc': 'The TADIG code issued to the carrier.'}),
@@ -341,13 +345,6 @@ modeldefs = (
                                       'ro': True, }),
                 ('cid', ('int', {}), {'doc': 'The Cell ID.', 'ro': True, }),
                 ('radio', ('tel:mob:cell:radio:type:taxonomy', {}), {'doc': 'Cell radio type.'}),
-                ('latlong', ('geo:latlong', {}), {'doc': 'Last known location of the cell site.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'Location at which the cell is operated.'}),
-
-                ('place', ('geo:place', {}), {
-                    'doc': 'The place associated with the latlong property.'}),
             )),
 
             ('tel:mob:tadig', {}, ()),
@@ -355,25 +352,12 @@ modeldefs = (
             ('tel:mob:telem', {}, (
 
                 ('time', ('time', {}), {}),
-                ('latlong', ('geo:latlong', {}), {}),
 
                 ('http:request', ('inet:http:request', {}), {
-                    'doc': 'The HTTP request that the telemetry was extracted from.',
-                }),
+                    'doc': 'The HTTP request that the telemetry was extracted from.'}),
 
                 ('host', ('it:host', {}), {
                     'doc': 'The host that generated the mobile telemetry data.'}),
-
-                ('place', ('geo:place', {}), {
-                    'doc': 'The place representing the location of the mobile telemetry sample.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'The geo-political location of the mobile telemetry sample.',
-                }),
-
-                ('accuracy', ('geo:dist', {}), {
-                    'doc': 'The reported accuracy of the latlong telemetry reading.',
-                }),
 
                 # telco specific data
                 ('cell', ('tel:mob:cell', {}), {}),
@@ -400,15 +384,16 @@ modeldefs = (
                 ('adid', ('it:adid', {}), {
                     'doc': 'The advertising ID of the mobile telemetry sample.'}),
 
+                # FIXME contact prop or interface?
                 # User related data
-                ('name', ('ps:name', {}), {}),
+                ('name', ('meta:name', {}), {}),
                 ('email', ('inet:email', {}), {}),
 
                 ('account', ('inet:service:account', {}), {
                     'doc': 'The service account which is associated with the tracked device.'}),
 
                 # reporting related data
-                ('app', ('it:prod:softver', {}), {}),
+                ('app', ('it:software', {}), {}),
 
                 ('data', ('data', {}), {}),
                 # any other fields may be refs...

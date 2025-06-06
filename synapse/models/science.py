@@ -2,15 +2,21 @@ modeldefs = (
     ('sci', {
         'types': (
             ('sci:hypothesis:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A taxonomy of hypothesis types.'}),
+
             ('sci:hypothesis', ('guid', {}), {
                 'doc': 'A hypothesis or theory.'}),
 
             # TODO link experiment to eventual procedure node
             ('sci:experiment:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A taxonomy of experiment types.'}),
+
             ('sci:experiment', ('guid', {}), {
                 'doc': 'An instance of running an experiment.'}),
 
@@ -22,10 +28,13 @@ modeldefs = (
         ),
 
         'edges': (
-            (('sci:experiment', 'uses', None), {
+
+            (('sci:experiment', 'used', None), {
                 'doc': 'The experiment used the target nodes when it was run.'}),
+
             (('sci:observation', 'has', None), {
                 'doc': 'The observations are summarized from the target nodes.'}),
+
             (('sci:evidence', 'has', None), {
                 'doc': 'The evidence includes observations from the target nodes.'}),
         ),
@@ -35,14 +44,13 @@ modeldefs = (
             ('sci:hypothesis:type:taxonomy', {}, {}),
             ('sci:hypothesis', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the hypothesis.'}),
 
                 ('type', ('sci:hypothesis:type:taxonomy', {}), {
                     'doc': 'The type of hypothesis as a user defined taxonomy.'}),
 
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('summary', ('text', {}), {
                     'doc': 'A summary of the hypothesis.'}),
             )),
 
@@ -50,11 +58,10 @@ modeldefs = (
             ('sci:experiment:type:taxonomy', {}, {}),
             ('sci:experiment', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the experiment.'}),
 
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('summary', ('text', {}), {
                     'doc': 'A summary of the experiment.'}),
 
                 ('time', ('time', {}), {
@@ -73,8 +80,7 @@ modeldefs = (
                 ('experiment', ('sci:experiment', {}), {
                     'doc': 'The experiment which produced the observation.'}),
 
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('summary', ('text', {}), {
                     'doc': 'A summary of the observation.'}),
 
                 ('time', ('time', {}), {
@@ -89,8 +95,7 @@ modeldefs = (
                 ('observation', ('sci:observation', {}), {
                     'doc': 'The observation which supports or refutes the hypothesis.'}),
 
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('summary', ('text', {}), {
                     'doc': 'A summary of how the observation supports or refutes the hypothesis.'}),
 
                 ('refutes', ('bool', {}), {

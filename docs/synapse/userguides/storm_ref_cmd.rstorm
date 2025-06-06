@@ -1169,7 +1169,9 @@ The ``gen.ou.org.hq`` command locates (lifts) the primary ``ps:contact`` node fo
 
 **Syntax:**
 
-.. storm-cli:: gen.ou.org.hq --help
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: gen.ou.org.hq --help
 
 
 .. _storm-gen-pol-country:
@@ -1626,8 +1628,10 @@ secondary property, tag interval, or variable.
 
 - Return the most recent WHOIS record for domain woot.com:
 
-.. storm-pre:: [inet:whois:rec=(woot.com,2018/05/22) :text="domain name: woot.com"]
-.. storm-cli:: inet:whois:rec:fqdn=woot.com | max :asof
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [inet:whois:rec=(woot.com,2018/05/22) :text="domain name: woot.com"]
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com | max :asof
 
 
 .. _storm-merge:
@@ -1669,7 +1673,9 @@ secondary property, tag interval, or variable.
 
 - Return the oldest WHOIS record for domain woot.com:
 
-.. storm-cli:: inet:whois:rec:fqdn=woot.com | min :asof
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com | min :asof
 
 
 .. _storm-model:
@@ -2160,7 +2166,9 @@ can be used to return the scraped nodes rather than the input nodes.
 - Scrape the text of WHOIS records for the domain ``woot.com`` and create nodes for common forms found
   in the text:
 
-.. storm-cli:: inet:whois:rec:fqdn=woot.com | scrape :text
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com | scrape :text
 
 
 **Usage Notes:**
