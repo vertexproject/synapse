@@ -1639,8 +1639,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _addCoreQueue(self, name, info):
         iden = info.get('iden')
         if not self.multiqueue.exists(iden):
+
+            user = await self.auth.reqUser(info['creator'])
+
             self.quedefs.set(name, info)
             await self.multiqueue.add(iden, info)
+
+            await self.auth.addAuthGate(iden, 'queue')
+            await user.setAdmin(True, gateiden=iden, logged=False)
 
     async def listCoreQueues(self):
         cqueues = []
@@ -1671,9 +1677,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return info
         return
 
-    async def delCoreQueue(self, name):
-        await self.getCoreQueue(name)
-        await self._push('queue:del', name)
+    async def delCoreQueue(self, iden):
+        await self.getCoreQueue(iden)
+        await self._push('queue:del', iden)
 
     @s_nexus.Pusher.onPush('queue:del')
     async def _delCoreQueue(self, iden):
@@ -1682,6 +1688,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self.multiqueue.rem(iden)
         name = info.get('meta', {}).get('name')
         self.quedefs.pop(name, None)
+        await self.auth.delAuthGate(iden)
 
     async def coreQueueGet(self, name, offs=0, cull=True, wait=False):
         if offs and cull:

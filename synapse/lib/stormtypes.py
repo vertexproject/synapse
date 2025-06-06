@@ -3618,7 +3618,7 @@ class LibQueue(Lib):
         {'name': 'del', 'desc': 'Delete a given named Queue.',
          'type': {'type': 'function', '_funcname': '_methQueueDel',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to delete.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the queue to delete.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'get', 'desc': 'Get an existing Storm Queue object by iden.',
@@ -3674,7 +3674,7 @@ class LibQueue(Lib):
 
     @stormfunc(readonly=True)
     async def _methQueueGet(self, iden):
-        self.runt.confirm(('queue', 'get', iden))
+        self.runt.confirm(('queue', 'get', iden), gateiden=iden)
         info = await self.runt.view.core.getCoreQueue(iden)
         name = info.get('meta').get('name')
         iden = info.get('meta').get('iden')
@@ -3695,9 +3695,9 @@ class LibQueue(Lib):
         except s_exc.NoSuchName:
             return await self._methQueueAdd(name)
 
-    async def _methQueueDel(self, name):
-        self.runt.confirm(('queue', 'del', name))
-        await self.runt.view.core.delCoreQueue(name)
+    async def _methQueueDel(self, iden):
+        self.runt.confirm(('queue', 'del', iden), gateiden=iden)
+        await self.runt.view.core.delCoreQueue(iden)
 
     @stormfunc(readonly=True)
     async def _methQueueList(self):
@@ -3705,7 +3705,7 @@ class LibQueue(Lib):
 
         qlist = await self.runt.view.core.listCoreQueues()
         for queue in qlist:
-            if not self.runt.allowed(('queue', 'get', queue['iden'])):
+            if not self.runt.allowed(('queue', 'get', queue['iden']), gateiden=queue['iden']):
                 continue
 
             retn.append(queue)
@@ -3814,12 +3814,12 @@ class Queue(StormType):
 
     async def _methQueueCull(self, offs):
         offs = await toint(offs)
-        self.runt.confirm(('queue', 'get', self.iden))
+        self.runt.confirm(('queue', 'get', self.iden), gateiden=self.iden)
         await self.runt.view.core.coreQueueCull(self.iden, offs)
 
     @stormfunc(readonly=True)
     async def _methQueueSize(self):
-        self.runt.confirm(('queue', 'get', self.iden))
+        self.runt.confirm(('queue', 'get', self.iden), gateiden=self.iden)
         return await self.runt.view.core.coreQueueSize(self.iden)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
@@ -3827,28 +3827,28 @@ class Queue(StormType):
         offs = await toint(offs)
         size = await toint(size, noneok=True)
 
-        self.runt.confirm(('queue', 'get', self.iden))
+        self.runt.confirm(('queue', 'get', self.iden), gateiden=self.iden)
         async for item in self.runt.view.core.coreQueueGets(self.iden, offs, cull=cull, wait=wait, size=size):
             yield item
 
     async def _methQueuePuts(self, items):
         items = await toprim(items)
 
-        self.runt.confirm(('queue', 'put', self.iden))
+        self.runt.confirm(('queue', 'put', self.iden), gateiden=self.iden)
         return await self.runt.view.core.coreQueuePuts(self.iden, items)
 
     async def _methQueueGet(self, offs=0, cull=True, wait=True):
         offs = await toint(offs)
         wait = await toint(wait)
 
-        self.runt.confirm(('queue', 'get', self.iden))
+        self.runt.confirm(('queue', 'get', self.iden), gateiden=self.iden)
         return await self.runt.view.core.coreQueueGet(self.iden, offs, cull=cull, wait=wait)
 
     async def _methQueuePop(self, offs=None, wait=False):
         offs = await toint(offs, noneok=True)
         wait = await tobool(wait)
 
-        self.runt.confirm(('queue', 'get', self.iden))
+        self.runt.confirm(('queue', 'get', self.iden), gateiden=self.iden)
 
         # emulate the old behavior on no argument
         core = self.runt.view.core

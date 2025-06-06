@@ -2833,8 +2833,8 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint("(0, 'bar')", msgs)
 
                 with self.raises(s_exc.AuthDeny):
-                    opts = {'user': woot.iden}
-                    await core.nodes('$lib.queue.del(synq)', opts=opts)
+                    opts = {'user': woot.iden, 'vars': {'iden': qiden}}
+                    await core.nodes('$lib.queue.del($iden)', opts=opts)
 
                 rule = (True, ('queue', 'del', qiden))
                 await root.addUserRule(woot.iden, rule, indx=None)
