@@ -826,24 +826,24 @@ class StormTest(s_t_utils.SynTest):
                     background {
                         [it:dev:str=haha]
                         fini{
-                            $lib.queue.get($x).put(hehe)
+                            $lib.queue.getByName($x).put(hehe)
                         }
                     }
                 }
                 yield $stuff()
             ''')
-            self.eq((0, 'hehe'), await core.callStorm('return($lib.queue.get(foo).get())'))
+            self.eq((0, 'hehe'), await core.callStorm('return($lib.queue.getByName(foo).get())'))
 
             await core.nodes('''$lib.queue.gen(bar)
-            background ${ $lib.queue.get(bar).put(haha) }
+            background ${ $lib.queue.getByName(bar).put(haha) }
             ''')
-            self.eq((0, 'haha'), await core.callStorm('return($lib.queue.get(bar).get())'))
+            self.eq((0, 'haha'), await core.callStorm('return($lib.queue.getByName(bar).get())'))
 
-            await core.nodes('$foo = (foo,) background ${ $foo.append(bar) $lib.queue.get(bar).put($foo) }')
-            self.eq((1, ['foo', 'bar']), await core.callStorm('return($lib.queue.get(bar).get(1))'))
+            await core.nodes('$foo = (foo,) background ${ $foo.append(bar) $lib.queue.getByName(bar).put($foo) }')
+            self.eq((1, ['foo', 'bar']), await core.callStorm('return($lib.queue.getByName(bar).get(1))'))
 
-            await core.nodes('$foo = ([["foo"]]) background ${ $foo.0.append(bar) $lib.queue.get(bar).put($foo) }')
-            self.eq((2, [['foo', 'bar']]), await core.callStorm('return($lib.queue.get(bar).get(2))'))
+            await core.nodes('$foo = ([["foo"]]) background ${ $foo.0.append(bar) $lib.queue.getByName(bar).put($foo) }')
+            self.eq((2, [['foo', 'bar']]), await core.callStorm('return($lib.queue.getByName(bar).get(2))'))
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ ou:org=*] $text = $node.repr() | background $text')
@@ -2645,7 +2645,7 @@ class StormTest(s_t_utils.SynTest):
                         $lib.queue.gen(dmonloop)
                         return(
                             $lib.dmon.add(${
-                                $queue = $lib.queue.get(dmonloop)
+                                $queue = $lib.queue.getByName(dmonloop)
                                 while $lib.true {
                                     ($offs, $mesg) = $queue.get()
 
@@ -2676,8 +2676,8 @@ class StormTest(s_t_utils.SynTest):
                         self.eq(info['name'], 'dmonloop')
                         self.eq(info['status'], 'running')
 
-                        await core02.callStorm('$lib.queue.get(dmonloop).put((print, printfoo))')
-                        await core02.callStorm('$lib.queue.get(dmonloop).put((warn, warnfoo))')
+                        await core02.callStorm('$lib.queue.getByName(dmonloop).put((print, printfoo))')
+                        await core02.callStorm('$lib.queue.getByName(dmonloop).put((warn, warnfoo))')
 
                         info = await core02.getStormDmon(ddef['iden'])
                         self.eq(info['status'], 'running')
@@ -2687,7 +2687,7 @@ class StormTest(s_t_utils.SynTest):
                         self.stormIsInPrint('printfoo', msgs)
                         self.stormIsInWarn('warnfoo', msgs)
 
-                        await core02.callStorm('$lib.queue.get(dmonloop).put((leave,))')
+                        await core02.callStorm('$lib.queue.getByName(dmonloop).put((leave,))')
 
                         info = await core02.getStormDmon(ddef['iden'])
                         self.eq(info['status'], 'sleeping')

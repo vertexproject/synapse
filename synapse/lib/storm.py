@@ -202,28 +202,50 @@ stormcmds = (
         ),
         'storm': '''
             $lib.queue.add($cmdopts.name)
-            $lib.print("queue added: {name}", name=$cmdopts.name)
+            $lib.print(`queue added: {$cmdopts.name}`)
         ''',
     },
     {
         'name': 'queue.del',
         'descr': 'Remove a queue from the cortex.',
         'cmdargs': (
-            ('name', {'help': 'The name of the queue to remove.'}),
+            ('iden', {'help': 'The iden of the queue to remove.'}),
         ),
         'storm': '''
-            $lib.queue.del($cmdopts.name)
-            $lib.print("queue removed: {name}", name=$cmdopts.name)
+            $lib.queue.del($cmdopts.iden)
+            $lib.print(`queue removed: {$cmdopts.iden}`)
         ''',
     },
     {
         'name': 'queue.list',
         'descr': 'List the queues in the cortex.',
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "iden", "width": 40},
+                        {"name": "name", "width": 30},
+                        {"name": "size", "width": 10},
+                        {"name": "offs", "width": 10},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                    },
+                })
+                $printer = $lib.tabular.printer($conf)
+            }
             $lib.print('Storm queue list:')
-            for $info in $lib.queue.list() {
-                $name = $info.name.ljust(32)
-                $lib.print("    {name}:  size: {size} offs: {offs}", name=$name, size=$info.size, offs=$info.offs)
+            $queues = $lib.queue.list()
+            $lib.print($printer.header())
+            for $info in $queues {
+                $row = (
+                    $info.iden, $info.name, $info.size, $info.offs
+                )
+                $lib.print($printer.row($row))
             }
         ''',
     },

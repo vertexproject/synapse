@@ -165,7 +165,7 @@ class RealService(s_stormsvc.StormSvc):
             'storm': '$lib.queue.add(vertex)',
         },
         'del': {
-            'storm': '$que=$lib.queue.get(vertex) $que.put(done)',
+            'storm': '$que=$lib.queue.getByName(vertex) $que.put(done)',
         },
     }
 
@@ -599,7 +599,7 @@ class StormSvcTest(s_test.SynTest):
                     # RealService and BoomService, since the others should have failed
                     queue = core.multiqueue.list()
                     self.len(1, queue)
-                    self.eq('vertex', queue[0]['name'])
+                    self.eq('vertex', queue[0]['meta']['name'])
                     nodes = await core.nodes('inet:ip=8.8.8.8')
                     self.len(1, nodes)
                     self.eq(nodes[0].ndef[1], (4, 134744072))
@@ -728,7 +728,7 @@ class StormSvcTest(s_test.SynTest):
                     # haven't deleted the service yet, so still should be there
                     queue = core.multiqueue.list()
                     self.len(1, queue)
-                    self.eq('vertex', queue[0]['name'])
+                    self.eq('vertex', queue[0]['meta']['name'])
 
                     await core.delStormSvc(iden)
 
@@ -736,7 +736,7 @@ class StormSvcTest(s_test.SynTest):
                     self.none(core.getStormCmd('ohhai'))
 
                     # ensure del event ran
-                    q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
+                    q = 'for ($o, $m) in $lib.queue.getByName(vertex).gets(wait=10) {return (($o, $m))}'
                     retn = await core.callStorm(q)
                     self.eq(retn, (0, 'done'))
 
@@ -1021,7 +1021,7 @@ class StormSvcTest(s_test.SynTest):
 
                         queue = core00.multiqueue.list()
                         self.len(1, queue)
-                        self.eq('vertex', queue[0]['name'])
+                        self.eq('vertex', queue[0]['meta']['name'])
                         self.nn(core00.getStormCmd('ohhai'))
 
                         # Make sure it shows up on mirror
@@ -1033,7 +1033,7 @@ class StormSvcTest(s_test.SynTest):
 
                         queue = core01.multiqueue.list()
                         self.len(1, queue)
-                        self.eq('vertex', queue[0]['name'])
+                        self.eq('vertex', queue[0]['meta']['name'])
                         self.nn(core01.getStormCmd('ohhai'))
 
                         # Delete storm service
@@ -1043,12 +1043,12 @@ class StormSvcTest(s_test.SynTest):
 
                         # Make sure it got removed from both
                         self.none(core00.getStormCmd('ohhai'))
-                        q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
+                        q = 'for ($o, $m) in $lib.queue.getByName(vertex).gets(wait=10) {return (($o, $m))}'
                         retn = await core00.callStorm(q)
                         self.eq(retn, (0, 'done'))
 
                         self.none(core01.getStormCmd('ohhai'))
-                        q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
+                        q = 'for ($o, $m) in $lib.queue.getByName(vertex).gets(wait=10) {return (($o, $m))}'
                         retn = await core01.callStorm(q)
                         self.eq(retn, (0, 'done'))
 
