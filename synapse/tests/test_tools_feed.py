@@ -67,22 +67,11 @@ class FeedTest(s_t_utils.SynTest):
             curl = f'tcp://icanadd:secret@{host}:{port}/'
 
             meta = {
-                'count': 20,
-                'created': 1747831406876525,
-                'creatorname': 'root',
-                'edges': {},
-                'export_ver': 1,
+                'type': 'meta',
+                'vers': 1,
                 'forms': {'test:int': 20},
-                'model_ext': {'edges': [],
-                            'forms': [],
-                            'props': [],
-                            'tagprops': [],
-                            'types': [],
-                            'univs': []},
-                'query': '',
-                'synapse_minver': '3.0.0',
+                'count': 20,
                 'synapse_ver': '3.0.0',
-                'type': 'meta'
             }
 
             with self.getTestDir() as dirn:
@@ -139,22 +128,18 @@ class FeedTest(s_t_utils.SynTest):
             badview = hashlib.md5(newview.encode(), usedforsecurity=False).hexdigest()
 
             meta = {
-                'count': 20,
-                'created': 1747831406876525,
-                'creatorname': 'root',
-                'edges': {},
-                'export_ver': 1,
+                'type': 'meta',
+                'vers': 1,
                 'forms': {'test:int': 20},
+                'count': 20,
+                'synapse_ver': '3.0.0',
+                'created': 1747831406876525,
                 'model_ext': {'edges': [],
                             'forms': [],
                             'props': [('inet:email', '_foobar', ('str', {}), {})],
                             'tagprops': [],
                             'types': [],
                             'univs': []},
-                'query': '',
-                'synapse_minver': '3.0.0',
-                'synapse_ver': '3.0.0',
-                'type': 'meta'
             }
 
             with self.getTestDir() as dirn:
@@ -180,8 +165,12 @@ class FeedTest(s_t_utils.SynTest):
 
                 icanadd = await core.auth.getUserByName('icanadd')
                 await icanadd.addRule((True, ('view', 'read')))
-                # now actually do the ingest
+
+                # now actually do the ingest w/chunking
+                argv = base + ['--chunksize', '10', '--view', newview, mpkfp]
                 self.eq(await s_feed.main(argv, outp=outp), 0)
+                nodes = await core.nodes('test:int', opts={'view': newview})
+                self.len(20, nodes)
 
                 # sad path
                 outp = self.getTestOutp()

@@ -289,7 +289,7 @@ class CoreApi(s_cell.CellApi):
             await self.cell.addExtModel(meta['model_ext'])
         return
 
-    async def addFeedData(self, items, *, viewiden=None):
+    async def addFeedData(self, items, *, viewiden=None, reqmeta=True):
 
         view = self.cell.getView(viewiden, user=self.user)
         if view is None:
@@ -305,7 +305,7 @@ class CoreApi(s_cell.CellApi):
 
         logger.info(f'User ({self.user.name}) adding feed data: {len(items)}')
 
-        async for node in view.addNodes(items, user=self.user):
+        async for node in view.addNodes(items, user=self.user, reqmeta=reqmeta):
             await asyncio.sleep(0)
 
     async def count(self, text, *, opts=None):
@@ -5794,7 +5794,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         }
         return ret
 
-    async def addFeedData(self, items, *, user=None, viewiden=None):
+    async def addFeedData(self, items, *, user=None, viewiden=None, reqmeta=True):
         '''
         Add bulk data in nodes format.
 
@@ -5813,7 +5813,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         logger.info(f'User (user.name) adding feed data: {len(items)}')
 
-        async for node in view.addNodes(items, user=user):
+        async for node in view.addNodes(items, user=user, reqmeta=reqmeta):
             await asyncio.sleep(0)
 
     async def getPropNorm(self, prop, valu, typeopts=None):

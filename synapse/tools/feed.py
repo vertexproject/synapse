@@ -47,16 +47,19 @@ def getItems(*paths):
             logger.warning('Unsupported file path: [%s]', path)
     return items
 
-async def ingest_items(core, items, outp, path, bname, viewiden=None, offset=None, chunksize=1000, debug=False):
+async def ingest_items(core, items, outp, path, bname, viewiden=None, offset=None, chunksize=1000, is_synnode3=False, meta=None, debug=False):
     tick = time.time()
     outp.printf(f'Adding items from [{path}]')
     foff = -1
+
     for chunk in s_common.chunks(items, chunksize):
         clen = len(chunk)
         if offset and foff + clen <= offset:
             foff += clen
             continue
-        await core.addFeedData(chunk, viewiden=viewiden)
+        if is_synnode3 and meta is not None:
+            chunk = (meta,) + chunk
+        await core.addFeedData(chunk, viewiden=viewiden, reqmeta=is_synnode3)
         foff += clen
         outp.printf(f'Added [{clen}] items from [{bname}] - offset [{foff}]')
     tock = time.time()
@@ -70,8 +73,8 @@ async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0,
     if (summary or extend_model):
         for path, _ in items:
             if not (path.endswith('.mpk') or path.endswith('.nodes')):
-                outp.printf(f'Warning: --summary and --extend-model are only supported for .mpk/.nodes files. Skipping [{path}].')
-                continue
+                outp.printf(f'Warning: --summary and --extend-model are only supported for .mpk/.nodes files. Aborting.')
+                return 1
 
     for path, item in items:
         bname = os.path.basename(path)
@@ -108,11 +111,11 @@ async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0,
                 await core.importStormMeta(meta, extmodel=True, viewiden=viewiden)
                 outp.printf(f"Extended model elements from metadata in [{bname}]")
 
-            await ingest_items(core, genr, outp, path, bname, viewiden=viewiden, offset=offset, chunksize=chunksize, debug=debug)
+            await ingest_items(core, genr, outp, path, bname, viewiden=viewiden, offset=offset, chunksize=chunksize, is_synnode3=True, meta=meta, debug=debug)
             continue # Next file
 
         # all other supported file types
-        await ingest_items(core, item, outp, path, bname, viewiden=viewiden, offset=offset, chunksize=chunksize, debug=debug)
+        await ingest_items(core, item, outp, path, bname, viewiden=viewiden, offset=offset, chunksize=chunksize, is_synnode3=False, meta=None, debug=debug)
 
 async def main(argv, outp=None):
 
