@@ -65,8 +65,6 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('Forms are derived from types, or base types. Forms represent node types in the graph.', s)
             self.isin(r'inet\:ip', s)
             self.notin(r'file\:bytes:seen', s)
-            self.isin('Universal props are system level properties which may be present on every node.', s)
-            self.isin('seen', s)
             self.isin('An example of ``inet:dns:a``\\:', s)
 
             # IP property

@@ -38,7 +38,7 @@ Queries = [
     '$foo=(2) return(($foo<(4)-(1)))',
     '[inet:ip=1.2.3.4 :asn=1] return((:asn<(4)-(1)))',
     '$p=asn inet:ip=1.2.3.4 return((:$p<(4)-(1)))',
-    '[inet:ip=1.2.3.4 :test:univ=0] return((:test:univ<(4)-(1)))',
+    '[inet:ip=1.2.3.4 :test:prop=0] return((:test:prop<(4)-(1)))',
     '[inet:ip=1.2.3.4 +#foo:score=1] return((#foo:score<(4)-(1)))',
     '[inet:ip=1.2.3.4 +#foo=(0)] return((#foo<(4)-(1)))',
     '$p=bar [inet:ip=1.2.3.4 +#foo.bar=(0)] return((#foo.$p<(4)-(1)))',
@@ -813,7 +813,7 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: foo, DollarExpr: [Const: 2]], Return: [DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: <, ExprNode: [DollarExpr: [Const: 4], Const: -, DollarExpr: [Const: 1]]]]]]',
     'Query: [EditNodeAdd: [FormName: [Const: inet:ip], Const: =, Const: 1.2.3.4], EditPropSet: [RelProp: [Const: asn], Const: =, Const: 1], Return: [DollarExpr: [ExprNode: [RelPropValue: [RelProp: [Const: asn]], Const: <, ExprNode: [DollarExpr: [Const: 4], Const: -, DollarExpr: [Const: 1]]]]]]',
     'Query: [SetVarOper: [Const: p, Const: asn], LiftPropBy: [Const: inet:ip, Const: =, Const: 1.2.3.4], Return: [DollarExpr: [ExprNode: [RelPropValue: [RelProp: [VarValue: [Const: p]]], Const: <, ExprNode: [DollarExpr: [Const: 4], Const: -, DollarExpr: [Const: 1]]]]]]',
-    'Query: [EditNodeAdd: [FormName: [Const: inet:ip], Const: =, Const: 1.2.3.4], EditPropSet: [RelProp: [Const: test:univ], Const: =, Const: 0], Return: [DollarExpr: [ExprNode: [RelPropValue: [RelProp: [Const: test:univ]], Const: <, ExprNode: [DollarExpr: [Const: 4], Const: -, DollarExpr: [Const: 1]]]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: inet:ip], Const: =, Const: 1.2.3.4], EditPropSet: [RelProp: [Const: test:prop], Const: =, Const: 0], Return: [DollarExpr: [ExprNode: [RelPropValue: [RelProp: [Const: test:prop]], Const: <, ExprNode: [DollarExpr: [Const: 4], Const: -, DollarExpr: [Const: 1]]]]]]',
     'Query: [EditNodeAdd: [FormName: [Const: inet:ip], Const: =, Const: 1.2.3.4], EditTagPropSet: [TagProp: [TagName: [Const: foo], Const: score], Const: =, Const: 1], Return: [DollarExpr: [ExprNode: [TagPropValue: [TagProp: [TagName: [Const: foo], Const: score]], Const: <, ExprNode: [DollarExpr: [Const: 4], Const: -, DollarExpr: [Const: 1]]]]]]',
     'Query: [EditNodeAdd: [FormName: [Const: inet:ip], Const: =, Const: 1.2.3.4], EditTagAdd: [TagName: [Const: foo], Const: =, DollarExpr: [Const: 0]], Return: [DollarExpr: [ExprNode: [TagValue: [TagName: [Const: foo]], Const: <, ExprNode: [DollarExpr: [Const: 4], Const: -, DollarExpr: [Const: 1]]]]]]',
     'Query: [SetVarOper: [Const: p, Const: bar], EditNodeAdd: [FormName: [Const: inet:ip], Const: =, Const: 1.2.3.4], EditTagAdd: [TagName: [Const: foo, Const: bar], Const: =, DollarExpr: [Const: 0]], Return: [DollarExpr: [ExprNode: [TagValue: [TagName: [Const: foo, VarValue: [Const: p]]], Const: <, ExprNode: [DollarExpr: [Const: 4], Const: -, DollarExpr: [Const: 1]]]]]]',
@@ -1848,21 +1848,6 @@ class GrammarTest(s_t_utils.SynTest):
         self.false(s_grammar.isCmdName('2testcmd'))
         self.false(s_grammar.isCmdName('testcmd:newp'))
         self.false(s_grammar.isCmdName('.hehe'))
-
-        self.true(s_grammar.isUnivName('.hehe'))
-        self.true(s_grammar.isUnivName('.hehe:haha'))
-        self.true(s_grammar.isUnivName('.hehe.haha'))
-        self.true(s_grammar.isUnivName('.hehe4'))
-        self.true(s_grammar.isUnivName('.hehe.4haha'))
-        self.true(s_grammar.isUnivName('.hehe:4haha'))
-        self.false(s_grammar.isUnivName('.4hehe'))
-        self.false(s_grammar.isUnivName('test:str'))
-        self.false(s_grammar.isUnivName('test:str.hehe'))
-        self.false(s_grammar.isUnivName('test:str.hehe:haha'))
-        self.false(s_grammar.isUnivName('test:str.haha.hehe'))
-        self.true(s_grammar.isUnivName('.foo:x'))
-        self.true(s_grammar.isUnivName('.x:foo'))
-        self.true(s_grammar.isUnivName('._haha'))
 
         self.true(s_grammar.isFormName('test:str'))
         self.true(s_grammar.isFormName('t2:str'))

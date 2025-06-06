@@ -84,8 +84,9 @@ _DefaultConfig = {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
-                        'first_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.0))',
-                        'last_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.1))',
+# TODO: update this after modeling is updated
+#                        'first_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.0))',
+#                        'last_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.1))',
                         'goals': '''
                             init { $goals = () }
                             -> ou:campaign:org -> ou:goal | uniq | +:name $goals.append(:name)
@@ -228,9 +229,10 @@ _DefaultConfig = {
                             {+:name=facebook return(facebook)}
                         ''',
                         'credential': '-> auth:creds return(:passwd)',
-                        'account_created': '+:period return($lib.stix.export.timestamp((:period).0))',
-                        'account_last_login': '+:seen $ival = :seen return($lib.stix.export.timestamp($ival.0))',
-                        'account_first_login': '+:seen $ival = :seen return($lib.stix.export.timestamp($ival.1))',
+                        'account_created': 'return($lib.stix.export.timestamp(:period.min))',
+# TODO: update this modeling?
+                        'account_last_login': 'return($lib.stix.export.timestamp(:period.max))',
+                        'account_first_login': 'return($lib.stix.export.timestamp(:period.min))',
                     },
                 }
             },
@@ -302,8 +304,9 @@ _DefaultConfig = {
                     'props': {
                         'name': '{+:title return(:title)} return($node.repr())',
                         'is_family': 'return($lib.true)',
-                        'first_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.0))',
-                        'last_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.1))',
+# TODO: update this after model update
+#                        'first_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.0))',
+#                        'last_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.1))',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'sample_refs': '''
@@ -758,8 +761,8 @@ stixingest = {
                 [ ou:campaign=(stix, campaign, $object.id)
                     :name?=$object.name
                     :desc?=$object.description
-                    :seen?=$object.last_seen
-                    :seen?=$object.first_seen
+                    :period?=$object.last_seen
+                    :period?=$object.first_seen
                 ]
                 $node.data.set(stix:object, $object)
                 return($node)

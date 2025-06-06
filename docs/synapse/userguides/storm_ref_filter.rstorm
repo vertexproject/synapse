@@ -174,7 +174,7 @@ Filter by Property
 ------------------
 
 A "filter by property" operation modifies your working set to include (or exclude) all forms that **have**
-the specified property (secondary, universal, or extended), regardless of the property value.
+the specified property (secondary or extended), regardless of the property value.
 
 .. TIP::
   
@@ -260,30 +260,6 @@ property by specifying the full name of the interface and its property.
   and property name).
 
 
-.. _filter-prop-univ:
-
-Filter by Universal Property
-++++++++++++++++++++++++++++
-
-**Syntax:**
-
-*<query>* **+** | **-** [ *<form>* ] **.** *<prop>*
-
-**Example:**
-
-*Filter the current working set to only include DNS A records (inet:dns:a nodes) that have a :seen property:*
-
-.. storm-pre:: [ (inet:dns:a=(vertex.link,1.1.1.1) :seen=('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')) (inet:dns:a=(vertex.link,2.2.2.2)) ] +inet:dns:a:seen
-::
-  
-  <query> +inet:dns:a:seen
-
-.. storm-pre:: [ (inet:dns:a=(vertex.link,1.1.1.1) :seen=(2016/06/01,2020/06/01)) (inet:dns:a=(vertex.link,2.2.2.2)) ] +:seen
-::
-  
-  <query> +:seen
-
-
 .. _filter-prop-extend:
   
 Filter by Extended Property
@@ -326,7 +302,7 @@ property matches the specified value. This type of filter requires:
 - a :ref:`gloss-comp-operator` to specify how the property value should be evaluated; and
 - the property value.
 
-A "filter by property value" can be performed using primary, secondary, universal, or extended properties.
+A "filter by property value" can be performed using primary, secondary, or extended properties.
 
 In Synapse, we define **standard comparison operators** as the following set of operators:
 
@@ -343,8 +319,6 @@ When filtering by secondary or extended property value, you can specify the prop
 **relative** property name (i.e., the property name alone, including its separator character, such as
 ``:ip``).
 
-When filtering by universal property value, only the relative property name is required.
-
 Using the relative property name allows for simplified syntax and more efficient data entry ("less
 typing"). Full property names can be used for clarity (i.e., specifying **exactly** what you want to
 filter on).
@@ -353,7 +327,7 @@ Full property names are **required**:
 
 - when filtering based on an interface property value.
 - in cases where multiple nodes in the inbound working set have the same relative property name (e.g.,
-  ``inet:dns:a:ip`` and ``inet:url:ip``, or a universal property such as ``:seen``) and you only wish to
+  ``inet:dns:a:ip`` and ``inet:url:ip``, or a meta property such as ``.created``) and you only wish to
   filter based on the property of one of the forms.
 
 Each example below is shown using both the full property name (*<form>:<prop>*) and the relative
@@ -484,7 +458,7 @@ property value by using the name of the interface.
   <query> -it:host:activity:time < 2024/01/01
 
 
-.. _filter-prop-std-universal:
+.. _filter-prop-std-meta:
 
 Filter by Meta Property Value
 +++++++++++++++++++++++++++++
@@ -580,7 +554,7 @@ In most cases, the same extended comparators are available for both lifting and 
 - `Filter by Proximity (*near=)`_
 - `Filter by (Arrays) (*[ ])`_
 
-Each extended comparision operator can be used with any kind of property (primary, secondary, universal, or
+Each extended comparision operator can be used with any kind of property (primary, secondary, or
 extended) whose :ref:`gloss-type` is appropriate for the comparison used. When filtering by secondary property
 value, you can optionally specify an :ref:`interface` name and property to filter based on all forms that
 inherit that interface.
@@ -793,18 +767,6 @@ of times and intervals.
   When comparing a single time value to a time property, the ``@=`` comparator behaves just like the
   equal to ( ``=`` ) operator.
 
-
-*Filter the current working set to only include WHOIS email nodes (inet:whois:email) that were observed between July 1, 2023 and the present:*
-
-.. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) :seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +inet:whois:email:seen @= ( 2023/07/01, now )
-::
-  
-  <query> +inet:whois:email:seen @= ( 2023/07/01, now )
-
-.. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) :seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +:seen @= ( 2023/07/01, now )
-::
-  
-  <query> +:seen @= ( 2023/07/01, now )
 
 *Filter the current working set to only include the network flows (inet:flow nodes) that occurred within the past day:*
 

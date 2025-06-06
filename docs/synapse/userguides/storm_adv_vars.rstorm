@@ -273,7 +273,7 @@ The variable name must be specified first, followed by the equals sign and the v
 ``<value>`` can be:
 
 - an explicit value (literal),
-- a node property (secondary or universal),
+- a node property (secondary or extended),
 - a built-in variable or method (e.g., can allow you to access a node's primary property, form name, or other
   elements),
 - a tag (allows you to access timestamps associated with a tag),
@@ -338,43 +338,13 @@ You can assign an explicit, unchanging value to a variable.
 
 **Node properties**
 
-You can assign the value of a particular node property (secondary or universal) to a variable.
+You can assign the value of a particular node property (secondary or extended) to a variable.
 
 - **Secondary property:** Assign the ``:email`` property from an Internet-based account (``inet:service:account``) to
   the variable ``$email``:
 
 .. storm-pre:: [inet:service:account=(twitter.com,hacks4cats) :email=ron@protonmail.com]
 .. storm-cli:: inet:service:account=(twitter.com,hacks4cats) $email=:email $lib.print($email)
-
-
-- **Universal property:** Assign the ``:seen`` universal property from a DNS A node to the variable ``$time``:
-
-.. storm-pre:: [inet:dns:a=(woot.com,1.2.3.4) :seen=("2018/11/27 03:28:14","2019/08/15 18:32:47")]
-.. storm-cli:: inet:dns:a=(woot.com,1.2.3.4) $time=:seen $lib.print($time)
-
-.. NOTE::
-  
-  In the output above, the variable value is displayed as a pair of epoch microseconds, which is how Synapse
-  stores date/time values.
-
-
-*Example:*
-  
-- Given a DNS A record observed within a specific time period, find other DNS A records that pointed to the
-  same IP address in the same time window:
-
-.. storm-pre:: [ ( inet:dns:a=(hurr.net,1.2.3.4) :seen=("2018/12/09 06:02:53","2019/01/03 11:27:01") ) ( inet:dns:a=(derp.org,1.2.3.4) :seen=("2019/09/03 01:11:23","2019/12/14 14:22:00"))]
-.. storm-cli:: inet:dns:a=(woot.com,1.2.3.4) $time=:seen -> inet:ip -> inet:dns:a +:seen@=$time
-
-.. TIP::
-  
-  An interval (such as a ``:seen`` property) consists of a **pair** of date/time values. In the example
-  above, the value of the variable ``$time`` is the combined pair (min / max) of times.
-  
-  To access the "first seen" (minimum) or "last seen" (maximum) time values separately, use a pair of
-  variables in the assignment:
-  
-  ``($min, $max) = :seen``
 
 
 **Built-in variables and methods**
