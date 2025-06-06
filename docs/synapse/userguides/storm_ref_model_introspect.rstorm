@@ -76,7 +76,7 @@ Example Queries
 .. storm-cli:: syn:prop = inet:ip:loc
 
 
-- Display a specific form and all its secondary properties (including universal properties):
+- Display a specific form and all its secondary properties:
 
 
 .. storm-cli:: syn:prop:form = inet:fqdn | limit 2

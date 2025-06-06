@@ -146,7 +146,7 @@ The ``stormfile`` contains a Storm query to describe how the data from the CSV f
 Ingest Example 1
 ++++++++++++++++
 
-This example demonstrates loading a structured set of data to create nodes of a single form (in this case, DNS A records) and set secondary properties (in this case, the ``:seen`` universal property).
+This example demonstrates loading a structured set of data to create nodes of a single form (in this case, DNS A records) and set secondary properties (in this case, the ``:seen`` secondary property).
 
 **CSV File:**
 
@@ -162,7 +162,7 @@ A CSV file (``testfile.csv``) contains a list of domains, the IP addresses the d
 .. NOTE::
   Because the file contains a header row, we need to use the ``--csv-header`` option to tell ``csvtool`` to skip the first row when ingesting data.
 
-We want to load the data in the CSV file into a Cortex as a set of DNS A records (``inet:dns:a`` nodes) with the first and last dates represented as the ``:seen`` universal property.
+We want to load the data in the CSV file into a Cortex as a set of DNS A records (``inet:dns:a`` nodes) with the first and last dates represented as the ``:seen`` secondary property.
 
 **Stormfile:**
 

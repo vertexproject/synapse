@@ -101,8 +101,6 @@ Secondary properties are form-specific. In most cases, secondary properties are 
 If similar forms should share a subset of common properties, the properties may be defined as an **interface**
 that is **inherited** by those forms.
 
-Synapse also supports a set of universal secondary properties (**universal properties**) that are valid for all forms.
-
 **Extended properties** may be added to forms to store specialized or use case-specific data related to the form.
 
 .. _form-namespace:
@@ -185,8 +183,8 @@ A **node** is a unique object within Synapse; they are specific instances of gen
   unique pair "defines" the node, the comma-separated form / value combination (``<form>,<valu>``) is also known
   as the node’s :ref:`gloss-ndef` (short for "node definition").
 
-- One or more **universal properties** and an associated property value. As the name implies, universal properties
-  apply to all nodes.
+- One or more **meta properties** and an associated property value. Meta properties apply to all nodes and are
+  automatically populated by the Cortex.
 
 - Optional **secondary properties**. Similar to primary properties, secondary properties consist of a property name
   (of a specific **type**) and the property’s value (``<prop> = <pval>``).
@@ -206,9 +204,9 @@ The Storm query below lifts and displays the node for the domain ``www.google.co
 In the output above:
 
 - ``inet:fqdn = www.google.com`` is the **primary property** (``<form> = <valu>``).
-- ``.created`` is a **universal property** showing when the node was added to the Cortex.
+- ``.created`` is a **meta property** showing when the node was added to the Cortex.
 - ``:domain``, ``:host``, etc. are form-specific **secondary properties** with their associated values (``<prop> = <pval>``).
-  For readability, secondary properties (including universal properties and extended properties) are displayed as
+  For readability, secondary properties (including meta properties and extended properties) are displayed as
   **relative properties** within the namespace of the form’s primary property (e.g., ``:domain`` as opposed to ``inet:fqdn:domain``).
 - The various ``:_virustotal:*`` properties are **extended properties** added to the data model by the `Synapse-VirusTotal`_
   Power-Up to represent specialized data provided by VirusTotal.
@@ -262,17 +260,15 @@ the data is available and relevant to your use case; otherwise they can remain u
 (``inet:ip``) has an optional secondary property for its associated Autonomous System (AS) number (``inet:ip:asn``).
 All optional secondary property values can be set, modified, or removed as needed.
 
-.. _data-prop-universal:
+.. _data-prop-meta:
 
-Universal Property
-++++++++++++++++++
+Meta Property
++++++++++++++
 
-Synapse defines a subset of secondary properties as **universal properties** that are applicable to all forms:
+Synapse defines a subset of secondary properties as **meta properties** that are applicable to all forms:
 
 - ``.created``, which is set automatically by Synapse for all nodes and whose value is the date/time that the
   node was created within that instance of Synapse (Cortex).
-- ``.seen``, which is optional for all nodes and whose value is a time interval (minimum or "first seen" and
-  maximum or "last seen") during which the node was observed, existed, or was valid.
 
 .. _data-prop-extended:
 
@@ -312,19 +308,19 @@ two elements separated by a colon ( ``:`` ).
 
 - **Secondary properties** exist within the namespace of their primary property (form). Secondary properties
   are preceded by a colon ( ``:`` ) and use the colon to separate additional namespace elements, if needed.
-- **Universal properties** are preceded by a period ( ``.`` ) to distinguish them from form-specific secondary properties.
+- **Meta properties** are preceded by a period ( ``.`` ) to distinguish them from form-specific secondary properties.
 - **Extended properties** are preceded by a colon and an underscore ( ``:_`` ).
 
-For example, the secondary (both universal and form-specific) properties of ``inet:fqdn`` include:
+For example, the secondary (both meta and form-specific) properties of ``inet:fqdn`` include:
 
-- ``inet:fqdn.created`` (universal property)
+- ``inet:fqdn.created`` (meta property)
 - ``inet:fqdn:zone`` (secondary property)
 
 The VirusTotal Power-Up adds extended properties to various forms, including ``inet:fqdn``:
 
 - ``inet:fqdn:_virustotal:reputation``
 
-Secondary properties (including extended and universal properties) also make up a relative namespace (set of
+Secondary properties (including extended and meta properties) also make up a relative namespace (set of
 **relative properties**) with respect to their primary property (form). The Storm query language allows (or
 in some cases, requires) you to reference a property using its relative property name (i.e., ``:zone`` vs.
 ``inet:fqdn:zone``).
@@ -461,7 +457,6 @@ the form. Comp forms are often (though not universally) used to represent a :ref
 Fused DNS A records are an example of a comp form. A DNS A record can be uniquely defined by the combination
 of the domain (``inet:fqdn``) and the IP address (``inet:ip``) in the A record. In Synapse, an ``inet:dns:a``
 form represents the knowledge that a given domain resolved to a specific IP at some time, or within a time window.
-(The universal ``.seen`` property captures "when" (first observed / last observed) the resolution took place.)
 
 .. _form-guid:
 
@@ -581,11 +576,6 @@ difference between **instance knowledge** and **fused knowledge.**
 
 - Event forms represent the specific point-in-time existence of an entity or occurrence of a relationship - an
   **instance** of that knowledge.
-
-- Relationship forms can leverage the universal ``.seen`` property to set "first observed" and "last observed"
-  times during which an entity existed or a relationship was true. This date range can be viewed as **fused**
-  knowledge - knowledge that summarizes or "fuses" the data from many individual observations (instances) of the
-  node over time.
 
 Instance knowledge and fused knowledge represent differences in data granularity. Whether to create an event
 node or a relationship node (or both) depends on how much detail is required for your analysis. This 
