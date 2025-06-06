@@ -5255,13 +5255,10 @@ class StormTypesTest(s_test.SynTest):
 
             nodes = await core.nodes('[test:guid=(beep,)] $node.props.size="12"')
             self.eq(12, nodes[0].get('size'))
-            nodes = await core.nodes('[test:guid=(beep,)] $node.props."seen"=2020')
-            self.eq((1577836800000000, 1577836800000001), nodes[0].get('seen'))
 
             text = '$d=({}) test:guid=(beep,) { for ($name, $valu) in $node.props { $d.$name=$valu } } return ($d)'
             props = await core.callStorm(text)
             self.eq(12, props.get('size'))
-            self.eq((1577836800000000, 1577836800000001), props.get('seen'))
 
             with self.raises(s_exc.NoSuchProp):
                 self.true(await core.callStorm('[test:guid=(beep,)] $node.props.newp="noSuchProp"'))
@@ -5419,13 +5416,8 @@ class StormTypesTest(s_test.SynTest):
             self.eq(3, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar))'))
             self.eq(2, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar, formname=inet:ip))'))
 
-            self.eq(0, await core.callStorm("return($lib.layer.get().getPropCount(':seen'))"))
-
             with self.raises(s_exc.NoSuchProp):
                 await core.callStorm('return($lib.layer.get().getPropCount(newp:newp))')
-
-            with self.raises(s_exc.NoSuchUniv):
-                await core.callStorm("return($lib.layer.get().getPropCount(':newp'))")
 
             await core.nodes('.created | delnode --force')
 
@@ -5441,8 +5433,6 @@ class StormTypesTest(s_test.SynTest):
                  ou:org=*
                  :names=(foo, bar))
 
-                :seen=2020
-                :univarray=(1, 2)
                 +#foo:score=2
 
                 test:arrayform=(1,2,3)
@@ -5459,23 +5449,11 @@ class StormTypesTest(s_test.SynTest):
             q = 'return($lib.layer.get().getPropCount(inet:ip:asn, valu=4))'
             self.eq(3, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropCount(inet:ip:seen, valu=2020))'
-            self.eq(3, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropCount(":seen", valu=2020))'
-            self.eq(5, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropCount(":test:univ", valu=1))'
-            self.eq(0, await core.callStorm(q))
-
             q = 'return($lib.layer.get().getPropCount(inet:ip, valu=([4, 1])))'
             self.eq(1, await core.callStorm(q))
 
             q = 'return($lib.layer.get().getPropCount(ou:org:names, valu=(foo, bar)))'
             self.eq(2, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropCount(":univarray", valu=(1, 2)))'
-            self.eq(5, await core.callStorm(q))
 
             with self.raises(s_exc.NoSuchProp):
                 q = 'return($lib.layer.get().getPropCount(newp, valu=1))'
@@ -5486,12 +5464,6 @@ class StormTypesTest(s_test.SynTest):
 
             q = 'return($lib.layer.get().getPropArrayCount(ou:org:names, valu=foo))'
             self.eq(2, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropArrayCount(":univarray"))'
-            self.eq(10, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropArrayCount(":univarray", valu=2))'
-            self.eq(5, await core.callStorm(q))
 
             q = 'return($lib.layer.get().getPropArrayCount(test:arrayform))'
             self.eq(6, await core.callStorm(q))
@@ -5546,8 +5518,9 @@ class StormTypesTest(s_test.SynTest):
                 'c'
             ]
             opts = {'vars': {'vals': layr1vals}}
-            await core.nodes('for $val in $vals {[ it:dev:str=$val :seen=2020 ]}', opts=opts)
-            await core.nodes('for $val in $vals {[ ou:org=* :name=$val :seen=2021]}', opts=opts)
+            await core.nodes('for $val in $vals {[ test:str=$val :seen=2020 ]}', opts=opts)
+            await core.nodes('for $val in $vals {[ test:guid=* :name=$val :seen=2021]}', opts=opts)
+            await core.nodes('[ test:guid=* :seen=2020 ]')
 
             layr2vals = [
                 'a' * 512 + 'a',
@@ -5561,8 +5534,9 @@ class StormTypesTest(s_test.SynTest):
             ]
             forkview = await core.callStorm('return($lib.view.get().fork().iden)')
             opts = {'view': forkview, 'vars': {'vals': layr2vals}}
-            await core.nodes('for $val in $vals {[ it:dev:str=$val :seen=2020]}', opts=opts)
-            await core.nodes('for $val in $vals {[ ou:org=* :name=$val :seen=2023]}', opts=opts)
+            await core.nodes('for $val in $vals {[ test:str=$val :seen=2020]}', opts=opts)
+            await core.nodes('for $val in $vals {[ test:guid=* :name=$val :seen=2023]}', opts=opts)
+            await core.nodes('[ test:guid=* :seen=2020 ]', opts=opts)
 
             viewq = '''
             $vals = ([])
@@ -5581,7 +5555,7 @@ class StormTypesTest(s_test.SynTest):
             '''
 
             # Values come out in index order which is not necessarily value order
-            opts = {'vars': {'prop': 'it:dev:str'}}
+            opts = {'vars': {'prop': 'test:str'}}
             uniqvals = list(set(layr1vals))
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
@@ -5593,7 +5567,7 @@ class StormTypesTest(s_test.SynTest):
             uniqvals = list(set(layr1vals) | set(layr2vals))
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
 
-            opts = {'vars': {'prop': 'ou:org:name'}}
+            opts = {'vars': {'prop': 'test:guid:name'}}
             uniqvals = list(set(layr1vals))
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
@@ -5605,7 +5579,7 @@ class StormTypesTest(s_test.SynTest):
             uniqvals = list(set(layr1vals) | set(layr2vals))
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
 
-            opts = {'vars': {'prop': ':seen'}}
+            opts = {'vars': {'prop': 'test:guid:seen'}}
 
             ival = core.model.type('ival')
             uniqvals = [ival.norm('2020')[0], ival.norm('2021')[0]]
@@ -6523,8 +6497,6 @@ words\tword\twrd'''
                  ou:org=*
                  :names=(foo, bar))
 
-                :seen=2020
-                :univarray=(1, 2)
                 +#foo:score=2
 
                 test:arrayform=(1,2,3)
@@ -6542,8 +6514,6 @@ words\tword\twrd'''
                  ou:org=*
                  :names=(foo, bar))
 
-                :seen=2020
-                :univarray=(1, 2)
                 +#foo:score=2
 
                 test:arrayform=(3,4,5)
@@ -6563,20 +6533,11 @@ words\tword\twrd'''
             q = 'return($lib.view.get().getPropCount(inet:ip:asn, valu=4))'
             self.eq(6, await core.callStorm(q, opts=forkopts))
 
-            q = 'return($lib.view.get().getPropCount(inet:ip:seen, valu=2020))'
-            self.eq(6, await core.callStorm(q, opts=forkopts))
-
-            q = 'return($lib.view.get().getPropCount(":seen", valu=2020))'
-            self.eq(10, await core.callStorm(q, opts=forkopts))
-
             q = 'return($lib.view.get().getPropCount(inet:ip, valu=([4, 1])))'
             self.eq(1, await core.callStorm(q, opts=forkopts))
 
             q = 'return($lib.view.get().getPropCount(ou:org:names, valu=(foo, bar)))'
             self.eq(4, await core.callStorm(q, opts=forkopts))
-
-            q = 'return($lib.view.get().getPropCount(":univarray", valu=(1, 2)))'
-            self.eq(10, await core.callStorm(q, opts=forkopts))
 
             with self.raises(s_exc.NoSuchProp):
                 q = 'return($lib.view.get().getPropCount(newp, valu=1))'
@@ -6587,9 +6548,6 @@ words\tword\twrd'''
 
             q = 'return($lib.view.get().getPropArrayCount(ou:org:names, valu=foo))'
             self.eq(4, await core.callStorm(q, opts=forkopts))
-
-            q = 'return($lib.view.get().getPropArrayCount(":univarray", valu=2))'
-            self.eq(10, await core.callStorm(q, opts=forkopts))
 
             q = 'return($lib.view.get().getPropArrayCount(test:arrayform, valu=3))'
             self.eq(3, await core.callStorm(q, opts=forkopts))

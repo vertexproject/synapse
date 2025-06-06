@@ -285,7 +285,6 @@ class StormCliTest(s_test.SynTest):
             # Check completion of forms/props
             vals = await get_completions('inet:fq')
             self.isin(Completion('dn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)
-            self.isin(Completion('dn:seen', display='[prop] inet:fqdn:seen - The time interval for first/last observation of the node.'), vals)
             self.isin(Completion('dn:domain', display='[prop] inet:fqdn:domain - The parent domain for the FQDN.'), vals)
             self.isin(Completion('dn:host', display='[prop] inet:fqdn:host - The host part of the FQDN.'), vals)
             self.isin(Completion('dn:issuffix', display='[prop] inet:fqdn:issuffix - True if the FQDN is considered a suffix.'), vals)
@@ -293,11 +292,11 @@ class StormCliTest(s_test.SynTest):
             self.isin(Completion('dn:zone', display='[prop] inet:fqdn:zone - The zone level parent for this FQDN.'), vals)
 
             vals = await get_completions('inet:fqdn:')
-            self.isin(Completion('seen', display='[prop] inet:fqdn:seen - The time interval for first/last observation of the node.'), vals)
+            self.isin(Completion('domain', display='[prop] inet:fqdn:domain - The parent domain for the FQDN.'), vals)
 
             vals = await get_completions('[inet:fq')
             self.isin(Completion('dn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)
-            self.isin(Completion('dn:seen', display='[prop] inet:fqdn:seen - The time interval for first/last observation of the node.'), vals)
+            self.isin(Completion('dn:domain', display='[prop] inet:fqdn:domain - The parent domain for the FQDN.'), vals)
 
             vals = await get_completions('[inet:')
             self.isin(Completion('fqdn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)
