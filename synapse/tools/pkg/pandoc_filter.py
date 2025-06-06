@@ -33,7 +33,7 @@ def main():
 
     Usage:
 
-       pandoc -f rst -t markdown --filter ./vtx_common/tools/pandoc_filter.py -o foo.md foo.rst
+       pandoc -f rst -t markdown --filter ./synapse/tools/pkg/pandoc_filter.py -o foo.md foo.rst
     '''
 
     ast = json.load(sys.stdin)
