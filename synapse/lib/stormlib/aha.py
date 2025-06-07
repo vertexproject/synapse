@@ -154,7 +154,7 @@ class AhaLib(s_stormtypes.Lib):
         if svc.get('services'):  # It is an AHA Pool!
             mesg = f'Cannot use $lib.aha.del() to remove an AHA Pool. Use $lib.aha.pool.del(); {svcname=}'
             raise s_exc.BadArg(mesg=mesg)
-        return await proxy.delAhaSvc(svc.get('svcname'), network=svc.get('svcnetw'))
+        return await proxy.delAhaSvc(svc.get('name'))
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methAhaGet(self, svcname, filters=None):
@@ -602,10 +602,8 @@ The ready column indicates that a service has entered into the realtime change w
             $leaders = $lib.set()
             for $info in $svcs {
                 $svcinfo = $info.svcinfo
-                if $svcinfo {
-                    if ($info.svcname = $svcinfo.leader) {
-                        $leaders.add($svcinfo.run)
-                    }
+                if $info.svcinfo.isleader {
+                    $leaders.add($svcinfo.run)
                 }
             }
 
