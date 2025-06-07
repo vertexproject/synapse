@@ -162,6 +162,8 @@ class AhaApi(s_cell.CellApi):
         NOTE: In order for the service to remain marked "up" a caller
               must maintain the telepath link.
         '''
+
+        # FIXME perhaps this should manage virtual leader services automatically?
         await self._reqUserAllowed(('aha', 'service', 'add'))
 
         name = self.cell._getAhaName(name)

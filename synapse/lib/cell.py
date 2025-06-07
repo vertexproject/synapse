@@ -2118,7 +2118,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await proxy.fini()
 
         except Exception as e:
-            extra = self.getLogExtra(name=self.conf.get('aha:name'))
+            extra = await self.getLogExtra(name=self.conf.get('aha:name'))
             logger.exception('Error forcing AHA reconnect.', extra=extra)
 
     def isActiveCoro(self, iden):
