@@ -811,9 +811,12 @@ class AhaTest(s_test.SynTest):
                     self.eq(core00.conf.get('aha:user'), user)
 
                     core01 = await base.enter_context(self.addSvcToAha(aha, '01.cortex', s_cortex.Cortex, dirn=dirn01,
-                                                                       conf={'axon': 'aha://cortex...'},
-                                                                       provinfo={'conf': {'aha:user': user}}))
+                                                                       provinfo={'mirror': '00.cortex', 'conf': {'aha:user': user}}))
+
+                    self.eq(core01.conf.get('mirror'), 'aha://synuser@00.cortex...')
                     self.eq(core01.conf.get('aha:user'), user)
+
+                    await asyncio.wait_for(core01.nexsroot.ready.wait(), timeout=8)
 
                     async with aha.getLocalProxy() as ahaproxy:
                         self.eq(None, await ahaproxy.getAhaSvcMirrors('99.bogus'))

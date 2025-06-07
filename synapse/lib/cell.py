@@ -2105,37 +2105,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.NeedConfValu(mesg=mesg)
         return await self.ahaclient.proxy(timeout=timeout)
 
-    async def _setAhaActive(self):
+    async def _bumpAhaProxy(self):
 
         if self.ahaclient is None:
             return
 
-        ahainfo = await self.getAhaInfo()
-        if ahainfo is None:
-            return
-
-        ahalead = self.conf.get('aha:leader')
-        if ahalead is None:
-            return
-
+        # force a reconnect to AHA to update service info
         try:
 
-            proxy = await self.ahaclient.proxy(timeout=2)
+            proxy = await self.ahaclient.proxy(timeout=5)
+            if proxy is not None:
+                await proxy.fini()
 
-        except TimeoutError:  # pragma: no cover
-            return None
-
-        # if we went inactive, bump the aha proxy
-        if not self.isactive:
-            await proxy.fini()
-            return
-
-        try:
-            await proxy.addAhaSvc(f'{ahalead}...', ahainfo)
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
-        except Exception as e:  # pragma: no cover
-            logger.warning(f'_setAhaActive failed: {e}')
+        except Exception as e:
+            extra = self.getLogExtra(name=self.conf.get('aha:name'))
+            logger.exception('Error forcing AHA reconnect.', extra=extra)
 
     def isActiveCoro(self, iden):
         return self.activecoros.get(iden) is not None
@@ -2247,7 +2231,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.activebase = None
             await self.initServicePassive()
 
-        await self._setAhaActive()
+        await self._bumpAhaProxy()
 
     def runActiveTask(self, coro):
         # an API for active coroutines to use when running an
@@ -4004,8 +3988,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if mirrors is None:
             mesg = 'Service must be configured with AHA to enumerate mirror URLs'
             raise s_exc.NoSuchName(mesg=mesg, name=self.ahasvcname)
-
-        print(repr(mirrors))
 
         return [f'aha://{svc["name"]}' for svc in mirrors]
 
