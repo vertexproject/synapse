@@ -40,7 +40,8 @@ async def dumpBlobs(opts, outp):
         async with await s_telepath.openurl(opts.url) as axon:
 
             cellinfo = await axon.getCellInfo()
-            if (celltype := cellinfo['cell']['type']) != 'axon':
+            celltype = cellinfo['cell']['type'].lower()
+            if celltype not in ('axon', 's3axon', 'gcsaxon', 'azureaxon'):
                 mesg = f'Axon dump tool only works on axons, not {celltype}'
                 raise s_exc.TypeMismatch(mesg=mesg)
 
