@@ -1139,7 +1139,7 @@ Export node edits from a Cortex
 Exporting node edits from a layer can be done with the
 ``synapse.tools.layer.dump`` command::
 
-    python -m synapse.tools.layer.dump <layriden>
+    python -m synapse.tools.layer.dump --url <cortexurl> <layriden>
 
 When running the export tool from within the Cortex container, the ``--url``
 option does not need to be provided as it will default to the local service.
