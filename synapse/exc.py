@@ -226,6 +226,7 @@ class IsFini(SynErr): pass
 class IsReadOnly(SynErr): pass
 class IsDeprLocked(SynErr): pass
 class IsRuntForm(SynErr): pass
+class ShuttingDown(SynErr): pass
 
 class LayerInUse(SynErr): pass
 

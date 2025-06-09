@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
 import synapse.lib.task as s_task
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,39 @@ class Boss(s_base.Base):
     async def __anit__(self):
         await s_base.Base.__anit__(self)
         self.tasks = {}
+        self.shutting = False
         self.onfini(self._onBossFini)
+
+    async def shutdown(self, timeout=None):
+        # when a boss is "shutting down" it should not promote any new tasks,
+        # but await the completion of any which are already underway...
+        self.shutting = True
+
+        for task in list(self.tasks.values()):
+
+            # do not wait on child tasks
+            if task.root is not None:
+                continue
+
+            # do not wait on background tasks
+            if task.background:
+                continue
+
+            if not await s_coro.waittask(task.task, timeout=timeout):
+                self.shutting = False
+                return False
+
+        return True
+
+    def reqNotShut(self, mesg=None):
+
+        if not self.shutting:
+            return
+
+        if mesg is None:
+            mesg = 'The service is shutting down.'
+
+        raise s_exc.ShuttingDown(mesg=mesg)
 
     async def _onBossFini(self):
         for task in list(self.tasks.values()):
@@ -31,7 +64,7 @@ class Boss(s_base.Base):
     def get(self, iden):
         return self.tasks.get(iden)
 
-    async def promote(self, name, user, info=None, taskiden=None):
+    async def promote(self, name, user, info=None, taskiden=None, background=False):
         '''
         Promote the currently running task.
 
@@ -45,10 +78,15 @@ class Boss(s_base.Base):
             s_task.Task: The Synapse Task object.
         '''
         task = asyncio.current_task()
-        return await self.promotetask(task, name, user, info=info, taskiden=taskiden)
+
+        syntask = await self.promotetask(task, name, user, info=info, taskiden=taskiden)
+        syntask.background = background
+
+        return syntask
 
     async def promotetask(self, task, name, user, info=None, taskiden=None):
 
+        self.reqNotShut()
         synt = s_task.syntask(task)
 
         if synt is not None:
@@ -69,5 +107,6 @@ class Boss(s_base.Base):
         '''
         Create a synapse task from the given coroutine.
         '''
+        self.reqNotShut()
         task = self.schedCoro(coro)
         return await s_task.Task.anit(self, task, name, user, info=info, iden=iden)

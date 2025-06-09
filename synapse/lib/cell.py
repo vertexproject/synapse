@@ -210,6 +210,10 @@ class CellApi(s_base.Base):
         pass
 
     @adminapi(log=True)
+    async def shutdown(self, timeout=None):
+        return await self.cell.shutdown(timeout=timeout)
+
+    @adminapi(log=True)
     async def freeze(self, timeout=30):
         return await self.cell.freeze(timeout=timeout)
 
@@ -1532,6 +1536,25 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if retn == 0:
             self._onFiniCellGuid()
         return retn
+
+    async def shutdown(self, timeout=None):
+        '''
+        Execute a graceful shutdown by allowing any promoted boss
+        tasks to complete but not taking on any more...
+        '''
+        extra = await self.getLogExtra()
+        logger.warning('Graceful shutdown initiated...', extra=extra)
+
+        if not await self.boss.shutdown(timeout=timeout):
+            logger.warning('...tasks did not complete within timeout. Aborting shutdown.', extra=extra)
+            return False
+
+        task = asyncio.current_task()
+        def syncfini(futu):
+            asyncio.get_running_loop().create_task(self.fini())
+
+        asyncio.current_task().add_done_callback(syncfini)
+        return True
 
     def _onFiniCellGuid(self):
         fcntl.lockf(self._cellguidfd, fcntl.LOCK_UN)
