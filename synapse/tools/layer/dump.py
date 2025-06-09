@@ -3,6 +3,7 @@ import sys
 import asyncio
 import argparse
 import tempfile
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -16,6 +17,19 @@ import synapse.lib.version as s_version
 descr = '''
 Export node edits from a Synapse layer.
 '''
+
+# Helper to automatically close the tempfile and delete it on error
+@contextlib.contextmanager
+def tmpfile(dirn):
+    (_fd, path) = tempfile.mkstemp(dir=dirn, prefix='layer.dump.')
+
+    try:
+        with contextlib.closing(os.fdopen(_fd, 'wb')) as fd:
+            yield (fd, path)
+
+    except Exception:
+        os.unlink(path)
+        raise
 
 async def exportLayer(opts, outp):
 
@@ -59,22 +73,15 @@ async def exportLayer(opts, outp):
 
         while not finished:
 
-            kwargs = {}
+            try:
+                # Pull the first edit so we can get the starting offset
+                first = await anext(nodeiter)
+            except StopAsyncIteration: # pragma: no cover
+                break
 
-            if s_common.majmin >= (3, 12): # pragma: no cover
-                kwargs['delete_on_close'] = False
+            soffs = first[0]
 
-            with tempfile.NamedTemporaryFile(dir=opts.outdir, delete=False, **kwargs) as fd:
-
-                try:
-                    # Pull the first edit so we can get the starting offset
-                    first = await anext(nodeiter)
-                except StopAsyncIteration: # pragma: no cover
-                    break
-
-                soffs = first[0]
-
-                count = 1
+            with tmpfile(opts.outdir) as (fd, tmppath):
 
                 # Write header to file
                 fd.write(s_msgpack.en((
@@ -93,6 +100,8 @@ async def exportLayer(opts, outp):
                 # Now write the first edit that we already pulled
                 fd.write(s_msgpack.en(('edit', first)))
 
+                count = 1
+
                 async for nodeedit in nodeiter:
 
                     # Write individual edits to file
@@ -102,7 +111,7 @@ async def exportLayer(opts, outp):
 
                     count += 1
 
-                    if count % opts.chunksize == 0:
+                    if opts.chunksize and count % opts.chunksize == 0:
                         break
 
                 else:
@@ -114,29 +123,29 @@ async def exportLayer(opts, outp):
                     'tock': s_common.now(),
                 })))
 
-                tmpname = fd.name
+                path = s_common.genpath(opts.outdir, f'{celliden}.{opts.iden}.{soffs}-{eoffs}.nodeedits')
+                os.rename(tmppath, path)
+                outp.printf(f'Wrote layer node edits {soffs}-{eoffs} to {path}.')
 
-            path = os.path.join(opts.outdir, f'{celliden}.{opts.iden}.{soffs}-{eoffs}.nodeedits')
-            os.rename(tmpname, path)
-            outp.printf(f'Wrote layer node edits {soffs}-{eoffs} to {path}.')
-
-            # Update start offset for next loop
-            soffs = eoffs + 1
-
-    # Save state file
-    state['offset:next'] = eoffs + 1
-    s_common.yamlsave(state, statefile)
+            # Save state file after each export file
+            state['offset:next'] = eoffs + 1
+            s_common.yamlsave(state, statefile)
 
     return 0
 
 async def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='layer.dump', description=descr)
-    pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
-    pars.add_argument('--offset', default=None, type=int, help='The starting offset of the node edits to export.')
-    pars.add_argument('--chunksize', default=100_000, type=int, help='The number of node edits to store in a single file.')
-    pars.add_argument('--outdir', default='.', help='The directory to save the exported node edits to.')
-    pars.add_argument('--statefile', type=str, default=None, help='Path to the state tracking file for this layer dump.')
+    pars.add_argument('--url', default='cell:///vertex/storage',
+                      help='The telepath URL of the Synapse service.')
+    pars.add_argument('--offset', default=None, type=int,
+                      help='The starting offset of the node edits to export.')
+    pars.add_argument('--chunksize', default=0, type=int,
+                      help='The number of node edits to store in a single file. Zero to disable chunking.')
+    pars.add_argument('--outdir', default='.',
+                      help='The directory to save the exported node edits to.')
+    pars.add_argument('--statefile', type=str, default=None,
+                      help='Path to the state tracking file for this layer dump.')
 
     pars.add_argument('iden', help='The iden of the layer to export.')
 
