@@ -30,8 +30,8 @@ async def loadBlobs(opts, outp, blobsfiles):
         async with await s_telepath.openurl(opts.url) as axon:
 
             cellinfo = await axon.getCellInfo()
-            celltype = cellinfo['cell']['type'].lower()
-            if celltype not in ('axon', 's3axon', 'gcsaxon', 'azureaxon'):
+            celltype = cellinfo['cell']['type']
+            if "axon" not in celltype.lower():
                 mesg = f'Axon load tool only works on axons, not {celltype}'
                 raise s_exc.TypeMismatch(mesg=mesg)
 
