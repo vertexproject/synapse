@@ -1105,9 +1105,11 @@ additonal CA files.
 Axon Blob Export and Import
 ----------------------------
 
-For situations where an organization may want to synchronize Axon blobs between
-two different Axons, there are command line tools available to export blobs from
-a source Axon and then import those same blobs into a different Axon.
+For situations where an organization needs to synchronize Axon blobs between two Axons
+that do not connect directly to each other, due to network segmentation as an example,
+there are command line tools available to export blobs from a source Axon and then import
+those blobs into a different Axon. For Axons that can communicate directly, the
+``axon2axon`` tool should be used for live synchronization.
 
 - ``synapse.tools.axon.dump``: Export blobs from a specified Axon.
 - ``synapse.tools.axon.load``: Import blobs to a specified Axon.
