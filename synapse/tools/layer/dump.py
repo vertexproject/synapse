@@ -27,7 +27,7 @@ def tmpfile(dirn):
         with contextlib.closing(os.fdopen(_fd, 'wb')) as fd:
             yield (fd, path)
 
-    except Exception:
+    except Exception: # pragma: no cover
         os.unlink(path)
         raise
 
@@ -161,8 +161,14 @@ async def main(argv, outp=s_output.stdout):
     async with s_telepath.withTeleEnv():
         try:
             await exportLayer(opts, outp)
+
         except s_exc.SynErr as exc:
             mesg = exc.get('mesg')
+            outp.printf(f'ERROR: {mesg}.')
+            return 1
+
+        except Exception as exc:
+            mesg = str(exc)
             outp.printf(f'ERROR: {mesg}.')
             return 1
 
