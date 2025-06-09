@@ -7059,21 +7059,29 @@ class Layer(Prim):
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
 
-        prop = self.runt.view.core.model.reqProp(propname)
+        if valu is not undef:
+            valu = await toprim(valu)
 
-        if valu is undef:
+        props = self.runt.model.reqPropList(propname)
+        count = 0
+
+        for prop in props:
+            await asyncio.sleep(0)
+
+            if valu is undef:
+                if prop.isform:
+                    count += layr.getPropCount(prop.name, None)
+                else:
+                    count += layr.getPropCount(prop.form.name, prop.name)
+                continue
+
+            norm, info = prop.type.norm(valu)
             if prop.isform:
-                return layr.getPropCount(prop.name, None)
+                count += layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
+            else:
+                count += layr.getPropValuCount(prop.form.name, prop.name, prop.type.stortype, norm)
 
-            return layr.getPropCount(prop.form.name, prop.name)
-
-        valu = await toprim(valu)
-        norm, info = prop.type.norm(valu)
-
-        if prop.isform:
-            return layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
-
-        return layr.getPropValuCount(prop.form.name, prop.name, prop.type.stortype, norm)
+        return count
 
     @stormfunc(readonly=True)
     async def _methGetPropArrayCount(self, propname, valu=undef):
@@ -7083,26 +7091,35 @@ class Layer(Prim):
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
 
-        prop = self.runt.view.core.model.reqProp(propname)
+        props = self.runt.model.reqPropList(propname)
+        count = 0
 
-        if not prop.type.isarray:
-            mesg = f'Property is not an array type: {prop.type.name}.'
+        if not props[0].type.isarray:
+            mesg = f'Property is not an array type: {propname}.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        if valu is undef:
+        if valu is not undef:
+            valu = await toprim(valu)
+
+        for prop in props:
+            await asyncio.sleep(0)
+
+            if valu is undef:
+                if prop.isform:
+                    count += layr.getPropArrayCount(prop.name, None)
+                else:
+                    count += layr.getPropArrayCount(prop.form.name, prop.name)
+                continue
+
+            atyp = prop.type.arraytype
+            norm, info = atyp.norm(valu)
+
             if prop.isform:
-                return layr.getPropArrayCount(prop.name, None)
+                count += layr.getPropArrayValuCount(prop.name, None, atyp.stortype, norm)
+            else:
+                count += layr.getPropArrayValuCount(prop.form.name, prop.name, atyp.stortype, norm)
 
-            return layr.getPropArrayCount(prop.form.name, prop.name)
-
-        valu = await toprim(valu)
-        atyp = prop.type.arraytype
-        norm, info = atyp.norm(valu)
-
-        if prop.isform:
-            return layr.getPropArrayValuCount(prop.name, None, atyp.stortype, norm)
-
-        return layr.getPropArrayValuCount(prop.form.name, prop.name, atyp.stortype, norm)
+        return count
 
     @stormfunc(readonly=True)
     async def _methGetTagPropCount(self, tag, propname, form=None, valu=undef):
@@ -7135,18 +7152,26 @@ class Layer(Prim):
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
 
-        prop = self.runt.view.core.model.reqProp(propname)
+        props = self.runt.model.reqPropList(propname)
 
-        formname = None
-        propname = None
+        genrs = []
+        lastvalu = None
 
-        if prop.isform:
-            formname = prop.name
-        else:
-            formname = prop.form.name
-            propname = prop.name
+        for prop in props:
+            if prop.isform:
+                formname = prop.name
+                propname = None
+            else:
+                formname = prop.form.name
+                propname = prop.name
 
-        async for indx, valu in layr.iterPropValues(formname, propname, prop.type.stortype):
+            genrs.append(layr.iterPropValues(formname, propname, prop.type.stortype))
+
+        async for _, valu in s_common.merggenr2(genrs):
+            if valu == lastvalu:
+                continue
+
+            lastvalu = valu
             yield valu
 
     @stormfunc(readonly=True)

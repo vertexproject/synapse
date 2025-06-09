@@ -651,7 +651,11 @@ class Model:
             (prevname := self.formprevnames.get(name)) is not None):
             mesg = f'No property named {name}. Did you mean {prevname}?'
 
-        raise s_exc.NoSuchProp.init(name, mesg=mesg)
+        exc = s_exc.NoSuchProp.init(name, mesg=mesg)
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
 
     def reqMetaType(self, name):
         if (mtyp := self.metatypes.get(name)) is not None:
