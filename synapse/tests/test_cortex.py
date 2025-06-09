@@ -8531,6 +8531,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                     data = stream.read()
                     self.isin('Proxy for pool mirror [01.core.synapse] was shutdown. Skipping.', data)
 
+                    with self.getLoggerStream('synapse') as stream:
+                        core01.boss.shutting = True
+                        self.stormHasNoWarnErr(await core00.stormlist('inet:asn=0'))
+                        core01.boss.shutting = False
+
+                    stream.seek(0)
+                    self.isin('Proxy for pool mirror [01.core.synapse] is shutting down. Skipping.', stream.read())
+
                     msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Storm pool configuration set.', msgs)

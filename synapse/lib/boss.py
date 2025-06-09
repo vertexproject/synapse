@@ -1,6 +1,8 @@
 import asyncio
 import logging
 
+import synapse.exc as s_exc
+
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.task as s_task

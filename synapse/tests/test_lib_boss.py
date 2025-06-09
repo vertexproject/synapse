@@ -62,3 +62,7 @@ class BossTest(s_test.SynTest):
                 coro = boss.schedCoro(double_promote())
                 self.true(await stream.wait(timeout=6))
                 await coro
+
+            boss.shutting = True
+            with self.raises(s_exc.ShuttingDown):
+                boss.reqNotShut()

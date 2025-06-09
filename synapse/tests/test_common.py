@@ -472,3 +472,7 @@ class CommonTest(s_t_utils.SynTest):
 
                     json = await resp.json()
                     self.eq(json, {'foo': 'bar', 'html': '<html></html>'})
+
+    async def test_reprexc(self):
+        exc = s_exc.SynErr(mesg='woot')
+        self.eq('woot', s_common.reprexc(exc))

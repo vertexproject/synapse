@@ -1,7 +1,10 @@
 import asyncio
 import argparse
 
+import synapse.common as s_common
 import synapse.telepath as s_telepath
+
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 
 desc = '''
@@ -19,7 +22,7 @@ the system resumes normal operation.
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser('synapse.tools.shutdown', description=desc)
+    pars = s_cmd.Parser('synapse.tools.shutdown', outp=outp, description=desc)
 
     pars.add_argument('--url', default='cell:///vertex/storage',
                         help='THe telepath URL to connect to the service.')
@@ -31,12 +34,19 @@ async def main(argv, outp=s_output.stdout):
 
     async with s_telepath.withTeleEnv():
 
-        async with await s_telepath.openurl(opts.url) as proxy:
+        try:
 
-            if await proxy.shutdown(timeout=opts.timeout):
-                return(0)
+            async with await s_telepath.openurl(opts.url) as proxy:
 
-            return(1)
+                if await proxy.shutdown(timeout=opts.timeout):
+                    return 0
 
-if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(main(sys.argv[1:])))
+                return 1
+
+        except Exception as e: # pragma: no cover
+            text = s_common.reprexc(e)
+            outp.printf(f'Error while attempting graceful shutdown: {text}')
+            return 1
+
+if __name__ == '__main__':
+    s_cmd.main(main) # pragma: no cover

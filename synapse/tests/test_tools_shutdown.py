@@ -1,5 +1,7 @@
 import synapse.common as s_common
 
+import synapse.lib.output as s_output
+
 import synapse.tests.utils as s_test
 import synapse.tools.shutdown as s_shutdown
 
@@ -29,3 +31,8 @@ class ShutdownToolTest(s_test.SynTest):
             self.eq(0, await s_shutdown.main(['--url', core.getLocalUrl()]))
 
             self.true(await core.waitfini(timeout=1))
+
+        outp = s_output.OutPutStr()
+        self.eq(1, await s_shutdown.main(['--url', 'newp://hehe'], outp=outp))
+
+        self.isin('Error while attempting graceful shutdown', str(outp))

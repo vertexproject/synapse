@@ -1,6 +1,11 @@
+import sys
+import asyncio
 import argparse
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+
+import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
 
 class Parser(argparse.ArgumentParser):
@@ -25,6 +30,7 @@ class Parser(argparse.ArgumentParser):
 
         if message is not None:
             self.outp.printf(message)
+
         raise s_exc.ParserExit(mesg=message, status=status)
 
     def _print_message(self, text, fd=None):
@@ -32,3 +38,21 @@ class Parser(argparse.ArgumentParser):
         Note:  this overrides an existing method in ArgumentParser
         '''
         self.outp.printf(text)
+
+async def wrapmain(func): # pragma: no cover
+
+    try:
+        return await func(sys.argv[1:])
+
+    except s_exc.ParserExit:
+        return 1
+
+    except Exception as e:
+        print(f'ERROR: {s_common.reprexc(e)}')
+        return 1
+
+    finally:
+        await s_coro.await_bg_tasks()
+
+def main(func): # pragma: no cover
+    sys.exit(asyncio.run(wrapmain(func)))
