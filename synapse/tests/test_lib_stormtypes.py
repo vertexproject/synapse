@@ -5437,6 +5437,9 @@ class StormTypesTest(s_test.SynTest):
 
                 test:arrayform=(1,2,3)
                 test:arrayform=(2,3,4)
+                (test:hasiface=1 :size=3 :names=(foo, bar))
+                (test:hasiface2=2 :size=3 :names=(foo, baz))
+                (test:hasiface2=3 :size=4 :names=(foo, faz))
             ]'''
             await core.nodes(q)
 
@@ -5455,6 +5458,12 @@ class StormTypesTest(s_test.SynTest):
             q = 'return($lib.layer.get().getPropCount(ou:org:names, valu=(foo, bar)))'
             self.eq(2, await core.callStorm(q))
 
+            q = 'return($lib.layer.get().getPropCount(test:interface:size))'
+            self.eq(3, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropCount(test:interface:size, valu=3))'
+            self.eq(2, await core.callStorm(q))
+
             with self.raises(s_exc.NoSuchProp):
                 q = 'return($lib.layer.get().getPropCount(newp, valu=1))'
                 await core.callStorm(q)
@@ -5464,6 +5473,12 @@ class StormTypesTest(s_test.SynTest):
 
             q = 'return($lib.layer.get().getPropArrayCount(ou:org:names, valu=foo))'
             self.eq(2, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropArrayCount(test:interface:names))'
+            self.eq(6, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropArrayCount(test:interface:names, valu=foo))'
+            self.eq(3, await core.callStorm(q))
 
             q = 'return($lib.layer.get().getPropArrayCount(test:arrayform))'
             self.eq(6, await core.callStorm(q))
@@ -5610,6 +5625,25 @@ class StormTypesTest(s_test.SynTest):
 
             opts['vars']['prop'] = 'ps:contact:name'
             self.eq([], await core.callStorm(viewq, opts=opts))
+
+            nodes = await core.nodes('''[
+                (test:hasiface=1 :size=1)
+                (test:hasiface2=2 :size=2)
+            ]''')
+
+            nodes = await core.nodes('''[
+                (test:hasiface=3 :size=3)
+                (test:hasiface2=4 :size=3)
+                (test:hasiface2=5 :size=4)
+            ]''', opts={'view': forkview})
+
+            opts = {'vars': {'prop': 'test:interface:size'}}
+            self.eq([1, 2], await core.callStorm(layrq, opts=opts))
+            self.eq([1, 2], await core.callStorm(viewq, opts=opts))
+
+            opts['view'] = forkview
+            self.eq([3, 4], await core.callStorm(layrq, opts=opts))
+            self.eq([1, 2, 3, 4], await core.callStorm(viewq, opts=opts))
 
             opts['vars']['prop'] = 'newp:newp'
             with self.raises(s_exc.NoSuchProp):
@@ -6521,8 +6555,8 @@ words\tword\twrd'''
                 test:arrayform=(1,2,3)
                 test:arrayform=(2,3,4)
 
-                ( test:hasiface=* :size=1)
-                ( test:hasiface2=* :size=2)
+                (test:hasiface=1 :size=1 :names=(foo, one))
+                (test:hasiface2=2 :size=2 :names=(foo, two))
             ]'''
             await core.nodes(q)
 
@@ -6540,8 +6574,8 @@ words\tword\twrd'''
 
                 test:arrayform=(3,4,5)
                 test:arrayform=(4,5,6)
-                ( test:hasiface=* :size=3)
-                ( test:hasiface2=* :size=4)
+                (test:hasiface=3 :size=2 :names=(foo, bar))
+                (test:hasiface2=4 :size=4 :names=(foo, baz))
             ]'''
             await core.nodes(q, opts=forkopts)
 
@@ -6550,6 +6584,9 @@ words\tword\twrd'''
 
             q = 'return($lib.view.get().getPropCount(test:interface:size))'
             self.eq(4, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropCount(test:interface:size, valu=2))'
+            self.eq(2, await core.callStorm(q, opts=forkopts))
 
             q = 'return($lib.view.get().getPropCount(inet:ip:asn, valu=1))'
             self.eq(0, await core.callStorm(q, opts=forkopts))
@@ -6582,6 +6619,15 @@ words\tword\twrd'''
 
             q = 'return($lib.view.get().getPropArrayCount(test:arrayform, valu=3))'
             self.eq(3, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropArrayCount(test:interface:names))'
+            self.eq(8, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropArrayCount(test:interface:names, valu=one))'
+            self.eq(1, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropArrayCount(test:interface:names, valu=foo))'
+            self.eq(4, await core.callStorm(q, opts=forkopts))
 
             with self.raises(s_exc.NoSuchProp):
                 q = 'return($lib.view.get().getPropArrayCount(newp, valu=1))'

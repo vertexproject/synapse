@@ -1680,12 +1680,7 @@ class LiftByArray(LiftOper):
             parts = name.split('::')
             name, pivs = parts[0], parts[1:]
 
-        if (prop := runt.model.props.get(name)) is not None:
-            props = (prop,)
-        elif (proplist := runt.model.ifaceprops.get(name)) is not None:
-            props = [runt.model.props.get(propname) for propname in proplist]
-        else:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
 
         try:
             if pivs is not None:
@@ -1747,12 +1742,7 @@ class LiftByArrayVirt(LiftOper):
             parts = name.split('::')
             name, pivs = parts[0], parts[1:]
 
-        if (prop := runt.model.props.get(name)) is not None:
-            props = (prop,)
-        elif (proplist := runt.model.ifaceprops.get(name)) is not None:
-            props = [runt.model.props.get(propname) for propname in proplist]
-        else:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
 
         try:
             if pivs is not None:
@@ -2158,12 +2148,7 @@ class LiftPropBy(LiftOper):
             parts = name.split('::')
             name, pivs = parts[0], parts[1:]
 
-        if (prop := runt.model.props.get(name)) is not None:
-            props = (prop,)
-        elif (proplist := runt.model.ifaceprops.get(name)) is not None:
-            props = [runt.model.props.get(propname) for propname in proplist]
-        else:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
 
         try:
             if pivs is not None:
@@ -2221,12 +2206,7 @@ class LiftPropVirtBy(LiftOper):
             parts = name.split('::')
             name, pivs = parts[0], parts[1:]
 
-        if (prop := runt.model.props.get(name)) is not None:
-            props = (prop,)
-        elif (proplist := runt.model.ifaceprops.get(name)) is not None:
-            props = [runt.model.props.get(propname) for propname in proplist]
-        else:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
 
         try:
             if pivs is not None:

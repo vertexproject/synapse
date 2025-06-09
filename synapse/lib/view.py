@@ -1076,6 +1076,8 @@ class View(s_nexus.Pusher):  # type: ignore
         count = 0
 
         for prop in props:
+            await asyncio.sleep(0)
+
             if prop.isform:
                 formname = prop.name
                 propname = None
@@ -1085,13 +1087,11 @@ class View(s_nexus.Pusher):  # type: ignore
 
             if valu is s_common.novalu:
                 for layr in self.layers:
-                    await asyncio.sleep(0)
                     count += layr.getPropCount(formname, propname)
                 continue
 
             norm, info = prop.type.norm(valu)
             for layr in self.layers:
-                await asyncio.sleep(0)
                 count += layr.getPropValuCount(formname, propname, prop.type.stortype, norm)
 
         return count
@@ -1129,6 +1129,8 @@ class View(s_nexus.Pusher):  # type: ignore
         count = 0
 
         for prop in props:
+            await asyncio.sleep(0)
+
             if prop.isform:
                 formname = prop.name
                 propname = None
@@ -1138,7 +1140,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
             if valu is s_common.novalu:
                 for layr in self.layers:
-                    await asyncio.sleep(0)
                     count += layr.getPropArrayCount(formname, propname)
                 continue
 
@@ -1146,7 +1147,6 @@ class View(s_nexus.Pusher):  # type: ignore
             norm, info = atyp.norm(valu)
 
             for layr in self.layers:
-                await asyncio.sleep(0)
                 count += layr.getPropArrayValuCount(formname, propname, atyp.stortype, norm)
 
         return count
@@ -1202,6 +1202,9 @@ class View(s_nexus.Pusher):  # type: ignore
             async for indx, valu in genr:
                 yield indx, valu, lidx, formname, propname
 
+        genrs = []
+        lastvalu = None
+
         for prop in props:
             if prop.isform:
                 formname = prop.name
@@ -1210,12 +1213,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 formname = prop.form.name
                 propname = prop.name
 
-            genrs = []
             for lidx, layr in enumerate(self.layers):
                 genr = layr.iterPropValues(formname, propname, prop.type.stortype)
                 genrs.append(wrapgenr(lidx, genr, formname, propname))
 
-        lastvalu = None
         async for indx, valu, lidx, formname, propname in s_common.merggenr2(genrs):
             if valu == lastvalu:
                 continue
@@ -1224,7 +1225,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 lastvalu = valu
                 yield valu
             else:
-                valid = False
                 async for nid in self.layers[lidx].iterPropIndxNids(formname, propname, indx):
                     for layr in self.layers[0:lidx]:
                         if (sode := layr._getStorNode(nid)) is None:
@@ -1237,9 +1237,6 @@ class View(s_nexus.Pusher):  # type: ignore
                                                      sode['antiprops'].get(propname) is not None):
                             break
                     else:
-                        valid = True
-
-                    if valid:
                         lastvalu = valu
                         yield valu
                         break
@@ -2421,10 +2418,6 @@ class View(s_nexus.Pusher):  # type: ignore
             formvalu = tuple(formvalu)
 
         props = forminfo.get('props')
-
-        # remove any created props...
-        if props is not None:
-            props.pop('.created', None)
 
         async with self.getEditor(user=user) as editor:
 
