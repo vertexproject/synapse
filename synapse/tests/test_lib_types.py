@@ -723,15 +723,6 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(0, await core.count('test:str:tick@=("2011", "2014")'))
             self.eq(1, await core.count('test:str:tick@=("2014", "20140601")'))
 
-            self.eq(0, await core.count('univ:seen@=("2004", "2005")'))
-            self.eq(1, await core.count('univ:seen@=("9000", "9001")'))
-
-            self.eq(2, await core.count('univ:seen@=("now+6days", "?")'))
-            self.eq(2, await core.count('univ:seen@=(now, "-4 days")'))
-            self.eq(2, await core.count('univ:seen@=(8900, 9500)'))
-            self.eq(1, await core.count('univ:seen@=("2004", "20050201")'))
-            self.eq(2, await core.count('univ:seen@=("now", "-3 days")'))
-
             self.eq(1, await core.count('test:ival@=1970'))
             self.eq(5, await core.count('test:ival@=(1970, "now+100days")'))
             self.eq(1, await core.count('test:ival@="now"'))

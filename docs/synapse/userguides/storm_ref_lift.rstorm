@@ -172,8 +172,7 @@ Lift by Property
 
 A "lift by property" operation returns all nodes that **have** the specified :ref:`data-props` set, regardless of the property value.
 In most cases, this type of lift requires the full name (i.e., the combined form and property name) of the property you want to use
-to lift the nodes. When lifting by universal property, the form name is only needed if you want to lift nodes of a specific form that 
-have the universal property.
+to lift the nodes. When lifting by a meta property, the form name is only needed if you want to lift nodes of a specific form.
 
 .. _lift-prop-second:
 
@@ -236,38 +235,20 @@ by specifying the full name of the interface and its property.
   inet:proto:request:flow
 
 
-.. _lift-prop-univ:
+.. _lift-prop-meta:
 
-Lift by Universal Property
-++++++++++++++++++++++++++
+Lift by Meta Property
++++++++++++++++++++++
 
 **Syntax:**
 
 [ *<form>* ] **.** *<prop>*
 
-TODO: rewrite to split universal/meta lifting
-A :ref:`gloss-universal-prop` applies to and can be used by any node. Synapse uses two universal properties:
+A :ref:`gloss-meta-prop` applies to any node and is automatically populated. Synapse uses one meta property:
 
  - ``.created``, a time (date/time) value representing when a node was created in Synapse.
- - ``:seen``, an interval (pair of date/time values) that can be used optionally to represent "when" the
-   object represented by a node existed or was observed.
 
 **Examples:**
-
-*Lift all email (inet:email) nodes with a :seen property:*
-
-.. storm-pre:: [ (inet:email=dns@jomax.net :seen=(2016/12/10 08:56:23, 2023/10/20 14:57:53)) (inet:email=bolekrejci@centrum.cz :seen=(2017/10/12 00:00:00, 2017/10/12 00:00:00.001))]
-.. storm-pre:: inet:email:seen
-::
-  
-  inet:email:seen
-
-*Lift all nodes with a :seen property:*
-
-.. storm-pre:: univ:seen
-::
-  
-  univ:seen
 
 *Lift all nodes in Synapse:*
 
@@ -323,7 +304,7 @@ A "lift by property value" operation returns the node(s) whose property matches 
 - a :ref:`gloss-comp-operator` to specify how the property value should be evaluated; and
 - the property value.
 
-A "lift by property value" can be performed using primary, secondary, universal, or extended properties.
+A "lift by property value" can be performed using primary, secondary, or extended properties.
 
 .. TIP::
   
@@ -342,7 +323,7 @@ Use of the try operator is generally not required for interactive Storm queries,
 complex Storm queries (such as automation or Storm-based ingest queries).
 
 The most commonly used standard comparison operator is the equal to ( ``=`` ) operator. Comparison operators that
-expect a **quantity** (i.e., the inequality symbools ``<``, ``>``, ``<=``, and ``>=``) can only be used with
+expect a **quantity** (i.e., the inequality symbols ``<``, ``>``, ``<=``, and ``>=``) can only be used with
 properties whose type supports the comparison (e.g., integers, dates/times, etc.)
 
 .. TIP::
@@ -536,22 +517,17 @@ by using the name of the interface.
   it:host:activity:time >= 2024/02/01
 
 
-.. _lift-prop-std-universal:
+.. _lift-prop-std-meta:
 
-Lift by Universal Property Value
-++++++++++++++++++++++++++++++++
+Lift by Meta Property Value
++++++++++++++++++++++++++++
 
-Synapse has two built-in universal properties:
+Synapse has one built-in meta properties:
 
-- ``.created`` (a time) which represents the date and time a node was created in Synapse; and
-- ``:seen`` (an interval), a pair of date / time values that can optionally be used to represent
-  when a node existed or was observed.
+- ``.created`` (a time) which represents the date and time a node was created in Synapse.
 
 Times (date / time values) are stored as integers (epoch microseconds) in Synapse and can be lifted using any
 standard comparison operator.
-
-Because intervals are a pair of date / time values, they can only be lifted using the equal to ( ``=`` )
-standard comparison operator to specify an **exact** match for the interval values.
 
 The :ref:`lift-interval` and :ref:`lift-range` extended comparison operators provide additional flexibility
 when lifting by times and intervals.
@@ -571,13 +547,6 @@ additional details on working with times and intervals in Synapse.
 ::
   
   .created >= 2024/01/01
-
-*Lift all DNS A records (inet:dns:a nodes) whose :seen property exactly matches the specified interval:*
-
-.. storm-pre:: [ inet:dns:a=(woot.com,1.2.3.4) :seen=('2023/11/19 12:11:42.041', '2023/12/27 08:05:47.776') ] inet:dns:a:seen = ('2023/11/19 12:11:42.041', '2023/12/27 08:05:47.776')
-::
-  
-  inet:dns:a:seen = ('2023/11/19 12:11:42.041', '2023/12/27 08:05:47.776')
 
 
 .. _lift-prop-std-extended:
@@ -627,7 +596,7 @@ requires:
 - a :ref:`gloss-comp-operator` to specify how the property value should be evaluated; and
 - the property value.
 
-Each extended comparison operator can be used with any kind of property (primary, secondary, universal, or
+Each extended comparison operator can be used with any kind of property (primary, secondary, or
 extended) whose :ref:`gloss-type` is appropriate for the comparison used.
 
 .. TIP::
@@ -800,15 +769,6 @@ used to lift nodes based on comparisons among various combinations of times and 
   would also work:
   
   ``inet:dns:request:time = 2023/05/03*``
-
-
-*Lift the WHOIS email nodes that were observed between July 1, 2023 and the present:*
-
-.. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) :seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ]
-.. storm-pre:: inet:whois:email:seen @= ( 2023/07/01, now )
-::
-  
-  inet:whois:email:seen @= ( 2023/07/01, now )
 
 *Lift the network flows that occurred within the past day:*
 
@@ -1364,7 +1324,7 @@ The query above will:
 
 Synapse indexes property values so that data (nodes) can be lifted (retrieved) and returned quickly. By default,
 lift results are returned in lexical order (i.e., sorted in ascending order), based on the property specified in
-the lift (primary, secondary, universal, or extended) and the way the property is indexed.
+the lift (primary, secondary, or extended) and the way the property is indexed.
 
 The ``reverse`` keyword can be used to return the specified nodes in reverse lexical order (i.e., sorted in descending
 order). To perform a "reverse" lift, specify the ``reverse`` keyword and enclose the lift operation in parentheses.

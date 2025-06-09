@@ -1070,80 +1070,29 @@ class View(s_nexus.Pusher):  # type: ignore
                 counts[name] += valu
         return counts
 
-    async def getUnivCount(self, name, valu=s_common.novalu):
-        if (prop := self.core.model.univ(name)) is None:
-            mesg = f'No universal property named {name}'
-            raise s_exc.NoSuchProp(mesg=mesg)
-
-        count = 0
-
-        if valu is s_common.novalu:
-            for layr in self.layers:
-                await asyncio.sleep(0)
-                count += layr.getUnivCount(name)
-            return count
-
-        norm, info = prop.type.norm(valu)
-
-        for layr in self.layers:
-            await asyncio.sleep(0)
-            count += layr.getUnivValuCount(name, prop.type.stortype, norm)
-
-        return count
-
-    async def getUnivArrayCount(self, name, valu=s_common.novalu):
-        if (prop := self.core.model.univ(name)) is None:
-            mesg = f'No universal array property named {name}'
-            raise s_exc.NoSuchProp(mesg=mesg)
-
-        if not prop.type.isarray:
-            mesg = f'Property is not an array type: {prop.type.name}.'
-            raise s_exc.BadTypeValu(mesg=mesg)
-
-        count = 0
-
-        if valu is s_common.novalu:
-            for layr in self.layers:
-                await asyncio.sleep(0)
-                count += layr.getUnivArrayCount(name)
-            return count
-
-        atyp = prop.type.arraytype
-        norm, info = atyp.norm(valu)
-
-        for layr in self.layers:
-            await asyncio.sleep(0)
-            count += layr.getUnivArrayValuCount(name, atyp.stortype, norm)
-
-        return count
-
     async def getPropCount(self, propname, valu=s_common.novalu):
-        prop = self.core.model.prop(propname)
-        if prop is None:
-            mesg = f'No property named {propname}'
-            raise s_exc.NoSuchProp(mesg=mesg)
 
+        props = self.core.model.reqPropList(propname)
         count = 0
-        formname = None
-        propname = None
 
-        if prop.isform:
-            formname = prop.name
-        else:
-            formname = prop.form.name
-            propname = prop.name
-
-        if valu is s_common.novalu:
-            for layr in self.layers:
-                await asyncio.sleep(0)
-                count += layr.getPropCount(formname, propname)
-            return count
-
-        norm, info = prop.type.norm(valu)
-
-        for layr in self.layers:
+        for prop in props:
             await asyncio.sleep(0)
-            count += layr.getPropValuCount(formname, propname, prop.type.stortype, norm)
+
+            if prop.isform:
+                formname = prop.name
+                propname = None
+            else:
+                formname = prop.form.name
+                propname = prop.name
+
+            if valu is s_common.novalu:
+                for layr in self.layers:
+                    count += layr.getPropCount(formname, propname)
+                continue
+
+            norm, info = prop.type.norm(valu)
+            for layr in self.layers:
+                count += layr.getPropValuCount(formname, propname, prop.type.stortype, norm)
 
         return count
 
@@ -1170,37 +1119,35 @@ class View(s_nexus.Pusher):  # type: ignore
         return count
 
     async def getPropArrayCount(self, propname, valu=s_common.novalu):
-        prop = self.core.model.prop(propname)
-        if prop is None:
-            mesg = f'No property named {propname}'
-            raise s_exc.NoSuchProp(mesg=mesg)
 
-        if not prop.type.isarray:
-            mesg = f'Property is not an array type: {prop.type.name}.'
+        props = self.core.model.reqPropList(propname)
+
+        if not props[0].type.isarray:
+            mesg = f'Property is not an array type: {propname}.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
         count = 0
-        formname = None
-        propname = None
 
-        if prop.isform:
-            formname = prop.name
-        else:
-            formname = prop.form.name
-            propname = prop.name
-
-        if valu is s_common.novalu:
-            for layr in self.layers:
-                await asyncio.sleep(0)
-                count += layr.getPropArrayCount(formname, propname)
-            return count
-
-        atyp = prop.type.arraytype
-        norm, info = atyp.norm(valu)
-
-        for layr in self.layers:
+        for prop in props:
             await asyncio.sleep(0)
-            count += layr.getPropArrayValuCount(formname, propname, atyp.stortype, norm)
+
+            if prop.isform:
+                formname = prop.name
+                propname = None
+            else:
+                formname = prop.form.name
+                propname = prop.name
+
+            if valu is s_common.novalu:
+                for layr in self.layers:
+                    count += layr.getPropArrayCount(formname, propname)
+                continue
+
+            atyp = prop.type.arraytype
+            norm, info = atyp.norm(valu)
+
+            for layr in self.layers:
+                count += layr.getPropArrayValuCount(formname, propname, atyp.stortype, norm)
 
         return count
 
@@ -1248,66 +1195,29 @@ class View(s_nexus.Pusher):  # type: ignore
         return ecnt
 
     async def iterPropValues(self, propname):
-        prop = self.core.model.reqProp(propname)
 
-        formname = None
-        propname = None
+        props = self.core.model.reqPropList(propname)
 
-        if prop.isform:
-            formname = prop.name
-        else:
-            propname = prop.name
-            if not prop.isuniv:
-                formname = prop.form.name
-
-        async def wrapgenr(lidx, genr):
+        async def wrapgenr(lidx, genr, formname, propname):
             async for indx, valu in genr:
-                yield indx, valu, lidx
+                yield indx, valu, lidx, formname, propname
 
         genrs = []
-        for lidx, layr in enumerate(self.layers):
-            genr = layr.iterPropValues(formname, propname, prop.type.stortype)
-            genrs.append(wrapgenr(lidx, genr))
-
         lastvalu = None
-        async for indx, valu, lidx in s_common.merggenr2(genrs):
-            if valu == lastvalu:
-                continue
 
-            if lidx == 0 or propname is None:
-                lastvalu = valu
-                yield valu
+        for prop in props:
+            if prop.isform:
+                formname = prop.name
+                propname = None
             else:
-                valid = False
-                async for nid in self.layers[lidx].iterPropIndxNids(formname, propname, indx):
-                    for layr in self.layers[0:lidx]:
-                        if (sode := layr._getStorNode(nid)) is None:
-                            continue
+                formname = prop.form.name
+                propname = prop.name
 
-                        if sode['props'].get(propname) is not None:
-                            break
-                    else:
-                        valid = True
+            for lidx, layr in enumerate(self.layers):
+                genr = layr.iterPropValues(formname, propname, prop.type.stortype)
+                genrs.append(wrapgenr(lidx, genr, formname, propname))
 
-                    if valid:
-                        lastvalu = valu
-                        yield valu
-                        break
-
-    async def iterUnivValues(self, name):
-
-        async def wrapgenr(lidx, genr):
-            async for indx, valu in genr:
-                yield indx, valu, lidx
-
-        prop = self.core.model.reqUniv(name)
-        genrs = []
-        for lidx, layr in enumerate(self.layers):
-            genr = layr.iterUnivValues(name, prop.type.stortype)
-            genrs.append(wrapgenr(lidx, genr))
-
-        lastvalu = None
-        async for indx, valu, lidx in s_common.merggenr2(genrs):
+        async for indx, valu, lidx, formname, propname in s_common.merggenr2(genrs):
             if valu == lastvalu:
                 continue
 
@@ -1315,18 +1225,18 @@ class View(s_nexus.Pusher):  # type: ignore
                 lastvalu = valu
                 yield valu
             else:
-                valid = False
-                async for nid in self.layers[lidx].iterUnivIndxNids(name, indx):
+                async for nid in self.layers[lidx].iterPropIndxNids(formname, propname, indx):
                     for layr in self.layers[0:lidx]:
                         if (sode := layr._getStorNode(nid)) is None:
                             continue
 
-                        if sode['props'].get(propname) is not None:
+                        if sode.get('antivalu') is not None:
+                            break
+
+                        if propname is not None and (sode['props'].get(propname) is not None or
+                                                     sode['antiprops'].get(propname) is not None):
                             break
                     else:
-                        valid = True
-
-                    if valid:
                         lastvalu = valu
                         yield valu
                         break
@@ -2508,10 +2418,6 @@ class View(s_nexus.Pusher):  # type: ignore
             formvalu = tuple(formvalu)
 
         props = forminfo.get('props')
-
-        # remove any universal created props...
-        if props is not None:
-            props.pop('.created', None)
 
         async with self.getEditor(user=user) as editor:
 

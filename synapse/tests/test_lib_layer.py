@@ -671,7 +671,7 @@ class LayerTest(s_t_utils.SynTest):
             nodelist0 = []
             nodes = await core0.nodes('[ test:str=foo ]')
             nodelist0.extend(nodes)
-            nodes = await core0.nodes('[ inet:ip=1.2.3.4 :seen=(2012,2014) +#foo.bar=(2012, 2014) ]')
+            nodes = await core0.nodes('[ test:int=1 :seen=(2012,2014) +#foo.bar=(2012, 2014) ]')
             nodelist0.extend(nodes)
 
             nodelist0 = [node.pack() for node in nodelist0]
@@ -709,7 +709,7 @@ class LayerTest(s_t_utils.SynTest):
 
                     nodelist1 = []
                     nodelist1.extend(await core1.nodes('test:str'))
-                    nodelist1.extend(await core1.nodes('inet:ip'))
+                    nodelist1.extend(await core1.nodes('test:int'))
 
                     nodelist1 = [node.pack() for node in nodelist1]
 
@@ -728,32 +728,32 @@ class LayerTest(s_t_utils.SynTest):
 
             await core0.addTagProp('score', ('int', {}), {})
 
-            q = '[ inet:ip=1.2.3.4 +#tp:score=5 +(refs)> { test:str=foo } ] $node.data.set(foo, bar)'
+            q = '[ test:int=1 +#tp:score=5 +(refs)> { test:str=foo } ] $node.data.set(foo, bar)'
             nodes = await core0.nodes(q)
-            ipv4nid = s_common.int64un(nodes[0].nid)
+            intnid = s_common.int64un(nodes[0].nid)
             tstrnid = s_common.int64un((await core0.nodes('test:str=foo'))[0].nid)
 
             layr = core0.getLayer()
 
-            noedit = [(None, 'inet:ip', [(s_layer.EDIT_PROP_SET, ('asn', 5, None, None))])]
+            noedit = [(None, 'test:int', [(s_layer.EDIT_PROP_SET, ('newp', 5, None, None))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(ipv4nid, 'inet:ip', [(s_layer.EDIT_TAG_DEL, ('newp', None))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAG_DEL, ('newp', None))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(ipv4nid, 'inet:ip', [(s_layer.EDIT_TAGPROP_SET, ('tp', 'score', 5, None, s_layer.STOR_TYPE_I64))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_SET, ('tp', 'score', 5, None, s_layer.STOR_TYPE_I64))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(ipv4nid, 'inet:ip', [(s_layer.EDIT_TAGPROP_DEL, ('newp', 'newp', None, None))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_DEL, ('newp', 'newp', None, None))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(ipv4nid, 'inet:ip', [(s_layer.EDIT_TAGPROP_DEL, ('tp', 'newp', None, None))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_DEL, ('tp', 'newp', None, None))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(ipv4nid, 'inet:ip', [(s_layer.EDIT_NODEDATA_SET, ('foo', 'bar', None))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_NODEDATA_SET, ('foo', 'bar', None))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(ipv4nid, 'inet:ip', [(s_layer.EDIT_EDGE_ADD, ('refs', tstrnid))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_EDGE_ADD, ('refs', tstrnid))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
     async def test_layer_stornodeedits_nonexus(self):
@@ -786,7 +786,7 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ test:str=foo ]')
             strnode = nodes[0]
             strnid = s_common.int64un(strnode.nid)
-            q = '[ inet:ip=1.2.3.4 :asn=42 :seen=(2012,2014) +#mytag:score=99 +#foo.bar=(2012, 2014) ]'
+            q = '[ inet:ip=1.2.3.4 :asn=42 +#mytag:score=99 +#foo.bar=(2012, 2014) ]'
             nodes = await core.nodes(q)
             ipv4node = nodes[0]
             ipnid = s_common.int64un(ipv4node.nid)
@@ -800,14 +800,6 @@ class LayerTest(s_t_utils.SynTest):
                 (strnid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8)),
             ])
 
-            mdef = {'props': ['seen']}
-            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
-            ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
-            self.eq(events, [
-                (ipnid, 'inet:ip', s_layer.EDIT_PROP_SET, ('seen', ival, None, s_layer.STOR_TYPE_IVAL, None)),
-                (ipnid, 'inet:ip', s_layer.EDIT_PROP_DEL, ('seen', ival, s_layer.STOR_TYPE_IVAL)),
-            ])
-
             mdef = {'props': ['inet:ip:asn']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.len(2, events)
@@ -815,6 +807,8 @@ class LayerTest(s_t_utils.SynTest):
                 (ipnid, 'inet:ip', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64, None)),
                 (ipnid, 'inet:ip', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64)),
             ])
+
+            ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
 
             mdef = {'tags': ['foo.bar']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
@@ -1716,15 +1710,15 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             await core.addTagProp('score', ('int', {}), {})
 
-            nodes = await core.nodes('[inet:ip=([4, 1]) :asn=10 :seen=(2016, 2017) +#foo=(2020, 2021) +#foo:score=42]')
+            nodes = await core.nodes('[inet:ip=([4, 1]) :asn=10 +#foo=(2020, 2021) +#foo:score=42]')
             self.len(1, nodes)
             nid1 = nodes[0].nid
 
-            nodes = await core.nodes('[inet:ip=([4, 2]) :asn=20 :seen=(2015, 2016) +#foo=(2019, 2020) +#foo:score=41]')
+            nodes = await core.nodes('[inet:ip=([4, 2]) :asn=20 +#foo=(2019, 2020) +#foo:score=41]')
             self.len(1, nodes)
             nid2 = nodes[0].nid
 
-            nodes = await core.nodes('[inet:ip=([4, 3]) :asn=30 :seen=(2015, 2016) +#foo +#foo:score=99]')
+            nodes = await core.nodes('[inet:ip=([4, 3]) :asn=30 +#foo +#foo:score=99]')
             self.len(1, nodes)
             nid3 = nodes[0].nid
 
@@ -2272,15 +2266,12 @@ class LayerTest(s_t_utils.SynTest):
                 (inet:http:request=* :server="tcp://[::4]:12344")
                 (inet:http:request=* :server="tcp://[::5]:12345")
                 (inet:http:request=* :server="tcp://[::6]:12346")
-                (ps:contact=* :virtuniv=tcp://127.0.0.4:12344)
-                (ps:contact=* :virtuniv=tcp://127.0.0.5:12345)
-                (ps:contact=* :virtuniv=tcp://127.0.0.6:12346)
-                (ps:contact=* :virtuniv="tcp://[::4]:12344")
-                (ps:contact=* :virtuniv="tcp://[::5]:12345")
-                (ps:contact=* :virtuniv="tcp://[::6]:12346")
-                (ou:org=* :virtunivarray=(tcp://127.0.0.4:12344, tcp://127.0.0.5:12345))
-                (ou:org=* :virtunivarray=("tcp://[::4]:12344", "tcp://[::5]:12345"))
-                (ou:org=* :virtunivarray=(tcp://127.0.0.4:12344, "tcp://[::5]:12345"))
+                (test:guid=* :server=tcp://127.0.0.4:12344)
+                (test:guid=* :server=tcp://127.0.0.5:12345)
+                (test:guid=* :server=tcp://127.0.0.6:12346)
+                (test:guid=* :server="tcp://[::4]:12344")
+                (test:guid=* :server="tcp://[::5]:12345")
+                (test:guid=* :server="tcp://[::6]:12346")
                 (inet:http:request=* :flow={[ inet:flow=* :src=tcp://127.0.0.1:12341 ]})
                 (inet:http:request=* :flow={[ inet:flow=* :src=tcp://127.0.0.2:12342 ]})
                 (inet:http:request=* :flow={[ inet:flow=* :src=tcp://127.0.0.3:12343 ]})
@@ -2307,11 +2298,11 @@ class LayerTest(s_t_utils.SynTest):
             self.len(3, await core.nodes('inet:http:request :server.ip -> inet:flow:src.ip'))
             self.len(6, await core.nodes('$foo=inet:ip inet:http:request :server.ip -> $foo'))
 
-            q = 'inet:http:request :server.ip -> (inet:flow:src.ip, ps:contact:virtuniv.ip)'
+            q = 'inet:http:request :server.ip -> (inet:flow:src.ip, test:guid:server.ip)'
             self.len(9, await core.nodes(q))
-            q = '$foo=ps:contact:virtuniv inet:http:request :server.ip -> ($foo).ip'
+            q = '$foo=test:guid:server inet:http:request :server.ip -> ($foo).ip'
             self.len(6, await core.nodes(q))
-            q = '$foo=ps:contact:virtuniv inet:http:request :server.ip -> (($foo).ip, inet:flow:src.ip)'
+            q = '$foo=test:guid:server inet:http:request :server.ip -> (($foo).ip, inet:flow:src.ip)'
             self.len(9, await core.nodes(q))
 
             self.len(12, await core.nodes('.created +inet:server.ip'))
@@ -2344,21 +2335,15 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:proto:request +inet:proto:request:server.ip=127.0.0.4'))
             self.len(2, await core.nodes('inet:proto:request +inet:proto:request:server.ip*range=(127.0.0.4, 127.0.0.5)'))
 
-            self.len(6, await core.nodes('ps:contact:virtuniv.ip'))
-            self.len(6, await core.nodes('ps:contact:virtuniv.port'))
-            self.len(1, await core.nodes('ps:contact:virtuniv.ip=127.0.0.5'))
-            self.len(1, await core.nodes('ps:contact:virtuniv.ip="::5"'))
-            self.len(2, await core.nodes('ps:contact:virtuniv.ip*range=(127.0.0.5, 127.0.0.6)'))
+            self.len(6, await core.nodes('test:guid:server.ip'))
+            self.len(6, await core.nodes('test:guid:server.port'))
+            self.len(1, await core.nodes('test:guid:server.ip=127.0.0.5'))
+            self.len(1, await core.nodes('test:guid:server.ip="::5"'))
+            self.len(2, await core.nodes('test:guid:server.ip*range=(127.0.0.5, 127.0.0.6)'))
 
-            self.len(6, await core.nodes('univ:virtuniv.ip'))
-            self.len(6, await core.nodes('univ:virtuniv.port'))
-            self.len(1, await core.nodes('univ:virtuniv.ip=127.0.0.5'))
-            self.len(1, await core.nodes('univ:virtuniv.ip="::5"'))
-            self.len(2, await core.nodes('univ:virtuniv.ip*range=(127.0.0.5, 127.0.0.6)'))
-
-            self.len(6, await core.nodes('ps:contact.created +:virtuniv.ip'))
-            self.len(1, await core.nodes('ps:contact.created +:virtuniv.ip=127.0.0.4'))
-            self.len(2, await core.nodes('ps:contact.created +:virtuniv.ip*range=(127.0.0.4, 127.0.0.5)'))
+            self.len(6, await core.nodes('test:guid.created +:server.ip'))
+            self.len(1, await core.nodes('test:guid.created +:server.ip=127.0.0.4'))
+            self.len(2, await core.nodes('test:guid.created +:server.ip*range=(127.0.0.4, 127.0.0.5)'))
 
             self.len(1, await core.nodes('inet:http:request.created +:flow::src.ip=127.0.0.2'))
             self.len(2, await core.nodes('inet:http:request.created +:flow::src.ip*range=(127.0.0.2, 127.0.0.3)'))
@@ -2377,18 +2362,6 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:virtarray:servers*[.ip="::2"]'))
             self.len(3, await core.nodes('test:virtarray:servers*[.ip*range=(127.0.0.1, 127.0.0.2)]'))
 
-            self.len(2, await core.nodes('ou:org:virtunivarray*[.ip=127.0.0.4]'))
-            self.len(2, await core.nodes('ou:org:virtunivarray*[.ip="::5"]'))
-            self.len(3, await core.nodes('ou:org:virtunivarray*[.ip*range=(127.0.0.4, 127.0.0.5)]'))
-
-            self.len(2, await core.nodes('univ:virtunivarray*[.ip=127.0.0.4]'))
-            self.len(2, await core.nodes('univ:virtunivarray*[.ip="::5"]'))
-            self.len(3, await core.nodes('univ:virtunivarray*[.ip*range=(127.0.0.4, 127.0.0.5)]'))
-
-            self.len(2, await core.nodes('ou:org.created +:virtunivarray*[.ip=127.0.0.4]'))
-            self.len(2, await core.nodes('ou:org.created +:virtunivarray*[.ip="::5"]'))
-            self.len(2, await core.nodes('ou:org.created +:virtunivarray*[.ip*range=(127.0.0.4, 127.0.0.5)]'))
-
             self.len(3, await core.nodes('test:virtiface.created +:servers.size=2'))
             self.len(3, await core.nodes('test:virtiface.created +:servers.size>1'))
             self.len(0, await core.nodes('test:virtiface.created +:servers.size>2'))
@@ -2402,33 +2375,25 @@ class LayerTest(s_t_utils.SynTest):
             self.len(3, await core.nodes('test:virtiface:servers.size*range=(1, 3)'))
             self.len(0, await core.nodes('test:virtiface:servers.size*range=(3, 4)'))
 
-            nodes = await core.nodes('univ:virtunivarray.size=2')
+            nodes = await core.nodes('test:virtarray:servers.size=2')
             self.len(3, nodes)
-            self.eq(nodes[::-1], await core.nodes('reverse(univ:virtunivarray.size=2)'))
+            self.eq(nodes[::-1], await core.nodes('reverse(test:virtarray:servers.size=2)'))
 
-            nodes = await core.nodes('univ:virtunivarray.size*range=(2, 3)')
+            nodes = await core.nodes('test:virtarray:servers.size*range=(2, 3)')
             self.len(3, nodes)
-            self.eq(nodes[::-1], await core.nodes('reverse(univ:virtunivarray.size*range=(2, 3))'))
+            self.eq(nodes[::-1], await core.nodes('reverse(test:virtarray:servers.size*range=(2, 3))'))
 
             self.len(1, await core.nodes('test:virtiface:servers=("tcp://[::1]:12341", "tcp://[::2]:12342")'))
             self.len(1, await core.nodes('reverse(test:virtiface:servers=("tcp://[::1]:12341", "tcp://[::2]:12342"))'))
 
-            await core.nodes('univ:virtunivarray*[.ip=127.0.0.4] [ :virtunivarray=(tcp://127.0.0.1, tcp://127.0.0.2) ]')
-
-            self.len(0, await core.nodes('ou:org:virtunivarray*[.ip=127.0.0.4]'))
-            self.len(2, await core.nodes('ou:org:virtunivarray*[.ip=127.0.0.1]'))
-
             await core.nodes('inet:http:request:server.ip | [ -:server ]')
             self.len(0, await core.nodes('inet:http:request:server.ip'))
 
-            await core.nodes('ps:contact:virtuniv.ip | [ -:virtuniv ]')
-            self.len(0, await core.nodes('ps:contact:virtuniv.ip'))
+            await core.nodes('test:guid:server.ip | [ -:server ]')
+            self.len(0, await core.nodes('test:guid:server.ip'))
 
             await core.nodes('test:virtiface:servers | [ -:servers ]')
             self.len(0, await core.nodes('test:virtiface:servers*[.ip=127.0.0.1]'))
-
-            await core.nodes('ou:org:virtunivarray | [ -:virtunivarray ]')
-            self.len(0, await core.nodes('ou:org:virtunivarray*[.ip=127.0.0.4]'))
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
             view2 = core.getView(viewiden2)
@@ -2450,9 +2415,9 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('inet:server=tcp://127.0.0.4:12344 [+(refs)> { inet:server=tcp://127.0.0.4:12344 }]', opts=viewopts2)
             self.len(1, await core.nodes('inet:server.ip=127.0.0.4', opts=viewopts2))
 
-            nodes = await core.nodes('[ it:dev:str=foo ]')
-            await core.nodes('[ it:dev:str=foo :seen=now ]', opts=viewopts2)
-            await core.nodes('it:dev:str=foo | delnode')
+            nodes = await core.nodes('[ test:str=foo ]')
+            await core.nodes('[ test:str=foo :seen=now ]', opts=viewopts2)
+            await core.nodes('test:str=foo | delnode')
 
             node = await view2.getNodeByBuid(nodes[0].buid, tombs=True)
             self.none(node.valu(virts='foo'))
@@ -2482,35 +2447,32 @@ class LayerTest(s_t_utils.SynTest):
                 await core.nodes('inet:proto:request +:server*[newp=newp]')
 
             with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('ps:contact +ps:contact:virtuniv.newp*newp=newp')
+                await core.nodes('test:guid +test:guid:server.newp*newp=newp')
 
             with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('ps:contact +.created.newp*newp=newp')
+                await core.nodes('test:guid +.created.newp*newp=newp')
 
             with self.raises(s_exc.NoSuchProp):
-                await core.nodes('ps:contact.created +:newp.ip=newp')
+                await core.nodes('test:guid.created +:newp.ip=newp')
 
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('test:virtiface +:newp*[.ip=127.0.0.1]')
 
-            self.len(0, await core.nodes('$val = (null) ps:contact.created +:virtuniv.ip=$val'))
-            self.len(0, await core.nodes('ps:contact.created +:newp::servers.ip=127.0.0.1'))
+            self.len(0, await core.nodes('$val = (null) test:guid.created +:server.ip=$val'))
+            self.len(0, await core.nodes('test:guid.created +:newp::servers.ip=127.0.0.1'))
             self.len(0, await core.nodes('test:virtiface +:newp::servers*[.ip=127.0.0.1]'))
 
-            self.none(await core.callStorm('ps:contact.created return(:newp::servers)'))
+            self.none(await core.callStorm('test:guid.created return(:newp::servers)'))
 
             layr = core.getLayer()
             indxby = s_layer.IndxByVirt(layr, 'inet:http:request', 'server', ['ip'])
             self.eq(str(indxby), 'IndxByVirt: inet:http:request:server.ip')
 
-            indxby = s_layer.IndxByVirt(layr, 'ps:contact', 'virtuniv', ['ip'])
-            self.eq(str(indxby), 'IndxByVirt: ps:contact:virtuniv.ip')
+            indxby = s_layer.IndxByVirt(layr, 'test:guid', 'server', ['ip'])
+            self.eq(str(indxby), 'IndxByVirt: test:guid:server.ip')
 
             indxby = s_layer.IndxByVirtArray(layr, 'test:virtiface', 'servers', ['ip'])
             self.eq(str(indxby), 'IndxByVirtArray: test:virtiface:servers.ip')
-
-            indxby = s_layer.IndxByVirtArray(layr, 'ou:org', 'virtunivarray', ['ip'])
-            self.eq(str(indxby), 'IndxByVirtArray: ou:org:virtunivarray.ip')
 
             self.len(0, await core.nodes('test:arrayform.size=2'))
 
@@ -2540,12 +2502,6 @@ class LayerTest(s_t_utils.SynTest):
 
             indxby = s_layer.IndxByPropArraySize(layr, 'test:virtiface', 'servers')
             self.eq(str(indxby), 'IndxByPropArraySize: test:virtiface:servers')
-
-            indxby = s_layer.IndxByPropArrayValu(layr, 'ou:org', 'virtunivarray')
-            self.eq(str(indxby), 'IndxByPropArrayValu: ou:org:virtunivarray')
-
-            indxby = s_layer.IndxByPropArraySize(layr, 'ou:org', 'virtunivarray')
-            self.eq(str(indxby), 'IndxByPropArraySize: ou:org:virtunivarray')
 
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('test:arrayform.newp*range=(2, 3)')
@@ -2634,12 +2590,12 @@ class LayerTest(s_t_utils.SynTest):
                 vdef2 = await core00.view.fork()
                 opts2 = {'view': vdef2.get('iden')}
 
-                await core00.nodes('[ it:dev:str=foo ]', opts=opts2)
+                await core00.nodes('[ test:str=foo ]', opts=opts2)
 
                 vdef3 = await core00.view.fork()
                 opts3 = {'view': vdef3.get('iden')}
 
-                await core00.nodes('[ it:dev:str=bar ]', opts=opts3)
+                await core00.nodes('[ test:str=bar ]', opts=opts3)
 
             s_tools_backup.backup(path00, path01)
 
@@ -2658,7 +2614,7 @@ class LayerTest(s_t_utils.SynTest):
                     # attempt to edit a node in a deleted layer from the leader
                     with self.raises(s_exc.NoSuchLayer):
                         await core00.nodes('''
-                            it:dev:str=foo
+                            test:str=foo
                             $lib.view.del($lib.view.get().iden)
                             $lib.layer.del($lib.layer.get().iden)
                             [ :seen=2020 ]''', opts=opts2)
@@ -2680,7 +2636,7 @@ class LayerTest(s_t_utils.SynTest):
                 # attempt to edit a node on the mirror in a layer that has been deleted on the leader
                 async def doEdit():
                     with self.raises(s_exc.NoSuchLayer):
-                        await core01.nodes('it:dev:str=bar [ :seen=2020 ]', opts=opts3)
+                        await core01.nodes('test:str=bar [ :seen=2020 ]', opts=opts3)
 
                 task = core01.schedCoro(doEdit())
 

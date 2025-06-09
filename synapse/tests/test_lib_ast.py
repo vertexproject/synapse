@@ -334,29 +334,6 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('foo', nodes[0].ndef[1])
 
-            # univ set
-            q = 'test:str=foo $var=seen [:$var=2019]'
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            self.nn(nodes[0].get('seen'))
-
-            # univ filter (no var)
-            q = 'test:str -:seen'
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-
-            # univ filter (var)
-            q = 'test:str $var="seen" +:$var'
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            self.nn(nodes[0].get('seen'))
-
-            # univ delete
-            q = 'test:str=foo $var="seen" [ -:$var ] | spin | test:str=foo'
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            self.none(nodes[0].get('seen'))
-
             # array var filter
             q = '''
                 [(test:arrayprop=* :strs=(neato, burrito))
@@ -1377,27 +1354,6 @@ class AstTest(s_test.SynTest):
             self.len(0, nodes)
 
             nodes = await core.nodes('test:arrayprop:ints=(1, 2, 3)')
-            self.len(0, nodes)
-
-    async def test_ast_univ_array(self):
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('[ test:int=10 :univarray=(1, 2, 3) ]')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('univarray'), (1, 2, 3))
-
-            nodes = await core.nodes('univ:univarray*[=2]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('test:int=10 [ :univarray=(1, 3) ]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('univ:univarray*[=2]')
-            self.len(0, nodes)
-
-            nodes = await core.nodes('test:int=10 [ -:univarray ]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('univ:univarray')
             self.len(0, nodes)
 
     async def test_ast_embed_compute(self):
@@ -3005,77 +2961,77 @@ class AstTest(s_test.SynTest):
             with mock.patch('synapse.lib.view.View.nodesByPropValu', checkValu):
                 async with self.getTestCore() as core:
 
-                    self.len(1, await core.nodes('[inet:asn=200 :name=visi]'))
-                    self.len(1, await core.nodes('[inet:ip=1.2.3.4 :asn=200]'))
-                    self.len(1, await core.nodes('[inet:ip=5.6.7.8]'))
-                    self.len(1, await core.nodes('[inet:ip=5.6.7.9 :loc=us]'))
-                    self.len(1, await core.nodes('[inet:ip=5.6.7.10 :loc=uk]'))
+                    self.len(1, await core.nodes('[test:str=pivprop :hehe=visi]'))
+                    self.len(1, await core.nodes('[test:int=5 :type=pivprop]'))
+                    self.len(1, await core.nodes('[test:int=6]'))
+                    self.len(1, await core.nodes('[test:int=7 :loc=us]'))
+                    self.len(1, await core.nodes('[test:int=8 :loc=uk]'))
                     self.len(1, await core.nodes('[test:str=a :bar=(test:str, a) :tick=19990101]'))
                     self.len(1, await core.nodes('[test:str=m :bar=(test:str, m) :tick=20200101]'))
 
                     await core.nodes('.created [:seen=20200101]')
                     calls = []
 
-                    nodes = await core.nodes('inet:ip +:loc=us')
+                    nodes = await core.nodes('test:int +:loc=us')
                     self.len(1, nodes)
-                    self.eq(calls, [('valu', 'inet:ip:loc', '=', 'us')])
+                    self.eq(calls, [('valu', 'test:int:loc', '=', 'us')])
                     calls = []
 
-                    nodes = await core.nodes('inet:ip +:loc')
+                    nodes = await core.nodes('test:int +:loc')
                     self.len(2, nodes)
-                    self.eq(calls, [('prop', 'inet:ip:loc')])
+                    self.eq(calls, [('prop', 'test:int:loc')])
                     calls = []
 
-                    nodes = await core.nodes('$loc=us inet:ip +:loc=$loc')
+                    nodes = await core.nodes('$loc=us test:int +:loc=$loc')
                     self.len(1, nodes)
-                    self.eq(calls, [('valu', 'inet:ip:loc', '=', 'us')])
+                    self.eq(calls, [('valu', 'test:int:loc', '=', 'us')])
                     calls = []
 
-                    nodes = await core.nodes('$prop=loc inet:ip +:$prop=us')
+                    nodes = await core.nodes('$prop=loc test:int +:$prop=us')
                     self.len(1, nodes)
-                    self.eq(calls, [('valu', 'inet:ip:loc', '=', 'us')])
+                    self.eq(calls, [('valu', 'test:int:loc', '=', 'us')])
                     calls = []
 
                     # Don't optimize if a non-lift happens before the filter
-                    nodes = await core.nodes('$loc=us inet:ip $loc=uk +:loc=$loc')
+                    nodes = await core.nodes('$loc=us test:int $loc=uk +:loc=$loc')
                     self.len(1, nodes)
-                    self.eq(calls, [('prop', 'inet:ip')])
+                    self.eq(calls, [('prop', 'test:int')])
                     calls = []
 
-                    nodes = await core.nodes('inet:ip:loc {$loc=:loc inet:ip +:loc=$loc}')
+                    nodes = await core.nodes('test:int:loc {$loc=:loc test:int +:loc=$loc}')
                     self.len(2, nodes)
                     exp = [
-                        ('prop', 'inet:ip:loc'),
-                        ('valu', 'inet:ip:loc', '=', 'uk'),
-                        ('valu', 'inet:ip:loc', '=', 'us'),
+                        ('prop', 'test:int:loc'),
+                        ('valu', 'test:int:loc', '=', 'uk'),
+                        ('valu', 'test:int:loc', '=', 'us'),
                     ]
                     self.eq(calls, exp)
                     calls = []
 
-                    nodes = await core.nodes('inet:ip +:seen')
+                    nodes = await core.nodes('test:int +:seen')
                     self.len(4, nodes)
-                    self.eq(calls, [('prop', 'inet:ip:seen')])
+                    self.eq(calls, [('prop', 'test:int:seen')])
                     calls = []
 
                     # Should optimize both lifts
-                    nodes = await core.nodes('inet:ip test:str +:seen@=2020')
-                    self.len(6, nodes)
+                    nodes = await core.nodes('test:int test:str +:seen@=2020')
+                    self.len(7, nodes)
                     exp = [
-                        ('valu', 'inet:ip:seen', '@=', '2020'),
+                        ('valu', 'test:int:seen', '@=', '2020'),
                         ('valu', 'test:str:seen', '@=', '2020'),
                     ]
                     self.eq(calls, exp)
                     calls = []
 
                     # Optimize pivprop filter a bit
-                    nodes = await core.nodes('inet:ip +:asn::name=visi')
+                    nodes = await core.nodes('test:int +:type::hehe=visi')
                     self.len(1, nodes)
-                    self.eq(calls, [('prop', 'inet:ip:asn')])
+                    self.eq(calls, [('prop', 'test:int:type')])
                     calls = []
 
-                    nodes = await core.nodes('inet:ip +:asn::name')
+                    nodes = await core.nodes('test:int +:type::hehe')
                     self.len(1, nodes)
-                    self.eq(calls, [('prop', 'inet:ip:asn')])
+                    self.eq(calls, [('prop', 'test:int:type')])
                     calls = []
 
                     nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
@@ -3097,16 +3053,16 @@ class AstTest(s_test.SynTest):
                     calls = []
 
                     # Shouldn't optimize this, make sure the edit happens
-                    msgs = await core.stormlist('inet:ip | limit 1 | [:seen=now] +#notag')
+                    msgs = await core.stormlist('test:int | limit 1 | [:seen=now] +#notag')
                     self.len(1, [m for m in msgs if m[0] == 'node:edits'])
                     self.len(0, [m for m in msgs if m[0] == 'node'])
-                    self.eq(calls, [('prop', 'inet:ip')])
+                    self.eq(calls, [('prop', 'test:int')])
 
                     calls = []
 
                     # Skip lifting forms when there is a prop filter for
                     # prop they don't have
-                    msgs = await core.stormlist('inet:ip +:name')
+                    msgs = await core.stormlist('test:int +:name')
                     self.stormHasNoWarnErr(msgs)
                     self.len(0, calls)
 
@@ -3929,11 +3885,11 @@ class AstTest(s_test.SynTest):
             self.none(await core.callStorm('it:exec:query [ -:time ] return(:time.precision)'))
             self.eq(s_time.PREC_MONTH, await core.callStorm('[ it:exec:query=* :time=2024-03? ] return(:time.precision)'))
 
-            self.eq(s_time.PREC_MICRO, await core.callStorm('[ ou:asset=* :seen=now ] return(:seen.precision)'))
-            self.eq(s_time.PREC_DAY, await core.callStorm('ou:asset $prop=seen [ :($prop).precision=day ] return(:($prop).precision)'))
-            self.len(1, await core.nodes('ou:asset +:seen.precision=day'))
-            self.len(1, await core.nodes('ou:asset [ :seen.precision=month ] +:seen.precision=month'))
-            self.none(await core.callStorm('ou:asset [ -:seen ] return(:seen.precision)'))
+            self.eq(s_time.PREC_MICRO, await core.callStorm('[ ou:asset=* :period=now ] return(:period.precision)'))
+            self.eq(s_time.PREC_DAY, await core.callStorm('ou:asset $prop=period [ :($prop).precision=day ] return(:($prop).precision)'))
+            self.len(1, await core.nodes('ou:asset +:period.precision=day'))
+            self.len(1, await core.nodes('ou:asset [ :period.precision=month ] +:period.precision=month'))
+            self.none(await core.callStorm('ou:asset [ -:period ] return(:period.precision)'))
 
             nodes = await core.nodes('[test:str=bar :seen=(2020, 2022)]')
             nodes = await core.nodes('[test:str=bar :seen.min=2021]')
