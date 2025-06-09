@@ -1138,10 +1138,10 @@ Export blobs from an Axon
 Exporting blobs from an Axon can be done with the
 ``synapse.tools.axon.dump`` command::
 
-    python -m synapse.tools.axon.dump <axonurl> <outputdir>
+    python -m synapse.tools.axon.dump --url <axonurl> <outputdir>
 
 When running the export tool from within the Axon container, the ``--url``
-option does not need to be provided as it will default to the local cell.
+option does not need to be provided as it will default to the local service.
 
 Import blobs into an Axon
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
