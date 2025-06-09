@@ -17,14 +17,6 @@ descr = '''
 Load blobs into a Synapse Axon.
 '''
 
-def parseBlobsFilename(filename):
-    # matches: <celliden>.<start>-<end>.blobs
-    m = re.match(r'^([0-9a-f]{32})\.(\d+)-(\d+)\.blobs$', filename)
-    if not m:
-        return None
-    celliden, start, end = m.groups()
-    return (int(start), int(end), filename)
-
 async def loadBlobs(opts, outp, blobsfiles):
     try:
         async with await s_telepath.openurl(opts.url) as axon:
@@ -97,33 +89,14 @@ async def loadBlobs(opts, outp, blobsfiles):
 async def main(argv, outp=s_output.stdout):
     pars = s_cmd.Parser(prog='synapse.tools.axon.load', outp=outp, description=descr)
     pars.add_argument('--url', default='cell:///vertex/storage', help='Telepath URL for the Axon.')
-    pars.add_argument('indir', help='Directory to load blob files from.')
+    pars.add_argument('files', nargs='+', help='List of .blobs files to import from.')
 
     try:
         opts = pars.parse_args(argv)
     except Exception:
         return 1
 
-    if os.path.isdir(opts.indir):
-        # Directory: find all .blobs and sort by offset
-        allfiles = os.listdir(opts.indir)
-        blobsfiles = []
-        for fname in allfiles:
-            parsed = parseBlobsFilename(fname)
-            if parsed is not None:
-                blobsfiles.append(parsed)
-        if not blobsfiles:
-            outp.printf(f'ERROR: No .blobs files found in directory {opts.indir}')
-            return 1
-        blobsfiles.sort()
-        blobsfiles = [os.path.join(opts.indir, fname) for (_, _, fname) in blobsfiles]
-    elif os.path.isfile(opts.indir):
-        # Single file: use it
-        blobsfiles = [opts.indir]
-    else:
-        mesg = f'Specified blobs path {opts.indir} does not exist.'
-        outp.printf(f'ERROR: {mesg}')
-        return 1
+    blobsfiles = opts.files
 
     async with s_telepath.withTeleEnv():
         (ok, mesg) = await loadBlobs(opts, outp, blobsfiles)

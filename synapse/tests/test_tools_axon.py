@@ -190,7 +190,8 @@ class AxonToolsTest(s_t_utils.SynTest):
                 files = sorted([f for f in os.listdir(dumpdir) if f.endswith('.blobs')])
                 self.true(len(files) > 1)
                 async with self.getTestAxon(dirn=os.path.join(testdir, 'axon2')) as axon2:
-                    argv = ['--url', f'cell:///{axon2.dirn}', dumpdir]
+                    files = [os.path.join(dumpdir, f) for f in os.listdir(dumpdir) if f.endswith('.blobs')]
+                    argv = ['--url', f'cell:///{axon2.dirn}'] + files
                     self.eq(0, await axon_load.main(argv))
                     for size, sha2, blob in sha2s:
                         self.true(await axon2.has(sha2))
@@ -278,37 +279,7 @@ class AxonToolsTest(s_t_utils.SynTest):
             argv = ['--url', 'cell:///definitelynotarealpath/axon', missing]
             outp = s_output.OutPutStr()
             self.eq(1, await axon_load.main(argv, outp=outp))
-            self.isin('does not exist', str(outp))
-
-    async def test_load_blobsfile_parsing(self):
-        with self.getTestDir() as testdir:
-            valid1 = 'aabbccddeeff00112233445566778899.0-10.blobs'
-            valid2 = 'aabbccddeeff00112233445566778899.10-20.blobs'
-            valid3 = 'aabbccddeeff00112233445566778899.20-30.blobs'
-            invalid1 = 'notablobsfile.txt'
-            invalid2 = 'aabbccddeeff00112233445566778899.0-10.blob'
-            invalid3 = 'aabbccddeeff00112233445566778899-0-10.blobs'
-            for fname in [valid2, valid1, valid3, invalid1, invalid2, invalid3]:
-                with open(os.path.join(testdir, fname), 'wb') as fd:
-                    if fname.endswith('.blobs'):
-                        fd.write(s_msgpack.en(('blob:init', {})))
-                        fd.write(s_msgpack.en(('blob:fini', {})))
-                    else:
-                        fd.write(b'dummy')
-
-            async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
-                argv = [
-                    '--url', f'cell:///{axon.dirn}',
-                    testdir,
-                ]
-                outp = s_output.OutPutStr()
-                self.eq(0, await axon_load.main(argv, outp=outp))
-                outstr = str(outp)
-                idx1 = outstr.find(valid1)
-                idx2 = outstr.find(valid2)
-                idx3 = outstr.find(valid3)
-                self.true(idx1 != -1 and idx2 != -1 and idx3 != -1)
-                self.true(idx1 < idx2 < idx3)
+            self.isin('No such file or directory', str(outp))
 
     async def test_load_missing_bytes(self):
         with self.getTestDir() as testdir:
@@ -350,7 +321,7 @@ class AxonToolsTest(s_t_utils.SynTest):
             argv = ['--url', 'cell:///definitelynotarealpath/axon', testdir]
             outp = s_output.OutPutStr()
             self.eq(1, await axon_load.main(argv, outp=outp))
-            self.isin('No .blobs files found in directory', str(outp))
+            self.isin('No such file or directory', str(outp))
 
     async def test_load_not_axon_cell(self):
         with self.getTestDir() as testdir:
