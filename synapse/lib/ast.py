@@ -1735,8 +1735,6 @@ class LiftByArrayVirt(LiftOper):
         cmpr = self.kids[2].value()
         valu = await s_stormtypes.tostor(await self.kids[3].compute(runt, path))
 
-        alts = self.kids[1].alts
-
         pivs = None
         if name.find('::') != -1:
             parts = name.split('::')
@@ -1752,10 +1750,7 @@ class LiftByArrayVirt(LiftOper):
                 virts += vnames
 
                 prop = plift[0]
-                if alts:
-                    genr = runt.view.nodesByPropAlts(prop, cmpr, valu, virts=virts)
-                else:
-                    genr = runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virts=virts)
+                genr = runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virts=virts)
 
                 async for node in self.pivlift(runt, pivlifts, genr):
                     yield node
@@ -1767,10 +1762,7 @@ class LiftByArrayVirt(LiftOper):
 
             genrs = []
             for prop in props:
-                if alts:
-                    genrs.append(runt.view.nodesByPropAlts(prop, cmpr, valu, virts=vnames))
-                else:
-                    genrs.append(runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virts=vnames))
+                genrs.append(runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virts=vnames))
 
             if len(genrs) == 1:
                 async for node in genrs[0]:
@@ -2196,8 +2188,6 @@ class LiftPropVirtBy(LiftOper):
         cmpr = await self.kids[2].compute(runt, path)
         valu = await self.kids[3].compute(runt, path)
 
-        alts = self.kids[1].alts
-
         if not isinstance(valu, s_node.Node):
             valu = await s_stormtypes.tostor(valu)
 
@@ -2216,10 +2206,7 @@ class LiftPropVirtBy(LiftOper):
                 virts += vnames
 
                 prop = plift[0]
-                if alts:
-                    genr = runt.view.nodesByPropAlts(prop, cmpr, valu, virts=virts)
-                else:
-                    genr = runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=virts)
+                genr = runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=virts)
 
                 async for node in self.pivlift(runt, pivlifts, genr):
                     yield node
@@ -2227,10 +2214,7 @@ class LiftPropVirtBy(LiftOper):
 
             genrs = []
             for prop in props:
-                if alts:
-                    genrs.append(runt.view.nodesByPropAlts(prop, cmpr, valu, virts=vnames))
-                else:
-                    genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=vnames))
+                genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=vnames))
 
             if len(genrs) == 1:
                 async for node in genrs[0]:
@@ -3927,21 +3911,14 @@ class CallKwargs(CallArgs):
 
 class VirtProps(Value):
     def prepare(self):
-        self.alts = False
         self.const = None
-        self.virtkids = self.kids
-        if isinstance(self.kids[0], Const):
-            if self.kids[0].value() == 'alts':
-                self.alts = True
-                self.virtkids = self.kids[1:]
-
-            if all(isinstance(k, Const) for k in self.virtkids):
-                self.const = [k.value() for k in self.virtkids]
+        if all(isinstance(k, Const) for k in self.kids):
+            self.const = [k.value() for k in self.kids]
 
     async def compute(self, runt, path):
         if self.const is not None:
             return self.const
-        return [await v.compute(runt, path) for v in self.virtkids]
+        return [await v.compute(runt, path) for v in self.kids]
 
 class VarValue(Value):
 
