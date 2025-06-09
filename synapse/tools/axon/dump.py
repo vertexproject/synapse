@@ -23,7 +23,11 @@ def getOutfileName(celliden, start, end):
     return f'{celliden}.{start}-{end}.blobs'
 
 def writeFooterAndClose(outfile, celliden, file_start, file_end, file_blobcount, outfile_path, outdir, outp):
-    footer = s_msgpack.en(('blob:fini', {'celliden': celliden, 'start': file_start, 'end': file_end, 'count': file_blobcount}))
+    footer = s_msgpack.en(('blob:fini', {'celliden': celliden,
+                                         'start': file_start,
+                                         'end': file_end,
+                                         'count': file_blobcount,
+                                         'tock': s_common.now()}))
     outfile.write(footer)
     final_name = os.path.join(outdir, getOutfileName(celliden, file_start, file_end))
     outfile.close()
@@ -42,6 +46,7 @@ async def dumpBlobs(opts, outp):
 
             cellinfo = await axon.getCellInfo()
             celliden = cellinfo['cell']['iden']
+            cellvers = cellinfo['cell']['version']
             os.makedirs(opts.outdir, exist_ok=True)
 
             start = opts.offset
@@ -60,7 +65,13 @@ async def dumpBlobs(opts, outp):
                     if for_open:
                         outfile_path = os.path.join(opts.outdir, getOutfileName(celliden, offs, 'end'))
                         outfile = open(outfile_path, 'wb')
-                        outfile.write(s_msgpack.en(('blob:init', {'celliden': celliden, 'start': offs})))
+                        outfile.write(s_msgpack.en(('blob:init', {'hdrvers': 1,
+                                                                  'celliden': celliden,
+                                                                  'cellvers': cellvers,
+                                                                  'start': offs,
+                                                                  'rotate_size': rotate_size,
+                                                                  'tick': s_common.now()}
+                        )))
                         file_start = offs
                         file_size = 0
                         file_blobcount = 0
