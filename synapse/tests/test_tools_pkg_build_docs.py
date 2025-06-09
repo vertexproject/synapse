@@ -37,6 +37,8 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
             self.eq(efiles, set(os.listdir(builddir)))
 
             text = s_common.getbytes(os.path.join(builddir, 'bar.md')).decode()
+            self.isin('storm> [inet:asn=1]', text)
+            self.isin('inet:asn=1\n', text)
             self.notin(':orphan:', text)
             self.notin(':tocdepth:', text)
 
