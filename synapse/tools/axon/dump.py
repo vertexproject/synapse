@@ -47,6 +47,10 @@ async def dumpBlobs(opts, outp):
             cellinfo = await axon.getCellInfo()
             celliden = cellinfo['cell']['iden']
             cellvers = cellinfo['cell']['version']
+
+            if os.path.exists(opts.outdir) and not os.path.isdir(opts.outdir):
+                mesg = f'Specified output directory {opts.outdir} exists but is not a directory.'
+                raise s_exc.BadDataValu(mesg=mesg)
             os.makedirs(opts.outdir, exist_ok=True)
 
             start = opts.offset
@@ -115,7 +119,7 @@ async def dumpBlobs(opts, outp):
         return (False, mesg)
 
     except Exception as e:
-        mesg = f'Error connecting to Axon url: {e}'
+        mesg = f'Error {e} dumping blobs from Axon url: {opts.url}'
         return (False, mesg)
 
     return (True, None)
@@ -130,12 +134,7 @@ async def main(argv, outp=s_output.stdout):
 
     try:
         opts = pars.parse_args(argv)
-    except Exception as e:
-        return 1
-
-    if os.path.exists(opts.outdir) and not os.path.isdir(opts.outdir):
-        mesg = f'Specified output directory {opts.outdir} exists but is not a directory.'
-        outp.printf(f'ERROR: {mesg}')
+    except Exception:
         return 1
 
     async with s_telepath.withTeleEnv():
@@ -144,7 +143,7 @@ async def main(argv, outp=s_output.stdout):
             outp.printf(f'ERROR: {mesg}')
             return 1
 
-    outp.printf(f'Successfully dumped blobs.')
+    outp.printf('Successfully dumped blobs.')
 
     return 0
 

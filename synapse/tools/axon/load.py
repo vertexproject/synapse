@@ -88,7 +88,7 @@ async def loadBlobs(opts, outp, blobsfiles):
         return (False, mesg)
 
     except Exception as e:
-        mesg = f'Error connecting to Axon url: {e}'
+        mesg = f'Error {e} loading blobs into Axon url: {opts.url}'
         return (False, mesg)
 
     return (True, None)
@@ -130,7 +130,7 @@ async def main(argv, outp=s_output.stdout):
             outp.printf(f'ERROR: {mesg}')
             return 1
 
-    outp.printf(f'Successfully loaded blobs.')
+    outp.printf('Successfully loaded blobs.')
 
     return 0
 

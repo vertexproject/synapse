@@ -59,7 +59,8 @@ class AxonToolsTest(s_t_utils.SynTest):
         argv = ['--url', 'cell:///definitelynotarealpath/axon', '--offset', '0']
         outp = s_output.OutPutStr()
         self.eq(1, await axon_dump.main(argv, outp=outp))
-        self.isin('Error connecting to Axon url', str(outp))
+        self.isin('Error', str(outp))
+        self.isin('dumping blobs from Axon url', str(outp))
 
         with self.getTestDir() as testdir:
             async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
@@ -79,7 +80,8 @@ class AxonToolsTest(s_t_utils.SynTest):
             argv = ['--url', 'cell:///definitelynotarealpath/axon', blobsfile]
             outp = s_output.OutPutStr()
             self.eq(1, await axon_load.main(argv, outp=outp))
-            self.isin('Error connecting to Axon url', str(outp))
+            self.isin('Error', str(outp))
+            self.isin('loading blobs into Axon url', str(outp))
 
             async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
                 dumpdir = os.path.join(testdir, 'dumpdir')
