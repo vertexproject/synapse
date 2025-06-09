@@ -54,5 +54,5 @@ async def wrapmain(func): # pragma: no cover
     finally:
         await s_coro.await_bg_tasks()
 
-def callmain(func): # pragma: no cover
+def exitmain(func): # pragma: no cover
     sys.exit(asyncio.run(wrapmain(func)))
