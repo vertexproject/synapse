@@ -391,16 +391,6 @@ testmodel = (
             ('test:virtiface', ('guid', {}), {'interfaces': ('test:virtarray',)}),
             ('test:virtiface2', ('guid', {}), {'interfaces': ('test:virtarray',)}),
         ),
-
-        'univs': (
-            ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
-            ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
-            ('virtuniv', ('inet:server', {}), {'doc': 'A test universal prop with virtual props.'}),
-            ('virtunivarray', ('array', {'type': 'inet:server'}), {'doc': 'A test universal array prop with virtual props.'}),
-            ('minuniv', ('time', {'ismin': True}), {'doc': 'A test universal property with ismin=True.'}),
-            ('rouniv', ('time', {}), {'doc': 'A readonly test universal property.', 'ro': True}),
-        ),
-
         'forms': (
 
             ('test:arrayprop', {}, (
@@ -434,6 +424,7 @@ testmodel = (
             ('test:comp', {}, (
                 ('hehe', ('test:int', {}), {'ro': True}),
                 ('haha', ('test:lower', {}), {'ro': True}),
+                ('seen', ('ival', {}), {}),
             )),
 
             ('test:compcomp', {}, (
@@ -454,6 +445,8 @@ testmodel = (
             ('test:int', {}, (
                 ('loc', ('loc', {}), {}),
                 ('int2', ('int', {}), {}),
+                ('seen', ('ival', {}), {}),
+                ('type', ('test:str', {}), {}),
             )),
 
             ('test:float', {}, (
@@ -462,10 +455,13 @@ testmodel = (
             )),
 
             ('test:guid', {}, (
+                ('name', ('test:str', {}), {}),
                 ('size', ('test:int', {}), {}),
+                ('seen', ('ival', {}), {}),
                 ('tick', ('test:time', {}), {}),
                 ('posneg', ('test:sub', {}), {}),
                 ('posneg:isbig', ('bool', {}), {}),
+                ('server', ('inet:server', {}), {}),
             )),
 
             ('test:data', {}, (
@@ -484,6 +480,7 @@ testmodel = (
                 ('ndefs', ('array', {'type': 'ndef'}), {}),
                 ('cidr', ('inet:cidr', {}), {}),
                 ('somestr', ('test:str', {}), {}),
+                ('seen', ('ival', {}), {}),
             )),
 
             ('test:strregex', {}, ()),
@@ -508,6 +505,7 @@ testmodel = (
 
             ('test:pivtarg', {}, (
                 ('name', ('str', {}), {}),
+                ('seen', ('ival', {}), {}),
             )),
 
             ('test:pivcomp', {}, (
@@ -516,6 +514,7 @@ testmodel = (
                 ('tick', ('time', {}), {}),
                 ('size', ('test:int', {}), {}),
                 ('width', ('test:int', {}), {}),
+                ('seen', ('ival', {}), {}),
             )),
 
             ('test:haspivcomp', {}, (
@@ -544,6 +543,14 @@ deprmodel = (
         'ctors': (
             ('test:dep:str', 'synapse.lib.types.Str', {'strip': True}, {'deprecated': True}),
         ),
+        'interfaces': (
+            ('test:deprinterface', {
+                'doc': 'test interface',
+                'props': (
+                    ('pdep', ('str', {}), {'deprecated': True}),
+                ),
+            }),
+        ),
         'types': (
             ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
             ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
@@ -554,6 +561,7 @@ deprmodel = (
             ('test:deprndef', ('ndef', {}), {}),
             ('test:deprform2', ('test:str', {}), {'deprecated': True}),
             ('test:deprsub', ('str', {}), {}),
+            ('test:depriface', ('str', {}), {'interfaces': ('test:deprinterface',)}),
             ('test:range', ('range', {}), {}),
             ('test:deprsub2', ('comp', {'fields': (
                 ('name', 'test:str'),
@@ -588,11 +596,10 @@ deprmodel = (
             ('test:dep:str', {}, (
                 ('beep', ('test:dep:str', {}), {}),
             )),
+            ('test:depriface', {}, (
+                ('beep', ('test:dep:str', {}), {}),
+            )),
         ),
-        'univs': (
-            ('udep', ('test:dep:easy', {}), {}),
-            ('pdep', ('test:str', {}), {'deprecated': True})
-        )
     }),
 )
 

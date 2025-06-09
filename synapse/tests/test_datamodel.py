@@ -125,9 +125,6 @@ class DataModelTest(s_t_utils.SynTest):
         with self.raises(s_exc.NoSuchForm):
             modl.delFormProp('ne:wp', 'newp')
 
-        with self.raises(s_exc.NoSuchUniv):
-            modl.delUnivProp('newp')
-
         modl.addIface('test:iface', {})
 
         modl.addType('bar', 'int', {}, {})
@@ -163,50 +160,40 @@ class DataModelTest(s_t_utils.SynTest):
 
         modl.addType('foo:bar', 'int', {}, {})
         modl.addForm('foo:bar', {}, (('x', ('int', {}), {}), ))
-        modl.addUnivProp('hehe', ('int', {}), {})
         modl.addFormProp('foo:bar', 'y', ('int', {}), {})
 
         self.nn(modl.prop('foo:bar:x'))
         self.nn(modl.prop('foo:bar:y'))
-        self.nn(modl.prop('foo:bar:hehe'))
 
         self.nn(modl.form('foo:bar').prop('x'))
         self.nn(modl.form('foo:bar').prop('y'))
-        self.nn(modl.form('foo:bar').prop('hehe'))
 
-        self.len(3, modl.propsbytype['int'])
+        self.len(2, modl.propsbytype['int'])
 
         modl.delFormProp('foo:bar', 'y')
 
         self.nn(modl.prop('foo:bar:x'))
-        self.nn(modl.prop('foo:bar:hehe'))
         self.nn(modl.form('foo:bar').prop('x'))
-        self.nn(modl.form('foo:bar').prop('hehe'))
 
-        self.len(2, modl.propsbytype['int'])
+        self.len(1, modl.propsbytype['int'])
         self.none(modl.prop('foo:bar:y'))
         self.none(modl.form('foo:bar').prop('y'))
-
-        modl.delUnivProp('hehe')
-
-        self.none(modl.prop('hehe'))
-        self.none(modl.form('foo:bar').prop('hehe'))
 
     async def test_datamodel_form_refs_cache(self):
         async with self.getTestCore() as core:
 
             refs = core.model.form('test:comp').getRefsOut()
-            self.len(2, refs['prop'])
+            self.len(1, refs['prop'])
 
             await core.addFormProp('test:comp', '_ip', ('inet:ip', {}), {})
 
             refs = core.model.form('test:comp').getRefsOut()
-            self.len(3, refs['prop'])
+            self.len(2, refs['prop'])
 
             await core.delFormProp('test:comp', '_ip')
 
             refs = core.model.form('test:comp').getRefsOut()
-            self.len(2, refs['prop'])
+            self.len(1, refs['prop'])
 
             self.len(1, [prop for prop in core.model.getPropsByType('time') if prop.full == 'it:exec:url:time'])
 
@@ -221,7 +208,6 @@ class DataModelTest(s_t_utils.SynTest):
 
             dstream.seek(0)
             ds = dstream.read()
-            self.isin('universal property udep is using a deprecated type', ds)
             self.isin('type test:dep:easy is based on a deprecated type test:dep:easy', ds)
             tstream.seek(0)
             ts = tstream.read()
@@ -238,18 +224,13 @@ class DataModelTest(s_t_utils.SynTest):
                 _ = await core.stormlist('[test:dep:easy=test2 :comp=(1, two)]')
                 self.true(await tstream.wait(6))
 
-            msgs = await core.stormlist('[test:str=tehe :pdep=beep]')
-            self.stormIsInWarn('property test:str:pdep is deprecated', msgs)
+            msgs = await core.stormlist('[test:depriface=tehe :pdep=beep]')
+            self.stormIsInWarn('property test:depriface:pdep is deprecated', msgs)
 
-            # Extended props, custom universals and tagprops can all trigger deprecation notices
+            # Extended props and tagprops can all trigger deprecation notices
             mesg = 'tag property depr is using a deprecated type test:dep:easy'
             with self.getAsyncLoggerStream('synapse.datamodel', mesg) as dstream:
                 await core.addTagProp('depr', ('test:dep:easy', {}), {})
-                self.true(await dstream.wait(6))
-
-            mesg = 'universal property _test is using a deprecated type test:dep:easy'
-            with self.getAsyncLoggerStream('synapse.datamodel', mesg) as dstream:
-                await core.addUnivProp('_test', ('test:dep:easy', {}), {})
                 self.true(await dstream.wait(6))
 
             mesg = 'extended property test:str:_depr is using a deprecated type test:dep:easy'

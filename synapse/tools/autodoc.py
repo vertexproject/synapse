@@ -57,15 +57,10 @@ class DocHelp:
     Helper to pre-compute all doc strings hierarchically
     '''
 
-    def __init__(self, ctors, types, forms, props, univs):
+    def __init__(self, ctors, types, forms, props):
         self.ctors = {c[0]: c[3].get('doc', 'BaseType has no doc string.') for c in ctors}
         self.types = {name: valu['info'].get('doc', self.ctors.get(name)) for name, valu in types.items()}
         self.forms = {f[0]: f[1].get('doc', self.types.get(f[0], self.ctors.get(f[0]))) for f in forms}
-        self.univs = {}
-        for unam, utyp, unfo in univs:
-            tn = utyp[0]
-            doc = unfo.get('doc', self.forms.get(tn, self.types.get(tn, self.ctors.get(tn))))
-            self.univs[unam] = doc
 
         self.props = {}
         for form, props in props.items():
@@ -303,7 +298,7 @@ def has_popts_data(props):
 
     return False
 
-def processFormsProps(rst, dochelp, forms, univ_names, alledges):
+def processFormsProps(rst, dochelp, forms, alledges):
     rst.addHead('Forms', lvl=1, link='.. _dm-forms:')
     rst.addLines('',
                  'Forms are derived from types, or base types. Forms represent node types in the graph.'
@@ -338,8 +333,6 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                          f' * ``{ex}``',
                          ''
                          )
-
-        props = [blob for blob in props if blob[0] not in univ_names]
 
         if props:
 
@@ -494,54 +487,6 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
             if formedges:
                 logger.warning(f'{name} has unhandled light edges: {formedges}')
 
-def processUnivs(rst, dochelp, univs):
-    rst.addHead('Universal Properties', lvl=1, link='.. _dm-universal-props:')
-
-    rst.addLines('',
-                 'Universal props are system level properties which may be present on every node.',
-                 '',
-                 'These properties are not specific to a particular form and exist outside of a particular',
-                 'namespace.',
-                 '')
-
-    for name, (utyp, uopt), info in univs:
-
-        _ = info.pop('doc', None)
-        doc = dochelp.univs.get(name)
-        if not doc.endswith('.'):
-            logger.warning(f'Docstring for form {name} does not end with a period.]')
-            doc = doc + '.'
-
-        hname = name
-        if ':' in name:
-            hname = name.replace(':', raw_back_slash_colon)
-
-        rst.addHead(hname, lvl=2, link=f'.. _dm-univ-{name.replace(":", "-")}:')
-
-        rst.addLines('',
-                     doc,
-                     )
-
-        if info:
-            rst.addLines('It has the following property options set:',
-                         ''
-                         )
-            for k, v in info.items():
-                k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
-                rst.addLines('  ' + f'* {k}: ``{v}``')
-
-        hptlink = f'dm-type-{utyp.replace(":", "-")}'
-        tdoc = f'The universal property type is :ref:`{hptlink}`.'
-
-        rst.addLines('',
-                     tdoc,
-                     )
-        if uopt:
-            rst.addLines("Its type has the following options set:",
-                         '')
-            for k, v in uopt.items():
-                rst.addLines('  ' + f'* {k}: ``{v}``')
-
 async def processStormCmds(rst, pkgname, commands):
     '''
 
@@ -686,14 +631,11 @@ async def docModel(outp,
 
     ctors = model.get('ctors')
     forms = model.get('forms')
-    univs = model.get('univs')
     edges = model.get('edges')
     props = collections.defaultdict(list)
 
     ctors = sorted(ctors, key=lambda x: x[0])
-    univs = sorted(univs, key=lambda x: x[0])
     forms = sorted(forms, key=lambda x: x[0])
-    univ_names = {univ[0] for univ in univs}
 
     modeldict = await core.getModelDict()
     types = modeldict.get('types')
@@ -703,7 +645,7 @@ async def docModel(outp,
 
     [v.sort() for k, v in props.items()]
 
-    dochelp = DocHelp(ctors, types, forms, props, univs)
+    dochelp = DocHelp(ctors, types, forms, props)
 
     # Validate examples
     for form, example in dochelp.formhelp.items():
@@ -733,8 +675,7 @@ async def docModel(outp,
     rst2 = s_autodoc.RstHelp()
     rst2.addHead('Synapse Data Model - Forms', lvl=0)
 
-    processFormsProps(rst2, dochelp, forms, univ_names, edges)
-    processUnivs(rst2, dochelp, univs)
+    processFormsProps(rst2, dochelp, forms, edges)
 
     return rst, rst2
 

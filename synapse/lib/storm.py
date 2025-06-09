@@ -3307,40 +3307,24 @@ class DiffCmd(Cmd):
             layr = runt.view.wlyr
             propname = await s_stormtypes.tostr(self.opts.prop)
 
-            if propname[0] == ':':
-                propname = propname[1:]
+            if (prop := self.runt.view.core.model.prop(propname)) is None:
+                mesg = f'The property {propname} does not exist.'
+                raise s_exc.NoSuchProp(mesg=mesg)
 
-                if (prop := self.runt.view.core.model.univ(propname)) is None:
-                    mesg = f'The universal property {propname} does not exist.'
-                    raise s_exc.NoSuchProp(mesg=mesg)
-
-                async for _, nid, sode in layr.liftByUniv(propname):
-                    if (node := await self.runt.view._joinStorNode(nid)) is not None:
-                        yield node, runt.initPath(node)
-
-                async for nid in layr.iterUnivTombstones(propname):
-                    if (node := await self.runt.view._joinStorNode(nid)) is not None:
-                        yield node, runt.initPath(node)
-
+            if prop.isform:
+                liftform = prop.name
+                liftprop = None
             else:
-                if (prop := self.runt.view.core.model.prop(propname)) is None:
-                    mesg = f'The property {propname} does not exist.'
-                    raise s_exc.NoSuchProp(mesg=mesg)
+                liftform = prop.form.name
+                liftprop = prop.name
 
-                if prop.isform:
-                    liftform = prop.name
-                    liftprop = None
-                else:
-                    liftform = prop.form.name
-                    liftprop = prop.name
+            async for _, nid, sode in layr.liftByProp(liftform, liftprop):
+                if (node := await self.runt.view._joinStorNode(nid)) is not None:
+                    yield node, runt.initPath(node)
 
-                async for _, nid, sode in layr.liftByProp(liftform, liftprop):
-                    if (node := await self.runt.view._joinStorNode(nid)) is not None:
-                        yield node, runt.initPath(node)
-
-                async for nid in layr.iterPropTombstones(liftform, liftprop):
-                    if (node := await self.runt.view._joinStorNode(nid)) is not None:
-                        yield node, runt.initPath(node)
+            async for nid in layr.iterPropTombstones(liftform, liftprop):
+                if (node := await self.runt.view._joinStorNode(nid)) is not None:
+                    yield node, runt.initPath(node)
 
             return
 
@@ -3847,12 +3831,8 @@ class MergeCmd(Cmd):
 
                     prop = node.form.prop(name)
                     if propfilter is not None:
-                        if prop.isuniv:
-                            if propfilter(name):
-                                continue
-                        else:
-                            if propfilter(prop.full):
-                                continue
+                        if propfilter(prop.full):
+                            continue
 
                     if prop.info.get('ro'):
                         if name == '.created':

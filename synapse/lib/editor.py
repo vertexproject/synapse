@@ -73,26 +73,25 @@ class ProtoNode(s_node.NodeBase):
         edits = []
         sode = self.node.sodes[0]
 
+        if (tags := sode.get('tags')) is not None:
+            for name in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
+                edits.append((s_layer.EDIT_TAG_DEL, (name, None)))
+
+        if (props := sode.get('props')) is not None:
+            for name in props.keys():
+                prop = self.form.props.get(name)
+                edits.append((s_layer.EDIT_PROP_DEL, (name, None, prop.type.stortype)))
+
+        if (tagprops := sode.get('tagprops')) is not None:
+            for tag, props in tagprops.items():
+                for name in props.keys():
+                    prop = self.model.getTagProp(name)
+                    edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)))
+
         if self.delnode:
             edits.append((s_layer.EDIT_NODE_DEL, (self.valu, self.form.type.stortype)))
-            if (tags := sode.get('tags')) is not None:
-                for name in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
-                    edits.append((s_layer.EDIT_TAG_DEL, (name, None)))
-
-            if (props := sode.get('props')) is not None:
-                for name in props.keys():
-                    prop = self.form.props.get(name)
-                    edits.append((s_layer.EDIT_PROP_DEL, (name, None, prop.type.stortype)))
-
-            if (tagprops := sode.get('tagprops')) is not None:
-                for tag, props in tagprops.items():
-                    for name in props.keys():
-                        prop = self.model.getTagProp(name)
-                        edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)))
 
         if self.tombnode:
-            edits.append((s_layer.EDIT_NODE_TOMB, ()))
-
             if (tags := sode.get('antitags')) is not None:
                 for tag in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
                     edits.append((s_layer.EDIT_TAG_TOMB_DEL, (tag,)))
@@ -105,6 +104,8 @@ class ProtoNode(s_node.NodeBase):
                 for tag, props in tagprops.items():
                     for name in props.keys():
                         edits.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, name)))
+
+            edits.append((s_layer.EDIT_NODE_TOMB, ()))
 
         if (nid := self.nid) is not None:
             nid = s_common.int64un(nid)

@@ -1680,18 +1680,7 @@ class LiftByArray(LiftOper):
             parts = name.split('::')
             name, pivs = parts[0], parts[1:]
 
-        if name.startswith('univ:'):
-            name = name.split(':', 1)[1]
-            if (univ := runt.model.univ(name)) is None:
-                mesg = f'No universal property property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchUniv(mesg=mesg, name=name))
-            props = [prop for prop in runt.model.allunivs.get(name) if prop.form is not None and not prop.isrunt]
-        elif (prop := runt.model.props.get(name)) is not None:
-            props = (prop,)
-        elif (proplist := runt.model.ifaceprops.get(name)) is not None:
-            props = [runt.model.props.get(propname) for propname in proplist]
-        else:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
 
         try:
             if pivs is not None:
@@ -1753,18 +1742,7 @@ class LiftByArrayVirt(LiftOper):
             parts = name.split('::')
             name, pivs = parts[0], parts[1:]
 
-        if name.startswith('univ:'):
-            name = name.split(':', 1)[1]
-            if (univ := runt.model.univ(name)) is None:
-                mesg = f'No universal property property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchUniv(mesg=mesg, name=name))
-            props = [prop for prop in runt.model.allunivs.get(name) if prop.form is not None and not prop.isrunt]
-        elif (prop := runt.model.props.get(name)) is not None:
-            props = (prop,)
-        elif (proplist := runt.model.ifaceprops.get(name)) is not None:
-            props = [runt.model.props.get(propname) for propname in proplist]
-        else:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
 
         try:
             if pivs is not None:
@@ -2044,16 +2022,8 @@ class LiftProp(LiftOper):
                 yield node
             return
 
-        if name.startswith('univ:'):
-            name = name.split(':', 1)[1]
-            if (univ := runt.model.univ(name)) is None:
-                mesg = f'No universal property property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchUniv(mesg=mesg, name=name))
-
-            props = [prop for prop in runt.model.allunivs.get(name) if prop.form is not None and not prop.isrunt]
-        else:
-            proplist = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
-            props = [runt.model.props.get(propname) for propname in proplist]
+        proplist = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
+        props = [runt.model.props.get(propname) for propname in proplist]
 
         if len(props) == 1 or props[0].isform:
             for prop in props:
@@ -2141,15 +2111,8 @@ class LiftPropVirt(LiftProp):
                 yield node
             return
 
-        if name.startswith('univ:'):
-            name = name.split(':', 1)[1]
-            if (univ := runt.model.univ(name)) is None:
-                mesg = f'No universal property property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchUniv(mesg=mesg, name=name))
-            props = [prop for prop in runt.model.allunivs.get(name) if prop.form is not None and not prop.isrunt]
-        else:
-            proplist = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
-            props = [runt.model.props.get(propname) for propname in proplist]
+        proplist = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
+        props = [runt.model.props.get(propname) for propname in proplist]
 
         if len(props) == 1 or props[0].isform:
             for prop in props:
@@ -2185,18 +2148,7 @@ class LiftPropBy(LiftOper):
             parts = name.split('::')
             name, pivs = parts[0], parts[1:]
 
-        if name.startswith('univ:'):
-            name = name.split(':', 1)[1]
-            if (univ := runt.model.univ(name)) is None:
-                mesg = f'No universal property property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchUniv(mesg=mesg, name=name))
-            props = [prop for prop in runt.model.allunivs.get(name) if prop.form is not None and not prop.isrunt]
-        elif (prop := runt.model.props.get(name)) is not None:
-            props = (prop,)
-        elif (proplist := runt.model.ifaceprops.get(name)) is not None:
-            props = [runt.model.props.get(propname) for propname in proplist]
-        else:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
 
         try:
             if pivs is not None:
@@ -2254,18 +2206,7 @@ class LiftPropVirtBy(LiftOper):
             parts = name.split('::')
             name, pivs = parts[0], parts[1:]
 
-        if name.startswith('univ:'):
-            name = name.split(':', 1)[1]
-            if (univ := runt.model.univ(name)) is None:
-                mesg = f'No universal property property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchUniv(mesg=mesg, name=name))
-            props = [prop for prop in runt.model.allunivs.get(name) if prop.form is not None and not prop.isrunt]
-        elif (prop := runt.model.props.get(name)) is not None:
-            props = (prop,)
-        elif (proplist := runt.model.ifaceprops.get(name)) is not None:
-            props = [runt.model.props.get(propname) for propname in proplist]
-        else:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
 
         try:
             if pivs is not None:
