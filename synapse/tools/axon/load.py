@@ -29,9 +29,9 @@ async def loadBlobs(opts, outp, blobsfiles):
     try:
         async with await s_telepath.openurl(opts.url) as axon:
 
-            classes = axon._getClasses()
-            if 'synapse.axon.AxonApi' not in classes:
-                mesg = f'Service at {opts.url} is not an Axon'
+            cellinfo = await axon.getCellInfo()
+            if (celltype := cellinfo['cell']['type']) != 'axon':
+                mesg = f'Axon load tool only works on axons, not {celltype}'
                 raise s_exc.TypeMismatch(mesg=mesg)
 
             for blobsfile in blobsfiles:

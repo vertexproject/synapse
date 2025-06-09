@@ -1102,6 +1102,57 @@ additonal CA files.
     is similar to the Cortex, but uses the ``SYN_AXON_TLS_CA_DIR`` environment
     variable.
 
+Axon Blob Export and Import
+----------------------------
+
+For situations where an organization may want to synchronize Axon blobs between
+two different Axons, there are command line tools available to export blobs from
+a source Axon and then import those same blobs into a different Axon.
+
+- ``synapse.tools.axon.dump``: Export blobs from a specified Axon.
+- ``synapse.tools.axon.load``: Import blobs to a specified Axon.
+
+In these situations, an export would be created using
+``synapse.tools.axon.dump``. The output of this tool is one or more export
+files that can then be manually copied over to the destination Axon
+environment. Once the files have been copied, the ``synapse.tools.axon.load``
+tool can be used to import them into the destination Axon.
+
+.. note::
+
+   The ``synapse.tools.axon.dump`` export tool can create a state tracking YAML
+   file for recording the next expected offset from the Axon that was exported.
+   The state tracking file allows the export tool to create incremental exports
+   from the time of the last execution without requiring the offset to be
+   separately tracked.
+
+   The state tracking file can be created and used by the ``synapse.tools.axon.load``
+   tool using the ``--statefile`` command line option with a valid path. The state
+   tracking file is saved in that directory with name ``<celliden>.yaml``.
+
+Export blobs from an Axon
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Exporting blobs from an Axon can be done with the
+``synapse.tools.axon.dump`` command::
+
+    python -m synapse.tools.axon.dump <axonurl> <outputdir>
+
+When running the export tool from within the Axon container, the ``--url``
+option does not need to be provided as it will default to the local cell.
+
+Import blobs into an Axon
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Importing blobs into an Axon can be done with the
+``synapse.tools.axon.load`` command::
+
+    python -m synapse.tools.axon.load <axonurl> <blobsdir>
+
+The import tool will automatically order the blobs files based on starting
+offset so there is no need to import them one at a time or specify them in a
+particular order.
+
 Synapse Services
 ================
 

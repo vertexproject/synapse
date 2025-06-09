@@ -39,12 +39,11 @@ async def dumpBlobs(opts, outp):
     try:
         async with await s_telepath.openurl(opts.url) as axon:
 
-            classes = axon._getClasses()
-            if 'synapse.axon.AxonApi' not in classes:
-                mesg = f'Service at {opts.url} is not an Axon'
+            cellinfo = await axon.getCellInfo()
+            if (celltype := cellinfo['cell']['type']) != 'axon':
+                mesg = f'Axon dump tool only works on axons, not {celltype}'
                 raise s_exc.TypeMismatch(mesg=mesg)
 
-            cellinfo = await axon.getCellInfo()
             celliden = cellinfo['cell']['iden']
             cellvers = cellinfo['cell']['version']
 
@@ -63,6 +62,15 @@ async def dumpBlobs(opts, outp):
             file_start = start
             file_size = 0
             for_open = True
+
+            state = {}
+            if opts.statefile is not None:
+                statefile_path = opts.statefile
+                if os.path.isdir(statefile_path):
+                    statefile_path = os.path.join(statefile_path, f'{celliden}.yaml')
+                if (data := s_common.yamlload(statefile_path)) is not None:
+                    state = data
+                opts.statefile = statefile_path
 
             try:
                 async for (offs, (sha256, size)) in hashes_iter:
@@ -112,12 +120,17 @@ async def dumpBlobs(opts, outp):
                     writeFooterAndClose(outfile, celliden, file_start, last_offset + 1, file_blobcount, outfile_path, opts.outdir, outp)
                     outfile = None
                     outfile_path = None
+
+                if opts.statefile is not None:
+                    state['offset:next'] = last_offset + 1
+                    s_common.yamlsave(state, statefile_path)
+
             finally:
                 if outfile is not None:
                     try:
                         outfile.close()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        outp.printf(f"failed to close file: {e}")
                     if outfile_path and os.path.isfile(outfile_path):
                         os.remove(outfile_path)
 
@@ -136,7 +149,10 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--url', default='cell:///vertex/storage', help='Telepath URL for the Axon.')
     pars.add_argument('--offset', type=int, default=0, help='Starting offset in the Axon.')
     pars.add_argument('--rotate-size', type=int, default=DEFAULT_ROTATE_SIZE,
-                      help='Rotate to a new .blobs file if the current file exceeds this size in bytes (default: 4GB).')
+                      help='Rotate to a new .blobs file after the current file exceeds this size in bytes (default: 4GB). '
+                           'Note: files may exceed this size if a single blob is larger than the remaining space.')
+    pars.add_argument('--statefile', type=str, default=None,
+                      help='Path to the state tracking file for the Axon dump.')
     pars.add_argument('outdir', nargs='?', default='.', help='Directory to dump blob files.')
 
     try:
