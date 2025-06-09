@@ -45,7 +45,6 @@ async def dumpBlobs(opts, outp):
             os.makedirs(opts.outdir, exist_ok=True)
 
             start = opts.offset
-            end = opts.limit
             rotate_size = opts.rotate_size
             hashes_iter = axon.hashes(start)
             last_offset = start
@@ -58,8 +57,6 @@ async def dumpBlobs(opts, outp):
 
             try:
                 async for (offs, (sha256, size)) in hashes_iter:
-                    if end is not None and offs >= end:
-                        break
                     if for_open:
                         outfile_path = os.path.join(opts.outdir, getOutfileName(celliden, offs, 'end'))
                         outfile = open(outfile_path, 'wb')
@@ -91,6 +88,7 @@ async def dumpBlobs(opts, outp):
                         mesg = f'SHA256 mismatch for {sha2hex}'
                         raise s_exc.BadDataValu(mesg=mesg)
                     if file_size >= rotate_size:
+                        outp.printf(f'Rotating to new .blobs file at offset {offs + 1}')
                         writeFooterAndClose(outfile, celliden, file_start, offs + 1, file_blobcount, outfile_path, opts.outdir, outp)
                         outfile = None
                         for_open = True
@@ -115,7 +113,6 @@ async def main(argv, outp=s_output.stdout):
     pars = s_cmd.Parser(prog='synapse.tools.axon.dump', outp=outp, description=descr)
     pars.add_argument('--url', default='cell:///vertex/storage', help='Telepath URL for the Axon.')
     pars.add_argument('--offset', type=int, default=0, help='Starting offset in the Axon.')
-    pars.add_argument('--limit', type=int, default=None, help='Optional ending offset (exclusive).')
     pars.add_argument('--rotate-size', type=int, default=DEFAULT_ROTATE_SIZE,
                       help='Rotate to a new .blobs file if the current file exceeds this size in bytes (default: 4GB).')
     pars.add_argument('outdir', nargs='?', default='.', help='Directory to dump blob files.')

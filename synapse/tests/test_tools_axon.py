@@ -98,27 +98,6 @@ class AxonToolsTest(s_t_utils.SynTest):
             self.eq(1, await axon_dump.main(argv, outp=outp))
             self.isin('not an Axon', str(outp))
 
-    async def test_dump_limit_break(self):
-        with self.getTestDir() as testdir:
-            async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
-                blobs = [b'foo', b'bar', b'baz', b'qux', b'quux']
-                for blob in blobs:
-                    await axon.put(blob)
-                dumpdir = os.path.join(testdir, 'dumpdir')
-                os.makedirs(dumpdir)
-                argv = ['--url', f'cell:///{axon.dirn}', '--offset', '0', '--limit', '3', dumpdir]
-                outp = s_output.OutPutStr()
-                self.eq(0, await axon_dump.main(argv, outp=outp))
-                files = [f for f in os.listdir(dumpdir) if f.endswith('.blobs')]
-                self.true(files)
-                async with self.getTestAxon(dirn=os.path.join(testdir, 'axon2')) as axon2:
-                    argv = ['--url', f'cell:///{axon2.dirn}', dumpdir]
-                    self.eq(0, await axon_load.main(argv))
-                    count = 0
-                    async for _ in axon2.hashes(0):
-                        count += 1
-                    self.eq(count, 3)
-
     async def test_dump_rotate_size_and_load(self):
         with self.getTestDir() as testdir:
             async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
