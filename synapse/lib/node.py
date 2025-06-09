@@ -1284,9 +1284,6 @@ def props(pode):
     Args:
         pode (tuple): A packed node.
 
-    Notes:
-        This will include any universal props present on the node.
-
     Returns:
         dict: A dictionary of properties.
     '''

@@ -49,22 +49,16 @@ class CortexTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchProp):
                     await core.setPropLocked('newp', True)
 
-                with self.raises(s_exc.NoSuchUniv):
-                    await core.setUnivLocked('newp', True)
-
                 with self.raises(s_exc.NoSuchTagProp):
                     await core.setTagPropLocked('newp', True)
 
                 await core.addTagProp('score', ('int', {}), {})
 
                 await core.setPropLocked('inet:ip:asn', True)
-                await core.setUnivLocked('seen', True)
                 await core.setTagPropLocked('score', True)
 
                 with self.raises(s_exc.IsDeprLocked):
                     await core.nodes('[ inet:ip=1.2.3.4 :asn=99 ]')
-                with self.raises(s_exc.IsDeprLocked):
-                    await core.nodes('[ inet:ip=1.2.3.4 :seen=now ]')
                 with self.raises(s_exc.IsDeprLocked):
                     await core.nodes('[ inet:ip=1.2.3.4 +#foo:score=10 ]')
 
@@ -74,15 +68,12 @@ class CortexTest(s_t_utils.SynTest):
                 with self.raises(s_exc.IsDeprLocked):
                     await core.nodes('[ inet:ip=1.2.3.4 :asn=99 ]')
                 with self.raises(s_exc.IsDeprLocked):
-                    await core.nodes('[ inet:ip=1.2.3.4 :seen=now ]')
-                with self.raises(s_exc.IsDeprLocked):
                     await core.nodes('[ inet:ip=1.2.3.4 +#foo:score=10 ]')
 
                 await core.setPropLocked('inet:ip:asn', False)
-                await core.setUnivLocked('seen', False)
                 await core.setTagPropLocked('score', False)
 
-                await core.nodes('[ inet:ip=1.2.3.4 :asn=99 :seen=now +#foo:score=10 ]')
+                await core.nodes('[ inet:ip=1.2.3.4 :asn=99 +#foo:score=10 ]')
 
     async def test_cortex_cellguid(self):
         iden = s_common.guid()
@@ -1524,8 +1515,7 @@ class CortexTest(s_t_utils.SynTest):
     async def test_cortex_lift_regex(self):
 
         async with self.getTestCore() as core:
-            core.model.addUnivProp('favcolor', ('str', {}), {})
-            self.len(1, await core.nodes('[(test:str=hezipha :favcolor=red)]'))
+            self.len(1, await core.nodes('[test:str=hezipha]'))
             self.len(1, await core.nodes('[test:compcomp=((20, lulzlulz),(40, lulz))]'))
 
             self.len(0, await core.nodes('test:comp:haha~="^zerg"'))
@@ -1533,7 +1523,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:compcomp~="^lulz"'))
             self.len(0, await core.nodes('test:compcomp~="^newp"'))
             self.len(1, await core.nodes('test:str~="zip"'))
-            self.len(1, await core.nodes('univ:favcolor~="^r"'))
 
     async def test_cortex_lift_reverse(self):
 
@@ -2493,16 +2482,6 @@ class CortexTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadSyntax):
                     await core.nodes(q)
 
-    async def test_cortex_storm_set_univ(self):
-
-        async with self.getTestReadWriteCores() as (core, wcore):
-
-            self.len(1, await wcore.nodes('[ test:str=woot :seen=(2014,2015) ]'))
-            nodes = await core.nodes('test:str=woot')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('seen'), (1388534400000000, 1420070400000000))
-
     async def test_cortex_storm_set_tag(self):
 
         async with self.getTestReadWriteCores() as (core, wcore):
@@ -2560,11 +2539,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:str +#foo@=(2015, 2018)'))
             self.len(1, await core.nodes('test:str +#foo@=(2014, 2019)'))
             self.len(0, await core.nodes('test:str +#foo@=(2014, 20141231)'))
-
-            self.len(1, await wcore.nodes('[ inet:dns:a=(woot.com,1.2.3.4) :seen=(2015,2016) ]'))
-            self.len(1, await wcore.nodes('[ inet:fqdn=woot.com +#bad=(2015,2016) ]'))
-
-            self.len(1, await core.nodes('inet:fqdn +#bad $fqdnbad=#bad -> inet:dns:a:fqdn +:seen@=$fqdnbad'))
 
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:str +#foo==(2022,2023)')
@@ -2669,43 +2643,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:int>=20'))
             self.len(1, await core.nodes('test:int>20'))
             self.len(0, await core.nodes('test:int<20'))
-
-    async def test_cortex_univ(self):
-
-        async with self.getTestCore() as core:
-
-            # Ensure that the test model loads a univ property
-            prop = core.model.univ('test:univ')
-            self.true(prop.isuniv)
-
-            prop = core.model.prop('test:str:test:univ')
-            self.true(prop.isuniv)
-
-            # Add a univprop directly via API for testing
-            core.model.addUnivProp('hehe', ('int', {}), {})
-
-            self.len(1, await core.nodes('[ test:str=woot :hehe=20 ]'))
-            self.len(1, await core.nodes('univ:hehe'))
-            self.len(1, await core.nodes('test:str:hehe=20'))
-            self.len(0, await core.nodes('test:str:hehe=19'))
-            self.len(1, await core.nodes('univ:hehe [ -:hehe ]'))
-            self.len(0, await core.nodes('univ:hehe'))
-
-            self.none(await core._addUnivProp('hehe', ('int', {}), {}))
-
-        # ensure that we can delete univ props in a authenticated setting
-        async with self.getTestCoreAndProxy() as (realcore, core):
-
-            realcore.model.addUnivProp('hehe', ('int', {}), {})
-            self.len(1, await realcore.nodes('[ test:str=woot :hehe=20 ]'))
-            self.len(1, await realcore.nodes('[ test:str=pennywise :hehe=8086 ]'))
-
-            msgs = await core.storm('test:str=woot [-:hehe]').list()
-            podes = [m[1] for m in msgs if m[0] == 'node']
-            self.none(s_node.prop(podes[0], 'hehe'))
-            msgs = await core.storm('test:str=pennywise [-:hehe]').list()
-            podes = [m[1] for m in msgs if m[0] == 'node']
-            self.none(s_node.prop(podes[0], ':hehe'))
 
     async def test_storm_cond_has(self):
         async with self.getTestCore() as core:
@@ -3054,15 +2991,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             modelf = model['forms'][fname]
             self.eq(cmodel.type.stortype, modelt[fname].get('stortype'))
 
-            self.eq(cmodel.prop('test:univ').type.stortype,
-                    modelt.get(modelf['props']['test:univ']['type'][0], {}).get('stortype'))
-
             mimemeta = model['interfaces'].get('file:mime:meta')
             self.nn(mimemeta)
             self.isin('props', mimemeta)
             self.eq('file', mimemeta['props'][0][0])
-
-            self.nn(model['univs'].get('seen'))
 
     async def test_storm_graph(self):
 
@@ -4335,9 +4267,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('test:pivcomp=(hehe,haha) $ticktock=#foo -> test:pivtarg +:seen@=$ticktock'))
 
-            self.len(1, await core.nodes('inet:dns:a=(woot.com,1.2.3.4) [ :seen=(2015,2018) ]'))
+            self.len(1, await core.nodes('test:pivcomp=(hehe,haha) [ :seen=(2015,2018) ]'))
 
-            nodes = await core.nodes('inet:dns:a=(woot.com,1.2.3.4) $seen=:seen :fqdn -> inet:fqdn [ :seen=$seen ]')
+            nodes = await core.nodes('test:pivcomp=(hehe,haha) $seen=:seen :targ -> test:pivtarg [ :seen=$seen ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.get('seen'), (1420070400000000, 1514764800000000))
@@ -6048,21 +5980,15 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadPropDef):
                     await core.addFormProp('inet:ip', 'visi', ('int', {}), {})
 
-                with self.raises(s_exc.BadPropDef):
-                    await core.addUnivProp('woot', ('str', {'lower': True}), {})
-
                 with self.raises(s_exc.NoSuchForm):
                     await core.addFormProp('inet:newp', '_visi', ('int', {}), {})
 
                 await core.addFormProp('inet:ip', '_visi', ('int', {}), {})
-                await core.addUnivProp('_woot', ('str', {'lower': True}), {})
 
-                nodes = await core.nodes('[inet:ip=1.2.3.4 :_visi=30 :_woot=HEHE ]')
+                nodes = await core.nodes('[inet:ip=1.2.3.4 :_visi=30 ]')
                 self.len(1, nodes)
 
                 self.len(1, await core.nodes('syn:prop:base="_visi"'))
-                self.len(1, await core.nodes('syn:prop=inet:ip:_woot'))
-                self.len(1, await core.nodes('univ:_woot=hehe'))
 
                 await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.', 'deprecated': True})
                 self.len(1, await core.nodes('[ _hehe:haha=10 ]'))
@@ -6112,28 +6038,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 nodes = await core.nodes('inet:ip:_visi>30')
                 self.len(1, nodes)
 
-                nodes = await core.nodes('univ:_woot=hehe')
-                self.len(1, nodes)
-
-                with self.raises(s_exc.CantDelUniv):
-                    await core.delUnivProp('_woot')
-
-                await core.nodes('univ:_woot [ -:_woot ]')
-
                 self.nn(core.model.type('_test:type'))
-                self.nn(core.model.univ('_woot'))
-                self.nn(core.model.prop('inet:ip:_woot'))
-                self.nn(core.model.form('inet:ip').prop('_woot'))
-
-                await core.delUnivProp('_woot')
-
-                with self.raises(s_exc.NoSuchUniv):
-                    await core.delUnivProp('_woot')
-
-                self.none(core.model.prop('_woot'))
-                self.none(core.model.prop('inet:ip._woot'))
-                self.none(core.model.form('inet:ip').prop('_woot'))
-
                 self.nn(core.model.prop('inet:ip:_visi'))
                 self.nn(core.model.form('inet:ip').prop('_visi'))
 
@@ -6200,15 +6105,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # test the remote APIs
                 async with core.getLocalProxy() as prox:
 
-                    await prox.addUnivProp('_r100', ('str', {}), {})
-                    self.len(1, await core.nodes('inet:ip=1.2.3.4 [ :_r100=woot ]'))
-
-                    with self.raises(s_exc.CantDelUniv):
-                        await prox.delUnivProp('_r100')
-
-                    self.len(1, await core.nodes('univ:_r100 [ -:_r100 ]'))
-                    await prox.delUnivProp('_r100')
-
                     await prox.addFormProp('inet:ip', '_blah', ('int', {}), {})
                     self.len(1, await core.nodes('inet:ip=1.2.3.4 [ :_blah=10 ]'))
 
@@ -6217,9 +6113,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.NoSuchProp):
                         await prox.delFormProp('inet:ip', 'asn')
-
-                    with self.raises(s_exc.NoSuchUniv):
-                        await prox.delUnivProp('seen')
 
                     await prox.addTagProp('added', ('time', {}), {})
 
@@ -6241,8 +6134,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.BadPropDef):
                         await prox.addFormProp('test:str', '_blah:blah^blah', ('int', {}), {})
-                    with self.raises(s_exc.BadPropDef):
-                        await prox.addUnivProp('_blah:blah^blah', ('int', {}), {})
                     with self.raises(s_exc.BadPropDef):
                         await prox.addTagProp('_blah:blah^blah', ('int', {}), {})
 
@@ -7160,15 +7051,15 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCoreAndProxy() as (core, prox):
             await core.addTagProp('score', ('int', {}), {})
 
-            nodes = await core.nodes('[(inet:ip=([4, 1]) :asn=10 :seen=(2016, 2017) +#foo=(2020,2021) +#foo:score=42)]')
+            nodes = await core.nodes('[(inet:ip=([4, 1]) :asn=10 +#foo=(2020,2021) +#foo:score=42)]')
             self.len(1, nodes)
             nid1 = nodes[0].intnid()
 
-            nodes = await core.nodes('[(inet:ip=([4, 2]) :asn=20 :seen=(2015, 2016) +#foo=(2019,2020) +#foo:score=41)]')
+            nodes = await core.nodes('[(inet:ip=([4, 2]) :asn=20 +#foo=(2019,2020) +#foo:score=41)]')
             self.len(1, nodes)
             nid2 = nodes[0].intnid()
 
-            nodes = await core.nodes('[(inet:ip=([4, 3]) :asn=30 :seen=(2015, 2016) +#foo=(2018, 2020) +#foo:score=99)]')
+            nodes = await core.nodes('[(inet:ip=([4, 3]) :asn=30 +#foo=(2018, 2020) +#foo:score=99)]')
             self.len(1, nodes)
             nid3 = nodes[0].intnid()
 
@@ -7184,14 +7075,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
 
-#            await self.agenraises(s_exc.NoSuchLayer, prox.iterUnivRows(badiden, '.seen'))
-
-#            # rows are (nid, valu) tuples
-#            rows = await alist(prox.iterUnivRows(layriden, '.seen'))
-
             tm = lambda x, y: (s_time.parse(x), s_time.parse(y))  # NOQA
-#            ivals = (tm('2015', '2016'), tm('2015', '2016'), tm('2016', '2017'))
-#            self.eq(ivals, tuple(sorted([row[1] for row in rows])))
 
             # iterFormRows
             await self.agenraises(s_exc.NoSuchLayer, prox.iterFormRows(badiden, 'inet:ip'))
@@ -7243,9 +7127,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                     # Create a test:deprprop so it doesn't generate a warning
                     await core.callStorm('[test:dep:easy=foobar :guid=*]')
 
-                    # Lock test:deprprop:ext and :pdep so they don't generate a warning
+                    # Lock test:deprprop:ext so it doesn't generate a warning
                     await core.callStorm('model.deprecated.lock test:dep:str')
-                    await core.callStorm('model.deprecated.lock ":pdep"')
 
                 # Check that we saw the warnings
                 stream.seek(0)
@@ -7266,11 +7149,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 stream.seek(here)
                 data = stream.read()
 
-                if (count - 4) == 0:
+                if (count - 3) == 0:
                     self.eq(0, data.count('deprecated properties unlocked'))
                 else:
                     self.eq(1, data.count('deprecated properties unlocked'))
-                    self.isin(f'Detected {count - 4} deprecated properties', data)
+                    self.isin(f'Detected {count - 3} deprecated properties', data)
 
     async def test_cortex_dmons_after_modelrev(self):
         with self.getTestDir() as dirn:

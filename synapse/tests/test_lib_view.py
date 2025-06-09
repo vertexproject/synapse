@@ -1244,10 +1244,6 @@ class ViewTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchProp):
                     await news.pop('newp')
 
-                await news.set('rouniv', 'now')
-                with self.raises(s_exc.ReadOnlyProp):
-                    await news.pop('rouniv')
-
                 with self.raises(s_exc.NoSuchTagProp):
                     await news.delTagProp('newp', 'newp')
 

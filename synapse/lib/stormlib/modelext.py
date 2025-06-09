@@ -28,14 +28,6 @@ class LibModelExt(s_stormtypes.Lib):
                       {'name': 'propinfo', 'type': 'dict', 'desc': 'A synapse property definition dictionary.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'addUnivProp', 'desc': 'Add an extended universal property definition to the data model.',
-         'type': {'type': 'function', '_funcname': 'addUnivProp',
-                  'args': (
-                      {'name': 'propname', 'type': 'str', 'desc': 'The name of the universal property.', },
-                      {'name': 'typedef', 'type': 'list', 'desc': 'A Synapse type definition tuple.', },
-                      {'name': 'propinfo', 'type': 'dict', 'desc': 'A synapse property definition dictionary.', },
-                  ),
-                  'returns': {'type': 'null', }}},
         {'name': 'addTagProp', 'desc': 'Add an extended tag property definition to the data model.',
          'type': {'type': 'function', '_funcname': 'addTagProp',
                   'args': (
@@ -55,15 +47,6 @@ class LibModelExt(s_stormtypes.Lib):
                   'args': (
                       {'name': 'formname', 'type': 'str', 'desc': 'The form with the extended property.', },
                       {'name': 'propname', 'type': 'str', 'desc': 'The extended property to remove.', },
-                      {'name': 'force', 'type': 'boolean', 'default': False,
-                       'desc': 'Delete the property from all nodes before removing the definition.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'delUnivProp',
-         'desc': 'Remove an extended universal property definition from the model.',
-         'type': {'type': 'function', '_funcname': 'delUnivProp',
-                  'args': (
-                      {'name': 'propname', 'type': 'str', 'desc': 'Name of the universal property to remove.', },
                       {'name': 'force', 'type': 'boolean', 'default': False,
                        'desc': 'Delete the property from all nodes before removing the definition.', },
                   ),
@@ -127,11 +110,9 @@ class LibModelExt(s_stormtypes.Lib):
         return {
             'addForm': self.addForm,
             'addFormProp': self.addFormProp,
-            'addUnivProp': self.addUnivProp,
             'addTagProp': self.addTagProp,
             'delForm': self.delForm,
             'delFormProp': self.delFormProp,
-            'delUnivProp': self.delUnivProp,
             'delTagProp': self.delTagProp,
             'getExtModel': self.getExtModel,
             'addExtModel': self.addExtModel,
@@ -162,16 +143,6 @@ class LibModelExt(s_stormtypes.Lib):
             raise s_exc.BadPropDef(prop=propname, mesg=mesg)
         await self.runt.view.core.addFormProp(formname, propname, typedef, propinfo)
 
-    async def addUnivProp(self, propname, typedef, propinfo):
-        propname = await s_stormtypes.tostr(propname)
-        typedef = await s_stormtypes.toprim(typedef)
-        propinfo = await s_stormtypes.toprim(propinfo)
-        s_stormtypes.confirm(('model', 'univ', 'add'))
-        if not s_grammar.isBasePropNoPivprop(propname):
-            mesg = f'Invalid prop name {propname}'
-            raise s_exc.BadPropDef(name=propname, mesg=mesg)
-        await self.runt.view.core.addUnivProp(propname, typedef, propinfo)
-
     async def addTagProp(self, propname, typedef, propinfo):
         propname = await s_stormtypes.tostr(propname)
         typedef = await s_stormtypes.toprim(typedef)
@@ -198,17 +169,6 @@ class LibModelExt(s_stormtypes.Lib):
             await self.runt.view.core._delAllFormProp(formname, propname, meta)
 
         await self.runt.view.core.delFormProp(formname, propname)
-
-    async def delUnivProp(self, propname, force=False):
-        propname = await s_stormtypes.tostr(propname)
-        force = await s_stormtypes.tobool(force)
-        s_stormtypes.confirm(('model', 'univ', 'del'))
-
-        if force:
-            meta = {'user': self.runt.user.iden, 'time': s_common.now()}
-            await self.runt.view.core._delAllUnivProp(propname, meta)
-
-        await self.runt.view.core.delUnivProp(propname)
 
     async def delTagProp(self, propname, force=False):
         propname = await s_stormtypes.tostr(propname)

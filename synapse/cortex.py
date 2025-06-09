@@ -425,25 +425,6 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('model', 'prop', 'del', form))
         return await self.cell.delFormProp(form, name)
 
-    async def addUnivProp(self, name, tdef, info):
-        '''
-        Add an extended universal property.
-
-        Extended properties *must* begin with _
-        '''
-        self.user.confirm(('model', 'univ', 'add'))
-        if not s_grammar.isBasePropNoPivprop(name):
-            mesg = f'Invalid prop name {name}'
-            raise s_exc.BadPropDef(name=name, mesg=mesg)
-        return await self.cell.addUnivProp(name, tdef, info)
-
-    async def delUnivProp(self, name):
-        '''
-        Remove an extended universal property.
-        '''
-        self.user.confirm(('model', 'univ', 'del'))
-        return await self.cell.delUnivProp(name)
-
     async def addTagProp(self, name, tdef, info):
         '''
         Add a tag property to record data about tags on nodes.
@@ -572,23 +553,6 @@ class CoreApi(s_cell.CellApi):
         '''
         self.user.confirm(('layer', 'lift', layriden))
         async for item in self.cell.iterPropRows(layriden, form, prop, stortype=stortype, startvalu=startvalu):
-            yield item
-
-    async def iterUnivRows(self, layriden, prop, *, stortype=None, startvalu=None):
-        '''
-        Yields nid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalue
-
-        Args:
-            layriden (str):  Iden of the layer to retrieve the nodes
-            prop (str):  A universal property name.
-            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
-            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
-
-        Returns:
-            AsyncIterator[Tuple(nid, valu)]
-        '''
-        self.user.confirm(('layer', 'lift', layriden))
-        async for item in self.cell.iterUnivRows(layriden, prop, stortype=stortype, startvalu=startvalu):
             yield item
 
     async def iterTagRows(self, layriden, tag, *, form=None, starttupl=None):
@@ -1124,11 +1088,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('model', 'tagprop', 'del'), 'gate': 'cortex',
              'desc': 'Controls access to deleting extended model tag properties and values.'},
 
-            {'perm': ('model', 'univ', 'add'), 'gate': 'cortex',
-             'desc': 'Controls access to adding extended model universal properties.'},
-            {'perm': ('model', 'univ', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model universal properties and values.'},
-
             {'perm': ('node',), 'gate': 'layer',
              'desc': 'Controls all node edits in a layer.'},
             {'perm': ('node', 'add'), 'gate': 'layer',
@@ -1389,13 +1348,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.modellocks.set(f'prop/{name}', locked)
         prop.locked = locked
 
-    @s_nexus.Pusher.onPushAuto('model:lock:univ')
-    async def setUnivLocked(self, name, locked):
-        prop = self.model.reqUniv(name)
-        self.modellocks.set(f'univ/{name}', locked)
-        for prop in self.model.getAllUnivs(name):
-            prop.locked = locked
-
     @s_nexus.Pusher.onPushAuto('model:lock:tagprop')
     async def setTagPropLocked(self, name, locked):
         prop = self.model.reqTagProp(name)
@@ -1407,11 +1359,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         todo = []
 
-        if name[0] == ':':
-            prop = self.model.univ(name[1:])
-        else:
-            prop = self.model.prop(name)
-
+        prop = self.model.prop(name)
         if prop is not None and prop.deprecated:
             todo.append(prop)
 
@@ -1438,17 +1386,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if not prop.deprecated:
                 continue
 
-            # Skip universal properties on other props
-            if not prop.isform and prop.isuniv:
-                continue
-
             retn[prop.full] = prop.locked
-
-        for prop in self.model.univs.values():
-            if not prop.deprecated:
-                continue
-
-            retn[f':{prop.name}'] = prop.locked
 
         return retn
 
@@ -1462,24 +1400,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if locked:
                 continue
 
-            if propname[0] == ':':
-                name = propname[1:]
-                for layr in self.layers.values():
-                    if layr.getUnivCount(name):
-                        break
-                else:
-                    count += 1
+            prop = self.model.props.get(propname)
+
+            for layr in self.layers.values():
+                if layr.getPropCount(propname):
+                    break
+
+                if layr.getPropCount(prop.form.name, prop.name):
+                    break
             else:
-                prop = self.model.props.get(propname)
-
-                for layr in self.layers.values():
-                    if layr.getPropCount(propname):
-                        break
-
-                    if layr.getPropCount(prop.form.name, prop.name):
-                        break
-                else:
-                    count += 1
+                count += 1
 
         if count:
             mesg = f'Detected {count} deprecated properties unlocked and not in use, '
@@ -2727,7 +2657,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.exttypes = self.cortexdata.getSubKeyVal('model:types:')
         self.extforms = self.cortexdata.getSubKeyVal('model:forms:')
         self.extprops = self.cortexdata.getSubKeyVal('model:props:')
-        self.extunivs = self.cortexdata.getSubKeyVal('model:univs:')
         self.extedges = self.cortexdata.getSubKeyVal('model:edges:')
         self.exttagprops = self.cortexdata.getSubKeyVal('model:tagprops:')
 
@@ -2760,12 +2689,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                            f' be removed in 4.0.0'
                     logger.warning(mesg)
 
-        for prop, tdef, info in self.extunivs.values():
-            try:
-                self.model.addUnivProp(prop, tdef, info)
-            except Exception as e:
-                logger.warning(f'ext univ ({prop}) error: {e}')
-
         for prop, tdef, info in self.exttagprops.values():
             try:
                 self.model.addTagProp(prop, tdef, info)
@@ -2783,7 +2706,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Get all extended model properties in the Cortex.
 
         Returns:
-            dict: A dictionary containing forms, form properties, universal properties and tag properties.
+            dict: A dictionary containing forms, form properties, and tag properties.
         '''
         ret = collections.defaultdict(list)
         for typename, basetype, typeopts, typeinfo in self.exttypes.values():
@@ -2794,9 +2717,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for form, prop, tdef, info in self.extprops.values():
             ret['props'].append((form, prop, tdef, info))
-
-        for prop, tdef, info in self.extunivs.values():
-            ret['univs'].append((prop, tdef, info))
 
         for prop, tdef, info in self.exttagprops.values():
             ret['tagprops'].append((prop, tdef, info))
@@ -2819,7 +2739,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Raises:
             s_exc.BadFormDef: If a form exists with a different definition than the provided definition.
-            s_exc.BadPropDef: If a property, tagprop, or universal property exists with a different definition
+            s_exc.BadPropDef: If a property or tagprop exists with a different definition
                               than the provided definition.
             s_exc.BadEdgeDef: If an edge exists with a different definition than the provided definition.
         '''
@@ -2832,14 +2752,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         forms = {info[0]: info for info in model.get('forms', ())}
         props = {(info[0], info[1]): info for info in model.get('props', ())}
         tagprops = {info[0]: info for info in model.get('tagprops', ())}
-        univs = {info[0]: info for info in model.get('univs', ())}
         edges = {info[0]: info for info in model.get('edges', ())}
 
         etyps = {info[0]: info for info in emodl.get('types', ())}
         efrms = {info[0]: info for info in emodl.get('forms', ())}
         eprops = {(info[0], info[1]): info for info in emodl.get('props', ())}
         etagprops = {info[0]: info for info in emodl.get('tagprops', ())}
-        eunivs = {info[0]: info for info in emodl.get('univs', ())}
         eedges = {info[0]: info for info in emodl.get('edges', ())}
 
         for (name, info) in types.items():
@@ -2882,16 +2800,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Extended tagprop definition differs from existing definition for {name}'
             raise s_exc.BadPropDef(mesg=mesg, name=name)
 
-        for (name, info) in univs.items():
-            enfo = eunivs.get(name)
-            if enfo is None:
-                amodl['univs'].append(info)
-                continue
-            if enfo == info:
-                continue
-            mesg = f'Extended universal property definition differs from existing definition for {name}'
-            raise s_exc.BadPropDef(mesg=mesg, name=name)
-
         for (name, info) in edges.items():
             enfo = eedges.get(name)
             if enfo is None:
@@ -2916,45 +2824,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for prop, tdef, info in amodl['tagprops']:
             await self.addTagProp(prop, tdef, info)
 
-        for prop, tdef, info in amodl['univs']:
-            await self.addUnivProp(prop, tdef, info)
-
         for edge, info in amodl['edges']:
             await self.addEdge(edge, info)
 
         return True
-
-    async def addUnivProp(self, name, tdef, info):
-        if not isinstance(tdef, tuple):
-            mesg = 'Universal property type definitions should be a tuple.'
-            raise s_exc.BadArg(name=name, mesg=mesg)
-
-        if not isinstance(info, dict):
-            mesg = 'Universal property definitions should be a dict.'
-            raise s_exc.BadArg(name=name, mesg=mesg)
-
-        # the loading function does the actual validation...
-        if not name.startswith('_'):
-            mesg = 'ext univ name must start with "_"'
-            raise s_exc.BadPropDef(name=name, mesg=mesg)
-
-        if name in self.model.univs:
-            raise s_exc.DupPropName(mesg=f'Cannot add duplicate universal property {name}',
-                                    prop=name)
-        await self._push('model:univ:add', name, tdef, info)
-
-    @s_nexus.Pusher.onPush('model:univ:add')
-    async def _addUnivProp(self, name, tdef, info):
-        if name in self.model.univs:
-            return
-
-        self.model.addUnivProp(name, tdef, info)
-
-        self.extunivs.set(name, (name, tdef, info))
-        await self.fire('core:extmodel:change', prop=name, act='add', type='univ')
-        univ = self.model.univ(name)
-        if univ:
-            await self.feedBeholder('model:univ:add', univ.pack())
 
     async def addForm(self, formname, basetype, typeopts, typeinfo):
         if not isinstance(typeopts, dict):
@@ -3168,36 +3041,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await layr.saveNodeEdits(nodeedits, meta)
                 await asyncio.sleep(0)
 
-    async def _delAllUnivProp(self, propname, meta):
-        '''
-        Delete all instances of a universal property from all layers.
-
-        NOTE: This does not fire triggers.
-        '''
-        self.reqExtUniv(propname)
-
-        await self.setUnivLocked(propname, True)
-
-        for layr in list(self.layers.values()):
-
-            for prop in self.model.allunivs.get(propname):
-                if prop.form is None:
-                    continue
-
-                form = prop.form.name
-                genr = layr.iterPropRows(form, prop.name)
-
-                async for rows in s_coro.chunks(genr):
-                    nodeedits = []
-                    for nid, valu in rows:
-                        sode = layr._getStorNode(nid)
-                        nodeedits.append((s_common.int64un(nid), form, (
-                            (s_layer.EDIT_PROP_DEL, (propname, None, prop.type.stortype), ()),
-                        )))
-
-                    await layr.saveNodeEdits(nodeedits, meta)
-                    await asyncio.sleep(0)
-
     async def _delAllTagProp(self, propname, meta):
         '''
         Delete all instances of a tag property from all layers.
@@ -3237,13 +3080,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.NoSuchProp(form=form, prop=prop, mesg=mesg)
         return pdef
 
-    def reqExtUniv(self, prop):
-        udef = self.extunivs.get(prop)
-        if udef is None:
-            mesg = f'No ext univ named {prop}'
-            raise s_exc.NoSuchUniv(name=prop, mesg=mesg)
-        return udef
-
     def reqExtTagProp(self, name):
         pdef = self.exttagprops.get(name)
         if pdef is None:
@@ -3274,34 +3110,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         form=form, prop=prop, act='del', type='formprop')
 
         await self.feedBeholder('model:prop:del', {'form': form, 'prop': prop})
-
-    async def delUnivProp(self, prop):
-        self.reqExtUniv(prop)
-        return await self._push('model:univ:del', prop)
-
-    @s_nexus.Pusher.onPush('model:univ:del')
-    async def _delUnivProp(self, name):
-        '''
-        Remove an extended universal property from the cortex.
-        '''
-        udef = self.extunivs.get(name)
-        if udef is None:
-            return
-
-        for layr in self.layers.values():
-            for prop in self.model.allunivs.get(name):
-                if prop.form is None:
-                    continue
-
-                async for item in layr.iterPropRows(prop.form.name, name):
-                    mesg = f'Nodes still exist with universal prop: {name} in layer {layr.iden}'
-                    raise s_exc.CantDelUniv(mesg=mesg, name=name)
-
-        self.model.delUnivProp(name)
-        self.extunivs.pop(name, None)
-        self.modellocks.pop(f'univ/{name}', None)
-        await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
-        await self.feedBeholder('model:univ:del', {'prop': name})
 
     async def addTagProp(self, name, tdef, info):
         if not isinstance(tdef, tuple):
@@ -3678,9 +3486,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if prop is not None:
                 prop.locked = locked
 
-            if name[0] == ':' and (prop := self.model.univ(name[1:])) is not None:
-                prop.locked = locked
-
             _type = self.model.type(name)
             if _type is not None:
                 _type.locked = locked
@@ -3692,11 +3497,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if elemtype == 'prop':
                 prop = self.model.prop(elemname)
-            elif elemtype == 'univ':
-                prop = self.model.univ(elemname)
-                if prop is not None:
-                    for univ in self.model.getAllUnivs(elemname):
-                        univ.locked = locked
             elif elemtype == 'tagprop':
                 prop = self.model.getTagProp(elemname)
 
@@ -6039,7 +5839,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
             form (str):  A form name.
-            prop (str):  A universal property name.
+            prop (str):  A property name.
             stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
@@ -6051,26 +5851,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
         async for nid, valu in layr.iterPropRows(form, prop, stortype=stortype, startvalu=startvalu):
-            yield s_common.int64un(nid), valu
-
-    async def iterUnivRows(self, layriden, prop, stortype=None, startvalu=None):
-        '''
-        Yields nid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalu.
-
-        Args:
-            layriden (str):  Iden of the layer to retrieve the nodes
-            prop (str):  A universal property name.
-            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
-            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
-
-        Returns:
-            AsyncIterator[Tuple(nid, valu)]
-        '''
-        layr = self.getLayer(layriden)
-        if layr is None:
-            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
-
-        async for nid, valu in layr.iterUnivRows(prop, stortype=stortype, startvalu=startvalu):
             yield s_common.int64un(nid), valu
 
     async def iterTagRows(self, layriden, tag, form=None, starttupl=None):

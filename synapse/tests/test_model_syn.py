@@ -152,12 +152,10 @@ class SynModelTest(s_t_utils.SynTest):
         async def addExtModelConfigs(cortex):
             await cortex.addTagProp('beep', ('int', {}), {'doc': 'words'})
             await cortex.addFormProp('test:str', '_twiddle', ('bool', {}), {'doc': 'hehe', 'ro': True})
-            await cortex.addUnivProp('_sneaky', ('bool', {}), {'doc': 'Note if a node is sneaky.'})
 
         async def delExtModelConfigs(cortex):
             await cortex.delTagProp('beep')
             await cortex.delFormProp('test:str', '_twiddle')
-            await cortex.delUnivProp('_sneaky')
 
         async with self.getTestCore() as core:
 
@@ -241,8 +239,6 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(('syn:prop', 'test:type10:intprop'), node.ndef)
             self.nn(node.get('ro'))
             self.false(node.get('ro'))
-            self.nn(node.get('univ'))
-            self.false(node.get('univ'))
             self.eq('int', node.get('type'))
             self.eq('test:type10', node.get('form'))
             self.eq('', node.get('doc'))
@@ -275,25 +271,6 @@ class SynModelTest(s_t_utils.SynTest):
             self.none(node.get('base'))
             self.none(node.get('relname'))
 
-            # Including universal props
-            nodes = await core.nodes('syn:prop="test:comp:seen"')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(('syn:prop', 'test:comp:seen'), node.ndef)
-            self.true(node.get('univ'))
-            self.false(node.get('extmodel'))
-
-            nodes = await core.nodes('syn:prop:univ=1')
-            self.ge(len(nodes), 2)
-
-            # extmodel univs are represented
-            nodes = await core.nodes('syn:prop="test:comp:_sneaky"')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(('syn:prop', 'test:comp:_sneaky'), node.ndef)
-            self.true(node.get('univ'))
-            self.true(node.get('extmodel'))
-
             # Tag prop data is also represented
             nodes = await core.nodes('syn:tagprop=beep')
             self.len(1, nodes)
@@ -304,8 +281,7 @@ class SynModelTest(s_t_utils.SynTest):
 
             # Ensure that we can filter / pivot across the model nodes
             nodes = await core.nodes('syn:form=test:comp -> syn:prop:form')
-            # form is a prop, two universal properties (+2 test univ) and two model secondary properties.
-            self.ge(len(nodes), 7)
+            self.ge(len(nodes), 4)
 
             # implicit pivot works as well
             nodes = await core.nodes('syn:prop:form=test:comp -> syn:form | uniq')
@@ -315,7 +291,7 @@ class SynModelTest(s_t_utils.SynTest):
             # Go from a syn:type to a syn:form to a syn:prop with a filter
             q = 'syn:type:subof=comp +syn:type:doc~=".*fake.*" -> syn:form:type -> syn:prop:form'
             nodes = await core.nodes(q)
-            self.ge(len(nodes), 7)
+            self.ge(len(nodes), 4)
 
             # Wildcard pivot out from a prop and ensure we got the form
             q = 'syn:prop=test:comp -> * '
@@ -386,7 +362,7 @@ class SynModelTest(s_t_utils.SynTest):
                 await addExtModelConfigs(core)
 
                 nodes = await core.nodes('syn:prop:form="test:str" +:extmodel=True')
-                self.len(2, nodes)
+                self.len(1, nodes)
                 nodes = await core.nodes('syn:tagprop')
                 self.len(1, nodes)
 
@@ -586,8 +562,8 @@ class SynModelTest(s_t_utils.SynTest):
             view2 = core.getView(viewiden2)
             viewopts2 = {'view': viewiden2}
 
-            await core.nodes('[ it:dev:str=foo :seen=2020 (inet:ip=1.2.3.4 :asn=10) ]')
-            await core.nodes('it:dev:str=foo inet:ip=1.2.3.4 delnode', opts=viewopts2)
+            await core.nodes('[ test:str=foo :seen=2020 (inet:ip=1.2.3.4 :asn=10) ]')
+            await core.nodes('test:str=foo inet:ip=1.2.3.4 delnode', opts=viewopts2)
 
             nodes = await core.nodes('diff', opts=viewopts2)
             self.len(2, nodes)
@@ -615,14 +591,14 @@ class SynModelTest(s_t_utils.SynTest):
 
             await core.nodes('diff | merge --apply', opts=viewopts2)
 
-            self.len(0, await core.nodes('it:dev:str=foo inet:ip=1.2.3.4'))
+            self.len(0, await core.nodes('test:str=foo inet:ip=1.2.3.4'))
             self.len(0, await core.nodes('diff', opts=viewopts2))
 
             with self.raises(s_exc.BadArg):
                 await view2.getDeletedRuntNode(s_common.int64en(9001))
 
-            await core.nodes('[ it:dev:str=bar ]')
-            await core.nodes('it:dev:str=bar delnode', opts=viewopts2)
+            await core.nodes('[ test:str=bar ]')
+            await core.nodes('test:str=bar delnode', opts=viewopts2)
 
             task = core.schedCoro(core.nodes('$q=$lib.queue.gen(wait) diff | $q.put(1) $q.get(1) | merge', opts=viewopts2))
             await core.nodes('$q=$lib.queue.gen(wait) $q.get() diff | merge --apply | $q.put(2)', opts=viewopts2)

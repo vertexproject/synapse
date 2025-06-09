@@ -86,8 +86,6 @@ class Triggers:
         vars = {'auto': {'opts': {'propname': prop.name, 'propfull': prop.full}}}
         with self._recursion_check():
             [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.full, ())]
-            if prop.isuniv:
-                [await trig.execute(node, vars=vars) for trig in self.propset.get(f':{prop.name}', ())]
 
     async def runTagAdd(self, node, tag):
 

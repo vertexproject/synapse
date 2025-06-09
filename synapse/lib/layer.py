@@ -2768,18 +2768,6 @@ class Layer(s_nexus.Pusher):
 
         return self.indxcounts.get(abrv, 0)
 
-    def getUnivCount(self, name):
-        '''
-        Return the number of rows in the layer for the given universal prop.
-        '''
-        count = 0
-        for prop in self.core.model.allunivs.get(name):
-            if prop.form is None:
-                continue
-            count += self.getPropCount(prop.form.name, propname=prop.name)
-
-        return count
-
     def getPropValuCount(self, formname, propname, stortype, valu):
         try:
             abrv = self.core.getIndxAbrv(INDX_PROP, formname, propname)
@@ -2792,15 +2780,6 @@ class Layer(s_nexus.Pusher):
         count = 0
         for indx in self.getStorIndx(stortype, valu):
             count += self.layrslab.count(abrv + indx, db=self.indxdb)
-
-        return count
-
-    def getUnivValuCount(self, name, stortype, valu):
-        count = 0
-        for prop in self.core.model.allunivs.get(name):
-            if prop.form is None:
-                continue
-            count += self.getPropValuCount(prop.form.name, prop.name, stortype, valu)
 
         return count
 
@@ -2824,24 +2803,6 @@ class Layer(s_nexus.Pusher):
         count = 0
         for indx in self.getStorIndx(stortype, valu):
             count += self.layrslab.count(abrv + indx, db=self.indxdb)
-
-        return count
-
-    def getUnivArrayCount(self, name):
-        count = 0
-        for prop in self.core.model.allunivs.get(name):
-            if prop.form is None:
-                continue
-            count += self.getPropArrayCount(prop.form.name, propname=prop.name)
-
-        return count
-
-    def getUnivArrayValuCount(self, name, stortype, valu):
-        count = 0
-        for prop in self.core.model.allunivs.get(name):
-            if prop.form is None:
-                continue
-            count += self.getPropArrayValuCount(prop.form.name, prop.name, stortype, valu)
 
         return count
 
@@ -2927,18 +2888,6 @@ class Layer(s_nexus.Pusher):
                     if valt is not None:
                         yield indx, valt[0]
 
-    async def iterUnivValues(self, name, stortype):
-
-        genrs = []
-        for prop in self.core.model.allunivs.get(name):
-            if prop.form is None:
-                continue
-
-            genrs.append(self.iterPropValues(prop.form.name, name, stortype))
-
-        async for item in s_common.merggenr2(genrs):
-            yield item
-
     async def iterPropIndxNids(self, formname, propname, indx):
         try:
             abrv = self.core.getIndxAbrv(INDX_PROP, formname, propname)
@@ -2947,15 +2896,6 @@ class Layer(s_nexus.Pusher):
 
         async for _, nid in s_coro.pause(self.layrslab.scanByDups(abrv + indx, db=self.indxdb)):
             yield nid
-
-    async def iterUnivIndxNids(self, name, indx):
-
-        for prop in self.core.model.allunivs.get(name):
-            if prop.form is None:
-                continue
-
-            async for nid in self.iterPropIndxNids(prop.form.name, name, indx):
-                yield nid
 
     async def liftByTag(self, tag, form=None, reverse=False, indx=None):
 
@@ -3100,22 +3040,6 @@ class Layer(s_nexus.Pusher):
 
             async for indx, nid in self.stortypes[kind].indxByProp(form, None, cmpr, valu, reverse=reverse, virts=(name,)):
                 yield indx, nid, self.genStorNodeRef(nid)
-
-    async def liftByUniv(self, name, reverse=False, virts=None):
-
-        indx = None
-        if virts is not None:
-            indx = prop.type.getVirtIndx(virts)
-
-        genrs = []
-        for prop in self.core.model.allunivs.get(name):
-            if prop.form is None:
-                continue
-
-            genrs.append(self.liftByProp(prop.form.name, name, indx=indx))
-
-        async for item in s_common.merggenr2(genrs):
-            yield item
 
     async def liftByProp(self, form, prop, reverse=False, indx=None):
 
@@ -5128,15 +5052,6 @@ class Layer(s_nexus.Pusher):
             abrv = lkey[8:-1]
             yield abrv, lkey[-1:] == FLAG_TOMB
 
-    async def iterUnivTombstones(self, name):
-
-        for prop in self.core.model.allunivs.get(name):
-            if prop.form is None:
-                continue
-
-            async for nid in self.iterPropTombstones(prop.form.name, name):
-                yield nid
-
     async def iterPropTombstones(self, form, prop):
         try:
             abrv = self.core.getIndxAbrv(INDX_PROP, form, prop)
@@ -5583,7 +5498,7 @@ class Layer(s_nexus.Pusher):
             The matchdef dict may contain the following keys:  forms, props, tags, tagprops.  The value must be a
             sequence of strings.  Each key/val combination is treated as an "or", so each key and value yields more events.
             forms: EDIT_NODE_ADD and EDIT_NODE_DEL events.  Matches events for nodes with forms in the value list.
-            props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop or .universal form
+            props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop format.
             tags:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
             tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be just the prop or tag:prop.
 
