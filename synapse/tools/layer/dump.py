@@ -9,6 +9,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.cmd as s_cmd
 import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
@@ -167,7 +168,7 @@ async def main(argv, outp=s_output.stdout):
             outp.printf(f'ERROR: {mesg}.')
             return 1
 
-        except Exception as exc:
+        except Exception as exc: # pragma: no cover
             mesg = str(exc)
             outp.printf(f'ERROR: {mesg}.')
             return 1
