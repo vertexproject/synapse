@@ -1142,7 +1142,7 @@ Exporting node edits from a layer can be done with the
     python -m synapse.tools.layer.dump <layriden>
 
 When running the export tool from within the Cortex container, the ``--url``
-option does not need to be provided as it will default to ``/vertex/storage``.
+option does not need to be provided as it will default to the local service.
 
 Import node edits into a Cortex
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
