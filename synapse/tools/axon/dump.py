@@ -106,13 +106,20 @@ async def dumpBlobs(opts, outp):
                         outp.printf(f'Rotating to new .blobs file at offset {offs + 1}')
                         writeFooterAndClose(outfile, celliden, file_start, offs + 1, file_blobcount, outfile_path, opts.outdir, outp)
                         outfile = None
+                        outfile_path = None
                         for_open = True
                 if outfile is not None:
                     writeFooterAndClose(outfile, celliden, file_start, last_offset + 1, file_blobcount, outfile_path, opts.outdir, outp)
                     outfile = None
+                    outfile_path = None
             finally:
-                if outfile and not outfile.closed:
-                    outfile.close()
+                if outfile is not None:
+                    try:
+                        outfile.close()
+                    except Exception:
+                        pass
+                    if outfile_path and os.path.isfile(outfile_path):
+                        os.remove(outfile_path)
 
     except s_exc.SynErr as exc:
         mesg = exc.get('mesg')
