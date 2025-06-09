@@ -33,87 +33,81 @@ def writeFooterAndClose(outfile, celliden, file_start, file_end, file_blobcount,
 async def dumpBlobs(opts, outp):
 
     try:
-        axon_cm = await s_telepath.openurl(opts.url)
-        axon = await axon_cm.__aenter__()
+        async with await s_telepath.openurl(opts.url) as axon:
+
+            classes = axon._getClasses()
+            if 'synapse.axon.AxonApi' not in classes:
+                mesg = f'Service at {opts.url} is not an Axon'
+                raise s_exc.TypeMismatch(mesg=mesg)
+
+            cellinfo = await axon.getCellInfo()
+            celliden = cellinfo['cell']['iden']
+            os.makedirs(opts.outdir, exist_ok=True)
+
+            start = opts.offset
+            end = opts.limit
+            rotate_size = opts.rotate_size
+            hashes_iter = axon.hashes(start)
+            last_offset = start
+            blobcount = 0
+            outfile = None
+            outfile_path = None
+            file_start = start
+            file_size = 0
+            for_open = True
+
+            try:
+                async for (offs, (sha256, size)) in hashes_iter:
+                    if end is not None and offs >= end:
+                        break
+                    if for_open:
+                        outfile_path = os.path.join(opts.outdir, getOutfileName(celliden, offs, 'end'))
+                        outfile = open(outfile_path, 'wb')
+                        outfile.write(s_msgpack.en(('blob:init', {'celliden': celliden, 'start': offs})))
+                        file_start = offs
+                        file_size = 0
+                        file_blobcount = 0
+                        for_open = False
+                    last_offset = offs
+                    blobcount += 1
+                    file_blobcount += 1
+                    sha2hex = s_common.ehex(sha256)
+                    outp.printf(f'Dumping blob {sha2hex} (size={size}, offs={offs})')
+                    blob_header = s_msgpack.en(('blob', {'sha256': sha2hex, 'size': size}))
+                    outfile.write(blob_header)
+                    file_size += len(blob_header)
+                    hasher = hashlib.sha256()
+                    total = 0
+                    async for byts in axon.get(sha256):
+                        hasher.update(byts)
+                        total += len(byts)
+                        byts_msg = s_msgpack.en(byts)
+                        outfile.write(byts_msg)
+                        file_size += len(byts_msg)
+                    if total != size:
+                        mesg = f'Blob size mismatch for {sha2hex}: expected {size}, got {total}'
+                        raise s_exc.BadDataValu(mesg=mesg)
+                    if hasher.digest() != sha256:
+                        mesg = f'SHA256 mismatch for {sha2hex}'
+                        raise s_exc.BadDataValu(mesg=mesg)
+                    if file_size >= rotate_size:
+                        writeFooterAndClose(outfile, celliden, file_start, offs + 1, file_blobcount, outfile_path, opts.outdir, outp)
+                        outfile = None
+                        for_open = True
+                if outfile is not None:
+                    writeFooterAndClose(outfile, celliden, file_start, last_offset + 1, file_blobcount, outfile_path, opts.outdir, outp)
+                    outfile = None
+            finally:
+                if outfile and not outfile.closed:
+                    outfile.close()
+
     except s_exc.SynErr as exc:
         mesg = exc.get('mesg')
         return (False, mesg)
+
     except Exception as e:
         mesg = f'Error connecting to Axon url: {e}'
         return (False, mesg)
-
-    try:
-        cellinfo = await axon.getCellInfo()
-        if (celltype := cellinfo['cell']['type']) != 'axon':
-            mesg = f'Axon dump tool only works on axons, not {celltype}'
-            raise s_exc.TypeMismatch(mesg=mesg)
-
-        celliden = cellinfo['cell']['iden']
-        os.makedirs(opts.outdir, exist_ok=True)
-
-        start = opts.offset
-        end = opts.limit
-        rotate_size = opts.rotate_size
-        hashes_iter = axon.hashes(start)
-        last_offset = start
-        blobcount = 0
-        outfile = None
-        outfile_path = None
-        file_start = start
-        file_size = 0
-        for_open = True
-
-        try:
-            async for (offs, (sha256, size)) in hashes_iter:
-                if end is not None and offs >= end:
-                    break
-                if for_open:
-                    outfile_path = os.path.join(opts.outdir, getOutfileName(celliden, offs, 'end'))
-                    outfile = open(outfile_path, 'wb')
-                    outfile.write(s_msgpack.en(('blob:init', {'celliden': celliden, 'start': offs})))
-                    file_start = offs
-                    file_size = 0
-                    file_blobcount = 0
-                    for_open = False
-                last_offset = offs
-                blobcount += 1
-                file_blobcount += 1
-                sha2hex = s_common.ehex(sha256)
-                outp.printf(f'Dumping blob {sha2hex} (size={size}, offs={offs})')
-                blob_header = s_msgpack.en(('blob', {'sha256': sha2hex, 'size': size}))
-                outfile.write(blob_header)
-                file_size += len(blob_header)
-                hasher = hashlib.sha256()
-                total = 0
-                async for byts in axon.get(sha256):
-                    hasher.update(byts)
-                    total += len(byts)
-                    byts_msg = s_msgpack.en(byts)
-                    outfile.write(byts_msg)
-                    file_size += len(byts_msg)
-                if total != size:
-                    mesg = f'Blob size mismatch for {sha2hex}: expected {size}, got {total}'
-                    raise s_exc.BadDataValu(mesg=mesg)
-                if hasher.digest() != sha256:
-                    mesg = f'SHA256 mismatch for {sha2hex}'
-                    raise s_exc.BadDataValu(mesg=mesg)
-                if file_size >= rotate_size:
-                    writeFooterAndClose(outfile, celliden, file_start, offs + 1, file_blobcount, outfile_path, opts.outdir, outp)
-                    outfile = None
-                    for_open = True
-            if outfile is not None:
-                writeFooterAndClose(outfile, celliden, file_start, last_offset + 1, file_blobcount, outfile_path, opts.outdir, outp)
-                outfile = None
-        finally:
-            if outfile and not outfile.closed:
-                outfile.close()
-
-    except s_exc.SynErr as exc:
-        mesg = exc.get('mesg')
-        return (False, mesg)
-
-    finally:
-        await axon_cm.__aexit__(None, None, None)
 
     return (True, None)
 

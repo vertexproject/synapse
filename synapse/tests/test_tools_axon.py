@@ -91,20 +91,12 @@ class AxonToolsTest(s_t_utils.SynTest):
                 self.isin('No such user', str(outp))
 
     async def test_dump_not_axon_cell(self):
-        with self.getTestDir() as testdir:
-            async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
-                orig = axon.getCellInfo
-                async def fake_getCellInfo():
-                    info = await orig()
-                    info['cell']['type'] = 'newp'
-                    return info
-                axon.getCellInfo = fake_getCellInfo
-                dumpdir = os.path.join(testdir, 'dumpdir')
-                os.makedirs(dumpdir)
-                argv = ['--url', f'cell:///{axon.dirn}', '--offset', '0', dumpdir]
-                outp = s_output.OutPutStr()
-                self.eq(1, await axon_dump.main(argv, outp=outp))
-                self.isin('Axon dump tool only works on axons', str(outp))
+        async with self.getTestCore() as core:
+            curl = core.getLocalUrl()
+            argv = ['--url', curl]
+            outp = s_output.OutPutStr()
+            self.eq(1, await axon_dump.main(argv, outp=outp))
+            self.isin('not an Axon', str(outp))
 
     async def test_dump_limit_break(self):
         with self.getTestDir() as testdir:
@@ -287,6 +279,19 @@ class AxonToolsTest(s_t_utils.SynTest):
                     outp = s_output.OutPutStr()
                     self.eq(1, await axon_load.main(argv, outp=outp))
                     self.isin('ERROR: Blob size mismatch', str(outp))
+
+    async def test_load_not_axon_cell(self):
+        with self.getTestDir() as testdir:
+            async with self.getTestCore() as core:
+                curl = core.getLocalUrl()
+                dumpdir = os.path.join(testdir, 'dumpdir')
+                os.makedirs(dumpdir)
+                with open(os.path.join(dumpdir, 'aabbccddeeff00112233445566778899.0-0.blobs'), 'wb') as f:
+                    f.write(b'newp')
+                argv = ['--url', curl, dumpdir]
+                outp = s_output.OutPutStr()
+                self.eq(1, await axon_load.main(argv, outp=outp))
+                self.isin('not an Axon', str(outp))
 
     async def test_load_unexpected_eof(self):
         with self.getTestDir() as testdir:
