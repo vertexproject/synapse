@@ -1,5 +1,0 @@
----
-desc: Improved performance of boolean evaluation of container types such as lists and dictionaries in Storm.
-prs: []
-type: feat
-...
