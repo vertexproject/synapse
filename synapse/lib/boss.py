@@ -9,8 +9,6 @@ import synapse.lib.task as s_task
 
 logger = logging.getLogger(__name__)
 
-
-
 class Boss(s_base.Base):
 
     '''
