@@ -48,7 +48,7 @@ async def wrapmain(func): # pragma: no cover
         return 1
 
     except Exception as e:
-        print(f'ERROR: {s_common.reprexc(e)}')
+        print(f'ERROR: {s_exc.reprexc(e)}')
         return 1
 
     finally:

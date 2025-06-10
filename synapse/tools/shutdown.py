@@ -1,6 +1,4 @@
-import asyncio
-import argparse
-
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -44,7 +42,7 @@ async def main(argv, outp=s_output.stdout):
                 return 1
 
         except Exception as e: # pragma: no cover
-            text = s_common.reprexc(e)
+            text = s_exc.reprexc(e)
             outp.printf(f'Error while attempting graceful shutdown: {text}')
             return 1
 

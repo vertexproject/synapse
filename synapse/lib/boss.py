@@ -27,6 +27,9 @@ class Boss(s_base.Base):
     async def shutdown(self, timeout=None):
         # when a boss is "shutting down" it should not promote any new tasks,
         # but await the completion of any which are already underway...
+
+        self.reqNotShut()
+
         self.shutting = True
 
         for task in list(self.tasks.values()):

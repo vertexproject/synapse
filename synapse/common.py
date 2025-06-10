@@ -967,13 +967,6 @@ def reprauthrule(rule):
         text = '!' + text
     return text
 
-# one exc repr to rule them all...
-def reprexc(e):
-    text = repr(e)
-    if isinstance(e, s_exc.SynErr):
-        text = e.errinfo.get('mesg', text)
-    return text
-
 async def merggenr(genrs, cmprkey):
     '''
     Iterate multiple sorted async generators and yield their results in order.

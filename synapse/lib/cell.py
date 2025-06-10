@@ -1550,7 +1550,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.warning('...tasks did not complete within timeout. Aborting shutdown.', extra=extra)
             return False
 
-        task = asyncio.current_task()
         def syncfini(futu):
             asyncio.get_running_loop().create_task(self.fini())
 
