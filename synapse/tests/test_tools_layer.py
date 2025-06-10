@@ -37,9 +37,9 @@ class LayerTest(s_test.SynTest):
                 argv = (
                     '--url', url,
                     '--chunksize', str(chunksize),
-                    '--outdir', dirn,
                     '--offset', str(soffs),
                     layr00iden,
+                    dirn,
                 )
 
                 outp = s_output.OutPutStr()
@@ -81,9 +81,9 @@ class LayerTest(s_test.SynTest):
                 argv = (
                     '--url', url,
                     '--chunksize', str(chunksize),
-                    '--outdir', dirn,
                     '--offset', str(soffs),
                     layr00iden,
+                    dirn,
                 )
 
                 outp = s_output.OutPutStr()
@@ -104,9 +104,9 @@ class LayerTest(s_test.SynTest):
 
                 argv = (
                     '--url', url,
-                    '--outdir', s_common.genpath(dirn, 'next'),
                     '--statefile', statefile,
                     layr00iden,
+                    s_common.genpath(dirn, 'next'),
                 )
 
                 outp = s_output.OutPutStr()
@@ -126,7 +126,7 @@ class LayerTest(s_test.SynTest):
                     fd.write(s_msgpack.en(('init', {'offset': 0, 'cellvers': s_version.version})))
 
                 url = cell.getLocalUrl()
-                argv = ('--url', url, s_common.guid())
+                argv = ('--url', url, s_common.guid(), dirn)
                 outp = s_output.OutPutStr()
                 self.eq(1, await s_t_dump.main(argv, outp=outp))
                 self.isin(f'ERROR: Layer dump tool only works on cortexes, not cell.', str(outp))
@@ -154,9 +154,9 @@ class LayerTest(s_test.SynTest):
                 argv = (
                     '--url', url,
                     '--chunksize', str(chunksize),
-                    '--outdir', dirn,
                     '--offset', '9000',
                     layr00iden,
+                    dirn,
                 )
 
                 outp = s_output.OutPutStr()
@@ -170,8 +170,8 @@ class LayerTest(s_test.SynTest):
                 argv = (
                     '--url', url,
                     '--chunksize', str(chunksize),
-                    '--outdir', filename,
                     layr00iden,
+                    filename,
                 )
 
                 outp = s_output.OutPutStr()
@@ -183,8 +183,8 @@ class LayerTest(s_test.SynTest):
                 argv = (
                     '--url', url,
                     '--chunksize', str(chunksize),
-                    '--outdir', dirn,
                     newpiden,
+                    dirn,
                 )
 
                 outp = s_output.OutPutStr()
@@ -216,8 +216,8 @@ class LayerTest(s_test.SynTest):
                 # Export layr00
                 argv = (
                     '--url', url,
-                    '--outdir', dirn,
                     layr00iden,
+                    dirn,
                 )
 
                 outp = s_output.OutPutStr()

@@ -143,12 +143,11 @@ async def main(argv, outp=s_output.stdout):
                       help='The starting offset of the node edits to export.')
     pars.add_argument('--chunksize', default=0, type=int,
                       help='The number of node edits to store in a single file. Zero to disable chunking.')
-    pars.add_argument('--outdir', default='.',
-                      help='The directory to save the exported node edits to.')
     pars.add_argument('--statefile', type=str, default=None,
                       help='Path to the state tracking file for this layer dump.')
 
     pars.add_argument('iden', help='The iden of the layer to export.')
+    pars.add_argument('outdir', help='The directory to save the exported node edits to.')
 
     opts = pars.parse_args(argv)
 
