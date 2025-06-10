@@ -1128,9 +1128,12 @@ tool can be used to import them into the destination Axon.
    from the time of the last execution without requiring the offset to be
    separately tracked.
 
-   The state tracking file can be created and used by the ``synapse.tools.axon.load``
-   tool using the ``--statefile`` command line option with a valid path. The state
-   tracking file is saved in that directory with name ``<celliden>.yaml``.
+   The ``synapse.tools.axon.dump`` export tool creates a state tracking YAML
+   file for recording the next expected offset from the Axon that was exported.
+   The state tracking file allows the export tool to create incremental exports
+   from the time of the last execution without requiring the offset to be
+   separately tracked. The state tracking file is saved in the output directory
+   with name ``<celliden>.yaml``.
 
 Export blobs from an Axon
 ~~~~~~~~~~~~~~~~~~~~~~~~~

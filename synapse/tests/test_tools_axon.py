@@ -83,12 +83,10 @@ class AxonToolsTest(s_t_utils.SynTest):
                 self.eq(0, await axon_dump.main(argv))
                 files = os.listdir(dumpdir)
                 self.true(files, 'No dump file created')
-                dumpfile = os.path.join(dumpdir, files[0])
+
+                dumpfile = [os.path.join(dumpdir, f) for f in os.listdir(dumpdir) if f.endswith('.blobs')]
                 async with self.getTestAxon(dirn=os.path.join(testdir, 'axon1')) as axon1:
-                    argv = [
-                        '--url', f'cell:///{axon1.dirn}',
-                        dumpfile,
-                    ]
+                    argv = ['--url', f'cell:///{axon1.dirn}'] + dumpfile
                     self.eq(0, await axon_load.main(argv))
                     for size, sha2, blob in sha2s:
                         self.true(await axon1.has(sha2))
@@ -249,8 +247,8 @@ class AxonToolsTest(s_t_utils.SynTest):
                 ]
                 self.eq(0, await axon_dump.main(argv))
 
-                dumpfile = os.path.join(dumpdir, os.listdir(dumpdir)[0])
-                with open(dumpfile, 'rb') as fd:
+                dumpfile = [os.path.join(dumpdir, f) for f in os.listdir(dumpdir) if f.endswith('.blobs')]
+                with open(dumpfile[0], 'rb') as fd:
                     items = list(s_msgpack.iterfd(fd))
                 for i, item in enumerate(items):
                     if item[0] == 'blob':
@@ -294,8 +292,8 @@ class AxonToolsTest(s_t_utils.SynTest):
                 ]
                 self.eq(0, await axon_dump.main(argv))
 
-                dumpfile = os.path.join(dumpdir, os.listdir(dumpdir)[0])
-                with open(dumpfile, 'rb') as fd:
+                dumpfile = [os.path.join(dumpdir, f) for f in os.listdir(dumpdir) if f.endswith('.blobs')]
+                with open(dumpfile[0], 'rb') as fd:
                     items = list(s_msgpack.iterfd(fd))
 
                 for i, item in enumerate(items):
@@ -345,8 +343,8 @@ class AxonToolsTest(s_t_utils.SynTest):
                 argv = ['--url', f'cell:///{axon0.dirn}', '--offset', '0', dumpdir]
                 self.eq(0, await axon_dump.main(argv))
 
-                dumpfile = os.path.join(dumpdir, os.listdir(dumpdir)[0])
-                with open(dumpfile, 'rb') as fd:
+                dumpfile = [os.path.join(dumpdir, f) for f in os.listdir(dumpdir) if f.endswith('.blobs')]
+                with open(dumpfile[0], 'rb') as fd:
                     items = list(s_msgpack.iterfd(fd))
                 for i in range(len(items) - 1, -1, -1):
                     if type(items[i]) is bytes:

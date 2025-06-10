@@ -64,14 +64,17 @@ async def dumpBlobs(opts, outp):
             file_size = 0
             for_open = True
 
-            state = {}
-            if opts.statefile is not None:
+            if opts.statefile is None:
+                statefile_path = os.path.join(opts.outdir, f'{celliden}.yaml')
+            else:
                 statefile_path = opts.statefile
                 if os.path.isdir(statefile_path):
                     statefile_path = os.path.join(statefile_path, f'{celliden}.yaml')
+            state = {}
+            if os.path.isfile(statefile_path):
                 if (data := s_common.yamlload(statefile_path)) is not None:
                     state = data
-                opts.statefile = statefile_path
+            opts.statefile = statefile_path
 
             try:
                 async for (offs, (sha256, size)) in hashes_iter:

@@ -2,6 +2,7 @@ import os
 import sys
 import asyncio
 import hashlib
+import itertools
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -52,7 +53,11 @@ async def loadBlobs(opts, outp, blobsfiles):
                                             mesg = f'Unexpected end of file while reading blob {sha2hex}'
                                             raise s_exc.BadDataValu(mesg=mesg)
                                         if type(byts) is tuple:
-                                            msgit = (i for i in [byts] + list(msgit))
+                                            # This block uses itertools.chain to prepend the just-encountered protocol message (tuple)
+                                            # to the front of the iterator. This ensures the outer loop will receive and handle the next
+                                            # protocol message (such as the start of a new blob or the end of the file) in streaming fashion,
+                                            # without loading the entire file into memory.
+                                            msgit = itertools.chain([byts], msgit)
                                             break
                                         hasher.update(byts)
                                         total += len(byts)
@@ -67,7 +72,10 @@ async def loadBlobs(opts, outp, blobsfiles):
                                         raise s_exc.BadDataValu(mesg=mesg)
                                     await upfd.save()
                             case _:
-                                mtype = mesg[0]
+                                try:
+                                    mtype = mesg[0]
+                                except Exception as e:
+                                    mtype = type(mesg)
                                 mesg = f'Unexpected message type: {mtype}.'
                                 raise s_exc.BadMesgFormat(mesg=mesg)
 
@@ -91,7 +99,7 @@ async def main(argv, outp=s_output.stdout):
     except Exception:
         return 1
 
-    blobsfiles = sorted(opts.files)
+    blobsfiles = sorted([f for f in opts.files if f.endswith('.blobs')])
 
     async with s_telepath.withTeleEnv():
         (ok, mesg) = await loadBlobs(opts, outp, blobsfiles)
