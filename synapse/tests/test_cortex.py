@@ -1909,6 +1909,25 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('.created*range=(2010, 3001)'))
             self.len(1, await core.nodes('.created*range=("2010", "?")'))
 
+            vdef2 = await core.view.fork()
+            forkopts = {'view': vdef2.get('iden')}
+
+            await core.nodes('[test:str=foo]', opts=forkopts)
+            self.len(2, await core.nodes('.created', opts=forkopts))
+
+            # Add another node with a different created time in between our node with different values in
+            # two layers to check non-mergesort deduping.
+            await core.nodes('[test:str=bar]')
+            await core.nodes('[test:str=foo]')
+            self.len(3, await core.nodes('.created', opts=forkopts))
+
+            forkopts['vars'] = {'tick': tick}
+            self.len(2, await core.nodes('.created>$tick', opts=forkopts))
+            self.len(0, await core.nodes('.created?=newp', opts=forkopts))
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('.newp>1')
+
             self.len(1, await wcore.nodes('test:type10=one [:intprop=21 :strprop=qwer :locprop=us.va.reston]'))
             nodes = await wcore.nodes('[test:comp=(33, "THIRTY THREE")]')
             self.len(1, nodes)

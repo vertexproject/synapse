@@ -2288,6 +2288,9 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].valu(), 'tcp://[::1]:12341')
 
+            self.eq((4, 2130706433), await core.callStorm('inet:server.ip return(.ip)'))
+            self.eq((4, 2130706433), (await core.nodes('inet:server.ip'))[0].get('.ip'))
+
             self.len(6, await core.nodes('inet:ip -> inet:http:request:server.ip'))
 
             self.len(6, await core.nodes('inet:http:request :server.ip -> *'))

@@ -3230,9 +3230,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def nodesByMetaValu(self, name, cmpr, valu, form=None, reverse=False):
 
-        if (mtyp := self.core.model.metatypes.get(name)) is None:
-            mesg = f'No meta property named {name}.'
-            raise s_exc.NoSuchProp(mesg=mesg, name=name)
+        mtyp = self.core.model.reqMetaType(name)
 
         if not (cmprvals := mtyp.getStorCmprs(cmpr, valu)):
             return
@@ -3251,6 +3249,7 @@ class View(s_nexus.Pusher):  # type: ignore
         def filt(sode):
             if (meta := sode.get('meta')) is None:
                 return False
+
             return meta.get(name) is not None
 
         for cval in cmprvals:

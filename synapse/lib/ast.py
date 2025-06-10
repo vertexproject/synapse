@@ -1989,9 +1989,7 @@ class LiftMeta(LiftOper):
         names = await self.kids[0].compute(runt, path)
         name = await tostr(names[0])
 
-        if (mtyp := runt.model.metatypes.get(name)) is None:
-            mesg = f'No meta property named {name}.'
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
+        mtyp = runt.model.reqMetaType(name, extra=self.kids[0].addExcInfo)
 
         if len(self.kids) == 1:
             async for node in runt.view.nodesByMeta(name, reverse=self.reverse):
@@ -2017,13 +2015,13 @@ class LiftProp(LiftOper):
         proplist = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
         props = [runt.model.props.get(propname) for propname in proplist]
 
-        if len(props) == 1 or props[0].isform:
+        relname = props[0].name
+
+        if len(props) == 1 or props[0].isform or not all(prop.name == relname for prop in props):
             for prop in props:
                 async for node in self.proplift(prop, runt, path):
                     yield node
             return
-
-        relname = props[0].name
 
         def cmprkey(node):
             return node.get(relname)
@@ -2098,18 +2096,11 @@ class LiftPropVirt(LiftProp):
         name = await tostr(await self.kids[0].compute(runt, path))
         virts = await self.kids[1].compute(runt, path)
 
-        if (prop := runt.model.props.get(name)) is not None:
-            async for node in runt.view.nodesByProp(prop.full, reverse=self.reverse, virts=virts):
+        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+
+        if len(props) == 1:
+            async for node in runt.view.nodesByProp(props[0].full, reverse=self.reverse, virts=virts):
                 yield node
-            return
-
-        proplist = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
-        props = [runt.model.props.get(propname) for propname in proplist]
-
-        if len(props) == 1 or props[0].isform:
-            for prop in props:
-                async for node in runt.view.nodesByProp(prop.full, reverse=self.reverse, virts=virts):
-                    yield node
             return
 
         relname = props[0].name
@@ -4494,18 +4485,11 @@ class PivotTargetVirt(Value):
 
         self.constprops = None
         if isinstance(self.kids[0], Const):
-            self.constprops = self.getPropList(self.kids[0].value(), core.model)
+            self.constprops = core.model.reqPropList(self.kids[0].value(), extra=self.kids[0].addExcInfo)
 
         self.constval = None
         if self.constprops and self.constvirts:
             self.constval = [(prop, self.constvirts) for prop in self.constprops]
-
-    def getPropList(self, name, model):
-        if (prop := model.props.get(name)) is not None:
-            return (prop,)
-
-        proplist = model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
-        return [model.props.get(prop) for prop in proplist]
 
     async def compute(self, runt, path):
         if self.constval is not None:
@@ -4517,11 +4501,11 @@ class PivotTargetVirt(Value):
         if (props := self.constprops) is None:
             valu = await self.kids[0].compute(runt, path)
             if not isinstance(valu, list):
-                props = self.getPropList(valu, runt.model)
+                props = runt.model.reqPropList(valu, extra=self.kids[0].addExcInfo)
             else:
                 props = []
                 for name in valu:
-                    props += self.getPropList(name, runt.model)
+                    props += runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
 
         return [(prop, virts) for prop in props]
 

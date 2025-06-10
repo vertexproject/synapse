@@ -6365,6 +6365,9 @@ words\tword\twrd'''
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('yield $lib.layer.get().liftByProp(newp)', opts=opts)
 
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('yield $lib.layer.get().liftByProp(".newp")', opts=opts)
+
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('yield $lib.layer.get().liftByTag(newp, newp)', opts=opts)
 
