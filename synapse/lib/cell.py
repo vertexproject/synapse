@@ -3296,13 +3296,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         await user.addRule(rule)
 
     @contextlib.asynccontextmanager
-    async def getLocalProxy(self, share='*', user='root'):
+    async def getLocalProxy(self, share=None, user='root'):
         url = self.getLocalUrl(share=share, user=user)
         prox = await s_telepath.openurl(url)
         yield prox
 
-    def getLocalUrl(self, share='*', user='root'):
-        return f'cell://{user}@{self.dirn}:{share}'
+    def getLocalUrl(self, share=None, user='root'):
+        url = f'cell://{user}@{self.dirn}'
+        if share is not None:
+            url = f'{url}:{share}'
+        return url
 
     def _initCellConf(self, conf):
         '''

@@ -533,6 +533,14 @@ class CryptoModelTest(s_t_utils.SynTest):
             ip4 = (6, 0xff00000000000000000000000000aa)
             self.eq(nodes[0].get('identities:ips'), ((4, 0x01020304), (4, 0x05050505), ip3, ip4))
 
+            nodes = await core.nodes('[ crypto:x509:cert=* :serial=(1234) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('serial'), '00000000000000000000000000000000000004d2')
+
+            nodes = await core.nodes('[ crypto:x509:cert=* :serial=(-1234) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('serial'), 'fffffffffffffffffffffffffffffffffffffb2e')
+
             nodes = await core.nodes('''
                 [
                     crypto:x509:crl=$crl
