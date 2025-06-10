@@ -33,10 +33,10 @@ async def loadBlobs(opts, outp, blobsfiles):
                     for mesg in msgit:
                         match mesg:
                             case ("blob:init", meta):
-                                outp.printf(f"Loading blobs file: {meta}")
+                                outp.printf(f"Loading blobs file starting at offset {meta['start']}")
                                 continue
                             case ("blob:fini", meta):
-                                outp.printf(f"Finished loading: {meta}")
+                                outp.printf(f"Finished loading blobs file starting at offset {meta['start']}, ending at offset {meta['end']}")
                                 break
                             case ("blob", meta):
                                 sha2hex = meta['sha256']
