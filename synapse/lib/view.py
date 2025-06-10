@@ -185,20 +185,20 @@ class View(s_nexus.Pusher):  # type: ignore
                 etyp, parms = edit
 
                 if etyp == s_layer.EDIT_NODE_ADD:
-                    callbacks.append((node.form.wasAdded, (node,), {}))
-                    callbacks.append((self.runNodeAdd, (node,), {}))
+                    callbacks.append((node.form.wasAdded, (node,)))
+                    callbacks.append((self.runNodeAdd, (node,)))
                     continue
 
                 if etyp == s_layer.EDIT_NODE_DEL or etyp == s_layer.EDIT_NODE_TOMB:
-                    callbacks.append((node.form.wasDeleted, (node,), {}))
-                    callbacks.append((self.runNodeDel, (node,), {}))
+                    callbacks.append((node.form.wasDeleted, (node,)))
+                    callbacks.append((self.runNodeDel, (node,)))
                     self.clearCachedNode(nid)
                     continue
 
                 if etyp == s_layer.EDIT_NODE_TOMB_DEL:
                     if not node.istomb():
-                        callbacks.append((node.form.wasAdded, (node,), {}))
-                        callbacks.append((self.runNodeAdd, (node,), {}))
+                        callbacks.append((node.form.wasAdded, (node,)))
+                        callbacks.append((self.runNodeAdd, (node,)))
                     continue
 
                 if etyp == s_layer.EDIT_PROP_SET:
@@ -210,8 +210,8 @@ class View(s_nexus.Pusher):  # type: ignore
                         logger.warning(f'saveNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form.full}')
                         continue
 
-                    callbacks.append((prop.wasSet, (node, oldv), {}))
-                    callbacks.append((self.runPropSet, (node, prop, oldv), {}))
+                    callbacks.append((prop.wasSet, (node, oldv)))
+                    callbacks.append((self.runPropSet, (node, prop, oldv)))
                     continue
 
                 if etyp == s_layer.EDIT_PROP_TOMB_DEL:
@@ -224,8 +224,8 @@ class View(s_nexus.Pusher):  # type: ignore
                             logger.warning(f'saveNodeEdits got EDIT_PROP_TOMB_DEL for bad prop {name} on form {node.form.full}')
                             continue
 
-                        callbacks.append((prop.wasSet, (node, oldv), {}))
-                        callbacks.append((self.runPropSet, (node, prop, oldv), {}))
+                        callbacks.append((prop.wasSet, (node, oldv)))
+                        callbacks.append((self.runPropSet, (node, prop, oldv)))
                     continue
 
                 if etyp == s_layer.EDIT_PROP_DEL:
@@ -237,8 +237,8 @@ class View(s_nexus.Pusher):  # type: ignore
                         logger.warning(f'saveNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form.full}')
                         continue
 
-                    callbacks.append((prop.wasDel, (node, oldv), {}))
-                    callbacks.append((self.runPropSet, (node, prop, oldv), {}))
+                    callbacks.append((prop.wasDel, (node, oldv)))
+                    callbacks.append((self.runPropSet, (node, prop, oldv)))
                     continue
 
                 if etyp == s_layer.EDIT_PROP_TOMB:
@@ -254,32 +254,29 @@ class View(s_nexus.Pusher):  # type: ignore
                         logger.warning(f'saveNodeEdits got EDIT_PROP_TOMB for bad prop {name} on form {node.form.full}')
                         continue
 
-                    callbacks.append((prop.wasDel, (node, oldv), {}))
-                    callbacks.append((self.runPropSet, (node, prop, oldv), {}))
+                    callbacks.append((prop.wasDel, (node, oldv)))
+                    callbacks.append((self.runPropSet, (node, prop, oldv)))
                     continue
 
                 if etyp == s_layer.EDIT_TAG_SET:
 
                     (tag, valu, oldv) = parms
 
-                    callbacks.append((self.runTagAdd, (node, tag, valu), {}))
-                    callbacks.append((wlyr.fire, ('tag:add', ), {'tag': tag, 'node': node.iden()}))
+                    callbacks.append((self.runTagAdd, (node, tag, valu)))
                     continue
 
                 if etyp == s_layer.EDIT_TAG_TOMB_DEL:
                     (tag,) = parms
 
                     if (oldv := node.getTag(tag)) is not None:
-                        callbacks.append((self.runTagAdd, (node, tag, oldv), {}))
-                        callbacks.append((wlyr.fire, ('tag:add', ), {'tag': tag, 'node': node.iden()}))
+                        callbacks.append((self.runTagAdd, (node, tag, oldv)))
                     continue
 
                 if etyp == s_layer.EDIT_TAG_DEL:
 
                     (tag, oldv) = parms
 
-                    callbacks.append((self.runTagDel, (node, tag, oldv), {}))
-                    callbacks.append((wlyr.fire, ('tag:del', ), {'tag': tag, 'node': node.iden()}))
+                    callbacks.append((self.runTagDel, (node, tag, oldv)))
                     continue
 
                 if etyp == s_layer.EDIT_TAG_TOMB:
@@ -290,21 +287,21 @@ class View(s_nexus.Pusher):  # type: ignore
                     if oldv is s_common.novalu:  # pragma: no cover
                         continue
 
-                    callbacks.append((self.runTagDel, (node, tag, oldv), {}))
-                    callbacks.append((wlyr.fire, ('tag:del', ), {'tag': tag, 'node': node.iden()}))
+                    callbacks.append((self.runTagDel, (node, tag, oldv)))
                     continue
 
                 if etyp == s_layer.EDIT_EDGE_ADD or etyp == s_layer.EDIT_EDGE_TOMB_DEL:
                     verb, n2nid = parms
                     n2nid = s_common.int64en(n2nid)
-                    callbacks.append((self.runEdgeAdd, (node, verb, n2nid), {}))
+                    callbacks.append((self.runEdgeAdd, (node, verb, n2nid)))
 
                 if etyp == s_layer.EDIT_EDGE_DEL or etyp == s_layer.EDIT_EDGE_TOMB:
                     verb, n2nid = parms
                     n2nid = s_common.int64en(n2nid)
-                    callbacks.append((self.runEdgeDel, (node, verb, n2nid), {}))
+                    callbacks.append((self.runEdgeDel, (node, verb, n2nid)))
 
-        [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
+        for func, args in callbacks:
+            await func(*args)
 
         if nodeedits and fireedit:
             await bus.fire('node:edits', edits=nodeedits)
@@ -3230,9 +3227,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def nodesByMetaValu(self, name, cmpr, valu, form=None, reverse=False):
 
-        if (mtyp := self.core.model.metatypes.get(name)) is None:
-            mesg = f'No meta property named {name}.'
-            raise s_exc.NoSuchProp(mesg=mesg, name=name)
+        mtyp = self.core.model.reqMetaType(name)
 
         if not (cmprvals := mtyp.getStorCmprs(cmpr, valu)):
             return
@@ -3251,6 +3246,7 @@ class View(s_nexus.Pusher):  # type: ignore
         def filt(sode):
             if (meta := sode.get('meta')) is None:
                 return False
+
             return meta.get(name) is not None
 
         for cval in cmprvals:

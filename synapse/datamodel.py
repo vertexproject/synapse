@@ -93,6 +93,7 @@ class Prop:
         self.form = form
         self.type = None
         self.typedef = typedef
+        self.ifaces = []
 
         self.alts = None
         self.locked = False
@@ -658,12 +659,15 @@ class Model:
 
         raise exc
 
-    def reqMetaType(self, name):
+    def reqMetaType(self, name, extra=None):
         if (mtyp := self.metatypes.get(name)) is not None:
             return mtyp
 
-        mesg = f'No meta property named {name}.'
-        raise s_exc.NoSuchProp(mesg=mesg, name=name)
+        exc = s_exc.NoSuchProp.init(name, mesg=f'No meta property named {name}.')
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
 
     def reqTagProp(self, name):
         prop = self.getTagProp(name)
@@ -1169,11 +1173,15 @@ class Model:
             if (prop := form.prop(propname)) is None:
                 prop = self._addFormProp(form, propname, typedef, propinfo)
 
-            self.ifaceprops[f'{name}:{propname}'].append(prop.full)
+            iprop = f'{name}:{propname}'
+            prop.ifaces.append(iprop)
+            self.ifaceprops[iprop].append(prop.full)
 
             if subifaces is not None:
                 for subi in subifaces:
-                    self.ifaceprops[f'{subi}:{propname}'].append(prop.full)
+                    subiprop = f'{subi}:{propname}'
+                    prop.ifaces.append(subiprop)
+                    self.ifaceprops[subiprop].append(prop.full)
 
         form.ifaces[name] = iface
         self.formsbyiface[name].append(form.name)

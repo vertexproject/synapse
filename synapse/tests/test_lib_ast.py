@@ -3699,6 +3699,15 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:str +#taga*newp>=2023')
 
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str $val=2023 +#(taga).min*newp=2023')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str $val=2023 +#(taga).min*newp=$val')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str $tag=tag +#($tag).min*newp=2023')
+
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('$tag=taga* test:str +#$tag=2023')
 
@@ -3798,6 +3807,8 @@ class AstTest(s_test.SynTest):
             self.len(0, await core.nodes('ou:campaign.created +ou:campaign.created>now'))
 
             self.len(1, await core.nodes('ou:campaign.created +#(tag).min=2020'))
+            self.len(1, await core.nodes('ou:campaign.created $tag=tag +#($tag).min=2020'))
+            self.len(1, await core.nodes('ou:campaign.created $val=2020 +#(tag).min=$val'))
             self.len(1, await core.nodes('ou:campaign.created +#(tag).max=?'))
             self.len(1, await core.nodes('ou:campaign.created +#(tag).duration=?'))
             self.len(1, await core.nodes('ou:campaign.created +#tag:ival.min=2020'))

@@ -1735,8 +1735,6 @@ class LiftByArrayVirt(LiftOper):
         cmpr = self.kids[2].value()
         valu = await s_stormtypes.tostor(await self.kids[3].compute(runt, path))
 
-        alts = self.kids[1].alts
-
         pivs = None
         if name.find('::') != -1:
             parts = name.split('::')
@@ -1752,10 +1750,7 @@ class LiftByArrayVirt(LiftOper):
                 virts += vnames
 
                 prop = plift[0]
-                if alts:
-                    genr = runt.view.nodesByPropAlts(prop, cmpr, valu, virts=virts)
-                else:
-                    genr = runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virts=virts)
+                genr = runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virts=virts)
 
                 async for node in self.pivlift(runt, pivlifts, genr):
                     yield node
@@ -1767,10 +1762,7 @@ class LiftByArrayVirt(LiftOper):
 
             genrs = []
             for prop in props:
-                if alts:
-                    genrs.append(runt.view.nodesByPropAlts(prop, cmpr, valu, virts=vnames))
-                else:
-                    genrs.append(runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virts=vnames))
+                genrs.append(runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virts=vnames))
 
             if len(genrs) == 1:
                 async for node in genrs[0]:
@@ -1997,9 +1989,7 @@ class LiftMeta(LiftOper):
         names = await self.kids[0].compute(runt, path)
         name = await tostr(names[0])
 
-        if (mtyp := runt.model.metatypes.get(name)) is None:
-            mesg = f'No meta property named {name}.'
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
+        mtyp = runt.model.reqMetaType(name, extra=self.kids[0].addExcInfo)
 
         if len(self.kids) == 1:
             async for node in runt.view.nodesByMeta(name, reverse=self.reverse):
@@ -2025,13 +2015,13 @@ class LiftProp(LiftOper):
         proplist = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
         props = [runt.model.props.get(propname) for propname in proplist]
 
+        relname = props[0].name
+
         if len(props) == 1 or props[0].isform:
             for prop in props:
                 async for node in self.proplift(prop, runt, path):
                     yield node
             return
-
-        relname = props[0].name
 
         def cmprkey(node):
             return node.get(relname)
@@ -2106,18 +2096,11 @@ class LiftPropVirt(LiftProp):
         name = await tostr(await self.kids[0].compute(runt, path))
         virts = await self.kids[1].compute(runt, path)
 
-        if (prop := runt.model.props.get(name)) is not None:
-            async for node in runt.view.nodesByProp(prop.full, reverse=self.reverse, virts=virts):
+        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+
+        if len(props) == 1:
+            async for node in runt.view.nodesByProp(props[0].full, reverse=self.reverse, virts=virts):
                 yield node
-            return
-
-        proplist = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
-        props = [runt.model.props.get(propname) for propname in proplist]
-
-        if len(props) == 1 or props[0].isform:
-            for prop in props:
-                async for node in runt.view.nodesByProp(prop.full, reverse=self.reverse, virts=virts):
-                    yield node
             return
 
         relname = props[0].name
@@ -2196,8 +2179,6 @@ class LiftPropVirtBy(LiftOper):
         cmpr = await self.kids[2].compute(runt, path)
         valu = await self.kids[3].compute(runt, path)
 
-        alts = self.kids[1].alts
-
         if not isinstance(valu, s_node.Node):
             valu = await s_stormtypes.tostor(valu)
 
@@ -2216,10 +2197,7 @@ class LiftPropVirtBy(LiftOper):
                 virts += vnames
 
                 prop = plift[0]
-                if alts:
-                    genr = runt.view.nodesByPropAlts(prop, cmpr, valu, virts=virts)
-                else:
-                    genr = runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=virts)
+                genr = runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=virts)
 
                 async for node in self.pivlift(runt, pivlifts, genr):
                     yield node
@@ -2227,10 +2205,7 @@ class LiftPropVirtBy(LiftOper):
 
             genrs = []
             for prop in props:
-                if alts:
-                    genrs.append(runt.view.nodesByPropAlts(prop, cmpr, valu, virts=vnames))
-                else:
-                    genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=vnames))
+                genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=vnames))
 
             if len(genrs) == 1:
                 async for node in genrs[0]:
@@ -3200,6 +3175,7 @@ class HasRelPropCond(Cond):
             vgetr = prop.type.getVirtGetr(virts)
         except s_exc.NoSuchVirt:
             return False
+
         return realnode.has(name, virts=vgetr)
 
     async def getLiftHints(self, runt, path):
@@ -3451,14 +3427,8 @@ class AbsVirtPropCond(Cond):
         virts = await self.kids[1].compute(runt, None)
         cmpr = await self.kids[2].compute(runt, None)
 
-        iface = False
-
-        if (prop := runt.model.props.get(name)) is None:
-            if (proplist := runt.model.ifaceprops.get(name)) is not None:
-                iface = True
-                prop = runt.model.props.get(proplist[0])
-            else:
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+        prop = props[0]
 
         if prop.isform and len(virts) == 1 and (ptyp := runt.model.metatypes.get(virts[0])) is not None:
             if (ctor := ptyp.getCmprCtor(cmpr)) is None:
@@ -3493,6 +3463,8 @@ class AbsVirtPropCond(Cond):
                 return ctor(val2)(val1)
 
             return cond
+
+        iface = len(props) > 1
 
         async def cond(node, path):
             if not iface and node.ndef[0] != prop.form.name:
@@ -3927,21 +3899,14 @@ class CallKwargs(CallArgs):
 
 class VirtProps(Value):
     def prepare(self):
-        self.alts = False
         self.const = None
-        self.virtkids = self.kids
-        if isinstance(self.kids[0], Const):
-            if self.kids[0].value() == 'alts':
-                self.alts = True
-                self.virtkids = self.kids[1:]
-
-            if all(isinstance(k, Const) for k in self.virtkids):
-                self.const = [k.value() for k in self.virtkids]
+        if all(isinstance(k, Const) for k in self.kids):
+            self.const = [k.value() for k in self.kids]
 
     async def compute(self, runt, path):
         if self.const is not None:
             return self.const
-        return [await v.compute(runt, path) for v in self.virtkids]
+        return [await v.compute(runt, path) for v in self.kids]
 
 class VarValue(Value):
 
@@ -4517,18 +4482,11 @@ class PivotTargetVirt(Value):
 
         self.constprops = None
         if isinstance(self.kids[0], Const):
-            self.constprops = self.getPropList(self.kids[0].value(), core.model)
+            self.constprops = core.model.reqPropList(self.kids[0].value(), extra=self.kids[0].addExcInfo)
 
         self.constval = None
         if self.constprops and self.constvirts:
             self.constval = [(prop, self.constvirts) for prop in self.constprops]
-
-    def getPropList(self, name, model):
-        if (prop := model.props.get(name)) is not None:
-            return (prop,)
-
-        proplist = model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
-        return [model.props.get(prop) for prop in proplist]
 
     async def compute(self, runt, path):
         if self.constval is not None:
@@ -4540,11 +4498,11 @@ class PivotTargetVirt(Value):
         if (props := self.constprops) is None:
             valu = await self.kids[0].compute(runt, path)
             if not isinstance(valu, list):
-                props = self.getPropList(valu, runt.model)
+                props = runt.model.reqPropList(valu, extra=self.kids[0].addExcInfo)
             else:
                 props = []
                 for name in valu:
-                    props += self.getPropList(name, runt.model)
+                    props += runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
 
         return [(prop, virts) for prop in props]
 

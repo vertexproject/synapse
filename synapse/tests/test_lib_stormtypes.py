@@ -1800,6 +1800,17 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'asdf'))
 
+            q = '''
+            $set = $lib.set()
+            for $v in $lib.range($n) {
+                $set.add($v)
+            }
+            if $set { return ( (true) ) }
+            else { return ( (false) ) }
+            '''
+            self.false(await core.callStorm(q, opts={'vars': {'n': 0}}))
+            self.true(await core.callStorm(q, opts={'vars': {'n': 1}}))
+
             # test that some of the more complex objects we've got uniq down properly
             # Bool
             q = '''
@@ -6364,6 +6375,9 @@ words\tword\twrd'''
 
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('yield $lib.layer.get().liftByProp(newp)', opts=opts)
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('yield $lib.layer.get().liftByProp(".newp")', opts=opts)
 
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('yield $lib.layer.get().liftByTag(newp, newp)', opts=opts)

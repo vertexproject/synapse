@@ -2275,9 +2275,11 @@ class LayerTest(s_t_utils.SynTest):
                 (inet:http:request=* :flow={[ inet:flow=* :src="tcp://[::4]:12344" ]})
                 (inet:http:request=* :flow={[ inet:flow=* :src="tcp://[::5]:12345" ]})
                 (inet:http:request=* :flow={[ inet:flow=* :src="tcp://[::6]:12346" ]})
-                (test:virtiface=* :servers=(tcp://127.0.0.1:12341, tcp://127.0.0.2:12342))
-                (test:virtiface=* :servers=("tcp://[::1]:12341", "tcp://[::2]:12342"))
-                (test:virtiface=* :servers=("tcp://127.0.0.1:12341", "tcp://[::2]:12342"))
+                (test:virtiface=(if1,) :servers=(tcp://127.0.0.1:12341, tcp://127.0.0.2:12342))
+                (test:virtiface=(if2,) :servers=("tcp://[::1]:12341", "tcp://[::2]:12342"))
+                (test:virtiface=(if3,) :servers=("tcp://127.0.0.1:12341", "tcp://[::2]:12342"))
+                (test:str=piv1 :pivvirt=(if1,))
+                (test:str=piv2 :pivvirt=(if2,))
             ]''')
 
             self.len(12, await core.nodes('inet:server.ip'))
@@ -2287,6 +2289,9 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:server.ip="::1"')
             self.len(1, nodes)
             self.eq(nodes[0].valu(), 'tcp://[::1]:12341')
+
+            self.eq((4, 2130706433), await core.callStorm('inet:server.ip return(.ip)'))
+            self.eq((4, 2130706433), (await core.nodes('inet:server.ip'))[0].get('.ip'))
 
             self.len(6, await core.nodes('inet:ip -> inet:http:request:server.ip'))
 
@@ -2372,6 +2377,8 @@ class LayerTest(s_t_utils.SynTest):
             self.len(3, await core.nodes('test:virtiface:servers.size*range=(1, 3)'))
             self.len(0, await core.nodes('test:virtiface:servers.size*range=(3, 4)'))
 
+            self.len(1, await core.nodes('test:str:pivvirt::servers*[.ip=127.0.0.1]'))
+
             nodes = await core.nodes('test:virtarray:servers.size=2')
             self.len(3, nodes)
             self.eq(nodes[::-1], await core.nodes('reverse(test:virtarray:servers.size=2)'))
@@ -2419,11 +2426,23 @@ class LayerTest(s_t_utils.SynTest):
             node = await view2.getNodeByBuid(nodes[0].buid, tombs=True)
             self.none(node.valu(virts='foo'))
 
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('inet:server +.ip*newp=newp')
+
             await core.nodes('inet:server.ip | delnode')
             self.len(0, await core.nodes('inet:server.ip'))
 
             with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('inet:server.newp.ip')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('inet:server.ip.newp')
+
+            with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('inet:server.newp.ip=127.0.0.1')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('inet:server +.ip.newp=127.0.0.1')
 
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:virtiface:servers*[newp=127.0.0.1]')
@@ -2452,12 +2471,25 @@ class LayerTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('test:guid.created +:newp.ip=newp')
 
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:guid +test:guid.created*newp=newp')
+
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('test:virtiface +:newp*[.ip=127.0.0.1]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:virtiface:server*[.ip=127.0.0.1]')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:virtiface:server +test:virtiface:server.ip*newp=newp')
 
             self.len(0, await core.nodes('$val = (null) test:guid.created +:server.ip=$val'))
             self.len(0, await core.nodes('test:guid.created +:newp::servers.ip=127.0.0.1'))
             self.len(0, await core.nodes('test:virtiface +:newp::servers*[.ip=127.0.0.1]'))
+            self.len(0, await core.nodes('test:guid.created +:server.newp'))
+            self.len(0, await core.nodes('test:guid +test:str.created<now'))
+            self.len(0, await core.nodes('test:guid +inet:server.ip=1.2.3.4'))
+            self.len(0, await core.nodes('test:guid +inet:http:request:server.ip=1.2.3.4'))
 
             self.none(await core.callStorm('test:guid.created return(:newp::servers)'))
 

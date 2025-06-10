@@ -512,7 +512,7 @@ class Node(NodeBase):
             if (mtyp := self.view.core.model.metatypes.get(virts[0])) is not None:
                 return self.getMeta(virts[0])
 
-            virtgetr = typeitem.getVirtGetr(virts)
+            virtgetr = self.form.type.getVirtGetr(virts)
             return self.valu(virts=virtgetr)
 
         for sode in self.sodes:

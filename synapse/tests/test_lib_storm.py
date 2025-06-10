@@ -1740,6 +1740,8 @@ class StormTest(s_t_utils.SynTest):
             self.stormHasNoErr(await core.stormlist('merge --diff', opts=altview))
 
             oldn = await core.nodes('[ test:str=readonly ]', opts=altview)
+            # need to pause a moment so the created times differ
+            await asyncio.sleep(0.01)
             newn = await core.nodes('[ test:str=readonly ]')
             self.ne(oldn[0].get('.created'), newn[0].get('.created'))
 
