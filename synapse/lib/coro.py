@@ -182,7 +182,7 @@ async def await_bg_tasks(timeout=None):
 
     coro = asyncio.gather(*tuple(bgtasks), return_exceptions=True)
     try:
-        return s_common.wait_for(coro, timeout)
+        return await s_common.wait_for(coro, timeout)
     except (asyncio.CancelledError, asyncio.TimeoutError):
         return []
 
