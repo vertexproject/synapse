@@ -44,10 +44,8 @@ class Boss(s_base.Base):
                     continue
 
                 if not await s_coro.waittask(task.task, timeout=timeout):
-                    logger.info(f'Failed to wait for {task=}')
                     return False
 
-            logger.info('Boss shutting down!')
             self.is_shutdown = True
             return True
 
