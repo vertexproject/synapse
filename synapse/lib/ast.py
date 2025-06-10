@@ -2017,7 +2017,7 @@ class LiftProp(LiftOper):
 
         relname = props[0].name
 
-        if len(props) == 1 or props[0].isform or not all(prop.name == relname for prop in props):
+        if len(props) == 1 or props[0].isform:
             for prop in props:
                 async for node in self.proplift(prop, runt, path):
                     yield node
@@ -3175,6 +3175,7 @@ class HasRelPropCond(Cond):
             vgetr = prop.type.getVirtGetr(virts)
         except s_exc.NoSuchVirt:
             return False
+
         return realnode.has(name, virts=vgetr)
 
     async def getLiftHints(self, runt, path):
@@ -3426,14 +3427,8 @@ class AbsVirtPropCond(Cond):
         virts = await self.kids[1].compute(runt, None)
         cmpr = await self.kids[2].compute(runt, None)
 
-        iface = False
-
-        if (prop := runt.model.props.get(name)) is None:
-            if (proplist := runt.model.ifaceprops.get(name)) is not None:
-                iface = True
-                prop = runt.model.props.get(proplist[0])
-            else:
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+        prop = props[0]
 
         if prop.isform and len(virts) == 1 and (ptyp := runt.model.metatypes.get(virts[0])) is not None:
             if (ctor := ptyp.getCmprCtor(cmpr)) is None:
@@ -3468,6 +3463,8 @@ class AbsVirtPropCond(Cond):
                 return ctor(val2)(val1)
 
             return cond
+
+        iface = len(props) > 1
 
         async def cond(node, path):
             if not iface and node.ndef[0] != prop.form.name:

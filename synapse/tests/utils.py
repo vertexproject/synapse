@@ -481,6 +481,7 @@ testmodel = (
                 ('cidr', ('inet:cidr', {}), {}),
                 ('somestr', ('test:str', {}), {}),
                 ('seen', ('ival', {}), {}),
+                ('pivvirt', ('test:virtiface', {}), {}),
             )),
 
             ('test:strregex', {}, ()),
