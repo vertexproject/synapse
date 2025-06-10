@@ -31,7 +31,7 @@ class Boss(s_base.Base):
 
         self.reqNotShut()
 
-        async with self.shutdown_lock: # Only one caller can be here at once
+        async with self.shutdown_lock:
 
             for task in list(self.tasks.values()):
 
