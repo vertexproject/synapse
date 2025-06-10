@@ -364,7 +364,8 @@ class FatalErr(SynErr):
 class LmdbLock(SynErr): pass
 
 def reprexc(e):
-    text = repr(e)
     if isinstance(e, SynErr):
-        text = e.get('mesg', text)
-    return text
+        text = e.get('mesg')
+        if text is not None:
+            return text
+    return repr(e)
