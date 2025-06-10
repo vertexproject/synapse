@@ -1325,13 +1325,13 @@ class Snap(s_base.Base):
 
                 if etyp == s_layer.EDIT_NODE_ADD:
                     node.bylayer['ndef'] = wlyr.iden
-                    callbacks.append((node.form.wasAdded, (node,), {}))
-                    callbacks.append((self.view.runNodeAdd, (node,), {}))
+                    callbacks.append((node.form.wasAdded, (node,)))
+                    callbacks.append((self.view.runNodeAdd, (node,)))
                     continue
 
                 if etyp == s_layer.EDIT_NODE_DEL:
-                    callbacks.append((node.form.wasDeleted, (node,), {}))
-                    callbacks.append((self.view.runNodeDel, (node,), {}))
+                    callbacks.append((node.form.wasDeleted, (node,)))
+                    callbacks.append((self.view.runNodeDel, (node,)))
                     continue
 
                 if etyp == s_layer.EDIT_PROP_SET:
@@ -1346,8 +1346,8 @@ class Snap(s_base.Base):
                     node.props[name] = valu
                     node.bylayer['props'][name] = wlyr.iden
 
-                    callbacks.append((prop.wasSet, (node, oldv), {}))
-                    callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
+                    callbacks.append((prop.wasSet, (node, oldv)))
+                    callbacks.append((self.view.runPropSet, (node, prop, oldv)))
                     continue
 
                 if etyp == s_layer.EDIT_PROP_DEL:
@@ -1362,8 +1362,8 @@ class Snap(s_base.Base):
                     node.props.pop(name, None)
                     node.bylayer['props'].pop(name, None)
 
-                    callbacks.append((prop.wasDel, (node, oldv), {}))
-                    callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
+                    callbacks.append((prop.wasDel, (node, oldv)))
+                    callbacks.append((self.view.runPropSet, (node, prop, oldv)))
                     continue
 
                 if etyp == s_layer.EDIT_TAG_SET:
@@ -1373,8 +1373,7 @@ class Snap(s_base.Base):
                     node.tags[tag] = valu
                     node.bylayer['tags'][tag] = wlyr.iden
 
-                    callbacks.append((self.view.runTagAdd, (node, tag, valu), {}))
-                    callbacks.append((self.wlyr.fire, ('tag:add', ), {'tag': tag, 'node': node.iden()}))
+                    callbacks.append((self.view.runTagAdd, (node, tag, valu)))
                     continue
 
                 if etyp == s_layer.EDIT_TAG_DEL:
@@ -1384,8 +1383,7 @@ class Snap(s_base.Base):
                     node.tags.pop(tag, None)
                     node.bylayer['tags'].pop(tag, None)
 
-                    callbacks.append((self.view.runTagDel, (node, tag, oldv), {}))
-                    callbacks.append((self.wlyr.fire, ('tag:del', ), {'tag': tag, 'node': node.iden()}))
+                    callbacks.append((self.view.runTagDel, (node, tag, oldv)))
                     continue
 
                 if etyp == s_layer.EDIT_TAGPROP_SET:
@@ -1420,14 +1418,14 @@ class Snap(s_base.Base):
                 if etyp == s_layer.EDIT_EDGE_ADD:
                     verb, n2iden = parms
                     n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
-                    callbacks.append((self.view.runEdgeAdd, (node, verb, n2), {}))
+                    callbacks.append((self.view.runEdgeAdd, (node, verb, n2)))
 
                 if etyp == s_layer.EDIT_EDGE_DEL:
                     verb, n2iden = parms
                     n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
-                    callbacks.append((self.view.runEdgeDel, (node, verb, n2), {}))
+                    callbacks.append((self.view.runEdgeDel, (node, verb, n2)))
 
-        [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
+        [await func(*args) for (func, args) in callbacks]
 
         if actualedits:
             await self.fire('node:edits', edits=actualedits)

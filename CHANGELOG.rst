@@ -6,6 +6,29 @@
 Synapse Changelog
 *****************
 
+v2.213.0 - 2025-06-10
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated Storm ``hex`` type to allow setting/lifting with integers.
+  (`#4283 <https://github.com/vertexproject/synapse/pull/4283>`_)
+- Updated the Docker image to support the latest Python 3.11.13 release.
+  (`#4284 <https://github.com/vertexproject/synapse/pull/4284>`_)
+- Improved performance of boolean evaluation of container types such as lists
+  and dictionaries in Storm.
+  (`#4322 <https://github.com/vertexproject/synapse/pull/4322>`_)
+- Updated the scrape logic for ``inet:url`` to recognize URLs surrounded by
+  smart quotes (``U+2018``, ``U+2019``, ``U+201C``, ``U+201D``).
+  (`#4328 <https://github.com/vertexproject/synapse/pull/4328>`_)
+
+Bugfixes
+--------
+- Fixed bug in ``synapse.lib.telepath.openurl`` where a share name specified
+  via the ``name`` keyword argument could be ignored if a share name was also
+  specified in the URL.
+  (`#4323 <https://github.com/vertexproject/synapse/pull/4323>`_)
+
 v2.212.0 - 2025-05-29
 =====================
 
