@@ -148,9 +148,6 @@ class AhaApi(s_cell.CellApi):
     async def getAhaSvcs(self):
         '''
         Yield AHA svcinfo dictionaries.
-
-        Args:
-            network (str): Optionally specify a network to filter on.
         '''
         async for info in self.cell.getAhaSvcs():
             yield info
@@ -1551,8 +1548,6 @@ class AhaCell(s_cell.Cell):
 
         if user is None:
             user = await self.auth.addUser(username)
-
-        await user.allow(('aha', 'service', 'get', ahanetw))
 
         userinfo = {
             'name': name,
