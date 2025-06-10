@@ -48,5 +48,5 @@ async def main(argv, outp=s_output.stdout):
             outp.printf(f'Error while attempting graceful shutdown: {text}')
             return 1
 
-if __name__ == '__main__':
-    s_cmd.exitmain(main) # pragma: no cover
+if __name__ == '__main__': # pragma: no cover
+    s_cmd.exitmain(main)
