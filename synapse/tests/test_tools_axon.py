@@ -1,14 +1,14 @@
 import io
 import os
 import asyncio
-import builtins
+import tarfile
+import tempfile
 
 from unittest import mock
 
 import synapse.common as s_common
 
 import synapse.lib.output as s_output
-import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.utils as s_t_utils
 
@@ -18,39 +18,41 @@ import synapse.tools.axon.load as axon_load
 class AxonToolsTest(s_t_utils.SynTest):
 
     async def test_axon_dump_and_load_args(self):
-        argv = ['--wrong-size', '1000']
-        outp = s_output.OutPutStr()
-        self.eq(1, await axon_dump.main(argv, outp=outp))
-        self.isin('usage: synapse.tools.axon.dump', str(outp))
+        with self.getTestDir() as testdir:
+            argv = ['--wrong-size', '1000', testdir]
+            outp = s_output.OutPutStr()
+            self.eq(1, await axon_dump.main(argv, outp=outp))
+            self.isin('usage: synapse.tools.axon.dump', str(outp))
 
-        argv = ['--wrong-size', '1000']
-        outp = s_output.OutPutStr()
-        self.eq(1, await axon_load.main(argv, outp=outp))
-        self.isin('usage: synapse.tools.axon.load', str(outp))
+            argv = ['--wrong-size', '1000', testdir]
+            outp = s_output.OutPutStr()
+            self.eq(1, await axon_load.main(argv, outp=outp))
+            self.isin('usage: synapse.tools.axon.load', str(outp))
 
     async def test_axon_dump_and_load_url_handling(self):
-        argv = ['--url', 'cell:///definitelynotarealpath/axon', '--offset', '0']
-        outp = s_output.OutPutStr()
-        self.eq(1, await axon_dump.main(argv, outp=outp))
-        self.isin('Error', str(outp))
-        self.isin('dumping blobs from Axon url', str(outp))
+        with self.getTestDir() as testdir:
+            argv = ['--url', 'cell:///definitelynotarealpath/axon', '--offset', '0', testdir]
+            outp = s_output.OutPutStr()
+            self.eq(1, await axon_dump.main(argv, outp=outp))
+            self.isin('Error', str(outp))
+            self.isin('dumping blobs from Axon url', str(outp))
 
         with self.getTestDir() as testdir:
             async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
-                blobsfile = os.path.join(testdir, 'dummy.0-1.blobs')
-                with open(blobsfile, 'wb') as fd:
-                    fd.write(s_msgpack.en(('blob:init', {})))
+                tarfile = os.path.join(testdir, 'dummy.0-1.tar.gz')
+                with open(tarfile, 'wb') as fd:
+                    fd.write(b'dummy')
                 url = f'cell://baduser:badpass@/{axon.dirn}'
-                argv = ['--url', url, blobsfile]
+                argv = ['--url', url, tarfile]
                 outp = s_output.OutPutStr()
                 self.eq(1, await axon_load.main(argv, outp=outp))
                 self.isin('No such user', str(outp))
 
         with self.getTestDir() as testdir:
-            blobsfile = os.path.join(testdir, 'dummy.0-1.blobs')
-            with open(blobsfile, 'wb') as fd:
-                fd.write(s_msgpack.en(('blob:init', {})))
-            argv = ['--url', 'cell:///definitelynotarealpath/axon', blobsfile]
+            tarfile = os.path.join(testdir, 'dummy.0-1.tar.gz')
+            with open(tarfile, 'wb') as fd:
+                fd.write(b'dummy')
+            argv = ['--url', 'cell:///definitelynotarealpath/axon', tarfile]
             outp = s_output.OutPutStr()
             self.eq(1, await axon_load.main(argv, outp=outp))
             self.isin('Error', str(outp))
@@ -84,9 +86,9 @@ class AxonToolsTest(s_t_utils.SynTest):
                 files = os.listdir(dumpdir)
                 self.true(files, 'No dump file created')
 
-                dumpfile = [os.path.join(dumpdir, f) for f in os.listdir(dumpdir) if f.endswith('.blobs')]
+                tarfiles = sorted([os.path.join(dumpdir, f) for f in files if f.endswith('.tar.gz')])
                 async with self.getTestAxon(dirn=os.path.join(testdir, 'axon1')) as axon1:
-                    argv = ['--url', f'cell:///{axon1.dirn}'] + dumpfile
+                    argv = ['--url', f'cell:///{axon1.dirn}'] + tarfiles
                     self.eq(0, await axon_load.main(argv))
                     for size, sha2, blob in sha2s:
                         self.true(await axon1.has(sha2))
@@ -94,25 +96,6 @@ class AxonToolsTest(s_t_utils.SynTest):
                         async for byts in axon1.get(sha2):
                             out += byts
                         self.eq(out, blob)
-
-    async def test_dump_blob_sha256_mismatch(self):
-        with self.getTestDir() as testdir:
-            async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
-                size, sha2 = await axon.put(b'hello world')
-                dumpdir = os.path.join(testdir, 'dumpdir')
-                os.makedirs(dumpdir)
-                orig_get = axon.get
-                async def bad_get(sha2arg, **kwargs):
-                    if sha2arg == sha2:
-                        yield b'x' * size  # corrrupt
-                    else:
-                        async for byts in orig_get(sha2arg):
-                            yield byts
-                axon.get = bad_get
-                argv = ['--url', f'cell:///{axon.dirn}', '--offset', '0', dumpdir]
-                outp = s_output.OutPutStr()
-                self.eq(1, await axon_dump.main(argv, outp=outp))
-                self.isin('SHA256 mismatch', str(outp))
 
     async def test_dump_blob_size_mismatch(self):
         with self.getTestDir() as testdir:
@@ -133,33 +116,14 @@ class AxonToolsTest(s_t_utils.SynTest):
                 self.eq(1, await axon_dump.main(argv, outp=outp))
                 self.isin('Blob size mismatch', str(outp))
 
-    async def test_dump_failed_to_close_file(self):
-        with self.getTestDir() as testdir:
-            async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
-                await axon.put(b'foo')
-                dumpdir = os.path.join(testdir, 'dumpdir')
-                os.makedirs(dumpdir)
-                argv = ['--url', f'cell:///{axon.dirn}', '--offset', '0', dumpdir]
-                real_open = builtins.open
-                class BadFile(io.BytesIO):
-                    def close(self):
-                        raise OSError("cannot close file (test)")
-                def bad_open(*args, **kwargs):
-                    if args[0].endswith('.blobs'):
-                        return BadFile()
-                    return real_open(*args, **kwargs)
-                with mock.patch('builtins.open', bad_open):
-                    outp = s_output.OutPutStr()
-                    self.eq(1, await axon_dump.main(argv, outp=outp))
-                    self.isin("failed to close file", str(outp))
-
     async def test_dump_not_axon_cell(self):
-        async with self.getTestCore() as core:
-            curl = core.getLocalUrl()
-            argv = ['--url', curl]
-            outp = s_output.OutPutStr()
-            self.eq(1, await axon_dump.main(argv, outp=outp))
-            self.isin('only works on axon', str(outp))
+        with self.getTestDir() as testdir:
+            async with self.getTestCore() as core:
+                curl = core.getLocalUrl()
+                argv = ['--url', curl, testdir]
+                outp = s_output.OutPutStr()
+                self.eq(1, await axon_dump.main(argv, outp=outp))
+                self.isin('only works on axon', str(outp))
 
     async def test_dump_outdir_is_not_directory(self):
         with self.getTestDir() as testdir:
@@ -185,11 +149,11 @@ class AxonToolsTest(s_t_utils.SynTest):
                 argv = ['--url', f'cell:///{axon.dirn}', '--offset', '0', '--rotate-size', '2048', dumpdir]
                 outp = s_output.OutPutStr()
                 self.eq(0, await axon_dump.main(argv, outp=outp))
-                files = sorted([f for f in os.listdir(dumpdir) if f.endswith('.blobs')])
-                self.true(len(files) > 1)
+
+                tarfiles = sorted([os.path.join(dumpdir, f) for f in os.listdir(dumpdir) if f.endswith('.tar.gz')])
+                self.true(len(tarfiles) > 1)
                 async with self.getTestAxon(dirn=os.path.join(testdir, 'axon2')) as axon2:
-                    files = [os.path.join(dumpdir, f) for f in os.listdir(dumpdir) if f.endswith('.blobs')]
-                    argv = ['--url', f'cell:///{axon2.dirn}'] + files
+                    argv = ['--url', f'cell:///{axon2.dirn}'] + tarfiles
                     self.eq(0, await axon_load.main(argv))
                     for size, sha2, blob in sha2s:
                         self.true(await axon2.has(sha2))
@@ -234,43 +198,6 @@ class AxonToolsTest(s_t_utils.SynTest):
                 state = s_common.yamlload(statefile_path)
                 self.isin('offset:next', state)
 
-    async def test_load_bad_sha256(self):
-        with self.getTestDir() as testdir:
-            async with self.getTestAxon(dirn=os.path.join(testdir, 'axon0')) as axon0:
-                size, sha2 = await axon0.put(b'hello world')
-                dumpdir = os.path.join(testdir, 'dumpdir')
-                os.makedirs(dumpdir)
-                argv = [
-                    '--url', f'cell:///{axon0.dirn}',
-                    '--offset', '0',
-                    dumpdir,
-                ]
-                self.eq(0, await axon_dump.main(argv))
-
-                dumpfile = [os.path.join(dumpdir, f) for f in os.listdir(dumpdir) if f.endswith('.blobs')]
-                with open(dumpfile[0], 'rb') as fd:
-                    items = list(s_msgpack.iterfd(fd))
-                for i, item in enumerate(items):
-                    if item[0] == 'blob':
-                        meta = dict(item[1])
-                        meta['sha256'] = '0' * 64  # corrupt it
-                        items[i] = ('blob', meta)
-                        break
-
-                badfile = os.path.join(testdir, 'badfile.blobs')
-                with open(badfile, 'wb') as fd:
-                    for item in items:
-                        fd.write(s_msgpack.en(item))
-
-                async with self.getTestAxon(dirn=os.path.join(testdir, 'axon1')) as axon1:
-                    argv = [
-                        '--url', f'cell:///{axon1.dirn}',
-                        badfile,
-                    ]
-                    outp = s_output.OutPutStr()
-                    self.eq(1, await axon_load.main(argv, outp=outp))
-                    self.isin('ERROR: SHA256 mismatch', str(outp))
-
     async def test_load_blobs_path_does_not_exist(self):
         with self.getTestDir() as testdir:
             missing = os.path.join(testdir, 'doesnotexist')
@@ -279,47 +206,45 @@ class AxonToolsTest(s_t_utils.SynTest):
             self.eq(1, await axon_load.main(argv, outp=outp))
             self.isin('No such file or directory', str(outp))
 
-    async def test_load_missing_bytes(self):
+    async def test_load_continue_and_invalid_blob(self):
         with self.getTestDir() as testdir:
-            async with self.getTestAxon(dirn=os.path.join(testdir, 'axon0')) as axon0:
-                size, sha2 = await axon0.put(b'hello world')
-                dumpdir = os.path.join(testdir, 'dumpdir')
-                os.makedirs(dumpdir)
-                argv = [
-                    '--url', f'cell:///{axon0.dirn}',
-                    '--offset', '0',
-                    dumpdir,
-                ]
-                self.eq(0, await axon_dump.main(argv))
+            tarpath = os.path.join(testdir, 'test1.tar.gz')
+            with tarfile.open(tarpath, 'w:gz') as tar:
+                info = tarfile.TarInfo('notablob.txt')
+                data = b'not a blob'
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+                info2 = tarfile.TarInfo('invalidblobname.blob')
+                data2 = b'data'
+                info2.size = len(data2)
+                tar.addfile(info2, io.BytesIO(data2))
 
-                dumpfile = [os.path.join(dumpdir, f) for f in os.listdir(dumpdir) if f.endswith('.blobs')]
-                with open(dumpfile[0], 'rb') as fd:
-                    items = list(s_msgpack.iterfd(fd))
+            orig_uhex = s_common.uhex
+            def fake_uhex(val):
+                if val == 'invalidblobname':
+                    raise Exception('bad hex')
+                return orig_uhex(val)
+            s_common.uhex = fake_uhex
 
-                for i, item in enumerate(items):
-                    if type(item) is bytes:
-                        items[i] = b'' # subtract a chunk, corrupt it
-                        break
-                badfile = os.path.join(testdir, 'badfile2.blobs')
-                with open(badfile, 'wb') as fd:
-                    for item in items:
-                        fd.write(s_msgpack.en(item))
-
-                async with self.getTestAxon(dirn=os.path.join(testdir, 'axon1')) as axon1:
-                    argv = [
-                        '--url', f'cell:///{axon1.dirn}',
-                        badfile,
-                    ]
-                    outp = s_output.OutPutStr()
-                    self.eq(1, await axon_load.main(argv, outp=outp))
-                    self.isin('ERROR: Blob size mismatch', str(outp))
-
-    async def test_load_no_blobs_files_found(self):
-        with self.getTestDir() as testdir:
-            argv = ['--url', 'cell:///definitelynotarealpath/axon', testdir]
             outp = s_output.OutPutStr()
-            self.eq(1, await axon_load.main(argv, outp=outp))
-            self.isin('No such file or directory', str(outp))
+            async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
+                argv = ['--url', axon.getLocalUrl(), tarpath]
+                self.eq(0, await axon_load.main(argv, outp=outp))
+            s_common.uhex = orig_uhex
+            self.isin('Skipping invalid blob filename', str(outp))
+
+    async def test_load_failed_to_extract(self):
+        with self.getTestDir() as testdir:
+            tarpath = os.path.join(testdir, 'test3.tar.gz')
+            with tarfile.open(tarpath, 'w:gz') as tar:
+                info = tarfile.TarInfo('deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef.blob')
+                info.type = tarfile.DIRTYPE
+                tar.addfile(info)
+            outp = s_output.OutPutStr()
+            async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
+                argv = ['--url', axon.getLocalUrl(), tarpath]
+                self.eq(0, await axon_load.main(argv, outp=outp))
+            self.isin('Failed to extract', str(outp))
 
     async def test_load_not_axon_cell(self):
         with self.getTestDir() as testdir:
@@ -327,60 +252,37 @@ class AxonToolsTest(s_t_utils.SynTest):
                 curl = core.getLocalUrl()
                 dumpdir = os.path.join(testdir, 'dumpdir')
                 os.makedirs(dumpdir)
-                with open(os.path.join(dumpdir, 'aabbccddeeff00112233445566778899.0-0.blobs'), 'wb') as f:
-                    f.write(b'newp')
                 argv = ['--url', curl, dumpdir]
                 outp = s_output.OutPutStr()
                 self.eq(1, await axon_load.main(argv, outp=outp))
                 self.isin('only works on axon', str(outp))
 
-    async def test_load_unexpected_eof(self):
+    async def test_load_oserror_extracting_blob(self):
         with self.getTestDir() as testdir:
-            async with self.getTestAxon(dirn=os.path.join(testdir, 'axon0')) as axon0:
-                size, sha2 = await axon0.put(b'hello world')
-                dumpdir = os.path.join(testdir, 'dumpdir')
-                os.makedirs(dumpdir)
-                argv = ['--url', f'cell:///{axon0.dirn}', '--offset', '0', dumpdir]
-                self.eq(0, await axon_dump.main(argv))
+            tarpath = os.path.join(testdir, 'test_oserror.tar.gz')
+            with tarfile.open(tarpath, 'w:gz') as tar:
+                info = tarfile.TarInfo('deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef.blob')
+                data = b'12345'
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+            outp = s_output.OutPutStr()
+            async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
+                with mock.patch('tarfile.TarFile.extractfile', side_effect=OSError("simulated extraction error")):
+                    argv = ['--url', axon.getLocalUrl(), tarpath]
+                    self.eq(0, await axon_load.main(argv, outp=outp))
+            self.isin('WARNING: Error extracting', str(outp))
 
-                dumpfile = [os.path.join(dumpdir, f) for f in os.listdir(dumpdir) if f.endswith('.blobs')]
-                with open(dumpfile[0], 'rb') as fd:
-                    items = list(s_msgpack.iterfd(fd))
-                for i in range(len(items) - 1, -1, -1):
-                    if type(items[i]) is bytes:
-                        items = items[:i]
-                        break
-                badfile = os.path.join(testdir, 'badfile_eof.blobs')
-                with open(badfile, 'wb') as fd:
-                    for item in items:
-                        fd.write(s_msgpack.en(item))
-
-                async with self.getTestAxon(dirn=os.path.join(testdir, 'axon1')) as axon1:
-                    argv = ['--url', f'cell:///{axon1.dirn}', badfile]
-                    outp = s_output.OutPutStr()
-                    self.eq(1, await axon_load.main(argv, outp=outp))
-                    self.isin('Unexpected end of file while reading blob', str(outp))
-
-    async def test_load_unexpected_message_type(self):
+    async def test_load_skipping_existing_blob(self):
         with self.getTestDir() as testdir:
-            async with self.getTestAxon(dirn=os.path.join(testdir, 'axon0')) as axon0:
-                size, sha2 = await axon0.put(b'hello world')
-                dumpdir = os.path.join(testdir, 'dumpdir')
-                os.makedirs(dumpdir)
-                argv = ['--url', f'cell:///{axon0.dirn}', '--offset', '0', dumpdir]
-                self.eq(0, await axon_dump.main(argv))
-
-                dumpfile = os.path.join(dumpdir, os.listdir(dumpdir)[0])
-                with open(dumpfile, 'rb') as fd:
-                    items = list(s_msgpack.iterfd(fd))
-                items.insert(1, ('unexpected', {'foo': 'bar'}))
-                badfile = os.path.join(testdir, 'badfile_unexpected.blobs')
-                with open(badfile, 'wb') as fd:
-                    for item in items:
-                        fd.write(s_msgpack.en(item))
-
-                async with self.getTestAxon(dirn=os.path.join(testdir, 'axon1')) as axon1:
-                    argv = ['--url', f'cell:///{axon1.dirn}', badfile]
-                    outp = s_output.OutPutStr()
-                    self.eq(1, await axon_load.main(argv, outp=outp))
-                    self.isin('ERROR: Unexpected message type', str(outp))
+            async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
+                blob = b'foo'
+                size, sha2 = await axon.put(blob)
+                tarpath = os.path.join(testdir, 'test2.tar.gz')
+                with tarfile.open(tarpath, 'w:gz') as tar:
+                    info = tarfile.TarInfo(f'{s_common.ehex(sha2)}.blob')
+                    info.size = len(blob)
+                    tar.addfile(info, io.BytesIO(blob))
+                outp = s_output.OutPutStr()
+                argv = ['--url', axon.getLocalUrl(), tarpath]
+                self.eq(0, await axon_load.main(argv, outp=outp))
+                self.isin('Skipping existing blob', str(outp))

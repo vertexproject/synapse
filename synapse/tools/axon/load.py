@@ -1,8 +1,7 @@
 import os
 import sys
 import asyncio
-import hashlib
-import itertools
+import tarfile
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -11,13 +10,13 @@ import synapse.telepath as s_telepath
 import synapse.lib.cmd as s_cmd
 import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
-import synapse.lib.msgpack as s_msgpack
 
 descr = '''
 Load blobs into a Synapse Axon.
 '''
 
-async def loadBlobs(opts, outp, blobsfiles):
+async def loadBlobs(opts, outp, tarfiles):
+
     try:
         async with await s_telepath.openurl(opts.url) as axon:
 
@@ -27,57 +26,37 @@ async def loadBlobs(opts, outp, blobsfiles):
                 mesg = f'Axon load tool only works on axons, not {celltype}'
                 raise s_exc.TypeMismatch(mesg=mesg)
 
-            for blobsfile in blobsfiles:
-                outp.printf(f'Processing blobs file: {blobsfile}')
-                with open(blobsfile, 'rb') as fd:
-                    msgit = s_msgpack.iterfd(fd)
-                    for mesg in msgit:
-                        match mesg:
-                            case ("blob:init", meta):
-                                outp.printf(f"Loading blobs file starting at offset {meta['start']}")
-                                continue
-                            case ("blob:fini", meta):
-                                outp.printf(f"Finished loading blobs file starting at offset {meta['start']}, ending at offset {meta['end']}")
-                                break
-                            case ("blob", meta):
-                                sha2hex = meta['sha256']
-                                size = meta['size']
-                                sha256 = s_common.uhex(sha2hex)
-                                async with await axon.upload() as upfd:
-                                    total = 0
-                                    hasher = hashlib.sha256()
-                                    while True:
-                                        try:
-                                            byts = next(msgit)
-                                        except StopIteration:
-                                            mesg = f'Unexpected end of file while reading blob {sha2hex}'
-                                            raise s_exc.BadDataValu(mesg=mesg)
-                                        if type(byts) is tuple:
-                                            # This block uses itertools.chain to prepend the just-encountered protocol message (tuple)
-                                            # to the front of the iterator. This ensures the outer loop will receive and handle the next
-                                            # protocol message (such as the start of a new blob or the end of the file) in streaming fashion,
-                                            # without loading the entire file into memory.
-                                            msgit = itertools.chain([byts], msgit)
-                                            break
-                                        hasher.update(byts)
-                                        total += len(byts)
-                                        await upfd.write(byts)
-                                        if total >= size:
-                                            break
-                                    if total != size:
-                                        mesg = f'Blob size mismatch for {sha2hex}: expected {size}, got {total}'
-                                        raise s_exc.BadDataValu(mesg=mesg)
-                                    if hasher.digest() != sha256:
-                                        mesg = f'SHA256 mismatch for {sha2hex}'
-                                        raise s_exc.BadDataValu(mesg=mesg)
-                                    await upfd.save()
-                            case _:
-                                try:
-                                    mtype = mesg[0]
-                                except Exception as e:
-                                    mtype = type(mesg)
-                                mesg = f'Unexpected message type: {mtype}.'
-                                raise s_exc.BadMesgFormat(mesg=mesg)
+            for tarfile_path in tarfiles:
+                outp.printf(f'Processing tar archive: {tarfile_path}')
+                with tarfile.open(tarfile_path, 'r:gz') as tar:
+                    for member in tar:
+                        if not member.name.endswith('.blob'):
+                            continue
+                        sha2hex = member.name[:-5]
+                        try:
+                            sha256 = s_common.uhex(sha2hex)
+                        except Exception:
+                            outp.printf(f"Skipping invalid blob filename: {member.name}")
+                            continue
+                        if await axon.has(sha256):
+                            outp.printf(f"Skipping existing blob {sha2hex}")
+                            continue
+                        outp.printf(f"Loading blob {sha2hex} (size={member.size})")
+                        try:
+                            fobj = tar.extractfile(member)
+                        except OSError as e:
+                            outp.printf(f"WARNING: Error extracting {member.name}: {e}")
+                            continue
+                        if fobj is None:
+                            outp.printf(f"Failed to extract {member.name} from tar archive.")
+                            continue
+                        async with await axon.upload() as upfd:
+                            while True:
+                                chunk = fobj.read(1024 * 1024)
+                                if not chunk:
+                                    break
+                                await upfd.write(chunk)
+                            await upfd.save()
 
     except s_exc.SynErr as exc:
         mesg = exc.get('mesg')
@@ -92,17 +71,17 @@ async def loadBlobs(opts, outp, blobsfiles):
 async def main(argv, outp=s_output.stdout):
     pars = s_cmd.Parser(prog='synapse.tools.axon.load', outp=outp, description=descr)
     pars.add_argument('--url', default='cell:///vertex/storage', help='Telepath URL for the Axon.')
-    pars.add_argument('files', nargs='+', help='List of .blobs files to import from.')
+    pars.add_argument('files', nargs='+', help='List of .tar.gz files to import from.')
 
     try:
         opts = pars.parse_args(argv)
     except Exception:
         return 1
 
-    blobsfiles = sorted([f for f in opts.files if f.endswith('.blobs')])
+    tarfiles = sorted([f for f in opts.files if f.endswith('.tar.gz')])
 
     async with s_telepath.withTeleEnv():
-        (ok, mesg) = await loadBlobs(opts, outp, blobsfiles)
+        (ok, mesg) = await loadBlobs(opts, outp, tarfiles)
         if not ok:
             outp.printf(f'ERROR: {mesg}')
             return 1

@@ -1111,29 +1111,23 @@ there are command line tools available to export blobs from a source Axon and th
 those blobs into a different Axon. For Axons that can communicate directly, the
 ``axon2axon`` tool should be used for live synchronization.
 
-- ``synapse.tools.axon.dump``: Export blobs from a specified Axon.
-- ``synapse.tools.axon.load``: Import blobs to a specified Axon.
+- ``synapse.tools.axon.dump``: Export blobs from a specified Axon into one or more tar.gz archive files.
+- ``synapse.tools.axon.load``: Import blobs from one or more tar.gz archive files into a specified Axon.
 
-In these situations, an export would be created using
-``synapse.tools.axon.dump``. The output of this tool is one or more export
-files that can then be manually copied over to the destination Axon
+In these situations, an export is created using
+``synapse.tools.axon.dump``. The output of this tool is one or more tar.gz
+archive files that can then be manually copied over to the destination Axon
 environment. Once the files have been copied, the ``synapse.tools.axon.load``
 tool can be used to import them into the destination Axon.
 
 .. note::
 
-   The ``synapse.tools.axon.dump`` export tool can create a state tracking YAML
-   file for recording the next expected offset from the Axon that was exported.
-   The state tracking file allows the export tool to create incremental exports
-   from the time of the last execution without requiring the offset to be
-   separately tracked.
-
    The ``synapse.tools.axon.dump`` export tool creates a state tracking YAML
    file for recording the next expected offset from the Axon that was exported.
    The state tracking file allows the export tool to create incremental exports
    from the time of the last execution without requiring the offset to be
-   separately tracked. The state tracking file is saved in the output directory
-   with name ``<celliden>.yaml``.
+   separately tracked. By default, the state tracking file is saved in the output
+   directory with name ``<celliden>.yaml``.
 
 Export blobs from an Axon
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1152,11 +1146,10 @@ Import blobs into an Axon
 Importing blobs into an Axon can be done with the
 ``synapse.tools.axon.load`` command::
 
-    python -m synapse.tools.axon.load <axonurl> <blobsdir>
+    python -m synapse.tools.axon.load <axonurl> <archive1.tar.gz> [<archive2.tar.gz> ...]
 
-The import tool will automatically order the blobs files based on starting
-offset so there is no need to import them one at a time or specify them in a
-particular order.
+The import tool will automatically process the provided tar.gz archive files,
+so there is no need to import them one at a time or specify them in a particular order.
 
 Synapse Services
 ================
