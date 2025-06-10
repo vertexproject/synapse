@@ -1900,6 +1900,11 @@ class CortexTest(s_t_utils.SynTest):
             tick = node.get('.created')
             created = node.repr('.created')
 
+            utick = node.get('.updated')
+            updated = node.repr('.updated')
+            self.eq(tick, utick)
+            self.eq(created, updated)
+
             self.len(1, await core.nodes('.created'))
             self.len(1, await core.nodes('.created=$tick', opts={'vars': {'tick': tick}}))
             self.len(1, await core.nodes('.created>=2010'))
@@ -1908,6 +1913,10 @@ class CortexTest(s_t_utils.SynTest):
             # The year the monolith returns
             self.len(1, await core.nodes('.created*range=(2010, 3001)'))
             self.len(1, await core.nodes('.created*range=("2010", "?")'))
+
+            self.len(1, await core.nodes('.updated<=now'))
+            self.len(0, await core.nodes('.updated>now'))
+            self.len(1, await core.nodes('.updated=$tick', opts={'vars': {'tick': utick}}))
 
             vdef2 = await core.view.fork()
             forkopts = {'view': vdef2.get('iden')}
@@ -1934,6 +1943,9 @@ class CortexTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.get('hehe'), 33)
             self.eq(node.get('haha'), 'thirty three')
+
+            utick = await core.callStorm('test:type10=one return(.updated)')
+            self.gt(utick, tick)
 
             with self.raises(s_exc.ReadOnlyProp):
                 await wcore.nodes('test:comp=(33, "THIRTY THREE") [ :hehe = 80]')

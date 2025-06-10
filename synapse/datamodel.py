@@ -592,6 +592,7 @@ class Model:
         self.addBaseType(item)
 
         self.metatypes['created'] = self.getTypeClone(('time', {'ismin': True}))
+        self.metatypes['updated'] = self.getTypeClone(('time', {}))
 
     def getPropsByType(self, name):
         props = self.propsbytype.get(name)
