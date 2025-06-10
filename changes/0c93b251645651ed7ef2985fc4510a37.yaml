@@ -1,5 +1,5 @@
 ---
-desc: Added ``synapse.tools.layer.dump`` and ``synapse.tools.layer.load`` command
+desc: Added ``synapse.tools.cortex.layer.dump`` and ``synapse.tools.cortex.layer.load`` command
   line tools for exporting node edits from one layer and importing them to a layer
   on a different cortex.
 prs: []

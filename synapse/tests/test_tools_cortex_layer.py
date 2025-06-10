@@ -8,8 +8,8 @@ import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_test
 
-import synapse.tools.layer.dump as s_t_dump
-import synapse.tools.layer.load as s_t_load
+import synapse.tools.cortex.layer.dump as s_t_dump
+import synapse.tools.cortex.layer.load as s_t_load
 
 class LayerTest(s_test.SynTest):
 
