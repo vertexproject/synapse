@@ -16,7 +16,7 @@ no new tasks are created. Without a timeout, it can block forever if
 tasks do not exit.
 
 The command exits with code 0 if the graceful shutdown was successful and
-exit code 1 if a timeout was specified and was hit. Uppon hitting the timeout
+exit code 1 if a timeout was specified and was hit. Upon hitting the timeout
 the system resumes normal operation.
 '''
 
@@ -25,7 +25,7 @@ async def main(argv, outp=s_output.stdout):
     pars = s_cmd.Parser('synapse.tools.shutdown', outp=outp, description=desc)
 
     pars.add_argument('--url', default='cell:///vertex/storage',
-                        help='THe telepath URL to connect to the service.')
+                        help='The telepath URL to connect to the service.')
 
     pars.add_argument('--timeout', default=None, type=int,
                         help='An optional timeout in seconds. If timeout is reached, the shutdown is aborted.')
