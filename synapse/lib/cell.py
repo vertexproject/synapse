@@ -303,6 +303,7 @@ class CellApi(s_base.Base):
 
     @adminapi()
     def getNexsIndx(self):
+        self.cell.boss.reqNotShut()
         return self.cell.getNexsIndx()
 
     @adminapi()
