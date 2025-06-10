@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 import asyncio
 import hashlib
@@ -43,33 +42,29 @@ async def loadBlobs(opts, outp, blobsfiles):
                                 sha2hex = meta['sha256']
                                 size = meta['size']
                                 sha256 = s_common.uhex(sha2hex)
-                                hasher = hashlib.sha256()
-                                total = 0
-                                bytelist = []
-                                while True:
-                                    try:
-                                        byts = next(msgit)
-                                    except StopIteration:
-                                        mesg = f'Unexpected end of file while reading blob {sha2hex}'
-                                        raise s_exc.BadDataValu(mesg=mesg)
-                                    if type(byts) is tuple:
-                                        msgit = (i for i in [byts] + list(msgit))
-                                        break
-                                    hasher.update(byts)
-                                    total += len(byts)
-                                    bytelist.append(byts)
-                                    if total >= size:
-                                        break
-                                if total != size:
-                                    mesg = f'Blob size mismatch for {sha2hex}: expected {size}, got {total}'
-                                    raise s_exc.BadDataValu(mesg=mesg)
-                                if hasher.digest() != sha256:
-                                    mesg = f'SHA256 mismatch for {sha2hex}'
-                                    raise s_exc.BadDataValu(mesg=mesg)
-                                outp.printf(f'Loading blob {sha2hex} (size={size})')
                                 async with await axon.upload() as upfd:
-                                    for byts in bytelist:
+                                    total = 0
+                                    hasher = hashlib.sha256()
+                                    while True:
+                                        try:
+                                            byts = next(msgit)
+                                        except StopIteration:
+                                            mesg = f'Unexpected end of file while reading blob {sha2hex}'
+                                            raise s_exc.BadDataValu(mesg=mesg)
+                                        if type(byts) is tuple:
+                                            msgit = (i for i in [byts] + list(msgit))
+                                            break
+                                        hasher.update(byts)
+                                        total += len(byts)
                                         await upfd.write(byts)
+                                        if total >= size:
+                                            break
+                                    if total != size:
+                                        mesg = f'Blob size mismatch for {sha2hex}: expected {size}, got {total}'
+                                        raise s_exc.BadDataValu(mesg=mesg)
+                                    if hasher.digest() != sha256:
+                                        mesg = f'SHA256 mismatch for {sha2hex}'
+                                        raise s_exc.BadDataValu(mesg=mesg)
                                     await upfd.save()
                             case _:
                                 mtype = mesg[0]
@@ -96,7 +91,7 @@ async def main(argv, outp=s_output.stdout):
     except Exception:
         return 1
 
-    blobsfiles = opts.files
+    blobsfiles = sorted(opts.files)
 
     async with s_telepath.withTeleEnv():
         (ok, mesg) = await loadBlobs(opts, outp, blobsfiles)

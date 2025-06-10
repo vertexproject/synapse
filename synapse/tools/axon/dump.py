@@ -20,7 +20,7 @@ Dump blobs from a Synapse Axon.
 DEFAULT_ROTATE_SIZE = s_const.gigabyte * 4
 
 def getOutfileName(celliden, start, end):
-    return f'{celliden}.{start}-{end}.blobs'
+    return f'{celliden}.{start:012d}-{end:012d}.blobs'
 
 def writeFooterAndClose(outfile, celliden, file_start, file_end, file_blobcount, outfile_path, outdir, outp):
     footer = s_msgpack.en(('blob:fini', {'celliden': celliden,
@@ -76,7 +76,7 @@ async def dumpBlobs(opts, outp):
             try:
                 async for (offs, (sha256, size)) in hashes_iter:
                     if for_open:
-                        outfile_path = os.path.join(opts.outdir, getOutfileName(celliden, offs, 'end'))
+                        outfile_path = os.path.join(opts.outdir, getOutfileName(celliden, offs, -1))
                         outfile = open(outfile_path, 'wb')
                         outfile.write(s_msgpack.en(('blob:init', {'hdrvers': 1,
                                                                   'celliden': celliden,
