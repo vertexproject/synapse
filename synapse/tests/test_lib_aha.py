@@ -249,8 +249,8 @@ class AhaTest(s_test.SynTest):
 
                 self.eq(info['cell']['aha'], {'name': '0.cryo', 'leader': 'cryo', 'network': 'synapse'})
 
-                aha._waitAhaSvcOnline('cryo...', timeout=10)
-                aha._waitAhaSvcOnline('0.cryo...', timeout=10)
+                await aha._waitAhaSvcOnline('cryo...', timeout=10)
+                await aha._waitAhaSvcOnline('0.cryo...', timeout=10)
 
                 async with await s_telepath.openurl('aha://cryo.synapse') as proxy:
                     self.nn(await proxy.getCellIden())
