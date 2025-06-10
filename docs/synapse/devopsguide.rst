@@ -1103,7 +1103,7 @@ additonal CA files.
     variable.
 
 Axon Blob Export and Import
-----------------------------
+---------------------------
 
 For situations where an organization needs to synchronize Axon blobs between two Axons
 that do not connect directly to each other, due to network segmentation as an example,
@@ -1133,7 +1133,7 @@ tool can be used to import them into the destination Axon.
    tracking file is saved in that directory with name ``<celliden>.yaml``.
 
 Export blobs from an Axon
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Exporting blobs from an Axon can be done with the
 ``synapse.tools.axon.dump`` command::
@@ -1144,7 +1144,7 @@ When running the export tool from within the Axon container, the ``--url``
 option does not need to be provided as it will default to the local service.
 
 Import blobs into an Axon
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Importing blobs into an Axon can be done with the
 ``synapse.tools.axon.load`` command::
