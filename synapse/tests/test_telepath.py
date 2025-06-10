@@ -280,6 +280,24 @@ class TeleTest(s_t_utils.SynTest):
         self.true(prox.isfini)
         await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
 
+    async def test_telepath_openinfo_cell(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+
+                layr00 = core.getView().layers[0]
+
+                async with await s_telepath.openurl(f'cell://root@{dirn}:*', name=f'*/layer/{layr00.iden}') as layer:
+                    self.eq(layr00.iden, await layer.getIden())
+
+    async def test_telepath_openinfo_unix(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+
+                layr00 = core.getView().layers[0]
+
+                async with await s_telepath.openurl(f'unix://root@{dirn}/sock:*', name=f'*/layer/{layr00.iden}') as layer:
+                    self.eq(layr00.iden, await layer.getIden())
+
     async def test_telepath_tls_bad_cert(self):
         self.thisHostMustNot(platform='darwin')
 

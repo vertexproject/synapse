@@ -1800,6 +1800,17 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'asdf'))
 
+            q = '''
+            $set = $lib.set()
+            for $v in $lib.range($n) {
+                $set.add($v)
+            }
+            if $set { return ( (true) ) }
+            else { return ( (false) ) }
+            '''
+            self.false(await core.callStorm(q, opts={'vars': {'n': 0}}))
+            self.true(await core.callStorm(q, opts={'vars': {'n': 1}}))
+
             # test that some of the more complex objects we've got uniq down properly
             # Bool
             q = '''
