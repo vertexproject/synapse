@@ -1233,7 +1233,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to add a new view including forks.'},
             {'perm': ('view', 'del'), 'gate': 'view',
              'desc': 'Controls access to delete a view.'},
-            {'perm': ('view', 'fork'), 'gate': 'view', 'default': True,
+            {'perm': ('view', 'fork'), 'gate': 'view',
              'desc': 'Controls access to fork a view.'},
             {'perm': ('view', 'read'), 'gate': 'view',
              'desc': 'Controls read access to view.'},

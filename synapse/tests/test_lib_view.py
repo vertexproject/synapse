@@ -724,7 +724,7 @@ class ViewTest(s_t_utils.SynTest):
             useriden = user['iden']
             useropts = {'user': useriden}
 
-            await core.addUserRule(useriden, (True, ('view', 'add')))
+            await core.addUserRule(useriden, (True, ('view', 'fork')))
 
             forkview = await core.callStorm('return($lib.view.get().fork().iden)', opts=useropts)
             viewopts = {**useropts, 'view': forkview}
