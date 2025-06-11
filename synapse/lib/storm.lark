@@ -241,12 +241,14 @@ edgeaddn2: _EDGEN2INIT _valu _EDGEADDN2FINI (baresubquery | _varvalu)
 edgedeln2: _EDGEN2INIT _valu _EDGEN2FINI (baresubquery | _varvalu)
 
 _REVERSE: /reverse(?=[\s\(])/
-liftreverse: _REVERSE "(" (liftmeta
+liftreverse: _REVERSE "(" (liftmetareverse
     | liftformtag | liftformtagvalu | liftformtagvirt | liftformtagvirtvalu
     | liftpropby | liftprop | liftpropvirt | liftpropvirtby
     | liftbyarray | liftbyarrayvirt
     | lifttagtag | liftbytag | liftbytagvalu | liftbytagvirt | liftbytagvirtvalu
     | liftbytagprop | liftbyformtagprop) ")"
+
+liftmetareverse: (virtprops | barevirtprops) [_cmpr _valu] -> liftmeta
 
 _DEREF.3:  /\*(?=\(?\$)/
 

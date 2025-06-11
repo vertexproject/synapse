@@ -456,9 +456,7 @@ class IndxByVirt(IndxBy):
         self.virts = virts
 
     def __repr__(self):
-        if self.form:
-            return f'IndxByVirt: {self.form}:{self.prop}.{".".join(self.virts)}'
-        return f'IndxByVirt: {self.prop}.{".".join(self.virts)}'
+        return f'IndxByVirt: {self.form}:{self.prop}.{".".join(self.virts)}'
 
 class IndxByVirtArray(IndxBy):
 
@@ -474,9 +472,7 @@ class IndxByVirtArray(IndxBy):
         self.virts = virts
 
     def __repr__(self):
-        if self.form:
-            return f'IndxByVirtArray: {self.form}:{self.prop}.{".".join(self.virts)}'
-        return f'IndxByVirtArray: {self.prop}.{".".join(self.virts)}'
+        return f'IndxByVirtArray: {self.form}:{self.prop}.{".".join(self.virts)}'
 
 class IndxByPropArray(IndxBy):
 
@@ -1453,6 +1449,17 @@ class StorTypeIval(StorType):
             self.tagindx[f'duration{cmpr}'] = IndxByTagIvalDuration
             self.propindx[f'duration{cmpr}'] = IndxByPropIvalDuration
             self.tagpropindx[f'duration{cmpr}'] = IndxByTagPropIvalDuration
+
+    async def indxByForm(self, form, cmpr, valu, reverse=False, virts=None):
+        try:
+            indxtype = self.propindx.get(cmpr, IndxByProp)
+            indxby = indxtype(self.layr, form, None)
+
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
+            yield item
 
     async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virts=None):
         try:
@@ -3019,12 +3026,9 @@ class Layer(s_nexus.Pusher):
             async for indx, nid in self.stortypes[kind].indxByTagProp(form, tag, prop, cmpr, valu, reverse=reverse):
                 yield indx, nid, self.genStorNodeRef(nid)
 
-    async def liftByMeta(self, name, form=None, reverse=False):
+    async def liftByMeta(self, name, reverse=False):
 
-        try:
-            abrv = self.core.getIndxAbrv(INDX_VIRTUAL, form, None, name)
-        except s_exc.NoSuchAbrv:
-            return
+        abrv = self.core.getIndxAbrv(INDX_VIRTUAL, None, None, name)
 
         if reverse:
             scan = self.layrslab.scanByPrefBack
@@ -3035,13 +3039,9 @@ class Layer(s_nexus.Pusher):
             sref = self.genStorNodeRef(nid)
             yield lval, nid, sref
 
-    async def liftByMetaValu(self, name, cmprvals, form=None, reverse=False):
+    async def liftByMetaValu(self, name, cmprvals, reverse=False):
         for cmpr, valu, kind in cmprvals:
-
-            if kind & 0x8000:
-                kind = STOR_TYPE_ARRAY
-
-            async for indx, nid in self.stortypes[kind].indxByProp(form, None, cmpr, valu, reverse=reverse, virts=(name,)):
+            async for indx, nid in self.stortypes[kind].indxByProp(None, None, cmpr, valu, reverse=reverse, virts=(name,)):
                 yield indx, nid, self.genStorNodeRef(nid)
 
     async def liftByProp(self, form, prop, reverse=False, indx=None):

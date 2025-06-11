@@ -773,6 +773,19 @@ class LayerTest(s_t_utils.SynTest):
 
             self.len(1, await core0.nodes('.created'))
 
+            url = core0.getLocalUrl('*/layer')
+            async with await s_telepath.openurl(url) as layrprox:
+                async for nedit in layrprox.iterLayerNodeEdits(meta=True):
+                    break
+
+                metaedit = [edit for edit in nedit[2] if edit[0] == s_layer.EDIT_META_SET]
+                self.len(1, metaedit)
+
+                # Force replaying a meta edit for coverage
+                nid = nedit[0]
+                sode = layer0.getStorNode(s_common.int64en(nid))
+                self.eq((), await layer0._editMetaSet(nid, None, metaedit[0], sode, None))
+
     async def test_layer_syncindexevents(self):
 
         async with self.getTestCore() as core:
@@ -2304,7 +2317,13 @@ class LayerTest(s_t_utils.SynTest):
             self.len(9, await core.nodes(q))
             q = '$foo=test:guid:server inet:http:request :server.ip -> ($foo).ip'
             self.len(6, await core.nodes(q))
+            q = '$foo=test:guid:server $bar=ip inet:http:request :server.$bar -> ($foo).$bar'
+            self.len(6, await core.nodes(q))
             q = '$foo=test:guid:server inet:http:request :server.ip -> (($foo).ip, inet:flow:src.ip)'
+            self.len(9, await core.nodes(q))
+            q = '$foo=test:guid:server $bar=ip inet:http:request :server.ip -> (($foo).$bar, inet:flow:src.$bar)'
+            self.len(9, await core.nodes(q))
+            q = '$foo=(test:guid:server, inet:flow:src) inet:http:request :server.ip -> ($foo).ip'
             self.len(9, await core.nodes(q))
 
             self.len(12, await core.nodes('.created +inet:server.ip'))

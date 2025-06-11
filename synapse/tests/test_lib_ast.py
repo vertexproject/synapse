@@ -3861,7 +3861,10 @@ class AstTest(s_test.SynTest):
 
             queries = (
                 '#(tag).min=2020 return(#(tag).min)',
+                '#(tag).min=2020 for $i in (#(tag).min,) { return($i) }',
+                'test:ival.min=2020 return(.min)',
                 'ou:campaign:period.min=2020 return(:period.min)',
+                'ou:campaign:period.min=2020 $virt=min return(:period.$virt)',
                 'ou:campaign#(tag).min=2020 return(#(tag).min)',
                 'ou:campaign#tag:ival.min=2020 return(#tag:ival.min)',
                 'ou:contribution return(:campaign::period.min)'
@@ -3869,6 +3872,10 @@ class AstTest(s_test.SynTest):
 
             for query in queries:
                 self.eq(1577836800000000, await core.callStorm(query))
+
+            with self.raises(s_exc.StormRuntimeError):
+                query = await core.getStormQuery('$foo=#(tag).min')
+                query.reqRuntSafe(None, None)
 
             await core.nodes('test:ival +test:ival.min=2020 | delnode')
             self.len(0, await core.nodes('test:ival +test:ival.min=2020'))

@@ -1934,6 +1934,10 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('.created>$tick', opts=forkopts))
             self.len(0, await core.nodes('.created?=newp', opts=forkopts))
 
+            nodes = await core.nodes('.created', opts=forkopts)
+            revnodes = await core.nodes('reverse(.created)', opts=forkopts)
+            self.eq(nodes, revnodes[::-1])
+
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('.newp>1')
 

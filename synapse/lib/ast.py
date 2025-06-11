@@ -3732,6 +3732,8 @@ class PropValue(Value):
         self.isconst = isinstance(self.kids[0], Const)
 
         self.virts = None
+        self.constvirts = None
+
         if len(self.kids) > 1:
             self.virts = self.kids[1]
             if all(isinstance(k, Const) for k in self.virts.kids):
@@ -3791,14 +3793,9 @@ class RelPropValue(PropValue):
 class VirtPropValue(PropValue):
 
     def prepare(self):
-        self.const = None
-        if isinstance(self.kids[0], Const):
-            self.const = self.kids[0].value()
+        self.const = self.kids[0].const
 
     async def getTypeValu(self, runt, path):
-
-        if not path:
-            return None, None
 
         node = path.node
 
