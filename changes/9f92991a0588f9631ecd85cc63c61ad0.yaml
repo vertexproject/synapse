@@ -1,0 +1,6 @@
+---
+desc: Updated Cortex Storm pool behavior to prefer all remote pool members before
+  the local leader.
+prs: []
+type: feat
+...
