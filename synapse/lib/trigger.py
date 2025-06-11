@@ -83,11 +83,18 @@ class Triggers:
             [await trig.execute(node) for trig in self.nodedel.get(node.form.name, ())]
 
     async def runPropSet(self, node, prop, oldv):
+        trigs = self.propset.get(prop.full, [])
+        for iface in prop.ifaces:
+            if (itrigs := self.propset.get(iface)) is not None:
+                trigs.extend(itrigs)
+
+        if not trigs:
+            return
+
         vars = {'auto': {'opts': {'propname': prop.name, 'propfull': prop.full}}}
         with self._recursion_check():
-            [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.full, ())]
-            if prop.univ is not None:
-                [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.univ.full, ())]
+            for trig in trigs:
+                await trig.execute(node, vars=vars)
 
     async def runTagAdd(self, node, tag):
 

@@ -118,20 +118,20 @@ class TrigTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=fdir) as core:
                 iden = s_common.guid()
-                tdef = {'cond': 'node:add', 'form': 'inet:ip', 'storm': '[inet:user=1] | testcmd'}
+                tdef = {'cond': 'node:add', 'form': 'inet:ip', 'storm': '[test:int=1] | testcmd'}
                 await core.view.addTrigger(tdef)
 
                 triggers = await core.view.listTriggers()
-                self.eq(triggers[0][1].tdef['storm'], '[inet:user=1] | testcmd')
+                self.eq(triggers[0][1].tdef['storm'], '[test:int=1] | testcmd')
 
                 iden = triggers[0][0]
-                await core.view.setTriggerInfo(iden, {'storm': '[inet:user=2 .test:univ=4] | testcmd'})
+                await core.view.setTriggerInfo(iden, {'storm': '[test:int=2 :name=4] | testcmd'})
                 triggers = await core.view.listTriggers()
-                self.eq(triggers[0][1].tdef['storm'], '[inet:user=2 .test:univ=4] | testcmd')
+                self.eq(triggers[0][1].tdef['storm'], '[test:int=2 :name=4] | testcmd')
 
                 # Sad cases
                 await self.asyncraises(s_exc.BadSyntax, core.view.setTriggerInfo(iden, {'storm': ' | | badstorm '}))
-                await self.asyncraises(s_exc.NoSuchIden, core.view.setTriggerInfo('deadb33f', {'storm': 'inet:user'}))
+                await self.asyncraises(s_exc.NoSuchIden, core.view.setTriggerInfo('deadb33f', {'storm': 'test:innt'}))
 
     async def test_trigger_basics(self):
 
@@ -223,18 +223,6 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('[ test:type10=1 :intprop=25 ]')
             self.len(0, await core.nodes('test:int=6'))
 
-            # Prop set univ
-            tdef = {'cond': 'prop:set', 'storm': '[ test:guid="*" +#propsetuniv ]', 'prop': '.test:univ'}
-            await view.addTrigger(tdef)
-            await core.nodes('[ test:type10=1 .test:univ=1 ]')
-            self.len(1, await core.nodes('test:guid#propsetuniv'))
-
-            # Prop set form specific univ
-            tdef = {'cond': 'prop:set', 'storm': '[ test:guid="*" +#propsetuniv2 ]', 'prop': 'test:str.test:univ'}
-            await view.addTrigger(tdef)
-            await core.nodes('[ test:str=beep .test:univ=1 ]')
-            self.len(1, await core.nodes('test:guid#propsetuniv2'))
-
             # Add trigger with iden
             iden = s_common.guid()
             tdef0 = {'cond': 'node:add', 'storm': '[ +#withiden ]', 'form': 'test:int', 'iden': iden}
@@ -310,7 +298,7 @@ class TrigTest(s_t_utils.SynTest):
 
             # Trigger list
             triglist = await view.listTriggers()
-            self.len(12, triglist)
+            self.len(10, triglist)
 
             # Delete not a trigger
             await self.asyncraises(s_exc.NoSuchIden, view.delTrigger('foo'))
@@ -910,3 +898,28 @@ class TrigTest(s_t_utils.SynTest):
             opts = {'vars': {'iden': node.get('iden')}}
             ret = await core.callStorm('return($lib.trigger.mod($iden, ({})))', opts=opts)
             self.eq(ret, node.get('iden'))
+
+    async def test_trigger_interface(self):
+
+        async with self.getTestCore() as core:
+
+            tdef = {'cond': 'prop:set', 'storm': '[ test:int=1 ]', 'prop': 'test:interface:size'}
+            opts = {'vars': {'tdef': tdef}}
+            q = 'return ($lib.trigger.add($tdef))'
+            node = await core.callStorm(q, opts=opts)
+
+            tdef = {'cond': 'prop:set', 'storm': '[ test:int=2 ]', 'prop': 'inet:proto:request:client'}
+            opts = {'vars': {'tdef': tdef}}
+            node = await core.callStorm(q, opts=opts)
+
+            self.len(0, await core.nodes('test:int'))
+
+            await core.nodes('[ test:hasiface=iface1 :size=10 ]')
+            nodes = await core.nodes('test:int')
+            self.len(1, nodes)
+            self.eq(1, nodes[0].valu())
+
+            await core.nodes('[ test:hasiface=iface2 :client=1.2.3.4 ]')
+            nodes = await core.nodes('test:int')
+            self.len(2, nodes)
+            self.eq(2, nodes[1].valu())

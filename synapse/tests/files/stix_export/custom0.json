@@ -26,10 +26,8 @@
           ]
         }
       },
-      "first_seen": "2010-01-01T00:00:00.000Z",
       "id": "malware--af4ebd59-9d48-46df-a560-cf2e3ccbf714",
       "is_family": true,
-      "last_seen": "2020-01-01T00:00:00.000Z",
       "modified": "2021-04-29T17:34:49.374Z",
       "name": "redtree",
       "sample_refs": [

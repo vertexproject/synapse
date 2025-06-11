@@ -160,8 +160,8 @@ class StormlibModelTest(s_test.SynTest):
 
             mesgs = await core.stormlist('model.deprecated.check')
 
-            self.stormIsInWarn('.pdep is not yet locked', mesgs)
-            self.stormNotInWarn('test:dep:easy.pdep is not yet locked', mesgs)
+            self.stormIsInWarn(':pdep is not yet locked', mesgs)
+            self.stormNotInWarn('test:dep:easy:pdep is not yet locked', mesgs)
 
     async def test_stormlib_model_migration(self):
 
