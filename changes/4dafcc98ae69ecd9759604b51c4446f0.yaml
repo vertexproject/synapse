@@ -1,5 +1,5 @@
 ---
-desc: Added a tool, ``synapse.tools.pkg.build_docs``, for converting Storm package
+desc: Added a tool, ``synapse.tools.pkgs.gendocs``, for converting Storm package
   documentation from RST to Markdown.
 prs: []
 type: feat
