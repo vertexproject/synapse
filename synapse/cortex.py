@@ -276,7 +276,20 @@ class CoreApi(s_cell.CellApi):
         view = self.cell.getView()
         self.user.confirm(perms, gateiden=view.wlyr.iden)
 
-    async def addFeedData(self, items, *, viewiden=None):
+    async def importStormMeta(self, meta, extmodel=False, viewiden=None):
+        view = self.cell.getView(viewiden, user=self.user)
+        if view is None:
+            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
+
+        self.user.confirm(('feed:data',), gateiden=view.wlyr.iden)
+
+        self.cell._reqValidExportStormMeta(meta)
+
+        if extmodel:
+            await self.cell.addExtModel(meta['model_ext'])
+        return
+
+    async def addFeedData(self, items, *, viewiden=None, reqmeta=True):
 
         view = self.cell.getView(viewiden, user=self.user)
         if view is None:
@@ -292,7 +305,7 @@ class CoreApi(s_cell.CellApi):
 
         logger.info(f'User ({self.user.name}) adding feed data: {len(items)}')
 
-        async for node in view.addNodes(items, user=self.user):
+        async for node in view.addNodes(items, user=self.user, reqmeta=reqmeta):
             await asyncio.sleep(0)
 
     async def count(self, text, *, opts=None):
@@ -1197,6 +1210,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'data', 'del', '<key>'), 'gate': 'layer',
              'ex': 'node.data.del.hehe',
              'desc': 'Permits a user to remove node data in a given layer for a specific key.'},
+
+            {'perm': ('feed', 'data'), 'gate': 'layer',
+             'desc': 'Controls access to feeding/importing data into a layer.'},
 
             {'perm': ('pkg', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding storm packages.'},
@@ -2984,7 +3000,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             typeinfo['interfaces'] = tuple(ifaces)
 
         self.model.addType(formname, basetype, typeopts, typeinfo)
-        self.model.addForm(formname, {}, ())
+        self.model.addForm(formname, typeinfo, ())
 
         self.extforms.set(formname, (formname, basetype, typeopts, typeinfo))
         await self.fire('core:extmodel:change', form=formname, act='add', type='form')
@@ -5460,21 +5476,113 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
                     self._logStormQuery(text, user, info=info)
 
+                    forms = collections.Counter()
+                    nodec = 0
+                    used_forms = set()
+                    used_types = set()
+                    used_props = set()
+                    used_univs = set()
+                    used_tagprops = set()
+
                     async for node, path in runt.execute():
+
+                        # Forms
+                        if node.form.isext:
+                            used_forms.add(node.form.name)
+
+                        # Types
+                        form = self.model.forms[node.form.name]
+                        for base in form.type.info.get('bases', ()):
+                            if base.startswith('_'):
+                                used_types.add(base)
+
+                        # Props
+                        for prop in node.form.props.values():
+                            if prop.type.name.startswith('_'):
+                                used_types.add(prop.type.name)
+                            if (node.form.isext or prop.isext) and not prop.name.startswith('.'):
+                                if node.get(prop.name) is not None:
+                                    used_props.add((node.form.name, prop.name))
+
+                        # Tagprops
+                        all_tagprops = node._getTagPropsDict()
+                        for tagname, tagpropdict in all_tagprops.items():
+                            for tagprop, valu in tagpropdict.items():
+                                if valu is not None:
+                                    used_tagprops.add(tagprop)
+
+                        # Univprops
+                        for prop in node.form.props.values():
+                            if prop.isext and prop.name.startswith('._'):
+                                univ_name = prop.name[1:]
+                                if node.get(prop.name) is not None:
+                                    used_univs.add(univ_name)
+
                         await spooldict.set(node.nid, (node.lastlayr(), node.pack()))
+                        forms[node.form.name] += 1
+                        nodec += 1
+
+                    # Edges
+                    ext_edges = set()
+                    for (src_form, verb, tgt_form), edgeinfo in self.model.edges.items():
+                        if verb.startswith('_'):
+                            ext_edges.add((src_form, verb, tgt_form))
+
+                    extmodel = await self.getExtModel()
+                    model_ext = {
+                        'forms': [f for f in extmodel.get('forms', []) if f[0] in used_forms],
+                        'types': [t for t in extmodel.get('types', []) if t[0] in used_types],
+                        'props': [p for p in extmodel.get('props', []) if (p[0], p[1]) in used_props],
+                        'tagprops': [tp for tp in extmodel.get('tagprops', []) if tp[0] in used_tagprops],
+                        'univs': [u for u in extmodel.get('univs', []) if u[0] in used_univs],
+                    }
+
+                    node_edges = {}
+                    edges_meta = {}
+                    for nid1, (stoplayr, pode1) in spooldict.items():
+                        await asyncio.sleep(0)
+                        src_form = pode1[0][0]
+                        for nid2, pode2 in spooldict.items():
+                            await asyncio.sleep(0)
+                            tgt_form = pode2[1][0][0]
+                            n2buid = self.getBuidByNid(nid2)
+                            async for verb in view.iterEdgeVerbs(nid1, nid2, stop=stoplayr):
+                                node_edges.setdefault(nid1, []).append((verb, s_common.ehex(n2buid)))
+                                edges_meta.setdefault(src_form, {}).setdefault(verb, set()).add(tgt_form)
+
+                    edges_meta = {k: {vk: sorted(list(vv)) for vk, vv in v.items()} for k, v in edges_meta.items()}
+                    used_edges = set()
+                    for (src_form, verb, tgt_form) in ext_edges:
+                        tgt_forms = edges_meta.get(src_form, {}).get(verb, [])
+                        if tgt_form is None:
+                            if tgt_forms:
+                                used_edges.add((src_form, verb, tgt_form))
+                        else:
+                            if tgt_form in tgt_forms:
+                                used_edges.add((src_form, verb, tgt_form))
+
+                    model_ext['edges'] = [edge for edge in extmodel.get('edges', []) if edge[0] in used_edges]
+
+                    metadata = {
+                        'type': 'meta',
+                        'vers': 1,
+                        'forms': forms,
+                        'edges': edges_meta,
+                        'count': nodec,
+                        'model_ext': model_ext,
+                        'creatorname': user.name,
+                        'creatoriden': user.iden,
+                        'created': s_common.now(),
+                        'synapse_ver': s_version.verstring,
+                        'query': text,
+                    }
+
+                    s_schemas.reqValidExportStormMeta(metadata)
+                    yield metadata
 
                     for nid1, (stoplayr, pode1) in spooldict.items():
                         await asyncio.sleep(0)
-
-                        edges = []
-
-                        for nid2, pode2 in spooldict.items():
-                            await asyncio.sleep(0)
-
-                            async for verb in view.iterEdgeVerbs(nid1, nid2, stop=stoplayr):
-                                n2buid = self.getBuidByNid(nid2)
-                                edges.append((verb, s_common.ehex(n2buid)))
-
+                        edges = node_edges.get(nid1)
                         if edges:
                             pode1[1]['edges'] = edges
 
@@ -5486,6 +5594,31 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await fd.write(s_msgpack.en(pode))
             size, sha256 = await fd.save()
             return (size, s_common.ehex(sha256))
+
+    def _reqValidExportStormMeta(self, meta, synver_range='>=3.0.0,<4.0.0'):
+        '''
+        Validate an export storm meta dict for schema, version, and synapse version compatibility.
+
+        Raises:
+            s_exc.BadDataValu: If the schema is invalid, vers is unsupported, or synapse_ver is malformed.
+            s_exc.BadVersion: If the synapse_ver is not in the supported range.
+        '''
+        try:
+            s_schemas.reqValidExportStormMeta(meta)
+        except s_exc.SchemaViolation as e:
+            raise s_exc.BadDataValu(mesg=f'Invalid syn.nodes data.')
+
+        if meta['vers'] != 1:
+            mesg = f"Unsupported export version: {meta['vers']}, expected 1"
+            raise s_exc.BadVersion(mesg=mesg)
+
+        meta_syn_vers = meta['synapse_ver']
+        parts = s_version.parseSemver(meta_syn_vers)
+        if parts is None:
+            mesg = f"Malformed synapse version: {meta_syn_vers}, expected {synver_range}"
+            raise s_exc.BadVersion(mesg=mesg)
+        meta_syn_vers_tupl = (parts['major'], parts['minor'], parts['patch'])
+        s_version.reqVersion(meta_syn_vers_tupl, synver_range)
 
     async def feedFromAxon(self, sha256, opts=None):
 
@@ -5510,7 +5643,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 nonlocal feedexc
                 try:
 
-                    async for item in self.axon.iterMpkFile(sha256):
+                    itermpkfile = self.axon.iterMpkFile(sha256)
+                    first = await itermpkfile.__anext__()
+                    self._reqValidExportStormMeta(first)
+
+                    async for item in itermpkfile:
                         await q.put(item)
 
                 except Exception as e:
@@ -5657,7 +5794,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         }
         return ret
 
-    async def addFeedData(self, items, *, user=None, viewiden=None):
+    async def addFeedData(self, items, *, user=None, viewiden=None, reqmeta=True):
         '''
         Add bulk data in nodes format.
 
@@ -5676,7 +5813,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         logger.info(f'User (user.name) adding feed data: {len(items)}')
 
-        async for node in view.addNodes(items, user=user):
+        async for node in view.addNodes(items, user=user, reqmeta=reqmeta):
             await asyncio.sleep(0)
 
     async def getPropNorm(self, prop, valu, typeopts=None):
