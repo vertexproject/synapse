@@ -658,9 +658,8 @@ class ViewTest(s_t_utils.SynTest):
             baseoffs = await layr.getEditOffs()
 
             async def waitPushOffs(core_, iden_, offs_):
-                gvar = f'push:{iden_}'
                 while True:
-                    if await core_.getStormVar(gvar, -1) >= offs_:
+                    if core_.layeroffs.get(iden_, -1) >= offs_:
                         return
                     await asyncio.sleep(0)
 
