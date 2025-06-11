@@ -182,6 +182,18 @@ testDataSchema_v1 = {
 
 class CellTest(s_t_utils.SynTest):
 
+    async def test_cell_getLocalUrl(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCell(dirn=dirn) as cell:
+                url = cell.getLocalUrl()
+                self.eq(url, f'cell://root@{dirn}')
+
+                url = cell.getLocalUrl(share='*/layer')
+                self.eq(url, f'cell://root@{dirn}:*/layer')
+
+                url = cell.getLocalUrl(user='lowuser', share='*/view')
+                self.eq(url, f'cell://lowuser@{dirn}:*/view')
+
     async def test_cell_drive(self):
 
         with self.getTestDir() as dirn:
@@ -2481,10 +2493,8 @@ class CellTest(s_t_utils.SynTest):
                     opts = {'view': viewiden}
                     with self.getAsyncLoggerStream('synapse.lib.lmdbslab',
                                                    'Error during slab resize callback - foo') as stream:
-                        nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ip=([4, $x])]}', opts=opts)
-                        await stream.wait(timeout=10)
-                    stream.seek(0)
-                    self.isin('Error during slab resize callback - foo', stream.read())
+                        msgs = await core.stormlist('for $x in $lib.range(200) {[test:int=$x]}', opts=opts)
+                        self.true(await stream.wait(timeout=30))
 
         async with self.getTestCore() as core:
 

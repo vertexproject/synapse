@@ -1800,6 +1800,17 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'asdf'))
 
+            q = '''
+            $set = $lib.set()
+            for $v in $lib.range($n) {
+                $set.add($v)
+            }
+            if $set { return ( (true) ) }
+            else { return ( (false) ) }
+            '''
+            self.false(await core.callStorm(q, opts={'vars': {'n': 0}}))
+            self.true(await core.callStorm(q, opts={'vars': {'n': 1}}))
+
             # test that some of the more complex objects we've got uniq down properly
             # Bool
             q = '''
@@ -2918,7 +2929,7 @@ class StormTypesTest(s_test.SynTest):
             async with core.getLocalProxy(user='visi') as asvisi:
                 self.eq(None, await asvisi.callStorm('test:int return($node.data.get(foo))'))
 
-            await visi.addRule((True, ('view', 'add')))
+            await visi.addRule((True, ('view', 'fork')))
 
             asvisi = {'user': visi.iden}
             view = await core.callStorm('return($lib.view.get().fork().iden)', opts=asvisi)
@@ -3903,6 +3914,7 @@ class StormTypesTest(s_test.SynTest):
                     await asvisi.callStorm(f'$lib.view.get({mainiden}).fork()')
 
                 await prox.addUserRule(visi['iden'], (True, ('view', 'add')))
+                await prox.addUserRule(visi['iden'], (True, ('view', 'fork')), gateiden=mainiden)
                 await prox.addUserRule(visi['iden'], (True, ('layer', 'read')), gateiden=newlayer.iden)
 
                 q = f'''
@@ -3912,14 +3924,7 @@ class StormTypesTest(s_test.SynTest):
                 addiden = await asvisi.callStorm(q)
                 self.isin(addiden, core.views)
 
-                q = f'''
-                    $forkview=$lib.view.get({mainiden}).fork()
-                    $lib.print($forkview.iden)
-                '''
-                mesgs = await asvisi.storm(q).list()
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        forkediden = mesg[1]['mesg']
+                forkediden = await asvisi.callStorm(f'return($lib.view.get({mainiden}).fork().iden)')
 
                 self.isin(forkediden, core.views)
 
@@ -4137,7 +4142,7 @@ class StormTypesTest(s_test.SynTest):
             self.nn(iden)
             self.true(visi.allowed(('view', 'read'), gateiden=iden))
 
-            await visi.addRule((True, ('view', 'add')))
+            await visi.addRule((True, ('view', 'fork')))
 
             msgs = await core.stormlist('$lib.view.get().fork()', opts={'user': visi.iden})
             self.stormHasNoWarnErr(msgs)
@@ -6625,10 +6630,10 @@ words\tword\twrd'''
             visi = await core.auth.addUser('visi')
             newp = await core.auth.addUser('newp')
 
-            await visi.addRule((True, ('view', 'add')))
+            await visi.addRule((True, ('view', 'fork')))
             await visi.addRule((True, ('view', 'read')))
 
-            await newp.addRule((True, ('view', 'add')))
+            await newp.addRule((True, ('view', 'fork')))
             await newp.addRule((True, ('view', 'read')))
 
             ninjas = await core.auth.addRole('ninjas')

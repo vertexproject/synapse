@@ -4432,6 +4432,9 @@ class Str(Prim):
             return str(self) == str(othr)
         return False
 
+    async def bool(self):
+        return bool(self.valu)
+
     @stormfunc(readonly=True)
     async def _methStrFind(self, valu):
         text = await tostr(valu)
@@ -4672,6 +4675,9 @@ class Bytes(Prim):
             return self.valu == othr.valu
         return False
 
+    async def bool(self):
+        return bool(self.valu)
+
     async def _storm_copy(self):
         item = await s_coro.ornot(self.value)
         return s_msgpack.deepcopy(item, use_list=True)
@@ -4745,6 +4751,9 @@ class Dict(Prim):
 
     def __len__(self):
         return len(self.valu)
+
+    async def bool(self):
+        return bool(self.valu)
 
     async def _storm_copy(self):
         item = await s_coro.ornot(self.value)
@@ -4909,6 +4918,9 @@ class Set(Prim):
 
     async def _storm_contains(self, item):
         return item in self.valu
+
+    async def bool(self):
+        return bool(self.valu)
 
     async def _methSetSize(self):
         return len(self)
@@ -5098,6 +5110,9 @@ class List(Prim):
     def __len__(self):
         return len(self.valu)
 
+    async def bool(self):
+        return bool(self.valu)
+
     @stormfunc(readonly=True)
     async def _methListHas(self, valu):
         if valu in self.valu:
@@ -5224,6 +5239,9 @@ class Bool(Prim):
 
     def __hash__(self):
         return hash((self._storm_typename, self.value()))
+
+    async def bool(self):
+        return bool(self.valu)
 
 @registry.registerType
 class Number(Prim):
@@ -8048,10 +8066,10 @@ class View(Prim):
         return copy.deepcopy(self.valu)
 
     async def _methViewFork(self, name=None):
+
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
 
-        self.runt.confirm(('view', 'add'))
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         self.runt.confirm(('view', 'fork'), gateiden=viewiden)
 
