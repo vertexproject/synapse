@@ -3464,10 +3464,10 @@ class AbsVirtPropCond(Cond):
 
             return cond
 
-        iface = len(props) > 1
+        forms = set([prop.form.name for prop in props])
 
         async def cond(node, path):
-            if not iface and node.ndef[0] != prop.form.name:
+            if node.ndef[0] not in forms:
                 return False
 
             if (val1 := node.get(prop.name, virts=getr)) is None:
@@ -3772,7 +3772,7 @@ class PropValue(Value):
                 virts = await self.virts.compute(runt, path)
 
             (ptyp, getr) = ptyp.getVirtInfo(virts)
-            fullname += ''.join(f'[{virt}]' for virt in virts)
+            fullname += f".{'.'.join(virts)}"
 
         if (valu := node.get(realprop, virts=getr)) is None:
             return None, None, None

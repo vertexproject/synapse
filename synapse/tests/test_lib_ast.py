@@ -3814,6 +3814,8 @@ class AstTest(s_test.SynTest):
             self.len(1, await core.nodes('ou:campaign.created +#tag:ival.min=2020'))
             self.len(1, await core.nodes('ou:campaign.created +:period.min=2020'))
             self.len(1, await core.nodes('ou:campaign.created +ou:campaign:period.min=2020'))
+            self.len(1, await core.nodes('test:ival +.min=2020'))
+            self.len(1, await core.nodes('test:ival $virt=min +.$virt=2020'))
             self.len(1, await core.nodes('test:ival +test:ival.min=2020'))
             self.len(1, await core.nodes('test:ival +test:ival.max=?'))
             self.len(1, await core.nodes('test:hasiface +test:interface:seen.min=2020'))
