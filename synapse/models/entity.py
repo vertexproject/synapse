@@ -65,10 +65,10 @@ modeldefs = (
                     # FIXME deconflict it:adid and it:prod:softid
                     # FIXME modify to it:adid having back linked props?
                     ('adid', ('it:adid', {}), {
-                        'doc': 'The primary advertizing ID for the {contactable}.'}),
+                        'doc': 'The primary advertising ID for the {contactable}.'}),
 
                     ('adids', ('array', {'type': 'it:adid', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate user names for the {contactable}.'}),
+                        'doc': 'An array of alternate advertising IDs for the {contactable}.'}),
                 ),
                 'doc': 'An interface for forms which contain contact info.'}),
 
@@ -146,7 +146,7 @@ modeldefs = (
                         'doc': 'The dissolved time for the {contactable}.'}),
                 ),
 
-                'doc': 'A group of contact information which is used by an entity.'}),
+                'doc': 'A set of contact information which is used by an entity.'}),
 
             ('entity:history', ('guid', {}), {
                 'interfaces': (

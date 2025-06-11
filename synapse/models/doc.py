@@ -133,6 +133,7 @@ modeldefs = (
                 'doc': 'A taxonomy of report types.'}),
 
             ('doc:report', ('guid', {}), {
+                'prevnames': ('media:news',),
                 'interfaces': (
                     ('doc:document', {'template': {
                         'document': 'report',
@@ -189,6 +190,18 @@ modeldefs = (
             )),
             ('doc:report:type:taxonomy', {}, ()),
             ('doc:report', {}, (
+
+                ('public', ('bool', {}), {
+                    'doc': 'Set to true if the report is publicly available.'}),
+
+                ('published', ('time', {}), {
+                    'doc': 'The time the report was published.'}),
+
+                ('publisher', ('entity:actor', {}), {
+                    'doc': 'The entity which published the report.'}),
+
+                ('publisher:name', ('meta:name', {}), {
+                    'doc': 'The name of the entity which published the report.'}),
             )),
         ),
         'edges': (),

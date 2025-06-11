@@ -855,7 +855,7 @@ modeldefs = (
                 'doc': 'The given software broadcasts the given Android intent.'}),
 
             ('it:software', ('guid', {}), {
-                'doc': 'A sofware family or specific version.'}),
+                'doc': 'A software family or specific version.'}),
 
             ('it:av:signame', ('base:name', {}), {
                 'doc': 'An antivirus signature name.'}),
@@ -2136,7 +2136,7 @@ modeldefs = (
 
                 ('name', ('meta:name', {}), {
                     'alts': ('names',),
-                    'doc': 'The name of the sofware.'}),
+                    'doc': 'The name of the software.'}),
 
                 ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'Observed/variant names for this software version.'}),
