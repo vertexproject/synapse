@@ -1541,7 +1541,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def shutdown(self, timeout=None):
         '''
         Execute a graceful shutdown by allowing any promoted boss tasks to complete
-        and prevents the boss from acecpting additional tasks.
+        and prevents the boss from accepting additional tasks.
         '''
         extra = await self.getLogExtra()
         logger.warning('Graceful shutdown initiated...', extra=extra)
