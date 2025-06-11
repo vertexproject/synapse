@@ -1741,7 +1741,10 @@ class StormTest(s_t_utils.SynTest):
             self.stormHasNoErr(await core.stormlist('merge --diff', opts=altview))
 
             oldn = await core.nodes('[ meta:name=readonly ]', opts=altview)
+            # need to pause a moment so the created times differ
+            await asyncio.sleep(0.01)
             newn = await core.nodes('[ meta:name=readonly ]')
+
             self.ne(oldn[0].get('.created'), newn[0].get('.created'))
 
             with self.getAsyncLoggerStream('synapse.lib.view') as stream:
@@ -2224,7 +2227,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('1001', msgs)
 
             visi = await core.auth.addUser('visi')
-            await visi.addRule((True, ('view', 'add')))
+            await visi.addRule((True, ('view', 'fork')))
 
             view2iden = await core.callStorm('return($lib.view.get().fork().iden)', opts={'user': visi.iden})
             view2 = {'view': view2iden, 'user': visi.iden}
