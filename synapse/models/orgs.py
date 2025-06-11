@@ -181,7 +181,7 @@ modeldefs = (
 
                     ('ou:attendable', {'template': {
                         'ou:attendable': 'presentation',
-                        'geo:locatable': 'presentation'}),
+                        'geo:locatable': 'presentation'}}),
 
                     ('lang:transcript', {}),
                 ),

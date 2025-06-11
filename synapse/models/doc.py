@@ -138,7 +138,7 @@ modeldefs = (
                     ('doc:document', {'template': {
                         'document': 'report',
                         'documents': 'reports',
-                        'type': 'doc:report:type:taxonomy'}),
+                        'type': 'doc:report:type:taxonomy'}}),
                 ),
                 'doc': 'A report.'}),
         ),

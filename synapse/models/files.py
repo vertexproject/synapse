@@ -217,13 +217,12 @@ modeldefs = (
                 ),
             }),
             ('file:mime:macho:loadcmd', {
+                'interfaces': (
+                    ('file:mime:meta', {}),
+                ),
                 'props': (
-                    ('file', ('file:bytes', {}), {
-                        'doc': 'The Mach-O file containing the load command.'}),
                     ('type', ('int', {'enums': s_l_macho.getLoadCmdTypes()}), {
                         'doc': 'The type of the load command.'}),
-                    ('size', ('int', {}), {
-                        'doc': 'The size of the load command structure in bytes.'}),
                 ),
                 'doc': 'Properties common to all Mach-O load commands.',
             })
@@ -364,6 +363,9 @@ modeldefs = (
                 'doc': 'A named region of bytes inside a Mach-O binary.'}),
 
             ('file:mime:macho:section', ('guid', {}), {
+                'interfaces': (
+                    ('file:mime:meta', {}),
+                ),
                 'doc': 'A section inside a Mach-O binary denoting a named region of bytes inside a segment.'}),
 
             ('file:mime:lnk', ('guid', {}), {
@@ -616,17 +618,11 @@ modeldefs = (
                 ('name', ('str', {}), {
                     'doc': 'Name of the section.'}),
 
-                ('size', ('int', {}), {
-                    'doc': 'Size of the section in bytes.'}),
-
                 ('type', ('int', {'enums': s_l_macho.getSectionTypes()}), {
                     'doc': 'The type of the section.'}),
 
                 ('sha256', ('hash:sha256', {}), {
                     'doc': 'The sha256 hash of the bytes of the Mach-O section.'}),
-
-                ('offset', ('int', {}), {
-                    'doc': 'The file offset to the beginning of the section.'}),
             )),
 
             ('file:mime:lnk', {}, (

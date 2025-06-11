@@ -2836,7 +2836,7 @@ modeldefs = (
                 ('va', ('int', {}), {
                     'doc': 'The virtual address of the first codeblock of the function.'}),
 
-                ('complexity', ('meta:complexity', {}), {
+                ('complexity', ('meta:priority', {}), {
                     'doc': 'The complexity of the function.'}),
 
                 ('calls', ('array', {'type': 'it:dev:function:sample', 'uniq': True, 'sorted': True}), {

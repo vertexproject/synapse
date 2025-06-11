@@ -101,38 +101,39 @@ class FileTest(s_t_utils.SynTest):
                 file:mime:macho:loadcmd=*
                     :file=$file
                     :type=27
-                    :size=123456
+                    :file:size=123456
             ]''', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('type'), 27)
-            self.eq(nodes[0].get('size'), 123456)
             self.eq(nodes[0].get('file'), fileguid)
+            self.eq(nodes[0].get('file:size'), 123456)
 
             # uuid
             nodes = await core.nodes('''[
                 file:mime:macho:uuid=*
                     :file=$file
                     :type=27
-                    :size=32
+                    :file:size=32
                     :uuid=BCAA4A0BBF703A5DBCF972F39780EB67
             ]''', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('file'), fileguid)
+            self.eq(nodes[0].get('file:size'), 32)
             self.eq(nodes[0].get('uuid'), 'bcaa4a0bbf703a5dbcf972f39780eb67')
 
             # version
             nodes = await core.nodes('''[
                 file:mime:macho:version=*
                     :file=$file
+                    :file:size=32
                     :type=42
-                    :size=32
                     :version="7605.1.33.1.4"
             ]''', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('version'), '7605.1.33.1.4')
-            self.eq(nodes[0].get('file'), fileguid)
             self.eq(nodes[0].get('type'), 42)
-            self.eq(nodes[0].get('size'), 32)
+            self.eq(nodes[0].get('file'), fileguid)
+            self.eq(nodes[0].get('file:size'), 32)
 
             # segment
             seghash = 'e' * 64
@@ -140,8 +141,8 @@ class FileTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 file:mime:macho:segment=*
                     :file=$file
+                    :file:size=48
                     :type=1
-                    :size=48
                     :name="__TEXT"
                     :memsize=4092
                     :disksize=8192
@@ -151,7 +152,7 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('file'), fileguid)
             self.eq(nodes[0].get('type'), 1)
-            self.eq(nodes[0].get('size'), 48)
+            self.eq(nodes[0].get('file:size'), 48)
             self.eq(nodes[0].get('name'), '__TEXT')
             self.eq(nodes[0].get('memsize'), 4092)
             self.eq(nodes[0].get('disksize'), 8192)
@@ -163,16 +164,16 @@ class FileTest(s_t_utils.SynTest):
                 file:mime:macho:section=*
                     :segment={ file:mime:macho:segment }
                     :name="__text"
-                    :size=12
+                    :file:size=12
                     :type=0
-                    :offset=5678
+                    :file:offs=5678
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('segment'))
             self.eq(nodes[0].get('name'), "__text")
-            self.eq(nodes[0].get('size'), 12)
             self.eq(nodes[0].get('type'), 0)
-            self.eq(nodes[0].get('offset'), 5678)
+            self.eq(nodes[0].get('file:size'), 12)
+            self.eq(nodes[0].get('file:offs'), 5678)
 
     async def test_model_file_types(self):
 
