@@ -280,6 +280,14 @@ class HandlerBase:
 
         return True
 
+    async def reqNoBody(self):
+
+        if not self.request.body:
+            return True
+
+        self.sendRestErr('BadArg', 'This API does not take any HTTP body data.', status_code=HTTPStatus.BAD_REQUEST)
+        return False
+
     async def sess(self, gen=True):
         '''
         Get the heavy Session object for the request.

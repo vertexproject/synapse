@@ -8073,10 +8073,10 @@ class View(Prim):
         return copy.deepcopy(self.valu)
 
     async def _methViewFork(self, name=None):
+
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
 
-        self.runt.confirm(('view', 'add'))
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         self.runt.confirm(('view', 'fork'), gateiden=viewiden)
 

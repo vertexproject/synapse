@@ -2209,7 +2209,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('1001', msgs)
 
             visi = await core.auth.addUser('visi')
-            await visi.addRule((True, ('view', 'add')))
+            await visi.addRule((True, ('view', 'fork')))
 
             view2iden = await core.callStorm('return($lib.view.get().fork().iden)', opts={'user': visi.iden})
             view2 = {'view': view2iden, 'user': visi.iden}

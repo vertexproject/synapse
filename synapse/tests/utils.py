@@ -1565,11 +1565,10 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         conf = self.getCellConf(conf=conf)
         conf['aha:provision'] = onetime
 
-        waiter = aha.waiter(1, f'aha:svcadd:{svcfull}')
         with self.mayTestDir(dirn) as dirn:
             s_common.yamlsave(conf, dirn, 'cell.yaml')
             async with await ctor.anit(dirn) as svc:
-                self.true(await waiter.wait(timeout=12))
+                await aha._waitAhaSvcOnline(f'{svcname}...', timeout=10)
                 yield svc
 
     async def addSvcToCore(self, svc, core, svcname='svc'):
