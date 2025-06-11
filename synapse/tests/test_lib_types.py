@@ -225,17 +225,17 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         t = model.type('duration')
 
-        self.eq('2D 00:00:00.000', t.repr(172800000))
-        self.eq('00:05:00.333', t.repr(300333))
-        self.eq('11D 11:47:12.344', t.repr(992832344))
+        self.eq('2D 00:00:00', t.repr(172800000000))
+        self.eq('00:05:00.333333', t.repr(300333333))
+        self.eq('11D 11:47:12.344', t.repr(992832344000))
 
-        self.eq(300333, t.norm('00:05:00.333')[0])
-        self.eq(992832344, t.norm('11D 11:47:12.344')[0])
+        self.eq(300333333, t.norm('00:05:00.333333')[0])
+        self.eq(992832344000, t.norm('11D 11:47:12.344')[0])
 
-        self.eq(172800000, t.norm('2D')[0])
-        self.eq(60000, t.norm('1:00')[0])
-        self.eq(60200, t.norm('1:00.2')[0])
-        self.eq(9999, t.norm('9.9999')[0])
+        self.eq(172800000000, t.norm('2D')[0])
+        self.eq(60000000, t.norm('1:00')[0])
+        self.eq(60200000, t.norm('1:00.2')[0])
+        self.eq(9999999, t.norm('9.9999999')[0])
 
         with self.raises(s_exc.BadTypeValu):
             t.norm('    ')
@@ -726,32 +726,31 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         ival = model.types.get('ival')
 
-        self.eq(('2016/01/01 00:00:00.000', '2017/01/01 00:00:00.000'), ival.repr(ival.norm(('2016', '2017'))[0]))
+        self.eq(('2016-01-01T00:00:00Z', '2017-01-01T00:00:00Z'), ival.repr(ival.norm(('2016', '2017'))[0]))
 
-        self.gt(s_common.now(), ival._normRelStr('-1 min'))
-
-        self.eq((0, 5356800000), ival.norm((0, '1970-03-04'))[0])
-        self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
-        self.eq((1451606400000, 1451606400001), ival.norm(1451606400000)[0])
-        self.eq((1451606400000, 1451606400001), ival.norm(s_stormtypes.Number(1451606400000))[0])
-        self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
-        self.eq((1451606400000, 1483228800000), ival.norm(('2016', '  2017'))[0])
-        self.eq((1451606400000, 1483228800000), ival.norm(('2016-01-01', '  2017'))[0])
-        self.eq((1451606400000, 1483142400000), ival.norm(('2016', '+365 days'))[0])
-        self.eq((1448150400000, 1451606400000), ival.norm(('2016', '-40 days'))[0])
-        self.eq((1447891200000, 1451347200000), ival.norm(('2016-3days', '-40 days   '))[0])
-        self.eq((1451347200000, 0x7fffffffffffffff), ival.norm(('2016-3days', '?'))[0])
-        self.eq((1593576000000, 1593576000001), ival.norm('2020-07-04:00')[0])
-        self.eq((1594124993000, 1594124993001), ival.norm('2020-07-07T16:29:53+04:00')[0])
-        self.eq((1594153793000, 1594153793001), ival.norm('2020-07-07T16:29:53-04:00')[0])
-        self.eq((1594211393000, 1594211393001), ival.norm('20200707162953+04:00+1day')[0])
-        self.eq((1594038593000, 1594038593001), ival.norm('20200707162953+04:00-1day')[0])
-        self.eq((1594240193000, 1594240193001), ival.norm('20200707162953-04:00+1day')[0])
-        self.eq((1594067393000, 1594067393001), ival.norm('20200707162953-04:00-1day')[0])
-        self.eq((1594240193000, 1594240193001), ival.norm('20200707162953EDT+1day')[0])
-        self.eq((1594067393000, 1594067393001), ival.norm('20200707162953EDT-1day')[0])
-        self.eq((1594240193000, 1594240193001), ival.norm('7 Jul 2020 16:29:53 EDT+1day')[0])
-        self.eq((1594067393000, 1594067393001), ival.norm('7 Jul 2020 16:29:53 -0400-1day')[0])
+        self.eq((0, 5356800000000), ival.norm((0, '1970-03-04'))[0])
+        self.eq((1451606400000000, 1451606400000001), ival.norm('2016')[0])
+        self.eq((1451606400000000, 1451606400000001), ival.norm(1451606400000000)[0])
+        self.eq((1451606400000000, 1451606400000001), ival.norm(decimal.Decimal(1451606400000000))[0])
+        self.eq((1451606400000000, 1451606400000001), ival.norm(s_stormtypes.Number(1451606400000000))[0])
+        self.eq((1451606400000000, 1451606400000001), ival.norm('2016')[0])
+        self.eq((1451606400000000, 1483228800000000), ival.norm(('2016', '  2017'))[0])
+        self.eq((1451606400000000, 1483228800000000), ival.norm(('2016-01-01', '  2017'))[0])
+        self.eq((1451606400000000, 1483142400000000), ival.norm(('2016', '+365 days'))[0])
+        self.eq((1448150400000000, 1451606400000000), ival.norm(('2016', '-40 days'))[0])
+        self.eq((1447891200000000, 1451347200000000), ival.norm(('2016-3days', '-40 days   '))[0])
+        self.eq((1451347200000000, 0x7fffffffffffffff), ival.norm(('2016-3days', '?'))[0])
+        self.eq((1593576000000000, 1593576000000001), ival.norm('2020-07-04:00')[0])
+        self.eq((1594124993000000, 1594124993000001), ival.norm('2020-07-07T16:29:53+04:00')[0])
+        self.eq((1594153793000000, 1594153793000001), ival.norm('2020-07-07T16:29:53-04:00')[0])
+        self.eq((1594211393000000, 1594211393000001), ival.norm('20200707162953+04:00+1day')[0])
+        self.eq((1594038593000000, 1594038593000001), ival.norm('20200707162953+04:00-1day')[0])
+        self.eq((1594240193000000, 1594240193000001), ival.norm('20200707162953-04:00+1day')[0])
+        self.eq((1594067393000000, 1594067393000001), ival.norm('20200707162953-04:00-1day')[0])
+        self.eq((1594240193000000, 1594240193000001), ival.norm('20200707162953EDT+1day')[0])
+        self.eq((1594067393000000, 1594067393000001), ival.norm('20200707162953EDT-1day')[0])
+        self.eq((1594240193000000, 1594240193000001), ival.norm('7 Jul 2020 16:29:53 EDT+1day')[0])
+        self.eq((1594067393000000, 1594067393000001), ival.norm('7 Jul 2020 16:29:53 -0400-1day')[0])
 
         # these fail because ival norming will split on a comma
         self.raises(s_exc.BadTypeValu, ival.norm, 'Tue, 7 Jul 2020 16:29:53 EDT+1day')
@@ -763,9 +762,9 @@ class TypesTest(s_t_utils.SynTest):
 
         oldv = ival.norm(('2016', '2017'))[0]
         newv = ival.norm(('2015', '2018'))[0]
-        self.eq((1420070400000, 1514764800000), ival.merge(oldv, newv))
+        self.eq((1420070400000000, 1514764800000000), ival.merge(oldv, newv))
 
-        self.eq((1420070400000, 1420070400001), ival.norm(('2015', '2015'))[0])
+        self.eq((1420070400000000, 1420070400000001), ival.norm(('2015', '2015'))[0])
 
         self.raises(s_exc.BadTypeValu, ival.norm, '?')
         self.raises(s_exc.BadTypeValu, ival.norm, ('', ''))
@@ -951,6 +950,81 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes(q)
 
+            await core.nodes('''[
+                (ou:campaign=* :period=(2020-01-01, 2020-01-02))
+                (ou:campaign=* :period=(2021-01-01, 2021-02-01))
+                (ou:campaign=* :period=(2022-01-01, 2022-05-01))
+                (ou:campaign=* :period=(2023-01-01, 2024-01-01))
+                (ou:campaign=* :period=(2024-01-01, 2026-01-01))
+                (ou:campaign=*)
+            ]''')
+
+            self.len(1, await core.nodes('ou:campaign.created +:period*min=2020-01-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*min<2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*min<=2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*min>=2022-01-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*min>2022-01-01'))
+            self.len(1, await core.nodes('ou:campaign.created +:period*min@=2020'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*min@=(2020-01-01, 2022-01-01)'))
+
+            self.len(1, await core.nodes('ou:campaign.created +:period*max=2020-01-02'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*max<2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*max<=2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*max>=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*max>2022-05-01'))
+            self.len(1, await core.nodes('ou:campaign.created +:period*max@=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*max@=(2020-01-02, 2022-05-01)'))
+
+            self.len(1, await core.nodes('ou:campaign.created +:period*duration=1D'))
+            self.len(1, await core.nodes('ou:campaign.created +:period*duration<31D'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*duration<=31D'))
+            self.len(4, await core.nodes('ou:campaign.created +:period*duration>=31D'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*duration>31D'))
+
+            self.len(0, await core.nodes('ou:campaign.created +:period*min@=(2022-01-01, 2020-01-01)'))
+
+            with self.raises(s_exc.NoSuchFunc):
+                await core.nodes('ou:campaign.created +:period*min@=({})')
+
+            self.eq(ival.getVirtType(['min']), model.types.get('time'))
+
+            with self.raises(s_exc.NoSuchVirt):
+                ival.getVirtType(['min', 'newp'])
+
+            with self.raises(s_exc.NoSuchVirt):
+                ival.getVirtGetr(['min', 'newp'])
+
+            ityp = core.model.type('ival')
+            styp = core.model.type('timeprecision').stortype
+            valu = ityp.norm('2025-04-05 12:34:56.123456')[0]
+
+            exp = ((1743856496123456, 1743856496123457), {})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_MICRO), exp)
+
+            exp = ((1743856496123000, 1743856496123999), {'virts': {'precision': (s_time.PREC_MILLI, styp)}})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_MILLI), exp)
+
+            exp = ((1743856496000000, 1743856496999999), {'virts': {'precision': (s_time.PREC_SECOND, styp)}})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_SECOND), exp)
+
+            exp = ((1743856440000000, 1743856499999999), {'virts': {'precision': (s_time.PREC_MINUTE, styp)}})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_MINUTE), exp)
+
+            exp = ((1743854400000000, 1743857999999999), {'virts': {'precision': (s_time.PREC_HOUR, styp)}})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_HOUR), exp)
+
+            exp = ((1743811200000000, 1743897599999999), {'virts': {'precision': (s_time.PREC_DAY, styp)}})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_DAY), exp)
+
+            exp = ((1743465600000000, 1746057599999999), {'virts': {'precision': (s_time.PREC_MONTH, styp)}})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_MONTH), exp)
+
+            exp = ((1735689600000000, 1767225599999999), {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_YEAR), exp)
+
+            with self.raises(s_exc.BadTypeDef):
+                await core.addFormProp('test:int', '_newp', ('ival', {'precision': 'newp'}), {})
+
     async def test_loc(self):
         model = s_datamodel.Model()
         loctype = model.types.get('loc')
@@ -1037,21 +1111,38 @@ class TypesTest(s_t_utils.SynTest):
             self.raises(s_exc.NoSuchForm, t.repr, ('test:newp', 'newp'))
             self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
 
+            await core.nodes('[ test:str=ndefs :ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
+            await core.nodes('[ risk:vulnerable=(foo,) :node=(it:dev:int, 1) ]')
+            await core.nodes('[ risk:vulnerable=(bar,) :node=(inet:fqdn, foo.com) ]')
+
+            self.len(1, await core.nodes('risk:vulnerable.created +:node*form=it:dev:int'))
+            self.len(1, await core.nodes('risk:vulnerable.created +:node*form=inet:fqdn'))
+            self.len(0, await core.nodes('risk:vulnerable.created +:node*form=it:dev:str'))
+
+            self.len(1, await core.nodes('test:str.created +:ndefs*[form=it:dev:int]'))
+            self.len(0, await core.nodes('test:str.created +:ndefs*[form=it:dev:str]'))
+
+            self.eq('it:dev:int', await core.callStorm('risk:vulnerable=(foo,) return(:node*form)'))
+
+            self.none(await core.callStorm('[ risk:vulnerable=* ] return(:node*form)'))
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str.created +:ndefs*[form>it:dev:str]')
+
             ndef = core.model.type('test:ndef:formfilter1')
-            ndef.norm(('inet:ipv4', '1.2.3.4'))
-            ndef.norm(('inet:ipv6', '::1'))
+            ndef.norm(('inet:ip', '1.2.3.4'))
+            ndef.norm(('inet:ip', '::1'))
 
             with self.raises(s_exc.BadTypeValu):
                 ndef.norm(('inet:fqdn', 'newp.com'))
 
             ndef = core.model.type('test:ndef:formfilter2')
-            ndef.norm(('ou:orgtype', 'foo'))
 
             with self.raises(s_exc.BadTypeValu):
                 ndef.norm(('inet:fqdn', 'newp.com'))
 
             ndef = core.model.type('test:ndef:formfilter3')
-            ndef.norm(('inet:ipv4', '1.2.3.4'))
+            ndef.norm(('inet:ip', '1.2.3.4'))
             ndef.norm(('file:mime:msdoc', s_common.guid()))
 
             with self.raises(s_exc.BadTypeValu):
@@ -1093,7 +1184,7 @@ class TypesTest(s_t_utils.SynTest):
 
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': None})
-        self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': ('inet:ipv4', {})})  # inet is not loaded yet
+        self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': ('inet:ip', {})})  # inet is not loaded yet
 
     async def test_range_filter(self):
         async with self.getTestCore() as core:
@@ -1102,9 +1193,12 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:str=m :bar=(test:str, m) :tick=20200101]'))
             self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'C' * 32}}))
             self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'F' * 32}}))
-            self.len(1, await core.nodes('[edge:refs=((test:comp, (2048, horton)), (test:comp, (4096, whoville)))]'))
-            self.len(1, await core.nodes('[edge:refs=((test:comp, (9001, "A mean one")), (test:comp, (40000, greeneggs)))]'))
-            self.len(1, await core.nodes('[edge:refs=((test:int, 16), (test:comp, (9999, greenham)))]'))
+            self.len(1, await core.nodes('[test:str=n1 :bar=(test:comp, (2048, horton))]'))
+            self.len(1, await core.nodes('[test:str=n2 :bar=(test:comp, (9001, "A mean one"))]'))
+            self.len(1, await core.nodes('[test:str=n3 :bar=(test:int, 16)]'))
+            self.len(1, await core.nodes('[test:comp=(4096, whoville)]'))
+            self.len(1, await core.nodes('[test:comp=(9999, greenham)]'))
+            self.len(1, await core.nodes('[test:comp=(40000, greeneggs)]'))
 
             self.len(0, await core.nodes('test:str=a +:tick*range=(20000101, 20101201)'))
             nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
@@ -1121,9 +1215,8 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
             nodes = await core.nodes('test:int -> test:comp:hehe +test:comp*range=((1000, grinch), (4000, whoville))')
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            nodes = await core.nodes('edge:refs +:n1*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))')
-            self.eq({node.ndef[1] for node in nodes},
-                    {(('test:comp', (2048, 'horton')), ('test:comp', (4096, 'whoville')))})
+            nodes = await core.nodes('test:str +:bar*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))')
+            self.eq({node.ndef[1] for node in nodes}, {'n1'})
 
             # The following tests show range working against a string
             self.len(2, await core.nodes('test:str*range=(b, m)'))
@@ -1292,19 +1385,126 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(t.repr(future), '?')
 
             # Explicitly test our max time vs. future marker
-            maxtime = 253402300799999  # 9999/12/31 23:59:59.999
+            maxtime = 253402300799999999  # 9999/12/31 23:59:59.999999
             self.eq(t.norm(maxtime)[0], maxtime)
-            self.eq(t.repr(maxtime), '9999/12/31 23:59:59.999')
-            self.eq(t.norm('9999/12/31 23:59:59.999')[0], maxtime)
+            self.eq(t.repr(maxtime), '9999-12-31T23:59:59.999999Z')
+            self.eq(t.norm('9999-12-31T23:59:59.999999Z')[0], maxtime)
             self.raises(s_exc.BadTypeValu, t.norm, maxtime + 1)
 
+            tmax = t.clone({'maxfill': True})
+            self.eq(tmax.norm('9999-12-31T23:59:59.999999Z')[0], maxtime)
+
             tick = t.norm('2014')[0]
-            self.eq(t.repr(tick), '2014/01/01 00:00:00.000')
+            self.eq(t.repr(tick), '2014-01-01T00:00:00Z')
 
             tock = t.norm('2015')[0]
 
             self.raises(s_exc.BadCmprValu,
                         t.cmpr, '2015', 'range=', tick)
+
+            prec = core.model.type('timeprecision')
+            styp = prec.stortype
+
+            self.eq(prec.norm(4), (s_time.PREC_YEAR, {}))
+            self.eq(prec.norm('4'), (s_time.PREC_YEAR, {}))
+            self.eq(prec.norm('year'), (s_time.PREC_YEAR, {}))
+            self.eq(prec.repr(s_time.PREC_YEAR), 'year')
+
+            with self.raises(s_exc.BadTypeValu):
+                prec.norm('123')
+
+            with self.raises(s_exc.BadTypeValu):
+                prec.norm(123)
+
+            with self.raises(s_exc.BadTypeValu):
+                prec.repr(123)
+
+            self.eq(t.norm('2025?'), (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}}))
+            self.eq(t.norm('2025-04?'), (1743465600000000, {'virts': {'precision': (s_time.PREC_MONTH, styp)}}))
+            self.eq(t.norm('2025-04-05?'), (1743811200000000, {'virts': {'precision': (s_time.PREC_DAY, styp)}}))
+            self.eq(t.norm('2025-04-05 12?'), (1743854400000000, {'virts': {'precision': (s_time.PREC_HOUR, styp)}}))
+            self.eq(t.norm('2025-04-05 12:34?'), (1743856440000000, {'virts': {'precision': (s_time.PREC_MINUTE, styp)}}))
+            self.eq(t.norm('2025-04-05 12:34:56?'), (1743856496000000, {'virts': {'precision': (s_time.PREC_SECOND, styp)}}))
+            self.eq(t.norm('2025-04-05 12:34:56.1?'), (1743856496100000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}}))
+            self.eq(t.norm('2025-04-05 12:34:56.12?'), (1743856496120000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}}))
+            self.eq(t.norm('2025-04-05 12:34:56.123?'), (1743856496123000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}}))
+            self.eq(t.norm('2025-04-05 12:34:56.1234?'), (1743856496123400, {}))
+            self.eq(t.norm('2025-04-05 12:34:56.12345?'), (1743856496123450, {}))
+            self.eq(t.norm('2025-04-05 12:34:56.123456?'), (1743856496123456, {}))
+            self.eq(t.norm('2025-04-05 12:34:56.123456'), (1743856496123456, {}))
+
+            exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(t.norm(1743856496123456, prec=s_time.PREC_YEAR), exp)
+
+            exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(t.norm(decimal.Decimal(1743856496123456), prec=s_time.PREC_YEAR), exp)
+
+            exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(t.norm(s_stormtypes.Number(1743856496123456), prec=s_time.PREC_YEAR), exp)
+
+            exp = (1743856496123456, {})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MICRO), exp)
+
+            exp = (1743856496123000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MILLI), exp)
+
+            exp = (1743856496000000, {'virts': {'precision': (s_time.PREC_SECOND, styp)}})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_SECOND), exp)
+
+            exp = (1743856440000000, {'virts': {'precision': (s_time.PREC_MINUTE, styp)}})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MINUTE), exp)
+
+            exp = (1743854400000000, {'virts': {'precision': (s_time.PREC_HOUR, styp)}})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_HOUR), exp)
+
+            exp = (1743811200000000, {'virts': {'precision': (s_time.PREC_DAY, styp)}})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_DAY), exp)
+
+            exp = (1743465600000000, {'virts': {'precision': (s_time.PREC_MONTH, styp)}})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MONTH), exp)
+
+            exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_YEAR), exp)
+
+            tmax = t.clone({'maxfill': True})
+
+            exp = (1743856496123456, {})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MICRO), exp)
+
+            exp = (1743856496123999, {'virts': {'precision': (s_time.PREC_MILLI, styp)}})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MILLI), exp)
+
+            exp = (1743856496999999, {'virts': {'precision': (s_time.PREC_SECOND, styp)}})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_SECOND), exp)
+
+            exp = (1743856499999999, {'virts': {'precision': (s_time.PREC_MINUTE, styp)}})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MINUTE), exp)
+
+            exp = (1743857999999999, {'virts': {'precision': (s_time.PREC_HOUR, styp)}})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_HOUR), exp)
+
+            exp = (1743897599999999, {'virts': {'precision': (s_time.PREC_DAY, styp)}})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_DAY), exp)
+
+            exp = (1746057599999999, {'virts': {'precision': (s_time.PREC_MONTH, styp)}})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MONTH), exp)
+
+            exp = (1767225599999999, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_YEAR), exp)
+
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_YEAR)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MONTH)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_DAY)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_HOUR)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MINUTE)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_SECOND)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MILLI)[0])
+
+            with self.raises(s_exc.BadTypeValu):
+                tmax.norm('2025-04-05 12:34:56.123456', prec=123)
+
+            with self.raises(s_exc.BadTypeDef):
+                await core.addFormProp('test:int', '_newp', ('time', {'precision': 'newp'}), {})
 
             self.len(1, await core.nodes('[(test:str=a :tick=2014)]'))
             self.len(1, await core.nodes('[(test:str=b :tick=2015)]'))
@@ -1534,62 +1734,6 @@ class TypesTest(s_t_utils.SynTest):
             self.len(6, nodes)
             self.eq({node.ndef[1] for node in nodes}, {'b', 'c', 'd'})
 
-    async def test_edges(self):
-        model = s_datamodel.Model()
-        e = model.type('edge')
-        t = model.type('timeedge')
-
-        self.eq(0, e.getCompOffs('n1'))
-        self.eq(1, e.getCompOffs('n2'))
-        self.none(e.getCompOffs('newp'))
-
-        self.eq(0, t.getCompOffs('n1'))
-        self.eq(1, t.getCompOffs('n2'))
-        self.eq(2, t.getCompOffs('time'))
-        self.none(t.getCompOffs('newp'))
-
-        # Sad path testing
-        self.raises(s_exc.BadTypeValu, e.norm, ('newp',))
-        self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
-
-        # Repr testing with the test model
-        async with self.getTestCore() as core:
-            e = core.model.type('edge')
-            t = core.model.type('timeedge')
-
-            norm, _ = e.norm((('test:str', '1234'), ('test:int', '1234')))
-            self.eq(norm, (('test:str', '1234'), ('test:int', 1234)))
-
-            norm, _ = t.norm((('test:str', '1234'), ('test:int', '1234'), '2001'))
-            self.eq(norm, (('test:str', '1234'), ('test:int', 1234), 978307200000))
-
-            rval = e.repr((('test:str', '1234'), ('test:str', 'hehe')))
-            self.eq(rval, (('test:str', '1234'), ('test:str', 'hehe')))
-
-            rval = e.repr((('test:int', 1234), ('test:str', 'hehe')))
-            self.eq(rval, (('test:int', '1234'), ('test:str', 'hehe')))
-
-            rval = e.repr((('test:str', 'hehe'), ('test:int', 1234)))
-            self.eq(rval, (('test:str', 'hehe'), ('test:int', '1234')))
-
-            rval = e.repr((('test:int', 4321), ('test:int', 1234)))
-            self.eq(rval, (('test:int', '4321'), ('test:int', '1234')))
-
-            rval = e.repr((('test:int', 4321), ('test:comp', (1234, 'hehe'))))
-            self.eq(rval, (('test:int', '4321'), ('test:comp', ('1234', 'hehe'))))
-
-            tv = 5356800000
-            tr = '1970/03/04 00:00:00.000'
-
-            rval = t.repr((('test:str', '1234'), ('test:str', 'hehe'), tv))
-            self.eq(rval, (('test:str', '1234'), ('test:str', 'hehe'), tr))
-
-            rval = t.repr((('test:int', 1234), ('test:str', 'hehe'), tv))
-            self.eq(rval, (('test:int', '1234'), ('test:str', 'hehe'), tr))
-
-            rval = t.repr((('test:str', 'hehe'), ('test:int', 1234), tv))
-            self.eq(rval, (('test:str', 'hehe'), ('test:int', '1234'), tr))
-
     async def test_types_long_indx(self):
 
         aaaa = 'A' * 200
@@ -1604,15 +1748,15 @@ class TypesTest(s_t_utils.SynTest):
 
         mdef = {
             'types': (
-                ('test:array', ('array', {'type': 'inet:ipv4'}), {}),
-                ('test:arraycomp', ('comp', {'fields': (('ipv4s', 'test:array'), ('int', 'test:int'))}), {}),
+                ('test:array', ('array', {'type': 'inet:ip'}), {}),
+                ('test:arraycomp', ('comp', {'fields': (('ips', 'test:array'), ('int', 'test:int'))}), {}),
                 ('test:witharray', ('guid', {}), {}),
             ),
             'forms': (
                 ('test:array', {}, (
                 )),
                 ('test:arraycomp', {}, (
-                    ('ipv4s', ('test:array', {}), {}),
+                    ('ips', ('test:array', {}), {}),
                     ('int', ('test:int', {}), {}),
                 )),
                 ('test:witharray', {}, (
@@ -1634,8 +1778,8 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             # create a long array (fails pre-020)
-            arr = ','.join([str(i) for i in range(300)])
-            nodes = await core.nodes(f'[ test:array=({arr}) ]')
+            arr = ','.join([f'[4, {i}]' for i in range(300)])
+            nodes = await core.nodes(f'[ test:array=([{arr}]) ]')
             self.len(1, nodes)
 
             nodes = await core.nodes('test:array*[=1.2.3.4]')
@@ -1650,12 +1794,12 @@ class TypesTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ test:arraycomp=((1.2.3.4, 5.6.7.8), 10) ]')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:arraycomp', ((0x01020304, 0x05060708), 10)))
+            self.eq(nodes[0].ndef, ('test:arraycomp', (((4, 0x01020304), (4, 0x05060708)), 10)))
             self.eq(nodes[0].get('int'), 10)
-            self.eq(nodes[0].get('ipv4s'), (0x01020304, 0x05060708))
+            self.eq(nodes[0].get('ips'), ((4, 0x01020304), (4, 0x05060708)))
 
             # make sure "adds" got added
-            nodes = await core.nodes('inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8')
+            nodes = await core.nodes('inet:ip=1.2.3.4 inet:ip=5.6.7.8')
             self.len(2, nodes)
 
             nodes = await core.nodes('[ test:witharray="*" :fqdns="woot.com, VERTEX.LINK, vertex.link" ]')
@@ -1700,9 +1844,9 @@ class TypesTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:int:_hehe*[~=foo]'))
             self.len(2, await core.nodes('test:int:_hehe*[~=baz]'))
 
-            buid = nodes[0].buid
+            nid = nodes[0].nid
 
-            core.getLayer()._testAddPropArrayIndx(buid, 'test:int', '_hehe', ('newp' * 100,))
+            core.getLayer()._testAddPropArrayIndx(nid, 'test:int', '_hehe', ('newp' * 100,))
             self.len(0, await core.nodes('test:int:_hehe*[~=newp]'))
 
     async def test_types_typehash(self):

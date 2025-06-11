@@ -24,7 +24,6 @@ class MediaModelTest(s_t_utils.SynTest):
                 'summary': 'I forget ',
                 'published': 0,
                 'updated': 0,
-                'org': 'verteX',
                 'authors': cont,
                 'publisher': publisher,
                 'publisher:name': 'The Vertex Project, LLC.',
@@ -35,7 +34,7 @@ class MediaModelTest(s_t_utils.SynTest):
             q = '''[(media:news=$valu
                     :url=$p.url :file=$p.file :title=$p.title
                     :summary=$p.summary :published=$p.published :updated=$p.updated
-                    :org=$p.org :authors=$p.authors
+                    :authors=$p.authors
                     :publisher=$p.publisher :publisher:name=$p."publisher:name"
                     :rss:feed=$p."rss:feed" :topics=$p.topics
                     )]'''
@@ -53,7 +52,6 @@ class MediaModelTest(s_t_utils.SynTest):
             self.eq(node.get('updated'), 0)
             self.eq(node.get('publisher'), publisher)
             self.eq(node.get('publisher:name'), 'the vertex project, llc.')
-            self.eq(node.get('org'), 'vertex')
             self.eq(node.get('rss:feed'), 'http://vertex.link/rss')
             self.eq(node.get('authors'), (cont,))
             self.eq(node.get('topics'), ('foo bar', 'woot'))
@@ -61,7 +59,43 @@ class MediaModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('media:news -> media:topic'))
 
             nodes = await core.nodes('media:news [ :updated="2023-01-01" ]')
-            self.eq(nodes[0].props.get('updated'), 1672531200000)
+            self.eq(nodes[0].get('updated'), 1672531200000000)
 
             nodes = await core.nodes('media:news [ :updated="2022-01-01" ]')
-            self.eq(nodes[0].props.get('updated'), 1672531200000)
+            self.eq(nodes[0].get('updated'), 1672531200000000)
+    async def test_hashtag(self):
+        async with self.getTestCore() as core:
+            self.len(1, await core.nodes('[ media:hashtag="#🫠" ]'))
+            self.len(1, await core.nodes('[ media:hashtag="#🫠🫠" ]'))
+            self.len(1, await core.nodes('[ media:hashtag="#·bar"]'))
+            self.len(1, await core.nodes('[ media:hashtag="#foo·"]'))
+            self.len(1, await core.nodes('[ media:hashtag="#foo〜"]'))
+            self.len(1, await core.nodes('[ media:hashtag="#hehe" ]'))
+            self.len(1, await core.nodes('[ media:hashtag="#foo·bar"]'))  # note the interpunct
+            self.len(1, await core.nodes('[ media:hashtag="#foo〜bar"]'))  # note the wave dash
+            self.len(1, await core.nodes('[ media:hashtag="#fo·o·······b·ar"]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ media:hashtag="foo" ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ media:hashtag="#foo#bar" ]')
+
+            # All unicode whitespace from:
+            # https://www.compart.com/en/unicode/category/Zl
+            # https://www.compart.com/en/unicode/category/Zp
+            # https://www.compart.com/en/unicode/category/Zs
+            whitespace = [
+                '\u0020', '\u00a0', '\u1680', '\u2000', '\u2001', '\u2002', '\u2003', '\u2004',
+                '\u2005', '\u2006', '\u2007', '\u2008', '\u2009', '\u200a', '\u202f', '\u205f',
+                '\u3000', '\u2028', '\u2029',
+            ]
+            for char in whitespace:
+                with self.raises(s_exc.BadTypeValu):
+                    await core.callStorm(f'[ media:hashtag="#foo{char}bar" ]')
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.callStorm(f'[ media:hashtag="#{char}bar" ]')
+
+                # These are allowed because strip=True
+                await core.callStorm(f'[ media:hashtag="#foo{char}" ]')
+                await core.callStorm(f'[ media:hashtag=" #foo{char}" ]')

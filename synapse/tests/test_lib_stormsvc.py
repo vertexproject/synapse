@@ -14,7 +14,7 @@ import synapse.tools.backup as s_tools_backup
 old_pkg = {
     'name': 'old',
     'version': (0, 0, 1),
-    'synapse_version': '>=2.8.0,<3.0.0',
+    'synapse_version': '>=3.0.0,<4.0.0',
     'modules': (
         {'name': 'old.bar', 'storm': 'function bar(x, y) { return ($($x + $y)) }'},
         {'name': 'old.baz', 'storm': 'function baz(x, y) { return ($($x + $y)) }'},
@@ -30,7 +30,7 @@ old_pkg = {
         },
         {
             'name': 'oldcmd',
-            'storm': '[ inet:ipv4=1.2.3.4 ]',
+            'storm': '[ inet:ip=1.2.3.4 ]',
         },
     )
 }
@@ -38,7 +38,7 @@ old_pkg = {
 new_old_pkg = {
     'name': 'old',
     'version': (0, 1, 0),
-    'synapse_version': '>=2.8.0,<3.0.0',
+    'synapse_version': '>=3.0.0,<4.0.0',
     'modules': (
         {'name': 'old.bar', 'storm': 'function bar(x, y) { return ($($x + $y)) }'},
         {'name': 'new.baz', 'storm': 'function baz(x) { return ($($x + 20)) }'},
@@ -54,7 +54,7 @@ new_old_pkg = {
         },
         {
             'name': 'newcmd',
-            'storm': '[ inet:ipv4=5.6.7.8 ]',
+            'storm': '[ inet:ip=5.6.7.8 ]',
         },
     )
 }
@@ -62,7 +62,7 @@ new_old_pkg = {
 new_pkg = {
     'name': 'new',
     'version': (0, 0, 1),
-    'synapse_version': '>=2.8.0,<3.0.0',
+    'synapse_version': '>=3.0.0,<4.0.0',
     'modules': (
         {'name': 'echo', 'storm': '''function echo(arg1, arg2) {
                                         $lib.print("{arg1}={arg2}", arg1=$arg1, arg2=$arg2)
@@ -120,7 +120,7 @@ class RealService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'foo',
             'version': (0, 0, 1),
-            'synapse_version': '>=2.8.0,<3.0.0',
+            'synapse_version': '>=3.0.0,<4.0.0',
             'modules': (
                 {'name': 'foo.bar',
                  'storm': '''
@@ -149,12 +149,12 @@ class RealService(s_stormsvc.StormSvc):
                     'cmdargs': (
                         ('--verbose', {'default': False, 'action': 'store_true'}),
                     ),
-                    'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ] '
+                    'storm': '[ inet:ip=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ] '
                              'fini { if $cmdopts.verbose { $lib.print("ohhai verbose") } }',
                 },
                 {
                     'name': 'yoyo',
-                    'storm': 'for $ipv4 in $lib.service.get($cmdconf.svciden).ipv4s() { [inet:ipv4=$ipv4] }',
+                    'storm': 'for $ipv4 in $lib.service.get($cmdconf.svciden).ipv4s() { [inet:ip=$ipv4] }',
                 },
             )
         },
@@ -183,12 +183,12 @@ class NodeCreateService(s_stormsvc.StormSvc):
         {
             'name': 'ncreate',
             'version': (0, 0, 1),
-            'synapse_version': '>=2.8.0,<3.0.0',
+            'synapse_version': '>=3.0.0,<4.0.0',
             'commands': (
                 {
                     'name': 'baz',
                     'storm': '''
-                    [inet:ipv4=8.8.8.8]
+                    [inet:ip=8.8.8.8]
                     ''',
                 },
             )
@@ -201,7 +201,7 @@ class BoomService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'boom',
             'version': (0, 0, 1),
-            'synapse_version': '>=2.8.0,<3.0.0',
+            'synapse_version': '>=3.0.0,<4.0.0',
             'modules': (
                 {'name': 'blah', 'storm': '+}'},
             ),
@@ -219,10 +219,10 @@ class BoomService(s_stormsvc.StormSvc):
     )
     _storm_svc_evts = {
         'add': {
-            'storm': '[ inet:ipv4 = 8.8.8.8 ]',
+            'storm': '[ inet:ip = 8.8.8.8 ]',
         },
         'del': {
-            'storm': '[ inet:ipv4 = OVER9000 ]',
+            'storm': '[ inet:ip = OVER9000 ]',
         },
     }
 
@@ -242,10 +242,10 @@ class DeadService(s_stormsvc.StormSvc):
     )
     _storm_svc_evts = {
         'add': {
-            'storm': 'inet:ipv4',
+            'storm': 'inet:ip',
         },
         'del': {
-            'storm': 'inet:ipv4',
+            'storm': 'inet:ip',
         },
     }
 
@@ -259,12 +259,12 @@ class LifterService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'lifter',
             'version': (0, 0, 1),
-            'synapse_version': '>=2.8.0,<3.0.0',
+            'synapse_version': '>=3.0.0,<4.0.0',
             'commands': (
                 {
                     'name': 'lifter',
-                    'descr': 'Lift inet:ipv4=1.2.3.4',
-                    'storm': 'inet:ipv4=1.2.3.4',
+                    'descr': 'Lift inet:ip=1.2.3.4',
+                    'storm': 'inet:ip=1.2.3.4',
                 },
             ),
         },
@@ -284,7 +284,7 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'stormvar',
             'version': (0, 0, 1),
-            'synapse_version': '>=2.8.0,<3.0.0',
+            'synapse_version': '>=3.0.0,<4.0.0',
             'commands': (
                 {
                     'name': 'magic',
@@ -293,13 +293,6 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
                         ('name', {}),
                         ('--debug', {'default': False, 'action': 'store_true'})
                     ),
-                    'forms': {
-                        'input': ('test:str', 'test:int'),
-                        'output': ('test:comp', 'inet:ipv4'),
-                        'nodedata': (
-                            ('foo', 'inet:ipv4'),
-                        ),
-                    },
                     'storm': '''
                     $fooz = $cmdopts.name
                     if $cmdopts.debug {
@@ -373,7 +366,7 @@ class ShareService(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'sharer',
             'version': (0, 0, 1),
-            'synapse_version': '>=2.8.0,<3.0.0',
+            'synapse_version': '>=3.0.0,<4.0.0',
             'modules': (
                 {
                     'name': 'sharer',
@@ -473,7 +466,7 @@ class StormSvcTest(s_test.SynTest):
                 await asyncio.wait_for(fut, timeout=0.3)
 
             with self.raises(s_exc.StormRuntimeError):
-                await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
+                await core.nodes('[ inet:ip=6.6.6.6 ] | ohhai')
 
     async def test_storm_cmd_scope(self):
         # TODO - Fix me / move me - what is this tests purpose in life?
@@ -499,7 +492,7 @@ class StormSvcTest(s_test.SynTest):
         pkg = {
             'name': 'foobar',
             'version': (0, 0, 1),
-            'synapse_version': '>=2.8.0,<3.0.0',
+            'synapse_version': '>=3.0.0,<4.0.0',
             'modules': (
                 {'name': 'hehe.haha', 'storm': 'function add(x, y) { return ($($x + $y)) }'},
             ),
@@ -540,11 +533,11 @@ class StormSvcTest(s_test.SynTest):
                     await core.nodes('$lib.service.wait(real)')
                     await core.nodes('$lib.service.wait(ncreate)')
 
-                    await core.nodes('[inet:ipv4=1.2.3.3]')
+                    await core.nodes('[inet:ip=1.2.3.3]')
 
                     # baz yields inbound *and* a new node
                     # yoyo calls cmdconf.svciden in an iterator
-                    nodes = await core.nodes('inet:ipv4=1.2.3.3 | baz | yoyo')
+                    nodes = await core.nodes('inet:ip=1.2.3.3 | baz | yoyo')
                     self.len(5, {n.ndef for n in nodes})
 
     async def test_storm_svcs(self):
@@ -607,9 +600,9 @@ class StormSvcTest(s_test.SynTest):
                     queue = core.multiqueue.list()
                     self.len(1, queue)
                     self.eq('vertex', queue[0]['name'])
-                    nodes = await core.nodes('inet:ipv4=8.8.8.8')
+                    nodes = await core.nodes('inet:ip=8.8.8.8')
                     self.len(1, nodes)
-                    self.eq(nodes[0].ndef[1], 134744072)
+                    self.eq(nodes[0].ndef[1], (4, 134744072))
 
                     self.nn(core.getStormCmd('ohhai'))
                     self.none(core.getStormCmd('goboom'))
@@ -621,28 +614,28 @@ class StormSvcTest(s_test.SynTest):
 
                     prim = core.getStormSvc('prim')
                     refs = prim._syn_refs
-                    await core.nodes('function subr(svc) {} $subr($lib.service.get(prim))')
-                    await core.nodes('function subr(svc) { $other=$svc } $subr($lib.service.get(prim))')
-                    await core.nodes('function subr(svc) { $other=$svc } $t=$subr($lib.service.get(prim))')
+                    await core.nodes('function subr(svc) { return() } $subr($lib.service.get(prim))')
+                    await core.nodes('function subr(svc) { $other=$svc return() } $subr($lib.service.get(prim))')
+                    await core.nodes('function subr(svc) { $other=$svc return() } $t=$subr($lib.service.get(prim))')
                     self.eq(refs, prim._syn_refs)
 
                     nodes = await core.nodes('[ ps:name=$lib.service.get(prim).lower() ]')
                     self.len(1, nodes)
                     self.eq(nodes[0].ndef[1], 'asdf')
 
-                    nodes = await core.nodes('[ inet:ipv4=5.5.5.5 ] | ohhai')
+                    nodes = await core.nodes('[ inet:ip=5.5.5.5 ] | ohhai')
 
                     self.len(2, nodes)
                     self.eq(nodes[0].get('asn'), 20)
-                    self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
+                    self.eq(nodes[0].ndef, ('inet:ip', (4, 0x05050505)))
 
                     self.eq(nodes[1].get('asn'), 20)
-                    self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
+                    self.eq(nodes[1].ndef, ('inet:ip', (4, 0x01020304)))
 
-                    nodes = await core.nodes('for $ipv4 in $lib.service.get(fake).ipv4s() { [inet:ipv4=$ipv4] }')
+                    nodes = await core.nodes('for $ipv4 in $lib.service.get(fake).ipv4s() { [inet:ip=$ipv4] }')
                     self.len(3, nodes)
 
-                    nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ] | foobar | +:asn=40')
+                    nodes = await core.nodes('[ inet:ip=1.2.3.4 :asn=20 ] | foobar | +:asn=40')
                     self.len(1, nodes)
 
                     self.none(await core.getStormPkg('boom'))
@@ -671,12 +664,6 @@ class StormSvcTest(s_test.SynTest):
                     # No permissions is a failure too!
                     msgs = await core.stormlist('$svc=$lib.service.get(fake)', {'user': user.iden})
                     self.stormIsInErr(f'must have permission service.get.{iden}', msgs)
-
-                    # Old permissions still wrk for now but cause warnings
-                    await user.addRule((True, ('service', 'get', 'fake')))
-                    msgs = await core.stormlist('$svc=$lib.service.get(fake)', {'user': user.iden})
-                    self.stormIsInWarn('service.get.<servicename> permissions are deprecated.', msgs)
-                    await user.delRule((True, ('service', 'get', 'fake')))
 
                     # storm service permissions should use svcidens
                     await user.addRule((True, ('service', 'get', iden)))
@@ -722,20 +709,20 @@ class StormSvcTest(s_test.SynTest):
                 async with self.getTestCore(dirn=dirn) as core:
 
                     nodes = await core.nodes('$lib.service.wait(fake)')
-                    nodes = await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
+                    nodes = await core.nodes('[ inet:ip=6.6.6.6 ] | ohhai')
 
                     self.len(2, nodes)
                     self.eq(nodes[0].get('asn'), 20)
-                    self.eq(nodes[0].ndef, ('inet:ipv4', 0x06060606))
+                    self.eq(nodes[0].ndef, ('inet:ip', (4, 0x06060606)))
 
                     self.eq(nodes[1].get('asn'), 20)
-                    self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
+                    self.eq(nodes[1].ndef, ('inet:ip', (4, 0x01020304)))
 
                     # reach in and close the proxies
                     for ssvc in core.getStormSvcs():
                         await ssvc.proxy._t_proxy.fini()
 
-                    nodes = await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
+                    nodes = await core.nodes('[ inet:ip=6.6.6.6 ] | ohhai')
                     self.len(2, nodes)
 
                     # haven't deleted the service yet, so still should be there
@@ -762,7 +749,7 @@ class StormSvcTest(s_test.SynTest):
 
                     self.len(0, core.getStormSvcs())
                     # make sure all the dels ran, except for the BoomService (which should fail)
-                    nodes = await core.nodes('inet:ipv4')
+                    nodes = await core.nodes('inet:ip')
                     ans = {'1.2.3.4', '5.5.5.5', '6.6.6.6', '8.8.8.8', '123.123.123.123'}
                     reprs = set(map(lambda k: k.repr(), nodes))
                     self.eq(ans, reprs)
@@ -955,13 +942,13 @@ class StormSvcTest(s_test.SynTest):
 
         async with self.getTestCoreProxSvc(StormvarServiceCell) as (core, prox, svc):
 
-            await core.nodes('[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ]')
+            await core.nodes('[ inet:ip=1.2.3.4 inet:ip=5.6.7.8 ]')
 
-            scmd = f'inet:ipv4=1.2.3.4 $foo=$node.repr() | magic $foo'
+            scmd = f'inet:ip=1.2.3.4 $foo=$node.repr() | magic $foo'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
 
-            scmd = f'inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 $foo=$node.repr() | magic $foo'
+            scmd = f'inet:ip=1.2.3.4 inet:ip=5.6.7.8 $foo=$node.repr() | magic $foo'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
             self.stormIsInPrint('my foo var is 5.6.7.8', msgs)
@@ -980,7 +967,7 @@ class StormSvcTest(s_test.SynTest):
             self.stormIsInPrint('DEBUG: fooz=8.8.8.8', msgs)
             self.stormIsInPrint('my foo var is 8.8.8.8', msgs)
 
-            scmd = 'inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 $foo=$node.repr() | magic $foo --debug'
+            scmd = 'inet:ip=1.2.3.4 inet:ip=5.6.7.8 $foo=$node.repr() | magic $foo --debug'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
             self.stormIsInPrint('DEBUG: fooz=1.2.3.4', msgs)
@@ -1001,7 +988,7 @@ class StormSvcTest(s_test.SynTest):
                 lurl = f'tcp://127.0.0.1:{port}/real'
 
                 async with self.getTestCore(dirn=path00) as core00:
-                    await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                    await core00.nodes('[ inet:ip=1.2.3.4 ]')
 
                 s_tools_backup.backup(path00, path01)
 
