@@ -16,8 +16,8 @@ reqver = '>=3.0.0,<4.0.0'
 
 async def main(argv, outp=s_output.stdout):
 
-    if len(argv) not in (1, 2):
-        outp.printf('usage: python -m synapse.tools.aha.list <url> [network name]')
+    if len(argv) != 1:
+        outp.printf('usage: python -m synapse.tools.aha.list <url>')
         return 1
 
     async with s_telepath.withTeleEnv():
@@ -33,32 +33,27 @@ async def main(argv, outp=s_output.stdout):
                 outp.printf(f'Service at {argv[0]} is not an Aha server')
                 return 1
 
-            try:
-                network = argv[1]
-            except IndexError:
-                network = None
-
-            mesg = f"{'Service':<20s} {'network':<30s} {'leader':<6} {'online':<6} {'scheme':<6} {'host':<20} {'port':<5}  connection opts"
+            mesg = f"{'Service':<40s} {'Leader':<6} {'Online':<6} {'Host':<20} {'Port':<5}"
             outp.printf(mesg)
 
             svcs = []
             ldrs = set()
-            async for svc in prox.getAhaSvcs(network=network):
+            async for svc in prox.getAhaSvcs():
                 svcinfo = svc.get('svcinfo')
                 if svcinfo and svc.get('svcname') == svcinfo.get('leader'):
                     ldrs.add(svcinfo.get('run'))
                 svcs.append(svc)
 
             for svc in svcs:
-                svcname = svc.pop('svcname')
-                svcnetw = svc.pop('svcnetw')
+                name = svc.get('name')
 
-                svcinfo = svc.pop('svcinfo')
-                urlinfo = svcinfo.pop('urlinfo')
-                online = str(bool(svcinfo.pop('online', False)))
-                host = urlinfo.pop('host')
-                port = str(urlinfo.pop('port'))
-                scheme = urlinfo.pop('scheme')
+                svcinfo = svc.get('svcinfo')
+                urlinfo = svcinfo.get('urlinfo')
+
+                online = str(bool(svcinfo.get('online', False))).lower()
+
+                host = urlinfo.get('host')
+                port = str(urlinfo.get('port'))
 
                 leader = 'None'
                 if svcinfo.get('leader') is not None:
@@ -67,11 +62,10 @@ async def main(argv, outp=s_output.stdout):
                     else:
                         leader = 'False'
 
-                mesg = f'{svcname:<20s} {svcnetw:<30s} {leader:<6} {online:<6} {scheme:<6} {host:<20} {port:<5}'
-                if svc:
-                    mesg = f'{mesg}  {svc}'
+                mesg = f'{name:<40s} {leader:<6} {online:<6} {host:<20} {port:<5}'
 
                 outp.printf(mesg)
+
             return 0
 
 async def _main(argv, outp=s_output.stdout):  # pragma: no cover
