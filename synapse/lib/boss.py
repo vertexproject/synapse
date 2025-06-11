@@ -21,7 +21,8 @@ class Boss(s_base.Base):
     async def __anit__(self):
         await s_base.Base.__anit__(self)
         self.tasks = {}
-        self.shutting = False
+        self.is_shutdown = False
+        self.shutdown_lock = asyncio.Lock()
         self.onfini(self._onBossFini)
 
     async def shutdown(self, timeout=None):
@@ -30,33 +31,33 @@ class Boss(s_base.Base):
 
         self.reqNotShut()
 
-        self.shutting = True
+        async with self.shutdown_lock:
 
-        for task in list(self.tasks.values()):
+            for task in list(self.tasks.values()):
 
-            # do not wait on child tasks
-            if task.root is not None:
-                continue
+                # do not wait on child tasks
+                if task.root is not None:
+                    continue
 
-            # do not wait on background tasks
-            if task.background:
-                continue
+                # do not wait on background tasks
+                if task.background:
+                    continue
 
-            if not await s_coro.waittask(task.task, timeout=timeout):
-                self.shutting = False
-                return False
+                if not await s_coro.waittask(task.task, timeout=timeout):
+                    return False
 
-        return True
+            self.is_shutdown = True
+            return True
 
     def reqNotShut(self, mesg=None):
-
-        if not self.shutting:
-            return
-
-        if mesg is None:
-            mesg = 'The service is shutting down.'
-
-        raise s_exc.ShuttingDown(mesg=mesg)
+        if self.shutdown_lock.locked():
+            if mesg is None:
+                mesg = 'The service is shutting down.'
+            raise s_exc.ShuttingDown(mesg=mesg)
+        if self.is_shutdown:
+            if mesg is None:
+                mesg = 'The service is shut down.'
+            raise s_exc.ShuttingDown(mesg=mesg)
 
     async def _onBossFini(self):
         for task in list(self.tasks.values()):
