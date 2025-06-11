@@ -3814,12 +3814,12 @@ class Queue(StormType):
 
     async def _methQueueCull(self, offs):
         offs = await toint(offs)
-        self.runt.confirm(('queue', 'get', self.iden), gateiden=self.iden)
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
         await self.runt.view.core.coreQueueCull(self.iden, offs)
 
     @stormfunc(readonly=True)
     async def _methQueueSize(self):
-        self.runt.confirm(('queue', 'get', self.iden), gateiden=self.iden)
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
         return await self.runt.view.core.coreQueueSize(self.iden)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
@@ -3827,28 +3827,28 @@ class Queue(StormType):
         offs = await toint(offs)
         size = await toint(size, noneok=True)
 
-        self.runt.confirm(('queue', 'get', self.iden), gateiden=self.iden)
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
         async for item in self.runt.view.core.coreQueueGets(self.iden, offs, cull=cull, wait=wait, size=size):
             yield item
 
     async def _methQueuePuts(self, items):
         items = await toprim(items)
 
-        self.runt.confirm(('queue', 'put', self.iden), gateiden=self.iden)
+        self.runt.confirm(('queue', 'put'), gateiden=self.iden)
         return await self.runt.view.core.coreQueuePuts(self.iden, items)
 
     async def _methQueueGet(self, offs=0, cull=True, wait=True):
         offs = await toint(offs)
         wait = await toint(wait)
 
-        self.runt.confirm(('queue', 'get', self.iden), gateiden=self.iden)
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
         return await self.runt.view.core.coreQueueGet(self.iden, offs, cull=cull, wait=wait)
 
     async def _methQueuePop(self, offs=None, wait=False):
         offs = await toint(offs, noneok=True)
         wait = await tobool(wait)
 
-        self.runt.confirm(('queue', 'get', self.iden), gateiden=self.iden)
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
 
         # emulate the old behavior on no argument
         core = self.runt.view.core
