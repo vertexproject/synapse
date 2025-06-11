@@ -1,9 +1,6 @@
 import os
-import sys
 import shutil
-import asyncio
 import logging
-import argparse
 import subprocess
 
 import regex as re
@@ -11,7 +8,7 @@ import regex as re
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.coro as s_coro
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 
 import synapse.tools.rstorm as s_rstorm
@@ -153,12 +150,12 @@ async def buildPkgDocs(outp: s_output.OutPut, pkgpath: str, rst_only: bool =Fals
 
     logger.info(f'buildPkgDocs complete for {pkgpath}.')
 
-prog = 'synapse.tools.pkg.build_docs'
+prog = 'synapse.tools.pkgs.gendocs'
 desc = 'A tool for building storm package docs from RStorm into markdown. This tool requires pandoc to be available.'
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog=prog, description=desc)
+    pars = s_cmd.Parser(prog=prog, outp=outp, description=desc)
     pars.add_argument('pkgfile', metavar='<pkgfile>', help='Path to a storm package prototype yml file.')
     pars.add_argument('--rst-only', default=False, action='store_true',
                       help='Stops building after the .rst files have been generated.')
@@ -173,13 +170,8 @@ async def main(argv, outp=s_output.stdout):
 
     return 0
 
-
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
+if __name__ == '__main__':  # pragma: no cover
     s_common.setlogging(logger, 'DEBUG')
     logging.getLogger('vcr').setLevel(logging.WARNING)
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
+    s_cmd.exitmain(main)
 
-if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
