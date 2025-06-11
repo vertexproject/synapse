@@ -1874,6 +1874,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'leader': ahalead,
             'urlinfo': urlinfo,
             'ready': ready,
+            'isleader': self.isactive,
         }
 
         return ahainfo
@@ -1907,9 +1908,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     proxy = await self.ahaclient.proxy()
 
                     info = await self.getAhaInfo()
-                    await proxy.addAhaSvc(ahaname, info, network=ahanetw)
+                    await proxy.addAhaSvc(f'{ahaname}...', info)
                     if self.isactive and ahalead is not None:
-                        await proxy.addAhaSvc(ahalead, info, network=ahanetw)
+                        await proxy.addAhaSvc(f'{ahalead}...', info)
 
                 except Exception as e:
                     logger.exception(f'Error registering service {self.ahasvcname} with AHA: {e}')
@@ -2104,38 +2105,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.NeedConfValu(mesg=mesg)
         return await self.ahaclient.proxy(timeout=timeout)
 
-    async def _setAhaActive(self):
+    async def _bumpAhaProxy(self):
 
         if self.ahaclient is None:
             return
 
-        ahainfo = await self.getAhaInfo()
-        if ahainfo is None:
-            return
-
-        ahalead = self.conf.get('aha:leader')
-        if ahalead is None:
-            return
-
+        # force a reconnect to AHA to update service info
         try:
 
-            proxy = await self.ahaclient.proxy(timeout=2)
+            proxy = await self.ahaclient.proxy(timeout=5)
+            if proxy is not None:
+                await proxy.fini()
 
-        except TimeoutError:  # pragma: no cover
-            return None
-
-        # if we went inactive, bump the aha proxy
-        if not self.isactive:
-            await proxy.fini()
-            return
-
-        ahanetw = self.conf.req('aha:network')
-        try:
-            await proxy.addAhaSvc(ahalead, ahainfo, network=ahanetw)
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
-        except Exception as e:  # pragma: no cover
-            logger.warning(f'_setAhaActive failed: {e}')
+        except Exception as e:
+            extra = await self.getLogExtra(name=self.conf.get('aha:name'))
+            logger.exception('Error forcing AHA reconnect.', extra=extra)
 
     def isActiveCoro(self, iden):
         return self.activecoros.get(iden) is not None
@@ -2247,7 +2231,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.activebase = None
             await self.initServicePassive()
 
-        await self._setAhaActive()
+        await self._bumpAhaProxy()
 
     def runActiveTask(self, coro):
         # an API for active coroutines to use when running an
@@ -3296,13 +3280,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         await user.addRule(rule)
 
     @contextlib.asynccontextmanager
-    async def getLocalProxy(self, share='*', user='root'):
+    async def getLocalProxy(self, share=None, user='root'):
         url = self.getLocalUrl(share=share, user=user)
         prox = await s_telepath.openurl(url)
         yield prox
 
-    def getLocalUrl(self, share='*', user='root'):
-        return f'cell://{user}@{self.dirn}:{share}'
+    def getLocalUrl(self, share=None, user='root'):
+        url = f'cell://{user}@{self.dirn}'
+        if share is not None:
+            url = f'{url}:{share}'
+        return url
 
     def _initCellConf(self, conf):
         '''
@@ -3993,6 +3980,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.warning(f'Bootstrap mirror from: {murl} DONE!')
 
     async def getMirrorUrls(self):
+
         if self.ahaclient is None:
             raise s_exc.BadConfValu(mesg='Enumerating mirror URLs is only supported when AHA is configured')
 
@@ -4004,7 +3992,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'Service must be configured with AHA to enumerate mirror URLs'
             raise s_exc.NoSuchName(mesg=mesg, name=self.ahasvcname)
 
-        return [f'aha://{svc["svcname"]}.{svc["svcnetw"]}' for svc in mirrors]
+        return [f'aha://{svc["name"]}' for svc in mirrors]
 
     @classmethod
     async def initFromArgv(cls, argv, outp=None):

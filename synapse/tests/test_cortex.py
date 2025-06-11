@@ -1900,6 +1900,11 @@ class CortexTest(s_t_utils.SynTest):
             tick = node.get('.created')
             created = node.repr('.created')
 
+            utick = node.get('.updated')
+            updated = node.repr('.updated')
+            self.eq(tick, utick)
+            self.eq(created, updated)
+
             self.len(1, await core.nodes('.created'))
             self.len(1, await core.nodes('.created=$tick', opts={'vars': {'tick': tick}}))
             self.len(1, await core.nodes('.created>=2010'))
@@ -1909,12 +1914,42 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('.created*range=(2010, 3001)'))
             self.len(1, await core.nodes('.created*range=("2010", "?")'))
 
+            self.len(1, await core.nodes('.updated<=now'))
+            self.len(0, await core.nodes('.updated>now'))
+            self.len(1, await core.nodes('.updated=$tick', opts={'vars': {'tick': utick}}))
+
+            vdef2 = await core.view.fork()
+            forkopts = {'view': vdef2.get('iden')}
+
+            await core.nodes('[test:str=foo]', opts=forkopts)
+            self.len(2, await core.nodes('.created', opts=forkopts))
+
+            # Add another node with a different created time in between our node with different values in
+            # two layers to check non-mergesort deduping.
+            await core.nodes('[test:str=bar]')
+            await core.nodes('[test:str=foo]')
+            self.len(3, await core.nodes('.created', opts=forkopts))
+
+            forkopts['vars'] = {'tick': tick}
+            self.len(2, await core.nodes('.created>$tick', opts=forkopts))
+            self.len(0, await core.nodes('.created?=newp', opts=forkopts))
+
+            nodes = await core.nodes('.created', opts=forkopts)
+            revnodes = await core.nodes('reverse(.created)', opts=forkopts)
+            self.eq(nodes, revnodes[::-1])
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('.newp>1')
+
             self.len(1, await wcore.nodes('test:type10=one [:intprop=21 :strprop=qwer :locprop=us.va.reston]'))
             nodes = await wcore.nodes('[test:comp=(33, "THIRTY THREE")]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.get('hehe'), 33)
             self.eq(node.get('haha'), 'thirty three')
+
+            utick = await core.callStorm('test:type10=one return(.updated)')
+            self.gt(utick, tick)
 
             with self.raises(s_exc.ReadOnlyProp):
                 await wcore.nodes('test:comp=(33, "THIRTY THREE") [ :hehe = 80]')
@@ -2898,21 +2933,6 @@ class CortexTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('it:exec:url:http:request::flow::src::ip::asn>6'))
             self.len(2, await core.nodes('it:exec:url:http:request::flow::src::ip::asn*in=(5,6)'))
-
-            await core.nodes('[ ou:award=* :org={[ ou:org=* :name=foo ]}]')
-            await core.nodes('[ ou:award=* :org={[ ou:org=* :names=(foo, bar) ]}]')
-            await core.nodes('[ ou:award=* :org={[ ou:org=* :names=(baz, faz) ]}]')
-
-            self.len(2, await core.nodes('ou:award:org::name.alts=foo'))
-            self.len(1, await core.nodes('ou:award:org::name.alts=bar'))
-            self.len(2, await core.nodes('ou:award:org::name.alts*in=(bar, baz)'))
-
-            await core.nodes('[ test:virtiface=* :server=tcp://1.2.3.4 ]')
-            await core.nodes('[ test:virtiface=* :servers=(tcp://1.2.3.4, tcp://5.6.7.8) ]')
-            await core.nodes('[ test:virtiface2=* :servers=(tcp://7.8.9.0,) ]')
-
-            self.len(2, await core.nodes('test:virtarray:server.alts.ip=1.2.3.4'))
-            self.len(2, await core.nodes('test:virtarray:server.alts.ip*in=(5.6.7.8, 7.8.9.0)'))
 
 class CortexBasicTest(s_t_utils.SynTest):
     '''

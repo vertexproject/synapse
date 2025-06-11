@@ -456,9 +456,7 @@ class IndxByVirt(IndxBy):
         self.virts = virts
 
     def __repr__(self):
-        if self.form:
-            return f'IndxByVirt: {self.form}:{self.prop}.{".".join(self.virts)}'
-        return f'IndxByVirt: {self.prop}.{".".join(self.virts)}'
+        return f'IndxByVirt: {self.form}:{self.prop}.{".".join(self.virts)}'
 
 class IndxByVirtArray(IndxBy):
 
@@ -474,9 +472,7 @@ class IndxByVirtArray(IndxBy):
         self.virts = virts
 
     def __repr__(self):
-        if self.form:
-            return f'IndxByVirtArray: {self.form}:{self.prop}.{".".join(self.virts)}'
-        return f'IndxByVirtArray: {self.prop}.{".".join(self.virts)}'
+        return f'IndxByVirtArray: {self.form}:{self.prop}.{".".join(self.virts)}'
 
 class IndxByPropArray(IndxBy):
 
@@ -1454,6 +1450,17 @@ class StorTypeIval(StorType):
             self.propindx[f'duration{cmpr}'] = IndxByPropIvalDuration
             self.tagpropindx[f'duration{cmpr}'] = IndxByTagPropIvalDuration
 
+    async def indxByForm(self, form, cmpr, valu, reverse=False, virts=None):
+        try:
+            indxtype = self.propindx.get(cmpr, IndxByProp)
+            indxby = indxtype(self.layr, form, None)
+
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
+            yield item
+
     async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virts=None):
         try:
             indxtype = self.propindx.get(cmpr, IndxByProp)
@@ -1917,6 +1924,9 @@ class Layer(s_nexus.Pusher):
 
         self.timetype = self.stortypes[STOR_TYPE_TIME]
         self.ivaltimetype = self.stortypes[STOR_TYPE_IVAL].timetype
+
+        self.createdabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'created')
+        self.updatedabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'updated')
 
         await self._initLayerStorage()
 
@@ -3016,12 +3026,9 @@ class Layer(s_nexus.Pusher):
             async for indx, nid in self.stortypes[kind].indxByTagProp(form, tag, prop, cmpr, valu, reverse=reverse):
                 yield indx, nid, self.genStorNodeRef(nid)
 
-    async def liftByMeta(self, name, form=None, reverse=False):
+    async def liftByMeta(self, name, reverse=False):
 
-        try:
-            abrv = self.core.getIndxAbrv(INDX_VIRTUAL, form, None, name)
-        except s_exc.NoSuchAbrv:
-            return
+        abrv = self.core.getIndxAbrv(INDX_VIRTUAL, None, None, name)
 
         if reverse:
             scan = self.layrslab.scanByPrefBack
@@ -3032,13 +3039,9 @@ class Layer(s_nexus.Pusher):
             sref = self.genStorNodeRef(nid)
             yield lval, nid, sref
 
-    async def liftByMetaValu(self, name, cmprvals, form=None, reverse=False):
+    async def liftByMetaValu(self, name, cmprvals, reverse=False):
         for cmpr, valu, kind in cmprvals:
-
-            if kind & 0x8000:
-                kind = STOR_TYPE_ARRAY
-
-            async for indx, nid in self.stortypes[kind].indxByProp(form, None, cmpr, valu, reverse=reverse, virts=(name,)):
+            async for indx, nid in self.stortypes[kind].indxByProp(None, None, cmpr, valu, reverse=reverse, virts=(name,)):
                 yield indx, nid, self.genStorNodeRef(nid)
 
     async def liftByProp(self, form, prop, reverse=False, indx=None):
@@ -3181,6 +3184,10 @@ class Layer(s_nexus.Pusher):
             None
         '''
         kvpairs = []
+
+        utime = meta['time']
+        ubyts = self.timetype.getIntIndx(utime)
+
         for (nid, form, edits) in nodeedits:
 
             nid = s_common.int64en(nid)
@@ -3193,6 +3200,19 @@ class Layer(s_nexus.Pusher):
                     await self.layrslab.putmulti(kvpairs, db=self.indxdb)
                     kvpairs.clear()
                     await asyncio.sleep(0)
+
+            if nid in self.dirty:
+                metaabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, None, 'updated')
+
+                if (last := sode['meta'].get('updated')) is not None:
+                    oldbyts = self.timetype.getIntIndx(last[0])
+                    self.layrslab.delete(metaabrv + oldbyts, nid, db=self.indxdb)
+                    self.layrslab.delete(self.updatedabrv + oldbyts, nid, db=self.indxdb)
+
+                kvpairs.append((metaabrv + ubyts, nid))
+                kvpairs.append((self.updatedabrv + ubyts, nid))
+
+                sode['meta']['updated'] = (utime, STOR_TYPE_TIME)
 
         if kvpairs:
             await self.layrslab.putmulti(kvpairs, db=self.indxdb)
@@ -3229,11 +3249,19 @@ class Layer(s_nexus.Pusher):
             return False
 
         # no more refs in this layer.  time to pop it...
+        form = sode.get('form')
         try:
-            abrv = self.core.getIndxAbrv(INDX_FORM, sode.get('form'))
+            abrv = self.core.getIndxAbrv(INDX_FORM, form)
             self.layrslab.delete(abrv, val=nid, db=self.indxdb)
         except s_exc.NoSuchAbrv:
             pass
+
+        if (last := sode['meta'].get('updated')) is not None:
+            ubyts = self.timetype.getIntIndx(last[0])
+
+            metaabrv = self.core.getIndxAbrv(INDX_VIRTUAL, form, None, 'updated')
+            self.layrslab.delete(metaabrv + ubyts, nid, db=self.indxdb)
+            self.layrslab.delete(self.updatedabrv + ubyts, nid, db=self.indxdb)
 
         self.dirty.pop(nid, None)
         self.nidcache.pop(nid, None)
@@ -3653,9 +3681,7 @@ class Layer(s_nexus.Pusher):
 
         metaabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, None, 'created')
         kvpairs.append((metaabrv + cbyts, nid))
-
-        univabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'created')
-        kvpairs.append((univabrv + cbyts, nid))
+        kvpairs.append((self.createdabrv + cbyts, nid))
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
 
@@ -3746,9 +3772,7 @@ class Layer(s_nexus.Pusher):
 
         metaabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, None, 'created')
         self.layrslab.delete(metaabrv + cbyts, nid, db=self.indxdb)
-
-        univabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'created')
-        self.layrslab.delete(univabrv + cbyts, nid, db=self.indxdb)
+        self.layrslab.delete(self.createdabrv + cbyts, nid, db=self.indxdb)
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
 
@@ -4455,6 +4479,8 @@ class Layer(s_nexus.Pusher):
             self.dataslab.delete(nid + abrv + FLAG_TOMB, db=self.nodedata)
             self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
 
+        self.dirty[nid] = sode
+
         if sode.get('form') is None:
             sode['form'] = form
             formabrv = self.core.setIndxAbrv(INDX_FORM, form)
@@ -4470,7 +4496,8 @@ class Layer(s_nexus.Pusher):
         if self.dataslab.delete(nid + abrv + FLAG_NORM, db=self.nodedata):
             self.dataslab.delete(abrv + FLAG_NORM, nid, db=self.dataname)
 
-        self.mayDelNid(nid, sode)
+        if not self.mayDelNid(nid, sode):
+            self.dirty[nid] = sode
 
         return ()
 
@@ -5299,8 +5326,9 @@ class Layer(s_nexus.Pusher):
                 continue
 
             if meta and (mval := sode.get('meta')) is not None:
-                for name, (valu, stortype) in mval.items():
-                    edits.append((EDIT_META_SET, (name, valu, None, stortype)))
+                if (cval := mval.get('created')) is not None:
+                    (valu, stortype) = cval
+                    edits.append((EDIT_META_SET, ('created', valu, None, stortype)))
 
             for prop, (valu, stortype, virts) in sode.get('props', {}).items():
                 edits.append((EDIT_PROP_SET, (prop, valu, None, stortype, virts)))
