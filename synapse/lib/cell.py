@@ -1551,7 +1551,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return False
 
         def syncfini(futu):
-            asyncio.get_running_loop().create_task(self.fini())
+            logger.warning('...all tasks exited. Shutting down.')
+            s_coro.create_task(self.fini())
 
         asyncio.current_task().add_done_callback(syncfini)
         return True
