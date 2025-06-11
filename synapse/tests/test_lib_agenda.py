@@ -572,8 +572,8 @@ class AgendaTest(s_t_utils.SynTest):
 
             # Now let's give him perms to do things
             await fail.addRule((True, ('view', 'read')), gateiden=newview)
-            await fail.addRule((True, ('queue', 'get', qiden)))
-            await fail.addRule((True, ('queue', 'put', qiden)))
+            await fail.addRule((True, ('queue', 'get')), gateiden=qiden)
+            await fail.addRule((True, ('queue', 'put')), gateiden=qiden)
             await fail.addRule((True, ('node', 'add')))
             await fail.addRule((True, ('cron', 'get')))
 
