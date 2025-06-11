@@ -1029,6 +1029,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'The username of this service when connecting to others.',
             'type': 'string',
         },
+        'aha:cluster': {
+            'description': 'Set to false to prevent this service from being selected for being promoted to leader.',
+            'type': 'boolean',
+            'default': True,
+        },
         'aha:leader': {
             'description': 'The AHA service name to claim as the active instance of a storm service.',
             'type': 'string',
@@ -2067,6 +2072,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'leader': ahalead,
             'urlinfo': urlinfo,
             'ready': ready,
+            'cluster': self.conf.get('aha:cluster'),
         }
 
         return ahainfo
@@ -2290,6 +2296,53 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.debug(f'HANDOFF: Released nexus lock{_dispname}.')
 
         logger.warning(f'HANDOFF: Done performing the leadership handoff with {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
+
+    async def demote(self, timeout=None):
+
+        logger.warning('Service demotion requested. Locating a suitable service for promotion...')
+
+        ahaproxy = await self.reqAhaProxy(timeout=timeout)
+
+        user = self.conf.get('aha:user')
+        try:
+
+            async with s_base.Base.anit() as base:
+
+                cands = []
+
+                async for svcdef in proxy.getAhaSvcsByIden(self.iden, skiprun=self.runid):
+
+                    if not svcdef['svcinfo'].get('cluster'):
+                        continue
+
+                    try:
+                        name = svcdef['svcinfo']['name']
+                        svcproxy = base.enter_context(await s_telepath.proxy(f'aha://{user}@{name}'))
+
+                        svcindx = await svcproxy.getNexsIndx()
+                        cands.append((svcindx, svcproxy))
+
+                    except Exception as e:
+                        logger.error('STUFF 00')
+
+                if not cands:
+                    logger.warning('...no suitable services discovered. Aborting demotion.')
+                    return False
+
+                for svcindx, svcproxy in sorted(cands):
+
+                    try:
+                        await svcproxy.promote(graceful=True)
+
+                        logger.warning(f'... successfully promoted: {svcproxy._ahainfo["name"]}')
+                        return True
+
+                    except Exception as e:
+                        logger.error('STUFF 01')
+
+        except Exception as e:
+            logger.error('STUFF 02')
+            return False
 
     async def reqAhaProxy(self, timeout=None):
         if self.ahaclient is None:
