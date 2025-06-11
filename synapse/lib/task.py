@@ -22,6 +22,7 @@ class Task(s_base.Base):
             info = {}
 
         self.boss = boss
+        self.background = False
 
         task._syn_task = self
 
