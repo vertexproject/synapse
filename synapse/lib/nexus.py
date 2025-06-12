@@ -507,11 +507,11 @@ class NexsRoot(s_base.Base):
         async with await ChangeDist.anit(self.nexslog, offs) as dist:
 
             async def fini():
-                self._listeners.remove(dist)
+                self._mirrors.remove(dist)
 
             dist.onfini(fini)
 
-            self._listeners.append(dist)
+            self._mirrors.append(dist)
 
             yield dist
 
