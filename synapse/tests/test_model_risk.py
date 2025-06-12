@@ -286,8 +286,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :sophistication=high
                     :merged:time = 20230111
                     :merged:isnow = {[ risk:threat=* ]}
-                    :mitre:attack:group=G0001
-
                     :place:loc=cn.shanghai
                     :place:country={gen.pol.country cn}
                     :place:country:code=cn
@@ -312,11 +310,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(1673395200000000, nodes[0].get('merged:time'))
             self.eq(1643673600000000, nodes[0].get('source:discovered'))
             self.eq(1675209600000000, nodes[0].get('source:published'))
-            self.eq('G0001', nodes[0].get('mitre:attack:group'))
 
             self.len(1, nodes[0].get('goals'))
             self.len(1, await core.nodes('risk:threat:merged:isnow -> risk:threat'))
-            self.len(1, await core.nodes('risk:threat -> it:mitre:attack:group'))
 
             self.len(1, nodes := await core.nodes('[ risk:threat=({"name": "comment crew"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
@@ -477,7 +473,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :desc=BazFaz
                     :source:name=vertex
                     :source = { gen.ou.org vertex }
-                    :mitre:attack:mitigation=M1036
             ]''')
             self.eq('foobar', nodes[0].get('name'))
             self.eq('BazFaz', nodes[0].get('desc'))
@@ -486,7 +481,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('source'))
 
             self.len(1, await core.nodes('risk:mitigation -> risk:vuln'))
-            self.len(1, await core.nodes('risk:mitigation -> it:mitre:attack:mitigation'))
             self.len(1, await core.nodes('risk:mitigation -> risk:mitigation:type:taxonomy'))
 
             nodes = await core.nodes('risk:mitigation:type:taxonomy=foo.bar [ :desc="foo that bars"]')
@@ -507,7 +501,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :source:discovered=202202
                     :source:published=202302
                     :tag=cno.mal.cobaltstrike
-                    :mitre:attack:software=S0001
                     :id=" AAAbbb123  "
 
                     :sophistication=high
@@ -525,7 +518,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq((1325376000000000, 9223372036854775807), nodes[0].get('used'))
             self.eq(1643673600000000, nodes[0].get('source:discovered'))
             self.eq(1675209600000000, nodes[0].get('source:published'))
-            self.eq('S0001', nodes[0].get('mitre:attack:software'))
             self.eq('AAAbbb123', nodes[0].get('id'))
 
             self.eq('cobaltstrike', nodes[0].get('software:name'))
@@ -534,7 +526,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:tool:software -> ou:org'))
             self.len(1, await core.nodes('risk:tool:software -> syn:tag'))
             self.len(1, await core.nodes('risk:tool:software -> it:software'))
-            self.len(1, await core.nodes('risk:tool:software -> it:mitre:attack:software'))
 
             self.len(1, nodes := await core.nodes('[ risk:tool:software=({"software:name": "beacon"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)

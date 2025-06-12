@@ -55,12 +55,12 @@ class DocModelTest(s_tests.SynTest):
                     :id=V-99
                     :priority=low
                     :optional=(false)
-                    :summary="Some requirement text."
+                    :desc="Some requirement text."
                     :standard={doc:standard}
                 ]
             ''')
             self.eq('V-99', nodes[0].get('id'))
-            self.eq('Some requirement text.', nodes[0].get('summary'))
+            self.eq('Some requirement text.', nodes[0].get('desc'))
             self.eq(20, nodes[0].get('priority'))
             self.false(nodes[0].get('optional'))
             self.nn(nodes[0].get('standard'))
@@ -70,14 +70,14 @@ class DocModelTest(s_tests.SynTest):
                 [ doc:resume=*
                     :id=V-99
                     :contact={[ entity:contact=* :name=visi ]}
-                    :summary="Thought leader seeks..."
+                    :desc="Thought leader seeks..."
                     :workhist={[ ps:workhist=* ]}
                     :education={[ ps:education=* ]}
                     :achievements={[ ps:achievement=* ]}
                 ]
             ''')
             self.eq('V-99', nodes[0].get('id'))
-            self.eq('Thought leader seeks...', nodes[0].get('summary'))
+            self.eq('Thought leader seeks...', nodes[0].get('desc'))
             self.nn(nodes[0].get('contact'))
             self.len(1, nodes[0].get('workhist'))
             self.len(1, nodes[0].get('education'))

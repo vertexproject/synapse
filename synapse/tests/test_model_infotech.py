@@ -34,179 +34,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('parents'), ('CWE-119',))
 
             nodes = await core.nodes('''[
-                it:mitre:attack:group=G0100
-                    :org={[ ou:org=* :name=visicorp ]}
-                    :name=aptvisi
-                    :names=(visigroup, nerdsrus, visigroup)
-                    :desc=worlddom
-                    :url=https://vertex.link
-                    :references=(https://foo.com,https://bar.com)
-                    :software=(S0200,S0100,S0100)
-                    :isnow=G0110
-                    :techniques=(T0200,T0100,T0100)
-            ]''')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('it:mitre:attack:group', 'G0100'))
-            self.nn(nodes[0].get('org'))
-            self.eq(nodes[0].get('name'), 'aptvisi')
-            self.eq(nodes[0].get('names'), ('nerdsrus', 'visigroup'))
-            self.eq(nodes[0].get('desc'), 'worlddom')
-            self.eq(nodes[0].get('url'), 'https://vertex.link')
-            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
-            self.eq(nodes[0].get('software'), ('S0100', 'S0200'))
-            self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
-            self.eq(nodes[0].get('isnow'), 'G0110')
-
-            desc = 'A database and set of services that allows administrators to manage permissions, access to network '
-            desc += 'resources, and stored data objects (user, group, application, or devices)(Citation: Microsoft AD '
-            desc += 'DS Getting Started)'
-            refs = (
-                'https://attack.mitre.org/datasources/DS0026',
-                'https://docs.microsoft.com/en-us/windows-server/identity/ad-ds/ad-ds-getting-started',
-            )
-            q = f'''
-            [ it:mitre:attack:datasource=DS0026
-                :name="Active Directory"
-                :description="{desc}"
-                :references=({",".join(refs)})
-            ]
-            '''
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('it:mitre:attack:datasource', 'DS0026'))
-            self.eq(nodes[0].get('name'), 'active directory')
-            self.eq(nodes[0].get('description'), desc)
-            self.eq(nodes[0].get('references'), refs)
-
-            q = f'''
-            [ it:mitre:attack:data:component=(DS0026, "Active Directory Credential Request")
-                :name="Active Directory Credential Request"
-                :description="{desc}"
-                :datasource=DS0026
-            ] -+> it:mitre:attack:datasource
-            '''
-            nodes = await core.nodes(q)
-            self.len(2, nodes)
-            self.eq(nodes[0].get('name'), 'active directory credential request')
-            self.eq(nodes[0].get('description'), desc)
-            self.eq(nodes[0].get('datasource'), 'DS0026')
-            self.eq(nodes[1].ndef, ('it:mitre:attack:datasource', 'DS0026'))
-            dcguid = nodes[0].ndef[1]
-
-            nodes = await core.nodes('''[
-                it:mitre:attack:tactic=TA0100
-                    :name=tactilneck
-                    :desc=darkerblack
-                    :url=https://archer.link
-                    :references=(https://foo.com,https://bar.com)
-                    :matrix=enterprise
-            ]''')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('it:mitre:attack:tactic', 'TA0100'))
-            self.eq(nodes[0].get('name'), 'tactilneck')
-            self.eq(nodes[0].get('desc'), 'darkerblack')
-            self.eq(nodes[0].get('url'), 'https://archer.link')
-            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
-            self.eq(nodes[0].get('matrix'), 'enterprise')
-
-            nodes = await core.nodes('''[
-                it:mitre:attack:technique=T0100
-                    :name="   LockPicking   "
-                    :desc=speedhackers
-                    :url=https://locksrus.link
-                    :references=(https://foo.com,https://bar.com)
-                    :parent=T9999
-                    :status=deprecated
-                    :isnow=T1110
-                    :tactics=(TA0200,TA0100,TA0100)
-                    :matrix=enterprise
-                    :data:components+={ it:mitre:attack:data:component=(DS0026, "Active Directory Credential Request") }
-            ] -+> it:mitre:attack:data:component
-            ''')
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('it:mitre:attack:technique', 'T0100'))
-            self.eq(nodes[0].get('name'), 'lockpicking')
-            self.eq(nodes[0].get('desc'), 'speedhackers')
-            self.eq(nodes[0].get('url'), 'https://locksrus.link')
-            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
-            self.eq(nodes[0].get('parent'), 'T9999')
-            self.eq(nodes[0].get('tactics'), ('TA0100', 'TA0200'))
-            self.eq(nodes[0].get('status'), 'deprecated')
-            self.eq(nodes[0].get('isnow'), 'T1110')
-            self.eq(nodes[0].get('matrix'), 'enterprise')
-            self.eq(nodes[0].get('data:components'), [dcguid])
-            self.eq(nodes[1].ndef, ('it:mitre:attack:data:component', dcguid))
-
-            nodes = await core.nodes('''[
-                it:mitre:attack:software=S0100
-                    :software=*
-                    :name=redtree
-                    :names=("redtree alt", eviltree)
-                    :desc=redtreestuff
-                    :url=https://redtree.link
-                    :references=(https://foo.com,https://bar.com)
-                    :techniques=(T0200,T0100,T0100)
-                    :isnow=S0110
-            ]''')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('it:mitre:attack:software', 'S0100'))
-            self.nn(nodes[0].get('software'))
-            self.eq(nodes[0].get('name'), 'redtree')
-            self.eq(nodes[0].get('names'), ('eviltree', 'redtree alt'))
-            self.eq(nodes[0].get('desc'), 'redtreestuff')
-            self.eq(nodes[0].get('url'), 'https://redtree.link')
-            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
-            self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
-            self.eq(nodes[0].get('isnow'), 'S0110')
-            self.len(3, await core.nodes('meta:name=redtree -> it:mitre:attack:software -> meta:name'))
-
-            nodes = await core.nodes('''[
-                it:mitre:attack:mitigation=M0100
-                    :name="   PatchStuff   "
-                    :desc=patchyourstuff
-                    :url=https://wsus.com
-                    :references=(https://foo.com,https://bar.com)
-                    :addresses=(T0200,T0100,T0100)
-                    :matrix=enterprise
-            ]''')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('it:mitre:attack:mitigation', 'M0100'))
-            self.eq(nodes[0].get('name'), 'patchstuff')
-            self.eq(nodes[0].get('desc'), 'patchyourstuff')
-            self.eq(nodes[0].get('url'), 'https://wsus.com')
-            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
-            self.eq(nodes[0].get('addresses'), ('T0100', 'T0200'))
-            self.eq(nodes[0].get('matrix'), 'enterprise')
-
-            nodes = await core.nodes('''[
-                it:mitre:attack:campaign=C0001
-                    :created = 20231101
-                    :desc = "Much campaign, many sophisticated."
-                    :groups = (G0100,)
-                    :matrices = (enterprise,ics)
-                    :name = "much campaign"
-                    :names = ('much campaign', 'many sophisticated')
-                    :software = (S0100,)
-                    :techniques = (T0200,T0100)
-                    :updated = 20231102
-                    :url = https://attack.mitre.org/campaigns/C0001
-                    :period = (20151201, 20160101)
-            ]''')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('it:mitre:attack:campaign', 'C0001'))
-            self.eq(nodes[0].get('name'), 'much campaign')
-            self.eq(nodes[0].get('names'), ('many sophisticated', 'much campaign'))
-            self.eq(nodes[0].get('desc'), 'Much campaign, many sophisticated.')
-            self.eq(nodes[0].get('url'), 'https://attack.mitre.org/campaigns/C0001')
-            self.eq(nodes[0].get('matrices'), ('enterprise', 'ics'))
-            self.eq(nodes[0].get('groups'), ('G0100',))
-            self.eq(nodes[0].get('software'), ('S0100',))
-            self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
-            self.eq(nodes[0].get('created'), 1698796800000000)
-            self.eq(nodes[0].get('updated'), 1698883200000000)
-            self.eq(nodes[0].get('period'), (1448928000000000, 1451606400000000))
-
-            nodes = await core.nodes('''[
                 it:exec:thread=*
                     :proc=*
                     :created=20210202
@@ -364,7 +191,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :name=woot
                     :confidence=90
                     :revoked=(false)
-                    :description="my neato indicator"
+                    :desc="my neato indicator"
                     :pattern="some rule text"
                     :pattern_type=yara
                     :created=20240815
@@ -378,7 +205,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('woot', nodes[0].get('name'))
             self.eq(90, nodes[0].get('confidence'))
             self.eq(False, nodes[0].get('revoked'))
-            self.eq('my neato indicator', nodes[0].get('description'))
+            self.eq('my neato indicator', nodes[0].get('desc'))
             self.eq('some rule text', nodes[0].get('pattern'))
             self.eq('yara', nodes[0].get('pattern_type'))
             self.eq(('haha', 'hehe'), nodes[0].get('labels'))
@@ -917,7 +744,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :manufacturer={ gen.ou.org dell }
                     :manufacturer:name=dell
                     :model=XPS13
-                    :version=alpha
+                    :version=1.2.3
                     :type=pc.laptop
                     :desc=WootWoot
                     :released=20220202
@@ -926,7 +753,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             ]''')
             self.eq('WootWoot', nodes[0].get('desc'))
             self.eq('xps13', nodes[0].get('model'))
-            self.eq('alpha', nodes[0].get('version'))
+            self.eq(1099513724931, nodes[0].get('version'))
             self.eq('cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*', nodes[0].get('cpe'))
             self.eq(1643760000000000, nodes[0].get('released'))
             self.len(1, await core.nodes('it:hardware :type -> it:hardware:type:taxonomy'))
@@ -935,15 +762,15 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:hardware -> ou:org +:name=dell'))
 
             nodes = await core.nodes('''[
-                it:component=*
+                it:host:component=*
                     :hardware={it:hardware:model=XPS13}
                     :serial=asdf1234
                     :host=*
             ]''')
             self.nn(nodes[0].get('host'))
             self.eq('asdf1234', nodes[0].get('serial'))
-            self.len(1, await core.nodes('it:component -> it:host'))
-            self.len(1, await core.nodes('it:component -> it:hardware +:model=XPS13'))
+            self.len(1, await core.nodes('it:host:component -> it:host'))
+            self.len(1, await core.nodes('it:host:component -> it:hardware +:model=XPS13'))
 
     async def test_it_forms_hostexec(self):
         # forms related to the host execution model
@@ -1462,7 +1289,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 it:dev:function=*
                     :id=ZIP10
                     :name=woot_woot
-                    :description="Woot woot"
+                    :desc="Woot woot"
                     :strings=(foo, bar, foo)
                     :impcalls=(foo, bar, foo)
             ]'''
@@ -1472,7 +1299,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('id'), 'ZIP10')
             self.eq(nodes[0].get('name'), 'woot_woot')
-            self.eq(nodes[0].get('description'), 'Woot woot')
+            self.eq(nodes[0].get('desc'), 'Woot woot')
             self.eq(nodes[0].get('strings'), ('bar', 'foo'))
             self.eq(nodes[0].get('impcalls'), ('bar', 'foo'))
             self.len(1, await core.nodes('it:dev:function :name -> it:dev:str'))

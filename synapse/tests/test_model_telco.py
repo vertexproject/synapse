@@ -221,11 +221,10 @@ class TelcoModelTest(s_t_utils.SynTest):
                 'time': '2001',
                 'duration': 90,
                 'connected': True,
-                'text': 'I said some stuff',
                 'file': file,
             }
             q = '''[(tel:call=$valu :src=$p.src :dst=$p.dst :period=$p.time
-            :connected=$p.connected :text=$p.text :recording=$p.file)]'''
+            :connected=$p.connected :recording=$p.file)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': guid, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -234,7 +233,6 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('dst'), '1234567890')
             self.eq(node.get('period'), (978307200000000, 978307200000001))
             self.eq(node.get('connected'), True)
-            self.eq(node.get('text'), 'I said some stuff')
             self.eq(node.get('recording'), file)
 
     async def test_telco_txtmesg(self):

@@ -1,53 +1,7 @@
 modeldefs = (
     ('media', {
+
         'forms': (
-            ('media:news:type:taxonomy', {'prevnames': ('media:news:taxonomy',)}, ()),
-            ('media:news', {}, (
-
-                ('url', ('inet:url', {}), {
-                    'ex': 'http://cnn.com/news/mars-lander.html',
-                    'doc': 'The (optional) URL where the news was published.'}),
-
-                ('type', ('media:news:type:taxonomy', {}), {
-                    'doc': 'A taxonomy for the type of article or report.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The (optional) file blob containing or published as the news.'}),
-
-                ('title', ('base:name', {}), {
-                    'ex': 'mars lander reaches mars',
-                    'doc': 'Title/Headline for the news.'}),
-
-                ('summary', ('text', {}), {
-                    'ex': 'lorum ipsum',
-                    'doc': 'A brief summary of the news item.'}),
-
-                ('publisher', ('entity:actor', {}), {
-                    'doc': 'The entity which published the news.'}),
-
-                ('publisher:name', ('meta:name', {}), {
-                    'doc': 'The name of the entity which publish the news.'}),
-
-                ('published', ('time', {}), {
-                    'ex': '20161201180433',
-                    'doc': 'The date the news item was published.'}),
-
-                ('updated', ('time', {'ismax': True}), {
-                    'ex': '20161201180433',
-                    'doc': 'The last time the news item was updated.'}),
-
-                ('authors', ('array', {'type': 'entity:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of authors of the news item.'}),
-
-                ('rss:feed', ('inet:url', {}), {
-                    'doc': 'The RSS feed that published the news.'}),
-
-                ('id', ('str', {}), {
-                    'doc': 'An external identifier specified by the publisher.'}),
-
-                ('topics', ('array', {'type': 'media:topic', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of relevant topics discussed in the report.'}),
-            )),
 
             ('media:topic', {}, (
                 ('desc', ('str', {}), {
@@ -59,15 +13,6 @@ modeldefs = (
         ),
 
         'types': (
-            ('media:news', ('guid', {}), {
-                'doc': 'A GUID for a news article or report.'}),
-
-            ('media:news:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of news types.',
-            }),
 
             ('media:topic', ('str', {'lower': True, 'onespace': True}), {
                 'doc': 'A topic string.'}),

@@ -6,6 +6,10 @@ modeldefs = (
             # FIXME phys:made? ( product :manufacturer :made=<time> etc
             # FIXME meta:sourced?
 
+            ('entity:identifier', {
+                'doc': 'An interface which is inherited by entity identifier forms.',
+            }),
+
             ('entity:contactable', {
 
                 'template': {'contactable': 'entity'},
@@ -33,15 +37,12 @@ modeldefs = (
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary url for the {contactable}.'}),
 
-                    # FIXME names?
                     ('lifespan', ('ival', {}), {
                         'doc': 'The lifespan of the {contactable}.'}),
 
                     # FIXME place of birth / death?
                     # FIXME org:name / employer etc?
-                    # FIXME social media accounts
                     # FIXME lang
-                    # FIXME id numbers ( reverse link! )
                     # FIXME bio / tagline
 
                     ('email', ('inet:email', {}), {
@@ -62,13 +63,8 @@ modeldefs = (
                     ('users', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate user names for the {contactable}.'}),
 
-                    # FIXME deconflict it:adid and it:prod:softid
-                    # FIXME modify to it:adid having back linked props?
-                    ('adid', ('it:adid', {}), {
-                        'doc': 'The primary advertising ID for the {contactable}.'}),
-
-                    ('adids', ('array', {'type': 'it:adid', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate advertising IDs for the {contactable}.'}),
+                    ('identifiers', ('array', {'type': 'entity:identifier', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Additional entity identifiers.'}),
                 ),
                 'doc': 'An interface for forms which contain contact info.'}),
 
@@ -81,7 +77,6 @@ modeldefs = (
 
             ('entity:abstract', {
                 'props': (
-                    # FIXME name for entity:abstract:resolved
                     ('resolved', ('entity:resolved', {}), {
                         'doc': 'The resolved entity to which this {contactable} belongs.'}),
                 ),
@@ -98,6 +93,9 @@ modeldefs = (
 
             ('entity:individual', ('ndef', {'forms': ('ps:person', 'entity:contact', 'inet:service:account')}), {
                 'doc': 'A singular entity such as a person.'}),
+
+            ('entity:identifier', ('ndef', {'interface': 'entity:identifier'}), {
+                'doc': 'A node which inherits the entity:identifier interface.'}),
 
             # FIXME syn:user is an actor...
             ('entity:actor', ('ndef', {'interface': 'entity:actor'}), {

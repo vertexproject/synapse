@@ -54,8 +54,9 @@ class PsModelTest(s_t_utils.SynTest):
                     :student={[ entity:contact=* ]}
                     :institution={[ entity:contact=* ]}
                     :period=(20200202, 20210202)
-                    :classes = (*,)
                     :achievement = $achv
+
+                    +(included)> {[ edu:class=* ]}
             ]''', opts=opts)
 
             nodes = await core.nodes('''

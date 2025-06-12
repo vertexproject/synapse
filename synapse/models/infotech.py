@@ -679,48 +679,6 @@ modeldefs = (
             ('it:sec:vuln:scan:result', ('guid', {}), {
                 'doc': "A vulnerability scan result for an asset."}),
 
-            ('it:mitre:attack:status', ('str', {'enums': 'current,deprecated,withdrawn'}), {
-                'ex': 'current',
-                'doc': 'A MITRE ATT&CK element status.'}),
-
-            ('it:mitre:attack:matrix', ('str', {'enums': 'enterprise,mobile,ics'}), {
-                'ex': 'enterprise',
-                'doc': 'An enumeration of ATT&CK matrix values.'}),
-
-            ('it:mitre:attack:group', ('str', {'regex': r'^G[0-9]{4}$'}), {
-                'ex': 'G0100',
-                'doc': 'A MITRE ATT&CK Group ID.'}),
-
-            ('it:mitre:attack:tactic', ('str', {'regex': r'^TA[0-9]{4}$'}), {
-                'ex': 'TA0040',
-                'doc': 'A MITRE ATT&CK Tactic ID.'}),
-
-            ('it:mitre:attack:technique', ('str', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
-                'ex': 'T1548',
-                'doc': 'A MITRE ATT&CK Technique ID.'}),
-
-            ('it:mitre:attack:mitigation', ('str', {'regex': r'^M[0-9]{4}$'}), {
-                'ex': 'M1036',
-                'doc': 'A MITRE ATT&CK Mitigation ID.'}),
-
-            ('it:mitre:attack:software', ('str', {'regex': r'^S[0-9]{4}$'}), {
-                'ex': 'S0154',
-                'doc': 'A MITRE ATT&CK Software ID.'}),
-
-            ('it:mitre:attack:campaign', ('str', {'regex': r'^C[0-9]{4}$'}), {
-                'ex': 'C0028',
-                'doc': 'A MITRE ATT&CK Campaign ID.'}),
-
-            ('it:mitre:attack:datasource', ('str', {'regex': r'^DS[0-9]{4}$'}), {
-                'ex': 'DS0026',
-                'doc': 'A MITRE ATT&CK Datasource ID.'}),
-
-            ('it:mitre:attack:data:component', ('guid', {}), {
-                'doc': 'A MITRE ATT&CK data component.'}),
-
-            ('it:mitre:attack:flow', ('guid', {}), {
-                'doc': 'A MITRE ATT&CK Flow diagram.'}),
-
             ('it:dev:str', ('str', {'strip': False}), {
                 'doc': 'A developer selected string.'}),
 
@@ -815,8 +773,8 @@ modeldefs = (
                 'prevnames': ('it:hardware',),
                 'doc': 'A specification for a piece of IT hardware.'}),
 
-            ('it:component', ('guid', {}), {
-                'doc': 'A specific instance of an it:hardware most often as part of an it:host.'}),
+            ('it:host:component', ('guid', {}), {
+                'doc': 'Hardware componenets which are part of a host.'}),
 
             ('it:hardware:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -825,6 +783,7 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of IT hardware types.'}),
 
             ('it:adid', ('meta:id', {}), {
+                'interfaces': (('entity:identifier', {}), ),
                 'doc': 'An advertising identification string.'}),
 
             # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c92a27b1-c772-4fa7-a432-15df5f1b66a1
@@ -1616,222 +1575,6 @@ modeldefs = (
                     'doc': 'The severity of the vulnerability in the asset. Use "none" for no vulnerability discovered.'}),
             )),
 
-            ('it:mitre:attack:group', {}, (
-
-                ('name', ('meta:name', {}), {
-                    'doc': 'The primary name for the ATT&CK group.'}),
-
-                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Alternate names for the ATT&CK group.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the ATT&CK group.'}),
-
-                ('isnow', ('it:mitre:attack:group', {}), {
-                    'doc': 'If deprecated, this field may contain the current value for the group.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL that documents the ATT&CK group.'}),
-
-                ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'URLs that document the ATT&CK group.'}),
-
-                ('techniques', ('array', {'type': 'it:mitre:attack:technique',
-                                          'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'ATT&CK technique IDs used by the group.'}),
-
-                ('software', ('array', {'type': 'it:mitre:attack:software',
-                                        'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'ATT&CK software IDs used by the group.'}),
-            )),
-            ('it:mitre:attack:tactic', {}, (
-
-                ('name', ('meta:name', {}), {
-                    'doc': 'The primary name for the ATT&CK tactic.'}),
-
-                ('matrix', ('it:mitre:attack:matrix', {}), {
-                    'doc': 'The ATT&CK matrix which defines the tactic.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the ATT&CK tactic.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL that documents the ATT&CK tactic.'}),
-
-                ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'URLs that document the ATT&CK tactic.'}),
-            )),
-            ('it:mitre:attack:technique', {}, (
-
-                ('name', ('meta:name', {}), {
-                    'doc': 'The primary name for the ATT&CK technique.'}),
-
-                ('matrix', ('it:mitre:attack:matrix', {}), {
-                    'doc': 'The ATT&CK matrix which defines the technique.'}),
-
-                ('status', ('it:mitre:attack:status', {}), {
-                    'doc': 'The status of this ATT&CK technique.'}),
-
-                ('isnow', ('it:mitre:attack:technique', {}), {
-                    'doc': 'If deprecated, this field may contain the current value for the technique.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the ATT&CK technique.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL that documents the ATT&CK technique.'}),
-
-                ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'URLs that document the ATT&CK technique.'}),
-
-                ('parent', ('it:mitre:attack:technique', {}), {
-                    'doc': 'The parent ATT&CK technique on this sub-technique.'}),
-
-                ('tactics', ('array', {'type': 'it:mitre:attack:tactic',
-                                       'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'ATT&CK tactics that include this technique.'}),
-
-                ('data:components', ('array', {'type': 'it:mitre:attack:data:component',
-                                               'uniq': True, 'sorted': True}), {
-                    'doc': 'MITRE ATT&CK data components that detect the ATT&CK technique.'}),
-            )),
-            ('it:mitre:attack:software', {}, (
-
-                ('software', ('it:software', {}), {
-                    'doc': 'Used to map an ATT&CK software to a synapse it:software node.'}),
-
-                ('name', ('meta:name', {}), {
-                    'doc': 'The primary name for the ATT&CK software.'}),
-
-                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Associated names for the ATT&CK software.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the ATT&CK software.'}),
-
-                ('isnow', ('it:mitre:attack:software', {}), {
-                    'doc': 'If deprecated, this field may contain the current value for the software.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL that documents the ATT&CK software.'}),
-
-                ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'URLs that document the ATT&CK software.'}),
-
-                ('techniques', ('array', {'type': 'it:mitre:attack:technique',
-                                          'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'Techniques used by the software.'}),
-            )),
-            ('it:mitre:attack:mitigation', {}, (
-                # TODO map to an eventual risk:mitigation
-                ('name', ('meta:name', {}), {
-                    'doc': 'The primary name for the ATT&CK mitigation.'}),
-
-                ('matrix', ('it:mitre:attack:matrix', {}), {
-                    'doc': 'The ATT&CK matrix which defines the mitigation.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the ATT&CK mitigation.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL that documents the ATT&CK mitigation.'}),
-
-                ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'URLs that document the ATT&CK mitigation.'}),
-
-                ('addresses', ('array', {'type': 'it:mitre:attack:technique',
-                                         'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'ATT&CK technique IDs addressed by the mitigation.'}),
-            )),
-            ('it:mitre:attack:campaign', {}, (
-
-                ('name', ('meta:name', {}), {
-                    'doc': 'The primary name for the ATT&CK campaign.'}),
-
-                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of alternate names for the ATT&CK campaign.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the ATT&CK campaign.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL that documents the ATT&CK campaign.'}),
-
-                ('groups', ('array', {'type': 'it:mitre:attack:group',
-                                         'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ATT&CK group IDs attributed to the campaign.'}),
-
-                ('software', ('array', {'type': 'it:mitre:attack:software',
-                                         'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ATT&CK software IDs used in the campaign.'}),
-
-                ('techniques', ('array', {'type': 'it:mitre:attack:technique',
-                                         'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ATT&CK technique IDs used in the campaign.'}),
-
-                ('matrices', ('array', {'type': 'it:mitre:attack:matrix',
-                                        'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'The ATT&CK matrices which define the campaign.'}),
-
-                ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'An array of URLs that document the ATT&CK campaign.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time interval when the campaign was active.'}),
-
-                ('created', ('time', {}), {
-                    'doc': 'The time that the campaign was created by MITRE.'}),
-
-                ('updated', ('time', {}), {
-                    'doc': 'The time that the campaign was last updated by MITRE.'}),
-            )),
-            ('it:mitre:attack:flow', {}, (
-
-                ('name', ('str', {'strip': True}), {
-                    'doc': 'The name of the attack-flow diagram.'}),
-
-                ('data', ('data', {'schema': attack_flow_schema_2_0_0}), {
-                    'doc': 'The ATT&CK Flow diagram. Schema version 2.0.0 enforced.'}),
-
-                ('created', ('time', {}), {
-                    'doc': 'The time that the diagram was created.'}),
-
-                ('updated', ('time', {}), {
-                    'doc': 'The time that the diagram was last updated.'}),
-
-                # FIXME either / or and syn:user as actor
-                ('author:user', ('syn:user', {}), {
-                    'doc': 'The Synapse user that created the node.'}),
-
-                ('author:contact', ('entity:contact', {}), {
-                    'doc': 'The contact information for the author of the ATT&CK Flow diagram.'}),
-
-            )),
-            ('it:mitre:attack:datasource', {}, (
-
-                ('name', ('meta:name', {}), {
-                    'doc': 'The name of the datasource.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the datasource.'}),
-
-                ('references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of URLs that document the datasource.'}),
-            )),
-            ('it:mitre:attack:data:component', {}, (
-
-                ('name', ('meta:name', {}), {
-                    'ro': True,
-                    'doc': 'The name of the data component.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the data component.'}),
-
-                ('datasource', ('it:mitre:attack:datasource', {}), {
-                    'ro': True,
-                    'doc': 'The datasource this data component belongs to.'}),
-            )),
-
             ('it:dev:int', {}, ()),
             ('it:dev:regkey', {}, ()),
             ('it:dev:regval', {}, (
@@ -2060,7 +1803,7 @@ modeldefs = (
                 ('parts', ('array', {'type': 'it:hardware', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of it:hardware parts included in this hardware specification.'}),
             )),
-            ('it:component', {}, (
+            ('it:host:component', {}, (
 
                 ('hardware', ('it:hardware', {}), {
                     'doc': 'The hardware specification of this component.'}),

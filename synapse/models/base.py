@@ -26,6 +26,7 @@ modeldefs = (
                 'doc': 'A base type for ID strings.'}),
 
             ('meta:id', ('base:id', {}), {
+                'interfaces': (('entity:identifier', {}), ),
                 'doc': 'A case sensitive identifier string.'}),
 
             ('base:name', ('str', {'onespace': True, 'lower': True}), {

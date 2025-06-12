@@ -15,6 +15,9 @@ modeldefs = (
                     ('name', ('base:name', {}), {
                         'doc': 'The {authorable} name.'}),
 
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {authorable}.'}),
+
                     ('created', ('time', {}), {
                         'doc': 'The time that the {authorable} was created.'}),
 

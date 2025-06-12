@@ -380,10 +380,6 @@ modeldefs = (
                 ('merged:isnow', ('risk:threat', {}), {
                     'doc': 'The threat cluster that the source merged this cluster into.'}),
 
-                # FIXME dirty up the mitre model instead
-                ('mitre:attack:group', ('it:mitre:attack:group', {}), {
-                    'doc': 'A mapping to a MITRE ATT&CK group if applicable.'}),
-
             )),
             ('risk:availability', {}, {}),
             ('risk:tool:software:type:taxonomy', {
@@ -429,9 +425,6 @@ modeldefs = (
                     'prevnames': ('soft:names',),
                     'doc': "The source's alternate names for the tool."}),
 
-                ('mitre:attack:software', ('it:mitre:attack:software', {}), {
-                    'doc': 'A mapping to a MITRE ATT&CK software if applicable.'}),
-
             )),
             ('risk:mitigation:type:taxonomy', {}, ()),
             ('risk:mitigation', {}, (
@@ -441,10 +434,6 @@ modeldefs = (
 
                 ('type', ('risk:mitigation:type:taxonomy', {}), {
                     'doc': 'A taxonomy type entry for the mitigation.'}),
-
-                # FIXME dirty the mitre model instead
-                ('mitre:attack:mitigation', ('it:mitre:attack:mitigation', {}), {
-                    'doc': 'A mapping to a MITRE ATT&CK mitigation if applicable.'}),
 
                 ('tag', ('syn:tag', {}), {
                     'doc': 'The tag used to annotate nodes which have the mitigation in place.'}),

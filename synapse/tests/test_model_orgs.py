@@ -21,7 +21,6 @@ class OuModelTest(s_t_utils.SynTest):
                     :type=lol.woot
                     :desc=Hehe
                     :tag=woot.woot
-                    :mitre:attack:technique=T0001
                     :sophistication=high
                     :source=$lib.gen.orgByName(vertex)
                     :source:name=vertex
@@ -34,12 +33,10 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('lol.woot.', nodes[0].get('type'))
             self.eq('woot.woot', nodes[0].get('tag'))
             self.eq('Foo', nodes[0].get('id'))
-            self.eq('T0001', nodes[0].get('mitre:attack:technique'))
             self.eq(40, nodes[0].get('sophistication'))
             self.eq('vertex', nodes[0].get('source:name'))
             self.len(1, await core.nodes('ou:technique -> syn:tag'))
             self.len(1, await core.nodes('ou:technique -> ou:technique:type:taxonomy'))
-            self.len(1, await core.nodes('ou:technique -> it:mitre:attack:technique'))
             self.len(1, await core.nodes('ou:technique :source -> ou:org'))
 
             props = {
@@ -81,7 +78,6 @@ class OuModelTest(s_t_utils.SynTest):
                     ]}
                     :actor={[ entity:contact=* ]}
                     :actors={[ entity:contact=* ]}
-                    :mitre:attack:campaign=C0011
                 ]
             ''')
             self.len(1, nodes)
@@ -95,7 +91,6 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('sophistication'), 40)
             self.nn(nodes[0].get('source'))
             self.eq(nodes[0].get('source:name'), 'vertex')
-            self.eq(nodes[0].get('mitre:attack:campaign'), 'C0011')
             self.eq(nodes[0].get('slogan'), 'for the people')
             self.len(3, await core.nodes('ou:campaign -> ou:goal'))
 
@@ -106,10 +101,6 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, nodes01[0].ndef)
 
             self.len(1, await core.nodes(f'ou:campaign:id=Foo :slogan -> lang:phrase'))
-            nodes = await core.nodes(f'ou:campaign:id=Foo -> it:mitre:attack:campaign')
-            self.len(1, nodes)
-            nodes = nodes[0]
-            self.eq(nodes.ndef, ('it:mitre:attack:campaign', 'C0011'))
 
             # ou:naics
             t = core.model.type('ou:naics')
@@ -314,7 +305,7 @@ class OuModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 ou:id=*
-                    :value=Woot99
+                    :value=(meta:id, Woot99)
                     :issuer={[ ou:org=* :name="ny dmv" ]}
                     :issuer:name="ny dmv"
                     :recipient={[ entity:contact=* :name=visi ]}
@@ -325,7 +316,7 @@ class OuModelTest(s_t_utils.SynTest):
             ]''')
 
             self.len(1, nodes)
-            self.eq(nodes[0].get('value'), 'Woot99')
+            self.eq(nodes[0].get('value'), ('meta:id', 'Woot99'))
             self.eq(nodes[0].get('issuer:name'), 'ny dmv')
             self.eq(nodes[0].get('status'), 'valid.')
             self.eq(nodes[0].get('type'), 'us.state.dmv.driverslicense.')

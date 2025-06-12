@@ -44,10 +44,21 @@ modeldefs = (
     }),
     ('gov:us', {
         'types': (
-            # FIXME
-            ('gov:us:ssn', ('int', {}), {'doc': 'A US Social Security Number (SSN).'}),
-            ('gov:us:zip', ('int', {}), {'doc': 'A US Postal Zip Code.'}),
-            ('gov:us:cage', ('str', {'lower': True}), {'doc': 'A Commercial and Government Entity (CAGE) code.'}),
+
+            ('gov:us:ssn', ('str', {'regex': '^[0-9]{3}-[0-9]{2}-[0-9]{4}'}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
+                'doc': 'A US Social Security Number (SSN).'}),
+
+            ('gov:us:zip', ('int', {'regex': '^[0-9]{5}'}), {
+                'doc': 'A US Postal Zip Code.'}),
+
+            ('gov:us:cage', ('str', {'lower': True}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
+                'doc': 'A Commercial and Government Entity (CAGE) code.'}),
         ),
 
         'forms': (

@@ -579,8 +579,7 @@ modeldefs = (
                     'ex': 'valid',
                     'doc': 'The most recently known status of the ID.'}),
 
-                # FIXME interface for issued IDs and make this an ndef prop?
-                ('value', ('meta:id', {}), {
+                ('value', ('entity:identifier', {}), {
                     'doc': 'The ID value.'}),
 
                 ('issued', ('date', {}), {
@@ -697,11 +696,6 @@ modeldefs = (
 
                 ('tag', ('syn:tag', {}), {
                     'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
-
-                # FIXME dirty up mitre rather than ou:campaign
-                ('mitre:attack:campaign', ('it:mitre:attack:campaign', {}), {
-                    'doc': 'A mapping to a MITRE ATT&CK campaign if applicable.'}),
-
             )),
             ('ou:conflict', {}, (
 
@@ -759,10 +753,6 @@ modeldefs = (
 
                 ('tag', ('syn:tag', {}), {
                     'doc': 'The tag used to annotate nodes where the technique was employed.'}),
-
-                # FIXME dirty up mitre model
-                ('mitre:attack:technique', ('it:mitre:attack:technique', {}), {
-                    'doc': 'A mapping to a MITRE ATT&CK technique if applicable.'}),
 
             )),
             ('ou:technique:type:taxonomy', {
