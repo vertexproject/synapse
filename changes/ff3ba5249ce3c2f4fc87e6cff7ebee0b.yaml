@@ -1,0 +1,5 @@
+---
+desc: Add ``synapse.tools.demote`` to allow automatic demotion of service leaders.
+prs: []
+type: feat
+...
