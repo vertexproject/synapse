@@ -444,8 +444,8 @@ class SubGraph:
 
         for pivq in self.rules.get('pivots'):
             indx = 0
-            async for node, path in node.storm(runt, pivq):
-                yield node, path, {'type': 'rules', 'scope': 'global', 'index': indx}
+            async for n, p in node.storm(runt, pivq):
+                yield n, p, {'type': 'rules', 'scope': 'global', 'index': indx}
                 indx += 1
 
         scope = node.form.name
