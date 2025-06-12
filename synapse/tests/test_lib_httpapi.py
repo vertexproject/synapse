@@ -807,8 +807,8 @@ class HttpApiTest(s_tests.SynTest):
                 opts['user'] = newpuser
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', json=data) as resp:
                     self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
-                    data = await resp.json()
-                    self.eq(data, {'status': 'err', 'code': 'NoSuchUser',
+                    info = await resp.json()
+                    self.eq(info, {'status': 'err', 'code': 'NoSuchUser',
                                    'mesg': f'No user found with iden: {newpuser}'})
 
     async def test_http_coreinfo(self):
@@ -1614,6 +1614,14 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.get(f'https://localhost:{port}/api/v1/storm',
                                     json={'query': '.created', 'opts': {'user': lowuser.iden, 'view': fork}}) as resp:
                     self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
+
+                # ShuttingDown precondition failure
+                core.boss.is_shutdown = True
+                async with sess.get(f'https://localhost:{port}/api/v1/storm', json={'query': '.created'}) as resp:
+                    self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
+                    info = await resp.json()
+                    self.eq(info.get('code'), 'ShuttingDown')
+                core.boss.is_shutdown = False
 
                 # check reqvalidstorm with various queries
                 tvs = (
