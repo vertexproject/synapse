@@ -226,6 +226,7 @@ class IsFini(SynErr): pass
 class IsReadOnly(SynErr): pass
 class IsDeprLocked(SynErr): pass
 class IsRuntForm(SynErr): pass
+class ShuttingDown(SynErr): pass
 
 class LayerInUse(SynErr): pass
 
@@ -361,3 +362,10 @@ class FatalErr(SynErr):
     pass
 
 class LmdbLock(SynErr): pass
+
+def reprexc(e):
+    if isinstance(e, SynErr):
+        text = e.get('mesg')
+        if text is not None:
+            return text
+    return repr(e)

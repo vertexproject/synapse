@@ -1,0 +1,6 @@
+---
+desc: Added CLI tool ``synapse.tools.shutdown`` to facilitate graceful shutdown of services
+  by allowing them to complete current tasks.
+prs: []
+type: feat
+...

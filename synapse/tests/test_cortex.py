@@ -8478,6 +8478,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(msgs[1].get('hash'), qhash)
                     self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
 
+                    with self.getLoggerStream('synapse') as stream:
+                        core01.boss.is_shutdown = True
+                        self.stormHasNoWarnErr(await core00.stormlist('inet:asn=0'))
+                        core01.boss.is_shutdown = False
+
+                    stream.seek(0)
+                    self.isin('Proxy for pool mirror [01.core.synapse] is shutting down. Skipping.', stream.read())
+
                     with patch('synapse.cortex.CoreApi.getNexsIndx', _hang):
 
                         with self.getLoggerStream('synapse') as stream:
