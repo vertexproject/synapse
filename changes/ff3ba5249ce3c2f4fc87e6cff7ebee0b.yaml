@@ -1,5 +1,5 @@
 ---
-desc: Add ``synapse.tools.demote`` to allow automatic demotion of service leaders.
+desc: Add ``synapse.tools.demote`` CLI tool to allow automatic demotion of service leaders.
 prs: []
 type: feat
 ...
