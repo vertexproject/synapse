@@ -25,8 +25,8 @@ class LayerTest(s_test.SynTest):
 
             soffs = await core.getNexsIndx()
 
-            opts = {'view': view00.get('iden')}
-            nodes = await core.nodes('[ inet:ipv4=192.168.1.0/24 ]', opts=opts)
+            opts = {'view': view00.get('iden'), 'vars': {'n': 256}}
+            nodes = await core.nodes('for $i in $lib.range($n) { [test:int=$i] }', opts=opts)
             self.len(256, nodes)
 
             eoffs = soffs + 256
@@ -94,8 +94,8 @@ class LayerTest(s_test.SynTest):
                 self.eq(state, {'offset:next': eoffs})
 
                 # Check state file is read
-                opts = {'view': view00.get('iden')}
-                nodes = await core.nodes('[ inet:ipv4=10.0.0.0/24 ]', opts=opts)
+                opts = {'view': view00.get('iden'), 'vars': {'n': 256}}
+                nodes = await core.nodes('for $i in $lib.range($n) { [test:str=$i] }', opts=opts)
                 self.len(256, nodes)
 
                 state = {'offset:next': eoffs + 1}
@@ -141,8 +141,8 @@ class LayerTest(s_test.SynTest):
 
             soffs = await core.getNexsIndx()
 
-            opts = {'view': view00.get('iden')}
-            nodes = await core.nodes('[ inet:ipv4=192.168.1.0/24 ]', opts=opts)
+            opts = {'view': view00.get('iden'), 'vars': {'n': 256}}
+            nodes = await core.nodes('for $i in $lib.range($n) { [test:int=$i] }', opts=opts)
             self.len(256, nodes)
 
             eoffs = soffs + 256
@@ -206,8 +206,8 @@ class LayerTest(s_test.SynTest):
 
             soffs = await core.getNexsIndx()
 
-            opts = {'view': view00.get('iden')}
-            nodes = await core.nodes('[ inet:ipv4=192.168.1.0/24 ]', opts=opts)
+            opts = {'view': view00.get('iden'), 'vars': {'n': 256}}
+            nodes = await core.nodes('for $i in $lib.range($n) { [test:int=$i] }', opts=opts)
             self.len(256, nodes)
 
             eoffs = soffs + 256
@@ -268,7 +268,7 @@ class LayerTest(s_test.SynTest):
 
                 # Verify layr01 has data now
                 opts = {'view': view01.get('iden')}
-                nodes = await core.nodes('inet:ipv4', opts=opts)
+                nodes = await core.nodes('test:int', opts=opts)
                 self.len(256, nodes)
 
     async def test_tools_layer_load_errors(self):
