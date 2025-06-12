@@ -2355,7 +2355,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                     except Exception as e:
                         extra = await self.getLogExtra()
-                        logger.warning(f'...error retrieving Nexus index for {name}: {s_exc.reprexc(e)}. Skipping.', extra=extra)
+                        logger.warning(f'...error retrieving nexus index for {name}: {s_exc.reprexc(e)}. Skipping.', extra=extra)
 
                 if not cands:
                     extra = await self.getLogExtra()
@@ -2373,11 +2373,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                     except Exception as e:
                         extra = await self.getLogExtra()
-                        logger.warning('...error promoting {svcproxy._ahainfo["name"]}. Skipping.', extra=extra)
+                        logger.warning(f'...error promoting {svcproxy._ahainfo["name"]}. Skipping.', extra=extra)
 
         except Exception as e:
             extra = await self.getLogExtra()
-            logger.error(f'...error while demoting service: {s_exc.reprexc(e)}', extra=extra)
+            logger.error(f'...error demoting service: {s_exc.reprexc(e)}', extra=extra)
             return False
 
     async def reqAhaProxy(self, timeout=None):

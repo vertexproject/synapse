@@ -1,3 +1,6 @@
+import unittest.mock as mock
+
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
@@ -7,6 +10,9 @@ import synapse.tools.demote as s_tools_demote
 import synapse.tools.shutdown as s_tools_shutdown
 
 import synapse.tests.utils as s_test
+
+async def boom(*args, **kwargs):
+    raise s_exc.SynErr(mesg='BOOM')
 
 class DemoteToolTest(s_test.SynTest):
 
@@ -42,6 +48,26 @@ class DemoteToolTest(s_test.SynTest):
                 self.eq(1, await s_tools_demote.main(argv, outp=outp))
                 outp.expect('Failed to demote service cell:')
 
+                # get some test coverage for the various levels of exception handlers...
+
+                with mock.patch.object(cell00, 'getNexsIndx', boom):
+                    with self.getLoggerStream('synapse') as stream:
+                        argv = ['--url', cell01.getLocalUrl(), '--timeout', '12']
+                        self.eq(1, await s_tools_demote.main(argv, outp=outp))
+                    self.isin('...error retrieving nexus index for', str(stream))
+
+                with mock.patch.object(cell00, 'promote', boom):
+                    with self.getLoggerStream('synapse') as stream:
+                        argv = ['--url', cell01.getLocalUrl(), '--timeout', '12']
+                        self.eq(1, await s_tools_demote.main(argv, outp=outp))
+                    self.isin('...error promoting', str(stream))
+
+                with mock.patch.object(cell01, '_getDemotePeers', boom):
+                    with self.getLoggerStream('synapse') as stream:
+                        argv = ['--url', cell01.getLocalUrl(), '--timeout', '12']
+                        self.eq(1, await s_tools_demote.main(argv, outp=outp))
+                    self.isin('...error demoting service', str(stream))
+
                 self.false(cell00.isactive)
                 self.true(cell01.isactive)
 
@@ -56,6 +82,14 @@ class DemoteToolTest(s_test.SynTest):
 
                 self.true(cell00.isactive)
                 self.false(cell01.isactive)
+
+                self.true(await cell01.waitfini())
+
+                # test demote with insufficient peers
+                with self.getLoggerStream('synapse') as stream:
+                    argv = ['--url', cell00.getLocalUrl(), '--timeout', '12']
+                    self.eq(1, await s_tools_demote.main(argv, outp=outp))
+                self.isin('...no suitable services discovered.', str(stream))
 
                 # and that graceful shutdown without any cluster peers works too...
                 outp.clear()
