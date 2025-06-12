@@ -387,33 +387,48 @@ modeldefs = (
         ),
 
         'interfaces': (
+
             ('geo:locatable', {
                 'doc': 'Properties common to items and events which may be geolocated.',
                 'template': {'geo:locatable': 'item'},
+                'prefix': 'place',
                 'props': (
-                    ('place', ('geo:place', {}), {
+                    ('', ('geo:place', {}), {
                         'doc': 'The place where the {geo:locatable} was located.'}),
 
-                    ('place:loc', ('loc', {}), {
+                    ('loc', ('loc', {}), {
                         'doc': 'The geopolitical location of the {geo:locatable}.'}),
 
-                    ('place:name', ('geo:name', {}), {
-                        'doc': 'The name of the place where the {geo:locatable} was located.'}),
+                    # FIXME meta:named interface?
+                    ('name', ('meta:name', {}), {
+                        'doc': 'The name where the {geo:locatable} was located.'}),
 
-                    ('place:address', ('geo:address', {}), {
-                        'doc': 'The postal address of the place where the {geo:locatable} was located.'}),
+                    ('address', ('geo:address', {}), {
+                        'doc': 'The postal address where the {geo:locatable} was located.'}),
 
-                    ('place:latlong', ('geo:latlong', {}), {
+                    ('latlong', ('geo:latlong', {}), {
                         'doc': 'The latlong where the {geo:locatable} was located.'}),
 
-                    ('place:latlong:accuracy', ('geo:dist', {}), {
+                    ('latlong:accuracy', ('geo:dist', {}), {
                         'doc': 'The accuracy of the latlong where the {geo:locatable} was located.'}),
 
-                    ('place:country', ('pol:country', {}), {
+                    ('altitude', ('geo:altitude', {}), {
+                        'doc': 'The altitude where the {geo:locatable} was located.'}),
+
+                    ('altitude:accuracy', ('geo:dist', {}), {
+                        'doc': 'The accuracy of the altitude where the {geo:locatable} was located.'}),
+
+                    ('country', ('pol:country', {}), {
                         'doc': 'The country where the {geo:locatable} was located.'}),
 
-                    ('place:country:code', ('pol:iso2', {}), {
+                    ('country:code', ('pol:iso2', {}), {
                         'doc': 'The country code where the {geo:locatable} was located.'}),
+
+                    ('bbox', ('geo:bbox', {}), {
+                        'doc': 'A bounding box which encompasses the {geo:locatable}.'}),
+
+                    ('geojson', ('geo:json', {}), {
+                        'doc': 'A GeoJSON representation of where the {geo:locatable} was located.'}),
                 ),
             }),
         ),
@@ -421,21 +436,29 @@ modeldefs = (
         'types': (
 
             ('geo:telem', ('guid', {}), {
-                'interfaces': ('phys:object', 'geo:locatable'),
-                'template': {'phys:object': 'object', 'geo:locatable': 'object'},
+                'interfaces': (
+                    ('phys:object', {
+                        'template': {'phys:object': 'object'}}),
+
+                    ('geo:locatable', {
+                        'template': {'geo:locatable': 'object'}}),
+                ),
                 'doc': 'The geospatial position and physical characteristics of a node at a given time.'}),
 
             ('geo:json', ('data', {'schema': geojsonschema}), {
                 'doc': 'GeoJSON structured JSON data.'}),
 
-            ('geo:name', ('str', {'lower': True, 'onespace': True}), {
-                'doc': 'An unstructured place name or address.'}),
-
             ('geo:place', ('guid', {}), {
-                'doc': 'A GUID for a geographic place.'}),
+                'interfaces': (
+                    ('geo:locatable', {'prefix': '',
+                        'template': {'geo:locatable': 'place'}}),
+                ),
+                'doc': 'A geographic place.'}),
 
             ('geo:place:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of place types.',
             }),
 
@@ -445,24 +468,22 @@ modeldefs = (
             ('geo:longitude', ('float', {'min': -180.0, 'max': 180.0,
                                'minisvalid': False, 'maxisvalid': True}), {
                 'ex': '31.337',
-                'doc': 'A longitude in floating point notation.',
-            }),
+                'doc': 'A longitude in floating point notation.'}),
+
             ('geo:latitude', ('float', {'min': -90.0, 'max': 90.0,
                               'minisvalid': True, 'maxisvalid': True}), {
                 'ex': '31.337',
-                'doc': 'A latitude in floating point notation.',
-            }),
+                'doc': 'A latitude in floating point notation.'}),
 
             ('geo:bbox', ('comp', {'sepr': ',', 'fields': (
                                         ('xmin', 'geo:longitude'),
                                         ('xmax', 'geo:longitude'),
                                         ('ymin', 'geo:latitude'),
                                         ('ymax', 'geo:latitude'))}), {
-                'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.',
-            }),
+                'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.'}),
+
             ('geo:altitude', ('geo:dist', {'baseoff': 6371008800}), {
-                'doc': 'A negative or positive offset from Mean Sea Level (6,371.0088km from Earths core).'
-            }),
+                'doc': 'A negative or positive offset from Mean Sea Level (6,371.0088km from Earths core).'}),
         ),
 
         'edges': (
@@ -471,8 +492,6 @@ modeldefs = (
         ),
 
         'forms': (
-
-            ('geo:name', {}, ()),
 
             ('geo:telem', {}, (
 
@@ -491,39 +510,22 @@ modeldefs = (
 
             ('geo:place', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'A type specific identifier such as an airport ID.'}),
-
-                ('name', ('geo:name', {}), {
-                    'alts': ('names',),
-                    'doc': 'The name of the place.'}),
 
                 ('type', ('geo:place:type:taxonomy', {}), {
                     'doc': 'The type of place.'}),
 
-                ('names', ('array', {'type': 'geo:name', 'sorted': True, 'uniq': True}), {
+                # FIXME should geo:locatable have :names?
+                ('name', ('meta:name', {}), {
+                    'alts': ('names',),
+                    'doc': 'The name of the place.'}),
+
+                ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternative place names.'}),
 
-                ('desc', ('str', {}), {
-                    'doc': 'A long form description of the place.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'The geo-political location string for the node.'}),
-
-                ('address', ('geo:address', {}), {
-                    'doc': 'The street/mailing address for the place.'}),
-
-                ('geojson', ('geo:json', {}), {
-                    'doc': 'A GeoJSON representation of the place.'}),
-
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The lat/long position for the place.'}),
-
-                ('bbox', ('geo:bbox', {}), {
-                    'doc': 'A bounding box which encompasses the place.'}),
-
-                ('radius', ('geo:dist', {}), {
-                    'doc': 'An approximate radius to use for bounding box calculation.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the place.'}),
 
                 ('photo', ('file:bytes', {}), {
                     'doc': 'The image file to use as the primary image of the place.'}),

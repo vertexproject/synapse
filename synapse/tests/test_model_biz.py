@@ -11,24 +11,24 @@ class BizModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
                 [ biz:rfp=*
-                    :ext:id = WOO123
+                    :id = WOO123
                     :title = HeHeHaHa
-                    :summary = ZipZop
+                    :desc = ZipZop
                     :status = foo.bar
                     :url = "https://vertex.link"
                     :file = *
                     :posted = 20210731
                     :quesdue = 20210802
                     :propdue = 20210820
-                    :contact = {[ ps:contact=* :name=visi ]}
+                    :contact = {[ entity:contact=* :name=visi ]}
                     :purchases += *
                     :requirements += *
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('ext:id'), 'WOO123')
+            self.eq(nodes[0].get('id'), 'WOO123')
             self.eq(nodes[0].get('title'), 'HeHeHaHa')
-            self.eq(nodes[0].get('summary'), 'ZipZop')
+            self.eq(nodes[0].get('desc'), 'ZipZop')
             self.eq(nodes[0].get('status'), 'foo.bar.')
             self.eq(nodes[0].get('url'), 'https://vertex.link')
             self.eq(nodes[0].get('posted'), 1627689600000000)
@@ -43,7 +43,7 @@ class BizModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('biz:deal:status:taxonomy'))
 
             self.len(1, await core.nodes('biz:rfp -> ou:goal'))
-            self.len(1, await core.nodes('biz:rfp -> ps:contact'))
+            self.len(1, await core.nodes('biz:rfp -> entity:contact'))
             self.len(1, await core.nodes('biz:rfp -> file:bytes'))
             self.len(1, await core.nodes('biz:rfp -> econ:purchase'))
             self.len(1, await core.nodes('biz:rfp -> biz:deal:status:taxonomy'))
@@ -58,14 +58,8 @@ class BizModelTest(s_t_utils.SynTest):
                     :updated = 20210731
                     :contacted = 20210728
                     :rfp = { biz:rfp }
-                    :buyer = {[ ps:contact=* :name=buyer ]}
-                    :buyer:org = *
-                    :buyer:orgname = hehehaha
-                    :buyer:orgfqdn = hehehaha.com
-                    :seller:org = *
-                    :seller:orgname = lololol
-                    :seller:orgfqdn = lololol.com
-                    :seller = {[ ps:contact=* :name=seller ]}
+                    :buyer = {[ entity:contact=* :name=buyer ]}
+                    :seller = {[ entity:contact=* :name=seller ]}
                     :currency = USD
                     :buyer:budget = 300000
                     :buyer:deadline = 20210901
@@ -92,114 +86,44 @@ class BizModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('seller'))
             self.nn(nodes[0].get('purchase'))
 
-            self.nn(nodes[0].get('buyer:org'))
-            self.nn(nodes[0].get('seller:org'))
-
-            self.eq('hehehaha', nodes[0].get('buyer:orgname'))
-            self.eq('hehehaha.com', nodes[0].get('buyer:orgfqdn'))
-            self.eq('lololol', nodes[0].get('seller:orgname'))
-            self.eq('lololol.com', nodes[0].get('seller:orgfqdn'))
-
             self.len(2, await core.nodes('biz:deal:type:taxonomy'))
 
             self.len(1, await core.nodes('biz:deal -> biz:rfp'))
             self.len(1, await core.nodes('biz:deal -> econ:purchase'))
-            self.len(1, await core.nodes('biz:deal :buyer -> ps:contact +:name=buyer'))
-            self.len(1, await core.nodes('biz:deal :seller -> ps:contact +:name=seller'))
+            self.len(1, await core.nodes('biz:deal :buyer -> entity:contact +:name=buyer'))
+            self.len(1, await core.nodes('biz:deal :seller -> entity:contact +:name=seller'))
             self.len(1, await core.nodes('biz:deal :type -> biz:deal:type:taxonomy'))
             self.len(1, await core.nodes('biz:deal :status -> biz:deal:status:taxonomy'))
-
-            nodes = await core.nodes('''
-                [ biz:bundle=*
-                    :count = 10
-                    :price = 299999
-                    :product = {[ biz:product=* :name=LoLoLoL ]}
-                    :service = {[ biz:service=* :name=WoWoWow ]}
-                ]
-            ''')
-            self.len(1, nodes)
-
-            self.eq(nodes[0].get('count'), 10)
-            self.eq(nodes[0].get('price'), '299999')
-
-            self.nn(nodes[0].get('product'))
-            self.nn(nodes[0].get('service'))
-
-            self.len(1, await core.nodes('biz:bundle -> biz:product +:name=LoLoLoL'))
-            self.len(1, await core.nodes('biz:bundle -> biz:service +:name=WoWoWoW'))
 
             nodes = await core.nodes('''
                 [ biz:product=*
                     :name = WootWoot
                     :type = woot.woot
-                    :summary = WootWithWootSauce
+                    :desc = WootWithWootSauce
                     :price:retail = 29.99
                     :price:bottom = 3.20
-                    :bundles = { biz:bundle }
                 ]
             ''')
             self.len(1, nodes)
 
-            self.eq(nodes[0].get('name'), 'WootWoot')
+            self.eq(nodes[0].get('name'), 'wootwoot')
             self.eq(nodes[0].get('type'), 'woot.woot.')
-            self.eq(nodes[0].get('summary'), 'WootWithWootSauce')
+            self.eq(nodes[0].get('desc'), 'WootWithWootSauce')
             self.eq(nodes[0].get('price:retail'), '29.99')
             self.eq(nodes[0].get('price:bottom'), '3.2')
 
-            self.nn(nodes[0].get('bundles'))
-
             self.len(2, await core.nodes('biz:product:type:taxonomy'))
-
-            self.len(1, await core.nodes('biz:product:name=WootWoot -> biz:bundle'))
-            self.len(1, await core.nodes('biz:product:name=WootWoot -> biz:product:type:taxonomy'))
-
-            nodes = await core.nodes('''
-                [ biz:stake=*
-                    :vitals = *
-                    :org = {[ ou:org=* ]}
-                    :orgname = vertex_project
-                    :orgfqdn = vertex.link
-                    :name = LoL
-                    :asof = 20210731
-                    :shares = 42
-                    :invested = 299999
-                    :value = 400000
-                    :percent = 0.02
-                    :owner = {[ ps:contact=* :name=visi ]}
-                    :purchase = {[ econ:purchase=* ]}
-                ]
-            ''')
-            self.len(1, nodes)
-
-            self.nn(nodes[0].get('org'))
-            self.nn(nodes[0].get('owner'))
-            self.nn(nodes[0].get('vitals'))
-            self.nn(nodes[0].get('purchase'))
-
-            self.eq(nodes[0].get('name'), 'LoL')
-            self.eq(nodes[0].get('value'), '400000')
-            self.eq(nodes[0].get('invested'), '299999')
-
-            self.eq(nodes[0].get('asof'), 1627689600000000)
-            self.eq(nodes[0].get('percent'), '0.02')
-            self.eq(nodes[0].get('orgfqdn'), 'vertex.link')
-            self.eq(nodes[0].get('orgname'), 'vertex_project')
-
-            self.len(1, await core.nodes('biz:stake -> ou:org'))
-            self.len(1, await core.nodes('biz:stake -> ou:name'))
-            self.len(1, await core.nodes('biz:stake -> inet:fqdn'))
-            self.len(1, await core.nodes('biz:stake :owner -> ps:contact'))
-            self.len(1, await core.nodes('biz:stake :purchase -> econ:purchase'))
+            self.len(1, await core.nodes('biz:product:name=wootwoot -> biz:product:type:taxonomy'))
 
             nodes = await core.nodes('''
                 [ biz:listing=*
-                    :seller={ ps:contact:name=visi | limit 1 }
+                    :seller={ entity:contact:name=visi | limit 1 }
                     :product={[ biz:product=* :name=wootprod ]}
                     :service={[ biz:service=*
                         :name=wootsvc
                         :type=awesome
-                        :summary="hehe haha"
-                        :provider={ ps:contact:name=visi | limit 1}
+                        :desc="hehe haha"
+                        :provider={ entity:contact:name=visi | limit 1}
                         :launched=20230124
                     ]}
                     :current=1
@@ -219,7 +143,7 @@ class BizModelTest(s_t_utils.SynTest):
             self.eq('1000000', nodes[0].get('price'))
             self.eq('usd', nodes[0].get('currency'))
 
-            self.len(1, await core.nodes('biz:listing -> ps:contact +:name=visi'))
+            self.len(1, await core.nodes('biz:listing -> entity:contact +:name=visi'))
             self.len(1, await core.nodes('biz:listing -> biz:product +:name=wootprod'))
             self.len(1, await core.nodes('biz:listing -> biz:service +:name=wootsvc'))
 

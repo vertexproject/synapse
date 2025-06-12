@@ -153,6 +153,9 @@ modeldefs = (
                     'doc': 'A DNS query unique to a given client.'}),
 
             ('inet:dns:request', ('guid', {}), {
+                'interfaces': (
+                    ('inet:proto:request', {}),
+                ),
                 'doc': 'A single instance of a DNS resolver request and optional reply info.'}),
 
             ('inet:dns:answer', ('guid', {}), {
@@ -239,8 +242,6 @@ modeldefs = (
 
             ('inet:dns:request', {}, (
 
-                ('time', ('time', {}), {}),
-
                 ('query', ('inet:dns:query', {}), {}),
                 ('query:name', ('inet:dns:name', {}), {}),
                 ('query:name:ip', ('inet:ip', {}), {
@@ -249,23 +250,8 @@ modeldefs = (
                 ('query:name:fqdn', ('inet:fqdn', {}), {}),
                 ('query:type', ('int', {}), {}),
 
-                ('server', ('inet:server', {}), {}),
-
                 ('reply:code', ('int', {'enums': dnsreplycodes, 'enums:strict': False}), {
                     'doc': 'The DNS server response code.'}),
-
-                ('exe', ('file:bytes', {}), {
-                    'doc': 'The file containing the code that attempted the DNS lookup.'}),
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The process that attempted the DNS lookup.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host that attempted the DNS lookup.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-
             )),
 
             ('inet:dns:answer', {}, (
@@ -307,13 +293,14 @@ modeldefs = (
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which provides the dynamic DNS FQDN.'}),
 
-                ('provider:name', ('ou:name', {}), {
+                ('provider:name', ('meta:name', {}), {
                     'doc': 'The name of the organization which provides the dynamic DNS FQDN.'}),
 
                 ('provider:fqdn', ('inet:fqdn', {}), {
                     'doc': 'The FQDN of the organization which provides the dynamic DNS FQDN.'}),
 
-                ('contact', ('ps:contact', {}), {
+                # FIXME inet:service:account?
+                ('contact', ('entity:contact', {}), {
                     'doc': 'The contact information of the registrant.'}),
 
                 ('created', ('time', {}), {

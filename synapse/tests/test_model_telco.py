@@ -68,7 +68,7 @@ class TelcoModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('tel:mob:carrier -> tel:mob:tadig'))
 
-            q = '[(tel:mob:cell=((001, 02), 3, 4) :radio="Pirate " :place=$place :loc=us.ca.la :latlong=(0, 0))]'
+            q = '[(tel:mob:cell=((001, 02), 3, 4) :radio="Pirate " :place=$place :place:loc=us.ca.la :place:latlong=(0, 0))]'
             nodes = await core.nodes(q, opts={'vars': {'place': place}})
             self.len(1, nodes)
             node = nodes[0]
@@ -78,10 +78,10 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('carrier:mnc'), '02')
             self.eq(node.get('lac'), 3)
             self.eq(node.get('cid'), 4)
-            self.eq(node.get('loc'), 'us.ca.la')
             self.eq(node.get('radio'), 'pirate.')
-            self.eq(node.get('latlong'), (0.0, 0.0))
             self.eq(node.get('place'), place)
+            self.eq(node.get('place:loc'), 'us.ca.la')
+            self.eq(node.get('place:latlong'), (0.0, 0.0))
             self.len(1, await core.nodes('tel:mob:mcc=001'))
 
             # tel:mob:telem
@@ -108,8 +108,9 @@ class TelcoModelTest(s_t_utils.SynTest):
                      'data': {'some key': 'some valu',
                               'BEEP': 1}
                      }
-            q = '''[(tel:mob:telem=$valu :time=$p.time :latlong=$p.latlong :place=$p.place :host=$p.host
-             :loc=$p.loc :accuracy=$p.accuracy :cell=$p.cell :imsi=$p.imsi :imei=$p.imei :phone=$p.phone
+            q = '''[(tel:mob:telem=$valu :time=$p.time :place:latlong=$p.latlong :place=$p.place :host=$p.host
+             :place:loc=$p.loc :place:latlong:accuracy=$p.accuracy
+             :cell=$p.cell :imsi=$p.imsi :imei=$p.imei :phone=$p.phone
              :mac=$p.mac :ip=$p.ip :wifi:ap=$p."wifi:ap" :adid=$p.adid
              :name=$p.name :email=$p.email :app=$p.app :data=$p.data :account=*)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': guid, 'p': props}})
@@ -117,11 +118,11 @@ class TelcoModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('tel:mob:telem', guid))
             self.eq(node.get('time'), 978307200000000)
-            self.eq(node.get('latlong'), (-1.0, 1.0))
+            self.eq(node.get('place:latlong'), (-1.0, 1.0))
             self.eq(node.get('place'), place)
             self.eq(node.get('host'), host)
-            self.eq(node.get('loc'), 'us')
-            self.eq(node.get('accuracy'), 100)
+            self.eq(node.get('place:loc'), 'us')
+            self.eq(node.get('place:latlong:accuracy'), 100)
             self.eq(node.get('cell'), (('001', '02'), 3, 4))
             self.eq(node.get('cell:carrier'), ('001', '02'))
             self.eq(node.get('imsi'), 310150123456789)
@@ -213,28 +214,26 @@ class TelcoModelTest(s_t_utils.SynTest):
     async def test_telco_call(self):
         async with self.getTestCore() as core:
             guid = s_common.guid()
+            file = s_common.guid()
             props = {
                 'src': '+1 (703) 555-1212',
                 'dst': '123 456 7890',
                 'time': '2001',
                 'duration': 90,
                 'connected': True,
-                'text': 'I said some stuff',
-                'file': 'sha256:' + 64 * 'f',
+                'file': file,
             }
-            q = '''[(tel:call=$valu :src=$p.src :dst=$p.dst :time=$p.time :duration=$p.duration
-            :connected=$p.connected :text=$p.text :file=$p.file)]'''
+            q = '''[(tel:call=$valu :src=$p.src :dst=$p.dst :period=$p.time
+            :connected=$p.connected :recording=$p.file)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': guid, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:call', guid))
             self.eq(node.get('src'), '17035551212')
             self.eq(node.get('dst'), '1234567890')
-            self.eq(node.get('time'), 978307200000000)
-            self.eq(node.get('duration'), 90)
+            self.eq(node.get('period'), (978307200000000, 978307200000001))
             self.eq(node.get('connected'), True)
-            self.eq(node.get('text'), 'I said some stuff')
-            self.eq(node.get('file'), 'sha256:' + 64 * 'f')
+            self.eq(node.get('recording'), file)
 
     async def test_telco_txtmesg(self):
         async with self.getTestCore() as core:
@@ -246,10 +245,9 @@ class TelcoModelTest(s_t_utils.SynTest):
                 'svctype': 'sms',
                 'time': '2001',
                 'text': 'I wrote some stuff',
-                'file': 'sha256:' + 64 * 'b',
             }
-            q = '''[(tel:txtmesg=$valu :from=$p.from :to=$p.to :recipients=$p.recipients :svctype=$p.svctype
-            :time=$p.time :text=$p.text :file=$p.file)]'''
+            q = '''[tel:txtmesg=$valu :from=$p.from :to=$p.to :recipients=$p.recipients :svctype=$p.svctype
+            :time=$p.time :text=$p.text]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': guid, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -260,7 +258,6 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('svctype'), 'sms')
             self.eq(node.get('time'), 978307200000000)
             self.eq(node.get('text'), 'I wrote some stuff')
-            self.eq(node.get('file'), 'sha256:' + 64 * 'b')
             # add other valid message types
             nodes = await core.nodes('[tel:txtmesg=* :svctype=mms]')
             self.len(1, nodes)

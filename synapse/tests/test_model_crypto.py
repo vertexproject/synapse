@@ -89,7 +89,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('iden'), '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')
 
             # these would explode if the model was wrong
-            self.len(1, await core.nodes('crypto:currency:address [ :desc="woot woot" :contact="*" ] -> ps:contact'))
+            self.len(1, await core.nodes('crypto:currency:address [ :desc="woot woot" :contact=(entity:contact, *) ] -> entity:contact'))
             self.len(1, await core.nodes('crypto:currency:address:iden=1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.len(1, await core.nodes('crypto:currency:address:coin=btc'))
             self.len(1, await core.nodes('crypto:currency:client:inetaddr=1.2.3.4'))
@@ -110,7 +110,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             payor = payors[0].ndef[1]
             payee = payees[0].ndef[1]
 
-            nodes = await core.nodes(f'''
+            nodes = await core.nodes('''
                 [
                     crypto:currency:transaction=(t1,)
                         :hash=0x01020304
@@ -127,8 +127,8 @@ class CryptoModelTest(s_t_utils.SynTest):
                         :eth:gasused = 10
                         :eth:gaslimit = 20
                         :eth:gasprice = 0.001
-                        :contract:input = $input
-                        :contract:output = $output
+                        :contract:input = {[ file:bytes=({"sha256": $input}) ]}
+                        :contract:output = {[ file:bytes=({"sha256": $output}) ]}
                 ]
             ''', opts=opts)
             self.len(1, nodes)
@@ -149,8 +149,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('eth:gasused'), 10)
             self.eq(node.get('eth:gaslimit'), 20)
             self.eq(node.get('eth:gasprice'), '0.001')
-            self.eq(node.get('contract:input'), 'sha256:f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b')
-            self.eq(node.get('contract:output'), 'sha256:f6f2ea8f45d8a057c9566a33f99474da2e5c6a6604d736121650e2730c6fb0a3')
+            self.eq(node.get('contract:input'), 'e8691a37075634ad4c10037e46f8cdc2')
+            self.eq(node.get('contract:output'), '6abdf11bc1f8516aa04984e12d500a1f')
 
             q = 'crypto:currency:transaction=(t1,) | tee { -> crypto:payment:input } { -> crypto:payment:output }'
             nodes = await core.nodes(q)
@@ -174,7 +174,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [
                     crypto:smart:contract=*
                         :transaction=*
-                        :bytecode=$input
+                        :bytecode={[ file:bytes=({"sha256": $input}) ]}
                         :address = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                         :token:name=Foo
                         :token:symbol=Bar
@@ -183,7 +183,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.nn(node.get('transaction'))
-            self.eq(node.get('bytecode'), 'sha256:f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b')
+            self.eq(node.get('bytecode'), 'e8691a37075634ad4c10037e46f8cdc2')
             self.eq(node.get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.eq(node.get('token:name'), 'Foo')
             self.eq(node.get('token:symbol'), 'Bar')
@@ -350,7 +350,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(('eth', 'aaaa'), node.get('owner'))
             self.eq('https://coin.vertex.link/nfts/30', node.get('nft:url'))
             self.eq({'name': 'WootWoot'}, node.get('nft:meta'))
-            self.eq('WootWoot', node.get('nft:meta:name'))
+            self.eq('wootwoot', node.get('nft:meta:name'))
             self.eq('LoLoL', node.get('nft:meta:description'))
             self.eq('https://vertex.link/favicon.ico', node.get('nft:meta:image'))
 
@@ -460,7 +460,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             crl = s_common.guid()
             cert = s_common.guid()
             icert = s_common.guid()
-            fileguid = f'guid:{s_common.guid()}'
+            fileguid = s_common.guid()
 
             nodes = await core.nodes('''
                 [ crypto:x509:cert=$icert
@@ -545,7 +545,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [
                     crypto:x509:crl=$crl
                         :url=http://vertex.link/crls
-                        :file="*"
+                        :file=*
                 ]
             ''', opts={'vars': {'crl': crl}})
 

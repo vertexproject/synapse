@@ -16,7 +16,6 @@ modeldefs = (
                     'doc': 'The org with the Internet Content Provider ID.',
                 }),
             )),
-            # TODO - Add 'org' as a secondary property to mcud?
             ('gov:cn:mucd', {}, ()),
         )
     }),
@@ -34,8 +33,10 @@ modeldefs = (
 
         'forms': (
             ('iso:oid', {}, (
-                ('descr', ('str', {}), {
+
+                ('desc', ('str', {}), {
                     'doc': 'A description of the value or meaning of the OID.'}),
+
                 ('identifier', ('str', {}), {
                     'doc': 'The string identifier for the deepest tree element.'}),
             )),
@@ -43,14 +44,27 @@ modeldefs = (
     }),
     ('gov:us', {
         'types': (
-            ('gov:us:ssn', ('int', {}), {'doc': 'A US Social Security Number (SSN).'}),
-            ('gov:us:zip', ('int', {}), {'doc': 'A US Postal Zip Code.'}),
-            ('gov:us:cage', ('str', {'lower': True}), {'doc': 'A Commercial and Government Entity (CAGE) code.'}),
+
+            ('gov:us:ssn', ('str', {'regex': '^[0-9]{3}-[0-9]{2}-[0-9]{4}'}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
+                'doc': 'A US Social Security Number (SSN).'}),
+
+            ('gov:us:zip', ('int', {'regex': '^[0-9]{5}'}), {
+                'doc': 'A US Postal Zip Code.'}),
+
+            ('gov:us:cage', ('str', {'lower': True}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
+                'doc': 'A Commercial and Government Entity (CAGE) code.'}),
         ),
 
         'forms': (
             ('gov:us:cage', {}, (
-                ('name0', ('ou:name', {}), {'doc': 'The name of the organization.'}),
+                ('org', ('ou:org', {}), {'doc': 'The organization which was issued the CAGE code.'}),
+                ('name0', ('meta:name', {}), {'doc': 'The name of the organization.'}),
                 ('name1', ('str', {'lower': True}), {'doc': 'Name Part 1.'}),
                 ('street', ('str', {'lower': True}), {}),
                 ('city', ('str', {'lower': True}), {}),
