@@ -29,7 +29,7 @@ class DemoteToolTest(s_test.SynTest):
                 outp = self.getTestOutp()
                 argv = ['--url', cell00.getLocalUrl()]
 
-                self.eq(1, await s_tools_demote.main(argv, outp=outp))
+                self.eq(0, await s_tools_demote.main(argv, outp=outp))
 
                 self.false(cell00.isactive)
                 self.true(cell01.isactive)
