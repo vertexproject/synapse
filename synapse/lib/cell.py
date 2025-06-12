@@ -1554,6 +1554,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         extra = await self.getLogExtra()
         logger.warning('Graceful shutdown initiated...', extra=extra)
 
+        # if we're the leader, lets see if we can handoff...
+        if self.isactive and self.ahaclient is not None:
+            peers = await self._getDemotePeers(timeout=timeout)
+            if peers:
+                if not await self.demote(peers=peers, timeout=timeout):
+                    logger.warning('...we are the leader and failed to demote. Aborting shutdown.', extra=extra)
+                    return false
+
         if not await self.boss.shutdown(timeout=timeout):
             logger.warning('...tasks did not complete within timeout. Aborting shutdown.', extra=extra)
             return False
@@ -2300,7 +2308,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logger.warning(f'HANDOFF: Done performing the leadership handoff with {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
 
-    async def demote(self, timeout=None):
+    async def _getDemotePeers(self, timeout=None):
+
+        ahaproxy = await self.reqAhaProxy(timeout=timeout)
+
+        retn = []
+        async for svcdef in ahaproxy.getAhaSvcsByIden(self.iden, skiprun=self.runid):
+
+            if not svcdef['svcinfo'].get('cluster'): # pragma: no cover
+                continue
+
+            retn.append(svcdef)
+
+        return retn
+
+    async def demote(self, peers=None, timeout=None):
 
         logger.warning('Service demotion requested. Locating a suitable service for promotion...')
 
@@ -2314,14 +2336,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = self.conf.get('aha:user')
         try:
 
+            if peers is None:
+                peers = await self._getDemotePeers(timeout=timeout)
+
             async with await s_base.Base.anit() as base:
 
                 cands = []
 
-                async for svcdef in ahaproxy.getAhaSvcsByIden(self.iden, skiprun=self.runid):
-
-                    if not svcdef['svcinfo'].get('cluster'):
-                        continue
+                for svcdef in peers:
 
                     name = svcdef.get('name')
 

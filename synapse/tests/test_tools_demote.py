@@ -4,6 +4,7 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 
 import synapse.tools.demote as s_tools_demote
+import synapse.tools.shutdown as s_tools_shutdown
 
 import synapse.tests.utils as s_test
 
@@ -47,3 +48,16 @@ class DemoteToolTest(s_test.SynTest):
                 outp.clear()
                 self.eq(1, await s_tools_demote.main(['--url', 'newp://hehe'], outp=outp))
                 outp.expect('Error while demoting service newp://hehe')
+
+                # confirm that graceful shutdown with peers also demotes...
+                outp.clear()
+                argv = ['--url', cell01.getLocalUrl(), '--timeout', '12']
+                self.eq(0, await s_tools_shutdown.main(argv, outp=outp))
+
+                self.true(cell00.isactive)
+                self.false(cell01.isactive)
+
+                # and that graceful shutdown without any cluster peers works too...
+                outp.clear()
+                argv = ['--url', cell00.getLocalUrl(), '--timeout', '12']
+                self.eq(0, await s_tools_shutdown.main(argv, outp=outp))
