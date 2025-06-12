@@ -17,18 +17,6 @@ import synapse.tools.axon.load as axon_load
 
 class AxonToolsTest(s_t_utils.SynTest):
 
-    async def test_axon_dump_and_load_args(self):
-        with self.getTestDir() as testdir:
-            argv = ['--wrong-size', '1000', testdir]
-            outp = s_output.OutPutStr()
-            self.eq(1, await axon_dump.main(argv, outp=outp))
-            self.isin('usage: synapse.tools.axon.dump', str(outp))
-
-            argv = ['--wrong-size', '1000', testdir]
-            outp = s_output.OutPutStr()
-            self.eq(1, await axon_load.main(argv, outp=outp))
-            self.isin('usage: synapse.tools.axon.load', str(outp))
-
     async def test_axon_dump_and_load_url_handling(self):
         with self.getTestDir() as testdir:
             argv = ['--url', 'cell:///definitelynotarealpath/axon', '--offset', '0', testdir]

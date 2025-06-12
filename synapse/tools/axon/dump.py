@@ -143,10 +143,7 @@ async def main(argv, outp=s_output.stdout):
                       help='Path to the state tracking file for the Axon dump.')
     pars.add_argument('outdir', help='Directory to dump tar.gz files (required).')
 
-    try:
-        opts = pars.parse_args(argv)
-    except Exception:
-        return 1
+    opts = pars.parse_args(argv)
 
     async with s_telepath.withTeleEnv():
         (ok, mesg) = await dumpBlobs(opts, outp)
@@ -158,10 +155,5 @@ async def main(argv, outp=s_output.stdout):
 
     return 0
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_cmd.exitmain(main)

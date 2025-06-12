@@ -73,10 +73,7 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--url', default='cell:///vertex/storage', help='Telepath URL for the Axon.')
     pars.add_argument('files', nargs='+', help='List of .tar.gz files to import from.')
 
-    try:
-        opts = pars.parse_args(argv)
-    except Exception:
-        return 1
+    opts = pars.parse_args(argv)
 
     tarfiles = sorted([f for f in opts.files if f.endswith('.tar.gz')])
 
@@ -90,10 +87,5 @@ async def main(argv, outp=s_output.stdout):
 
     return 0
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_cmd.exitmain(main)
