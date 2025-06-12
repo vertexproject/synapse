@@ -1,6 +1,3 @@
-import os
-import sys
-import asyncio
 import tarfile
 
 import synapse.exc as s_exc
@@ -8,7 +5,6 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
-import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
 
 descr = '''
@@ -59,8 +55,7 @@ async def loadBlobs(opts, outp, tarfiles):
                             await upfd.save()
 
     except s_exc.SynErr as exc:
-        mesg = exc.get('mesg')
-        return (False, mesg)
+        return (False, s_exc.reprexc(exc))
 
     except Exception as e:
         mesg = f'Error {e} loading blobs into Axon url: {opts.url}'

@@ -1,7 +1,4 @@
 import os
-import sys
-import asyncio
-import hashlib
 import tarfile
 import tempfile
 
@@ -10,7 +7,6 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
-import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.output as s_output
 
