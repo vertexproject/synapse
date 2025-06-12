@@ -32,17 +32,21 @@ async def main(argv, outp=s_output.stdout):
 
     async with s_telepath.withTeleEnv():
 
-        async with await s_telepath.openurl(opts.url) as cell:
+        try:
 
-            outp.printf(f'Demoting leader: {opts.url}')
+            async with await s_telepath.openurl(opts.url) as cell:
 
-            try:
-                await cell.demote(timeout=opts.timeout)
-                return 0
+                outp.printf(f'Demoting leader: {opts.url}')
 
-            except s_exc.SynErr as e:
-                outp.printf(f'Failed to demote service {s_urlhelp.sanitizeUrl(opts.url)}: {e}')
-                return 1
+                if await cell.demote(timeout=opts.timeout):
+                    return 0
+
+        except s_exc.SynErr as e:
+            outp.printf(f'Error while demoting service {s_urlhelp.sanitizeUrl(opts.url)}: {e}')
+            return 1
+
+        outp.printf(f'Failed to demote service {s_urlhelp.sanitizeUrl(opts.url)}')
+        return 1
 
 if __name__ == '__main__':  # pragma: no cover
     s_cmd.exitmain(main)

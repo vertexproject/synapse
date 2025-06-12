@@ -30,8 +30,20 @@ class DemoteToolTest(s_test.SynTest):
                 argv = ['--url', cell00.getLocalUrl()]
 
                 self.eq(0, await s_tools_demote.main(argv, outp=outp))
+                outp.expect('Demoting leader: cell://')
 
                 self.false(cell00.isactive)
                 self.true(cell01.isactive)
 
                 await cell00.sync()
+
+                outp.clear()
+                self.eq(1, await s_tools_demote.main(argv, outp=outp))
+                outp.expect('Failed to demote service cell:')
+
+                self.false(cell00.isactive)
+                self.true(cell01.isactive)
+
+                outp.clear()
+                self.eq(1, await s_tools_demote.main(['--url', 'newp://hehe'], outp=outp))
+                outp.expect('Error while demoting service newp://hehe')

@@ -381,10 +381,13 @@ class CellApi(s_base.Base):
     @adminapi(log=True)
     async def promote(self, graceful=False):
         return await self.cell.promote(graceful=graceful)
-
     @adminapi(log=True)
     async def handoff(self, turl, timeout=30):
         return await self.cell.handoff(turl, timeout=timeout)
+
+    @adminapi(log=True)
+    async def demote(self, timeout=None):
+        return await self.cell.demote(timeout=timeout)
 
     def getCellUser(self):
         return self.user.pack()
@@ -2301,32 +2304,40 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logger.warning('Service demotion requested. Locating a suitable service for promotion...')
 
+        if not self.isactive:
+            extra = await self.getLogExtra()
+            logger.warning('...service is not the leader. Aborting demotion.', extra=extra)
+            return False
+
         ahaproxy = await self.reqAhaProxy(timeout=timeout)
 
         user = self.conf.get('aha:user')
         try:
 
-            async with s_base.Base.anit() as base:
+            async with await s_base.Base.anit() as base:
 
                 cands = []
 
-                async for svcdef in proxy.getAhaSvcsByIden(self.iden, skiprun=self.runid):
+                async for svcdef in ahaproxy.getAhaSvcsByIden(self.iden, skiprun=self.runid):
 
                     if not svcdef['svcinfo'].get('cluster'):
                         continue
 
+                    name = svcdef.get('name')
+
                     try:
-                        name = svcdef['svcinfo']['name']
-                        svcproxy = base.enter_context(await s_telepath.proxy(f'aha://{user}@{name}'))
+                        svcproxy = await base.enter_context(await s_telepath.openurl(f'aha://{user}@{name}'))
 
                         svcindx = await svcproxy.getNexsIndx()
                         cands.append((svcindx, svcproxy))
 
                     except Exception as e:
-                        logger.error('STUFF 00')
+                        extra = await self.getLogExtra()
+                        logger.warning(f'...error retrieving Nexus index for {name}: {s_exc.reprexc(e)}. Skipping.', extra=extra)
 
                 if not cands:
-                    logger.warning('...no suitable services discovered. Aborting demotion.')
+                    extra = await self.getLogExtra()
+                    logger.warning('...no suitable services discovered. Aborting demotion.', extra=extra)
                     return False
 
                 for svcindx, svcproxy in sorted(cands):
@@ -2334,14 +2345,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     try:
                         await svcproxy.promote(graceful=True)
 
-                        logger.warning(f'... successfully promoted: {svcproxy._ahainfo["name"]}')
+                        extra = await self.getLogExtra()
+                        logger.warning(f'... successfully promoted: {svcproxy._ahainfo["name"]}', extra=extra)
                         return True
 
                     except Exception as e:
-                        logger.error('STUFF 01')
+                        extra = await self.getLogExtra()
+                        logger.warning('...error promoting {svcproxy._ahainfo["name"]}. Skipping.', extra=extra)
 
         except Exception as e:
-            logger.error('STUFF 02')
+            extra = await self.getLogExtra()
+            logger.error(f'...error while demoting service: {s_exc.reprexc(e)}', extra=extra)
             return False
 
     async def reqAhaProxy(self, timeout=None):
