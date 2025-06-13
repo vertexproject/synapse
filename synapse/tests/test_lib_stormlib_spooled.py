@@ -145,6 +145,20 @@ class StormlibSpooledTest(s_test.SynTest):
             valu = await core.callStorm(q)
             self.eq(1500, valu)
 
+            subq = '''{
+                $sset = $lib.spooled.set()
+                $sset.adds($lib.range(1500))
+                return($sset)
+            }'''
+
+            q = '''
+                $subset = $lib.storm.eval($text)
+                $subset.add(2345)
+                return($subset.size())
+            '''
+            valu = await core.callStorm(q, opts={'vars': {'text': subq}})
+            self.eq(1501, valu)
+
             # sad paths
             # too complex
             q = '''
