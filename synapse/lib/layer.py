@@ -473,10 +473,10 @@ class IndxByPropKeys(IndxByProp):
             else:
                 valt = sode['props'].get(self.prop)
 
-            if valt is None:  # pragma: no cover
-                return s_common.novalu
+            if valt is not None:
+                return valt[0]
 
-            return valt[0]
+        return s_common.novalu
 
     def __repr__(self):
         return f'IndxByPropKeys: {self.form}:{self.prop}'
