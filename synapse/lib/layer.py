@@ -422,7 +422,10 @@ class IndxByProp(IndxBy):
 
     def getStorType(self):
         form = self.layr.core.model.form(self.form)
-        typeindx = form.props.get(self.prop).type.stortype
+        if self.prop is None:
+            typeindx = form.type.stortype
+        else:
+            typeindx = form.props.get(self.prop).type.stortype
 
         return self.layr.stortypes[typeindx]
 
@@ -470,7 +473,7 @@ class IndxByPropKeys(IndxByProp):
             else:
                 valt = sode['props'].get(self.prop)
 
-            if valt is None:
+            if valt is None:  # pragma: no cover
                 return s_common.novalu
 
             return valt[0]
@@ -491,7 +494,10 @@ class IndxByPropArrayKeys(IndxByPropKeys):
 
     def getStorType(self):
         form = self.layr.core.model.form(self.form)
-        typeindx = form.props.get(self.prop).type.arraytype.stortype
+        if self.prop is None:
+            typeindx = form.type.arraytype.stortype
+        else:
+            typeindx = form.props.get(self.prop).type.arraytype.stortype
 
         return self.layr.stortypes[typeindx]
 

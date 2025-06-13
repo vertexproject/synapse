@@ -343,6 +343,7 @@ testmodel = (
 
             ('test:arrayprop', ('guid', {}), {}),
             ('test:arrayform', ('array', {'type': 'int'}), {}),
+            ('test:arrayformtype', ('array', {'type': 'test:str'}), {}),
             ('test:arrayvirtform', ('array', {'type': 'time'}), {}),
 
             ('test:comp', ('comp', {'fields': (
@@ -400,6 +401,7 @@ testmodel = (
                 ('strregexs', ('array', {'type': 'test:strregex', 'uniq': True, 'sorted': True}), {}),
             )),
             ('test:arrayform', {}, ()),
+            ('test:arrayformtype', {}, ()),
             ('test:arrayvirtform', {}, ()),
             ('test:taxonomy', {}, ()),
             ('test:type10', {}, (

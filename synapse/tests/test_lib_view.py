@@ -1513,6 +1513,12 @@ class ViewTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('entity:name', node.form.name)
 
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(entity:name, valu="^bar", cmpr="~=")', opts=forkopts)
+            self.len(4, nodes)
+            self.eq(['bar', 'bar2', long1, long2], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('entity:name', node.form.name)
+
             with self.raises(s_exc.BadTypeValu):
                 async for item in view00.iterPropValuesWithCmpr('entity:name', 'newp', 'newp', array=True):
                     pass
@@ -1529,7 +1535,7 @@ class ViewTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('yield $lib.lift.byPropRefs((ou:goal:name, ou:conference:name), valu=newp)')
 
-            await core.nodes('for $i in $lib.range(10) { [test:int=$i] }')
+            await core.nodes('for $i in $lib.range(10) { [test:int=$i :type=bar] }')
 
             nodes = await core.nodes('yield $lib.lift.byPropRefs(test:int, valu=3, cmpr="=")', opts=forkopts)
             self.len(1, nodes)
@@ -1540,3 +1546,21 @@ class ViewTest(s_t_utils.SynTest):
             self.eq([3, 4, 5], [n.valu() for n in nodes])
             for node in nodes:
                 self.eq('test:int', node.form.name)
+
+            await core.nodes(f'''[
+                test:int=12 :type=baz
+                test:arrayformtype=(bar, bar, bararray)
+                test:arrayformtype=(foo, fooarray, {long1}, {long2})
+            ]''')
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((test:arrayformtype, test:int:type), valu=ba, cmpr="^=")', opts=forkopts)
+            self.len(5, nodes)
+            self.eq(['bar', 'bararray', long1, long2, 'baz'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('test:str', node.form.name)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((test:arrayformtype, test:int:type), valu="^ba", cmpr="~=")', opts=forkopts)
+            self.len(5, nodes)
+            self.eq(['bar', 'bararray', long1, long2, 'baz'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('test:str', node.form.name)
