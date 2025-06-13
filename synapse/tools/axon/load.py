@@ -11,6 +11,8 @@ descr = '''
 Load blobs into a Synapse Axon.
 '''
 
+DEFAULT_CHUNK_SIZE = s_const.megabyte * 16
+
 async def loadBlobs(opts, outp, tarfiles):
 
     try:
@@ -48,7 +50,7 @@ async def loadBlobs(opts, outp, tarfiles):
                             continue
                         async with await axon.upload() as upfd:
                             while True:
-                                chunk = fobj.read(1024 * 1024)
+                                chunk = fobj.read(DEFAULT_CHUNK_SIZE)
                                 if not chunk:
                                     break
                                 await upfd.write(chunk)
