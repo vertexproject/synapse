@@ -834,6 +834,12 @@ class TeleTest(s_t_utils.SynTest):
                             {'family': 'unix',
                              'addr': sockpath})
 
+    async def test_url_bad_cell_path(self):
+        cell_url = 'cell:///definitelynotarealpath/newp'
+        with self.raises(s_exc.BadCellPath):
+            async with await s_telepath.openurl(cell_url) as prox:
+                pass
+
     async def test_ipv6(self):
         if s_common.envbool('CIRCLECI'):
             self.skip('ipv6 listener is not supported in circleci')

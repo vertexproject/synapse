@@ -5889,7 +5889,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     # consumer offline
                     await asyncio.sleep(0)
-                    await self.asyncraises(ConnectionRefusedError, core00.callStorm(strim, opts=opts))
+                    await self.asyncraises(s_exc.BadCellPath, core00.callStorm(strim, opts=opts))
 
                     # admin can still cull and break the mirror
                     await core00.nodes('[ inet:ipv4=127.0.0.1/28 ]')
