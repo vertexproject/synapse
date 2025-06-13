@@ -1449,3 +1449,47 @@ class ViewTest(s_t_utils.SynTest):
 
             opts['vars']['iden'] = view02.iden
             self.eq([], await core.callStorm(q, opts=opts))
+
+    async def test_view_propvaluescmpr(self):
+
+        async with self.getTestCore() as core:
+
+            view00 = core.getView()
+            view01 = core.getView((await view00.fork())['iden'])
+
+            await core.nodes('[entity:name=foo entity:name=bar entity:name=baz entity:name=faz]')
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:name,), valu="ba", cmpr="^=")')
+            self.len(2, nodes)
+
+            forkopts = {'view': view01.iden}
+            await core.nodes('[entity:name=foo2 entity:name=bar2 entity:name=baz2 entity:name=faz2]', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:name,), valu="ba", cmpr="^=")', opts=forkopts)
+            self.len(4, nodes)
+
+            await core.nodes('''[
+                (ou:conference=* :names=(bar, baz))
+                (transport:sea:vessel=* :name="bad ship")
+                (transport:sea:vessel=* :name="baz ship")
+            ]''')
+
+            await core.nodes('''[
+                (ou:conference=* :name=foo)
+                (ou:conference=* :name=bar)
+                (ou:conference=* :names=(foo, baz))
+                (ou:conference=* :names=(bar, bar2))
+                (transport:sea:vessel=* :name=bar)
+                (transport:sea:vessel=* :name="bad ship")
+                (transport:sea:vessel=* :name="awesome ship")
+            ]''', opts=forkopts)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="ba", cmpr="^=")', opts=forkopts)
+            self.len(5, nodes)
+            self.eq(['bad ship', 'bar', 'bar2', 'baz', 'baz ship'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('entity:name', node.form.name)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="az", cmpr="~=")', opts=forkopts)
+            self.len(2, nodes)
+            self.eq(['baz', 'baz ship'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('entity:name', node.form.name)

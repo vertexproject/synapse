@@ -2475,11 +2475,9 @@ class FormPivot(PivotOper):
 
         elif not prop.isform or virts is not None:
 
-            isarray = isinstance(prop.type, s_types.Array)
-
             # plain old pivot...
             async def pgenr(node, strict=True):
-                if isarray:
+                if prop.type.isarray:
                     if isinstance(prop.type.arraytype, s_types.Ndef):
                         ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef, norm=False, virts=virts)
                     else:
@@ -4838,7 +4836,7 @@ class EditPropSet(Edit):
                 runt.confirmPropSet(prop)
 
             isndef = isinstance(prop.type, s_types.Ndef)
-            isarray = isinstance(prop.type, s_types.Array)
+            isarray = prop.type.isarray
 
             try:
 

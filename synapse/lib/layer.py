@@ -421,12 +421,8 @@ class IndxByProp(IndxBy):
         self.prop = prop
 
     def getStorType(self):
-
-        if self.form is not None:
-            form = self.layr.core.model.form(self.form)
-            typeindx = form.props.get(self.prop).type.stortype
-        else:
-            typeindx = self.layr.core.model.prop(self.prop).type.stortype
+        form = self.layr.core.model.form(self.form)
+        typeindx = form.props.get(self.prop).type.stortype
 
         return self.layr.stortypes[typeindx]
 
@@ -438,9 +434,69 @@ class IndxByProp(IndxBy):
         return s_common.novalu
 
     def __repr__(self):
-        if self.form:
-            return f'IndxByProp: {self.form}:{self.prop}'
-        return f'IndxByProp: {self.prop}'
+        return f'IndxByProp: {self.form}:{self.prop}'
+
+class IndxByPropKeys(IndxByProp):
+    '''
+    IndxBy sub-class for retrieving unique property values.
+    '''
+    def keyNidsByDups(self, indx, reverse=False):
+        lkey = self.abrv + indx
+        if self.layr.layrslab.has(lkey, db=self.db):
+            yield lkey, None
+
+    def keyNidsByPref(self, indx=b'', reverse=False):
+        for lkey in self.layr.layrslab.scanKeysByPref(self.abrv + indx, db=self.db, nodup=True):
+            yield lkey, None
+
+    def keyNidsByRange(self, minindx, maxindx, reverse=False):
+        for lkey in self.layr.layrslab.scanKeysByPref(self.abrv + minindx, lmax=self.abrv + maxindx, db=self.db, nodup=True):
+            yield lkey, None
+
+    def getNodeValu(self, nid, indx=None):
+
+        if indx is None:  # pragma: no cover
+            return s_common.novalu
+
+        if (valu := self.indxToValu(indx)) is not s_common.novalu:
+            return valu
+
+        if (nid := self.layr.layrslab.get(indx, db=self.indxdb)) is None:  # pragma: no cover
+            return s_common.novalu
+
+        if (sode := self._getStorNode(nid)) is not None:
+            if prop is None:
+                valt = sode.get('valu')
+            else:
+                valt = sode['props'].get(prop)
+
+            if valt is None:
+                return s_common.novalu
+
+            return valt[0]
+
+    def __repr__(self):
+        return f'IndxByPropKeys: {self.form}:{self.prop}'
+
+class IndxByPropArrayKeys(IndxByPropKeys):
+    '''
+    IndxBy sub-class for retrieving unique property array values.
+    '''
+    def __init__(self, layr, form, prop):
+        abrv = layr.core.getIndxAbrv(INDX_ARRAY, form, prop)
+        IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
+
+        self.form = form
+        self.prop = prop
+
+    def getStorType(self):
+        form = self.layr.core.model.form(self.form)
+        typeindx = form.props.get(self.prop).type.arraytype.stortype
+
+        return self.layr.stortypes[typeindx]
+
+    def __repr__(self):
+        return f'IndxByPropArrayKeys: {self.form}:{self.prop}'
 
 class IndxByVirt(IndxBy):
 
@@ -502,16 +558,12 @@ class IndxByPropArray(IndxBy):
         return valt[0]
 
     def __repr__(self):
-        if self.form:
-            return f'IndxByPropArray: {self.form}:{self.prop}'
-        return f'IndxByPropArray: {self.prop}'
+        return f'IndxByPropArray: {self.form}:{self.prop}'
 
 class IndxByPropArrayValu(IndxByProp):
 
     def __repr__(self):
-        if self.form:
-            return f'IndxByPropArrayValu: {self.form}:{self.prop}'
-        return f'IndxByPropArrayValu: {self.prop}'
+        return f'IndxByPropArrayValu: {self.form}:{self.prop}'
 
     def keyNidsByDups(self, indx, reverse=False):
         indxvalu = len(indx).to_bytes(4, 'big') + s_common.buid(indx)
@@ -523,9 +575,7 @@ class IndxByPropArrayValu(IndxByProp):
 class IndxByPropArraySize(IndxByProp):
 
     def __repr__(self):
-        if self.form:
-            return f'IndxByPropArraySize: {self.form}:{self.prop}'
-        return f'IndxByPropArraySize: {self.prop}'
+        return f'IndxByPropArraySize: {self.form}:{self.prop}'
 
     def keyNidsByRange(self, minindx, maxindx, reverse=False):
 
@@ -835,19 +885,17 @@ class StorType:
             await asyncio.sleep(0)
 
             indx = lkey[abrvlen:]
-            storvalu = self.decodeIndx(indx)
 
-            if storvalu == s_common.novalu:
+            if (storvalu := liftby.getNodeValu(nid, indx=indx)) is s_common.novalu:
+                continue
 
-                storvalu = liftby.getNodeValu(nid)
-
-                if isarray:
-                    for sval in storvalu:
-                        if self.indx(sval)[0] == indx:
-                            storvalu = sval
-                            break
-                    else:
-                        continue
+            if isarray:
+                for sval in storvalu:
+                    if self.indx(sval)[0] == indx:
+                        storvalu = sval
+                        break
+                else:
+                    continue
 
             def regexin(regx, storvalu):
                 if isinstance(storvalu, str):
@@ -2896,6 +2944,51 @@ class Layer(s_nexus.Pusher):
                         valt = sode['props'].get(propname)
 
                     if valt is not None:
+                        yield indx, valt[0]
+
+    async def iterPropValuesWithCmpr(self, form, prop, cmprvals, array=False):
+
+        try:
+            if array:
+                indxby = IndxByPropArrayKeys(self, form, prop)
+            else:
+                indxby = IndxByPropKeys(self, form, prop)
+        except s_exc.NoSuchAbrv:
+            return
+
+        abrvlen = indxby.abrvlen
+
+        for cmpr, valu, kind in cmprvals:
+
+            styp = self.stortypes[kind]
+
+            if (func := styp.lifters.get(cmpr)) is None:
+                raise s_exc.NoSuchCmpr(cmpr=cmpr)
+
+            async for lkey, _ in func(indxby, valu):
+
+                indx = lkey[abrvlen:]
+                pval = styp.decodeIndx(indx)
+                if pval is not s_common.novalu:
+                    yield indx, pval
+                    continue
+
+                nid = self.layrslab.get(lkey, db=self.indxdb)
+                if nid is None or (sode := self._getStorNode(nid)) is None:  # pragma: no cover
+                    continue
+
+                if prop is None:
+                    valt = sode.get('valu')
+                else:
+                    valt = sode['props'].get(prop)
+
+                if valt is not None:
+                    if array:
+                        for aval in valt[0]:
+                            if styp.indx(sval)[0] == indx:
+                                yield indx, aval
+                                break
+                    else:
                         yield indx, valt[0]
 
     async def iterPropIndxNids(self, formname, propname, indx):

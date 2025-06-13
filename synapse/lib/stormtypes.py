@@ -2707,12 +2707,23 @@ class LibLift(Lib):
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes to the pipeline. '
                                       'This must be used in conjunction with the ``yield`` keyword.', }}},
+        {'name': 'byPropRefs', 'desc': 'Lift nodes which are referenced by properties of other nodes.',
+         'type': {'type': 'function', '_funcname': '_byPropRefs',
+                  'args': (
+                      {'name': 'props', 'desc': 'The name of the props to check for references.', 'type': ['str', 'list']},
+                      {'name': 'valu', 'type': 'obj', 'desc': 'The value for the property.', 'default': None},
+                      {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes to the pipeline. '
+                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
     )
     _storm_lib_path = ('lift',)
 
     def getObjLocals(self):
         return {
             'byNodeData': self._byNodeData,
+            'byPropRefs': self._byPropRefs,
         }
 
     @stormfunc(readonly=True)
@@ -2720,6 +2731,55 @@ class LibLift(Lib):
         name = await tostr(name)
         async for node in self.runt.view.nodesByDataName(name):
             yield node
+
+    @stormfunc(readonly=True)
+    async def _byPropRefs(self, props, valu=None, cmpr='='):
+
+        props = await toprim(props)
+        valu = await toprim(valu)
+        cmpr = await tostr(cmpr)
+
+        if not isinstance(props, tuple):
+            props = (props,)
+
+        flatprops = []
+        for prop in props:
+            plist = self.runt.model.reqPropList(prop)
+            for item in plist:
+                if not item.isform and item.getAlts() is not None:
+                    flatprops.extend(item.alts)
+                else:
+                    flatprops.extend(plist)
+
+        def getType(prop):
+            if prop.type.isarray:
+                return prop.type.arraytype
+            else:
+                return prop.type
+
+        genrs = []
+        ptyp = getType(flatprops[0])
+        form = ptyp.name
+
+        if self.runt.model.form(form) is None:
+            mesg = '$lib.lift.byPropRefs props must be a type which is also a form.'
+            raise s_exc.StormRuntimeError(mesg=mesg, type=form)
+
+        for prop in flatprops:
+            if getType(prop) != ptyp:
+                mesg = '$lib.lift.byPropRefs props must all be of the same type.'
+                raise s_exc.StormRuntimeError(mesg=mesg, props=props)
+
+            genrs.append(self.runt.view.iterPropValuesWithCmpr(prop.full, cmpr, valu, array=prop.type.isarray))
+
+        lastvalu = None
+
+        async for indx, valu in s_common.merggenr2(genrs):
+            if valu == lastvalu:
+                continue
+
+            lastvalu = valu
+            yield await self.runt.view.getNodeByNdef((form, valu))
 
 @registry.registerLib
 class LibTime(Lib):

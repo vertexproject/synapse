@@ -1200,7 +1200,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 yield indx, valu, lidx, formname, propname
 
         genrs = []
-        lastvalu = None
 
         for prop in props:
             if prop.isform:
@@ -1214,13 +1213,56 @@ class View(s_nexus.Pusher):  # type: ignore
                 genr = layr.iterPropValues(formname, propname, prop.type.stortype)
                 genrs.append(wrapgenr(lidx, genr, formname, propname))
 
+        async for indx, valu in self._mergeNodeValues(genrs):
+            yield valu
+
+    async def iterPropValuesWithCmpr(self, propname, cmpr, valu, array=False):
+
+        props = self.core.model.reqPropList(propname)
+
+        if array and not props[0].type.isarray:
+            mesg = f'Property is not an array type: {propname}.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        async def wrapgenr(lidx, genr, formname, propname):
+            async for indx, valu in genr:
+                yield indx, valu, lidx, formname, propname
+
+        genrs = []
+
+        for prop in props:
+            ptyp = prop.type
+            if array:
+                ptyp = ptyp.arraytype
+
+            if not (cmprvals := ptyp.getStorCmprs(cmpr, valu)):
+                return
+
+            if prop.isform:
+                formname = prop.name
+                propname = None
+            else:
+                formname = prop.form.name
+                propname = prop.name
+
+            for lidx, layr in enumerate(self.layers):
+                genr = layr.iterPropValuesWithCmpr(formname, propname, cmprvals, array=array)
+                genrs.append(wrapgenr(lidx, genr, formname, propname))
+
+        async for item in self._mergeNodeValues(genrs):
+            yield item
+
+    async def _mergeNodeValues(self, genrs):
+
+        lastvalu = None
+
         async for indx, valu, lidx, formname, propname in s_common.merggenr2(genrs):
             if valu == lastvalu:
                 continue
 
             if lidx == 0:
                 lastvalu = valu
-                yield valu
+                yield indx, valu
             else:
                 async for nid in self.layers[lidx].iterPropIndxNids(formname, propname, indx):
                     for layr in self.layers[0:lidx]:
@@ -1235,7 +1277,7 @@ class View(s_nexus.Pusher):  # type: ignore
                             break
                     else:
                         lastvalu = valu
-                        yield valu
+                        yield indx, valu
                         break
 
     async def getEdgeVerbs(self):
