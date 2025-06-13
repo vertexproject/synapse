@@ -84,12 +84,6 @@ class StormPkgConflicts(SynErr): pass
 
 class BadName(SynErr): pass
 class BadPkgDef(SynErr): pass
-class BadCellPath(SynErr):
-    '''
-    The cell path provided does not exist (missing) or cannot be connected to (not listening).
-    '''
-    pass
-
 class BadCmdName(SynErr): pass
 class BadCmprValu(SynErr): pass
 class BadCmprType(SynErr):

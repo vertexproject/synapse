@@ -836,7 +836,7 @@ class TeleTest(s_t_utils.SynTest):
 
     async def test_url_bad_cell_path(self):
         cell_url = 'cell:///definitelynotarealpath/newp'
-        with self.raises(s_exc.BadCellPath):
+        with self.raises(s_exc.NoSuchPath):
             async with await s_telepath.openurl(cell_url) as prox:
                 pass
 
