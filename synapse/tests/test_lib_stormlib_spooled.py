@@ -1,3 +1,4 @@
+import os
 import synapse.exc as s_exc
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -199,3 +200,8 @@ class StormlibSpooledTest(s_test.SynTest):
                 return($set)
             '''
             await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q, {'vars': {'stormnode': stormnode}}))
+
+            # make sure the various spools got trashed
+            path = os.path.join(core.dirn, 'tmp')
+            files = [f for f in os.listdir(os.path.join(path))]
+            self.len(0, files)

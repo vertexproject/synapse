@@ -37,6 +37,7 @@ class LibSpooled(s_stormtypes.Lib):
     async def _methSet(self, *vals):
         core = self.runt.snap.core
         spool = await s_spooled.Set.anit(dirn=core.dirn, cell=core, size=1000)
+        self.runt.onfini(spool)
 
         valu = list(vals)
         for item in valu:
