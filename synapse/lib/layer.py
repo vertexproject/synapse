@@ -461,10 +461,10 @@ class IndxByPropKeys(IndxByProp):
         if (valu := self.indxToValu(indx)) is not s_common.novalu:
             return valu
 
-        if (nid := self.layr.layrslab.get(indx, db=self.indxdb)) is None:  # pragma: no cover
+        if (nid := self.layr.layrslab.get(self.abrv + indx, db=self.db)) is None:  # pragma: no cover
             return s_common.novalu
 
-        if (sode := self._getStorNode(nid)) is not None:
+        if (sode := self.layr._getStorNode(nid)) is not None:
             if self.prop is None:
                 valt = sode.get('valu')
             else:
@@ -2985,15 +2985,20 @@ class Layer(s_nexus.Pusher):
                 if valt is not None:
                     if array:
                         for aval in valt[0]:
-                            if styp.indx(sval)[0] == indx:
+                            if styp.indx(aval)[0] == indx:
                                 yield indx, aval
                                 break
                     else:
                         yield indx, valt[0]
 
-    async def iterPropIndxNids(self, formname, propname, indx):
+    async def iterPropIndxNids(self, formname, propname, indx, array=False):
+
+        ityp = INDX_PROP
+        if array:
+            ityp = INDX_ARRAY
+
         try:
-            abrv = self.core.getIndxAbrv(INDX_PROP, formname, propname)
+            abrv = self.core.getIndxAbrv(ityp, formname, propname)
         except s_exc.NoSuchAbrv:
             return
 

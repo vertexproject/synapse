@@ -1463,7 +1463,7 @@ class ViewTest(s_t_utils.SynTest):
 
             forkopts = {'view': view01.iden}
             await core.nodes('[entity:name=foo2 entity:name=bar2 entity:name=baz2 entity:name=faz2]', opts=forkopts)
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:name,), valu="ba", cmpr="^=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(entity:name, valu="ba", cmpr="^=")', opts=forkopts)
             self.len(4, nodes)
 
             await core.nodes('''[
@@ -1488,8 +1488,43 @@ class ViewTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('entity:name', node.form.name)
 
+            long1 = 'bar' * 100 + 'a'
+            long2 = 'bar' * 100 + 'b'
+            await core.nodes(f'''[
+                (ou:conference=* :names=({long1},))
+                (transport:sea:vessel=* :name={long2})
+            ]''')
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="ba", cmpr="^=")', opts=forkopts)
+            self.len(7, nodes)
+            self.eq(['bad ship', 'bar', 'bar2', long1, long2, 'baz', 'baz ship'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('entity:name', node.form.name)
+
             nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="az", cmpr="~=")', opts=forkopts)
             self.len(2, nodes)
             self.eq(['baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
                 self.eq('entity:name', node.form.name)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="^ba", cmpr="~=")', opts=forkopts)
+            self.len(7, nodes)
+            self.eq(['bad ship', 'bar', 'bar2', long1, long2, 'baz', 'baz ship'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('entity:name', node.form.name)
+
+            with self.raises(s_exc.BadTypeValu):
+                async for item in view00.iterPropValuesWithCmpr('entity:name', 'newp', 'newp', array=True):
+                    pass
+
+            async for item in view00.iterPropValuesWithCmpr('test:int', '?=', 'newp'):
+                self.nn(None)
+
+            async for item in view00.iterPropValuesWithCmpr('test:int', '=', 5):
+                self.nn(None)
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('yield $lib.lift.byPropRefs(ou:goal:desc, valu=newp)')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('yield $lib.lift.byPropRefs((ou:goal:name, ou:conference:name), valu=newp)')

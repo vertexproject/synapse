@@ -1249,10 +1249,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 genr = layr.iterPropValuesWithCmpr(formname, propname, cmprvals, array=array)
                 genrs.append(wrapgenr(lidx, genr, formname, propname))
 
-        async for item in self._mergeNodeValues(genrs):
+        async for item in self._mergeNodeValues(genrs, array=array):
             yield item
 
-    async def _mergeNodeValues(self, genrs):
+    async def _mergeNodeValues(self, genrs, array=False):
 
         lastvalu = None
 
@@ -1264,7 +1264,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 lastvalu = valu
                 yield indx, valu
             else:
-                async for nid in self.layers[lidx].iterPropIndxNids(formname, propname, indx):
+                async for nid in self.layers[lidx].iterPropIndxNids(formname, propname, indx, array=array):
                     for layr in self.layers[0:lidx]:
                         if (sode := layr._getStorNode(nid)) is None:
                             continue
