@@ -465,10 +465,10 @@ class IndxByPropKeys(IndxByProp):
             return s_common.novalu
 
         if (sode := self._getStorNode(nid)) is not None:
-            if prop is None:
+            if self.prop is None:
                 valt = sode.get('valu')
             else:
-                valt = sode['props'].get(prop)
+                valt = sode['props'].get(self.prop)
 
             if valt is None:
                 return s_common.novalu
