@@ -11,7 +11,7 @@ descr = '''
 Load blobs into a Synapse Axon.
 '''
 
-DEFAULT_CHUNK_SIZE = s_const.megabyte * 16
+DEFAULT_CHUNK_SIZE = s_const.mebibyte * 16
 
 async def loadBlobs(opts, outp, tarfiles):
 
