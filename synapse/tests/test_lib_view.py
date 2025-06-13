@@ -1528,3 +1528,15 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('yield $lib.lift.byPropRefs((ou:goal:name, ou:conference:name), valu=newp)')
+
+            await core.nodes('for $i in $lib.range(10) { [test:int=$i] }')
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(test:int, valu=3, cmpr="=")', opts=forkopts)
+            self.len(1, nodes)
+            self.eq(('test:int', 3), nodes[0].ndef)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(test:int, valu=(3, 5), cmpr="range=")', opts=forkopts)
+            self.len(3, nodes)
+            self.eq([3, 4, 5], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('test:int', node.form.name)

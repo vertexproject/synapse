@@ -450,7 +450,7 @@ class IndxByPropKeys(IndxByProp):
             yield lkey, None
 
     def keyNidsByRange(self, minindx, maxindx, reverse=False):
-        for lkey in self.layr.layrslab.scanKeysByPref(self.abrv + minindx, lmax=self.abrv + maxindx, db=self.db, nodup=True):
+        for lkey in self.layr.layrslab.scanKeysByRange(self.abrv + minindx, lmax=self.abrv + maxindx, db=self.db, nodup=True):
             yield lkey, None
 
     def getNodeValu(self, nid, indx=None):
