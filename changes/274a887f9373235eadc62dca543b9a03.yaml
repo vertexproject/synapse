@@ -1,0 +1,6 @@
+---
+desc: Fixed SpooledSet Storm objects not cleaning up their slabs on runtime fini.
+prs:
+- 4346
+type: bug
+...
