@@ -381,6 +381,7 @@ class CellApi(s_base.Base):
     @adminapi(log=True)
     async def promote(self, graceful=False):
         return await self.cell.promote(graceful=graceful)
+
     @adminapi(log=True)
     async def handoff(self, turl, timeout=30):
         return await self.cell.handoff(turl, timeout=timeout)
@@ -1032,8 +1033,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'The username of this service when connecting to others.',
             'type': 'string',
         },
-        'aha:cluster': {
-            'description': 'Set to false to prevent this service from being selected for being promoted to leader.',
+        'aha:promotable': {
+            'description': 'Set to false to prevent this service from being promoted to leader.',
             'type': 'boolean',
             'default': True,
         },
@@ -2083,7 +2084,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'leader': ahalead,
             'urlinfo': urlinfo,
             'ready': ready,
-            'cluster': self.conf.get('aha:cluster'),
+            'promotable': self.conf.get('aha:promotable'),
         }
 
         return ahainfo
@@ -2315,7 +2316,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         retn = []
         async for svcdef in ahaproxy.getAhaSvcsByIden(self.iden, skiprun=self.runid):
 
-            if not svcdef['svcinfo'].get('cluster'): # pragma: no cover
+            if not svcdef['svcinfo'].get('promotable'): # pragma: no cover
                 continue
 
             retn.append(svcdef)
