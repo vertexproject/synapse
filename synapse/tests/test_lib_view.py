@@ -1523,6 +1523,12 @@ class ViewTest(s_t_utils.SynTest):
                 async for item in view00.iterPropValuesWithCmpr('entity:name', 'newp', 'newp', array=True):
                     pass
 
+            with self.raises(s_exc.NoSuchCmpr):
+                form = core.model.form('entity:name')
+                cmprvals = (('newp', None, form.type.stortype),)
+                async for item in view00.wlyr.iterPropValuesWithCmpr('entity:name', None, cmprvals):
+                    pass
+
             async for item in view00.iterPropValuesWithCmpr('test:int', '?=', 'newp'):
                 self.nn(None)
 
