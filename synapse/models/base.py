@@ -102,7 +102,6 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of rule types.'}),
 
-            # FIXME todo meta:rule:match?
             ('meta:rule', ('guid', {}), {
                 'interfaces': (
                     ('meta:ruleish', {}),
