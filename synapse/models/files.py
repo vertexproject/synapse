@@ -382,13 +382,13 @@ modeldefs = (
 
                 ('size', ('int', {}), {'doc': 'The file size in bytes.'}),
 
-                ('md5', ('hash:md5', {}), {'doc': 'The md5 hash of the file.'}),
+                ('md5', ('crypto:hash:md5', {}), {'doc': 'The md5 hash of the file.'}),
 
-                ('sha1', ('hash:sha1', {}), {'doc': 'The sha1 hash of the file.'}),
+                ('sha1', ('crypto:hash:sha1', {}), {'doc': 'The sha1 hash of the file.'}),
 
-                ('sha256', ('hash:sha256', {}), {'doc': 'The sha256 hash of the file.'}),
+                ('sha256', ('crypto:hash:sha256', {}), {'doc': 'The sha256 hash of the file.'}),
 
-                ('sha512', ('hash:sha512', {}), {'doc': 'The sha512 hash of the file.'}),
+                ('sha512', ('crypto:hash:sha512', {}), {'doc': 'The sha512 hash of the file.'}),
 
                 ('name', ('file:base', {}), {
                     'doc': 'The best known base name for the file.'}),
@@ -428,11 +428,11 @@ modeldefs = (
                 ('size', ('int', {}), {
                     'doc': 'The size of the executable file according to the PE file header.'}),
 
-                ('imphash', ('hash:md5', {}), {
+                ('imphash', ('crypto:hash:md5', {}), {
                     'doc': 'The PE import hash of the file as calculated by pefile; '
                            'https://github.com/erocarrera/pefile .'}),
 
-                ('richheader', ('hash:sha256', {}), {
+                ('richheader', ('crypto:hash:sha256', {}), {
                     'doc': 'The sha256 hash of the rich header bytes.'}),
 
                 ('compiled', ('time', {}), {
@@ -456,7 +456,7 @@ modeldefs = (
                 ('name', ('str', {}), {
                     'doc': 'The textual name of the section.'}),
 
-                ('sha256', ('hash:sha256', {}), {
+                ('sha256', ('crypto:hash:sha256', {}), {
                     'doc': 'The sha256 hash of the section. Relocations must be zeroed before hashing.'}),
             )),
 
@@ -468,7 +468,7 @@ modeldefs = (
                 ('langid', ('pe:langid', {}), {
                     'doc': 'The language code for the resource.'}),
 
-                ('sha256', ('hash:sha256', {}), {
+                ('sha256', ('crypto:hash:sha256', {}), {
                     'doc': 'The SHA256 hash of the resource bytes.'}),
             )),
 
@@ -604,7 +604,7 @@ modeldefs = (
                 ('disksize', ('int', {}), {
                     'doc': 'The size of the segment in bytes, when on disk, according to the load command structure.'}),
 
-                ('sha256', ('hash:sha256', {}), {
+                ('sha256', ('crypto:hash:sha256', {}), {
                     'doc': 'The sha256 hash of the bytes of the segment.'}),
 
                 ('offset', ('int', {}), {
@@ -621,7 +621,7 @@ modeldefs = (
                 ('type', ('int', {'enums': s_l_macho.getSectionTypes()}), {
                     'doc': 'The type of the section.'}),
 
-                ('sha256', ('hash:sha256', {}), {
+                ('sha256', ('crypto:hash:sha256', {}), {
                     'doc': 'The sha256 hash of the bytes of the Mach-O section.'}),
             )),
 

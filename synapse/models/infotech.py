@@ -1333,12 +1333,13 @@ modeldefs = (
                 ('account', ('it:host:account', {}), {
                     'doc': 'The account that logged in.'}),
 
-                ('creds', ('auth:creds', {}), {
+                ('creds', ('array', {'interface': 'auth:credential', 'sorted': True, 'uniq': True}), {
                     'doc': 'The credentials that were used to login.'}),
 
                 ('duration', ('duration', {}), {
                     'doc': 'The duration of the login session.'}),
 
+                # FIXME remove for inet:flow
                 ('client', ('inet:client', {}), {
                     'prevnames': ('client:ipv4', 'client:ipv6'),
                     'doc': 'The remote client where the login originated.'}),
@@ -1988,32 +1989,6 @@ modeldefs = (
                     'doc': 'The number of scanners which returned a malicious verdict.'}),
             )),
 
-            ('it:auth:passwdhash', {}, (
-
-                ('salt', ('hex', {}), {
-                    'doc': 'The (optional) hex encoded salt value used to calculate the password hash.'}),
-
-                ('hash:md5', ('hash:md5', {}), {
-                    'doc': 'The MD5 password hash value.'}),
-
-                ('hash:sha1', ('hash:sha1', {}), {
-                    'doc': 'The SHA1 password hash value.'}),
-
-                ('hash:sha256', ('hash:sha256', {}), {
-                    'doc': 'The SHA256 password hash value.'}),
-
-                ('hash:sha512', ('hash:sha512', {}), {
-                    'doc': 'The SHA512 password hash value.'}),
-
-                ('hash:lm', ('hash:lm', {}), {
-                    'doc': 'The LM password hash value.'}),
-
-                ('hash:ntlm', ('hash:ntlm', {}), {
-                    'doc': 'The NTLM password hash value.'}),
-
-                ('passwd', ('inet:passwd', {}), {
-                    'doc': 'The (optional) clear text password for this password hash.'}),
-            )),
             ('it:cmd', {}, ()),
             ('it:cmd:session', {}, (
 
@@ -2192,7 +2167,7 @@ modeldefs = (
                 ('path', ('file:path', {}), {
                     'doc': 'The file path if the mmap is a mapped view of a file.'}),
 
-                ('hash:sha256', ('hash:sha256', {}), {
+                ('hash:sha256', ('crypto:hash:sha256', {}), {
                     'doc': 'A SHA256 hash of the memory map.'}),
 
                 ('sandbox:file', ('file:bytes', {}), {

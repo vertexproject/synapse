@@ -1303,6 +1303,10 @@ modeldefs = (
                 'doc': 'An IP address range.'}),
 
             ('inet:passwd', ('str', {'strip': False}), {
+                'interfaces': (
+                    ('auth:credential', {}),
+                    ('crypto:hashable', {}),
+                ),
                 'doc': 'A password string.'}),
 
             ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
@@ -1596,10 +1600,10 @@ modeldefs = (
             ('inet:tls:ja4s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja4s', 'inet:tls:ja4s'))}), {
                 'doc': 'A JA4S TLS server fingerprint used by a server.'}),
 
-            ('inet:tls:ja3s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja3s', 'hash:md5'))}), {
+            ('inet:tls:ja3s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja3s', 'crypto:hash:md5'))}), {
                 'doc': 'A JA3 sample taken from a server.'}),
 
-            ('inet:tls:ja3:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja3', 'hash:md5'))}), {
+            ('inet:tls:ja3:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja3', 'crypto:hash:md5'))}), {
                 'doc': 'A JA3 sample taken from a client.'}),
 
             ('inet:tls:servercert', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
@@ -2261,15 +2265,15 @@ modeldefs = (
             )),
 
             ('inet:passwd', {}, (
-                ('md5', ('hash:md5', {}), {
+                ('md5', ('crypto:hash:md5', {}), {
                     'ro': True,
                     'doc': 'The MD5 hash of the password.'
                 }),
-                ('sha1', ('hash:sha1', {}), {
+                ('sha1', ('crypto:hash:sha1', {}), {
                     'ro': True,
                     'doc': 'The SHA1 hash of the password.'
                 }),
-                ('sha256', ('hash:sha256', {}), {
+                ('sha256', ('crypto:hash:sha256', {}), {
                     'ro': True,
                     'doc': 'The SHA256 hash of the password.'
                 }),
@@ -2655,7 +2659,7 @@ modeldefs = (
                 ('server:cert', ('crypto:x509:cert', {}), {
                     'doc': 'The x509 certificate sent by the server during the handshake.'}),
 
-                ('server:ja3s', ('hash:md5', {}), {
+                ('server:ja3s', ('crypto:hash:md5', {}), {
                     'doc': 'The JA3S fingerprint of the server response.'}),
 
                 ('server:ja4s', ('inet:tls:ja4s', {}), {
@@ -2667,7 +2671,7 @@ modeldefs = (
                 ('client:cert', ('crypto:x509:cert', {}), {
                     'doc': 'The x509 certificate sent by the client during the handshake.'}),
 
-                ('client:ja3', ('hash:md5', {}), {
+                ('client:ja3', ('crypto:hash:md5', {}), {
                     'doc': 'The JA3 fingerprint of the client request.'}),
 
                 ('client:ja4', ('inet:tls:ja4', {}), {
@@ -2680,7 +2684,7 @@ modeldefs = (
                     'ro': True,
                     'doc': 'The server that was sampled to produce the JA3S hash.'}),
 
-                ('ja3s', ('hash:md5', {}), {
+                ('ja3s', ('crypto:hash:md5', {}), {
                     'ro': True,
                     'doc': "The JA3S hash computed from the server's TLS hello packet."})
             )),
@@ -2691,7 +2695,7 @@ modeldefs = (
                     'ro': True,
                     'doc': 'The client that was sampled to produce the JA3 hash.'}),
 
-                ('ja3', ('hash:md5', {}), {
+                ('ja3', ('crypto:hash:md5', {}), {
                     'ro': True,
                     'doc': "The JA3 hash computed from the client's TLS hello packet."})
             )),
@@ -2882,6 +2886,9 @@ modeldefs = (
 
                 ('method', ('inet:service:login:method:taxonomy', {}), {
                     'doc': 'The type of authentication used for the login. For example "password" or "multifactor.sms".'}),
+
+                ('creds', ('array', {'interface': 'auth:credential', 'sorted': True, 'uniq': True}), {
+                    'doc': 'The credentials that were used to login.'}),
 
                 # TODO ndef based auth proto details
             )),
