@@ -87,7 +87,7 @@ class SlabSeqn:
 
         return indx
 
-    def add2(self, item, indx=None):
+    def addWithPackRetn(self, item, indx=None):
         '''
         Add a single item to the sequence, returning the offset and packed item.
         '''

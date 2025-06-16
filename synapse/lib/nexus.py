@@ -402,12 +402,12 @@ class NexsRoot(s_base.Base):
     async def _eat(self, item, indx=None):
 
         if self.donexslog:
-            saveindx, packitem = await self.nexslog.add2(item, indx=indx)
+            saveindx, packitem = await self.nexslog.withPackRetn(item, indx=indx)
 
             if self._linkmirrors:
-                byts = YIELD_PREFIX + s_msgpack.en(saveindx) + packitem
+                tupl = (saveindx, YIELD_PREFIX + s_msgpack.en(saveindx) + packitem)
                 for wind in tuple(self._linkmirrors):
-                    await wind.put((saveindx, byts))
+                    await wind.put(tupl)
 
             if self._mirrors:
                 for dist in tuple(self._mirrors):
@@ -490,7 +490,7 @@ class NexsRoot(s_base.Base):
 
     @contextlib.asynccontextmanager
     async def getMirrorWindow(self):
-        async with await s_queue.Window.anit(maxsize=WINDOW_MAXSIZE) as wind:
+        async with await s_queue.Window.anit(maxsize=WINDOW_MAXSIZE, clearonfini=True) as wind:
 
             async def fini():
                 self._linkmirrors.remove(wind)

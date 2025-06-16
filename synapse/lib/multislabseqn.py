@@ -363,7 +363,7 @@ class MultiSlabSeqn(s_base.Base):
 
         return retn
 
-    async def add2(self, item, indx=None):
+    async def addWithPackRetn(self, item, indx=None):
         '''
         Add a single item to the sequence, returning the offset and packed item.
         '''
@@ -378,7 +378,7 @@ class MultiSlabSeqn(s_base.Base):
                 assert ridx is not None
 
                 async with self._getSeqn(ridx) as seqn:
-                    retn = seqn.add2(item, indx=indx)
+                    retn = seqn.addWithPackRetn(item, indx=indx)
 
                 return retn
 
@@ -390,7 +390,7 @@ class MultiSlabSeqn(s_base.Base):
             indx = self.indx
 
         assert self.tailseqn
-        retn = self.tailseqn.add2(item, indx=indx)
+        retn = self.tailseqn.addWithPackRetn(item, indx=indx)
 
         if advances:
             self.indx += 1
