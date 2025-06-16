@@ -410,6 +410,8 @@ class Node(NodeBase):
         Args:
             name (str): The name of the property.
             valu (obj): The value of the property.
+            norminfo (obj): Norm info for valu if it has already been normalized.
+            merge (bool): True if type merging behavior should be applied.
 
         Returns:
             (bool): True if the property was changed.
@@ -820,6 +822,8 @@ class Node(NodeBase):
             tag (str): The tag to add to the node.
             valu: The optional tag value.  If specified, this must be a value that
                   norms as a valid time interval as an ival.
+            norminfo (obj): Norm info for valu if it has already been normalized.
+            merge (bool): True if type merging behavior should be applied.
 
         Returns:
             None: This returns None.
