@@ -2787,14 +2787,14 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_subgraph_light_edges(self):
         async with self.getTestCore() as core:
-            await core.nodes('[ test:int=20 <(refs)+ { [media:news=*] } ]')
-            msgs = await core.stormlist('media:news test:int', opts={'graph': True})
+            await core.nodes('[ test:int=20 <(refs)+ { [test:guid=*] } ]')
+            msgs = await core.stormlist('test:guid test:int', opts={'graph': True})
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(2, nodes)
             self.len(1, nodes[1][1]['path']['edges'])
             self.eq('refs', nodes[1][1]['path']['edges'][0][1]['verb'])
 
-            msgs = await core.stormlist('media:news test:int | graph --no-edges')
+            msgs = await core.stormlist('test:guid test:int | graph --no-edges')
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(0, nodes[0][1]['path']['edges'])
 
@@ -3439,12 +3439,12 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('''
-                [ media:news=40ebf9be8fb56bd60fff542299c1b5c2 +(refs)> {[ inet:ip=1.2.3.4 ]} ] inet:ip
+                [ test:guid=40ebf9be8fb56bd60fff542299c1b5c2 +(refs)> {[ inet:ip=1.2.3.4 ]} ] inet:ip
             ''')
             news = nodes[0]
             ipv4 = nodes[1]
 
-            msgs = await core.stormlist('media:news inet:ip', opts={'graph': True})
+            msgs = await core.stormlist('test:guid inet:ip', opts={'graph': True})
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(2, nodes)
             self.eq(nodes[1][1]['path']['edges'], ((0, {'type': 'edge', 'verb': 'refs', 'reverse': True}),))
@@ -3456,16 +3456,16 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[0][1]['path']['edges'], ((0, {'type': 'edge', 'verb': 'refs', 'reverse': True}),))
 
             opts = {'graph': {'existing': (s_common.int64un(ipv4.nid),)}}
-            msgs = await core.stormlist('media:news', opts=opts)
+            msgs = await core.stormlist('test:guid', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, nodes)
             self.eq(nodes[0][1]['path']['edges'], ((1, {'type': 'edge', 'verb': 'refs'}),))
 
-            msgs = await core.stormlist('media:news inet:ip', opts={'graph': {'maxsize': 1}})
+            msgs = await core.stormlist('test:guid inet:ip', opts={'graph': {'maxsize': 1}})
             self.len(1, [m[1] for m in msgs if m[0] == 'node'])
             self.stormIsInWarn('Graph projection hit max size 1. Truncating results.', msgs)
 
-            msgs = await core.stormlist('media:news', opts={'graph': {'pivots': ('--> *',)}})
+            msgs = await core.stormlist('test:guid', opts={'graph': {'pivots': ('--> *',)}})
             nodes = [m[1] for m in msgs if m[0] == 'node']
             # none yet...
             self.len(0, nodes[0][1]['path']['edges'])

@@ -389,6 +389,9 @@ testmodel = (
             ('test:hasiface2', ('str', {}), {'interfaces': (('test:interface', {}),)}),
             ('test:virtiface', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
             ('test:virtiface2', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
+
+            ('test:enums:int', ('int', {'enums': ((1, 'fooz'), (2, 'barz'), (3, 'bazz'))}), {}),
+            ('test:enums:str', ('str', {'enums': 'testx,foox,barx,bazx'}), {}),
         ),
         'forms': (
 
@@ -534,6 +537,9 @@ testmodel = (
             ('test:hasiface2', {}, ()),
             ('test:virtiface', {}, ()),
             ('test:virtiface2', {}, ()),
+
+            ('test:enums:int', {}, ()),
+            ('test:enums:str', {}, ()),
         ),
     }),
 )

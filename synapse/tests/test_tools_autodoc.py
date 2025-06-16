@@ -33,13 +33,6 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('int valu           ', s)
             self.isin('1   RT_CURSOR      ', s)
 
-            # Enums for str
-            self.isin('``it:mitre:attack:status``', s)
-            self.isin('+----------+', s)
-            self.isin('+valu      +', s)
-            self.isin('+==========+', s)
-            self.isin('+deprecated+', s)
-
             self.isin('''This type has the following virtual properties:
 
  * ``min``
@@ -95,6 +88,13 @@ class TestAutoDoc(s_t_utils.SynTest):
 
                 s = buf.decode()
                 self.isin('Base types are defined via Python classes.', s)
+
+                # Enums for str
+                self.isin('``test:enums:str``', s)
+                self.isin('+-----+', s)
+                self.isin('+valu +', s)
+                self.isin('+=====+', s)
+                self.isin('+testx+', s)
 
     async def test_tools_autodoc_confdefs(self):
 

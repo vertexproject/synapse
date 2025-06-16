@@ -53,8 +53,8 @@ _DefaultConfig = {
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                     },
                     'rels': (
-                        ('attributed-to', 'threat-actor', ':org -> ou:org'),
-                        ('originates-from', 'location', ':org -> ou:org -> geo:place'),
+                        ('attributed-to', 'threat-actor', ':actor -> ou:org'),
+                        ('originates-from', 'location', ':actor -> ou:org -> geo:place'),
                         ('targets', 'identity', '-> risk:attack -(targets)> ou:org'),
                         ('targets', 'identity', '-> risk:attack -(targets)> ps:person'),
                         ('targets', 'vulnerability', '-> risk:attack -(used)> risk:vuln'),
@@ -89,7 +89,7 @@ _DefaultConfig = {
 #                        'last_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.1))',
                         'goals': '''
                             init { $goals = () }
-                            -> ou:campaign:org -> ou:goal | uniq | +:name $goals.append(:name)
+                            -> ou:campaign:actor -> ou:goal | uniq | +:name $goals.append(:name)
                             fini { if $goals { return($goals) } }
                         ''',
                     },
@@ -415,12 +415,12 @@ _DefaultConfig = {
             },
         },
 
-        'media:news': {
+        'doc:report': {
             'default': 'report',
             'stix': {
                 'report': {
                     'props': {
-                        'name': 'return(:title)',
+                        'name': 'return(:name)',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'published': 'return($lib.stix.export.timestamp(:published))',
@@ -789,9 +789,9 @@ stixingest = {
         },
         'report': {
             'storm': '''
-                [ media:news=(stix, report, $object.id)
-                    :title?=$object.name
-                    :summary?=$object.description
+                [ doc:report=(stix, report, $object.id)
+                    :name?=$object.name
+                    :desc?=$object.description
                     :published?=$object.published
                 ]
                 $node.data.set(stix:object, $object)

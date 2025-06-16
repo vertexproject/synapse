@@ -452,13 +452,13 @@ Operation to delete (fully remove) one or more properties from the specified nod
     <inet:ip> [ -:loc ]
 
 
-*Delete multiple properties from a media:news node:*
+*Delete multiple properties from adoc:report node:*
 
 
-.. storm-pre:: media:news [ -:author -:summary ]
+.. storm-pre:: doc:report [ -:author -:desc ]
 ::
 
-    <media:news> [ -:author -:summary ]
+    <doc:report> [ -:author -:desc ]
 
 
 **Usage Notes:**
@@ -500,23 +500,23 @@ See :ref:`data-light-edge` for details on light edges.
 
 **Examples:**
 
-*Link the specified FQDN and IP to the media:news node referenced by the Storm expression using a "refs" light edge:*
+*Link the specified FQDN and IP to the doc:report node referenced by the Storm expression using a "refs" light edge:*
 
 
-.. storm-pre:: inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { media:news=a3759709982377809f28fc0555a38193 } ]
+.. storm-pre:: inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { doc:report=a3759709982377809f28fc0555a38193 } ]
 .. storm-pre:: [inet:fqdn=newsonet.net inet:fqdn=staycools.net inet:fqdn=hugesoft.org inet:fqdn=purpledaily.com +#rep.mandiant.apt1]
 ::
 
-    inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { media:news=a3759709982377809f28fc0555a38193 } ]
+    inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { doc:report=a3759709982377809f28fc0555a38193 } ]
 
 
-*Link the specified media:news node to the set of indicators tagged APT1 (#rep.mandiant.apt1) using a "refs" (references) light edge:*
+*Link the specified doc:report node to the set of indicators tagged APT1 (#rep.mandiant.apt1) using a "refs" (references) light edge:*
 
 
-.. storm-pre:: media:news=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
+.. storm-pre:: doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
 ::
 
-    media:news=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
+    doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
 
 
 *Link the inet:whois:iprec netblock registration (whois) record to any IP address within the specified netblock range (as referenced by the Storm expression) that already exists in Synapse using an "ipwhois" light edge:*
@@ -541,13 +541,13 @@ See :ref:`data-light-edge` for details on light edges.
     inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ip=198.50.240.220-198.50.240.223 ] } ]
 
 
-*Link the specified media:news node to a node contained in a variable using a  "refs" light edge:*
+*Link the specified doc:report node to a node contained in a variable using a  "refs" light edge:*
 
 
-.. storm-pre:: $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
+.. storm-pre:: $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
 ::
 
-    $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
+    $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
 
 
 **Usage Notes:**
@@ -599,13 +599,13 @@ See :ref:`data-light-edge` for details on light edges.
 
 **Examples:**
 
-*Delete the "refs" light edge linking the MD5 hash of the empty file to the specified media:news node:*
+*Delete the "refs" light edge linking the MD5 hash of the empty file to the specified doc:report node:*
 
 
-.. storm-pre:: hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { media:news=a3759709982377809f28fc0555a38193 } ]
+.. storm-pre:: hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report=a3759709982377809f28fc0555a38193 } ]
 ::
 
-    hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { media:news=a3759709982377809f28fc0555a38193 } ]
+    hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report=a3759709982377809f28fc0555a38193 } ]
 
 
 *Delete the "ipwhois" light edge linking IP 1.2.3.4 to the specified netblock registration (whois) record:*
@@ -619,13 +619,13 @@ See :ref:`data-light-edge` for details on light edges.
     inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ip=1.2.3.4 } ]
 
 
-*Delete the "refs" light edge linking the specified media:news and a node contained in a variable:*
+*Delete the "refs" light edge linking the specified doc:report and a node contained in a variable:*
 
 
-.. storm-pre:: $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
+.. storm-pre:: $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
 ::
 
-    $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
+    $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
 
 
 **Usage Notes:**

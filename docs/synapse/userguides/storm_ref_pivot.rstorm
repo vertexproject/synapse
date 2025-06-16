@@ -327,7 +327,7 @@ IPs are the destination IP (for example), you must use explicit syntax to clarif
 
 *Pivot from a set of tags (syn:tag nodes) to the threat clusters (risk:threat nodes) represented by those tags:*
 
-.. storm-pre:: [ syn:tag=rep.eset.vicious_wombat (risk:threat=* :reporter:name=eset :tag=rep.eset.vicious_wombat) syn:tag=rep.symantec.sparkling_unicorn (risk:threat=* :reporter:name=symantec :tag=rep.symantec.sparkling_unicorn) ]
+.. storm-pre:: [ syn:tag=rep.eset.vicious_wombat (risk:threat=* :source:name=eset :tag=rep.eset.vicious_wombat) syn:tag=rep.symantec.sparkling_unicorn (risk:threat=* :source:name=symantec :tag=rep.symantec.sparkling_unicorn) ]
 .. storm-pre:: syn:tag -> risk:threat:tag
 
 ::
@@ -648,7 +648,7 @@ Contrast this operation with the "wildcard pivot out", described under :ref:`piv
 
 A wildcard pivot in will return any node with a secondary property value that matches any of the source FQDNs.
 For example, the above query could return various DNS records (``inet:dns:a``, ``inet:dns:mx``), URLs
-(``inet:url``), email addresses (``inet:email``), articles (``media:news``), and so on.
+(``inet:url``), email addresses (``inet:email``), articles (``doc:report``), and so on.
 
 
 .. _raw-pivot-syntax:
@@ -1042,7 +1042,7 @@ verb) for the relationship(s) represented by the edge:
 ``<verb>`` can be a single edge, a list of edges, or a wildcard.
 
 Unlike property-to-property relationships, edge relationships have a **direction**. There is a "source" node
-(``n1``) and a "target" node (``n2``) for the relationship itself; an article (``media:news`` node, the ``n1``)
+(``n1``) and a "target" node (``n2``) for the relationship itself; an article (``doc:report`` node, the ``n1``)
 can reference an indicator such as a hash (``hash:md5`` node, the ``n2``) but it does not make sense for a
 hash to "reference" an article.
 
@@ -1050,9 +1050,9 @@ The pivot operator ( ``->`` ) and its variations "point" from left to right (oth
 by convention. In contrast, the traversal operator can "point" in either direction, depending on which nodes
 (which "side" of the edge relationship) are inbound. Both of the syntaxes below are equally valid:
 
-``<media:news nodes> -(refs)> <hash:md5 nodes>``
+``<doc:report nodes> -(refs)> <hash:md5 nodes>``
 
-``<hash:md5 nodes> <(refs)- <media:news nodes>``
+``<hash:md5 nodes> <(refs)- <doc:report nodes>``
 
 .. TIP::
   
@@ -1076,11 +1076,11 @@ Unless otherwise specified, the target ( *<target>* ) of an edge traversal can b
   You can obtain the same result by traversing to a form and property name, and then filtering on the value. For example,
   the following Storm queries are equivalent:
   
-  ``media:news -(refs)> inet:url:fqdn~=justice.gov``
+  ``doc:report -(refs)> inet:url:fqdn~=justice.gov``
   
   and
   
-  ``media:news -(refs)> inet:url:fqdn +:fqdn~=justice.gov``
+  ``doc:report -(refs)> inet:url:fqdn +:fqdn~=justice.gov``
 
 
 .. _walk-single-edge:
@@ -1102,21 +1102,21 @@ Specify the name (verb) of the edge you want to traverse to navigate a single ed
 
 ..
     FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ (risk:threat=* :org:name='vicious wombat' :reporter:name=thesilence) ] [ +(uses)> { [ risk:tool:software=* ] } ]
+    .. storm-pre:: [ (risk:threat=* :org:name='vicious wombat' :source:name=thesilence) ] [ +(uses)> { [ risk:tool:software=* ] } ]
     .. storm-pre:: risk:threat -(uses)> risk:tool:software
 
 ::
   
   <risk:threat> -(uses)> risk:tool:software
 
-*Traverse the "references" (refs) light edge from an article (media:news node) to all of the nodes "referenced" by the article:*
+*Traverse the "references" (refs) light edge from an article (doc:report node) to all of the nodes "referenced" by the article:*
 
-.. storm-pre:: [media:news="*" +(refs)> { inet:fqdn=woot.com } ]
-.. storm-pre:: media:news -(refs)> *
+.. storm-pre:: [doc:report="*" +(refs)> { inet:fqdn=woot.com } ]
+.. storm-pre:: doc:report -(refs)> *
 
 ::
   
-  <media:news> -(refs)> *
+  <doc:report> -(refs)> *
 
 *Traverse the "ipwhois" light edge from a set of IP addresses (inet:ip nodes) to the network registration / network WHOIS records (inet:whois:iprec nodes) the IPs are associated with:*
 
@@ -1160,9 +1160,9 @@ Specify a list of edge names (verbs) to traverse multiple edges to their targets
 
 **Example:**
 
-*Traverse the "references" (refs) and "seen" light edges from an FQDN to any nodes linked via those light edges (i.e., articles (media:news nodes) that reference the FQDN and data sources (meta:source nodes) that "saw" the FQDN):*
+*Traverse the "references" (refs) and "seen" light edges from an FQDN to any nodes linked via those light edges (i.e., articles (doc:report nodes) that reference the FQDN and data sources (meta:source nodes) that "saw" the FQDN):*
 
-.. storm-pre:: [ inet:fqdn=woot.com ] [ <(refs)+ { [ media:news=* ] } ] [ <(seen)+ { [ meta:source=* ] } ]
+.. storm-pre:: [ inet:fqdn=woot.com ] [ <(refs)+ { [ doc:report=* ] } ] [ <(seen)+ { [ meta:source=* ] } ]
 .. storm-pre:: inet:fqdn <( ( refs, seen ) )- *
 ::
 
@@ -1424,19 +1424,19 @@ or with a wildcard to represent any / all edges (e.g., ``-(*)+>`` ).
 
 **Examples:**
 
-*Traverse the "refs" light edge from an article (media:news node) and join the article with the FQDNs (inet:fqdn nodes) "referenced" by the article:*
+*Traverse the "refs" light edge from an article (doc:report node) and join the article with the FQDNs (inet:fqdn nodes) "referenced" by the article:*
 
-.. storm-pre:: [ media:news="*" +(refs)> { inet:fqdn=woot.com } ] -(refs)+> inet:fqdn
+.. storm-pre:: [ doc:report="*" +(refs)> { inet:fqdn=woot.com } ] -(refs)+> inet:fqdn
 ::
   
-  <media:news> -(refs)+> inet:fqdn
+  <doc:report> -(refs)+> inet:fqdn
 
-*Join an article (media:news node) with any/all nodes referenced by the article:*
+*Join an article (doc:report node) with any/all nodes referenced by the article:*
 
-.. storm-pre::  media:news -(refs)+> *
+.. storm-pre::  doc:report -(refs)+> *
 ::
   
-  <media:news> -(refs)+> *
+  <doc:report> -(refs)+> *
 
 *Join a threat cluster (risk:threat node) with any nodes used or targeted by the cluster:*
 
@@ -1478,12 +1478,12 @@ navigation, the only valid target for this operation is the wildcard ( ``*`` ).
 
 **Examples:**
 
-*Join a set of articles (media:news nodes) with all nodes representing the articles' secondary properties (pivot out) and all nodes linked by any "right-facing" light edge:*
+*Join a set of articles (doc:report nodes) with all nodes representing the articles' secondary properties (pivot out) and all nodes linked by any "right-facing" light edge:*
 
-.. storm-pre:: media:news --+> *
+.. storm-pre:: doc:report --+> *
 ::
   
-  <media:news> --+> *
+  <doc:report> --+> *
 
 *Join a set of IP addresses (inet:ip nodes) with all nodes that reference the IPs (pivot in) and all nodes linked to the IPs by "left-facing" light edges:*
 

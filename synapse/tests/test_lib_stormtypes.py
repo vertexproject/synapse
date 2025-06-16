@@ -502,11 +502,10 @@ class StormTypesTest(s_test.SynTest):
             self.eq((4, 0x01020304), await core.callStorm('return($lib.trycast(inet:ip, 1.2.3.4).1)'))
 
             # trycast/cast a property instead of a form/type
-            flow = s_json.loads(s_test_files.getAssetStr('attack_flow/CISA AA22-138B VMWare Workspace (Alt).json'))
-            opts = {'vars': {'flow': flow}}
-            self.true(await core.callStorm('return($lib.trycast(it:mitre:attack:flow:data, $flow).0)', opts=opts))
-            self.false(await core.callStorm('return($lib.trycast(it:mitre:attack:flow:data, {}).0)'))
-            self.eq(flow, await core.callStorm('return($lib.cast(it:mitre:attack:flow:data, $flow))', opts=opts))
+
+            self.true(await core.callStorm('return($lib.trycast(test:guid:size, 1234).0)'))
+            self.false(await core.callStorm('return($lib.trycast(test:guid:size, newp).0)'))
+            self.eq(1234, await core.callStorm('return($lib.cast(test:guid:size, 1234))'))
 
             self.true(await core.callStorm('$x=(foo,bar) return($x.has(foo))'))
             self.false(await core.callStorm('$x=(foo,bar) return($x.has(newp))'))
@@ -799,10 +798,10 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ ou:org=* ou:org=* ]', opts=opts)
             self.eq(2, await core.callStorm('return($lib.len($lib.layer.get().getStorNodes()))', opts=opts))
 
-            await core.nodes('[ media:news=c0dc5dc1f7c3d27b725ef3015422f8e2 +(refs)> { inet:ip=1.2.3.4 } ]')
+            await core.nodes('[ test:guid=c0dc5dc1f7c3d27b725ef3015422f8e2 +(refs)> { inet:ip=1.2.3.4 } ]')
             edges = await core.callStorm('''
                 $edges = ([])
-                media:news=c0dc5dc1f7c3d27b725ef3015422f8e2
+                test:guid=c0dc5dc1f7c3d27b725ef3015422f8e2
                 for $i in $lib.layer.get().getEdgesByN1($node.iden()) { $edges.append($i) }
                 fini { return($edges) }
             ''')
@@ -814,14 +813,14 @@ class StormTypesTest(s_test.SynTest):
                 for $i in $lib.layer.get().getEdgesByN2($node.iden()) { $edges.append($i) }
                 fini { return($edges) }
             ''')
-            self.eq([('refs', 'ddf7f87c0164d760e8e1e5cd2cae2fee96868a3cf184f6dab9154e31ad689528')], edges)
+            self.eq([('refs', 'dba9d12ef3f0244ced5f4c9afcfcce1041cfce09bf02f67aa363b110a1933fe9')], edges)
 
             edges = await core.callStorm('''
                 $edges = ([])
                 for $i in $lib.layer.get().getEdges() { $edges.append($i) }
                 return($edges)
             ''')
-            self.isin(('ddf7f87c0164d760e8e1e5cd2cae2fee96868a3cf184f6dab9154e31ad689528',
+            self.isin(('dba9d12ef3f0244ced5f4c9afcfcce1041cfce09bf02f67aa363b110a1933fe9',
                        'refs',
                        '6ff89ac24110dec0216d5ce85382056ed50f508dbf718764039f061fc190b3c8'), edges)
 
@@ -4072,24 +4071,24 @@ class StormTypesTest(s_test.SynTest):
             # retun the node edits for an updated node in the current view
             guid = 'c7e4640767de30a5ac4ff192a9d56dfa'
             opts = {'user': visi.iden, 'view': fork, 'vars': {'fork': fork, 'guid': guid}}
-            await visi.addRule((True, ('node', 'add', 'media:news')), gateiden=layr)
-            msgs = await core.stormlist('$lib.view.get($fork).addNode(media:news, $guid)', opts=opts)
+            await visi.addRule((True, ('node', 'add', 'doc:report')), gateiden=layr)
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(doc:report, $guid)', opts=opts)
             edits = [ne for ne in msgs if ne[0] == 'node:edits']
             self.len(1, edits)
             opts['vars']['props'] = {
-                'title': 'foobar',
-                'summary': 'bizbaz',
+                'name': 'foobar',
+                'desc': 'bizbaz',
             }
-            await visi.addRule((True, ('node', 'prop', 'set', 'media:news:title')), gateiden=layr)
-            await visi.addRule((True, ('node', 'prop', 'set', 'media:news:summary')), gateiden=layr)
-            msgs = await core.stormlist('$lib.view.get($fork).addNode(media:news, $guid, $props)', opts=opts)
+            await visi.addRule((True, ('node', 'prop', 'set', 'doc:report:name')), gateiden=layr)
+            await visi.addRule((True, ('node', 'prop', 'set', 'doc:report:desc')), gateiden=layr)
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(doc:report, $guid, $props)', opts=opts)
             edits = [ne for ne in msgs if ne[0] == 'node:edits']
             self.len(1, edits)
             self.len(2, edits[0][1]['edits'][0][2])
 
             # don't get any node edits for a different view
             opts = {'user': visi.iden, 'vars': {'fork': fork}}
-            msgs = await core.stormlist('$lib.view.get($fork).addNode(media:news, *)', opts=opts)
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(doc:report, *)', opts=opts)
             edits = [ne for ne in msgs if ne[0] == 'node:edits']
             self.len(0, edits)
 
@@ -5667,17 +5666,17 @@ class StormTypesTest(s_test.SynTest):
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
 
-            await core.nodes('[ media:news=(bar,) :title=foo ]')
-            await core.nodes('[ media:news=(baz,) :title=bar ]')
-            await core.nodes('[ media:news=(faz,) :title=faz ]')
+            await core.nodes('[ doc:report=(bar,) :name=foo ]')
+            await core.nodes('[ doc:report=(baz,) :name=bar ]')
+            await core.nodes('[ doc:report=(faz,) :name=faz ]')
 
             forkopts = {'view': forkview}
-            await core.nodes('[ media:news=(baz,) :title=faz ]', opts=forkopts)
+            await core.nodes('[ doc:report=(baz,) :name=faz ]', opts=forkopts)
 
-            opts = {'vars': {'prop': 'media:news:title'}}
+            opts = {'vars': {'prop': 'doc:report:name'}}
             self.eq(['bar', 'faz', 'foo'], await core.callStorm(viewq, opts=opts))
 
-            opts = {'view': forkview, 'vars': {'prop': 'media:news:title'}}
+            opts = {'view': forkview, 'vars': {'prop': 'doc:report:name'}}
             self.eq(['faz', 'foo'], await core.callStorm(viewq, opts=opts))
 
             forkview2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)

@@ -77,13 +77,13 @@ requires the name of the form whose nodes you want to lift.
   
   inet:fqdn
 
-*Lift all nodes representing articles (media:news nodes):*
+*Lift all nodes representing articles (doc:report nodes):*
 
-.. storm-pre:: [ (media:news=* :publisher:name=eset :published=2016/10/20 :title='dissection of sednit espionage group') (media:news=* :publisher:name='trend micro' :published=2023/09/18 :title='earth lusca employs new linux backdoor, uses cobalt strike for lateral movement') ]
-.. storm-pre:: media:news
+.. storm-pre:: [ (doc:report=* :publisher:name=eset :published=2016/10/20 :name='dissection of sednit espionage group') (doc:report=* :publisher:name='trend micro' :published=2023/09/18 :name='earth lusca employs new linux backdoor, uses cobalt strike for lateral movement') ]
+.. storm-pre:: doc:report
 ::
   
-  media:news
+  doc:report
 
 .. _lift-form-wildcard:
 
@@ -112,14 +112,6 @@ Use of the wildcard is not limited to form namespace boundaries.
 *<partial_form_name>* *****
 
 **Examples:**
-
-*Lift all nodes in the MITRE ATT&CK form namespace (e.g., it:mitre:attack:group, it:mitre:attack:technique, etc.):*
-
-.. storm-pre:: [ it:mitre:attack:technique=T1566 it:mitre:attack:group=G0004 it:mitre:attack:software=S0366 ]
-.. storm-pre:: it:mitre:attack:*
-::
-  
-  it:mitre:attack:*
 
 *Lift all DNS A (inet:dns:a) and DNS AAAA (inet:dns:aaaa) nodes:*
 
@@ -1040,13 +1032,16 @@ without needing to know the exact order or values of the array itself.
   
   crypto:x509:cert:identities:fqdns *[ = '*.xyz' ]
 
-*Lift the MITRE ATT&CK groups whose names include the string 'bear':*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
 
-.. storm-pre:: [ (it:mitre:attack:group=G0035 :names=(berserk bear, crouching yeti, dragonfly, dymalloy, energetic bear, iron liberty, temp.isotope, tg-4192)) (it:mitre:attack:group=G0074 :names=(berserk bear, dragonfly 2.0, dymalloy, iron liberty)) ]
-.. storm-pre:: it:mitre:attack:group:names *[ ~= bear ]
-::
-  
-  it:mitre:attack:group:names *[ ~= bear ]
+    *Lift the MITRE ATT&CK groups whose names include the string 'bear':*
+
+    .. storm-pre:: [ (it:mitre:attack:group=G0035 :names=(berserk bear, crouching yeti, dragonfly, dymalloy, energetic bear, iron liberty, temp.isotope, tg-4192)) (it:mitre:attack:group=G0074 :names=(berserk bear, dragonfly 2.0, dymalloy, iron liberty)) ]
+    .. storm-pre:: it:mitre:attack:group:names *[ ~= bear ]
+    ::
+
+      it:mitre:attack:group:names *[ ~= bear ]
 
 **Usage Notes:**
 

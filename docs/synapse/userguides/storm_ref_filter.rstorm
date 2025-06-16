@@ -164,7 +164,9 @@ You can use the name of an interface to filter all forms that inherit that inter
 
 *Filter the current working set to exclude taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface):*
 
-.. storm-pre:: [ risk:threat=* risk:compromise=* risk:attack:type:taxonomy=very.bad risk:threat:type:taxonomy=pranksters ] -meta:taxonomy
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ risk:threat=* risk:compromise=* risk:attack:type:taxonomy=very.bad risk:threat:type:taxonomy=pranksters ] -meta:taxonomy
 
 ::
   
@@ -228,14 +230,14 @@ Filter by Secondary Property
   <query> +:country:code
 
 
-*Filter the current working set to exclude articles (media:news nodes) that have a publisher name (:publisher:name property):*
+*Filter the current working set to exclude articles (doc:report nodes) that have a publisher name (:publisher:name property):*
 
-.. storm-pre:: [ (media:news=* :publisher:name=microsoft) (media:news=* :publisher:name=eset) (media:news=* ) ] -media:news:publisher:name
+.. storm-pre:: [ (doc:report=* :publisher:name=microsoft) (doc:report=* :publisher:name=eset) (doc:report=* ) ] -doc:report:publisher:name
 ::
   
-  <query> -media:news:publisher:name
+  <query> -doc:report:publisher:name
 
-.. storm-pre:: media:news -:publisher:name=mitre
+.. storm-pre::doc:report -:publisher:name=mitre
 ::
   
   <query> -:publisher:name
@@ -1126,10 +1128,13 @@ without needing to know the exact order or values of the array itself.
 
 *Filter the current working set to exclude the MITRE ATT&CK groups (it:mitre:attack:group nodes) whose names include the string 'bear':*
 
-.. storm-pre:: [ (it:mitre:attack:group=G0035 :names=(berserk bear, crouching yeti, dragonfly, dymalloy, energetic bear, iron liberty, temp.isotope, tg-4192)) (it:mitre:attack:group=G0074 :names=(berserk bear, dragonfly 2.0, dymalloy, iron liberty)) ] -:names *[ ~= bear ]
-::
-  
-  <query> -:names *[ ~= bear ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
+    .. storm-pre:: [ (it:mitre:attack:group=G0035 :names=(berserk bear, crouching yeti, dragonfly, dymalloy, energetic bear, iron liberty, temp.isotope, tg-4192)) (it:mitre:attack:group=G0074 :names=(berserk bear, dragonfly 2.0, dymalloy, iron liberty)) ] -:names *[ ~= bear ]
+    ::
+
+      <query> -:names *[ ~= bear ]
 
 
 **Usage Notes:**

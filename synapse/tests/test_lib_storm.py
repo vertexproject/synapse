@@ -1571,7 +1571,7 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadDataValu):
                 await core.nodes(" [ test:str='pluto\udcbaneptune' ]")
 
-            nodes = await core.nodes('[ media:news=* :publisher:name=woot ] $name=:publisher:name [ :publisher={ gen.ou.org $name } ]')
+            nodes = await core.nodes('[ doc:report=* :publisher:name=woot ] $name=:publisher:name [ :publisher={ gen.ou.org $name } ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('publisher'))
 
@@ -3495,7 +3495,7 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('scrape "https://t.c\\\\"')
             self.stormHasNoWarnErr(msgs)
-            msgs = await core.stormlist('[ media:news=* :title="https://t.c\\\\" ] | scrape :title')
+            msgs = await core.stormlist('[ doc:report=* :name="https://t.c\\\\" ] | scrape :name')
             self.stormHasNoWarnErr(msgs)
 
     async def test_storm_tee(self):
@@ -5448,25 +5448,25 @@ class StormTest(s_t_utils.SynTest):
 
             await core.addTagProp('score', ('int', {}), {})
 
-            await core.nodes('[(media:news=* :publisher:name=foo) (inet:ip=1.2.3.4 +#test:score=1)]')
+            await core.nodes('[(doc:report=* :publisher:name=foo) (inet:ip=1.2.3.4 +#test:score=1)]')
 
-            q = 'media:news:publisher:name #test'
+            q = 'doc:report:publisher:name #test'
             self.len(2, await core.nodes(q))
             self.len(1, await core.nodes('#test'))
 
-            q = 'media:news:publisher:name #test:score'
+            q = 'doc:report:publisher:name #test:score'
             self.len(2, await core.nodes(q))
             self.len(1, await core.nodes('#test:score'))
 
-            q = 'media:news:publisher:name#test'
+            q = 'doc:report:publisher:name#test'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('No form named media:news:publisher:name', msgs)
+            self.stormIsInErr('No form named doc:report:publisher:name', msgs)
 
-            q = 'media:news:publisher:name#test:score'
+            q = 'doc:report:publisher:name#test:score'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('No form named media:news:publisher:name', msgs)
+            self.stormIsInErr('No form named doc:report:publisher:name', msgs)
 
-            q = 'media:news:publisher:name#test.*.bar'
+            q = 'doc:report:publisher:name#test.*.bar'
             msgs = await core.stormlist(q)
             self.stormIsInErr("Unexpected token 'default case'", msgs)
 
@@ -5474,7 +5474,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInErr("Unexpected token 'default case'", msgs)
 
-            q = 'media:news:publisher:name#test.*.bar:score'
+            q = 'doc:report:publisher:name#test.*.bar:score'
             msgs = await core.stormlist(q)
             self.stormIsInErr("Unexpected token 'default case'", msgs)
 
@@ -5495,7 +5495,7 @@ class StormTest(s_t_utils.SynTest):
             view = await core.callStorm('return($lib.view.add(layers=$layers).iden)', opts=opts)
 
             msgs = await core.stormlist('''
-                [ media:news=* :title=vertex :url=https://vertex.link
+                [ test:guid=* :size=1234 :tick=2020
                     +(refs)> { [ inet:ip=1.1.1.1 inet:ip=2.2.2.2 ] }
                     <(refs)+ { [ inet:ip=5.5.5.5 inet:ip=6.6.6.6 ] }
                     +#foo.bar:score=10
@@ -5508,19 +5508,19 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('[ inet:ip=1.1.1.1 inet:ip=5.5.5.5 ]', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
-            msgs = await core.stormlist('media:news | copyto $view', opts={'vars': {'view': view}})
+            msgs = await core.stormlist('test:guid | copyto $view', opts={'vars': {'view': view}})
             self.stormHasNoWarnErr(msgs)
 
-            self.len(1, await core.nodes('media:news +#foo.bar:score>1'))
-            self.len(1, await core.nodes('media:news +:title=vertex :url -> inet:url', opts=opts))
-            nodes = await core.nodes('media:news +:title=vertex -(refs)> inet:ip', opts=opts)
+            self.len(1, await core.nodes('test:guid +#foo.bar:score>1'))
+            self.len(1, await core.nodes('test:guid +:tick=2020 :size -> test:int', opts=opts))
+            nodes = await core.nodes('test:guid +:size=1234 -(refs)> inet:ip', opts=opts)
             self.len(1, nodes)
             self.eq(('inet:ip', (4, 0x01010101)), nodes[0].ndef)
 
-            nodes = await core.nodes('media:news +:title=vertex <(refs)- inet:ip', opts=opts)
+            nodes = await core.nodes('test:guid +:size=1234 <(refs)- inet:ip', opts=opts)
             self.len(1, nodes)
             self.eq(('inet:ip', (4, 0x05050505)), nodes[0].ndef)
-            self.eq('bar', await core.callStorm('media:news return($node.data.get(foo))', opts=opts))
+            self.eq('bar', await core.callStorm('test:guid return($node.data.get(foo))', opts=opts))
 
             oldn = await core.nodes('[ inet:ip=2.2.2.2 ]', opts=opts)
             await asyncio.sleep(0.1)
