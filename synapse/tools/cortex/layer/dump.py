@@ -1,6 +1,4 @@
 import os
-import tempfile
-import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -13,19 +11,6 @@ import synapse.lib.msgpack as s_msgpack
 descr = '''
 Export node edits from a Synapse layer.
 '''
-
-# Helper to automatically close the tempfile and delete it on error
-@contextlib.contextmanager
-def tmpfile(dirn):
-    (_fd, path) = tempfile.mkstemp(dir=dirn, prefix='layer.dump.')
-
-    try:
-        with contextlib.closing(os.fdopen(_fd, 'wb')) as fd:
-            yield (fd, path)
-
-    except Exception: # pragma: no cover
-        os.unlink(path)
-        raise
 
 async def exportLayer(opts, outp):
 
@@ -77,7 +62,7 @@ async def exportLayer(opts, outp):
 
             soffs = first[0]
 
-            with tmpfile(opts.outdir) as (fd, tmppath):
+            with s_common.tmpfile(opts.outdir, prefix='layer.dump') as (fd, tmppath):
 
                 # Write header to file
                 fd.write(s_msgpack.en((
