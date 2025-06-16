@@ -448,7 +448,8 @@ testmodel = (
                 ('loc', ('loc', {}), {}),
                 ('int2', ('int', {}), {}),
                 ('seen', ('ival', {}), {}),
-                ('type', ('test:str', {}), {}),
+                ('type', ('test:str', {}), {'alts': ('types',)}),
+                ('types', ('array', {'type': 'test:str'}), {}),
             )),
 
             ('test:float', {}, (

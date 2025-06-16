@@ -955,14 +955,6 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await alist(view1.eval('#foo:score'))
             self.len(2, await alist(view1.eval('#foo:score')))
 
-    async def test_cortex_lift_bytype(self):
-        async with self.getTestCore() as core:
-            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
-            nodes = await core.nodes('inet:ip*type=1.2.3.4')
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
-            self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', (4, 0x01020304))))
-
     async def test_clearcache(self):
 
         async with self.getTestCore() as core:
