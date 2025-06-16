@@ -49,6 +49,10 @@ is a type that consists of one or more values that are themselves all of a singl
   An array that is a **list** can have duplicate entries in the list.
   An array that is a **set** consists of a unique group of entries.
 
+
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 ``Array`` types can be used for secondary properties where that property is likely to have multiple values.
 Examples of array secondary properties include ``media:news:authors``, ``inet:email:message:headers``, and
 ``ps:person:names``. You can view all secondary properties that are ``array`` types using the following Storm
@@ -141,14 +145,17 @@ Remove multiple values from the array of names associated with an organization:
 
 **Example:**
 
-Use the specialized "edit try" operator to attempt to add a single value to the ``:authors`` array property
-of an article (``media:news`` node). (**Note:** a type-inappropriate value (a name) is used below to show
-the "fail silently" behavior for the "edit try" operator. The ``:authors`` property is an array of
-``ps:contact`` nodes and requires ``ps:contact`` guid values.)
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
+    Use the specialized "edit try" operator to attempt to add a single value to the ``:authors`` array property
+    of an article (``media:news`` node). (**Note:** a type-inappropriate value (a name) is used below to show
+    the "fail silently" behavior for the "edit try" operator. The ``:authors`` property is an array of
+    ``ps:contact`` nodes and requires ``ps:contact`` guid values.)
 
 
-.. storm-pre:: [ media:news="*" :publisher:name=kaspersky :title='New report on really bad threat' ]
-.. storm-cli:: media:news:publisher:name=kaspersky [ :authors?+='john smith' ]
+    .. storm-pre:: [ media:news="*" :publisher:name=kaspersky :title='New report on really bad threat' ]
+    .. storm-cli:: media:news:publisher:name=kaspersky [ :authors?+='john smith' ]
 
 
 **Usage Notes:**
@@ -287,14 +294,21 @@ When setting a ``duration`` value, enter the value using either format above.
 
 **Examples:**
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 Set the duration of a compromise (``risk:compromise`` node) to six days, six hours, 46 minutes, and
 23 seconds:
 
-.. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = '6D 06:46:23' ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = '6D 06:46:23' ]
 
 Or:
 
-.. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = (542783000) ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = (542783000) ]
 
 Values can be set at any level of granularity; e.g., ``[ :duration = 19D ]`` is acceptable, as are
 values to microsecond resolution.
@@ -639,7 +653,7 @@ being created and the specific data source. For example, your inputs could inclu
   - the property / properties will **always** be present for the given data source; and
   - the set of properties is sufficient to create a unique node.
 
-For example, a ``media:news`` node might be created using:
+For example, a ``doc:report`` node might be created using:
 
 - A data source string (e.g., ``my_data_source``).
 - The publication date of the article (e.g., ``2022/09/12``)
@@ -647,15 +661,15 @@ For example, a ``media:news`` node might be created using:
 
 Predictable guid values can be generated directly (as part of Storm :ref:`edit-mode` syntax):
 
-.. storm-cli:: [ media:news = (my_data_source, 2022/09/12, https://www.example.com/my_article.html) ]
+.. storm-cli:: [ doc:report = (my_data_source, 2022/09/12, https://www.example.com/my_article.html) ]
 
 Alternately, guid values can be generated and assigned to a variable using the Storm ``$lib.guid()``
 library (see :ref:`stormlibs-lib-guid`). The values provided as arguments to ``$lib.guid()`` can be either
 specific values or variables:
 
-.. storm-cli:: $guid = $lib.guid(my_data_source, 2022/09/12, https://www.example.com/my_article.html) [ media:news = $guid ]
+.. storm-cli:: $guid = $lib.guid(my_data_source, 2022/09/12, https://www.example.com/my_article.html) [ doc:report = $guid ]
 
-.. storm-cli:: $source = my_data_source $published = 2022/09/12 $url = https://www.example.com/my_article.html $guid = $lib.guid($source, $published, $url) [ media:news = $guid ]
+.. storm-cli:: $source = my_data_source $published = 2022/09/12 $url = https://www.example.com/my_article.html $guid = $lib.guid($source, $published, $url) [ doc:report = $guid ]
 
 **Note** that the same guid value is generated in each of the three examples above.
 
@@ -1598,7 +1612,7 @@ taxonomy
 
 A ``taxonomy`` in Synapse is used to represent a set of hierarchical types or categories that can be used to classify
 objects (forms). Many forms in Synapse include ``:type`` properties (such as ``risk:tool:software:type``, ``geo:place:type``,
-or ``media:news:type``).
+or ``doc:report:type``).
 
 .. TIP::
   

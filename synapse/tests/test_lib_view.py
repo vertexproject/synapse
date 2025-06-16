@@ -1189,12 +1189,12 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
 
             await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
-            await core.nodes('[ media:news=63381924986159aff183f0c85bd8ebad +(refs)> {[ inet:fqdn=vertex.link ]} ]')
+            await core.nodes('[ test:guid=63381924986159aff183f0c85bd8ebad +(refs)> {[ inet:fqdn=vertex.link ]} ]')
             root = core.auth.rootuser
 
             async with core.view.getEditor() as editor:
                 fqdn = await editor.addNode('inet:fqdn', 'vertex.link')
-                news = await editor.addNode('media:news', '63381924986159aff183f0c85bd8ebad')
+                news = await editor.addNode('test:guid', '63381924986159aff183f0c85bd8ebad')
 
                 self.true(s_common.isbuidhex(fqdn.iden()))
 
@@ -1225,7 +1225,7 @@ class ViewTest(s_t_utils.SynTest):
                 self.true(news.hasTagProp('foo', 'test'))
 
             async with core.view.getEditor() as editor:
-                news = await editor.addNode('media:news', '63381924986159aff183f0c85bd8ebad')
+                news = await editor.addNode('test:guid', '63381924986159aff183f0c85bd8ebad')
 
                 self.true(await news.delEdge('_pwns', fqdn.nid))
                 self.false(await news.delEdge('_pwns', fqdn.nid))
@@ -1250,7 +1250,7 @@ class ViewTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchTagProp):
                     await news.delTagProp('newp', 'newp')
 
-            self.len(1, await core.nodes('media:news -(_pwns)> *'))
+            self.len(1, await core.nodes('test:guid -(_pwns)> *'))
 
             self.len(1, await core.nodes('[ test:ro=foo :writeable=hehe :readable=haha ]'))
             self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))
