@@ -718,8 +718,8 @@ Queries = [
     'media:news -(*)+> *',
     '$foo=(null)',
     '$foo=({"bar": null})',
-    '$p="names" ps:contact:name=foo [ :$p?+=bar ]',
-    '$p="names" ps:contact:name=foo [ :$p?-=bar ]',
+    '$p="names" entity:contact:name=foo [ :$p?+=bar ]',
+    '$p="names" entity:contact:name=foo [ :$p?-=bar ]',
     '$pvar=stuff test:arrayprop +:$pvar*[=neato]',
     '$pvar=ints test:arrayprop +:$pvar*[=$othervar]',
     '$foo = ({"foo": ${ inet:fqdn }})',
@@ -1400,8 +1400,8 @@ _ParseResults = [
     'Query: [LiftProp: [Const: media:news], N1Walk: [Const: *, Const: *], isjoin=True]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [Const: None]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprDict: [Const: bar, Const: None]]]]',
-    'Query: [SetVarOper: [Const: p, Const: names], LiftPropBy: [Const: ps:contact:name, Const: =, Const: foo], EditPropSet: [RelProp: [VarValue: [Const: p]], Const: ?+=, Const: bar]]',
-    'Query: [SetVarOper: [Const: p, Const: names], LiftPropBy: [Const: ps:contact:name, Const: =, Const: foo], EditPropSet: [RelProp: [VarValue: [Const: p]], Const: ?-=, Const: bar]]',
+    'Query: [SetVarOper: [Const: p, Const: names], LiftPropBy: [Const: entity:contact:name, Const: =, Const: foo], EditPropSet: [RelProp: [VarValue: [Const: p]], Const: ?+=, Const: bar]]',
+    'Query: [SetVarOper: [Const: p, Const: names], LiftPropBy: [Const: entity:contact:name, Const: =, Const: foo], EditPropSet: [RelProp: [VarValue: [Const: p]], Const: ?-=, Const: bar]]',
     'Query: [SetVarOper: [Const: pvar, Const: stuff], LiftProp: [Const: test:arrayprop], FiltOper: [Const: +, ArrayCond: [RelProp: [VarValue: [Const: pvar]], Const: =, Const: neato]]]',
     'Query: [SetVarOper: [Const: pvar, Const: ints], LiftProp: [Const: test:arrayprop], FiltOper: [Const: +, ArrayCond: [RelProp: [VarValue: [Const: pvar]], Const: =, VarValue: [Const: othervar]]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprDict: [Const: foo, EmbedQuery:  inet:fqdn ]]]]',
@@ -1733,7 +1733,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('column'), 31)
         self.true(errinfo.get('mesg').startswith("Unexpected unquoted string in JSON expression"))
 
-        query = '''ou:name="foo\x00bar"'''
+        query = '''meta:name="foo\x00bar"'''
         parser = s_parser.Parser(query)
         with self.raises(s_exc.BadSyntax) as cm:
             _ = parser.query()

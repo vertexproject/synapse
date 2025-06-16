@@ -206,36 +206,35 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(node.get('type'), 'woot.woot.')
             self.eq(node.get('latlong'), (-30.0, 20.22))
 
-            guid = s_common.guid()
-            fbyts = s_common.guid()
-            props = {'name': 'Vertex  HQ',
-                     'desc': 'The place where Vertex Project hangs out at!',
-                     'address': '208 Datong Road, Pudong District, Shanghai, China',
-                     'loc': 'us.hehe.haha',
-                     'photo': f'guid:{fbyts}',
-                     'latlong': '34.1341, -118.3215',
-                     'bbox': '2.11, 2.12, -4.88, -4.9',
-                     'radius': '1.337km'}
-            opts = {'vars': {'valu': guid, 'p': props}}
-            q = '''
-                [ geo:place=$valu
+            nodes = await core.nodes('''
+                [ geo:place=*
                     :id=IAD
-                    :name=$p.name :desc=$p.desc :address=$p.address :loc=$p.loc
-                    :photo=$p.photo :latlong=$p.latlong :bbox=$p.bbox :radius=$p.radius
+                    :desc="The place where Vertex Project hangs out at!"
+                    :name="Vertex HQ"
+                    :address="208 Datong Road, Pudong District, Shanghai, China"
+                    :loc=us.hehe.haha
+                    :photo=*
+                    :latlong=(34.1341, -118.3215)
+                    :latlong:accuracy=2m
+                    :altitude=200m
+                    :altitude:accuracy=2m
+                    :bbox="2.11, 2.12, -4.88, -4.9"
                 ]
-            '''
-            nodes = await core.nodes(q, opts=opts)
+            ''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], guid)
             self.eq(node.get('id'), 'IAD')
             self.eq(node.get('name'), 'vertex hq')
             self.eq(node.get('loc'), 'us.hehe.haha')
             self.eq(node.get('latlong'), (34.1341, -118.3215))
-            self.eq(node.get('radius'), 1337000)
+            self.eq(node.get('latlong:accuracy'), 2000)
+            self.eq(node.get('altitude'), 6371208800)
+            self.eq(node.get('altitude:accuracy'), 2000)
             self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
             self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')
-            self.eq(node.get('photo'), f'guid:{fbyts}')
+            self.nn(node.get('photo'))
+
+            self.len(1, await core.nodes('geo:place :photo -> file:bytes'))
 
             self.eq(node.get('bbox'), (2.11, 2.12, -4.88, -4.9))
             self.eq(node.repr('bbox'), '2.11,2.12,-4.88,-4.9')
@@ -247,7 +246,7 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('latlong'), (11.38, 20.01))
-            nodes = await core.nodes('[ geo:place=(hehe, haha) :names=("Foo  Bar ", baz) ] -> geo:name')
+            nodes = await core.nodes('[ geo:place=(hehe, haha) :names=("Foo  Bar ", baz) ] -> meta:name')
             self.eq(('baz', 'foo bar'), [n.ndef[1] for n in nodes])
 
             nodes = await core.nodes('geo:place=(hehe, haha)')
@@ -259,25 +258,11 @@ class GeoTest(s_t_utils.SynTest):
     async def test_eq(self):
 
         async with self.getTestCore() as core:
-            guid0 = s_common.guid()
-            props = {'name': 'Vertex  HQ',
-                     'latlong': '34.1341, -118.3215',
-                     'radius': '1.337km'}
-            opts = {'vars': {'valu': guid0, 'p': props}}
-            q = '[(geo:place=$valu :name=$p.name :latlong=$p.latlong :radius=$p.radius)]'
 
-            nodes = await core.nodes(q, opts=opts)
+            nodes = await core.nodes('[geo:place=* :name="Vertex HQ" :latlong=(34.1341, -118.3215)]')
             self.len(1, nodes)
 
-            guid1 = s_common.guid()
-            props = {'name': 'Griffith Observatory',
-                     'latlong': '34.1341, -118.3215',
-                     'radius': '75m'}
-
-            opts = {'vars': {'valu': guid1, 'p': props}}
-            q = '[(geo:place=$valu :name=$p.name :latlong=$p.latlong :radius=$p.radius)]'
-
-            nodes = await core.nodes(q, opts=opts)
+            nodes = await core.nodes('[geo:place=* :name="Griffith Observatory" :latlong=(34.1341, -118.3215)]')
             self.len(1, nodes)
 
             nodes = await core.nodes('geo:place:latlong=(34.1341, -118.3215)')
@@ -296,17 +281,15 @@ class GeoTest(s_t_utils.SynTest):
             # These two nodes are 2,605m apart
             guid0 = s_common.guid()
             props = {'name': 'Vertex  HQ',
-                     'latlong': '34.1341, -118.3215',  # hollywood sign
-                     'radius': '1.337km'}
+                     'latlong': '34.1341, -118.3215'}
             opts = {'vars': {'valu': guid0, 'p': props}}
-            q = '[(geo:place=$valu :name=$p.name :latlong=$p.latlong :radius=$p.radius)]'
+            q = '[ geo:place=$valu :name=$p.name :latlong=$p.latlong ]'
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
             guid1 = s_common.guid()
             props = {'name': 'Griffith Observatory',
-                     'latlong': '34.118560, -118.300370',
-                     'radius': '75m'}
+                     'latlong': '34.118560, -118.300370'}
             opts = {'vars': {'valu': guid1, 'p': props}}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
@@ -314,23 +297,7 @@ class GeoTest(s_t_utils.SynTest):
             guid2 = s_common.guid()
             props = {'name': 'unknown location'}
             opts = {'vars': {'valu': guid2, 'p': props}}
-            q = '[(geo:place=$valu :name=$p.name)]'
-            nodes = await core.nodes(q, opts=opts)
-            self.len(1, nodes)
-
-            # A telemetry node for example by the observatory
-            guid3 = s_common.guid()
-            props = {'latlong': '34.118660, -118.300470'}
-            opts = {'vars': {'valu': guid3, 'p': props}}
-            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
-            nodes = await core.nodes(q, opts=opts)
-            self.len(1, nodes)
-
-            # A telemetry node for example by the HQ
-            guid4 = s_common.guid()
-            props = {'latlong': '34.13412, -118.32153'}
-            opts = {'vars': {'valu': guid4, 'p': props}}
-            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
+            q = '[ geo:place=$valu :name=$p.name ]'
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
@@ -338,14 +305,14 @@ class GeoTest(s_t_utils.SynTest):
             guid5 = s_common.guid()
             props = {'latlong': '35.118660, -118.300470'}
             opts = {'vars': {'valu': guid5, 'p': props}}
-            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
+            q = '[(tel:mob:telem=$valu :place:latlong=$p.latlong)]'
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
             guid6 = s_common.guid()
             props = {'latlong': '33.118660, -118.300470'}
             opts = {'vars': {'valu': guid6, 'p': props}}
-            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
+            q = '[(tel:mob:telem=$valu :place:latlong=$p.latlong)]'
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
@@ -364,15 +331,10 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes('geo:place -:latlong*near=((34.1, -118.3), 50m)')
             self.len(2 + 1, nodes)
 
-            # Storm variable use to filter nodes based on a given location.
-            q = f'geo:place={guid0} $latlong=:latlong $radius=:radius | spin | geo:place +:latlong*near=($latlong, ' \
-                f'$radius)'
-            self.len(1, await core.nodes(q))
-
-            q = f'geo:place={guid0} $latlong=:latlong $radius=:radius | spin | geo:place +:latlong*near=($latlong, 5km)'
+            q = f'geo:place={guid0} $latlong=:latlong | spin | geo:place +:latlong*near=($latlong, 5km)'
             self.len(2, await core.nodes(q))
 
-            # Lifting nodes by *near=((latlong), radius)
+            # Lifting nodes by *near=((latlong), accuracy)
             q = 'geo:place:latlong*near=((34.1, -118.3), 10km)'
             self.len(2, await core.nodes(q))
 
@@ -385,15 +347,6 @@ class GeoTest(s_t_utils.SynTest):
             # Use a radius to lift nodes which will be inside the bounding box,
             # but outside the cmpr implemented using haversine filtering.
             q = 'geo:place:latlong*near=(("34.118560", "-118.300370"), 2600m)'
-            self.len(1, await core.nodes(q))
-
-            # Storm variable use to lift nodes based on a given location.
-            q = f'geo:place={guid1} $latlong=:latlong $radius=:radius ' \
-                f'tel:mob:telem:latlong*near=($latlong, 3km) +tel:mob:telem'
-            self.len(2, await core.nodes(q))
-
-            q = f'geo:place={guid1} $latlong=:latlong $radius=:radius ' \
-                f'tel:mob:telem:latlong*near=($latlong, $radius) +tel:mob:telem'
             self.len(1, await core.nodes(q))
 
         async with self.getTestCore() as core:

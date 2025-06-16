@@ -2231,7 +2231,7 @@ class StormTypesTest(s_test.SynTest):
 
             async with core.getLocalProxy() as proxy:
                 msgs = await proxy.storm('''
-                    [ ps:contact=* ]
+                    [ entity:contact=* ]
                     $path.meta.foo = bar
                     $path.meta.baz = faz
                     $path.meta.baz = $lib.undef
@@ -2500,9 +2500,8 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_lib_time(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ ps:person="*" :dob = $lib.time.fromunix(20) ]')
-            self.len(1, nodes)
-            self.eq(20000000, nodes[0].get('dob'))
+
+            self.eq(20000000, await core.callStorm('return($lib.time.fromunix(20))'))
 
             query = '''$valu="10/1/2017 2:52"
             $parsed=$lib.time.parse($valu, "%m/%d/%Y %H:%M")
@@ -3102,15 +3101,8 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'hehe'))
 
             # Allow strings to be encoded as bytes
-            text = '''$valu="visi"  $buf1=$valu.encode() $buf2=$valu.encode("utf-16")
-            [(file:bytes=$buf1) (file:bytes=$buf2)]
-            '''
-            nodes = await core.nodes(text)
-            self.len(2, nodes)
-            self.eq({'sha256:e45bbb7e03acacf4d1cca4c16af1ec0c51d777d10e53ed3155bd3d8deb398f3f',
-                     'sha256:1263d0f4125831df93a82a08ab955d1176306953c9f0c44d366969295c7b57db',
-                     },
-                    {n.ndef[1] for n in nodes})
+            self.eq(b'visi', await core.callStorm('$visi=visi return($visi.encode())'))
+            self.eq(b'\xff\xfev\x00i\x00s\x00i\x00', await core.callStorm('$visi=visi return($visi.encode(utf-16))'))
 
             # Mismatch surrogates from real world data
             surrogate_data = "FOO\ufffd\ufffd\ufffd\udfab\ufffd\ufffdBAR"
@@ -5491,10 +5483,10 @@ class StormTypesTest(s_test.SynTest):
             q = 'return($lib.layer.get().getPropArrayCount(test:arrayform, valu=2))'
             self.eq(2, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropArrayCount(ou:org:subs))'
+            q = 'return($lib.layer.get().getPropArrayCount(ou:org:emails))'
             self.eq(0, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropArrayCount(ou:org:subs, valu=*))'
+            q = 'return($lib.layer.get().getPropArrayCount(ou:org:emails, valu="foo@bar.corp"))'
             self.eq(0, await core.callStorm(q))
 
             with self.raises(s_exc.NoSuchProp):
@@ -5628,7 +5620,7 @@ class StormTypesTest(s_test.SynTest):
             uniqvals = [ival.norm('2021')[0], ival.norm('2022')[0], ival.norm('2023')[0]]
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
 
-            opts['vars']['prop'] = 'ps:contact:name'
+            opts['vars']['prop'] = 'entity:contact:name'
             self.eq([], await core.callStorm(viewq, opts=opts))
 
             nodes = await core.nodes('''[
@@ -5691,11 +5683,11 @@ class StormTypesTest(s_test.SynTest):
             forkview2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)
             forkopts2 = {'view': forkview2}
 
-            await core.nodes('[ ps:contact=(foo,) :name=foo ]', opts=forkopts2)
-            await core.nodes('[ ps:contact=(foo,) :name=bar ]', opts=forkopts)
-            await core.nodes('[ ps:contact=(bar,) :name=bar ]')
+            await core.nodes('[ entity:contact=(foo,) :name=foo ]', opts=forkopts2)
+            await core.nodes('[ entity:contact=(foo,) :name=bar ]', opts=forkopts)
+            await core.nodes('[ entity:contact=(bar,) :name=bar ]')
 
-            opts = {'view': forkview2, 'vars': {'prop': 'ps:contact:name'}}
+            opts = {'view': forkview2, 'vars': {'prop': 'entity:contact:name'}}
             self.eq(['bar', 'foo'], await core.callStorm(viewq, opts=opts))
 
             self.eq([], await alist(core.getLayer().iterPropIndxNids('newp', 'newp', 'newp')))
@@ -6451,7 +6443,7 @@ words\tword\twrd'''
             [ inet:fqdn=foo.com ]
             $foo = (1.23)
             $bar = $node
-            [ ps:contact=(test, $foo, $bar) ]
+            [ entity:contact=(test, $foo, $bar) ]
             '''
             self.len(2, await core.nodes(q))
 

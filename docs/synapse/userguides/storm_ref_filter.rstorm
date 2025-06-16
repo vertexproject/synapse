@@ -117,8 +117,9 @@ of the wildcard is not limited to form namespace boundaries.
 **Examples:**
 
 *Filter the current working set to exclude PE metadata nodes (e.g., file:mime:pe:resource, file:mime:pe:section, etc.):*
-
-.. storm-pre:: [ file:mime:pe:vsvers:info=(sha256:86570d92983f1a55ec9e12b7185bf966f5294b13a2d1ab185896145eb52ffb58, (FileDescriptions, Xenum)) file:mime:pe:export=(sha256:95d2d427251bd10427f078255981bee74ed39b9fde78e0e7f1fc5c7c38ad4a10, DllInstall) inet:fqdn=woot.com ] -file:mime:pe:*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:mime:pe:vsvers:info=(sha256:86570d92983f1a55ec9e12b7185bf966f5294b13a2d1ab185896145eb52ffb58, (FileDescriptions, Xenum)) file:mime:pe:export=(sha256:95d2d427251bd10427f078255981bee74ed39b9fde78e0e7f1fc5c7c38ad4a10, DllInstall) inet:fqdn=woot.com ] -file:mime:pe:*
 
 ::
   
@@ -153,7 +154,9 @@ You can use the name of an interface to filter all forms that inherit that inter
 
 *Filter the current working set to only include host activity nodes (all nodes of all forms that inherit the it:host:activity interface):*
 
-.. storm-pre:: [ inet:fqdn=woot.com file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 it:exec:file:add=* it:exec:reg:set=* ] +it:host:activity
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ inet:fqdn=woot.com file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 it:exec:file:add=* it:exec:reg:set=* ] +it:host:activity
 
 ::
   
@@ -208,12 +211,18 @@ Filter by Secondary Property
 
 *Filter the current working set to only include threats (risk:threat nodes) that have an assessed country of origin (:country:code property):*
 
-.. storm-pre:: [ (risk:threat=* :org:name=unc1234 ) (risk:threat=* :org:name='peach sandstorm' :country:code=ir) (risk:threat=* :org:name='bronze butler' :country:code=cn) ] +risk:threat:country:code
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (risk:threat=* :org:name=unc1234 ) (risk:threat=* :org:name='peach sandstorm' :country:code=ir) (risk:threat=* :org:name='bronze butler' :country:code=cn) ] +risk:threat:country:code
+
 ::
   
   <query> +risk:threat:country:code
 
-.. storm-pre:: [ (risk:threat=* :org:name=unc1234 ) (risk:threat=* :org:name='peach sandstorm' :country:code=ir) (risk:threat=* :org:name='bronze butler' :country:code=cn) ] +:country:code
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (risk:threat=* :org:name=unc1234 ) (risk:threat=* :org:name='peach sandstorm' :country:code=ir) (risk:threat=* :org:name='bronze butler' :country:code=cn) ] +:country:code
+
 ::
   
   <query> +:country:code
@@ -390,12 +399,16 @@ Filter by Secondary Property Value
 
 *Filter the current working set to exclude any files (file:bytes nodes) with a PE compiled time of 1992-06-19 22:22:17:*
 
-.. storm-pre:: [ (file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17") (file:bytes=sha256:f85e153151e2d8379d57e66047fa65fff537db0f455effa92a2abb09a70e52fb :mime:pe:compiled="2024/01/08 04:30:16") ] -file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17") (file:bytes=sha256:f85e153151e2d8379d57e66047fa65fff537db0f455effa92a2abb09a70e52fb :mime:pe:compiled="2024/01/08 04:30:16") ] -file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
+
 ::
   
   <query> -file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
-  
-.. storm-pre:: [ (file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000") ] -:mime:pe:compiled = '1992/06/19 22:22:17'
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000") ] -:mime:pe:compiled = '1992/06/19 22:22:17'
 ::
   
   <query> -:mime:pe:compiled = '1992/06/19 22:22:17'
@@ -403,12 +416,18 @@ Filter by Secondary Property Value
 
 *Filter the current working set to include only those files (file:bytes nodes) compiled in 2019:*
 
-.. storm-pre:: [ (file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/03/14 11:14:00.000') ] +file:bytes:mime:pe:compiled = 2019*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/03/14 11:14:00.000') ] +file:bytes:mime:pe:compiled = 2019*
+
 ::
   
   <query> +file:bytes:mime:pe:compiled = 2019*
 
-.. storm-pre:: [ (file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/03/14 11:14:00.000') ] +:mime:pe:compiled = 2019*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/03/14 11:14:00.000') ] +:mime:pe:compiled = 2019*
+
 ::
   
   <query> +:mime:pe:compiled = 2019*
@@ -416,12 +435,18 @@ Filter by Secondary Property Value
 
 *Filter thet current working set to exclude those files (file:bytes nodes) whose size is greater than or equal to 1MB:*
 
-.. storm-pre:: [ (file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :size=16384) (file:bytes=sha256:ec04b04e079ff54e73faf7ef72e69b8919fb24eecba521b65788c47eac0baf41 :size=1000054 ) ] -file:bytes:size >= 1000000
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :size=16384) (file:bytes=sha256:ec04b04e079ff54e73faf7ef72e69b8919fb24eecba521b65788c47eac0baf41 :size=1000054 ) ] -file:bytes:size >= 1000000
+
 ::
   
   <query> -file:bytes:size >= 1000000
 
-.. storm-pre:: [ (file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :size=16384) (file:bytes=sha256:ec04b04e079ff54e73faf7ef72e69b8919fb24eecba521b65788c47eac0baf41 :size=1000054 ) ] -:size >= 1000000
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :size=16384) (file:bytes=sha256:ec04b04e079ff54e73faf7ef72e69b8919fb24eecba521b65788c47eac0baf41 :size=1000054 ) ] -:size >= 1000000
+
 ::
   
   <query> -:size >= 1000000
@@ -527,12 +552,18 @@ operator is supported. If the extended property is an integer, any of the standa
 
 *Filter the current working set to incldue only those files whose VirusTotal "reputation" score is less than -100:*
 
-.. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ] +file:bytes:_virustotal:reputation < -100
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ] +file:bytes:_virustotal:reputation < -100
+
 ::
   
   <query> +file:bytes:_virustotal:reputation < -100
 
-.. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ] +:_virustotal:reputation < -100
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ] +:_virustotal:reputation < -100
+
 ::
   
   <query> +:_virustotal:reputation < -100
@@ -586,12 +617,18 @@ The extended comparator ``~=`` is used to filter nodes based on PCRE-compatible 
 
 *Filter the current working set to include only files (file:bytes nodes) with a PDB path containing the string 'tekide':*
 
-.. storm-pre:: [ (file:bytes=sha256:1a287331e2bfb4df9cfe2dab1b77c9b5522e923e52998a2b1934ed8a8e52f3a8 :mime='application/vnd.microsoft.portable-executable' :mime:pe:pdbpath='C:\Users\mr.tekide\Documents\Visual Studio 2013\Projects\njrat7stubsoures – Copy\njrat7stubsoures\obj\Debug\dvvm.pdb') ] +file:bytes:mime:pe:pdbpath ~= tekide
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:1a287331e2bfb4df9cfe2dab1b77c9b5522e923e52998a2b1934ed8a8e52f3a8 :mime='application/vnd.microsoft.portable-executable' :mime:pe:pdbpath='C:\Users\mr.tekide\Documents\Visual Studio 2013\Projects\njrat7stubsoures – Copy\njrat7stubsoures\obj\Debug\dvvm.pdb') ] +file:bytes:mime:pe:pdbpath ~= tekide
+
 ::
   
   <query> +file:bytes:mime:pe:pdbpath ~= tekide
 
-.. storm-pre:: [ (file:bytes=sha256:1a287331e2bfb4df9cfe2dab1b77c9b5522e923e52998a2b1934ed8a8e52f3a8 :mime='application/vnd.microsoft.portable-executable' :mime:pe:pdbpath='C:\Users\mr.tekide\Documents\Visual Studio 2013\Projects\njrat7stubsoures – Copy\njrat7stubsoures\obj\Debug\dvvm.pdb') ] +:mime:pe:pdbpath ~= tekide
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:1a287331e2bfb4df9cfe2dab1b77c9b5522e923e52998a2b1934ed8a8e52f3a8 :mime='application/vnd.microsoft.portable-executable' :mime:pe:pdbpath='C:\Users\mr.tekide\Documents\Visual Studio 2013\Projects\njrat7stubsoures – Copy\njrat7stubsoures\obj\Debug\dvvm.pdb') ] +:mime:pe:pdbpath ~= tekide
+
 ::
   
   <query> +:mime:pe:pdbpath ~= tekide
@@ -748,16 +785,23 @@ of times and intervals.
   
   <query> +:seen @= 2023/12/01
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
 
 *Filter results to include only those domain WHOIS records (inet:whois:rec nodes) where the domain was registered (created) exactly on March 19, 2019 at 5:00 UTC:*
 
-.. storm-pre:: inet:whois:rec +inet:whois:rec:created @= '2019/03/19 05:00:00'
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:rec +inet:whois:rec:created @= '2019/03/19 05:00:00'
+
 ::
   
   <query> +inet:whois:rec:created @= '2019/03/19 05:00:00'
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:rec +:created @= '2019/03/19 05:00:00'
 
-.. storm-pre:: inet:whois:rec +:created @= '2019/03/19 05:00:00'
 ::
   
   <query> +:created @= '2019/03/19 05:00:00'
@@ -811,6 +855,10 @@ of times and intervals.
 - **Comparing times to times:** When using a time with the ``@=`` operator to filter nodes based on a time property,
   Synapse returns nodes whose timestamp is an **exact match** of the specified time. In other words, in this case
   the interval comparator ( ``@=`` ) behaves like the equal to comparator ( ``=`` ).
+
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 - When specifying date / time and interval values, Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``),
   and wildcard values (e.g., ``YYYY/MM*``). Wildcard time syntax may provide a simpler and more intuitive means to specify
   some intervals. For example ``inet:whois:rec:asof=2018*`` is equivalent to ``inet:whois:rec:asof@=('2018/01/01', '2019/01/01')``.
@@ -857,36 +905,53 @@ fall within a specified range of values. The comparator can be used with types s
 
 *Filter the current working set to exclude files (file:bytes nodes) whose size is between 1000 and 100000 bytes:*
 
-.. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=2000] -file:bytes:size *range= ( 1000, 100000 )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=2000] -file:bytes:size *range= ( 1000, 100000 )
+
 ::
   
   <query> -file:bytes:size *range= ( 1000, 100000 )
 
-.. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=2000] -:size *range= ( 1000, 100000 )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=2000] -:size *range= ( 1000, 100000 )
+
 ::
   
   <query> -:size *range= ( 1000, 100000 )
 
 *Filter the current working set to only include files (file:bytes nodes) whose VirusTotal "reputation" score is between -20 and 20:*
 
-.. storm-pre:: [ ( file:bytes=sha256:d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f :_virustotal:reputation=-16 ) ( file:bytes=sha256:d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac :_virustotal:reputation=8 ) ] +file:bytes:_virustotal:reputation *range= ( -20, 20 )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( file:bytes=sha256:d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f :_virustotal:reputation=-16 ) ( file:bytes=sha256:d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac :_virustotal:reputation=8 ) ] +file:bytes:_virustotal:reputation *range= ( -20, 20 )
+
 ::
   
   <query> +file:bytes:_virustotal:reputation *range= ( -20, 20 )
 
-.. storm-pre:: [ ( file:bytes=sha256:d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f :_virustotal:reputation=-16 ) ( file:bytes=sha256:d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac :_virustotal:reputation=8 ) ] +:_virustotal:reputation *range= ( -20, 20 )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( file:bytes=sha256:d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f :_virustotal:reputation=-16 ) ( file:bytes=sha256:d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac :_virustotal:reputation=8 ) ] +:_virustotal:reputation *range= ( -20, 20 )
+
 ::
   
   <query> +:_virustotal:reputation *range= ( -20, 20 )
 
 *Filter the current working set to exclude domain WHOIS records (inet:whois:rec nodes) that were captured / retrieved between November 29, 2013 and June 14, 2016:*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ] -inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 
-.. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ] -inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 ::
   
   <query> -inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 
-.. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ] -:asof *range= ( 2013/11/29, 2016/06/14 )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ] -:asof *range= ( 2013/11/29, 2016/06/14 )
+
 ::
   
   <query> -:asof *range= ( 2013/11/29, 2016/06/14 )
@@ -919,6 +984,10 @@ fall within a specified range of values. The comparator can be used with types s
   range (the equivalent of "greater than or equal to *<min>* and less than or equal to *<max>*").
   This behavior is slightly different than that for time interval (``@=``), which includes the minimum
   but not the maximum.
+
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 - When specifying a range of time values, Synapse allows you to use either lower resolution values
   (e.g., ``YYYY/MM/DD``) or wildcard values (e.g., ``YYYY/MM*``) for the minimum and/or maximum range
   values. In some cases, plain wildcard time syntax may provide a simpler and more intuitive means to specify
@@ -954,7 +1023,10 @@ The set membership extended comparator (``*in=``) supports filtering nodes whose
 
 *Filter the current working set to exclude organization names (ou:name nodes) matching any of the specified values:*
 
-.. storm-pre:: [ ou:name=fsb ou:name=gru ou:name=svr ] -ou:name *in= ( fsb, gru, svr )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ou:name=fsb ou:name=gru ou:name=svr ] -ou:name *in= ( fsb, gru, svr )
+
 ::
   
   <query> -ou:name *in= ( fsb, gru, svr )
@@ -1247,7 +1319,10 @@ the following:
 
 *Filter the current working set to include any nodes tagged by any third-party reporting organization where the tag contains the string "2017":*
 
-.. storm-pre:: [ ( file:bytes=sha256:f0aa64e048ba6e054e31b86ae0dfdaee0dcdab73e324e7bb926c9dccdee63a14 +#rep.vt.cve_2017_11882 ) ( hash:md5=806fad8aac92164f971c04bb4877c00f +#rep.alienvault.cve20178291 ) ( file:bytes=sha256:de6389e89062e049423ef018612df0734b94dfd9d9a4f3880ca6b8ff0bbbc4cc +#rep.malwarebazaar.3p.reversinglabs.document_ole_exploit_cve_2017_11182 ) ] +#rep.*.**2017**
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( file:bytes=sha256:f0aa64e048ba6e054e31b86ae0dfdaee0dcdab73e324e7bb926c9dccdee63a14 +#rep.vt.cve_2017_11882 ) ( hash:md5=806fad8aac92164f971c04bb4877c00f +#rep.alienvault.cve20178291 ) ( file:bytes=sha256:de6389e89062e049423ef018612df0734b94dfd9d9a4f3880ca6b8ff0bbbc4cc +#rep.malwarebazaar.3p.reversinglabs.document_ole_exploit_cve_2017_11182 ) ] +#rep.*.**2017**
+
 ::
   
   <query> +#rep.*.**2017**
@@ -1412,7 +1487,10 @@ and clarify logical operations when evaluating the filter.
 
 *Filter the current working set to exclude files (file:bytes nodes) that are less than or equal to 16384 bytes in size and were compiled prior to January 1, 2014:*
 
-.. storm-pre:: [file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000"] -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000"] -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)
+
 ::
   
   <query> -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)
@@ -1724,7 +1802,9 @@ The examples below illustrate the use of embedded property syntax in a filter ex
 
 *Filter the current working set of sandbox "file add" operations (it:exec:file:add nodes) to only those "add" operations performed by a file that has a PDB path (:mime:pe:pdbpath property):*
 
-.. storm-pre:: [ ( it:exec:file:add=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 ) ( file:bytes=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 :mime:pe:pdbpath='d:/projects/winrar/sfx/build/sfxrar32/release/sfxrar.pdb' ) ] +:sandbox:file::mime:pe:pdbpath
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( it:exec:file:add=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 ) ( file:bytes=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 :mime:pe:pdbpath='d:/projects/winrar/sfx/build/sfxrar32/release/sfxrar.pdb' ) ] +:sandbox:file::mime:pe:pdbpath
 
 ::
   
@@ -1744,7 +1824,9 @@ Instead, embedded property syntax is used to represent the pivot from the ``:san
 
 *Filter the current working set of sandbox "file add" operations (it:exec:file:add nodes) to only those "add" operations performed by a self-extracting RAR file (i.e., a file with a PDB path whose base file name is sfxrar.pdb):*
 
-.. storm-pre:: [ ( it:exec:file:add=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 ) ( file:bytes=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 :mime:pe:pdbpath='d:/projects/winrar/sfx/build/sfxrar32/release/sfxrar.pdb' ) ] +:sandbox:file::mime:pe:pdbpath::base = sfxrar.pdb
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( it:exec:file:add=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 ) ( file:bytes=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 :mime:pe:pdbpath='d:/projects/winrar/sfx/build/sfxrar32/release/sfxrar.pdb' ) ] +:sandbox:file::mime:pe:pdbpath::base = sfxrar.pdb
 ::
   
   <it:exec:file:add> +:sandbox:file::mime:pe:pdbpath::base = sfxrar.pdb

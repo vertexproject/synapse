@@ -12,12 +12,6 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the org.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'An ou:org node with the given name.'}}},
-        {'name': 'orgHqByName', 'desc': 'Returns a ps:contact node for the ou:org, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the org.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'A ps:contact node for the ou:org with the given name.'}}},
         {'name': 'orgByFqdn', 'desc': 'Returns an ou:org node by FQDN, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -40,12 +34,12 @@ class LibGen(s_stormtypes.Lib):
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A media:news node with the given URL.'}}},
-        {'name': 'softByName', 'desc': 'Returns it:prod:soft node by name, adding the node if it does not exist.',
+        {'name': 'softByName', 'desc': 'Returns it:software node by name, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the software.'},
                   ),
-                  'returns': {'type': 'node', 'desc': 'An it:prod:soft node with the given name.'}}},
+                  'returns': {'type': 'node', 'desc': 'An it:software node with the given name.'}}},
         {'name': 'vulnByCve', 'desc': 'Returns risk:vuln node by CVE and reporter, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -75,15 +69,15 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'node', 'desc': 'A risk:tool:software node.'}}},
 
-        {'name': 'psContactByEmail', 'desc': 'Returns a ps:contact by deconflicting the type and email address.',
+        {'name': 'psContactByEmail', 'desc': 'Returns a entity:contact by deconflicting the type and email address.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'type', 'type': 'str', 'desc': 'The ps:contact:type property.'},
-                      {'name': 'email', 'type': 'str', 'desc': 'The ps:contact:email property.'},
+                      {'name': 'type', 'type': 'str', 'desc': 'The entity:contact:type property.'},
+                      {'name': 'email', 'type': 'str', 'desc': 'The entity:contact:email property.'},
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
-                  'returns': {'type': 'node', 'desc': 'A ps:contact node.'}}},
+                  'returns': {'type': 'node', 'desc': 'A entity:contact node.'}}},
 
         {'name': 'polCountryByIso2', 'desc': 'Returns a pol:country node by deconflicting the :iso2 property.',
          'type': {'type': 'function', '_funcname': '_storm_query',
@@ -175,32 +169,8 @@ class LibGen(s_stormtypes.Lib):
             return(($lib.true, $lib.cast($type, $valu)))
         }
 
-        function orgIdType(name) {
-            ou:id:type:name=$name
-            return($node)
-
-            [ ou:id:type=(gen, name, $name) :name=$name ]
-            return($node)
-        }
-
-        function orgIdNumber(type, value) {
-            $idtype = $orgIdType($type)
-
-            ou:id:number=($idtype, $value)
-            return($node)
-
-            [ ou:id:number=($idtype, $value) ]
-            return($node)
-        }
-
         function orgByName(name, try=$lib.false) {
-            ($ok, $name) = $__maybeCast($try, ou:name, $name)
-            if (not $ok) { return() }
-
-            ou:name=$name -> ou:org
-            return($node)
-
-            [ ou:org=(gen, name, $name) :name=$name ]
+            [ ou:org=({"name": $name, "$try": $try}) ]
             return($node)
         }
 
@@ -215,25 +185,8 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function orgHqByName(name) {
-            yield $lib.gen.orgByName($name)
-            $org=$node
-            $name = :name
-
-            { -:hq [ :hq = {[ ps:contact=(gen, hq, name, $name) :orgname=$name ]} ] }
-
-            :hq -> ps:contact
-            { -:org [ :org=$org ] }
-
-            return($node)
-        }
-
         function industryByName(name) {
-            ou:industryname=$name -> ou:industry
-            return($node)
-
-            $name = $lib.cast(ou:industryname, $name)
-            [ ou:industry=(gen, name, $name)  :name=$name ]
+            [ ou:industry=({"name": $name}) ]
             return($node)
         }
 
@@ -248,13 +201,9 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
+        // FIXME remove?
         function softByName(name) {
-            it:prod:softname=$name
-            -> it:prod:soft
-            return($node)
-
-            $name = $lib.cast(it:prod:softname, $name)
-            [ it:prod:soft=(gen, name, $name) :name=$name ]
+            [ it:software=({"name": $name}) ]
             return($node)
         }
 
@@ -271,7 +220,7 @@ class LibGen(s_stormtypes.Lib):
 
             $guid = (gen, cve, $cve)
             if $reporter {
-                $reporter = $lib.cast(ou:name, $reporter)
+                $reporter = $lib.cast(meta:name, $reporter)
                 $guid.append($reporter)
             }
 
@@ -283,17 +232,16 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function riskThreat(name, reporter) {
-            ou:name=$name
-            tee { -> risk:threat:org:name } { -> risk:threat:org:names } |
+            meta:name=$name -> risk:threat
             +:reporter:name=$reporter
             { -:reporter [ :reporter=$orgByName($reporter) ] }
             return($node)
 
-            $name = $lib.cast(ou:name, $name)
-            $reporter = $lib.cast(ou:name, $reporter)
+            $name = $lib.cast(meta:name, $name)
+            $reporter = $lib.cast(meta:name, $reporter)
 
             [ risk:threat=(gen, name, reporter, $name, $reporter)
-                :org:name=$name
+                :name=$name
                 :reporter = { yield $orgByName($reporter) }
                 :reporter:name = $reporter
             ]
@@ -302,14 +250,14 @@ class LibGen(s_stormtypes.Lib):
 
         function riskToolSoftware(name, reporter) {
 
-            it:prod:softname = $name
+            meta:name = $name
             -> risk:tool:software
             +:reporter:name = $reporter
             { -:reporter [ :reporter=$orgByName($reporter) ] }
             return($node)
 
-            $name = $lib.cast(it:prod:softname, $name)
-            $reporter = $lib.cast(ou:name, $reporter)
+            $name = $lib.cast(meta:name, $name)
+            $reporter = $lib.cast(meta:name, $reporter)
 
             [ risk:tool:software=(gen, $name, $reporter)
                 :soft:name = $name
@@ -324,14 +272,14 @@ class LibGen(s_stormtypes.Lib):
             ($ok, $email) = $__maybeCast($try, inet:email, $email)
             if (not $ok) { return() }
 
-            ($ok, $type) = $__maybeCast($try, ps:contact:type:taxonomy, $type)
+            ($ok, $type) = $__maybeCast($try, entity:contact:type:taxonomy, $type)
             if (not $ok) { return() }
 
-            ps:contact:email = $email
+            entity:contact:email = $email
             +:type = $type
             return($node)
 
-            [ ps:contact=(gen, type, email, $type, $email)
+            [ entity:contact=(gen, type, email, $type, $email)
                 :email = $email
                 :type = $type
             ]
@@ -359,138 +307,74 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function langByName(name) {
-
-            lang:name=$name -> lang:language
-            return($node)
-
-            $name = $lib.cast(lang:name, $name)
-            [ lang:language=(gen, name, $name) :name=$name ]
+            [ lang:language=({"name": $name}) ]
             return($node)
         }
 
-        function langByCode(code, try=$lib.false) {
-            ($ok, $code) = $__maybeCast($try, lang:code, $code)
-            if (not $ok) { return() }
-
-            lang:language:code=$code
-            return($node)
-
-            [ lang:language=(bycode, $code) :code=$code ]
+        function langByCode(code, try=(false)) {
+            [ lang:language=({"code": $code, "$try": $try}) ]
             return($node)
         }
 
         function campaign(name, reporter) {
-
-            ou:campname = $name -> ou:campaign +:reporter:name=$reporter
-            { -:reporter [ :reporter=$orgByName($reporter) ] }
-            return($node)
-
-            $name = $lib.cast(ou:campname, $name)
-            $reporter = $lib.cast(ou:name, $reporter)
-
-            [ ou:campaign=(gen, name, reporter, $name, $reporter)
-                :name=$name
-                :reporter:name=$reporter
-                :reporter=$orgByName($reporter)
-            ]
+            $reporg = {[ ou:org=({"name": $reporter}) ]}
+            [ ou:campaign=({"name": $name, "reporter": $reporg}) ]
+            [ :reporter:name*unset=$reporter ]
             return($node)
         }
 
         function itAvScanResultByTarget(form, value, signame, scanner=$lib.null, time=$lib.null, try=$lib.false) {
 
-            ($ok, $value) = $__maybeCast($try, $form, $value)
+            ($ok, $target) = $__maybeCast($try, it:av:scan:result:target, ($form, $value))
             if (not $ok) { return() }
-
-            switch $form {
-                "file:bytes":   { $tprop = target:file }
-                "inet:fqdn":    { $tprop = target:fqdn }
-                "inet:ip":      { $tprop = target:ip   }
-                "inet:url":     { $tprop = target:url  }
-                "it:exec:proc": { $tprop = target:proc }
-                "it:host":      { $tprop = target:host }
-                *: {
-                    $lib.raise(BadArg, `Unsupported target form {$form}`)
-                }
-            }
 
             ($ok, $signame) = $__maybeCast($try, it:av:signame, $signame)
             if (not $ok) { return() }
 
+            $dict = ({"target": $target, "signame": $signame})
+
             if ($scanner != $lib.null) {
-                ($ok, $scanner) = $__maybeCast($try, it:prod:softname, $scanner)
+                ($ok, $scanner) = $__maybeCast($try, meta:name, $scanner)
                 if (not $ok) { return() }
+                $dict."scanner:name" = $scanner
             }
 
             if ($time != $lib.null) {
                 ($ok, $time) = $__maybeCast($try, time, $time)
                 if (not $ok) { return() }
+                $dict.time = $time
             }
 
-            $tlift = `it:av:scan:result:{$tprop}`
-
-            *$tlift=$value +:signame=$signame
-            if ($time != $lib.null) { +:time=$time }
-            if ($scanner != $lib.null) { +:scanner:name=$scanner }
-            return($node)
-
-            [ it:av:scan:result=(gen, target, $form, $value, $signame, $scanner, $time)
-                :signame=$signame
-                :$tprop=$value
-                :scanner:name?=$scanner
-                :time?=$time
-            ]
+            [ it:av:scan:result=$dict ]
 
             return($node)
         }
 
         function geoPlaceByName(name) {
-            $geoname = $lib.cast(geo:name, $name)
+            $geoname = $lib.cast(meta:name, $name)
 
-            geo:name=$geoname -> geo:place
+            meta:name=$geoname -> geo:place
             return($node)
 
             [ geo:place=(gen, name, $geoname) :name=$geoname ]
             return($node)
         }
 
+        // FIXME remove?
         function fileBytesBySha256(sha256, try=$lib.false) {
-            ($ok, $sha256) = $__maybeCast($try, hash:sha256, $sha256)
-            if (not $ok) { return() }
-
-            file:bytes=$sha256
-            return($node)
-
-            file:bytes:sha256=$sha256
-            return($node)
-
-            [ file:bytes=$sha256 ]
+            [ file:bytes=({"$try": $try, "sha256": $sha256}) ]
             return($node)
         }
 
         function cryptoX509CertBySha256(sha256, try=$lib.false) {
-            ($ok, $sha256) = $__maybeCast($try, hash:sha256, $sha256)
-            if (not $ok) { return() }
 
-            $guid = $lib.guid(valu=$sha256)
+            ($ok, $sha256) = $lib.trycast(hash:sha256, $sha256)
+            if (not $ok and $try) { return() }
 
-            // Try to lift crypto:x509:cert by guid
-            crypto:x509:cert=$guid
-            return($node)
+            $file = {[ file:bytes=({"sha256": $sha256}) ]}
 
-            // Try to lift crypto:x509:cert by sha256
-            crypto:x509:cert:sha256=$sha256
-            return($node)
+            [ crypto:x509:cert=({"sha256": $sha256, "file": $file}) ]
 
-            // Try to lift crypto:x509:cert by file
-            file:bytes:sha256=$sha256 -> crypto:x509:cert:file
-            { -:sha256 [ :sha256 = $sha256 ] }
-            return($node)
-
-            // Create a new crypto:x509:cert with file and sha256
-            [ crypto:x509:cert=$guid
-                :file = $fileBytesBySha256($sha256)
-                :sha256 = $sha256
-            ]
             return($node)
         }
 
@@ -532,14 +416,6 @@ stormcmds = (
             ('name', {'help': 'The name of the organization.'}),
         ),
         'storm': 'yield $lib.gen.orgByName($cmdopts.name)',
-    },
-    {
-        'name': 'gen.ou.org.hq',
-        'descr': 'Lift (or create) the primary ps:contact node for the ou:org based on the organization name.',
-        'cmdargs': (
-            ('name', {'help': 'The name of the organization.'}),
-        ),
-        'storm': 'yield $lib.gen.orgHqByName($cmdopts.name)',
     },
     {
         'name': 'gen.ou.campaign',
@@ -655,11 +531,11 @@ stormcmds = (
     {
         'name': 'gen.ps.contact.email',
         'descr': '''
-            Lift (or create) the ps:contact node by deconflicting the email and type.
+            Lift (or create) the entity:contact node by deconflicting the email and type.
 
             Examples:
 
-                // Yield the ps:contact node for the type and email
+                // Yield the entity:contact node for the type and email
                 gen.ps.contact.email vertex.employee visi@vertex.link
         ''',
         'cmdargs': (
