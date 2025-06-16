@@ -2784,8 +2784,8 @@ class LibLift(Lib):
         for prop in props:
             plist = self.runt.model.reqPropList(prop)
             for item in plist:
-                if not item.isform and item.getAlts() is not None:
-                    flatprops.extend(item.alts)
+                if not item.isform:
+                    flatprops.extend(item.getAlts())
                 else:
                     flatprops.extend(plist)
 
