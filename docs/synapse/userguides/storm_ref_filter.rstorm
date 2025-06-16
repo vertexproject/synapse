@@ -1382,7 +1382,7 @@ the following:
 
 ..
     FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ ( file:bytes=sha256:f0aa64e048ba6e054e31b86ae0dfdaee0dcdab73e324e7bb926c9dccdee63a14 +#rep.vt.cve_2017_11882 ) ( hash:md5=806fad8aac92164f971c04bb4877c00f +#rep.alienvault.cve20178291 ) ( file:bytes=sha256:de6389e89062e049423ef018612df0734b94dfd9d9a4f3880ca6b8ff0bbbc4cc +#rep.malwarebazaar.3p.reversinglabs.document_ole_exploit_cve_2017_11182 ) ] +#rep.*.**2017**
+    .. storm-pre:: [ ( file:bytes=sha256:f0aa64e048ba6e054e31b86ae0dfdaee0dcdab73e324e7bb926c9dccdee63a14 +#rep.vt.cve_2017_11882 ) ( crypto:hash:md5=806fad8aac92164f971c04bb4877c00f +#rep.alienvault.cve20178291 ) ( file:bytes=sha256:de6389e89062e049423ef018612df0734b94dfd9d9a4f3880ca6b8ff0bbbc4cc +#rep.malwarebazaar.3p.reversinglabs.document_ole_exploit_cve_2017_11182 ) ] +#rep.*.**2017**
 
 ::
   

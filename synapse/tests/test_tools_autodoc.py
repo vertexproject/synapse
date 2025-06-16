@@ -70,7 +70,7 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             # Readonly inet:form:password:md5 value
             self.isin('''* - ``:md5``
-        - :ref:`dm-type-hash-md5`
+        - :ref:`dm-type-crypto-hash-md5`
         - The MD5 hash of the password.
         - Read Only: ``True``''', s)
 

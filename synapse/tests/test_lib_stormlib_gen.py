@@ -28,13 +28,12 @@ class StormLibGenTest(s_test.SynTest):
             self.eq('intelsoftware', nodes00[0].get('name'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
-            # FIXME Replace with doc:report ?
-            # nodes00 = await core.nodes('yield $lib.gen.newsByUrl(https://vertex.link)')
-            # nodes01 = await core.nodes('yield $lib.gen.newsByUrl(https://vertex.link)')
-            # self.eq('https://vertex.link', nodes00[0].get('url'))
-            # self.eq(nodes00[0].ndef, nodes01[0].ndef)
-            #
-            # self.len(0, await core.nodes('yield $lib.gen.newsByUrl("...", try=$lib.true)'))
+            nodes00 = await core.nodes('yield $lib.gen.newsByUrl(https://vertex.link)')
+            nodes01 = await core.nodes('yield $lib.gen.newsByUrl(https://vertex.link)')
+            self.eq('https://vertex.link', nodes00[0].get('url'))
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+
+            self.len(0, await core.nodes('yield $lib.gen.newsByUrl("...", try=$lib.true)'))
 
             nodes00 = await core.nodes('yield $lib.gen.softByName(synapse)')
             nodes01 = await core.nodes('gen.it.prod.soft synapse')

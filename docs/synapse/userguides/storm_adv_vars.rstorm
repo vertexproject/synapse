@@ -435,11 +435,11 @@ Many of these use cases are covered above so are briefly illustrated here.
 
 .. storm-cli:: $mytag=cno.infra.dns.sinkhole
 
-- **Tag on a node:** Given a ``hash:md5`` node, assign any malware tags (tags matching the glob pattern
+- **Tag on a node:** Given a ``crypto:hash:md5`` node, assign any malware tags (tags matching the glob pattern
   ``cno.mal.*``) to the variable ``$mytags`` using the ``$node.tags()`` method:
 
-.. storm-pre:: [ hash:md5=d41d8cd98f00b204e9800998ecf8427e +#cno.mal.foo +#cno.mal.bar +#cno.threat.baz ]
-.. storm-cli:: hash:md5=d41d8cd98f00b204e9800998ecf8427e $mytags=$node.tags(cno.mal.*) $lib.print($mytags)
+.. storm-pre:: [ crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e +#cno.mal.foo +#cno.mal.bar +#cno.threat.baz ]
+.. storm-cli:: crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e $mytags=$node.tags(cno.mal.*) $lib.print($mytags)
 
 .. TIP::
   
@@ -460,7 +460,7 @@ Many of these use cases are covered above so are briefly illustrated here.
 ..
     FIXME - Correct this for 3.0.0 model changes when it is stable
     .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :md5=d41d8cd98f00b204e9800998ecf8427e :sha1=da39a3ee5e6b4b0d3255bfef95601890afd80709 :size=0 ]
-    .. storm-cli:: hash:md5=d41d8cd98f00b204e9800998ecf8427e $mytags=$node.tags(cno.mal.*) for $tag in $mytags { -> file:bytes [ +#$tag ] }
+    .. storm-cli:: crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e $mytags=$node.tags(cno.mal.*) for $tag in $mytags { -> file:bytes [ +#$tag ] }
 
 The output above includes two "copies" of the ``file:bytes`` node because the node is output twice - once
 for each iteration of the for loop. The first iteration copies / applies the ``cno.mal.foo`` tag; the
@@ -475,7 +475,7 @@ second iteration applies the ``cno.mal.bar`` tag. For a detailed explanation of 
   
   ::
     
-    hash:md5=d41d8cd98f00b204e9800998ecf8427e for $tag in $node.tags(cno.mal.*) { -> file:bytes [ +#$tag ] }
+    crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e for $tag in $node.tags(cno.mal.*) { -> file:bytes [ +#$tag ] }
   
 
 - **Tag timestamps:** Assign the times associated with Threat Group 20’s control of a malicious domain to the variable
