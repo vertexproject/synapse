@@ -28,12 +28,13 @@ class StormLibGenTest(s_test.SynTest):
             self.eq('intelsoftware', nodes00[0].get('name'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
-            nodes00 = await core.nodes('yield $lib.gen.newsByUrl(https://vertex.link)')
-            nodes01 = await core.nodes('yield $lib.gen.newsByUrl(https://vertex.link)')
-            self.eq('https://vertex.link', nodes00[0].get('url'))
-            self.eq(nodes00[0].ndef, nodes01[0].ndef)
-
-            self.len(0, await core.nodes('yield $lib.gen.newsByUrl("...", try=$lib.true)'))
+            # FIXME Replace with doc:report ?
+            # nodes00 = await core.nodes('yield $lib.gen.newsByUrl(https://vertex.link)')
+            # nodes01 = await core.nodes('yield $lib.gen.newsByUrl(https://vertex.link)')
+            # self.eq('https://vertex.link', nodes00[0].get('url'))
+            # self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            #
+            # self.len(0, await core.nodes('yield $lib.gen.newsByUrl("...", try=$lib.true)'))
 
             nodes00 = await core.nodes('yield $lib.gen.softByName(synapse)')
             nodes01 = await core.nodes('gen.it.prod.soft synapse')
@@ -43,14 +44,14 @@ class StormLibGenTest(s_test.SynTest):
             nodes00 = await core.nodes('yield $lib.gen.riskThreat(apt1, mandiant)')
             nodes01 = await core.nodes('gen.risk.threat apt1 mandiant')
             self.eq('apt1', nodes00[0].get('name'))
-            self.eq('mandiant', nodes00[0].get('reporter:name'))
+            self.eq('mandiant', nodes00[0].get('source:name'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
             nodes00 = await core.nodes('yield $lib.gen.riskToolSoftware(redcat, vertex)')
             nodes01 = await core.nodes('gen.risk.tool.software redcat vertex')
-            self.eq('redcat', nodes00[0].get('soft:name'))
-            self.eq('vertex', nodes00[0].get('reporter:name'))
-            self.nn(nodes00[0].get('reporter'))
+            self.eq('redcat', nodes00[0].get('name'))
+            self.eq('vertex', nodes00[0].get('source:name'))
+            self.nn(nodes00[0].get('source'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
             nodes00 = await core.nodes('yield $lib.gen.vulnByCve(CVE-2022-00001)')
@@ -61,20 +62,20 @@ class StormLibGenTest(s_test.SynTest):
             nodes01 = await core.nodes('gen.risk.vuln CVE-2022-00001')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
-            self.len(1, await core.nodes('risk:vuln:cve=cve-2022-00001 [ :reporter:name=foo ]'))
+            self.len(1, await core.nodes('risk:vuln:cve=cve-2022-00001 [ :source:name=foo ]'))
             nodes02 = await core.nodes('gen.risk.vuln CVE-2022-00001')
             self.eq(nodes00[0].ndef, nodes02[0].ndef)
 
             nodes03 = await core.nodes('gen.risk.vuln CVE-2022-00001 foo')
             self.eq(nodes00[0].ndef, nodes03[0].ndef)
-            self.nn(nodes03[0].get('reporter'))
+            self.nn(nodes03[0].get('source'))
 
             nodes04 = await core.nodes('gen.risk.vuln CVE-2022-00001 bar')
-            nodes05 = await core.nodes('yield $lib.gen.vulnByCve(CVE-2022-00001, reporter=bar)')
+            nodes05 = await core.nodes('yield $lib.gen.vulnByCve(CVE-2022-00001, source=bar)')
             self.eq(nodes04[0].ndef, nodes05[0].ndef)
             self.ne(nodes00[0].ndef, nodes05[0].ndef)
-            self.eq('bar', nodes05[0].get('reporter:name'))
-            self.nn(nodes05[0].get('reporter'))
+            self.eq('bar', nodes05[0].get('source:name'))
+            self.nn(nodes05[0].get('source'))
 
             self.len(0, await core.nodes('gen.risk.vuln newp --try'))
 
@@ -109,9 +110,9 @@ class StormLibGenTest(s_test.SynTest):
             nodes02 = await core.nodes('gen.ou.campaign d-day otherorg')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.ne(nodes01[0].ndef, nodes02[0].ndef)
-            self.nn(nodes00[0].get('reporter'))
-            self.nn(nodes01[0].get('reporter'))
-            self.nn(nodes02[0].get('reporter'))
+            self.nn(nodes00[0].get('source'))
+            self.nn(nodes01[0].get('source'))
+            self.nn(nodes02[0].get('source'))
 
             q = 'gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name barscn --time 2022'
             nodes00 = await core.nodes(q)
