@@ -194,10 +194,10 @@ class LibGen(s_stormtypes.Lib):
             ($ok, $url) = $__maybeCast($try, inet:url, $url)
             if (not $ok) { return() }
 
-            media:news:url=$url
+            doc:report:url=$url
             return($node)
 
-            [ media:news=(gen, url, $url) :url=$url ]
+            [ doc:report=(gen, url, $url) :url=$url ]
             return($node)
         }
 
@@ -368,7 +368,7 @@ class LibGen(s_stormtypes.Lib):
 
         function cryptoX509CertBySha256(sha256, try=$lib.false) {
 
-            ($ok, $sha256) = $lib.trycast(hash:sha256, $sha256)
+            ($ok, $sha256) = $lib.trycast(crypto:hash:sha256, $sha256)
             if (not $ok and $try) { return() }
 
             $file = {[ file:bytes=({"sha256": $sha256}) ]}

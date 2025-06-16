@@ -450,7 +450,7 @@ Configuration and Management
   the trigger.)
   
   Similarly, triggers do not operate "retroactively" on existing data. If you write a new trigger to fire when
-  the tag ``my.tag`` is applied to a ``hash:md5`` node, the trigger will have no effect on existing ``hash:md5``
+  the tag ``my.tag`` is applied to a ``crypto:hash:md5`` node, the trigger will have no effect on existing ``crypto:hash:md5``
   nodes that already have the tag.
 
 - **Permissions.** Triggers execute with the privileges of a designated user (by default, the user who creates
@@ -520,7 +520,7 @@ or importance). Example use cases for triggers include:
 - **Automating repetitive tasks.** Any process that analysts identify as repetitive may benefit from automation.
   Analysts may identify cases where, when they perform a specific action in Synapse, they always perform several
   additional actions. For example, when an analyst tags a particular node (such as a ``file:bytes`` node), they always
-  want to apply the same tag to a set of "related" nodes (such as the ``hash:md5``, ``hash:sha1``, etc. that
+  want to apply the same tag to a set of "related" nodes (such as the ``crypto:hash:md5``, ``crypto:hash:sha1``, etc. that
   represent the file's hashes). Similarly, if a ``file:bytes`` node queries a "known bad" FQDN (via an ``inet:dns:request`` node),
   analysts also want to apply the tag from the FQDN to both the DNS request and the file. Using a trigger (on a ``tag:add``
   event) saves manual work by the analyst and ensures the additional tags are applied consistently.
@@ -742,7 +742,7 @@ When you associate a file with a malware family, you record that assessment on t
 a tag (e.g., ``#cno.mal.redtree`` to represent the 'redtree' malware family). When you tag the file, you want
 to automatically copy the tag to the file's MD5, SHA1, SHA256, and SHA512 hashes for situational awareness.
 
-.. storm-cli:: trigger.add tag:add --name 'Push malware tags from file to hashes' --form file:bytes --tag cno.mal.** --storm { tee { :md5 -> hash:md5 } { :sha1 -> hash:sha1 } { :sha256 -> hash:sha256 } { :sha512 -> hash:sha512 } | [ +#$auto.opts.tag ] }
+.. storm-cli:: trigger.add tag:add --name 'Push malware tags from file to hashes' --form file:bytes --tag cno.mal.** --storm { tee { :md5 -> crypto:hash:md5 } { :sha1 -> crypto:hash:sha1 } { :sha256 -> crypto:hash:sha256 } { :sha512 -> crypto:hash:sha512 } | [ +#$auto.opts.tag ] }
 
 .. TIP::
   
@@ -758,7 +758,7 @@ to automatically copy the tag to the file's MD5, SHA1, SHA256, and SHA512 hashes
 Similar to the example above, when your assessment changes and you want to **remove** a tag from a file
 (``file:bytes`` node), you want to automatically remove that same tag from the file's associated hashes.
 
-.. storm-cli:: trigger.add tag:add --name 'Untag hashes when untagging a file' --form file:bytes --tag cno.mal.** --storm { tee { :md5 -> hash:md5 } { :sha1 -> hash:sha1 } { :sha256 -> hash:sha256 } { :sha512 -> hash:sha512 } | [ -#$auto.opts.tag ] }
+.. storm-cli:: trigger.add tag:add --name 'Untag hashes when untagging a file' --form file:bytes --tag cno.mal.** --storm { tee { :md5 -> crypto:hash:md5 } { :sha1 -> crypto:hash:sha1 } { :sha256 -> crypto:hash:sha256 } { :sha512 -> crypto:hash:sha512 } | [ -#$auto.opts.tag ] }
 
 .. TIP::
   
@@ -977,7 +977,7 @@ Instead of requiring the analyst to remember and run multiple individual Storm c
 to create a macro called ``enrich`` that can take a variety of different nodes as input, and automatically run
 the appropriate Storm commands to call the data sources that can enrich the input node(s).
 
-.. storm-pre:: macro.set enrich { +(hash:md5 or hash:sha1 or hash:sha256 or inet:fqdn or inet:ip) switch $node.form() { ("hash:md5", "hash:sha1"): { { | virustotal.file.enrich | virustotal.file.behavior } }  "hash:sha256": { { | virustotal.file.enrich | virustotal.file.behavior | alienvault.otx.files } }  "inet:fqdn": { { +:iszone=1 +:issuffix=0 { | nettools.dns --type A AAAA CNAME MX NS SOA TXT | nettools.whois | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } }  { +:iszone=0 +:issuffix=0 { | nettools.dns --type A AAAA CNAME | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } } }  "inet:ip": { +:type=unicast  { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns } }  *: { } } }
+.. storm-pre:: macro.set enrich { +(crypto:hash:md5 or crypto:hash:sha1 or crypto:hash:sha256 or inet:fqdn or inet:ip) switch $node.form() { ("crypto:hash:md5", "crypto:hash:sha1"): { { | virustotal.file.enrich | virustotal.file.behavior } }  "crypto:hash:sha256": { { | virustotal.file.enrich | virustotal.file.behavior | alienvault.otx.files } }  "inet:fqdn": { { +:iszone=1 +:issuffix=0 { | nettools.dns --type A AAAA CNAME MX NS SOA TXT | nettools.whois | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } }  { +:iszone=0 +:issuffix=0 { | nettools.dns --type A AAAA CNAME | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } } }  "inet:ip": { +:type=unicast  { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns } }  *: { } } }
 
 Once again, we create the macro with the ``macro.set`` command. Because of the length of the associated Storm,
 the full ``<storm_query>`` is provided below for readability.
@@ -991,16 +991,16 @@ The content of the macro (the ``<storm_query>``, with comments):
 ::
   
   // Filter inbound nodes to supported forms only
-  +(hash:md5 or hash:sha1 or hash:sha256 or inet:fqdn or inet:ip)
+  +(crypto:hash:md5 or crypto:hash:sha1 or crypto:hash:sha256 or inet:fqdn or inet:ip)
   
   // Switch statement to handle different forms
   switch $node.form() {
     
-    ("hash:md5","hash:sha1"): {
+    ("crypto:hash:md5","crypto:hash:sha1"): {
         { | virustotal.file.enrich | virustotal.file.behavior }
     }
     
-    "hash:sha256": {
+    "crypto:hash:sha256": {
         { | virustotal.file.enrich | virustotal.file.behavior | alienvault.otx.files }
     }
     
