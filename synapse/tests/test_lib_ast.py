@@ -3554,6 +3554,45 @@ class AstTest(s_test.SynTest):
 
             self.len(1, nodes)
 
+    async def test_ast_subgraph_multipivot(self):
+        async with self.getTestCore() as core:
+            guid = s_common.guid()
+            await core.nodes('''[
+                (test:guid=$guid :size=1234 :tick=now) +(refs)> {[test:str=blorp]}
+            ]''', opts={'vars': {'guid': guid}})
+
+            opts = {
+                'graph': {
+                    'pivots': ('-> *', '-(refs)> *'),
+                    'refs': True,
+                    'degrees': 1
+                }
+            }
+
+            nodes = []
+            async with await core.snap() as snap:
+                async for node, path in snap.storm('test:guid', opts=opts):
+                    nodes.append(node)
+
+            opts = {
+                'graph': {
+                    'pivots': ('-(refs)> *', '-> *'),
+                    'refs': True,
+                    'degrees': 1
+                }
+            }
+            nodes2 = []
+            async with await core.snap() as snap:
+                async for node, path in snap.storm('test:guid', opts=opts):
+                    nodes2.append(node)
+
+            self.eq(set(n.iden() for n in nodes), set(n.iden() for n in nodes2))
+            self.len(3, nodes)
+            ndefs = [n.ndef for n in nodes]
+            self.isin(('test:guid', guid), ndefs)
+            self.isin(('test:str', 'blorp'), ndefs)
+            self.isin(('test:int', 1234), ndefs)
+
     async def test_ast_double_init_fini(self):
         async with self.getTestCore() as core:
             q = '''
