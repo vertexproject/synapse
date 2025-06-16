@@ -63,6 +63,9 @@ modeldefs = (
                     ('users', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate user names for the {contactable}.'}),
 
+                    ('creds', ('array', {'interface': 'auth:credential', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of non-ephemeral credentials.'}),
+
                     ('identifiers', ('array', {'type': 'entity:identifier', 'uniq': True, 'sorted': True}), {
                         'doc': 'Additional entity identifiers.'}),
                 ),

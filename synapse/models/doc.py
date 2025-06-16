@@ -12,6 +12,9 @@ modeldefs = (
                     ('id', ('meta:id', {}), {
                         'doc': 'The {authorable} ID.'}),
 
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the {authorable} is available.'}),
+
                     ('name', ('base:name', {}), {
                         'doc': 'The {authorable} name.'}),
 

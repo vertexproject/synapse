@@ -106,37 +106,51 @@ modeldefs = (
                 'ex': '(1.2.3.4, (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2))',
                 'doc': 'A fused node representing a crypto currency address used by an Internet client.'}),
 
-            ('hash:md5', ('hex', {'size': 32}), {
+            ('crypto:hash', ('ndef', {'interface': 'crypto:hash'}), {
+                'doc': 'A cryptographic hash.'}),
+
+            ('crypto:hashable', ('ndef', {'interface': 'crypto:hashable'}), {
+                'doc': 'A node which can be cryptographically hashed.'}),
+
+            ('crypto:hash:md5', ('hex', {'size': 32}), {
                 'ex': ex_md5,
+                'interfaces': (
+                    ('crypto:hash', {}),
+                ),
                 'doc': 'A hex encoded MD5 hash.'}),
 
-            ('hash:sha1', ('hex', {'size': 40}), {
+            ('crypto:hash:sha1', ('hex', {'size': 40}), {
                 'ex': ex_sha1,
+                'interfaces': (
+                    ('crypto:hash', {}),
+                ),
                 'doc': 'A hex encoded SHA1 hash.'}),
 
-            ('hash:sha256', ('hex', {'size': 64}), {
+            ('crypto:hash:sha256', ('hex', {'size': 64}), {
                 'ex': ex_sha256,
+                'interfaces': (
+                    ('crypto:hash', {}),
+                ),
                 'doc': 'A hex encoded SHA256 hash.'}),
 
-            ('hash:sha384', ('hex', {'size': 96}), {
+            ('crypto:hash:sha384', ('hex', {'size': 96}), {
                 'ex': ex_sha384,
+                'interfaces': (
+                    ('crypto:hash', {}),
+                ),
                 'doc': 'A hex encoded SHA384 hash.'}),
 
-            ('hash:sha512', ('hex', {'size': 128}), {
+            ('crypto:hash:sha512', ('hex', {'size': 128}), {
                 'ex': ex_sha512,
+                'interfaces': (
+                    ('crypto:hash', {}),
+                ),
                 'doc': 'A hex encoded SHA512 hash.'}),
 
-            ('hash:lm', ('hex', {'size': 32}), {
-                'ex': ex_md5,
-                'doc': 'A hex encoded Microsoft Windows LM password hash.'}),
+            ('crypto:salthash', ('guid', {}), {
+                'doc': 'A salted hash computed for a value.'}),
 
-            ('hash:ntlm', ('hex', {'size': 32}), {
-                'ex': ex_md5,
-                'doc': 'A hex encoded Microsoft Windows NTLM password hash.'}),
-
-            ('rsa:key', ('comp', {'fields': (('mod', 'hex'), ('pub:exp', 'int')), }), {
-                'doc': 'An RSA keypair modulus and public exponent.'}),
-
+            # FIXME interface for various key types?
             ('crypto:key', ('guid', {}), {
                 'doc': 'A cryptographic key and algorithm.'}),
 
@@ -148,23 +162,26 @@ modeldefs = (
                 'doc': 'A unique X.509 certificate.'}),
 
             ('crypto:x509:san', ('comp', {'fields': (('type', 'str'), ('value', 'str'))}), {
-                'doc': 'An X.509 Subject Alternative Name (SAN).',
-            }),
+                'doc': 'An X.509 Subject Alternative Name (SAN).'}),
 
             ('crypto:x509:crl', ('guid', {}), {
-                'doc': 'A unique X.509 Certificate Revocation List.',
-            }),
+                'doc': 'A unique X.509 Certificate Revocation List.'}),
 
             ('crypto:x509:revoked', ('comp', {'fields': (('crl', 'crypto:x509:crl'), ('cert', 'crypto:x509:cert'))}), {
-                'doc': 'A revocation relationship between a CRL and an X.509 certificate.',
-            }),
+                'doc': 'A revocation relationship between a CRL and an X.509 certificate.'}),
 
             ('crypto:x509:signedfile', ('comp', {'fields': (('cert', 'crypto:x509:cert'), ('file', 'file:bytes'))}), {
-                'doc': 'A digital signature relationship between an X.509 certificate and a file.',
-            }),
+                'doc': 'A digital signature relationship between an X.509 certificate and a file.'}),
         ),
 
         'interfaces': (
+
+            ('crypto:hash', {
+                'doc': 'An interface inherited by all cryptographic hashes.'}),
+
+            ('crypto:hashable', {
+                'doc': 'An interface inherited by types which are frequently hashed.'}),
+
             ('crypto:smart:effect', {
                 'doc': 'Properties common to the effects of a crypto smart contract transaction.',
                 'props': (
@@ -429,13 +446,13 @@ modeldefs = (
                 ('public:text', ('it:dev:str', {}), {
                     'doc': 'Set only if the :public property decodes to ASCII.'}),
 
-                ('public:md5', ('hash:md5', {}), {
+                ('public:md5', ('crypto:hash:md5', {}), {
                     'doc': 'The MD5 hash of the public key in raw binary form.'}),
 
-                ('public:sha1', ('hash:sha1', {}), {
+                ('public:sha1', ('crypto:hash:sha1', {}), {
                     'doc': 'The SHA1 hash of the public key in raw binary form.'}),
 
-                ('public:sha256', ('hash:sha256', {}), {
+                ('public:sha256', ('crypto:hash:sha256', {}), {
                     'doc': 'The SHA256 hash of the public key in raw binary form.'}),
 
                 ('private', ('hex', {}), {
@@ -444,13 +461,13 @@ modeldefs = (
                 ('private:text', ('it:dev:str', {}), {
                     'doc': 'Set only if the :private property decodes to ASCII.'}),
 
-                ('private:md5', ('hash:md5', {}), {
+                ('private:md5', ('crypto:hash:md5', {}), {
                     'doc': 'The MD5 hash of the private key in raw binary form.'}),
 
-                ('private:sha1', ('hash:sha1', {}), {
+                ('private:sha1', ('crypto:hash:sha1', {}), {
                     'doc': 'The SHA1 hash of the private key in raw binary form.'}),
 
-                ('private:sha256', ('hash:sha256', {}), {
+                ('private:sha256', ('crypto:hash:sha256', {}), {
                     'doc': 'The SHA256 hash of the private key in raw binary form.'}),
 
                 ('seed:passwd', ('inet:passwd', {}), {
@@ -468,25 +485,22 @@ modeldefs = (
                     'doc': 'The crypto currency address observed in use by the Internet client.', 'ro': True, }),
             )),
 
-            ('hash:md5', {}, ()),
-            ('hash:sha1', {}, ()),
-            ('hash:sha256', {}, ()),
-            ('hash:sha384', {}, ()),
-            ('hash:sha512', {}, ()),
-            # TODO deprecate rsa:key and add fields to crypto:key
-            ('rsa:key', {}, (
-                ('mod', ('hex', {}), {'ro': True,
-                   'doc': 'The RSA key modulus.'}),
-                ('pub:exp', ('int', {}), {'ro': True,
-                   'doc': 'The public exponent of the key.'}),
-                ('bits', ('int', {}),
-                 {'doc': 'The length of the modulus in bits.'}),
-                ('priv:exp', ('hex', {}),
-                 {'doc': 'The private exponent of the key.'}),
-                ('priv:p', ('hex', {}),
-                 {'doc': 'One of the two private primes.'}),
-                ('priv:q', ('hex', {}),
-                 {'doc': 'One of the two private primes.'}),
+            ('crypto:hash:md5', {}, ()),
+            ('crypto:hash:sha1', {}, ()),
+            ('crypto:hash:sha256', {}, ()),
+            ('crypto:hash:sha384', {}, ()),
+            ('crypto:hash:sha512', {}, ()),
+
+            ('crypto:salthash', {}, (
+
+                ('salt', ('hex', {}), {
+                    'doc': 'The salt value encoded as a hexidecimal string.'}),
+
+                ('hash', ('crypto:hash', {}), {
+                    'doc': 'The hash value.'}),
+
+                ('value', ('crypto:hashable', {}), {
+                    'doc': 'The value that was used to computed the salted hash.'}),
             )),
 
             ('crypto:x509:signedfile', {}, (
@@ -544,20 +558,16 @@ modeldefs = (
                     'doc': 'The timestamp for the end of the certificate validity period.',
                 }),
 
-                ('md5', ('hash:md5', {}), {
+                ('md5', ('crypto:hash:md5', {}), {
                     'doc': 'The MD5 fingerprint for the certificate.',
                 }),
 
-                ('sha1', ('hash:sha1', {}), {
+                ('sha1', ('crypto:hash:sha1', {}), {
                     'doc': 'The SHA1 fingerprint for the certificate.',
                 }),
 
-                ('sha256', ('hash:sha256', {}), {
+                ('sha256', ('crypto:hash:sha256', {}), {
                     'doc': 'The SHA256 fingerprint for the certificate.',
-                }),
-
-                ('rsa:key', ('rsa:key', {}), {
-                    'doc': 'The optional RSA public key associated with the certificate.',
                 }),
 
                 ('algo', ('iso:oid', {}), {

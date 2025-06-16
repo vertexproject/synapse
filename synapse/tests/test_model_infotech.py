@@ -99,7 +99,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('created'), 1612224000000000)
             self.eq(nodes[0].get('deleted'), 1612310400000000)
             self.eq(nodes[0].get('hash:sha256'), 'ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c')
-            self.len(1, await core.nodes('it:exec:mmap -> hash:sha256'))
+            self.len(1, await core.nodes('it:exec:mmap -> crypto:hash:sha256'))
             self.len(1, await core.nodes('it:exec:mmap :proc -> it:exec:proc'))
             self.len(1, await core.nodes('it:exec:mmap -> file:path +file:path=/home/invisigoth/rootkit.so'))
             self.len(1, await core.nodes('it:exec:mmap :sandbox:file -> file:bytes'))
@@ -417,35 +417,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('it:sec:cve', 'cve-2013-0001'))
-
-            hash0 = s_common.guid()
-            props = {
-                'salt': 'B33F',
-                'hash:md5': s_m_crypto.ex_md5,
-                'hash:sha1': s_m_crypto.ex_sha1,
-                'hash:sha256': s_m_crypto.ex_sha256,
-                'hash:sha512': s_m_crypto.ex_sha512,
-                'hash:lm': s_m_crypto.ex_md5,
-                'hash:ntlm': s_m_crypto.ex_md5,
-                'passwd': "I've got the same combination on my luggage!",
-            }
-            q = '''[(it:auth:passwdhash=$valu :salt=$p.salt :hash:md5=$p."hash:md5" :hash:sha1=$p."hash:sha1"
-                :hash:sha256=$p."hash:sha256" :hash:sha512=$p."hash:sha512"
-                :hash:lm=$p."hash:lm" :hash:ntlm=$p."hash:ntlm"
-                :passwd=$p.passwd)]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': hash0, 'p': props}})
-            self.len(1, nodes)
-            node = nodes[0]
-
-            self.eq(node.ndef, ('it:auth:passwdhash', hash0))
-            self.eq(node.get('salt'), 'b33f')
-            self.eq(node.get('hash:md5'), s_m_crypto.ex_md5)
-            self.eq(node.get('hash:sha1'), s_m_crypto.ex_sha1)
-            self.eq(node.get('hash:sha256'), s_m_crypto.ex_sha256)
-            self.eq(node.get('hash:sha512'), s_m_crypto.ex_sha512)
-            self.eq(node.get('hash:lm'), s_m_crypto.ex_md5)
-            self.eq(node.get('hash:ntlm'), s_m_crypto.ex_md5)
-            self.eq(node.get('passwd'), "I've got the same combination on my luggage!")
 
             nodes = await core.nodes('[ it:adid=visi ]')
             self.eq(('it:adid', 'visi'), nodes[0].ndef)
