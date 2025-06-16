@@ -402,7 +402,7 @@ class NexsRoot(s_base.Base):
     async def _eat(self, item, indx=None):
 
         if self.donexslog:
-            saveindx, packitem = await self.nexslog.withPackRetn(item, indx=indx)
+            saveindx, packitem = await self.nexslog.addWithPackRetn(item, indx=indx)
 
             if self._linkmirrors:
                 tupl = (saveindx, YIELD_PREFIX + s_msgpack.en(saveindx) + packitem)
