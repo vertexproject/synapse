@@ -40,32 +40,32 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the software.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'An it:software node with the given name.'}}},
-        {'name': 'vulnByCve', 'desc': 'Returns risk:vuln node by CVE and reporter, adding the node if it does not exist.',
+        {'name': 'vulnByCve', 'desc': 'Returns risk:vuln node by CVE and source, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'cve', 'type': 'str', 'desc': 'The CVE id.'},
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
-                      {'name': 'reporter', 'type': 'str', 'default': None,
+                      {'name': 'source', 'type': 'str', 'default': None,
                        'desc': 'The name of the organization which reported the vulnerability.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A risk:vuln node with the given CVE.'}}},
 
         {'name': 'riskThreat',
-         'desc': 'Returns a risk:threat node based on the threat and reporter names, adding the node if it does not exist.',
+         'desc': 'Returns a risk:threat node based on the threat and source names, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The reported name of the threat cluster.'},
-                      {'name': 'reporter', 'type': 'str', 'desc': 'The name of the organization which reported the threat cluster.'},
+                      {'name': 'source', 'type': 'str', 'desc': 'The name of the organization which reported the threat cluster.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A risk:threat node.'}}},
 
         {'name': 'riskToolSoftware',
-         'desc': 'Returns a risk:tool:software node based on the tool and reporter names, adding the node if it does not exist.',
+         'desc': 'Returns a risk:tool:software node based on the tool and source names, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The reported name of the tool.'},
-                      {'name': 'reporter', 'type': 'str', 'desc': 'The name of the organization which reported the tool.'},
+                      {'name': 'source', 'type': 'str', 'desc': 'The name of the organization which reported the tool.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A risk:tool:software node.'}}},
 
@@ -102,11 +102,11 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'node', 'desc': 'A lang:language node with the given code.'}}},
         {'name': 'campaign',
-         'desc': 'Returns an ou:campaign node based on the campaign and reporter names, adding the node if it does not exist.',
+         'desc': 'Returns an ou:campaign node based on the campaign and source names, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The reported name of the campaign.'},
-                      {'name': 'reporter', 'type': 'str', 'desc': 'The name of the organization which reported the campaign.'},
+                      {'name': 'source', 'type': 'str', 'desc': 'The name of the organization which reported the campaign.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'An ou:campaign node.'}}},
         {'name': 'itAvScanResultByTarget',
@@ -207,62 +207,62 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function vulnByCve(cve, try=$lib.false, reporter=$lib.null) {
+        function vulnByCve(cve, try=$lib.false, source=$lib.null) {
             ($ok, $cve) = $__maybeCast($try, it:sec:cve, $cve)
             if (not $ok) { return() }
 
             risk:vuln:cve=$cve
-            if $reporter {
-                +:reporter:name=$reporter
-                { -:reporter [ :reporter=$orgByName($reporter) ] }
+            if $source {
+                +:source:name=$source
+                { -:source [ :source=$orgByName($source) ] }
             }
             return($node)
 
             $guid = (gen, cve, $cve)
-            if $reporter {
-                $reporter = $lib.cast(meta:name, $reporter)
-                $guid.append($reporter)
+            if $source {
+                $source = $lib.cast(meta:name, $source)
+                $guid.append($source)
             }
 
             [ risk:vuln=$guid :cve=$cve ]
-            if $reporter {
-                [ :reporter:name=$reporter :reporter=$orgByName($reporter) ]
+            if $source {
+                [ :source:name=$source :source=$orgByName($source) ]
             }
             return($node)
         }
 
-        function riskThreat(name, reporter) {
+        function riskThreat(name, source) {
             meta:name=$name -> risk:threat
-            +:reporter:name=$reporter
-            { -:reporter [ :reporter=$orgByName($reporter) ] }
+            +:source:name=$source
+            { -:source [ :source=$orgByName($source) ] }
             return($node)
 
             $name = $lib.cast(meta:name, $name)
-            $reporter = $lib.cast(meta:name, $reporter)
+            $source = $lib.cast(meta:name, $source)
 
-            [ risk:threat=(gen, name, reporter, $name, $reporter)
+            [ risk:threat=(gen, name, reporter, $name, $source)
                 :name=$name
-                :reporter = { yield $orgByName($reporter) }
-                :reporter:name = $reporter
+                :source = { yield $orgByName($source) }
+                :source:name = $source
             ]
             return($node)
         }
 
-        function riskToolSoftware(name, reporter) {
+        function riskToolSoftware(name, source) {
 
             meta:name = $name
             -> risk:tool:software
-            +:reporter:name = $reporter
-            { -:reporter [ :reporter=$orgByName($reporter) ] }
+            +:source:name = $source
+            { -:source [ :source=$orgByName($source) ] }
             return($node)
 
             $name = $lib.cast(meta:name, $name)
-            $reporter = $lib.cast(meta:name, $reporter)
+            $source = $lib.cast(meta:name, $source)
 
-            [ risk:tool:software=(gen, $name, $reporter)
-                :soft:name = $name
-                :reporter:name = $reporter
-                :reporter = { yield $orgByName($reporter) }
+            [ risk:tool:software=(gen, $name, $source)
+                :name = $name
+                :source:name = $source
+                :source = { yield $orgByName($source) }
             ]
 
             return($node)
@@ -316,10 +316,10 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function campaign(name, reporter) {
-            $reporg = {[ ou:org=({"name": $reporter}) ]}
-            [ ou:campaign=({"name": $name, "reporter": $reporg}) ]
-            [ :reporter:name*unset=$reporter ]
+        function campaign(name, source) {
+            $reporg = {[ ou:org=({"name": $source}) ]}
+            [ ou:campaign=({"name": $name, "source": ["ou:org", $reporg]}) ]
+            [ :source:name*unset=$source ]
             return($node)
         }
 
@@ -422,9 +422,9 @@ stormcmds = (
         'descr': 'Lift (or create) an ou:campaign based on the name and reporting organization.',
         'cmdargs': (
             ('name', {'help': 'The name of the campaign.'}),
-            ('reporter', {'help': 'The name of the reporting organization.'}),
+            ('source', {'help': 'The name of the reporting organization.'}),
         ),
-        'storm': 'yield $lib.gen.campaign($cmdopts.name, $cmdopts.reporter)',
+        'storm': 'yield $lib.gen.campaign($cmdopts.name, $cmdopts.source)',
     },
     {
         'name': 'gen.it.prod.soft',
@@ -437,7 +437,7 @@ stormcmds = (
     {
         'name': 'gen.risk.threat',
         'descr': '''
-            Lift (or create) a risk:threat node based on the threat name and reporter name.
+            Lift (or create) a risk:threat node based on the threat name and source name.
 
             Examples:
 
@@ -446,14 +446,14 @@ stormcmds = (
         ''',
         'cmdargs': (
             ('name', {'help': 'The name of the threat cluster. For example: APT1'}),
-            ('reporter', {'help': 'The name of the reporting organization. For example: Mandiant'}),
+            ('source', {'help': 'The name of the reporting organization. For example: Mandiant'}),
         ),
-        'storm': 'yield $lib.gen.riskThreat($cmdopts.name, $cmdopts.reporter)',
+        'storm': 'yield $lib.gen.riskThreat($cmdopts.name, $cmdopts.source)',
     },
     {
         'name': 'gen.risk.tool.software',
         'descr': '''
-            Lift (or create) a risk:tool:software node based on the tool name and reporter name.
+            Lift (or create) a risk:tool:software node based on the tool name and source name.
 
             Examples:
 
@@ -462,14 +462,14 @@ stormcmds = (
         ''',
         'cmdargs': (
             ('name', {'help': 'The tool name.'}),
-            ('reporter', {'help': 'The name of the reporting organization. For example: "recorded future"'}),
+            ('source', {'help': 'The name of the reporting organization. For example: "recorded future"'}),
         ),
-        'storm': 'yield $lib.gen.riskToolSoftware($cmdopts.name, $cmdopts.reporter)',
+        'storm': 'yield $lib.gen.riskToolSoftware($cmdopts.name, $cmdopts.source)',
     },
     {
         'name': 'gen.risk.vuln',
         'descr': '''
-            Lift (or create) a risk:vuln node based on the CVE and reporter name.
+            Lift (or create) a risk:vuln node based on the CVE and source name.
 
             Examples:
 
@@ -478,11 +478,11 @@ stormcmds = (
         ''',
         'cmdargs': (
             ('cve', {'help': 'The CVE identifier.'}),
-            ('reporter', {'help': 'The name of the reporting organization.', 'nargs': '?'}),
+            ('source', {'help': 'The name of the reporting organization.', 'nargs': '?'}),
             ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
                        'action': 'store_true'}),
         ),
-        'storm': 'yield $lib.gen.vulnByCve($cmdopts.cve, try=$cmdopts.try, reporter=$cmdopts.reporter)',
+        'storm': 'yield $lib.gen.vulnByCve($cmdopts.cve, try=$cmdopts.try, source=$cmdopts.source)',
     },
     {
         'name': 'gen.ou.industry',

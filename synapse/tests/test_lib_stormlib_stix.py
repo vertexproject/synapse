@@ -89,7 +89,7 @@ class StormLibStixTest(s_test.SynTest):
                 (it:app:yara:rule=$yararule :name=yararulez :text="rule dummy { condition: false }")
                 (it:app:snort:rule=$snortrule :name=snortrulez :text="alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)")
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
-                (media:news=$news :title=report0 :published=20210328 +(refs)> { inet:fqdn=vertex.link })
+                (doc:report=$news :name=report0 :published=20210328 +(refs)> { inet:fqdn=vertex.link })
                 (file:bytes=$sha256 :size=333 :name=woot.json :mime=application/json +(refs)> { inet:fqdn=vertex.link } +#cno.mal.redtree)
                 (inet:service:account=(twitter, invisig0th) :platform={[inet:service:platform=* :name=twitter]} :id=invisig0th :user="visi stark" .seen=(2010,2021) :period=2010)
                 (auth:creds=* :service:account=(twitter, invisig0th) :passwd=secret)
@@ -100,7 +100,7 @@ class StormLibStixTest(s_test.SynTest):
                 inet:dns:cname=(vertex.link, vtx.lk)
             ]''', opts=opts))
 
-            self.len(1, await core.nodes('media:news -(refs)> *'))
+            self.len(1, await core.nodes('doc:report -(refs)> *'))
 
             bund = await core.callStorm('''
                 init { $bundle = $lib.stix.export.bundle() }
@@ -109,7 +109,7 @@ class StormLibStixTest(s_test.SynTest):
                 inet:ip
                 inet:email
                 inet:service:account
-                media:news
+                doc:report
                 ou:org:name=target
                 ou:campaign
 
@@ -311,7 +311,7 @@ class StormLibStixTest(s_test.SynTest):
             await core.nodes('''[(risk:vuln=(vuln1,) :name=vuln1 :desc="bad vuln" :cve="cve-2013-0000")]
             [(risk:vuln=(vuln3,) :name="bobs version of cve-2013-001" :cve="cve-2013-0001")]
             [(ou:org=(bob1,) :name="bobs whitehatz")]
-            [(ou:campaign=(campaign1,) :name="bob hax" :org=(bob1,) )]
+            [(ou:campaign=(campaign1,) :name="bob hax" :actor=(ou:org, (bob1,)) )]
             [(risk:attack=(attk1,) +(used)> {risk:vuln=(vuln1,)} :campaign=(campaign1,) )]
             [(risk:attack=(attk2,) +(used)> {risk:vuln=(vuln3,)} :campaign=(campaign1,) )]
             ''')
@@ -348,7 +348,7 @@ class StormLibStixTest(s_test.SynTest):
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
             stix = s_common.yamlload(self.getTestFilePath('stix_import', 'apt1.json'))
             msgs = await core.stormlist('yield $lib.stix.import.ingest($stix)', opts={'view': viewiden, 'vars': {'stix': stix}})
-            self.len(29, await core.nodes('media:news -(refs)> *', opts={'view': viewiden}))
+            self.len(29, await core.nodes('doc:report -(refs)> *', opts={'view': viewiden}))
             self.len(1, await core.nodes('it:sec:stix:bundle:id', opts={'view': viewiden}))
             self.len(3, await core.nodes('it:sec:stix:indicator -(refs)> inet:fqdn', opts={'view': viewiden}))
 
