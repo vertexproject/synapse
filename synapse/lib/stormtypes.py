@@ -2727,7 +2727,7 @@ class LibLift(Lib):
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes to the pipeline. '
                                       'This must be used in conjunction with the ``yield`` keyword.', }}},
-        {'name': 'byTypeValue', 'desc': 'Lift nodes by the value of their type.',
+        {'name': 'byTypeValue', 'desc': 'Lift nodes which have a property with a specific type and value.',
          'type': {'type': 'function', '_funcname': '_byTypeValue',
                   'args': (
                       {'name': 'name', 'desc': 'The name of the type to lift.', 'type': 'str'},
