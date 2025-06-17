@@ -27,7 +27,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq('vis', nodes[0].get('iso3'))
             self.eq(31337, nodes[0].get('isonum'))
             self.eq(('pesos', 'usd', 'vcoins'), nodes[0].get('currencies'))
-            self.len(2, await core.nodes('pol:country -> geo:name'))
+            self.len(2, await core.nodes('pol:country -> meta:name'))
             self.len(3, await core.nodes('pol:country -> econ:currency'))
 
             self.len(1, nodes := await core.nodes('[ pol:country=({"name": "visitopia"}) ]'))
@@ -94,8 +94,8 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq('potus', nodes[0].get('title'))
             self.eq(2, nodes[0].get('termlimit'))
             self.len(1, await core.nodes('pol:office:title=potus -> ou:org'))
-            self.len(1, await core.nodes('pol:office:title=potus -> ou:jobtitle'))
             self.len(1, await core.nodes('pol:office:title=potus -> ou:position'))
+            self.len(1, await core.nodes('pol:office:title=potus -> entity:title'))
 
             nodes = await core.nodes('''
                 [ pol:race=*
@@ -114,7 +114,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
                 [ pol:candidate=*
                     :id=" P00009423"
                     :race={pol:race}
-                    :contact={[ps:contact=* :name=whippit]}
+                    :contact={[entity:contact=* :name=whippit]}
                     :winner=$lib.true
                     :campaign={[ou:campaign=* :name=whippit4prez ]}
                     :party={[ou:org=* :name=vertex]}
@@ -124,13 +124,13 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq('P00009423', nodes[0].get('id'))
             self.len(1, await core.nodes('pol:candidate -> pol:race'))
             self.len(1, await core.nodes('pol:candidate -> ou:org +:name=vertex'))
-            self.len(1, await core.nodes('pol:candidate -> ps:contact +:name=whippit'))
+            self.len(1, await core.nodes('pol:candidate -> entity:contact +:name=whippit'))
             self.len(1, await core.nodes('pol:candidate -> ou:campaign +:name=whippit4prez'))
 
             nodes = await core.nodes('''
                 [ pol:term=*
                     :office={pol:office:title=potus}
-                    :contact={ps:contact:name=whippit}
+                    :contact={entity:contact:name=whippit}
                     :race={pol:race}
                     :party={ou:org:name=vertex}
                     :start=20250120
@@ -142,7 +142,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('pol:term -> pol:race'))
             self.len(1, await core.nodes('pol:term -> ou:org +:name=vertex'))
             self.len(1, await core.nodes('pol:term -> pol:office +:title=potus'))
-            self.len(1, await core.nodes('pol:term -> ps:contact +:name=whippit'))
+            self.len(1, await core.nodes('pol:term -> entity:contact +:name=whippit'))
 
             nodes = await core.nodes('''
                 [ pol:pollingplace=*
@@ -161,7 +161,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq(1730682000000000, nodes[0].get('closed'))
             self.len(1, await core.nodes('pol:pollingplace -> pol:election'))
             self.len(1, await core.nodes('pol:pollingplace -> geo:place +:name=library'))
-            self.len(1, await core.nodes('pol:pollingplace -> geo:name +geo:name=pollingplace00'))
+            self.len(1, await core.nodes('pol:pollingplace -> meta:name +meta:name=pollingplace00'))
 
     async def test_model_geopol_immigration(self):
 
@@ -170,7 +170,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ pol:immigration:status=*
                     :country = {[ pol:country=* :name=woot ]}
-                    :contact = {[ ps:contact=* :name=visi ]}
+                    :contact = {[ entity:contact=* :name=visi ]}
                     :type = citizen.naturalized
                     :state = requested
                     :began = 20230328

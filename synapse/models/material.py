@@ -57,7 +57,9 @@ modeldefs = (
         'types': (
             ('mat:item', ('guid', {}), {'doc': 'A GUID assigned to a material object.'}),
             ('mat:item:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of material object or specification types.',
             }),
 
@@ -65,22 +67,32 @@ modeldefs = (
                 'doc': 'A node which represents a physical object.'}),
 
             ('phys:contained:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A taxonomy for types of contained relationships.'}),
 
             ('phys:contained', ('guid', {}), {
                 'doc': 'A node which represents a physical object containing another physical object.'}),
 
             ('mat:item', ('guid', {}), {
-                'interfaces': ('phys:object', 'geo:locatable'),
-                'template': {'phys:object': 'item', 'geo:locatable': 'item'},
+                'interfaces': (
+                    ('phys:object', {
+                        'template': {'phys:object': 'item'}}),
+
+                    ('geo:locatable', {
+                        'template': {'geo:locatable': 'item'}}),
+                ),
                 'doc': 'A GUID assigned to a material object.'}),
 
             ('mat:type', ('taxonomy', {}), {
-                'doc': 'A taxonomy of material item/specification types.',
-                'interfaces': ('meta:taxonomy',)}),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A taxonomy of material item/specification types.'}),
 
             ('mat:spec', ('guid', {}), {'doc': 'A GUID assigned to a material specification.'}),
+            # FIXME imageof?
             ('mat:specimage', ('comp', {'fields': (('spec', 'mat:spec'), ('file', 'file:bytes'))}), {}),
             ('mat:itemimage', ('comp', {'fields': (('item', 'mat:item'), ('file', 'file:bytes'))}), {}),
 
@@ -107,7 +119,7 @@ modeldefs = (
             )),
             ('mat:item', {}, (
 
-                ('name', ('str', {'lower': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the material item.'}),
 
                 ('type', ('mat:item:type:taxonomy', {}), {
@@ -118,15 +130,22 @@ modeldefs = (
             )),
 
             ('mat:spec', {}, (
-                ('name', ('str', {'lower': True}), {
+
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the material specification.'}),
+
                 ('type', ('mat:item:type:taxonomy', {}), {
                     'doc': 'The taxonomy type for the specification.'}),
             )),
 
+            # FIXME keep? Genericize?
             ('mat:itemimage', {}, (
-                ('item', ('mat:item', {}), {'doc': 'The item contained within the image file.', 'ro': True, }),
-                ('file', ('file:bytes', {}), {'doc': 'The file containing an image of the item.', 'ro': True, }),
+
+                ('item', ('mat:item', {}), {
+                    'doc': 'The item contained within the image file.', 'ro': True, }),
+
+                ('file', ('file:bytes', {}), {
+                    'doc': 'The file containing an image of the item.', 'ro': True, }),
             )),
 
             ('mat:specimage', {}, (

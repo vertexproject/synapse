@@ -2106,7 +2106,7 @@ class LibAxon(Lib):
         ''',
          'type': {'type': 'function', '_funcname': 'del_',
                   'args': (
-                      {'name': 'sha256', 'type': 'hash:sha256',
+                      {'name': 'sha256', 'type': 'crypto:hash:sha256',
                        'desc': 'The sha256 of the bytes to remove from the Axon.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the bytes were found and removed.'}}},
@@ -2529,7 +2529,8 @@ class LibAxon(Lib):
         #    'seen': now,
         }
 
-        filenode = await self.runt.view.addNode('file:bytes', sha256, props=props)
+        valu = {'sha256': sha256}
+        filenode = await self.runt.view.addNode('file:bytes', valu, props=props)
 
         if not filenode.get('name'):
             info = s_urlhelp.chopurl(original_url)
@@ -2539,7 +2540,7 @@ class LibAxon(Lib):
 
         # props = {'seen': now}
         props = {}
-        urlfile = await self.runt.view.addNode('inet:urlfile', (original_url, sha256), props=props)
+        urlfile = await self.runt.view.addNode('inet:urlfile', (original_url, filenode.ndef[1]), props=props)
 
         history = resp.get('history')
         if history is not None:

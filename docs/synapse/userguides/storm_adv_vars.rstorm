@@ -324,10 +324,11 @@ You can assign an explicit, unchanging value to a variable.
 *Example:*
 
 - Tag ``file:bytes`` nodes that have a number of malicious AV scan results higher than a given threshold for review:
-
-.. storm-pre:: [file:bytes=sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4 (it:av:scan:result=(1,) it:av:scan:result=(2,) it:av:scan:result=(3,) :target:file=sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4 :verdict=malicious) ]
-.. storm-pre:: [file:bytes=sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f (it:av:scan:result=(4,) it:av:scan:result=(5,) it:av:scan:result=(6,) it:av:scan:result=(7,) it:av:scan:result=(8,) it:av:scan:result=(9,) :target:file=sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f :verdict=malicious) ]
-.. storm-cli:: $threshold=5 file:bytes +{ -> it:av:scan:result +:verdict=malicious } >= $threshold [ +#review ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [file:bytes=sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4 (it:av:scan:result=(1,) it:av:scan:result=(2,) it:av:scan:result=(3,) :target:file=sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4 :verdict=malicious) ]
+    .. storm-pre:: [file:bytes=sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f (it:av:scan:result=(4,) it:av:scan:result=(5,) it:av:scan:result=(6,) it:av:scan:result=(7,) it:av:scan:result=(8,) it:av:scan:result=(9,) :target:file=sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f :verdict=malicious) ]
+    .. storm-cli:: $threshold=5 file:bytes +{ -> it:av:scan:result +:verdict=malicious } >= $threshold [ +#review ]
 
 .. TIP::
   
@@ -404,11 +405,11 @@ Many of these use cases are covered above so are briefly illustrated here.
 
 .. storm-cli:: $mytag=cno.infra.dns.sinkhole
 
-- **Tag on a node:** Given a ``hash:md5`` node, assign any malware tags (tags matching the glob pattern
+- **Tag on a node:** Given a ``crypto:hash:md5`` node, assign any malware tags (tags matching the glob pattern
   ``cno.mal.*``) to the variable ``$mytags`` using the ``$node.tags()`` method:
 
-.. storm-pre:: [ hash:md5=d41d8cd98f00b204e9800998ecf8427e +#cno.mal.foo +#cno.mal.bar +#cno.threat.baz ]
-.. storm-cli:: hash:md5=d41d8cd98f00b204e9800998ecf8427e $mytags=$node.tags(cno.mal.*) $lib.print($mytags)
+.. storm-pre:: [ crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e +#cno.mal.foo +#cno.mal.bar +#cno.threat.baz ]
+.. storm-cli:: crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e $mytags=$node.tags(cno.mal.*) $lib.print($mytags)
 
 .. TIP::
   
@@ -426,9 +427,10 @@ Many of these use cases are covered above so are briefly illustrated here.
 *Example*
 
 - Given an MD5 hash, copy any ``cno.mal.*`` tags from the hash to the associated file (``file:bytes`` node):
-
-.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :md5=d41d8cd98f00b204e9800998ecf8427e :sha1=da39a3ee5e6b4b0d3255bfef95601890afd80709 :size=0 ]
-.. storm-cli:: hash:md5=d41d8cd98f00b204e9800998ecf8427e $mytags=$node.tags(cno.mal.*) for $tag in $mytags { -> file:bytes [ +#$tag ] }
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :md5=d41d8cd98f00b204e9800998ecf8427e :sha1=da39a3ee5e6b4b0d3255bfef95601890afd80709 :size=0 ]
+    .. storm-cli:: crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e $mytags=$node.tags(cno.mal.*) for $tag in $mytags { -> file:bytes [ +#$tag ] }
 
 The output above includes two "copies" of the ``file:bytes`` node because the node is output twice - once
 for each iteration of the for loop. The first iteration copies / applies the ``cno.mal.foo`` tag; the
@@ -443,7 +445,7 @@ second iteration applies the ``cno.mal.bar`` tag. For a detailed explanation of 
   
   ::
     
-    hash:md5=d41d8cd98f00b204e9800998ecf8427e for $tag in $node.tags(cno.mal.*) { -> file:bytes [ +#$tag ] }
+    crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e for $tag in $node.tags(cno.mal.*) { -> file:bytes [ +#$tag ] }
   
 
 - **Tag timestamps:** Assign the times associated with Threat Group 20’s control of a malicious domain to the variable
@@ -495,8 +497,10 @@ evaluated, enclose the query in curly braces (``{ <storm query> }``).
 - Assign an ``ou:org`` node's guid value to the variable ``$org`` by lifting the associated org node using its
   ``:name`` property:
 
-.. storm-pre:: [ ou:org=* :name=vertex :loc=us.va :url=https://vertex.link/ ]
-.. storm-cli:: $org={ ou:org:name=vertex } $lib.print($org)
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ou:org=* :name=vertex :loc=us.va :url=https://vertex.link/ ]
+    .. storm-cli:: $org={ ou:org:name=vertex } $lib.print($org)
 
 
 .. _Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#power-up

@@ -4837,6 +4837,8 @@ class EditPropSet(Edit):
 
             isndef = isinstance(prop.type, s_types.Ndef)
             isarray = prop.type.isarray
+            if isarray and isinstance(prop.type.arraytype, s_types.Ndef):
+                isndef = True
 
             try:
 

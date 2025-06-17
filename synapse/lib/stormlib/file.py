@@ -48,4 +48,4 @@ class LibFile(s_stormtypes.Lib):
         props = await axon.hashset(sha256b)
         props['size'] = size
 
-        return await self.runt.view.addNode('file:bytes', props['sha256'], props=props)
+        return await self.runt.view.addNode('file:bytes', {'sha256': props.pop('sha256'), '$props': props})

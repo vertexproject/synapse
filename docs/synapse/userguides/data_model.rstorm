@@ -556,6 +556,9 @@ relationship occurred at a specific point in time. Events represent the combinat
 for when the node was observed. Examples of event forms include an individual login to an account, a specific
 DNS query, or a domain registration (whois) record captured on a specific date.
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 The structure of an event node may vary depending on the specific event being modeled. A "simple" event
 may be represented as a :ref:`form-comp` that combines an entity and a timestamp; for example, a domain whois
 record (``inet:whois:rec``) consists of the whois record and the time that record was observed or retrieved.

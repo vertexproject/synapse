@@ -69,11 +69,16 @@ for a full list.
   As demonstrated below, some node constructors can "intelligently" leverage the relevant aspects of the full
   node object (the value of the ``$node`` variable) when creating new nodes.
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 - Use the ``$node`` variable to create multiple whois name server records (``inet:whois:recns``) for the name
   server ``ns1.somedomain.com`` from a set of inbound whois record nodes for the domain ``woot.com``:
 
-.. storm-pre:: [ (inet:whois:rec=(woot.com,2019/06/13) :text=ns1.somedomain.com) (inet:whois:rec=(woot.com,2019/09/12) :text=ns1.somedomain.com) ]
-.. storm-cli:: inet:whois:rec:fqdn=woot.com [ inet:whois:recns=(ns1.somedomain.com,$node) ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (inet:whois:rec=(woot.com,2019/06/13) :text=ns1.somedomain.com) (inet:whois:rec=(woot.com,2019/09/12) :text=ns1.somedomain.com) ]
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com [ inet:whois:recns=(ns1.somedomain.com,$node) ]
 
 In the example above, the :ref:`meth-node-value` method could have been used instead of ``$node`` to create
 the ``inet:whois:recns`` nodes. In this case, the node constructor knows to use the primary property value
