@@ -107,7 +107,6 @@ class SlabSeqn:
 
         indx = self.indx
         retn = self.slab.put(s_common.int64en(indx), packitem, append=True, db=self.db)
-        assert retn, "Not adding the largest index"
 
         self.indx += 1
         self.size += 1

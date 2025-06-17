@@ -353,7 +353,6 @@ class MultiSlabSeqn(s_base.Base):
         else:
             indx = self.indx
 
-        assert self.tailseqn
         retn = self.tailseqn.add(item, indx=indx)
 
         if advances:
