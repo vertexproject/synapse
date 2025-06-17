@@ -1938,7 +1938,7 @@ class Str(Type):
         ('enums', None),  # type: ignore
         ('regex', None),
         ('lower', False),
-        ('strip', False),
+        ('strip', True),
         ('replace', ()),
         ('onespace', False),
         ('globsuffix', False),

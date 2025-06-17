@@ -1177,51 +1177,47 @@ modeldefs = (
         'ctors': (
 
             ('inet:ip', 'synapse.models.inet.IPAddr', {}, {
-                'doc': 'An IPv4 or IPv6 address.',
-                'ex': '1.2.3.4'
-            }),
+                'ex': '1.2.3.4',
+                'doc': 'An IPv4 or IPv6 address.'}),
 
             ('inet:iprange', 'synapse.models.inet.IPRange', {}, {
-                'doc': 'An IPv4 or IPv6 address range.',
-                'ex': '1.2.3.4-1.2.3.8'
-            }),
+                'ex': '1.2.3.4-1.2.3.8',
+                'doc': 'An IPv4 or IPv6 address range.'}),
 
             ('inet:sockaddr', 'synapse.models.inet.SockAddr', {}, {
-                'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
-                'ex': 'tcp://1.2.3.4:80'
-            }),
+                'ex': 'tcp://1.2.3.4:80',
+                'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.'}),
 
             ('inet:cidr', 'synapse.models.inet.Cidr', {}, {
-                'doc': 'An IP address block in Classless Inter-Domain Routing (CIDR) notation.',
-                'ex': '1.2.3.0/24'
-            }),
+                'ex': '1.2.3.0/24',
+                'doc': 'An IP address block in Classless Inter-Domain Routing (CIDR) notation.'}),
 
             ('inet:email', 'synapse.models.inet.Email', {}, {
                 'doc': 'An e-mail address.'}),
 
             ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
-                'doc': 'A Fully Qualified Domain Name (FQDN).',
-                'ex': 'vertex.link'}),
+                'ex': 'vertex.link',
+                'doc': 'A Fully Qualified Domain Name (FQDN).'}),
 
             ('inet:rfc2822:addr', 'synapse.models.inet.Rfc2822Addr', {}, {
-                'doc': 'An RFC 2822 Address field.',
-                'ex': '"Visi Kenshoto" <visi@vertex.link>'
-            }),
+                'ex': '"Visi Kenshoto" <visi@vertex.link>',
+                'doc': 'An RFC 2822 Address field.'}),
 
             ('inet:url', 'synapse.models.inet.Url', {}, {
-                'doc': 'A Universal Resource Locator (URL).',
-                'ex': 'http://www.woot.com/files/index.html'
-            }),
+                'ex': 'http://www.woot.com/files/index.html',
+                'doc': 'A Universal Resource Locator (URL).'}),
 
             ('inet:http:cookie', 'synapse.models.inet.HttpCookie', {}, {
-                'doc': 'An individual HTTP cookie string.',
                 'ex': 'PHPSESSID=el4ukv0kqbvoirg7nkp4dncpk3',
-            }),
+                'doc': 'An individual HTTP cookie string.'}),
         ),
 
         'edges': (
-            (('inet:whois:iprec', 'ipwhois', 'inet:ip'), {
-                'doc': 'The source IP whois record describes the target IP address.'}),
+            (('inet:whois:iprecord', 'has', 'inet:ip'), {
+                'doc': 'The IP whois record describes the IP address.'}),
+
+            (('inet:cidr', 'has', 'inet:ip'), {
+                'doc': 'The CIDR block contains the IP address.'}),
         ),
 
         'types': (
@@ -1239,23 +1235,22 @@ modeldefs = (
                 'doc': 'A network protocol name.'}),
 
             ('inet:asnet', ('comp', {'fields': (('asn', 'inet:asn'), ('net', 'inet:net'))}), {
-                'doc': 'An Autonomous System Number (ASN) and its associated IP address range.',
                 'ex': '(54959, (1.2.3.4, 1.2.3.20))',
-            }),
+                'doc': 'An Autonomous System Number (ASN) and its associated IP address range.'}),
 
             ('inet:client', ('inet:sockaddr', {}), {
-                'doc': 'A network client address.'
-            }),
+                'doc': 'A network client address.'}),
 
             ('inet:download', ('guid', {}), {
-                'doc': 'An instance of a file downloaded from a server.',
-            }),
+                'doc': 'An instance of a file downloaded from a server.'}),
 
             ('inet:flow', ('guid', {}), {
                 'doc': 'An individual network connection between a given source and destination.'}),
 
             ('inet:tunnel:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of tunnel types.'}),
 
             ('inet:tunnel', ('guid', {}), {
@@ -1265,8 +1260,7 @@ modeldefs = (
                 'doc': 'A host using a specific network egress client address.'}),
 
             ('inet:group', ('str', {}), {
-                'doc': 'A group name string.'
-            }),
+                'doc': 'A group name string.'}),
 
             ('inet:http:header:name', ('str', {'lower': True}), {}),
 
@@ -1286,128 +1280,94 @@ modeldefs = (
                 'doc': 'An HTTP session.'}),
 
             ('inet:http:request', ('guid', {}), {
-                'interfaces': ('inet:proto:request',),
+                'interfaces': (
+                    ('inet:proto:request', {}),
+                ),
                 'doc': 'A single HTTP request.'}),
 
             ('inet:iface:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of network interface types.'}),
 
             ('inet:iface', ('guid', {}), {
-                'doc': 'A network interface with a set of associated protocol addresses.'
-            }),
+                'doc': 'A network interface with a set of associated protocol addresses.'}),
 
             ('inet:mac', ('str', {'lower': True, 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$'}), {
-                'doc': 'A 48-bit Media Access Control (MAC) address.',
-                'ex': 'aa:bb:cc:dd:ee:ff'
-            }),
+                'ex': 'aa:bb:cc:dd:ee:ff',
+                'doc': 'A 48-bit Media Access Control (MAC) address.'}),
 
             ('inet:net', ('inet:iprange', {}), {
-                'doc': 'An IP address range.',
-                'ex': '(1.2.3.4, 1.2.3.20)'
-            }),
+                'ex': '(1.2.3.4, 1.2.3.20)',
+                'doc': 'An IP address range.'}),
 
-            ('inet:passwd', ('str', {}), {
-                'doc': 'A password string.'
-            }),
+            ('inet:passwd', ('str', {'strip': False}), {
+                'interfaces': (
+                    ('auth:credential', {}),
+                    ('crypto:hashable', {}),
+                ),
+                'doc': 'A password string.'}),
 
             ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
-                'doc': 'A network port.',
-                'ex': '80'
-            }),
+                'ex': '80',
+                'doc': 'A network port.'}),
 
             ('inet:server', ('inet:sockaddr', {}), {
-                'doc': 'A network server address.'
-            }),
+                'doc': 'A network server address.'}),
 
             ('inet:banner', ('comp', {'fields': (('server', 'inet:server'), ('text', 'it:dev:str'))}), {
-                'doc': 'A network protocol banner string presented by a server.',
-            }),
+                'doc': 'A network protocol banner string presented by a server.'}),
 
             ('inet:servfile', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
-                'doc': 'A file hosted on a server for access over a network protocol.',
-            }),
+                'doc': 'A file hosted on a server for access over a network protocol.'}),
 
             ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
-                'doc': 'A file hosted at a specific Universal Resource Locator (URL).'
-            }),
+                'doc': 'A file hosted at a specific Universal Resource Locator (URL).'}),
 
             ('inet:urlredir', ('comp', {'fields': (('src', 'inet:url'), ('dst', 'inet:url'))}), {
+                'ex': '(http://foo.com/,http://bar.com/)',
                 'doc': 'A URL that redirects to another URL, such as via a URL shortening service '
-                       'or an HTTP 302 response.',
-                'ex': '(http://foo.com/,http://bar.com/)'
-            }),
+                       'or an HTTP 302 response.'}),
 
             ('inet:url:mirror', ('comp', {'fields': (('of', 'inet:url'), ('at', 'inet:url'))}), {
-                'doc': 'A URL mirror site.',
-            }),
+                'doc': 'A URL mirror site.'}),
+
             ('inet:user', ('str', {'lower': True}), {
-                'doc': 'A username string.'
-            }),
+                'doc': 'A username string.'}),
 
             ('inet:service:object', ('ndef', {'interfaces': ('inet:service:object',)}), {
                 'doc': 'An ndef type including all forms which implement the inet:service:object interface.'}),
 
             ('inet:search:query', ('guid', {}), {
-                'interfaces': ('inet:service:action',),
-                'doc': 'An instance of a search query issued to a search engine.',
-            }),
+                'interfaces': (
+                    ('inet:service:action', {}),
+                ),
+                'doc': 'An instance of a search query issued to a search engine.'}),
 
             ('inet:search:result', ('guid', {}), {
-                'doc': 'A single result from a web search.',
-            }),
+                'doc': 'A single result from a web search.'}),
 
-            ('inet:whois:contact', ('comp', {'fields': (('rec', 'inet:whois:rec'), ('type', ('str', {'lower': True})))}), {
-                'doc': 'An individual contact from a domain whois record.'
-            }),
-
-            ('inet:whois:rar', ('str', {'lower': True}), {
-                'doc': 'A domain registrar.',
-                'ex': 'godaddy, inc.'
-            }),
-
-            ('inet:whois:rec', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('asof', 'time'))}), {
-                'doc': 'A domain whois record.'
-            }),
-
-            ('inet:whois:recns', ('comp', {'fields': (('ns', 'inet:fqdn'), ('rec', 'inet:whois:rec'))}), {
-                'doc': 'A nameserver associated with a domain whois record.'
-            }),
-
-            ('inet:whois:reg', ('str', {'lower': True}), {
-                'doc': 'A domain registrant.',
-                'ex': 'woot hostmaster'
-            }),
+            ('inet:whois:record', ('guid', {}), {
+                'prevnames': ('inet:whois:rec',),
+                'doc': 'An FQDN whois registration record.'}),
 
             ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
-                'doc': 'An email address associated with an FQDN via whois registration text.',
-            }),
+                'doc': 'An email address associated with an FQDN via whois registration text.'}),
 
             ('inet:whois:ipquery', ('guid', {}), {
-                'doc': 'Query details used to retrieve an IP record.'
-            }),
+                'doc': 'Query details used to retrieve an IP record.'}),
 
-            ('inet:whois:iprec', ('guid', {}), {
-                'doc': 'An IPv4/IPv6 block registration record.'
-            }),
+            ('inet:whois:iprecord', ('guid', {}), {
+                'doc': 'An IPv4/IPv6 block registration record.'}),
 
-            ('inet:whois:ipcontact', ('guid', {}), {
-                'doc': 'An individual contact from an IP block record.'
-            }),
-
-            ('inet:whois:regid', ('str', {}), {
-                'doc': 'The registry unique identifier of the registration record.',
-                'ex': 'NET-10-0-0-0-1'
-            }),
-
+            # FIXME de-comp
             ('inet:wifi:ap', ('comp', {'fields': (('ssid', 'inet:wifi:ssid'), ('bssid', 'inet:mac'))}), {
-                'doc': 'An SSID/MAC address combination for a wireless access point.'
-            }),
+                'doc': 'An SSID/MAC address combination for a wireless access point.'}),
 
-            ('inet:wifi:ssid', ('str', {}), {
-                'doc': 'A WiFi service set identifier (SSID) name.',
-                'ex': 'The Vertex Project'
-            }),
+            ('inet:wifi:ssid', ('str', {'strip': False}), {
+                'ex': 'The Vertex Project',
+                'doc': 'A WiFi service set identifier (SSID) name.'}),
 
             ('inet:email:message', ('guid', {}), {
                 'doc': 'An individual email message delivered to an inbox.'}),
@@ -1435,8 +1395,9 @@ modeldefs = (
                 'doc': 'A network platform which provides services.'}),
 
             ('inet:service:app', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'application'},
+                'interfaces': (
+                    ('inet:service:object', {'template': {'service:base': 'application'}}),
+                ),
                 'doc': 'A platform specific application.'}),
 
             ('inet:service:instance', ('guid', {}), {
@@ -1446,73 +1407,103 @@ modeldefs = (
                 'doc': 'An object status enumeration.'}),
 
             ('inet:service:account', ('guid', {}), {
-                'interfaces': ('inet:service:subscriber',),
-                'template': {'service:base': 'account'},
+                'interfaces': (
+                    ('inet:service:subscriber', {
+                        'template': {'service:base': 'account', 'contactable': 'account'}}),
+                ),
                 'doc': 'An account within a service platform. Accounts may be instance specific.'}),
 
             ('inet:service:relationship:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A service object relationship type taxonomy.'}),
 
             ('inet:service:relationship', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'relationship'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'relationship'}}),
+                ),
                 'doc': 'A relationship between two service objects.'}),
 
             ('inet:service:permission:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of service permission types.'}),
 
             ('inet:service:permission', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'permission'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'permission'}}),
+                ),
                 'doc': 'A permission which may be granted to a service account or role.'}),
 
             ('inet:service:rule', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'rule'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'rule'}}),
+                ),
                 'doc': 'A rule which grants or denies a permission to a service account or role.'}),
 
             ('inet:service:login', ('guid', {}), {
-                'interfaces': ('inet:service:action',),
+                'interfaces': (
+                    ('inet:service:action', {}),
+                ),
                 'doc': 'A login event for a service account.'}),
 
             ('inet:service:login:method:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of service login methods.'}),
 
             ('inet:service:session', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'session'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'session'}}),
+                ),
                 'doc': 'An authenticated session.'}),
 
             ('inet:service:group', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'group'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'group'}}),
+                ),
                 'doc': 'A group or role which contains member accounts.'}),
 
             ('inet:service:group:member', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'group membership'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'group membership'}}),
+                ),
                 'doc': 'Represents a service account being a member of a group.'}),
 
             ('inet:service:channel', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'channel'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'channel'}}),
+                ),
                 'doc': 'A channel used to distribute messages.'}),
 
             ('inet:service:thread', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'thread'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'thread'}}),
+                ),
                 'doc': 'A message thread.'}),
 
             ('inet:service:channel:member', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'channel membership'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'channel membership'}}),
+                ),
                 'doc': 'Represents a service account being a member of a channel.'}),
 
             ('inet:service:message', ('guid', {}), {
-                'interfaces': ('inet:service:action',),
+                'interfaces': (
+                    ('inet:service:action', {}),
+                ),
                 'doc': 'A message or post created by an account.'}),
 
             ('inet:service:message:link', ('guid', {}), {
@@ -1522,12 +1513,16 @@ modeldefs = (
                 'doc': 'A file attachment included within a message.'}),
 
             ('inet:service:message:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of message types.'}),
 
             ('inet:service:emote', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'emote'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'emote'}}),
+                ),
                 'doc': 'An emote or reaction by an account.'}),
 
             ('inet:service:access:action:taxonomy', ('taxonomy', {}), {
@@ -1535,43 +1530,59 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of service actions.'}),
 
             ('inet:service:access', ('guid', {}), {
-                'interfaces': ('inet:service:action',),
+                'interfaces': (
+                    ('inet:service:action', {}),
+                ),
                 'doc': 'Represents a user access request to a service resource.'}),
 
             ('inet:service:tenant', ('guid', {}), {
-                'interfaces': ('inet:service:subscriber',),
-                'template': {'service:base': 'tenant'},
+                'interfaces': (
+                    ('inet:service:subscriber', {
+                        'template': {'service:base': 'tenant', 'contactable': 'tenant'}}),
+                ),
                 'doc': 'A tenant which groups accounts and instances.'}),
 
             ('inet:service:subscription:level:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A taxonomy of platform specific subscription levels.'}),
 
             ('inet:service:subscription', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'subscription'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'subscription'}}),
+                ),
                 'doc': 'A subscription to a service platform or instance.'}),
 
             ('inet:service:subscriber', ('ndef', {'interface': 'inet:service:subscriber'}), {
                 'doc': 'A node which may subscribe to a service subscription.'}),
 
             ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of service resource types.'}),
 
             ('inet:service:resource', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'resource'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'resource'}}),
+                ),
                 'doc': 'A generic resource provided by the service architecture.'}),
 
             ('inet:service:bucket', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'bucket'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'bucket'}}),
+                ),
                 'doc': 'A file/blob storage object within a service architecture.'}),
 
             ('inet:service:bucket:item', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'bucket item'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'bucket item'}}),
+                ),
                 'doc': 'An individual file stored within a bucket.'}),
 
             ('inet:tls:handshake', ('guid', {}), {
@@ -1589,10 +1600,10 @@ modeldefs = (
             ('inet:tls:ja4s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja4s', 'inet:tls:ja4s'))}), {
                 'doc': 'A JA4S TLS server fingerprint used by a server.'}),
 
-            ('inet:tls:ja3s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja3s', 'hash:md5'))}), {
+            ('inet:tls:ja3s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja3s', 'crypto:hash:md5'))}), {
                 'doc': 'A JA3 sample taken from a server.'}),
 
-            ('inet:tls:ja3:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja3', 'hash:md5'))}), {
+            ('inet:tls:ja3:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja3', 'crypto:hash:md5'))}), {
                 'doc': 'A JA3 sample taken from a client.'}),
 
             ('inet:tls:servercert', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
@@ -1611,8 +1622,9 @@ modeldefs = (
             ('inet:proto:request', {
 
                 'doc': 'Properties common to network protocol requests and responses.',
-                'interfaces': ('it:host:activity',),
-
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
                 'props': (
                     ('flow', ('inet:flow', {}), {
                         'doc': 'The raw inet:flow containing the request.'}),
@@ -1636,7 +1648,7 @@ modeldefs = (
                 'template': {'service:base': 'node'},
                 'props': (
 
-                    ('id', ('str', {'strip': True}), {
+                    ('id', ('meta:id', {}), {
                         'doc': 'A platform specific ID which identifies the {service:base}.'}),
 
                     ('platform', ('inet:service:platform', {}), {
@@ -1650,8 +1662,10 @@ modeldefs = (
             ('inet:service:object', {
 
                 'doc': 'Properties common to objects within a service platform.',
-                'interfaces': ('inet:service:base',),
-                'template': {'service:base': 'object'},
+                'interfaces': (
+                    ('inet:service:base', {
+                        'template': {'service:base': 'object'}}),
+                ),
                 'props': (
 
                     ('url', ('inet:url', {}), {
@@ -1674,18 +1688,24 @@ modeldefs = (
 
             ('inet:service:subscriber', {
                 'doc': 'Properties common to the nodes which subscribe to services.',
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'subscriber'},
-                'props': (
-                    ('profile', ('ps:contact', {}), {
-                        'doc': 'The primary contact information for the {service:base}.'}),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'subscriber'}}),
+
+                    ('entity:actor', {
+                        'template': {'contactable': 'subscriber'}}),
+
+                    ('entity:abstract', {
+                        'template': {'contactable': 'subscriber'}}),
                 ),
             }),
 
             ('inet:service:action', {
 
                 'doc': 'Properties common to events within a service platform.',
-                'interfaces': ('inet:service:base',),
+                'interfaces': (
+                    ('inet:service:base', {}),
+                ),
                 'props': (
 
                     ('app', ('inet:service:app', {}), {
@@ -1746,7 +1766,7 @@ modeldefs = (
 
             ('inet:email:message', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The ID parsed from the "message-id" header.'}),
 
                 ('to', ('inet:email', {}), {
@@ -1764,8 +1784,7 @@ modeldefs = (
                 ('subject', ('str', {}), {
                     'doc': 'The email message subject parsed from the "subject" header.'}),
 
-                ('body', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('body', ('text', {}), {
                     'doc': 'The body of the email message.'}),
 
                 ('date', ('time', {}), {
@@ -1854,16 +1873,15 @@ modeldefs = (
 
                 ('broadcast', ('inet:ip', {}), {
                     'ro': True,
-                    'doc': 'The broadcast IP address from the CIDR notation.'
-                }),
+                    'doc': 'The broadcast IP address from the CIDR notation.'}),
+
                 ('mask', ('int', {}), {
                     'ro': True,
-                    'doc': 'The mask from the CIDR notation.'
-                }),
+                    'doc': 'The mask from the CIDR notation.'}),
+
                 ('network', ('inet:ip', {}), {
                     'ro': True,
-                    'doc': 'The network IP address from the CIDR notation.'
-                }),
+                    'doc': 'The network IP address from the CIDR notation.'}),
             )),
 
             ('inet:client', {}, (
@@ -1919,24 +1937,26 @@ modeldefs = (
             )),
 
             ('inet:flow', {}, (
+
+                # FIXME period
                 ('time', ('time', {}), {
-                    'doc': 'The time the network connection was initiated.'
-                }),
+                    'doc': 'The time the network connection was initiated.'}),
+
                 ('duration', ('int', {}), {
-                    'doc': 'The duration of the flow in seconds.'
-                }),
+                    'doc': 'The duration of the flow in seconds.'}),
+
                 ('from', ('guid', {}), {
-                    'doc': 'The ingest source file/iden. Used for reparsing.'
-                }),
+                    'doc': 'The ingest source file/iden. Used for reparsing.'}),
+
                 ('dst', ('inet:server', {}), {
-                    'doc': 'The destination address / port for a connection.'
-                }),
+                    'doc': 'The destination address / port for a connection.'}),
+
                 ('dst:host', ('it:host', {}), {
-                    'doc': 'The guid of the destination host.'
-                }),
+                    'doc': 'The guid of the destination host.'}),
+
                 ('dst:proc', ('it:exec:proc', {}), {
-                    'doc': 'The guid of the destination process.'
-                }),
+                    'doc': 'The guid of the destination process.'}),
+
                 ('dst:exe', ('file:bytes', {}), {
                     'doc': 'The file (executable) that received the connection.'}),
 
@@ -1944,24 +1964,23 @@ modeldefs = (
                     'doc': 'An array of files sent by the destination host.'}),
 
                 ('dst:txcount', ('int', {}), {
-                    'doc': 'The number of packets sent by the destination host.'
-                }),
+                    'doc': 'The number of packets sent by the destination host.'}),
+
                 ('dst:txbytes', ('int', {}), {
-                    'doc': 'The number of bytes sent by the destination host.'
-                }),
-                ('dst:handshake', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A text representation of the initial handshake sent by the server.'
-                }),
+                    'doc': 'The number of bytes sent by the destination host.'}),
+
+                ('dst:handshake', ('text', {}), {
+                    'doc': 'A text representation of the initial handshake sent by the server.'}),
+
                 ('src', ('inet:client', {}), {
-                    'doc': 'The source address / port for a connection.'
-                }),
+                    'doc': 'The source address / port for a connection.'}),
+
                 ('src:host', ('it:host', {}), {
-                    'doc': 'The guid of the source host.'
-                }),
+                    'doc': 'The guid of the source host.'}),
+
                 ('src:proc', ('it:exec:proc', {}), {
-                    'doc': 'The guid of the source process.'
-                }),
+                    'doc': 'The guid of the source process.'}),
+
                 ('src:exe', ('file:bytes', {}), {
                     'doc': 'The file (executable) that created the connection.'}),
 
@@ -1969,33 +1988,32 @@ modeldefs = (
                     'doc': 'An array of files sent by the source host.'}),
 
                 ('src:txcount', ('int', {}), {
-                    'doc': 'The number of packets sent by the source host.'
-                }),
+                    'doc': 'The number of packets sent by the source host.'}),
+
                 ('src:txbytes', ('int', {}), {
-                    'doc': 'The number of bytes sent by the source host.'
-                }),
+                    'doc': 'The number of bytes sent by the source host.'}),
+
                 ('tot:txcount', ('int', {}), {
-                    'doc': 'The number of packets sent in both directions.'
-                }),
+                    'doc': 'The number of packets sent in both directions.'}),
+
                 ('tot:txbytes', ('int', {}), {
-                    'doc': 'The number of bytes sent in both directions.'
-                }),
-                ('src:handshake', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A text representation of the initial handshake sent by the client.'
-                }),
+                    'doc': 'The number of bytes sent in both directions.'}),
+
+                ('src:handshake', ('text', {}), {
+                    'doc': 'A text representation of the initial handshake sent by the client.'}),
+
                 ('dst:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of NIST CPEs identified on the destination host.',
-                }),
-                ('dst:softnames', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of software names identified on the destination host.',
-                }),
+                    'doc': 'An array of NIST CPEs identified on the destination host.'}),
+
+                ('dst:softnames', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of software names identified on the destination host.'}),
+
                 ('src:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of NIST CPEs identified on the source host.',
-                }),
-                ('src:softnames', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of software names identified on the source host.',
-                }),
+                    'doc': 'An array of NIST CPEs identified on the source host.'}),
+
+                ('src:softnames', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of software names identified on the source host.'}),
+
                 ('ip:proto', ('int', {'min': 0, 'max': 0xff}), {
                     'doc': 'The IP protocol number of the flow.',
                 }),
@@ -2033,15 +2051,20 @@ modeldefs = (
 
             ('inet:tunnel:type:taxonomy', {}, ()),
             ('inet:tunnel', {}, (
+
                 ('anon', ('bool', {}), {
                     'doc': 'Indicates that this tunnel provides anonymization.'}),
+
                 ('type', ('inet:tunnel:type:taxonomy', {}), {
                     'doc': 'The type of tunnel such as vpn or proxy.'}),
+
                 ('ingress', ('inet:server', {}), {
                     'doc': 'The server where client traffic enters the tunnel.'}),
+
                 ('egress', ('inet:server', {}), {
                     'doc': 'The server where client traffic leaves the tunnel.'}),
-                ('operator', ('ps:contact', {}), {
+
+                ('operator', ('entity:actor', {}), {
                     'doc': 'The contact information for the tunnel operator.'}),
             )),
 
@@ -2157,8 +2180,10 @@ modeldefs = (
             )),
 
             ('inet:http:session', {}, (
-                ('contact', ('ps:contact', {}), {
-                    'doc': 'The ps:contact which owns the session.'}),
+
+                ('contact', ('entity:contact', {}), {
+                    'doc': 'The entity contact which owns the session.'}),
+
                 ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of cookies used to identify this specific session.'}),
             )),
@@ -2173,36 +2198,35 @@ modeldefs = (
                     'doc': 'The interface name.'}),
 
                 ('network', ('it:network', {}), {
-                    'doc': 'The guid of the it:network the interface connected to.'
-                }),
+                    'doc': 'The guid of the it:network the interface connected to.'}),
+
                 ('type', ('inet:iface:type:taxonomy', {}), {
-                    'doc': 'The interface type.'
-                }),
+                    'doc': 'The interface type.'}),
+
                 ('mac', ('inet:mac', {}), {
-                    'doc': 'The ethernet (MAC) address of the interface.'
-                }),
+                    'doc': 'The ethernet (MAC) address of the interface.'}),
+
                 ('ip', ('inet:ip', {}), {
                     'doc': 'The IP address of the interface.',
                     'prevnames': ('ipv4', 'ipv6')}),
 
                 ('phone', ('tel:phone', {}), {
-                    'doc': 'The telephone number of the interface.'
-                }),
+                    'doc': 'The telephone number of the interface.'}),
+
                 ('wifi:ap:ssid', ('inet:wifi:ssid', {}), {
-                    'doc': 'The SSID of the wifi AP the interface connected to.'
-                }),
+                    'doc': 'The SSID of the wifi AP the interface connected to.'}),
+
                 ('wifi:ap:bssid', ('inet:mac', {}), {
-                    'doc': 'The BSSID of the wifi AP the interface connected to.'
-                }),
+                    'doc': 'The BSSID of the wifi AP the interface connected to.'}),
+
                 ('adid', ('it:adid', {}), {
-                    'doc': 'An advertising ID associated with the interface.',
-                }),
+                    'doc': 'An advertising ID associated with the interface.'}),
+
                 ('mob:imei', ('tel:mob:imei', {}), {
-                    'doc': 'The IMEI of the interface.'
-                }),
+                    'doc': 'The IMEI of the interface.'}),
+
                 ('mob:imsi', ('tel:mob:imsi', {}), {
-                    'doc': 'The IMSI of the interface.'
-                }),
+                    'doc': 'The IMSI of the interface.'}),
             )),
 
             ('inet:ip', {
@@ -2241,22 +2265,22 @@ modeldefs = (
             )),
 
             ('inet:passwd', {}, (
-                ('md5', ('hash:md5', {}), {
+                ('md5', ('crypto:hash:md5', {}), {
                     'ro': True,
                     'doc': 'The MD5 hash of the password.'
                 }),
-                ('sha1', ('hash:sha1', {}), {
+                ('sha1', ('crypto:hash:sha1', {}), {
                     'ro': True,
                     'doc': 'The SHA1 hash of the password.'
                 }),
-                ('sha256', ('hash:sha256', {}), {
+                ('sha256', ('crypto:hash:sha256', {}), {
                     'ro': True,
                     'doc': 'The SHA256 hash of the password.'
                 }),
             )),
 
             ('inet:rfc2822:addr', {}, (
-                ('name', ('ps:name', {}), {
+                ('name', ('meta:name', {}), {
                     'ro': True,
                     'doc': 'The name field parsed from an RFC 2822 address string.'
                 }),
@@ -2291,11 +2315,10 @@ modeldefs = (
                     'doc': 'The server which presented the banner string.'}),
 
                 ('text', ('it:dev:str', {}), {'ro': True,
-                    'doc': 'The banner text.',
-                    'disp': {'hint': 'text'},
-                }),
+                    'doc': 'The banner text.'}),
             )),
 
+            # FIXME dedup with urlfile?
             ('inet:servfile', {}, (
                 ('file', ('file:bytes', {}), {
                     'ro': True,
@@ -2323,65 +2346,65 @@ modeldefs = (
 
                 ('passwd', ('inet:passwd', {}), {
                     'ro': True,
-                    'doc': 'The optional password used to access the URL.'
-                }),
+                    'doc': 'The optional password used to access the URL.'}),
+
                 ('base', ('str', {}), {
                     'ro': True,
-                    'doc': 'The base scheme, user/pass, fqdn, port and path w/o parameters.'
-                }),
+                    'doc': 'The base scheme, user/pass, fqdn, port and path w/o parameters.'}),
+
                 ('path', ('str', {}), {
                     'ro': True,
-                    'doc': 'The path in the URL w/o parameters.'
-                }),
+                    'doc': 'The path in the URL w/o parameters.'}),
+
                 ('params', ('str', {}), {
                     'ro': True,
-                    'doc': 'The URL parameter string.'
-                }),
+                    'doc': 'The URL parameter string.'}),
+
                 ('port', ('inet:port', {}), {
                     'ro': True,
                     'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
-                           'URLs prefixed with https will be set to port 443 unless otherwise specified.'
-                }),
+                           'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
+
                 ('proto', ('str', {'lower': True}), {
                     'ro': True,
-                    'doc': 'The protocol in the URL.'
-                }),
+                    'doc': 'The protocol in the URL.'}),
+
                 ('user', ('inet:user', {}), {
                     'ro': True,
-                    'doc': 'The optional username used to access the URL.'
-                }),
+                    'doc': 'The optional username used to access the URL.'}),
+
             )),
 
             ('inet:urlfile', {}, (
+
                 ('url', ('inet:url', {}), {
                     'ro': True,
-                    'doc': 'The URL where the file was hosted.'
-                }),
+                    'doc': 'The URL where the file was hosted.'}),
+
                 ('file', ('file:bytes', {}), {
                     'ro': True,
-                    'doc': 'The file that was hosted at the URL.'
-                }),
+                    'doc': 'The file that was hosted at the URL.'}),
             )),
 
             ('inet:urlredir', {}, (
                 ('src', ('inet:url', {}), {
                     'ro': True,
-                    'doc': 'The original/source URL before redirect.'
-                }),
+                    'doc': 'The original/source URL before redirect.'}),
+
                 ('src:fqdn', ('inet:fqdn', {}), {
                     'ro': True,
-                    'doc': 'The FQDN within the src URL (if present).'
-                }),
+                    'doc': 'The FQDN within the src URL (if present).'}),
+
                 ('dst', ('inet:url', {}), {
                     'ro': True,
-                    'doc': 'The redirected/destination URL.'
-                }),
+                    'doc': 'The redirected/destination URL.'}),
+
                 ('dst:fqdn', ('inet:fqdn', {}), {
                     'ro': True,
-                    'doc': 'The FQDN within the dst URL (if present).'
-                }),
+                    'doc': 'The FQDN within the dst URL (if present).'}),
             )),
 
+            # FIXME used anywhere?
             ('inet:url:mirror', {}, (
                 ('of', ('inet:url', {}), {
                     'ro': True,
@@ -2397,20 +2420,20 @@ modeldefs = (
 
             ('inet:search:query', {}, (
 
-                ('text', ('str', {}), {
-                    'doc': 'The search query text.',
-                    'disp': {'hint': 'text'},
-                }),
+                ('text', ('text', {}), {
+                    'doc': 'The search query text.'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the web search was issued.',
-                }),
+                    'doc': 'The time the web search was issued.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host that issued the query.',
-                }),
+                    'doc': 'The host that issued the query.'}),
+
+                # FIXME software name? ( runs software interface?!?! )
                 ('engine', ('str', {'lower': True}), {
                     'ex': 'google',
-                    'doc': 'A simple name for the search engine used.',
-                }),
+                    'doc': 'A simple name for the search engine used.'}),
+
                 ('request', ('inet:http:request', {}), {
                     'doc': 'The HTTP request used to issue the query.'}),
             )),
@@ -2433,241 +2456,118 @@ modeldefs = (
                     'doc': 'Extracted/matched text from the matched content.'}),
             )),
 
-            ('inet:whois:contact', {}, (
-                ('rec', ('inet:whois:rec', {}), {
-                    'ro': True,
-                    'doc': 'The whois record containing the contact data.'
-                }),
-                ('rec:fqdn', ('inet:fqdn', {}), {
-                    'ro': True,
-                    'doc': 'The domain associated with the whois record.'
-                }),
-                ('rec:asof', ('time', {}), {
-                    'ro': True,
-                    'doc': 'The date of the whois record.'
-                }),
-                ('type', ('str', {'lower': True}), {
-                    'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).',
-                    'ro': True,
-                }),
-                ('id', ('str', {'lower': True}), {
-                    'doc': 'The ID associated with the contact.'
-                }),
-                ('name', ('str', {'lower': True}), {
-                    'doc': 'The name of the contact.'
-                }),
-                ('email', ('inet:email', {}), {
-                    'doc': 'The email address of the contact.'
-                }),
-                ('orgname', ('ou:name', {}), {
-                    'doc': 'The name of the contact organization.'
-                }),
-                ('address', ('str', {'lower': True}), {
-                    'doc': 'The content of the street address field(s) of the contact.'
-                }),
-                ('city', ('str', {'lower': True}), {
-                    'doc': 'The content of the city field of the contact.'
-                }),
-                ('state', ('str', {'lower': True}), {
-                    'doc': 'The content of the state field of the contact.'
-                }),
-                ('country', ('str', {'lower': True}), {
-                    'doc': 'The two-letter country code of the contact.'
-                }),
-                ('phone', ('tel:phone', {}), {
-                    'doc': 'The content of the phone field of the contact.'
-                }),
-                ('fax', ('tel:phone', {}), {
-                    'doc': 'The content of the fax field of the contact.'
-                }),
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL specified for the contact.'
-                }),
-                ('whois:fqdn', ('inet:fqdn', {}), {
-                    'doc': 'The whois server FQDN for the given contact (most likely a registrar).'
-                }),
-            )),
+            ('inet:whois:record', {}, (
 
-            ('inet:whois:rar', {}, ()),
-
-            ('inet:whois:rec', {}, (
-                ('fqdn', ('inet:fqdn', {}), {
-                    'ro': True,
-                    'doc': 'The domain associated with the whois record.'
-                }),
                 ('asof', ('time', {}), {
-                    'ro': True,
-                    'doc': 'The date of the whois record.'
-                }),
-                ('text', ('str', {'lower': True}), {
-                    'doc': 'The full text of the whois record.',
-                    'disp': {'hint': 'text'},
-                }),
+                    'doc': 'The date of the whois record.'}),
+
+                ('fqdn', ('inet:fqdn', {}), {
+                    'doc': 'The domain associated with the whois record.'}),
+
+                ('text', ('text', {'lower': True}), {
+                    'doc': 'The full text of the whois record.'}),
+
                 ('created', ('time', {}), {
-                    'doc': 'The "created" time from the whois record.'
-                }),
+                    'doc': 'The "created" time from the whois record.'}),
+
                 ('updated', ('time', {}), {
-                    'doc': 'The "last updated" time from the whois record.'
-                }),
+                    'doc': 'The "last updated" time from the whois record.'}),
+
                 ('expires', ('time', {}), {
-                    'doc': 'The "expires" time from the whois record.'
-                }),
-                ('registrar', ('inet:whois:rar', {}), {
-                    'doc': 'The registrar name from the whois record.'
-                }),
-                ('registrant', ('inet:whois:reg', {}), {
-                    'doc': 'The registrant name from the whois record.'
-                }),
-            )),
+                    'doc': 'The "expires" time from the whois record.'}),
 
-            ('inet:whois:recns', {}, (
-                ('ns', ('inet:fqdn', {}), {
-                    'ro': True,
-                    'doc': 'A nameserver for a domain as listed in the domain whois record.'
-                }),
-                ('rec', ('inet:whois:rec', {}), {
-                    'ro': True,
-                    'doc': 'The whois record containing the nameserver data.'
-                }),
-                ('rec:fqdn', ('inet:fqdn', {}), {
-                    'ro': True,
-                    'doc': 'The domain associated with the whois record.'
-                }),
-                ('rec:asof', ('time', {}), {
-                    'ro': True,
-                    'doc': 'The date of the whois record.'
-                }),
-            )),
+                ('registrar', ('meta:name', {}), {
+                    'doc': 'The registrar name from the whois record.'}),
 
-            ('inet:whois:reg', {}, ()),
+                ('registrant', ('meta:name', {}), {
+                    'doc': 'The registrant name from the whois record.'}),
+
+                ('contacts', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
+                    'doc': 'The whois registraction contacts.'}),
+
+                ('nameservers', ('array', {'type': 'inet:fqdn'}), {
+                    'doc': 'The DNS nameserver FQDNs for the registered FQDN.'}),
+
+            )),
 
             ('inet:whois:email', {}, (
+
                 ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                    'doc': 'The domain with a whois record containing the email address.',
-                }),
+                    'doc': 'The domain with a whois record containing the email address.'}),
+
                 ('email', ('inet:email', {}), {'ro': True,
-                    'doc': 'The email address associated with the domain whois record.',
-                }),
+                    'doc': 'The email address associated with the domain whois record.'}),
             )),
 
             ('inet:whois:ipquery', {}, (
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the request was made.'
-                }),
+                    'doc': 'The time the request was made.'}),
+
                 ('url', ('inet:url', {}), {
-                    'doc': 'The query URL when using the HTTP RDAP Protocol.'
-                }),
+                    'doc': 'The query URL when using the HTTP RDAP Protocol.'}),
+
                 ('fqdn', ('inet:fqdn', {}), {
-                    'doc': 'The FQDN of the host server when using the legacy WHOIS Protocol.'
-                }),
+                    'doc': 'The FQDN of the host server when using the legacy WHOIS Protocol.'}),
+
                 ('ip', ('inet:ip', {}), {
                     'doc': 'The IP address queried.',
                     'prevnames': ('ipv4', 'ipv6')}),
 
                 ('success', ('bool', {}), {
-                    'doc': 'Whether the host returned a valid response for the query.'
-                }),
-                ('rec', ('inet:whois:iprec', {}), {
-                    'doc': 'The resulting record from the query.'
-                }),
+                    'doc': 'Whether the host returned a valid response for the query.'}),
+
+                ('rec', ('inet:whois:iprecord', {}), {
+                    'doc': 'The resulting record from the query.'}),
             )),
 
-            ('inet:whois:iprec', {}, (
+            ('inet:whois:iprecord', {}, (
+
                 ('net', ('inet:net', {}), {
-                    'doc': 'The IP address range assigned.',
-                    'prevnames': ('net4', 'net6')}),
-
-                ('net:min', ('inet:ip', {}), {
-                    'doc': 'The first IP in the range assigned.',
-                    'prevnames': ('net4:min', 'net6:min')}),
-
-                ('net:max', ('inet:ip', {}), {
-                    'doc': 'The last IP in the range assigned.',
-                    'prevnames': ('net4:max', 'net6:max')}),
+                    'prevnames': ('net4', 'net6'),
+                    'doc': 'The IP address range assigned.'}),
 
                 ('asof', ('time', {}), {
-                    'doc': 'The date of the record.'
-                }),
+                    'doc': 'The date of the record.'}),
+
                 ('created', ('time', {}), {
-                    'doc': 'The "created" time from the record.'
-                }),
+                    'doc': 'The "created" time from the record.'}),
+
                 ('updated', ('time', {}), {
-                    'doc': 'The "last updated" time from the record.'
-                }),
-                ('text', ('str', {'lower': True}), {
-                    'doc': 'The full text of the record.',
-                    'disp': {'hint': 'text'},
-                }),
-                ('desc', ('str', {'lower': True}), {
-                    'doc': 'Notes concerning the record.',
-                    'disp': {'hint': 'text'},
-                }),
+                    'doc': 'The "last updated" time from the record.'}),
+
+                ('text', ('text', {'lower': True}), {
+                    'doc': 'The full text of the record.'}),
+
                 ('asn', ('inet:asn', {}), {
-                    'doc': 'The associated Autonomous System Number (ASN).'
-                }),
-                ('id', ('inet:whois:regid', {}), {
-                    'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
-                }),
+                    'doc': 'The associated Autonomous System Number (ASN).'}),
+
+                ('id', ('meta:id', {}), {
+                    'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'}),
+
+                ('parentid', ('meta:id', {}), {
+                    'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'}),
+
                 ('name', ('str', {}), {
-                    'doc': 'The name assigned to the network by the registrant.'
-                }),
-                ('parentid', ('inet:whois:regid', {}), {
-                    'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'
-                }),
-                ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Additional contacts from the record.',
-                }),
+                    'doc': 'The name assigned to the network by the registrant.'}),
+
+                # FIXME ISO 2
                 ('country', ('str', {'lower': True, 'regex': '^[a-z]{2}$'}), {
-                    'doc': 'The two-letter ISO 3166 country code.'
-                }),
+                    'doc': 'The two-letter ISO 3166 country code.'}),
+
                 ('status', ('str', {'lower': True}), {
-                    'doc': 'The state of the registered network.'
-                }),
+                    'doc': 'The state of the registered network.'}),
+
                 ('type', ('str', {'lower': True}), {
-                    'doc': 'The classification of the registered network (e.g. direct allocation).'
-                }),
-                ('links', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                    'doc': 'URLs provided with the record.',
-                }),
-            )),
+                    'doc': 'The classification of the registered network (e.g. direct allocation).'}),
 
-            ('inet:whois:ipcontact', {}, (
-                ('contact', ('ps:contact', {}), {
-                    'doc': 'Contact information associated with a registration.'
-                }),
-                ('asof', ('time', {}), {
-                    'doc': 'The date of the record.'
-                }),
-                ('created', ('time', {}), {
-                    'doc': 'The "created" time from the record.'
-                }),
-                ('updated', ('time', {}), {
-                    'doc': 'The "last updated" time from the record.'
-                }),
-                ('role', ('str', {'lower': True}), {
-                    'doc': 'The primary role for the contact.'
-                }),
-                ('roles', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Additional roles assigned to the contact.',
-                }),
-                ('asn', ('inet:asn', {}), {
-                    'doc': 'The associated Autonomous System Number (ASN).'
-                }),
-                ('id', ('inet:whois:regid', {}), {
-                    'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
-                }),
+                # FIXME is this legit?
                 ('links', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                    'doc': 'URLs provided with the record.',
-                }),
-                ('status', ('str', {'lower': True}), {
-                    'doc': 'The state of the registered contact (e.g. validated, obscured).'
-                }),
-                ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Additional contacts referenced by this contact.',
-                }),
-            )),
+                    'doc': 'URLs provided with the record.'}),
 
-            ('inet:whois:regid', {}, ()),
+                ('contacts', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
+                    'doc': 'The whois registraction contacts.'}),
+            )),
 
             ('inet:wifi:ap', {}, (
 
@@ -2677,6 +2577,7 @@ modeldefs = (
                 ('bssid', ('inet:mac', {}), {
                     'doc': 'The MAC address for the wireless access point.', 'ro': True, }),
 
+                # FIXME locatable
                 ('latlong', ('geo:latlong', {}), {
                     'doc': 'The best known latitude/longitude for the wireless access point.'}),
 
@@ -2684,17 +2585,18 @@ modeldefs = (
                     'doc': 'The reported accuracy of the latlong telemetry reading.',
                 }),
                 ('channel', ('int', {}), {
-                    'doc': 'The WIFI channel that the AP was last observed operating on.',
-                }),
+                    'doc': 'The WIFI channel that the AP was last observed operating on.'}),
+
                 ('encryption', ('str', {'lower': True, 'strip': True}), {
-                    'doc': 'The type of encryption used by the WIFI AP such as "wpa2".',
-                }),
+                    'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
+
                 ('place', ('geo:place', {}), {
                     'doc': 'The geo:place associated with the latlong property.'}),
 
                 ('loc', ('loc', {}), {
                     'doc': 'The geo-political location string for the wireless access point.'}),
 
+                # FIXME ownable interface?
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization that owns/operates the access point.'}),
             )),
@@ -2757,7 +2659,7 @@ modeldefs = (
                 ('server:cert', ('crypto:x509:cert', {}), {
                     'doc': 'The x509 certificate sent by the server during the handshake.'}),
 
-                ('server:ja3s', ('hash:md5', {}), {
+                ('server:ja3s', ('crypto:hash:md5', {}), {
                     'doc': 'The JA3S fingerprint of the server response.'}),
 
                 ('server:ja4s', ('inet:tls:ja4s', {}), {
@@ -2769,7 +2671,7 @@ modeldefs = (
                 ('client:cert', ('crypto:x509:cert', {}), {
                     'doc': 'The x509 certificate sent by the client during the handshake.'}),
 
-                ('client:ja3', ('hash:md5', {}), {
+                ('client:ja3', ('crypto:hash:md5', {}), {
                     'doc': 'The JA3 fingerprint of the client request.'}),
 
                 ('client:ja4', ('inet:tls:ja4', {}), {
@@ -2777,36 +2679,44 @@ modeldefs = (
             )),
 
             ('inet:tls:ja3s:sample', {}, (
+
                 ('server', ('inet:server', {}), {
                     'ro': True,
                     'doc': 'The server that was sampled to produce the JA3S hash.'}),
-                ('ja3s', ('hash:md5', {}), {
+
+                ('ja3s', ('crypto:hash:md5', {}), {
                     'ro': True,
                     'doc': "The JA3S hash computed from the server's TLS hello packet."})
             )),
 
             ('inet:tls:ja3:sample', {}, (
+
                 ('client', ('inet:client', {}), {
                     'ro': True,
                     'doc': 'The client that was sampled to produce the JA3 hash.'}),
-                ('ja3', ('hash:md5', {}), {
+
+                ('ja3', ('crypto:hash:md5', {}), {
                     'ro': True,
                     'doc': "The JA3 hash computed from the client's TLS hello packet."})
             )),
 
             ('inet:tls:servercert', {}, (
+
                 ('server', ('inet:server', {}), {
                     'ro': True,
                     'doc': 'The server associated with the x509 certificate.'}),
+
                 ('cert', ('crypto:x509:cert', {}), {
                     'ro': True,
                     'doc': 'The x509 certificate sent by the server.'})
             )),
 
             ('inet:tls:clientcert', {}, (
+
                 ('client', ('inet:client', {}), {
                     'ro': True,
                     'doc': 'The client associated with the x509 certificate.'}),
+
                 ('cert', ('crypto:x509:cert', {}), {
                     'ro': True,
                     'doc': 'The x509 certificate sent by the client.'})
@@ -2831,20 +2741,19 @@ modeldefs = (
                                      'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternate names for the platform.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the service platform.'}),
 
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which operates the platform.'}),
 
-                ('provider:name', ('ou:name', {}), {
+                ('provider:name', ('meta:name', {}), {
                     'doc': 'The name of the organization which operates the platform.'}),
             )),
 
             ('inet:service:instance', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'ex': 'B8ZS2',
                     'doc': 'A platform specific ID to identify the service instance.'}),
 
@@ -2859,8 +2768,7 @@ modeldefs = (
                     'ex': 'synapse users slack',
                     'doc': 'The name of the service instance.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the service instance.'}),
 
                 ('period', ('ival', {}), {
@@ -2890,19 +2798,11 @@ modeldefs = (
                                      'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternate names for the application.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the platform specific application.'}),
             )),
 
             ('inet:service:account', {}, (
-
-                ('user', ('inet:user', {}), {
-                    'doc': 'The current user name of the account.'}),
-
-                ('email', ('inet:email', {}), {
-                    'doc': 'The current email address associated with the account.'}),
-
                 ('tenant', ('inet:service:tenant', {}), {
                     'doc': 'The tenant which contains the account.'}),
             )),
@@ -2926,7 +2826,7 @@ modeldefs = (
                 ('name', ('inet:group', {}), {
                     'doc': 'The name of the group on this platform.'}),
 
-                ('profile', ('ps:contact', {}), {
+                ('profile', ('entity:contact', {}), {
                     'doc': 'Current detailed contact information for this group.'}),
             )),
 
@@ -2987,6 +2887,9 @@ modeldefs = (
                 ('method', ('inet:service:login:method:taxonomy', {}), {
                     'doc': 'The type of authentication used for the login. For example "password" or "multifactor.sms".'}),
 
+                ('creds', ('array', {'interface': 'auth:credential', 'sorted': True, 'uniq': True}), {
+                    'doc': 'The credentials that were used to login.'}),
+
                 # TODO ndef based auth proto details
             )),
 
@@ -3017,8 +2920,7 @@ modeldefs = (
                 ('title', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The message title.'}),
 
-                ('text', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('text', ('text', {}), {
                     'doc': 'The text body of the message.'}),
 
                 ('status', ('inet:service:object:status', {}), {
@@ -3042,13 +2944,13 @@ modeldefs = (
                 ('place', ('geo:place', {}), {
                     'doc': 'The place that the message was sent from.'}),
 
-                ('place:name', ('geo:name', {}), {
+                ('place:name', ('meta:name', {}), {
                     'doc': 'The name of the place that the message was sent from.'}),
 
-                ('client:software', ('it:prod:softver', {}), {
+                ('client:software', ('it:software', {}), {
                     'doc': 'The client software version used to send the message.'}),
 
-                ('client:software:name', ('it:prod:softname', {}), {
+                ('client:software:name', ('meta:name', {}), {
                     'doc': 'The name of the client software used to send the message.'}),
 
                 ('file', ('file:bytes', {}), {
@@ -3136,8 +3038,7 @@ modeldefs = (
                 ('name', ('str', {'onespace': True, 'lower': True}), {
                     'doc': 'The name of the service resource.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the service resource.'}),
 
                 ('url', ('inet:url', {}), {
@@ -3203,7 +3104,7 @@ modeldefs = (
                     ('inet:fqdn:zone', _onSetFqdnZone),
                     ('inet:fqdn:iszone', _onSetFqdnIsZone),
                     ('inet:fqdn:issuffix', _onSetFqdnIsSuffix),
-                    ('inet:whois:rec:text', _onSetWhoisText),
+                    ('inet:whois:record:text', _onSetWhoisText),
                 )
             }
         },
