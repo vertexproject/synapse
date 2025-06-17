@@ -1141,7 +1141,6 @@ class AstTest(s_test.SynTest):
 
             await core.nodes('[ test:hasiface=foo :sandbox:file=* ]')
             self.len(1, await core.nodes('test:hasiface:sandbox:file'))
-            self.skip('FIXME interface props need tweak due to prefix updates?')
             self.len(1, await core.nodes('test:interface:sandbox:file'))
             self.len(1, await core.nodes('inet:proto:request:sandbox:file'))
             self.len(1, await core.nodes('it:host:activity:sandbox:file'))
