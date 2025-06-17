@@ -2483,7 +2483,7 @@ modeldefs = (
                     'doc': 'The registrant name from the whois record.'}),
 
                 ('contacts', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
-                    'doc': 'The whois registraction contacts.'}),
+                    'doc': 'The whois registration contacts.'}),
 
                 ('nameservers', ('array', {'type': 'inet:fqdn'}), {
                     'doc': 'The DNS nameserver FQDNs for the registered FQDN.'}),
@@ -2566,7 +2566,7 @@ modeldefs = (
                     'doc': 'URLs provided with the record.'}),
 
                 ('contacts', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
-                    'doc': 'The whois registraction contacts.'}),
+                    'doc': 'The whois registration contacts.'}),
             )),
 
             ('inet:wifi:ap', {}, (
