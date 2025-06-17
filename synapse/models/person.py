@@ -29,7 +29,7 @@ modeldefs = (
                         'doc': 'The date of birth for the entity.'}),
 
                     ('dod', {'target': 'lifespan*max',
-                        'doc': 'The date of birth for the entity.'}),
+                        'doc': 'The date of death for the entity.'}),
                 ),
                 'doc': 'A person.'}),
 
@@ -142,9 +142,9 @@ modeldefs = (
                 ('assistants', ('array', {'type': 'entity:individual', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of assistant/co-instructor contacts.'}),
 
-                ('period', ('ival', {'precision': 'day', 'maxfill': 1}), {
+                ('period', ('ival', {'precision': 'day'}), {
                     'prevnames': ('date:first', 'date:last'),
-                    'doc': 'The preiod over which the class was run.'}),
+                    'doc': 'The period over which the class was run.'}),
 
                 ('isvirtual', ('bool', {}), {
                     'doc': 'Set if the class is virtual.'}),
@@ -163,7 +163,7 @@ modeldefs = (
                 ('institution', ('ou:org', {}), {
                     'doc': 'The organization providing educational services.'}),
 
-                ('period', ('ival', {'precision': 'day', 'inclusive': True}), {
+                ('period', ('ival', {'precision': 'day'}), {
                     'prevnames': ('attended:first', 'attended:last'),
                     'doc': 'The period of time when the student attended the institution.'}),
 

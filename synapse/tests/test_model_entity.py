@@ -12,17 +12,19 @@ class EntityModelTest(s_t_utils.SynTest):
                     :names=('visi stark', 'visi k')
                     :lifespan=(19761217, ?)
                     :email=visi@vertex.link
+                    :creds={[ inet:passwd=cool ]}
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'visi')
             self.eq(nodes[0].get('names'), ('visi k', 'visi stark'))
             self.eq(nodes[0].get('email'), 'visi@vertex.link')
+            self.eq(nodes[0].get('creds'), (('inet:passwd', 'cool'),))
 
             nodes = await core.nodes('''
                 $item = {[ inet:fqdn=vertex.link ]}
                 $actor = {[ entity:contact=({"name": "visi"}) ]}
 
-                [ entity:posession=({"actor": $actor.ndef(), "item": $item.ndef()})
+                [ entity:possession=({"actor": $actor.ndef(), "item": $item.ndef()})
                     :type=owner
                     :period=(2016, ?)
                     :percent=50
@@ -32,8 +34,8 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('type'), 'owner.')
             self.eq(nodes[0].get('percent'), '50')
             self.eq(nodes[0].get('period'), (1451606400000000, 9223372036854775807))
-            self.len(1, await core.nodes('entity:posession :item -> inet:fqdn'))
-            self.len(1, await core.nodes('entity:posession :actor -> * +:name=visi'))
+            self.len(1, await core.nodes('entity:possession :item -> inet:fqdn'))
+            self.len(1, await core.nodes('entity:possession :actor -> * +:name=visi'))
 
     async def test_entity_relationship(self):
 

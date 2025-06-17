@@ -494,13 +494,13 @@ modeldefs = (
             ('crypto:salthash', {}, (
 
                 ('salt', ('hex', {}), {
-                    'doc': 'The salt value encoded as a hexidecimal string.'}),
+                    'doc': 'The salt value encoded as a hexadecimal string.'}),
 
                 ('hash', ('crypto:hash', {}), {
                     'doc': 'The hash value.'}),
 
                 ('value', ('crypto:hashable', {}), {
-                    'doc': 'The value that was used to computed the salted hash.'}),
+                    'doc': 'The value that was used to compute the salted hash.'}),
             )),
 
             ('crypto:x509:signedfile', {}, (
