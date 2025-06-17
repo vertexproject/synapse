@@ -103,6 +103,17 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(info.get('n1verbs'), {})
             self.eq(info.get('n2verbs'), {'refs': {'test:str': 1}})
 
+            async with core.getLocalProxy() as prox:
+                async for m in prox.storm('test:str=cool'):
+                    if m[0] == 'node':
+                        self.nn(m[1][1].get('n1verbs'))
+                        self.nn(m[1][1].get('n2verbs'))
+
+                async for m in prox.storm('test:str=cool', opts={'node:opts': {'verbs': False}}):
+                    if m[0] == 'node':
+                        self.none(m[1][1].get('n1verbs'))
+                        self.none(m[1][1].get('n2verbs'))
+
     async def test_get_has_pop_repr_set(self):
 
         async with self.getTestCore() as core:
