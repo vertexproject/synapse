@@ -281,6 +281,7 @@ class Node(NodeBase):
         Args:
             dorepr (bool): Include repr information for human readable versions of properties.
             virts (bool): Include virtual properties.
+            verbs (bool): Include edge verb counts.
 
         Returns:
             (tuple): An (ndef, info) node tuple.
@@ -1093,7 +1094,7 @@ class RuntNode(NodeBase):
             return None
         return s_common.int64un(self.nid)
 
-    def pack(self, dorepr=False, virts=False):
+    def pack(self, dorepr=False, virts=False, verbs=True):
         pode = s_msgpack.deepcopy(self.pode)
         if dorepr:
             self._addPodeRepr(pode)
