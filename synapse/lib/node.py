@@ -274,7 +274,7 @@ class Node(NodeBase):
     def intnid(self):
         return s_common.int64un(self.nid)
 
-    def pack(self, dorepr=False, virts=False):
+    def pack(self, dorepr=False, virts=False, verbs=True):
         '''
         Return the serializable/packed version of the node.
 
@@ -294,10 +294,47 @@ class Node(NodeBase):
             'tagprops': self._getTagPropsDict(),
         })
 
+        if verbs:
+            pode[1]['n1verbs'] = self.getEdgeCounts()
+            pode[1]['n2verbs'] = self.getEdgeCounts(n2=True)
+
         if dorepr:
             self._addPodeRepr(pode)
 
         return pode
+
+    def getEdgeCounts(self, verb=None, n2=False):
+
+        if n2:
+            key = 'n2verbs'
+        else:
+            key = 'n1verbs'
+
+        ecnts = {}
+
+        for sode in self.sodes:
+            if not n2 and sode.get('antivalu') is not None:
+                return ecnts
+
+            if (verbs := sode.get(key)) is None:
+                continue
+
+            if verb is not None:
+                if (forms := verbs.get(verb)) is not None:
+                    if (formcnts := ecnts.get(verb)) is None:
+                        ecnts[verb] = formcnts = {}
+
+                    for form, cnt in forms.items():
+                        formcnts[form] = formcnts.get(form, 0) + cnt
+            else:
+                for verb, forms in verbs.items():
+                    if (formcnts := ecnts.get(verb)) is None:
+                        ecnts[verb] = formcnts = {}
+
+                    for form, cnt in forms.items():
+                        formcnts[form] = formcnts.get(form, 0) + cnt
+
+        return ecnts
 
     async def getEmbeds(self, embeds):
         '''

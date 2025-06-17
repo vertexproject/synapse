@@ -2007,11 +2007,12 @@ class Runtime(s_base.Base):
         dopath = nodeopts.get('path', False)
         dolink = nodeopts.get('links', False)
         virts = nodeopts.get('virts', False)
+        verbs = nodeopts.get('verbs', True)
         show_storage = nodeopts.get('show:storage', False)
 
         async for node, path in self.execute():
 
-            pode = node.pack(dorepr=dorepr, virts=virts)
+            pode = node.pack(dorepr=dorepr, virts=virts, verbs=verbs)
             pode[1]['path'] = await path.pack(path=dopath)
 
             if (nodedata := path.getData(node.nid)) is not None:

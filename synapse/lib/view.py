@@ -1186,16 +1186,17 @@ class View(s_nexus.Pusher):  # type: ignore
             if (sode := layr._getStorNode(nid)) is None:
                 continue
 
-            if sode.get('antivalu') is not None:
+            if not n2 and sode.get('antivalu') is not None:
                 return ecnt
 
             if (verbs := sode.get(key)) is None:
                 continue
 
             if verb is not None:
-                ecnt += verbs.get(verb, 0)
+                if (forms := verbs.get(verb)) is not None:
+                    ecnt += sum(forms.values())
             else:
-                ecnt += sum(verbs.values())
+                ecnt += sum([sum(form.values()) for form in verbs.values()])
 
         return ecnt
 
