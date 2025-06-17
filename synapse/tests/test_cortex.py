@@ -2892,33 +2892,61 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('inet:ip +:asn::_pivo::notaprop')
 
-            self.skip('FIXME - interface based pivot props...')
-            await core.nodes('[ou:position=* :contact={[entity:contact=* :email=a@v.lk]}]')
-            await core.nodes('[ou:position=* :contact={[entity:contact=* :email=b@v.lk]}]')
-            await core.nodes('[ou:position=* :contact={[entity:contact=* :email=c@v.lk]}]')
-            await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(a@v.lk, b@v.lk)]}]')
-            await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(c@v.lk, d@v.lk)]}]')
-            await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(a@v.lk, d@v.lk)]}]')
+            # FIXME: ndef pivprops
+            # await core.nodes('[ou:position=* :contact={[entity:contact=* :email=a@v.lk]}]')
+            # await core.nodes('[ou:position=* :contact={[entity:contact=* :email=b@v.lk]}]')
+            # await core.nodes('[ou:position=* :contact={[entity:contact=* :email=c@v.lk]}]')
+            # await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(a@v.lk, b@v.lk)]}]')
+            # await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(c@v.lk, d@v.lk)]}]')
+            # await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(a@v.lk, d@v.lk)]}]')
 
-            nodes = await core.nodes('ou:position:contact::email::user=a')
+            # nodes = await core.nodes('ou:position:contact::email::user=a')
+            # self.len(1, nodes)
+            # for node in nodes:
+            #     self.eq('ou:position', node.ndef[0])
+
+            # nodes = await core.nodes('ou:position:contact::email::user*in=(a, b)')
+            # self.len(2, nodes)
+            # for node in nodes:
+            #     self.eq('ou:position', node.ndef[0])
+
+            # nodes = await core.nodes('ou:position:contact::emails*[=a@v.lk]')
+            # self.len(2, nodes)
+            # for node in nodes:
+            #     self.eq('ou:position', node.ndef[0])
+
+            # nodes = await core.nodes('ou:position:contact::emails*[in=(a@v.lk, c@v.lk)]')
+            # self.len(3, nodes)
+            # for node in nodes:
+            #     self.eq('ou:position', node.ndef[0])
+
+            await core.nodes('[ou:contribution=* :campaign={[ou:campaign=* :goal={[ou:goal=(a,) :name=a]}]}]')
+            await core.nodes('[ou:contribution=* :campaign={[ou:campaign=* :goal={[ou:goal=(b,) :name=b]}]}]')
+            await core.nodes('[ou:contribution=* :campaign={[ou:campaign=* :goal={[ou:goal=(c,) :name=c]}]}]')
+            await core.nodes('[ou:contribution=* :campaign={[ou:campaign=* :goal={[ou:goal=(d,) :name=d]}]}]')
+            await core.nodes('[ou:contribution=* :campaign={[ou:campaign=* :goals=((a,), (b,))]}]')
+            await core.nodes('[ou:contribution=* :campaign={[ou:campaign=* :goals=((c,), (d,))]}]')
+            await core.nodes('[ou:contribution=* :campaign={[ou:campaign=* :goals=((a,), (d,))]}]')
+
+            nodes = await core.nodes('ou:contribution:campaign::goal::name=a')
             self.len(1, nodes)
             for node in nodes:
-                self.eq('ou:position', node.ndef[0])
+                self.eq('ou:contribution', node.ndef[0])
 
-            nodes = await core.nodes('ou:position:contact::email::user*in=(a, b)')
+            nodes = await core.nodes('ou:contribution:campaign::goal::name*in=(a, b)')
             self.len(2, nodes)
             for node in nodes:
-                self.eq('ou:position', node.ndef[0])
+                self.eq('ou:contribution', node.ndef[0])
 
-            nodes = await core.nodes('ou:position:contact::emails*[=a@v.lk]')
+            nodes = await core.nodes('ou:contribution:campaign::goals*[=(a,)]')
             self.len(2, nodes)
             for node in nodes:
-                self.eq('ou:position', node.ndef[0])
+                self.eq('ou:contribution', node.ndef[0])
 
-            nodes = await core.nodes('ou:position:contact::emails*[in=(a@v.lk, c@v.lk)]')
+            nodes = await core.nodes('ou:contribution:campaign::goals*[in=((a,), (c,))]')
             self.len(3, nodes)
             for node in nodes:
-                self.eq('ou:position', node.ndef[0])
+                self.eq('ou:contribution', node.ndef[0])
 
             with self.raises(s_exc.NoSuchProp):
                 nodes = await core.nodes('ou:org:hq::email::newp=a')
