@@ -44,7 +44,7 @@ async def main(argv, outp=s_output.stdout):
 
             prox = await s_common.wait_for(s_telepath.openurl(url),
                                            timeout=opts.timeout)
-    except (s_exc.LinkErr, socket.gaierror) as e:
+    except (s_exc.LinkErr, s_exc.NoSuchPath, socket.gaierror) as e:
         mesg = f'Unable to connect to cell @ {sanitized_url}.'
         ret = {'status': 'failed',
                'iden': opts.cell,
