@@ -452,7 +452,7 @@ Operation to delete (fully remove) one or more properties from the specified nod
     <inet:ip> [ -:loc ]
 
 
-*Delete multiple properties from adoc:report node:*
+*Delete multiple properties from a doc:report node:*
 
 
 .. storm-pre:: doc:report [ -:author -:desc ]

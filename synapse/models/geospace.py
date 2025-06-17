@@ -483,7 +483,7 @@ modeldefs = (
                 'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.'}),
 
             ('geo:altitude', ('geo:dist', {'baseoff': 6371008800}), {
-                'doc': 'A negative or positive offset from Mean Sea Level (6,371.0088km from Earths core).'}),
+                'doc': "A negative or positive offset from Mean Sea Level (6,371.0088km from Earth's core)."}),
         ),
 
         'edges': (
