@@ -435,7 +435,11 @@ class InfotechModelTest(s_t_utils.SynTest):
                         // FIXME
                         //:domain={[ it:domain=* :org=$org :name=vertex :desc="the vertex project domain" ]}
 
-                    (it:host:login=* :period=(20210314,202103140201) :account=$acct :host=$host)
+                    (it:host:login=*
+                        :period=(20210314,202103140201)
+                        :account=$acct
+                        :host=$host
+                        :creds={[ inet:passwd=cool ]})
                 ]
             ''')
             self.len(2, nodes)
@@ -448,6 +452,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[1].get('host'))
             self.nn(nodes[1].get('account'))
             self.eq(nodes[1].get('period'), (1615680000000000, 1615687260000000))
+            self.eq(nodes[1].get('creds'), (('inet:passwd', 'cool'),))
 
             # Sample SIDs from here:
             # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/81d92bba-d22b-4a8c-908a-554ab29148ab
