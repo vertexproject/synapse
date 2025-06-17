@@ -1333,7 +1333,7 @@ modeldefs = (
                 ('account', ('it:host:account', {}), {
                     'doc': 'The account that logged in.'}),
 
-                ('creds', ('array', {'interface': 'auth:credential', 'sorted': True, 'uniq': True}), {
+                ('creds', ('array', {'type': 'auth:credential', 'sorted': True, 'uniq': True}), {
                     'doc': 'The credentials that were used to login.'}),
 
                 ('duration', ('duration', {}), {
