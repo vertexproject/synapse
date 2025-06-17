@@ -9,12 +9,15 @@ modeldefs = (
 
         'types': (
 
-            ('lang:phrase', ('str', {'lower': True, 'onespace': True}), {
+            ('lang:phrase', ('text', {}), {
                 'doc': 'A small group of words which stand together as a concept.'}),
 
             ('lang:code', ('str', {'lower': True, 'regex': '^[a-z]{2}(.[a-z]{2})?$'}), {
                 'ex': 'pt.br',
                 'doc': 'An optionally 2 part language code.'}),
+
+            ('lang:idiom', ('guid', {}), {
+                'doc': 'An idiomatic use of a phrase.'}),
 
             ('lang:translation', ('guid', {}), {
                 'doc': 'A translation of text from one language to another.'}),
@@ -39,10 +42,10 @@ modeldefs = (
                     'ex': 'hola',
                     'doc': 'The input text.'}),
 
-                ('input:lang', ('lang:code', {}), {
-                    'doc': 'The input language code.'}),
+                ('input:lang', ('lang:language', {}), {
+                    'doc': 'The input language.'}),
 
-                ('output', ('lang:phrase', {}), {
+                ('output', ('text', {}), {
                     'ex': 'hi',
                     'doc': 'The output text.'}),
 

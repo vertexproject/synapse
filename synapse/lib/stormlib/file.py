@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -19,15 +20,28 @@ class LibFile(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'node', 'desc': 'The file:bytes node representing the supplied data.'},
         }},
+        {'name': 'fromhex',
+         'desc': '''
+            Decode a hex string and upload resulting bytes to the configured Axon and create a corresponding file:bytes node.
+         ''',
+         'type': {'type': 'function', '_funcname': '_libFileFromHex',
+                  'args': (
+                      {'name': 'valu', 'type': 'str',
+                       'desc': 'The file data.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'The file:bytes node representing the supplied data.'},
+        }},
     )
     _storm_lib_path = ('file',)
 
     def getObjLocals(self):
         return {
+            'fromhex': self._libFileFromHex,
             'frombytes': self._libFileFromBytes,
         }
 
     async def _libFileFromBytes(self, valu):
+
         valu = await s_stormtypes.toprim(valu)
 
         if not isinstance(valu, bytes):
@@ -49,3 +63,7 @@ class LibFile(s_stormtypes.Lib):
         props['size'] = size
 
         return await self.runt.view.addNode('file:bytes', {'sha256': props.pop('sha256'), '$props': props})
+
+    async def _libFileFromHex(self, valu):
+        valu = await s_stormtypes.tostr(valu)
+        return await self._libFileFromBytes(s_common.uhex(valu))

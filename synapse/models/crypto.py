@@ -150,9 +150,27 @@ modeldefs = (
             ('crypto:salthash', ('guid', {}), {
                 'doc': 'A salted hash computed for a value.'}),
 
-            # FIXME interface for various key types?
-            ('crypto:key', ('guid', {}), {
+            ('crypto:key', ('ndef', {'interface': 'crypto:key'}), {
                 'doc': 'A cryptographic key and algorithm.'}),
+
+            # TODO DH / ECDH / ECDHE
+            ('crypto:key:rsa', ('guid', {}), {
+                'interfaces': (
+                    ('crypto:key', {}),
+                ),
+                'doc': 'An RSA public/private key pair.'}),
+
+            ('crypto:key:dsa', ('guid', {}), {
+                'interfaces': (
+                    ('crypto:key', {}),
+                ),
+                'doc': 'A DSA public/private key pair.'}),
+
+            ('crypto:key:secret', ('guid', {}), {
+                'interfaces': (
+                    ('crypto:key', {}),
+                ),
+                'doc': 'A secret key with an optional initialiation vector.'}),
 
             ('crypto:algorithm', ('str', {'lower': True, 'onespace': True}), {
                 'ex': 'aes256',
@@ -175,6 +193,14 @@ modeldefs = (
         ),
 
         'interfaces': (
+
+            ('crypto:key', {
+                'props': (
+                    ('algorithm', ('crypto:algorithm', {}), {
+                        'ex': 'aes256',
+                        'doc': 'The cryptographic algorithm which uses the key material.'}),
+                ),
+                'doc': 'An interface inherited by all cryptographic keys.'}),
 
             ('crypto:hash', {
                 'doc': 'An interface inherited by all cryptographic hashes.'}),
@@ -425,50 +451,36 @@ modeldefs = (
 
             ('crypto:algorithm', {}, ()),
 
-            ('crypto:key', {}, (
+            # FIXME $lib.crypto.pem.decode()
+            # FIXME interface for public/private keys?
+            ('crypto:key:rsa', {}, (
 
-                ('algorithm', ('crypto:algorithm', {}), {
-                    'ex': 'aes256',
-                    'doc': 'The cryptographic algorithm which uses the key material.'}),
+                ('public', ('file:bytes', {}), {
+                    'doc': 'The DER encoded bytes of the public key.'}),
+
+                ('private', ('file:bytes', {}), {
+                    'doc': 'The DER encoded bytes of the private key.'}),
+            )),
+
+            ('crypto:key:dsa', {}, (
+
+                ('public', ('file:bytes', {}), {
+                    'doc': 'The DER encoded bytes of the public key.'}),
+
+                ('private', ('file:bytes', {}), {
+                    'doc': 'The DER encoded bytes of the private key.'}),
+            )),
+
+            ('crypto:key:secret', {}, (
+
+                ('iv', ('file:bytes', {}), {
+                    'doc': 'The bytes of the initialization vector.'}),
 
                 ('mode', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The algorithm specific mode in use.'}),
 
-                ('iv', ('hex', {}), {
-                    'doc': 'The hex encoded initialization vector.'}),
-
-                ('iv:text', ('it:dev:str', {}), {
-                    'doc': 'Set only if the :iv property decodes to ASCII.'}),
-
-                ('public', ('hex', {}), {
-                    'doc': 'The hex encoded public key material if the algorithm has a public/private key pair.'}),
-
-                ('public:text', ('it:dev:str', {}), {
-                    'doc': 'Set only if the :public property decodes to ASCII.'}),
-
-                ('public:md5', ('crypto:hash:md5', {}), {
-                    'doc': 'The MD5 hash of the public key in raw binary form.'}),
-
-                ('public:sha1', ('crypto:hash:sha1', {}), {
-                    'doc': 'The SHA1 hash of the public key in raw binary form.'}),
-
-                ('public:sha256', ('crypto:hash:sha256', {}), {
-                    'doc': 'The SHA256 hash of the public key in raw binary form.'}),
-
-                ('private', ('hex', {}), {
-                    'doc': 'The hex encoded private key material. All symmetric keys are private.'}),
-
-                ('private:text', ('it:dev:str', {}), {
-                    'doc': 'Set only if the :private property decodes to ASCII.'}),
-
-                ('private:md5', ('crypto:hash:md5', {}), {
-                    'doc': 'The MD5 hash of the private key in raw binary form.'}),
-
-                ('private:sha1', ('crypto:hash:sha1', {}), {
-                    'doc': 'The SHA1 hash of the private key in raw binary form.'}),
-
-                ('private:sha256', ('crypto:hash:sha256', {}), {
-                    'doc': 'The SHA256 hash of the private key in raw binary form.'}),
+                ('bytes', ('file:bytes', {}), {
+                    'doc': 'The bytes of the secret key.'}),
 
                 ('seed:passwd', ('inet:passwd', {}), {
                     'doc': 'The seed password used to generate the key material.'}),
@@ -479,8 +491,10 @@ modeldefs = (
             )),
 
             ('crypto:currency:client', {}, (
+
                 ('inetaddr', ('inet:client', {}), {
                     'doc': 'The Internet client address observed using the crypto currency address.', 'ro': True, }),
+
                 ('coinaddr', ('crypto:currency:address', {}), {
                     'doc': 'The crypto currency address observed in use by the Internet client.', 'ro': True, }),
             )),

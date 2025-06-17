@@ -435,7 +435,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                         // FIXME
                         //:domain={[ it:domain=* :org=$org :name=vertex :desc="the vertex project domain" ]}
 
-                    (it:host:login=* :period=(20210314,202103140201) :account=$acct :host=$host)
+                    (it:host:login=* :period=(20210314,202103140201) :account=$acct :host=$host :flow={[ inet:flow=(foo,) ]})
                 ]
             ''')
             self.len(2, nodes)
@@ -480,6 +480,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login -> it:host')
             self.len(1, nodes)
             self.eq('it:host', nodes[0].ndef[0])
+
+            self.len(1, await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login -> inet:flow'))
 
             # FIXME :domain
             # nodes = await core.nodes('it:host:account -> it:domain')
@@ -1473,7 +1475,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                         (user-agent, wootbot),
                     )
                     :mutex=OnlyOnce
-                    :crypto:key=*
+                    :crypto:key={[ crypto:key:secret=* ]}
                     :campaigncode=WootWoot
                     :raw = ({"hehe": "haha"})
                     :connect:delay=01:00:00
