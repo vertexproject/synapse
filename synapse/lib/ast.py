@@ -444,8 +444,8 @@ class SubGraph:
 
         for pivq in self.rules.get('pivots'):
             indx = 0
-            async for node, path in node.storm(runt, pivq):
-                yield node, path, {'type': 'rules', 'scope': 'global', 'index': indx}
+            async for n, p in node.storm(runt, pivq):
+                yield n, p, {'type': 'rules', 'scope': 'global', 'index': indx}
                 indx += 1
 
         scope = node.form.name
@@ -885,7 +885,6 @@ class InitBlock(AstNode):
     async def run(self, runt, genr):
 
         subq = self.kids[0]
-        self.reqRuntSafe(runt, 'Init block query must be runtsafe')
 
         once = False
         async for item in genr:
@@ -923,7 +922,6 @@ class EmptyBlock(AstNode):
     async def run(self, runt, genr):
 
         subq = self.kids[0]
-        self.reqRuntSafe(runt, 'Empty block query must be runtsafe')
 
         empty = True
         async for item in genr:
@@ -954,8 +952,6 @@ class FiniBlock(AstNode):
     async def run(self, runt, genr):
 
         subq = self.kids[0]
-
-        self.reqRuntSafe(runt, 'Fini block query must be runtsafe')
 
         async for item in genr:
             yield item
