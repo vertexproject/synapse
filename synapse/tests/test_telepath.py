@@ -835,10 +835,19 @@ class TeleTest(s_t_utils.SynTest):
                              'addr': sockpath})
 
     async def test_url_bad_cell_path(self):
-        cell_url = 'cell:///definitelynotarealpath/newp'
-        with self.raises(s_exc.NoSuchPath):
-            async with await s_telepath.openurl(cell_url) as prox:
+        with self.getTestDir() as dirn:
+            # Touch the sock path
+            with s_common.genfile(dirn, 'newp', 'sock'):
                 pass
+            cell_url = f'cell://{dirn}/newp'
+            with self.raises(s_exc.LinkErr) as cm:
+                async with await s_telepath.openurl(cell_url):
+                    pass
+            self.isin('Cell path is not listening', cm.exception.get('mesg'))
+        with self.raises(s_exc.NoSuchPath) as cm:
+            async with await s_telepath.openurl(cell_url):
+                pass
+        self.isin('Cell path does not exist', cm.exception.get('mesg'))
 
     async def test_ipv6(self):
         if s_common.envbool('CIRCLECI'):
