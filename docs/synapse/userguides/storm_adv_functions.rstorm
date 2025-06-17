@@ -674,7 +674,7 @@ node).
           if $lib.debug { $lib.pprint($report) }
           
           //Yield the node (e.g.,doc:report node) created by invoking an existing function that
-          // creates thedoc:report node from the $report
+          // creates the doc:report node from the $report
           yield $ingest.addReport($report)
       }
   }

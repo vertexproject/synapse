@@ -48,7 +48,7 @@ modeldefs = (
                         'doc': 'An array of social media accounts for the {ou:attendable}.'}),
 
                     ('sponsors', ('array', {'type': 'entity:actor', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of {ou:attendable}  sponsors.'}),
+                        'doc': 'An array of {ou:attendable} sponsors.'}),
 
                     ('organizers', ('array', {'type': 'entity:actor', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of {ou:attendable} organizers.'}),
@@ -130,7 +130,7 @@ modeldefs = (
                 }}),
 
             ('ou:contract', ('guid', {}), {
-                'doc': 'An contract between multiple entities.'}),
+                'doc': 'A contract between multiple entities.'}),
 
             ('ou:contract:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -156,7 +156,7 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of industry types.'}),
 
             ('ou:orgnet', ('guid', {}), {
-                'doc': 'An IP address block which belongs to an orgnaization.'}),
+                'doc': 'An IP address block which belongs to an organization.'}),
 
             ('ou:position', ('guid', {}), {
                 'doc': 'A position within an org which can be organized into an org chart with replacable contacts.'}),

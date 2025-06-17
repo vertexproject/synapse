@@ -79,6 +79,7 @@ modeldefs = (
                 'doc': 'An interface for entities which have initiative to act.'}),
 
             ('entity:abstract', {
+                'template': {'contactable': 'entity'},
                 'props': (
                     ('resolved', ('entity:resolved', {}), {
                         'doc': 'The resolved entity to which this {contactable} belongs.'}),
@@ -89,7 +90,7 @@ modeldefs = (
         'types': (
 
             ('entity:contactable', ('ndef', {'interface': 'entity:contactable'}), {
-                'doc': 'A node which implements the entity:contactable interrface..'}),
+                'doc': 'A node which implements the entity:contactable interface.'}),
 
             ('entity:resolved', ('ndef', {'forms': ('ou:org', 'ps:person')}), {
                 'doc': 'A fully resolved entity such as a person or organization.'}),
@@ -138,7 +139,7 @@ modeldefs = (
                         'doc': 'The date of birth for the {contactable}.'}),
 
                     ('dod', {'target': 'lifespan*max',
-                        'doc': 'The date of birth for the {contactable}.'}),
+                        'doc': 'The date of death for the {contactable}.'}),
 
                     ('founded', {'target': 'lifespan*max',
                         'doc': 'The founded time for the {contactable}.'}),
@@ -165,13 +166,13 @@ modeldefs = (
             ('entity:relationship', ('guid', {}), {
                 'doc': 'A directional relationship between two actor entities.'}),
 
-            ('entity:posession:type:taxonomy', ('taxonomy', {}), {
+            ('entity:possession:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of types of possession.'}),
 
-            ('entity:posession', ('guid', {}), {
+            ('entity:possession', ('guid', {}), {
                 'doc': 'An item which is possessed by an entity.'}),
 
         ),
@@ -196,18 +197,18 @@ modeldefs = (
                 ('current', ('entity:contactable', {}), {
                     'doc': 'The current version of this historical contact.'}),
             )),
-            # FIXME posession with an :ownership=<bool>?
-            ('entity:posession:type:taxonomy', {}, ()),
-            ('entity:posession', {}, (
+            # FIXME possession with an :ownership=<bool>?
+            ('entity:possession:type:taxonomy', {}, ()),
+            ('entity:possession', {}, (
 
                 ('item', ('meta:havable', {}), {
                     'doc': 'The item owned by the entity.'}),
 
                 ('actor', ('entity:actor', {}), {
-                    'doc': 'The entity which posessed the item.'}),
+                    'doc': 'The entity which possessed the item.'}),
 
-                ('type', ('entity:posession:type:taxonomy', {}), {
-                    'doc': 'A taxonomy for different types of posession.'}),
+                ('type', ('entity:possession:type:taxonomy', {}), {
+                    'doc': 'A taxonomy for different types of possession.'}),
 
                 ('period', ('ival', {}), {
                     'doc': 'The time period when the entity had the item.'}),
