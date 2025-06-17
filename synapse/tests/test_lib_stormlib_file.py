@@ -10,7 +10,10 @@ import synapse.tests.utils as s_test
 class FileTest(s_test.SynTest):
 
     async def test_lib_stormlib_file_frombytes(self):
-        data = os.urandom(128)
+        # chosen by fair dice role. guaranteed to be random.
+        data = s_common.uhex('b73c99dc92ee8dfc8823368b2b125f52822d053fd65267077570a48fd98cd9d8')
+        # stable gtor value
+        evalu = '9c8697787f6a3b0a418f90209bc955ff'
         hashset = s_hashset.HashSet()
         hashset.update(data)
 
@@ -27,7 +30,8 @@ class FileTest(s_test.SynTest):
             opts = {'vars': {'data': data}}
             nodes = await core.nodes('yield $lib.file.frombytes($data)', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('file:bytes', f'sha256:{sha256}'))
+            # stable gutor hash valu
+            self.eq(nodes[0].ndef, ('file:bytes', evalu))
 
             for hashname in ('md5', 'sha1', 'sha256', 'sha512'):
                 hashvalu = nodes[0].get(hashname)
@@ -46,9 +50,9 @@ class FileTest(s_test.SynTest):
             # Update/link a file:bytes node with bytes
 
             opts = {'vars': {'sha256': sha256}}
-            nodes = await core.nodes('[ file:bytes=$sha256 ]', opts=opts)
+            nodes = await core.nodes('[ file:bytes=({"sha256": $sha256}) ]', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('file:bytes', f'sha256:{sha256}'))
+            self.eq(nodes[0].ndef, ('file:bytes', evalu))
             self.eq(nodes[0].get('sha256'), sha256)
             self.none(nodes[0].get('md5'))
             nid = nodes[0].nid
@@ -56,7 +60,8 @@ class FileTest(s_test.SynTest):
             opts = {'vars': {'data': data}}
             nodes = await core.nodes('yield $lib.file.frombytes($data)', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('file:bytes', f'sha256:{sha256}'))
+            # stable gutor hash valu
+            self.eq(nodes[0].ndef, ('file:bytes', evalu))
             self.eq(nodes[0].get('sha256'), sha256)
             self.eq(nodes[0].get('md5'), s_common.ehex(hashes.get('md5')))
             self.eq(nodes[0].nid, nid)
@@ -105,4 +110,4 @@ class FileTest(s_test.SynTest):
 
             nodes = await core.nodes('yield $lib.file.frombytes($data)', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('file:bytes', f'sha256:{sha256}'))
+            self.eq(nodes[0].ndef, ('file:bytes', evalu))

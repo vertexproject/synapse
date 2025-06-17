@@ -619,7 +619,7 @@ class StormSvcTest(s_test.SynTest):
                     await core.nodes('function subr(svc) { $other=$svc return() } $t=$subr($lib.service.get(prim))')
                     self.eq(refs, prim._syn_refs)
 
-                    nodes = await core.nodes('[ ps:name=$lib.service.get(prim).lower() ]')
+                    nodes = await core.nodes('[ meta:name=$lib.service.get(prim).lower() ]')
                     self.len(1, nodes)
                     self.eq(nodes[0].ndef[1], 'asdf')
 

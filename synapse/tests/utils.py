@@ -309,7 +309,9 @@ testmodel = (
                     ('seen', ('ival', {}), {}),
                     ('names', ('array', {'type': 'str'}), {}),
                 ),
-                'interfaces': ('inet:proto:request',)
+                'interfaces': (
+                    ('inet:proto:request', {}),
+                ),
             }),
             ('test:virtarray', {
                 'doc': 'test interface',
@@ -338,7 +340,11 @@ testmodel = (
             ('test:auto', ('str', {}), {}),
             ('test:guid', ('guid', {}), {}),
             ('test:data', ('data', {}), {}),
-            ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
+            ('test:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                )
+            }),
             ('test:hugenum', ('hugenum', {}), {}),
 
             ('test:arrayprop', ('guid', {}), {}),
@@ -376,21 +382,17 @@ testmodel = (
             ('test:cycle1', ('str', {}), {}),
 
             ('test:ndef', ('ndef', {}), {}),
-            ('test:ndef:formfilter1', ('ndef', {
-                'forms': ('inet:ip',)
-            }), {}),
-            ('test:ndef:formfilter2', ('ndef', {
-                'interfaces': ('meta:taxonomy',)
-            }), {}),
-            ('test:ndef:formfilter3', ('ndef', {
-                'forms': ('inet:ip',),
-                'interfaces': ('file:mime:msoffice',)
-            }), {}),
+            ('test:ndef:formfilter1', ('ndef', {'forms': ('inet:ip',)}), {}),
+            ('test:ndef:formfilter2', ('ndef', {'interfaces': ('meta:taxonomy',)}), {}),
+            ('test:ndef:formfilter3', ('ndef', {'forms': ('inet:ip',), 'interfaces': ('file:mime:msoffice',)}), {}),
 
-            ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
-            ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
-            ('test:virtiface', ('guid', {}), {'interfaces': ('test:virtarray',)}),
-            ('test:virtiface2', ('guid', {}), {'interfaces': ('test:virtarray',)}),
+            ('test:hasiface', ('str', {}), {'interfaces': (('test:interface', {}),)}),
+            ('test:hasiface2', ('str', {}), {'interfaces': (('test:interface', {}),)}),
+            ('test:virtiface', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
+            ('test:virtiface2', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
+
+            ('test:enums:int', ('int', {'enums': ((1, 'fooz'), (2, 'barz'), (3, 'bazz'))}), {}),
+            ('test:enums:str', ('str', {'enums': 'testx,foox,barx,bazx'}), {}),
         ),
         'forms': (
 
@@ -538,6 +540,9 @@ testmodel = (
             ('test:hasiface2', {}, ()),
             ('test:virtiface', {}, ()),
             ('test:virtiface2', {}, ()),
+
+            ('test:enums:int', {}, ()),
+            ('test:enums:str', {}, ()),
         ),
     }),
 )
@@ -565,7 +570,7 @@ deprmodel = (
             ('test:deprndef', ('ndef', {}), {}),
             ('test:deprform2', ('test:str', {}), {'deprecated': True}),
             ('test:deprsub', ('str', {}), {}),
-            ('test:depriface', ('str', {}), {'interfaces': ('test:deprinterface',)}),
+            ('test:depriface', ('str', {}), {'interfaces': (('test:deprinterface', {}),)}),
             ('test:range', ('range', {}), {}),
             ('test:deprsub2', ('comp', {'fields': (
                 ('name', 'test:str'),
