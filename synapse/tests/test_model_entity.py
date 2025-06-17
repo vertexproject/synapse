@@ -12,11 +12,13 @@ class EntityModelTest(s_t_utils.SynTest):
                     :names=('visi stark', 'visi k')
                     :lifespan=(19761217, ?)
                     :email=visi@vertex.link
+                    :creds={[ inet:passwd=cool ]}
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'visi')
             self.eq(nodes[0].get('names'), ('visi k', 'visi stark'))
             self.eq(nodes[0].get('email'), 'visi@vertex.link')
+            self.eq(nodes[0].get('creds'), (('inet:passwd', 'cool'),))
 
             nodes = await core.nodes('''
                 $item = {[ inet:fqdn=vertex.link ]}

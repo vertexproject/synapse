@@ -2887,7 +2887,7 @@ modeldefs = (
                 ('method', ('inet:service:login:method:taxonomy', {}), {
                     'doc': 'The type of authentication used for the login. For example "password" or "multifactor.sms".'}),
 
-                ('creds', ('array', {'interface': 'auth:credential', 'sorted': True, 'uniq': True}), {
+                ('creds', ('array', {'type': 'auth:credential', 'sorted': True, 'uniq': True}), {
                     'doc': 'The credentials that were used to login.'}),
 
                 # TODO ndef based auth proto details
