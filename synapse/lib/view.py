@@ -3331,21 +3331,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def nodesByPropValu(self, full, cmpr, valu, reverse=False, norm=True, virts=None):
 
-        if cmpr == 'type=':
-            if reverse:
-                async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
-                    yield node
-
-                async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse, virts=virts):
-                    yield node
-            else:
-                async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse, virts=virts):
-                    yield node
-
-                async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
-                    yield node
-            return
-
         prop = self.core.model.prop(full)
         if prop is None:
             mesg = f'No property named "{full}".'
@@ -3411,18 +3396,18 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def nodesByPropTypeValu(self, name, valu, reverse=False):
+    async def nodesByPropTypeValu(self, name, valu, cmpr='='):
 
         _type = self.core.model.types.get(name)
         if _type is None:
             raise s_exc.NoSuchType(name=name)
 
         for prop in self.core.model.getPropsByType(name):
-            async for node in self.nodesByPropValu(prop.full, '=', valu, reverse=reverse):
+            async for node in self.nodesByPropValu(prop.full, cmpr, valu):
                 yield node
 
         for prop in self.core.model.getArrayPropsByType(name):
-            async for node in self.nodesByPropArray(prop.full, '=', valu, reverse=reverse):
+            async for node in self.nodesByPropArray(prop.full, cmpr, valu):
                 yield node
 
     async def nodesByPropArray(self, full, cmpr, valu, reverse=False, norm=True, virts=None):

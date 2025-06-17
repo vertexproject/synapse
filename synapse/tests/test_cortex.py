@@ -1716,11 +1716,6 @@ class CortexTest(s_t_utils.SynTest):
             self.eq([(2.0, 2.0), (1.0, 1.0), (0.0, 0.0)],
                     await nodeVals('reverse(geo:telem:place:latlong*near=((0, 0), 400km))', prop='place:latlong'))
 
-            await core.nodes('[ inet:dns:a=(foo.com, 0.0.0.0) inet:dns:a=(bar.com, 0.0.0.0) ]')
-
-            self.eq([(4, 0), ('foo.com', (4, 0)), ('bar.com', (4, 0))], await nodeVals('inet:ip*type=0.0.0.0'))
-            self.eq([('bar.com', (4, 0)), ('foo.com', (4, 0)), (4, 0)], await nodeVals('reverse(inet:ip*type=0.0.0.0)'))
-
             await core.nodes('for $x in $lib.range(5) {[ test:int=$x +#foo=2021 ]}')
             await buidRevEq('test:int#foo')
             await buidRevEq('test:int#foo=2021')
