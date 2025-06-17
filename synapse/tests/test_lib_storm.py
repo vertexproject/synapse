@@ -1903,9 +1903,9 @@ class StormTest(s_t_utils.SynTest):
             '''
             await core.nodes(q, opts=altview)
 
-            self.len(0, await core.nodes('hash:md5'))
+            self.len(0, await core.nodes('crypto:hash:md5'))
             await core.nodes('crypto:x509:cert | merge --apply', opts=altview)
-            self.len(1, await core.nodes('hash:md5'))
+            self.len(1, await core.nodes('crypto:hash:md5'))
 
             self.len(0, await core.nodes('inet:ip'))
             await core.nodes('inet:tls:servercert | merge --apply', opts=altview)

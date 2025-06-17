@@ -3617,7 +3617,7 @@ class AstTest(s_test.SynTest):
 
             nodes = []
 
-            async for node in core.view.iterStormPodes(':md5 -> hash:md5', opts={'nids': [fnid], 'graph': rules}):
+            async for node in core.view.iterStormPodes(':md5 -> crypto:hash:md5', opts={'nids': [fnid], 'graph': rules}):
                 nodes.append(node)
 
                 edges = node[1]['path'].get('edges')

@@ -1311,7 +1311,7 @@ because Mandiant reported that the source code for the Gh0st backdoor is publicl
 
 *Lift all the nodes (e.g., indicators of compromise) associated with any malware family or tool that Mandiant reports is publicly available:*
 
-.. storm-pre:: [ ( syn:tag=rep.mandiant.beacon syn:tag=rep.mandiant.gh0st +#rep.mandiant.avail.public ) ( hash:md5=1844370fa7dac0e99779000f8f0b2f4e inet:fqdn=zomerax.top +#rep.mandiant.beacon ) ( inet:fqdn=iphone.vizvaz.com +#rep.mandiant.gh0st ) ] 
+.. storm-pre:: [ ( syn:tag=rep.mandiant.beacon syn:tag=rep.mandiant.gh0st +#rep.mandiant.avail.public ) ( crypto:hash:md5=1844370fa7dac0e99779000f8f0b2f4e inet:fqdn=zomerax.top +#rep.mandiant.beacon ) ( inet:fqdn=iphone.vizvaz.com +#rep.mandiant.gh0st ) ]
 .. storm-pre:: ##rep.mandiant.avail.public
 ::
 
@@ -1461,8 +1461,8 @@ during execution.
 
 *Try to lift the MD5 node 174cc541c8d9e1accef73025293923a6:*
 
-.. storm-pre:: [ hash:md5 = 174cc541c8d9e1accef73025293923a6 ]
-.. storm-cli::  hash:md5 ?= 174cc541c8d9e1accef73025293923a6
+.. storm-pre:: [ crypto:hash:md5 = 174cc541c8d9e1accef73025293923a6 ]
+.. storm-cli::  crypto:hash:md5 ?= 174cc541c8d9e1accef73025293923a6
 
 
 *Try to lift the DNS A nodes whose :ip property is 192.168.0.100:*

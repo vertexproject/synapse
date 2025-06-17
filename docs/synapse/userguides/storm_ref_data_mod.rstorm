@@ -297,10 +297,10 @@ Operation to add the specified node(s) to a Cortex.
 *Create multiple nodes in a single edit operation:*
 
 
-.. storm-pre:: [ inet:fqdn=woot.com inet:ip=12.34.56.78 hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
+.. storm-pre:: [ inet:fqdn=woot.com inet:ip=12.34.56.78 crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
 ::
 
-    [ inet:fqdn=woot.com inet:ip=12.34.56.78 hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
+    [ inet:fqdn=woot.com inet:ip=12.34.56.78 crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
 
 
 **Usage Notes:**
@@ -602,10 +602,10 @@ See :ref:`data-light-edge` for details on light edges.
 *Delete the "refs" light edge linking the MD5 hash of the empty file to the specified doc:report node:*
 
 
-.. storm-pre:: hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report=a3759709982377809f28fc0555a38193 } ]
+.. storm-pre:: crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report=a3759709982377809f28fc0555a38193 } ]
 ::
 
-    hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report=a3759709982377809f28fc0555a38193 } ]
+    crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report=a3759709982377809f28fc0555a38193 } ]
 
 
 *Delete the "ipwhois" light edge linking IP 1.2.3.4 to the specified netblock registration (whois) record:*

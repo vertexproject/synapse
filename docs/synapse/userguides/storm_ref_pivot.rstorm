@@ -112,7 +112,7 @@ pivot operation requires:
 
 Unless otherwise specified, the target ( *<target>* ) of a pivot can be:
 
-- a form name (e.g., ``hash:md5`` );
+- a form name (e.g., ``crypto:hash:md5`` );
 - a partial form name (wildcard match, e.g., ``hash:*``);
 - a form and property name (e.g., ``file:bytes:md5``);
 - an :ref:`interface` name (e.g., ``it:host:activity``);
@@ -509,14 +509,14 @@ pivot to the FQDNs associated with the name server (NS) FQDNs (for example), you
   <inet:dns:ns nodes> :ns -> inet:fqdn
 
 
-*Pivot from a set of X509 certificate metadata nodes (crypto:x509:cert nodes) to the associated SHA1 fingerprints (hash:sha1 nodes) and to any FQDNs (inet:fqdn nodes) associated with the certificates:*
+*Pivot from a set of X509 certificate metadata nodes (crypto:x509:cert nodes) to the associated SHA1 fingerprints (crypto:hash:sha1 nodes) and to any FQDNs (inet:fqdn nodes) associated with the certificates:*
 
 .. storm-pre:: [ crypto:x509:cert=* :md5=6b9fdcadf7ea5de1f1402a1cb62c7a65 :sha1=0008e9f15b9ff20de82c276cc54ec9dc094f54f8 :sha256=b1ee0920c4f4d5ded50732d15186eae5357eb743cbbb98ee935bd0791520b5f7 :identities:fqdns=(aliceplants.com,) ]
-.. storm-pre:: crypto:x509:cert -> ( hash:sha1, inet:fqdn )
+.. storm-pre:: crypto:x509:cert -> ( crypto:hash:sha1, inet:fqdn )
 
 ::
   
-  <crypto:x509:cert nodes> -> ( hash:sha1, inet:fqdn )
+  <crypto:x509:cert nodes> -> ( crypto:hash:sha1, inet:fqdn )
 
 .. TIP::
   
@@ -1043,16 +1043,16 @@ verb) for the relationship(s) represented by the edge:
 
 Unlike property-to-property relationships, edge relationships have a **direction**. There is a "source" node
 (``n1``) and a "target" node (``n2``) for the relationship itself; an article (``doc:report`` node, the ``n1``)
-can reference an indicator such as a hash (``hash:md5`` node, the ``n2``) but it does not make sense for a
+can reference an indicator such as a hash (``crypto:hash:md5`` node, the ``n2``) but it does not make sense for a
 hash to "reference" an article.
 
 The pivot operator ( ``->`` ) and its variations "point" from left to right (other than a few specialized cases)
 by convention. In contrast, the traversal operator can "point" in either direction, depending on which nodes
 (which "side" of the edge relationship) are inbound. Both of the syntaxes below are equally valid:
 
-``<doc:report nodes> -(refs)> <hash:md5 nodes>``
+``<doc:report nodes> -(refs)> <crypto:hash:md5 nodes>``
 
-``<hash:md5 nodes> <(refs)- <doc:report nodes>``
+``<crypto:hash:md5 nodes> <(refs)- <doc:report nodes>``
 
 .. TIP::
   
@@ -1061,13 +1061,13 @@ by convention. In contrast, the traversal operator can "point" in either directi
 
 Unless otherwise specified, the target ( *<target>* ) of an edge traversal can be:
 
-- a form name (e.g., ``hash:md5`` );
+- a form name (e.g., ``crypto:hash:md5`` );
 - a form name, comparison operator, and value (e.g., a primary property value, such as ``inet:fqdn~=news``);
 - a form and property name (e.g., ``inet:url:fqdn``);
 - a form and property name, comparison operator, and value (e.g., a secondary property value, such as ``risk:tool:software:used@=(2018, 2022)``)
 - a partial form name (wildcard match, e.g., ``hash:*``);
 - an interface name (e.g., ``it:host:activity``);
-- a list of form names (e.g., ``( hash:sha256, file:bytes )``); or
+- a list of form names (e.g., ``( crypto:hash:sha256, file:bytes )``); or
 - a wildcard / asterisk ( ``*`` ).
 
 .. NOTE::
