@@ -837,16 +837,13 @@ class TeleTest(s_t_utils.SynTest):
     async def test_url_bad_cell_path(self):
         with self.getTestDir() as dirn:
             # Touch the sock path
-            with s_common.genfile(dirn, 'newp', 'sock'):
-                pass
+            s_common.genfile(dirn, 'newp', 'sock').close()
             cell_url = f'cell://{dirn}/newp'
             with self.raises(s_exc.LinkErr) as cm:
-                async with await s_telepath.openurl(cell_url):
-                    pass
+                await s_telepath.openurl(cell_url)
             self.isin('Cell path is not listening', cm.exception.get('mesg'))
         with self.raises(s_exc.NoSuchPath) as cm:
-            async with await s_telepath.openurl(cell_url):
-                pass
+            await s_telepath.openurl(cell_url)
         self.isin('Cell path does not exist', cm.exception.get('mesg'))
 
     async def test_ipv6(self):
