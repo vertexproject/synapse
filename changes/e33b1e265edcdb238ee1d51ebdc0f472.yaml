@@ -1,7 +1,5 @@
 ---
-desc: Downgraded logging level from warning/exception to info for telepath tx/rx errors
-  respectively when closing a telepath connection with unconsumed messages from a
-  remote generator.
+desc: Downgraded logging levels for telepath socket errors.
 prs: []
 type: bug
 ...

@@ -321,9 +321,9 @@ class Link(s_base.Base):
                 raise
 
             except Exception as e:
-                mesg = f'rx error {e} link={self.getAddrInfo()}'
+                mesg = f'rx closed unexpectedly {e} link={self.getAddrInfo()}'
                 if isinstance(e, (BrokenPipeError, ConnectionResetError)):
-                    logger.info(mesg)
+                    logger.debug(mesg, exc_info=e)
                 else:
                     logger.exception(mesg)
                 await self.fini()
