@@ -46,14 +46,20 @@ modeldefs = (
                 ),
                 'doc': 'Statistics and demographic data about a person or contact.'}),
 
+            ('edu:learnable', ('ndef', {'interface': 'edu:learnable'}), {
+                'doc': 'An interface inherited by nodes which represent something which can be learned.'}),
+
             ('ps:skill', ('guid', {}), {
-                'doc': 'A specific skill which a person or organization may have.',
+                'interfaces': (
+                    ('edu:learnable', {}),
+                ),
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'type'}},
                     ),
-                }}),
+                },
+                'doc': 'A specific skill which a person or organization may have.'}),
 
             ('ps:skill:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -67,9 +73,15 @@ modeldefs = (
                     'columns': (
                         # FIXME interface embed props
                         # {'type': 'prop', 'opts': {'name': 'contact::name'}},
-                        {'type': 'prop', 'opts': {'name': 'skill::name'}},
+                        # {'type': 'prop', 'opts': {'name': 'skill::name'}},
                     ),
                 }}),
+        ),
+        'interfaces': (
+
+            ('edu:learnable', {
+                'doc': 'An interface inherited by nodes which represent a skill which can be learned.'}),
+
         ),
         'edges': (
 
@@ -224,8 +236,9 @@ modeldefs = (
             )),
 
             ('ps:proficiency', {}, (
-                ('skill', ('ps:skill', {}), {
-                    'doc': 'The skill in which the contact is proficient.'}),
+
+                ('skill', ('edu:learnable', {}), {
+                    'doc': 'The topic or skill in which the contact is proficient.'}),
 
                 ('contact', ('entity:actor', {}), {
                     'doc': 'The entity which is proficient in the skill.'}),

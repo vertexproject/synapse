@@ -1339,13 +1339,8 @@ modeldefs = (
                 ('duration', ('duration', {}), {
                     'doc': 'The duration of the login session.'}),
 
-                # FIXME remove for inet:flow
-                ('client', ('inet:client', {}), {
-                    'prevnames': ('client:ipv4', 'client:ipv6'),
-                    'doc': 'The remote client where the login originated.'}),
-
-                ('client:host', ('it:host', {}), {
-                    'doc': 'The host where the login originated.'}),
+                ('flow', ('inet:flow', {}), {
+                    'doc': 'The network flow which initiated the login.'}),
             )),
             ('it:hosturl', {}, (
 

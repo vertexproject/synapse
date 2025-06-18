@@ -63,7 +63,7 @@ class StormTest(s_t_utils.SynTest):
             nodes06 = await core.nodes('[ ou:org=({"name": "acme", "$props": {"motto": "HURR DURR"}}) ]')
             self.len(1, nodes06)
             self.eq('acme', nodes06[0].get('name'))
-            self.eq('hurr durr', nodes06[0].get('motto'))
+            self.eq('HURR DURR', nodes06[0].get('motto'))
             self.ne(nodes00[0].ndef, nodes06[0].ndef)
 
             goals = [s_common.guid(), s_common.guid()]

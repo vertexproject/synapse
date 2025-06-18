@@ -374,8 +374,6 @@ class InetModelTest(s_t_utils.SynTest):
                 'dproc': dproc,
                 'dexe': dexe,
                 'sfile': sfile,
-                'skey': srccert,
-                'dkey': dstcert,
                 'scrt': srccert,
                 'dcrt': dstcert,
             }
@@ -406,8 +404,8 @@ class InetModelTest(s_t_utils.SynTest):
                 :ip:proto=6
                 :ip:tcp:flags=(0x20)
                 :sandbox:file=$p.sfile
-                :src:ssh:key=$p.skey
-                :dst:ssh:key=$p.dkey
+                :src:ssh:key={[ crypto:key:rsa=(foo,) ]}
+                :dst:ssh:key={[ crypto:key:rsa=(bar,) ]}
                 :src:ssl:cert=$p.scrt
                 :dst:ssl:cert=$p.dcrt
                 :src:rdp:hostname=SYNCODER
@@ -447,8 +445,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('ip:proto'), 6)
             self.eq(node.get('ip:tcp:flags'), 0x20)
             self.eq(node.get('sandbox:file'), sfile)
-            self.eq(node.get('src:ssh:key'), srccert)
-            self.eq(node.get('dst:ssh:key'), dstcert)
+            self.eq(node.get('src:ssh:key'), ('crypto:key:rsa', '32fa2cd229fb5a2e63a80e856bcf0121'))
+            self.eq(node.get('dst:ssh:key'), ('crypto:key:rsa', '0635c85c426aacf6614d530e9c7cfdba'))
             self.eq(node.get('src:ssl:cert'), srccert)
             self.eq(node.get('dst:ssl:cert'), dstcert)
             self.eq(node.get('src:rdp:hostname'), 'syncoder')
