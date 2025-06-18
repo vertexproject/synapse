@@ -483,7 +483,7 @@ modeldefs = (
                     'doc': 'The name of the export in the file.'}),
 
                 ('rva', ('int', {}), {
-                    'doc': 'The Relative Virtul Address of the exported function entry point.'}),
+                    'doc': 'The Relative Virtual Address of the exported function entry point.'}),
             )),
 
             ('file:mime:pe:vsvers:keyval', {}, (

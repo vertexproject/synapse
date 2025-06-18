@@ -2484,7 +2484,7 @@ modeldefs = (
                     'doc': 'The registrant name from the whois record.'}),
 
                 ('contacts', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
-                    'doc': 'The whois registraction contacts.'}),
+                    'doc': 'The whois registration contacts.'}),
 
                 ('nameservers', ('array', {'type': 'inet:fqdn'}), {
                     'doc': 'The DNS nameserver FQDNs for the registered FQDN.'}),
@@ -2567,7 +2567,7 @@ modeldefs = (
                     'doc': 'URLs provided with the record.'}),
 
                 ('contacts', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
-                    'doc': 'The whois registraction contacts.'}),
+                    'doc': 'The whois registration contacts.'}),
             )),
 
             ('inet:wifi:ap', {}, (
@@ -2888,7 +2888,7 @@ modeldefs = (
                 ('method', ('inet:service:login:method:taxonomy', {}), {
                     'doc': 'The type of authentication used for the login. For example "password" or "multifactor.sms".'}),
 
-                ('creds', ('array', {'interface': 'auth:credential', 'sorted': True, 'uniq': True}), {
+                ('creds', ('array', {'type': 'auth:credential', 'sorted': True, 'uniq': True}), {
                     'doc': 'The credentials that were used to login.'}),
 
                 # TODO ndef based auth proto details

@@ -137,7 +137,7 @@ modeldefs = (
                     ('currency', ('econ:currency', {}), {
                         'doc': 'The currency used to represent the value.'}),
                 ),
-                'doc': 'Properties common to forms with intrinsic monitary value.'}),
+                'doc': 'Properties common to forms with intrinsic monetary value.'}),
             # FIXME econ valuable interface and econ:value=<guid> history
         ),
 

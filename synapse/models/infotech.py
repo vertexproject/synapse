@@ -774,7 +774,7 @@ modeldefs = (
                 'doc': 'A specification for a piece of IT hardware.'}),
 
             ('it:host:component', ('guid', {}), {
-                'doc': 'Hardware componenets which are part of a host.'}),
+                'doc': 'Hardware components which are part of a host.'}),
 
             ('it:hardware:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -1333,7 +1333,7 @@ modeldefs = (
                 ('account', ('it:host:account', {}), {
                     'doc': 'The account that logged in.'}),
 
-                ('creds', ('array', {'interface': 'auth:credential', 'sorted': True, 'uniq': True}), {
+                ('creds', ('array', {'type': 'auth:credential', 'sorted': True, 'uniq': True}), {
                     'doc': 'The credentials that were used to login.'}),
 
                 ('duration', ('duration', {}), {
@@ -1584,7 +1584,7 @@ modeldefs = (
                 # FIXME primitive scalar type for indexing? Or an ndef?
                 ('value', ('data', {}), {
                     'prevnames': ('str', 'int', 'bytes'),
-                    'doc': 'The the value assigned to the name within the key.'}),
+                    'doc': 'The value assigned to the name within the key.'}),
             )),
 
             ('it:dev:repo:type:taxonomy', {}, ()),

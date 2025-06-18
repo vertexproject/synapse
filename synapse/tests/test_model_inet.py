@@ -2582,12 +2582,14 @@ class InetModelTest(s_t_utils.SynTest):
                 :session=$blcksess
                 :server=tcp://10.10.10.4:443
                 :client=tcp://192.168.0.10:12345
+                :creds={[inet:passwd=cool]}
             ]
             '''
             opts = {'vars': {'blcksess': blcksess.ndef[1]}}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('method'), 'password.')
+            self.eq(nodes[0].get('creds'), (('inet:passwd', 'cool'),))
 
             server = await core.nodes('inet:server=tcp://10.10.10.4:443')
             self.len(1, server)

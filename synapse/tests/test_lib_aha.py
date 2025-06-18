@@ -993,7 +993,6 @@ class AhaTest(s_test.SynTest):
                     self.true(snfo['svcinfo']['ready'])
 
     async def test_aha_service_pools(self):
-        self.skip('FIXME - why is this broken?')
 
         async with self.getTestAha() as aha:
 
