@@ -23,6 +23,9 @@ modeldefs = (
                 'doc': 'A translation of text from one language to another.'}),
 
             ('lang:language', ('guid', {}), {
+                'interfaces': (
+                    ('edu:learnable', {}),
+                ),
                 'doc': 'A specific written or spoken language.'}),
 
             ('lang:transcript', ('ndef', {'interface': 'lang:transcript'}), {
@@ -38,7 +41,7 @@ modeldefs = (
 
             ('lang:translation', {}, (
 
-                ('input', ('lang:phrase', {}), {
+                ('input', ('nodeprop', {}), {
                     'ex': 'hola',
                     'doc': 'The input text.'}),
 
@@ -49,8 +52,8 @@ modeldefs = (
                     'ex': 'hi',
                     'doc': 'The output text.'}),
 
-                ('output:lang', ('lang:code', {}), {
-                    'doc': 'The output language code.'}),
+                ('output:lang', ('lang:language', {}), {
+                    'doc': 'The output language.'}),
 
                 ('desc', ('text', {}), {
                     'ex': 'A standard greeting',
@@ -71,9 +74,6 @@ modeldefs = (
 
                 ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternative names for the language.'}),
-
-                ('skill', ('ps:skill', {}), {
-                    'doc': 'The skill used to annotate proficiency in the language.'}),
             )),
 
             ('lang:statement', {}, (
