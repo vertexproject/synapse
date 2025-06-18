@@ -41,7 +41,6 @@ class LibFile(s_stormtypes.Lib):
         }
 
     async def _libFileFromBytes(self, valu):
-
         valu = await s_stormtypes.toprim(valu)
 
         if not isinstance(valu, bytes):
