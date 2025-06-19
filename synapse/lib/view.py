@@ -2580,7 +2580,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 try:
                     props[name] = form.reqProp(name).type.norm(valu)
                 except s_exc.BadTypeValu as e:
-                    mesg = e.get("mesg")
+                    mesg = e.get('mesg')
                     if not trycast:
                         e.update({
                             'prop': name,
@@ -2590,7 +2590,14 @@ class View(s_nexus.Pusher):  # type: ignore
                         raise e
                     await runt.warn(f'Skipping bad value for prop {form.name}:{name}: {mesg}')
 
-        norms, proplist = self._normGuidNodeDict(form, vals)
+        try:
+            norms, proplist = self._normGuidNodeDict(form, vals)
+        except s_exc.BadTypeValu as e:
+            if trycast:
+                mesg = e.get('mesg')
+                await runt.warn(mesg)
+                return None
+            raise e
 
         iden = s_common.guid(proplist)
         node = await self._getGuidNodeByNorms(form, iden, norms)

@@ -655,7 +655,7 @@ Examples
 
 Some data sources allow you to retrieve specific records or reports (e.g., based on a record or
 report number). A node yielder function can request the record(s) and yield the node(s) created
-from those records (e.g., a report retrieved from a data source may be used to create a ``media:news``
+from those records (e.g., a report retrieved from a data source may be used to create a ``doc:report``
 node).
 
 ::
@@ -673,8 +673,8 @@ node).
           //Print the JSON to CLI if debug is in use
           if $lib.debug { $lib.pprint($report) }
           
-          //Yield the node (e.g., media:news node) created by invoking an existing function that
-          // creates the media:news node from the $report
+          //Yield the node (e.g.,doc:report node) created by invoking an existing function that
+          // creates the doc:report node from the $report
           yield $ingest.addReport($report)
       }
   }

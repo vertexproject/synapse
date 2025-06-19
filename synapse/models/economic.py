@@ -20,13 +20,18 @@ modeldefs = (
 
             ('econ:pay:card', ('guid', {}), {
 
-                'interfaces': ('econ:pay:instrument',),
-                'template': {
-                    'instrument': 'payment card'},
-
+                'interfaces': (
+                    ('econ:pay:instrument', {
+                        'template': {
+                            'instrument': 'payment card'}}),
+                ),
                 'doc': 'A single payment card.'}),
 
             ('econ:purchase', ('guid', {}), {
+                'interfaces': (
+                    ('geo:locatable', {
+                        'template': {'geo:locatable': 'purchase'}}),
+                ),
                 'doc': 'A purchase event.'}),
 
             ('econ:receipt:item', ('guid', {}), {
@@ -56,7 +61,9 @@ modeldefs = (
                 'doc': 'A financial exchange where securities are traded.'}),
 
             ('econ:fin:security:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of financial security types.'}),
 
             ('econ:fin:security', ('guid', {}), {
@@ -69,15 +76,18 @@ modeldefs = (
                 'doc': 'A sample of the price of a security at a single moment in time.'}),
 
             ('econ:bank:account:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A bank account type taxonomy.'}),
 
             ('econ:bank:account', ('guid', {}), {
 
-                'interfaces': ('econ:pay:instrument',),
-                'template': {
-                    'instrument': 'bank account'},
-
+                'interfaces': (
+                    ('econ:pay:instrument', {
+                        'template': {
+                            'instrument': 'bank account'}}),
+                ),
                 'doc': 'A bank account.'}),
 
             ('econ:bank:balance', ('guid', {}), {
@@ -109,15 +119,32 @@ modeldefs = (
 
                 'props': (
 
-                    ('contact', ('ps:contact', {}), {
+                    ('contact', ('entity:actor', {}), {
                         'doc': 'The primary contact for the {instrument}.'}),
                 ),
             }),
+            ('econ:valuable', {
+                'template': {'econ:valuable': 'item'},
+                'prefix': 'price',
+                'props': (
+
+                    ('', ('econ:price', {}), {
+                        'doc': 'The value of the {econ:valuable}.'}),
+
+                    ('asof', ('time', {}), {
+                        'doc': 'The time the value was determined.'}),
+
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency used to represent the value.'}),
+                ),
+                'doc': 'Properties common to forms with intrinsic monetary value.'}),
+            # FIXME econ valuable interface and econ:value=<guid> history
         ),
 
         'edges': (
-            (('econ:purchase', 'acquired', None), {
-                'doc': 'The purchase was used to acquire the target node.'}),
+            # FIXME econ:valuable
+            # (('econ:purchase', 'acquired', 'entity:havable'), {
+                # 'doc': 'The purchase was used to acquire the target node.'}),
 
             (('econ:bank:statement', 'has', 'econ:acct:payment'), {
                 'doc': 'The bank statement includes the payment.'}),
@@ -131,7 +158,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The issuer organization.'}),
 
-                ('name', ('str', {'lower': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The registered name of the issuer.'}),
             )),
 
@@ -146,7 +173,7 @@ modeldefs = (
                 ('pan:iin', ('econ:pay:iin', {}), {
                     'doc': 'The payment card IIN.'}),
 
-                ('name', ('ps:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name as it appears on the card.'}),
 
                 ('expr', ('time', {}), {
@@ -162,19 +189,19 @@ modeldefs = (
                     'doc': 'A bank account associated with the payment card.'}),
             )),
 
+            # FIXME econ:valuable?
             ('econ:purchase', {}, (
 
-                ('by:contact', ('ps:contact', {}), {
-                    'doc': 'The contact information used to make the purchase.'}),
+                ('buyer', ('entity:actor', {}), {
+                    'prevnames': ('by:contact',),
+                    'doc': 'The buyer who purchased the items.'}),
 
-                ('from:contact', ('ps:contact', {}), {
-                    'doc': 'The contact information used to sell the item.'}),
+                ('seller', ('entity:actor', {}), {
+                    'prevnames': ('from:contact',),
+                    'doc': 'The seller who sold the items.'}),
 
                 ('time', ('time', {}), {
                     'doc': 'The time of the purchase.'}),
-
-                ('place', ('geo:place', {}), {
-                    'doc': 'The place where the purchase took place.'}),
 
                 ('paid', ('bool', {}), {
                     'doc': 'Set to True if the purchase has been paid in full.'}),
@@ -188,6 +215,7 @@ modeldefs = (
                 ('campaign', ('ou:campaign', {}), {
                     'doc': 'The campaign that the purchase was in support of.'}),
 
+                # FIXME econ:priced?
                 ('price', ('econ:price', {}), {
                     'doc': 'The econ:price of the purchase.'}),
 
@@ -209,14 +237,16 @@ modeldefs = (
                 ('price', ('econ:price', {}), {
                     'doc': 'The total cost of this receipt line item.'}),
 
+                # FIXME econ:valuable
                 ('product', ('biz:product', {}), {
                     'doc': 'The product being being purchased in this line item.'}),
             )),
 
             ('econ:acct:payment', {}, (
 
-                ('txnid', ('str', {'strip': True}), {
-                    'doc': 'A payment processor specific transaction id.'}),
+                ('id', ('meta:id', {}), {
+                    'prevnames': ('txnid',),
+                    'doc': 'A payment processor specific transaction ID.'}),
 
                 ('fee', ('econ:price', {}), {
                     'doc': 'The transaction fee paid by the recipient to the payment processor.'}),
@@ -233,13 +263,14 @@ modeldefs = (
                 ('from:contract', ('ou:contract', {}), {
                     'doc': 'A contract used as an aggregate payment source.'}),
 
-                ('from:contact', ('ps:contact', {}), {
+                ('from:contact', ('entity:actor', {}), {
                     'doc': 'Contact information for the entity making the payment.'}),
 
                 ('to:cash', ('bool', {}), {
                     'doc': 'Set to true if the payment output was in cash.'}),
 
-                ('to:contact', ('ps:contact', {}), {
+                # FIXME - rename to payer / payee?
+                ('to:contact', ('entity:actor', {}), {
                     'doc': 'Contact information for the person/org being paid.'}),
 
                 ('to:contract', ('ou:contract', {}), {
@@ -269,10 +300,11 @@ modeldefs = (
                 ('receipt', ('econ:acct:receipt', {}), {
                     'doc': 'The receipt that was issued for the payment.'}),
 
+                # FIXME geo:locatable
                 ('place', ('geo:place', {}), {
                     'doc': 'The place where the payment occurred.'}),
 
-                ('place:name', ('geo:name', {}), {
+                ('place:name', ('meta:name', {}), {
                     'doc': 'The name of the place where the payment occurred.'}),
 
                 ('place:address', ('geo:address', {}), {
@@ -311,7 +343,7 @@ modeldefs = (
 
             ('econ:fin:exchange', {}, (
 
-                ('name', ('str', {'lower': True, 'strip': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'A simple name for the exchange.',
                     'ex': 'nasdaq'}),
 
@@ -335,6 +367,7 @@ modeldefs = (
                 ('type', ('econ:fin:security:type:taxonomy', {}), {
                     'doc': 'The type of security.'}),
 
+                # FIXME valuable
                 ('price', ('econ:price', {}), {
                     'doc': 'The last known/available price of the security.'}),
 
@@ -380,13 +413,13 @@ modeldefs = (
                 ('issued', ('time', {}), {
                     'doc': 'The time that the invoice was issued to the recipient.'}),
 
-                ('issuer', ('ps:contact', {}), {
+                ('issuer', ('entity:actor', {}), {
                     'doc': 'The contact information for the entity who issued the invoice.'}),
 
                 ('purchase', ('econ:purchase', {}), {
                     'doc': 'The purchase that the invoice is requesting payment for.'}),
 
-                ('recipient', ('ps:contact', {}), {
+                ('recipient', ('entity:actor', {}), {
                     'doc': 'The contact information for the intended recipient of the invoice.'}),
 
                 ('due', ('time', {}), {
@@ -410,10 +443,10 @@ modeldefs = (
                 ('purchase', ('econ:purchase', {}), {
                     'doc': 'The purchase that the receipt confirms payment for.'}),
 
-                ('issuer', ('ps:contact', {}), {
+                ('issuer', ('entity:actor', {}), {
                     'doc': 'The contact information for the entity who issued the receipt.'}),
 
-                ('recipient', ('ps:contact', {}), {
+                ('recipient', ('entity:actor', {}), {
                     'doc': 'The contact information for the entity who received the receipt.'}),
 
                 ('currency', ('econ:currency', {}), {
@@ -428,7 +461,7 @@ modeldefs = (
                 ('bank', ('ou:org', {}), {
                     'doc': 'The bank which was issued the ABA RTN.'}),
 
-                ('bank:name', ('ou:name', {}), {
+                ('bank:name', ('meta:name', {}), {
                     'doc': 'The name which is registered for this ABA RTN.'}),
 
             )),
@@ -440,7 +473,8 @@ modeldefs = (
                 ('business', ('ou:org', {}), {
                     'doc': 'The business which is the registered owner of the SWIFT BIC.'}),
 
-                ('office', ('ps:contact', {}), {
+                # FIXME ou:office?
+                ('office', ('entity:actor', {}), {
                     'doc': 'The branch or office which is specified in the last 3 digits of the SWIFT BIC.'}),
             )),
 
@@ -462,7 +496,7 @@ modeldefs = (
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The bank which issued the account.'}),
 
-                ('issuer:name', ('ou:name', {}), {
+                ('issuer:name', ('meta:name', {}), {
                     'doc': 'The name of the bank which issued the account.'}),
 
                 ('currency', ('econ:currency', {}), {

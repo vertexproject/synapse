@@ -1098,7 +1098,7 @@ gen.ou.campaign
 
 The ``gen.ou.campaign`` command locates (lifts) or creates an ``ou:campaign`` node based on the
 campaign name (``ou:campaign:name`` and / or ``ou:campaign:names``) and the name of the reporting
-organization (``ou:campaign:reporter:name``).
+organization (``ou:campaign:source:name``).
 
 **Syntax:**
 
@@ -1169,7 +1169,9 @@ The ``gen.ou.org.hq`` command locates (lifts) the primary ``ps:contact`` node fo
 
 **Syntax:**
 
-.. storm-cli:: gen.ou.org.hq --help
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: gen.ou.org.hq --help
 
 
 .. _storm-gen-pol-country:
@@ -1220,7 +1222,7 @@ gen.risk.threat
 
 The ``gen.risk.threat`` command locates (lifts) or creates a ``risk:threat`` node using the
 name of the threat group (``risk:threat:org:name`` and / or ``risk:threat:org:names``) and the
-name of the entity reporting on the threat (``risk:threat:reporter:name``).
+name of the entity reporting on the threat (``risk:threat:source:name``).
 
 **Syntax:**
 
@@ -1235,7 +1237,7 @@ gen.risk.tool.software
 The ``gen.risk.tool.software`` command locates (lifts) or creates a ``risk:tool:software``
 node using the name of the software / malware (``risk:tool:software:soft:name`` and / or 
 ``risk:software:soft:names``) and the name of the entity reporting on the software / malware
-(``risk:tool:software:reporter:name``).
+(``risk:tool:software:source:name``).
 
 **Syntax:**
 
@@ -1249,7 +1251,7 @@ gen.risk.vuln
 
 The ``gen.risk.vuln`` command locates (lifts) or creates a ``risk:tool:vuln`` node using the
 Common Vulnerabilities and Exposures (CVE) number associated with the vulnerability
-(``risk:vuln:cve``) and the name of the entity reporting on the vulnerability (``risk:vuln:reporter:name``).
+(``risk:vuln:cve``) and the name of the entity reporting on the vulnerability (``risk:vuln:source:name``).
 
 **Syntax:**
 
@@ -1626,8 +1628,10 @@ secondary property, tag interval, or variable.
 
 - Return the most recent WHOIS record for domain woot.com:
 
-.. storm-pre:: [inet:whois:rec=(woot.com,2018/05/22) :text="domain name: woot.com"]
-.. storm-cli:: inet:whois:rec:fqdn=woot.com | max :asof
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [inet:whois:rec=(woot.com,2018/05/22) :text="domain name: woot.com"]
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com | max :asof
 
 
 .. _storm-merge:
@@ -1669,7 +1673,9 @@ secondary property, tag interval, or variable.
 
 - Return the oldest WHOIS record for domain woot.com:
 
-.. storm-cli:: inet:whois:rec:fqdn=woot.com | min :asof
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com | min :asof
 
 
 .. _storm-model:
@@ -2160,7 +2166,9 @@ can be used to return the scraped nodes rather than the input nodes.
 - Scrape the text of WHOIS records for the domain ``woot.com`` and create nodes for common forms found
   in the text:
 
-.. storm-cli:: inet:whois:rec:fqdn=woot.com | scrape :text
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com | scrape :text
 
 
 **Usage Notes:**
@@ -2168,7 +2176,7 @@ can be used to return the scraped nodes rather than the input nodes.
 - If no properties to scrape are specified, ``scrape`` will attempt to scrape **all** properties of the
   inbound nodes by default.
 - ``scrape`` will only scrape node **properties**; it will not scrape files (this includes files that may
-  be referenced by properties, such as ``media:news:file``). In other words, ``scrape`` cannot be used to
+  be referenced by properties, such as ``doc:report:file``). In other words, ``scrape`` cannot be used to
   parse indicators from a file such as a PDF.
 - ``scrape`` extracts the following forms / indicators (note that this list may change as the command is
   updated):

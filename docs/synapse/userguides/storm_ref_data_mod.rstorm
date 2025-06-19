@@ -297,10 +297,10 @@ Operation to add the specified node(s) to a Cortex.
 *Create multiple nodes in a single edit operation:*
 
 
-.. storm-pre:: [ inet:fqdn=woot.com inet:ip=12.34.56.78 hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
+.. storm-pre:: [ inet:fqdn=woot.com inet:ip=12.34.56.78 crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
 ::
 
-    [ inet:fqdn=woot.com inet:ip=12.34.56.78 hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
+    [ inet:fqdn=woot.com inet:ip=12.34.56.78 crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
 
 
 **Usage Notes:**
@@ -396,20 +396,24 @@ a more "human friendly" method.
 
 *Use a subquery to assign an organization's (ou:org) guid as the secondary property of a ps:contact node:*
 
-.. storm-pre:: [ ou:org=0fa690c06970d2d2ae74e43a18f46c2a :url=https://www.justice.gov/ :name="U.S. Department of Justice" ]
-.. storm-pre:: [ ps:contact=d41d8cd98f00b204e9800998ecf8427e :orgname="U.S. Department of Justice" :address="950 Pennsylvania Avenue NW, Washington, DC, 20530-0001" :phone="+1 202-514-2000" :loc="us.dc.washington" ]
-.. storm-cli:: ps:contact:orgname="U.S. Department of Justice" [ :org={ ou:org:name="U.S. Department of Justice" } ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ou:org=0fa690c06970d2d2ae74e43a18f46c2a :url=https://www.justice.gov/ :name="U.S. Department of Justice" ]
+    .. storm-pre:: [ ps:contact=d41d8cd98f00b204e9800998ecf8427e :orgname="U.S. Department of Justice" :address="950 Pennsylvania Avenue NW, Washington, DC, 20530-0001" :phone="+1 202-514-2000" :loc="us.dc.washington" ]
+    .. storm-cli:: ps:contact:orgname="U.S. Department of Justice" [ :org={ ou:org:name="U.S. Department of Justice" } ]
 
 In the example above, the subquery ``ou:org:name="U.S. Department of Justice"`` is used to lift the organization node with
 that ``:name`` property value and assign the ``ou:org`` node's guid value to the ``:org`` property of the ``ps:contact`` node.
 
 *Use a subquery to assign one or more industries (ou:industry) to an organization (ou:org):*
 
-.. storm-pre:: [ ou:org=2848b564bf1e68563e3fea4ce27299f3 :name=apple :names=(apple, "apple, inc.") :phone="+1 408-996-1010" :loc=us.ca.cupertino]
-.. storm-pre:: [ps:contact="*" :orgname="Apple" :address="1 Apple Park Way, Cupertino, CA 95014" :phone="+1 202-514-2000" :loc="us.ca.cupertino"]
-.. storm-pre:: [ ou:industry="*" :name="Computers and Electronics" ]
-.. storm-pre:: [ ou:industry="*" :name="Telecommunications" ]
-.. storm-cli:: ou:org:name=apple [ :industries+={ ou:industry:name="computers and electronics" ou:industry:name="telecommunications" } ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ou:org=2848b564bf1e68563e3fea4ce27299f3 :name=apple :names=(apple, "apple, inc.") :phone="+1 408-996-1010" :loc=us.ca.cupertino]
+    .. storm-pre:: [ps:contact="*" :orgname="Apple" :address="1 Apple Park Way, Cupertino, CA 95014" :phone="+1 202-514-2000" :loc="us.ca.cupertino"]
+    .. storm-pre:: [ ou:industry="*" :name="Computers and Electronics" ]
+    .. storm-pre:: [ ou:industry="*" :name="Telecommunications" ]
+    .. storm-cli:: ou:org:name=apple [ :industries+={ ou:industry:name="computers and electronics" ou:industry:name="telecommunications" } ]
 
 In the example above, the subquery is used to lift the specified industry nodes (``ou:industry``) and assign both nodes'
 guid values to the ``ou:org:industries`` property for Apple's organization node.
@@ -457,13 +461,13 @@ Operation to delete (fully remove) one or more properties from the specified nod
     <inet:ip> [ -:loc ]
 
 
-*Delete multiple properties from a media:news node:*
+*Delete multiple properties from a doc:report node:*
 
 
-.. storm-pre:: media:news [ -:author -:summary ]
+.. storm-pre:: doc:report [ -:author -:desc ]
 ::
 
-    <media:news> [ -:author -:summary ]
+    <doc:report> [ -:author -:desc ]
 
 
 **Usage Notes:**
@@ -505,30 +509,32 @@ See :ref:`data-light-edge` for details on light edges.
 
 **Examples:**
 
-*Link the specified FQDN and IP to the media:news node referenced by the Storm expression using a "refs" light edge:*
+*Link the specified FQDN and IP to the doc:report node referenced by the Storm expression using a "refs" light edge:*
 
 
-.. storm-pre:: inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { media:news=a3759709982377809f28fc0555a38193 } ]
+.. storm-pre:: inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { doc:report=a3759709982377809f28fc0555a38193 } ]
 .. storm-pre:: [inet:fqdn=newsonet.net inet:fqdn=staycools.net inet:fqdn=hugesoft.org inet:fqdn=purpledaily.com +#rep.mandiant.apt1]
 ::
 
-    inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { media:news=a3759709982377809f28fc0555a38193 } ]
+    inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { doc:report=a3759709982377809f28fc0555a38193 } ]
 
 
-*Link the specified media:news node to the set of indicators tagged APT1 (#rep.mandiant.apt1) using a "refs" (references) light edge:*
+*Link the specified doc:report node to the set of indicators tagged APT1 (#rep.mandiant.apt1) using a "refs" (references) light edge:*
 
 
-.. storm-pre:: media:news=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
+.. storm-pre:: doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
 ::
 
-    media:news=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
+    doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
 
 
 *Link the inet:whois:iprec netblock registration (whois) record to any IP address within the specified netblock range (as referenced by the Storm expression) that already exists in Synapse using an "ipwhois" light edge:*
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( inet:whois:iprec=6aa3294c11baddd193a545c6f29207d5 :name=OVH-CUST-3399212 :net:min=198.50.240.220 :net:max=198.50.240.223 ) ]
+    .. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ip=198.50.240.220-198.50.240.223 } ]
 
-.. storm-pre:: [ ( inet:whois:iprec=6aa3294c11baddd193a545c6f29207d5 :name=OVH-CUST-3399212 :net:min=198.50.240.220 :net:max=198.50.240.223 ) ]
-.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ip=198.50.240.220-198.50.240.223 } ]
 ::
 
     inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ip=198.50.240.220-198.50.240.223 } ]
@@ -536,20 +542,21 @@ See :ref:`data-light-edge` for details on light edges.
 
 *Link the inet:whois:iprec netblock registration (whois) record to every IP in the specified netblock range (as referenced by the Storm expression) using an "ipwhois" light edge, creating the IPs if they do not exist:*
 
-
-.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ip=198.50.240.220-198.50.240.223 ] } ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ip=198.50.240.220-198.50.240.223 ] } ]
 ::
 
     inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ip=198.50.240.220-198.50.240.223 ] } ]
 
 
-*Link the specified media:news node to a node contained in a variable using a  "refs" light edge:*
+*Link the specified doc:report node to a node contained in a variable using a  "refs" light edge:*
 
 
-.. storm-pre:: $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
+.. storm-pre:: $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
 ::
 
-    $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
+    $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
 
 
 **Usage Notes:**
@@ -601,31 +608,33 @@ See :ref:`data-light-edge` for details on light edges.
 
 **Examples:**
 
-*Delete the "refs" light edge linking the MD5 hash of the empty file to the specified media:news node:*
+*Delete the "refs" light edge linking the MD5 hash of the empty file to the specified doc:report node:*
 
 
-.. storm-pre:: hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { media:news=a3759709982377809f28fc0555a38193 } ]
+.. storm-pre:: crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report=a3759709982377809f28fc0555a38193 } ]
 ::
 
-    hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { media:news=a3759709982377809f28fc0555a38193 } ]
+    crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report=a3759709982377809f28fc0555a38193 } ]
 
 
 *Delete the "ipwhois" light edge linking IP 1.2.3.4 to the specified netblock registration (whois) record:*
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ip=1.2.3.4 } ]
 
-.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ip=1.2.3.4 } ]
 ::
 
     inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ip=1.2.3.4 } ]
 
 
-*Delete the "refs" light edge linking the specified media:news and a node contained in a variable:*
+*Delete the "refs" light edge linking the specified doc:report and a node contained in a variable:*
 
 
-.. storm-pre:: $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
+.. storm-pre:: $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
 ::
 
-    $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
+    $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
 
 
 **Usage Notes:**
