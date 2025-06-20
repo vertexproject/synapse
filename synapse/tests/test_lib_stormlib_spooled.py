@@ -1,3 +1,4 @@
+import os
 import synapse.exc as s_exc
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -144,6 +145,20 @@ class StormlibSpooledTest(s_test.SynTest):
             valu = await core.callStorm(q)
             self.eq(1500, valu)
 
+            subq = '''{
+                $sset = $lib.spooled.set()
+                $sset.adds($lib.range(1500))
+                return($sset)
+            }'''
+
+            q = '''
+                $subset = $lib.storm.eval($text)
+                $subset.add(2345)
+                return($subset.size())
+            '''
+            valu = await core.callStorm(q, opts={'vars': {'text': subq}})
+            self.eq(1501, valu)
+
             # sad paths
             # too complex
             q = '''
@@ -199,3 +214,8 @@ class StormlibSpooledTest(s_test.SynTest):
                 return($set)
             '''
             await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q, {'vars': {'stormnode': stormnode}}))
+
+            # make sure the various spools got trashed
+            path = os.path.join(core.dirn, 'tmp')
+            files = [f for f in os.listdir(os.path.join(path))]
+            self.len(0, files)
