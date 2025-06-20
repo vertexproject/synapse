@@ -6010,7 +6010,7 @@ class Node(Prim):
         {'name': 'protocol', 'desc': 'Return an implemented protocol object for the given property.',
          'type': {'type': 'function', '_funcname': '_methNodeProtocol',
                   'args': (
-                      {'name': 'protoname', 'type': 'str',
+                      {'name': 'name', 'type': 'str',
                         'desc': 'The protocol name implemented by the property.', },
                       {'name': 'propname', 'type': 'str', 'default': None,
                         'desc': 'The relative name of the property which declares the protocol.'},
@@ -6020,7 +6020,7 @@ class Node(Prim):
         {'name': 'protocols', 'desc': 'Return an implemented protocol object for the given property.',
          'type': {'type': 'function', '_funcname': '_methNodeProtocols',
                   'args': (
-                      {'name': 'protoname', 'type': 'str', 'default': None,
+                      {'name': 'name', 'type': 'str', 'default': None,
                         'desc': 'The only return protocols with the given name.', },
                   ),
                   'returns': {'type': 'list', 'desc': 'A list of protocol dictionaries.'}}},
