@@ -751,6 +751,13 @@ class Model:
 
     def getModelDict(self):
         retn = {
+            'metas': (
+                ('created', ('time', {}), {
+                    'doc': 'The time that the node was created.'}),
+
+                ('updated', ('time', {}), {
+                    'doc': 'The time that the node was most recently modified.'}),
+            ),
             'types': {},
             'forms': {},
             'edges': [],
