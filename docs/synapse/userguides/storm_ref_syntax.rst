@@ -28,7 +28,7 @@ The Storm Reference documentation provides numerous examples of both abstract St
 
     - *<form>* refers to a form / node primary property, such as ``inet:fqdn``.
     - *<valu>* refers to the value of a primary property, such as ``woot.com`` in ``inet:fqdn=woot.com``.
-    - *<prop>* refers to a node secondary property (including universal properties) such as ``inet:ip:asn`` or ``inet:ip.created``.
+    - *<prop>* refers to a node secondary property (including meta and virtual properties) such as ``inet:ip:asn`` or ``inet:ip.created``.
     - *<pval>* refers to the value of a secondary property, such as ``4808`` in ``inet:ip:asn=4808``.
     - *<query>* refers to a Storm query.
     - *<inet:fqdn>* refers to a Storm query whose results contain the specified form(s)
