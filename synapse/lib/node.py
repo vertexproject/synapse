@@ -53,6 +53,64 @@ class NodeBase:
         props = self.getProps()
         return self._getPropReprs(props)
 
+    def protocols(self, name=None):
+
+        retn = []
+
+        pdefs = self.form.info.get('protocols')
+        if pdefs is not None:
+            for pname, pdef in pdefs.items():
+
+                # TODO we could eventually optimize this...
+                if name is not None and name != pname:
+                    continue
+
+                retn.append(self._pdeftoProto(pname, pdef, None))
+
+        for prop in self.form.props.values():
+
+            pdefs = prop.info.get('protocols')
+            if pdefs is None:
+                continue
+
+            for pname, pdef in pdefs.items():
+
+                if name is not None and name != pname:
+                    continue
+
+                retn.append(self._pdefToProto(pname, pdef, prop.name))
+
+        return retn
+
+    def protocol(self, name, propname=None):
+        pdef = self.form.reqProtoDef(name, propname=propname)
+        return self._pdefToProto(name, pdef, propname)
+
+    def _pdefToProto(self, name, pdef, propname):
+
+        proto = {
+            'name': name,
+            'vars': {},
+        }
+
+        if propname is not None:
+            proto['prop'] = propname
+
+        for varn, vdef in pdef['vars'].items():
+
+            if vdef.get('type') != 'prop': # pragma: no cover
+                mesg = f'Invalid protocol var type: {pdefn.get("type")}.'
+                raise s_exc.BadFormDef(mesg=mesg)
+
+            varprop = vdef.get('name')
+            if varprop is None: # pragma: no cover
+                mesg = 'Protocol variable type "prop" requires a "name" key.'
+                raise s_excBadFormDef(mesg=mesg)
+
+            proto['vars'][varn] = self.get(varprop)
+
+        return proto
+
     def _reqValidProp(self, name):
         prop = self.form.prop(name)
         if prop is None:

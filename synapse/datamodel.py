@@ -137,6 +137,15 @@ class Prop:
     def __repr__(self):
         return f'DataModel Prop: {self.full}'
 
+    def reqProtoDef(self, name):
+
+        pdefs = self.info.get('protocols')
+        if pdefs is None or (pdef := pdefs.get(name)) is None:
+            mesg = f'Property {self.full} does not implement protocol {name}.'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        return pdef
+
     def onSet(self, func):
         '''
         Add a callback for setting this property.
@@ -302,6 +311,18 @@ class Form:
         if self.isrunt and (liftfunc := self.info.get('liftfunc')) is not None:
             func = s_dyndeps.tryDynLocal(liftfunc)
             modl.core.addRuntLift(name, func)
+
+    def reqProtoDef(self, name, propname=None):
+
+        if propname is not None:
+            return self.reqProp(propname).reqProtoDef(name)
+
+        pdefs = self.info.get('protocols')
+        if pdefs is None or (pdef := pdefs.get(name)) is None:
+            mesg = f'Form {prop.full} does not implement protocol {name}.'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        return pdef
 
     def getRuntPode(self):
 

@@ -6006,12 +6006,33 @@ class Node(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The form to compare the Node against.', },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the form matches, false otherwise.', }}},
+
+        {'name': 'protocol', 'desc': 'Return an implemented protocol object for the given property.',
+         'type': {'type': 'function', '_funcname': '_methNodeProtocol',
+                  'args': (
+                      {'name': 'protoname', 'type': 'str',
+                        'desc': 'The protocol name implemented by the property.', },
+                      {'name': 'propname', 'type': 'str', 'default': None,
+                        'desc': 'The relative name of the property which declares the protocol.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A protocol dictionary with populated properties.'}}},
+
+        {'name': 'protocols', 'desc': 'Return an implemented protocol object for the given property.',
+         'type': {'type': 'function', '_funcname': '_methNodeProtocols',
+                  'args': (
+                      {'name': 'protoname', 'type': 'str', 'default': None,
+                        'desc': 'The only return protocols with the given name.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of protocol dictionaries.'}}},
+
         {'name': 'value', 'desc': 'Get the value of the primary property of the Node.',
          'type': {'type': 'function', '_funcname': '_methNodeValue',
                   'returns': {'type': 'prim', 'desc': 'The primary property.', }}},
+
         {'name': 'getByLayer', 'desc': 'Return a dict you can use to lookup which props/tags came from which layers.',
          'type': {'type': 'function', '_funcname': '_methGetByLayer',
                   'returns': {'type': 'dict', 'desc': 'property / tag lookup dictionary.', }}},
+
         {'name': 'getStorNodes',
          'desc': 'Return a list of "storage nodes" which were fused from the layers to make this node.',
          'type': {'type': 'function', '_funcname': '_methGetStorNodes',
@@ -6052,6 +6073,8 @@ class Node(Prim):
             'globtags': self._methNodeGlobTags,
             'difftags': self._methNodeDiffTags,
             'isform': self._methNodeIsForm,
+            'protocol': self._methNodeProtocol,
+            'protocols': self._methNodeProtocols,
             'getByLayer': self._methGetByLayer,
             'getStorNodes': self._methGetStorNodes,
         }
@@ -6119,6 +6142,17 @@ class Node(Prim):
     @stormfunc(readonly=True)
     async def _methNodeIsForm(self, name):
         return self.valu.form.name == name
+
+    @stormfunc(readonly=True)
+    async def _methNodeProtocol(self, name, propname=None):
+        name = await tostr(name)
+        propname = await tostr(propname, noneok=True)
+        return self.valu.protocol(name, propname=propname)
+
+    @stormfunc(readonly=True)
+    async def _methNodeProtocols(self, name=None):
+        name = await tostr(name, noneok=True)
+        return self.valu.protocols(name=name)
 
     @stormfunc(readonly=True)
     async def _methNodeTags(self, glob=None, leaf=False):

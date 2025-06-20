@@ -23,16 +23,16 @@ modeldefs = (
 
                     ('name', ('meta:name', {}), {
                         'alts': ('names',),
-                        'doc': 'The primary name of the {contactable}.'}),
+                        'doc': 'The primary entity name of the {contactable}.'}),
 
                     ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate names for the {contactable}.'}),
+                        'doc': 'An array of alternate entity names for the {contactable}.'}),
 
                     ('title', ('entity:title', {}), {
-                        'doc': 'The title or role for this {contactable}.'}),
+                        'doc': 'The entity title or role for this {contactable}.'}),
 
                     ('titles', ('array', {'type': 'entity:title', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate job titles or roles for this {contactable}.'}),
+                        'doc': 'An array of alternate entity titles or roles for this {contactable}.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary url for the {contactable}.'}),
