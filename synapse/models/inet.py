@@ -1171,7 +1171,6 @@ async def _onSetWhoisText(node, oldv):
         if form == 'inet:email':
 
             whomail = await node.view.addNode('inet:whois:email', (fqdn, valu))
-            await whomail.set('.seen', asof)
 
 modeldefs = (
     ('inet', {

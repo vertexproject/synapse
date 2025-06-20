@@ -1620,10 +1620,10 @@ secondary property, tag interval, or variable.
 
 **Examples:**
 
-- Return the DNS A record for woot.com with the most recent ``.seen`` value:
+- Return the DNS A record for woot.com with the most recent ``:seen`` value:
 
-.. storm-pre:: [(inet:dns:a=(woot.com,107.21.53.159) .seen=(2014/08/13,2014/08/14)) (inet:dns:a=(woot.com,75.101.146.4) .seen=(2013/09/21,2013/09/22))] 
-.. storm-cli:: inet:dns:a:fqdn=woot.com | max .seen
+.. storm-pre:: [(inet:dns:a=(woot.com,107.21.53.159) :seen=(2014/08/13,2014/08/14)) (inet:dns:a=(woot.com,75.101.146.4) :seen=(2013/09/21,2013/09/22))] 
+.. storm-cli:: inet:dns:a:fqdn=woot.com | max :seen
 
 
 - Return the most recent WHOIS record for domain woot.com:
@@ -1666,9 +1666,9 @@ secondary property, tag interval, or variable.
 
 **Examples:**
 
-- Return the DNS A record for woot.com with the oldest ``.seen`` value:
+- Return the DNS A record for woot.com with the oldest ``:seen`` value:
 
-.. storm-cli:: inet:dns:a:fqdn=woot.com | min .seen
+.. storm-cli:: inet:dns:a:fqdn=woot.com | min :seen
 
 
 - Return the oldest WHOIS record for domain woot.com:
