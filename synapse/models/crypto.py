@@ -91,11 +91,9 @@ modeldefs = (
             ('crypto:currency:address', ('comp', {'fields': (('coin', 'crypto:currency:coin'), ('iden', 'str')), 'sepr': '/'}), {
 
                 'interfaces': (
-                    ('econ:pay:instrument', {}),
+                    ('entity:contactable', {'template': {'contactable': 'crypto currency address'}}),
+                    ('econ:pay:instrument', {'template': {'instrument': 'crypto currency address'}}),
                 ),
-                'template': {
-                    'instrument': 'crypto currency address'},
-
                 'ex': 'btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
                 'doc': 'An individual crypto currency address.'}),
 

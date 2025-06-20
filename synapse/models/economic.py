@@ -19,18 +19,15 @@ modeldefs = (
                 'doc': 'An Issuer Id Number (IIN).'}),
 
             ('econ:pay:card', ('guid', {}), {
-
                 'interfaces': (
-                    ('econ:pay:instrument', {
-                        'template': {
-                            'instrument': 'payment card'}}),
+                    ('econ:pay:instrument', {'template': {'instrument': 'payment card'}}),
+                    ('entity:contactable', {'template': {'contactable': 'payment card'}}),
                 ),
                 'doc': 'A single payment card.'}),
 
             ('econ:purchase', ('guid', {}), {
                 'interfaces': (
-                    ('geo:locatable', {
-                        'template': {'geo:locatable': 'purchase'}}),
+                    ('geo:locatable', {'template': {'geo:locatable': 'purchase'}}),
                 ),
                 'doc': 'A purchase event.'}),
 
@@ -41,7 +38,10 @@ modeldefs = (
                 'doc': 'A payment or crypto currency transaction.'}),
 
             ('econ:acct:balance', ('guid', {}), {
-                'doc': 'A snapshot of the balance of an account at a point in time.'}),
+                'doc': 'The balance of funds available to a financial instrument at a specific time.'}),
+
+            ('econ:acct:statement', ('guid', {}), {
+                'doc': 'A statement of starting/ending balance and payments for a financial instrument over a time period.'}),
 
             ('econ:acct:receipt', ('guid', {}), {
                 'doc': 'A receipt issued as proof of payment.'}),
@@ -84,17 +84,10 @@ modeldefs = (
             ('econ:bank:account', ('guid', {}), {
 
                 'interfaces': (
-                    ('econ:pay:instrument', {
-                        'template': {
-                            'instrument': 'bank account'}}),
+                    ('entity:contactable', {'template': {'contactable': 'bank account'}}),
+                    ('econ:pay:instrument', {'template': {'instrument': 'bank account'}}),
                 ),
                 'doc': 'A bank account.'}),
-
-            ('econ:bank:balance', ('guid', {}), {
-                'doc': 'A balance contained by a bank account at a point in time.'}),
-
-            ('econ:bank:statement', ('guid', {}), {
-                'doc': 'A statement of bank account payment activity over a period of time.'}),
 
             ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
                 'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),
@@ -113,40 +106,21 @@ modeldefs = (
             ('econ:pay:instrument', {
 
                 'doc': 'An interface for forms which may act as a payment instrument.',
-                'template': {
-                    'instrument': 'instrument',
-                },
+                'template': {'instrument': 'instrument'},
 
                 'props': (
-
-                    ('contact', ('entity:actor', {}), {
-                        'doc': 'The primary contact for the {instrument}.'}),
+                    ('balance', ('econ:acct:balance', {}), {
+                        'doc': 'The most recent balance for the {instrument}.'}),
                 ),
             }),
-            ('econ:valuable', {
-                'template': {'econ:valuable': 'item'},
-                'prefix': 'price',
-                'props': (
-
-                    ('', ('econ:price', {}), {
-                        'doc': 'The value of the {econ:valuable}.'}),
-
-                    ('asof', ('time', {}), {
-                        'doc': 'The time the value was determined.'}),
-
-                    ('currency', ('econ:currency', {}), {
-                        'doc': 'The currency used to represent the value.'}),
-                ),
-                'doc': 'Properties common to forms with intrinsic monetary value.'}),
-            # FIXME econ valuable interface and econ:value=<guid> history
         ),
 
         'edges': (
-            # FIXME econ:valuable
+
             # (('econ:purchase', 'acquired', 'entity:havable'), {
                 # 'doc': 'The purchase was used to acquire the target node.'}),
 
-            (('econ:bank:statement', 'has', 'econ:acct:payment'), {
+            (('econ:acct:statement', 'has', 'econ:acct:payment'), {
                 'doc': 'The bank statement includes the payment.'}),
         ),
 
@@ -189,7 +163,6 @@ modeldefs = (
                     'doc': 'A bank account associated with the payment card.'}),
             )),
 
-            # FIXME econ:valuable?
             ('econ:purchase', {}, (
 
                 ('buyer', ('entity:actor', {}), {
@@ -237,7 +210,6 @@ modeldefs = (
                 ('price', ('econ:price', {}), {
                     'doc': 'The total cost of this receipt line item.'}),
 
-                # FIXME econ:valuable
                 ('product', ('biz:product', {}), {
                     'doc': 'The product being being purchased in this line item.'}),
             )),
@@ -260,9 +232,6 @@ modeldefs = (
                 ('from:instrument', ('econ:pay:instrument', {}), {
                     'doc': 'The payment instrument used to make the payment.'}),
 
-                ('from:contract', ('ou:contract', {}), {
-                    'doc': 'A contract used as an aggregate payment source.'}),
-
                 ('from:contact', ('entity:actor', {}), {
                     'doc': 'Contact information for the entity making the payment.'}),
 
@@ -272,9 +241,6 @@ modeldefs = (
                 # FIXME - rename to payer / payee?
                 ('to:contact', ('entity:actor', {}), {
                     'doc': 'Contact information for the person/org being paid.'}),
-
-                ('to:contract', ('ou:contract', {}), {
-                    'doc': 'A contract used as an aggregate payment destination.'}),
 
                 ('time', ('time', {}), {
                     'doc': 'The time the payment was processed.'}),
@@ -323,22 +289,48 @@ modeldefs = (
                     'doc': 'The time the balance was recorded.'}),
 
                 ('instrument', ('econ:pay:instrument', {}), {
-                    'doc': 'The financial insutrument holding the balance.'}),
+                    'doc': 'The financial instrument holding the balance.'}),
 
                 ('amount', ('econ:price', {}), {
-                    'doc': 'The account balance at the time.'}),
+                    'protocols': {
+                        'econ:adjustable': {'vars': {
+                            'time': {'type': 'prop', 'name': 'time'},
+                            'currency': {'type': 'prop', 'name': 'currency'}}},
+                    },
+                    'doc': 'The avilable funds at the time.'}),
 
                 ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the balance amount.'}),
+                    'doc': 'The currency of the available funds.'}),
+            )),
 
-                ('delta', ('econ:price', {}), {
-                    'doc': 'The change since last regular sample.'}),
+            ('econ:acct:statement', {}, (
 
-                ('total:received', ('econ:price', {}), {
-                    'doc': 'The total amount of currency received by the account.'}),
+                # TODO: total volume of changes etc...
 
-                ('total:sent', ('econ:price', {}), {
-                    'doc': 'The total amount of currency sent from the account.'}),
+                ('instrument', ('econ:pay:instrument', {}), {
+                    'doc': 'The financial instrument described by the statement.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The period that the statement includes.'}),
+
+                ('currency', ('econ:currency', {}), {
+                    'doc': 'The currency used to store the balances.'}),
+
+                ('starting:balance', ('econ:price', {}), {
+                    'protocols': {
+                        'econ:adjustable': {'vars': {
+                            'time': {'type': 'prop', 'name': 'period.min'},
+                            'currency': {'type': 'prop', 'name': 'currency'}}},
+                    },
+                    'doc': 'The balance at the beginning of the statement period.'}),
+
+                ('ending:balance', ('econ:price', {}), {
+                    'protocols': {
+                        'econ:adjustable': {'vars': {
+                            'time': {'type': 'prop', 'name': 'period.max'},
+                            'currency': {'type': 'prop', 'name': 'currency'}}},
+                    },
+                    'doc': 'The balance at the end of the statement period.'}),
             )),
 
             ('econ:fin:exchange', {}, (
@@ -501,35 +493,6 @@ modeldefs = (
 
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The currency of the account balance.'}),
-
-                ('balance', ('econ:bank:balance', {}), {
-                    'doc': 'The most recently known bank balance information.'}),
-            )),
-
-            ('econ:bank:balance', {}, (
-
-                ('time', ('time', {}), {
-                    'doc': 'The time that the account balance was observed.'}),
-
-                ('amount', ('econ:price', {}), {
-                    'doc': 'The amount of currency available at the time.'}),
-
-                ('account', ('econ:bank:account', {}), {
-                    'doc': 'The bank account which contained the balance amount.'}),
-            )),
-            ('econ:bank:statement', {}, (
-
-                ('account', ('econ:bank:account', {}), {
-                    'doc': 'The bank account used to compute the statement.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The period that the statement includes.'}),
-
-                ('starting:balance', ('econ:price', {}), {
-                    'doc': 'The account balance at the beginning of the statement period.'}),
-
-                ('ending:balance', ('econ:price', {}), {
-                    'doc': 'The account balance at the end of the statement period.'}),
             )),
         ),
     }),

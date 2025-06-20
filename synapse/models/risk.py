@@ -857,7 +857,6 @@ modeldefs = (
                 ('compromise', ('risk:compromise', {}), {
                     'doc': 'The compromise which allowed the attacker to extort the target.'}),
 
-                # FIXME econ:valuable
                 ('demanded:payment:price', ('econ:price', {}), {
                     'doc': 'The payment price which was demanded.'}),
 

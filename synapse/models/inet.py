@@ -1408,8 +1408,9 @@ modeldefs = (
 
             ('inet:service:account', ('guid', {}), {
                 'interfaces': (
-                    ('inet:service:subscriber', {
-                        'template': {'service:base': 'account', 'contactable': 'account'}}),
+                    ('inet:service:subscriber', {'template': {
+                        'service:base': 'account', 'contactable': 'account'}}),
+                    ('econ:pay:instrument', {'template': {'instrument': 'account'}}),
                 ),
                 'doc': 'An account within a service platform. Accounts may be instance specific.'}),
 

@@ -34,9 +34,6 @@ modeldefs = (
                 'doc': 'A person.'}),
 
             ('ps:workhist', ('guid', {}), {
-                'interfaces': (
-                    ('econ:valuable', {'prefix': 'pay', 'template': {'econ:valuable': 'pay'}}),
-                ),
                 'doc': "An entry in a contact's work history."}),
 
             ('ps:vitals', ('guid', {}), {
