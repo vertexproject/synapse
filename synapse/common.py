@@ -430,7 +430,7 @@ def tmpfile(dirn: typing.Optional[str] = None, prefix: typing.Optional[str] = No
     Args:
         dirn (Optional[str]): The optional directory name to create the tempfile in.
         prefix (Optional[str]): The optional tempfile name prefix.
-        mode (str): The mode to open the file with (default: 'wb').
+        mode (str): The mode to open the file with.
     '''
     (_fd, path) = tempfile.mkstemp(dir=dirn, prefix=prefix)
 
