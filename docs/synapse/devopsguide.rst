@@ -1130,8 +1130,9 @@ tool can be used to import them into the destination Cortex.
    separately tracked.
 
    The filename for the state tracking file is automatically saved in the output
-   directory and follows the name ``<celliden>.<layriden>.yaml`` but can be
-   specified using the ``--statefile`` command line option.
+   directory and follows the name ``<celliden>.<layriden>.yaml`` but an
+   alternate path can be specified using the ``--statefile`` command line
+   option.
 
 Export node edits from a Cortex
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

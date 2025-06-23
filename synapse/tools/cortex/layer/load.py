@@ -83,41 +83,44 @@ async def main(argv, outp=s_output.stdout):
 
     infiles = []
 
-    # Load the files
-    for filename in opts.files:
-        if not os.path.exists(filename) or not os.path.isfile(filename):
-            mesg = f'Invalid input file specified: {filename}.'
-            outp.printf(mesg)
-            return 1
+    try:
+        # Load the files
+        for filename in opts.files:
+            if not os.path.exists(filename) or not os.path.isfile(filename):
+                mesg = f'Invalid input file specified: {filename}.'
+                raise s_exc.NoSuchFile(mesg=mesg)
 
-        genr = s_msgpack.iterfile(filename)
-        header = next(genr)
-        if header[0] != 'init':
-            mesg = f'Invalid header in {filename}.'
-            outp.printf(mesg)
-            return 1
+            genr = s_msgpack.iterfile(filename)
+            header = next(genr)
+            if header[0] != 'init':
+                mesg = f'Invalid header in {filename}.'
+                raise s_exc.BadMesgFormat(mesg=mesg)
 
-        infiles.append((header[1], filename, genr))
+            infiles.append((header[1], filename, genr))
 
-    # Sort the files based on their offset
-    infiles = sorted(infiles, key=lambda x: x[0].get('offset'))
+        # Sort the files based on their offset
+        infiles = sorted(infiles, key=lambda x: x[0].get('offset'))
 
-    outp.printf('Processing the following nodeedits:')
-    outp.printf('Offset           | Filename')
-    outp.printf('-----------------|----------')
-    for header, filename, genr in infiles:
-        offset = header.get('offset')
-        outp.printf(f'{offset:<16d} | {filename}')
+        outp.printf('Processing the following nodeedits:')
+        outp.printf('Offset           | Filename')
+        outp.printf('-----------------|----------')
+        for header, filename, genr in infiles:
+            offset = header.get('offset')
+            outp.printf(f'{offset:<16d} | {filename}')
 
-    async with s_telepath.withTeleEnv():
-        try:
+        async with s_telepath.withTeleEnv():
             await importLayer(infiles, opts, outp)
-        except s_exc.SynErr as exc:
-            mesg = exc.get('mesg')
-            outp.printf(f'ERROR: {mesg}.')
-            return 1
 
-    return 0
+        return 0
+
+    except s_exc.SynErr as exc:
+        mesg = exc.get('mesg')
+        outp.printf(f'ERROR: {mesg}.')
+        return 1
+
+    except Exception as exc:
+        outp.printf(f'ERROR: {str(exc)}.')
+        return 1
 
 if __name__ == '__main__':  # pragma: no cover
     s_cmd.exitmain(main)
