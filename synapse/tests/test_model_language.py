@@ -16,6 +16,7 @@ class LangModuleTest(s_t_utils.SynTest):
                     :engine=*
             ]''')
             self.len(1, nodes)
+
             self.eq(nodes[0].get('input'), ('lang:phrase', 'Hola'))
             self.eq(nodes[0].get('output'), 'Hi')
             self.eq(nodes[0].get('input:lang'), '0eae93b46d1c1951525424769faa5205')

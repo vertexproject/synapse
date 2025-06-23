@@ -155,7 +155,6 @@ class CantDelNode(SynErr): pass
 class CantDelForm(SynErr): pass
 class CantDelProp(SynErr): pass
 class CantDelType(SynErr): pass
-class CantDelUniv(SynErr): pass
 class CantDelView(SynErr): pass
 class CantMergeView(SynErr): pass
 class CantRevLayer(SynErr): pass
@@ -330,7 +329,6 @@ class NoSuchObj(SynErr): pass
 class NoSuchOpt(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchPivot(SynErr): pass
-class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass

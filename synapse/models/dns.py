@@ -212,6 +212,8 @@ modeldefs = (
                 ('ip', ('inet:ip', {}), {'ro': True,
                     'doc': 'The IPv4 address returned in the A record.',
                     'prevnames': ('ipv4',)}),
+                ('seen', ('ival', {}), {
+                    'doc': 'The time range where the record was observed.'}),
             )),
             ('inet:dns:aaaa', {}, (
                 ('fqdn', ('inet:fqdn', {}), {'ro': True,

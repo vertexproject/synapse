@@ -236,7 +236,6 @@ modeldefs = (
             )),
 
             ('ps:proficiency', {}, (
-
                 ('skill', ('edu:learnable', {}), {
                     'doc': 'The topic or skill in which the contact is proficient.'}),
 

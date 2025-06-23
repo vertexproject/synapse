@@ -27,8 +27,7 @@ terminalEnglishMap = {
     'BASEPROP': 'base property name',
     'BOOL': 'boolean',
     'BREAK': 'break',
-    'BYNAME': 'named comparison operator name',
-    'BYNAMECMPR': 'named comparison operator cmpr',
+    'BYNAME': 'named comparison operator',
     'CATCH': 'catch',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
@@ -45,7 +44,6 @@ terminalEnglishMap = {
     'CPPCOMMENT': 'c++ comment',
     'DEFAULTCASE': 'default case',
     'DOLLAR': '$',
-    'DOT': '.',
     'DOUBLEQUOTEDSTRING': 'double-quoted string',
     'ELIF': 'elif',
     'EMBEDPROPS': 'absolute property name with embed properties',
@@ -98,8 +96,7 @@ terminalEnglishMap = {
     'TRYSET': '?=',
     'TRYMODSET': '?+= or ?-=',
     'TRYMODSETMULTI': '?++= or ?--=',
-    'UNIVNAME': 'universal property',
-    'EXPRUNIVNAME': 'universal property',
+    'UNSET': 'unset',
     'VARTOKN': 'variable',
     'EXPRVARTOKN': 'variable',
     'VIRTNAME': 'virtual prop name',
@@ -112,10 +109,12 @@ terminalEnglishMap = {
     'YIELD': 'yield',
     '_ARRAYCONDSTART': '*[',
     '_BACKTICK': '`',
-    '_BYVIRT': '*',
     '_COLONDOLLAR': ':$',
     '_COLONNOSPACE': ':',
+    '_COLONPAREN': ':(',
     '_DEREF': '*',
+    '_DOTSPACE': '.',
+    '_DOTNOSPACE': '.',
     '_EDGEADDN1INIT': '+(',
     '_EDGEADDN2FINI': ')+',
     '_EDGEN1FINI': ')>',
@@ -466,13 +465,6 @@ class AstConverter(lark.Transformer):
         kids[0].reverseLift(astinfo)
         return kids[0]
 
-    @lark.v_args(meta=True)
-    def byname(self, meta, kids):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        names = [kid.valu for kid in kids[:-1]]
-        return s_ast.ByNameCmpr(astinfo, (names, kids[-1].valu), kids)
-
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
@@ -647,6 +639,7 @@ terminalClassMap = {
     'DOUBLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, unescape(x)),  # drop quotes and handle escape characters
     'FORMATTEXT': lambda astinfo, x: s_ast.Const(astinfo, format_unescape(x)),  # handle escape characters
     'TRIPLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, x[3:-3]), # drop the triple 's
+    'METANAME': lambda astinfo, x: s_ast.Const(astinfo, x[1:]),
     'NUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'HEXNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'OCTNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
@@ -662,12 +655,12 @@ terminalClassMap = {
 # For AstConverter, one-to-one replacements from lark to synapse AST
 ruleClassMap = {
     'abspropcond': s_ast.AbsPropCond,
+    'absvirtpropcond': s_ast.AbsVirtPropCond,
     'argvquery': s_ast.ArgvQuery,
     'arraycond': s_ast.ArrayCond,
     'andexpr': s_ast.AndCond,
     'baresubquery': s_ast.SubQuery,
     'catchblock': s_ast.CatchBlock,
-    'cmpr': lambda astinfo, kids: s_ast.Cmpr(astinfo, kids[0].valu),
     'condsetoper': s_ast.CondSetOper,
     'condtrysetoper': lambda astinfo, kids: s_ast.CondSetOper(astinfo, kids, errok=True),
     'condsubq': s_ast.SubqCond,
@@ -686,12 +679,12 @@ ruleClassMap = {
     'editpropdel': lambda astinfo, kids: s_ast.EditPropDel(astinfo, kids[1:]),
     'editpropset': s_ast.EditPropSet,
     'editcondpropset': s_ast.EditCondPropSet,
+    'editvirtpropset': s_ast.EditVirtPropSet,
     'editpropsetmulti': s_ast.EditPropSetMulti,
     'edittagadd': s_ast.EditTagAdd,
     'edittagdel': lambda astinfo, kids: s_ast.EditTagDel(astinfo, kids[1:]),
     'edittagpropset': s_ast.EditTagPropSet,
     'edittagpropdel': lambda astinfo, kids: s_ast.EditTagPropDel(astinfo, kids[1:]),
-    'editunivdel': lambda astinfo, kids: s_ast.EditUnivDel(astinfo, kids[1:]),
     'expror': s_ast.ExprOrNode,
     'exprand': s_ast.ExprAndNode,
     'exprnot': s_ast.UnaryExprNode,
@@ -717,15 +710,26 @@ ruleClassMap = {
     'hasabspropcond': s_ast.HasAbsPropCond,
     'hasrelpropcond': s_ast.HasRelPropCond,
     'hastagpropcond': s_ast.HasTagPropCond,
+    'hasvirtpropcond': s_ast.HasVirtPropCond,
     'ifstmt': s_ast.IfStmt,
     'ifclause': s_ast.IfClause,
     'kwarg': lambda astinfo, kids: s_ast.CallKwarg(astinfo, kids=tuple(kids)),
     'liftbytag': s_ast.LiftTag,
+    'liftbytagvalu': s_ast.LiftTagValu,
+    'liftbytagvirt': s_ast.LiftTagVirt,
+    'liftbytagvirtvalu': s_ast.LiftTagVirtValu,
     'liftformtag': s_ast.LiftFormTag,
+    'liftformtagvalu': s_ast.LiftFormTagValu,
+    'liftformtagvirt': s_ast.LiftFormTagVirt,
+    'liftformtagvirtvalu': s_ast.LiftFormTagVirtValu,
+    'liftmeta': s_ast.LiftMeta,
     'liftprop': s_ast.LiftProp,
     'liftpropby': s_ast.LiftPropBy,
+    'liftpropvirt': s_ast.LiftPropVirt,
+    'liftpropvirtby': s_ast.LiftPropVirtBy,
     'lifttagtag': s_ast.LiftTagTag,
     'liftbyarray': s_ast.LiftByArray,
+    'liftbyarrayvirt': s_ast.LiftByArrayVirt,
     'liftbytagprop': s_ast.LiftTagProp,
     'liftbyformtagprop': s_ast.LiftFormTagProp,
     'looklist': s_ast.LookList,
@@ -747,6 +751,7 @@ ruleClassMap = {
     'orexpr': s_ast.OrCond,
     'query': s_ast.Query,
     'pivottarg': s_ast.PivotTarget,
+    'pivottargvirt': s_ast.PivotTargetVirt,
     'pivottarglist': s_ast.PivotTargetList,
     'rawpivot': s_ast.RawPivot,
     'return': s_ast.Return,
@@ -764,15 +769,18 @@ ruleClassMap = {
     'tagmatch': s_ast.TagMatch,
     'tagprop': s_ast.TagProp,
     'tagvalu': s_ast.TagValue,
+    'tagvirtvalu': s_ast.TagVirtValue,
     'tagpropvalu': s_ast.TagPropValue,
     'tagvalucond': s_ast.TagValuCond,
+    'tagvirtcond': s_ast.TagVirtCond,
     'tagpropcond': s_ast.TagPropCond,
     'trycatch': s_ast.TryCatch,
-    'univprop': s_ast.UnivProp,
     'valulist': s_ast.List,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
-    'virtprop': s_ast.VirtProp,
+    'virtpropcond': s_ast.VirtPropCond,
+    'virtprops': s_ast.VirtProps,
+    'virtpropvalue': s_ast.VirtPropValue,
     'whileloop': s_ast.WhileLoop,
     'wordtokn': lambda astinfo, kids: s_ast.Const(astinfo, ''.join([str(k.valu) for k in kids]))
 }

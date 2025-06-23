@@ -287,9 +287,9 @@ class FileTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.get('file'), node0.ndef[1])
             self.eq(node.get('path'), 'c:/www/woah/really/sup.exe')
-            self.len(1, await core.nodes('file:filepath:path*dir=c:/www/woah/really'))
-            self.len(1, await core.nodes('file:filepath:path*base=sup.exe'))
-            self.len(1, await core.nodes('file:filepath:path*ext=exe'))
+            self.len(1, await core.nodes('file:filepath:path.dir=c:/www/woah/really'))
+            self.len(1, await core.nodes('file:filepath:path.base=sup.exe'))
+            self.len(1, await core.nodes('file:filepath:path.ext=exe'))
 
             self.len(1, await core.nodes('file:path="c:/www/woah/really"'))
             self.len(1, await core.nodes('file:path="c:/www"'))
