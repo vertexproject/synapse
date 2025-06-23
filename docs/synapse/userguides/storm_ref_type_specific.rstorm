@@ -1163,9 +1163,9 @@ behavior when specifying a single time value).
 Single or double quotes are required in accordance with the standard rules for using :ref:`storm-whitespace-literals`.
 For example:
 
-- ``.seen=("2017/03/24 12:13:27", "2017/08/05 17:23:46")``
+- ``:seen=("2017/03/24 12:13:27", "2017/08/05 17:23:46")``
 - ``+#sometag=(2018/09/15, "+24 hours")``
-- ``.seen=2019/03/24``
+- ``:seen=2019/03/24``
 
 As ``ival`` types are a pair of values (i.e., an explicit minimum and maximum), the values must be placed in
 parentheses and separated by a comma: ``(<min>, <max>)``. The parser expects two **explicit** values.
@@ -1188,11 +1188,11 @@ When entering relative times in an ``ival`` type:
 
 For example:
 
-- ``.seen="+1 hour"`` means from the current time (now) to one hour after the current time.
-- ``.seen=(2018/12/01, "+1 day")`` means from 12:00 AM December 1, 2018 to 12:00 AM December 2, 2018.
-- ``.seen=(2018/12/01, "-1 day")`` means from 12:00 AM November 30, 2018 to 12:00 AM December 1, 2018.
-- ``.seen=(now, "+-5 minutes")`` means from 5 minutes ago to 5 minutes from now.
-- ``.seen=("-30 minutes", "+1 hour")`` means from 30 minutes ago to 30 minutes from now.
+- ``:seen="+1 hour"`` means from the current time (now) to one hour after the current time.
+- ``:seen=(2018/12/01, "+1 day")`` means from 12:00 AM December 1, 2018 to 12:00 AM December 2, 2018.
+- ``:seen=(2018/12/01, "-1 day")`` means from 12:00 AM November 30, 2018 to 12:00 AM December 1, 2018.
+- ``:seen=(now, "+-5 minutes")`` means from 5 minutes ago to 5 minutes from now.
+- ``:seen=("-30 minutes", "+1 hour")`` means from 30 minutes ago to 30 minutes from now.
 
 When specifying minimum and maximum times for an ``ival`` type (or when specifying minimum and maximum ``time``
 values to the ``*range=`` comparator), the following restrictions should be kept in mind:
@@ -1255,8 +1255,8 @@ equivalent ( ``=`` ) operator, which will match the **exact** ``<min>`` and ``<m
 Lift the DNS A nodes whose observation window is **exactly** from 2018/12/13 01:05 to 2018/12/16 12:57:
 
 
-.. storm-pre:: [ inet:dns:a=(yoyodyne.com,16.16.16.16) .seen=("2018/12/13 01:05", "2018/12/16 12:57") ]
-.. storm-cli:: inet:dns:a.seen=("2018/12/13 01:05", "2018/12/16 12:57")
+.. storm-pre:: [ inet:dns:a=(yoyodyne.com,16.16.16.16) :seen=("2018/12/13 01:05", "2018/12/16 12:57") ]
+.. storm-cli:: inet:dns:a:seen=("2018/12/13 01:05", "2018/12/16 12:57")
 
 ``ival`` types cannot be used with comparison operators such as "less than" or "greater than or equal to".
 
@@ -1269,8 +1269,8 @@ and :ref:`filter-interval`). ``@=`` is intended for time-based comparisons (incl
 Lift all the DNS A nodes whose observation window overlaps with the interval of March 1, 2019 through April 1, 2019:
 
 
-.. storm-pre:: [ ( inet:dns:a=(hurr.com,4.4.4.4) .seen=('2019/01/05 09:38', '2019/03/12 18:17') ) ( inet:dns:a=(derp.net,8.8.8.8) .seen=('2019/03/08 07:26','2019/03/22 10:14') ) ( inet:dns:a=(blergh.org,2.2.2.2) .seen=('2019/03/28 22:22','2019/04/27 00:03') ) ]
-.. storm-cli:: inet:dns:a.seen@=(2019/03/01, 2019/04/01)
+.. storm-pre:: [ ( inet:dns:a=(hurr.com,4.4.4.4) :seen=('2019/01/05 09:38', '2019/03/12 18:17') ) ( inet:dns:a=(derp.net,8.8.8.8) :seen=('2019/03/08 07:26','2019/03/22 10:14') ) ( inet:dns:a=(blergh.org,2.2.2.2) :seen=('2019/03/28 22:22','2019/04/27 00:03') ) ]
+.. storm-cli:: inet:dns:a:seen@=(2019/03/01, 2019/04/01)
 
 
 ``ival`` types cannot be used with the ``*range=`` custom comparator. ``*range=`` can only be used to specify a
@@ -1280,13 +1280,13 @@ range of individual values (such as ``time`` or ``int``).
   
   By definition, an ``ival`` is a **pair** of date/time values treated as a single combined value. This means that
   when using variables_ to work with ``ival`` types, the full value of the property is assigned to the variable by
-  default. For example, given a node (such as an ``inet:dns:a`` node) with a ``.seen`` value of ``(2023/07/08 11:19:02, 2023/12/14 21:18:47)``,
-  the variable assignment ``$time = .seen`` will assign the **pair** of date/times to ``$time``.
+  default. For example, given a node (such as an ``inet:dns:a`` node) with a ``:seen`` value of ``(2023/07/08 11:19:02, 2023/12/14 21:18:47)``,
+  the variable assignment ``$time = :seen`` will assign the **pair** of date/times to ``$time``.
   
   You can access each date/time of an ``ival`` independently by assigning the value to a **pair** of variables
   as follows:
   
-  ``( $min, $max ) = .seen``
+  ``( $min, $max ) = :seen``
   
   ``$min`` will represent the value ``2023/07/08 11:19:02`` and ``$max`` will represent the value ``2023/12/14 21:18:47``.
 
@@ -2024,8 +2024,8 @@ interval.
 Lift a set of DNS A records whose window of observation includes March 16, 2019 at 13:00 UTC:
 
 
-.. storm-pre:: [ ( inet:dns:a=(aaaa.org,1.2.3.4) .seen=('2018/12/29 12:36:27','2019/06/03 18:14:33') ) ( inet:dns:a=(bbbb.edu,5.6.7.8) .seen=('2019/03/16 12:59:59','2019/03/16 13:01:01') ) ]
-.. storm-cli:: inet:dns:a.seen@='2019/03/16 13:00'
+.. storm-pre:: [ ( inet:dns:a=(aaaa.org,1.2.3.4) :seen=('2018/12/29 12:36:27','2019/06/03 18:14:33') ) ( inet:dns:a=(bbbb.edu,5.6.7.8) :seen=('2019/03/16 12:59:59','2019/03/16 13:01:01') ) ]
+.. storm-cli:: inet:dns:a:seen@='2019/03/16 13:00'
 
 .. NOTE::
   
