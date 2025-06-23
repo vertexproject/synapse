@@ -61,7 +61,15 @@ async def unixconnect(path):
     '''
     Connect to a PF_UNIX server listening on the given path.
     '''
-    reader, writer = await asyncio.open_unix_connection(path=path)
+    try:
+        reader, writer = await asyncio.open_unix_connection(path=path)
+    except ConnectionRefusedError as e:
+        mesg = f'Cell path is not listening: {path}'
+        raise s_exc.LinkErr(mesg=mesg) from e
+    except FileNotFoundError as e:
+        mesg = f'Cell path does not exist: {path}'
+        raise s_exc.NoSuchPath(mesg=mesg) from e
+
     info = {'path': path, 'unix': True}
     return await Link.anit(reader, writer, info=info)
 
@@ -321,9 +329,9 @@ class Link(s_base.Base):
                 raise
 
             except Exception as e:
-                mesg = f'rx error {e} link={self.getAddrInfo()}'
+                mesg = f'rx closed unexpectedly {e} link={self.getAddrInfo()}'
                 if isinstance(e, (BrokenPipeError, ConnectionResetError)):
-                    logger.warning(mesg)
+                    logger.debug(mesg)
                 else:
                     logger.exception(mesg)
                 await self.fini()
