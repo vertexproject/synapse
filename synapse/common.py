@@ -421,7 +421,7 @@ def getTempDir(dirn=None):
         shutil.rmtree(tempdir, ignore_errors=True)
 
 @contextlib.contextmanager
-def tmpfile(dirn: typing.Optional[str] = None, prefix: typing.Optional[str] = None, mode: str = 'wb'):
+def tmpfile(dirn: typing.Optional[str] = None, prefix: typing.Optional[str] = None):
     '''
     Context manager to create a temporary file and close it when finished. If an
     error occurs within the scope of the context manager, the tempfile will be
@@ -430,12 +430,11 @@ def tmpfile(dirn: typing.Optional[str] = None, prefix: typing.Optional[str] = No
     Args:
         dirn (Optional[str]): The optional directory name to create the tempfile in.
         prefix (Optional[str]): The optional tempfile name prefix.
-        mode (str): The mode to open the file with (default: 'wb').
     '''
     (_fd, path) = tempfile.mkstemp(dir=dirn, prefix=prefix)
 
     try:
-        with contextlib.closing(os.fdopen(_fd, mode)) as fd:
+        with contextlib.closing(os.fdopen(_fd, 'wb+')) as fd:
             yield (fd, path)
 
     except Exception: # pragma: no cover
