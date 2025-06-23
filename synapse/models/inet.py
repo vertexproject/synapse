@@ -1324,6 +1324,9 @@ modeldefs = (
                 'doc': 'A file hosted on a server for access over a network protocol.'}),
 
             ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'the hosted file and URL'}}),
+                ),
                 'doc': 'A file hosted at a specific Universal Resource Locator (URL).'}),
 
             ('inet:urlredir', ('comp', {'fields': (('src', 'inet:url'), ('dst', 'inet:url'))}), {
