@@ -883,7 +883,6 @@ modeldefs = (
             ('it:exec:url', ('guid', {}), {
                 'interfaces': (
                     ('it:host:activity', {}),
-                    ('meta:observable', {'template': {'observable': 'requested URL'}}),
                 ),
                 'doc': 'An instance of a host requesting a URL using any protocol scheme.'}),
 
