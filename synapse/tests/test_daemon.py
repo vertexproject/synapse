@@ -98,7 +98,7 @@ class DaemonTest(s_t_utils.SynTest):
 
                 # Invalid data casues a link to fail on rx
                 async with await prox.getPoolLink() as link:
-                    with self.getAsyncLoggerStream('synapse.lib.link', 'rx error') as stream:
+                    with self.getAsyncLoggerStream('synapse.lib.link', 'rx closed unexpectedly') as stream:
                         byts = b'\x16\x03\x01\x02\x00\x01\x00\x01\xfc\x03\x03\xa6\xa3D\xd5\xdf%\xac\xa9\x92\xc3'
                         await link.send(byts)
                         self.true(await stream.wait(timeout=6))
