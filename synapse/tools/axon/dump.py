@@ -73,33 +73,28 @@ async def dumpBlobs(opts, outp):
                     sha2hex = s_common.ehex(sha256)
                     outp.printf(f'Dumping blob {sha2hex} (size={size}, offs={offs})')
 
-                    fd, tmp_path = tempfile.mkstemp(dir=opts.outdir)
-                    try:
-                        with os.fdopen(fd, 'wb+') as tmpf:
-                            total = 0
-                            async for byts in axon.get(sha256):
-                                tmpf.write(byts)
-                                total += len(byts)
-                            if total != size:
-                                raise s_exc.BadDataValu(mesg=f'Blob size mismatch for {sha2hex}: expected {size}, got {total}')
-                            tmpf.flush()
-                            tmpf.seek(0)
-                            tarinfo = tarfile.TarInfo(name=f"{sha2hex}.blob")
-                            tarinfo.size = size
-                            tar.addfile(tarinfo, tmpf)
-                            tar_size += size
+                    with s_common.tmpfile(opts.outdir, mode='wb+') as (tmpf, tmp_path):
+                        total = 0
+                        async for byts in axon.get(sha256):
+                            tmpf.write(byts)
+                            total += len(byts)
+                        if total != size:
+                            raise s_exc.BadDataValu(mesg=f'Blob size mismatch for {sha2hex}: expected {size}, got {total}')
+                        tmpf.flush()
+                        tmpf.seek(0)
+                        tarinfo = tarfile.TarInfo(name=f"{sha2hex}.blob")
+                        tarinfo.size = size
+                        tar.addfile(tarinfo, tmpf)
+                        tar_size += size
 
-                            if tar_size >= rotate_size:
-                                outp.printf(f'Rotating to new .tar.gz file at offset {offs + 1}')
-                                tar.close()
-                                final_name = os.path.join(opts.outdir, getTarName(celliden, file_start, offs + 1))
-                                os.rename(tar_path, final_name)
-                                tar = None
-                                tar_path = None
-                                for_open = True
-
-                    finally:
-                        os.remove(tmp_path)
+                        if tar_size >= rotate_size:
+                            outp.printf(f'Rotating to new .tar.gz file at offset {offs + 1}')
+                            tar.close()
+                            final_name = os.path.join(opts.outdir, getTarName(celliden, file_start, offs + 1))
+                            os.rename(tar_path, final_name)
+                            tar = None
+                            tar_path = None
+                            for_open = True
 
                 if tar is not None:
                     tar.close()

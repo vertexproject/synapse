@@ -22,8 +22,8 @@ class AxonToolsTest(s_t_utils.SynTest):
             argv = ['--url', 'cell:///definitelynotarealpath/axon', '--offset', '0', testdir]
             outp = s_output.OutPutStr()
             self.eq(1, await axon_dump.main(argv, outp=outp))
-            self.isin('Error', str(outp))
-            self.isin('dumping blobs from Axon url', str(outp))
+            self.isin('ERROR', str(outp))
+            self.isin('Cell path does not exist', str(outp))
 
         with self.getTestDir() as testdir:
             async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
@@ -43,8 +43,8 @@ class AxonToolsTest(s_t_utils.SynTest):
             argv = ['--url', 'cell:///definitelynotarealpath/axon', tarfile]
             outp = s_output.OutPutStr()
             self.eq(1, await axon_load.main(argv, outp=outp))
-            self.isin('Error', str(outp))
-            self.isin('loading blobs into Axon url', str(outp))
+            self.isin('ERROR', str(outp))
+            self.isin('Cell path does not exist', str(outp))
 
             async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
                 dumpdir = os.path.join(testdir, 'dumpdir')
@@ -192,7 +192,7 @@ class AxonToolsTest(s_t_utils.SynTest):
             argv = ['--url', 'cell:///definitelynotarealpath/axon', missing]
             outp = s_output.OutPutStr()
             self.eq(1, await axon_load.main(argv, outp=outp))
-            self.isin('No such file or directory', str(outp))
+            self.isin('ERROR: Cell path does not exist', str(outp))
 
     async def test_load_continue_and_invalid_blob(self):
         with self.getTestDir() as testdir:
