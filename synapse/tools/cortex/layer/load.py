@@ -118,7 +118,7 @@ async def main(argv, outp=s_output.stdout):
         outp.printf(f'ERROR: {mesg}.')
         return 1
 
-    except Exception as exc:
+    except Exception as exc: # pragma: no cover
         outp.printf(f'ERROR: {str(exc)}.')
         return 1
 
