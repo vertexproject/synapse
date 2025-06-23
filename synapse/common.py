@@ -434,7 +434,7 @@ def tmpfile(dirn: typing.Optional[str] = None, prefix: typing.Optional[str] = No
     (_fd, path) = tempfile.mkstemp(dir=dirn, prefix=prefix)
 
     try:
-        with contextlib.closing(os.fdopen(_fd, 'wb')) as fd:
+        with contextlib.closing(os.fdopen(_fd, 'wb+')) as fd:
             yield (fd, path)
 
     except Exception: # pragma: no cover
