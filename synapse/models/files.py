@@ -231,6 +231,9 @@ modeldefs = (
         'types': (
 
             ('file:bytes', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'file'}}),
+                ),
                 'doc': 'A file.'}),
 
             ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
