@@ -813,7 +813,7 @@ If the Cortex is mirrored, a list of Telepath URLs of all mirrors must be provid
 This ensures that all mirrors have rotated their Nexus logs before the cull operation is executed.
 
 .. warning::
-    If this list is ommitted, or incorrect, the mirrors may become de-synchronized
+    If this list is omitted, or incorrect, the mirrors may become de-synchronized
     which will require a re-deployment from a backup of the upstream.
 
 The Telepath URLs can be provided to the Storm API as follows::
@@ -1150,6 +1150,61 @@ Importing blobs into an Axon can be done with the
 
 The import tool will automatically process the provided tar.gz archive files,
 so there is no need to import them one at a time or specify them in a particular order.
+
+Copying node edits between Cortexes
+-----------------------------------
+
+For situations where an organization may want to synchronize node edits between
+two unconnected (no direct network connection) Cortexes, there are command line
+tools available to export nodes edits from a layer on the source Cortex and then
+import those same edits into a layer on a different Cortex.
+
+- ``synapse.tools.cortex.layer.dump``: Export node edits from a specified layer on a
+  Cortex.
+- ``synapse.tools.cortex.layer.load``: Import node edits to a specified layer on a
+  Cortex.
+
+In these situations, an export would be created using
+``synapse.tools.cortex.layer.dump``. The output of this tool is one or more export
+files that can then be manually copied over to the destination Cortex
+environment. Once the files have been copied, the ``synapse.tools.cortex.layer.load``
+tool can be used to import them into the destination Cortex.
+
+.. note::
+
+   The ``synapse.tools.cortex.layer.dump`` export tool creates a state tracking YAML
+   file for recording the next expected offset from the layer that was exported.
+   The state tracking files allows the export tool to create incremental exports
+   from the time of the last execution without requiring the offset to be
+   separately tracked.
+
+   The filename for the state tracking file is automatically saved in the output
+   directory and follows the name ``<celliden>.<layriden>.yaml`` but an
+   alternate path can be specified using the ``--statefile`` command line
+   option.
+
+Export node edits from a Cortex
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Exporting node edits from a layer can be done with the
+``synapse.tools.cortex.layer.dump`` command::
+
+    python -m synapse.tools.cortex.layer.dump --url <cortexurl> <layriden> <outdir>
+
+When running the export tool from within the Cortex container, the ``--url``
+option does not need to be provided as it will default to the local service.
+
+Import node edits into a Cortex
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Importing node edits into a layer can be done with the
+``synapse.tools.cortex.layer.load`` command::
+
+    python -m synapse.tools.cortex.layer.load <layriden> <nodeedits file(s)...>
+
+The import tool will automatically order the node edit files based on starting
+offset so there is no need to import them one at a time or specify them in a
+particular order.
 
 Synapse Services
 ================
