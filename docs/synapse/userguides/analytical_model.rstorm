@@ -60,7 +60,7 @@ This example shows the **node** for the tag ``syn:tag = rep.mandiant.apt1``:
 
 The ``syn:tag`` node has the following properties:
 
-- ``.created``, which is a universal property showing when the node was added to a Cortex.
+- ``.created``, which is a meta property showing when the node was added to a Cortex.
 - ``:title`` and ``:doc``, which store concise and more detailed definitions for the tag. Definitions on tag nodes
   help to ensure the tags are applied (and interpreted) correctly by Synapse analysts and other users.
 
@@ -130,10 +130,9 @@ Tag Timestamps
 --------------
 
 Synapse supports the use of optional tag **timestamps** to indicate that the assessment represented by a tag was true,
-relevant, or observed within the specified time window. Tag timestamps are intervals (pairs of date / time values)
-similar to the ``.seen`` universal property.
+relevant, or observed within the specified time window. Tag timestamps are intervals (pairs of date / time values).
 
-Like ``.seen`` properties, tag timestamps represent a time **range** and not necessarily specific instances (other than
+Tag timestamps represent a time **range** and not necessarily specific instances (other than
 the "first known" and "last known" observations). This means that the assessment represented by the tag is not guaranteed
 to have been true throughout the entire date range (though depending on the meaning of the tag, that may be the case).
 That said, the use of timestamps allows much greater granularity in recording observations in cases where the timing
@@ -225,7 +224,7 @@ structure you create should allow you to increase specificity in a way that is m
 you’re trying to answer.
 
 For example, let’s say you are storing copies of articles from various news feeds within Synapse (i.e., as
-``media:news`` nodes). You want to use tags to annotate the subject matter of the articles. Two possible options
+``doc:report`` nodes). You want to use tags to annotate the subject matter of the articles. Two possible options
 would be:
 
 **Tag Tree #1**

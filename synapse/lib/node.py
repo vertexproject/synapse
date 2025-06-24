@@ -14,12 +14,22 @@ logger = logging.getLogger(__name__)
 
 class NodeBase:
 
-    def repr(self, name=None, defv=None, virts=None):
+    def repr(self, name=None, defv=None):
+
+        virts = None
+        if name is not None:
+            parts = name.strip().split('.')
+            if len(parts) > 1:
+                name = parts[0] or None
+                virts = parts[1:]
 
         if name is None:
             typeitem = self.form.type
             if virts is None:
                 return typeitem.repr(self.valu())
+
+            if (mtyp := self.view.core.model.metatypes.get(virts[0])) is not None:
+                return mtyp.repr(self.getMeta(virts[0]))
 
             virtgetr = typeitem.getVirtGetr(virts)
             virttype = typeitem.getVirtType(virts)
@@ -290,6 +300,7 @@ class Node(NodeBase):
         pode = (self.ndef, {
             'nid': s_common.int64un(self.nid),
             'iden': self.iden(),
+            'meta': self.getMetaDict(),
             'tags': self._getTagsDict(),
             'props': self.getProps(virts=virts),
             'tagprops': self._getTagPropsDict(),
@@ -534,6 +545,14 @@ class Node(NodeBase):
         if name.startswith('#'):
             return self.getTag(name[1:], defval=defv)
 
+        elif name.startswith('.'):
+            virts = name.split('.')[1:]
+            if (mtyp := self.view.core.model.metatypes.get(virts[0])) is not None:
+                return self.getMeta(virts[0])
+
+            virtgetr = self.form.type.getVirtGetr(virts)
+            return self.valu(virts=virtgetr)
+
         for sode in self.sodes:
             if sode.get('antivalu') is not None:
                 return defv
@@ -732,6 +751,27 @@ class Node(NodeBase):
                 continue
 
             retn.append((tag, valu))
+
+        return retn
+
+    def getMeta(self, name):
+        for sode in self.sodes:
+            if (meta := sode.get('meta')) is not None and (valu := meta.get(name)) is not None:
+                return valu[0]
+
+    def getMetaDict(self):
+        retn = {}
+
+        for sode in reversed(self.sodes):
+            if sode.get('antivalu') is not None:
+                retn.clear()
+                continue
+
+            if (meta := sode.get('meta')) is None:
+                continue
+
+            for name, valu in meta.items():
+                retn[name] = valu
 
         return retn
 
@@ -1281,9 +1321,6 @@ def props(pode):
 
     Args:
         pode (tuple): A packed node.
-
-    Notes:
-        This will include any universal props present on the node.
 
     Returns:
         dict: A dictionary of properties.

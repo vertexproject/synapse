@@ -273,7 +273,7 @@ The variable name must be specified first, followed by the equals sign and the v
 ``<value>`` can be:
 
 - an explicit value (literal),
-- a node property (secondary or universal),
+- a node property (secondary or extended),
 - a built-in variable or method (e.g., can allow you to access a node's primary property, form name, or other
   elements),
 - a tag (allows you to access timestamps associated with a tag),
@@ -324,10 +324,11 @@ You can assign an explicit, unchanging value to a variable.
 *Example:*
 
 - Tag ``file:bytes`` nodes that have a number of malicious AV scan results higher than a given threshold for review:
-
-.. storm-pre:: [file:bytes=sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4 (it:av:scan:result=(1,) it:av:scan:result=(2,) it:av:scan:result=(3,) :target:file=sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4 :verdict=malicious) ]
-.. storm-pre:: [file:bytes=sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f (it:av:scan:result=(4,) it:av:scan:result=(5,) it:av:scan:result=(6,) it:av:scan:result=(7,) it:av:scan:result=(8,) it:av:scan:result=(9,) :target:file=sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f :verdict=malicious) ]
-.. storm-cli:: $threshold=5 file:bytes +{ -> it:av:scan:result +:verdict=malicious } >= $threshold [ +#review ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [file:bytes=sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4 (it:av:scan:result=(1,) it:av:scan:result=(2,) it:av:scan:result=(3,) :target:file=sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4 :verdict=malicious) ]
+    .. storm-pre:: [file:bytes=sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f (it:av:scan:result=(4,) it:av:scan:result=(5,) it:av:scan:result=(6,) it:av:scan:result=(7,) it:av:scan:result=(8,) it:av:scan:result=(9,) :target:file=sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f :verdict=malicious) ]
+    .. storm-cli:: $threshold=5 file:bytes +{ -> it:av:scan:result +:verdict=malicious } >= $threshold [ +#review ]
 
 .. TIP::
   
@@ -338,43 +339,13 @@ You can assign an explicit, unchanging value to a variable.
 
 **Node properties**
 
-You can assign the value of a particular node property (secondary or universal) to a variable.
+You can assign the value of a particular node property (secondary or extended) to a variable.
 
 - **Secondary property:** Assign the ``:email`` property from an Internet-based account (``inet:service:account``) to
   the variable ``$email``:
 
 .. storm-pre:: [inet:service:account=(twitter.com,hacks4cats) :email=ron@protonmail.com]
 .. storm-cli:: inet:service:account=(twitter.com,hacks4cats) $email=:email $lib.print($email)
-
-
-- **Universal property:** Assign the ``.seen`` universal property from a DNS A node to the variable ``$time``:
-
-.. storm-pre:: [inet:dns:a=(woot.com,1.2.3.4) .seen=("2018/11/27 03:28:14","2019/08/15 18:32:47")]
-.. storm-cli:: inet:dns:a=(woot.com,1.2.3.4) $time=.seen $lib.print($time)
-
-.. NOTE::
-  
-  In the output above, the variable value is displayed as a pair of epoch microseconds, which is how Synapse
-  stores date/time values.
-
-
-*Example:*
-  
-- Given a DNS A record observed within a specific time period, find other DNS A records that pointed to the
-  same IP address in the same time window:
-
-.. storm-pre:: [ ( inet:dns:a=(hurr.net,1.2.3.4) .seen=("2018/12/09 06:02:53","2019/01/03 11:27:01") ) ( inet:dns:a=(derp.org,1.2.3.4) .seen=("2019/09/03 01:11:23","2019/12/14 14:22:00"))]
-.. storm-cli:: inet:dns:a=(woot.com,1.2.3.4) $time=.seen -> inet:ip -> inet:dns:a +.seen@=$time
-
-.. TIP::
-  
-  An interval (such as a ``.seen`` property) consists of a **pair** of date/time values. In the example
-  above, the value of the variable ``$time`` is the combined pair (min / max) of times.
-  
-  To access the "first seen" (minimum) or "last seen" (maximum) time values separately, use a pair of
-  variables in the assignment:
-  
-  ``($min, $max) = .seen``
 
 
 **Built-in variables and methods**
@@ -434,11 +405,11 @@ Many of these use cases are covered above so are briefly illustrated here.
 
 .. storm-cli:: $mytag=cno.infra.dns.sinkhole
 
-- **Tag on a node:** Given a ``hash:md5`` node, assign any malware tags (tags matching the glob pattern
+- **Tag on a node:** Given a ``crypto:hash:md5`` node, assign any malware tags (tags matching the glob pattern
   ``cno.mal.*``) to the variable ``$mytags`` using the ``$node.tags()`` method:
 
-.. storm-pre:: [ hash:md5=d41d8cd98f00b204e9800998ecf8427e +#cno.mal.foo +#cno.mal.bar +#cno.threat.baz ]
-.. storm-cli:: hash:md5=d41d8cd98f00b204e9800998ecf8427e $mytags=$node.tags(cno.mal.*) $lib.print($mytags)
+.. storm-pre:: [ crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e +#cno.mal.foo +#cno.mal.bar +#cno.threat.baz ]
+.. storm-cli:: crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e $mytags=$node.tags(cno.mal.*) $lib.print($mytags)
 
 .. TIP::
   
@@ -456,9 +427,10 @@ Many of these use cases are covered above so are briefly illustrated here.
 *Example*
 
 - Given an MD5 hash, copy any ``cno.mal.*`` tags from the hash to the associated file (``file:bytes`` node):
-
-.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :md5=d41d8cd98f00b204e9800998ecf8427e :sha1=da39a3ee5e6b4b0d3255bfef95601890afd80709 :size=0 ]
-.. storm-cli:: hash:md5=d41d8cd98f00b204e9800998ecf8427e $mytags=$node.tags(cno.mal.*) for $tag in $mytags { -> file:bytes [ +#$tag ] }
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :md5=d41d8cd98f00b204e9800998ecf8427e :sha1=da39a3ee5e6b4b0d3255bfef95601890afd80709 :size=0 ]
+    .. storm-cli:: crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e $mytags=$node.tags(cno.mal.*) for $tag in $mytags { -> file:bytes [ +#$tag ] }
 
 The output above includes two "copies" of the ``file:bytes`` node because the node is output twice - once
 for each iteration of the for loop. The first iteration copies / applies the ``cno.mal.foo`` tag; the
@@ -473,7 +445,7 @@ second iteration applies the ``cno.mal.bar`` tag. For a detailed explanation of 
   
   ::
     
-    hash:md5=d41d8cd98f00b204e9800998ecf8427e for $tag in $node.tags(cno.mal.*) { -> file:bytes [ +#$tag ] }
+    crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e for $tag in $node.tags(cno.mal.*) { -> file:bytes [ +#$tag ] }
   
 
 - **Tag timestamps:** Assign the times associated with Threat Group 20’s control of a malicious domain to the variable
@@ -487,8 +459,8 @@ second iteration applies the ``cno.mal.bar`` tag. For a detailed explanation of 
 - Find DNS A records for any subdomain associated with a Threat Group 20 FQDN (zone) during the time they
   controlled the domain:
 
-.. storm-pre:: [ (inet:dns:a=(www.evildomain.com,1.2.3.4) .seen=(2020/07/12,2020/12/13)) (inet:dns:a=(smtp.evildomain.com,5.6.7.8) .seen=(2020/04/04,2020/08/02)) (inet:dns:a=(evildomain.com,12.13.14.15) .seen=(2021/12/22,2022/12/22))]
-.. storm-cli:: inet:fqdn#cno.threat.t20.own $time=#cno.threat.t20.own -> inet:fqdn:zone -> inet:dns:a +.seen@=$time
+.. storm-pre:: [ (inet:dns:a=(www.evildomain.com,1.2.3.4) :seen=(2020/07/12,2020/12/13)) (inet:dns:a=(smtp.evildomain.com,5.6.7.8) :seen=(2020/04/04,2020/08/02)) (inet:dns:a=(evildomain.com,12.13.14.15) :seen=(2021/12/22,2022/12/22))]
+.. storm-cli:: inet:fqdn#cno.threat.t20.own $time=#cno.threat.t20.own -> inet:fqdn:zone -> inet:dns:a +:seen@=$time
 
 
 **Library Functions**
@@ -525,8 +497,10 @@ evaluated, enclose the query in curly braces (``{ <storm query> }``).
 - Assign an ``ou:org`` node's guid value to the variable ``$org`` by lifting the associated org node using its
   ``:name`` property:
 
-.. storm-pre:: [ ou:org=* :name=vertex :loc=us.va :url=https://vertex.link/ ]
-.. storm-cli:: $org={ ou:org:name=vertex } $lib.print($org)
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ou:org=* :name=vertex :loc=us.va :url=https://vertex.link/ ]
+    .. storm-cli:: $org={ ou:org:name=vertex } $lib.print($org)
 
 
 .. _Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#power-up

@@ -49,6 +49,10 @@ is a type that consists of one or more values that are themselves all of a singl
   An array that is a **list** can have duplicate entries in the list.
   An array that is a **set** consists of a unique group of entries.
 
+
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 ``Array`` types can be used for secondary properties where that property is likely to have multiple values.
 Examples of array secondary properties include ``media:news:authors``, ``inet:email:message:headers``, and
 ``ps:person:names``. You can view all secondary properties that are ``array`` types using the following Storm
@@ -141,14 +145,17 @@ Remove multiple values from the array of names associated with an organization:
 
 **Example:**
 
-Use the specialized "edit try" operator to attempt to add a single value to the ``:authors`` array property
-of an article (``media:news`` node). (**Note:** a type-inappropriate value (a name) is used below to show
-the "fail silently" behavior for the "edit try" operator. The ``:authors`` property is an array of
-``ps:contact`` nodes and requires ``ps:contact`` guid values.)
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
+    Use the specialized "edit try" operator to attempt to add a single value to the ``:authors`` array property
+    of an article (``media:news`` node). (**Note:** a type-inappropriate value (a name) is used below to show
+    the "fail silently" behavior for the "edit try" operator. The ``:authors`` property is an array of
+    ``ps:contact`` nodes and requires ``ps:contact`` guid values.)
 
 
-.. storm-pre:: [ media:news="*" :publisher:name=kaspersky :title='New report on really bad threat' ]
-.. storm-cli:: media:news:publisher:name=kaspersky [ :authors?+='john smith' ]
+    .. storm-pre:: [ media:news="*" :publisher:name=kaspersky :title='New report on really bad threat' ]
+    .. storm-cli:: media:news:publisher:name=kaspersky [ :authors?+='john smith' ]
 
 
 **Usage Notes:**
@@ -235,8 +242,9 @@ the ``:identities:fqdns`` array property):
 Pivot from a set of ``ou:name`` nodes to any nodes that reference those names (this would include ``ou:org``
 nodes where the ``ou:name`` is present in the ``:name`` property or as an element in the ``:names`` array):
 
-
-.. storm-cli:: ou:name^=acme <- *
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: ou:name^=acme <- *
 
 
 .. _type-duration:
@@ -286,14 +294,21 @@ When setting a ``duration`` value, enter the value using either format above.
 
 **Examples:**
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 Set the duration of a compromise (``risk:compromise`` node) to six days, six hours, 46 minutes, and
 23 seconds:
 
-.. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = '6D 06:46:23' ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = '6D 06:46:23' ]
 
 Or:
 
-.. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = (542783000) ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = (542783000) ]
 
 Values can be set at any level of granularity; e.g., ``[ :duration = 19D ]`` is acceptable, as are
 values to microsecond resolution.
@@ -339,6 +354,9 @@ This includes:
 
 file\:bytes
 -----------
+
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
 
 ``file:bytes`` is a special type used to represent any file (i.e., any arbitrary set of bytes). Note that a
 file can be represented as a node within a Cortex regardless of whether the file itself (the specific set of
@@ -404,7 +422,9 @@ specified, but is not required (it will be added automatically on node creation)
 primary property value as a SHA256 hash and also set the ``:sha256`` secondary property. Any other secondary
 properties must be set manually.
 
-.. storm-cli:: [ file:bytes = 44daad9dbd84c92fa9ec52649b028b4c0f7d285407685778d09bad4b397747d0 ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: [ file:bytes = 44daad9dbd84c92fa9ec52649b028b4c0f7d285407685778d09bad4b397747d0 ]
 
 Because the SHA256 is considered unique (for now) for our purposes, the node is fully deconflictable. If
 additional secondary properties such as ``:size`` or other hashes are obtained later, or if the actual file
@@ -476,8 +496,10 @@ For some lift and filter operations, you may optionally specify ``file:bytes`` n
 partial match of the node's primary property. For example, the prefix operator ( ``^=`` ) may be used to specify
 a unique prefix for the ``file:bytes`` node's SHA256 or guid value:
 
-.. storm-pre:: [ file:bytes=sha256:021b4ce5c4d9eb45ed016fe7d87abe745ea961b712a08ea4c6b1b81d791f1eca :md5=8934aeed5d213fe29e858eee616a6ec7 :sha1=a7e576f41f7f100c1d03f478b05c7812c1db48ad :size=182820 :name=adobeupdater.exe ]
-.. storm-cli:: file:bytes^=sha256:021b4ce5
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:021b4ce5c4d9eb45ed016fe7d87abe745ea961b712a08ea4c6b1b81d791f1eca :md5=8934aeed5d213fe29e858eee616a6ec7 :sha1=a7e576f41f7f100c1d03f478b05c7812c1db48ad :size=182820 :name=adobeupdater.exe ]
+    .. storm-cli:: file:bytes^=sha256:021b4ce5
 
 **Usage Notes:**
 
@@ -631,7 +653,7 @@ being created and the specific data source. For example, your inputs could inclu
   - the property / properties will **always** be present for the given data source; and
   - the set of properties is sufficient to create a unique node.
 
-For example, a ``media:news`` node might be created using:
+For example, a ``doc:report`` node might be created using:
 
 - A data source string (e.g., ``my_data_source``).
 - The publication date of the article (e.g., ``2022/09/12``)
@@ -639,15 +661,15 @@ For example, a ``media:news`` node might be created using:
 
 Predictable guid values can be generated directly (as part of Storm :ref:`edit-mode` syntax):
 
-.. storm-cli:: [ media:news = (my_data_source, 2022/09/12, https://www.example.com/my_article.html) ]
+.. storm-cli:: [ doc:report = (my_data_source, 2022/09/12, https://www.example.com/my_article.html) ]
 
 Alternately, guid values can be generated and assigned to a variable using the Storm ``$lib.guid()``
 library (see :ref:`stormlibs-lib-guid`). The values provided as arguments to ``$lib.guid()`` can be either
 specific values or variables:
 
-.. storm-cli:: $guid = $lib.guid(my_data_source, 2022/09/12, https://www.example.com/my_article.html) [ media:news = $guid ]
+.. storm-cli:: $guid = $lib.guid(my_data_source, 2022/09/12, https://www.example.com/my_article.html) [ doc:report = $guid ]
 
-.. storm-cli:: $source = my_data_source $published = 2022/09/12 $url = https://www.example.com/my_article.html $guid = $lib.guid($source, $published, $url) [ media:news = $guid ]
+.. storm-cli:: $source = my_data_source $published = 2022/09/12 $url = https://www.example.com/my_article.html $guid = $lib.guid($source, $published, $url) [ doc:report = $guid ]
 
 **Note** that the same guid value is generated in each of the three examples above.
 
@@ -785,8 +807,10 @@ It is also possible to lift and filter guid nodes using a "sufficiently unique" 
 
 Lift a ``ps:contact`` node by a partial prefix match:
 
-.. storm-pre:: [ ps:contact=13c9663e5f553014eb50d00bb7c6945a :orgname="kaspersky lab" :name="seongsu park" ]
-.. storm-cli:: ps:contact ^= 13c9663e
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ps:contact=13c9663e5f553014eb50d00bb7c6945a :orgname="kaspersky lab" :name="seongsu park" ]
+    .. storm-cli:: ps:contact ^= 13c9663e
 
 The length of the value that is "sufficiently unique" will vary depending on the data in your instance of Synapse.
 If your selection criteria matches more than one node, Synapse will return all matches.
@@ -800,9 +824,11 @@ set for the secondary property.
 Set the ``:org`` property for a ``ps:contact`` node to the guid value of the associated ``ou:org`` node using
 a Storm query:
 
-.. storm-pre:: [ ps:contact=* :name='ron the cat' :title='cattribution analyst' ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ps:contact=* :name='ron the cat' :title='cattribution analyst' ]
 
-.. storm-cli:: ps:contact:name = 'ron the cat' [ :org = { ou:org:name = vertex } ]
+    .. storm-cli:: ps:contact:name = 'ron the cat' [ :org = { ou:org:name = vertex } ]
 
 .. NOTE::
   
@@ -1064,8 +1090,10 @@ When adding or modifying integer values, Synapse will accept integer, hex (prece
 
 Set the ``:count`` of the ``biz:bundle`` to 42:
 
-.. storm-pre:: [ biz:bundle=(350,) ]
-.. storm-cli:: biz:bundle=9688955d141aae88194277e74d82084d [ :count=42 ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ biz:bundle=(350,) ]
+    .. storm-cli:: biz:bundle=9688955d141aae88194277e74d82084d [ :count=42 ]
 
 Use a hex value to set the ``:ip:proto`` property for the ``inet:flow`` node to 6:
 
@@ -1074,8 +1102,10 @@ Use a hex value to set the ``:ip:proto`` property for the ``inet:flow`` node to 
 
 Use an octal value to set the ``:posix:perms`` property for the ``file:archive:entry`` node to 755:
 
-.. storm-pre:: [ file:archive:entry=(sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b,20230811 11:33:00, ozzie) :user=ozzie :added="20230811 11:33:00" :file=sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b ]
-.. storm-cli:: file:archive:entry=3a24e1008b43bc2f1e35b3e872f201fc [ :posix:perms=0o426 ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:archive:entry=(sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b,20230811 11:33:00, ozzie) :user=ozzie :added="20230811 11:33:00" :file=sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b ]
+    .. storm-cli:: file:archive:entry=3a24e1008b43bc2f1e35b3e872f201fc [ :posix:perms=0o426 ]
 
 Insertion
 +++++++++
@@ -1101,8 +1131,10 @@ Lift all ``inet:flow`` nodes tagged with ``#my.tag`` and filter to include only 
 
 Use an octal value to lift all ``it:group`` nodes where the ``:posix:gid`` values equate to 278:
 
-.. storm-pre:: [ it:group=(research, a6f4147c23421ef47a1fabea899b3aeb, threat researchers group) :desc="threat researchers group" :name="research" :host=a6f4147c23421ef47a1fabea899b3aeb :posix:gid=278 ] 
-.. storm-cli:: it:group:posix:gid=0o426
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ it:group=(research, a6f4147c23421ef47a1fabea899b3aeb, threat researchers group) :desc="threat researchers group" :name="research" :host=a6f4147c23421ef47a1fabea899b3aeb :posix:gid=278 ]
+    .. storm-cli:: it:group:posix:gid=0o426
 
 
 .. _type-ival:
@@ -1131,9 +1163,9 @@ behavior when specifying a single time value).
 Single or double quotes are required in accordance with the standard rules for using :ref:`storm-whitespace-literals`.
 For example:
 
-- ``.seen=("2017/03/24 12:13:27", "2017/08/05 17:23:46")``
+- ``:seen=("2017/03/24 12:13:27", "2017/08/05 17:23:46")``
 - ``+#sometag=(2018/09/15, "+24 hours")``
-- ``.seen=2019/03/24``
+- ``:seen=2019/03/24``
 
 As ``ival`` types are a pair of values (i.e., an explicit minimum and maximum), the values must be placed in
 parentheses and separated by a comma: ``(<min>, <max>)``. The parser expects two **explicit** values.
@@ -1156,11 +1188,11 @@ When entering relative times in an ``ival`` type:
 
 For example:
 
-- ``.seen="+1 hour"`` means from the current time (now) to one hour after the current time.
-- ``.seen=(2018/12/01, "+1 day")`` means from 12:00 AM December 1, 2018 to 12:00 AM December 2, 2018.
-- ``.seen=(2018/12/01, "-1 day")`` means from 12:00 AM November 30, 2018 to 12:00 AM December 1, 2018.
-- ``.seen=(now, "+-5 minutes")`` means from 5 minutes ago to 5 minutes from now.
-- ``.seen=("-30 minutes", "+1 hour")`` means from 30 minutes ago to 30 minutes from now.
+- ``:seen="+1 hour"`` means from the current time (now) to one hour after the current time.
+- ``:seen=(2018/12/01, "+1 day")`` means from 12:00 AM December 1, 2018 to 12:00 AM December 2, 2018.
+- ``:seen=(2018/12/01, "-1 day")`` means from 12:00 AM November 30, 2018 to 12:00 AM December 1, 2018.
+- ``:seen=(now, "+-5 minutes")`` means from 5 minutes ago to 5 minutes from now.
+- ``:seen=("-30 minutes", "+1 hour")`` means from 30 minutes ago to 30 minutes from now.
 
 When specifying minimum and maximum times for an ``ival`` type (or when specifying minimum and maximum ``time``
 values to the ``*range=`` comparator), the following restrictions should be kept in mind:
@@ -1223,8 +1255,8 @@ equivalent ( ``=`` ) operator, which will match the **exact** ``<min>`` and ``<m
 Lift the DNS A nodes whose observation window is **exactly** from 2018/12/13 01:05 to 2018/12/16 12:57:
 
 
-.. storm-pre:: [ inet:dns:a=(yoyodyne.com,16.16.16.16) .seen=("2018/12/13 01:05", "2018/12/16 12:57") ]
-.. storm-cli:: inet:dns:a.seen=("2018/12/13 01:05", "2018/12/16 12:57")
+.. storm-pre:: [ inet:dns:a=(yoyodyne.com,16.16.16.16) :seen=("2018/12/13 01:05", "2018/12/16 12:57") ]
+.. storm-cli:: inet:dns:a:seen=("2018/12/13 01:05", "2018/12/16 12:57")
 
 ``ival`` types cannot be used with comparison operators such as "less than" or "greater than or equal to".
 
@@ -1237,8 +1269,8 @@ and :ref:`filter-interval`). ``@=`` is intended for time-based comparisons (incl
 Lift all the DNS A nodes whose observation window overlaps with the interval of March 1, 2019 through April 1, 2019:
 
 
-.. storm-pre:: [ ( inet:dns:a=(hurr.com,4.4.4.4) .seen=('2019/01/05 09:38', '2019/03/12 18:17') ) ( inet:dns:a=(derp.net,8.8.8.8) .seen=('2019/03/08 07:26','2019/03/22 10:14') ) ( inet:dns:a=(blergh.org,2.2.2.2) .seen=('2019/03/28 22:22','2019/04/27 00:03') ) ]
-.. storm-cli:: inet:dns:a.seen@=(2019/03/01, 2019/04/01)
+.. storm-pre:: [ ( inet:dns:a=(hurr.com,4.4.4.4) :seen=('2019/01/05 09:38', '2019/03/12 18:17') ) ( inet:dns:a=(derp.net,8.8.8.8) :seen=('2019/03/08 07:26','2019/03/22 10:14') ) ( inet:dns:a=(blergh.org,2.2.2.2) :seen=('2019/03/28 22:22','2019/04/27 00:03') ) ]
+.. storm-cli:: inet:dns:a:seen@=(2019/03/01, 2019/04/01)
 
 
 ``ival`` types cannot be used with the ``*range=`` custom comparator. ``*range=`` can only be used to specify a
@@ -1248,13 +1280,13 @@ range of individual values (such as ``time`` or ``int``).
   
   By definition, an ``ival`` is a **pair** of date/time values treated as a single combined value. This means that
   when using variables_ to work with ``ival`` types, the full value of the property is assigned to the variable by
-  default. For example, given a node (such as an ``inet:dns:a`` node) with a ``.seen`` value of ``(2023/07/08 11:19:02, 2023/12/14 21:18:47)``,
-  the variable assignment ``$time = .seen`` will assign the **pair** of date/times to ``$time``.
+  default. For example, given a node (such as an ``inet:dns:a`` node) with a ``:seen`` value of ``(2023/07/08 11:19:02, 2023/12/14 21:18:47)``,
+  the variable assignment ``$time = :seen`` will assign the **pair** of date/times to ``$time``.
   
   You can access each date/time of an ``ival`` independently by assigning the value to a **pair** of variables
   as follows:
   
-  ``( $min, $max ) = .seen``
+  ``( $min, $max ) = :seen``
   
   ``$min`` will represent the value ``2023/07/08 11:19:02`` and ``$max`` will represent the value ``2023/12/14 21:18:47``.
 
@@ -1338,8 +1370,10 @@ level of resolution within the dotted hierarchy:
 
 Lift all organizations located in Turkey (``tr``):
 
-.. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :loc=tr.istanbul ) ]
-.. storm-cli:: ou:org:loc ^= tr
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :loc=tr.istanbul ) ]
+    .. storm-cli:: ou:org:loc ^= tr
 
 
 Lift all IP addresses geolocated in the province of Ontario, Canada (``ca.on``):
@@ -1373,8 +1407,9 @@ be the final character in the expression (e.g., expressions such as ``:loc = us.
 invalid; the expressions will not generate an error but will fail to return any nodes).
 
 Lift all organizations located in Turkey:
-
-.. storm-cli:: ou:org:loc = tr.*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: ou:org:loc = tr.*
 
 Lift all IP addresses geolocated in the province of Ontario, Canada:
 
@@ -1544,8 +1579,10 @@ Lift all tags in the computer network operations (``cno``) tree:
 Lift all threats (``risk:threat`` nodes) whose ``:tag`` value is associated with Dell Secureworks threats
 whose name begins with "br":
 
-.. storm-pre:: [ (risk:threat=* :org:name='bronze elgin' :reporter:name=secureworks :tag=rep.secureworks.bronze_elgin) (risk:threat=* :org:name='bronze president' :reporter:name=secureworks :tag=rep.secureworks.bronze_president) ]
-.. storm-cli:: risk:threat:tag ^=rep.secureworks.br
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (risk:threat=* :org:name='bronze elgin' :reporter:name=secureworks :tag=rep.secureworks.bronze_elgin) (risk:threat=* :org:name='bronze president' :reporter:name=secureworks :tag=rep.secureworks.bronze_president) ]
+    .. storm-cli:: risk:threat:tag ^=rep.secureworks.br
 
 **Usage notes:**
 
@@ -1575,7 +1612,7 @@ taxonomy
 
 A ``taxonomy`` in Synapse is used to represent a set of hierarchical types or categories that can be used to classify
 objects (forms). Many forms in Synapse include ``:type`` properties (such as ``risk:tool:software:type``, ``geo:place:type``,
-or ``media:news:type``).
+or ``doc:report:type``).
 
 .. TIP::
   
@@ -1959,8 +1996,10 @@ Range Custom Operator
 Lift a set of ``file:bytes`` nodes whose PE compiled time is between January 1, 2019 and today:
 
 
-.. storm-pre:: [ ( file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/10/07 12:42:45' ) ( file:bytes=sha256:bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce :mime:pe:compiled='2021/04/13 00:23:14' ) ]
-.. storm-cli:: file:bytes:mime:pe:compiled*range=(2019/01/01, now)
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/10/07 12:42:45' ) ( file:bytes=sha256:bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce :mime:pe:compiled='2021/04/13 00:23:14' ) ]
+    .. storm-cli:: file:bytes:mime:pe:compiled*range=(2019/01/01, now)
 
 .. NOTE::
   
@@ -1985,8 +2024,8 @@ interval.
 Lift a set of DNS A records whose window of observation includes March 16, 2019 at 13:00 UTC:
 
 
-.. storm-pre:: [ ( inet:dns:a=(aaaa.org,1.2.3.4) .seen=('2018/12/29 12:36:27','2019/06/03 18:14:33') ) ( inet:dns:a=(bbbb.edu,5.6.7.8) .seen=('2019/03/16 12:59:59','2019/03/16 13:01:01') ) ]
-.. storm-cli:: inet:dns:a.seen@='2019/03/16 13:00'
+.. storm-pre:: [ ( inet:dns:a=(aaaa.org,1.2.3.4) :seen=('2018/12/29 12:36:27','2019/06/03 18:14:33') ) ( inet:dns:a=(bbbb.edu,5.6.7.8) :seen=('2019/03/16 12:59:59','2019/03/16 13:01:01') ) ]
+.. storm-cli:: inet:dns:a:seen@='2019/03/16 13:00'
 
 .. NOTE::
   

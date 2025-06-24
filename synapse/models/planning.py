@@ -11,7 +11,9 @@ modeldefs = (
                 'doc': 'A procedure consisting of steps.'}),
 
             ('plan:procedure:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of procedure types.'}),
 
             ('plan:procedure:variable', ('guid', {}), {
@@ -32,15 +34,14 @@ modeldefs = (
         'forms': (
             ('plan:system', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('meta:name', {}), {
                     'ex': 'mitre att&ck flow',
                     'doc': 'The name of the planning system.'}),
 
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A summary of the purpose and use case for the planning system.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the planning system.'}),
 
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:actor', {}), {
                     'doc': 'The contact of the person or organization which authored the system.'}),
 
                 ('created', ('time', {}), {
@@ -56,13 +57,13 @@ modeldefs = (
                     'doc': 'The primary URL which documents the planning system.'}),
             )),
             ('plan:phase', {}, (
+
                 ('title', ('str', {}), {
                     'ex': 'Reconnaissance Phase',
                     'doc': 'The title of the phase.'}),
 
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A summary of the definition of the phase.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the definition of the phase.'}),
 
                 ('index', ('int', {}), {
                     'doc': 'The index of this phase within the phases of the system.'}),
@@ -80,11 +81,10 @@ modeldefs = (
                     'ex': 'Network Reconnaissance Procedure',
                     'doc': 'The name of the procedure.'}),
 
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A summary of the purpose and use cases for the procedure.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the purpose and use cases for the procedure.'}),
 
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:actor', {}), {
                     'doc': 'The contact of the person or organization which authored the procedure.'}),
 
                 ('created', ('time', {}), {
@@ -110,9 +110,10 @@ modeldefs = (
             )),
             ('plan:procedure:variable', {}, (
 
-                ('name', ('str', {}), {
+                ('name', ('str', {'strip': True}), {
                     'doc': 'The name of the variable.'}),
 
+                # FIXME taxonomy (TODO: grep type)
                 ('type', ('str', {}), {
                     'doc': 'The type for the input. Types are specific to the planning system.'}),
 
@@ -130,12 +131,13 @@ modeldefs = (
                 ('procedure', ('plan:procedure', {}), {
                     'doc': 'The procedure which defines the step.'}),
 
+                # FIXME base:title? -> :name=<base:name>?
                 ('title', ('str', {}), {
                     'ex': 'Scan the IPv4 address range for open ports',
                     'doc': 'The title of the step.'}),
 
-                ('summary', ('str', {}), {
-                    'doc': 'A summary of the tasks executed within the step.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the tasks executed within the step.'}),
 
                 ('outputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of variables defined in this step.'}),

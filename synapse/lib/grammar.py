@@ -5,11 +5,7 @@ import synapse.exc as s_exc
 # TODO:  commonize with storm.lark
 re_scmd = '^[a-z][a-z0-9.]+$'
 scmdre = regex.compile(re_scmd)
-univrestr = r'\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*'
-univre = regex.compile(univrestr)
 proprestr = r'[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z_ ][a-z0-9_]+)*'
-proporunivrestr = f'({univrestr})|({proprestr})'
-proporunivre = regex.compile(proporunivrestr)
 propre = regex.compile(proprestr)
 formrestr = r'[a-z_][a-z0-9_]*(:[a-z0-9_]+)+'
 formre = regex.compile(formrestr)
@@ -30,9 +26,6 @@ def isPropName(name):
 
 def isCmdName(name):
     return scmdre.fullmatch(name) is not None
-
-def isUnivName(name):
-    return univre.fullmatch(name) is not None
 
 def isFormName(name):
     return formre.fullmatch(name) is not None
