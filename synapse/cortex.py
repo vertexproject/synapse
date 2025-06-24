@@ -5300,7 +5300,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     used_forms = set()
                     used_types = set()
                     used_props = set()
-                    used_univs = set()
                     used_tagprops = set()
 
                     async for node, path in runt.execute():
@@ -5330,13 +5329,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                                 if valu is not None:
                                     used_tagprops.add(tagprop)
 
-                        # Univprops
-                        for prop in node.form.props.values():
-                            if prop.isext and prop.name.startswith('._'):
-                                univ_name = prop.name[1:]
-                                if node.get(prop.name) is not None:
-                                    used_univs.add(univ_name)
-
                         await spooldict.set(node.nid, (node.lastlayr(), node.pack()))
                         forms[node.form.name] += 1
                         nodec += 1
@@ -5353,7 +5345,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         'types': [t for t in extmodel.get('types', []) if t[0] in used_types],
                         'props': [p for p in extmodel.get('props', []) if (p[0], p[1]) in used_props],
                         'tagprops': [tp for tp in extmodel.get('tagprops', []) if tp[0] in used_tagprops],
-                        'univs': [u for u in extmodel.get('univs', []) if u[0] in used_univs],
                     }
 
                     node_edges = {}

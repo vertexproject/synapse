@@ -1270,15 +1270,6 @@ _exportStormMetaSchema = {
                         'items': [{'type': 'string'}, {'type': 'string'}, {'type': 'array'}, {'type': 'object'}]
                     }
                 },
-                'univs': {
-                    'type': 'array',
-                    'items': {
-                        'type': 'array',
-                        'minItems': 3,
-                        'maxItems': 3,
-                        'items': [{'type': 'string'}, {'type': 'array'}, {'type': 'object'}]
-                    }
-                },
                 'tagprops': {
                     'type': 'array',
                     'items': {

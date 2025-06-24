@@ -6908,7 +6908,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                         ('rank', ('int', {}), {'doc': 'be a shame if'}),
                         ('user', ('str', {}), {'doc': 'real nice tagprop ya got there'}),
                     ),
-                    'univs': (),
                     'edges': (),
                 })
 
@@ -6974,7 +6973,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
                 meta = podes.pop(0)
-                self.eq(meta['edges'], {'media:news': {'refs': ('inet:email',)}})
+                self.eq(meta['edges'], {'doc:report': {'refs': ('inet:email',)}})
 
                 news = [p for p in podes if p[0][0] == 'doc:report'][0]
                 email = [p for p in podes if p[0][0] == 'inet:email'][0]
@@ -7028,15 +7027,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.'})
             await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})
-            await core.addUnivProp('_sneaky', ('bool', {}), {'doc': 'Note if a node is sneaky.'})
-            await core.nodes('[ _hehe:haha=42 :visi="woot" ._sneaky=(true) ]')
+            await core.nodes('[ _hehe:haha=42 :visi="woot" ]')
 
             await core.addFormProp('inet:email', '_visi', ('str', {}), {})
-            await core.addEdge(('media:news', '_linksto', None), {'doc': 'links to a node'})
-            await core.addEdge(('inet:email', '_linksfrom', 'media:news'), {'doc': 'links from a node'})
+            await core.addEdge(('doc:report', '_linksto', None), {'doc': 'links to a node'})
+            await core.addEdge(('inet:email', '_linksfrom', 'doc:report'), {'doc': 'links from a node'})
             await core.nodes('[ inet:email=visi@vertex.link :_visi="woot"]')
-            await core.nodes('[ media:news=* :title="Vertex Project Winning" +(_linksto)> { inet:email=visi@vertex.link } ]')
-            await core.nodes('[ media:news=* :title="Vertex Project Winning" <(_linksfrom)+ { inet:email=visi@vertex.link } ]')
+            await core.nodes('[ doc:report=* :name="Vertex Project Winning" +(_linksto)> { inet:email=visi@vertex.link } ]')
+            await core.nodes('[ doc:report=* :name="Vertex Project Winning" <(_linksfrom)+ { inet:email=visi@vertex.link } ]')
 
             meta = await anext(core.exportStorm('_baz:haha'))
             self.eq(meta['model_ext'], {
@@ -7048,7 +7046,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 ],
                 "props": [],
                 "tagprops": [],
-                "univs": [],
                 "edges": []
             })
 
@@ -7064,7 +7061,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                     ["_test:form", "myprop", ["_foo:prop", {}], {"doc": "custom prop with custom type"}]
                 ],
                 "tagprops": [],
-                "univs": [],
                 "edges": []
             })
 
@@ -7076,7 +7072,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                     ('_foo:baz', '_foo:base', {}, {'doc': '_foo:bar inherits base'})],
                 'props': [],
                 'tagprops': [],
-                'univs': [],
                 'edges': []
             })
 
@@ -7086,20 +7081,18 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'types': [],
                 'props': [('_hehe:haha', 'visi', ('str', {}), {})],
                 'tagprops': [],
-                'univs': [('_sneaky', ('bool', {}), {'doc': 'Note if a node is sneaky.'})],
                 'edges': []
             })
 
-            meta = await anext(core.exportStorm('media:news inet:email'))
+            meta = await anext(core.exportStorm('doc:report inet:email'))
             self.eq(meta['model_ext'], {
                 'forms': [],
                 'types': [],
                 'props': [('inet:email', '_visi', ('str', {}), {})],
                 'tagprops': [],
-                'univs': [],
                 'edges': [
-                    (('inet:email', '_linksfrom', 'media:news'), {'doc': 'links from a node'}),
-                    (('media:news', '_linksto', None), {'doc': 'links to a node'})
+                    (('inet:email', '_linksfrom', 'doc:report'), {'doc': 'links from a node'}),
+                    (('doc:report', '_linksto', None), {'doc': 'links to a node'})
                 ]
             })
 
