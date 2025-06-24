@@ -304,7 +304,7 @@ class View(s_nexus.Pusher):  # type: ignore
             await func(*args)
 
         if nodeedits and fireedit:
-            await bus.fire('node:edits', edits=nodeedits)
+            await bus.fire('node:edits', edits=nodeedits, time=meta.get('time'))
 
         return saveoff, nodeedits
 
