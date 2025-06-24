@@ -91,7 +91,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('sophistication'), 40)
             self.nn(nodes[0].get('source'))
             self.eq(nodes[0].get('source:name'), 'vertex')
-            self.eq(nodes[0].get('slogan'), 'for the people')
+            self.eq(nodes[0].get('slogan'), 'For The People')
             self.len(3, await core.nodes('ou:campaign -> ou:goal'))
 
             self.len(1, nodes01 := await core.nodes('''
@@ -216,7 +216,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('goals'), (goal,))
             self.eq(node.get('id'), 'Foo')
             self.nn(node.get('logo'))
-            self.eq('dont be evil', node.get('motto'))
+            self.eq('DONT BE EVIL', node.get('motto'))
 
             await core.nodes('ou:org:url=http://arrowinc.link [ :place:country={ gen.pol.country ua } :place:country:code=ua ]')
             self.len(1, await core.nodes('ou:org:place:country:code=ua'))
