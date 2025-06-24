@@ -1201,7 +1201,7 @@ class Model:
 
         return iface
 
-    def _addFormIface(self, form, name, ifinfo):
+    def _addFormIface(self, form, name, ifinfo, ifaceparents=None):
 
         iface = self.ifaces.get(name)
 
@@ -1225,13 +1225,25 @@ class Model:
             prop.ifaces.append(iprop)
             self.ifaceprops[iprop].append(prop.full)
 
+            if ifaceparents is not None:
+                for iname in ifaceparents:
+                    subiprop = f'{iname}:{propname}'
+                    prop.ifaces.append(subiprop)
+                    self.ifaceprops[subiprop].append(prop.full)
+
         form.ifaces[name] = iface
         self.formsbyiface[name].append(form.name)
 
         for subname, subinfo in iface.get('interfaces', ()):
-            self._addFormIface(form, subname, subinfo)
 
-    def _delFormIface(self, form, name, ifinfo):
+            if ifaceparents is None:
+                ifaceparents = [name]
+            else:
+                ifaceparents.append(name)
+
+            self._addFormIface(form, subname, subinfo, ifaceparents=ifaceparents)
+
+    def _delFormIface(self, form, name, ifinfo, ifaceparents=None):
 
         if (iface := self.ifaces.get(name)) is None:
             return
@@ -1243,11 +1255,21 @@ class Model:
             self.delFormProp(form.name, propname)
             self.ifaceprops[f'{name}:{propname}'].remove(fullprop)
 
+            if ifaceparents is not None:
+                for iname in ifaceparents:
+                    self.ifaceprops[f'{iname}:{propname}'].remove(fullprop)
+
         form.ifaces.pop(name, None)
         self.formsbyiface[name].remove(form.name)
 
         for subname, subinfo in iface.get('interfaces', ()):
-            self._delFormIface(form, subname, subinfo)
+
+            if ifaceparents is None:
+                ifaceparents = [name]
+            else:
+                ifaceparents.append(name)
+
+            self._delFormIface(form, subname, subinfo, ifaceparents=ifaceparents)
 
     def delTagProp(self, name):
         return self.tagprops.pop(name)

@@ -665,7 +665,6 @@ workflows:
               only:
                 - master
                 - synapse-3xx
-                - synapse-3xx-major-model-changes
 
       - python_package_smoketest:
           filters:
@@ -732,7 +731,6 @@ workflows:
               only:
                 - master
                 - synapse-3xx
-                - synapse-3xx-major-model-changes
 
       - build_docker_tag:
           requires:
