@@ -35,6 +35,54 @@ TEST_SHA512 = hashlib.sha512(b'test').hexdigest()
 
 class CryptoModelTest(s_t_utils.SynTest):
 
+    async def test_model_crypto_keys(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ crypto:key:secret=*
+                    :mode=CBC
+                    :iv=$lib.file.fromhex(AAAA)
+                    :bytes=$lib.file.fromhex(BBBB)
+                    :algorithm=aes256
+                    :seed:passwd=s3cret
+                    :seed:algorithm=pbkdf2 ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('mode'), 'cbc')
+            self.eq(nodes[0].get('algorithm'), 'aes256')
+            self.eq(nodes[0].get('seed:passwd'), 's3cret')
+            self.eq(nodes[0].get('seed:algorithm'), 'pbkdf2')
+            self.eq(nodes[0].get('iv'), 'c6d32915fd5518f25d33791d1f04bd9a')
+            self.eq(nodes[0].get('bytes'), 'b715fa83ef1c5c8ccf43a4a16f715a9f')
+
+            self.len(2, await core.nodes('crypto:key:secret -> crypto:algorithm'))
+
+            nodes = await core.nodes('''
+                [ crypto:key:rsa=*
+                    :algorithm=rsa
+                    :public=$lib.file.fromhex(AAAA)
+                    :private=$lib.file.fromhex(BBBB) ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('algorithm'), 'rsa')
+            self.eq(nodes[0].get('public'), 'c6d32915fd5518f25d33791d1f04bd9a')
+            self.eq(nodes[0].get('private'), 'b715fa83ef1c5c8ccf43a4a16f715a9f')
+
+            self.len(1, await core.nodes('crypto:key:rsa -> crypto:algorithm'))
+
+            nodes = await core.nodes('''
+                [ crypto:key:dsa=*
+                    :algorithm=dsa
+                    :public=$lib.file.fromhex(AAAA)
+                    :private=$lib.file.fromhex(BBBB) ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('algorithm'), 'dsa')
+            self.eq(nodes[0].get('public'), 'c6d32915fd5518f25d33791d1f04bd9a')
+            self.eq(nodes[0].get('private'), 'b715fa83ef1c5c8ccf43a4a16f715a9f')
+
+            self.len(1, await core.nodes('crypto:key:dsa -> crypto:algorithm'))
+
     async def test_model_crypto_currency(self):
 
         async with self.getTestCore() as core:
@@ -44,52 +92,16 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 crypto:currency:address=btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2
-                [ :seed={
-                    [ crypto:key=*
-                        :algorithm=aes256
-                        :mode=CBC
-                        :iv=41414141
-                        :iv:text=AAAA
-                        :private=00000000
-                        :private:text=hehe
-                        :private:md5=$md5
-                        :private:sha1=$sha1
-                        :private:sha256=$sha256
-                        :public=ffffffff
-                        :public:md5=$md5
-                        :public:sha1=$sha1
-                        :public:sha256=$sha256
-                        :public:text=haha
-                        :seed:passwd=s3cret
-                        :seed:algorithm=pbkdf2 ]
-                }]
-            ''', opts={'vars': {'md5': TEST_MD5, 'sha1': TEST_SHA1, 'sha256': TEST_SHA256}})
-
-            self.len(1, await core.nodes('crypto:algorithm=aes256'))
-            self.len(1, await core.nodes('''
-                    crypto:key:algorithm=aes256
-                        +:private=00000000
-                        +:public=ffffffff
-                        +:seed:algorithm=pbkdf2
-                        +:seed:passwd=s3cret
-                        +:mode=cbc
-                        +:iv=41414141
-            '''))
-            self.len(1, await core.nodes('it:dev:str=AAAA -> crypto:key'))
-            self.len(1, await core.nodes('it:dev:str=hehe -> crypto:key'))
-            self.len(1, await core.nodes('it:dev:str=haha -> crypto:key'))
-            self.len(1, await core.nodes('inet:passwd=s3cret -> crypto:key -> crypto:currency:address'))
-
-            self.len(2, await core.nodes('crypto:key -> hash:md5'))
-            self.len(2, await core.nodes('crypto:key -> hash:sha1'))
-            self.len(2, await core.nodes('crypto:key -> hash:sha256'))
+                [ :seed={[ crypto:key:secret=(asdf,) ]} ]
+            ''')
+            self.eq(nodes[0].get('seed'), ('crypto:key:secret', '91a14b40da052cb388bf6b6d7723adee'))
 
             nodes = await core.nodes('inet:client=1.2.3.4 -> crypto:currency:client -> crypto:currency:address')
             self.eq(nodes[0].get('coin'), 'btc')
             self.eq(nodes[0].get('iden'), '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')
 
             # these would explode if the model was wrong
-            self.len(1, await core.nodes('crypto:currency:address [ :desc="woot woot" :contact="*" ] -> ps:contact'))
+            self.len(1, await core.nodes('crypto:currency:address [ :desc="woot woot" :contact=(entity:contact, *) ] -> entity:contact'))
             self.len(1, await core.nodes('crypto:currency:address:iden=1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.len(1, await core.nodes('crypto:currency:address:coin=btc'))
             self.len(1, await core.nodes('crypto:currency:client:inetaddr=1.2.3.4'))
@@ -110,7 +122,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             payor = payors[0].ndef[1]
             payee = payees[0].ndef[1]
 
-            nodes = await core.nodes(f'''
+            nodes = await core.nodes('''
                 [
                     crypto:currency:transaction=(t1,)
                         :hash=0x01020304
@@ -127,8 +139,8 @@ class CryptoModelTest(s_t_utils.SynTest):
                         :eth:gasused = 10
                         :eth:gaslimit = 20
                         :eth:gasprice = 0.001
-                        :contract:input = $input
-                        :contract:output = $output
+                        :contract:input = {[ file:bytes=({"sha256": $input}) ]}
+                        :contract:output = {[ file:bytes=({"sha256": $output}) ]}
                 ]
             ''', opts=opts)
             self.len(1, nodes)
@@ -149,8 +161,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('eth:gasused'), 10)
             self.eq(node.get('eth:gaslimit'), 20)
             self.eq(node.get('eth:gasprice'), '0.001')
-            self.eq(node.get('contract:input'), 'sha256:f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b')
-            self.eq(node.get('contract:output'), 'sha256:f6f2ea8f45d8a057c9566a33f99474da2e5c6a6604d736121650e2730c6fb0a3')
+            self.eq(node.get('contract:input'), 'e8691a37075634ad4c10037e46f8cdc2')
+            self.eq(node.get('contract:output'), '6abdf11bc1f8516aa04984e12d500a1f')
 
             q = 'crypto:currency:transaction=(t1,) | tee { -> crypto:payment:input } { -> crypto:payment:output }'
             nodes = await core.nodes(q)
@@ -174,7 +186,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [
                     crypto:smart:contract=*
                         :transaction=*
-                        :bytecode=$input
+                        :bytecode={[ file:bytes=({"sha256": $input}) ]}
                         :address = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                         :token:name=Foo
                         :token:symbol=Bar
@@ -183,7 +195,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.nn(node.get('transaction'))
-            self.eq(node.get('bytecode'), 'sha256:f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b')
+            self.eq(node.get('bytecode'), 'e8691a37075634ad4c10037e46f8cdc2')
             self.eq(node.get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.eq(node.get('token:name'), 'Foo')
             self.eq(node.get('token:symbol'), 'Bar')
@@ -350,7 +362,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(('eth', 'aaaa'), node.get('owner'))
             self.eq('https://coin.vertex.link/nfts/30', node.get('nft:url'))
             self.eq({'name': 'WootWoot'}, node.get('nft:meta'))
-            self.eq('WootWoot', node.get('nft:meta:name'))
+            self.eq('wootwoot', node.get('nft:meta:name'))
             self.eq('LoLoL', node.get('nft:meta:description'))
             self.eq('https://vertex.link/favicon.ico', node.get('nft:meta:image'))
 
@@ -381,77 +393,38 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes(f'crypto:currency:transaction:value={huge2}'))
             self.len(1, await core.nodes(f'crypto:currency:transaction:value={huge3}'))
 
-    async def test_norm_lm_ntlm(self):
-        async with self.getTestCore() as core:  # type: s_cortex.Cortex
-            lm = core.model.type('hash:lm')
-            valu, subs = lm.norm(TEST_MD5.upper())
-            self.eq(valu, TEST_MD5)
-            self.eq(subs, {})
-            self.raises(s_exc.BadTypeValu, lm.norm, TEST_SHA256)
-
-            ntlm = core.model.type('hash:ntlm')
-            valu, subs = lm.norm(TEST_MD5.upper())
-            self.eq(valu, TEST_MD5)
-            self.eq(subs, {})
-            self.raises(s_exc.BadTypeValu, ntlm.norm, TEST_SHA256)
-
     async def test_forms_crypto_simple(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
 
-            nodes = await core.nodes('[(hash:md5=$valu)]', opts={'vars': {'valu': TEST_MD5.upper()}})
+            nodes = await core.nodes('[crypto:hash:md5=$valu]', opts={'vars': {'valu': TEST_MD5.upper()}})
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('hash:md5', TEST_MD5))
+            self.eq(nodes[0].ndef, ('crypto:hash:md5', TEST_MD5))
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[(hash:md5=$valu)]', opts={'vars': {'valu': TEST_SHA1}})
+                await core.nodes('[crypto:hash:md5=$valu]', opts={'vars': {'valu': TEST_SHA1}})
 
-            nodes = await core.nodes('[(hash:sha1=$valu)]', opts={'vars': {'valu': TEST_SHA1.upper()}})
+            nodes = await core.nodes('[crypto:hash:sha1=$valu]', opts={'vars': {'valu': TEST_SHA1.upper()}})
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('hash:sha1', TEST_SHA1))
+            self.eq(nodes[0].ndef, ('crypto:hash:sha1', TEST_SHA1))
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[(hash:sha1=$valu)]', opts={'vars': {'valu': TEST_SHA256}})
+                await core.nodes('[crypto:hash:sha1=$valu]', opts={'vars': {'valu': TEST_SHA256}})
 
-            nodes = await core.nodes('[(hash:sha256=$valu)]', opts={'vars': {'valu': TEST_SHA256.upper()}})
+            nodes = await core.nodes('[crypto:hash:sha256=$valu]', opts={'vars': {'valu': TEST_SHA256.upper()}})
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('hash:sha256', TEST_SHA256))
+            self.eq(nodes[0].ndef, ('crypto:hash:sha256', TEST_SHA256))
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[(hash:sha256=$valu)]', opts={'vars': {'valu': TEST_SHA384}})
+                await core.nodes('[crypto:hash:sha256=$valu]', opts={'vars': {'valu': TEST_SHA384}})
 
-            nodes = await core.nodes('[(hash:sha384=$valu)]', opts={'vars': {'valu': TEST_SHA384.upper()}})
+            nodes = await core.nodes('[crypto:hash:sha384=$valu]', opts={'vars': {'valu': TEST_SHA384.upper()}})
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('hash:sha384', TEST_SHA384))
+            self.eq(nodes[0].ndef, ('crypto:hash:sha384', TEST_SHA384))
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[(hash:sha384=$valu)]', opts={'vars': {'valu': TEST_SHA512}})
+                await core.nodes('[crypto:hash:sha384=$valu]', opts={'vars': {'valu': TEST_SHA512}})
 
-            nodes = await core.nodes('[(hash:sha512=$valu)]', opts={'vars': {'valu': TEST_SHA512.upper()}})
+            nodes = await core.nodes('[crypto:hash:sha512=$valu]', opts={'vars': {'valu': TEST_SHA512.upper()}})
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('hash:sha512', TEST_SHA512))
+            self.eq(nodes[0].ndef, ('crypto:hash:sha512', TEST_SHA512))
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[(hash:sha512=$valu)]', opts={'vars': {'valu': TEST_MD5}})
-
-    async def test_form_rsakey(self):
-        props = {
-            'bits': BITS,
-            'priv:exp': HEXSTR_PRIVATE_EXPONENT,
-            'priv:p': HEXSTR_PRIVATE_PRIME_P,
-            'priv:q': HEXSTR_PRIVATE_PRIME_Q,
-        }
-        valu = (HEXSTR_MODULUS, HEXSTR_PUBLIC_EXPONENT)
-
-        async with self.getTestCore() as core:  # type: s_cortex.Cortex
-
-            opts = {'vars': {'valu': valu, 'p': props}}
-            q = '[(rsa:key=$valu :bits=$p.bits :priv:exp=$p."priv:exp" :priv:p=$p."priv:p" :priv:q=$p."priv:q")]'
-            nodes = await core.nodes(q, opts=opts)
-            self.len(1, nodes)
-            node = nodes[0]
-
-            self.eq(node.ndef[1], (HEXSTR_MODULUS, HEXSTR_PUBLIC_EXPONENT))
-            self.eq(node.get('mod'), HEXSTR_MODULUS)
-            self.eq(node.get('bits'), BITS)
-            self.eq(node.get('pub:exp'), HEXSTR_PUBLIC_EXPONENT)
-            self.eq(node.get('priv:exp'), HEXSTR_PRIVATE_EXPONENT)
-            self.eq(node.get('priv:p'), HEXSTR_PRIVATE_PRIME_P)
-            self.eq(node.get('priv:q'), HEXSTR_PRIVATE_PRIME_Q)
+                await core.nodes('[crypto:hash:sha512=$valu]', opts={'vars': {'valu': TEST_MD5}})
 
     async def test_model_x509(self):
 
@@ -460,7 +433,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             crl = s_common.guid()
             cert = s_common.guid()
             icert = s_common.guid()
-            fileguid = f'guid:{s_common.guid()}'
+            fileguid = s_common.guid()
 
             nodes = await core.nodes('''
                 [ crypto:x509:cert=$icert
@@ -492,7 +465,6 @@ class CryptoModelTest(s_t_utils.SynTest):
                     :sha256=$sha256
 
                     :algo=1.2.840.113549.1.1.11
-                    :rsa:key=(ff00ff00, 100)
                     :signature=ff00ff00
 
                     :ext:sans=((dns, vertex.link), (dns, "*.vertex.link"))
@@ -521,7 +493,6 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('sha256'), TEST_SHA256)
 
             self.eq(nodes[0].get('algo'), '1.2.840.113549.1.1.11')
-            self.eq(nodes[0].get('rsa:key'), ('ff00ff00', 100))
             self.eq(nodes[0].get('signature'), 'ff00ff00')
             self.eq(nodes[0].get('ext:crls'), (('dns', 'http://vertex.link/crls'),))
             self.eq(nodes[0].get('crl:urls'), ('http://vertex.link/crls',))
@@ -545,7 +516,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [
                     crypto:x509:crl=$crl
                         :url=http://vertex.link/crls
-                        :file="*"
+                        :file=*
                 ]
             ''', opts={'vars': {'crl': crl}})
 
@@ -581,3 +552,24 @@ class CryptoModelTest(s_t_utils.SynTest):
             for serial in serials:
                 msgs = await core.stormlist(f'[crypto:x509:cert=* :serial={serial}]')
                 self.stormHasNoErr(msgs)
+
+    async def test_crypto_salthash(self):
+
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'md5': TEST_MD5}}
+            nodes = await core.nodes('''
+                [ crypto:salthash=*
+                    :salt=4141
+                    :hash={[ crypto:hash:md5=$md5 ]}
+                    :value={[ inet:passwd=woot ]}
+                ]
+            ''', opts=opts)
+
+            self.len(1, nodes)
+            self.eq(nodes[0].get('salt'), '4141')
+            self.eq(nodes[0].get('hash'), ('crypto:hash:md5', '098f6bcd4621d373cade4e832627b4f6'))
+            self.eq(nodes[0].get('value'), ('inet:passwd', 'woot'))
+
+            self.len(1, await core.nodes('crypto:salthash -> inet:passwd'))
+            self.len(1, await core.nodes('crypto:salthash -> crypto:hash:md5'))

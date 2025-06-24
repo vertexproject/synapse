@@ -101,33 +101,57 @@ modeldefs = (
         'types': (
 
             ('inet:dns:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ipv4'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'DNS A record'}}),
+                ),
                 'ex': '(vertex.link,1.2.3.4)',
                 'doc': 'The result of a DNS A record lookup.'}),
 
             ('inet:dns:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ipv6'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'DNS AAAA record'}}),
+                ),
                 'ex': '(vertex.link,2607:f8b0:4004:809::200e)',
                 'doc': 'The result of a DNS AAAA record lookup.'}),
 
             ('inet:dns:rev', ('comp', {'fields': (('ip', 'inet:ip'), ('fqdn', 'inet:fqdn'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'Reverse DNS record'}}),
+                ),
                 'ex': '(1.2.3.4,vertex.link)',
                 'doc': 'The transformed result of a DNS PTR record lookup.'}),
 
             ('inet:dns:ns', ('comp', {'fields': (('zone', 'inet:fqdn'), ('ns', 'inet:fqdn'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'DNS NS record'}}),
+                ),
                 'ex': '(vertex.link,ns.dnshost.com)',
                 'doc': 'The result of a DNS NS record lookup.'}),
 
             ('inet:dns:cname', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('cname', 'inet:fqdn'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'DNS CNAME record'}}),
+                ),
                 'ex': '(foo.vertex.link,vertex.link)',
                 'doc': 'The result of a DNS CNAME record lookup.'}),
 
             ('inet:dns:mx', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('mx', 'inet:fqdn'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'DNS MX record'}}),
+                ),
                 'ex': '(vertex.link,mail.vertex.link)',
                 'doc': 'The result of a DNS MX record lookup.'}),
 
             ('inet:dns:soa', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'DNS SOA record'}}),
+                ),
                 'doc': 'The result of a DNS SOA record lookup.'}),
 
             ('inet:dns:txt', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('txt', 'str'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'DNS TXT record'}}),
+                ),
                 'ex': '(hehe.vertex.link,"fancy TXT record")',
                 'doc': 'The result of a DNS TXT record lookup.'}),
 
@@ -153,18 +177,30 @@ modeldefs = (
                     'doc': 'A DNS query unique to a given client.'}),
 
             ('inet:dns:request', ('guid', {}), {
+                'interfaces': (
+                    ('inet:proto:request', {}),
+                ),
                 'doc': 'A single instance of a DNS resolver request and optional reply info.'}),
 
             ('inet:dns:answer', ('guid', {}), {
                 'doc': 'A single answer from within a DNS reply.'}),
 
             ('inet:dns:wild:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ip'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'DNS wildcard A record'}}),
+                ),
                 'doc': 'A DNS A wild card record and the IPv4 it resolves to.'}),
 
             ('inet:dns:wild:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ip'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'DNS wildcard AAAA record'}}),
+                ),
                 'doc': 'A DNS AAAA wild card record and the IPv6 it resolves to.'}),
 
             ('inet:dns:dynreg', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'dynamic DNS registration'}}),
+                ),
                 'doc': 'A dynamic DNS registration.'}),
 
         ),
@@ -176,6 +212,8 @@ modeldefs = (
                 ('ip', ('inet:ip', {}), {'ro': True,
                     'doc': 'The IPv4 address returned in the A record.',
                     'prevnames': ('ipv4',)}),
+                ('seen', ('ival', {}), {
+                    'doc': 'The time range where the record was observed.'}),
             )),
             ('inet:dns:aaaa', {}, (
                 ('fqdn', ('inet:fqdn', {}), {'ro': True,
@@ -239,8 +277,6 @@ modeldefs = (
 
             ('inet:dns:request', {}, (
 
-                ('time', ('time', {}), {}),
-
                 ('query', ('inet:dns:query', {}), {}),
                 ('query:name', ('inet:dns:name', {}), {}),
                 ('query:name:ip', ('inet:ip', {}), {
@@ -249,23 +285,8 @@ modeldefs = (
                 ('query:name:fqdn', ('inet:fqdn', {}), {}),
                 ('query:type', ('int', {}), {}),
 
-                ('server', ('inet:server', {}), {}),
-
                 ('reply:code', ('int', {'enums': dnsreplycodes, 'enums:strict': False}), {
                     'doc': 'The DNS server response code.'}),
-
-                ('exe', ('file:bytes', {}), {
-                    'doc': 'The file containing the code that attempted the DNS lookup.'}),
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The process that attempted the DNS lookup.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host that attempted the DNS lookup.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-
             )),
 
             ('inet:dns:answer', {}, (
@@ -307,13 +328,14 @@ modeldefs = (
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which provides the dynamic DNS FQDN.'}),
 
-                ('provider:name', ('ou:name', {}), {
+                ('provider:name', ('meta:name', {}), {
                     'doc': 'The name of the organization which provides the dynamic DNS FQDN.'}),
 
                 ('provider:fqdn', ('inet:fqdn', {}), {
                     'doc': 'The FQDN of the organization which provides the dynamic DNS FQDN.'}),
 
-                ('contact', ('ps:contact', {}), {
+                # FIXME inet:service:account?
+                ('contact', ('entity:contact', {}), {
                     'doc': 'The contact information of the registrant.'}),
 
                 ('created', ('time', {}), {

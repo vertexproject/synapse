@@ -19,11 +19,33 @@ modeldefs = (
     ('base', {
         'types': (
 
+            ('date', ('time', {'precision': 'day'}), {
+                'doc': 'A date precision time value.'}),
+
+            ('base:id', ('str', {'strip': True}), {
+                'doc': 'A base type for ID strings.'}),
+
+            ('meta:id', ('base:id', {}), {
+                'interfaces': (('entity:identifier', {}), ),
+                'doc': 'A case sensitive identifier string.'}),
+
+            ('base:name', ('str', {'onespace': True, 'lower': True}), {
+                'doc': 'A base type for case insensitive names.'}),
+
+            ('meta:name', ('base:name', {}), {
+                'prevnames': ('meta:name', 'ou:name', 'ou:industryname',
+                              'ou:campname', 'ou:goalname', 'lang:name',
+                              'risk:vulnname', 'meta:name', 'it:prod:softname',
+                              'entity:name', 'geo:name'),
+                'doc': 'A name used to refer to an entity or event.'}),
+
             ('meta:feed', ('guid', {}), {
                 'doc': 'A data feed provided by a specific source.'}),
 
             ('meta:feed:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A data feed type taxonomy.'}),
 
             ('meta:source', ('guid', {}), {
@@ -36,39 +58,54 @@ modeldefs = (
                 'doc': 'An analyst note about nodes linked with -(about)> edges.'}),
 
             ('meta:note:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of note types.'}),
 
             ('meta:source:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of source types.'}),
 
             ('meta:timeline', ('guid', {}), {
                 'doc': 'A curated timeline of analytically relevant events.'}),
 
             ('meta:timeline:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of timeline types.'}),
 
             ('meta:event', ('guid', {}), {
                 'doc': 'An analytically relevant event in a curated timeline.'}),
 
             ('meta:event:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of event types.'}),
 
             ('meta:ruleset:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A taxonomy for meta:ruleset types.'}),
 
             ('meta:ruleset', ('guid', {}), {
                 'doc': 'A set of rules linked with -(has)> edges.'}),
 
             ('meta:rule:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of rule types.'}),
 
             ('meta:rule', ('guid', {}), {
+                'interfaces': (
+                    ('meta:ruleish', {}),
+                ),
                 'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
 
             ('meta:activity', ('int', {'enums': prioenums, 'enums:strict': False}), {
@@ -84,7 +121,9 @@ modeldefs = (
                 'doc': 'A sophistication score with named values: very low, low, medium, high, and very high.'}),
 
             ('meta:aggregate:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A type of item being counted in aggregate.'}),
 
             ('meta:aggregate', ('guid', {}), {
@@ -96,19 +135,69 @@ modeldefs = (
                 },
                 'doc': 'A node which represents an aggregate count of a specific type.'}),
 
-            ('markdown', ('str', {}), {
-                'doc': 'A markdown string.'}),
+            ('meta:havable', ('ndef', {'interface': 'meta:havable'}), {
+                'doc': 'An item which may be possessed by an entity.'}),
+
+            ('text', ('str', {'strip': False}), {
+                'doc': 'A multi-line, free form text string.'}),
         ),
         'interfaces': (
+
+            ('meta:observable', {
+                'doc': 'Properties common to forms which can be observed.',
+                'template': {'observable': 'node'},
+                'props': (
+                    ('seen', ('ival', {}), {
+                        'doc': 'The {observable} was observed during the time interval.'}),
+                ),
+            }),
+
+            ('meta:havable', {
+                'doc': 'An interface used to describe items that can be possessed by an entity.',
+            }),
+
+            ('meta:sourced', {
+                'doc': 'Properties common to forms which are created on a per-source basis.',
+                'template': {'sourced': 'item'},
+                'props': (
+
+                    ('id', ('meta:id', {}), {
+                        'doc': 'A unique ID given to the {sourced} by the source.'}),
+
+                    ('name', ('meta:name', {}), {
+                        'alts': ('names',),
+                        'doc': 'The primary name of the {sourced} according to the source.'}),
+
+                    ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
+                        'doc': 'A list of alternate names for the {sourced} according to the source.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {sourced}, according to the source.'}),
+
+                    ('source', ('entity:actor', {}), {
+                        'prevnames': ('reporter',),
+                        'doc': 'The entity which was the source of the {sourced}.'}),
+
+                    ('source:name', ('meta:name', {}), {
+                        'prevnames': ('reporter:name',),
+                        'doc': 'The name of the entity which was the source of the {sourced}.'}),
+
+                    ('source:created', ('time', {}), {
+                        'doc': 'The time when the source first created the {sourced}.'}),
+
+                    ('source:updated', ('time', {}), {
+                        'doc': 'The time when the source last updated the {sourced}.'}),
+                ),
+            }),
+
             ('meta:taxonomy', {
                 'doc': 'Properties common to taxonomies.',
                 'props': (
                     ('title', ('str', {}), {
                         'doc': 'A brief title of the definition.'}),
 
-                    ('desc', ('str', {}), {
-                        'doc': 'A definition of the taxonomy entry.',
-                        'disp': {'hint': 'text'}}),
+                    ('desc', ('text', {}), {
+                        'doc': 'A definition of the taxonomy entry.'}),
 
                     ('sort', ('int', {}), {
                         'doc': 'A display sort order for siblings.'}),
@@ -126,6 +215,46 @@ modeldefs = (
                         'doc': 'The taxonomy parent.'}),
                 ),
             }),
+            ('meta:ruleish', {
+                'doc': 'Properties which are common to rules used in evaluation systems.',
+                'interfaces': (
+                    ('doc:authorable', {'template': {'document': 'rule', 'syntax': ''}}),
+                ),
+                'props': (
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {document}.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the {document}.'}),
+
+                    ('enabled', ('bool', {}), {
+                        'doc': 'The enabled status of the {document}.'}),
+
+                    ('text', ('text', {}), {
+                        'display': {'syntax': '{syntax}'},
+                        'doc': 'The text of the {document}.'})
+                ),
+            }),
+            ('meta:matchish', {
+                'doc': 'Properties which are common to matches based on rules.',
+                'template': {'rule': 'rule', 'rule:type': 'rule:type',
+                             'target:type': 'ndef'},
+                'props': (
+
+                    ('rule', ('{rule:type}', {}), {
+                        'doc': 'The rule which matched the target node.'}),
+
+                    ('target', ('{target:type}', {}), {
+                        'doc': 'The target node which matched the {rule}.'}),
+
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The most recent version of the rule evaluated as a match.'}),
+
+                    ('matched', ('time', {}), {
+                        'doc': 'The time that the rule was evaluated to generate the match.'}),
+                ),
+            }),
         ),
         'edges': (
             ((None, 'refs', None), {
@@ -140,18 +269,10 @@ modeldefs = (
             (('meta:note', 'about', None), {
                 'doc': 'The meta:note is about the target node.'}),
 
-            (('meta:ruleset', 'has', 'meta:rule'), {
-                'doc': 'The meta:ruleset includes the meta:rule.'}),
+            (('meta:ruleset', 'has', 'meta:ruleish'), {
+               'doc': 'The ruleset includes the rule.'}),
 
-            (('meta:ruleset', 'has', 'inet:service:rule'), {
-                'doc': 'The meta:ruleset includes the inet:service:rule.'}),
-
-            (('meta:ruleset', 'has', 'it:app:snort:rule'), {
-                'doc': 'The meta:ruleset includes the it:app:snort:rule.'}),
-
-            (('meta:ruleset', 'has', 'it:app:yara:rule'), {
-                'doc': 'The meta:ruleset includes the it:app:yara:rule.'}),
-
+            # FIXME meta:rule:match
             (('meta:rule', 'matches', None), {
                 'doc': 'The meta:rule has matched on target node.'}),
 
@@ -160,10 +281,13 @@ modeldefs = (
         ),
         'forms': (
 
+            ('meta:id', {}, ()),
+            ('meta:name', {}, ()),
+
             ('meta:source:type:taxonomy', {}, ()),
             ('meta:source', {}, (
 
-                ('name', ('str', {'lower': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'A human friendly name for the source.'}),
 
                 ('type', ('meta:source:type:taxonomy', {}), {
@@ -185,7 +309,7 @@ modeldefs = (
             ('meta:feed:type:taxonomy', {}, ()),
             ('meta:feed', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'A name for the feed.'}),
 
                 ('type', ('meta:feed:type:taxonomy', {}), {
@@ -222,11 +346,11 @@ modeldefs = (
                 ('type', ('meta:note:type:taxonomy', {}), {
                     'doc': 'The note type.'}),
 
-                ('text', ('str', {}), {
-                    'disp': {'hint': 'text', 'syntax': 'markdown'},
+                ('text', ('text', {}), {
+                    'display': {'syntax': 'markdown'},
                     'doc': 'The analyst authored note text.'}),
 
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:actor', {}), {
                     'doc': 'The contact information of the author.'}),
 
                 ('creator', ('syn:user', {}), {
@@ -243,12 +367,14 @@ modeldefs = (
             )),
 
             ('meta:timeline', {}, (
+
                 ('title', ('str', {}), {
                     'ex': 'The history of the Vertex Project',
                     'doc': 'A title for the timeline.'}),
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A prose summary of the timeline.'}),
+
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the timeline.'}),
+
                 ('type', ('meta:timeline:type:taxonomy', {}), {
                     'doc': 'The type of timeline.'}),
             )),
@@ -264,10 +390,10 @@ modeldefs = (
                 ('title', ('str', {}), {
                     'doc': 'A title for the event.'}),
 
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A prose summary of the event.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the event.'}),
 
+                # FIXME period
                 ('time', ('time', {}), {
                     'doc': 'The time that the event occurred.'}),
 
@@ -285,48 +411,36 @@ modeldefs = (
                 'prevnames': ('meta:event:taxonomy',)}, ()),
 
             ('meta:ruleset', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+
+                ('name', ('meta:name', {}), {
                     'doc': 'A name for the ruleset.'}),
 
                 ('type', ('meta:ruleset:type:taxonomy', {}), {
                     'doc': 'The ruleset type.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the ruleset.'}),
-                ('author', ('ps:contact', {}), {
+
+                # FIXME authored interface?
+                ('author', ('entity:actor', {}), {
                     'doc': 'The contact information of the ruleset author.'}),
+
                 ('created', ('time', {}), {
                     'doc': 'The time the ruleset was initially created.'}),
+
                 ('updated', ('time', {}), {
                     'doc': 'The time the ruleset was most recently modified.'}),
             )),
 
             ('meta:rule:type:taxonomy', {}, ()),
             ('meta:rule', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A name for the rule.'}),
+
                 ('type', ('meta:rule:type:taxonomy', {}), {
                     'doc': 'The rule type.'}),
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A description of the rule.'}),
-                ('text', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'The text of the rule logic.'}),
-                ('author', ('ps:contact', {}), {
-                    'doc': 'The contact information of the rule author.'}),
-                ('created', ('time', {}), {
-                    'doc': 'The time the rule was initially created.'}),
-                ('updated', ('time', {}), {
-                    'doc': 'The time the rule was most recently modified.'}),
-                ('url', ('inet:url', {}), {
-                    'doc': 'A URL which documents the rule.'}),
-                ('ext:id', ('str', {}), {
-                    'doc': 'An external identifier for the rule.'}),
             )),
 
             ('meta:aggregate:type:taxonomy', {}, ()),
+            # FIXME valuable?
             ('meta:aggregate', {}, (
 
                 ('type', ('meta:aggregate:type:taxonomy', {}), {

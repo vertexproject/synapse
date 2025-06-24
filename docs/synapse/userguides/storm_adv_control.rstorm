@@ -393,7 +393,7 @@ the node's form).
 
   switch $node.form() {
 
-      ("hash:md5", "hash:sha1", "hash:sha256"): { | malware.service }
+      ("crypto:hash:md5", "crypto:hash:sha1", "crypto:hash:sha256"): { | malware.service }
 
       "inet:fqdn": { | pdns.service | whois.service }
 
@@ -445,7 +445,7 @@ include additional examples of using for loops.
 You routinely apply tags to files (``file:bytes`` nodes) to annotate things such as whether the file is
 associated with a particular malware family (``cno.mal.redtree``) or threat group (``cno.threat.viciouswombat``).
 When you apply any of these tags to a file, you want to automatically apply those same tags to the file's
-associated hashes (e.g., ``hash:md5``, etc.)
+associated hashes (e.g., ``crypto:hash:md5``, etc.)
 
 You can use a for loop to iterate over the relevant tags on the file and apply ("push") the same set of tags to
 the file's hashes. (**Note:** this code could be executed by a **trigger** (see :ref:`auto-triggers`) that fires
@@ -457,10 +457,10 @@ when the relevant tag(s) are applied.)
 
   { for $tag in $node.tags(cno.**) {
 
-      { :md5 -> hash:md5 [ +#$tag ] }
-      { :sha1 -> hash:sha1 [ +#$tag ] }
-      { :sha256 -> hash:sha256 [ +#$tag ] }
-      { :sha512 -> hash:sha512 [ +#$tag ] }
+      { :md5 -> crypto:hash:md5 [ +#$tag ] }
+      { :sha1 -> crypto:hash:sha1 [ +#$tag ] }
+      { :sha256 -> crypto:hash:sha256 [ +#$tag ] }
+      { :sha512 -> crypto:hash:sha512 [ +#$tag ] }
   }}
 
 

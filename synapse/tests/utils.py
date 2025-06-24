@@ -309,7 +309,9 @@ testmodel = (
                     ('seen', ('ival', {}), {}),
                     ('names', ('array', {'type': 'str'}), {}),
                 ),
-                'interfaces': ('inet:proto:request',)
+                'interfaces': (
+                    ('inet:proto:request', {}),
+                ),
             }),
             ('test:virtarray', {
                 'doc': 'test interface',
@@ -338,7 +340,11 @@ testmodel = (
             ('test:auto', ('str', {}), {}),
             ('test:guid', ('guid', {}), {}),
             ('test:data', ('data', {}), {}),
-            ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
+            ('test:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                )
+            }),
             ('test:hugenum', ('hugenum', {}), {}),
 
             ('test:arrayprop', ('guid', {}), {}),
@@ -375,30 +381,18 @@ testmodel = (
             ('test:cycle1', ('str', {}), {}),
 
             ('test:ndef', ('ndef', {}), {}),
-            ('test:ndef:formfilter1', ('ndef', {
-                'forms': ('inet:ip',)
-            }), {}),
-            ('test:ndef:formfilter2', ('ndef', {
-                'interfaces': ('meta:taxonomy',)
-            }), {}),
-            ('test:ndef:formfilter3', ('ndef', {
-                'forms': ('inet:ip',),
-                'interfaces': ('file:mime:msoffice',)
-            }), {}),
+            ('test:ndef:formfilter1', ('ndef', {'forms': ('inet:ip',)}), {}),
+            ('test:ndef:formfilter2', ('ndef', {'interfaces': ('meta:taxonomy',)}), {}),
+            ('test:ndef:formfilter3', ('ndef', {'forms': ('inet:ip',), 'interfaces': ('file:mime:msoffice',)}), {}),
 
-            ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
-            ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
-            ('test:virtiface', ('guid', {}), {'interfaces': ('test:virtarray',)}),
-            ('test:virtiface2', ('guid', {}), {'interfaces': ('test:virtarray',)}),
+            ('test:hasiface', ('str', {}), {'interfaces': (('test:interface', {}),)}),
+            ('test:hasiface2', ('str', {}), {'interfaces': (('test:interface', {}),)}),
+            ('test:virtiface', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
+            ('test:virtiface2', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
+
+            ('test:enums:int', ('int', {'enums': ((1, 'fooz'), (2, 'barz'), (3, 'bazz'))}), {}),
+            ('test:enums:str', ('str', {'enums': 'testx,foox,barx,bazx'}), {}),
         ),
-
-        'univs': (
-            ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
-            ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
-            ('virtuniv', ('inet:server', {}), {'doc': 'A test universal prop with virtual props.'}),
-            ('virtunivarray', ('array', {'type': 'inet:server'}), {'doc': 'A test universal array prop with virtual props.'}),
-        ),
-
         'forms': (
 
             ('test:arrayprop', {}, (
@@ -432,6 +426,7 @@ testmodel = (
             ('test:comp', {}, (
                 ('hehe', ('test:int', {}), {'ro': True}),
                 ('haha', ('test:lower', {}), {'ro': True}),
+                ('seen', ('ival', {}), {}),
             )),
 
             ('test:compcomp', {}, (
@@ -452,6 +447,8 @@ testmodel = (
             ('test:int', {}, (
                 ('loc', ('loc', {}), {}),
                 ('int2', ('int', {}), {}),
+                ('seen', ('ival', {}), {}),
+                ('type', ('test:str', {}), {}),
             )),
 
             ('test:float', {}, (
@@ -460,10 +457,13 @@ testmodel = (
             )),
 
             ('test:guid', {}, (
+                ('name', ('test:str', {}), {}),
                 ('size', ('test:int', {}), {}),
+                ('seen', ('ival', {}), {}),
                 ('tick', ('test:time', {}), {}),
                 ('posneg', ('test:sub', {}), {}),
                 ('posneg:isbig', ('bool', {}), {}),
+                ('server', ('inet:server', {}), {}),
             )),
 
             ('test:data', {}, (
@@ -482,6 +482,8 @@ testmodel = (
                 ('ndefs', ('array', {'type': 'ndef'}), {}),
                 ('cidr', ('inet:cidr', {}), {}),
                 ('somestr', ('test:str', {}), {}),
+                ('seen', ('ival', {}), {}),
+                ('pivvirt', ('test:virtiface', {}), {}),
             )),
 
             ('test:strregex', {}, ()),
@@ -506,6 +508,7 @@ testmodel = (
 
             ('test:pivtarg', {}, (
                 ('name', ('str', {}), {}),
+                ('seen', ('ival', {}), {}),
             )),
 
             ('test:pivcomp', {}, (
@@ -514,6 +517,7 @@ testmodel = (
                 ('tick', ('time', {}), {}),
                 ('size', ('test:int', {}), {}),
                 ('width', ('test:int', {}), {}),
+                ('seen', ('ival', {}), {}),
             )),
 
             ('test:haspivcomp', {}, (
@@ -533,6 +537,9 @@ testmodel = (
             ('test:hasiface2', {}, ()),
             ('test:virtiface', {}, ()),
             ('test:virtiface2', {}, ()),
+
+            ('test:enums:int', {}, ()),
+            ('test:enums:str', {}, ()),
         ),
     }),
 )
@@ -541,6 +548,14 @@ deprmodel = (
     ('depr', {
         'ctors': (
             ('test:dep:str', 'synapse.lib.types.Str', {'strip': True}, {'deprecated': True}),
+        ),
+        'interfaces': (
+            ('test:deprinterface', {
+                'doc': 'test interface',
+                'props': (
+                    ('pdep', ('str', {}), {'deprecated': True}),
+                ),
+            }),
         ),
         'types': (
             ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
@@ -552,6 +567,7 @@ deprmodel = (
             ('test:deprndef', ('ndef', {}), {}),
             ('test:deprform2', ('test:str', {}), {'deprecated': True}),
             ('test:deprsub', ('str', {}), {}),
+            ('test:depriface', ('str', {}), {'interfaces': (('test:deprinterface', {}),)}),
             ('test:range', ('range', {}), {}),
             ('test:deprsub2', ('comp', {'fields': (
                 ('name', 'test:str'),
@@ -586,11 +602,10 @@ deprmodel = (
             ('test:dep:str', {}, (
                 ('beep', ('test:dep:str', {}), {}),
             )),
+            ('test:depriface', {}, (
+                ('beep', ('test:dep:str', {}), {}),
+            )),
         ),
-        'univs': (
-            ('udep', ('test:dep:easy', {}), {}),
-            ('pdep', ('test:str', {}), {'deprecated': True})
-        )
     }),
 )
 

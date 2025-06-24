@@ -613,7 +613,7 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes = set(s_scrape.scrape(data0))
 
         self.len(83, nodes)
-        nodes.remove(('hash:md5', 'a' * 32))
+        nodes.remove(('crypto:hash:md5', 'a' * 32))
         nodes.remove(('inet:ip', '1.2.3.4'))
         nodes.remove(('inet:ip', '2.3.4.5'))
         nodes.remove(('inet:ip', '5.6.7.8'))

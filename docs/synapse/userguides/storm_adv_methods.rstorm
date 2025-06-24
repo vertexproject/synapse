@@ -53,7 +53,7 @@ for a full list.
 
 - Print the value of ``$node`` for an ``inet:dns:a`` node:
 
-.. storm-pre:: [inet:dns:a=(woot.com,54.173.9.236) .seen=("2016/12/28 20:46:31.000","2016/12/28 20:46:31.001")]
+.. storm-pre:: [inet:dns:a=(woot.com,54.173.9.236) :seen=("2016/12/28 20:46:31.000","2016/12/28 20:46:31.001")]
 .. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node) | spin
 
 - Print the value of ``$node`` for an ``inet:fqdn`` node with tags present:
@@ -69,11 +69,16 @@ for a full list.
   As demonstrated below, some node constructors can "intelligently" leverage the relevant aspects of the full
   node object (the value of the ``$node`` variable) when creating new nodes.
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 - Use the ``$node`` variable to create multiple whois name server records (``inet:whois:recns``) for the name
   server ``ns1.somedomain.com`` from a set of inbound whois record nodes for the domain ``woot.com``:
 
-.. storm-pre:: [ (inet:whois:rec=(woot.com,2019/06/13) :text=ns1.somedomain.com) (inet:whois:rec=(woot.com,2019/09/12) :text=ns1.somedomain.com) ]
-.. storm-cli:: inet:whois:rec:fqdn=woot.com [ inet:whois:recns=(ns1.somedomain.com,$node) ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (inet:whois:rec=(woot.com,2019/06/13) :text=ns1.somedomain.com) (inet:whois:rec=(woot.com,2019/09/12) :text=ns1.somedomain.com) ]
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com [ inet:whois:recns=(ns1.somedomain.com,$node) ]
 
 In the example above, the :ref:`meth-node-value` method could have been used instead of ``$node`` to create
 the ``inet:whois:recns`` nodes. In this case, the node constructor knows to use the primary property value
@@ -214,7 +219,7 @@ The method can optionally take one argument.
 
 - If no arguments are provided, the method returns the repr of the node's primary property value.
 - If an argument is provided, it should be the string of the secondary property name (i.e., without the leading colon ( ``:`` ) from relative property syntax).
-- If a universal property string is provided, it must be preceded by the dot / period ( ``.`` ) and enclosed in quotes in accordance with the use of :ref:`storm-literals`.
+- If a meta property string is provided, it must be preceded by the dot / period ( ``.`` ) and enclosed in quotes in accordance with the use of :ref:`storm-literals`.
 
 See :ref:`meth-node-value` to return the raw value of a property.
 
@@ -229,11 +234,6 @@ See :ref:`meth-node-value` to return the raw value of a property.
 
 .. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr(ip)) | spin
 
-
-- Print the repr of the ``.seen`` universal property value of an ``inet:dns:a`` node:
-
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr(".seen")) | spin
-    
 
 .. _meth-node-tags:
 
