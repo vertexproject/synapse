@@ -231,6 +231,9 @@ modeldefs = (
         'types': (
 
             ('file:bytes', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'file'}}),
+                ),
                 'doc': 'A file.'}),
 
             ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
@@ -380,15 +383,20 @@ modeldefs = (
 
             ('file:bytes', {}, (
 
-                ('size', ('int', {}), {'doc': 'The file size in bytes.'}),
+                ('size', ('int', {}), {
+                    'doc': 'The file size in bytes.'}),
 
-                ('md5', ('crypto:hash:md5', {}), {'doc': 'The md5 hash of the file.'}),
+                ('md5', ('crypto:hash:md5', {}), {
+                    'doc': 'The MD5 hash of the file.'}),
 
-                ('sha1', ('crypto:hash:sha1', {}), {'doc': 'The sha1 hash of the file.'}),
+                ('sha1', ('crypto:hash:sha1', {}), {
+                    'doc': 'The SHA1 hash of the file.'}),
 
-                ('sha256', ('crypto:hash:sha256', {}), {'doc': 'The sha256 hash of the file.'}),
+                ('sha256', ('crypto:hash:sha256', {}), {
+                    'doc': 'The SHA256 hash of the file.'}),
 
-                ('sha512', ('crypto:hash:sha512', {}), {'doc': 'The sha512 hash of the file.'}),
+                ('sha512', ('crypto:hash:sha512', {}), {
+                    'doc': 'The SHA512 hash of the file.'}),
 
                 ('name', ('file:base', {}), {
                     'doc': 'The best known base name for the file.'}),

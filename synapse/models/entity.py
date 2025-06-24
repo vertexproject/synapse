@@ -123,6 +123,9 @@ modeldefs = (
 
                     ('entity:actor', {
                             'template': {'contactable': 'contact'}}),
+
+                    ('meta:observable', {
+                        'template': {'observable': 'contact'}}),
                 ),
 
                 'display': {
