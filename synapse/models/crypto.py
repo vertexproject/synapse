@@ -14,142 +14,200 @@ modeldefs = (
         'types': (
 
             ('crypto:currency:transaction', ('guid', {}), {
-                'doc': 'An individual crypto currency transaction recorded on the blockchain.',
-            }),
+                'doc': 'An individual crypto currency transaction recorded on the blockchain.'}),
+
             ('crypto:currency:block', ('comp', {'fields': (
                                                     ('coin', 'crypto:currency:coin'),
                                                     ('offset', 'int'),
                                                ), 'sepr': '/'}), {
-                'doc': 'An individual crypto currency block record on the blockchain.',
-            }),
+                'doc': 'An individual crypto currency block record on the blockchain.'}),
+
             ('crypto:smart:contract', ('guid', {}), {
-                'doc': 'A smart contract.',
-            }),
+                'doc': 'A smart contract.'}),
+
             ('crypto:smart:effect:transfertoken', ('guid', {}), {
-                'doc': 'A smart contract effect which transfers ownership of a non-fungible token.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which transfers ownership of a non-fungible token.'}),
+
             ('crypto:smart:effect:transfertokens', ('guid', {}), {
-                'doc': 'A smart contract effect which transfers fungible tokens.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which transfers fungible tokens.'}),
+
             ('crypto:smart:effect:edittokensupply', ('guid', {}), {
-                'doc': 'A smart contract effect which increases or decreases the supply of a fungible token.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which increases or decreases the supply of a fungible token.'}),
+
             ('crypto:smart:effect:minttoken', ('guid', {}), {
-                'doc': 'A smart contract effect which creates a new non-fungible token.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which creates a new non-fungible token.'}),
+
             ('crypto:smart:effect:burntoken', ('guid', {}), {
-                'doc': 'A smart contract effect which destroys a non-fungible token.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which destroys a non-fungible token.'}),
+
             ('crypto:smart:effect:proxytoken', ('guid', {}), {
-                'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate a specific non-fungible token.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate a specific non-fungible token.'}),
+
             ('crypto:smart:effect:proxytokenall', ('guid', {}), {
-                'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate all non-fungible tokens of the owner.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate all non-fungible tokens of the owner.'}),
+
             ('crypto:smart:effect:proxytokens', ('guid', {}), {
-                'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate fungible tokens.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate fungible tokens.'}),
+
             # TODO crypto:smart:effect:call - call another smart contract
             # TODO crypto:smart:effect:giveproxy - grant your proxy for a token based vote
             ('crypto:payment:input', ('guid', {}), {
-                'doc': 'A payment made into a transaction.',
-            }),
+                'doc': 'A payment made into a transaction.'}),
+
             ('crypto:payment:output', ('guid', {}), {
-                'doc': 'A payment received from a transaction.',
-            }),
+                'doc': 'A payment received from a transaction.'}),
+
             ('crypto:smart:token', ('comp', {'fields': (('contract', 'crypto:smart:contract'), ('tokenid', 'hugenum'))}), {
-                'doc': 'A token managed by a smart contract.',
-            }),
+                'doc': 'A token managed by a smart contract.'}),
+
             ('crypto:currency:coin', ('str', {'lower': True}), {
-                'doc': 'An individual crypto currency type.',
                 'ex': 'btc',
-            }),
+                'doc': 'An individual crypto currency type.'}),
+
             ('crypto:currency:address', ('comp', {'fields': (('coin', 'crypto:currency:coin'), ('iden', 'str')), 'sepr': '/'}), {
 
-                'interfaces': ('econ:pay:instrument',),
+                'interfaces': (
+                    ('econ:pay:instrument', {}),
+                ),
                 'template': {
                     'instrument': 'crypto currency address'},
 
-                'doc': 'An individual crypto currency address.',
                 'ex': 'btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
-            }),
+                'doc': 'An individual crypto currency address.'}),
+
             ('crypto:currency:client', ('comp', {'fields': (
                                                     ('inetaddr', 'inet:client'),
                                                     ('coinaddr', 'crypto:currency:address')
                                                 )}), {
-                'doc': 'A fused node representing a crypto currency address used by an Internet client.',
                 'ex': '(1.2.3.4, (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2))',
-            }),
+                'doc': 'A fused node representing a crypto currency address used by an Internet client.'}),
 
-            ('hash:md5', ('hex', {'size': 32}), {
-                'doc': 'A hex encoded MD5 hash.',
-                'ex': ex_md5
-            }),
-            ('hash:sha1', ('hex', {'size': 40}), {
-                'doc': 'A hex encoded SHA1 hash.',
-                'ex': ex_sha1
-            }),
-            ('hash:sha256', ('hex', {'size': 64}), {
-                'doc': 'A hex encoded SHA256 hash.',
-                'ex': ex_sha256
-            }),
-            ('hash:sha384', ('hex', {'size': 96}), {
-                'doc': 'A hex encoded SHA384 hash.',
-                'ex': ex_sha384
-            }),
-            ('hash:sha512', ('hex', {'size': 128}), {
-                'doc': 'A hex encoded SHA512 hash.',
-                'ex': ex_sha512
-            }),
-            ('hash:lm', ('hex', {'size': 32}), {
-                'doc': 'A hex encoded Microsoft Windows LM password hash.',
-                'ex': ex_md5
-            }),
-            ('hash:ntlm', ('hex', {'size': 32}), {
-                'doc': 'A hex encoded Microsoft Windows NTLM password hash.',
-                'ex': ex_md5
-            }),
+            ('crypto:hash', ('ndef', {'interface': 'crypto:hash'}), {
+                'doc': 'A cryptographic hash.'}),
 
-            ('rsa:key', ('comp', {'fields': (('mod', 'hex'), ('pub:exp', 'int')), }), {
-                'doc': 'An RSA keypair modulus and public exponent.'
-            }),
-            ('crypto:key', ('guid', {}), {
-                'doc': 'A cryptographic key and algorithm.',
-            }),
+            ('crypto:hashable', ('ndef', {'interface': 'crypto:hashable'}), {
+                'doc': 'A node which can be cryptographically hashed.'}),
+
+            ('crypto:hash:md5', ('hex', {'size': 32}), {
+                'ex': ex_md5,
+                'interfaces': (
+                    ('crypto:hash', {}),
+                ),
+                'doc': 'A hex encoded MD5 hash.'}),
+
+            ('crypto:hash:sha1', ('hex', {'size': 40}), {
+                'ex': ex_sha1,
+                'interfaces': (
+                    ('crypto:hash', {}),
+                ),
+                'doc': 'A hex encoded SHA1 hash.'}),
+
+            ('crypto:hash:sha256', ('hex', {'size': 64}), {
+                'ex': ex_sha256,
+                'interfaces': (
+                    ('crypto:hash', {}),
+                ),
+                'doc': 'A hex encoded SHA256 hash.'}),
+
+            ('crypto:hash:sha384', ('hex', {'size': 96}), {
+                'ex': ex_sha384,
+                'interfaces': (
+                    ('crypto:hash', {}),
+                ),
+                'doc': 'A hex encoded SHA384 hash.'}),
+
+            ('crypto:hash:sha512', ('hex', {'size': 128}), {
+                'ex': ex_sha512,
+                'interfaces': (
+                    ('crypto:hash', {}),
+                ),
+                'doc': 'A hex encoded SHA512 hash.'}),
+
+            ('crypto:salthash', ('guid', {}), {
+                'doc': 'A salted hash computed for a value.'}),
+
+            ('crypto:key', ('ndef', {'interface': 'crypto:key'}), {
+                'doc': 'A cryptographic key and algorithm.'}),
+
+            # TODO DH / ECDH / ECDHE
+            ('crypto:key:rsa', ('guid', {}), {
+                'interfaces': (
+                    ('crypto:key', {}),
+                ),
+                'doc': 'An RSA public/private key pair.'}),
+
+            ('crypto:key:dsa', ('guid', {}), {
+                'interfaces': (
+                    ('crypto:key', {}),
+                ),
+                'doc': 'A DSA public/private key pair.'}),
+
+            ('crypto:key:secret', ('guid', {}), {
+                'interfaces': (
+                    ('crypto:key', {}),
+                ),
+                'doc': 'A secret key with an optional initialiation vector.'}),
+
             ('crypto:algorithm', ('str', {'lower': True, 'onespace': True}), {
                 'ex': 'aes256',
-                'doc': 'A cryptographic algorithm name.'
-            }),
+                'doc': 'A cryptographic algorithm name.'}),
+
             ('crypto:x509:cert', ('guid', {}), {
-                'doc': 'A unique X.509 certificate.',
-            }),
+                'doc': 'A unique X.509 certificate.'}),
 
             ('crypto:x509:san', ('comp', {'fields': (('type', 'str'), ('value', 'str'))}), {
-                'doc': 'An X.509 Subject Alternative Name (SAN).',
-            }),
+                'doc': 'An X.509 Subject Alternative Name (SAN).'}),
 
             ('crypto:x509:crl', ('guid', {}), {
-                'doc': 'A unique X.509 Certificate Revocation List.',
-            }),
+                'doc': 'A unique X.509 Certificate Revocation List.'}),
 
             ('crypto:x509:revoked', ('comp', {'fields': (('crl', 'crypto:x509:crl'), ('cert', 'crypto:x509:cert'))}), {
-                'doc': 'A revocation relationship between a CRL and an X.509 certificate.',
-            }),
+                'doc': 'A revocation relationship between a CRL and an X.509 certificate.'}),
 
             ('crypto:x509:signedfile', ('comp', {'fields': (('cert', 'crypto:x509:cert'), ('file', 'file:bytes'))}), {
-                'doc': 'A digital signature relationship between an X.509 certificate and a file.',
-            }),
+                'doc': 'A digital signature relationship between an X.509 certificate and a file.'}),
         ),
 
         'interfaces': (
+
+            ('crypto:key', {
+                'props': (
+                    ('algorithm', ('crypto:algorithm', {}), {
+                        'ex': 'aes256',
+                        'doc': 'The cryptographic algorithm which uses the key material.'}),
+                ),
+                'doc': 'An interface inherited by all cryptographic keys.'}),
+
+            ('crypto:hash', {
+                'doc': 'An interface inherited by all cryptographic hashes.'}),
+
+            ('crypto:hashable', {
+                'doc': 'An interface inherited by types which are frequently hashed.'}),
+
             ('crypto:smart:effect', {
                 'doc': 'Properties common to the effects of a crypto smart contract transaction.',
                 'props': (
@@ -252,54 +310,74 @@ modeldefs = (
                 # TODO methods, ABI conventions, source/disassembly
             )),
             ('crypto:smart:token', {}, (
+
                 ('contract', ('crypto:smart:contract', {}), {
-                        'doc': 'The smart contract which defines and manages the token.', 'ro': True, }),
+                    'ro': True,
+                    'doc': 'The smart contract which defines and manages the token.'}),
+
                 ('tokenid', ('hugenum', {}), {
-                        'doc': 'The token ID.', 'ro': True, }),
+                    'ro': True,
+                    'doc': 'The token ID.'}),
+
                 ('owner', ('crypto:currency:address', {}), {
-                        'doc': 'The address which currently owns the token.'}),
+                    'doc': 'The address which currently owns the token.'}),
+
                 ('nft:url', ('inet:url', {}), {
-                        'doc': 'The URL which hosts the NFT metadata.'}),
+                    'doc': 'The URL which hosts the NFT metadata.'}),
+
                 ('nft:meta', ('data', {}), {
-                        'doc': 'The raw NFT metadata.'}),
-                ('nft:meta:name', ('str', {}), {
-                        'doc': 'The name field from the NFT metadata.'}),
-                ('nft:meta:description', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'The description field from the NFT metadata.'}),
+                    'doc': 'The raw NFT metadata.'}),
+
+                ('nft:meta:name', ('base:name', {}), {
+                    'doc': 'The name field from the NFT metadata.'}),
+
+                ('nft:meta:description', ('text', {}), {
+                    'doc': 'The description field from the NFT metadata.'}),
+
                 ('nft:meta:image', ('inet:url', {}), {
-                        'doc': 'The image URL from the NFT metadata.'}),
+                    'doc': 'The image URL from the NFT metadata.'}),
             )),
             ('crypto:currency:coin', {}, (
-                ('name', ('str', {}), {
+
+                ('name', ('meta:name', {}), {
                     'doc': 'The full name of the crypto coin.'}),
             )),
 
             ('crypto:smart:effect:transfertoken', {}, (
+
                 ('token', ('crypto:smart:token', {}), {
                     'doc': 'The non-fungible token that was transferred.'}),
+
                 ('from', ('crypto:currency:address', {}), {
                     'doc': 'The address the NFT was transferred from.'}),
+
                 ('to', ('crypto:currency:address', {}), {
                     'doc': 'The address the NFT was transferred to.'}),
             )),
 
             ('crypto:smart:effect:transfertokens', {}, (
+
                 ('contract', ('crypto:smart:contract', {}), {
                     'doc': 'The contract which defines the tokens.'}),
+
                 ('from', ('crypto:currency:address', {}), {
                     'doc': 'The address the tokens were transferred from.'}),
+
                 ('to', ('crypto:currency:address', {}), {
                     'doc': 'The address the tokens were transferred to.'}),
+
                 ('amount', ('hugenum', {}), {
                     'doc': 'The number of tokens transferred.'}),
             )),
 
             ('crypto:smart:effect:edittokensupply', {}, (
+
                 ('contract', ('crypto:smart:contract', {}), {
                     'doc': 'The contract which defines the tokens.'}),
+
                 ('amount', ('hugenum', {}), {
                     'doc': 'The number of tokens added or removed if negative.'}),
+
                 ('totalsupply', ('hugenum', {}), {
                     'doc': 'The total supply of tokens after this modification.'}),
             )),
@@ -315,93 +393,94 @@ modeldefs = (
             )),
 
             ('crypto:smart:effect:proxytoken', {}, (
+
                 ('owner', ('crypto:currency:address', {}), {
                     'doc': 'The address granting proxy authority to manipulate non-fungible tokens.'}),
+
                 ('proxy', ('crypto:currency:address', {}), {
                     'doc': 'The address granted proxy authority to manipulate non-fungible tokens.'}),
+
                 ('token', ('crypto:smart:token', {}), {
                     'doc': 'The specific token being granted access to.'}),
             )),
 
             ('crypto:smart:effect:proxytokenall', {}, (
+
                 ('contract', ('crypto:smart:contract', {}), {
                     'doc': 'The contract which defines the tokens.'}),
+
                 ('owner', ('crypto:currency:address', {}), {
                     'doc': 'The address granting/denying proxy authority to manipulate all non-fungible tokens of the owner.'}),
+
                 ('proxy', ('crypto:currency:address', {}), {
                     'doc': 'The address granted/denied proxy authority to manipulate all non-fungible tokens of the owner.'}),
+
                 ('approval', ('bool', {}), {
                     'doc': 'The approval status.'}),
             )),
 
             ('crypto:smart:effect:proxytokens', {}, (
+
                 ('contract', ('crypto:smart:contract', {}), {
                     'doc': 'The contract which defines the tokens.'}),
+
                 ('owner', ('crypto:currency:address', {}), {
                     'doc': 'The address granting proxy authority to manipulate fungible tokens.'}),
+
                 ('proxy', ('crypto:currency:address', {}), {
                     'doc': 'The address granted proxy authority to manipulate fungible tokens.'}),
+
                 ('amount', ('hex', {}), {
                     'doc': 'The hex encoded amount of tokens the proxy is allowed to manipulate.'}),
             )),
 
             ('crypto:currency:address', {}, (
+
                 ('coin', ('crypto:currency:coin', {}), {
                     'doc': 'The crypto coin to which the address belongs.', 'ro': True, }),
+
                 ('seed', ('crypto:key', {}), {
                     'doc': 'The cryptographic key and or password used to generate the address.'}),
+
                 ('iden', ('str', {}), {
                     'doc': 'The coin specific address identifier.', 'ro': True, }),
+
                 ('desc', ('str', {}), {
                     'doc': 'A free-form description of the address.'}),
             )),
 
             ('crypto:algorithm', {}, ()),
 
-            ('crypto:key', {}, (
+            # FIXME $lib.crypto.pem.decode()
+            # FIXME interface for public/private keys?
+            ('crypto:key:rsa', {}, (
 
-                ('algorithm', ('crypto:algorithm', {}), {
-                    'ex': 'aes256',
-                    'doc': 'The cryptographic algorithm which uses the key material.'}),
+                ('public', ('file:bytes', {}), {
+                    'doc': 'The DER encoded bytes of the public key.'}),
+
+                ('private', ('file:bytes', {}), {
+                    'doc': 'The DER encoded bytes of the private key.'}),
+            )),
+
+            ('crypto:key:dsa', {}, (
+
+                ('public', ('file:bytes', {}), {
+                    'doc': 'The DER encoded bytes of the public key.'}),
+
+                ('private', ('file:bytes', {}), {
+                    'doc': 'The DER encoded bytes of the private key.'}),
+            )),
+
+            ('crypto:key:secret', {}, (
+
+                ('iv', ('file:bytes', {}), {
+                    'doc': 'The bytes of the initialization vector.'}),
 
                 ('mode', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The algorithm specific mode in use.'}),
 
-                ('iv', ('hex', {}), {
-                    'doc': 'The hex encoded initialization vector.'}),
-
-                ('iv:text', ('it:dev:str', {}), {
-                    'doc': 'Set only if the :iv property decodes to ASCII.'}),
-
-                ('public', ('hex', {}), {
-                    'doc': 'The hex encoded public key material if the algorithm has a public/private key pair.'}),
-
-                ('public:text', ('it:dev:str', {}), {
-                    'doc': 'Set only if the :public property decodes to ASCII.'}),
-
-                ('public:md5', ('hash:md5', {}), {
-                    'doc': 'The MD5 hash of the public key in raw binary form.'}),
-
-                ('public:sha1', ('hash:sha1', {}), {
-                    'doc': 'The SHA1 hash of the public key in raw binary form.'}),
-
-                ('public:sha256', ('hash:sha256', {}), {
-                    'doc': 'The SHA256 hash of the public key in raw binary form.'}),
-
-                ('private', ('hex', {}), {
-                    'doc': 'The hex encoded private key material. All symmetric keys are private.'}),
-
-                ('private:text', ('it:dev:str', {}), {
-                    'doc': 'Set only if the :private property decodes to ASCII.'}),
-
-                ('private:md5', ('hash:md5', {}), {
-                    'doc': 'The MD5 hash of the private key in raw binary form.'}),
-
-                ('private:sha1', ('hash:sha1', {}), {
-                    'doc': 'The SHA1 hash of the private key in raw binary form.'}),
-
-                ('private:sha256', ('hash:sha256', {}), {
-                    'doc': 'The SHA256 hash of the private key in raw binary form.'}),
+                ('bytes', ('file:bytes', {}), {
+                    'doc': 'The bytes of the secret key.'}),
 
                 ('seed:passwd', ('inet:passwd', {}), {
                     'doc': 'The seed password used to generate the key material.'}),
@@ -412,31 +491,30 @@ modeldefs = (
             )),
 
             ('crypto:currency:client', {}, (
+
                 ('inetaddr', ('inet:client', {}), {
                     'doc': 'The Internet client address observed using the crypto currency address.', 'ro': True, }),
+
                 ('coinaddr', ('crypto:currency:address', {}), {
                     'doc': 'The crypto currency address observed in use by the Internet client.', 'ro': True, }),
             )),
 
-            ('hash:md5', {}, ()),
-            ('hash:sha1', {}, ()),
-            ('hash:sha256', {}, ()),
-            ('hash:sha384', {}, ()),
-            ('hash:sha512', {}, ()),
-            # TODO deprecate rsa:key and add fields to crypto:key
-            ('rsa:key', {}, (
-                ('mod', ('hex', {}), {'ro': True,
-                   'doc': 'The RSA key modulus.'}),
-                ('pub:exp', ('int', {}), {'ro': True,
-                   'doc': 'The public exponent of the key.'}),
-                ('bits', ('int', {}),
-                 {'doc': 'The length of the modulus in bits.'}),
-                ('priv:exp', ('hex', {}),
-                 {'doc': 'The private exponent of the key.'}),
-                ('priv:p', ('hex', {}),
-                 {'doc': 'One of the two private primes.'}),
-                ('priv:q', ('hex', {}),
-                 {'doc': 'One of the two private primes.'}),
+            ('crypto:hash:md5', {}, ()),
+            ('crypto:hash:sha1', {}, ()),
+            ('crypto:hash:sha256', {}, ()),
+            ('crypto:hash:sha384', {}, ()),
+            ('crypto:hash:sha512', {}, ()),
+
+            ('crypto:salthash', {}, (
+
+                ('salt', ('hex', {}), {
+                    'doc': 'The salt value encoded as a hexadecimal string.'}),
+
+                ('hash', ('crypto:hash', {}), {
+                    'doc': 'The hash value.'}),
+
+                ('value', ('crypto:hashable', {}), {
+                    'doc': 'The value that was used to compute the salted hash.'}),
             )),
 
             ('crypto:x509:signedfile', {}, (
@@ -494,20 +572,16 @@ modeldefs = (
                     'doc': 'The timestamp for the end of the certificate validity period.',
                 }),
 
-                ('md5', ('hash:md5', {}), {
+                ('md5', ('crypto:hash:md5', {}), {
                     'doc': 'The MD5 fingerprint for the certificate.',
                 }),
 
-                ('sha1', ('hash:sha1', {}), {
+                ('sha1', ('crypto:hash:sha1', {}), {
                     'doc': 'The SHA1 fingerprint for the certificate.',
                 }),
 
-                ('sha256', ('hash:sha256', {}), {
+                ('sha256', ('crypto:hash:sha256', {}), {
                     'doc': 'The SHA256 fingerprint for the certificate.',
-                }),
-
-                ('rsa:key', ('rsa:key', {}), {
-                    'doc': 'The optional RSA public key associated with the certificate.',
                 }),
 
                 ('algo', ('iso:oid', {}), {

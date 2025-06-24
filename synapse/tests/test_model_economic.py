@@ -17,20 +17,18 @@ class EconTest(s_utils.SynTest):
             self.eq(4, card.get('pan:mii'))
             self.eq(402400, card.get('pan:iin'))
 
-            place = s_common.guid()
-            bycont = s_common.guid()
-            fromcont = s_common.guid()
-
-            text = f'''[
+            text = '''[
                 econ:purchase="*"
 
                     :price=13.37
                     :currency=USD
-                    :by:contact={bycont}
-                    :from:contact={fromcont}
+                    :buyer={[ entity:contact=* ]}
+                    :seller={[ entity:contact=* ]}
 
                     :time=20180202
-                    :place={place}
+
+                    :place=*
+                    :place:loc=us.ny.brooklyn
 
                     :paid=true
                     :paid:time=20180202
@@ -46,6 +44,9 @@ class EconTest(s_utils.SynTest):
             self.eq('usd', perc.get('currency'))
 
             self.len(1, await core.nodes('econ:purchase -> biz:listing'))
+
+            self.len(1, await core.nodes('econ:purchase :buyer -> entity:contact'))
+            self.len(1, await core.nodes('econ:purchase :seller -> entity:contact'))
 
             self.len(1, await core.nodes('econ:purchase:price=13.37'))
             self.len(1, await core.nodes('econ:purchase:price=13.370'))
@@ -90,32 +91,27 @@ class EconTest(s_utils.SynTest):
             self.len(0, await core.nodes('econ:purchase:price +:price>=20.00'))
             self.len(0, await core.nodes('econ:purchase:price +:price<=10.00'))
 
-            self.eq(bycont, perc.get('by:contact'))
-            self.eq(fromcont, perc.get('from:contact'))
-
             self.eq(True, perc.get('paid'))
             self.eq(1517529600000000, perc.get('paid:time'))
 
             self.eq(1517788800000000, perc.get('settled'))
 
-            self.eq(1517529600000000, perc.get('time'))
-            self.eq(place, perc.get('place'))
+            self.eq(perc.get('place:loc'), 'us.ny.brooklyn')
 
             self.len(1, await core.nodes('econ:purchase -> geo:place'))
-            self.len(2, await core.nodes('econ:purchase -> ps:contact | uniq'))
+            self.len(2, await core.nodes('econ:purchase -> entity:contact | uniq'))
 
-            text = f'''[
-                econ:acct:payment="*"
+            text = '''[
+                econ:acct:payment=*
 
-                    :to:contact={bycont}
-
-                    :from:contact={fromcont}
+                    :to:contact={[ entity:contact=* :name=payee ]}
+                    :from:contact={[ entity:contact=* :name=payer ]}
 
                     :amount = 20.30
                     :currency = usd
 
                     :time=20180202
-                    :purchase={perc.ndef[1]}
+                    :purchase={ econ:purchase }
 
                     :place=*
                     :place:loc=us.ny.brooklyn
@@ -133,7 +129,7 @@ class EconTest(s_utils.SynTest):
             self.len(1, await core.nodes('econ:acct:payment -> geo:place'))
 
             self.len(1, await core.nodes('econ:acct:payment -> econ:purchase'))
-            self.len(2, await core.nodes('econ:acct:payment -> ps:contact | uniq'))
+            self.len(2, await core.nodes('econ:acct:payment -> entity:contact | uniq'))
 
             nodes = await core.nodes('''
                 [ econ:fin:exchange=(us,nasdaq) :name=nasdaq :currency=usd :org=* ]
@@ -250,7 +246,7 @@ class EconTest(s_utils.SynTest):
                     :iban=VV09WootWoot
                     :issuer={ gen.ou.org "bank of visi" }
                     :issuer:name="bank of visi"
-                    :contact={[ ps:contact=* :name=visi ]}
+                    :contact={[ entity:contact=* :name=visi ]}
                     :currency=usd
                     :balance=*
                 ]
@@ -265,20 +261,20 @@ class EconTest(s_utils.SynTest):
             self.eq('VV09WootWoot', nodes[0].get('iban'))
             self.eq('bank of visi', nodes[0].get('issuer:name'))
             self.len(1, await core.nodes('econ:bank:account -> ou:org'))
-            self.len(1, await core.nodes('econ:bank:account -> ou:name'))
+            self.len(1, await core.nodes('econ:bank:account -> meta:name'))
             self.len(1, await core.nodes('econ:bank:account -> econ:bank:aba:rtn'))
             self.len(1, await core.nodes('econ:bank:account -> econ:bank:balance'))
-            self.len(1, await core.nodes('econ:bank:account -> ps:contact +:name=visi'))
+            self.len(1, await core.nodes('econ:bank:account -> entity:contact +:name=visi'))
             self.len(1, await core.nodes('econ:bank:account -> econ:bank:account:type:taxonomy'))
 
             nodes = await core.nodes('''[
                 econ:bank:swift:bic=DEUTDEFFXXX
                     :business={ gen.ou.org "Deutsche Bank" }
-                    :office=*
+                    :office={[ entity:contact=* ]}
             ]''')
             self.len(1, nodes)
             self.len(1, await core.nodes('econ:bank:swift:bic -> ou:org +:name="deutsche bank"'))
-            self.len(1, await core.nodes('econ:bank:swift:bic -> ps:contact'))
+            self.len(1, await core.nodes('econ:bank:swift:bic -> entity:contact'))
 
             nodes = await core.nodes('''[
                 econ:bank:balance=*
@@ -310,7 +306,7 @@ class EconTest(s_utils.SynTest):
                     :bank:name="deutsche bank"
             ]''')
             self.len(1, nodes)
-            self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> ou:name'))
+            self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> meta:name'))
             self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> ou:org +:name="deutsche bank"'))
 
             nodes = await core.nodes('''[
@@ -319,16 +315,16 @@ class EconTest(s_utils.SynTest):
                     :currency=usd
                     :purchase=*
                     :issued=2024-03-19
-                    :issuer={ ps:contact:name=visi }
-                    :recipient={ ps:contact:name=visi }
+                    :issuer={ entity:contact:name=visi }
+                    :recipient={ entity:contact:name=visi }
             ]''')
             self.len(1, nodes)
             self.eq('99', nodes[0].get('amount'))
             self.eq('usd', nodes[0].get('currency'))
             self.eq(1710806400000000, nodes[0].get('issued'))
             self.len(1, await core.nodes('econ:acct:receipt -> econ:purchase'))
-            self.len(1, await core.nodes('econ:acct:receipt :issuer -> ps:contact'))
-            self.len(1, await core.nodes('econ:acct:receipt :recipient -> ps:contact'))
+            self.len(1, await core.nodes('econ:acct:receipt :issuer -> entity:contact'))
+            self.len(1, await core.nodes('econ:acct:receipt :recipient -> entity:contact'))
 
             nodes = await core.nodes('''[
                 econ:acct:invoice=*
@@ -338,8 +334,8 @@ class EconTest(s_utils.SynTest):
                     :purchase=*
                     :due=2024-03-19
                     :issued=2024-03-19
-                    :issuer={ ps:contact:name=visi }
-                    :recipient={ ps:contact:name=visi }
+                    :issuer={ entity:contact:name=visi }
+                    :recipient={ entity:contact:name=visi }
             ]''')
             self.len(1, nodes)
             self.eq('99', nodes[0].get('amount'))
@@ -348,5 +344,5 @@ class EconTest(s_utils.SynTest):
             self.eq(1710806400000000, nodes[0].get('due'))
             self.eq(1710806400000000, nodes[0].get('issued'))
             self.len(1, await core.nodes('econ:acct:invoice -> econ:purchase'))
-            self.len(1, await core.nodes('econ:acct:invoice :issuer -> ps:contact'))
-            self.len(1, await core.nodes('econ:acct:invoice :recipient -> ps:contact'))
+            self.len(1, await core.nodes('econ:acct:invoice :issuer -> entity:contact'))
+            self.len(1, await core.nodes('econ:acct:invoice :recipient -> entity:contact'))
