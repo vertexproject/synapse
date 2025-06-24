@@ -2700,6 +2700,16 @@ class LibLift(Lib):
     A Storm Library for interacting with lift helpers.
     '''
     _storm_locals = (
+        {'name': 'byPropAlts', 'desc': 'Lift nodes by a property value, including alternate property values.',
+         'type': {'type': 'function', '_funcname': '_byPropAlts',
+                  'args': (
+                      {'name': 'name', 'desc': 'The name of the property to lift by.', 'type': 'str'},
+                      {'name': 'valu', 'type': 'obj', 'desc': 'The value for the property.'},
+                      {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes to the pipeline. '
+                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
         {'name': 'byNodeData', 'desc': 'Lift nodes which have a given nodedata name set on them.',
          'type': {'type': 'function', '_funcname': '_byNodeData',
                   'args': (
@@ -2718,13 +2728,25 @@ class LibLift(Lib):
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes to the pipeline. '
                                       'This must be used in conjunction with the ``yield`` keyword.', }}},
+        {'name': 'byTypeValue', 'desc': 'Lift nodes which have a property with a specific type and value.',
+         'type': {'type': 'function', '_funcname': '_byTypeValue',
+                  'args': (
+                      {'name': 'name', 'desc': 'The name of the type to lift.', 'type': 'str'},
+                      {'name': 'valu', 'type': 'obj', 'desc': 'The value for the type.'},
+                      {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes to the pipeline. '
+                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
     )
     _storm_lib_path = ('lift',)
 
     def getObjLocals(self):
         return {
             'byNodeData': self._byNodeData,
+            'byPropAlts': self._byPropAlts,
             'byPropRefs': self._byPropRefs,
+            'byTypeValue': self._byTypeValue,
         }
 
     @stormfunc(readonly=True)
@@ -2732,6 +2754,22 @@ class LibLift(Lib):
         name = await tostr(name)
         async for node in self.runt.view.nodesByDataName(name):
             yield node
+
+    @stormfunc(readonly=True)
+    async def _byPropAlts(self, name, valu, cmpr='='):
+
+        name = await tostr(name)
+        valu = await toprim(valu)
+        cmpr = await tostr(cmpr)
+
+        props = self.runt.model.reqPropList(name)
+        if props[0].isform:
+            mesg = '$lib.lift.byPropAlts cannot be used to lift by form value.'
+            raise s_exc.StormRuntimeError(mesg=mesg, prop=name)
+
+        for prop in props:
+            async for node in self.runt.view.nodesByPropAlts(prop, cmpr, valu):
+                yield node
 
     @stormfunc(readonly=True)
     async def _byPropRefs(self, props, valu=None, cmpr='='):
@@ -2781,6 +2819,20 @@ class LibLift(Lib):
 
             lastvalu = valu
             yield await self.runt.view.getNodeByNdef((form, valu))
+
+    @stormfunc(readonly=True)
+    async def _byTypeValue(self, name, valu, cmpr='='):
+
+        name = await tostr(name)
+        valu = await toprim(valu)
+        cmpr = await tostr(cmpr)
+
+        if self.runt.model.prop(name) is not None:
+            async for node in self.runt.view.nodesByPropValu(name, cmpr, valu):
+                yield node
+
+        async for node in self.runt.view.nodesByPropTypeValu(name, valu, cmpr=cmpr):
+            yield node
 
 @registry.registerLib
 class LibTime(Lib):
