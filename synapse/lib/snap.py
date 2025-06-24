@@ -1501,7 +1501,6 @@ class Snap(s_base.Base):
                             'mesg': f'Bad value for prop {form.name}:{name}: {mesg}'
                         })
                         raise e
-                    await self.warn(f'Skipping bad value for prop {form.name}:{name}: {mesg}')
 
         norms, proplist = self._normGuidNodeDict(form, vals)
 
