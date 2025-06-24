@@ -155,7 +155,6 @@ class CantDelNode(SynErr): pass
 class CantDelForm(SynErr): pass
 class CantDelProp(SynErr): pass
 class CantDelType(SynErr): pass
-class CantDelUniv(SynErr): pass
 class CantDelView(SynErr): pass
 class CantMergeView(SynErr): pass
 class CantRevLayer(SynErr): pass
@@ -288,6 +287,14 @@ class NoSuchVirt(SynErr):
             mesg = f'No virtual prop named {name} on type {ptyp.name}.'
         return NoSuchVirt(mesg=mesg, name=name, ptyp=ptyp.name)
 
+class NoSuchIface(SynErr):
+
+    @classmethod
+    def init(cls, name, mesg=None):
+        if mesg is None:
+            mesg = f'No interface named {name}.'
+        return NoSuchIface(mesg=mesg, name=name)
+
 class NoSuchEdge(SynErr):
 
     @classmethod
@@ -322,7 +329,6 @@ class NoSuchObj(SynErr): pass
 class NoSuchOpt(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchPivot(SynErr): pass
-class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass

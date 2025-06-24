@@ -321,52 +321,52 @@ class ViewTest(s_t_utils.SynTest):
             seen_minval = (s_time.parse('2000'), s_time.parse('2015'))
             seen_exival = (s_time.parse('2000'), s_time.parse('2021'))
 
-            await core.nodes('[ test:str=maxval .seen=(2010, 2015) ]')
+            await core.nodes('[ test:str=maxval :seen=(2010, 2015) ]')
 
-            nodes = await core.nodes('test:str=maxval [ .seen=2020 ]', opts=forkopts)
-            self.eq(seen_maxval, nodes[0].get('.seen'))
+            nodes = await core.nodes('test:str=maxval [ :seen=2020 ]', opts=forkopts)
+            self.eq(seen_maxval, nodes[0].get('seen'))
             nodes = await core.nodes('test:str=maxval', opts=forkopts)
-            self.eq(seen_maxval, nodes[0].get('.seen'))
+            self.eq(seen_maxval, nodes[0].get('seen'))
 
-            await core.nodes('[ test:str=midval .seen=(2010, 2015) ]')
+            await core.nodes('[ test:str=midval :seen=(2010, 2015) ]')
 
-            nodes = await core.nodes('test:str=midval [ .seen=2012 ]', opts=forkopts)
-            self.eq(seen_midval, nodes[0].get('.seen'))
+            nodes = await core.nodes('test:str=midval [ :seen=2012 ]', opts=forkopts)
+            self.eq(seen_midval, nodes[0].get('seen'))
             nodes = await core.nodes('test:str=midval', opts=forkopts)
-            self.eq(seen_midval, nodes[0].get('.seen'))
+            self.eq(seen_midval, nodes[0].get('seen'))
 
-            await core.nodes('[ test:str=minval .seen=(2010, 2015) ]')
+            await core.nodes('[ test:str=minval :seen=(2010, 2015) ]')
 
-            nodes = await core.nodes('test:str=minval [ .seen=2000 ]', opts=forkopts)
-            self.eq(seen_minval, nodes[0].get('.seen'))
+            nodes = await core.nodes('test:str=minval [ :seen=2000 ]', opts=forkopts)
+            self.eq(seen_minval, nodes[0].get('seen'))
             nodes = await core.nodes('test:str=minval', opts=forkopts)
-            self.eq(seen_minval, nodes[0].get('.seen'))
+            self.eq(seen_minval, nodes[0].get('seen'))
 
-            await core.nodes('[ test:str=exival .seen=(2010, 2015) ]')
+            await core.nodes('[ test:str=exival :seen=(2010, 2015) ]')
 
-            nodes = await core.nodes('test:str=exival [ .seen=(2000, 2021) ]', opts=forkopts)
-            self.eq(seen_exival, nodes[0].get('.seen'))
+            nodes = await core.nodes('test:str=exival [ :seen=(2000, 2021) ]', opts=forkopts)
+            self.eq(seen_exival, nodes[0].get('seen'))
             nodes = await core.nodes('test:str=exival', opts=forkopts)
-            self.eq(seen_exival, nodes[0].get('.seen'))
+            self.eq(seen_exival, nodes[0].get('seen'))
 
             await core.nodes('$lib.view.get().merge()', opts=forkopts)
 
             nodes = await core.nodes('test:str=maxval')
-            self.eq(seen_maxval, nodes[0].get('.seen'))
+            self.eq(seen_maxval, nodes[0].get('seen'))
 
             nodes = await core.nodes('test:str=midval')
-            self.eq(seen_midval, nodes[0].get('.seen'))
+            self.eq(seen_midval, nodes[0].get('seen'))
 
             nodes = await core.nodes('test:str=minval')
-            self.eq(seen_minval, nodes[0].get('.seen'))
+            self.eq(seen_minval, nodes[0].get('seen'))
 
             nodes = await core.nodes('test:str=exival')
-            self.eq(seen_exival, nodes[0].get('.seen'))
+            self.eq(seen_exival, nodes[0].get('seen'))
 
             # bad type
 
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:str=maxval [ .seen=newp ]', opts=forkopts))
-            await core.nodes('test:str=maxval [ .seen?=newp +#foo ]', opts=forkopts)
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:str=maxval [ :seen=newp ]', opts=forkopts))
+            await core.nodes('test:str=maxval [ :seen?=newp +#foo ]', opts=forkopts)
             self.len(1, await core.nodes('test:str#foo', opts=forkopts))
 
     async def test_view_trigger(self):
@@ -468,7 +468,7 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(0, count['node:edits'])
             self.eq(0, count['node:add'])
             cmsgs = [m[1] for m in mesgs if m[0] == 'node:edits:count']
-            self.eq([{'count': 2}, {'count': 1}], cmsgs)
+            self.eq([{'count': 1}, {'count': 1}], cmsgs)
 
             mesgs = await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'none'})
             count = collections.Counter(m[0] for m in mesgs)
@@ -592,7 +592,7 @@ class ViewTest(s_t_utils.SynTest):
                     :baz="test:str:hehe=hifoo"
                     :tick=2020
                     :hehe=hibar
-                    .seen=2021
+                    :seen=2021
                     +#test
                     +#test.foo:score=100
                     <(refs)+ { test:str=foo }
@@ -732,7 +732,7 @@ class ViewTest(s_t_utils.SynTest):
 
             q = '''
             [ test:str=foo
-                .seen = now
+                :seen = now
                 +#seen:score = 5
                 <(refs)+ { [ test:str=bar ] }
             ]
@@ -775,7 +775,7 @@ class ViewTest(s_t_utils.SynTest):
             msgs = await core.stormlist('test:str=foo $node.data.load(foo)')
             podes = [n[1] for n in msgs if n[0] == 'node']
             self.len(1, podes)
-            self.nn(podes[0][1]['props'].get('.seen'))
+            self.nn(podes[0][1]['props'].get('seen'))
             self.nn(podes[0][1]['tags'].get('seen'))
             self.nn(podes[0][1]['tagprops']['seen']['score'])
             self.nn(podes[0][1]['nodedata'].get('foo'))
@@ -1189,12 +1189,12 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
 
             await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
-            await core.nodes('[ media:news=63381924986159aff183f0c85bd8ebad +(refs)> {[ inet:fqdn=vertex.link ]} ]')
+            await core.nodes('[ test:guid=63381924986159aff183f0c85bd8ebad +(refs)> {[ inet:fqdn=vertex.link ]} ]')
             root = core.auth.rootuser
 
             async with core.view.getEditor() as editor:
                 fqdn = await editor.addNode('inet:fqdn', 'vertex.link')
-                news = await editor.addNode('media:news', '63381924986159aff183f0c85bd8ebad')
+                news = await editor.addNode('test:guid', '63381924986159aff183f0c85bd8ebad')
 
                 self.true(s_common.isbuidhex(fqdn.iden()))
 
@@ -1225,7 +1225,7 @@ class ViewTest(s_t_utils.SynTest):
                 self.true(news.hasTagProp('foo', 'test'))
 
             async with core.view.getEditor() as editor:
-                news = await editor.addNode('media:news', '63381924986159aff183f0c85bd8ebad')
+                news = await editor.addNode('test:guid', '63381924986159aff183f0c85bd8ebad')
 
                 self.true(await news.delEdge('_pwns', fqdn.nid))
                 self.false(await news.delEdge('_pwns', fqdn.nid))
@@ -1244,13 +1244,10 @@ class ViewTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchProp):
                     await news.pop('newp')
 
-                with self.raises(s_exc.ReadOnlyProp):
-                    await news.pop('.created')
-
                 with self.raises(s_exc.NoSuchTagProp):
                     await news.delTagProp('newp', 'newp')
 
-            self.len(1, await core.nodes('media:news -(_pwns)> *'))
+            self.len(1, await core.nodes('test:guid -(_pwns)> *'))
 
             self.len(1, await core.nodes('[ test:ro=foo :writeable=hehe :readable=haha ]'))
             self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))

@@ -254,7 +254,7 @@ class ProjModelTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(proj, nodes[0].get('project'))
 
-            nodes = await core.nodes('proj:ticket [ :ext:creator={[ps:contact=* :name=visi ]} :ext:assignee={[ps:contact=* :name=bob ]} ]')
+            nodes = await core.nodes('proj:ticket [ :ext:creator={[entity:contact=* :name=visi ]} :ext:assignee={[entity:contact=* :name=bob ]} ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('creator'))
             self.nn(nodes[0].get('created'))
@@ -369,13 +369,13 @@ class ProjModelTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
-                [ proj:attachment=* :file=guid:210afe138d63d2af4d886439cd4a9c7f :name=a.exe :created=now :creator=$lib.user.iden :ticket=* :comment=* ]
+                [ proj:attachment=* :file=210afe138d63d2af4d886439cd4a9c7f :name=a.exe :created=now :creator=$lib.user.iden :ticket=* :comment=* ]
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('ticket'))
             self.nn(nodes[0].get('created'))
             self.eq('a.exe', nodes[0].get('name'))
-            self.eq('guid:210afe138d63d2af4d886439cd4a9c7f', nodes[0].get('file'))
+            self.eq('210afe138d63d2af4d886439cd4a9c7f', nodes[0].get('file'))
             self.eq(core.auth.rootuser.iden, nodes[0].get('creator'))
             self.len(1, await core.nodes('proj:attachment -> file:base'))
             self.len(1, await core.nodes('proj:attachment -> file:bytes'))

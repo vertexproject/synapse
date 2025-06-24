@@ -80,7 +80,6 @@ class StormCliTest(s_test.SynTest):
                     self.isin('inet:ip=1.2.3.4', text)
                     self.isin(':type = unicast', text)
                     self.isin(':_test:score = 7', text)
-                    self.isin('.created = ', text)
                     self.isin('#bar', text)
                     self.isin('#baz:foo = 10', text)
                     self.isin('#foo = (2012-01-01T00:00:00Z, 2012-01-01T00:00:00.000001Z)', text)
@@ -243,7 +242,7 @@ class StormCliTest(s_test.SynTest):
             view = await core.callStorm('$view = $lib.view.get() $fork=$view.fork() return ( $fork.iden )')
 
             outp = s_output.OutPutStr()
-            await s_t_storm.main(('--view', view, url, f'[file:bytes={"a" * 64}]'), outp=outp)
+            await s_t_storm.main(('--view', view, url, '[file:bytes=246e7d5dab883eb28d345a33abcdb577]'), outp=outp)
             self.len(0, await core.nodes('file:bytes'))
             self.len(1, await core.nodes('file:bytes', opts={'view': view}))
 
@@ -262,7 +261,7 @@ class StormCliTest(s_test.SynTest):
 
                 outp = s_output.OutPutStr()
                 await s_t_storm.main(('--optsfile', optsfile, url, 'file:bytes'), outp=outp)
-                self.isin('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', str(outp))
+                self.isin('file:bytes=246e7d5dab883eb28d345a33abcdb577', str(outp))
 
     async def test_storm_tab_completion(self):
         class DummyStorm:
@@ -286,21 +285,18 @@ class StormCliTest(s_test.SynTest):
             # Check completion of forms/props
             vals = await get_completions('inet:fq')
             self.isin(Completion('dn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)
-            self.isin(Completion('dn.seen', display='[prop] inet:fqdn.seen - The time interval for first/last observation of the node.'), vals)
-            self.isin(Completion('dn.created', display='[prop] inet:fqdn.created - The time the node was created in the cortex.'), vals)
             self.isin(Completion('dn:domain', display='[prop] inet:fqdn:domain - The parent domain for the FQDN.'), vals)
             self.isin(Completion('dn:host', display='[prop] inet:fqdn:host - The host part of the FQDN.'), vals)
             self.isin(Completion('dn:issuffix', display='[prop] inet:fqdn:issuffix - True if the FQDN is considered a suffix.'), vals)
             self.isin(Completion('dn:iszone', display='[prop] inet:fqdn:iszone - True if the FQDN is considered a zone.'), vals)
             self.isin(Completion('dn:zone', display='[prop] inet:fqdn:zone - The zone level parent for this FQDN.'), vals)
 
-            vals = await get_completions('inet:fqdn.')
-            self.isin(Completion('seen', display='[prop] inet:fqdn.seen - The time interval for first/last observation of the node.'), vals)
-            self.isin(Completion('created', display='[prop] inet:fqdn.created - The time the node was created in the cortex.'), vals)
+            vals = await get_completions('inet:fqdn:')
+            self.isin(Completion('domain', display='[prop] inet:fqdn:domain - The parent domain for the FQDN.'), vals)
 
             vals = await get_completions('[inet:fq')
             self.isin(Completion('dn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)
-            self.isin(Completion('dn.seen', display='[prop] inet:fqdn.seen - The time interval for first/last observation of the node.'), vals)
+            self.isin(Completion('dn:domain', display='[prop] inet:fqdn:domain - The parent domain for the FQDN.'), vals)
 
             vals = await get_completions('[inet:')
             self.isin(Completion('fqdn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)

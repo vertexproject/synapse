@@ -502,11 +502,10 @@ class StormTypesTest(s_test.SynTest):
             self.eq((4, 0x01020304), await core.callStorm('return($lib.trycast(inet:ip, 1.2.3.4).1)'))
 
             # trycast/cast a property instead of a form/type
-            flow = s_json.loads(s_test_files.getAssetStr('attack_flow/CISA AA22-138B VMWare Workspace (Alt).json'))
-            opts = {'vars': {'flow': flow}}
-            self.true(await core.callStorm('return($lib.trycast(it:mitre:attack:flow:data, $flow).0)', opts=opts))
-            self.false(await core.callStorm('return($lib.trycast(it:mitre:attack:flow:data, {}).0)'))
-            self.eq(flow, await core.callStorm('return($lib.cast(it:mitre:attack:flow:data, $flow))', opts=opts))
+
+            self.true(await core.callStorm('return($lib.trycast(test:guid:size, 1234).0)'))
+            self.false(await core.callStorm('return($lib.trycast(test:guid:size, newp).0)'))
+            self.eq(1234, await core.callStorm('return($lib.cast(test:guid:size, 1234))'))
 
             self.true(await core.callStorm('$x=(foo,bar) return($x.has(foo))'))
             self.false(await core.callStorm('$x=(foo,bar) return($x.has(newp))'))
@@ -799,10 +798,10 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ ou:org=* ou:org=* ]', opts=opts)
             self.eq(2, await core.callStorm('return($lib.len($lib.layer.get().getStorNodes()))', opts=opts))
 
-            await core.nodes('[ media:news=c0dc5dc1f7c3d27b725ef3015422f8e2 +(refs)> { inet:ip=1.2.3.4 } ]')
+            await core.nodes('[ test:guid=c0dc5dc1f7c3d27b725ef3015422f8e2 +(refs)> { inet:ip=1.2.3.4 } ]')
             edges = await core.callStorm('''
                 $edges = ([])
-                media:news=c0dc5dc1f7c3d27b725ef3015422f8e2
+                test:guid=c0dc5dc1f7c3d27b725ef3015422f8e2
                 for $i in $lib.layer.get().getEdgesByN1($node.iden()) { $edges.append($i) }
                 fini { return($edges) }
             ''')
@@ -814,14 +813,14 @@ class StormTypesTest(s_test.SynTest):
                 for $i in $lib.layer.get().getEdgesByN2($node.iden()) { $edges.append($i) }
                 fini { return($edges) }
             ''')
-            self.eq([('refs', 'ddf7f87c0164d760e8e1e5cd2cae2fee96868a3cf184f6dab9154e31ad689528')], edges)
+            self.eq([('refs', 'dba9d12ef3f0244ced5f4c9afcfcce1041cfce09bf02f67aa363b110a1933fe9')], edges)
 
             edges = await core.callStorm('''
                 $edges = ([])
                 for $i in $lib.layer.get().getEdges() { $edges.append($i) }
                 return($edges)
             ''')
-            self.isin(('ddf7f87c0164d760e8e1e5cd2cae2fee96868a3cf184f6dab9154e31ad689528',
+            self.isin(('dba9d12ef3f0244ced5f4c9afcfcce1041cfce09bf02f67aa363b110a1933fe9',
                        'refs',
                        '6ff89ac24110dec0216d5ce85382056ed50f508dbf718764039f061fc190b3c8'), edges)
 
@@ -873,7 +872,7 @@ class StormTypesTest(s_test.SynTest):
             self.none(view.parent)
             self.none(view.info.get('parent'))
 
-            self.eq('0.0.0.1', await core.callStorm('return($lib.repr(inet:server*ip, ([4, 1])))'))
+            self.eq('0.0.0.1', await core.callStorm('return($lib.repr(inet:server.ip, ([4, 1])))'))
 
     async def test_storm_lib_ps(self):
 
@@ -1144,10 +1143,10 @@ class StormTypesTest(s_test.SynTest):
             pode[1].pop('path')
             self.eq(pode, apode)
 
-            self.eq('1.2.3.4', await core.callStorm('[ inet:server=1.2.3.4:80 ] return($node.repr(*ip))'))
-            self.eq('1.2.3.4', await core.callStorm('[ inet:flow=* :dst=1.2.3.4:80 ] return($node.repr(dst*ip))'))
+            self.eq('1.2.3.4', await core.callStorm('[ inet:server=1.2.3.4:80 ] return($node.repr(".ip"))'))
+            self.eq('1.2.3.4', await core.callStorm('[ inet:flow=* :dst=1.2.3.4:80 ] return($node.repr(dst.ip))'))
 
-            self.eq(None, await core.callStorm('[ inet:flow=* ] return($node.repr(dst*ip))'))
+            self.eq(None, await core.callStorm('[ inet:flow=* ] return($node.repr(dst.ip))'))
 
     async def test_storm_lib_dict(self):
         async with self.getTestCore() as core:
@@ -2231,7 +2230,7 @@ class StormTypesTest(s_test.SynTest):
 
             async with core.getLocalProxy() as proxy:
                 msgs = await proxy.storm('''
-                    [ ps:contact=* ]
+                    [ entity:contact=* ]
                     $path.meta.foo = bar
                     $path.meta.baz = faz
                     $path.meta.baz = $lib.undef
@@ -2500,9 +2499,8 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_lib_time(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ ps:person="*" :dob = $lib.time.fromunix(20) ]')
-            self.len(1, nodes)
-            self.eq(20000000, nodes[0].get('dob'))
+
+            self.eq(20000000, await core.callStorm('return($lib.time.fromunix(20))'))
 
             query = '''$valu="10/1/2017 2:52"
             $parsed=$lib.time.parse($valu, "%m/%d/%Y %H:%M")
@@ -3103,15 +3101,8 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'hehe'))
 
             # Allow strings to be encoded as bytes
-            text = '''$valu="visi"  $buf1=$valu.encode() $buf2=$valu.encode("utf-16")
-            [(file:bytes=$buf1) (file:bytes=$buf2)]
-            '''
-            nodes = await core.nodes(text)
-            self.len(2, nodes)
-            self.eq({'sha256:e45bbb7e03acacf4d1cca4c16af1ec0c51d777d10e53ed3155bd3d8deb398f3f',
-                     'sha256:1263d0f4125831df93a82a08ab955d1176306953c9f0c44d366969295c7b57db',
-                     },
-                    {n.ndef[1] for n in nodes})
+            self.eq(b'visi', await core.callStorm('$visi=visi return($visi.encode())'))
+            self.eq(b'\xff\xfev\x00i\x00s\x00i\x00', await core.callStorm('$visi=visi return($visi.encode(utf-16))'))
 
             # Mismatch surrogates from real world data
             surrogate_data = "FOO\ufffd\ufffd\ufffd\udfab\ufffd\ufffdBAR"
@@ -4081,24 +4072,24 @@ class StormTypesTest(s_test.SynTest):
             # retun the node edits for an updated node in the current view
             guid = 'c7e4640767de30a5ac4ff192a9d56dfa'
             opts = {'user': visi.iden, 'view': fork, 'vars': {'fork': fork, 'guid': guid}}
-            await visi.addRule((True, ('node', 'add', 'media:news')), gateiden=layr)
-            msgs = await core.stormlist('$lib.view.get($fork).addNode(media:news, $guid)', opts=opts)
+            await visi.addRule((True, ('node', 'add', 'doc:report')), gateiden=layr)
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(doc:report, $guid)', opts=opts)
             edits = [ne for ne in msgs if ne[0] == 'node:edits']
             self.len(1, edits)
             opts['vars']['props'] = {
-                'title': 'foobar',
-                'summary': 'bizbaz',
+                'name': 'foobar',
+                'desc': 'bizbaz',
             }
-            await visi.addRule((True, ('node', 'prop', 'set', 'media:news:title')), gateiden=layr)
-            await visi.addRule((True, ('node', 'prop', 'set', 'media:news:summary')), gateiden=layr)
-            msgs = await core.stormlist('$lib.view.get($fork).addNode(media:news, $guid, $props)', opts=opts)
+            await visi.addRule((True, ('node', 'prop', 'set', 'doc:report:name')), gateiden=layr)
+            await visi.addRule((True, ('node', 'prop', 'set', 'doc:report:desc')), gateiden=layr)
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(doc:report, $guid, $props)', opts=opts)
             edits = [ne for ne in msgs if ne[0] == 'node:edits']
             self.len(1, edits)
             self.len(2, edits[0][1]['edits'][0][2])
 
             # don't get any node edits for a different view
             opts = {'user': visi.iden, 'vars': {'fork': fork}}
-            msgs = await core.stormlist('$lib.view.get($fork).addNode(media:news, *)', opts=opts)
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(doc:report, *)', opts=opts)
             edits = [ne for ne in msgs if ne[0] == 'node:edits']
             self.len(0, edits)
 
@@ -4272,7 +4263,7 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('trigger.add prop:set --tag foo --storm {test:str}')
             self.stormIsInErr("data must contain ['prop']", mesgs)
 
-            q = 'trigger.add prop:set --prop test:type10.intprop --tag foo --storm {test:str}'
+            q = 'trigger.add prop:set --prop test:type10:intprop --tag foo --storm {test:str}'
             mesgs = await core.stormlist(q)
             self.stormIsInErr('form and tag must not be present for prop:set', mesgs)
 
@@ -4702,7 +4693,9 @@ class StormTypesTest(s_test.SynTest):
 
                 ##################
                 layr = core.getLayer()
-                nextlayroffs = await layr.getEditOffs() + 1
+
+                # TODO - this is not a good way to test this since nodeedit log offsets map to nexus log offsets
+                nextlayroffs = await layr.getEditOffs() + 8
 
                 # Start simple: add a cron job that creates a node every minute
                 q = "cron.add --minute +1 {[meta:note='*' :type=m1]}"
@@ -4758,7 +4751,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr('does not match', mesgs)
 
                 # Make sure the old one didn't run and the new query ran
-                nextlayroffs = await layr.getEditOffs() + 1
+                nextlayroffs = await layr.getEditOffs() + 6
                 unixtime += 60
                 await layr.waitEditOffs(nextlayroffs, timeout=5)
                 self.eq(1, await prox.count('meta:note:type=m1'))
@@ -5259,14 +5252,10 @@ class StormTypesTest(s_test.SynTest):
 
             nodes = await core.nodes('[test:guid=(beep,)] $node.props.size="12"')
             self.eq(12, nodes[0].get('size'))
-            nodes = await core.nodes('[test:guid=(beep,)] $node.props.".seen"=2020')
-            self.eq((1577836800000000, 1577836800000001), nodes[0].get('.seen'))
 
             text = '$d=({}) test:guid=(beep,) { for ($name, $valu) in $node.props { $d.$name=$valu } } return ($d)'
             props = await core.callStorm(text)
             self.eq(12, props.get('size'))
-            self.eq((1577836800000000, 1577836800000001), props.get('.seen'))
-            self.isin('.created', props)
 
             with self.raises(s_exc.NoSuchProp):
                 self.true(await core.callStorm('[test:guid=(beep,)] $node.props.newp="noSuchProp"'))
@@ -5424,15 +5413,8 @@ class StormTypesTest(s_test.SynTest):
             self.eq(3, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar))'))
             self.eq(2, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar, formname=inet:ip))'))
 
-            self.eq(5, await core.callStorm("return($lib.layer.get().getPropCount('.created'))"))
-            self.eq(2, await core.callStorm("return($lib.layer.get().getPropCount(inet:ip.created))"))
-            self.eq(0, await core.callStorm("return($lib.layer.get().getPropCount('.seen'))"))
-
             with self.raises(s_exc.NoSuchProp):
                 await core.callStorm('return($lib.layer.get().getPropCount(newp:newp))')
-
-            with self.raises(s_exc.NoSuchProp):
-                await core.callStorm("return($lib.layer.get().getPropCount('.newp'))")
 
             await core.nodes('.created | delnode --force')
 
@@ -5448,12 +5430,13 @@ class StormTypesTest(s_test.SynTest):
                  ou:org=*
                  :names=(foo, bar))
 
-                .seen=2020
-                .univarray=(1, 2)
                 +#foo:score=2
 
                 test:arrayform=(1,2,3)
                 test:arrayform=(2,3,4)
+                (test:hasiface=1 :size=3 :names=(foo, bar))
+                (test:hasiface2=2 :size=3 :names=(foo, baz))
+                (test:hasiface2=3 :size=4 :names=(foo, faz))
             ]'''
             await core.nodes(q)
 
@@ -5466,23 +5449,17 @@ class StormTypesTest(s_test.SynTest):
             q = 'return($lib.layer.get().getPropCount(inet:ip:asn, valu=4))'
             self.eq(3, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropCount(inet:ip.seen, valu=2020))'
-            self.eq(3, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropCount(".seen", valu=2020))'
-            self.eq(5, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropCount(".test:univ", valu=1))'
-            self.eq(0, await core.callStorm(q))
-
             q = 'return($lib.layer.get().getPropCount(inet:ip, valu=([4, 1])))'
             self.eq(1, await core.callStorm(q))
 
             q = 'return($lib.layer.get().getPropCount(ou:org:names, valu=(foo, bar)))'
             self.eq(2, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropCount(".univarray", valu=(1, 2)))'
-            self.eq(5, await core.callStorm(q))
+            q = 'return($lib.layer.get().getPropCount(test:interface:size))'
+            self.eq(3, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropCount(test:interface:size, valu=3))'
+            self.eq(2, await core.callStorm(q))
 
             with self.raises(s_exc.NoSuchProp):
                 q = 'return($lib.layer.get().getPropCount(newp, valu=1))'
@@ -5494,11 +5471,11 @@ class StormTypesTest(s_test.SynTest):
             q = 'return($lib.layer.get().getPropArrayCount(ou:org:names, valu=foo))'
             self.eq(2, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropArrayCount(".univarray"))'
-            self.eq(10, await core.callStorm(q))
+            q = 'return($lib.layer.get().getPropArrayCount(test:interface:names))'
+            self.eq(6, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropArrayCount(".univarray", valu=2))'
-            self.eq(5, await core.callStorm(q))
+            q = 'return($lib.layer.get().getPropArrayCount(test:interface:names, valu=foo))'
+            self.eq(3, await core.callStorm(q))
 
             q = 'return($lib.layer.get().getPropArrayCount(test:arrayform))'
             self.eq(6, await core.callStorm(q))
@@ -5506,10 +5483,10 @@ class StormTypesTest(s_test.SynTest):
             q = 'return($lib.layer.get().getPropArrayCount(test:arrayform, valu=2))'
             self.eq(2, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropArrayCount(ou:org:subs))'
+            q = 'return($lib.layer.get().getPropArrayCount(ou:org:emails))'
             self.eq(0, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropArrayCount(ou:org:subs, valu=*))'
+            q = 'return($lib.layer.get().getPropArrayCount(ou:org:emails, valu="foo@bar.corp"))'
             self.eq(0, await core.callStorm(q))
 
             with self.raises(s_exc.NoSuchProp):
@@ -5553,8 +5530,9 @@ class StormTypesTest(s_test.SynTest):
                 'c'
             ]
             opts = {'vars': {'vals': layr1vals}}
-            await core.nodes('for $val in $vals {[ it:dev:str=$val .seen=2020 ]}', opts=opts)
-            await core.nodes('for $val in $vals {[ ou:org=* :name=$val .seen=2021]}', opts=opts)
+            await core.nodes('for $val in $vals {[ test:str=$val :seen=2020 ]}', opts=opts)
+            await core.nodes('for $val in $vals {[ test:guid=* :name=$val :seen=2021]}', opts=opts)
+            await core.nodes('[ test:guid=(l1,) :seen=2020 ]')
 
             layr2vals = [
                 'a' * 512 + 'a',
@@ -5568,8 +5546,9 @@ class StormTypesTest(s_test.SynTest):
             ]
             forkview = await core.callStorm('return($lib.view.get().fork().iden)')
             opts = {'view': forkview, 'vars': {'vals': layr2vals}}
-            await core.nodes('for $val in $vals {[ it:dev:str=$val .seen=2020]}', opts=opts)
-            await core.nodes('for $val in $vals {[ ou:org=* :name=$val .seen=2023]}', opts=opts)
+            await core.nodes('for $val in $vals {[ test:str=$val :seen=2020]}', opts=opts)
+            await core.nodes('for $val in $vals {[ test:guid=* :name=$val :seen=2023]}', opts=opts)
+            await core.nodes('[ test:guid=* :seen=2022 ]', opts=opts)
 
             viewq = '''
             $vals = ([])
@@ -5588,7 +5567,7 @@ class StormTypesTest(s_test.SynTest):
             '''
 
             # Values come out in index order which is not necessarily value order
-            opts = {'vars': {'prop': 'it:dev:str'}}
+            opts = {'vars': {'prop': 'test:str'}}
             uniqvals = list(set(layr1vals))
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
@@ -5600,7 +5579,7 @@ class StormTypesTest(s_test.SynTest):
             uniqvals = list(set(layr1vals) | set(layr2vals))
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
 
-            opts = {'vars': {'prop': 'ou:org:name'}}
+            opts = {'vars': {'prop': 'test:guid:name'}}
             uniqvals = list(set(layr1vals))
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
@@ -5612,7 +5591,7 @@ class StormTypesTest(s_test.SynTest):
             uniqvals = list(set(layr1vals) | set(layr2vals))
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
 
-            opts = {'vars': {'prop': '.seen'}}
+            opts = {'vars': {'prop': 'test:guid:seen'}}
 
             ival = core.model.type('ival')
             uniqvals = [ival.norm('2020')[0], ival.norm('2021')[0]]
@@ -5620,14 +5599,48 @@ class StormTypesTest(s_test.SynTest):
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
 
             opts['view'] = forkview
-            uniqvals = [ival.norm('2020')[0], ival.norm('2023')[0]]
+            uniqvals = [ival.norm('2022')[0], ival.norm('2023')[0]]
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
 
-            uniqvals = [ival.norm('2020')[0], ival.norm('2021')[0], ival.norm('2023')[0]]
+            uniqvals = [ival.norm('2020')[0], ival.norm('2021')[0], ival.norm('2022')[0], ival.norm('2023')[0]]
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
 
-            opts['vars']['prop'] = 'ps:contact:name'
+            await core.nodes('test:guid=(l1,) [ -:seen ]', opts=opts)
+
+            uniqvals = [ival.norm('2021')[0], ival.norm('2022')[0], ival.norm('2023')[0]]
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+
+            await core.nodes('test:guid=(l1,) [ :seen=2024 ]', opts=opts)
+
+            uniqvals = [ival.norm('2021')[0], ival.norm('2022')[0], ival.norm('2023')[0], ival.norm('2024')[0]]
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+
+            await core.nodes('test:guid=(l1,) | delnode', opts=opts)
+
+            uniqvals = [ival.norm('2021')[0], ival.norm('2022')[0], ival.norm('2023')[0]]
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+
+            opts['vars']['prop'] = 'entity:contact:name'
             self.eq([], await core.callStorm(viewq, opts=opts))
+
+            nodes = await core.nodes('''[
+                (test:hasiface=1 :size=1)
+                (test:hasiface2=2 :size=2)
+            ]''')
+
+            nodes = await core.nodes('''[
+                (test:hasiface=3 :size=3)
+                (test:hasiface2=4 :size=3)
+                (test:hasiface2=5 :size=4)
+            ]''', opts={'view': forkview})
+
+            opts = {'vars': {'prop': 'test:interface:size'}}
+            self.eq([1, 2], await core.callStorm(layrq, opts=opts))
+            self.eq([1, 2], await core.callStorm(viewq, opts=opts))
+
+            opts['view'] = forkview
+            self.eq([3, 4], await core.callStorm(layrq, opts=opts))
+            self.eq([1, 2, 3, 4], await core.callStorm(viewq, opts=opts))
 
             opts['vars']['prop'] = 'newp:newp'
             with self.raises(s_exc.NoSuchProp):
@@ -5654,27 +5667,27 @@ class StormTypesTest(s_test.SynTest):
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
 
-            await core.nodes('[ media:news=(bar,) :title=foo ]')
-            await core.nodes('[ media:news=(baz,) :title=bar ]')
-            await core.nodes('[ media:news=(faz,) :title=faz ]')
+            await core.nodes('[ doc:report=(bar,) :name=foo ]')
+            await core.nodes('[ doc:report=(baz,) :name=bar ]')
+            await core.nodes('[ doc:report=(faz,) :name=faz ]')
 
             forkopts = {'view': forkview}
-            await core.nodes('[ media:news=(baz,) :title=faz ]', opts=forkopts)
+            await core.nodes('[ doc:report=(baz,) :name=faz ]', opts=forkopts)
 
-            opts = {'vars': {'prop': 'media:news:title'}}
+            opts = {'vars': {'prop': 'doc:report:name'}}
             self.eq(['bar', 'faz', 'foo'], await core.callStorm(viewq, opts=opts))
 
-            opts = {'view': forkview, 'vars': {'prop': 'media:news:title'}}
+            opts = {'view': forkview, 'vars': {'prop': 'doc:report:name'}}
             self.eq(['faz', 'foo'], await core.callStorm(viewq, opts=opts))
 
             forkview2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)
             forkopts2 = {'view': forkview2}
 
-            await core.nodes('[ ps:contact=(foo,) :name=foo ]', opts=forkopts2)
-            await core.nodes('[ ps:contact=(foo,) :name=bar ]', opts=forkopts)
-            await core.nodes('[ ps:contact=(bar,) :name=bar ]')
+            await core.nodes('[ entity:contact=(foo,) :name=foo ]', opts=forkopts2)
+            await core.nodes('[ entity:contact=(foo,) :name=bar ]', opts=forkopts)
+            await core.nodes('[ entity:contact=(bar,) :name=bar ]')
 
-            opts = {'view': forkview2, 'vars': {'prop': 'ps:contact:name'}}
+            opts = {'view': forkview2, 'vars': {'prop': 'entity:contact:name'}}
             self.eq(['bar', 'foo'], await core.callStorm(viewq, opts=opts))
 
             self.eq([], await alist(core.getLayer().iterPropIndxNids('newp', 'newp', 'newp')))
@@ -6334,6 +6347,10 @@ words\tword\twrd'''
             self.len(2, nodes)
             self.eq(nodes[0].iden(), nodeiden)
 
+            nodes = await core.nodes('yield $lib.layer.get().liftByProp(".created", now, "<=")', opts=opts)
+            self.len(2, nodes)
+            self.eq(nodes[0].iden(), nodeiden)
+
             nodes = await core.nodes('yield $lib.layer.get().liftByTag(hehe)', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].iden(), nodeiden)
@@ -6344,6 +6361,9 @@ words\tword\twrd'''
 
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('yield $lib.layer.get().liftByProp(newp)', opts=opts)
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('yield $lib.layer.get().liftByProp(".newp")', opts=opts)
 
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('yield $lib.layer.get().liftByTag(newp, newp)', opts=opts)
@@ -6423,7 +6443,7 @@ words\tword\twrd'''
             [ inet:fqdn=foo.com ]
             $foo = (1.23)
             $bar = $node
-            [ ps:contact=(test, $foo, $bar) ]
+            [ entity:contact=(test, $foo, $bar) ]
             '''
             self.len(2, await core.nodes(q))
 
@@ -6530,12 +6550,13 @@ words\tword\twrd'''
                  ou:org=*
                  :names=(foo, bar))
 
-                .seen=2020
-                .univarray=(1, 2)
                 +#foo:score=2
 
                 test:arrayform=(1,2,3)
                 test:arrayform=(2,3,4)
+
+                (test:hasiface=1 :size=1 :names=(foo, one))
+                (test:hasiface2=2 :size=2 :names=(foo, two))
             ]'''
             await core.nodes(q)
 
@@ -6549,17 +6570,23 @@ words\tword\twrd'''
                  ou:org=*
                  :names=(foo, bar))
 
-                .seen=2020
-                .univarray=(1, 2)
                 +#foo:score=2
 
                 test:arrayform=(3,4,5)
                 test:arrayform=(4,5,6)
+                (test:hasiface=3 :size=2 :names=(foo, bar))
+                (test:hasiface2=4 :size=4 :names=(foo, baz))
             ]'''
             await core.nodes(q, opts=forkopts)
 
             q = 'return($lib.view.get().getPropCount(inet:ip:asn))'
             self.eq(6, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropCount(test:interface:size))'
+            self.eq(4, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropCount(test:interface:size, valu=2))'
+            self.eq(2, await core.callStorm(q, opts=forkopts))
 
             q = 'return($lib.view.get().getPropCount(inet:ip:asn, valu=1))'
             self.eq(0, await core.callStorm(q, opts=forkopts))
@@ -6570,23 +6597,18 @@ words\tword\twrd'''
             q = 'return($lib.view.get().getPropCount(inet:ip:asn, valu=4))'
             self.eq(6, await core.callStorm(q, opts=forkopts))
 
-            q = 'return($lib.view.get().getPropCount(inet:ip.seen, valu=2020))'
-            self.eq(6, await core.callStorm(q, opts=forkopts))
-
-            q = 'return($lib.view.get().getPropCount(".seen", valu=2020))'
-            self.eq(10, await core.callStorm(q, opts=forkopts))
-
             q = 'return($lib.view.get().getPropCount(inet:ip, valu=([4, 1])))'
             self.eq(1, await core.callStorm(q, opts=forkopts))
 
             q = 'return($lib.view.get().getPropCount(ou:org:names, valu=(foo, bar)))'
             self.eq(4, await core.callStorm(q, opts=forkopts))
 
-            q = 'return($lib.view.get().getPropCount(".univarray", valu=(1, 2)))'
-            self.eq(10, await core.callStorm(q, opts=forkopts))
-
             with self.raises(s_exc.NoSuchProp):
                 q = 'return($lib.view.get().getPropCount(newp, valu=1))'
+                await core.callStorm(q, opts=forkopts)
+
+            with self.raises(s_exc.NoSuchProp):
+                q = 'return($lib.view.get().getPropCount(inet:ipv4))'
                 await core.callStorm(q, opts=forkopts)
 
             q = 'return($lib.view.get().getPropArrayCount(ou:org:names))'
@@ -6595,11 +6617,17 @@ words\tword\twrd'''
             q = 'return($lib.view.get().getPropArrayCount(ou:org:names, valu=foo))'
             self.eq(4, await core.callStorm(q, opts=forkopts))
 
-            q = 'return($lib.view.get().getPropArrayCount(".univarray", valu=2))'
-            self.eq(10, await core.callStorm(q, opts=forkopts))
-
             q = 'return($lib.view.get().getPropArrayCount(test:arrayform, valu=3))'
             self.eq(3, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropArrayCount(test:interface:names))'
+            self.eq(8, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropArrayCount(test:interface:names, valu=one))'
+            self.eq(1, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropArrayCount(test:interface:names, valu=foo))'
+            self.eq(4, await core.callStorm(q, opts=forkopts))
 
             with self.raises(s_exc.NoSuchProp):
                 q = 'return($lib.view.get().getPropArrayCount(newp, valu=1))'

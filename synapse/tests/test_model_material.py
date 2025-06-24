@@ -9,7 +9,7 @@ class MatTest(s_t_utils.SynTest):
             place = s_common.guid()
             n0_guid = s_common.guid()
             n1_guid = s_common.guid()
-            f0_valu = f'guid:{s_common.guid()}'
+            f0_valu = s_common.guid()
             nodes = await core.nodes('[mat:spec=$valu :name="F16 Fighter Jet"]', opts={'vars': {'valu': n0_guid}})
             self.len(1, nodes)
             node0 = nodes[0]
