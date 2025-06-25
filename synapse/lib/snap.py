@@ -1466,35 +1466,6 @@ class Snap(s_base.Base):
         # the newly constructed node is cached
         return await self.getNodeByBuid(protonode.buid)
 
-    async def _normGuidNodeProps(self, form, props, trycast=False):
-
-        norms = {}
-
-        for name, valu in list(props.items()):
-            prop = form.reqProp(name)
-
-            if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid):
-                pform = self.core.model.reqForm(prop.type.name)
-                gnorm, gprop = await self._normGuidNodeDict(pform, valu)
-                norms[name] = (pform, gnorm, gprop)
-                continue
-
-            try:
-                norms[name] = (prop, *prop.type.norm(valu))
-
-            except s_exc.BadTypeValu as e:
-                if not trycast:
-                    if 'prop' not in e.errinfo:
-                        mesg = e.get('mesg')
-                        e.update({
-                            'prop': name,
-                            'form': form.name,
-                            'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
-                        })
-                    raise e
-
-        return norms
-
     async def _addGuidNodeByDict(self, form, norms, props):
 
         for name, info in norms.items():
@@ -1547,6 +1518,35 @@ class Snap(s_base.Base):
         norms = await self._normGuidNodeProps(form, vals)
 
         return norms, props
+
+    async def _normGuidNodeProps(self, form, props, trycast=False):
+
+        norms = {}
+
+        for name, valu in list(props.items()):
+            prop = form.reqProp(name)
+
+            if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid):
+                pform = self.core.model.reqForm(prop.type.name)
+                gnorm, gprop = await self._normGuidNodeDict(pform, valu)
+                norms[name] = (pform, gnorm, gprop)
+                continue
+
+            try:
+                norms[name] = (prop, *prop.type.norm(valu))
+
+            except s_exc.BadTypeValu as e:
+                if not trycast:
+                    if 'prop' not in e.errinfo:
+                        mesg = e.get('mesg')
+                        e.update({
+                            'prop': name,
+                            'form': form.name,
+                            'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
+                        })
+                    raise e
+
+        return norms
 
     async def _getGuidNodeByDict(self, form, props):
         norms, _ = await self._normGuidNodeDict(form, props)
