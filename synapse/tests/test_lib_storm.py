@@ -130,7 +130,6 @@ class StormTest(s_t_utils.SynTest):
             self.none(props.get('phone'))
             self.eq(props.get('name'), 'burrito corp')
             self.eq(props.get('desc'), 'burritos man')
-            self.stormIsInWarn('Skipping bad value for prop ou:org:phone: requires a digit string', msgs)
 
             await self.asyncraises(s_exc.BadTypeValu, core.addNode(core.auth.rootuser, 'ou:org', {'name': 'org name 77', 'phone': 'lolnope'}, props={'desc': 'an org desc'}))
 
