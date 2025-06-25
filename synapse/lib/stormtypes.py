@@ -3666,14 +3666,15 @@ class LibQueue(Lib):
 
     async def _methQueueAdd(self, name):
 
-        info = {
-            'time': s_common.now(),
+        qdef = {
+            'created': s_common.now(),
             'creator': self.runt.user.iden,
+            'name': name,
         }
 
         self.runt.confirm(('queue', 'add'))
-        qdef = await self.runt.view.core.addCoreQueue(name, info)
-        iden = qdef.get('iden')
+        info = await self.runt.view.core.addCoreQueue(qdef)
+        iden = info.get('iden')
         return Queue(self.runt, name, iden, info)
 
     @stormfunc(readonly=True)
@@ -3686,11 +3687,11 @@ class LibQueue(Lib):
 
     @stormfunc(readonly=True)
     async def _methQueueGetByName(self, name):
-        info = await self.runt.view.core.getCoreQueueIdenByName(name)
+        info = await self.runt.view.core.getCoreQueueByName(name)
         if info is None:
             raise s_exc.NoSuchName(mesg=f'No queue with name {name}', name=name)
 
-        iden = info.get('iden')
+        iden = info.get('meta').get('iden')
         return await self._methQueueGet(iden)
 
     async def _methQueueGen(self, name):
