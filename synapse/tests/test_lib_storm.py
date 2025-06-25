@@ -1607,7 +1607,7 @@ class StormTest(s_t_utils.SynTest):
             opts = {'node:opts': {'virts': True}}
             msgs = await core.stormlist('[ it:exec:query=* :time=2025-04? ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
-            self.eq(nodes[0][1]['props']['time*precision'], 8)
+            self.eq(nodes[0][1]['props']['time.precision'], 8)
 
     async def test_storm_diff_merge(self):
 
