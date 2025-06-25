@@ -708,15 +708,41 @@ class CellTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             with mock.patch('synapse.lib.schemas.reqValidDriveInfo'):
                 async with self.getTestCell(dirn=dirn) as cell:
+                    user = await cell.auth.addUser('user')
+                    dog = await cell.auth.addUser('mj')
+                    role = await cell.auth.addRole('littledog')
+                    await cell.addUserRole(dog.iden, role.iden)
                     info = {
                         'name': 'bigdog',
+                        'perm': {
+                            'users': {
+                                user.iden: s_cell.PERM_ADMIN
+                            },
+                            'roles': {
+                                role.iden: s_cell.PERM_READ
+                            },
+                            'default': s_cell.PERM_EDIT
+                        }
                     }
-                    await cell.addDriveItem(info)
+                    item = await cell.addDriveItem(info)
+                    iden = item[0]['iden']
 
                     await cell.setCellVers('drive:storage', 0)
 
             async with self.getTestCell(dirn=dirn) as cell:
-                pass
+                info = await cell.getDriveInfo(iden)
+                self.notin('perm', info)
+                self.eq(info['permissions'], {
+                    'users': {
+                        user.iden: s_cell.PERM_ADMIN
+                    },
+                    'roles': {
+                        role.iden: s_cell.PERM_READ
+                    },
+                    'default': s_cell.PERM_EDIT
+                })
+                cell._hasEasyPerm(info, user, s_cell.PERM_ADMIN)
+                cell._hasEasyPerm(info, dog, s_cell.PERM_EDIT)
 
     async def test_cell_unix_sock(self):
 

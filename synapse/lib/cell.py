@@ -1500,8 +1500,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _drivePermMigration(self):
         for lkey, lval in self.slab.scanByPref(s_drive.LKEY_INFO, db=self.drive.dbname):
-            breakpoint()
             info = s_msgpack.un(lval)
+            perm = info.pop('perm', None)
+            if perm is not None:
+                perm.setdefault('users', {})
+                perm.setdefault('roles', {})
+                info['permissions'] = perm
+                self.slab.put(lkey, s_msgpack.en(info), db=self.drive.dbname)
 
     def getPermDef(self, perm):
         perm = tuple(perm)
@@ -1861,7 +1866,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def initCellStorage(self):
         self.drive = await s_drive.Drive.anit(self.slab, 'celldrive')
         await self._bumpCellVers('drive:storage', (
-            (1, self._drivePermMigration)
+            (1, self._drivePermMigration),
         ), nexs=False)
 
         self.onfini(self.drive.fini)
