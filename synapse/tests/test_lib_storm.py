@@ -283,6 +283,16 @@ class StormTest(s_t_utils.SynTest):
             self.eq(cm.exception.get('prop'), 'url')
             self.eq(cm.exception.get('mesg'), 'Bad value for prop inet:service:platform:url: Invalid/Missing protocol')
 
+            # Ensure inner nodes are not created unless the entire gutor is valid.
+            self.len(0, await core.nodes('''[
+                inet:service:account?=({
+                    "id": "bar",
+                    "platform": {"name": "barplat"},
+                    "url": "newp"})
+            ]'''))
+
+            self.len(0, await core.nodes('inet:service:platform:name=barplat'))
+
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
 
