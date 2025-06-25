@@ -2869,7 +2869,6 @@ class StormTypesTest(s_test.SynTest):
                 self.eq((5, 'baz'), await core.callStorm('return($lib.queue.getByName(poptest).pop())'))
                 self.none(await core.callStorm('return($lib.queue.getByName(poptest).pop())'))
 
-
     async def test_storm_lib_queue_add_and_list(self):
         async with self.getTestCore() as core:
 
