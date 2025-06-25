@@ -1498,6 +1498,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logger.warning(f'...Cell ({self.getCellType()}) auth migration complete!')
 
+    async def _drivePermMigration(self):
+        for lkey, lval in self.slab.scanByPref(s_drive.LKEY_INFO, db=self.drive.dbname):
+            breakpoint()
+            info = s_msgpack.un(lval)
+
     def getPermDef(self, perm):
         perm = tuple(perm)
         if self.permlook is None:
@@ -1855,6 +1860,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def initCellStorage(self):
         self.drive = await s_drive.Drive.anit(self.slab, 'celldrive')
+        await self._bumpCellVers('drive:storage', (
+            (1, self._drivePermMigration)
+        ), nexs=False)
+
         self.onfini(self.drive.fini)
 
     async def addDriveItem(self, info, path=None, reldir=s_drive.rootdir):

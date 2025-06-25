@@ -704,6 +704,20 @@ class CellTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NeedConfValu):
                     await echo.reqAhaProxy()
 
+    async def test_cell_drive_perm_migration(self):
+        with self.getTestDir() as dirn:
+            with mock.patch('synapse.lib.schemas.reqValidDriveInfo'):
+                async with self.getTestCell(dirn=dirn) as cell:
+                    info = {
+                        'name': 'bigdog',
+                    }
+                    await cell.addDriveItem(info)
+
+                    await cell.setCellVers('drive:storage', 0)
+
+            async with self.getTestCell(dirn=dirn) as cell:
+                pass
+
     async def test_cell_unix_sock(self):
 
         async with self.getTestCore() as core:
