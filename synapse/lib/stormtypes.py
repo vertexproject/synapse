@@ -3687,11 +3687,9 @@ class LibQueue(Lib):
 
     @stormfunc(readonly=True)
     async def _methQueueGetByName(self, name):
-        info = await self.runt.view.core.getCoreQueueByName(name)
-        if info is None:
+        iden = await self.runt.view.core.getCoreQueueByName(name)
+        if iden is None:
             raise s_exc.NoSuchName(mesg=f'No queue with name {name}', name=name)
-
-        iden = info.get('meta').get('iden')
         return await self._methQueueGet(iden)
 
     async def _methQueueGen(self, name):

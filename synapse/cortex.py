@@ -1623,9 +1623,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return info
 
     async def getCoreQueueByName(self, name):
-        iden = self.quedefs.get(name)
-        if iden is not None:
-            return await self.getCoreQueue(iden)
+        if (iden := self.quedefs.get(name)) is not None:
+            return iden
         return
 
     async def delCoreQueue(self, iden):
