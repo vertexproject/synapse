@@ -2890,8 +2890,6 @@ modeldefs = (
 
                 ('creds', ('array', {'type': 'auth:credential', 'sorted': True, 'uniq': True}), {
                     'doc': 'The credentials that were used to login.'}),
-
-                # TODO ndef based auth proto details
             )),
 
             ('inet:service:message:type:taxonomy', {}, ()),
