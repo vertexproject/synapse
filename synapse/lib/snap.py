@@ -1552,8 +1552,7 @@ class Snap(s_base.Base):
                     elif (node := await self._getGuidNodeByDict(pform, valu)) is None:
                             return None, None
 
-                    norm = node.ndef[1]
-                    norminfo = {}
+                    norm, norminfo = node.ndef[1], {}
                 else:
                     norm, norminfo = prop.type.norm(valu)
 
