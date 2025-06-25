@@ -1550,7 +1550,7 @@ class Snap(s_base.Base):
                         node = await self._addGuidNodeByDict(pform, valu)
 
                     elif (node := await self._getGuidNodeByDict(pform, valu)) is None:
-                            return None, None
+                        return None, None
 
                     norm, norminfo = node.ndef[1], {}
                 else:
