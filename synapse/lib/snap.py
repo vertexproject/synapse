@@ -1464,6 +1464,16 @@ class Snap(s_base.Base):
         # the newly constructed node is cached
         return await self.getNodeByBuid(protonode.buid)
 
+    async def _normGuidNodeProp(self, form, propname, valu):
+        prop = form.reqProp(propname)
+
+        if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid):
+            pform = self.core.model.reqForm(prop.type.name)
+            node = await self._addGuidNodeByDict(pform, valu)
+            return node.ndef[1], {}
+
+        return prop.type.norm(valu)
+
     async def _addGuidNodeByDict(self, form, vals, props=None):
 
         if props is None:
@@ -1478,7 +1488,8 @@ class Snap(s_base.Base):
 
         for name, valu in list(props.items()):
             try:
-                props[name] = form.reqProp(name).type.norm(valu)
+                props[name] = await self._normGuidNodeProp(form, name, valu)
+
             except s_exc.BadTypeValu as e:
                 mesg = e.get('mesg')
                 e.update({
@@ -1491,7 +1502,8 @@ class Snap(s_base.Base):
         if addprops is not None:
             for name, valu in addprops.items():
                 try:
-                    props[name] = form.reqProp(name).type.norm(valu)
+                    props[name] = await self._normGuidNodeProp(form, name, valu)
+
                 except s_exc.BadTypeValu as e:
                     mesg = e.get("mesg")
                     if not trycast:
@@ -1502,7 +1514,7 @@ class Snap(s_base.Base):
                         })
                         raise e
 
-        norms, proplist = self._normGuidNodeDict(form, vals)
+        norms, proplist = await self._normGuidNodeDict(form, vals, addsubs=True)
 
         iden = s_common.guid(proplist)
         node = await self._getGuidNodeByNorms(form, iden, norms)
@@ -1522,7 +1534,7 @@ class Snap(s_base.Base):
 
         return await self.getNodeByBuid(proto.buid)
 
-    def _normGuidNodeDict(self, form, props):
+    async def _normGuidNodeDict(self, form, props, addsubs=False):
 
         norms = {}
         proplist = []
@@ -1531,7 +1543,19 @@ class Snap(s_base.Base):
 
             try:
                 prop = form.reqProp(name)
-                norm, norminfo = prop.type.norm(valu)
+                if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid):
+                    pform = self.core.model.reqForm(prop.type.name)
+
+                    if addsubs:
+                        node = await self._addGuidNodeByDict(pform, valu)
+
+                    elif (node := await self._getGuidNodeByDict(pform, valu)) is None:
+                            return None, None
+
+                    norm = node.ndef[1]
+                    norminfo = {}
+                else:
+                    norm, norminfo = prop.type.norm(valu)
 
                 norms[name] = (prop, norm, norminfo)
                 proplist.append((name, norm))
@@ -1549,7 +1573,9 @@ class Snap(s_base.Base):
         return norms, proplist
 
     async def _getGuidNodeByDict(self, form, props):
-        norms, proplist = self._normGuidNodeDict(form, props)
+        norms, proplist = await self._normGuidNodeDict(form, props)
+        if not norms:
+            return
         return await self._getGuidNodeByNorms(form, s_common.guid(proplist), norms)
 
     async def _getGuidNodeByNorms(self, form, iden, norms):

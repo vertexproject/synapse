@@ -172,6 +172,114 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ it:exec:proc=(nulltime,) ]')
             self.len(1, nodes)
 
+            # Recursive gutors
+            nodes = await core.nodes('''[
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'fooplatform',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'foomesg')
+            self.nn(node.get('channel'))
+
+            nodes = await core.nodes('inet:service:message -> inet:service:channel')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('id'), 'foochannel')
+            self.nn(node.get('platform'))
+
+            nodes = await core.nodes('inet:service:message -> inet:service:channel -> inet:service:platform')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'fooplatform')
+            self.eq(node.get('url'), 'http://foo.com')
+
+            nodes = await core.nodes('''
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'fooplatform',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'foomesg')
+
+            nodes = await core.nodes('''[
+                inet:service:message=({
+                    'id': 'barmesg',
+                    'channel': {
+                        'id': 'barchannel',
+                        'platform': {
+                            'name': 'barplatform',
+                            'url': 'http://bar.com'
+                        }
+                    },
+                    '$props': {
+                        'platform': {
+                            'name': 'barplatform',
+                            'url': 'http://bar.com'
+                        }
+                    }
+                })
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'barmesg')
+            self.nn(node.get('channel'))
+
+            platguid = node.get('platform')
+            self.nn(platguid)
+            nodes = await core.nodes('inet:service:message:id=barmesg -> inet:service:channel -> inet:service:platform')
+            self.len(1, nodes)
+            self.eq(platguid, nodes[0].ndef[1])
+
+            # No node lifted if no matching node for inner gutor
+            self.len(0, await core.nodes('''
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'newp',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            '''))
+
+            # BadTypeValu comes through from inner gutor
+            # TODO: should prop/form in the exception be the inner or outer one and should we include the full chain?
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('''
+                    inet:service:message=({
+                        'id': 'foomesg',
+                        'channel': {
+                            'id': 'foochannel',
+                            'platform': {
+                                'name': 'newp',
+                                'url': 'newp'
+                            }
+                        }
+                    })
+                ''')
+
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
 
