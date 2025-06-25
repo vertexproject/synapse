@@ -1047,7 +1047,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.iden = s_common.guid(s_common.flatten(model))
 
-        self.addModelSave(self.model.iden, dict)
+        self.addModelSave(self.model.iden, model)
 
     async def _storCortexHiveMigration(self):
 
