@@ -1491,12 +1491,13 @@ class Snap(s_base.Base):
                 props[name] = await self._normGuidNodeProp(form, name, valu)
 
             except s_exc.BadTypeValu as e:
-                mesg = e.get('mesg')
-                e.update({
-                    'prop': name,
-                    'form': form.name,
-                    'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
-                })
+                if 'prop' not in e.errinfo:
+                    mesg = e.get('mesg')
+                    e.update({
+                        'prop': name,
+                        'form': form.name,
+                        'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
+                    })
                 raise e
 
         if addprops is not None:
@@ -1505,13 +1506,14 @@ class Snap(s_base.Base):
                     props[name] = await self._normGuidNodeProp(form, name, valu)
 
                 except s_exc.BadTypeValu as e:
-                    mesg = e.get("mesg")
                     if not trycast:
-                        e.update({
-                            'prop': name,
-                            'form': form.name,
-                            'mesg': f'Bad value for prop {form.name}:{name}: {mesg}'
-                        })
+                        if 'prop' not in e.errinfo:
+                            mesg = e.get("mesg")
+                            e.update({
+                                'prop': name,
+                                'form': form.name,
+                                'mesg': f'Bad value for prop {form.name}:{name}: {mesg}'
+                            })
                         raise e
 
         norms, proplist = await self._normGuidNodeDict(form, vals, addsubs=True)
@@ -1558,13 +1560,15 @@ class Snap(s_base.Base):
 
                 norms[name] = (prop, norm, norminfo)
                 proplist.append((name, norm))
+
             except s_exc.BadTypeValu as e:
-                mesg = e.get('mesg')
-                e.update({
-                    'prop': name,
-                    'form': form.name,
-                    'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
-                })
+                if 'prop' not in e.errinfo:
+                    mesg = e.get('mesg')
+                    e.update({
+                        'prop': name,
+                        'form': form.name,
+                        'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
+                    })
                 raise e
 
         proplist.sort()

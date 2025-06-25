@@ -265,8 +265,7 @@ class StormTest(s_t_utils.SynTest):
             '''))
 
             # BadTypeValu comes through from inner gutor
-            # TODO: should prop/form in the exception be the inner or outer one and should we include the full chain?
-            with self.raises(s_exc.BadTypeValu):
+            with self.raises(s_exc.BadTypeValu) as cm:
                 await core.nodes('''
                     inet:service:message=({
                         'id': 'foomesg',
@@ -279,6 +278,10 @@ class StormTest(s_t_utils.SynTest):
                         }
                     })
                 ''')
+
+            self.eq(cm.exception.get('form'), 'inet:service:platform')
+            self.eq(cm.exception.get('prop'), 'url')
+            self.eq(cm.exception.get('mesg'), 'Bad value for prop inet:service:platform:url: Invalid/Missing protocol')
 
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
