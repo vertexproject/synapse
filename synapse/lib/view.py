@@ -1025,7 +1025,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 # Always start with an init message.
                 await chan.put(('init', {'tick': tick, 'text': text, 'abstick': abstick,
-                                         'hash': texthash, 'task': synt.iden}))
+                                         'hash': texthash, 'task': synt.iden, 'model': self.core.model.iden}))
 
                 # Try text parsing. If this fails, we won't be able to get a storm
                 # runtime in the snap, so catch and pass the `err` message

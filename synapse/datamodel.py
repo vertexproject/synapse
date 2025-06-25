@@ -494,6 +494,7 @@ class Model:
     '''
     def __init__(self, core=None):
 
+        self.iden = None
         self.core = core
         self.types = {}  # name: Type()
         self.forms = {}  # name: Form()
