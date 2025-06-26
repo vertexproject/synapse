@@ -68,6 +68,12 @@ modeldefs = (
 
                     ('identifiers', ('array', {'type': 'entity:identifier', 'uniq': True, 'sorted': True}), {
                         'doc': 'Additional entity identifiers.'}),
+
+                    ('social:accounts', ('array', {'type': 'inet:service:account', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Social media or other online accounts listed for the {contactable}.'}),
+
+                    ('websites', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Web sites listed for the {contactable}.'}),
                 ),
                 'doc': 'An interface for forms which contain contact info.'}),
 
