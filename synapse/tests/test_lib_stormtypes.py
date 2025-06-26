@@ -2925,8 +2925,9 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_queue_nosuchname(self):
         async with self.getTestCore() as core:
-            with self.raises(s_exc.NoSuchName):
+            with self.raises(s_exc.NoSuchName) as cm:
                 await core.reqCoreQueue('deedbeef12341234')
+            self.isin('No queue with iden', str(cm.exception))
 
     async def test_storm_lib_queue_authgate_perms(self):
         async with self.getTestCoreAndProxy() as (core, prox):
