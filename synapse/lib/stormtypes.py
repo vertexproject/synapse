@@ -6992,6 +6992,7 @@ class Layer(Prim):
         pdef = {
             'url': url,
             'offs': offs,
+            'soffs': offs,
             'user': useriden,
             'time': s_common.now(),
             'iden': s_common.guid(),
@@ -7037,6 +7038,7 @@ class Layer(Prim):
         pdef = {
             'url': url,
             'offs': offs,
+            'soffs': offs,
             'user': useriden,
             'time': s_common.now(),
             'iden': s_common.guid(),
@@ -7363,7 +7365,8 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def _methLayerGet(self, name, defv=None):
-        return self.valu.get(name, defv)
+        ldef = await self.value()
+        return ldef.get(name, defv)
 
     async def _methLayerSet(self, name, valu):
         name = await tostr(name)
@@ -7401,14 +7404,12 @@ class Layer(Prim):
         pushs = ldef.get('pushs')
         if pushs is not None:
             for iden, pdef in pushs.items():
-                gvar = f'push:{iden}'
-                pdef['offs'] = await self.runt.view.core.getStormVar(gvar, -1)
+                pdef['offs'] = self.runt.view.core.layeroffs.get(iden, -1)
 
         pulls = ldef.get('pulls')
         if pulls is not None:
             for iden, pdef in pulls.items():
-                gvar = f'push:{iden}'
-                pdef['offs'] = await self.runt.view.core.getStormVar(gvar, -1)
+                pdef['offs'] = self.runt.view.core.layeroffs.get(iden, -1)
 
         return ldef
 
