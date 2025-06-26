@@ -2923,6 +2923,11 @@ class StormTypesTest(s_test.SynTest):
             val = await core.callStorm(f'$q = $lib.queue.get({iden}) return($q.get().1)')
             self.eq(val, 'woot')
 
+    async def test_storm_lib_queue_nosuchname(self):
+        async with self.getTestCore() as core:
+            with self.raises(s_exc.NoSuchName):
+                await core.reqCoreQueue('deedbeef12341234')
+
     async def test_storm_lib_queue_authgate_perms(self):
         async with self.getTestCoreAndProxy() as (core, prox):
 
