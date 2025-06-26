@@ -741,8 +741,8 @@ class CellTest(s_t_utils.SynTest):
                     },
                     'default': s_cell.PERM_EDIT
                 })
-                cell._hasEasyPerm(info, user, s_cell.PERM_ADMIN)
-                cell._hasEasyPerm(info, dog, s_cell.PERM_EDIT)
+                self.true(cell._hasEasyPerm(info, user, s_cell.PERM_ADMIN))
+                self.true(cell._hasEasyPerm(info, dog, s_cell.PERM_EDIT))
 
     async def test_cell_unix_sock(self):
 
