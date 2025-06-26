@@ -722,6 +722,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.views = {}
         self.layers = {}
+        self.layeroffs = await self.slab.getHotCount('layeroffs')
         self.viewsbylayer = collections.defaultdict(list)
 
         self.stormcmds = {}
@@ -4564,6 +4565,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for ldef in self.layerdefs.values():
             await self._initLayr(ldef)
 
+    async def setLayrSyncOffs(self, iden, offs):
+        await self._push('layer:sync:offs:set', iden, offs)
+
+    @s_nexus.Pusher.onPush('layer:sync:offs:set')
+    async def _setLayrSyncOffs(self, iden, offs):
+        if offs is not None:
+            self.layeroffs.set(iden, offs)
+        else:
+            self.layeroffs.delete(iden)
+
     @s_nexus.Pusher.onPushAuto('layer:push:add')
     async def addLayrPush(self, layriden, pdef):
 
@@ -4602,6 +4613,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         pdef = pushs.pop(pushiden, None)
+        await self._setLayrSyncOffs(pushiden, None)
         if pdef is None:
             return
 
@@ -4648,6 +4660,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         pdef = pulls.pop(pulliden, None)
+        await self._setLayrSyncOffs(pulliden, None)
         if pdef is None:
             return
 
@@ -4735,7 +4748,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         iden = pdef.get('iden')
         user = pdef.get('user')
-        gvar = f'push:{iden}'
+
         csize = pdef.get('chunk:size')
         qsize = pdef.get('queue:size')
 
@@ -4745,7 +4758,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async def fill():
 
                 try:
-                    filloffs = await self.getStormVar(gvar, -1)
+                    filloffs = self.layeroffs.get(iden, -1)
                     async for (offs, nodeedits) in layr0.syncNodeEdits(filloffs + 1, wait=True, compat=True):
                         await queue.put((offs, await self.remoteToLocalEdits(nodeedits)))
                     await queue.close()
@@ -4769,12 +4782,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     alledits.extend(edits)
                     if len(alledits) > csize:
                         await layr1.saveNodeEdits(alledits, meta)
-                        await self.setStormVar(gvar, offs)
+                        await self.setLayrSyncOffs(iden, offs)
                         alledits.clear()
 
                 if alledits:
                     await layr1.saveNodeEdits(alledits, meta)
-                    await self.setStormVar(gvar, offs)
+                    await self.setLayrSyncOffs(iden, offs)
 
     async def _checkNexsIndx(self):
         layroffs = [await layr.getEditIndx() for layr in list(self.layers.values())]
