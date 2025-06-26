@@ -164,6 +164,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         saveoff, nodeedits = await wlyr.saveNodeEdits(edits, meta)
 
+        ecnt = 0
         fireedits = None
         if bus is not None and bus.view.iden == self.iden:
             fireedits = []
@@ -183,6 +184,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     continue
 
             if fireedits is not None:
+                ecnt += len(edits)
                 editset = []
 
             for edit in edits:
@@ -356,7 +358,7 @@ class View(s_nexus.Pusher):  # type: ignore
             await func(*args)
 
         if fireedits:
-            await bus.fire('node:edits', edits=fireedits, time=meta.get('time'))
+            await bus.fire('node:edits', edits=fireedits, time=meta.get('time'), count=ecnt)
 
         return saveoff, nodeedits
 
@@ -1705,8 +1707,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 assert editformat == 'count'
 
-                count = sum(len(edit[2]) for edit in mesg[1].get('edits', ()))
-                mesg = ('node:edits:count', {'count': count})
+                mesg = ('node:edits:count', {'count': mesg[1].get('count')})
                 yield mesg
                 continue
 
