@@ -1780,6 +1780,8 @@ class InetModule(s_module.CoreModule):
                             ('remover', ('inet:service:account', {}), {
                                 'doc': 'The service account which removed or decommissioned the {service:base}.'}),
 
+                            ('app', ('inet:service:app', {}), {
+                                'doc': 'The app which contains the {service:base}.'}),
                         ),
                     }),
 
@@ -3748,6 +3750,9 @@ class InetModule(s_module.CoreModule):
 
                         ('tenant', ('inet:service:tenant', {}), {
                             'doc': 'The tenant which contains the instance.'}),
+
+                        ('app', ('inet:service:app', {}), {
+                            'doc': 'The app which contains the instance.'}),
                     )),
 
                     ('inet:service:app', {}, (
@@ -3776,9 +3781,6 @@ class InetModule(s_module.CoreModule):
 
                         ('tenant', ('inet:service:tenant', {}), {
                             'doc': 'The tenant which contains the account.'}),
-
-                        ('app', ('inet:service:app', {}), {
-                            'doc': 'The app which contains the account.'}),
                     )),
 
                     ('inet:service:relationship:type:taxonomy', {}, ()),
