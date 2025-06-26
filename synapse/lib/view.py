@@ -207,12 +207,12 @@ class View(s_nexus.Pusher):  # type: ignore
                     continue
 
                 if etyp == s_layer.EDIT_NODE_TOMB_DEL:
-                    if (valu := node.valuWithVirts()) != (None, None):
+                    if not node.istomb():
                         callbacks.append((node.form.wasAdded, (node,)))
                         callbacks.append((self.runNodeAdd, (node,)))
 
                         if fireedits is not None:
-                            editset.append((etyp, valu))
+                            editset.append(edit)
                     continue
 
                 if etyp == s_layer.EDIT_PROP_SET:
@@ -350,7 +350,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     editset.append(edit)
 
             if fireedits is not None:
-                fireedits.append((intnid, form, editset))
+                fireedits.append((intnid, node.ndef, editset))
 
         for func, args in callbacks:
             await func(*args)

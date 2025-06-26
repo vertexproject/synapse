@@ -532,22 +532,6 @@ class Node(NodeBase):
 
         return defv
 
-    def valuWithVirts(self, defv=None):
-        '''
-        Return the primary property with virtual property information from the Node.
-
-        Returns:
-            (tuple): The primary property and virtual property information or (defv, None).
-        '''
-        for sode in self.sodes:
-            if sode.get('antivalu') is not None:
-                return defv, None
-
-            if (valu := sode.get('valu')) is not None:
-                return valu[0], valu[2]
-
-        return defv, None
-
     def get(self, name, defv=None, virts=None):
         '''
         Return a secondary property or tag value from the Node.
