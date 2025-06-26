@@ -1498,7 +1498,8 @@ class StormDmon(s_base.Base):
         query = await self.core.getStormQuery(text, mode=opts.get('mode', 'storm'))
 
         info = {'iden': self.iden, 'name': self.ddef.get('name', 'storm dmon'), 'view': viewiden}
-        await self.core.boss.promote('storm:dmon', user=self.user, info=info)
+
+        await self.core.boss.promote('storm:dmon', user=self.user, info=info, background=True)
 
         def dmonPrint(evnt):
             self._runLogAdd(evnt)

@@ -44,7 +44,7 @@ async def main(argv, outp=s_output.stdout):
 
             prox = await asyncio.wait_for(s_telepath.openurl(url),
                                            timeout=opts.timeout)
-    except (FileNotFoundError, ConnectionError, socket.gaierror) as e:
+    except (s_exc.LinkErr, s_exc.NoSuchPath, socket.gaierror) as e:
         mesg = f'Unable to connect to cell @ {sanitized_url}.'
         ret = {'status': 'failed',
                'iden': opts.cell,

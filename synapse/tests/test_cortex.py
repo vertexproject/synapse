@@ -5484,7 +5484,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                             await self.asyncraises(s_exc.SynErr, core00.callStorm(strim, opts=opts))
 
                     # consumer offline
-                    await self.asyncraises(ConnectionRefusedError, core00.callStorm(strim, opts=opts))
+                    await self.asyncraises(s_exc.NoSuchPath, core00.callStorm(strim, opts=opts))
 
                     # admin can still cull and break the mirror
                     await core00.nodes('[ inet:ip=127.0.0.1/28 ]')
@@ -7946,6 +7946,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
                     self.eq(msgs[1].get('hash'), qhash)
                     self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+
+                    with self.getLoggerStream('synapse') as stream:
+                        core01.boss.is_shutdown = True
+                        self.stormHasNoWarnErr(await core00.stormlist('inet:asn=0'))
+                        core01.boss.is_shutdown = False
+
+                    stream.seek(0)
+                    self.isin('Proxy for pool mirror [01.core.synapse] is shutting down. Skipping.', stream.read())
 
                     with mock.patch('synapse.cortex.CoreApi.getNexsIndx', _hang):
 
