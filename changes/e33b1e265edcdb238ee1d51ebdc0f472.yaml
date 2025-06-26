@@ -1,5 +1,0 @@
----
-desc: Lowered logging levels for telepath socket early close events.
-prs: []
-type: bug
-...

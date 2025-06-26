@@ -1,6 +1,0 @@
----
-desc: "Added ``synapse.tools.axon.dump`` and ``synapse.tools.axon.load`` command
-  line tools for exporting blobs from one Axon and importing them to another."
-prs: []
-type: feat
-...

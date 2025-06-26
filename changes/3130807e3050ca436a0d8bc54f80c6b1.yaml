@@ -1,7 +1,0 @@
----
-desc: Fixed incorrect output in the graph command when multiple global pivots were
-  specified.
-prs:
-- 4343
-type: bug
-...

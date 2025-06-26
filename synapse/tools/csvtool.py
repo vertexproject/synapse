@@ -9,13 +9,14 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
-import synapse.lib.cmdr as s_cmdr
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.version as s_version
 
-reqver = '>=0.2.0,<3.0.0'
+import synapse.tools.storm as s_t_storm
+
+reqver = '>=3.0.0,<4.0.0'
 
 async def runCsvExport(opts, outp, text, stormopts):
     if not opts.cortex:
@@ -117,7 +118,7 @@ async def runCsvImport(opts, outp, text, stormopts):
                     logfd.write(s_json.dumps(mesg, newline=True))
 
         if opts.cli:
-            await s_cmdr.runItemCmdr(core, outp, True)
+            await s_t_storm.runItemStorm(prox, outp=outp)
 
         return nodecount
 
@@ -198,7 +199,7 @@ def makeargparser(outp):
             }
 
             "person name": {
-                [ ps:name=$valu ]
+                [ meta:name=$valu ]
             }
 
             *: {

@@ -1,44 +1,12 @@
+import copy
 import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
 
-import synapse.lib.module as s_module
 import synapse.lib.schemas as s_schemas
 
 import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_t_utils
-
-depmodel = {
-    'ctors': (
-        ('test:dep:str', 'synapse.lib.types.Str', {'strip': True}, {'deprecated': True}),
-    ),
-    'types': (
-        ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
-        ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
-        ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {})
-    ),
-    'forms': (
-        ('test:dep:easy', {'deprecated': True}, (
-            ('guid', ('test:guid', {}), {'deprecated': True}),
-            ('array', ('test:dep:array', {}), {}),
-            ('comp', ('test:dep:comp', {}), {}),
-        )),
-        ('test:dep:str', {}, (
-            ('beep', ('test:dep:str', {}), {}),
-        )),
-    ),
-    'univs': (
-        ('udep', ('test:dep:easy', {}), {}),
-        ('pdep', ('test:str', {}), {'deprecated': True})
-    )
-}
-
-class DeprecatedModel(s_module.CoreModule):
-
-    def getModelDefs(self):
-        return (
-            ('test:dep', depmodel),
-        )
 
 class DataModelTest(s_t_utils.SynTest):
 
@@ -72,6 +40,31 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 core.model.reqForm('inet:asn').reqProp('newp')
 
+            with self.raises(s_exc.NoSuchForm) as cm:
+                core.model.reqForm('biz:prodtype')
+            self.isin('Did you mean biz:product:type:taxonomy?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchForm) as cm:
+                core.model.reqForm('biz:prodtype')
+            self.isin('Did you mean biz:product:type:taxonomy?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchForm) as cm:
+                core.model.reqFormsByLook('biz:prodtype')
+            self.isin('Did you mean biz:product:type:taxonomy?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchProp) as cm:
+                core.model.reqProp('inet:dns:query:name:ipv4')
+            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchProp) as cm:
+                core.model.reqPropsByLook('inet:dns:query:name:ipv4')
+            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
+
+            form = core.model.reqForm('inet:dns:query')
+            with self.raises(s_exc.NoSuchProp) as cm:
+                form.reqProp('name:ipv4')
+            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
+
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
         mods = (
@@ -94,7 +87,7 @@ class DataModelTest(s_t_utils.SynTest):
             ('hehe', {
                 'types': (
                     ('test:derp', ('int', {}), {
-                        'interfaces': ('foo:bar',),
+                        'interfaces': (('foo:bar', {}),),
                     }),
                 ),
                 'forms': (
@@ -132,13 +125,10 @@ class DataModelTest(s_t_utils.SynTest):
         with self.raises(s_exc.NoSuchForm):
             modl.delFormProp('ne:wp', 'newp')
 
-        with self.raises(s_exc.NoSuchUniv):
-            modl.delUnivProp('newp')
-
         modl.addIface('test:iface', {})
 
         modl.addType('bar', 'int', {}, {})
-        modl.addType('foo:foo', 'int', {}, {'interfaces': ('test:iface',)})
+        modl.addType('foo:foo', 'int', {}, {'interfaces': (('test:iface', {}),)})
 
         modl.addForm('foo:foo', {}, ())
         modl.addFormProp('foo:foo', 'bar', ('bar', {}), {})
@@ -158,7 +148,7 @@ class DataModelTest(s_t_utils.SynTest):
         modl.addIface('depr:iface', {'deprecated': True})
 
         with self.getAsyncLoggerStream('synapse.datamodel') as dstream:
-            modl.addType('foo:bar', 'int', {}, {'interfaces': ('depr:iface',)})
+            modl.addType('foo:bar', 'int', {}, {'interfaces': (('depr:iface', {}),)})
             modl.addForm('foo:bar', {}, ())
 
         dstream.seek(0)
@@ -170,34 +160,24 @@ class DataModelTest(s_t_utils.SynTest):
 
         modl.addType('foo:bar', 'int', {}, {})
         modl.addForm('foo:bar', {}, (('x', ('int', {}), {}), ))
-        modl.addUnivProp('hehe', ('int', {}), {})
         modl.addFormProp('foo:bar', 'y', ('int', {}), {})
 
         self.nn(modl.prop('foo:bar:x'))
         self.nn(modl.prop('foo:bar:y'))
-        self.nn(modl.prop('foo:bar.hehe'))
 
         self.nn(modl.form('foo:bar').prop('x'))
         self.nn(modl.form('foo:bar').prop('y'))
-        self.nn(modl.form('foo:bar').prop('.hehe'))
 
-        self.len(3, modl.propsbytype['int'])
+        self.len(2, modl.propsbytype['int'])
 
         modl.delFormProp('foo:bar', 'y')
 
         self.nn(modl.prop('foo:bar:x'))
-        self.nn(modl.prop('foo:bar.hehe'))
         self.nn(modl.form('foo:bar').prop('x'))
-        self.nn(modl.form('foo:bar').prop('.hehe'))
 
-        self.len(2, modl.propsbytype['int'])
+        self.len(1, modl.propsbytype['int'])
         self.none(modl.prop('foo:bar:y'))
         self.none(modl.form('foo:bar').prop('y'))
-
-        modl.delUnivProp('hehe')
-
-        self.none(modl.prop('.hehe'))
-        self.none(modl.form('foo:bar').prop('.hehe'))
 
     async def test_datamodel_form_refs_cache(self):
         async with self.getTestCore() as core:
@@ -205,12 +185,12 @@ class DataModelTest(s_t_utils.SynTest):
             refs = core.model.form('test:comp').getRefsOut()
             self.len(1, refs['prop'])
 
-            await core.addFormProp('test:comp', '_ipv4', ('inet:ipv4', {}), {})
+            await core.addFormProp('test:comp', '_ip', ('inet:ip', {}), {})
 
             refs = core.model.form('test:comp').getRefsOut()
             self.len(2, refs['prop'])
 
-            await core.delFormProp('test:comp', '_ipv4')
+            await core.delFormProp('test:comp', '_ip')
 
             refs = core.model.form('test:comp').getRefsOut()
             self.len(1, refs['prop'])
@@ -218,21 +198,16 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(1, [prop for prop in core.model.getPropsByType('time') if prop.full == 'it:exec:url:time'])
 
     async def test_model_deprecation(self):
-        # Note: Inverting these currently causes model loading to fail (20200831)
-        mods = ['synapse.tests.utils.TestModule',
-                'synapse.tests.test_datamodel.DeprecatedModel',
-                ]
-        conf = {'modules': mods}
 
         with self.getTestDir() as dirn:
 
             with self.getAsyncLoggerStream('synapse.lib.types') as tstream, \
                     self.getAsyncLoggerStream('synapse.datamodel') as dstream:
-                core = await s_cortex.Cortex.anit(dirn, conf)
+                core = await s_cortex.Cortex.anit(dirn)
+                await core._addDataModels(s_t_utils.testmodel + s_t_utils.deprmodel)
 
             dstream.seek(0)
             ds = dstream.read()
-            self.isin('universal property .udep is using a deprecated type', ds)
             self.isin('type test:dep:easy is based on a deprecated type test:dep:easy', ds)
             tstream.seek(0)
             ts = tstream.read()
@@ -249,18 +224,13 @@ class DataModelTest(s_t_utils.SynTest):
                 _ = await core.stormlist('[test:dep:easy=test2 :comp=(1, two)]')
                 self.true(await tstream.wait(6))
 
-            msgs = await core.stormlist('[test:str=tehe .pdep=beep]')
-            self.stormIsInWarn('property test:str.pdep is deprecated', msgs)
+            msgs = await core.stormlist('[test:depriface=tehe :pdep=beep]')
+            self.stormIsInWarn('property test:depriface:pdep is deprecated', msgs)
 
-            # Extended props, custom universals and tagprops can all trigger deprecation notices
+            # Extended props and tagprops can all trigger deprecation notices
             mesg = 'tag property depr is using a deprecated type test:dep:easy'
             with self.getAsyncLoggerStream('synapse.datamodel', mesg) as dstream:
                 await core.addTagProp('depr', ('test:dep:easy', {}), {})
-                self.true(await dstream.wait(6))
-
-            mesg = 'universal property ._test is using a deprecated type test:dep:easy'
-            with self.getAsyncLoggerStream('synapse.datamodel', mesg) as dstream:
-                await core.addUnivProp('_test', ('test:dep:easy', {}), {})
                 self.true(await dstream.wait(6))
 
             mesg = 'extended property test:str:_depr is using a deprecated type test:dep:easy'
@@ -275,10 +245,12 @@ class DataModelTest(s_t_utils.SynTest):
 
             await core.fini()
 
-            # Restarting the cortex warns again for various items that it loads from the hive
+            # Restarting the cortex warns again for various items that it loads
             # with deprecated types in them. This is a coverage test for extended properties.
             with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
-                async with await s_cortex.Cortex.anit(dirn, conf) as core:
+                async with await s_cortex.Cortex.anit(dirn) as core:
+                    await core._addDataModels(s_t_utils.testmodel + s_t_utils.deprmodel)
+                    await core._loadExtModel()
                     self.true(await cstream.wait(6))
 
     async def test_datamodel_getmodeldefs(self):
@@ -287,7 +259,7 @@ class DataModelTest(s_t_utils.SynTest):
         '''
         modl = s_datamodel.Model()
         modl.addIface('test:iface', {})
-        modl.addType('foo:foo', 'int', {}, {'interfaces': ('test:iface',)})
+        modl.addType('foo:foo', 'int', {}, {'interfaces': (('test:iface', {}),)})
         modl.addForm('foo:foo', {}, ())
         mdef = modl.getModelDefs()
         modl2 = s_datamodel.Model()
@@ -317,15 +289,35 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model.addEdge(('hehe', 'woot', 'newp'), {})
 
             with self.raises(s_exc.NoSuchForm):
-                core.model.addEdge(('inet:ipv4', 'woot', 'newp'), {})
+                core.model.addEdge(('inet:ip', 'woot', 'newp'), {})
 
             with self.raises(s_exc.BadArg):
-                core.model.addEdge(('inet:ipv4', 10, 'inet:ipv4'), {})
+                core.model.addEdge(('inet:ip', 10, 'inet:ip'), {})
 
             with self.raises(s_exc.BadArg):
                 core.model.addEdge(('meta:rule', 'matches', None), {})
 
+            core.model.addEdge(('inet:fqdn', 'zip', 'phys:object'), {})
+            edges = core.model.edgesbyn2.get('transport:air:craft')
+            self.true(core.model.edgeIsValid('inet:fqdn', 'zip', 'transport:air:craft'))
+            self.isin(('inet:fqdn', 'zip', 'phys:object'), [e.edgetype for e in edges])
+
+            core.model.addEdge(('phys:object', 'zop', 'inet:fqdn'), {})
+            edges = core.model.edgesbyn1.get('transport:air:craft')
+            self.isin(('phys:object', 'zop', 'inet:fqdn'), [e.edgetype for e in edges])
+
+            core.model.delEdge(('inet:fqdn', 'zip', 'phys:object'))
+            edges = core.model.edgesbyn2.get('transport:air:craft')
+            self.false(core.model.edgeIsValid('inet:fqdn', 'zip', 'transport:air:craft'))
+            self.notin(('inet:fqdn', 'zip', 'phys:object'), [e.edgetype for e in edges])
+
+            core.model.delEdge(('phys:object', 'zop', 'inet:fqdn'))
+            edges = core.model.edgesbyn1.get('transport:air:craft')
+            self.notin(('phys:object', 'zop', 'inet:fqdn'), [e.edgetype for e in edges])
+
             model = await core.getModelDict()
+            self.isin('created', [m[0] for m in model['metas']])
+            self.isin('updated', [m[0] for m in model['metas']])
             self.isin(('meta:rule', 'matches', None), [e[0] for e in model['edges']])
 
             model = (await core.getModelDefs())[0][1]
@@ -340,20 +332,15 @@ class DataModelTest(s_t_utils.SynTest):
 
     async def test_datamodel_locked_subs(self):
 
-        conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
-        async with self.getTestCore(conf=conf) as core:
+        async with self.getTestCore() as core:
 
-            msgs = await core.stormlist('[ test:deprsub=bar :range=(1, 5) ]')
-            self.stormHasNoWarnErr(msgs)
+            await core._addDataModels(s_t_utils.deprmodel)
 
-            msgs = await core.stormlist('[ test:deprsub2=(foo, (2, 6)) ]')
-            self.stormHasNoWarnErr(msgs)
-
-            nodes = await core.nodes('test:deprsub=bar')
+            nodes = await core.nodes('[ test:deprsub=bar :range=(1, 5) ]')
             self.eq(1, nodes[0].get('range:min'))
             self.eq(5, nodes[0].get('range:max'))
 
-            nodes = await core.nodes('test:deprsub2=(foo, (2, 6))')
+            nodes = await core.nodes('[ test:deprsub2=(foo, (2, 6)) ]')
             self.eq(2, nodes[0].get('range:min'))
             self.eq(6, nodes[0].get('range:max'))
 
