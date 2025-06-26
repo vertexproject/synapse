@@ -548,7 +548,7 @@ class AgendaTest(s_t_utils.SynTest):
             # no perms to write to that view
             asfail = {'user': fail.iden, 'vars': {'newview': newview}}
             with self.raises(s_exc.AuthDeny):
-                await prox.callStorm('cron.add --view $newview --minute +2 { $lib.queue.getByName(testq).put(lolnope) }', opts=asfail)
+                await prox.callStorm('cron.add --view $newview --minute +2 { $lib.queue.byname(testq).put(lolnope) }', opts=asfail)
 
             # and just to be sure
             msgs = await core.stormlist('cron.list')
@@ -556,7 +556,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             # no --view means it goes in the default view for the user, which fail doesn't have rights to
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('cron.add --minute +1 { $lib.queue.getByName(testq).put((44)) }', opts=asfail)
+                await core.callStorm('cron.add --minute +1 { $lib.queue.byname(testq).put((44)) }', opts=asfail)
 
             # let's give fail permissions to do some things, but not in our super special view (fail is missing
             # the view read perm for the special view)
@@ -564,7 +564,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             # But we should still fail on this:
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('cron.add --view $newview --minute +2 { $lib.queue.getByName(testq).put(lolnope)}', opts=asfail)
+                await core.callStorm('cron.add --view $newview --minute +2 { $lib.queue.byname(testq).put(lolnope)}', opts=asfail)
 
             # and again, just to be sure
             msgs = await core.stormlist('cron.list')
@@ -579,7 +579,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             # but should work on the default view
             opts = {'user': fail.iden, 'view': defview.iden, 'vars': {'defview': defview.iden}}
-            await prox.callStorm('cron.at --view $defview --minute +1 { $lib.queue.getByName(testq).put((44)) }', opts=opts)
+            await prox.callStorm('cron.at --view $defview --minute +1 { $lib.queue.byname(testq).put((44)) }', opts=opts)
 
             jobs = await core.callStorm('return($lib.cron.list())')
             self.len(1, jobs)
@@ -587,22 +587,22 @@ class AgendaTest(s_t_utils.SynTest):
             self.nn(jobs[0].get('created'))
 
             core.agenda._addTickOff(60)
-            retn = await core.callStorm('return($lib.queue.getByName(testq).get())', opts=asfail)
+            retn = await core.callStorm('return($lib.queue.byname(testq).get())', opts=asfail)
             self.eq((0, 44), retn)
 
             await core.callStorm('cron.del $croniden', opts={'vars': {'croniden': jobs[0]['iden']}})
-            await core.callStorm('$lib.queue.getByName(testq).cull(0)')
+            await core.callStorm('$lib.queue.byname(testq).cull(0)')
 
             opts = {'vars': {'newview': newview}}
-            await prox.callStorm('cron.add --minute +1 --view $newview { [test:guid=$lib.guid()] | $lib.queue.getByName(testq).put($node) }', opts=opts)
+            await prox.callStorm('cron.add --minute +1 --view $newview { [test:guid=$lib.guid()] | $lib.queue.byname(testq).put($node) }', opts=opts)
 
             jobs = await core.callStorm('return($lib.cron.list())')
             self.len(1, jobs)
             self.eq(newview, jobs[0]['view'])
 
             core.agenda._addTickOff(60)
-            retn = await core.callStorm('return($lib.queue.getByName(testq).get())')
-            await core.callStorm('$lib.queue.getByName(testq).cull(1)')
+            retn = await core.callStorm('return($lib.queue.byname(testq).get())')
+            await core.callStorm('$lib.queue.byname(testq).cull(1)')
 
             # That node had better have been made in the new view
             guidnode = await core.nodes('test:guid', opts={'view': newview})
@@ -634,8 +634,8 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(defview.iden, jobs[0]['view'])
 
             core.agenda._addTickOff(60)
-            retn = await core.callStorm('return($lib.queue.getByName(testq).get())', opts=asfail)
-            await core.callStorm('$lib.queue.getByName(testq).cull(2)')
+            retn = await core.callStorm('return($lib.queue.byname(testq).get())', opts=asfail)
+            await core.callStorm('$lib.queue.byname(testq).cull(2)')
 
             node = await core.nodes('test:guid', opts={'view': defview.iden})
             self.len(1, node)
@@ -663,10 +663,10 @@ class AgendaTest(s_t_utils.SynTest):
             await core.callStorm('cron.del $croniden', opts={'vars': {'croniden': croniden}})
 
             opts = {'vars': {'newview': newview}}
-            await prox.callStorm('cron.at --now --view $newview { [test:str=gotcha] | $lib.queue.getByName(testq).put($node) }', opts=opts)
-            retn = await core.callStorm('return($lib.queue.getByName(testq).get())', opts=asfail)
+            await prox.callStorm('cron.at --now --view $newview { [test:str=gotcha] | $lib.queue.byname(testq).put($node) }', opts=opts)
+            retn = await core.callStorm('return($lib.queue.byname(testq).get())', opts=asfail)
             self.eq((3, 'gotcha'), retn)
-            await core.callStorm('$lib.queue.getByName(testq).cull(3)')
+            await core.callStorm('$lib.queue.byname(testq).cull(3)')
             atjob = await core.callStorm('return($lib.cron.list())')
             self.len(1, atjob)
             self.eq(atjob[0]['view'], newview)
@@ -679,9 +679,9 @@ class AgendaTest(s_t_utils.SynTest):
             croniden = atjob[0]['iden']
             await core.callStorm('cron.del $croniden', opts={'vars': {'croniden': croniden}})
 
-            await prox.callStorm('cron.at --now { [test:int=97] | $lib.queue.getByName(testq).put($node) }')
-            retn = await core.callStorm('return($lib.queue.getByName(testq).get())', opts=asfail)
-            await core.callStorm('$lib.queue.getByName(testq).cull(4)')
+            await prox.callStorm('cron.at --now { [test:int=97] | $lib.queue.byname(testq).put($node) }')
+            retn = await core.callStorm('return($lib.queue.byname(testq).get())', opts=asfail)
+            await core.callStorm('$lib.queue.byname(testq).cull(4)')
             self.eq((4, 97), retn)
 
             nodes = await core.nodes('test:int=97', opts={'view': defview.iden})
