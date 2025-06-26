@@ -1701,6 +1701,10 @@ modeldefs = (
                     ('entity:abstract', {
                         'template': {'contactable': 'subscriber'}}),
                 ),
+                'props': (
+                    ('banner', ('file:bytes', {}), {
+                        'doc': 'A banner or hero image used on the subscriber profile page.'}),
+                ),
             }),
 
             ('inet:service:action', {
