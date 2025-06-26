@@ -3023,6 +3023,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :email=blackout@vertex.link
                     :profile={ gen.ps.contact.email vertex.employee blackout@vertex.link }
                     :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
+                    :app={[ inet:service:app=({"id": "a001"}) ]}
                 )
 
                 (inet:service:account=(visi, account, vertex, slack)
@@ -3037,6 +3038,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, accounts)
 
             self.nn(accounts[0].get('tenant'))
+            self.nn(accounts[0].get('app'))
 
             profiles = await core.nodes('ps:contact')
             self.len(2, profiles)

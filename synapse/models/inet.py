@@ -3776,6 +3776,9 @@ class InetModule(s_module.CoreModule):
 
                         ('tenant', ('inet:service:tenant', {}), {
                             'doc': 'The tenant which contains the account.'}),
+
+                        ('app', ('inet:service:app', {}), {
+                            'doc': 'The app which contains the account.'}),
                     )),
 
                     ('inet:service:relationship:type:taxonomy', {}, ()),
