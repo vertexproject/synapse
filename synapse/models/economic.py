@@ -43,7 +43,7 @@ modeldefs = (
                 'doc': 'A line item included as part of a purchase.'}),
 
             ('econ:payment', ('guid', {}), {
-                'doc': 'A payment, crypto currency transaction, or account withdrawl.'}),
+                'doc': 'A payment, crypto currency transaction, or account withdrawal.'}),
 
             ('econ:balance', ('guid', {}), {
                 'doc': 'The balance of funds available to a financial instrument at a specific time.'}),
@@ -99,8 +99,8 @@ modeldefs = (
             ('econ:cash:deposit', ('guid', {}), {
                 'doc': 'A cash deposit event to a financial account.'}),
 
-            ('econ:cash:withdrawl', ('guid', {}), {
-                'doc': 'A cash withdrawl event from a financial account.'}),
+            ('econ:cash:withdrawal', ('guid', {}), {
+                'doc': 'A cash withdrawal event from a financial account.'}),
 
             ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
                 'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),
@@ -260,7 +260,7 @@ modeldefs = (
                     'doc': 'The account the cash was deposited to.'}),
             )),
 
-            ('econ:cash:withdrawl', {}, (
+            ('econ:cash:withdrawal', {}, (
 
                 ('time', ('time', {}), {
                     'doc': 'The time the cash was withdrawn.'}),
@@ -362,7 +362,7 @@ modeldefs = (
                             'time': {'type': 'prop', 'name': 'time'},
                             'currency': {'type': 'prop', 'name': 'currency'}}},
                     },
-                    'doc': 'The avilable funds at the time.'}),
+                    'doc': 'The available funds at the time.'}),
 
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The currency of the available funds.'}),

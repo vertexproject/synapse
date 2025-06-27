@@ -66,7 +66,7 @@ modeldefs = (
                         'doc': 'The file containing the {document} contents.'}),
 
                     ('file:name', ('file:base', {}), {
-                        'doc': 'The name of file containing the {document} contents.'}),
+                        'doc': 'The name of the file containing the {document} contents.'}),
                 ),
             }),
         ),
