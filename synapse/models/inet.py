@@ -1247,8 +1247,8 @@ modeldefs = (
 
             ('inet:client', ('inet:sockaddr', {}), {
                 'virts': {
-                    'ip': (None, {'doc': 'The IP address of the server.'}),
-                    'port': (None, {'doc': 'The port the server is listening on.'}),
+                    'ip': (None, {'doc': 'The IP address of the client.'}),
+                    'port': (None, {'doc': 'The port the client connected from.'}),
                 },
                 'doc': 'A network client address.'}),
 
