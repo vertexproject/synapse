@@ -6010,7 +6010,7 @@ class Node(Prim):
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the form matches, false otherwise.', }}},
 
-        {'name': 'protocol', 'desc': 'Return an protocol object for the given property.',
+        {'name': 'protocol', 'desc': 'Return a protocol object for the given property.',
          'type': {'type': 'function', '_funcname': '_methNodeProtocol',
                   'args': (
                       {'name': 'name', 'type': 'str',

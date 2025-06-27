@@ -433,13 +433,13 @@ class Type:
         if virts is not None:
 
             # inherit any virts from our parent type
-            for name, (tdef, info) in virts.items():
+            for vname, (tdef, info) in virts.items():
 
-                tifo['virts'].setdefault(name, (tdef, info))
+                tifo['virts'].setdefault(vname, (tdef, info))
 
                 # if the type def is not set, inherit from above
-                if tifo['virts'].get(name)[0] is None:
-                    tifo['virts'][name] = (tdef, tifo['virts'][name][1])
+                if tifo['virts'].get(vname)[0] is None:
+                    tifo['virts'][vname] = (tdef, tifo['virts'][vname][1])
 
         bases = self.info.get('bases') + (self.name,)
         tifo['bases'] = bases

@@ -109,13 +109,13 @@ class NodeBase:
         for varn, vdef in pdef['vars'].items():
 
             if vdef.get('type') != 'prop': # pragma: no cover
-                mesg = f'Invalid protocol var type: {pdefn.get("type")}.'
+                mesg = f'Invalid protocol var type: {pdef.get("type")}.'
                 raise s_exc.BadFormDef(mesg=mesg)
 
             varprop = vdef.get('name')
             if varprop is None: # pragma: no cover
                 mesg = 'Protocol variable type "prop" requires a "name" key.'
-                raise s_excBadFormDef(mesg=mesg)
+                raise s_exc.BadFormDef(mesg=mesg)
 
             proto['vars'][varn] = self.get(varprop)
 

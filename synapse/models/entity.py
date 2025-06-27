@@ -43,7 +43,7 @@ modeldefs = (
                     ('lifespan', ('ival', {}), {
                         'virts': {
                             'min': (None, {'doc': 'The date of birth for an individual or founded date for an organization.'}),
-                            'max': (None, {'doc': 'The date of death for an individual or disolved date for an organization.'}),
+                            'max': (None, {'doc': 'The date of death for an individual or dissolved date for an organization.'}),
                         },
                         'doc': 'The lifespan of the {contactable}.'}),
 
