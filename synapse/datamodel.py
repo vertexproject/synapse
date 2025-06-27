@@ -571,7 +571,7 @@ class Model:
                     'doc': 'The ending time of the interval.'}),
 
                 'duration': (('duration', {}), {
-                    'doc': 'The ending time of the interval.'}),
+                    'doc': 'The duration of the interval.'}),
 
                 'precision': (('timeprecision', {}), {
                     'doc': 'The precision for display and rounding the times.'}),
