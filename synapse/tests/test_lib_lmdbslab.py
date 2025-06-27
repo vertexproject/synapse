@@ -1099,8 +1099,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchName):
                     await mque.sets('woot', 1, ('lols',))
 
-                await mque.add('woot', {'some': 'info'})
-                await self.asyncraises(s_exc.DupName, mque.add('woot', {}))
+                await self.asyncraises(s_exc.SchemaViolation, mque.add('woot', {'some': 'info'}))
+
+                qdef = {'name': 'woot', 'creator': s_common.guid()}
+                await mque.add('woot', qdef)
+                await self.asyncraises(s_exc.DupName, mque.add('woot', qdef))
 
                 self.true(mque.exists('woot'))
 
@@ -1129,7 +1132,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 status = mque.list()
                 self.len(1, status)
                 self.eq(status[0], {'name': 'woot',
-                                    'meta': {'some': 'info'},
+                                    'creator': qdef['creator'],
                                     'size': 5,
                                     'offs': 6,
                                     })
@@ -1186,7 +1189,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.false(mque.exists('woot'))
 
-                await mque.add('woot', {'some': 'info'})
+                await mque.add('woot', qdef)
                 self.eq(0, await mque.put('woot', 'hehe'))
                 self.eq(1, await mque.put('woot', 'haha'))
                 self.eq(2, await mque.put('woot', 'hoho'))
