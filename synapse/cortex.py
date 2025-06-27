@@ -1610,17 +1610,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             iden (str): The iden of the queue.
 
         Returns:
-            (dict): The meta data of the queue.
-
-        Raises:
-            s_exc.NoSuchName: If the queue does not exist.
+            (dict): The meta data of the queue if exists.
         '''
-        return self.multiqueue.status(iden)
+        if self.multiqueue.exists(iden):
+            return self.multiqueue.status(iden)
+        return
 
     async def reqCoreQueue(self, iden):
-        try:
-            return await self.getCoreQueue(iden)
-        except s_exc.NoSuchName:
+        if not await self.getCoreQueue(iden):
             raise s_exc.NoSuchName(mesg=f'No queue with iden {iden}', iden=iden)
 
     async def getCoreQueueByName(self, name):
@@ -1635,8 +1632,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('queue:del')
     async def _delCoreQueue(self, iden):
         info = self.multiqueue.status(iden)
-        if info is not None:
-            await self.multiqueue.rem(iden)
+        await self.multiqueue.rem(iden)
         name = info.get('name')
         self.quedefs.pop(name, None)
         await self.auth.delAuthGate(iden)

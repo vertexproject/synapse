@@ -1231,6 +1231,8 @@ _QueueDefSchema = {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'integer', 'minimum': 0},
+        'size': {'type': 'integer', 'minimum': 0, 'default': 0},
+        'offs': {'type': 'integer', 'minimum': 0, 'default': 0},
     },
     'required': ['name', 'creator'],
     'additionalProperties': False,

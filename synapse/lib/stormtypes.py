@@ -3680,9 +3680,10 @@ class LibQueue(Lib):
     @stormfunc(readonly=True)
     async def _methQueueGet(self, iden):
         self.runt.confirm(('queue', 'get'), gateiden=iden)
+        await self.runt.view.core.reqCoreQueue(iden)
         info = await self.runt.view.core.getCoreQueue(iden)
-        name = info.get('meta').get('name')
-        iden = info.get('meta').get('iden')
+        name = info.get('name')
+        iden = info.get('iden')
         return Queue(self.runt, name, iden, info)
 
     @stormfunc(readonly=True)

@@ -373,7 +373,7 @@ class JsonStorApi(s_cell.CellApi):
 
     async def addQueue(self, name, info):
         await self._reqUserAllowed(('queue', 'add', name))
-        info['owner'] = self.user.iden
+        info['creator'] = self.user.iden
         info['created'] = s_common.now()
         return await self.cell.addQueue(name, info)
 

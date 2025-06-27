@@ -599,7 +599,7 @@ class StormSvcTest(s_test.SynTest):
                     # RealService and BoomService, since the others should have failed
                     queue = core.multiqueue.list()
                     self.len(1, queue)
-                    self.eq('vertex', queue[0]['meta']['name'])
+                    self.eq('vertex', queue[0]['name'])
                     nodes = await core.nodes('inet:ip=8.8.8.8')
                     self.len(1, nodes)
                     self.eq(nodes[0].ndef[1], (4, 134744072))
@@ -728,7 +728,7 @@ class StormSvcTest(s_test.SynTest):
                     # haven't deleted the service yet, so still should be there
                     queue = core.multiqueue.list()
                     self.len(1, queue)
-                    self.eq('vertex', queue[0]['meta']['name'])
+                    self.eq('vertex', queue[0]['name'])
 
                     await core.delStormSvc(iden)
 
@@ -1021,7 +1021,7 @@ class StormSvcTest(s_test.SynTest):
 
                         queue = core00.multiqueue.list()
                         self.len(1, queue)
-                        self.eq('vertex', queue[0]['meta']['name'])
+                        self.eq('vertex', queue[0]['name'])
                         self.nn(core00.getStormCmd('ohhai'))
 
                         # Make sure it shows up on mirror
@@ -1033,7 +1033,7 @@ class StormSvcTest(s_test.SynTest):
 
                         queue = core01.multiqueue.list()
                         self.len(1, queue)
-                        self.eq('vertex', queue[0]['meta']['name'])
+                        self.eq('vertex', queue[0]['name'])
                         self.nn(core01.getStormCmd('ohhai'))
 
                         # Delete storm service

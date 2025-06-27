@@ -20,6 +20,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
 import synapse.lib.slabseqn as s_slabseqn
@@ -565,12 +566,10 @@ class MultiQueue(s_base.Base):
             mesg = f'No queue named {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
 
-        return {
-            'name': name,
-            'meta': meta,
-            'size': self.sizes.get(name),
-            'offs': self.offsets.get(name),
-        }
+        qdef = dict(meta)
+        qdef['size'] = self.sizes.get(name)
+        qdef['offs'] = self.offsets.get(name)
+        return qdef
 
     def exists(self, name):
         return self.queues.get(name) is not None
@@ -581,7 +580,8 @@ class MultiQueue(s_base.Base):
     def offset(self, name):
         return self.offsets.get(name)
 
-    async def add(self, name, info):
+    async def add(self, name, qdef):
+        s_schemas.reqValidQueueDef(qdef)
 
         if self.queues.get(name) is not None:
             mesg = f'A queue already exists with the name {name}.'
@@ -589,9 +589,12 @@ class MultiQueue(s_base.Base):
 
         self.abrv.setBytsToAbrv(name.encode())
 
-        self.queues.set(name, info)
-        self.sizes.set(name, 0)
-        self.offsets.set(name, 0)
+        qdef_size = qdef.pop('size', 0)
+        qdef_offs = qdef.pop('offs', 0)
+
+        self.queues.set(name, qdef)
+        self.sizes.set(name, qdef_size)
+        self.offsets.set(name, qdef_offs)
 
     async def rem(self, name):
 
