@@ -6010,7 +6010,7 @@ class Node(Prim):
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the form matches, false otherwise.', }}},
 
-        {'name': 'protocol', 'desc': 'Return an implemented protocol object for the given property.',
+        {'name': 'protocol', 'desc': 'Return an protocol object for the given property.',
          'type': {'type': 'function', '_funcname': '_methNodeProtocol',
                   'args': (
                       {'name': 'name', 'type': 'str',
@@ -6020,7 +6020,7 @@ class Node(Prim):
                   ),
                   'returns': {'type': 'dict', 'desc': 'A protocol dictionary with populated properties.'}}},
 
-        {'name': 'protocols', 'desc': 'Return an implemented protocol object for the given property.',
+        {'name': 'protocols', 'desc': 'Return an protocol object for the given property.',
          'type': {'type': 'function', '_funcname': '_methNodeProtocols',
                   'args': (
                       {'name': 'name', 'type': 'str', 'default': None,
