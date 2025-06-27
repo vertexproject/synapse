@@ -1892,6 +1892,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         perm = info.pop('perm', None)
         if perm:
+            perm.setdefault('users', {})
+            perm.setdefault('roles', {})
             info['permissions'] = perm
 
         return await self.drive.addItemInfo(info, path=path, reldir=reldir)
