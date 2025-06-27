@@ -4371,6 +4371,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core0._addDataModels(s_t_utils.deprmodel)
 
             podes = []
+            meta = {'type': 'meta', 'vers': 1, 'forms': {}, 'count': 0, 'synapse_ver': '3.0.0'}
+            podes.append(meta)
 
             node1 = (await core0.nodes('[ test:int=1 ]'))[0]
             await node1.setData('foo', 'bar')
@@ -4414,49 +4416,49 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = [m[1] for m in msgs if m[0] == 'node'][0]
             pode = (('test:int', 4), pode[1])
 
-            await core1.addFeedData([pode])
+            await core1.addFeedData([meta, pode])
             nodes = await core1.nodes('test:int=4')
             self.eq(1138, nodes[0].getTagProp('beep.beep', 'test'))
 
             # Put bad data in
-            data = [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
+            data = [meta, (('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
             await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:str=newp -#test.newp'))
 
-            data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
+            data = [meta, (('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
             await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:str=opps +#test.newp'))
 
-            data = [(('test:str', 'ahh'), {'nodedata': 123})]
+            data = [meta, (('test:str', 'ahh'), {'nodedata': 123})]
             await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=ahh')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterData())
 
-            data = [(('test:str', 'baddata'), {'nodedata': {123: 'newp',
+            data = [meta, (('test:str', 'baddata'), {'nodedata': {123: 'newp',
                                                             'newp': b'123'}})]
             await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=baddata')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterData())
 
-            data = [(('test:str', 'beef'), {'edges': [(node1.iden(), {})]})]
+            data = [meta, (('test:str', 'beef'), {'edges': [(node1.iden(), {})]})]
             await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=beef')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterEdgesN1())
 
-            data = [(('test:str', 'fake'), {'edges': [('newp', s_common.ehex(s_common.buid('fake')))]})]
+            data = [meta, (('test:str', 'fake'), {'edges': [('newp', s_common.ehex(s_common.buid('fake')))]})]
             await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=fake')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterEdgesN1())
 
-            data = [(('syn:cmd', 'newp'), {})]
+            data = [meta, (('syn:cmd', 'newp'), {})]
             await core1.addFeedData(data)
             self.len(0, await core1.nodes('syn:cmd=newp'))
 
-            data = [(('test:str', 'beef'), {'edges': [('newp', ('syn:form', 'newp'))]})]
+            data = [meta, (('test:str', 'beef'), {'edges': [('newp', ('syn:form', 'newp'))]})]
             await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=beef')
             self.len(1, nodes)
@@ -4466,12 +4468,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             vdef2 = await core1.view.fork()
             view2_iden = vdef2.get('iden')
 
-            data = [(('test:int', 1), {'tags': {'noprop': [None, None]},
+            data = [meta, (('test:int', 1), {'tags': {'noprop': [None, None]},
                                        'tagprops': {'noprop': {'test': 'newp'}}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             self.len(1, await core1.nodes('test:int=1 +#noprop', opts={'view': view2_iden}))
 
-            data = [(('test:int', 1), {'tags': {'noprop': (None, None),
+            data = [meta, (('test:int', 1), {'tags': {'noprop': (None, None),
                                                 'noprop.two': (None, None)},
                                        'tagprops': {'noprop': {'test': 1}}})]
             await core1.addFeedData(data, viewiden=view2_iden)
@@ -4481,14 +4483,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Test a bulk add
             tags = {'tags': {'test': (2020, 2022)}}
-            data = [(('test:int', x), tags) for x in range(2001)]
+            data = [meta] + [(('test:int', x), tags) for x in range(2001)]
             await core1.addFeedData(data)
             nodes = await core1.nodes('test:int#test')
             self.len(2001, nodes)
 
             await core1.nodes('movetag test newtag')
 
-            data = [(('test:int', 1), {'props': {'int2': 2},
+            data = [meta, (('test:int', 1), {'props': {'int2': 2},
                                        'tags': {'test': [2020, 2021]},
                                        'tagprops': {'noprop': {'test': 1}}})]
             await core1.addFeedData(data, viewiden=view2_iden)
@@ -4497,7 +4499,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(2, nodes[0].get('int2'))
             self.eq(1, nodes[0].getTagProp('noprop', 'test'))
 
-            data = [(('test:int', 1), {'tags': {'test': (2020, 2022)}})]
+            data = [meta, (('test:int', 1), {'tags': {'test': (2020, 2022)}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
             self.len(1, nodes)
@@ -4506,7 +4508,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.setTagModel('test', 'regex', (None, '[0-9]{4}'))
 
             # This tag doesn't match the regex but should still make the node
-            data = [(
+            data = [meta, (
                 ('test:int', 8),
                 {'tags': {'test.12345': (None, None)},
                  'tagprops': {'test.12345': {'score': (1, 1)}}}
@@ -4514,17 +4516,17 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:int=8 -#test.12345'))
 
-            data = [(('test:int', 8), {'tags': {'test.1234': (None, None)}})]
+            data = [meta, (('test:int', 8), {'tags': {'test.1234': (None, None)}})]
             await core1.addFeedData(data)
             self.len(0, await core1.nodes('test:int=8 -#newtag.1234'))
 
             core1.view.layers[0].readonly = True
-            data = [(('test:int', 8), {'tags': {'test.1235': (None, None)}})]
+            data = [meta, (('test:int', 8), {'tags': {'test.1235': (None, None)}})]
             await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData(data))
 
             await core1.nodes('model.deprecated.lock test:deprform:deprprop2')
 
-            data = [(('test:deprform', 'foo'), {'props': {'deprprop2': 'bar', 'okayprop': 'foo'}})]
+            data = [meta, (('test:deprform', 'foo'), {'props': {'deprprop2': 'bar', 'okayprop': 'foo'}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:deprform=foo', opts={'view': view2_iden})
             self.len(1, nodes)
@@ -4533,7 +4535,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await core1.nodes('model.deprecated.lock test:deprprop')
 
-            data = [(('test:deprform', 'dform'), {'props': {'deprprop': ['1', '2'],
+            data = [meta, (('test:deprform', 'dform'), {'props': {'deprprop': ['1', '2'],
                                                             'ndefprop': ('test:deprprop', 'a'),
                                                             'okayprop': 'okay'}})]
             await core1.addFeedData(data, viewiden=view2_iden)
@@ -6896,6 +6898,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                         self.true(len(tasks) == 1 and tasks[0].info.get('view') == core.view.iden)
                     podes.append(p)
 
+                meta = podes.pop(0)
+                self.eq(meta['model_ext'], {
+                    'forms': (),
+                    'types': (),
+                    'props': (),
+                    'tagprops': (
+                        ('file', ('file:path', {}), {'doc': 'something happened to it'}),
+                        ('rank', ('int', {}), {'doc': 'be a shame if'}),
+                        ('user', ('str', {}), {'doc': 'real nice tagprop ya got there'}),
+                    ),
+                    'edges': (),
+                })
+
                 self.len(2, podes)
                 news = [p for p in podes if p[0][0] == 'doc:report'][0]
                 email = [p for p in podes if p[0][0] == 'inet:email'][0]
@@ -6917,12 +6932,22 @@ class CortexBasicTest(s_t_utils.SynTest):
                 sha256 = s_common.ehex(sha256b)
 
                 opts = {'view': altview, 'vars': {'sha256': sha256}}
+                with self.raises(s_exc.BadDataValu) as cm:
+                    await proxy.callStorm('return($lib.feed.fromAxon($sha256))', opts=opts)
+                self.isin('Invalid syn.nodes data.', cm.exception.get('mesg'))
+
+                # try-again w/ meta node: concat the bytes and add back to the axon
+                byts = s_msgpack.en(meta) + b''.join(s_msgpack.en(p) for p in podes)
+                size, sha256b = await core.axon.put(byts)
+                sha256 = s_common.ehex(sha256b)
+                opts['vars']['sha256'] = sha256
+
                 self.eq(2, await proxy.callStorm('return($lib.feed.fromAxon($sha256))', opts=opts))
                 self.len(1, await core.nodes('doc:report -(refs)> *', opts={'view': altview}))
                 self.eq(2, await proxy.feedFromAxon(sha256))
 
                 opts['limit'] = 1
-                self.len(1, await alist(proxy.exportStorm('doc:report inet:email', opts=opts)))
+                self.len(2, await alist(proxy.exportStorm('doc:report inet:email', opts=opts)))
 
             async with self.getHttpSess(port=port) as sess:
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export')
@@ -6947,6 +6972,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 byts = await resp.read()
 
                 podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
+                meta = podes.pop(0)
+                self.eq(meta['edges'], {'doc:report': {'refs': ('inet:email',)}})
 
                 news = [p for p in podes if p[0][0] == 'doc:report'][0]
                 email = [p for p in podes if p[0][0] == 'inet:email'][0]
@@ -6979,6 +7006,108 @@ class CortexBasicTest(s_t_utils.SynTest):
             size, sha256 = await core.exportStormToAxon('.created')
             byts = b''.join([b async for b in core.axon.get(s_common.uhex(sha256))])
             self.isin(b'vertex.link', byts)
+
+    async def test_cortex_export_metadata(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addType('_foo:bar', 'str', {}, {'doc': '_foo:bar str type'})
+            await core.addForm('_baz:haha', '_foo:bar', {}, {'doc': 'The baz:haha form.'})
+            await core.nodes('[ _baz:haha="newp" ]')
+
+            await core.addType('_foo:prop', 'str', {}, {'doc': '_foo:prop custom property type'})
+            await core.addForm('_test:form', 'str', {}, {'doc': '_test:form custom form type'})
+            await core.addFormProp('_test:form', 'myprop', ('_foo:prop', {}), {'doc': 'custom prop with custom type'})
+            await core.nodes('[ _test:form=val :myprop="customval" ]')
+
+            await core.addType('_foo:base', 'str', {}, {'doc': '_foo:base str type'})
+            await core.addType('_foo:baz', '_foo:base', {}, {'doc': '_foo:bar inherits base'})
+            await core.addForm('_baz:inher', '_foo:baz', {}, {'doc': 'The baz:inher form.'})
+            await core.nodes('[ _baz:inher="inheritance" ]')
+
+            await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.'})
+            await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})
+            await core.nodes('[ _hehe:haha=42 :visi="woot" ]')
+
+            await core.addFormProp('inet:email', '_visi', ('str', {}), {})
+            await core.addEdge(('doc:report', '_linksto', None), {'doc': 'links to a node'})
+            await core.addEdge(('inet:email', '_linksfrom', 'doc:report'), {'doc': 'links from a node'})
+            await core.nodes('[ inet:email=visi@vertex.link :_visi="woot"]')
+            await core.nodes('[ doc:report=* :name="Vertex Project Winning" +(_linksto)> { inet:email=visi@vertex.link } ]')
+            await core.nodes('[ doc:report=* :name="Vertex Project Winning" <(_linksfrom)+ { inet:email=visi@vertex.link } ]')
+
+            meta = await anext(core.exportStorm('_baz:haha'))
+            self.eq(meta['model_ext'], {
+                "forms": [
+                    ["_baz:haha", "_foo:bar", {}, {"doc": "The baz:haha form."}]
+                ],
+                "types": [
+                    ["_foo:bar", "str", {}, {"doc": "_foo:bar str type"}]
+                ],
+                "props": [],
+                "tagprops": [],
+                "edges": []
+            })
+
+            meta = await anext(core.exportStorm('_test:form'))
+            self.eq(meta['model_ext'], {
+                "forms": [
+                    ["_test:form", "str", {}, {"doc": "_test:form custom form type"}]
+                ],
+                "types": [
+                    ["_foo:prop", "str", {}, {"doc": "_foo:prop custom property type"}]
+                ],
+                "props": [
+                    ["_test:form", "myprop", ["_foo:prop", {}], {"doc": "custom prop with custom type"}]
+                ],
+                "tagprops": [],
+                "edges": []
+            })
+
+            meta = await anext(core.exportStorm('_baz:inher'))
+            self.eq(meta['model_ext'], {
+                'forms': [('_baz:inher', '_foo:baz', {}, {'doc': 'The baz:inher form.'})],
+                'types': [
+                    ('_foo:base', 'str', {}, {'doc': '_foo:base str type'}),
+                    ('_foo:baz', '_foo:base', {}, {'doc': '_foo:bar inherits base'})],
+                'props': [],
+                'tagprops': [],
+                'edges': []
+            })
+
+            meta = await anext(core.exportStorm('_hehe:haha=42'))
+            self.eq(meta['model_ext'], {
+                'forms': [('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.'})],
+                'types': [],
+                'props': [('_hehe:haha', 'visi', ('str', {}), {})],
+                'tagprops': [],
+                'edges': []
+            })
+
+            meta = await anext(core.exportStorm('doc:report inet:email'))
+            self.eq(meta['model_ext'], {
+                'forms': [],
+                'types': [],
+                'props': [('inet:email', '_visi', ('str', {}), {})],
+                'tagprops': [],
+                'edges': [
+                    (('inet:email', '_linksfrom', 'doc:report'), {'doc': 'links from a node'}),
+                    (('doc:report', '_linksto', None), {'doc': 'links to a node'})
+                ]
+            })
+
+            rootiden = core.auth.rootuser.iden
+            with self.raises(s_exc.BadVersion) as cexc:
+                meta = {'type': 'meta', 'vers': 2, 'forms': {}, 'count': 0, 'synapse_ver': '3.0.0',
+                        'creatorname': 'root', 'creatoriden': rootiden, 'created': 1710000000000}
+                await core._reqValidExportStormMeta(meta)
+            self.isin('Unsupported export version', cexc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadVersion) as cexc:
+                meta = {'type': 'meta', 'vers': 1, 'forms': {}, 'count': 0, 'synapse_ver': '3abc',
+                        'creatorname': 'root', 'creatoriden': rootiden, 'created': 1710000000000}
+                await core._reqValidExportStormMeta(meta)
+            self.isin('Malformed synapse version', cexc.exception.get('mesg'))
 
     async def test_cortex_lookup_mode(self):
         async with self.getTestCoreAndProxy() as (_core, proxy):
@@ -7918,7 +8047,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     q = 'inet:asn=0'
                     qhash = s_storm.queryhash(q)
                     with self.getStructuredAsyncLoggerStream('synapse') as stream:
-                        self.len(1, await alist(core00.exportStorm(q)))
+                        self.len(2, await alist(core00.exportStorm(q)))
 
                     data = stream.getvalue()
                     self.notin('Timeout', data)
@@ -8052,7 +8181,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.isin('Timeout waiting for query mirror', data)
 
                     with self.getLoggerStream('synapse') as stream:
-                        self.len(1, await alist(core00.exportStorm('inet:asn=0')))
+                        self.len(2, await alist(core00.exportStorm('inet:asn=0')))
 
                     stream.seek(0)
                     data = stream.read()
@@ -8109,7 +8238,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.isin('Storm query mirror pool is empty, running query locally.', data)
 
                     with self.getLoggerStream('synapse') as stream:
-                        self.len(1, await alist(core00.exportStorm('inet:asn=0')))
+                        self.len(2, await alist(core00.exportStorm('inet:asn=0')))
 
                     stream.seek(0)
                     data = stream.read()
