@@ -723,6 +723,18 @@ class TeleTest(s_t_utils.SynTest):
                             {'family': 'unix',
                              'addr': sockpath})
 
+    async def test_url_bad_cell_path(self):
+        with self.getTestDir() as dirn:
+            # Touch the sock path
+            s_common.genfile(dirn, 'newp', 'sock').close()
+            cell_url = f'cell://{dirn}/newp'
+            with self.raises(s_exc.LinkErr) as cm:
+                await s_telepath.openurl(cell_url)
+            self.isin('Cell path is not listening', cm.exception.get('mesg'))
+        with self.raises(s_exc.NoSuchPath) as cm:
+            await s_telepath.openurl(cell_url)
+        self.isin('Cell path does not exist', cm.exception.get('mesg'))
+
     async def test_ipv6(self):
         if s_common.envbool('CIRCLECI'):
             self.skip('ipv6 listener is not supported in circleci')
