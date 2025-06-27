@@ -2403,7 +2403,9 @@ class View(s_nexus.Pusher):  # type: ignore
         if isinstance(valu, dict):
             fobj = self.core.model.reqForm(form)
             if isinstance(fobj.type, s_types.Guid):
-                return await self._addGuidNodeByDict(fobj, valu, runt, props=props)
+                norms, props = await self._normGuidNodeDict(fobj, valu, props=props)
+                valu = await self._addGuidNodeByDict(fobj, norms, props)
+                return await self.getNodeByNdef((form, valu))
 
         async with self.getEditor(user=user, transaction=True) as editor:
             node = await editor.addNode(form, valu, props=props, norminfo=norminfo)
@@ -2581,7 +2583,39 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return await self.getNodeByBuid(protonode.buid)
 
-    async def _addGuidNodeByDict(self, form, vals, runt, props=None):
+    async def _addGuidNodeByDict(self, form, norms, props):
+
+        for name, info in norms.items():
+            if info[0].isform:
+                valu = await self._addGuidNodeByDict(*info)
+                norms[name] = (form.prop(name), valu, {})
+
+        for name, info in props.items():
+            if info[0].isform:
+                valu = await self._addGuidNodeByDict(*info)
+                props[name] = (form.prop(name), valu, {})
+
+        node = await self._getGuidNodeByNorms(form, norms)
+
+        async with self.getEditor() as editor:
+
+            if node is not None:
+                proto = editor.loadNode(node)
+            else:
+                proplist = [(name, info[1]) for name, info in norms.items()]
+                proplist.sort()
+
+                proto = await editor.addNode(form.name, proplist)
+                for name, (prop, valu, info) in norms.items():
+                    await proto.set(name, valu, norminfo=info)
+
+            # ensure the non-deconf props are set
+            for name, (prop, valu, info) in props.items():
+                await proto.set(name, valu, norminfo=info)
+
+        return proto.valu
+
+    async def _normGuidNodeDict(self, form, vals, props=None):
 
         if props is None:
             props = {}
@@ -2593,94 +2627,65 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'No values provided for form {form.full}'
             raise s_exc.BadTypeValu(mesg=mesg)
 
+        props |= await self._normGuidNodeProps(form, props)
+
+        if addprops:
+            props |= await self._normGuidNodeProps(form, addprops, trycast=trycast)
+
+        norms = await self._normGuidNodeProps(form, vals)
+
+        return norms, props
+
+    async def _normGuidNodeProps(self, form, props, trycast=False):
+
+        norms = {}
+
         for name, valu in list(props.items()):
+            prop = form.reqProp(name)
+
+            if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid):
+                pform = self.core.model.reqForm(prop.type.name)
+                gnorm, gprop = await self._normGuidNodeDict(pform, valu)
+                norms[name] = (pform, gnorm, gprop)
+                continue
+
             try:
-                props[name] = form.reqProp(name).type.norm(valu)
+                norms[name] = (prop, *prop.type.norm(valu))
+
             except s_exc.BadTypeValu as e:
                 mesg = e.get('mesg')
-                e.update({
-                    'prop': name,
-                    'form': form.name,
-                    'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
-                })
-                raise e
-
-        if addprops is not None:
-            for name, valu in addprops.items():
-                try:
-                    props[name] = form.reqProp(name).type.norm(valu)
-                except s_exc.BadTypeValu as e:
-                    mesg = e.get('mesg')
-                    if not trycast:
+                if not trycast:
+                    if 'prop' not in e.errinfo:
                         e.update({
                             'prop': name,
                             'form': form.name,
-                            'mesg': f'Bad value for prop {form.name}:{name}: {mesg}'
+                            'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
                         })
-                        raise e
-                    await runt.warn(f'Skipping bad value for prop {form.name}:{name}: {mesg}')
+                    raise e
 
-        try:
-            norms, proplist = self._normGuidNodeDict(form, vals)
-        except s_exc.BadTypeValu as e:
-            if trycast:
-                mesg = e.get('mesg')
-                await runt.warn(mesg)
-                return None
-            raise e
-
-        iden = s_common.guid(proplist)
-        node = await self._getGuidNodeByNorms(form, iden, norms)
-
-        async with self.getEditor() as editor:
-
-            if node is not None:
-                proto = editor.loadNode(node)
-            else:
-                proto = await editor.addNode(form.name, iden)
-                for name, (prop, valu, info) in norms.items():
-                    await proto.set(name, valu, norminfo=info)
-
-            # ensure the non-deconf props are set
-            for name, (valu, info) in props.items():
-                await proto.set(name, valu, norminfo=info)
-
-        return await self.getNodeByBuid(proto.buid)
-
-    def _normGuidNodeDict(self, form, props):
-
-        norms = {}
-        proplist = []
-
-        for name, valu in props.items():
-            try:
-                prop = form.reqProp(name)
-                norm, norminfo = prop.type.norm(valu)
-
-                norms[name] = (prop, norm, norminfo)
-                proplist.append((name, norm))
-            except s_exc.BadTypeValu as e:
-                mesg = e.get('mesg')
-                e.update({
-                    'prop': name,
-                    'form': form.name,
-                    'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
-                })
-                raise e
-
-        proplist.sort()
-
-        return norms, proplist
+        return norms
 
     async def _getGuidNodeByDict(self, form, props):
-        norms, proplist = self._normGuidNodeDict(form, props)
-        return await self._getGuidNodeByNorms(form, s_common.guid(proplist), norms)
+        norms, _ = await self._normGuidNodeDict(form, props)
+        return await self._getGuidNodeByNorms(form, norms)
 
-    async def _getGuidNodeByNorms(self, form, iden, norms):
+    async def _getGuidNodeByNorms(self, form, norms):
+
+        proplist = []
+        for name, info in norms.items():
+            if info[0].isform:
+                if (node := await self._getGuidNodeByNorms(*info[:2])) is None:
+                    return
+                valu = node.ndef[1]
+                norms[name] = (form.prop(name), valu, {})
+                proplist.append((name, valu))
+            else:
+                proplist.append((name, info[1]))
 
         # check first for an exact match via our same deconf strategy
+        proplist.sort()
 
-        node = await self.getNodeByNdef((form.full, iden))
+        node = await self.getNodeByNdef((form.full, s_common.guid(proplist)))
         if node is not None:
 
             # ensure we still match the property deconf criteria
