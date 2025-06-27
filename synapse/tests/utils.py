@@ -819,6 +819,10 @@ class StreamEvent(io.StringIO, threading.Event):
         '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
         return jsonlines(self.getvalue())
 
+    def __str__(self):
+        self.seek(0)
+        return self.read()
+
 class AsyncStreamEvent(io.StringIO, asyncio.Event):
     '''
     A combination of a io.StringIO object and an asyncio.Event object.
