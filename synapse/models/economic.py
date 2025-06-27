@@ -306,8 +306,8 @@ modeldefs = (
                     'doc': 'The payment instrument used by the payer to make the payment.'}),
 
                 # FIXME one to many?
-                #('purchases', ('array', {'type': 'econ:purchase', 'uniq': True, 'sorted': True}), {
-                    #'doc': 'The payment was made in exchange for the given purchases.'}),
+                # ('purchases', ('array', {'type': 'econ:purchase', 'uniq': True, 'sorted': True}), {
+                #    'doc': 'The payment was made in exchange for the given purchases.'}),
 
                 ('amount', ('econ:price', {}), {
                     'protocols': {
@@ -324,28 +324,28 @@ modeldefs = (
                     'doc': 'A crypto currency transaction that initiated the payment.'}),
 
                 # FIXME one to many?
-                #('invoice', ('array', {'type': 'econ:invoice', 'uniq': True, 'sorted': True}), {
-                    #'doc': 'The invoices that the payment applies to.'}),
+                # ('invoice', ('array', {'type': 'econ:invoice', 'uniq': True, 'sorted': True}), {
+                #   doc': 'The invoices that the payment applies to.'}),
 
                 # FIXME one to many?
-                #('receipts', ('econ:receipt', {}),
-                    #'doc': 'The receipts that was issued for the payment.'}),
+                # ('receipts', ('econ:receipt', {}),
+                    # 'doc': 'The receipts that was issued for the payment.'}),
 
                 # FIXME geo:locatable
-                #('place', ('geo:place', {}), {
-                    #'doc': 'The place where the payment occurred.'}),
+                # ('place', ('geo:place', {}), {
+                    # 'doc': 'The place where the payment occurred.'}),
 
-                #('place:name', ('meta:name', {}), {
-                    #'doc': 'The name of the place where the payment occurred.'}),
+                # ('place:name', ('meta:name', {}), {
+                    # 'doc': 'The name of the place where the payment occurred.'}),
 
-                #('place:address', ('geo:address', {}), {
-                    #'doc': 'The address of the place where the payment occurred.'}),
+                # ('place:address', ('geo:address', {}), {
+                    # 'doc': 'The address of the place where the payment occurred.'}),
 
-                #('place:loc', ('loc', {}), {
-                    #'doc': 'The loc of the place where the payment occurred.'}),
+                # ('place:loc', ('loc', {}), {
+                    # 'doc': 'The loc of the place where the payment occurred.'}),
 
-                #('place:latlong', ('geo:latlong', {}), {
-                    #'doc': 'The latlong where the payment occurred.'}),
+                # ('place:latlong', ('geo:latlong', {}), {
+                    # 'doc': 'The latlong where the payment occurred.'}),
             )),
 
             ('econ:balance', {}, (
@@ -544,41 +544,25 @@ modeldefs = (
                 ('holder', ('entity:contactable', {}), {
                     'doc': 'The contact information of the account holder.'}),
 
-                #('aba:rtn', ('econ:bank:aba:rtn', {}), {
-                    #'doc': 'The ABA routing transit number for the bank which issued the account.'}),
+                ('balance', ('econ:price', {}), {
+                    'doc': 'The most recently known balance of the account.'}),
 
-                #('number', ('str', {'regex': '[0-9]+'}), {
-                    #'doc': 'The account number.'}),
+                ('balance:asof', ('time', {}), {
+                    'doc': 'The time the balance was most recently updated.'}),
 
-                #('iban', ('econ:bank:iban', {}), {
-                    #'doc': 'The IBAN for the account.'}),
-
-                #('issuer', ('ou:org', {}), {
-                    #'doc': 'The bank which issued the account.'}),
-
-                #('issuer:name', ('meta:name', {}), {
-                    #'doc': 'The name of the bank which issued the account.'}),
-
-                #('currency', ('econ:currency', {}), {
-                    #'doc': 'The currency of the account balance.'}),
+                ('currency', ('econ:currency', {}), {
+                    'doc': 'The currency of the account balance.'}),
             )),
 
 
             ('econ:bank:aba:account', {}, (
-                #{'instrument': 'ABA routing/account number'}
-
-                #('account', ('econ:fin:account', {}), {
-                    #'doc': 'The financial account which holds funds for the ABA account number.'}),
 
                 ('routing', ('econ:bank:aba:rtn', {}), {
                     'doc': 'The routing number.'}),
 
                 ('number', ('str', {'regex': '[0-9]+'}), {
                     'doc': 'The account number.'}),
-
             )),
-
-            #('econ:bank:number', {
         ),
     }),
 )
