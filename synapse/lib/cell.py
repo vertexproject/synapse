@@ -1200,7 +1200,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.safemode = self.conf.req('safemode')
         if self.safemode:
             mesg = f'Booting {self.getCellType()} in safe-mode. Some functionality may be disabled.'
-            logger.info(mesg)
+            logger.warning(mesg)
 
         self.minfree = self.conf.get('limit:disk:free')
         if self.minfree is not None:
