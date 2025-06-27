@@ -8790,7 +8790,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         msgs = stream.jsonlines()
         self.len(1, msgs)
         self.eq(msgs[0].get('message'), 'Booting cortex in safe-mode. Some functionality may be disabled.')
-        self.eq(msgs[0].get('level'), 'INFO')
+        self.eq(msgs[0].get('level'), 'WARNING')
 
         # Check crons, triggers, dmons in this section
         with self.getTestDir() as dirn:
