@@ -930,6 +930,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'default': False,
             'description': 'Boot the service in safe-mode.',
             'type': 'boolean',
+            'hidecmdl': True,
         },
         'cell:guid': {
             'description': 'An optional hard-coded GUID to store as the permanent GUID for the service.',
