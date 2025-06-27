@@ -469,7 +469,7 @@ driveInfoSchema = {
         'parent': {'type': 'string', 'pattern': s_config.re_iden},
         'type': {'type': 'string', 'pattern': re_drivename},
         'name': {'type': 'string', 'pattern': re_drivename},
-        'perm': s_msgpack.deepcopy(easyPermSchema),
+        'permissions': s_msgpack.deepcopy(easyPermSchema),
         'kids': {'type': 'number', 'minimum': 0},
         'created': {'type': 'number'},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
