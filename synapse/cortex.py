@@ -2949,9 +2949,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if onload is not None and self.isactive:
             if self.safemode:
-                if __debug__:
-                    # This is just for testing
-                    await self.fire('core:pkg:onload:skipped', pkg=name)
+                await self.fire('core:pkg:onload:skipped', pkg=name, reason='safemode')
                 return
 
             async def _onload():

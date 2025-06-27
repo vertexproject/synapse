@@ -8914,7 +8914,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 events = await waiter.wait(timeout=10)
                 self.nn(events)
                 self.len(1, events)
-                self.eq(events, (('core:pkg:onload:skipped', {'pkg': 'foopkg'}),))
+                self.eq(events, (('core:pkg:onload:skipped', {'pkg': 'foopkg', 'reason': 'safemode'}),))
 
             with self.getAsyncLoggerStream('synapse.cortex', 'foopkg onload output: foopkg onload') as stream:
                 async with self.getTestCore(dirn=dirn, conf=nosafe) as core:
