@@ -1,0 +1,6 @@
+---
+desc: Improved console logging by dropping warning messages for failed normalization
+  properties of a GUID based dictionary object.
+prs: []
+type: feat
+...

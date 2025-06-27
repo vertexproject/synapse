@@ -4,6 +4,7 @@ import aioimaplib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.coro as s_coro
 import synapse.lib.stormtypes as s_stormtypes
 
 async def run_imap_coro(coro):
@@ -88,8 +89,8 @@ class ImapLib(s_stormtypes.Lib):
             imap_cli = aioimaplib.IMAP4(host=host, port=port, timeout=timeout)
 
         async def fini():
-            # call protocol.logout() so fini() doesn't hang
-            await s_common.wait_for(imap_cli.protocol.logout(), 5)
+            # call protocol.logout() via a background task
+            s_coro.create_task(s_common.wait_for(imap_cli.protocol.logout(), 5))
 
         self.runt.snap.onfini(fini)
 
