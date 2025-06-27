@@ -301,7 +301,7 @@ class Form:
 
         pdefs = self.info.get('protocols')
         if pdefs is None or (pdef := pdefs.get(name)) is None:
-            mesg = f'Form {prop.full} does not implement protocol {name}.'
+            mesg = f'Form {self.full} does not implement protocol {name}.'
             raise s_exc.NoSuchName(mesg=mesg)
 
         return pdef
