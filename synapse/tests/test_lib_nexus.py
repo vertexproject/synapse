@@ -111,6 +111,16 @@ class NexusTest(s_t_utils.SynTest):
                     stream.seek(0)
                     self.isin('while replaying log', stream.read())
 
+                    nexsindx = nexus1.nexsroot.nexslog.index()
+
+                    async def listen():
+                        async for item in nexus1.getNexusChanges(nexsindx, wait=True):
+                            break
+
+                    task = nexus1.schedCoro(listen())
+                    self.eq('foo', await nexus1.doathing(eventdict))
+                    await task
+
     async def test_nexus_modroot(self):
 
         async with self.getTestCell() as cell:
