@@ -611,7 +611,12 @@ class Model:
         item = s_types.Ndef(self, 'ndef', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'A typed array which indexes each field.'}
+        info = {
+            'virts': {
+                'size': (('int', {}), {'doc': 'The number of elements in the array.'}),
+            },
+            'doc': 'A typed array which indexes each field.'
+        }
         item = s_types.Array(self, 'array', info, {'type': 'int'})
         self.addBaseType(item)
 
