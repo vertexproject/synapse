@@ -357,4 +357,17 @@ class DataModelTest(s_t_utils.SynTest):
         # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const
         # in sync with the default s_datamodel.Datamodel().types
         basetypes = list(s_datamodel.Model().types)
-        self.eq(s_schemas.datamodel_basetypes, basetypes)
+        self.sorteq(s_schemas.datamodel_basetypes, basetypes)
+
+    async def test_datamodel_virts(self):
+
+        async with self.getTestCore() as core:
+
+            vdef = (('inet:ip', {}), {'doc': 'The IP address of the server.'})
+            self.eq(core.model.form('inet:server').info['virts']['ip'], vdef)
+
+            vdef = (('inet:ip', {}), {'doc': 'The IP address contained in the socket address URL.'})
+            self.eq(core.model.type('inet:sockaddr').info['virts']['ip'], vdef)
+
+            vdef = (('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'})
+            self.eq(core.model.prop('it:exec:proc:time').info['virts']['precision'], vdef)

@@ -543,7 +543,17 @@ class Model:
         item = s_types.Bool(self, 'bool', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'A date/time value.'}
+        info = {'doc': 'A time precision value.'}
+        item = s_types.TimePrecision(self, 'timeprecision', info, {})
+        self.addBaseType(item)
+
+        info = {
+            'doc': 'A date/time value.',
+            'virts': {
+                'precision': (('timeprecision', {}), {
+                    'doc': 'The precision for display and rounding the time.'}),
+            },
+        }
         item = s_types.Time(self, 'time', info, {})
         self.addBaseType(item)
 
@@ -551,7 +561,23 @@ class Model:
         item = s_types.Duration(self, 'duration', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'A time window/interval.'}
+        info = {
+            'virts': {
+
+                'min': (('time', {}), {
+                    'doc': 'The starting time of the interval.'}),
+
+                'max': (('time', {}), {
+                    'doc': 'The ending time of the interval.'}),
+
+                'duration': (('duration', {}), {
+                    'doc': 'The ending time of the interval.'}),
+
+                'precision': (('timeprecision', {}), {
+                    'doc': 'The precision for display and rounding the times.'}),
+            },
+            'doc': 'A time window or interval.',
+        }
         item = s_types.Ival(self, 'ival', info, {})
         self.addBaseType(item)
 
@@ -575,7 +601,13 @@ class Model:
         item = s_types.Loc(self, 'loc', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'The node definition type for a (form,valu) compound field.'}
+        info = {
+            'virts': {
+                'form': (('syn:form', {}), {
+                    'doc': 'The form of node which is referenced.'}),
+            },
+            'doc': 'The node definition type for a (form,valu) compound field.',
+        }
         item = s_types.Ndef(self, 'ndef', info, {})
         self.addBaseType(item)
 
@@ -606,10 +638,6 @@ class Model:
 
         info = {'doc': 'A velocity with base units in mm/sec.'}
         item = s_types.Velocity(self, 'velocity', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A time precision value.'}
-        item = s_types.TimePrecision(self, 'timeprecision', info, {})
         self.addBaseType(item)
 
         self.metatypes['created'] = self.getTypeClone(('time', {'ismin': True}))
@@ -998,6 +1026,12 @@ class Model:
         if _type is None:
             raise s_exc.NoSuchType(name=formname)
 
+        virts = _type.info.get('virts', {}).copy()
+        virts.update(forminfo.get('virts', {}))
+
+        if virts:
+            forminfo['virts'] = virts
+
         form = Form(self, formname, forminfo)
 
         self.forms[formname] = form
@@ -1134,9 +1168,20 @@ class Model:
     def _addFormProp(self, form, name, tdef, info):
 
         if tdef is None:
+
             # check if there was an already declared interface def
             if (prop := form.prop(name)) is not None:
                 tdef = (prop.type.name, prop.type.info)
+                for name, valu in prop.info.items():
+                    info.setdefault(name, valu)
+
+        _type = self.types.get(tdef[0])
+
+        virts = _type.info.get('virts', {}).copy()
+        virts.update(info.get('virts', {}))
+
+        if virts:
+            info['virts'] = virts
 
         prop = Prop(self, form, name, tdef, info)
 
