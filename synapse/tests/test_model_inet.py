@@ -2483,6 +2483,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :user=blackout
                     :url=https://vertex.link/users/blackout
                     :email=blackout@vertex.link
+                    :banner={[ file:bytes=({"name": "greencat.gif"}) ]}
                     :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
                 )
 
@@ -2496,6 +2497,7 @@ class InetModelTest(s_t_utils.SynTest):
             accounts = await core.nodes(q)
             self.len(2, accounts)
 
+            self.nn(accounts[0].get('banner'))
             self.nn(accounts[0].get('tenant'))
 
             self.eq(accounts[0].ndef, ('inet:service:account', s_common.guid(('blackout', 'account', 'vertex', 'slack'))))

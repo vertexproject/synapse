@@ -316,6 +316,8 @@ class DataModelTest(s_t_utils.SynTest):
             self.notin(('phys:object', 'zop', 'inet:fqdn'), [e.edgetype for e in edges])
 
             model = await core.getModelDict()
+            self.isin('created', [m[0] for m in model['metas']])
+            self.isin('updated', [m[0] for m in model['metas']])
             self.isin(('meta:rule', 'matches', None), [e[0] for e in model['edges']])
 
             model = (await core.getModelDefs())[0][1]

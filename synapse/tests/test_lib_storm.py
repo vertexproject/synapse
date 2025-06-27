@@ -132,7 +132,6 @@ class StormTest(s_t_utils.SynTest):
             self.none(props.get('phone'))
             self.eq(props.get('name'), 'burrito corp')
             self.eq(props.get('desc'), 'burritos man')
-            self.stormIsInWarn('Skipping bad value for prop ou:org:phone: requires a digit string', msgs)
 
             await self.asyncraises(s_exc.BadTypeValu, core.nodes("$lib.view.get().addNode(ou:org, ({'name': 'org name 77', 'phone': 'lolnope'}), props=({'desc': 'an org desc'}))"))
 
@@ -174,6 +173,127 @@ class StormTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ it:exec:proc=(nulltime,) ]')
             self.len(1, nodes)
+
+            # Recursive gutors
+            nodes = await core.nodes('''[
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'fooplatform',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'foomesg')
+            self.nn(node.get('channel'))
+
+            nodes = await core.nodes('inet:service:message -> inet:service:channel')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('id'), 'foochannel')
+            self.nn(node.get('platform'))
+
+            nodes = await core.nodes('inet:service:message -> inet:service:channel -> inet:service:platform')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'fooplatform')
+            self.eq(node.get('url'), 'http://foo.com')
+
+            nodes = await core.nodes('''
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'fooplatform',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'foomesg')
+
+            nodes = await core.nodes('''[
+                inet:service:message=({
+                    'id': 'barmesg',
+                    'channel': {
+                        'id': 'barchannel',
+                        'platform': {
+                            'name': 'barplatform',
+                            'url': 'http://bar.com'
+                        }
+                    },
+                    '$props': {
+                        'platform': {
+                            'name': 'barplatform',
+                            'url': 'http://bar.com'
+                        }
+                    }
+                })
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'barmesg')
+            self.nn(node.get('channel'))
+
+            platguid = node.get('platform')
+            self.nn(platguid)
+            nodes = await core.nodes('inet:service:message:id=barmesg -> inet:service:channel -> inet:service:platform')
+            self.len(1, nodes)
+            self.eq(platguid, nodes[0].ndef[1])
+
+            # No node lifted if no matching node for inner gutor
+            self.len(0, await core.nodes('''
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'newp',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            '''))
+
+            # BadTypeValu comes through from inner gutor
+            with self.raises(s_exc.BadTypeValu) as cm:
+                await core.nodes('''
+                    inet:service:message=({
+                        'id': 'foomesg',
+                        'channel': {
+                            'id': 'foochannel',
+                            'platform': {
+                                'name': 'newp',
+                                'url': 'newp'
+                            }
+                        }
+                    })
+                ''')
+
+            self.eq(cm.exception.get('form'), 'inet:service:platform')
+            self.eq(cm.exception.get('prop'), 'url')
+            self.eq(cm.exception.get('mesg'), 'Bad value for prop inet:service:platform:url: Invalid/Missing protocol')
+
+            # Ensure inner nodes are not created unless the entire gutor is valid.
+            self.len(0, await core.nodes('''[
+                inet:service:account?=({
+                    "id": "bar",
+                    "platform": {"name": "barplat"},
+                    "url": "newp"})
+            ]'''))
+
+            self.len(0, await core.nodes('inet:service:platform:name=barplat'))
 
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
@@ -1607,7 +1727,7 @@ class StormTest(s_t_utils.SynTest):
             opts = {'node:opts': {'virts': True}}
             msgs = await core.stormlist('[ it:exec:query=* :time=2025-04? ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
-            self.eq(nodes[0][1]['props']['time*precision'], 8)
+            self.eq(nodes[0][1]['props']['time.precision'], 8)
 
     async def test_storm_diff_merge(self):
 

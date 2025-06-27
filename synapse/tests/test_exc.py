@@ -54,3 +54,9 @@ class ExcTest(s_t_utils.SynTest):
 
         with self.raises(s_exc.BadArg):
             s_exc.StormRaise(mesg='newp')
+
+    async def test_reprexc(self):
+        exc = s_exc.SynErr(mesg='woot')
+        self.eq('woot', s_exc.reprexc(exc))
+        self.eq('ValueError()', s_exc.reprexc(ValueError()))
+        self.eq("ValueError('woot')", s_exc.reprexc(ValueError('woot')))
