@@ -1890,6 +1890,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.drive.hasItemInfo(iden): # pragma: no cover
             return await self.drive.getItemPath(iden)
 
+        perm = info.pop('perm', None)
+        if perms:
+            info['permissions'] = perm
+
         return await self.drive.addItemInfo(info, path=path, reldir=reldir)
 
     async def getDriveInfo(self, iden, typename=None):
