@@ -3708,7 +3708,7 @@ class LibQueue(Lib):
 
         qlist = await self.runt.view.core.listCoreQueues()
         for queue in qlist:
-            if not self.runt.allowed(('queue', 'get', queue['iden']), gateiden=queue['iden']):
+            if not self.runt.allowed(('queue', 'get'), gateiden=queue['iden']):
                 continue
 
             retn.append(queue)
