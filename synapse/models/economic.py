@@ -260,7 +260,7 @@ modeldefs = (
                     'doc': 'The account the cash was deposited to.'}),
             )),
 
-            ('econ:cash:withdrawl', {}, (
+            ('econ:cash:withdrawal', {}, (
 
                 ('time', ('time', {}), {
                     'doc': 'The time the cash was withdrawn.'}),
