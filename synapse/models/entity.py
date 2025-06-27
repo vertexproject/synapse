@@ -18,6 +18,9 @@ modeldefs = (
                     ('id', ('meta:id', {}), {
                         'doc': 'A type or source specific ID for the {contactable}.'}),
 
+                    ('bio', ('text', {}), {
+                        'doc': 'A tagline or bio provided for the {contactable}.'}),
+
                     ('photo', ('file:bytes', {}), {
                         'doc': 'The profile picture or avatar for this {contactable}.'}),
 
