@@ -705,44 +705,42 @@ class CellTest(s_t_utils.SynTest):
                     await echo.reqAhaProxy()
 
     async def test_cell_drive_perm_migration(self):
-        with self.getTestDir() as dirn:
-            with mock.patch('synapse.lib.schemas.reqValidDriveInfo'):
-                async with self.getTestCell(dirn=dirn) as cell:
-                    user = await cell.auth.addUser('user')
-                    dog = await cell.auth.addUser('mj')
-                    role = await cell.auth.addRole('littledog')
-                    await cell.addUserRole(dog.iden, role.iden)
-                    info = {
-                        'name': 'bigdog',
-                        'perm': {
-                            'users': {
-                                user.iden: s_cell.PERM_ADMIN
-                            },
-                            'roles': {
-                                role.iden: s_cell.PERM_READ
-                            },
-                            'default': s_cell.PERM_EDIT
-                        }
-                    }
-                    item = await cell.addDriveItem(info)
-                    iden = item[0]['iden']
+        async with self.getRegrCore('drive-perm-migr') as core:
+            item = await core.getDrivePath('driveitemdefaultperms')
+            self.len(1, item)
+            self.notin('perm', item)
+            self.eq(item[0]['permissions'], {'users': {}, 'roles': {}})
 
-                    await cell.setCellVers('drive:storage', 0)
+            ldog = await core.auth.getRoleByName('littledog')
+            bdog = await core.auth.getRoleByName('bigdog')
 
-            async with self.getTestCell(dirn=dirn) as cell:
-                info = await cell.getDriveInfo(iden)
-                self.notin('perm', info)
-                self.eq(info['permissions'], {
-                    'users': {
-                        user.iden: s_cell.PERM_ADMIN
-                    },
-                    'roles': {
-                        role.iden: s_cell.PERM_READ
-                    },
-                    'default': s_cell.PERM_EDIT
-                })
-                self.true(cell._hasEasyPerm(info, user, s_cell.PERM_ADMIN))
-                self.true(cell._hasEasyPerm(info, dog, s_cell.PERM_EDIT))
+            louis = await core.auth.getUserByName('lewis')
+            tim = await core.auth.getUserByName('tim')
+            mj = await core.auth.getUserByName('mj')
+
+            item = await core.getDrivePath('permfolder/driveitemwithperms')
+            self.len(2, item)
+            self.notin('perm', item[0])
+            self.notin('perm', item[1])
+            self.eq(item[0]['permissions'], {'users': {tim.iden: s_cell.PERM_ADMIN}, 'roles': {}})
+            self.eq(item[1]['permissions'], {
+                'users': {
+                    mj.iden: s_cell.PERM_ADMIN
+                },
+                'roles': {
+                    ldog.iden: s_cell.PERM_READ,
+                    bdog.iden: s_cell.PERM_EDIT,
+                },
+                'default': s_cell.PERM_DENY
+            })
+
+            # make sure it's all good with easy perms
+            self.true(core._hasEasyPerm(item[0], tim, s_cell.PERM_ADMIN))
+            self.false(core._hasEasyPerm(item[0], mj, s_cell.PERM_EDIT))
+
+            self.true(core._hasEasyPerm(item[1], mj, s_cell.PERM_ADMIN))
+            self.true(core._hasEasyPerm(item[1], tim, s_cell.PERM_READ))
+            self.true(core._hasEasyPerm(item[1], louis, s_cell.PERM_EDIT))
 
     async def test_cell_unix_sock(self):
 
