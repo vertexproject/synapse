@@ -115,6 +115,12 @@ modeldefs = (
                     'prevnames': ('jobtitle',),
                     'doc': 'The title held by the contact.'}),
 
+                ('pay', ('econ:price', {}), {
+                    'doc': 'The average yearly income paid to the contact.'}),
+
+                ('pay:currency', ('econ:currency', {}), {
+                    'doc': 'The currency of the pay.'}),
+
                 ('period', ('ival', {}), {
                     'prevnames': ('started', 'ended', 'duration'),
                     'doc': 'The period of time that the contact worked for the organization.'}),

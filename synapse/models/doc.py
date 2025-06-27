@@ -15,9 +15,6 @@ modeldefs = (
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the {authorable} is available.'}),
 
-                    ('title', ('base:name', {}), {
-                        'doc': 'The title of the {authorable}.'}),
-
                     ('desc', ('text', {}), {
                         'doc': 'A description of the {authorable}.'}),
 
@@ -61,6 +58,9 @@ modeldefs = (
                     ('text', ('text', {}), {
                         'display': {'syntax': '{syntax}'},
                         'doc': 'The text of the {document}.'}),
+
+                    ('title', ('base:name', {}), {
+                        'doc': 'The title of the {document}.'}),
 
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file containing the {document} contents.'}),

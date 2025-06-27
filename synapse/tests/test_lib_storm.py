@@ -2516,21 +2516,21 @@ class StormTest(s_t_utils.SynTest):
 
             # embed through `econ:pay:instrument` type that extends from `ndef`
             await core.nodes('''
-                [ econ:acct:payment=* :from:instrument={ [ econ:pay:card=(testcard,) :name=infime ] } ]
+                [ econ:payment=* :from:instrument={ [ econ:pay:card=(testcard,) :name=infime ] } ]
             ''')
 
             opts = {
                 'node:opts': {
                     'embeds': {
-                        'econ:acct:payment': {
+                        'econ:payment': {
                             'from:instrument': ['name'],
                         }
                     }
                 }
             }
-            msgs = await core.stormlist('econ:acct:payment', opts=opts)
+            msgs = await core.stormlist('econ:payment', opts=opts)
             node = [m[1] for m in msgs if m[0] == 'node'][0]
-            self.eq('econ:acct:payment', node[0][0])
+            self.eq('econ:payment', node[0][0])
 
             embeds = node[1]['embeds']
             self.eq(24, embeds['from:instrument']['$nid'])

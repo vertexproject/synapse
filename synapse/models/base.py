@@ -222,6 +222,9 @@ modeldefs = (
                 ),
                 'props': (
 
+                    ('name', ('str', {'strip': True}), {
+                        'doc': 'The rule name.'}),
+
                     ('desc', ('text', {}), {
                         'doc': 'A description of the {document}.'}),
 
