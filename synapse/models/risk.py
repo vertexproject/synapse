@@ -866,7 +866,7 @@ modeldefs = (
                 ('paid:price', ('econ:price', {}), {
                     'doc': 'The total price paid by the target of the extortion.'}),
 
-                ('payments', ('array', {'type': 'econ:acct:payment', 'sorted': True, 'uniq': True}), {
+                ('payments', ('array', {'type': 'econ:payment', 'sorted': True, 'uniq': True}), {
                     'doc': 'Payments made from the target to the attacker.'}),
             )),
             ('risk:technique:masquerade', {}, (

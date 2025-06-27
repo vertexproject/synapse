@@ -735,7 +735,7 @@ modeldefs = (
                 ('material:count', ('int', {}), {
                     'doc': 'The number of material items contributed.'}),
 
-                ('monetary:payment', ('econ:acct:payment', {}), {
+                ('monetary:payment', ('econ:payment', {}), {
                     'doc': 'Payment details for a monetary contribution.'}),
 
                 ('personnel:count', ('int', {}), {

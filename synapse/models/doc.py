@@ -48,7 +48,7 @@ modeldefs = (
                 ),
 
                 'template': {
-                    'type': 'NEWP',
+                    'type': '{$self}:type:taxonomy',
                     'syntax': '',
                     'document': 'document',
                     'documents': 'documents'},

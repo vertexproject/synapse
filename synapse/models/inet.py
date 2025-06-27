@@ -1186,6 +1186,13 @@ modeldefs = (
 
             ('inet:sockaddr', 'synapse.models.inet.SockAddr', {}, {
                 'ex': 'tcp://1.2.3.4:80',
+                'virts': (
+                    ('ip', ('inet:ip', {}), {
+                        'doc': 'The IP address contained within the socket address URL.'}),
+
+                    ('port', ('inet:port', {}), {
+                        'doc': 'The port contained within the socket address URL.'}),
+                ),
                 'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.'}),
 
             ('inet:cidr', 'synapse.models.inet.Cidr', {}, {
@@ -1239,6 +1246,10 @@ modeldefs = (
                 'doc': 'An Autonomous System Number (ASN) and its associated IP address range.'}),
 
             ('inet:client', ('inet:sockaddr', {}), {
+                'virts': (
+                    ('ip', None, {'doc': 'The IP address of the server.'}),
+                    ('port', None, {'doc': 'The port the server is listening on.'}),
+                ),
                 'doc': 'A network client address.'}),
 
             ('inet:download', ('guid', {}), {
@@ -1314,6 +1325,10 @@ modeldefs = (
                 'doc': 'A network port.'}),
 
             ('inet:server', ('inet:sockaddr', {}), {
+                'virts': (
+                    ('ip', None, {'doc': 'The IP address of the server.'}),
+                    ('port', None, {'doc': 'The port the server is listening on.'}),
+                ),
                 'doc': 'A network server address.'}),
 
             ('inet:banner', ('comp', {'fields': (('server', 'inet:server'), ('text', 'it:dev:str'))}), {

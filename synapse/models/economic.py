@@ -92,12 +92,15 @@ modeldefs = (
             ('econ:fin:account', ('guid', {}), {
                 'doc': 'A financial account which contains a balance of funds.'}),
 
+            ('econ:bank:aba:account', ('guid', {}), {
+                'doc': 'A bank account which uses an ABA routing number and account number.'}),
+
             # TODO: econ:pay:cash (for an individual grip of cash. could reference bills/coins with numbers)
             ('econ:cash:deposit', ('guid', {}), {
-                'doc': 'A cash deposit event to a financial account.'})
+                'doc': 'A cash deposit event to a financial account.'}),
 
             ('econ:cash:withdrawl', ('guid', {}), {
-                'doc': 'A cash withdrawl event from a financial account.'})
+                'doc': 'A cash withdrawl event from a financial account.'}),
 
             ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
                 'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),
@@ -205,12 +208,8 @@ modeldefs = (
                     'doc': 'The point in time where the purchase was paid in full.'}),
 
                 # FIXME overfit...
-                #('settled', ('time', {}), {
-                    #'doc': 'The point in time where the purchase was settled.'}),
-
-                # FIXME overfit...
-                ('campaign', ('ou:campaign', {}), {
-                    'doc': 'The campaign that the purchase was in support of.'}),
+                # ('campaign', ('ou:campaign', {}), {
+                #   'doc': 'The campaign that the purchase was in support of.'}),
 
                 ('price', ('econ:price', {}), {
                     'protocols': {
@@ -224,8 +223,8 @@ modeldefs = (
                     'doc': 'The econ:price of the purchase.'}),
 
                 # FIXME biz discussion
-                #('listing', ('biz:listing', {}), {
-                    #'doc': 'The purchase was made based on the given listing.'}),
+                # ('listing', ('biz:listing', {}), {
+                #   'doc': 'The purchase was made based on the given listing.'}),
             )),
 
             ('econ:receipt:item', {}, (
@@ -295,13 +294,13 @@ modeldefs = (
                     'doc': 'The payment was made with physical currency.'}),
 
                 ('payee', ('entity:actor', {}), {
-                    'doc': 'The entity who received the payment.'})
+                    'doc': 'The entity who received the payment.'}),
 
                 ('payee:instrument', ('econ:pay:instrument', {}), {
                     'doc': 'The payment instrument used by the payee to receive payment.'}),
 
                 ('payer', ('entity:actor', {}), {
-                    'doc': 'The entity who made the payment.'})
+                    'doc': 'The entity who made the payment.'}),
 
                 ('payer:instrument', ('econ:pay:instrument', {}), {
                     'doc': 'The payment instrument used by the payer to make the payment.'}),
@@ -571,7 +570,9 @@ modeldefs = (
                 #('account', ('econ:fin:account', {}), {
                     #'doc': 'The financial account which holds funds for the ABA account number.'}),
 
-                ('routing', ('econ:bank:
+                ('routing', ('econ:bank:aba:rtn', {}), {
+                    'doc': 'The routing number.'}),
+
                 ('number', ('str', {'regex': '[0-9]+'}), {
                     'doc': 'The account number.'}),
 

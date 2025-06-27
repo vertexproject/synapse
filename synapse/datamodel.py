@@ -1133,6 +1133,11 @@ class Model:
 
     def _addFormProp(self, form, name, tdef, info):
 
+        if tdef is None:
+            # check if there was an already declared interface def
+            if (prop := form.prop(name)) is not None:
+                tdef = (prop.type.name, prop.type.info)
+
         prop = Prop(self, form, name, tdef, info)
 
         # index the array item types
@@ -1176,6 +1181,7 @@ class Model:
 
         # TODO decide if/how to handle subinterface prefixes
         template = self._prepIfaceTemplate(iface, ifinfo)
+        template['$self'] = form.full
 
         def convert(item):
 
