@@ -758,6 +758,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     confbase['mirror']['hidedocs'] = False  # type: ignore
     confbase['mirror']['hidecmdl'] = False  # type: ignore
 
+    confbase['safemode']['description'] = (
+        'Enable safemode which disables crons, triggers, dmons, storm '
+        'package onload handlers, view merge tasks, and storm pools.'
+    )
+
     confdefs = {
         'axon': {
             'description': 'A telepath URL for a remote axon.',
@@ -1554,9 +1559,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.isactive:
             await self._checkLayerModels()
 
-        self.addActiveCoro(self.agenda.runloop)
+        if not self.safemode:
+            self.addActiveCoro(self.agenda.runloop)
 
         await self._initStormDmons()
+
         await self._initStormSvcs()
 
         # share ourself via the cell dmon as "cortex"
@@ -1582,7 +1589,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await layer.initLayerActive()
 
             for pkgdef in list(self.stormpkgs.values()):
-                self._runStormPkgOnload(pkgdef)
+                await self._runStormPkgOnload(pkgdef)
 
         self.runActiveTask(_runMigrations())
 
@@ -1602,6 +1609,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.finiStormPool()
 
     async def initStormPool(self):
+
+        if self.safemode:
+            return
 
         try:
 
@@ -2641,7 +2651,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 return
 
         self.loadStormPkg(pkgdef)
-        self._runStormPkgOnload(pkgdef)
+        await self._runStormPkgOnload(pkgdef)
         self.pkgdefs.set(name, pkgdef)
 
         self._clearPermDefs()
@@ -2933,11 +2943,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self._initEasyPerm(gdef)
             self.pkggraphs[gdef['iden']] = gdef
 
-    def _runStormPkgOnload(self, pkgdef):
+    async def _runStormPkgOnload(self, pkgdef):
         name = pkgdef.get('name')
         onload = pkgdef.get('onload')
 
         if onload is not None and self.isactive:
+            if self.safemode:
+                if __debug__:
+                    # This is just for testing
+                    await self.fire('core:pkg:onload:skipped', pkg=name)
+                return
+
             async def _onload():
                 await self.fire('core:pkg:onload:start', pkg=name)
                 try:
