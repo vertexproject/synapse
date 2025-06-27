@@ -795,7 +795,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(1, nodes[0].get('material:count'))
             self.eq(1, nodes[0].get('personnel:count'))
             self.len(1, await core.nodes('ou:contribution -> ou:campaign'))
-            self.len(1, await core.nodes('ou:contribution -> econ:acct:payment'))
+            self.len(1, await core.nodes('ou:contribution -> econ:payment'))
             self.len(1, await core.nodes('ou:contribution -> mat:spec'))
             self.len(1, await core.nodes('ou:contribution -> entity:title +entity:title=analysts'))
 

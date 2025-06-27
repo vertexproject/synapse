@@ -375,7 +375,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 :source={ gen.ou.org vertex }
                 :source:name=vertex
                 :paid:price=12345
-                :payments={[ econ:acct:payment=* ]}
+                :payments={[ econ:payment=* ]}
             ]''')
 
             self.len(1, nodes)
@@ -393,7 +393,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('vertex', nodes[0].get('source:name'))
             self.eq('12345', nodes[0].get('paid:price'))
 
-            self.len(1, await core.nodes('risk:extortion -> econ:acct:payment'))
+            self.len(1, await core.nodes('risk:extortion -> econ:payment'))
             self.len(1, await core.nodes('risk:extortion :target -> ou:org +:name=acme'))
             self.len(1, await core.nodes('risk:extortion :attacker -> entity:contact +:name=agent99'))
             self.len(1, await core.nodes('risk:extortion -> risk:compromise :target -> ou:org +:name=acme'))

@@ -6451,10 +6451,10 @@ words\tword\twrd'''
             await core.addTagProp('huge', ('hugenum', {}), {})
             await core.addFormProp('test:str', '_hugearray', ('array', {'type': 'hugenum'}), {})
 
-            nodes = await core.nodes(f'[econ:acct:balance=* :amount=({valu})]')
+            nodes = await core.nodes(f'[econ:balance=* :amount=({valu})]')
             self.eq(nodes[0].get('amount'), valu)
 
-            nodes = await core.nodes(f'econ:acct:balance:amount=({valu})')
+            nodes = await core.nodes(f'econ:balance:amount=({valu})')
             self.len(1, nodes)
 
             nodes = await core.nodes(f'[test:hugenum=({valu})]')
@@ -6463,7 +6463,7 @@ words\tword\twrd'''
             nodes = await core.nodes(f'test:hugenum=({valu})')
             self.len(1, nodes)
 
-            nodes = await core.nodes(f'econ:acct:balance:amount +:amount=({valu})')
+            nodes = await core.nodes(f'econ:balance:amount +:amount=({valu})')
             self.len(1, nodes)
 
             nodes = await core.nodes(f'[test:str=foo +#foo:huge=({valu})]')
