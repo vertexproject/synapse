@@ -170,7 +170,11 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function orgByName(name, try=$lib.false) {
-            [ ou:org=({"name": $name, "$try": $try}) ]
+            if $try {
+                [ ou:org?=({"name": $name}) ]
+            } else {
+                [ ou:org=({"name": $name}) ]
+            }
             return($node)
         }
 
@@ -312,7 +316,11 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function langByCode(code, try=(false)) {
-            [ lang:language=({"code": $code, "$try": $try}) ]
+            if $try {
+                [ lang:language?=({"code": $code}) ]
+            } else {
+                [ lang:language=({"code": $code}) ]
+            }
             return($node)
         }
 
@@ -362,7 +370,11 @@ class LibGen(s_stormtypes.Lib):
 
         // FIXME remove?
         function fileBytesBySha256(sha256, try=$lib.false) {
-            [ file:bytes=({"$try": $try, "sha256": $sha256}) ]
+            if $try {
+                [ file:bytes?=({"sha256": $sha256}) ]
+            } else {
+                [ file:bytes=({"sha256": $sha256}) ]
+            }
             return($node)
         }
 

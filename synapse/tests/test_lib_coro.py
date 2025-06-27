@@ -226,3 +226,8 @@ class CoroTest(s_t_utils.SynTest):
         results = await s_coro.await_bg_tasks()
         self.len(1, results)
         self.isinstance(results[0], ZeroDivisionError)
+
+        task = s_coro.create_task(sleep(10))
+        self.eq([], await s_coro.await_bg_tasks(timeout=0.001))
+        task.cancel()
+        self.eq([], await s_coro.await_bg_tasks())

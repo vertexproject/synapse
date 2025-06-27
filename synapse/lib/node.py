@@ -734,7 +734,7 @@ class Node(NodeBase):
                 continue
 
             for name, valu in meta.items():
-                retn[name] = valu
+                retn[name] = valu[0]
 
         return retn
 
@@ -761,7 +761,7 @@ class Node(NodeBase):
                     retn[name] = valt[0]
                     if (vprops := valt[2]) is not None:
                         for vname, valu in vprops.items():
-                            retn[f'{name}*{vname}'] = valu[0]
+                            retn[f'{name}.{vname}'] = valu[0]
             else:
                 for name, valt in props.items():
                     retn[name] = valt[0]

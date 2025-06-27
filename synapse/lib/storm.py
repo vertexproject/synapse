@@ -345,21 +345,41 @@ stormcmds = (
             ('layr', {'help': 'Iden of the layer to retrieve pull configurations for.'}),
         ),
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "iden", "width": 40},
+                        {"name": "user", "width": 10},
+                        {"name": "time", "width": 20},
+                        {"name": "soffs", "width": 10},
+                        {"name": "offs", "width": 10},
+                        {"name": "url", "width": 75},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                    },
+                })
+                $printer = $lib.tabular.printer($conf)
+            }
+            $lib.print('Pulls configured:')
             $layr = $lib.layer.get($cmdopts.layr)
-            $lib.print($layr.repr())
-
             $pulls = $layr.get(pulls)
             if $pulls {
-                $lib.print('Pull Iden                        | User                 | Time                |     Offset | URL')
-                $lib.print('------------------------------------------------------------------------------------------------------------------------------------------')
+                $lib.print($printer.header())
                 for ($iden, $pdef) in $pulls {
-                    $user = $lib.auth.users.get($pdef.user)
-                    if $user { $user = $user.name.ljust(20) }
-                    else { $user = $pdef.user }
-
-                    $tstr = $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S')
-                    $ostr = $lib.cast(str, $pdef.offs).rjust(10)
-                    $lib.print("{iden} | {user} | {time} | {offs} | {url}", iden=$iden, time=$tstr, user=$user, offs=$ostr, url=$pdef.url)
+                    $row = (
+                        $iden,
+                        $lib.auth.users.get($pdef.user).name,
+                        $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S'),
+                        $pdef.soffs,
+                        $pdef.offs,
+                        $pdef.url,
+                    )
+                    $lib.print($printer.row($row))
                 }
             } else {
                 $lib.print('No pulls configured.')
@@ -404,21 +424,41 @@ stormcmds = (
             ('layr', {'help': 'Iden of the layer to retrieve push configurations for.'}),
         ),
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "iden", "width": 40},
+                        {"name": "user", "width": 10},
+                        {"name": "time", "width": 20},
+                        {"name": "soffs", "width": 10},
+                        {"name": "offs", "width": 10},
+                        {"name": "url", "width": 75},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                    },
+                })
+                $printer = $lib.tabular.printer($conf)
+            }
+            $lib.print('Pushes configured:')
             $layr = $lib.layer.get($cmdopts.layr)
-            $lib.print($layr.repr())
-
             $pushs = $layr.get(pushs)
             if $pushs {
-                $lib.print('Push Iden                        | User                 | Time                |     Offset | URL')
-                $lib.print('------------------------------------------------------------------------------------------------------------------------------------------')
+                $lib.print($printer.header())
                 for ($iden, $pdef) in $pushs {
-                    $user = $lib.auth.users.get($pdef.user)
-                    if $user { $user = $user.name.ljust(20) }
-                    else { $user = $pdef.user }
-
-                    $tstr = $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S')
-                    $ostr = $lib.cast(str, $pdef.offs).rjust(10)
-                    $lib.print("{iden} | {user} | {time} | {offs} | {url}", iden=$iden, time=$tstr, user=$user, offs=$ostr, url=$pdef.url)
+                    $row = (
+                        $iden,
+                        $lib.auth.users.get($pdef.user).name,
+                        $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S'),
+                        $pdef.soffs,
+                        $pdef.offs,
+                        $pdef.url,
+                    )
+                    $lib.print($printer.row($row))
                 }
             } else {
                 $lib.print('No pushes configured.')
@@ -1436,7 +1476,8 @@ class StormDmon(s_base.Base):
         query = await self.core.getStormQuery(text, mode=opts.get('mode', 'storm'))
 
         info = {'iden': self.iden, 'name': self.ddef.get('name', 'storm dmon'), 'view': viewiden}
-        await self.core.boss.promote('storm:dmon', user=self.user, info=info)
+
+        await self.core.boss.promote('storm:dmon', user=self.user, info=info, background=True)
 
         def dmonPrint(evnt):
             self._runLogAdd(evnt)

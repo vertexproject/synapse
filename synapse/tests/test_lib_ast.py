@@ -2214,17 +2214,24 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[1].ndef, ('test:str', 'init2'))
             self.eq(nodes[1].get('hehe'), 'hi')
 
-            # Non-runtsafe init fails to execute
+            # Non-runtsafe values allowed in init
+            q = '''
+            init {
+                [test:str=cool :hehe=runtsafety]
+                $lib.print(:hehe)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('runtsafety', msgs)
+
+            # Non-runtsafe init doesn't create the node
             q = '''
             test:str^=init +:hehe $hehe=:hehe
             init {
                 [test:str=$hehe]
             }
             '''
-            msgs = await core.stormlist(q)
-            erfo = [m for m in msgs if m[0] == 'err'][0]
-            self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('mesg'), 'Init block query must be runtsafe')
+            self.len(2, await core.nodes(q))
 
             # Runtsafe init works and can yield nodes, this has inbound nodes as well
             q = '''
@@ -2253,7 +2260,7 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[1].ndef, ('test:str', 'fini2'))
             self.eq(nodes[1].get('hehe'), 'hehe')
 
-            # Non-runtsafe fini example which fails
+            # Non-runtsafe fini example
             q = '''
             [test:str=fini3 :hehe="number3"]
             $hehe=:hehe
@@ -2261,10 +2268,10 @@ class AstTest(s_test.SynTest):
                 [(test:str=fini4 :hehe=$hehe)]
             }
             '''
-            msgs = await core.stormlist(q)
-            erfo = [m for m in msgs if m[0] == 'err'][0]
-            self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('mesg'), 'Fini block query must be runtsafe')
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('number3', node.get('hehe'))
 
             # Tally use - case example for counting
             q = '''
@@ -2435,12 +2442,21 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('blorp', msgs)
 
             q = '''
-            [test:str=latte :hehe=milk] $beep=:hehe | spin | empty { $lib.print($beep) }
+            [test:str=latte :hehe=milk] $beep=:hehe | spin | empty { $lib.print($beep) $lib.print(ok) }
             '''
             msgs = await core.stormlist(q)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(0, nodes)
-            self.stormIsInErr('Empty block query must be runtsafe', msgs)
+            self.stormIsInPrint('ok', msgs)
+            self.stormNotInPrint('milk', msgs)
+
+            q = '''
+            empty { [test:str=runtsafety :hehe=optional] $beep=:hehe $lib.print($beep) }
+            '''
+            msgs = await core.stormlist(q)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.stormIsInPrint('optional', msgs)
 
             q = '''
             function foo() {
@@ -3305,11 +3321,11 @@ class AstTest(s_test.SynTest):
             off, end = errm[1][1]['highlight']['offsets']
             self.eq(':foo:bar', text[off:end])
 
-            text = 'init { $foo = :bar }'
+            text = 'init { $foo = $bar }'
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
-            self.eq(':bar', text[off:end])
+            self.eq('bar', text[off:end])
 
             text = 'inet:ipv5'
             msgs = await core.stormlist(text)
@@ -3633,6 +3649,43 @@ class AstTest(s_test.SynTest):
                 self.true(node[1]['path'].get('graph:seed'))
 
             self.len(1, nodes)
+
+    async def test_ast_subgraph_multipivot(self):
+        async with self.getTestCore() as core:
+            guid = s_common.guid()
+            await core.nodes('''[
+                (test:guid=$guid :size=1234 :tick=now) +(refs)> {[test:str=blorp]}
+            ]''', opts={'vars': {'guid': guid}})
+
+            opts = {
+                'graph': {
+                    'pivots': ('-> *', '-(refs)> *'),
+                    'refs': True,
+                    'degrees': 1
+                }
+            }
+
+            nodes = []
+            async for node in core.view.iterStormPodes('test:guid', opts=opts):
+                nodes.append(node)
+
+            opts = {
+                'graph': {
+                    'pivots': ('-(refs)> *', '-> *'),
+                    'refs': True,
+                    'degrees': 1
+                }
+            }
+            nodes2 = []
+            async for node in core.view.iterStormPodes('test:guid', opts=opts):
+                    nodes2.append(node)
+
+            self.eq(set(n[1]['nid'] for n in nodes), set(n[1]['nid'] for n in nodes2))
+            self.len(3, nodes)
+            ndefs = [n[0] for n in nodes]
+            self.isin(('test:guid', guid), ndefs)
+            self.isin(('test:str', 'blorp'), ndefs)
+            self.isin(('test:int', 1234), ndefs)
 
     async def test_ast_double_init_fini(self):
         async with self.getTestCore() as core:
