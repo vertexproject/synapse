@@ -576,6 +576,10 @@ class CertDirTest(s_t_utils.SynTest):
             key = cdir.getHostKey(hostname)
             self.basic_assertions(cdir, cert, key, cacert=cacert)
 
+            self.true(cdir.delHostCsr(hostname))
+            self.false(os.path.isfile(path))
+            self.false(cdir.delHostCsr(hostname))
+
             # Per RFC5280 common-name has a length of 1 to 64 characters
             # Do not generate CSRs which exceed that name range.
             with self.raises(s_exc.CryptoErr) as cm:
@@ -609,6 +613,10 @@ class CertDirTest(s_t_utils.SynTest):
             cert = cdir.getUserCert(username)
             key = cdir.getUserKey(username)
             self.basic_assertions(cdir, cert, key, cacert=cacert)
+
+            self.true(cdir.delUserCsr(username))
+            self.false(os.path.isfile(path))
+            self.false(cdir.delUserCsr(username))
 
             # Per RFC5280 common-name has a length of 1 to 64 characters
             # Do not generate CSRs which exceed that name range.

@@ -98,6 +98,9 @@ async def main(argv, outp=s_output.stdout):
                     teleyaml['aha:servers'] = servers
                     s_common.yamlsave(teleyaml, yamlpath)
 
+            # cleanup CSR
+            certdir.delUserCsr(username)
+
     return 0
 
 async def _main(argv, outp=s_output.stdout):  # pragma: no cover

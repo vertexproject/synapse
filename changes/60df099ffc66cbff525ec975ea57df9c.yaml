@@ -1,0 +1,6 @@
+---
+desc: Updated AHA provisioning to remove Certificate Signing Request files after they
+  have been used.
+prs: []
+type: feat
+...
