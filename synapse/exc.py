@@ -303,10 +303,8 @@ class NoSuchLayer(SynErr): pass
 class NoSuchLift(SynErr): pass
 class NoSuchMeth(SynErr):
     @classmethod
-    def init(cls, name, item, mesg=None):
-        if mesg is None:
-            mesg = f'{item.__class__.__name__} has no method: {name}.'
-        return cls(mesg=mesg, name=name)
+    def init(cls, name, item):
+        return cls(mesg=f'{item.__class__.__name__} has no method: {name}.', name=name)
 
 class NoSuchName(SynErr): pass
 class NoSuchObj(SynErr): pass
