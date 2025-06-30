@@ -61,6 +61,59 @@ class NodeTest(s_t_utils.SynTest):
             self.none(reprs.get('.newp'))
             self.eq(tagpropreprs, {'foo': {'score': '10'}})
 
+            await core.nodes('test:str=cool [ +(refs)> {[ test:str=n1edge ]} <(refs)+ {[ test:int=2 ]} ]')
+            nodes = await core.nodes('test:str=cool')
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {'refs': {'test:str': 1}})
+            self.eq(info.get('n2verbs'), {'refs': {'test:int': 1}})
+
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+            forkopts = {'view': fork}
+            q = 'test:str=cool [ +(refs)> {[ test:int=1 ]} <(refs)+ {[ test:int=3 ]} ]'
+            nodes = await core.nodes(q, opts=forkopts)
+
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {'refs': {'test:str': 1, 'test:int': 1}})
+            self.eq(info.get('n2verbs'), {'refs': {'test:int': 2}})
+
+            fork2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)
+            fork2opts = {'view': fork2}
+
+            # Tombstoning a node clears n1 edges
+            nodes = await core.nodes('test:int=2', opts=fork2opts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {'refs': {'test:str': 1}})
+            self.eq(info.get('n2verbs'), {})
+
+            nodes = await core.nodes('test:int=2 | delnode', opts=forkopts)
+            nodes = await core.nodes('[ test:int=2 ]', opts=fork2opts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {})
+            self.eq(info.get('n2verbs'), {})
+
+            # Tombstoning a node does not clear n2 edges
+            nodes = await core.nodes('test:int=1', opts=fork2opts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {})
+            self.eq(info.get('n2verbs'), {'refs': {'test:str': 1}})
+
+            nodes = await core.nodes('test:int=1 | delnode --force', opts=forkopts)
+            nodes = await core.nodes('[ test:int=1 ]', opts=fork2opts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {})
+            self.eq(info.get('n2verbs'), {'refs': {'test:str': 1}})
+
+            async with core.getLocalProxy() as prox:
+                async for m in prox.storm('test:str=cool'):
+                    if m[0] == 'node':
+                        self.nn(m[1][1].get('n1verbs'))
+                        self.nn(m[1][1].get('n2verbs'))
+
+                async for m in prox.storm('test:str=cool', opts={'node:opts': {'verbs': False}}):
+                    if m[0] == 'node':
+                        self.none(m[1][1].get('n1verbs'))
+                        self.none(m[1][1].get('n2verbs'))
+
     async def test_get_has_pop_repr_set(self):
 
         async with self.getTestCore() as core:

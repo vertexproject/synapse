@@ -1448,3 +1448,47 @@ class ViewTest(s_t_utils.SynTest):
 
             opts['vars']['iden'] = view02.iden
             self.eq([], await core.callStorm(q, opts=opts))
+
+    async def test_view_edge_counts(self):
+
+        async with self.getTestCore() as core:
+
+            view = core.getView()
+
+            nodes = await core.nodes('[ test:str=cool +(refs)> {[ test:str=n1edge ]} <(refs)+ {[ test:int=2 ]} ]')
+            nid = nodes[0].nid
+            self.eq(1, view.getEdgeCount(nid))
+            self.eq(1, view.getEdgeCount(nid, n2=True))
+            self.eq(1, view.getEdgeCount(nid, verb='refs'))
+
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+            forkview = core.getView(fork)
+            forkopts = {'view': fork}
+            q = 'test:str=cool [ +(refs)> {[ test:int=1 ]} <(refs)+ {[ test:int=3 ]} ]'
+            nodes = await core.nodes(q, opts=forkopts)
+
+            fork2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)
+            fork2view = core.getView(fork2)
+            fork2opts = {'view': fork2}
+
+            # Tombstoning a node clears n1 edges
+            nodes = await core.nodes('test:int=2', opts=fork2opts)
+            nid = nodes[0].nid
+            self.eq(1, fork2view.getEdgeCount(nid))
+            self.eq(1, fork2view.getEdgeCount(nid, verb='refs'))
+
+            await core.nodes('test:int=2 | delnode', opts=forkopts)
+            await core.nodes('[ test:int=2 ]', opts=fork2opts)
+            self.eq(0, fork2view.getEdgeCount(nid))
+            self.eq(0, fork2view.getEdgeCount(nid, verb='refs'))
+
+            # Tombstoning a node does not clear n2 edges
+            nodes = await core.nodes('test:int=1', opts=fork2opts)
+            nid = nodes[0].nid
+            self.eq(1, fork2view.getEdgeCount(nid, n2=True))
+            self.eq(1, fork2view.getEdgeCount(nid, verb='refs', n2=True))
+
+            nodes = await core.nodes('test:int=1 | delnode --force', opts=forkopts)
+            nodes = await core.nodes('[ test:int=1 ]', opts=fork2opts)
+            self.eq(1, fork2view.getEdgeCount(nid, n2=True))
+            self.eq(1, fork2view.getEdgeCount(nid, verb='refs', n2=True))
