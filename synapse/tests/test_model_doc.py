@@ -9,7 +9,7 @@ class DocModelTest(s_tests.SynTest):
             nodes = await core.nodes('''
                 [ doc:policy=*
                     :id=V-41
-                    :name="Rule 41"
+                    :title="Rule 41"
                     :text="If you can AAAAAAAA..."
                     :file=*
                     :created=20241018
@@ -22,7 +22,7 @@ class DocModelTest(s_tests.SynTest):
             ''')
             self.len(1, nodes)
             self.eq('V-41', nodes[0].get('id'))
-            self.eq('rule 41', nodes[0].get('name'))
+            self.eq('rule 41', nodes[0].get('title'))
             self.eq('If you can AAAAAAAA...', nodes[0].get('text'))
             self.eq(1729209600000000, nodes[0].get('created'))
             self.eq(1729209600000000, nodes[0].get('updated'))

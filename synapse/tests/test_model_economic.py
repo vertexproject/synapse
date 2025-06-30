@@ -32,18 +32,12 @@ class EconTest(s_utils.SynTest):
 
                     :paid=true
                     :paid:time=20180202
-
-                    :settled=20180205
-                    :listing = *
             ]'''
 
             perc = (await core.nodes(text))[0]
 
-            self.nn(perc.get('listing'))
             self.eq('13.37', perc.get('price'))
             self.eq('usd', perc.get('currency'))
-
-            self.len(1, await core.nodes('econ:purchase -> biz:listing'))
 
             self.len(1, await core.nodes('econ:purchase :buyer -> entity:contact'))
             self.len(1, await core.nodes('econ:purchase :seller -> entity:contact'))
@@ -94,8 +88,6 @@ class EconTest(s_utils.SynTest):
             self.eq(True, perc.get('paid'))
             self.eq(1517529600000000, perc.get('paid:time'))
 
-            self.eq(1517788800000000, perc.get('settled'))
-
             self.eq(perc.get('place:loc'), 'us.ny.brooklyn')
 
             self.len(1, await core.nodes('econ:purchase -> geo:place'))
@@ -104,14 +96,13 @@ class EconTest(s_utils.SynTest):
             text = '''[
                 econ:payment=*
 
-                    :to:contact={[ entity:contact=* :name=payee ]}
-                    :from:contact={[ entity:contact=* :name=payer ]}
+                    :payee={[ entity:contact=* :name=payee ]}
+                    :payer={[ entity:contact=* :name=payer ]}
 
                     :amount = 20.30
                     :currency = usd
 
                     :time=20180202
-                    :purchase={ econ:purchase }
 
                     :place=*
                     :place:loc=us.ny.brooklyn
@@ -127,8 +118,6 @@ class EconTest(s_utils.SynTest):
             self.eq('123 main street, brooklyn, ny, 11223', nodes[0].get('place:address'))
 
             self.len(1, await core.nodes('econ:payment -> geo:place'))
-
-            self.len(1, await core.nodes('econ:payment -> econ:purchase'))
             self.len(2, await core.nodes('econ:payment -> entity:contact | uniq'))
 
             nodes = await core.nodes('''
@@ -192,26 +181,22 @@ class EconTest(s_utils.SynTest):
             self.eq('999999999999', nodes[0].get('price:high'))
             self.eq('0.00001', nodes[0].get('price:low'))
 
-            nodes = await core.nodes('[ econ:payment=* :memo="2012 Chateauneuf du Pape" ]')
-            self.len(1, nodes)
-            self.eq('2012 Chateauneuf du Pape', nodes[0].get('memo'))
-
             nodes = await core.nodes('''
                 [ econ:balance=*
                     :time = 20211031
-                    :instrument=(econ:bank:account, *)
+                    :account={[ econ:fin:account=* ]}
                     :amount = 123.45
                     :currency = usd
                 ]''')
             self.len(1, nodes)
-            self.nn(nodes[0].get('instrument'))
+            self.nn(nodes[0].get('account'))
             self.eq(nodes[0].get('time'), 1635638400000000)
             self.eq(nodes[0].get('amount'), '123.45')
             self.eq(nodes[0].get('currency'), 'usd')
 
             self.eq('usd', await core.callStorm('econ:balance return($node.protocol(econ:adjustable, propname=amount).vars.currency)'))
 
-            self.len(1, await core.nodes('econ:balance:instrument -> econ:bank:account'))
+            self.len(1, await core.nodes('econ:balance :account -> econ:fin:account'))
 
             nodes = await core.nodes('''
                 [ econ:receipt:item=*
@@ -230,31 +215,23 @@ class EconTest(s_utils.SynTest):
             self.len(1, await core.nodes('econ:receipt:item -> biz:product +:name=bananna'))
 
             nodes = await core.nodes('''
-                [ econ:bank:account=*
-                    :name=visi
-                    :number=1234
+                [ econ:bank:aba:account=*
                     :type=checking
-                    :aba:rtn=123456789
-                    :iban=VV09WootWoot
+                    :number=1234
+                    :routing=123456789
                     :issuer={ gen.ou.org "bank of visi" }
                     :issuer:name="bank of visi"
-                    :currency=usd
-                    :balance=*
                 ]
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('issuer'))
-            self.nn(nodes[0].get('balance'))
-            self.eq('visi', nodes[0].get('name'))
             self.eq('1234', nodes[0].get('number'))
-            self.eq('usd', nodes[0].get('currency'))
             self.eq('checking.', nodes[0].get('type'))
-            self.eq('VV09WootWoot', nodes[0].get('iban'))
             self.eq('bank of visi', nodes[0].get('issuer:name'))
-            self.len(1, await core.nodes('econ:bank:account -> ou:org'))
-            self.len(2, await core.nodes('econ:bank:account -> meta:name'))
-            self.len(1, await core.nodes('econ:bank:account -> econ:bank:aba:rtn'))
-            self.len(1, await core.nodes('econ:bank:account -> econ:bank:account:type:taxonomy'))
+            self.len(1, await core.nodes('econ:bank:aba:account -> ou:org'))
+            self.len(1, await core.nodes('econ:bank:aba:account -> meta:name'))
+            self.len(1, await core.nodes('econ:bank:aba:account -> econ:bank:aba:rtn'))
+            self.len(1, await core.nodes('econ:bank:aba:account -> econ:bank:aba:account:type:taxonomy'))
 
             nodes = await core.nodes('''[
                 econ:bank:swift:bic=DEUTDEFFXXX
@@ -268,13 +245,13 @@ class EconTest(s_utils.SynTest):
             nodes = await core.nodes('''[
                 econ:statement=*
                     :period=202403*
-                    :instrument={econ:bank:account | limit 1}
+                    :account={econ:fin:account | limit 1}
                     :currency=usd
                     :starting:balance=99
                     :ending:balance=999
             ]''')
             self.len(1, nodes)
-            self.nn(nodes[0].get('instrument'))
+            self.nn(nodes[0].get('account'))
             self.eq('usd', nodes[0].get('currency'))
             self.eq('99', nodes[0].get('starting:balance'))
             self.eq('999', nodes[0].get('ending:balance'))

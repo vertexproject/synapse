@@ -43,6 +43,9 @@ modeldefs = (
                 'doc': 'A line item included as part of a purchase.'}),
 
             ('econ:payment', ('guid', {}), {
+                'interfaces': (
+                    ('geo:locatable', {'template': {'geo:locatable': 'payment event'}}),
+                ),
                 'doc': 'A payment, crypto currency transaction, or account withdrawal.'}),
 
             ('econ:balance', ('guid', {}), {
@@ -92,8 +95,12 @@ modeldefs = (
             ('econ:fin:account', ('guid', {}), {
                 'doc': 'A financial account which contains a balance of funds.'}),
 
+            ('econ:bank:aba:account:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (('meta:taxonomy', {}),),
+                'doc': 'A type taxonomy for ABA bank account numbers.'}),
+
             ('econ:bank:aba:account', ('guid', {}), {
-                'doc': 'A bank account which uses an ABA routing number and account number.'}),
+                'doc': 'An ABA routing number and bank account number.'}),
 
             # TODO: econ:pay:cash (for an individual grip of cash. could reference bills/coins with numbers)
             ('econ:cash:deposit', ('guid', {}), {
@@ -555,7 +562,21 @@ modeldefs = (
             )),
 
 
+            ('econ:bank:aba:account:type:taxonomy', {}, ()),
             ('econ:bank:aba:account', {}, (
+
+                ('type', ('econ:bank:aba:account:type:taxonomy', {}), {
+                    'ex': 'checking',
+                    'doc': 'The type of ABA account.'}),
+
+                ('issuer', ('entity:actor', {}), {
+                    'doc': 'The bank which issued the account number.'}),
+
+                ('issuer:name', ('meta:name', {}), {
+                    'doc': 'The name of the bank which issued the account number.'}),
+
+                ('account', ('econ:fin:account', {}), {
+                    'doc': 'The financial account which stores currency for this ABA account number.'}),
 
                 ('routing', ('econ:bank:aba:rtn', {}), {
                     'doc': 'The routing number.'}),

@@ -1028,6 +1028,16 @@ class Model:
         if not skipinit:
             self._modeldef['types'].append(newtype.getTypeDef())
 
+    def reqVirtTypes(self, virts):
+
+        for (name, (tdef, info)) in virts.items():
+
+            if tdef is None:
+                continue
+
+            if self.types.get(tdef[0]) is None:
+                raise s_exc.NoSuchType(name=tdef[0])
+
     def addForm(self, formname, forminfo, propdefs, checks=True):
 
         if not s_grammar.isFormName(formname):
@@ -1042,6 +1052,7 @@ class Model:
         virts.update(forminfo.get('virts', {}))
 
         if virts:
+            self.reqVirtTypes(virts)
             forminfo['virts'] = virts
 
         form = Form(self, formname, forminfo)
@@ -1188,11 +1199,15 @@ class Model:
                     info.setdefault(name, valu)
 
         _type = self.types.get(tdef[0])
+        if _type is None:
+            mesg = f'No type named {tdef[0]} while declaring form {name}.'
+            raise s_exc.NoSuchType(mesg=mesg, name=name)
 
         virts = _type.info.get('virts', {}).copy()
         virts.update(info.get('virts', {}))
 
         if virts:
+            self.reqVirtTypes(virts)
             info['virts'] = virts
 
         prop = Prop(self, form, name, tdef, info)
