@@ -1,0 +1,5 @@
+---
+desc: Added ``:app`` to the ``inet:service:object`` interface to capture the app containing the object.
+prs: []
+type: model
+...
