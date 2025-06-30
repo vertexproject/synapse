@@ -260,6 +260,9 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.merging: # pragma: no cover
             return
 
+        if self.core.safemode:
+            return
+
         if not await self.isMergeReady():
             return
 
