@@ -529,11 +529,11 @@ class Daemon(s_base.Base):
             methname, args, kwargs = todo
 
             if methname[0] == '_':
-                raise s_exc.NoSuchMeth.init(name=methname, item=item)
+                raise s_exc.NoSuchMeth.init(methname, item)
 
             meth = getattr(item, methname, None)
             if meth is None:
-                raise s_exc.NoSuchMeth.init(name=methname, item=item)
+                raise s_exc.NoSuchMeth.init(methname, item)
 
             sessitem = await t2call(link, meth, args, kwargs)
             if sessitem is not None:
@@ -563,11 +563,11 @@ class Daemon(s_base.Base):
             methname, args, kwargs = mesg[1].get('todo')
 
             if methname[0] == '_':
-                raise s_exc.NoSuchMeth.init(name=methname, item=item)
+                raise s_exc.NoSuchMeth.init(methname, item)
 
             meth = getattr(item, methname, None)
             if meth is None:
-                raise s_exc.NoSuchMeth.init(name=methname, item=item)
+                raise s_exc.NoSuchMeth.init(methname, item)
 
             valu = await self._runTodoMeth(link, meth, args, kwargs)
 
