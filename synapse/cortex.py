@@ -1100,12 +1100,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         logger.warning('removing AuthGates for Queues which no longer exist')
 
+        path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
+        slab = await s_lmdbslab.Slab.anit(path)
+        multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
+
         for info in self.auth.getAuthGates():
-            if info.get('type') == 'queue':
-                iden = info.get('iden')
-                name = iden.split(':', 1)[1]
-                if not self.multiqueue.exists(name):
-                    await self.auth.delAuthGate(iden)
+            if info.type == 'queue':
+                iden = info.iden
+                name = info.iden.split(':', 1)[1]
+                if not multiqueue.exists(name):
+                    await self.auth.delAuthGate(info.iden)
+
+        await multiqueue.fini()
+        await slab.fini()
 
         logger.warning('...Queue AuthGate cleanup complete!')
 
