@@ -1890,6 +1890,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.drive.hasItemInfo(iden): # pragma: no cover
             return await self.drive.getItemPath(iden)
 
+        # TODO: Remove this in synapse-3xx
         perm = info.pop('perm', None)
         if perm:
             perm.setdefault('users', {})
