@@ -4123,6 +4123,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 os.unlink(_csr)
             hostcsr = certdir.genHostCsr(hostname)
             certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
+            certdir.delHostCsr(hostname)
 
             userfull = f'{ahauser}@{ahanetw}'
             _crt = certdir.getUserCertPath(userfull)
@@ -4139,6 +4140,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 os.unlink(_csr)
             usercsr = certdir.genUserCsr(userfull)
             certdir.saveUserCertByts(await prov.signUserCsr(usercsr))
+            certdir.delUserCsr(userfull)
 
         with s_common.genfile(self.dirn, 'prov.done') as fd:
             fd.write(providen.encode())
