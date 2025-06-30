@@ -412,6 +412,8 @@ class TeleTest(s_t_utils.SynTest):
 
                 await self.asyncraises(s_exc.NoSuchMeth, prox.fake())
 
+                await self.asyncraises(s_exc.NoSuchMeth, prox._fake())
+
                 await self.asyncraises(s_exc.SynErr, prox.boom())
 
             # Fini'ing a daemon fini's proxies connected to it.
