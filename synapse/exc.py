@@ -301,7 +301,11 @@ class NoSuchImpl(SynErr): pass
 class NoSuchIndx(SynErr): pass
 class NoSuchLayer(SynErr): pass
 class NoSuchLift(SynErr): pass
-class NoSuchMeth(SynErr): pass
+class NoSuchMeth(SynErr):
+    @classmethod
+    def init(cls, name, item):
+        return cls(mesg=f'{item.__class__.__name__} has no method: {name}.', name=name)
+
 class NoSuchName(SynErr): pass
 class NoSuchObj(SynErr): pass
 class NoSuchOpt(SynErr): pass

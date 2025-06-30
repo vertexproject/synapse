@@ -177,6 +177,8 @@ async def t2call(link, meth, args, kwargs):
 
             if isinstance(e, asyncio.CancelledError):
                 logger.info('t2call task %s cancelled', meth.__name__)
+            elif isinstance(e, (BrokenPipeError, ConnectionResetError)):
+                logger.debug(f'tx closed unexpectedly {e} link={link.getAddrInfo()} meth={meth.__name__}')
             else:
                 logger.exception(f'error during task {meth.__name__} {e}')
 
@@ -527,12 +529,11 @@ class Daemon(s_base.Base):
             methname, args, kwargs = todo
 
             if methname[0] == '_':
-                raise s_exc.NoSuchMeth(name=methname)
+                raise s_exc.NoSuchMeth.init(methname, item)
 
             meth = getattr(item, methname, None)
             if meth is None:
-                logger.warning('%r has no method: %r', item, methname)
-                raise s_exc.NoSuchMeth(name=methname)
+                raise s_exc.NoSuchMeth.init(methname, item)
 
             sessitem = await t2call(link, meth, args, kwargs)
             if sessitem is not None:
@@ -562,12 +563,11 @@ class Daemon(s_base.Base):
             methname, args, kwargs = mesg[1].get('todo')
 
             if methname[0] == '_':
-                raise s_exc.NoSuchMeth(name=methname)
+                raise s_exc.NoSuchMeth.init(methname, item)
 
             meth = getattr(item, methname, None)
             if meth is None:
-                logger.warning('%r has no method: %s', item, methname)
-                raise s_exc.NoSuchMeth(name=methname)
+                raise s_exc.NoSuchMeth.init(methname, item)
 
             valu = await self._runTodoMeth(link, meth, args, kwargs)
 

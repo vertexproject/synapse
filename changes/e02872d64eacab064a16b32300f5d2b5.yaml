@@ -1,0 +1,5 @@
+---
+desc: Updated dictionary GUID syntax to allow nested use when adding or lifting nodes.
+prs: []
+type: feat
+...

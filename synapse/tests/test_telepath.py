@@ -110,7 +110,7 @@ class Foo:
 
     def raze(self):
         # test that SynErr makes it through
-        raise s_exc.NoSuchMeth(name='haha')
+        raise s_exc.SynErr(mesg='hehe', key='valu')
 
     async def corovalu(self, x, y):
         return x * 2 + y
@@ -305,11 +305,24 @@ class TeleTest(s_t_utils.SynTest):
             genr = prox.agenrboom()
             await self.asyncraises(s_exc.SynErr, genr.list())
 
-            await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
+            with self.raises(s_exc.SynErr) as cm:
+                await prox.raze()
+            self.eq(cm.exception.get('mesg'), 'hehe')
+            self.eq(cm.exception.get('key'), 'valu')
 
-            await self.asyncraises(s_exc.NoSuchMeth, prox.fake())
+            with self.raises(s_exc.NoSuchMeth) as cm:
+                await prox.fake()
+            self.eq(cm.exception.get('mesg'), 'Foo has no method: fake.')
+            self.eq(cm.exception.get('name'), 'fake')
 
-            await self.asyncraises(s_exc.SynErr, prox.boom())
+            with self.raises(s_exc.NoSuchMeth) as cm:
+                await prox._fake()
+            self.eq(cm.exception.get('mesg'), 'Foo has no method: _fake.')
+            self.eq(cm.exception.get('name'), '_fake')
+
+            with self.raises(s_exc.NotMsgpackSafe) as cm:
+                await prox.boom()
+            self.isin("can not serialize 'Boom' object", cm.exception.get('mesg'))
 
         # Fini'ing a daemon fini's proxies connected to it.
         self.true(await s_coro.event_wait(evt, 2))
@@ -395,9 +408,11 @@ class TeleTest(s_t_utils.SynTest):
                 genr = prox.corogenr(3)
                 self.eq((0, 1, 2), await s_t_utils.alist(genr))
 
-                await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
+                await self.asyncraises(s_exc.SynErr, prox.raze())
 
                 await self.asyncraises(s_exc.NoSuchMeth, prox.fake())
+
+                await self.asyncraises(s_exc.NoSuchMeth, prox._fake())
 
                 await self.asyncraises(s_exc.SynErr, prox.boom())
 
@@ -833,6 +848,18 @@ class TeleTest(s_t_utils.SynTest):
                     self.eq(snfo[0].get('conninfo'),
                             {'family': 'unix',
                              'addr': sockpath})
+
+    async def test_url_bad_cell_path(self):
+        with self.getTestDir() as dirn:
+            # Touch the sock path
+            s_common.genfile(dirn, 'newp', 'sock').close()
+            cell_url = f'cell://{dirn}/newp'
+            with self.raises(s_exc.LinkErr) as cm:
+                await s_telepath.openurl(cell_url)
+            self.isin('Cell path is not listening', cm.exception.get('mesg'))
+        with self.raises(s_exc.NoSuchPath) as cm:
+            await s_telepath.openurl(cell_url)
+        self.isin('Cell path does not exist', cm.exception.get('mesg'))
 
     async def test_ipv6(self):
         if s_common.envbool('CIRCLECI'):
