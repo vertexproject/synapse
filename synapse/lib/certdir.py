@@ -402,6 +402,7 @@ class CertDir:
 
         Args:
             name: The name of the host CSR.
+            outp: The output buffer.
 
         Returns:
             bool: True if the CSR is deleted, False if it did not exist.
@@ -723,6 +724,7 @@ class CertDir:
 
         Args:
             name: The name of the user CSR.
+            outp: The output buffer.
 
         Returns:
             bool: True if the CSR is deleted, False if it did not exist.
