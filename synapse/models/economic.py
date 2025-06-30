@@ -192,11 +192,11 @@ modeldefs = (
 
                 ('buyer', ('entity:actor', {}), {
                     'prevnames': ('by:contact',),
-                    'doc': 'The buyer who purchased the items.'}),
+                    'doc': 'The buyer which purchased the items.'}),
 
                 ('seller', ('entity:actor', {}), {
                     'prevnames': ('from:contact',),
-                    'doc': 'The seller who sold the items.'}),
+                    'doc': 'The seller which sold the items.'}),
 
                 ('time', ('time', {}), {
                     'doc': 'The time of the purchase.'}),
@@ -248,7 +248,7 @@ modeldefs = (
                     'doc': 'The time the cash was deposited.'}),
 
                 ('actor', ('entity:actor', {}), {
-                    'doc': 'The entity who deposited the cash.'}),
+                    'doc': 'The entity which deposited the cash.'}),
 
                 ('amount', ('econ:price', {}), {
                     'doc': 'The amount of cash deposited.'}),
@@ -266,7 +266,7 @@ modeldefs = (
                     'doc': 'The time the cash was withdrawn.'}),
 
                 ('actor', ('entity:actor', {}), {
-                    'doc': 'The entity who withdrew the cash.'}),
+                    'doc': 'The entity which withdrew the cash.'}),
 
                 ('amount', ('econ:price', {}), {
                     'doc': 'The amount of cash withdrawn.'}),
@@ -294,13 +294,13 @@ modeldefs = (
                     'doc': 'The payment was made with physical currency.'}),
 
                 ('payee', ('entity:actor', {}), {
-                    'doc': 'The entity who received the payment.'}),
+                    'doc': 'The entity which received the payment.'}),
 
                 ('payee:instrument', ('econ:pay:instrument', {}), {
                     'doc': 'The payment instrument used by the payee to receive payment.'}),
 
                 ('payer', ('entity:actor', {}), {
-                    'doc': 'The entity who made the payment.'}),
+                    'doc': 'The entity which made the payment.'}),
 
                 ('payer:instrument', ('econ:pay:instrument', {}), {
                     'doc': 'The payment instrument used by the payer to make the payment.'}),
@@ -471,7 +471,7 @@ modeldefs = (
                     'doc': 'The time that the invoice was issued to the recipient.'}),
 
                 ('issuer', ('entity:actor', {}), {
-                    'doc': 'The contact information for the entity who issued the invoice.'}),
+                    'doc': 'The contact information for the entity which issued the invoice.'}),
 
                 ('purchase', ('econ:purchase', {}), {
                     'doc': 'The purchase that the invoice is requesting payment for.'}),
@@ -501,10 +501,10 @@ modeldefs = (
                     'doc': 'The purchase that the receipt confirms payment for.'}),
 
                 ('issuer', ('entity:actor', {}), {
-                    'doc': 'The contact information for the entity who issued the receipt.'}),
+                    'doc': 'The contact information for the entity which issued the receipt.'}),
 
                 ('recipient', ('entity:actor', {}), {
-                    'doc': 'The contact information for the entity who received the receipt.'}),
+                    'doc': 'The contact information for the entity which received the receipt.'}),
 
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The currency that the receipt uses to specify the price.'}),
