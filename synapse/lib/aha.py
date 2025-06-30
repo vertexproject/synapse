@@ -588,6 +588,7 @@ class AhaCell(s_cell.Cell):
     async def initServiceStorage(self):
 
         self.features['callpeers'] = 1
+        self.features['getAhaSvcsByIden'] = 1
 
         dirn = s_common.gendir(self.dirn, 'slabs', 'jsonstor')
 

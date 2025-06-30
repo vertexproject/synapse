@@ -2333,12 +2333,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return False
 
         ahaproxy = await self.reqAhaProxy(timeout=timeout)
+        if ahaproxy._features.get('getAhaSvcsByIden') is None:
+            extra = await self.getLogExtra()
+            logger.warning('...AHA server needs to be updated to support this operation. Aborting demotion.', extra=extra)
+            return False
 
         user = self.conf.get('aha:user')
         try:
 
             if peers is None:
                 peers = await self._getDemotePeers(timeout=timeout)
+
+            if not peers:
+                extra = await self.getLogExtra()
+                logger.warning('...no suitable services discovered. Aborting demotion.', extra=extra)
+                return False
 
             async with await s_base.Base.anit() as base:
 
