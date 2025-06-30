@@ -1960,9 +1960,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if not self.multiqueue.exists(name):
             return
 
-        await self.multiqueue.rem(name)
+        try:
+            await self.auth.delAuthGate(f'queue:{name}')
+        except NoSuchAuthGate:  # pragma: no cover
+            pass
 
-        await self.auth.delAuthGate(f'queue:{name}')
+        await self.multiqueue.rem(name)
 
     async def coreQueueGet(self, name, offs=0, cull=True, wait=False):
         if offs and cull:
