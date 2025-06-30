@@ -1,0 +1,5 @@
+---
+desc: Removed AuthGates for Queues which no longer exist in the Cortex.
+prs: []
+type: migration
+...
