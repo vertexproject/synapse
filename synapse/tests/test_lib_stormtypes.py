@@ -4268,7 +4268,7 @@ class StormTypesTest(s_test.SynTest):
 
             # Bad storm syntax
             mesgs = await core.stormlist('trigger.add node:add --form test:str {[ | | test:int=1 ] }')
-            self.stormIsInErr("Unexpected token '|' at line 1, column 49", mesgs)
+            self.stormIsInErr("Unexpected token '|' at line 1, column 41", mesgs)
 
             # (Regression) Just a command as the storm query
             q = 'trigger.add node:add --form test:str {[ test:int=99 ] | spin }'
