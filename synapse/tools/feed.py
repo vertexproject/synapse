@@ -65,8 +65,6 @@ async def ingest_items(core, items, outp, path, bname, viewiden=None, offset=Non
     tock = time.time()
     outp.printf(f'Done consuming from [{bname}]')
     outp.printf(f'Took [{tock - tick}] seconds.')
-    if debug: # pragma: no cover
-        await s_t_storm.runItemStorm(core, outp=outp)
 
 async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0, viewiden=None, extend_model=False, summary=False):
     items = getItems(*paths)
@@ -116,6 +114,9 @@ async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0,
 
         # all other supported file types
         await ingest_items(core, item, outp, path, bname, viewiden=viewiden, offset=offset, chunksize=chunksize, is_synnode3=False, meta=None, debug=debug)
+
+    if debug: # pragma: no cover
+        await s_t_storm.runItemStorm(core, outp=outp)
 
 async def main(argv, outp=None):
 

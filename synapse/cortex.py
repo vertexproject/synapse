@@ -5330,17 +5330,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if node.form.isext:
                             used_forms.add(node.form.name)
 
-                        # Types
-                        form = self.model.forms[node.form.name]
-                        for base in form.type.info.get('bases', ()):
-                            if base.startswith('_'):
-                                used_types.add(base)
+                        # Types - collected after all used forms/props
 
                         # Props
                         for prop in node.form.props.values():
-                            if prop.type.name.startswith('_'):
-                                used_types.add(prop.type.name)
-                            if (node.form.isext or prop.isext) and not prop.name.startswith('.'):
+                            if (node.form.isext or prop.isext):
                                 if node.get(prop.name) is not None:
                                     used_props.add((node.form.name, prop.name))
 
@@ -5355,13 +5349,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         forms[node.form.name] += 1
                         nodec += 1
 
-                    # Edges
-                    ext_edges = set()
-                    for (src_form, verb, tgt_form), edgeinfo in self.model.edges.items():
-                        if verb.startswith('_'):
-                            ext_edges.add((src_form, verb, tgt_form))
+                    # Types / Extended types - used forms
+                    for formname in used_forms:
+                        form = self.model.forms.get(formname)
+                        if form is not None:
+                            for base in form.type.info.get('bases', ()):
+                                if base.startswith('_'):
+                                    used_types.add(base)
 
+                    # Types / Extended types - used props
+                    for formname, propname in used_props:
+                        form = self.model.forms.get(formname)
+                        if form is not None:
+                            prop = form.props.get(propname)
+                            if prop is not None and prop.type.name.startswith('_'):
+                                used_types.add(prop.type.name)
+
+                    # Edges
                     extmodel = await self.getExtModel()
+                    ext_edges = set(edge[0] for edge in extmodel.get('edges', []))
+
                     model_ext = {
                         'forms': [f for f in extmodel.get('forms', []) if f[0] in used_forms],
                         'types': [t for t in extmodel.get('types', []) if t[0] in used_types],
@@ -5369,8 +5376,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         'tagprops': [tp for tp in extmodel.get('tagprops', []) if tp[0] in used_tagprops],
                     }
 
-                    node_edges = {}
-                    edges_meta = {}
+                    node_edges = collections.defaultdict(list)
+                    edges_meta = collections.defaultdict(lambda: collections.defaultdict(set))
                     for nid1, (stoplayr, pode1) in spooldict.items():
                         await asyncio.sleep(0)
                         src_form = pode1[0][0]
@@ -5379,8 +5386,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             tgt_form = pode2[1][0][0]
                             n2buid = self.getBuidByNid(nid2)
                             async for verb in view.iterEdgeVerbs(nid1, nid2, stop=stoplayr):
-                                node_edges.setdefault(nid1, []).append((verb, s_common.ehex(n2buid)))
-                                edges_meta.setdefault(src_form, {}).setdefault(verb, set()).add(tgt_form)
+                                node_edges[nid1].append((verb, s_common.ehex(n2buid)))
+                                edges_meta[src_form][verb].add(tgt_form)
 
                     edges_meta = {k: {vk: sorted(list(vv)) for vk, vv in v.items()} for k, v in edges_meta.items()}
                     used_edges = set()
