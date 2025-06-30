@@ -2361,7 +2361,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if isinstance(valu, dict):
             fobj = self.core.model.reqForm(form)
             if isinstance(fobj.type, s_types.Guid):
-                norms, props = await self._normGuidNodeDict(fobj, valu, runt, props=props)
+                norms, props = await self._normGuidNodeDict(fobj, valu, props=props)
                 valu = await self._addGuidNodeByDict(fobj, norms, props)
                 return await self.getNodeByNdef((form, valu))
 
@@ -2581,7 +2581,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return proto.valu
 
-    async def _normGuidNodeDict(self, form, vals, runt, props=None):
+    async def _normGuidNodeDict(self, form, vals, props=None):
 
         if props is None:
             props = {}
@@ -2593,16 +2593,16 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'No values provided for form {form.full}'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        props |= await self._normGuidNodeProps(form, props, runt)
+        props |= await self._normGuidNodeProps(form, props)
 
         if addprops:
-            props |= await self._normGuidNodeProps(form, addprops, runt, trycast=trycast)
+            props |= await self._normGuidNodeProps(form, addprops, trycast=trycast)
 
-        norms = await self._normGuidNodeProps(form, vals, runt)
+        norms = await self._normGuidNodeProps(form, vals)
 
         return norms, props
 
-    async def _normGuidNodeProps(self, form, props, runt, trycast=False):
+    async def _normGuidNodeProps(self, form, props, trycast=False):
 
         norms = {}
 
@@ -2611,7 +2611,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
             if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid):
                 pform = self.core.model.reqForm(prop.type.name)
-                gnorm, gprop = await self._normGuidNodeDict(pform, valu, runt)
+                gnorm, gprop = await self._normGuidNodeDict(pform, valu)
                 norms[name] = (pform, gnorm, gprop)
                 continue
 
@@ -2629,13 +2629,10 @@ class View(s_nexus.Pusher):  # type: ignore
                         })
                     raise e
 
-                if runt is not None:
-                    await runt.warn(f'Skipping bad value for prop {form.name}:{name}: {mesg}')
-
         return norms
 
     async def _getGuidNodeByDict(self, form, props):
-        norms, _ = await self._normGuidNodeDict(form, props, s_scope.get('runt'))
+        norms, _ = await self._normGuidNodeDict(form, props)
         return await self._getGuidNodeByNorms(form, norms)
 
     async def _getGuidNodeByNorms(self, form, norms):
