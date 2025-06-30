@@ -411,7 +411,7 @@ class CertDir:
             return False
         try:
             os.unlink(path)
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             raise s_exc.SynErr(mesg=f'Failed to delete CSR {path} - {e}') from e
         if outp:
             outp.printf(f'Deleted CSR at {path}')
@@ -732,7 +732,7 @@ class CertDir:
             return False
         try:
             os.unlink(path)
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             raise s_exc.SynErr(mesg=f'Failed to delete CSR {path} - {e}') from e
         if outp:
             outp.printf(f'Deleted CSR at {path}')
