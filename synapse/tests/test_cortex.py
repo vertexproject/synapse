@@ -6883,7 +6883,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await core.nodes('[ inet:email=visi@vertex.link +#visi.woot:rank=43 +#foo.bar:user=vertex ]')
             await core.nodes('[ inet:fqdn=hehe.com ]')
-            await core.nodes('[doc:report = * :name="Vertex Project Winning" +#visi:file="/foo/bar/baz" +#visi.woot:rank=1 +(refs)> { inet:email=visi@vertex.link inet:fqdn=hehe.com }]')
+            await core.nodes('[doc:report = * :title="Vertex Project Winning" +#visi:file="/foo/bar/baz" +#visi.woot:rank=1 +(refs)> { inet:email=visi@vertex.link inet:fqdn=hehe.com }]')
 
             async with core.getLocalProxy() as proxy:
 
