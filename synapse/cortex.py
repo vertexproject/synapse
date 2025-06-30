@@ -957,6 +957,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
             (4, self._storCortexHiveMigration),
+            (5, self._storCleanQueueAuthGates),
         ), nexs=False)
 
         # Perform module loading
@@ -1094,6 +1095,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             nomerge = view.info.get('nomerge', False)
             await view.setViewInfo('protected', nomerge)
             await view.setViewInfo('nomerge', None)
+
+    async def _storCleanQueueAuthGates(self):
+
+        logger.warning('removing AuthGates for Queues which no longer exist')
+
+        for info in self.auth.getAuthGates():
+            if info.get('type') == 'queue':
+                iden = info.get('iden')
+                name = iden.split(':', 1)[1]
+                if not self.multiqueue.exists(name):
+                    await self.auth.delAuthGate(iden)
+
+        logger.warning('...Queue AuthGate cleanup complete!')
 
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
@@ -1933,7 +1947,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.NoSuchName(mesg=mesg)
 
         await self._push('queue:del', name)
-        await self.auth.delAuthGate(f'queue:{name}')
 
     @s_nexus.Pusher.onPush('queue:del')
     async def _delCoreQueue(self, name):
@@ -1941,6 +1954,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         await self.multiqueue.rem(name)
+
+        await self.auth.delAuthGate(f'queue:{name}')
 
     async def coreQueueGet(self, name, offs=0, cull=True, wait=False):
         if offs and cull:
