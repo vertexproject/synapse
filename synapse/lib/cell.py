@@ -1561,7 +1561,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if peers:
                 if not await self.demote(peers=peers, timeout=timeout):
                     logger.warning('...we are the leader and failed to demote. Aborting shutdown.', extra=extra)
-                    return false
+                    return False
 
         if not await self.boss.shutdown(timeout=timeout):
             logger.warning('...tasks did not complete within timeout. Aborting shutdown.', extra=extra)
@@ -2387,7 +2387,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         except Exception as e:
             extra = await self.getLogExtra()
-            logger.error(f'...error demoting service: {s_exc.reprexc(e)}', extra=extra)
+            logger.exception(f'...error demoting service: {s_exc.reprexc(e)}', extra=extra)
             return False
 
     async def reqAhaProxy(self, timeout=None):
