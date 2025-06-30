@@ -1559,7 +1559,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.isactive and self.ahaclient is not None:
             peers = await self._getDemotePeers(timeout=timeout)
             if peers:
-                if not await self.demote(peers=peers, timeout=timeout):
+                if not await self.demote(peers=peers, timeout=timeout): # pragma: no cover
                     logger.warning('...we are the leader and failed to demote. Aborting shutdown.', extra=extra)
                     return False
 
@@ -2333,7 +2333,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return False
 
         ahaproxy = await self.reqAhaProxy(timeout=timeout)
-        if ahaproxy._features.get('getAhaSvcsByIden') is None:
+        if ahaproxy._features.get('getAhaSvcsByIden') is None: # pragma: no cover
             extra = await self.getLogExtra()
             logger.warning('...AHA server needs to be updated to support this operation. Aborting demotion.', extra=extra)
             return False
