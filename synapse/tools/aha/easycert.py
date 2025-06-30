@@ -53,7 +53,7 @@ async def main(argv, outp=s_output.stdout):
                 cert = c_x509.load_pem_x509_certificate(certbyts.encode())
                 path = cdir._saveCertTo(cert, 'users', f'{name}.crt')
                 outp.printf(f'crt saved: {path}')
-                cdir.delHostCsr(name, outp=outp)
+                cdir.delUserCsr(name, outp=outp)
                 return 0
 
 def getArgParser():
