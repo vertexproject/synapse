@@ -1952,9 +1952,6 @@ modeldefs = (
                 ('duration', ('int', {}), {
                     'doc': 'The duration of the flow in seconds.'}),
 
-                ('period', ('ival', {}), {
-                    'doc': 'The period when the flow existed.'}),
-
                 ('from', ('guid', {}), {
                     'doc': 'The ingest source file/iden. Used for reparsing.'}),
 
