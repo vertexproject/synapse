@@ -6020,11 +6020,11 @@ class Node(Prim):
                   ),
                   'returns': {'type': 'dict', 'desc': 'A protocol dictionary with populated properties.'}}},
 
-        {'name': 'protocols', 'desc': 'Return an protocol object for the given property.',
+        {'name': 'protocols', 'desc': 'Return a list of protocol objects for the node.',
          'type': {'type': 'function', '_funcname': '_methNodeProtocols',
                   'args': (
                       {'name': 'name', 'type': 'str', 'default': None,
-                        'desc': 'The only return protocols with the given name.', },
+                        'desc': 'Only return protocols with the given name.', },
                   ),
                   'returns': {'type': 'list', 'desc': 'A list of protocol dictionaries.'}}},
 
