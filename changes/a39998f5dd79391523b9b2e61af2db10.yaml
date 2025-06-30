@@ -1,0 +1,5 @@
+---
+desc: Added ``mesg`` values to Telepath ``NoSuchMeth`` exceptions.
+prs: []
+type: note
+...
