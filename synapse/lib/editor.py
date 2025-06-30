@@ -746,12 +746,21 @@ class ProtoNode(s_node.NodeBase):
 
         if norminfo is None:
             try:
-                valu, norminfo = prop.type.norm(valu)
+                if (isinstance(valu, dict) and isinstance(prop.type, s_types.Guid)
+                    and (form := self.model.form(prop.type.name)) is not None):
+
+                    norms, props = await self.editor.view._normGuidNodeDict(form, valu)
+                    valu = await self.editor.view._addGuidNodeByDict(form, norms, props)
+                    norminfo = {}
+                else:
+                    valu, norminfo = prop.type.norm(valu)
+
             except s_exc.BadTypeValu as e:
-                oldm = e.get('mesg')
-                e.update({'prop': prop.name,
-                          'form': prop.form.name,
-                          'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})
+                if 'prop' not in e.errinfo:
+                    oldm = e.get('mesg')
+                    e.update({'prop': prop.name,
+                              'form': prop.form.name,
+                              'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})
                 raise e
 
         if isinstance(prop.type, s_types.Ndef):

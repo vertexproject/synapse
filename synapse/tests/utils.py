@@ -484,6 +484,7 @@ testmodel = (
                 ('somestr', ('test:str', {}), {}),
                 ('seen', ('ival', {}), {}),
                 ('pivvirt', ('test:virtiface', {}), {}),
+                ('gprop', ('test:guid', {}), {}),
             )),
 
             ('test:strregex', {}, ()),
