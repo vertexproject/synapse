@@ -137,8 +137,9 @@ class AxonToolsTest(s_t_utils.SynTest):
                 tarfiles = sorted([os.path.join(dumpdir, f) for f in os.listdir(dumpdir) if f.endswith('.tar.gz')])
                 self.true(len(tarfiles) > 1)
                 async with self.getTestAxon(dirn=os.path.join(testdir, 'axon2')) as axon2:
+                    outp = self.getTestOutp()
                     argv = ['--url', f'cell:///{axon2.dirn}'] + tarfiles
-                    self.eq(0, await axon_load.main(argv))
+                    self.eq(0, await axon_load.main(argv, outp=outp))
                     for size, sha2, blob in sha2s:
                         self.true(await axon2.has(sha2))
                         out = b''

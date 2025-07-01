@@ -1,5 +1,6 @@
 import os
 import tarfile
+import tempfile
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -77,7 +78,8 @@ async def dumpBlobs(opts, outp):
                     sha2hex = s_common.ehex(sha256)
                     outp.printf(f'Dumping blob {sha2hex} (size={size}, offs={offs})')
 
-                    with s_common.tmpfile(dirn=opts.outdir, prefix='axon.dump') as (tmpf, tmp_path):
+                    with tempfile.SpooledTemporaryFile(max_size=s_const.mebibyte * 128,
+                                                       mode='w+b', dir=opts.outdir) as tmpf:
                         total = 0
                         async for byts in axon.get(sha256):
                             tmpf.write(byts)
