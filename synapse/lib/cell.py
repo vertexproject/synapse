@@ -1507,6 +1507,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logger.warning(f'...Cell ({self.getCellType()}) auth migration complete!')
 
+    async def _drivePermMigration(self):
+        for lkey, lval in self.slab.scanByPref(s_drive.LKEY_INFO, db=self.drive.dbname):
+            info = s_msgpack.un(lval)
+            perm = info.pop('perm', None)
+            if perm is not None:
+                perm.setdefault('users', {})
+                perm.setdefault('roles', {})
+                info['permissions'] = perm
+                self.slab.put(lkey, s_msgpack.en(info), db=self.drive.dbname)
+
     def getPermDef(self, perm):
         perm = tuple(perm)
         if self.permlook is None:
@@ -1872,6 +1882,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def initCellStorage(self):
         self.drive = await s_drive.Drive.anit(self.slab, 'celldrive')
+        await self._bumpCellVers('drive:storage', (
+            (1, self._drivePermMigration),
+        ), nexs=False)
+
         self.onfini(self.drive.fini)
 
     async def addDriveItem(self, info, path=None, reldir=s_drive.rootdir):
@@ -1892,6 +1906,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         iden = info.get('iden')
         if self.drive.hasItemInfo(iden): # pragma: no cover
             return await self.drive.getItemPath(iden)
+
+        # TODO: Remove this in synapse-3xx
+        perm = info.pop('perm', None)
+        if perm:
+            perm.setdefault('users', {})
+            perm.setdefault('roles', {})
+            info['permissions'] = perm
 
         return await self.drive.addItemInfo(info, path=path, reldir=reldir)
 
@@ -1938,7 +1959,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             info = {
                 'name': name,
-                'perm': perm,
+                'permissions': perm,
                 'iden': s_common.guid(),
                 'created': tick,
                 'creator': user,
@@ -1967,6 +1988,50 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPushAuto('drive:set:perm')
     async def setDriveInfoPerm(self, iden, perm):
         return self.drive.setItemPerm(iden, perm)
+
+    @s_nexus.Pusher.onPushAuto('drive:data:path:set')
+    async def setDriveItemProp(self, iden, vers, path, valu):
+        if isinstance(path, str):
+            path = (path,)
+
+        data = await self.getDriveData(iden)
+        if data is None:
+            mesg = f'No drive item with ID {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        _, item = data
+
+        try:
+            step = item
+            for p in path[:-1]:
+                step = step[p]
+            step[path[-1]] = valu
+        except (KeyError, IndexError):
+            raise s_exc.BadArg(mesg=f'Invalid path {path}')
+
+        return await self.drive.setItemData(iden, vers, item)
+
+    @s_nexus.Pusher.onPushAuto('drive:data:path:del')
+    async def delDriveItemProp(self, iden, vers, path):
+        if isinstance(path, str):
+            path = (path,)
+
+        data = await self.getDriveData(iden)
+        if data is None:
+            mesg = f'No drive item with ID {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        _, item = data
+
+        try:
+            step = item
+            for p in path[:-1]:
+                step = step[p]
+            del step[path[-1]]
+        except (KeyError, IndexError):
+            return
+
+        return await self.drive.setItemData(iden, vers, item)
 
     @s_nexus.Pusher.onPushAuto('drive:set:path')
     async def setDriveInfoPath(self, iden, path):
