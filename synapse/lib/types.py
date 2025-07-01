@@ -1739,8 +1739,7 @@ class Ndef(Type):
             'form=': self._storLiftForm
         }
 
-        nameopts = {'lower': True, 'strip': True}
-        self.formnametype = Str(self.modl, 'formname', {}, nameopts)
+        self.formnametype = self.modl.type('str').clone({'lower': True, 'strip': True})
         self.virts |= {
             'form': (self.formnametype, self._getForm),
         }

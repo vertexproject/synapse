@@ -2358,21 +2358,21 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.nodes('[ inet:asn=10 :name=hehe ]')
+            await core.nodes('[ inet:asn=10 :owner:name=hehe ]')
 
             nodes = await core.nodes('[ inet:ip=1.2.3.4 :asn=10 ]')
             await nodes[0].getEmbeds({'asn::newp': {}})
             await nodes[0].getEmbeds({'newp::newp': {}})
             await nodes[0].getEmbeds({'asn::name::foo': {}})
 
-            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('name',)}}}}
+            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('owner:name',)}}}}
             msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
 
             nodes = [m[1] for m in msgs if m[0] == 'node']
 
             node = nodes[0]
             self.eq('inet:asn', node[1]['embeds']['asn']['$form'])
-            self.eq('hehe', node[1]['embeds']['asn']['name'])
+            self.eq('hehe', node[1]['embeds']['asn']['owner:name'])
 
             opts = {'node:opts': {'embeds': {'ou:org': {'email::fqdn': ('zone',)}}}}
             msgs = await core.stormlist('[ ou:org=* :place:country=* :email=visi@vertex.link ]', opts=opts)
@@ -2380,7 +2380,7 @@ class StormTest(s_t_utils.SynTest):
             node = nodes[0]
 
             self.eq('vertex.link', node[1]['embeds']['email::fqdn']['zone'])
-            self.eq(5, node[1]['embeds']['email::fqdn']['$nid'])
+            self.eq(6, node[1]['embeds']['email::fqdn']['$nid'])
             self.eq('inet:fqdn', node[1]['embeds']['email::fqdn']['$form'])
 
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
@@ -2533,7 +2533,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq('econ:acct:payment', node[0][0])
 
             embeds = node[1]['embeds']
-            self.eq(24, embeds['from:instrument']['$nid'])
+            self.eq(25, embeds['from:instrument']['$nid'])
             self.eq('infime', embeds['from:instrument']['name'])
 
     async def test_storm_wget(self):
@@ -5734,3 +5734,20 @@ class StormTest(s_t_utils.SynTest):
             ''')
 
             self.eq(['foo', 'bar'], await core.callStorm('return($lib.queue.gen(hoho).get().1)'))
+
+    async def test_lib_storm_no_required_options(self):
+        async with self.getTestCore() as core:
+            cmds = core.getStormCmds()
+
+            reqs = []
+
+            query = await core.getStormQuery('')
+            async with core.getStormRuntime(query) as runt:
+                for name, ctor in cmds:
+                    cmd = ctor(runt, False)
+
+                    for optname, optinfo in cmd.pars.reqopts:
+                        if optname[0].startswith('-'):
+                            reqs.append((name, optname[0]))
+
+            self.len(0, reqs, '\n'.join([f'{k[0]}: {k[1]}' for k in reqs]))

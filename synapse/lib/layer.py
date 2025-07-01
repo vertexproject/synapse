@@ -4550,10 +4550,6 @@ class Layer(s_nexus.Pusher):
 
         n2sode = self._genStorNode(n2nid)
 
-        # we are creating a new edge for this layer.
-        sode['n1verbs'][verb] = sode['n1verbs'].get(verb, 0) + 1
-        n2sode['n2verbs'][verb] = n2sode['n2verbs'].get(verb, 0) + 1
-
         if self.layrslab.delete(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb):
             self.layrslab.delete(vabrv + nid + FLAG_TOMB, n2nid, db=self.indxdb)
             self.layrslab.delete(self.edgen1abrv + nid + vabrv + FLAG_TOMB, n2nid, db=self.indxdb)
@@ -4587,6 +4583,15 @@ class Layer(s_nexus.Pusher):
         else:
             n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
 
+        if (n1cnts := sode['n1verbs'].get(verb)) is None:
+            n1cnts = sode['n1verbs'][verb] = {}
+
+        if (n2cnts := n2sode['n2verbs'].get(verb)) is None:
+            n2cnts = n2sode['n2verbs'][verb] = {}
+
+        n1cnts[n2form] = n1cnts.get(n2form, 0) + 1
+        n2cnts[form] = n2cnts.get(form, 0) + 1
+
         self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, 1)
         self.indxcounts.inc(INDX_EDGE_N1N2 + formabrv + vabrv + n2formabrv, 1)
 
@@ -4607,34 +4612,40 @@ class Layer(s_nexus.Pusher):
         self.layrslab.delete(self.edgen2abrv + n2nid + vabrv + FLAG_NORM, nid, db=self.indxdb)
         self.layrslab.delete(self.edgen1n2abrv + nid + n2nid + FLAG_NORM, vabrv, db=self.indxdb)
 
-        newvalu = sode['n1verbs'].get(verb, 0) - 1
-        if newvalu == 0:
-            sode['n1verbs'].pop(verb)
-            if not self.mayDelNid(nid, sode):
-                self.dirty[nid] = sode
-        else:
-            sode['n1verbs'][verb] = newvalu
-            self.dirty[nid] = sode
-
         n2sode = self._genStorNode(n2nid)
-        newvalu = n2sode['n2verbs'].get(verb, 0) - 1
-        if newvalu == 0:
-            n2sode['n2verbs'].pop(verb)
-            if not self.mayDelNid(n2nid, n2sode):
-                self.dirty[n2nid] = n2sode
-        else:
-            n2sode['n2verbs'][verb] = newvalu
-            self.dirty[n2nid] = n2sode
-
-        formabrv = self.core.setIndxAbrv(INDX_FORM, form)
-
-        self.indxcounts.inc(vabrv, -1)
-        self.indxcounts.inc(INDX_EDGE_N1 + formabrv + vabrv, -1)
-
         if (n2form := n2sode.get('form')) is None:
             n2form = self.core.getNidNdef(n2nid)[0]
 
+        n1cnts = sode['n1verbs'][verb]
+        n2cnts = n2sode['n2verbs'][verb]
+
+        newvalu = n1cnts.get(n2form, 0) - 1
+        if newvalu == 0:
+            n1cnts.pop(n2form)
+            if not n1cnts:
+                sode['n1verbs'].pop(verb)
+                if not self.mayDelNid(nid, sode):
+                    self.dirty[nid] = sode
+        else:
+            n1cnts[n2form] = newvalu
+            self.dirty[nid] = sode
+
+        newvalu = n2cnts.get(form, 0) - 1
+        if newvalu == 0:
+            n2cnts.pop(form)
+            if not n2cnts:
+                n2sode['n2verbs'].pop(verb)
+                if not self.mayDelNid(n2nid, n2sode):
+                    self.dirty[n2nid] = n2sode
+        else:
+            n2cnts[form] = newvalu
+            self.dirty[n2nid] = n2sode
+
+        formabrv = self.core.setIndxAbrv(INDX_FORM, form)
         n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
+
+        self.indxcounts.inc(vabrv, -1)
+        self.indxcounts.inc(INDX_EDGE_N1 + formabrv + vabrv, -1)
         self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, -1)
         self.indxcounts.inc(INDX_EDGE_N1N2 + formabrv + vabrv + n2formabrv, -1)
 
@@ -4651,9 +4662,6 @@ class Layer(s_nexus.Pusher):
             return ()
 
         n2sode = self._genStorNode(n2nid)
-
-        sode['n1antiverbs'][verb] = sode['n1antiverbs'].get(verb, 0) + 1
-        n2sode['n2antiverbs'][verb] = n2sode['n2antiverbs'].get(verb, 0) + 1
 
         self.dirty[nid] = sode
         self.dirty[n2nid] = n2sode
@@ -4678,6 +4686,15 @@ class Layer(s_nexus.Pusher):
             n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
             kvpairs.append((n2formabrv, n2nid))
 
+        if (n1cnts := sode['n1antiverbs'].get(verb)) is None:
+            n1cnts = sode['n1antiverbs'][verb] = {}
+
+        if (n2cnts := n2sode['n2antiverbs'].get(verb)) is None:
+            n2cnts = n2sode['n2antiverbs'][verb] = {}
+
+        n1cnts[n2form] = n1cnts.get(n2form, 0) + 1
+        n2cnts[form] = n2cnts.get(form, 0) + 1
+
         return kvpairs
 
     async def _editNodeEdgeTombDel(self, nid, form, edit, sode, meta):
@@ -4697,27 +4714,35 @@ class Layer(s_nexus.Pusher):
         self.layrslab.delete(self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv, db=self.indxdb)
 
         n2sode = self._genStorNode(n2nid)
+        if (n2form := n2sode.get('form')) is None:
+            n2form = self.core.getNidNdef(n2nid)[0]
 
-        newvalu = sode['n1antiverbs'].get(verb, 0) - 1
+        n1cnts = sode['n1antiverbs'][verb]
+        n2cnts = n2sode['n2antiverbs'][verb]
+
+        newvalu = n1cnts.get(n2form, 0) - 1
         if newvalu == 0:
-            sode['n1antiverbs'].pop(verb)
-            if not self.mayDelNid(nid, sode):
-                self.dirty[nid] = sode
+            n1cnts.pop(n2form)
+            if not n1cnts:
+                sode['n1antiverbs'].pop(verb)
+                if not self.mayDelNid(nid, sode):
+                    self.dirty[nid] = sode
         else:
-            sode['n1antiverbs'][verb] = newvalu
+            n1cnts[n2form] = newvalu
             self.dirty[nid] = sode
 
-        self.indxcounts.inc(INDX_TOMB + vabrv, -1)
-
-        n2sode = self._genStorNode(n2nid)
-        newvalu = n2sode['n2antiverbs'].get(verb, 0) - 1
+        newvalu = n2cnts.get(form, 0) - 1
         if newvalu == 0:
-            n2sode['n2antiverbs'].pop(verb)
-            if not self.mayDelNid(n2nid, n2sode):
-                self.dirty[n2nid] = n2sode
+            n2cnts.pop(form)
+            if not n2cnts:
+                n2sode['n2antiverbs'].pop(verb)
+                if not self.mayDelNid(n2nid, n2sode):
+                    self.dirty[n2nid] = n2sode
         else:
-            n2sode['n2antiverbs'][verb] = newvalu
+            n2cnts[form] = newvalu
             self.dirty[n2nid] = n2sode
+
+        self.indxcounts.inc(INDX_TOMB + vabrv, -1)
 
         return ()
 
@@ -4765,23 +4790,29 @@ class Layer(s_nexus.Pusher):
 
             if tomb == FLAG_TOMB:
                 self.layrslab.delete(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb)
-                newvalu = n2sode['n2antiverbs'].get(verb, 0) - 1
+                n2cnts = n2sode['n2antiverbs'][verb]
+                newvalu = n2cnts.get(form, 0) - 1
                 if newvalu == 0:
-                    n2sode['n2antiverbs'].pop(verb)
-                    if not self.mayDelNid(n2nid, n2sode):
-                        self.dirty[n2nid] = n2sode
+                    n2cnts.pop(form)
+                    if not n2cnts:
+                        n2sode['n2antiverbs'].pop(verb)
+                        if not self.mayDelNid(n2nid, n2sode):
+                            self.dirty[n2nid] = n2sode
                 else:
-                    n2sode['n2antiverbs'][verb] = newvalu
+                    n2cnts[form] = newvalu
                     self.dirty[n2nid] = n2sode
 
             else:
-                newvalu = n2sode['n2verbs'].get(verb, 0) - 1
+                n2cnts = n2sode['n2verbs'][verb]
+                newvalu = n2cnts.get(form, 0) - 1
                 if newvalu == 0:
-                    n2sode['n2verbs'].pop(verb)
-                    if not self.mayDelNid(n2nid, n2sode):
-                        self.dirty[n2nid] = n2sode
+                    n2cnts.pop(form)
+                    if not n2cnts:
+                        n2sode['n2verbs'].pop(verb)
+                        if not self.mayDelNid(n2nid, n2sode):
+                            self.dirty[n2nid] = n2sode
                 else:
-                    n2sode['n2verbs'][verb] = newvalu
+                    n2cnts[form] = newvalu
                     self.dirty[n2nid] = n2sode
 
             self.indxcounts.inc(vabrv, -1)

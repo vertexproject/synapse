@@ -3095,7 +3095,7 @@ class AstTest(s_test.SynTest):
 
         with mock.patch('synapse.lib.view.View.nodesByTag', checkTag):
             async with self.getTestCore() as core:
-                self.len(1, await core.nodes('[inet:asn=200 :name=visi]'))
+                self.len(1, await core.nodes('[inet:asn=200 :owner:name=visi]'))
                 self.len(1, await core.nodes('[test:int=12 +#visi]'))
                 self.len(1, await core.nodes('[test:int=99 +#visi]'))
 
@@ -3106,7 +3106,7 @@ class AstTest(s_test.SynTest):
 
                 calls = []
                 # not for non-runtsafe
-                nodes = await core.nodes('inet:asn:name $valu=:name test:int +#$valu')
+                nodes = await core.nodes('inet:asn:owner:name $valu=:owner:name test:int +#$valu')
                 self.len(2, nodes)
                 self.len(0, calls)
 
