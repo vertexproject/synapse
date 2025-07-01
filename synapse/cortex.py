@@ -5365,6 +5365,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             if prop is not None and prop.type.name.startswith('_'):
                                 used_types.add(prop.type.name)
 
+                    # Types / Extended types - used tagprops
+                    for tagprop in used_tagprops:
+                        tagprop = self.model.tagprop(tagprop)
+                        if tagprop is not None and tagprop.type.name.startswith('_'):
+                            used_types.add(tagprop.type.name)
+
                     # Edges
                     extmodel = await self.getExtModel()
                     ext_edges = set(edge[0] for edge in extmodel.get('edges', []))
@@ -5392,12 +5398,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     edges_meta = {k: {vk: sorted(list(vv)) for vk, vv in v.items()} for k, v in edges_meta.items()}
                     used_edges = set()
                     for (src_form, verb, tgt_form) in ext_edges:
-                        tgt_forms = edges_meta.get(src_form, {}).get(verb, [])
+                        src_forms_to_check = [src_form] if src_form is not None else edges_meta.keys()
                         if tgt_form is None:
-                            if tgt_forms:
+                            if any(edges_meta.get(sform, {}).get(verb, []) for sform in src_forms_to_check):
                                 used_edges.add((src_form, verb, tgt_form))
                         else:
-                            if tgt_form in tgt_forms:
+                            if any(tgt_form in edges_meta.get(sform, {}).get(verb, []) for sform in src_forms_to_check):
                                 used_edges.add((src_form, verb, tgt_form))
 
                     model_ext['edges'] = [edge for edge in extmodel.get('edges', []) if edge[0] in used_edges]
@@ -5405,7 +5411,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     metadata = {
                         'type': 'meta',
                         'vers': 1,
-                        'forms': forms,
+                        'forms': dict(forms),
                         'edges': edges_meta,
                         'count': nodec,
                         'model_ext': model_ext,

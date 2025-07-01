@@ -7030,11 +7030,20 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.nodes('[ _hehe:haha=42 :visi="woot" ]')
 
             await core.addFormProp('inet:email', '_visi', ('str', {}), {})
-            await core.addEdge(('doc:report', '_linksto', None), {'doc': 'links to a node'})
+            await core.addEdge(('doc:report', '_linksto', None), {'doc': 'edge with no tgt'})
             await core.addEdge(('inet:email', '_linksfrom', 'doc:report'), {'doc': 'links from a node'})
             await core.nodes('[ inet:email=visi@vertex.link :_visi="woot"]')
             await core.nodes('[ doc:report=* :name="Vertex Project Winning" +(_linksto)> { inet:email=visi@vertex.link } ]')
             await core.nodes('[ doc:report=* :name="Vertex Project Winning" <(_linksfrom)+ { inet:email=visi@vertex.link } ]')
+
+            await core.addTagProp('score', ('int', {}), {})
+            await core.nodes('[ test:str=beep +#foo:score=42 ]')
+
+            await core.addEdge((None, '_noneverb', None), {'doc': 'edge with no src and no tgt'})
+            await core.nodes('[ test:str=foo +(_noneverb)> { [ inet:email=visi@vertex.link ] } ]')
+
+            await core.addEdge((None, '_nosrc', 'inet:user'), {'doc': 'edge with no src'})
+            await core.nodes('[ test:str=foo +(_nosrc)> { [ inet:user=visi ] } ]')
 
             meta = await anext(core.exportStorm('_baz:haha'))
             self.eq(meta['model_ext'], {
@@ -7092,8 +7101,35 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'tagprops': [],
                 'edges': [
                     (('inet:email', '_linksfrom', 'doc:report'), {'doc': 'links from a node'}),
-                    (('doc:report', '_linksto', None), {'doc': 'links to a node'})
+                    (('doc:report', '_linksto', None), {'doc': 'edge with no tgt'})
                 ]
+            })
+
+            meta = await anext(core.exportStorm('test:str'))
+            self.eq(meta['model_ext'], {
+                'forms': [],
+                'types': [],
+                'props': [],
+                'tagprops': [('score', ('int', {}), {})],
+                'edges': []
+            })
+
+            meta = await anext(core.exportStorm('test:str -(_noneverb)+> *'))
+            self.eq(meta['model_ext'], {
+                'forms': [],
+                'types': [],
+                'props': [('inet:email', '_visi', ('str', {}), {})],
+                'tagprops': [('score', ('int', {}), {})],
+                'edges': [((None, '_noneverb', None), {'doc': 'edge with no src and no tgt'})]
+            })
+
+            meta = await anext(core.exportStorm('test:str -(_nosrc)+> inet:user'))
+            self.eq(meta['model_ext'], {
+                'forms': [],
+                'types': [],
+                'props': [],
+                'tagprops': [('score', ('int', {}), {})],
+                'edges': [((None, '_nosrc', 'inet:user'), {'doc': 'edge with no src'})]
             })
 
             rootiden = core.auth.rootuser.iden
