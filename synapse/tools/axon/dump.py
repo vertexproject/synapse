@@ -14,6 +14,7 @@ descr = '''
 Dump blobs from a Synapse Axon.
 '''
 
+MAX_SPOOL_SIZE = s_const.mebibyte * 512
 DEFAULT_ROTATE_SIZE = s_const.gigabyte * 4
 
 def getTarName(celliden, start, end):
@@ -78,8 +79,7 @@ async def dumpBlobs(opts, outp):
                     sha2hex = s_common.ehex(sha256)
                     outp.printf(f'Dumping blob {sha2hex} (size={size}, offs={offs})')
 
-                    with tempfile.SpooledTemporaryFile(max_size=s_const.mebibyte * 128,
-                                                       mode='w+b', dir=opts.outdir) as tmpf:
+                    with tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE, mode='w+b', dir=opts.outdir) as tmpf:
                         total = 0
                         async for byts in axon.get(sha256):
                             tmpf.write(byts)

@@ -147,6 +147,37 @@ class AxonToolsTest(s_t_utils.SynTest):
                             out += byts
                         self.eq(out, blob)
 
+    async def test_dump_tempfile_rollover(self):
+        with self.getTestDir() as testdir:
+            async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
+                n = 128
+                blobs = [os.urandom(n) for n in range(n)]
+                sha2s = []
+                for blob in blobs:
+                    size, sha2 = await axon.put(blob)
+                    sha2s.append((size, sha2, blob))
+                dumpdir = os.path.join(testdir, 'dumpdir')
+                os.makedirs(dumpdir)
+                argv = ['--url', f'cell:///{axon.dirn}', dumpdir]
+                outp = self.getTestOutp()
+
+                # Patch the SppoledTemporaryFile rollover size while dumping files.
+                with mock.patch('synapse.tools.axon.dump.MAX_SPOOL_SIZE', n / 2):
+                    self.eq(0, await axon_dump.main(argv, outp=outp))
+
+                tarfiles = sorted([os.path.join(dumpdir, f) for f in os.listdir(dumpdir) if f.endswith('.tar.gz')])
+                self.len(1, tarfiles)
+                async with self.getTestAxon(dirn=os.path.join(testdir, 'axon2')) as axon2:
+                    outp = self.getTestOutp()
+                    argv = ['--url', f'cell:///{axon2.dirn}'] + tarfiles
+                    self.eq(0, await axon_load.main(argv, outp=outp))
+                    for size, sha2, blob in sha2s:
+                        self.true(await axon2.has(sha2))
+                        out = b''
+                        async for byts in axon2.get(sha2):
+                            out += byts
+                        self.eq(out, blob)
+
     async def test_dump_statefile(self):
         with self.getTestDir() as testdir:
             async with self.getTestAxon(dirn=testdir) as axon:
