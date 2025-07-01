@@ -2311,7 +2311,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _getDemotePeers(self, timeout=None):
 
-        ahaproxy = await self.reqAhaProxy(timeout=timeout)
+        ahaproxy = await self.reqAhaProxy(timeout=timeout, feats=[('getAhaSvcsByIden', 1)])
 
         retn = []
         async for svcdef in ahaproxy.getAhaSvcsByIden(self.iden, skiprun=self.runid):
@@ -2390,11 +2390,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.exception(f'...error demoting service: {s_exc.reprexc(e)}', extra=extra)
             return False
 
-    async def reqAhaProxy(self, timeout=None):
+    async def reqAhaProxy(self, timeout=None, feats=None):
+
         if self.ahaclient is None:
             mesg = 'AHA is not configured on this service.'
             raise s_exc.NeedConfValu(mesg=mesg)
-        return await self.ahaclient.proxy(timeout=timeout)
+
+        proxy = await self.ahaclient.proxy(timeout=timeout)
+
+        if feats is not None:
+            for name, vers in feats:
+                if not proxy._hasTeleFeat(name, vers):
+                    mesg = f'AHA server does not support feature: {name} >= {vers}'
+                    raise s_exc.BadVersion(mesg=mesg)
+
+        return proxy
 
     async def _setAhaActive(self):
 
