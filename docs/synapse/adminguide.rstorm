@@ -436,12 +436,12 @@ analysts may be allowed to apply tags representing certain assessments (such as 
 |                                                                 |                                 |
 | node data)                                                      |                                 |
 +-----------------------------------------------------------------+---------------------------------+
-| **Only** add ``inet:ip`` nodes                                |                                 |
-|                                                                 | ``node.add.inet:ip``          |
+| **Only** add ``inet:ip`` nodes                                  |                                 |
+|                                                                 | ``node.add.inet:ip``            |
 | (but not set properties, or work with tags or edges)            |                                 |
 +-----------------------------------------------------------------+---------------------------------+
-| **Only** add (set) the ``:asn`` property of ``inet:ip`` nodes |                                 |
-|                                                                 | ``node.prop.set.inet:ip:asn`` |
+| **Only** add (set) the ``:asn`` property of ``inet:ip`` nodes   |                                 |
+|                                                                 | ``node.prop.set.inet:ip:asn``   |
 | (but not create nodes or work with other properties, tags,      |                                 |
 |                                                                 |                                 |
 | edges, etc.)                                                    |                                 |
@@ -466,10 +466,8 @@ analysts may be allowed to apply tags representing certain assessments (such as 
 | of new / arbitrarily named edges.)                              |                                 |
 +-----------------------------------------------------------------+---------------------------------+
 | **Only** add edges                                              | ``node.edge.add``               |
-|                                                                 |                                 |
 +-----------------------------------------------------------------+---------------------------------+
 | **Only** add ``refs`` edges                                     | ``node.edge.add.refs``          |
-|                                                                 |                                 |
 +-----------------------------------------------------------------+---------------------------------+
 
 .. NOTE::

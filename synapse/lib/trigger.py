@@ -142,10 +142,8 @@ class Triggers:
                 for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars)
 
-    async def runEdgeAdd(self, n1, verb, n2nid):
+    async def runEdgeAdd(self, n1, verb, n2ndef):
         n1form = n1.form.name if n1 else None
-
-        n2ndef = self.view.core.getNidNdef(n2nid)
         n2form = n2ndef[0] if n2ndef else None
         n2iden = s_common.ehex(s_common.buid(n2ndef)) if n2ndef else None
 
@@ -195,10 +193,8 @@ class Triggers:
             for trig in cached:
                 await trig.execute(n1, vars=varz)
 
-    async def runEdgeDel(self, n1, verb, n2nid):
+    async def runEdgeDel(self, n1, verb, n2ndef):
         n1form = n1.form.name if n1 else None
-
-        n2ndef = self.view.core.getNidNdef(n2nid)
         n2form = n2ndef[0] if n2ndef else None
         n2iden = s_common.ehex(s_common.buid(n2ndef)) if n2ndef else None
 
