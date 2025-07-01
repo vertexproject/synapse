@@ -1595,13 +1595,13 @@ modeldefs = (
                 'interfaces': (
                     ('inet:proto:request', {}),
                 ),
-                'doc': 'An instance of a RDP handshake between a client and server.'}),
+                'doc': 'An instance of an RDP handshake between a client and server.'}),
 
             ('inet:ssh:handshake', ('guid', {}), {
                 'interfaces': (
                     ('inet:proto:request', {}),
                 ),
-                'doc': 'An instance of a SSH handshake between a client and server.'}),
+                'doc': 'An instance of an SSH handshake between a client and server.'}),
 
             ('inet:tls:handshake', ('guid', {}), {
                 'interfaces': (
