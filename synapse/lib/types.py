@@ -435,8 +435,6 @@ class Type:
             # inherit any virts from our parent type
             for vname, (tdef, info) in virts.items():
 
-                tifo['virts'].setdefault(vname, (tdef, info))
-
                 # if the type def is not set, inherit from above
                 if tifo['virts'].get(vname)[0] is None:
                     tifo['virts'][vname] = (tdef, tifo['virts'][vname][1])

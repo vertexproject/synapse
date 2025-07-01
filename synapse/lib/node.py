@@ -75,7 +75,7 @@ class NodeBase:
                 if name is not None and name != pname:
                     continue
 
-                retn.append(self._pdeftoProto(pname, pdef, None))
+                retn.append(self._pdefToProto(pname, pdef, None))
 
         for prop in self.form.props.values():
 
