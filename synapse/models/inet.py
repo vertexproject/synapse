@@ -1888,12 +1888,12 @@ modeldefs = (
             )),
 
             ('inet:asn', {}, (
-                ('name', ('str', {'lower': True}), {
-                    'doc': 'The name of the organization currently responsible for the ASN.'
-                }),
-                ('owner', ('ou:org', {}), {
-                    'doc': 'The guid of the organization currently responsible for the ASN.'
-                }),
+
+                ('owner', ('entity:actor', {}), {
+                    'doc': 'The entity which registered the ASN.'}),
+
+                ('owner:name', ('meta:name', {}), {
+                    'doc': 'The name of the entity which registered the ASN.'}),
             )),
 
             ('inet:asnet', {
