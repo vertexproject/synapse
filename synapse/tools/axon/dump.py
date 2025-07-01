@@ -77,7 +77,7 @@ async def dumpBlobs(opts, outp):
                     sha2hex = s_common.ehex(sha256)
                     outp.printf(f'Dumping blob {sha2hex} (size={size}, offs={offs})')
 
-                    with s_common.tmpfile(opts.outdir, prefix='axon.dump') as (tmpf, tmp_path):
+                    with s_common.tmpfile(dirn=opts.outdir, prefix='axon.dump') as (tmpf, tmp_path):
                         total = 0
                         async for byts in axon.get(sha256):
                             tmpf.write(byts)
@@ -99,9 +99,6 @@ async def dumpBlobs(opts, outp):
                             tar = None
                             tar_path = None
                             for_open = True
-
-                        tmpf.close()
-                        os.unlink(tmp_path)
 
                 if tar is not None:
                     tar.close()

@@ -62,7 +62,7 @@ async def exportLayer(opts, outp):
 
             soffs = first[0]
 
-            with s_common.tmpfile(opts.outdir, prefix='layer.dump') as (fd, tmppath):
+            with s_common.tmpfile(dirn=opts.outdir, prefix='layer.dump', unlink=False) as (fd, tmppath):
 
                 # Write header to file
                 fd.write(s_msgpack.en((

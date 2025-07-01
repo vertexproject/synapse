@@ -421,18 +421,18 @@ def getTempDir(dirn=None):
         shutil.rmtree(tempdir, ignore_errors=True)
 
 @contextlib.contextmanager
-def tmpfile(dirn: typing.Optional[str] = None, prefix: typing.Optional[str] = None):
+def tmpfile(dirn: str | None =None, prefix: str | None =None, unlink: bool =True):
     '''
     Context manager to create a temporary file and close the file descriptor it when finished.
 
     Notes:
         If an error occurs within the scope of the context manager, the tempfile will be
-        automatically deleted; otherwise it is the callers responsibility to clean up the
-        temporary tempfile by path.
+        automatically deleted.
 
     Args:
-        dirn (Optional[str]): The optional directory name to create the tempfile in.
-        prefix (Optional[str]): The optional tempfile name prefix.
+        dirn: The optional directory name to create the tempfile in.
+        prefix: The optional tempfile name prefix.
+        unlink: If true, always remove the tempfile if it exists at the end of the function.
 
     Yields:
         A tuple of the file descriptor and the file path.
@@ -446,6 +446,10 @@ def tmpfile(dirn: typing.Optional[str] = None, prefix: typing.Optional[str] = No
     except Exception: # pragma: no cover
         os.unlink(path)
         raise
+
+    finally:
+        if unlink and os.path.isfile(path):
+            os.unlink(path)
 
 def listdir(*paths, glob=None):
     '''
