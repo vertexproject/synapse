@@ -2026,7 +2026,7 @@ modeldefs = (
                     'doc': 'An array of NIST CPEs identified on the server.'}),
 
                 ('server:softnames', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of software names identified on the serer.'}),
+                    'doc': 'An array of software names identified on the server.'}),
 
                 ('client:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of NIST CPEs identified on the client.'}),
