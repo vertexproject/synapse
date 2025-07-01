@@ -145,23 +145,17 @@ class InetModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, 'vertex.link')  # must use host proto
 
     async def test_asn_collection(self):
+
         async with self.getTestCore() as core:
-            owner = s_common.guid()
-            nodes = await core.nodes('[(inet:asn=123 :name=COOL :owner=$owner)]', opts={'vars': {'owner': owner}})
+
+            nodes = await core.nodes('[ inet:asn=123 :owner:name=COOL :owner={[ ou:org=* ]} ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:asn', 123))
-            self.eq(node.get('name'), 'cool')
-            self.eq(node.get('owner'), owner)
+            self.eq(node.get('owner:name'), 'cool')
+            self.len(1, await core.nodes('inet:asn :owner -> ou:org'))
 
-            nodes = await core.nodes('[(inet:asn=456)]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:asn', 456))
-            self.none(node.get('name'))
-            self.none(node.get('owner'))
-
-            nodes = await core.nodes('[inet:asnet=(54959, (1.2.3.4, 5.6.7.8))]')
+            nodes = await core.nodes('[ inet:asnet=(54959, (1.2.3.4, 5.6.7.8)) ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:asnet', (54959, ((4, 0x01020304), (4, 0x05060708)))))
