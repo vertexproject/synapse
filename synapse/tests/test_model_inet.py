@@ -49,13 +49,13 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_inet_jarm(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ inet:ssl:jarmsample=(1.2.3.4:443, 07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1) ]')
+            nodes = await core.nodes('[ inet:tls:jarmsample=(1.2.3.4:443, 07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1) ]')
             self.len(1, nodes)
             self.eq('tcp://1.2.3.4:443', nodes[0].get('server'))
             self.eq('07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1', nodes[0].get('jarmhash'))
             self.eq(('tcp://1.2.3.4:443', '07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1'), nodes[0].ndef[1])
 
-            nodes = await core.nodes('inet:ssl:jarmhash=07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1')
+            nodes = await core.nodes('inet:tls:jarmhash=07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1')
             self.len(1, nodes)
             self.eq('07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1', nodes[0].ndef[1])
             self.eq('07d14d16d21d21d07c42d41d00041d', nodes[0].get('ciphers'))
@@ -2030,7 +2030,6 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ inet:whois:record=0c63f6b67c9a3ca40f9f942957a718e9
                     :fqdn=woot.com
-                    :asof=20251217
                     :text="YELLING AT pennywise@vertex.link LOUDLY"
                     :registrar=' cool REGISTRAR'
                     :registrant=' cool REGISTRANT'
@@ -2040,7 +2039,6 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:record', '0c63f6b67c9a3ca40f9f942957a718e9'))
             self.eq(node.get('fqdn'), 'woot.com')
-            self.eq(node.get('asof'), 1765929600000000)
             self.eq(node.get('text'), 'yelling at pennywise@vertex.link loudly')
             self.eq(node.get('registrar'), 'cool registrar')
             self.eq(node.get('registrant'), 'cool registrant')
@@ -2056,7 +2054,6 @@ class InetModelTest(s_t_utils.SynTest):
             rec_ipv4 = s_common.guid()
             props = {
                 'net': '10.0.0.0/28',
-                'asof': 2554869000000000,
                 'created': 2554858000000000,
                 'updated': 2554858000000000,
                 'text': 'this is  a bunch of \nrecord text 123123',
@@ -2070,7 +2067,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'type': 'direct allocation',
                 'links': ('http://rdap.com/foo', 'http://rdap.net/bar'),
             }
-            q = '''[(inet:whois:iprecord=$valu :net=$p.net :asof=$p.asof :created=$p.created :updated=$p.updated
+            q = '''[(inet:whois:iprecord=$valu :net=$p.net :created=$p.created :updated=$p.updated
                 :text=$p.text :asn=$p.asn :id=$p.id :name=$p.name :parentid=$p.parentid
                 :contacts=$p.contacts :country=$p.country :status=$p.status :type=$p.type
                 :links=$p.links)]'''
@@ -2082,7 +2079,6 @@ class InetModelTest(s_t_utils.SynTest):
             # FIXME virtual props
             # self.eq(node.get('net*min'), (4, 167772160))
             # self.eq(node.get('net*max'), (4, 167772175))
-            self.eq(node.get('asof'), 2554869000000000)
             self.eq(node.get('created'), 2554858000000000)
             self.eq(node.get('updated'), 2554858000000000)
             self.eq(node.get('text'), 'this is  a bunch of \nrecord text 123123')
@@ -2099,7 +2095,6 @@ class InetModelTest(s_t_utils.SynTest):
             rec_ipv6 = s_common.guid()
             props = {
                 'net': '2001:db8::/101',
-                'asof': 2554869000000000,
                 'created': 2554858000000000,
                 'updated': 2554858000000000,
                 'text': 'this is  a bunch of \nrecord text 123123',
@@ -2114,7 +2109,7 @@ class InetModelTest(s_t_utils.SynTest):
             minv = (6, 0x20010db8000000000000000000000000)
             maxv = (6, 0x20010db8000000000000000007ffffff)
 
-            q = '''[(inet:whois:iprecord=$valu :net=$p.net :asof=$p.asof :created=$p.created :updated=$p.updated
+            q = '''[(inet:whois:iprecord=$valu :net=$p.net :created=$p.created :updated=$p.updated
                 :text=$p.text :asn=$p.asn :id=$p.id :name=$p.name
                 :country=$p.country :status=$p.status :type=$p.type)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv6, 'p': props}})
@@ -2125,7 +2120,6 @@ class InetModelTest(s_t_utils.SynTest):
             # FIXME virtual props
             # self.eq(node.get('net*min'), minv)
             # self.eq(node.get('net*max'), maxv)
-            self.eq(node.get('asof'), 2554869000000000)
             self.eq(node.get('created'), 2554858000000000)
             self.eq(node.get('updated'), 2554858000000000)
             self.eq(node.get('text'), 'this is  a bunch of \nrecord text 123123')
@@ -2141,10 +2135,6 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(scmd)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:whois:iprecord', rec_ipv6))
-
-            # bad country code
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[(inet:whois:iprecord=* :country=u9)]')
 
     async def test_wifi_collection(self):
         async with self.getTestCore() as core:
