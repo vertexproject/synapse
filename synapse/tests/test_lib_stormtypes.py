@@ -1144,9 +1144,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq(pode, apode)
 
             self.eq('1.2.3.4', await core.callStorm('[ inet:server=1.2.3.4:80 ] return($node.repr(".ip"))'))
-            self.eq('1.2.3.4', await core.callStorm('[ inet:flow=* :dst=1.2.3.4:80 ] return($node.repr(dst.ip))'))
+            self.eq('1.2.3.4', await core.callStorm('[ inet:flow=* :server=1.2.3.4:80 ] return($node.repr(server.ip))'))
 
-            self.eq(None, await core.callStorm('[ inet:flow=* ] return($node.repr(dst.ip))'))
+            self.eq(None, await core.callStorm('[ inet:flow=* ] return($node.repr(server.ip))'))
 
     async def test_storm_lib_dict(self):
         async with self.getTestCore() as core:
