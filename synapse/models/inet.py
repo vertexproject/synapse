@@ -2042,9 +2042,6 @@ modeldefs = (
 
                 ('capture:host', ('it:host', {}), {
                     'doc': 'The host which captured the flow.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
 
             ('inet:tunnel:type:taxonomy', {}, ()),
