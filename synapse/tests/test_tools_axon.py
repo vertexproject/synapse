@@ -1,14 +1,10 @@
 import io
 import os
-import asyncio
 import tarfile
-import tempfile
 
 from unittest import mock
 
 import synapse.common as s_common
-
-import synapse.lib.output as s_output
 
 import synapse.tests.utils as s_t_utils
 
@@ -20,10 +16,10 @@ class AxonToolsTest(s_t_utils.SynTest):
     async def test_axon_dump_and_load_url_handling(self):
         with self.getTestDir() as testdir:
             argv = ['--url', 'cell:///definitelynotarealpath/axon', '--offset', '0', testdir]
-            outp = s_output.OutPutStr()
+            outp = self.getTestOutp()
             self.eq(1, await axon_dump.main(argv, outp=outp))
-            self.isin('ERROR', str(outp))
-            self.isin('Cell path does not exist', str(outp))
+            outp.expect('ERROR')
+            outp.expect('Cell path does not exist')
 
         with self.getTestDir() as testdir:
             async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
@@ -32,28 +28,28 @@ class AxonToolsTest(s_t_utils.SynTest):
                     fd.write(b'dummy')
                 url = f'cell://baduser:badpass@/{axon.dirn}'
                 argv = ['--url', url, tarfile]
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await axon_load.main(argv, outp=outp))
-                self.isin('No such user', str(outp))
+                outp.expect('No such user')
 
         with self.getTestDir() as testdir:
             tarfile = os.path.join(testdir, 'dummy.0-1.tar.gz')
             with open(tarfile, 'wb') as fd:
                 fd.write(b'dummy')
             argv = ['--url', 'cell:///definitelynotarealpath/axon', tarfile]
-            outp = s_output.OutPutStr()
+            outp = self.getTestOutp()
             self.eq(1, await axon_load.main(argv, outp=outp))
-            self.isin('ERROR', str(outp))
-            self.isin('Cell path does not exist', str(outp))
+            outp.expect('ERROR')
+            outp.expect('Cell path does not exist')
 
             async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
                 dumpdir = os.path.join(testdir, 'dumpdir')
                 os.makedirs(dumpdir)
                 url = f'cell://baduser:badpass@/{axon.dirn}'
                 argv = ['--url', url, '--offset', '0', dumpdir]
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await axon_dump.main(argv, outp=outp))
-                self.isin('No such user', str(outp))
+                outp.expect('No such user')
 
     async def test_axon_dump_and_load(self):
         with self.getTestDir() as testdir:
@@ -100,18 +96,18 @@ class AxonToolsTest(s_t_utils.SynTest):
                             yield byts
                 axon.get = bad_get
                 argv = ['--url', f'cell:///{axon.dirn}', '--offset', '0', dumpdir]
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await axon_dump.main(argv, outp=outp))
-                self.isin('Blob size mismatch', str(outp))
+                outp.expect('Blob size mismatch')
 
     async def test_dump_not_axon_cell(self):
         with self.getTestDir() as testdir:
             async with self.getTestCore() as core:
                 curl = core.getLocalUrl()
                 argv = ['--url', curl, testdir]
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await axon_dump.main(argv, outp=outp))
-                self.isin('only works on axon', str(outp))
+                outp.expect('only works on axon')
 
     async def test_dump_outdir_is_not_directory(self):
         with self.getTestDir() as testdir:
@@ -120,9 +116,9 @@ class AxonToolsTest(s_t_utils.SynTest):
                 fd.write('not a directory')
             async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
                 argv = ['--url', f'cell:///{axon.dirn}', '--offset', '0', outpath]
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await axon_dump.main(argv, outp=outp))
-                self.isin('exists but is not a directory', str(outp))
+                outp.expect('exists but is not a directory')
 
     async def test_dump_rotate_size_and_load(self):
         with self.getTestDir() as testdir:
@@ -135,7 +131,7 @@ class AxonToolsTest(s_t_utils.SynTest):
                 dumpdir = os.path.join(testdir, 'dumpdir')
                 os.makedirs(dumpdir)
                 argv = ['--url', f'cell:///{axon.dirn}', '--offset', '0', '--rotate-size', '2048', dumpdir]
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(0, await axon_dump.main(argv, outp=outp))
 
                 tarfiles = sorted([os.path.join(dumpdir, f) for f in os.listdir(dumpdir) if f.endswith('.tar.gz')])
@@ -160,14 +156,14 @@ class AxonToolsTest(s_t_utils.SynTest):
                 statefile = os.path.join(testdir, 'state.yaml')
 
                 argv = ['--url', axon.getLocalUrl(), '--statefile', statefile, outdir]
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(0, await axon_dump.main(argv, outp=outp))
                 self.true(os.path.isfile(statefile))
                 state = s_common.yamlload(statefile)
                 self.isin('offset:next', state)
 
                 s_common.yamlsave({'offset:next': 123}, statefile)
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(0, await axon_dump.main(argv, outp=outp))
                 self.true(os.path.isfile(statefile))
                 state = s_common.yamlload(statefile)
@@ -177,7 +173,7 @@ class AxonToolsTest(s_t_utils.SynTest):
                 statedir = os.path.join(testdir, 'statedir')
                 os.makedirs(statedir)
                 argv = ['--url', axon.getLocalUrl(), '--statefile', statedir, outdir]
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(0, await axon_dump.main(argv, outp=outp))
                 cellinfo = await axon.getCellInfo()
                 celliden = cellinfo['cell']['iden']
@@ -190,9 +186,9 @@ class AxonToolsTest(s_t_utils.SynTest):
         with self.getTestDir() as testdir:
             missing = os.path.join(testdir, 'doesnotexist')
             argv = ['--url', 'cell:///definitelynotarealpath/axon', missing]
-            outp = s_output.OutPutStr()
+            outp = self.getTestOutp()
             self.eq(1, await axon_load.main(argv, outp=outp))
-            self.isin('ERROR: Cell path does not exist', str(outp))
+            outp.expect('ERROR: Cell path does not exist')
 
     async def test_load_continue_and_invalid_blob(self):
         with self.getTestDir() as testdir:
@@ -214,12 +210,12 @@ class AxonToolsTest(s_t_utils.SynTest):
                 return orig_uhex(val)
             s_common.uhex = fake_uhex
 
-            outp = s_output.OutPutStr()
+            outp = self.getTestOutp()
             async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
                 argv = ['--url', axon.getLocalUrl(), tarpath]
                 self.eq(0, await axon_load.main(argv, outp=outp))
             s_common.uhex = orig_uhex
-            self.isin('Skipping invalid blob filename', str(outp))
+            outp.expect('Skipping invalid blob filename')
 
     async def test_load_failed_to_extract(self):
         with self.getTestDir() as testdir:
@@ -228,11 +224,11 @@ class AxonToolsTest(s_t_utils.SynTest):
                 info = tarfile.TarInfo('deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef.blob')
                 info.type = tarfile.DIRTYPE
                 tar.addfile(info)
-            outp = s_output.OutPutStr()
+            outp = self.getTestOutp()
             async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
                 argv = ['--url', axon.getLocalUrl(), tarpath]
                 self.eq(0, await axon_load.main(argv, outp=outp))
-            self.isin('Failed to extract', str(outp))
+            outp.expect('Failed to extract')
 
     async def test_load_not_axon_cell(self):
         with self.getTestDir() as testdir:
@@ -241,9 +237,9 @@ class AxonToolsTest(s_t_utils.SynTest):
                 dumpdir = os.path.join(testdir, 'dumpdir')
                 os.makedirs(dumpdir)
                 argv = ['--url', curl, dumpdir]
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await axon_load.main(argv, outp=outp))
-                self.isin('only works on axon', str(outp))
+                outp.expect('only works on axon')
 
     async def test_load_oserror_extracting_blob(self):
         with self.getTestDir() as testdir:
@@ -253,12 +249,12 @@ class AxonToolsTest(s_t_utils.SynTest):
                 data = b'12345'
                 info.size = len(data)
                 tar.addfile(info, io.BytesIO(data))
-            outp = s_output.OutPutStr()
+            outp = self.getTestOutp()
             async with self.getTestAxon(dirn=os.path.join(testdir, 'axon')) as axon:
                 with mock.patch('tarfile.TarFile.extractfile', side_effect=OSError("simulated extraction error")):
                     argv = ['--url', axon.getLocalUrl(), tarpath]
                     self.eq(0, await axon_load.main(argv, outp=outp))
-            self.isin('WARNING: Error extracting', str(outp))
+            outp.expect('WARNING: Error extracting')
 
     async def test_load_skipping_existing_blob(self):
         with self.getTestDir() as testdir:
@@ -270,7 +266,7 @@ class AxonToolsTest(s_t_utils.SynTest):
                     info = tarfile.TarInfo(f'{s_common.ehex(sha2)}.blob')
                     info.size = len(blob)
                     tar.addfile(info, io.BytesIO(blob))
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 argv = ['--url', axon.getLocalUrl(), tarpath]
                 self.eq(0, await axon_load.main(argv, outp=outp))
-                self.isin('Skipping existing blob', str(outp))
+                outp.expect('Skipping existing blob')
