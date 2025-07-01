@@ -1610,14 +1610,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             iden (str): The iden of the queue.
 
         Returns:
-            (dict): The meta data of the queue if exists.
+            (dict or None): The meta data of the queue if exists.
         '''
         if self.multiqueue.exists(iden):
             return self.multiqueue.status(iden)
         return
 
     async def reqCoreQueue(self, iden):
-        if not await self.getCoreQueue(iden):
+        if await self.getCoreQueue(iden) is None:
             raise s_exc.NoSuchName(mesg=f'No queue with iden {iden}', iden=iden)
 
     async def getCoreQueueByName(self, name):
