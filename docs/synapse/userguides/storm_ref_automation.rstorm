@@ -647,7 +647,7 @@ not need the ``--async`` option).
 
 ..
     FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-cli:: trigger.add prop:set --name 'Tag sinkholed FQDNs based on known sinkholer email' --prop inet:whois:contact:email --storm { +{ :email-> inet:email +#cno.infra.dns.sink.hole } -> inet:whois:rec -> inet:fqdn [ +#cno.infra.dns.sink.holed ] }
+    .. storm-cli:: trigger.add prop:set --name 'Tag sinkholed FQDNs based on known sinkholer email' --prop inet:whois:contact:email { +{ :email-> inet:email +#cno.infra.dns.sink.hole } -> inet:whois:rec -> inet:fqdn [ +#cno.infra.dns.sink.holed ] }
 
 .. TIP::
   
@@ -677,7 +677,7 @@ The output of ``trigger.list`` includes the following columns:
 Whenever an IP node is added to Synapse, you want to immediately retrieve the associated Autonomous System (AS),
 geolocation, and DNS PTR data using various Storm commands.
 
-.. storm-cli:: trigger.add node:add --name 'Basic IP enrichment' --form inet:ip --storm { maxmind | nettools.dns }
+.. storm-cli:: trigger.add node:add --name 'Basic IP enrichment' --form inet:ip { maxmind | nettools.dns }
 
 
 .. TIP::
@@ -700,7 +700,7 @@ If the object "used" in the attack has an associated TTP tag (such as ``#cno.ttp
 attachment used in a phishing attack), you want to pivot to the technique (``ou:technique``) represented by the tag (e.g., 
 "Spear phishing attachment"), and create another ``uses`` edge to show the attack uses the specified technique.
 
-.. storm-cli:: trigger.add edge:add --name 'Link technique with attack'--verb uses --form risk:attack --storm { $attack=$node { -(uses)> * +$auto.opts.n2iden -> # -> ou:technique:tag [ <(uses)+ { yield $attack } ] } }
+.. storm-cli:: trigger.add edge:add --name 'Link technique with attack'--verb uses --form risk:attack { $attack=$node { -(uses)> * +$auto.opts.n2iden -> # -> ou:technique:tag [ <(uses)+ { yield $attack } ] } }
 
 .. TIP::
   
@@ -742,7 +742,7 @@ When you associate a file with a malware family, you record that assessment on t
 a tag (e.g., ``#cno.mal.redtree`` to represent the 'redtree' malware family). When you tag the file, you want
 to automatically copy the tag to the file's MD5, SHA1, SHA256, and SHA512 hashes for situational awareness.
 
-.. storm-cli:: trigger.add tag:add --name 'Push malware tags from file to hashes' --form file:bytes --tag cno.mal.** --storm { tee { :md5 -> crypto:hash:md5 } { :sha1 -> crypto:hash:sha1 } { :sha256 -> crypto:hash:sha256 } { :sha512 -> crypto:hash:sha512 } | [ +#$auto.opts.tag ] }
+.. storm-cli:: trigger.add tag:add --name 'Push malware tags from file to hashes' --form file:bytes --tag cno.mal.** { tee { :md5 -> crypto:hash:md5 } { :sha1 -> crypto:hash:sha1 } { :sha256 -> crypto:hash:sha256 } { :sha512 -> crypto:hash:sha512 } | [ +#$auto.opts.tag ] }
 
 .. TIP::
   
@@ -758,7 +758,7 @@ to automatically copy the tag to the file's MD5, SHA1, SHA256, and SHA512 hashes
 Similar to the example above, when your assessment changes and you want to **remove** a tag from a file
 (``file:bytes`` node), you want to automatically remove that same tag from the file's associated hashes.
 
-.. storm-cli:: trigger.add tag:add --name 'Untag hashes when untagging a file' --form file:bytes --tag cno.mal.** --storm { tee { :md5 -> crypto:hash:md5 } { :sha1 -> crypto:hash:sha1 } { :sha256 -> crypto:hash:sha256 } { :sha512 -> crypto:hash:sha512 } | [ -#$auto.opts.tag ] }
+.. storm-cli:: trigger.add tag:add --name 'Untag hashes when untagging a file' --form file:bytes --tag cno.mal.** { tee { :md5 -> crypto:hash:md5 } { :sha1 -> crypto:hash:sha1 } { :sha256 -> crypto:hash:sha256 } { :sha512 -> crypto:hash:sha512 } | [ -#$auto.opts.tag ] }
 
 .. TIP::
   

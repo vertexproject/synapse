@@ -1403,10 +1403,10 @@ modeldefs = (
             ('inet:email:message:link', ('guid', {}), {
                 'doc': 'A url/link embedded in an email message.'}),
 
-            ('inet:ssl:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
+            ('inet:tls:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
                 'doc': 'A TLS JARM fingerprint hash.'}),
 
-            ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
+            ('inet:tls:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:tls:jarmhash'))}), {
                 'doc': 'A JARM hash sample taken from a server.'}),
 
             ('inet:service:platform', ('guid', {}), {
@@ -1860,12 +1860,12 @@ modeldefs = (
             )),
 
             ('inet:asn', {}, (
-                ('name', ('str', {'lower': True}), {
-                    'doc': 'The name of the organization currently responsible for the ASN.'
-                }),
-                ('owner', ('ou:org', {}), {
-                    'doc': 'The guid of the organization currently responsible for the ASN.'
-                }),
+
+                ('owner', ('entity:actor', {}), {
+                    'doc': 'The entity which registered the ASN.'}),
+
+                ('owner:name', ('meta:name', {}), {
+                    'doc': 'The name of the entity which registered the ASN.'}),
             )),
 
             ('inet:asnet', {
@@ -2038,14 +2038,13 @@ modeldefs = (
                     'doc': 'An array of software names identified on the source host.'}),
 
                 ('ip:proto', ('int', {'min': 0, 'max': 0xff}), {
-                    'doc': 'The IP protocol number of the flow.',
-                }),
+                    'doc': 'The IP protocol number of the flow.'}),
+
                 ('ip:tcp:flags', ('int', {'min': 0, 'max': 0xff}), {
-                    'doc': 'An aggregation of observed TCP flags commonly provided by flow APIs.',
-                }),
+                    'doc': 'An aggregation of observed TCP flags commonly provided by flow APIs.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
 
                 ('src:ssl:cert', ('crypto:x509:cert', {}), {
                     'doc': 'The x509 certificate sent by the client as part of an SSL/TLS negotiation.'}),
@@ -2481,9 +2480,6 @@ modeldefs = (
 
             ('inet:whois:record', {}, (
 
-                ('asof', ('time', {}), {
-                    'doc': 'The date of the whois record.'}),
-
                 ('fqdn', ('inet:fqdn', {}), {
                     'doc': 'The domain associated with the whois record.'}),
 
@@ -2550,8 +2546,8 @@ modeldefs = (
                     'prevnames': ('net4', 'net6'),
                     'doc': 'The IP address range assigned.'}),
 
-                ('asof', ('time', {}), {
-                    'doc': 'The date of the record.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'The description of the network from the whois record.'}),
 
                 ('created', ('time', {}), {
                     'doc': 'The "created" time from the record.'}),
@@ -2571,11 +2567,10 @@ modeldefs = (
                 ('parentid', ('meta:id', {}), {
                     'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'}),
 
-                ('name', ('str', {}), {
-                    'doc': 'The name assigned to the network by the registrant.'}),
+                ('name', ('meta:id', {}), {
+                    'doc': 'The name ID assigned to the network by the registrant.'}),
 
-                # FIXME ISO 2
-                ('country', ('str', {'lower': True, 'regex': '^[a-z]{2}$'}), {
+                ('country', ('pol:iso2', {}), {
                     'doc': 'The two-letter ISO 3166 country code.'}),
 
                 ('status', ('str', {'lower': True}), {
@@ -2626,7 +2621,7 @@ modeldefs = (
 
             ('inet:wifi:ssid', {}, ()),
 
-            ('inet:ssl:jarmhash', {}, (
+            ('inet:tls:jarmhash', {}, (
                 ('ciphers', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{30}$'}), {
                     'ro': True,
                     'doc': 'The encoded cipher and TLS version of the server.'}),
@@ -2634,8 +2629,8 @@ modeldefs = (
                     'ro': True,
                     'doc': 'The truncated SHA256 of the TLS server extensions.'}),
             )),
-            ('inet:ssl:jarmsample', {}, (
-                ('jarmhash', ('inet:ssl:jarmhash', {}), {
+            ('inet:tls:jarmsample', {}, (
+                ('jarmhash', ('inet:tls:jarmhash', {}), {
                     'ro': True,
                     'doc': 'The JARM hash computed from the server responses.'}),
                 ('server', ('inet:server', {}), {

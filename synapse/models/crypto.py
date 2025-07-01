@@ -193,6 +193,9 @@ modeldefs = (
 
             ('crypto:key', {
                 'props': (
+                    ('bits', ('int', {'min': 1}), {
+                        'doc': 'The number of bits of key material.'}),
+
                     ('algorithm', ('crypto:algorithm', {}), {
                         'ex': 'aes256',
                         'doc': 'The cryptographic algorithm which uses the key material.'}),
