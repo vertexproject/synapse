@@ -1595,19 +1595,19 @@ modeldefs = (
                 'interfaces': (
                     ('inet:proto:request', {}),
                 ),
-                'doc': 'An instance of a RDP handshake between a server and client.'}),
+                'doc': 'An instance of a RDP handshake between a client and server.'}),
 
             ('inet:ssh:handshake', ('guid', {}), {
                 'interfaces': (
                     ('inet:proto:request', {}),
                 ),
-                'doc': 'An instance of a SSH handshake between a server and client.'}),
+                'doc': 'An instance of a SSH handshake between a client and server.'}),
 
             ('inet:tls:handshake', ('guid', {}), {
                 'interfaces': (
                     ('inet:proto:request', {}),
                 ),
-                'doc': 'An instance of a TLS handshake between a server and client.'}),
+                'doc': 'An instance of a TLS handshake between a client and server.'}),
 
             ('inet:tls:ja4', ('str', {'strip': True, 'regex': ja4_regex}), {
                 'doc': 'A JA4 TLS client fingerprint.'}),
