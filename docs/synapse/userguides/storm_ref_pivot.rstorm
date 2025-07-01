@@ -307,9 +307,9 @@ that are FQDNs) is ``:query:name:fqdn``. You could optionally use explicit synta
 
 *Pivot from a set of IP addresses (inet:ip nodes) to any network flows (inet:flow nodes) associated with the IPs:*
 
-.. storm-pre:: [ inet:ip=1.1.1.1 inet:ip=2.2.2.2 inet:ip=3.3.3.3 (inet:flow=* :src=tcp://1.1.1.1 :dst=tcp://2.2.2.2:1337) (inet:flow=* :dst=tcp://3.3.3.3:80) ]
+.. storm-pre:: [ inet:ip=1.1.1.1 inet:ip=2.2.2.2 inet:ip=3.3.3.3 (inet:flow=* :client=tcp://1.1.1.1 :server=tcp://2.2.2.2:1337) (inet:flow=* :server=tcp://3.3.3.3:80) ]
 .. storm-pre:: inet:ip -> (inet:server, inet:client) -> inet:flow
-.. storm-pre:: inet:ip -> inet:server -> inet:flow:dst
+.. storm-pre:: inet:ip -> inet:server -> inet:flow:server
 
 ::
   
@@ -317,13 +317,13 @@ that are FQDNs) is ``:query:name:fqdn``. You could optionally use explicit synta
 
 TODO: this should probably work using a *addr virtual prop on the inet:sockaddr type
 The query above uses implicit syntax. Note that because ``inet:flow`` nodes have two target properties of type
-``inet:ip`` (``:src`` and ``:dst``), the result of this query will be all ``inet:flow`` nodes where
+``inet:ip`` (``:client`` and ``:server``), the result of this query will be all ``inet:flow`` nodes where
 the inbound IPs are either the source **or** destination IP. If you only want to see flows where the inbound
 IPs are the destination IP (for example), you must use explicit syntax to clarify this:
 
 ::
   
-  <inet:ip nodes> -> inet:flow:dst*addr
+  <inet:ip nodes> -> inet:flow:server*addr
 
 *Pivot from a set of tags (syn:tag nodes) to the threat clusters (risk:threat nodes) represented by those tags:*
 
@@ -545,8 +545,7 @@ Secondary to Secondary Property Pivot
 
 When pivoting from a secondary property of a set of source nodes to target nodes with the same secondary
 property (e.g., from the ``:ip`` property of a set of DNS A nodes to a set of network flow nodes with
-TODO: fix this example
-the same IP as a ``:dst`` property), the target can be:
+the same IP as a ``:server`` property), the target can be:
 
 - a form name and property name;
 - a list of form and property names; or
@@ -595,12 +594,12 @@ You must use explicit syntax to specify both the source and target properties.
 
 *Pivot from a set of DNS A records (inet:dns:a nodes) to any network flows (inet:flow) or service banners (inet:banner) associated with the IPs:*
 
-.. storm-pre:: [ inet:dns:a=(woot.com,8.8.8.8) (inet:flow=* :dst=tcp://8.8.8.8) (inet:banner=('tcp://8.8.8.8:1234','woo haha')) ]
-.. storm-pre:: inet:dns:a :ip -> ( inet:flow:dst.ip, inet:banner:server.ip )
+.. storm-pre:: [ inet:dns:a=(woot.com,8.8.8.8) (inet:flow=* :server=tcp://8.8.8.8) (inet:banner=('tcp://8.8.8.8:1234','woo haha')) ]
+.. storm-pre:: inet:dns:a :ip -> ( inet:flow:server.ip, inet:banner:server.ip )
 
 ::
   
-  <inet:dns:a nodes> -> ( inet:flow:dst, inet:banner:server )
+  <inet:dns:a nodes> -> ( inet:flow:server, inet:banner:server )
 
 
 .. _pivot-in:

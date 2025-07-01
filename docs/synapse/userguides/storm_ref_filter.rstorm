@@ -814,17 +814,17 @@ of times and intervals.
   equal to ( ``=`` ) operator.
 
 
-*Filter the current working set to only include the network flows (inet:flow nodes) that occurred within the past day:*
+*Filter the current working set to only include the reports (doc:report nodes) that were published within the past day:*
 
-.. storm-pre:: [ inet:flow="*" :time=now ] +inet:flow:time @= ( now, '-1 day' )
+.. storm-pre:: [ doc:report=* :published=now ] +doc:report:published @= ( now, '-1 day' )
 ::
   
-  <query> +inet:flow:time @= ( now, '-1 day' )
+  <query> +doc:report:published @= ( now, '-1 day' )
 
-.. storm-pre:: [ inet:flow="*" :time=now ] +:time @= ( now, '-1 day' )
+.. storm-pre:: [ doc:report=* :published=now ] +:published @= ( now, '-1 day' )
 ::
   
-  <query> +:time @= ( now, '-1 day' )
+  <query> +:published @= ( now, '-1 day' )
 
 
 *Filter the current working set to only include the host activity nodes (all nodes of all forms that inherit the it:host:activity interface) whose :time value is within the past three hours:*
@@ -1683,12 +1683,12 @@ and checks to see if the result is greater than 1.
     in performance is negligible for small data sets but more pronounced when working with large numbers
     of nodes.
 
-*Filter the current working set of network flows (inet:flow nodes) to only include flows where the total number of bytes transferred in the flow between the source (inet:flow:src:txbytes) and destination (inet:flow:dst:txbytes) is greater than 100MB (~100,000,000 bytes):*
+*Filter the current working set of network flows (inet:flow nodes) to only include flows where the total number of bytes transferred in the flow between the source (inet:flow:client:txbytes) and destination (inet:flow:server:txbytes) is greater than 100MB (~100,000,000 bytes):*
 
-.. storm-pre:: [ ( inet:flow=* :src:txbytes=60000000 :dst:txbytes=60000000 ) ( inet:flow=* :src:txbytes=1024 :dst:txbytes=4096 ) ] +$( :src:txbytes + :dst:txbytes >=100000000 )
+.. storm-pre:: [ ( inet:flow=* :client:txbytes=60000000 :server:txbytes=60000000 ) ( inet:flow=* :client:txbytes=1024 :server:txbytes=4096 ) ] +$( :client:txbytes + :server:txbytes >=100000000 )
 ::
   
-  <inet:flow> +$( :src:txbytes + :dst:txbytes >=100000000 )
+  <inet:flow> +$( :client:txbytes + :server:txbytes >=100000000 )
 
 
 *Filter the current set of nodes associated with any threat group or threat cluster (e.g., tagged ``#cno.threat.<threat_name>``), to include only those nodes that are attributed to more than one threat (e.g., that have more than one #cno.threat.<threat_name> tag):*
