@@ -14,8 +14,9 @@ descr = '''
 Export node edits from a Synapse layer.
 '''
 
+
 @contextlib.contextmanager
-def _tmpfile(dirn: str | None  = None, prefix: str | None = None):
+def _tmpfile(dirn: str | None = None, prefix: str | None = None):
     '''
     Context manager to create a temporary file and close it when finished. If an
     error occurs within the scope of the context manager, the tempfile will be
