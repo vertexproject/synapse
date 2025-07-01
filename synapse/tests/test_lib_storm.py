@@ -5734,3 +5734,20 @@ class StormTest(s_t_utils.SynTest):
             ''')
 
             self.eq(['foo', 'bar'], await core.callStorm('return($lib.queue.gen(hoho).get().1)'))
+
+    async def test_lib_storm_no_required_options(self):
+        async with self.getTestCore() as core:
+            cmds = core.getStormCmds()
+
+            reqs = []
+
+            query = await core.getStormQuery('')
+            async with core.getStormRuntime(query) as runt:
+                for name, ctor in cmds:
+                    cmd = ctor(runt, False)
+
+                    for optname, optinfo in cmd.pars.reqopts:
+                        if optname[0].startswith('-'):
+                            reqs.append((name, optname[0]))
+
+            self.len(0, reqs, '\n'.join([f'{k[0]}: {k[1]}' for k in reqs]))

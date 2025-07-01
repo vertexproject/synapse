@@ -4257,20 +4257,20 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('No triggers found', mesgs)
 
-            q = 'trigger.add node:add --form test:str --storm {[ test:int=1 ]} --name trigger_test_str'
+            q = 'trigger.add node:add --form test:str {[ test:int=1 ]} --name trigger_test_str'
             mesgs = await core.stormlist(q)
 
             await core.nodes('[ test:str=foo ]')
             self.len(1, await core.nodes('test:int'))
 
-            await core.nodes('trigger.add tag:add --form test:str --tag footag.* --storm {[ +#count test:str=$auto.opts.tag ]}')
+            await core.nodes('trigger.add tag:add --form test:str --tag footag.* {[ +#count test:str=$auto.opts.tag ]}')
 
             await core.nodes('[ test:str=bar +#footag.bar ]')
             await core.nodes('[ test:str=bar +#footag.bar ]')
             self.len(1, await core.nodes('#count'))
             self.len(1, await core.nodes('test:str=footag.bar'))
 
-            await core.nodes('trigger.add prop:set --disabled --prop test:type10:intprop --storm {[ test:int=6 ]}')
+            await core.nodes('trigger.add prop:set --disabled --prop test:type10:intprop {[ test:int=6 ]}')
 
             q = 'trigger.list'
             mesgs = await core.stormlist(q)
@@ -4324,43 +4324,40 @@ class StormTypesTest(s_test.SynTest):
             q = 'trigger.mod deadbeef12341234 --storm {#foo}'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            await core.nodes('trigger.add tag:add --tag another --storm {[ +#count2 ]}')
+            await core.nodes('trigger.add tag:add --tag another {[ +#count2 ]}')
 
             # Syntax mistakes
             mesgs = await core.stormlist('trigger.mod "" --storm {#foo}')
             self.stormIsInErr('matches more than one', mesgs)
 
-            mesgs = await core.stormlist('trigger.add tag:add --prop another:thing --storm {[ +#count2 ]}')
+            mesgs = await core.stormlist('trigger.add tag:add --prop another:thing {[ +#count2 ]}')
             self.stormIsInErr("data must contain ['tag'] properties", mesgs)
 
-            mesgs = await core.stormlist('trigger.add tag:add --tag hehe.haha --prop another --storm {[ +#count2 ]}')
+            mesgs = await core.stormlist('trigger.add tag:add --tag hehe.haha --prop another {[ +#count2 ]}')
             self.stormIsInErr("data.prop must match pattern", mesgs)
 
-            mesgs = await core.stormlist('trigger.add tug:udd --prop another:newp --storm {[ +#count2 ]}')
+            mesgs = await core.stormlist('trigger.add tug:udd --prop another:newp {[ +#count2 ]}')
             self.stormIsInErr('data.cond must be one of', mesgs)
 
-            mesgs = await core.stormlist('trigger.add tag:add --form inet:ip --tag test')
-            self.stormIsInErr('Missing a required option: --storm', mesgs)
-
-            mesgs = await core.stormlist('trigger.add node:add --form test:str --tag foo --storm {test:str}')
+            mesgs = await core.stormlist('trigger.add node:add --form test:str --tag foo {test:str}')
             self.stormIsInErr('tag must not be present for node:add or node:del', mesgs)
 
-            mesgs = await core.stormlist('trigger.add prop:set --tag foo --storm {test:str}')
+            mesgs = await core.stormlist('trigger.add prop:set --tag foo {test:str}')
             self.stormIsInErr("data must contain ['prop']", mesgs)
 
-            q = 'trigger.add prop:set --prop test:type10:intprop --tag foo --storm {test:str}'
+            q = 'trigger.add prop:set --prop test:type10:intprop --tag foo {test:str}'
             mesgs = await core.stormlist(q)
             self.stormIsInErr('form and tag must not be present for prop:set', mesgs)
 
-            mesgs = await core.stormlist('trigger.add node:add --tag tag1 --storm {test:str}')
+            mesgs = await core.stormlist('trigger.add node:add --tag tag1 {test:str}')
             self.stormIsInErr("data must contain ['form']", mesgs)
 
             # Bad storm syntax
-            mesgs = await core.stormlist('trigger.add node:add --form test:str --storm {[ | | test:int=1 ] }')
-            self.stormIsInErr("Unexpected token '|' at line 1, column 49", mesgs)
+            mesgs = await core.stormlist('trigger.add node:add --form test:str {[ | | test:int=1 ] }')
+            self.stormIsInErr("Unexpected token '|' at line 1, column 41", mesgs)
 
             # (Regression) Just a command as the storm query
-            q = 'trigger.add node:add --form test:str --storm {[ test:int=99 ] | spin }'
+            q = 'trigger.add node:add --form test:str {[ test:int=99 ] | spin }'
             mesgs = await core.stormlist(q)
             await core.nodes('[ test:str=foo4 ]')
             self.len(1, await core.nodes('test:int=99'))
@@ -4437,7 +4434,7 @@ class StormTypesTest(s_test.SynTest):
             forkview = await core.callStorm('return($lib.view.get().fork().iden)')
 
             forkopts = {'view': forkview}
-            await core.nodes('trigger.add tag:add --view $view --tag neato.* --storm {[ +#awesome ]}', opts={'vars': forkopts})
+            await core.nodes('trigger.add tag:add --view $view --tag neato.* {[ +#awesome ]}', opts={'vars': forkopts})
             mesgs = await core.stormlist('trigger.list', opts=forkopts)
             self.stormNotInPrint(mainview[:8], mesgs)
             self.stormIsInPrint(forkview[:8], mesgs)
@@ -4565,7 +4562,7 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('iden does not match any', mesgs)
 
-                q = 'trigger.add node:add --form test:str --storm {[ test:int=1 ]}'
+                q = 'trigger.add node:add --form test:str {[ test:int=1 ]}'
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('must have permission trigger.add', mesgs)
 

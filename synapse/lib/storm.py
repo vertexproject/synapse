@@ -62,20 +62,20 @@ from nodes of those forms.
 
 Examples:
     # Adds a tag to every inet:ipv4 added
-    trigger.add node:add --form inet:ipv4 --storm {[ +#mytag ]}
+    trigger.add node:add --form inet:ipv4 {[ +#mytag ]}
 
     # Adds a tag #todo to every node as it is tagged #aka
-    trigger.add tag:add --tag aka --storm {[ +#todo ]}
+    trigger.add tag:add --tag aka {[ +#todo ]}
 
     # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
-    trigger.add tag:add --form inet:ipv4 --tag aka --storm {[ +#todo ]}
+    trigger.add tag:add --form inet:ipv4 --tag aka {[ +#todo ]}
 
     # Adds a tag #todo to the N1 node of every refs edge add
-    trigger.add edge:add --verb refs --storm {[ +#todo ]}
+    trigger.add edge:add --verb refs {[ +#todo ]}
 
     # Adds a tag #todo to the N1 node of every seen edge delete, provided that
     # both nodes are of form file:bytes
-    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes --storm {[ +#todo ]}
+    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes {[ +#todo ]}
 '''
 
 addcrondescr = '''
@@ -801,13 +801,12 @@ stormcmds = (
         'descr': addtriggerdescr,
         'cmdargs': (
             ('condition', {'help': 'Condition for the trigger.'}),
+            ('storm', {'help': 'Storm query for the trigger to execute.'}),
             ('--form', {'help': 'Form to fire on.'}),
             ('--tag', {'help': 'Tag to fire on.'}),
             ('--prop', {'help': 'Property to fire on.'}),
             ('--verb', {'help': 'Edge verb to fire on.'}),
             ('--n2form', {'help': 'The form of the n2 node to fire on.'}),
-            ('--storm', {'help': 'Storm query for the trigger to execute.', 'required': True,
-                         'dest': 'storm', }),
             ('--async', {'default': False, 'action': 'store_true',
                          'help': 'Make the trigger run in the background.'}),
             ('--disabled', {'default': False, 'action': 'store_true',
@@ -2070,11 +2069,12 @@ class Runtime(s_base.Base):
         dopath = nodeopts.get('path', False)
         dolink = nodeopts.get('links', False)
         virts = nodeopts.get('virts', False)
+        verbs = nodeopts.get('verbs', True)
         show_storage = nodeopts.get('show:storage', False)
 
         async for node, path in self.execute():
 
-            pode = node.pack(dorepr=dorepr, virts=virts)
+            pode = node.pack(dorepr=dorepr, virts=virts, verbs=verbs)
             pode[1]['path'] = await path.pack(path=dopath)
 
             if (nodedata := path.getData(node.nid)) is not None:
