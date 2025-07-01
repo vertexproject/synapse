@@ -1200,7 +1200,7 @@ class Model:
 
         _type = self.types.get(tdef[0])
         if _type is None:
-            mesg = f'No type named {tdef[0]} while declaring form {name}.'
+            mesg = f'No type named {tdef[0]} while declaring prop {form.name}:{name}.'
             raise s_exc.NoSuchType(mesg=mesg, name=name)
 
         virts = _type.info.get('virts', {}).copy()
