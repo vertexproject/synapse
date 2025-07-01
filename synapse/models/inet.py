@@ -1245,7 +1245,10 @@ modeldefs = (
                 'doc': 'An instance of a file downloaded from a server.'}),
 
             ('inet:flow', ('guid', {}), {
-                'doc': 'An individual network connection between a given source and destination.'}),
+                'interfaces': (
+                    ('inet:proto:link', {'template': {'link': 'flow'}}),
+                ),
+                'doc': 'A network connection between a client and server.'}),
 
             ('inet:tunnel:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -1636,35 +1639,54 @@ modeldefs = (
 
         'interfaces': (
 
-            ('inet:proto:request', {
+            ('inet:proto:link', {
 
-                'doc': 'Properties common to network protocol requests and responses.',
-
+                'doc': 'Properties common to network protocol requests and transports.',
+                'template': {'link': 'link'},
                 'props': (
 
-                    ('time', ('time', {}), {
-                        'doc': 'The time the request was sent.'}),
-
                     ('flow', ('inet:flow', {}), {
-                        'doc': 'The network flow which contained the request.'}),
+                        'doc': 'The network flow which contained the {link}.'}),
 
                     ('client', ('inet:client', {}), {
                         'doc': 'The socket address of the client.'}),
 
                     ('client:host', ('it:host', {}), {
-                        'doc': 'The host that the request was sent from.'}),
+                        'doc': 'The client host which initiated the {link}.'}),
 
-                    ('client:proc', ('it:host:proc', {}), {
-                        'doc': 'The client process which sent the request.'}),
+                    ('client:proc', ('it:exec:proc', {}), {
+                        'doc': 'The client process which initiated the {link}.'}),
+
+                    ('client:exe', ('file:bytes', {}), {
+                        'doc': 'The client executable which initiated the {link}.'}),
 
                     ('server', ('inet:server', {}), {
                         'doc': 'The socket address of the server.'}),
 
                     ('server:host', ('it:host', {}), {
-                        'doc': 'The host that the request was sent to.'}),
+                        'doc': 'The server host which received the {link}.'}),
 
-                    ('server:proc', ('it:host:proc', {}), {
-                        'doc': 'The server process which responded to the request.'}),
+                    ('server:proc', ('it:exec:proc', {}), {
+                        'doc': 'The server process which received the {link}.'}),
+
+                    ('server:exe', ('file:bytes', {}), {
+                        'doc': 'The server executable which received the {link}.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
+                ),
+            }),
+
+            ('inet:proto:request', {
+
+                'doc': 'Properties common to network protocol requests and responses.',
+                'interfaces': (
+                    ('inet:proto:link', {'template': {'link': 'request'}}),
+                ),
+
+                'props': (
+                    ('time', ('time', {}), {
+                        'doc': 'The time the request was sent.'}),
                 ),
             }),
 
@@ -1970,18 +1992,6 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The period when the flow was active.'}),
 
-                ('flow', ('inet:flow', {}), {
-                    'doc': 'The network flow which encapsulated this flow.'})
-
-                ('server', ('inet:server', {}), {
-                    'doc': 'The server which accepted the flow.'}),
-
-                ('server:proc', ('it:host:proc', {}), {
-                    'doc': 'The process which received the flow.'}),
-
-                ('server:host', ('it:host', {}), {
-                    'doc': 'The host which received the flow.'}),
-
                 ('server:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of files sent by the destination host.'}),
 
@@ -1993,15 +2003,6 @@ modeldefs = (
 
                 ('server:handshake', ('text', {}), {
                     'doc': 'A text representation of the initial handshake sent by the server.'}),
-
-                ('client', ('inet:client', {}), {
-                    'doc': 'The client which initiated the flow.'}),
-
-                ('client:host', ('it:host', {}), {
-                    'doc': 'The host which initiated the flow.'}),
-
-                ('client:proc', ('it:host:proc', {}), {
-                    'doc': 'The process which initiated the flow.'}),
 
                 ('client:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of files sent by the source host.'}),
@@ -2651,7 +2652,7 @@ modeldefs = (
                     'doc': 'The keyboard layout sent by the client as part of an RDP session setup.'}),
             )),
 
-            ('inet:rdp:handshake', {}, (
+            ('inet:ssh:handshake', {}, (
 
                 ('server:key', ('crypto:key', {}), {
                     'doc': 'The key used by the SSH server.'}),
