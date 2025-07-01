@@ -423,13 +423,19 @@ def getTempDir(dirn=None):
 @contextlib.contextmanager
 def tmpfile(dirn: typing.Optional[str] = None, prefix: typing.Optional[str] = None):
     '''
-    Context manager to create a temporary file and close it when finished. If an
-    error occurs within the scope of the context manager, the tempfile will be
-    automatically deleted.
+    Context manager to create a temporary file and close the file descriptor it when finished.
+
+    Notes:
+        If an error occurs within the scope of the context manager, the tempfile will be
+        automatically deleted; otherwise it is the callers responsibility to clean up the
+        temporary tempfile by path.
 
     Args:
         dirn (Optional[str]): The optional directory name to create the tempfile in.
         prefix (Optional[str]): The optional tempfile name prefix.
+
+    Yields:
+        A tuple of the file descriptor and the file path.
     '''
     (_fd, path) = tempfile.mkstemp(dir=dirn, prefix=prefix)
 
