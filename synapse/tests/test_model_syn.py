@@ -253,12 +253,12 @@ class SynModelTest(s_t_utils.SynTest):
             self.true(node.get('extmodel'))
 
             # A deeper nested prop will have different base and relname values
-            nodes = await core.nodes('syn:prop="inet:flow:dst:host"')
+            nodes = await core.nodes('syn:prop="inet:flow:server:host"')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(('syn:prop', 'inet:flow:dst:host'), node.ndef)
+            self.eq(('syn:prop', 'inet:flow:server:host'), node.ndef)
             self.eq('host', node.get('base'))
-            self.eq('dst:host', node.get('relname'))
+            self.eq('server:host', node.get('relname'))
 
             # forms are also props but have some slightly different keys populated
             nodes = await core.nodes('syn:prop="test:type10"')

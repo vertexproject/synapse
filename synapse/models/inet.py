@@ -1245,7 +1245,10 @@ modeldefs = (
                 'doc': 'An instance of a file downloaded from a server.'}),
 
             ('inet:flow', ('guid', {}), {
-                'doc': 'An individual network connection between a given source and destination.'}),
+                'interfaces': (
+                    ('inet:proto:link', {'template': {'link': 'flow'}}),
+                ),
+                'doc': 'A network connection between a client and server.'}),
 
             ('inet:tunnel:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -1588,8 +1591,23 @@ modeldefs = (
                 ),
                 'doc': 'An individual file stored within a bucket.'}),
 
+            ('inet:rdp:handshake', ('guid', {}), {
+                'interfaces': (
+                    ('inet:proto:request', {}),
+                ),
+                'doc': 'An instance of an RDP handshake between a client and server.'}),
+
+            ('inet:ssh:handshake', ('guid', {}), {
+                'interfaces': (
+                    ('inet:proto:request', {}),
+                ),
+                'doc': 'An instance of an SSH handshake between a client and server.'}),
+
             ('inet:tls:handshake', ('guid', {}), {
-                'doc': 'An instance of a TLS handshake between a server and client.'}),
+                'interfaces': (
+                    ('inet:proto:request', {}),
+                ),
+                'doc': 'An instance of a TLS handshake between a client and server.'}),
 
             ('inet:tls:ja4', ('str', {'strip': True, 'regex': ja4_regex}), {
                 'doc': 'A JA4 TLS client fingerprint.'}),
@@ -1610,39 +1628,65 @@ modeldefs = (
                 'doc': 'A JA3 sample taken from a client.'}),
 
             ('inet:tls:servercert', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
-                'doc': 'An x509 certificate sent by a server for TLS.',
                 'ex': '(1.2.3.4:443, c7437790af01ae1bb2f8f3b684c70bf8)',
-            }),
+                'doc': 'An x509 certificate sent by a server for TLS.'}),
 
             ('inet:tls:clientcert', ('comp', {'fields': (('client', 'inet:client'), ('cert', 'crypto:x509:cert'))}), {
-                'doc': 'An x509 certificate sent by a client for TLS.',
                 'ex': '(1.2.3.4:443, 3fdf364e081c14997b291852d1f23868)',
-            }),
+                'doc': 'An x509 certificate sent by a client for TLS.'}),
+
         ),
 
         'interfaces': (
 
-            ('inet:proto:request', {
+            ('inet:proto:link', {
 
-                'doc': 'Properties common to network protocol requests and responses.',
-                'interfaces': (
-                    ('it:host:activity', {}),
-                ),
+                'doc': 'Properties common to network protocol requests and transports.',
+                'template': {'link': 'link'},
                 'props': (
+
                     ('flow', ('inet:flow', {}), {
-                        'doc': 'The raw inet:flow containing the request.'}),
+                        'doc': 'The network flow which contained the {link}.'}),
 
                     ('client', ('inet:client', {}), {
                         'doc': 'The socket address of the client.'}),
 
                     ('client:host', ('it:host', {}), {
-                        'doc': 'The host that the request was sent from.'}),
+                        'doc': 'The client host which initiated the {link}.'}),
+
+                    ('client:proc', ('it:exec:proc', {}), {
+                        'doc': 'The client process which initiated the {link}.'}),
+
+                    ('client:exe', ('file:bytes', {}), {
+                        'doc': 'The client executable which initiated the {link}.'}),
 
                     ('server', ('inet:server', {}), {
                         'doc': 'The socket address of the server.'}),
 
                     ('server:host', ('it:host', {}), {
-                        'doc': 'The host that the request was sent to.'}),
+                        'doc': 'The server host which received the {link}.'}),
+
+                    ('server:proc', ('it:exec:proc', {}), {
+                        'doc': 'The server process which received the {link}.'}),
+
+                    ('server:exe', ('file:bytes', {}), {
+                        'doc': 'The server executable which received the {link}.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
+                ),
+            }),
+
+            ('inet:proto:request', {
+
+                'doc': 'Properties common to network protocol requests and responses.',
+                'interfaces': (
+                    ('inet:proto:link', {'template': {'link': 'request'}}),
+                ),
+
+                'props': (
+                    ('time', ('time', {}), {
+                        'doc': 'The time the request was sent.'}),
                 ),
             }),
 
@@ -1945,60 +1989,32 @@ modeldefs = (
 
             ('inet:flow', {}, (
 
-                # FIXME period
-                ('time', ('time', {}), {
-                    'doc': 'The time the network connection was initiated.'}),
+                ('period', ('ival', {}), {
+                    'doc': 'The period when the flow was active.'}),
 
-                ('duration', ('int', {}), {
-                    'doc': 'The duration of the flow in seconds.'}),
+                ('server:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
+                    'doc': 'An array of files sent by the server.'}),
 
-                ('from', ('guid', {}), {
-                    'doc': 'The ingest source file/iden. Used for reparsing.'}),
+                ('server:txcount', ('int', {}), {
+                    'doc': 'The number of packets sent by the server.'}),
 
-                ('dst', ('inet:server', {}), {
-                    'doc': 'The destination address / port for a connection.'}),
+                ('server:txbytes', ('int', {}), {
+                    'doc': 'The number of bytes sent by the server.'}),
 
-                ('dst:host', ('it:host', {}), {
-                    'doc': 'The guid of the destination host.'}),
-
-                ('dst:proc', ('it:exec:proc', {}), {
-                    'doc': 'The guid of the destination process.'}),
-
-                ('dst:exe', ('file:bytes', {}), {
-                    'doc': 'The file (executable) that received the connection.'}),
-
-                ('dst:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
-                    'doc': 'An array of files sent by the destination host.'}),
-
-                ('dst:txcount', ('int', {}), {
-                    'doc': 'The number of packets sent by the destination host.'}),
-
-                ('dst:txbytes', ('int', {}), {
-                    'doc': 'The number of bytes sent by the destination host.'}),
-
-                ('dst:handshake', ('text', {}), {
+                ('server:handshake', ('text', {}), {
                     'doc': 'A text representation of the initial handshake sent by the server.'}),
 
-                ('src', ('inet:client', {}), {
-                    'doc': 'The source address / port for a connection.'}),
+                ('client:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
+                    'doc': 'An array of files sent by the client.'}),
 
-                ('src:host', ('it:host', {}), {
-                    'doc': 'The guid of the source host.'}),
+                ('client:txcount', ('int', {}), {
+                    'doc': 'The number of packets sent by the client.'}),
 
-                ('src:proc', ('it:exec:proc', {}), {
-                    'doc': 'The guid of the source process.'}),
+                ('client:txbytes', ('int', {}), {
+                    'doc': 'The number of bytes sent by the client.'}),
 
-                ('src:exe', ('file:bytes', {}), {
-                    'doc': 'The file (executable) that created the connection.'}),
-
-                ('src:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
-                    'doc': 'An array of files sent by the source host.'}),
-
-                ('src:txcount', ('int', {}), {
-                    'doc': 'The number of packets sent by the source host.'}),
-
-                ('src:txbytes', ('int', {}), {
-                    'doc': 'The number of bytes sent by the source host.'}),
+                ('client:handshake', ('text', {}), {
+                    'doc': 'A text representation of the initial handshake sent by the client.'}),
 
                 ('tot:txcount', ('int', {}), {
                     'doc': 'The number of packets sent in both directions.'}),
@@ -2006,20 +2022,17 @@ modeldefs = (
                 ('tot:txbytes', ('int', {}), {
                     'doc': 'The number of bytes sent in both directions.'}),
 
-                ('src:handshake', ('text', {}), {
-                    'doc': 'A text representation of the initial handshake sent by the client.'}),
+                ('server:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of NIST CPEs identified on the server.'}),
 
-                ('dst:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of NIST CPEs identified on the destination host.'}),
+                ('server:softnames', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of software names identified on the server.'}),
 
-                ('dst:softnames', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of software names identified on the destination host.'}),
+                ('client:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of NIST CPEs identified on the client.'}),
 
-                ('src:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of NIST CPEs identified on the source host.'}),
-
-                ('src:softnames', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of software names identified on the source host.'}),
+                ('client:softnames', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of software names identified on the client.'}),
 
                 ('ip:proto', ('int', {'min': 0, 'max': 0xff}), {
                     'doc': 'The IP protocol number of the flow.'}),
@@ -2027,32 +2040,8 @@ modeldefs = (
                 ('ip:tcp:flags', ('int', {'min': 0, 'max': 0xff}), {
                     'doc': 'An aggregation of observed TCP flags commonly provided by flow APIs.'}),
 
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-
-                ('src:ssl:cert', ('crypto:x509:cert', {}), {
-                    'doc': 'The x509 certificate sent by the client as part of an SSL/TLS negotiation.'}),
-
-                ('dst:ssl:cert', ('crypto:x509:cert', {}), {
-                    'doc': 'The x509 certificate sent by the server as part of an SSL/TLS negotiation.'}),
-
-                ('src:rdp:hostname', ('it:hostname', {}), {
-                    'doc': 'The hostname sent by the client as part of an RDP session setup.'}),
-
-                ('src:rdp:keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'The keyboard layout sent by the client as part of an RDP session setup.'}),
-
-                ('src:ssh:key', ('crypto:key', {}), {
-                    'doc': 'The key sent by the client as part of an SSH session setup.'}),
-
-                ('dst:ssh:key', ('crypto:key', {}), {
-                    'doc': 'The key sent by the server as part of an SSH session setup.'}),
-
                 ('capture:host', ('it:host', {}), {
                     'doc': 'The host which captured the flow.'}),
-
-                ('raw', ('data', {}), {
-                    'doc': 'A raw record used to create the flow which may contain additional protocol details.'}),
             )),
 
             ('inet:tunnel:type:taxonomy', {}, ()),
@@ -2647,16 +2636,25 @@ modeldefs = (
                     'doc': 'The server which responded to the TLS handshake with a JA4S fingerprint.'}),
             )),
 
+            ('inet:rdp:handshake', {}, (
+
+                ('client:hostname', ('it:hostname', {}), {
+                    'doc': 'The hostname sent by the client as part of an RDP session setup.'}),
+
+                ('client:keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'The keyboard layout sent by the client as part of an RDP session setup.'}),
+            )),
+
+            ('inet:ssh:handshake', {}, (
+
+                ('server:key', ('crypto:key', {}), {
+                    'doc': 'The key used by the SSH server.'}),
+
+                ('client:key', ('crypto:key', {}), {
+                    'doc': 'The key used by the SSH client.'}),
+            )),
+
             ('inet:tls:handshake', {}, (
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the handshake was initiated.'}),
-
-                ('flow', ('inet:flow', {}), {
-                    'doc': 'The raw inet:flow associated with the handshake.'}),
-
-                ('server', ('inet:server', {}), {
-                    'doc': 'The TLS server during the handshake.'}),
 
                 ('server:cert', ('crypto:x509:cert', {}), {
                     'doc': 'The x509 certificate sent by the server during the handshake.'}),
@@ -2667,8 +2665,8 @@ modeldefs = (
                 ('server:ja4s', ('inet:tls:ja4s', {}), {
                     'doc': 'The JA4S fingerprint of the server response.'}),
 
-                ('client', ('inet:client', {}), {
-                    'doc': 'The TLS client during the handshake.'}),
+                ('server:jarmhash', ('inet:tls:jarmhash', {}), {
+                    'doc': 'The JARM hash computed from the server response.'}),
 
                 ('client:cert', ('crypto:x509:cert', {}), {
                     'doc': 'The x509 certificate sent by the client during the handshake.'}),
