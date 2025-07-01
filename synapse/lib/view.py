@@ -164,7 +164,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
         saveoff, nodeedits = await wlyr.saveNodeEdits(edits, meta)
 
-        fireedit = (bus is not None and bus.view.iden == self.iden)
+        ecnt = 0
+        fireedits = None
+        if bus is not None and bus.view.iden == self.iden:
+            fireedits = []
 
         # make a pass through the returned edits, apply the changes to our Nodes()
         # and collect up all the callbacks to fire at once at the end.  It is
@@ -180,6 +183,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 if node is None:  # pragma: no cover
                     continue
 
+            if fireedits is not None:
+                ecnt += len(edits)
+                editset = []
+
             for edit in edits:
 
                 etyp, parms = edit
@@ -187,18 +194,27 @@ class View(s_nexus.Pusher):  # type: ignore
                 if etyp == s_layer.EDIT_NODE_ADD:
                     callbacks.append((node.form.wasAdded, (node,)))
                     callbacks.append((self.runNodeAdd, (node,)))
+
+                    if fireedits is not None:
+                        editset.append(edit)
                     continue
 
                 if etyp == s_layer.EDIT_NODE_DEL or etyp == s_layer.EDIT_NODE_TOMB:
                     callbacks.append((node.form.wasDeleted, (node,)))
                     callbacks.append((self.runNodeDel, (node,)))
                     self.clearCachedNode(nid)
+
+                    if fireedits is not None:
+                        editset.append(edit)
                     continue
 
                 if etyp == s_layer.EDIT_NODE_TOMB_DEL:
                     if not node.istomb():
                         callbacks.append((node.form.wasAdded, (node,)))
                         callbacks.append((self.runNodeAdd, (node,)))
+
+                        if fireedits is not None:
+                            editset.append(edit)
                     continue
 
                 if etyp == s_layer.EDIT_PROP_SET:
@@ -212,20 +228,26 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     callbacks.append((prop.wasSet, (node, oldv)))
                     callbacks.append((self.runPropSet, (node, prop, oldv)))
+
+                    if fireedits is not None:
+                        editset.append(edit)
                     continue
 
                 if etyp == s_layer.EDIT_PROP_TOMB_DEL:
 
                     (name,) = parms
 
-                    if (oldv := node.get(name)) is not None:
+                    if (oldv := node.getWithVirts(name)) is not None:
                         prop = node.form.props.get(name)
                         if prop is None:  # pragma: no cover
                             logger.warning(f'saveNodeEdits got EDIT_PROP_TOMB_DEL for bad prop {name} on form {node.form.full}')
                             continue
 
-                        callbacks.append((prop.wasSet, (node, oldv)))
-                        callbacks.append((self.runPropSet, (node, prop, oldv)))
+                        callbacks.append((prop.wasSet, (node, oldv[0])))
+                        callbacks.append((self.runPropSet, (node, prop, oldv[0])))
+
+                        if fireedits is not None:
+                            editset.append((etyp, (name, *oldv)))
                     continue
 
                 if etyp == s_layer.EDIT_PROP_DEL:
@@ -239,6 +261,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     callbacks.append((prop.wasDel, (node, oldv)))
                     callbacks.append((self.runPropSet, (node, prop, oldv)))
+
+                    if fireedits is not None:
+                        editset.append(edit)
                     continue
 
                 if etyp == s_layer.EDIT_PROP_TOMB:
@@ -256,6 +281,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     callbacks.append((prop.wasDel, (node, oldv)))
                     callbacks.append((self.runPropSet, (node, prop, oldv)))
+
+                    if fireedits is not None:
+                        editset.append(edit)
                     continue
 
                 if etyp == s_layer.EDIT_TAG_SET:
@@ -263,6 +291,9 @@ class View(s_nexus.Pusher):  # type: ignore
                     (tag, valu, oldv) = parms
 
                     callbacks.append((self.runTagAdd, (node, tag, valu)))
+
+                    if fireedits is not None:
+                        editset.append(edit)
                     continue
 
                 if etyp == s_layer.EDIT_TAG_TOMB_DEL:
@@ -270,6 +301,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     if (oldv := node.getTag(tag)) is not None:
                         callbacks.append((self.runTagAdd, (node, tag, oldv)))
+
+                        if fireedits is not None:
+                            editset.append((etyp, (tag, oldv)))
                     continue
 
                 if etyp == s_layer.EDIT_TAG_DEL:
@@ -277,6 +311,9 @@ class View(s_nexus.Pusher):  # type: ignore
                     (tag, oldv) = parms
 
                     callbacks.append((self.runTagDel, (node, tag, oldv)))
+
+                    if fireedits is not None:
+                        editset.append(edit)
                     continue
 
                 if etyp == s_layer.EDIT_TAG_TOMB:
@@ -288,23 +325,40 @@ class View(s_nexus.Pusher):  # type: ignore
                         continue
 
                     callbacks.append((self.runTagDel, (node, tag, oldv)))
+
+                    if fireedits is not None:
+                        editset.append(edit)
                     continue
 
                 if etyp == s_layer.EDIT_EDGE_ADD or etyp == s_layer.EDIT_EDGE_TOMB_DEL:
                     verb, n2nid = parms
-                    n2nid = s_common.int64en(n2nid)
-                    callbacks.append((self.runEdgeAdd, (node, verb, n2nid)))
+                    n2ndef = self.core.getNidNdef(s_common.int64en(n2nid))
+                    callbacks.append((self.runEdgeAdd, (node, verb, n2ndef)))
+
+                    if fireedits is not None:
+                        editset.append((etyp, (verb, n2nid, n2ndef)))
+                    continue
 
                 if etyp == s_layer.EDIT_EDGE_DEL or etyp == s_layer.EDIT_EDGE_TOMB:
                     verb, n2nid = parms
-                    n2nid = s_common.int64en(n2nid)
-                    callbacks.append((self.runEdgeDel, (node, verb, n2nid)))
+                    n2ndef = self.core.getNidNdef(s_common.int64en(n2nid))
+                    callbacks.append((self.runEdgeDel, (node, verb, n2ndef)))
+
+                    if fireedits is not None:
+                        editset.append((etyp, (verb, n2nid, n2ndef)))
+                    continue
+
+                if fireedits is not None:
+                    editset.append(edit)
+
+            if fireedits is not None:
+                fireedits.append((intnid, node.ndef, editset))
 
         for func, args in callbacks:
             await func(*args)
 
-        if nodeedits and fireedit:
-            await bus.fire('node:edits', edits=nodeedits)
+        if fireedits:
+            await bus.fire('node:edits', edits=fireedits, time=meta.get('time'), count=ecnt)
 
         return saveoff, nodeedits
 
@@ -1178,16 +1232,17 @@ class View(s_nexus.Pusher):  # type: ignore
             if (sode := layr._getStorNode(nid)) is None:
                 continue
 
-            if sode.get('antivalu') is not None:
+            if not n2 and sode.get('antivalu') is not None:
                 return ecnt
 
             if (verbs := sode.get(key)) is None:
                 continue
 
             if verb is not None:
-                ecnt += verbs.get(verb, 0)
+                if (forms := verbs.get(verb)) is not None:
+                    ecnt += sum(forms.values())
             else:
-                ecnt += sum(verbs.values())
+                ecnt += sum([sum(form.values()) for form in verbs.values()])
 
         return ecnt
 
@@ -1694,8 +1749,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 assert editformat == 'count'
 
-                count = sum(len(edit[2]) for edit in mesg[1].get('edits', ()))
-                mesg = ('node:edits:count', {'count': count})
+                mesg = ('node:edits:count', {'count': mesg[1].get('count')})
                 yield mesg
                 continue
 
@@ -2271,19 +2325,19 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.triggers.runPropSet(node, prop, oldv)
 
-    async def runEdgeAdd(self, n1, edge, n2):
+    async def runEdgeAdd(self, n1, edge, n2ndef):
 
         if self.core.migration:
             return
 
-        await self.triggers.runEdgeAdd(n1, edge, n2)
+        await self.triggers.runEdgeAdd(n1, edge, n2ndef)
 
-    async def runEdgeDel(self, n1, edge, n2):
+    async def runEdgeDel(self, n1, edge, n2ndef):
 
         if self.core.migration:
             return
 
-        await self.triggers.runEdgeDel(n1, edge, n2)
+        await self.triggers.runEdgeDel(n1, edge, n2ndef)
 
     async def addTrigger(self, tdef):
         '''

@@ -2831,23 +2831,23 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.len(1, await core.nodes('[ inet:asn=200 :name=visi ]'))
+            self.len(1, await core.nodes('[ inet:asn=200 :owner:name=visi ]'))
             self.len(1, await core.nodes('[ inet:ip=1.2.3.4 :asn=200 ]'))
             self.len(1, await core.nodes('[ inet:ip=5.6.7.8 :asn=8080 ]'))
             self.len(1, await core.nodes('[ inet:ip=6.7.8.9 ]'))
 
-            self.len(1, await core.nodes('inet:asn=200 +:name=visi'))
+            self.len(1, await core.nodes('inet:asn=200 +:owner:name=visi'))
 
-            self.len(1, await core.nodes('inet:asn=200 +:name=visi'))
-            nodes = await core.nodes('inet:ip +:asn::name=visi')
+            self.len(1, await core.nodes('inet:asn=200 +:owner:name=visi'))
+            nodes = await core.nodes('inet:ip +:asn::owner:name=visi')
 
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
 
-            nodes = await core.nodes('inet:ip +:asn::name')
+            nodes = await core.nodes('inet:ip +:asn::owner:name')
             self.len(1, nodes)
 
-            self.len(1, await core.nodes('inet:ip.created +:asn::name'))
+            self.len(1, await core.nodes('inet:ip.created +:asn::owner:name'))
 
             await core.nodes('[ entity:contact=* :email=visi@vertex.link ]')
             nodes = await core.nodes('entity:contact +:email::fqdn=vertex.link')
@@ -2872,7 +2872,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             await core.nodes('[ risk:vulnerable=* :node=(inet:ip, 1.2.3.4) ]')
-            self.len(1, await core.nodes('risk:vulnerable +:node::asn::name'))
+            self.len(1, await core.nodes('risk:vulnerable +:node::asn::owner:name'))
 
             # try to pivot to a node that no longer exists
             await core.nodes('inet:asn | delnode --force')
@@ -5314,7 +5314,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 ip00 = await core00.nodes('[ inet:ip=3.3.3.3 ]')
 
                 await core00.nodes('$lib.queue.add(hehe)')
-                q = 'trigger.add node:add --form inet:fqdn --storm {$lib.queue.get(hehe).put($node.repr())}'
+                q = 'trigger.add node:add --form inet:fqdn {$lib.queue.get(hehe).put($node.repr())}'
                 msgs = await core00.stormlist(q)
 
                 ddef = await core00.callStorm('return($lib.dmon.add(${$lib.time.sleep(10)}, name=hehedmon))')
@@ -5570,7 +5570,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core00.nodes('[ inet:ip=1.2.3.4 ]')
                 await core00.nodes('$lib.queue.add(hehe)')
-                q = 'trigger.add node:add --form inet:fqdn --storm {$lib.queue.get(hehe).put($node.repr())}'
+                q = 'trigger.add node:add --form inet:fqdn {$lib.queue.get(hehe).put($node.repr())}'
                 await core00.nodes(q)
 
                 url = core00.getLocalUrl()

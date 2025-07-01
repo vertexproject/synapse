@@ -14,7 +14,7 @@ class TrigTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
 
-                await core.stormlist('trigger.add node:add --async --form inet:ip --storm { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
+                await core.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
 
                 await core.callStorm('[ inet:ip=1.2.3.4 ]')
 
@@ -62,7 +62,7 @@ class TrigTest(s_t_utils.SynTest):
                 await view.finiTrigTask()
 
                 opts = {'view': viewiden}
-                await core.stormlist('trigger.add node:add --async --form inet:ip --storm { [+#foo] $lib.queue.gen(foo).put($node.iden()) }', opts=opts)
+                await core.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden()) }', opts=opts)
                 nodes = await core.nodes('[ inet:ip=123.123.123.123 ]', opts=opts)
 
                 with self.raises(s_exc.CantMergeView):
@@ -81,7 +81,7 @@ class TrigTest(s_t_utils.SynTest):
             path01 = s_common.gendir(dirn, 'core01')
 
             async with self.getTestCore(dirn=path00) as core00:
-                await core00.stormlist('trigger.add node:add --async --form inet:ip --storm { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
+                await core00.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
 
                 await core00.view.finiTrigTask()
                 await core00.nodes('[ inet:ip=1.2.3.4 ]')
@@ -357,10 +357,10 @@ class TrigTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchIden, view.setTriggerInfo('newp', {'enabled': True}))
 
             # mop up some coverage
-            msgs = await core.stormlist('trigger.add tag:del --form inet:ip --tag zoinks --storm { [+#bar] }')
+            msgs = await core.stormlist('trigger.add tag:del --form inet:ip --tag zoinks { [+#bar] }')
             self.stormHasNoWarnErr(msgs)
 
-            msgs = await core.stormlist('trigger.add tag:del --tag zoinks.* --storm { [+#faz] }')
+            msgs = await core.stormlist('trigger.add tag:del --tag zoinks.* { [+#faz] }')
             self.stormHasNoWarnErr(msgs)
 
             nodes = await core.nodes('[ inet:ip=1.2.3.4 +#zoinks.foo -#zoinks ]')
@@ -584,9 +584,9 @@ class TrigTest(s_t_utils.SynTest):
 
             opts = {'view': view}
 
-            await core.nodes('trigger.add edge:add --verb refs --form test:int --storm { [ +#burrito ] }', opts=opts)   # n1 + edge
-            await core.nodes('trigger.add edge:add --verb refs --n2form test:int --storm { [ +#ping ]}', opts=opts)  # edge + n2
-            await core.nodes('trigger.add edge:add --verb refs --form test:int --n2form test:int --storm { [ +#pong ]}', opts=opts)  # n1 + verb + n2
+            await core.nodes('trigger.add edge:add --verb refs --form test:int { [ +#burrito ] }', opts=opts)   # n1 + edge
+            await core.nodes('trigger.add edge:add --verb refs --n2form test:int { [ +#ping ]}', opts=opts)  # edge + n2
+            await core.nodes('trigger.add edge:add --verb refs --form test:int --n2form test:int { [ +#pong ]}', opts=opts)  # n1 + verb + n2
 
             await core.nodes('[ test:str=foo <(refs)+ { [ test:str=bar ] } ]', opts=opts)  # fire the verb-only trigger
             await core.nodes('[ test:int=123 +(refs)> { [ test:str=biz ] } ]', opts=opts)  # fire the n1 trigger and the verb trigger
@@ -640,7 +640,7 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(node[0].getTag('pong'))
 
             # invalidate the cache
-            await core.nodes('trigger.add edge:add --verb refs --form test:int --n2form test:int --storm { [ +#invalid ]}', opts=opts)  # n1 + verb + n2
+            await core.nodes('trigger.add edge:add --verb refs --form test:int --n2form test:int { [ +#invalid ]}', opts=opts)  # n1 + verb + n2
 
             node = await core.nodes('[test:int=2468 <(refs)+ { [test:int=1357] }]', opts=opts)
             self.none(node[0].getTag('invalid'))
@@ -672,10 +672,10 @@ class TrigTest(s_t_utils.SynTest):
             self.len(0, await core.callStorm('return($lib.trigger.list())', opts=opts))
 
             # edge:del triggers
-            await core.nodes('trigger.add edge:del --verb refs  --storm { [ +#cookies ] | spin | iden $auto.opts.n2iden | [ +#milk ] }', opts=opts)  # only edge
-            await core.nodes('trigger.add edge:del --verb refs --form test:int --storm { [ +#cupcake ] }', opts=opts) # n1 form + edge
-            await core.nodes('trigger.add edge:del --verb refs --n2form test:int --storm { [ +#icecream ] }', opts=opts) # edge + n2 form
-            await core.nodes('trigger.add edge:del --verb refs --form test:int --n2form test:int --storm { [ +#croissant ] }', opts=opts) # n1 form + verb + n2 form
+            await core.nodes('trigger.add edge:del --verb refs  { [ +#cookies ] | spin | iden $auto.opts.n2iden | [ +#milk ] }', opts=opts)  # only edge
+            await core.nodes('trigger.add edge:del --verb refs --form test:int { [ +#cupcake ] }', opts=opts) # n1 form + edge
+            await core.nodes('trigger.add edge:del --verb refs --n2form test:int { [ +#icecream ] }', opts=opts) # edge + n2 form
+            await core.nodes('trigger.add edge:del --verb refs --form test:int --n2form test:int { [ +#croissant ] }', opts=opts) # n1 form + verb + n2 form
 
             await core.nodes('test:str=foo [ <(refs)- { test:str=bar }]', opts=opts)  # fire the verb-only trigger
             await core.nodes('test:int=123 | edges.del *', opts=opts)  # fire the n1 trigger and verb trigger
@@ -718,7 +718,7 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(node[0].getTag('croissant'))
             self.nn(node[0].getTag('cupcake'))
 
-            await core.nodes('trigger.add edge:del --verb refs --form test:int --n2form test:int --storm { [ +#scone ] }', opts=opts) # n1 form + verb + n2 form
+            await core.nodes('trigger.add edge:del --verb refs --form test:int --n2form test:int { [ +#scone ] }', opts=opts) # n1 form + verb + n2 form
             node = await core.nodes('test:int=1357 | [ -(refs)> { test:int=2468 } ]', opts=opts)
             self.nn(node[0].getTag('scone'))
 
@@ -769,10 +769,10 @@ class TrigTest(s_t_utils.SynTest):
 
             await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
 
-            await core.nodes('trigger.add edge:add --verb _foo* --storm { [ +#foo ] | spin | iden $auto.opts.n2iden | [+#other] }')
-            await core.nodes('trigger.add edge:add --verb _see* --form test:int --storm { [ +#n1 ] }')
-            await core.nodes('trigger.add edge:add --verb _r* --n2form test:int --storm { [ +#n2 ] }')
-            await core.nodes('trigger.add edge:add --verb _no** --form test:int --n2form test:str --storm { [ +#both ] }')
+            await core.nodes('trigger.add edge:add --verb _foo* { [ +#foo ] | spin | iden $auto.opts.n2iden | [+#other] }')
+            await core.nodes('trigger.add edge:add --verb _see* --form test:int { [ +#n1 ] }')
+            await core.nodes('trigger.add edge:add --verb _r* --n2form test:int { [ +#n2 ] }')
+            await core.nodes('trigger.add edge:add --verb _no** --form test:int --n2form test:str { [ +#both ] }')
 
             async with core.enterMigrationMode():
                 nodes = await core.nodes('[test:int=123 +(_foo:beep:boop)> { [test:str=neato] }]')
@@ -811,7 +811,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].getTag('both'))
 
-            await core.nodes('trigger.add edge:add --verb _not* --form test:int --n2form test:str --storm { [ +#cache.destroy ] }')
+            await core.nodes('trigger.add edge:add --verb _not* --form test:int --n2form test:str { [ +#cache.destroy ] }')
 
             nodes = await core.nodes('[test:int=135 +(_note)> { [ test:str=koolaidman ] } ]')
             self.len(1, nodes)
@@ -829,10 +829,10 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.none(nodes[0].getTag('foo'))
 
-            await core.nodes('trigger.add edge:del --verb _foo* --storm { [ +#del.none ] | spin | iden $auto.opts.n2iden | [+#del.other] }')
-            await core.nodes('trigger.add edge:del --verb _see* --form test:int --storm { [ +#del.one ] }')
-            await core.nodes('trigger.add edge:del --verb _r* --n2form test:int --storm { [ +#del.two ] }')
-            await core.nodes('trigger.add edge:del --verb _no** --form test:int --n2form test:str --storm { [ +#del.all ] }')
+            await core.nodes('trigger.add edge:del --verb _foo* { [ +#del.none ] | spin | iden $auto.opts.n2iden | [+#del.other] }')
+            await core.nodes('trigger.add edge:del --verb _see* --form test:int { [ +#del.one ] }')
+            await core.nodes('trigger.add edge:del --verb _r* --n2form test:int { [ +#del.two ] }')
+            await core.nodes('trigger.add edge:del --verb _no** --form test:int --n2form test:str { [ +#del.all ] }')
 
             async with core.enterMigrationMode():
                 nodes = await core.nodes('test:int=123 | [ -(_foo:beep:boop)> { test:str=neato } ]')
@@ -863,7 +863,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].getTag('del.all'))
 
-            await core.nodes('trigger.add edge:del --verb _no** --form test:int --n2form test:str --storm { [ +#cleanup ] }')
+            await core.nodes('trigger.add edge:del --verb _no** --form test:int --n2form test:str { [ +#cleanup ] }')
 
             nodes = await core.nodes('test:int=12345 | [ -(_note)> { test:str=scrambledeggs } ]')
             self.len(1, nodes)
@@ -872,8 +872,8 @@ class TrigTest(s_t_utils.SynTest):
 
             view = await core.callStorm('return ($lib.view.get().fork().iden)')
             opts = {'view': view}
-            await core.nodes('trigger.add edge:del --verb _no** --form test:str --storm { [ +#coffee ] }', opts=opts)
-            await core.nodes('trigger.add edge:del --verb _no** --form test:str --n2form test:str --storm { [ +#oeis.a000668 ] }', opts=opts)
+            await core.nodes('trigger.add edge:del --verb _no** --form test:str { [ +#coffee ] }', opts=opts)
+            await core.nodes('trigger.add edge:del --verb _no** --form test:str --n2form test:str { [ +#oeis.a000668 ] }', opts=opts)
 
             await core.nodes('[test:str=mersenne test:str=prime]')
             await core.nodes('test:str=mersenne [ +(_notes)> { test:str=prime } ]', opts=opts)

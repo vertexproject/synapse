@@ -492,7 +492,7 @@ class ViewTest(s_t_utils.SynTest):
                 return($view.iden)
             ''')
 
-            await core.nodes('trigger.add node:add --form ou:org --storm {[+#foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:add --form ou:org {[+#foo]}', opts={'view': view})
 
             nodes = await core.nodes('[ ou:org=* ]')
             self.len(0, await core.nodes('ou:org', opts={'view': view}))
@@ -507,7 +507,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:org +#foo', opts={'view': view}))
 
             # test node:del triggers
-            await core.nodes('trigger.add node:del --form ou:org --storm {[test:str=foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:del --form ou:org {[test:str=foo]}', opts={'view': view})
 
             nextoffs = await core.getView(iden=view).layers[0].getEditIndx()
 
@@ -534,8 +534,8 @@ class ViewTest(s_t_utils.SynTest):
                 return($view.iden)
             ''')
 
-            await core.nodes('trigger.add node:add --form ou:org --storm {[+#foo]}', opts={'view': view})
-            await core.nodes('trigger.add node:del --form inet:ip --storm {[test:str=foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:add --form ou:org {[+#foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:del --form inet:ip {[test:str=foo]}', opts={'view': view})
 
             await core.nodes('[ ou:org=* ]')
             self.len(0, await core.nodes('ou:org', opts={'view': view}))
@@ -582,7 +582,7 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.addTagProp('score', ('int', {}), {})
 
-            await core.nodes('trigger.add node:del --storm { $lib.globals.trig = $lib.true } --form test:str')
+            await core.nodes('trigger.add node:del { $lib.globals.trig = $lib.true } --form test:str')
 
             await core.nodes('[ test:str=foo :hehe=hifoo +#test ]')
             await core.nodes('[ test:arrayprop=$arrayguid :strs=(faz, baz) ]', opts=opts)
@@ -1575,3 +1575,47 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(['bar', 'bararray', 'baz'], [n.valu() for n in nodes])
             for node in nodes:
                 self.eq('test:str', node.form.name)
+
+    async def test_view_edge_counts(self):
+
+        async with self.getTestCore() as core:
+
+            view = core.getView()
+
+            nodes = await core.nodes('[ test:str=cool +(refs)> {[ test:str=n1edge ]} <(refs)+ {[ test:int=2 ]} ]')
+            nid = nodes[0].nid
+            self.eq(1, view.getEdgeCount(nid))
+            self.eq(1, view.getEdgeCount(nid, n2=True))
+            self.eq(1, view.getEdgeCount(nid, verb='refs'))
+
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+            forkview = core.getView(fork)
+            forkopts = {'view': fork}
+            q = 'test:str=cool [ +(refs)> {[ test:int=1 ]} <(refs)+ {[ test:int=3 ]} ]'
+            nodes = await core.nodes(q, opts=forkopts)
+
+            fork2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)
+            fork2view = core.getView(fork2)
+            fork2opts = {'view': fork2}
+
+            # Tombstoning a node clears n1 edges
+            nodes = await core.nodes('test:int=2', opts=fork2opts)
+            nid = nodes[0].nid
+            self.eq(1, fork2view.getEdgeCount(nid))
+            self.eq(1, fork2view.getEdgeCount(nid, verb='refs'))
+
+            await core.nodes('test:int=2 | delnode', opts=forkopts)
+            await core.nodes('[ test:int=2 ]', opts=fork2opts)
+            self.eq(0, fork2view.getEdgeCount(nid))
+            self.eq(0, fork2view.getEdgeCount(nid, verb='refs'))
+
+            # Tombstoning a node does not clear n2 edges
+            nodes = await core.nodes('test:int=1', opts=fork2opts)
+            nid = nodes[0].nid
+            self.eq(1, fork2view.getEdgeCount(nid, n2=True))
+            self.eq(1, fork2view.getEdgeCount(nid, verb='refs', n2=True))
+
+            nodes = await core.nodes('test:int=1 | delnode --force', opts=forkopts)
+            nodes = await core.nodes('[ test:int=1 ]', opts=fork2opts)
+            self.eq(1, fork2view.getEdgeCount(nid, n2=True))
+            self.eq(1, fork2view.getEdgeCount(nid, verb='refs', n2=True))
