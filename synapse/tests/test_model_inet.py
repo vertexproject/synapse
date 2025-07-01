@@ -2359,6 +2359,7 @@ class InetModelTest(s_t_utils.SynTest):
                         :server=$server
                         :server:cert=*
                         :server:ja3s=$ja3s
+                        :server:jarmhash=07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1
                         :client=$client
                         :client:cert=*
                         :client:ja3=$ja3
@@ -2369,6 +2370,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('flow'))
             self.nn(nodes[0].get('server:cert'))
             self.nn(nodes[0].get('client:cert'))
+            self.eq(nodes[0].get('server:jarmhash'), '07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1')
 
             self.eq(props['ja3'], nodes[0].get('client:ja3'))
             self.eq(props['ja3s'], nodes[0].get('server:ja3s'))

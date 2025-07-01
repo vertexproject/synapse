@@ -1993,25 +1993,25 @@ modeldefs = (
                     'doc': 'The period when the flow was active.'}),
 
                 ('server:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
-                    'doc': 'An array of files sent by the destination host.'}),
+                    'doc': 'An array of files sent by the server.'}),
 
                 ('server:txcount', ('int', {}), {
-                    'doc': 'The number of packets sent by the destination host.'}),
+                    'doc': 'The number of packets sent by the server.'}),
 
                 ('server:txbytes', ('int', {}), {
-                    'doc': 'The number of bytes sent by the destination host.'}),
+                    'doc': 'The number of bytes sent by the server.'}),
 
                 ('server:handshake', ('text', {}), {
                     'doc': 'A text representation of the initial handshake sent by the server.'}),
 
                 ('client:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
-                    'doc': 'An array of files sent by the source host.'}),
+                    'doc': 'An array of files sent by the client.'}),
 
                 ('client:txcount', ('int', {}), {
-                    'doc': 'The number of packets sent by the source host.'}),
+                    'doc': 'The number of packets sent by the client.'}),
 
                 ('client:txbytes', ('int', {}), {
-                    'doc': 'The number of bytes sent by the source host.'}),
+                    'doc': 'The number of bytes sent by the client.'}),
 
                 ('client:handshake', ('text', {}), {
                     'doc': 'A text representation of the initial handshake sent by the client.'}),
@@ -2023,16 +2023,16 @@ modeldefs = (
                     'doc': 'The number of bytes sent in both directions.'}),
 
                 ('server:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of NIST CPEs identified on the destination host.'}),
+                    'doc': 'An array of NIST CPEs identified on the server.'}),
 
                 ('server:softnames', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of software names identified on the destination host.'}),
+                    'doc': 'An array of software names identified on the serer.'}),
 
                 ('client:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of NIST CPEs identified on the source host.'}),
+                    'doc': 'An array of NIST CPEs identified on the client.'}),
 
                 ('client:softnames', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of software names identified on the source host.'}),
+                    'doc': 'An array of software names identified on the client.'}),
 
                 ('ip:proto', ('int', {'min': 0, 'max': 0xff}), {
                     'doc': 'The IP protocol number of the flow.'}),
@@ -2664,6 +2664,9 @@ modeldefs = (
 
                 ('server:ja4s', ('inet:tls:ja4s', {}), {
                     'doc': 'The JA4S fingerprint of the server response.'}),
+
+                ('server:jarmhash', ('inet:tls:jarmhash', {}), {
+                    'doc': 'The JARM hash computed from the server response.'}),
 
                 ('client:cert', ('crypto:x509:cert', {}), {
                     'doc': 'The x509 certificate sent by the client during the handshake.'}),
