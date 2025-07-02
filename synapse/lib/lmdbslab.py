@@ -560,6 +560,14 @@ class MultiQueue(s_base.Base):
         return [self.status(n) for n in self.queues.keys()]
 
     def status(self, name):
+        '''
+        Retrieve the current status of the queue, including dynamic fields.
+
+        Note:
+            The returned dictionary includes 'size' and 'offs', which represent
+            the current queue size and offset. These fields are not user settable
+            at queue creation time. To get these values, use this status API.
+        '''
 
         meta = self.queues.get(name)
         if meta is None:
