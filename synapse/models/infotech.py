@@ -651,7 +651,7 @@ modeldefs = (
             ('it:hosturl', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
                 'doc': 'A url hosted on or served by a host or system.'}),
 
-            ('it:screenshot', ('guid', {}), {
+            ('it:exec:screenshot', ('guid', {}), {
                 'interfaces': (
                     ('it:host:activity', {}),
                 ),
@@ -1240,6 +1240,10 @@ modeldefs = (
                 ('type', ('it:network:type:taxonomy', {}), {
                     'doc': 'The type of network.'}),
 
+                ('period', ('ival', {}), {
+                    'doc': 'The period when the network existed.'}),
+
+                # FIXME ownable / owner / operatable?
                 ('org', ('ou:org', {}), {
                     'doc': 'The org that owns/operates the network.'}),
 
@@ -1336,9 +1340,6 @@ modeldefs = (
                 ('creds', ('array', {'type': 'auth:credential', 'sorted': True, 'uniq': True}), {
                     'doc': 'The credentials that were used to login.'}),
 
-                ('duration', ('duration', {}), {
-                    'doc': 'The duration of the login session.'}),
-
                 ('flow', ('inet:flow', {}), {
                     'doc': 'The network flow which initiated the login.'}),
             )),
@@ -1352,7 +1353,7 @@ modeldefs = (
                     'ro': True,
                     'doc': 'URL available on the host.'}),
             )),
-            ('it:screenshot', {}, (
+            ('it:exec:screenshot', {}, (
 
                 ('image', ('file:bytes', {}), {
                     'doc': 'The image file.'}),

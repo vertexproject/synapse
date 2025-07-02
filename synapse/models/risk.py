@@ -329,6 +329,9 @@ modeldefs = (
             (('meta:event', 'caused', 'risk:outage'), {
                 'doc': 'The event caused the outage.'}),
 
+            (('risk:attack', 'caused', 'risk:alert'), {
+                'doc': 'The attack caused the alert.'}),
+
             (('risk:attack', 'caused', 'risk:outage'), {
                 'doc': 'The attack caused the outage.'}),
 
@@ -722,9 +725,6 @@ modeldefs = (
 
                 ('success', ('bool', {}), {
                     'doc': 'Set if the attack was known to have succeeded or not.'}),
-
-                ('targeted', ('bool', {}), {
-                    'doc': 'Set if the attack was assessed to be targeted or not.'}),
 
                 ('goal', ('ou:goal', {}), {
                     'doc': 'The tactical goal of this specific attack.'}),

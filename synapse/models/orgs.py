@@ -162,6 +162,9 @@ modeldefs = (
                 'doc': 'A position within an org which can be organized into an org chart with replacable contacts.'}),
 
             ('ou:attendee', ('guid', {}), {
+                'interfaces': (
+                    ('entity:contactable', {'template': {'contactable': 'attendee'}}),
+                ),
                 'doc': 'An individual attending an organized event.'}),
 
             ('ou:meet', ('guid', {}), {
@@ -964,7 +967,7 @@ modeldefs = (
                     'doc': 'The time period when the person attended the event.'}),
 
                 ('roles', ('array', {'type': 'entity:title', 'split': ',', 'uniq': True, 'sorted': True}), {
-                    'doc': 'List of the titles/roles the person had at the event.'}),
+                    'doc': 'List of the roles the person had at the event.'}),
 
                 ('event', ('ou:attendable', {}), {
                     'prevnames': ('meet', 'conference', 'conference:event', 'contest', 'preso'),
