@@ -576,7 +576,7 @@ modeldefs = (
 
             ('risk:alert:verdict:taxonomy', {}, {}),
             ('risk:alert', {}, (
-                # TODO - This is REALLY close to meta:sourced
+                # FIXME - This is REALLY close to meta:sourced
 
                 ('type', ('risk:alert:type:taxonomy', {}), {
                     'doc': 'A type for the alert, as a taxonomy entry.'}),
