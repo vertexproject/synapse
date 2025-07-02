@@ -386,6 +386,10 @@ class CellApi(s_base.Base):
     async def handoff(self, turl, timeout=30):
         return await self.cell.handoff(turl, timeout=timeout)
 
+    @adminapi(log=True)
+    async def demote(self, timeout=None):
+        return await self.cell.demote(timeout=timeout)
+
     def getCellUser(self):
         return self.user.pack()
 
@@ -1029,6 +1033,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'The username of this service when connecting to others.',
             'type': 'string',
         },
+        'aha:promotable': {
+            'description': 'Set to false to prevent this service from being promoted to leader.',
+            'type': 'boolean',
+            'default': True,
+        },
         'aha:leader': {
             'description': 'The AHA service name to claim as the active instance of a storm service.',
             'type': 'string',
@@ -1555,6 +1564,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         extra = await self.getLogExtra()
         logger.warning('Graceful shutdown initiated...', extra=extra)
+
+        # if we're the leader, lets see if we can handoff...
+        if self.isactive and self.ahaclient is not None:
+            peers = await self._getDemotePeers(timeout=timeout)
+            if peers:
+                if not await self.demote(peers=peers, timeout=timeout): # pragma: no cover
+                    logger.warning('...we are the leader and failed to demote. Aborting shutdown.', extra=extra)
+                    return False
 
         if not await self.boss.shutdown(timeout=timeout):
             logger.warning('...tasks did not complete within timeout. Aborting shutdown.', extra=extra)
@@ -2132,6 +2149,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'leader': ahalead,
             'urlinfo': urlinfo,
             'ready': ready,
+            'promotable': self.conf.get('aha:promotable'),
         }
 
         return ahainfo
@@ -2356,11 +2374,92 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logger.warning(f'HANDOFF: Done performing the leadership handoff with {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
 
-    async def reqAhaProxy(self, timeout=None):
+    async def _getDemotePeers(self, timeout=None):
+
+        ahaproxy = await self.reqAhaProxy(timeout=timeout, feats=[('getAhaSvcsByIden', 1)])
+
+        retn = []
+        async for svcdef in ahaproxy.getAhaSvcsByIden(self.iden, skiprun=self.runid):
+
+            if not svcdef['svcinfo'].get('promotable'): # pragma: no cover
+                continue
+
+            retn.append(svcdef)
+
+        return retn
+
+    async def demote(self, peers=None, timeout=None):
+
+        logger.warning('Service demotion requested. Locating a suitable service for promotion...')
+
+        extra = await self.getLogExtra()
+
+        if not self.isactive:
+            logger.warning('...service is not the leader. Aborting demotion.', extra=extra)
+            return False
+
+        user = self.conf.get('aha:user')
+
+        if peers is None:
+            peers = await self._getDemotePeers(timeout=timeout)
+
+        if not peers:
+            logger.warning('...no suitable services discovered. Aborting demotion.', extra=extra)
+            return False
+
+        try:
+
+            async with await s_base.Base.anit() as base:
+
+                cands = []
+
+                for svcdef in peers:
+
+                    name = svcdef.get('name')
+
+                    try:
+                        svcproxy = await base.enter_context(await s_telepath.openurl(f'aha://{user}@{name}'))
+
+                        svcindx = await svcproxy.getNexsIndx()
+                        cands.append((svcindx, svcproxy))
+
+                    except Exception as e:
+                        logger.warning(f'...error retrieving nexus index for {name}: {s_exc.reprexc(e)}. Skipping.', extra=extra)
+
+                if not cands:
+                    logger.warning('...no suitable services discovered. Aborting demotion.', extra=extra)
+                    return False
+
+                for svcindx, svcproxy in sorted(cands):
+
+                    try:
+                        await svcproxy.promote(graceful=True)
+
+                        logger.warning(f'... successfully promoted: {svcproxy._ahainfo["name"]}', extra=extra)
+                        return True
+
+                    except Exception as e:
+                        logger.warning(f'...error promoting {svcproxy._ahainfo["name"]}. Skipping.', extra=extra)
+
+        except Exception as e:
+            logger.exception(f'...error demoting service: {s_exc.reprexc(e)}', extra=extra)
+            return False
+
+    async def reqAhaProxy(self, timeout=None, feats=None):
+
         if self.ahaclient is None:
             mesg = 'AHA is not configured on this service.'
             raise s_exc.NeedConfValu(mesg=mesg)
-        return await self.ahaclient.proxy(timeout=timeout)
+
+        proxy = await self.ahaclient.proxy(timeout=timeout)
+
+        if feats is not None:
+            for name, vers in feats:
+                if not proxy._hasTeleFeat(name, vers):
+                    mesg = f'AHA server does not support feature: {name} >= {vers}'
+                    raise s_exc.BadVersion(mesg=mesg)
+
+        return proxy
 
     async def _setAhaActive(self):
 

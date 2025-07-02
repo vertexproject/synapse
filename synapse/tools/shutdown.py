@@ -16,6 +16,8 @@ tasks do not exit.
 The command exits with code 0 if the graceful shutdown was successful and
 exit code 1 if a timeout was specified and was hit. Upon hitting the timeout
 the system resumes normal operation.
+
+NOTE: This will also demote the service if run on a leader with mirrors.
 '''
 
 async def main(argv, outp=s_output.stdout):
