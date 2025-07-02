@@ -6,6 +6,83 @@
 Synapse Changelog
 *****************
 
+v2.214.0 - 2025-07-02
+=====================
+
+Automatic Migrations
+--------------------
+- Removed AuthGates for Queues which no longer exist in the Cortex.
+  (`#4370 <https://github.com/vertexproject/synapse/pull/4370>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added ``inet:service:instance:app`` to capture the app containing the
+  instance.
+  (`#4365 <https://github.com/vertexproject/synapse/pull/4365>`_)
+- Added ``:app`` to the ``inet:service:object`` interface to capture the app
+  containing the object.
+  (`#4365 <https://github.com/vertexproject/synapse/pull/4365>`_)
+- See :ref:`userguide_model_v2_214_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``synapse.tools.cortex.layer.dump`` and
+  ``synapse.tools.cortex.layer.load`` command line tools for exporting node
+  edits from one layer and importing them to a layer on a different cortex.
+  (`#4325 <https://github.com/vertexproject/synapse/pull/4325>`_)
+- Added a tool, ``synapse.tools.pkgs.gendocs``, for converting Storm package
+  documentation from RST to Markdown.
+  (`#4331 <https://github.com/vertexproject/synapse/pull/4331>`_)
+- Added ``synapse.tools.axon.dump`` and ``synapse.tools.axon.load`` command
+  line tools for exporting blobs from one Axon and importing them to another.
+  (`#4333 <https://github.com/vertexproject/synapse/pull/4333>`_)
+- Updated Cortex Storm pool behavior to prefer all remote pool members before
+  the local leader.
+  (`#4336 <https://github.com/vertexproject/synapse/pull/4336>`_)
+- Added CLI tool ``synapse.tools.shutdown`` to facilitate graceful shutdown of
+  services by allowing them to complete current tasks.
+  (`#4336 <https://github.com/vertexproject/synapse/pull/4336>`_)
+- Remove runtsafety requirement for ``init``, ``fini``, and ``empty`` blocks in
+  Storm.
+  (`#4340 <https://github.com/vertexproject/synapse/pull/4340>`_)
+- Added ``synapse.tools.demote`` CLI tool to allow automatic demotion of
+  service leaders.
+  (`#4341 <https://github.com/vertexproject/synapse/pull/4341>`_)
+- Improved console logging by dropping warning messages for failed
+  normalization properties of a GUID based dictionary object.
+  (`#4360 <https://github.com/vertexproject/synapse/pull/4360>`_)
+- Updated dictionary GUID syntax to allow nested use when adding or lifting
+  nodes.
+  (`#4362 <https://github.com/vertexproject/synapse/pull/4362>`_)
+- Added more utility APIs for working with the Drive class.
+  (`#4366 <https://github.com/vertexproject/synapse/pull/4366>`_)
+
+Bugfixes
+--------
+- Fixed incorrect output in the graph command when multiple global pivots were
+  specified.
+  (`#4343 <https://github.com/vertexproject/synapse/pull/4343>`_)
+- Improved error handling when connecting to local cells by raising ``LinkErr``
+  if the socket is not listening and ``NoSuchPath`` if the socket is missing.
+  (`#4345 <https://github.com/vertexproject/synapse/pull/4345>`_)
+- Fixed SpooledSet Storm objects not cleaning up their slabs on runtime fini.
+  (`#4346 <https://github.com/vertexproject/synapse/pull/4346>`_)
+- Lowered logging levels for telepath socket early close events.
+  (`#4353 <https://github.com/vertexproject/synapse/pull/4353>`_)
+- Fixed Drive's incompatibility with the EasyPerms API.
+  (`#4366 <https://github.com/vertexproject/synapse/pull/4366>`_)
+- Fixed an issue where deleting a Queue did not remove the Queue's AuthGate on
+  mirrors.
+  (`#4370 <https://github.com/vertexproject/synapse/pull/4370>`_)
+
+Notes
+-----
+- Updated AHA provisioning to remove Certificate Signing Request files after
+  they have been used.
+  (`#4368 <https://github.com/vertexproject/synapse/pull/4368>`_)
+- Added ``mesg`` values to Telepath ``NoSuchMeth`` exceptions.
+  (`#4369 <https://github.com/vertexproject/synapse/pull/4369>`_)
 v2.213.0 - 2025-06-10
 =====================
 
