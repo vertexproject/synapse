@@ -461,8 +461,6 @@ class NexsRoot(s_base.Base):
         if (link := s_scope.get('link')) is None:
             async with self.getChangeDist(maxoffs) as dist:
                 async for item in dist:
-                    if self.isfini:
-                        raise s_exc.IsFini()
                     yield item
 
         else:
@@ -472,15 +470,10 @@ class NexsRoot(s_base.Base):
                 sync = True
 
                 async for item in self.nexslog.iter(maxoffs):
-                    if self.isfini:  # pragma: no cover
-                        raise s_exc.IsFini()
                     maxoffs = item[0] + 1
                     yield item
 
                 async for offs, item in wind:
-                    if self.isfini:
-                        raise s_exc.IsFini()
-
                     if sync:
                         if offs < maxoffs:
                             continue
