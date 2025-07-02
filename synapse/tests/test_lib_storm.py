@@ -162,7 +162,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('entity:contact:resolved={[ ou:org=({"name": "vertex", "type": "newp"}) ]}'))
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('inet:flow:from=({"name": "vertex", "type": "newp"})')
+                await core.nodes('test:guid:iden=({"name": "vertex", "type": "newp"})')
 
             await core.nodes('[ ou:org=({"name": "origname"}) ]')
             self.len(1, await core.nodes('ou:org=({"name": "origname"}) [ :name=newname ]'))

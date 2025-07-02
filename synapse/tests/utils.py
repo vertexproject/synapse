@@ -465,6 +465,8 @@ testmodel = (
                 ('posneg', ('test:sub', {}), {}),
                 ('posneg:isbig', ('bool', {}), {}),
                 ('server', ('inet:server', {}), {}),
+                ('raw', ('data', {}), {}),
+                ('iden', ('guid', {}), {}),
             )),
 
             ('test:data', {}, (

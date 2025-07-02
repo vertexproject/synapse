@@ -149,12 +149,12 @@ class DnsModelTest(s_t_utils.SynTest):
                 'sandbox:file': "b" * 32,
             }
             q = '''[(inet:dns:request=$valu :time=$p.time :query:name=$p."query:name"
-                    :exe=$p.exe :sandbox:file=$p."sandbox:file")]'''
+                    :client:exe=$p.exe :sandbox:file=$p."sandbox:file")]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': '*', 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
             self.none(node.get('query'))
-            self.eq(node.get('exe'), "a" * 32)
+            self.eq(node.get('client:exe'), "a" * 32)
             self.eq(node.get('query:name'), 'notac2.someone.com')
             self.eq(node.get('sandbox:file'), "b" * 32)
 
