@@ -383,9 +383,6 @@ modeldefs = (
 
             ('meta:event', {}, (
 
-                ('type', ('meta:event:type:taxonomy', {}), {
-                    'doc': 'Type of event.'}),
-
                 ('period', ('ival', {}), {
                     'doc': 'The period over which the event occurred.'}),
 
@@ -401,6 +398,8 @@ modeldefs = (
                 ('index', ('int', {}), {
                     'doc': 'The index of this event in a timeline without exact times.'}),
 
+                ('type', ('meta:event:type:taxonomy', {}), {
+                    'doc': 'Type of event.'}),
             )),
 
             ('meta:event:type:taxonomy', {
