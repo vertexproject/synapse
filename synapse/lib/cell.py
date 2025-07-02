@@ -2392,27 +2392,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logger.warning('Service demotion requested. Locating a suitable service for promotion...')
 
+        extra = await self.getLogExtra()
+
         if not self.isactive:
-            extra = await self.getLogExtra()
+
             logger.warning('...service is not the leader. Aborting demotion.', extra=extra)
             return False
 
-        ahaproxy = await self.reqAhaProxy(timeout=timeout)
-        if ahaproxy._features.get('getAhaSvcsByIden') is None: # pragma: no cover
-            extra = await self.getLogExtra()
-            logger.warning('...AHA server needs to be updated to support this operation. Aborting demotion.', extra=extra)
+        user = self.conf.get('aha:user')
+
+        if peers is None:
+            peers = await self._getDemotePeers(timeout=timeout)
+
+        if not peers:
+            logger.warning('...no suitable services discovered. Aborting demotion.', extra=extra)
             return False
 
-        user = self.conf.get('aha:user')
         try:
-
-            if peers is None:
-                peers = await self._getDemotePeers(timeout=timeout)
-
-            if not peers:
-                extra = await self.getLogExtra()
-                logger.warning('...no suitable services discovered. Aborting demotion.', extra=extra)
-                return False
 
             async with await s_base.Base.anit() as base:
 
@@ -2429,11 +2425,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         cands.append((svcindx, svcproxy))
 
                     except Exception as e:
-                        extra = await self.getLogExtra()
                         logger.warning(f'...error retrieving nexus index for {name}: {s_exc.reprexc(e)}. Skipping.', extra=extra)
 
                 if not cands:
-                    extra = await self.getLogExtra()
                     logger.warning('...no suitable services discovered. Aborting demotion.', extra=extra)
                     return False
 
@@ -2442,16 +2436,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     try:
                         await svcproxy.promote(graceful=True)
 
-                        extra = await self.getLogExtra()
                         logger.warning(f'... successfully promoted: {svcproxy._ahainfo["name"]}', extra=extra)
                         return True
 
                     except Exception as e:
-                        extra = await self.getLogExtra()
                         logger.warning(f'...error promoting {svcproxy._ahainfo["name"]}. Skipping.', extra=extra)
 
         except Exception as e:
-            extra = await self.getLogExtra()
             logger.exception(f'...error demoting service: {s_exc.reprexc(e)}', extra=extra)
             return False
 

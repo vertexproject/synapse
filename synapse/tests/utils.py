@@ -805,6 +805,9 @@ class _StreamIOMixin(io.StringIO):
         self.mesg = mesg
         self.clear()
 
+    def __str__(self):
+        return self.getvalue()
+
     def write(self, s):
         io.StringIO.write(self, s)
         if self.mesg and self.mesg in s:
@@ -835,6 +838,14 @@ class StreamEvent(_StreamIOMixin, threading.Event):
         threading.Event.__init__(self)
         self.mesg = ''
 
+    def __repr__(self):
+        cls = self.__class__
+        status = 'set' if self._flag else 'unset'
+        if valu := str(self):
+            valu = s_common.trimText(valu).strip()
+            status = f'{status}, valu: {valu}'
+        return f"<{cls.__module__}.{cls.__qualname__} at {id(self):#x}: {status}>"
+
 class AsyncStreamEvent(_StreamIOMixin, asyncio.Event):
     '''
     A combination of a io.StringIO object and an asyncio.Event object.
@@ -843,6 +854,16 @@ class AsyncStreamEvent(_StreamIOMixin, asyncio.Event):
         _StreamIOMixin.__init__(self, *args, **kwargs)
         asyncio.Event.__init__(self)
         self.mesg = ''
+
+    def __repr__(self):
+        cls = self.__class__
+        status = 'set' if self._value else 'unset'
+        if self._waiters:
+            status = f'{status}, waiters:{len(self._waiters)}'
+        if valu := str(self):
+            valu = s_common.trimText(valu).strip()
+            status = f'{status}, valu: {valu}'
+        return f"<{cls.__module__}.{cls.__qualname__} at {id(self):#x}: {status}>"
 
     async def wait(self, timeout=None):
         if timeout is None:

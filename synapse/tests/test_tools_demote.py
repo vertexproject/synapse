@@ -63,8 +63,10 @@ class DemoteToolTest(s_test.SynTest):
                 with mock.patch.object(cell01, '_getDemotePeers', boom):
                     with self.getLoggerStream('synapse') as stream:
                         argv = ['--url', cell01.getLocalUrl(), '--timeout', '12']
+                        outp.clear()
                         self.eq(1, await s_tools_demote.main(argv, outp=outp))
-                    stream.expect('...error demoting service')
+                        outp.expect('Error while demoting service')
+                    stream.expect('error during task: demote')
 
                 self.false(cell00.isactive)
                 self.true(cell01.isactive)
@@ -105,6 +107,8 @@ class DemoteToolTest(s_test.SynTest):
 
                 outp = self.getTestOutp()
                 argv = ['--url', cell00.getLocalUrl()]
-                with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+                with self.getAsyncLoggerStream('synapse.daemon') as stream:
                     self.eq(1, await s_tools_demote.main(argv, outp=outp))
-                stream.expect('AHA server needs to be updated to support this operation')
+                stream.expect('AHA server does not support feature: getAhaSvcsByIden >= 1')
+                outp.expect('Error while demoting service')
+                outp.expect('AHA server does not support feature: getAhaSvcsByIden')

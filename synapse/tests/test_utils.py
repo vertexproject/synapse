@@ -101,7 +101,7 @@ class TestUtils(s_t_utils.SynTest):
             self.skipIfNoPath('newpDoesNotExist', mesg='hehe')
         self.isin('newpDoesNotExist mesg=hehe', str(cm.exception))
 
-    def test_syntest_logstream(self):
+    async def test_syntest_logstream(self):
         with self.getLoggerStream('synapse.tests.test_utils') as stream:
             logger.error('ruh roh i am a error message')
 
@@ -109,9 +109,24 @@ class TestUtils(s_t_utils.SynTest):
         with self.raises(s_exc.SynErr):
             stream.expect('does not exist')
 
+        self.eq(str(stream), 'ruh roh i am a error message\n')
+        self.true(repr(stream).endswith('valu: ruh roh i am a error message>'))
+        self.true(repr(stream).startswith('<synapse.tests.utils.StreamEvent'))
+
         stream.seek(0)
         mesgs = stream.read()
         self.isin('ruh roh', mesgs)
+
+        with self.getAsyncLoggerStream('synapse.tests.test_utils') as stream:
+            logger.error('ruh roh i am a new message')
+
+        stream.expect('new message')
+        with self.raises(s_exc.SynErr):
+            stream.expect('does not exist')
+
+        self.eq(str(stream), 'ruh roh i am a new message\n')
+        self.true(repr(stream).endswith('valu: ruh roh i am a new message>'))
+        self.true(repr(stream).startswith('<synapse.tests.utils.AsyncStreamEvent'))
 
     def test_syntest_logstream_event(self):
 
