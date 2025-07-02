@@ -83,6 +83,7 @@ Notes
   (`#4368 <https://github.com/vertexproject/synapse/pull/4368>`_)
 - Added ``mesg`` values to Telepath ``NoSuchMeth`` exceptions.
   (`#4369 <https://github.com/vertexproject/synapse/pull/4369>`_)
+
 v2.213.0 - 2025-06-10
 =====================
 
