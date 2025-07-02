@@ -2605,7 +2605,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The host that the service was configured on.'}),
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The name of the serivce from the registry key within Services.'}),
+                        'doc': 'The name of the service from the registry key within Services.'}),
 
                     # TODO flags...
                     ('type', ('int', {'min': 0}), {
@@ -2615,7 +2615,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The start configuration of the service from the Start registry key.'}),
 
                     ('errorcontrol', ('int', {'min': 0}), {
-                        'doc': 'The serivce error handling behavior from the ErrorControl registry key.'}),
+                        'doc': 'The service error handling behavior from the ErrorControl registry key.'}),
 
                     ('displayname', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The friendly name of the service from the DisplayName registry key.'}),
