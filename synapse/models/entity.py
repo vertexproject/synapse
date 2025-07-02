@@ -77,7 +77,7 @@ modeldefs = (
                     ('social:accounts', ('array', {'type': 'inet:service:account', 'uniq': True, 'sorted': True}), {
                         'doc': 'Social media or other online accounts listed for the {contactable}.'}),
 
-                    ('crypto:currency:addresses', ('array', {'type': 'crypto:currency:address'}), {
+                    ('crypto:currency:addresses', ('array', {'type': 'crypto:currency:address', 'uniq': True, 'sorted': True}), {
                         'doc': 'Crypto currency addresses listed for the {contactable}.'}),
 
                     ('websites', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
