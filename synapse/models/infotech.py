@@ -2612,7 +2612,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The type of service from the Type registry key.'}),
 
                     ('start', ('int', {'min': 0}), {
-                        'doc': 'The type of service from the Start registry key.'}),
+                        'doc': 'The start configuration of the service from the Start registry key.'}),
 
                     ('errorcontrol', ('int', {'min': 0}), {
                         'doc': 'The serivce error handling behavior from the ErrorControl registry key.'}),
