@@ -29,7 +29,7 @@ Features and Enhancements
 -------------------------
 - Added ``synapse.tools.cortex.layer.dump`` and
   ``synapse.tools.cortex.layer.load`` command line tools for exporting node
-  edits from one layer and importing them to a layer on a different cortex.
+  edits from one layer and importing them to a layer on a different Cortex.
   (`#4325 <https://github.com/vertexproject/synapse/pull/4325>`_)
 - Added a tool, ``synapse.tools.pkgs.gendocs``, for converting Storm package
   documentation from RST to Markdown.
