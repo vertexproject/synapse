@@ -2395,7 +2395,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         extra = await self.getLogExtra()
 
         if not self.isactive:
-
             logger.warning('...service is not the leader. Aborting demotion.', extra=extra)
             return False
 
