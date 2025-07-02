@@ -49,8 +49,8 @@ Features and Enhancements
 - Added ``synapse.tools.demote`` CLI tool to allow automatic demotion of
   service leaders.
   (`#4341 <https://github.com/vertexproject/synapse/pull/4341>`_)
-- Improved console logging by dropping warning messages for failed
-  normalization properties of a GUID based dictionary object.
+- Improved console logging by dropping warning messages for optional
+  properties which fail to normalize in a GUID based dictionary object.
   (`#4360 <https://github.com/vertexproject/synapse/pull/4360>`_)
 - Updated dictionary GUID syntax to allow nested use when adding or lifting
   nodes.
