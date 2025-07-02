@@ -27,15 +27,15 @@ Model Changes
 
 Features and Enhancements
 -------------------------
-- Added ``synapse.tools.cortex.layer.dump`` and
-  ``synapse.tools.cortex.layer.load`` command line tools for exporting node
-  edits from one layer and importing them to a layer on a different Cortex.
+- Added CLI tools ``synapse.tools.cortex.layer.dump`` and
+  ``synapse.tools.cortex.layer.load`` for exporting node edits from one layer
+and importing them to a layer on a different Cortex.
   (`#4325 <https://github.com/vertexproject/synapse/pull/4325>`_)
-- Added a tool, ``synapse.tools.pkgs.gendocs``, for converting Storm package
+- Added CLI tool ``synapse.tools.pkgs.gendocs`` for converting Storm package
   documentation from RST to Markdown.
   (`#4331 <https://github.com/vertexproject/synapse/pull/4331>`_)
-- Added ``synapse.tools.axon.dump`` and ``synapse.tools.axon.load`` command
-  line tools for exporting blobs from one Axon and importing them to another.
+- Added CLI tools ``synapse.tools.axon.dump`` and ``synapse.tools.axon.load``
+  for exporting blobs from one Axon and importing them to another Axon.
   (`#4333 <https://github.com/vertexproject/synapse/pull/4333>`_)
 - Updated Cortex Storm pool behavior to prefer all remote pool members before
   the local leader.
@@ -46,7 +46,7 @@ Features and Enhancements
 - Remove runtsafety requirement for ``init``, ``fini``, and ``empty`` blocks in
   Storm.
   (`#4340 <https://github.com/vertexproject/synapse/pull/4340>`_)
-- Added ``synapse.tools.demote`` CLI tool to allow automatic demotion of
+- Added CLI tool ``synapse.tools.demote`` to allow automatic demotion of
   service leaders.
   (`#4341 <https://github.com/vertexproject/synapse/pull/4341>`_)
 - Improved console logging by dropping warning messages for optional
