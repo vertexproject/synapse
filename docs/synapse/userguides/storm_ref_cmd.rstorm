@@ -2524,19 +2524,19 @@ specified value or combination of values.
 - Lift a set of network flow (``inet:flow``) nodes and unique (de-duplicate) them based on the source IP address:
 TODO: update to use *addr virtual prop
 
-.. storm-pre:: [ ( inet:flow=* :src=tcp://1.1.1.1 :dst=tcp://2.2.2.2 ) ( inet:flow=* :src=tcp://11.11.11.11 :dst=tcp://3.3.3.3 ) ( inet:flow=* :src=tcp://1.1.1.1 :dst=tcp://4.4.4.4 ) ( inet:flow=* :src=tcp://1.1.1.1 :dst=tcp://4.4.4.4 ) ( inet:flow=* :src=tcp://121.121.121.121 :dst=tcp://2.2.2.2 ) ]
-.. storm-pre:: inet:flow | uniq :src
+.. storm-pre:: [ ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://2.2.2.2 ) ( inet:flow=* :client=tcp://11.11.11.11 :server=tcp://3.3.3.3 ) ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://4.4.4.4 ) ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://4.4.4.4 ) ( inet:flow=* :client=tcp://121.121.121.121 :server=tcp://2.2.2.2 ) ]
+.. storm-pre:: inet:flow | uniq :client
 ::
   
-  inet:flow | uniq :src
+  inet:flow | uniq :client
 
 
 - Lift a set of network flow (``inet:flow``) nodes and de-duplicate them based on each unique combination of source and destination IP addresses:
 
-.. storm-pre:: inet:flow | uniq (:src, :dst)
+.. storm-pre:: inet:flow | uniq (:client, :server)
 ::
   
-  inet:flow | uniq (:src, :dst)
+  inet:flow | uniq (:client, :server)
 
 - Nodes can be uniqued based on variables. Alert (``risk:alert``) nodes can be categorized in various ways. This
   includes ``:priority`` and ``:severity`` properties, both of which use a set of fixed text values (e.g., "low" vs.

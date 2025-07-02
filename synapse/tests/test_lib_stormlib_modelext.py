@@ -530,16 +530,16 @@ class StormtypesModelextTest(s_test.SynTest):
 
             self.nn(core.model.form('_test:iface'))
             self.nn(core.model.prop('_test:iface:flow'))
-            self.nn(core.model.prop('_test:iface:proc'))
             self.nn(core.model.prop('_test:iface:tick'))
+            self.nn(core.model.prop('_test:iface:server'))
             self.isin('_test:iface', core.model.formsbyiface['test:interface'])
+            self.isin('_test:iface', core.model.formsbyiface['inet:proto:link'])
             self.isin('_test:iface', core.model.formsbyiface['inet:proto:request'])
-            self.isin('_test:iface', core.model.formsbyiface['it:host:activity'])
             self.isin('_test:iface:flow', core.model.ifaceprops['inet:proto:request:flow'])
             # FIXME discuss... is this correct behavior?
             # self.isin('_test:iface:proc', core.model.ifaceprops['test:interface:proc'])
             # self.isin('_test:iface:proc', core.model.ifaceprops['inet:proto:request:proc'])
-            self.isin('_test:iface:proc', core.model.ifaceprops['it:host:activity:proc'])
+            self.isin('_test:iface:server', core.model.ifaceprops['inet:proto:link:server'])
 
             q = '$lib.model.ext.delForm(_test:iface)'
             with self.raises(s_exc.CantDelForm) as exc:

@@ -375,7 +375,7 @@ Lift by Primary Property Value
 
 *Lift the Autonomous System (inet:asn) nodes whose AS number is less than 50:*
 
-.. storm-pre:: [ ( inet:asn=49 :name='us-national-institute-of-standards-and-technology' ) ( inet:asn=32 :name=stanford ) ( inet:asn=71 :name=hp-internet-as ) ]
+.. storm-pre:: [ ( inet:asn=49 :owner:name='us-national-institute-of-standards-and-technology' ) ( inet:asn=32 :owner:name=stanford ) ( inet:asn=71 :owner:name=hp-internet-as ) ]
 .. storm-pre:: inet:asn < 50
 ::
   
@@ -781,13 +781,13 @@ used to lift nodes based on comparisons among various combinations of times and 
   
   ``inet:dns:request:time = 2023/05/03*``
 
-*Lift the network flows that occurred within the past day:*
+*Lift the reports (doc:report nodes) that were published within the past day:*
 
-.. storm-pre:: [ inet:flow="*" :time=now ]
-.. storm-pre:: inet:flow:time @= ( now, '-1 day' )
+.. storm-pre:: [ doc:report="*" :published=now ]
+.. storm-pre:: doc:report:published @= ( now, '-1 day' )
 ::
   
-  inet:flow:time @= ( now, '-1 day' )
+  doc:report:published @= ( now, '-1 day' )
 
 *Lift all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that occurred within the past three hours:*
 
@@ -952,7 +952,7 @@ The set membership extended comparator (``*in=``) supports lifting nodes whose *
 
 *Lift all IP addresses associated with any of the specified Autonomous System (AS) numbers:*
 
-.. storm-pre:: [ (inet:asn=44477 :name='stark industries solutions ltd') (inet:asn=20473 :name=as-choopa) (inet:asn=9009 :name='m247 europe srl') ]
+.. storm-pre:: [ (inet:asn=44477 :owner:name='stark industries solutions ltd') (inet:asn=20473 :owner:name=as-choopa) (inet:asn=9009 :owner:name='m247 europe srl') ]
 .. storm-pre:: inet:ip:asn *in= ( 9009, 20473, 44477 )
 ::
   

@@ -59,11 +59,13 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ crypto:key:rsa=*
+                    :bits=2048
                     :algorithm=rsa
                     :public=$lib.file.fromhex(AAAA)
                     :private=$lib.file.fromhex(BBBB) ]
             ''')
             self.len(1, nodes)
+            self.eq(nodes[0].get('bits'), 2048)
             self.eq(nodes[0].get('algorithm'), 'rsa')
             self.eq(nodes[0].get('public'), 'c6d32915fd5518f25d33791d1f04bd9a')
             self.eq(nodes[0].get('private'), 'b715fa83ef1c5c8ccf43a4a16f715a9f')

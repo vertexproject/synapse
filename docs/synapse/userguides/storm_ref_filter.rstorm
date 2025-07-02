@@ -814,17 +814,17 @@ of times and intervals.
   equal to ( ``=`` ) operator.
 
 
-*Filter the current working set to only include the network flows (inet:flow nodes) that occurred within the past day:*
+*Filter the current working set to only include the reports (doc:report nodes) that were published within the past day:*
 
-.. storm-pre:: [ inet:flow="*" :time=now ] +inet:flow:time @= ( now, '-1 day' )
+.. storm-pre:: [ doc:report=* :published=now ] +doc:report:published @= ( now, '-1 day' )
 ::
   
-  <query> +inet:flow:time @= ( now, '-1 day' )
+  <query> +doc:report:published @= ( now, '-1 day' )
 
-.. storm-pre:: [ inet:flow="*" :time=now ] +:time @= ( now, '-1 day' )
+.. storm-pre:: [ doc:report=* :published=now ] +:published @= ( now, '-1 day' )
 ::
   
-  <query> +:time @= ( now, '-1 day' )
+  <query> +:published @= ( now, '-1 day' )
 
 
 *Filter the current working set to only include the host activity nodes (all nodes of all forms that inherit the it:host:activity interface) whose :time value is within the past three hours:*
@@ -1035,7 +1035,7 @@ The set membership extended comparator (``*in=``) supports filtering nodes whose
 
 *Filter the current working set to only include IP addresses associated with any of the specified Autonomous System (AS) numbers:*
 
-.. storm-pre:: [ (inet:asn=44477 :name='stark industries solutions ltd') (inet:asn=20473 :name=as-choopa) (inet:asn=9009 :name='m247 europe srl') ]
+.. storm-pre:: [ (inet:asn=44477 :owner:name='stark industries solutions ltd') (inet:asn=20473 :owner:name=as-choopa) (inet:asn=9009 :owner:name='m247 europe srl') ]
 .. storm-pre:: [ ( inet:ip=45.67.34.75 :asn=44477 ) ( inet:ip=149.248.1.50 :asn=20473 ) ( inet:ip=89.249.66.255 :asn=9009 ) ] +inet:ip:asn *in= ( 9009, 20473, 44477 )
 ::
   
@@ -1578,15 +1578,15 @@ within the subquery, **would** (based on the inclusive filter) result in an ``in
 
 *Filter the current working set of IP addresses (inet:ip nodes) to exclude any IP associated with an Autonomous System (AS) whose name starts with "makonix":*
 
-.. storm-pre:: inet:ip -{ :asn -> inet:asn +:name ^= makonix }
+.. storm-pre:: inet:ip -{ :asn -> inet:asn +:owner:name ^= makonix }
 ::
   
-  <inet:ip> -{ :asn -> inet:asn +:name ^= makonix }
+  <inet:ip> -{ :asn -> inet:asn +:owner:name ^= makonix }
 
 The subquery filter above takes the inbound ``inet:ip`` nodes and (within the subquery):
 
 - pivots to the associated ``inet:asn`` nodes; and
-- checks the ``inet:asn`` nodes for a ``:name`` value that starts with "makonix".
+- checks the ``inet:asn`` nodes for a ``:owner:name`` value that starts with "makonix".
 
 The subquery filter returns only those ``inet:ip`` nodes where, if you performed the operations
 within the subquery, **would not** (based on the exclusive filter) result in an ``inet:asn`` node
@@ -1683,12 +1683,12 @@ and checks to see if the result is greater than 1.
     in performance is negligible for small data sets but more pronounced when working with large numbers
     of nodes.
 
-*Filter the current working set of network flows (inet:flow nodes) to only include flows where the total number of bytes transferred in the flow between the source (inet:flow:src:txbytes) and destination (inet:flow:dst:txbytes) is greater than 100MB (~100,000,000 bytes):*
+*Filter the current working set of network flows (inet:flow nodes) to only include flows where the total number of bytes transferred in the flow between the source (inet:flow:client:txbytes) and destination (inet:flow:server:txbytes) is greater than 100MB (~100,000,000 bytes):*
 
-.. storm-pre:: [ ( inet:flow=* :src:txbytes=60000000 :dst:txbytes=60000000 ) ( inet:flow=* :src:txbytes=1024 :dst:txbytes=4096 ) ] +$( :src:txbytes + :dst:txbytes >=100000000 )
+.. storm-pre:: [ ( inet:flow=* :client:txbytes=60000000 :server:txbytes=60000000 ) ( inet:flow=* :client:txbytes=1024 :server:txbytes=4096 ) ] +$( :client:txbytes + :server:txbytes >=100000000 )
 ::
   
-  <inet:flow> +$( :src:txbytes + :dst:txbytes >=100000000 )
+  <inet:flow> +$( :client:txbytes + :server:txbytes >=100000000 )
 
 
 *Filter the current set of nodes associated with any threat group or threat cluster (e.g., tagged ``#cno.threat.<threat_name>``), to include only those nodes that are attributed to more than one threat (e.g., that have more than one #cno.threat.<threat_name> tag):*
@@ -1755,7 +1755,7 @@ secondary-to-secondary property pivot (see :ref:`storm-ref-pivot`). The syntax e
 
 - From a **secondary property** of a form (such as ``inet:ip:asn``), to
 - The **form** for that secondary property (i.e., ``inet:asn``), to
-- A **secondary property** (or property value) of that **target form** (such as ``inet:asn:name``).
+- A **secondary property** (or property value) of that **target form** (such as ``inet:asn:owner:name``).
 
 .. TIP::
   
@@ -1790,10 +1790,10 @@ The examples below illustrate the use of embedded property syntax in a filter ex
 
 *Filter the current working set of IP addresses (inet:ip nodes) to exclude any IP associated with an Autonomous System (AS) whose name starts with "makonix":*
 
-.. storm-pre:: [ (inet:ip=185.86.150.67 :asn=52173) (inet:asn=52173 :name="makonix, lv") ] -:asn::name ^= makonix
+.. storm-pre:: [ (inet:ip=185.86.150.67 :asn=52173) (inet:asn=52173 :owner:name="makonix, lv") ] -:asn::owner:name ^= makonix
 ::
   
-  <inet:ip> -:asn::name ^= makonix
+  <inet:ip> -:asn::owner:name ^= makonix
 
 .. TIP::
   
@@ -1802,7 +1802,7 @@ The examples below illustrate the use of embedded property syntax in a filter ex
   
   ::
     
-    <inet:ip> -{ :asn -> inet:asn +:name ^= makonix }
+    <inet:ip> -{ :asn -> inet:asn +:owner:name ^= makonix }
   
 
 *Filter the current working set of sandbox "file add" operations (it:exec:file:add nodes) to only those "add" operations performed by a file that has a PDB path (:mime:pe:pdbpath property):*
@@ -1855,13 +1855,13 @@ Embedded property syntax can also be used when assigning variables (see :ref:`st
 
 *Set the variable $name to the name of the Autonomous System (AS) associated with a given IP address:*
 
-.. storm-pre:: inet:ip $name=:asn::name
+.. storm-pre:: inet:ip $name=:asn::owner:name
 ::
   
-  <inet:ip> $name=:asn::name
+  <inet:ip> $name=:asn::owner:name
 
 This example uses embedded property syntax to pivot from the inbound ``inet:ip`` node, to the ASN (``inet:asn`` node)
-associated with the IP's ``:asn`` property, and assigns the value of the ASN's ``:name`` property to the variable ``$name``.
+associated with the IP's ``:asn`` property, and assigns the value of the ASN's ``:owner:name`` property to the variable ``$name``.
 
    
 .. _Vertex-Threat-Intel: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/vertex-threat-intel/index.html

@@ -1700,11 +1700,11 @@ class CortexTest(s_t_utils.SynTest):
             await core.nodes('for $x in $lib.range(5) {[ test:int=$x :seen=(2025, 2026) ]}')
             await buidRevEq('test:int:seen=(2025, 2026)')
 
-            await core.nodes('for $x in $lib.range(5) {[ inet:flow=($x,) :raw=(["foo"]) ]}')
-            await buidRevEq('inet:flow:raw=(["foo"])')
+            await core.nodes('for $x in $lib.range(5) {[ test:guid=($x,) :raw=(["foo"]) ]}')
+            await buidRevEq('test:guid:raw=(["foo"])')
 
-            await core.nodes('for $x in $lib.range(5) {[ inet:flow=* :raw=`bar{$x}` ]}')
-            await buidRevEq('inet:flow:raw~=bar')
+            await core.nodes('for $x in $lib.range(5) {[ test:guid=* :raw=`bar{$x}` ]}')
+            await buidRevEq('test:guid:raw~=bar')
 
             await core.nodes('for $x in $lib.range(5) {[ geo:telem=* :place:latlong=(90, 90) ]}')
             await buidRevEq('geo:telem:place:latlong=(90, 90)')
@@ -2836,23 +2836,23 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.len(1, await core.nodes('[ inet:asn=200 :name=visi ]'))
+            self.len(1, await core.nodes('[ inet:asn=200 :owner:name=visi ]'))
             self.len(1, await core.nodes('[ inet:ip=1.2.3.4 :asn=200 ]'))
             self.len(1, await core.nodes('[ inet:ip=5.6.7.8 :asn=8080 ]'))
             self.len(1, await core.nodes('[ inet:ip=6.7.8.9 ]'))
 
-            self.len(1, await core.nodes('inet:asn=200 +:name=visi'))
+            self.len(1, await core.nodes('inet:asn=200 +:owner:name=visi'))
 
-            self.len(1, await core.nodes('inet:asn=200 +:name=visi'))
-            nodes = await core.nodes('inet:ip +:asn::name=visi')
+            self.len(1, await core.nodes('inet:asn=200 +:owner:name=visi'))
+            nodes = await core.nodes('inet:ip +:asn::owner:name=visi')
 
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
 
-            nodes = await core.nodes('inet:ip +:asn::name')
+            nodes = await core.nodes('inet:ip +:asn::owner:name')
             self.len(1, nodes)
 
-            self.len(1, await core.nodes('inet:ip.created +:asn::name'))
+            self.len(1, await core.nodes('inet:ip.created +:asn::owner:name'))
 
             await core.nodes('[ entity:contact=* :email=visi@vertex.link ]')
             nodes = await core.nodes('entity:contact +:email::fqdn=vertex.link')
@@ -2877,7 +2877,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             await core.nodes('[ risk:vulnerable=* :node=(inet:ip, 1.2.3.4) ]')
-            self.len(1, await core.nodes('risk:vulnerable +:node::asn::name'))
+            self.len(1, await core.nodes('risk:vulnerable +:node::asn::owner:name'))
 
             # try to pivot to a node that no longer exists
             await core.nodes('inet:asn | delnode --force')
@@ -2951,19 +2951,19 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 nodes = await core.nodes('ou:org:hq::email::newp=a')
 
-            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :src=tcp://1.2.3.4]} ]}]')
-            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :src=tcp://5.6.7.8]} ]}]')
-            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :src=tcp://1.2.3.5]} ]}]')
+            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.4]} ]}]')
+            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://5.6.7.8]} ]}]')
+            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.5]} ]}]')
 
-            self.len(2, await core.nodes('it:exec:url:http:request::flow::src.ip*in=(1.2.3.4, 5.6.7.8)'))
-            self.len(2, await core.nodes('it:exec:url:http:request::flow::src::ip*in=(1.2.3.4, 5.6.7.8)'))
+            self.len(2, await core.nodes('it:exec:url:http:request::flow::client.ip*in=(1.2.3.4, 5.6.7.8)'))
+            self.len(2, await core.nodes('it:exec:url:http:request::flow::client::ip*in=(1.2.3.4, 5.6.7.8)'))
 
             await core.nodes('inet:ip=1.2.3.4 [:asn=5]')
             await core.nodes('inet:ip=1.2.3.5 [:asn=6]')
             await core.nodes('inet:ip=5.6.7.8 [:asn=7]')
 
-            self.len(1, await core.nodes('it:exec:url:http:request::flow::src::ip::asn>6'))
-            self.len(2, await core.nodes('it:exec:url:http:request::flow::src::ip::asn*in=(5,6)'))
+            self.len(1, await core.nodes('it:exec:url:http:request::flow::client::ip::asn>6'))
+            self.len(2, await core.nodes('it:exec:url:http:request::flow::client::ip::asn*in=(5,6)'))
 
 class CortexBasicTest(s_t_utils.SynTest):
     '''
@@ -5319,7 +5319,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 ip00 = await core00.nodes('[ inet:ip=3.3.3.3 ]')
 
                 await core00.nodes('$lib.queue.add(hehe)')
-                q = 'trigger.add node:add --form inet:fqdn --storm {$lib.queue.get(hehe).put($node.repr())}'
+                q = 'trigger.add node:add --form inet:fqdn {$lib.queue.get(hehe).put($node.repr())}'
                 msgs = await core00.stormlist(q)
 
                 ddef = await core00.callStorm('return($lib.dmon.add(${$lib.time.sleep(10)}, name=hehedmon))')
@@ -5575,7 +5575,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core00.nodes('[ inet:ip=1.2.3.4 ]')
                 await core00.nodes('$lib.queue.add(hehe)')
-                q = 'trigger.add node:add --form inet:fqdn --storm {$lib.queue.get(hehe).put($node.repr())}'
+                q = 'trigger.add node:add --form inet:fqdn {$lib.queue.get(hehe).put($node.repr())}'
                 await core00.nodes(q)
 
                 url = core00.getLocalUrl()
