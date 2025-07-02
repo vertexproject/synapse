@@ -1617,13 +1617,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return
 
     async def reqCoreQueue(self, iden):
-        if await self.getCoreQueue(iden) is None:
+        if (info := await self.getCoreQueue(iden)) is None:
             raise s_exc.NoSuchName(mesg=f'No queue with iden {iden}', iden=iden)
+        return info
 
     async def getCoreQueueByName(self, name):
-        if (iden := self.quedefs.get(name)) is not None:
-            return iden
-        return
+        if (iden := self.quedefs.get(name)) is None:
+            raise s_exc.NoSuchName(mesg=f'No queue with name {name}', name=name)
+        return await self.getCoreQueue(iden)
 
     async def delCoreQueue(self, iden):
         await self.reqCoreQueue(iden)
