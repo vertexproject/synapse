@@ -431,12 +431,11 @@ class Daemon(s_base.Base):
             methname, args, kwargs = todo
 
             if methname[0] == '_':
-                raise s_exc.NoSuchMeth(name=methname)
+                raise s_exc.NoSuchMeth.init(methname, item)
 
             meth = getattr(item, methname, None)
             if meth is None:
-                logger.warning('%r has no method: %r', item, methname)
-                raise s_exc.NoSuchMeth(name=methname)
+                raise s_exc.NoSuchMeth.init(methname, item)
 
             sessitem = await t2call(link, meth, args, kwargs)
             if sessitem is not None:
