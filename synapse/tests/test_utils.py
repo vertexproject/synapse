@@ -3,6 +3,7 @@ import time
 import logging
 import unittest
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
@@ -103,6 +104,11 @@ class TestUtils(s_t_utils.SynTest):
     def test_syntest_logstream(self):
         with self.getLoggerStream('synapse.tests.test_utils') as stream:
             logger.error('ruh roh i am a error message')
+
+        stream.expect('error message')
+        with self.raises(s_exc.SynErr):
+            stream.expect('does not exist')
+
         stream.seek(0)
         mesgs = stream.read()
         self.isin('ruh roh', mesgs)

@@ -788,14 +788,9 @@ class CmdGenerator:
 
         return retn
 
-class StreamEvent(io.StringIO, threading.Event):
-    '''
-    A combination of a io.StringIO object and a threading.Event object.
-    '''
+class _StreamIOMixin(io.StringIO):
     def __init__(self, *args, **kwargs):
         io.StringIO.__init__(self, *args, **kwargs)
-        threading.Event.__init__(self)
-        self.mesg = ''
 
     def setMesg(self, mesg):
         '''
@@ -819,45 +814,40 @@ class StreamEvent(io.StringIO, threading.Event):
         '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
         return jsonlines(self.getvalue())
 
-    def __str__(self):
-        self.seek(0)
-        return self.read()
+    def expect(self, substr: str):
+        '''
+        Check if a string is present in the messages captured by StreamEvent.
 
-class AsyncStreamEvent(io.StringIO, asyncio.Event):
+        Args:
+            substr (str): String to check for the existence of.
+        '''
+        valu = self.getvalue()
+        if valu.find(substr) == -1:
+            mesg = '%s.expect(%s) not in %s' % (self.__class__.__name__, substr, valu)
+            raise s_exc.SynErr(mesg=mesg)
+
+class StreamEvent(_StreamIOMixin, threading.Event):
+    '''
+    A combination of a io.StringIO object and a threading.Event object.
+    '''
+    def __init__(self, *args, **kwargs):
+        _StreamIOMixin.__init__(self, *args, **kwargs)
+        threading.Event.__init__(self)
+        self.mesg = ''
+
+class AsyncStreamEvent(_StreamIOMixin, asyncio.Event):
     '''
     A combination of a io.StringIO object and an asyncio.Event object.
     '''
     def __init__(self, *args, **kwargs):
-        io.StringIO.__init__(self, *args, **kwargs)
+        _StreamIOMixin.__init__(self, *args, **kwargs)
         asyncio.Event.__init__(self)
         self.mesg = ''
-
-    def setMesg(self, mesg):
-        '''
-        Clear the internal event and set a new message that is used to set the event.
-
-        Args:
-            mesg (str): The string to monitor for.
-
-        Returns:
-            None
-        '''
-        self.mesg = mesg
-        self.clear()
-
-    def write(self, s):
-        io.StringIO.write(self, s)
-        if self.mesg and self.mesg in s:
-            self.set()
 
     async def wait(self, timeout=None):
         if timeout is None:
             return await asyncio.Event.wait(self)
         return await s_coro.event_wait(self, timeout=timeout)
-
-    def jsonlines(self) -> typing.List[dict]:
-        '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
-        return jsonlines(self.getvalue())
 
 class HttpReflector(s_httpapi.Handler):
     '''Test handler which reflects get/post data back to the caller'''
