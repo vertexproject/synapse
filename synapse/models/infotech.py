@@ -2622,7 +2622,7 @@ class ItModule(s_module.CoreModule):
 
                     # TODO 3.0 text
                     ('description', ('str', {}), {
-                        'doc': 'The friendly name of the service from the Description registry key.'}),
+                        'doc': 'The description of the service from the Description registry key.'}),
 
                     ('imagepath', ('file:path', {}), {
                         'doc': 'The path to the service binary from the ImagePath registry key.'}),
