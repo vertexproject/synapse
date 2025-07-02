@@ -411,7 +411,7 @@ class NexusTest(s_t_utils.SynTest):
         async with self.getTestCell(conf={'nexslog:en': True}) as cell:
             await cell.sync()
 
-            # Force a nexus events to be added while constructing a Window
+            # Force nexus events to be added while constructing a Window
             orig = s_nexus.NexsRoot.getMirrorWindow
 
             @contextlib.asynccontextmanager
