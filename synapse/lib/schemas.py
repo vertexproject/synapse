@@ -1233,7 +1233,7 @@ _QueueDefSchema = {
         'created': {'type': 'integer', 'minimum': 0},
     },
     'required': ['name', 'creator'],
-    'additionalProperties': True,
+    'additionalProperties': False,
 }
 
 reqValidQueueDef = s_config.getJsValidator(_QueueDefSchema)

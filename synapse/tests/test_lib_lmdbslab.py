@@ -1133,9 +1133,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.len(1, status)
                 self.eq(status[0], {'name': 'woot',
                                     'creator': qdef['creator'],
-                                    'size': 5,
-                                    'offs': 6,
                                     })
+                self.eq(5, mque.size('woot'))
+                self.eq(6, mque.offset('woot'))
 
                 await mque.cull('woot', -1)
                 self.eq(mque.status('woot'), status[0])
