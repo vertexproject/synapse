@@ -2,7 +2,6 @@ import os
 
 import synapse.common as s_common
 
-import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 
@@ -42,9 +41,9 @@ class LayerTest(s_test.SynTest):
                     dirn,
                 )
 
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(0, await s_t_dump.main(argv, outp=outp))
-                self.isin(f'Successfully exported layer {layr00iden}.', str(outp))
+                outp.expect(f'Successfully exported layer {layr00iden}.')
 
                 for ii in range(soffs, eoffs - chunksize, chunksize):
                     path = s_common.genpath(dirn, f'{core.iden}.{layr00iden}.{ii}-{ii + chunksize - 1}.nodeedits')
@@ -86,9 +85,9 @@ class LayerTest(s_test.SynTest):
                     dirn,
                 )
 
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(0, await s_t_dump.main(argv, outp=outp))
-                self.isin(f'Successfully exported layer {layr00iden}.', str(outp))
+                outp.expect(f'Successfully exported layer {layr00iden}.')
 
                 state = s_common.yamlload(dirn, f'{core.iden}.{layr00iden}.yaml')
                 self.eq(state, {'offset:next': eoffs})
@@ -109,9 +108,9 @@ class LayerTest(s_test.SynTest):
                     s_common.genpath(dirn, 'next'),
                 )
 
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(0, await s_t_dump.main(argv, outp=outp))
-                self.isin(f'Successfully exported layer {layr00iden}.', str(outp))
+                outp.expect(f'Successfully exported layer {layr00iden}.')
 
                 state = s_common.yamlload(dirn, statefile)
                 self.eq(state, {'offset:next': eoffs + 256})
@@ -127,9 +126,9 @@ class LayerTest(s_test.SynTest):
 
                 url = cell.getLocalUrl()
                 argv = ('--url', url, s_common.guid(), dirn)
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await s_t_dump.main(argv, outp=outp))
-                self.isin(f'ERROR: Layer dump tool only works on cortexes, not cell.', str(outp))
+                outp.expect(f'ERROR: Layer dump tool only works on cortexes, not cell.')
 
         async with self.getTestCore() as core:
 
@@ -159,9 +158,9 @@ class LayerTest(s_test.SynTest):
                     dirn,
                 )
 
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await s_t_dump.main(argv, outp=outp))
-                self.isin(f'ERROR: No edits to export starting from offset (9000).', str(outp))
+                outp.expect(f'ERROR: No edits to export starting from offset (9000).')
 
                 # Handle outdir being an existing file
                 filename = s_common.genpath(dirn, 'newp')
@@ -174,9 +173,9 @@ class LayerTest(s_test.SynTest):
                     filename,
                 )
 
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await s_t_dump.main(argv, outp=outp))
-                self.isin(f'ERROR: Specified output directory {filename} exists but is not a directory.', str(outp))
+                outp.expect(f'ERROR: Specified output directory {filename} exists but is not a directory.')
 
                 # Invalid layer iden
                 newpiden = s_common.guid()
@@ -187,9 +186,9 @@ class LayerTest(s_test.SynTest):
                     dirn,
                 )
 
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await s_t_dump.main(argv, outp=outp))
-                self.isin(f'ERROR: No such layer {newpiden}.', str(outp))
+                outp.expect(f'ERROR: No such layer {newpiden}.')
 
     async def test_tools_layer_load(self):
         async with self.getTestCore() as core:
@@ -220,9 +219,9 @@ class LayerTest(s_test.SynTest):
                     dirn,
                 )
 
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(0, await s_t_dump.main(argv, outp=outp))
-                self.isin(f'Successfully exported layer {layr00iden}.', str(outp))
+                outp.expect(f'Successfully exported layer {layr00iden}.')
 
                 # Verify layr01 is empty
                 opts = {'view': view01.get('iden')}
@@ -240,12 +239,12 @@ class LayerTest(s_test.SynTest):
                     files[0],
                 )
 
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(0, await s_t_load.main(argv, outp=outp))
-                self.isin('Processing the following nodeedits:', str(outp))
-                self.isin(f'{soffs:<16d} | {files[0]}', str(outp))
-                self.isin(f'Loading {files[0]}, offset={soffs}, tick=', str(outp))
-                self.isin(f'Successfully loaded {files[0]} with {eoffs - soffs} edits ({soffs} - {eoffs - 1}).', str(outp))
+                outp.expect('Processing the following nodeedits:')
+                outp.expect(f'{soffs:<16d} | {files[0]}')
+                outp.expect(f'Loading {files[0]}, offset={soffs}, tick=')
+                outp.expect(f'Successfully read {files[0]} as a dryrun test.')
 
                 # Verify layr01 is empty
                 opts = {'view': view01.get('iden')}
@@ -259,12 +258,12 @@ class LayerTest(s_test.SynTest):
                     files[0],
                 )
 
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(0, await s_t_load.main(argv, outp=outp))
-                self.isin('Processing the following nodeedits:', str(outp))
-                self.isin(f'{soffs:<16d} | {files[0]}', str(outp))
-                self.isin(f'Loading {files[0]}, offset={soffs}, tick=', str(outp))
-                self.isin(f'Successfully loaded {files[0]} with {eoffs - soffs} edits ({soffs} - {eoffs - 1}).', str(outp))
+                outp.expect('Processing the following nodeedits:')
+                outp.expect(f'{soffs:<16d} | {files[0]}')
+                outp.expect(f'Loading {files[0]}, offset={soffs}, tick=')
+                outp.expect(f'Successfully loaded {files[0]} with {eoffs - soffs} edits ({soffs} - {eoffs - 1}).')
 
                 # Verify layr01 has data now
                 opts = {'view': view01.get('iden')}
@@ -284,22 +283,22 @@ class LayerTest(s_test.SynTest):
             async with self.getTestCell() as cell:
                 url = cell.getLocalUrl()
                 argv = ('--url', url, iden, filename)
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await s_t_load.main(argv, outp=outp))
-                self.isin(f'ERROR: Layer load tool only works on cortexes, not cell.', str(outp))
+                outp.expect(f'ERROR: Layer load tool only works on cortexes, not cell.')
 
         # Non-existent file
         argv = (iden, 'newp')
-        outp = s_output.OutPutStr()
+        outp = self.getTestOutp()
         self.eq(1, await s_t_load.main(argv, outp=outp))
-        self.isin('Invalid input file specified: newp.', str(outp))
+        outp.expect('Invalid input file specified: newp.')
 
         # Input file is a directory
         with self.getTestDir() as dirn:
             argv = (iden, dirn)
-            outp = s_output.OutPutStr()
+            outp = self.getTestOutp()
             self.eq(1, await s_t_load.main(argv, outp=outp))
-            self.isin(f'Invalid input file specified: {dirn}.', str(outp))
+            outp.expect(f'Invalid input file specified: {dirn}.')
 
         # Input file doesn't have an init message first
         with self.getTestDir() as dirn:
@@ -308,9 +307,9 @@ class LayerTest(s_test.SynTest):
                 fd.write(s_msgpack.en(('newp', {})))
 
             argv = (iden, filename)
-            outp = s_output.OutPutStr()
+            outp = self.getTestOutp()
             self.eq(1, await s_t_load.main(argv, outp=outp))
-            self.isin(f'Invalid header in {filename}.', str(outp))
+            outp.expect(f'Invalid header in {filename}.')
 
         # Invalid/too high cell version
         with self.getTestDir() as dirn:
@@ -328,9 +327,9 @@ class LayerTest(s_test.SynTest):
             async with self.getTestCore() as core:
                 url = core.getLocalUrl()
                 argv = ('--url', url, iden, file00, file01)
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await s_t_load.main(argv, outp=outp))
-                self.isin(f'Synapse version mismatch ({s_version.verstring} < {verstr}).', str(outp))
+                outp.expect(f'Synapse version mismatch ({s_version.verstring} < {verstr}).')
 
         # Invalid message type
         with self.getTestDir() as dirn:
@@ -355,9 +354,9 @@ class LayerTest(s_test.SynTest):
                 url = core.getLocalUrl()
                 layriden = core.getView().layers[0].iden
                 argv = ('--url', url, layriden, filename)
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await s_t_load.main(argv, outp=outp))
-                self.isin('Unexpected message type: newp.', str(outp))
+                outp.expect('Unexpected message type: newp.')
 
         # Missing fini
         with self.getTestDir() as dirn:
@@ -380,9 +379,9 @@ class LayerTest(s_test.SynTest):
                 url = core.getLocalUrl()
                 layriden = core.getView().layers[0].iden
                 argv = ('--url', url, layriden, filename)
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await s_t_load.main(argv, outp=outp))
-                self.isin(f'Incomplete/corrupt export: {filename}.', str(outp))
+                outp.expect(f'Incomplete/corrupt export: {filename}.')
 
         # Fini offset mismatch
         with self.getTestDir() as dirn:
@@ -415,6 +414,6 @@ class LayerTest(s_test.SynTest):
                 url = core.getLocalUrl()
                 layriden = core.getView().layers[0].iden
                 argv = ('--url', url, layriden, filename)
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 self.eq(1, await s_t_load.main(argv, outp=outp))
-                self.isin(f'Incomplete/corrupt export: {filename}. Expected offset {eoffs}, got {soffs}.', str(outp))
+                outp.expect(f'Incomplete/corrupt export: {filename}. Expected offset {eoffs}, got {soffs}.')

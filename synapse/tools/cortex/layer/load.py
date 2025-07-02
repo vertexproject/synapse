@@ -68,7 +68,10 @@ async def importLayer(infiles, opts, outp):
                 raise s_exc.BadDataValu(mesg=mesg)
 
             else:
-                outp.printf(f'Successfully loaded {filename} with {eoffs + 1 - soffs} edits ({soffs} - {eoffs}).')
+                if opts.dryrun:
+                    outp.printf(f'Successfully read {filename} as a dryrun test.')
+                else:
+                    outp.printf(f'Successfully loaded {filename} with {eoffs + 1 - soffs} edits ({soffs} - {eoffs}).')
 
 async def main(argv, outp=s_output.stdout):
 
