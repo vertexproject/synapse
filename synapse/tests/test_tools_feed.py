@@ -104,14 +104,6 @@ class FeedTest(s_t_utils.SynTest):
                 self.eq(await s_feed.main(argv, outp=outp), 1)
                 self.true(outp.expect('Cannot start from a arbitrary offset for more than 1 file.'))
 
-                argv = ['--cortex', curl,
-                        '--summary',
-                        mpkfp]
-
-                outp = self.getTestOutp()
-                self.eq(await s_feed.main(argv, outp=outp), 0)
-                outp.expect('Model Extensions: (none)')
-
             nodes = await core.nodes('test:int')
             self.len(4, nodes)
 
@@ -134,12 +126,6 @@ class FeedTest(s_t_utils.SynTest):
                 'count': 20,
                 'synapse_ver': '3.0.0',
                 'created': 1747831406876525,
-                'model_ext': {'edges': [],
-                            'forms': [],
-                            'props': [('inet:email', '_foobar', ('str', {}), {})],
-                            'tagprops': [],
-                            'types': [],
-                            'univs': []},
             }
 
             with self.getTestDir() as dirn:
@@ -174,9 +160,6 @@ class FeedTest(s_t_utils.SynTest):
 
                 # sad path
                 outp = self.getTestOutp()
-                argv = base + ['--view', badview, '--extend-model', mpkfp]
-                with self.raises(s_exc.NoSuchView):
-                    await s_feed.main(argv, outp=outp)
                 argv = base + ['--view', badview, mpkfp]
                 with self.raises(s_exc.NoSuchView):
                     await s_feed.main(argv, outp=outp)
@@ -204,15 +187,6 @@ class FeedTest(s_t_utils.SynTest):
                 'edges': {},
                 'vers': 1,
                 'forms': {'_baz:haha': 1},
-                'model_ext': {'edges': [],
-                            'forms': [('_baz:haha',
-                                        '_foo:bar',
-                                        {},
-                                        {'doc': 'The baz:haha form.'})],
-                            'props': [],
-                            'tagprops': [],
-                            'types': [('_foo:bar', 'str', {}, {'doc': '_foo:bar str type'})],
-                            'univs': []},
                 'query': '_baz:haha',
                 'synapse_ver': '3.0.0',
                 'type': 'meta'
@@ -233,14 +207,3 @@ class FeedTest(s_t_utils.SynTest):
                 self.eq(await s_feed.main(argv, outp=outp), 0)
                 outp.expect('Summary for [syn.nodes]:')
                 outp.expect('Count: 1')
-                outp.expect('Model Extensions:')
-                outp.expect('The baz:haha form.')
-
-                argv = ['--cortex', curl,
-                        '--extend-model',
-                        mpkfp]
-
-                outp = self.getTestOutp()
-                self.eq(await s_feed.main(argv, outp=outp), 0)
-                outp.expect('Extended model elements from metadata in')
-                outp.expect('Added [1] items from [syn.nodes] - offset [0]')

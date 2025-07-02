@@ -6899,16 +6899,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                     podes.append(p)
 
                 meta = podes.pop(0)
-                self.eq(meta['model_ext'], {
-                    'forms': (),
-                    'types': (),
-                    'props': (),
-                    'tagprops': (
-                        ('file', ('file:path', {}), {'doc': 'something happened to it'}),
-                        ('rank', ('int', {}), {'doc': 'be a shame if'}),
-                        ('user', ('str', {}), {'doc': 'real nice tagprop ya got there'}),
-                    ),
-                    'edges': (),
+                iden = core.auth.rootuser.iden
+                created = meta['created']
+                self.eq(meta, {
+                    'type': 'meta',
+                    'vers': 1,
+                    'forms': {'doc:report': 1, 'inet:email': 1},
+                    'edges': {'doc:report': {'refs': ('inet:email',)}},
+                    'count': 2,
+                    'creatorname': 'root',
+                    'creatoriden': iden,
+                    'created': created,
+                    'synapse_ver': '3.0.0',
+                    'query': 'doc:report inet:email'
                 })
 
                 self.len(2, podes)
@@ -7010,128 +7013,6 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_export_metadata(self):
 
         async with self.getTestCore() as core:
-
-            await core.addType('_foo:bar', 'str', {}, {'doc': '_foo:bar str type'})
-            await core.addForm('_baz:haha', '_foo:bar', {}, {'doc': 'The baz:haha form.'})
-            await core.nodes('[ _baz:haha="newp" ]')
-
-            await core.addType('_foo:prop', 'str', {}, {'doc': '_foo:prop custom property type'})
-            await core.addForm('_test:form', 'str', {}, {'doc': '_test:form custom form type'})
-            await core.addFormProp('_test:form', 'myprop', ('_foo:prop', {}), {'doc': 'custom prop with custom type'})
-            await core.nodes('[ _test:form=val :myprop="customval" ]')
-
-            await core.addType('_foo:base', 'str', {}, {'doc': '_foo:base str type'})
-            await core.addType('_foo:baz', '_foo:base', {}, {'doc': '_foo:bar inherits base'})
-            await core.addForm('_baz:inher', '_foo:baz', {}, {'doc': 'The baz:inher form.'})
-            await core.nodes('[ _baz:inher="inheritance" ]')
-
-            await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.'})
-            await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})
-            await core.nodes('[ _hehe:haha=42 :visi="woot" ]')
-
-            await core.addFormProp('inet:email', '_visi', ('str', {}), {})
-            await core.addEdge(('doc:report', '_linksto', None), {'doc': 'edge with no tgt'})
-            await core.addEdge(('inet:email', '_linksfrom', 'doc:report'), {'doc': 'links from a node'})
-            await core.nodes('[ inet:email=visi@vertex.link :_visi="woot"]')
-            await core.nodes('[ doc:report=* :name="Vertex Project Winning" +(_linksto)> { inet:email=visi@vertex.link } ]')
-            await core.nodes('[ doc:report=* :name="Vertex Project Winning" <(_linksfrom)+ { inet:email=visi@vertex.link } ]')
-
-            await core.addTagProp('score', ('int', {}), {})
-            await core.nodes('[ test:str=beep +#foo:score=42 ]')
-
-            await core.addEdge((None, '_noneverb', None), {'doc': 'edge with no src and no tgt'})
-            await core.nodes('[ test:str=foo +(_noneverb)> { [ inet:email=visi@vertex.link ] } ]')
-
-            await core.addEdge((None, '_nosrc', 'inet:user'), {'doc': 'edge with no src'})
-            await core.nodes('[ test:str=foo +(_nosrc)> { [ inet:user=visi ] } ]')
-
-            meta = await anext(core.exportStorm('_baz:haha'))
-            self.eq(meta['model_ext'], {
-                "forms": [
-                    ["_baz:haha", "_foo:bar", {}, {"doc": "The baz:haha form."}]
-                ],
-                "types": [
-                    ["_foo:bar", "str", {}, {"doc": "_foo:bar str type"}]
-                ],
-                "props": [],
-                "tagprops": [],
-                "edges": []
-            })
-
-            meta = await anext(core.exportStorm('_test:form'))
-            self.eq(meta['model_ext'], {
-                "forms": [
-                    ["_test:form", "str", {}, {"doc": "_test:form custom form type"}]
-                ],
-                "types": [
-                    ["_foo:prop", "str", {}, {"doc": "_foo:prop custom property type"}]
-                ],
-                "props": [
-                    ["_test:form", "myprop", ["_foo:prop", {}], {"doc": "custom prop with custom type"}]
-                ],
-                "tagprops": [],
-                "edges": []
-            })
-
-            meta = await anext(core.exportStorm('_baz:inher'))
-            self.eq(meta['model_ext'], {
-                'forms': [('_baz:inher', '_foo:baz', {}, {'doc': 'The baz:inher form.'})],
-                'types': [
-                    ('_foo:base', 'str', {}, {'doc': '_foo:base str type'}),
-                    ('_foo:baz', '_foo:base', {}, {'doc': '_foo:bar inherits base'})],
-                'props': [],
-                'tagprops': [],
-                'edges': []
-            })
-
-            meta = await anext(core.exportStorm('_hehe:haha=42'))
-            self.eq(meta['model_ext'], {
-                'forms': [('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.'})],
-                'types': [],
-                'props': [('_hehe:haha', 'visi', ('str', {}), {})],
-                'tagprops': [],
-                'edges': []
-            })
-
-            meta = await anext(core.exportStorm('doc:report inet:email'))
-            self.eq(meta['model_ext'], {
-                'forms': [],
-                'types': [],
-                'props': [('inet:email', '_visi', ('str', {}), {})],
-                'tagprops': [],
-                'edges': [
-                    (('inet:email', '_linksfrom', 'doc:report'), {'doc': 'links from a node'}),
-                    (('doc:report', '_linksto', None), {'doc': 'edge with no tgt'})
-                ]
-            })
-
-            meta = await anext(core.exportStorm('test:str'))
-            self.eq(meta['model_ext'], {
-                'forms': [],
-                'types': [],
-                'props': [],
-                'tagprops': [('score', ('int', {}), {})],
-                'edges': []
-            })
-
-            meta = await anext(core.exportStorm('test:str -(_noneverb)+> *'))
-            self.eq(meta['model_ext'], {
-                'forms': [],
-                'types': [],
-                'props': [('inet:email', '_visi', ('str', {}), {})],
-                'tagprops': [('score', ('int', {}), {})],
-                'edges': [((None, '_noneverb', None), {'doc': 'edge with no src and no tgt'})]
-            })
-
-            meta = await anext(core.exportStorm('test:str -(_nosrc)+> inet:user'))
-            self.eq(meta['model_ext'], {
-                'forms': [],
-                'types': [],
-                'props': [],
-                'tagprops': [('score', ('int', {}), {})],
-                'edges': [((None, '_nosrc', 'inet:user'), {'doc': 'edge with no src'})]
-            })
-
             rootiden = core.auth.rootuser.iden
             with self.raises(s_exc.BadVersion) as cexc:
                 meta = {'type': 'meta', 'vers': 2, 'forms': {}, 'count': 0, 'synapse_ver': '3.0.0',

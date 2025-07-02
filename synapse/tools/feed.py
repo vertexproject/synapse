@@ -66,9 +66,9 @@ async def ingest_items(core, items, outp, path, bname, viewiden=None, offset=Non
     outp.printf(f'Done consuming from [{bname}]')
     outp.printf(f'Took [{tock - tick}] seconds.')
 
-async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0, viewiden=None, extend_model=False, summary=False):
+async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0, viewiden=None, summary=False):
     items = getItems(*paths)
-    if (summary or extend_model):
+    if summary:
         for path, _ in items:
             if not (path.endswith('.mpk') or path.endswith('.nodes')):
                 outp.printf(f'Warning: --summary and --extend-model are only supported for .mpk/.nodes files. Aborting.')
@@ -93,21 +93,7 @@ async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0,
                 outp.printf(f"  Created: {meta.get('created')}")
                 outp.printf(f"  Forms: {meta.get('forms')}")
                 outp.printf(f"  Count: {meta.get('count')}")
-                model_ext = meta.get('model_ext', {})
-                nonempty_exts = {k: v for k, v in model_ext.items() if v}
-                if nonempty_exts:
-                    outp.printf("  Model Extensions:")
-                    for k, v in nonempty_exts.items():
-                        outp.printf(f"    {k}:")
-                        for item in v:
-                            outp.printf(f"      {item}")
-                else:
-                    outp.printf("  Model Extensions: (none)")
                 continue  # Skip ingest
-
-            if extend_model:
-                await core.importStormMeta(meta, extmodel=True, viewiden=viewiden)
-                outp.printf(f"Extended model elements from metadata in [{bname}]")
 
             await ingest_items(core, genr, outp, path, bname, viewiden=viewiden, offset=offset, chunksize=chunksize, is_synnode3=True, meta=meta, debug=debug)
             continue # Next file
@@ -139,7 +125,6 @@ async def main(argv, outp=None):
             await addFeedData(prox, outp, opts.debug,
                         chunksize=opts.chunksize,
                         offset=opts.offset,
-                        extend_model=opts.extend_model,
                         summary=opts.summary,
                         *opts.files)
 
@@ -158,7 +143,6 @@ async def main(argv, outp=None):
                                   chunksize=opts.chunksize,
                                   offset=opts.offset,
                                   viewiden=opts.view,
-                                  extend_model=opts.extend_model,
                                   summary=opts.summary,
                                   *opts.files)
 
@@ -177,9 +161,6 @@ def makeargparser():
                       help='Cortex to connect and add nodes too.')
     muxp.add_argument('--test', '-t', default=False, action='store_true',
                       help='Perform a local ingest against a temporary cortex.')
-
-    pars.add_argument('--extend-model', '-e', default=False, action='store_true',
-                      help='Extend the model with the data.')
     pars.add_argument('--summary', '-s', default=False, action='store_true',
                       help='Show a summary of the data. Do not add any data.')
     pars.add_argument('--debug', '-d', default=False, action='store_true',

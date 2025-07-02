@@ -5319,68 +5319,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                     forms = collections.Counter()
                     nodec = 0
-                    used_forms = set()
-                    used_types = set()
-                    used_props = set()
-                    used_tagprops = set()
 
                     async for node, path in runt.execute():
-
-                        # Forms
-                        if node.form.isext:
-                            used_forms.add(node.form.name)
-
-                        # Types - collected after all used forms/props
-
-                        # Props
-                        for prop in node.form.props.values():
-                            if (node.form.isext or prop.isext):
-                                if node.get(prop.name) is not None:
-                                    used_props.add((node.form.name, prop.name))
-
-                        # Tagprops
-                        all_tagprops = node._getTagPropsDict()
-                        for tagname, tagpropdict in all_tagprops.items():
-                            for tagprop, valu in tagpropdict.items():
-                                if valu is not None:
-                                    used_tagprops.add(tagprop)
-
                         await spooldict.set(node.nid, (node.lastlayr(), node.pack()))
                         forms[node.form.name] += 1
                         nodec += 1
-
-                    # Types / Extended types - used forms
-                    for formname in used_forms:
-                        form = self.model.forms.get(formname)
-                        if form is not None:
-                            for base in form.type.info.get('bases', ()):
-                                if base.startswith('_'):
-                                    used_types.add(base)
-
-                    # Types / Extended types - used props
-                    for formname, propname in used_props:
-                        form = self.model.forms.get(formname)
-                        if form is not None:
-                            prop = form.props.get(propname)
-                            if prop is not None and prop.type.name.startswith('_'):
-                                used_types.add(prop.type.name)
-
-                    # Types / Extended types - used tagprops
-                    for tagprop in used_tagprops:
-                        tagprop = self.model.tagprop(tagprop)
-                        if tagprop is not None and tagprop.type.name.startswith('_'):
-                            used_types.add(tagprop.type.name)
-
-                    # Edges
-                    extmodel = await self.getExtModel()
-                    ext_edges = set(edge[0] for edge in extmodel.get('edges', []))
-
-                    model_ext = {
-                        'forms': [f for f in extmodel.get('forms', []) if f[0] in used_forms],
-                        'types': [t for t in extmodel.get('types', []) if t[0] in used_types],
-                        'props': [p for p in extmodel.get('props', []) if (p[0], p[1]) in used_props],
-                        'tagprops': [tp for tp in extmodel.get('tagprops', []) if tp[0] in used_tagprops],
-                    }
 
                     node_edges = collections.defaultdict(list)
                     edges_meta = collections.defaultdict(lambda: collections.defaultdict(set))
@@ -5396,17 +5339,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                                 edges_meta[src_form][verb].add(tgt_form)
 
                     edges_meta = {k: {vk: sorted(list(vv)) for vk, vv in v.items()} for k, v in edges_meta.items()}
-                    used_edges = set()
-                    for (src_form, verb, tgt_form) in ext_edges:
-                        src_forms_to_check = [src_form] if src_form is not None else edges_meta.keys()
-                        if tgt_form is None:
-                            if any(edges_meta.get(sform, {}).get(verb, []) for sform in src_forms_to_check):
-                                used_edges.add((src_form, verb, tgt_form))
-                        else:
-                            if any(tgt_form in edges_meta.get(sform, {}).get(verb, []) for sform in src_forms_to_check):
-                                used_edges.add((src_form, verb, tgt_form))
-
-                    model_ext['edges'] = [edge for edge in extmodel.get('edges', []) if edge[0] in used_edges]
 
                     metadata = {
                         'type': 'meta',
@@ -5414,7 +5346,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         'forms': dict(forms),
                         'edges': edges_meta,
                         'count': nodec,
-                        'model_ext': model_ext,
                         'creatorname': user.name,
                         'creatoriden': user.iden,
                         'created': s_common.now(),

@@ -1251,48 +1251,6 @@ _exportStormMetaSchema = {
             },
             'description': 'Mapping of source form to verbs to target forms.'
         },
-        'model_ext': {
-            'type': 'object',
-            'properties': {
-                'forms': {
-                    'type': 'array',
-                    'items': {
-                        'type': 'array',
-                        'minItems': 4,
-                        'maxItems': 4,
-                        'items': [{'type': 'string'}, {'type': 'string'}, {'type': 'object'}, {'type': 'object'}]
-                    }
-                },
-                'props': {
-                    'type': 'array',
-                    'items': {
-                        'type': 'array',
-                        'minItems': 4,
-                        'maxItems': 4,
-                        'items': [{'type': 'string'}, {'type': 'string'}, {'type': 'array'}, {'type': 'object'}]
-                    }
-                },
-                'tagprops': {
-                    'type': 'array',
-                    'items': {
-                        'type': 'array',
-                        'minItems': 3,
-                        'maxItems': 3,
-                        'items': [{'type': 'string'}, {'type': 'array'}, {'type': 'object'}]
-                    }
-                },
-                'types': {
-                    'type': 'array',
-                    'items': {
-                        'type': 'array',
-                        'minItems': 4,
-                        'maxItems': 4,
-                        'items': [{'type': 'string'}, {'type': 'string'}, {'type': 'object'}, {'type': 'object'}]
-                    }
-                },
-            },
-            'description': 'Additional model information about extended forms, properties, tagprops, and univprops.'
-        },
         'count': {'type': 'integer', 'minimum': 0, 'description': 'Number of nodes exported.'},
         'synapse_ver': {
             'type': 'string',
