@@ -5785,6 +5785,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                     ddef = await core01.callStorm('return($lib.dmon.get($iden))', opts=opts)
                     self.none(ddef)
 
+                    await core00.callStorm('queue.del hehe')
+                    await core01.sync()
+
+                    self.none(await core00.getAuthGate('queue:hehe'))
+                    self.none(await core01.getAuthGate('queue:hehe'))
+
             # now lets start up in the opposite order...
             async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
 
@@ -8769,3 +8775,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(core._test_post_service_storage_index, offs)
                 self.eq(core._test_pre_nexus_index, offs)
                 self.ge(core._test_post_nexus_index, core._test_pre_nexus_index)
+
+    async def test_cortex_queue_mirror_authgates(self):
+        async with self.getRegrCore('2.213.0-queue-authgates') as core:
+            self.nn(await core.getAuthGate('queue:stillhere'))
+            self.none(await core.getAuthGate('queue:authtest'))
