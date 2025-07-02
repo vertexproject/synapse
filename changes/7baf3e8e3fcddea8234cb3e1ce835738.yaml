@@ -1,5 +1,0 @@
----
-desc: Remove runtsafety requirement for ``init``, ``fini``, and ``empty`` blocks in Storm.
-prs: []
-type: feat
-...

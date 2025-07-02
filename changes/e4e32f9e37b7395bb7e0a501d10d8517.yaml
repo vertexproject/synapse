@@ -1,5 +1,0 @@
----
-desc: Added ``inet:service:instance:app`` to capture the app containing the instance.
-prs: []
-type: model
-...

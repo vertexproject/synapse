@@ -1,7 +1,0 @@
----
-desc: Improved error handling when connecting to local cells by raising
-  ``LinkErr`` if the socket is not listening and ``NoSuchPath`` if the socket
-  is missing.
-prs: []
-type: bug
-...
