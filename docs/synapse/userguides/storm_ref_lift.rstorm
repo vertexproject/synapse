@@ -375,7 +375,7 @@ Lift by Primary Property Value
 
 *Lift the Autonomous System (inet:asn) nodes whose AS number is less than 50:*
 
-.. storm-pre:: [ ( inet:asn=49 :name='us-national-institute-of-standards-and-technology' ) ( inet:asn=32 :name=stanford ) ( inet:asn=71 :name=hp-internet-as ) ]
+.. storm-pre:: [ ( inet:asn=49 :owner:name='us-national-institute-of-standards-and-technology' ) ( inet:asn=32 :owner:name=stanford ) ( inet:asn=71 :owner:name=hp-internet-as ) ]
 .. storm-pre:: inet:asn < 50
 ::
   
@@ -952,7 +952,7 @@ The set membership extended comparator (``*in=``) supports lifting nodes whose *
 
 *Lift all IP addresses associated with any of the specified Autonomous System (AS) numbers:*
 
-.. storm-pre:: [ (inet:asn=44477 :name='stark industries solutions ltd') (inet:asn=20473 :name=as-choopa) (inet:asn=9009 :name='m247 europe srl') ]
+.. storm-pre:: [ (inet:asn=44477 :owner:name='stark industries solutions ltd') (inet:asn=20473 :owner:name=as-choopa) (inet:asn=9009 :owner:name='m247 europe srl') ]
 .. storm-pre:: inet:ip:asn *in= ( 9009, 20473, 44477 )
 ::
   
