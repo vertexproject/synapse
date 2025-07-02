@@ -1508,7 +1508,7 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str:tick=201401*')
             self.eq({node.ndef[1] for node in nodes}, {'a'})
 
-            nodes = await core.nodes('test:str:tick*range=("-4200 days", now)')
+            nodes = await core.nodes('test:str:tick*range=(2010, now)')
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b', 'c', 'd'})
 
             opts = {'vars': {'tick': tick, 'tock': tock}}
