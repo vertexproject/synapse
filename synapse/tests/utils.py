@@ -439,6 +439,7 @@ testmodel = {
 
         ('test:guid', {}, (
             ('size', ('test:int', {}), {}),
+            ('name', ('test:str', {}), {}),
             ('tick', ('test:time', {}), {}),
             ('posneg', ('test:sub', {}), {}),
             ('posneg:isbig', ('bool', {}), {}),
@@ -459,6 +460,7 @@ testmodel = {
             ('hehe', ('str', {}), {}),
             ('ndefs', ('array', {'type': 'ndef'}), {}),
             ('somestr', ('test:str', {}), {}),
+            ('gprop', ('test:guid', {}), {}),
         )),
         ('test:strregex', {}, ()),
 
