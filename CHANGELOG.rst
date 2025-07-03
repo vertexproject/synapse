@@ -6,6 +6,27 @@
 Synapse Changelog
 *****************
 
+v2.215.0 - 2025-07-03
+=====================
+
+Model Changes
+-------------
+- Added ``it:os:windows:service`` to model Microsoft Windows Service
+  configuration details.
+  (`#4380 <https://github.com/vertexproject/synapse/pull/4380>`_)
+- See :ref:`userguide_model_v2_215_0` for more detailed model changes.
+
+Bugfixes
+--------
+- Fixed an issue where certain JsonStor edit operations could have delays
+  before being committed to the slab.
+  (`#4383 <https://github.com/vertexproject/synapse/pull/4383>`_)
+- Fixed an issue where removing a tag property from a tag could also remove
+  other tag properties on that same tag.
+  (`#4384 <https://github.com/vertexproject/synapse/pull/4384>`_)
+- Fixed an issue in the error handling when deleting a Cortex queue.
+  (`#4385 <https://github.com/vertexproject/synapse/pull/4385>`_)
+
 v2.214.0 - 2025-07-02
 =====================
 
