@@ -2554,7 +2554,6 @@ modeldefs = (
                 ('type', ('str', {'lower': True}), {
                     'doc': 'The classification of the registered network (e.g. direct allocation).'}),
 
-                # FIXME is this legit?
                 ('links', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                     'doc': 'URLs provided with the record.'}),
 

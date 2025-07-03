@@ -20,7 +20,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :time=20200202
                     :detected = 20210203
                     :success=true
-                    :targeted=true
                     :goal=*
                     :type=foo.bar
                     :severity=10
@@ -38,7 +37,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('desc'), 'wootwoot')
             self.eq(nodes[0].get('type'), 'foo.bar.')
             self.eq(nodes[0].get('success'), True)
-            self.eq(nodes[0].get('targeted'), True)
             self.eq(nodes[0].get('source:name'), 'vertex')
             self.eq(nodes[0].get('sophistication'), 40)
             self.eq(nodes[0].get('severity'), 10)

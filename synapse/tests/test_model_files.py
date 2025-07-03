@@ -142,22 +142,22 @@ class FileTest(s_t_utils.SynTest):
                 file:mime:macho:segment=*
                     :file=$file
                     :file:size=48
+                    :file:offs=1234
                     :type=1
                     :name="__TEXT"
                     :memsize=4092
                     :disksize=8192
                     :sha256=$sha256
-                    :offset=1234
             ]''', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('file'), fileguid)
             self.eq(nodes[0].get('type'), 1)
             self.eq(nodes[0].get('file:size'), 48)
+            self.eq(nodes[0].get('file:offs'), 1234)
             self.eq(nodes[0].get('name'), '__TEXT')
             self.eq(nodes[0].get('memsize'), 4092)
             self.eq(nodes[0].get('disksize'), 8192)
             self.eq(nodes[0].get('sha256'), seghash)
-            self.eq(nodes[0].get('offset'), 1234)
 
             # section
             nodes = await core.nodes('''[
