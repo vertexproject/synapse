@@ -65,6 +65,10 @@ class DataModelTest(s_t_utils.SynTest):
                 form.reqProp('name:ipv4')
             self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
 
+            with self.raises(s_exc.NoSuchType) as cm:
+                core.model.addFormProp('test:str', 'bar', ('newp', {}), {})
+            self.isin('No type named newp while declaring prop test:str:bar.', cm.exception.get('mesg'))
+
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
         mods = (
@@ -359,4 +363,52 @@ class DataModelTest(s_t_utils.SynTest):
         # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const
         # in sync with the default s_datamodel.Datamodel().types
         basetypes = list(s_datamodel.Model().types)
-        self.eq(s_schemas.datamodel_basetypes, basetypes)
+        self.sorteq(s_schemas.datamodel_basetypes, basetypes)
+
+    async def test_datamodel_virts(self):
+
+        async with self.getTestCore() as core:
+
+            vdef = (('inet:ip', {}), {'doc': 'The IP address of the server.'})
+            self.eq(core.model.form('inet:server').info['virts']['ip'], vdef)
+
+            vdef = (('inet:ip', {}), {'doc': 'The IP address contained in the socket address URL.'})
+            self.eq(core.model.type('inet:sockaddr').info['virts']['ip'], vdef)
+
+            vdef = (('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'})
+            self.eq(core.model.prop('it:exec:proc:time').info['virts']['precision'], vdef)
+
+            with self.raises(s_exc.NoSuchType):
+                core.model.addFormProp('test:str', 'bar', ('str', {}), {'virts': {'newp': (('newp', {}), {})}})
+
+    async def test_datamodel_protocols(self):
+        async with self.getTestCore() as core:
+            await core.nodes('[ test:protocol=5 :time=2020 :currency=usd :otherval=15 ]')
+
+            pinfo = await core.callStorm('test:protocol return($node.protocol(test:adjustable))')
+            self.eq('test:adjustable', pinfo['name'])
+            self.eq('usd', pinfo['vars']['currency'])
+            self.none(pinfo.get('prop'))
+
+            pinfo = await core.callStorm('test:protocol return($node.protocols())')
+            self.len(2, pinfo)
+            self.eq('test:adjustable', pinfo[0]['name'])
+            self.eq('usd', pinfo[0]['vars']['currency'])
+            self.none(pinfo[0].get('prop'))
+
+            self.len(2, pinfo)
+            self.eq('another:adjustable', pinfo[1]['name'])
+            self.eq('usd', pinfo[1]['vars']['currency'])
+            self.eq('otherval', pinfo[1].get('prop'))
+
+            pinfo = await core.callStorm('test:protocol return($node.protocols(another:adjustable))')
+            self.len(1, pinfo)
+            self.eq('another:adjustable', pinfo[0]['name'])
+            self.eq('usd', pinfo[0]['vars']['currency'])
+            self.eq('otherval', pinfo[0].get('prop'))
+
+            with self.raises(s_exc.NoSuchName):
+                await core.callStorm('test:protocol return($node.protocol(newp))')
+
+            with self.raises(s_exc.NoSuchName):
+                await core.callStorm('test:protocol return($node.protocol(newp, propname=otherval))')

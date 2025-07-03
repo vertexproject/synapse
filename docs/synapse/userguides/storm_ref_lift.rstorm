@@ -79,7 +79,7 @@ requires the name of the form whose nodes you want to lift.
 
 *Lift all nodes representing articles (doc:report nodes):*
 
-.. storm-pre:: [ (doc:report=* :publisher:name=eset :published=2016/10/20 :name='dissection of sednit espionage group') (doc:report=* :publisher:name='trend micro' :published=2023/09/18 :name='earth lusca employs new linux backdoor, uses cobalt strike for lateral movement') ]
+.. storm-pre:: [ (doc:report=* :publisher:name=eset :published=2016/10/20 :title='dissection of sednit espionage group') (doc:report=* :publisher:name='trend micro' :published=2023/09/18 :title='earth lusca employs new linux backdoor, uses cobalt strike for lateral movement') ]
 .. storm-pre:: doc:report
 ::
   

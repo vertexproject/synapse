@@ -669,11 +669,13 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The time interval when the organization was running the campaign.'}),
 
-                # FIXME econ:valuable
                 ('cost', ('econ:price', {}), {
                     'doc': 'The actual cost to the organization.'}),
 
                 ('budget', ('econ:price', {}), {
+                    'protocols': {
+                        'econ:adjustable': {'props': {'time': 'period.min', 'currency': 'currency'}},
+                    },
                     'doc': 'The budget allocated by the organization to execute the campaign.'}),
 
                 ('currency', ('econ:currency', {}), {
@@ -736,7 +738,7 @@ modeldefs = (
                 ('material:count', ('int', {}), {
                     'doc': 'The number of material items contributed.'}),
 
-                ('monetary:payment', ('econ:acct:payment', {}), {
+                ('monetary:payment', ('econ:payment', {}), {
                     'doc': 'Payment details for a monetary contribution.'}),
 
                 ('personnel:count', ('int', {}), {

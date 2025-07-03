@@ -4091,11 +4091,11 @@ class StormTypesTest(s_test.SynTest):
             edits = [ne for ne in msgs if ne[0] == 'node:edits']
             self.len(1, edits)
             opts['vars']['props'] = {
-                'name': 'foobar',
                 'desc': 'bizbaz',
+                'title': 'foobar',
             }
-            await visi.addRule((True, ('node', 'prop', 'set', 'doc:report:name')), gateiden=layr)
             await visi.addRule((True, ('node', 'prop', 'set', 'doc:report:desc')), gateiden=layr)
+            await visi.addRule((True, ('node', 'prop', 'set', 'doc:report:title')), gateiden=layr)
             msgs = await core.stormlist('$lib.view.get($fork).addNode(doc:report, $guid, $props)', opts=opts)
             edits = [ne for ne in msgs if ne[0] == 'node:edits']
             self.len(1, edits)
@@ -5678,17 +5678,17 @@ class StormTypesTest(s_test.SynTest):
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
 
-            await core.nodes('[ doc:report=(bar,) :name=foo ]')
-            await core.nodes('[ doc:report=(baz,) :name=bar ]')
-            await core.nodes('[ doc:report=(faz,) :name=faz ]')
+            await core.nodes('[ doc:report=(bar,) :title=foo ]')
+            await core.nodes('[ doc:report=(baz,) :title=bar ]')
+            await core.nodes('[ doc:report=(faz,) :title=faz ]')
 
             forkopts = {'view': forkview}
-            await core.nodes('[ doc:report=(baz,) :name=faz ]', opts=forkopts)
+            await core.nodes('[ doc:report=(baz,) :title=faz ]', opts=forkopts)
 
-            opts = {'vars': {'prop': 'doc:report:name'}}
+            opts = {'vars': {'prop': 'doc:report:title'}}
             self.eq(['bar', 'faz', 'foo'], await core.callStorm(viewq, opts=opts))
 
-            opts = {'view': forkview, 'vars': {'prop': 'doc:report:name'}}
+            opts = {'view': forkview, 'vars': {'prop': 'doc:report:title'}}
             self.eq(['faz', 'foo'], await core.callStorm(viewq, opts=opts))
 
             forkview2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)
@@ -6463,10 +6463,10 @@ words\tword\twrd'''
             await core.addTagProp('huge', ('hugenum', {}), {})
             await core.addFormProp('test:str', '_hugearray', ('array', {'type': 'hugenum'}), {})
 
-            nodes = await core.nodes(f'[econ:acct:balance=* :amount=({valu})]')
+            nodes = await core.nodes(f'[econ:balance=* :amount=({valu})]')
             self.eq(nodes[0].get('amount'), valu)
 
-            nodes = await core.nodes(f'econ:acct:balance:amount=({valu})')
+            nodes = await core.nodes(f'econ:balance:amount=({valu})')
             self.len(1, nodes)
 
             nodes = await core.nodes(f'[test:hugenum=({valu})]')
@@ -6475,7 +6475,7 @@ words\tword\twrd'''
             nodes = await core.nodes(f'test:hugenum=({valu})')
             self.len(1, nodes)
 
-            nodes = await core.nodes(f'econ:acct:balance:amount +:amount=({valu})')
+            nodes = await core.nodes(f'econ:balance:amount +:amount=({valu})')
             self.len(1, nodes)
 
             nodes = await core.nodes(f'[test:str=foo +#foo:huge=({valu})]')

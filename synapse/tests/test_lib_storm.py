@@ -2516,25 +2516,25 @@ class StormTest(s_t_utils.SynTest):
 
             # embed through `econ:pay:instrument` type that extends from `ndef`
             await core.nodes('''
-                [ econ:acct:payment=* :from:instrument={ [ econ:pay:card=(testcard,) :name=infime ] } ]
+                [ econ:payment=* :payer:instrument={ [ econ:pay:card=(testcard,) :name=infime ] } ]
             ''')
 
             opts = {
                 'node:opts': {
                     'embeds': {
-                        'econ:acct:payment': {
-                            'from:instrument': ['name'],
+                        'econ:payment': {
+                            'payer:instrument': ['name'],
                         }
                     }
                 }
             }
-            msgs = await core.stormlist('econ:acct:payment', opts=opts)
+            msgs = await core.stormlist('econ:payment', opts=opts)
             node = [m[1] for m in msgs if m[0] == 'node'][0]
-            self.eq('econ:acct:payment', node[0][0])
+            self.eq('econ:payment', node[0][0])
 
             embeds = node[1]['embeds']
-            self.eq(25, embeds['from:instrument']['$nid'])
-            self.eq('infime', embeds['from:instrument']['name'])
+            self.eq(25, embeds['payer:instrument']['$nid'])
+            self.eq('infime', embeds['payer:instrument']['name'])
 
     async def test_storm_wget(self):
 
@@ -3615,7 +3615,7 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('scrape "https://t.c\\\\"')
             self.stormHasNoWarnErr(msgs)
-            msgs = await core.stormlist('[ doc:report=* :name="https://t.c\\\\" ] | scrape :name')
+            msgs = await core.stormlist('[ doc:report=* :title="https://t.c\\\\" ] | scrape :title')
             self.stormHasNoWarnErr(msgs)
 
     async def test_storm_tee(self):

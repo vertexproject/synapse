@@ -111,20 +111,20 @@ class BaseTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ meta:ruleset=*
                     :created=20200202 :updated=20220401 :author={[ entity:contact=* ]}
-                    :name=" My  Rules" :desc="My cool ruleset" ]
+                    :name=" My Rules" :desc="My cool ruleset" ]
             ''')
             self.len(1, nodes)
 
             self.nn(nodes[0].get('author'))
             self.eq(nodes[0].get('created'), 1580601600000000)
             self.eq(nodes[0].get('updated'), 1648771200000000)
-            self.eq(nodes[0].get('name'), 'my rules')
+            self.eq(nodes[0].get('name'), 'My Rules')
             self.eq(nodes[0].get('desc'), 'My cool ruleset')
 
             nodes = await core.nodes('''
                 [ meta:rule=*
                     :created=20200202 :updated=20220401 :author={[ entity:contact=* ]}
-                    :name=" My  Rule" :desc="My cool rule"
+                    :name=" My Rule" :desc="My cool rule"
                     :type=foo.bar
                     :text="while TRUE { BAD }"
                     :id=WOOT-20 :url=https://vertex.link/rules/WOOT-20
@@ -138,7 +138,7 @@ class BaseTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('type'), 'foo.bar.')
             self.eq(nodes[0].get('created'), 1580601600000000)
             self.eq(nodes[0].get('updated'), 1648771200000000)
-            self.eq(nodes[0].get('name'), 'my rule')
+            self.eq(nodes[0].get('name'), 'My Rule')
             self.eq(nodes[0].get('desc'), 'My cool rule')
             self.eq(nodes[0].get('text'), 'while TRUE { BAD }')
             self.eq(nodes[0].get('url'), 'https://vertex.link/rules/WOOT-20')

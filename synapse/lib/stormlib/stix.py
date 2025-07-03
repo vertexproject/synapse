@@ -420,7 +420,7 @@ _DefaultConfig = {
             'stix': {
                 'report': {
                     'props': {
-                        'name': 'return(:name)',
+                        'name': 'return(:title)',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'published': 'return($lib.stix.export.timestamp(:published))',
@@ -790,7 +790,7 @@ stixingest = {
         'report': {
             'storm': '''
                 [ doc:report=(stix, report, $object.id)
-                    :name?=$object.name
+                    :title?=$object.name
                     :desc?=$object.description
                     :published?=$object.published
                 ]
