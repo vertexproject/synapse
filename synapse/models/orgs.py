@@ -159,7 +159,7 @@ modeldefs = (
                 'doc': 'An IP address block which belongs to an organization.'}),
 
             ('ou:position', ('guid', {}), {
-                'doc': 'A position within an org which can be organized into an org chart with replacable contacts.'}),
+                'doc': 'A position within an org which can be organized into an org chart with replaceable contacts.'}),
 
             ('ou:attendee', ('guid', {}), {
                 'interfaces': (
