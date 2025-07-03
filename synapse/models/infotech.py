@@ -1081,19 +1081,6 @@ modeldefs = (
             # FIXME tighten these down...
             (('it:app:snort:rule', 'detects', None), {
                 'doc': 'The snort rule is intended for use in detecting the target node.'}),
-                # https://learn.microsoft.com/en-us/windows-hardware/drivers/install/hklm-system-currentcontrolset-services-registry-tree
-                ('it:os:windows:service', ('guid', {}), {
-                    'doc': 'A Microsoft Windows service configuration on a host.'}),
-
-                # TODO
-                # ('it:os:windows:task', ('guid', {}), {
-                #     'doc': 'A Microsoft Windows scheduled task configuration.'}),
-
-                # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c92a27b1-c772-4fa7-a432-15df5f1b66a1
-                ('it:os:windows:sid', ('str', {'regex': r'^S-1-(?:\d{1,10}|0x[0-9a-fA-F]{12})(?:-(?:\d+|0x[0-9a-fA-F]{2,}))*$'}), {
-                    'doc': 'A Microsoft Windows Security Identifier.',
-                    'ex': 'S-1-5-21-1220945662-1202665555-839525555-5555',
-                }),
 
             (('it:app:yara:rule', 'detects', None), {
                 'doc': 'The YARA rule is intended for use in detecting the target node.'}),
