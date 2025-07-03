@@ -4,6 +4,58 @@ import synapse.exc as s_exc
 
 class StormtypesModelextTest(s_test.SynTest):
 
+    async def test_lib_stormlib_modelext_versions(self):
+
+        async with self.getTestCore() as core:
+
+            idens = set()
+            idens.add(core.model.iden)
+
+            await core.callStorm('''
+                $typeinfo = ({})
+                $forminfo = ({"doc": "A test form doc."})
+                $lib.model.ext.addForm(_visi:int, int, $typeinfo, $forminfo)
+            ''')
+            self.true(core.model.iden not in idens)
+            idens.add(core.model.iden)
+
+            await core.callStorm('''
+                $propinfo = ({"doc": "A test prop doc."})
+                $lib.model.ext.addFormProp(_visi:int, tick, (time, ({})), $propinfo)
+            ''')
+            self.true(core.model.iden not in idens)
+            idens.add(core.model.iden)
+
+            await core.callStorm('''
+                $univinfo = ({"doc": "A test univ doc."})
+                $lib.model.ext.addUnivProp(_woot, (int, ({})), $univinfo)
+            ''')
+            self.true(core.model.iden not in idens)
+            idens.add(core.model.iden)
+
+            await core.callStorm('''
+                $tagpropinfo = ({"doc": "A test tagprop doc."})
+                $lib.model.ext.addTagProp(score, (int, ({})), $tagpropinfo)
+            ''')
+            self.true(core.model.iden not in idens)
+            idens.add(core.model.iden)
+
+            await core.callStorm('''
+                $propinfo = ({"doc": "Extended a core model."})
+                $lib.model.ext.addFormProp(test:int, _tick, (time, ({})), $propinfo)
+            ''')
+            self.true(core.model.iden not in idens)
+            idens.add(core.model.iden)
+
+            await core.callStorm('''
+                $edgeinfo = ({"doc": "A test edge."})
+                $lib.model.ext.addEdge(inet:user, _copies, *, $edgeinfo)
+            ''')
+            self.true(core.model.iden not in idens)
+            idens.add(core.model.iden)
+
+            self.true(None not in idens)
+
     async def test_lib_stormlib_modelext_base(self):
         async with self.getTestCore() as core:
             await core.callStorm('''
