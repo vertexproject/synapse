@@ -3569,6 +3569,7 @@ class Layer(s_nexus.Pusher):
 
         if not self.mayDelBuid(buid, sode):
             self.setSodeDirty(buid, sode, form)
+            self.layrslab.dirty = True
 
         return (
             (EDIT_NODE_DEL, (valu, stortype), ()),
@@ -3842,8 +3843,9 @@ class Layer(s_nexus.Pusher):
             return ()
 
         oldv, oldt = tp_dict.pop(prop, (None, None))
-        if not tp_dict.get(tag):
+        if not tp_dict:
             sode['tagprops'].pop(tag, None)
+
         if oldv is None:
             self.mayDelBuid(buid, sode)
             return ()
