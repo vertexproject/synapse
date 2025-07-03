@@ -786,6 +786,14 @@ modeldefs = (
                 'interfaces': (('entity:identifier', {}), ),
                 'doc': 'An advertising identification string.'}),
 
+            # https://learn.microsoft.com/en-us/windows-hardware/drivers/install/hklm-system-currentcontrolset-services-registry-tree
+            ('it:os:windows:service', ('guid', {}), {
+                'doc': 'A Microsoft Windows service configuration on a host.'}),
+
+            # TODO
+            # ('it:os:windows:task', ('guid', {}), {
+            #     'doc': 'A Microsoft Windows scheduled task configuration.'}),
+
             # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c92a27b1-c772-4fa7-a432-15df5f1b66a1
             ('it:os:windows:sid', ('str', {'regex': r'^S-1-(?:\d{1,10}|0x[0-9a-fA-F]{12})(?:-(?:\d+|0x[0-9a-fA-F]{2,}))*$'}), {
                 'ex': 'S-1-5-21-1220945662-1202665555-839525555-5555',
@@ -1073,6 +1081,19 @@ modeldefs = (
             # FIXME tighten these down...
             (('it:app:snort:rule', 'detects', None), {
                 'doc': 'The snort rule is intended for use in detecting the target node.'}),
+                # https://learn.microsoft.com/en-us/windows-hardware/drivers/install/hklm-system-currentcontrolset-services-registry-tree
+                ('it:os:windows:service', ('guid', {}), {
+                    'doc': 'A Microsoft Windows service configuration on a host.'}),
+
+                # TODO
+                # ('it:os:windows:task', ('guid', {}), {
+                #     'doc': 'A Microsoft Windows scheduled task configuration.'}),
+
+                # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c92a27b1-c772-4fa7-a432-15df5f1b66a1
+                ('it:os:windows:sid', ('str', {'regex': r'^S-1-(?:\d{1,10}|0x[0-9a-fA-F]{12})(?:-(?:\d+|0x[0-9a-fA-F]{2,}))*$'}), {
+                    'doc': 'A Microsoft Windows Security Identifier.',
+                    'ex': 'S-1-5-21-1220945662-1202665555-839525555-5555',
+                }),
 
             (('it:app:yara:rule', 'detects', None), {
                 'doc': 'The YARA rule is intended for use in detecting the target node.'}),
@@ -2057,7 +2078,43 @@ modeldefs = (
 
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),
+
+                # TODO
+                # ('windows:task', ('it:os:windows:task', {}), {
+                #     'doc': 'The Microsoft Windows scheduled task responsible for starting the process.'}),
+
+                ('windows:service', ('it:os:windows:service', {}), {
+                    'doc': 'The Microsoft Windows service responsible for starting the process.'}),
             )),
+
+            ('it:os:windows:service', {}, (
+
+                ('host', ('it:host', {}), {
+                    'doc': 'The host that the service was configured on.'}),
+
+                ('name', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'The name of the service from the registry key within Services.'}),
+
+                # TODO flags...
+                ('type', ('int', {'min': 0}), {
+                    'doc': 'The type of service from the Type registry key.'}),
+
+                ('start', ('int', {'min': 0}), {
+                    'doc': 'The start configuration of the service from the Start registry key.'}),
+
+                ('errorcontrol', ('int', {'min': 0}), {
+                    'doc': 'The service error handling behavior from the ErrorControl registry key.'}),
+
+                ('displayname', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'The friendly name of the service from the DisplayName registry key.'}),
+
+                ('description', ('text', {}), {
+                    'doc': 'The description of the service from the Description registry key.'}),
+
+                ('imagepath', ('file:path', {}), {
+                    'doc': 'The path to the service binary from the ImagePath registry key.'}),
+            )),
+
             ('it:query', {}, ()),
             ('it:exec:query', {}, (
 

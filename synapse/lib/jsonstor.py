@@ -219,6 +219,7 @@ class JsonStor(s_base.Base):
 
         step[name] = valu
         self.dirty[buid] = item
+        self.slab.dirty = True
         return True
 
     async def delPathObjProp(self, path, prop):
@@ -240,6 +241,7 @@ class JsonStor(s_base.Base):
         step.pop(names[-1], None)
 
         self.dirty[buid] = item
+        self.slab.dirty = True
         return True
 
     async def cmpDelPathObjProp(self, path, prop, valu):
@@ -263,6 +265,7 @@ class JsonStor(s_base.Base):
 
         step.pop(name, None)
         self.dirty[buid] = item
+        self.slab.dirty = True
         return True
 
     async def popPathObjProp(self, path, prop, defv=None):
@@ -284,7 +287,7 @@ class JsonStor(s_base.Base):
 
         retn = step.pop(names[-1], defv)
         self.dirty[buid] = item
-
+        self.slab.dirty = True
         return retn
 
 class JsonStorApi(s_cell.CellApi):

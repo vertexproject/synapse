@@ -2868,6 +2868,21 @@ class StormTypesTest(s_test.SynTest):
                 self.eq((5, 'baz'), await core.callStorm('return($lib.queue.get(poptest).pop())'))
                 self.none(await core.callStorm('return($lib.queue.get(poptest).pop())'))
 
+                # Coverage for the Cortex queue:del nexus handler
+                name = 'deleteme'
+                iden = s_common.guid()
+                await core.addCoreQueue(
+                    name,
+                    {'name': name,
+                     'creator': core.auth.rootuser.iden,
+                     'created': s_common.now(),
+                     'iden': iden}
+                )
+                await core.auth.delAuthGate(f'queue:{name}')
+                await core.delCoreQueue(name)
+                with self.raises(s_exc.NoSuchName):
+                    await core.getCoreQueue(name)
+
     async def test_storm_node_data(self):
 
         async with self.getTestCore() as core:
