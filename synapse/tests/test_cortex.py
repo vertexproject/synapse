@@ -5637,8 +5637,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 {'name': 'woot',
                 'creator': core.auth.rootuser.iden,
                 'created': s_common.now(),
-                'iden': iden,
-                'some': 'info'}
+                'iden': iden}
             )
             await core.auth.delAuthGate(iden)
             await core._delCoreQueue(iden)
