@@ -178,6 +178,10 @@ class AhaApi(s_cell.CellApi):
         async for info in self.cell.getAhaSvcs(network=network):
             yield info
 
+    async def getAhaSvcsByIden(self, iden, online=True, skiprun=None):
+        async for svcdef in self.cell.getAhaSvcsByIden(iden, online=online, skiprun=skiprun):
+            yield svcdef
+
     async def addAhaSvc(self, name, info, network=None):
         '''
         Register a service with the AHA discovery server.
@@ -584,6 +588,7 @@ class AhaCell(s_cell.Cell):
     async def initServiceStorage(self):
 
         self.features['callpeers'] = 1
+        self.features['getAhaSvcsByIden'] = 1
 
         dirn = s_common.gendir(self.dirn, 'slabs', 'jsonstor')
 
