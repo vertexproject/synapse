@@ -36,6 +36,14 @@ class FeedTest(s_t_utils.SynTest):
                         _ = fd.write(s_json.dumps(pode, newline=True))
 
                 argv = ['--cortex', curl,
+                        '--summary',
+                        jsonlfp]
+
+                outp = self.getTestOutp()
+                self.eq(await s_feed.main(argv, outp=outp), 0)
+                outp.expect('Warning: --summary and --extend-model are only supported')
+
+                argv = ['--cortex', curl,
                         '--chunksize', '3',
                         jsonlfp]
 
@@ -58,6 +66,14 @@ class FeedTest(s_t_utils.SynTest):
             host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
             curl = f'tcp://icanadd:secret@{host}:{port}/'
 
+            meta = {
+                'type': 'meta',
+                'vers': 1,
+                'forms': {'test:int': 20},
+                'count': 20,
+                'synapse_ver': '3.0.0',
+            }
+
             with self.getTestDir() as dirn:
 
                 mpkfp = s_common.genpath(dirn, 'podes.mpk')
@@ -72,6 +88,14 @@ class FeedTest(s_t_utils.SynTest):
                         mpkfp]
 
                 outp = self.getTestOutp()
+                self.eq(await s_feed.main(argv, outp=outp), 0)
+                outp.expect('not a valid syn.nodes file')
+
+                # reset file with meta
+                with s_common.genfile(mpkfp) as fd:
+                    fd.write(s_msgpack.en(meta))
+                    for i in range(20):
+                        fd.write(s_msgpack.en((('test:int', i), {})))
                 self.eq(await s_feed.main(argv, outp=outp), 0)
 
                 # Sad path catch
@@ -93,11 +117,22 @@ class FeedTest(s_t_utils.SynTest):
 
             oldview = await core.callStorm('$view = $lib.view.get() return($view.iden)')
             newview = await core.callStorm('$view = $lib.view.get() return($view.fork().iden)')
+            badview = hashlib.md5(newview.encode(), usedforsecurity=False).hexdigest()
+
+            meta = {
+                'type': 'meta',
+                'vers': 1,
+                'forms': {'test:int': 20},
+                'count': 20,
+                'synapse_ver': '3.0.0',
+                'created': 1747831406876525,
+            }
 
             with self.getTestDir() as dirn:
 
                 mpkfp = s_common.genpath(dirn, 'podes.mpk')
                 with s_common.genfile(mpkfp) as fd:
+                    fd.write(s_msgpack.en(meta))
                     for i in range(20):
                         pode = (('test:int', i), {})
                         fd.write(s_msgpack.en(pode))
@@ -105,7 +140,6 @@ class FeedTest(s_t_utils.SynTest):
                 base = ['--cortex', curl]
 
                 argv = base + ['--view', newview, mpkfp]
-
                 outp = self.getTestOutp()
                 # perms are still a thing
                 with self.raises(s_exc.AuthDeny):
@@ -117,12 +151,15 @@ class FeedTest(s_t_utils.SynTest):
 
                 icanadd = await core.auth.getUserByName('icanadd')
                 await icanadd.addRule((True, ('view', 'read')))
-                # now actually do the ingest
+
+                # now actually do the ingest w/chunking
+                argv = base + ['--chunksize', '10', '--view', newview, mpkfp]
                 self.eq(await s_feed.main(argv, outp=outp), 0)
+                nodes = await core.nodes('test:int', opts={'view': newview})
+                self.len(20, nodes)
 
                 # sad path
                 outp = self.getTestOutp()
-                badview = hashlib.md5(newview.encode(), usedforsecurity=False).hexdigest()
                 argv = base + ['--view', badview, mpkfp]
                 with self.raises(s_exc.NoSuchView):
                     await s_feed.main(argv, outp=outp)
@@ -132,3 +169,41 @@ class FeedTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:int', opts={'view': oldview})
             self.len(0, nodes)
+
+    async def test_synnodes_metadata(self):
+
+        async with self.getTestCore() as core:
+
+            await self.addCreatorDeleterRoles(core)
+
+            host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
+            curl = f'tcp://icanadd:secret@{host}:{port}/'
+
+            meta = {
+                'count': 1,
+                'created': 1747831406876525,
+                'creatorname': 'root',
+                'creatoriden': core.auth.rootuser.iden,
+                'edges': {},
+                'vers': 1,
+                'forms': {'_baz:haha': 1},
+                'query': '_baz:haha',
+                'synapse_ver': '3.0.0',
+                'type': 'meta'
+            }
+
+            with self.getTestDir() as dirn:
+
+                mpkfp = s_common.genpath(dirn, 'syn.nodes')
+                with s_common.genfile(mpkfp) as fd:
+                    fd.write(s_msgpack.en(meta))
+                    fd.write(s_msgpack.en((('_baz:haha', 'newp'), {})))
+
+                argv = ['--cortex', curl,
+                        '--summary',
+                        mpkfp]
+
+                outp = self.getTestOutp()
+                self.eq(await s_feed.main(argv, outp=outp), 0)
+                outp.expect('Summary for [syn.nodes]:')
+                outp.expect('Count: 1')

@@ -47,37 +47,61 @@ def getItems(*paths):
             logger.warning('Unsupported file path: [%s]', path)
     return items
 
-async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0, viewiden=None):
+async def ingest_items(core, items, outp, path, bname, viewiden=None, offset=None, chunksize=1000, is_synnode3=False, meta=None, debug=False):
+    tick = time.time()
+    outp.printf(f'Adding items from [{path}]')
+    foff = -1
 
-    items = getItems(*paths)
-    for path, item in items:
-
-        bname = os.path.basename(path)
-
-        tick = time.time()
-        outp.printf(f'Adding items from [{path}]')
-
-        foff = -1
-        for chunk in s_common.chunks(item, chunksize):
-
-            clen = len(chunk)
-            if offset and foff + clen <= offset:
-                # We have not yet encountered a chunk which
-                # will include the offset size.
-                foff += clen
-                continue
-
-            await core.addFeedData(chunk, viewiden=viewiden)
-
+    for chunk in s_common.chunks(items, chunksize):
+        clen = len(chunk)
+        if offset and foff + clen <= offset:
             foff += clen
-            outp.printf(f'Added [{clen}] items from [{bname}] - offset [{foff}]')
+            continue
+        if is_synnode3 and meta is not None:
+            chunk = (meta,) + chunk
+        await core.addFeedData(chunk, viewiden=viewiden, reqmeta=is_synnode3)
+        foff += clen
+        outp.printf(f'Added [{clen}] items from [{bname}] - offset [{foff}]')
+    tock = time.time()
+    outp.printf(f'Done consuming from [{bname}]')
+    outp.printf(f'Took [{tock - tick}] seconds.')
 
-        tock = time.time()
+async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0, viewiden=None, summary=False):
+    items = getItems(*paths)
+    if summary:
+        for path, _ in items:
+            if not (path.endswith('.mpk') or path.endswith('.nodes')):
+                outp.printf(f'Warning: --summary and --extend-model are only supported for .mpk/.nodes files. Aborting.')
+                return 1
 
-        outp.printf(f'Done consuming from [{bname}]')
-        outp.printf(f'Took [{tock - tick}] seconds.')
+    for path, item in items:
+        bname = os.path.basename(path)
+        is_synnode3 = path.endswith('.mpk') or path.endswith('.nodes')
 
-    if debug:
+        if is_synnode3:
+
+            genr = s_msgpack.iterfile(path)
+            meta = next(genr)
+
+            if not (isinstance(meta, dict) and meta.get('type') == 'meta'):
+                outp.printf(f'Warning: {path} is not a valid syn.nodes file!')
+                continue # Next file
+
+            if summary:
+                outp.printf(f"Summary for [{bname}]:")
+                outp.printf(f"  Creator: {meta.get('creatorname')}")
+                outp.printf(f"  Created: {meta.get('created')}")
+                outp.printf(f"  Forms: {meta.get('forms')}")
+                outp.printf(f"  Count: {meta.get('count')}")
+                continue  # Skip ingest
+
+            await ingest_items(core, genr, outp, path, bname, viewiden=viewiden, offset=offset, chunksize=chunksize, is_synnode3=True, meta=meta, debug=debug)
+            continue # Next file
+
+        # all other supported file types
+        await ingest_items(core, item, outp, path, bname, viewiden=viewiden, offset=offset, chunksize=chunksize, is_synnode3=False, meta=None, debug=debug)
+
+    if debug: # pragma: no cover
         await s_t_storm.runItemStorm(core, outp=outp)
 
 async def main(argv, outp=None):
@@ -101,6 +125,7 @@ async def main(argv, outp=None):
             await addFeedData(prox, outp, opts.debug,
                         chunksize=opts.chunksize,
                         offset=opts.offset,
+                        summary=opts.summary,
                         *opts.files)
 
     elif opts.cortex:
@@ -116,7 +141,9 @@ async def main(argv, outp=None):
                     return 1
                 await addFeedData(core, outp, opts.debug,
                                   chunksize=opts.chunksize,
-                                  offset=opts.offset, viewiden=opts.view,
+                                  offset=opts.offset,
+                                  viewiden=opts.view,
+                                  summary=opts.summary,
                                   *opts.files)
 
     else:  # pragma: no cover
@@ -134,7 +161,8 @@ def makeargparser():
                       help='Cortex to connect and add nodes too.')
     muxp.add_argument('--test', '-t', default=False, action='store_true',
                       help='Perform a local ingest against a temporary cortex.')
-
+    pars.add_argument('--summary', '-s', default=False, action='store_true',
+                      help='Show a summary of the data. Do not add any data.')
     pars.add_argument('--debug', '-d', default=False, action='store_true',
                       help='Drop to interactive prompt to inspect cortex after loading data.')
     pars.add_argument('--chunksize', type=int, action='store', default=1000,

@@ -215,13 +215,13 @@ class StormCliTest(s_test.SynTest):
                 path = os.path.join(dirn, 'export1.nodes')
                 await s_t_storm.main((lurl, f'!export {path} {{ test:str }}'), outp=outp)
                 text = str(outp)
-                self.isin(f'saved 2 nodes to: {path}', text)
+                self.isin(f'saved 3 nodes to: {path}', text)
 
                 with open(path, 'rb') as fd:
                     byts = fd.read()
                     podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
-                    self.sorteq(('bar', 'foo'), [p[0][1] for p in podes])
-                    for pode in podes:
+                    self.sorteq(('bar', 'foo'), [p[0][1] for p in podes[1:]])
+                    for pode in podes[1:]:
                         self.sorteq(('bar', 'baz', 'foo'), pode[1]['tags'])
 
                 ret = await s_t_storm.main((lurl, f'!export {path} {{ test:newp }}'), outp=outp)
@@ -251,7 +251,7 @@ class StormCliTest(s_test.SynTest):
                 q = f'!export {path} {{ file:bytes }}'
                 await s_t_storm.main(('--view', view, url, q), outp=outp)
                 text = str(outp)
-                self.isin(f'saved 1 nodes to: {path}', text)
+                self.isin(f'saved 2 nodes to: {path}', text)
 
                 optsfile = s_common.genpath(dirn, 'opts.yaml')
                 with self.raises(s_exc.NoSuchFile):

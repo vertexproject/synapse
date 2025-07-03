@@ -2424,7 +2424,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return await self.getNodeByBuid(node.buid)
 
-    async def addNodes(self, nodedefs, user=None):
+    async def addNodes(self, nodedefs, user=None, reqmeta=False):
         '''
         Add/merge nodes in bulk.
 
@@ -2436,6 +2436,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         Args:
             nodedefs (list): A list of nodedef tuples.
+            user (User): The user to add the nodes as.
+            reqmeta (bool): If True, the first item in the list is expected to be a meta dict.
 
         Returns:
             (list): A list of xact messages.
@@ -2454,7 +2456,13 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = 'The view is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
+        if reqmeta:
+            meta = nodedefs[0]
+            self.core._reqValidExportStormMeta(meta)
+            nodedefs = nodedefs[1:]
+
         for nodedefn in nodedefs:
+
             node = await self._addNodeDef(nodedefn, user=user, runt=runt)
             if node is not None:
                 yield node
