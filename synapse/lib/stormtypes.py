@@ -2700,10 +2700,40 @@ class LibLift(Lib):
     A Storm Library for interacting with lift helpers.
     '''
     _storm_locals = (
+        {'name': 'byPropAlts', 'desc': 'Lift nodes by a property value, including alternate property values.',
+         'type': {'type': 'function', '_funcname': '_byPropAlts',
+                  'args': (
+                      {'name': 'name', 'desc': 'The name of the property to lift by.', 'type': 'str'},
+                      {'name': 'valu', 'type': 'obj', 'desc': 'The value for the property.'},
+                      {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes to the pipeline. '
+                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
         {'name': 'byNodeData', 'desc': 'Lift nodes which have a given nodedata name set on them.',
          'type': {'type': 'function', '_funcname': '_byNodeData',
                   'args': (
                       {'name': 'name', 'desc': 'The name to of the nodedata key to lift by.', 'type': 'str', },
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes to the pipeline. '
+                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+        {'name': 'byPropRefs', 'desc': 'Lift nodes which are referenced by properties of other nodes.',
+         'type': {'type': 'function', '_funcname': '_byPropRefs',
+                  'args': (
+                      {'name': 'props', 'desc': 'The name of the props to check for references.', 'type': ['str', 'list']},
+                      {'name': 'valu', 'type': 'obj', 'desc': 'The value for the property.', 'default': None},
+                      {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes to the pipeline. '
+                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+        {'name': 'byTypeValue', 'desc': 'Lift nodes which have a property with a specific type and value.',
+         'type': {'type': 'function', '_funcname': '_byTypeValue',
+                  'args': (
+                      {'name': 'name', 'desc': 'The name of the type to lift.', 'type': 'str'},
+                      {'name': 'valu', 'type': 'obj', 'desc': 'The value for the type.'},
+                      {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes to the pipeline. '
@@ -2714,12 +2744,94 @@ class LibLift(Lib):
     def getObjLocals(self):
         return {
             'byNodeData': self._byNodeData,
+            'byPropAlts': self._byPropAlts,
+            'byPropRefs': self._byPropRefs,
+            'byTypeValue': self._byTypeValue,
         }
 
     @stormfunc(readonly=True)
     async def _byNodeData(self, name):
         name = await tostr(name)
         async for node in self.runt.view.nodesByDataName(name):
+            yield node
+
+    @stormfunc(readonly=True)
+    async def _byPropAlts(self, name, valu, cmpr='='):
+
+        name = await tostr(name)
+        valu = await toprim(valu)
+        cmpr = await tostr(cmpr)
+
+        props = self.runt.model.reqPropList(name)
+        if props[0].isform:
+            mesg = '$lib.lift.byPropAlts cannot be used to lift by form value.'
+            raise s_exc.StormRuntimeError(mesg=mesg, prop=name)
+
+        for prop in props:
+            async for node in self.runt.view.nodesByPropAlts(prop, cmpr, valu):
+                yield node
+
+    @stormfunc(readonly=True)
+    async def _byPropRefs(self, props, valu=None, cmpr='='):
+
+        props = await toprim(props)
+        valu = await toprim(valu)
+        cmpr = await tostr(cmpr)
+
+        if not isinstance(props, tuple):
+            props = (props,)
+
+        flatprops = []
+        for prop in props:
+            plist = self.runt.model.reqPropList(prop)
+            for item in plist:
+                if not item.isform:
+                    flatprops.extend(item.getAlts())
+                else:
+                    flatprops.extend(plist)
+
+        def getType(prop):
+            if prop.type.isarray:
+                return prop.type.arraytype
+            else:
+                return prop.type
+
+        genrs = []
+        ptyp = getType(flatprops[0])
+        form = ptyp.name
+
+        if self.runt.model.form(form) is None:
+            mesg = '$lib.lift.byPropRefs props must be a type which is also a form.'
+            raise s_exc.StormRuntimeError(mesg=mesg, type=form)
+
+        for prop in flatprops:
+            if getType(prop) != ptyp:
+                mesg = '$lib.lift.byPropRefs props must all be of the same type.'
+                raise s_exc.StormRuntimeError(mesg=mesg, props=props)
+
+            genrs.append(self.runt.view.iterPropValuesWithCmpr(prop.full, cmpr, valu, array=prop.type.isarray))
+
+        lastvalu = None
+
+        async for indx, valu in s_common.merggenr2(genrs):
+            if valu == lastvalu:
+                continue
+
+            lastvalu = valu
+            yield await self.runt.view.getNodeByNdef((form, valu))
+
+    @stormfunc(readonly=True)
+    async def _byTypeValue(self, name, valu, cmpr='='):
+
+        name = await tostr(name)
+        valu = await toprim(valu)
+        cmpr = await tostr(cmpr)
+
+        if self.runt.model.prop(name) is not None:
+            async for node in self.runt.view.nodesByPropValu(name, cmpr, valu):
+                yield node
+
+        async for node in self.runt.view.nodesByPropTypeValu(name, valu, cmpr=cmpr):
             yield node
 
 @registry.registerLib

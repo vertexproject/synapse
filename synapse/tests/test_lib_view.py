@@ -954,14 +954,6 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await alist(view1.eval('#foo:score'))
             self.len(2, await alist(view1.eval('#foo:score')))
 
-    async def test_cortex_lift_bytype(self):
-        async with self.getTestCore() as core:
-            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
-            nodes = await core.nodes('inet:ip*type=1.2.3.4')
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
-            self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', (4, 0x01020304))))
-
     async def test_clearcache(self):
 
         async with self.getTestCore() as core:
@@ -1448,6 +1440,141 @@ class ViewTest(s_t_utils.SynTest):
 
             opts['vars']['iden'] = view02.iden
             self.eq([], await core.callStorm(q, opts=opts))
+
+    async def test_view_propvaluescmpr(self):
+
+        async with self.getTestCore() as core:
+
+            view00 = core.getView()
+            view01 = core.getView((await view00.fork())['iden'])
+
+            await core.nodes('[meta:name=foo meta:name=bar meta:name=baz meta:name=faz]')
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((meta:name,), valu="ba", cmpr="^=")')
+            self.len(2, nodes)
+
+            forkopts = {'view': view01.iden}
+            await core.nodes('[meta:name=foo2 meta:name=bar2 meta:name=baz2 meta:name=faz2]', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(meta:name, valu="ba", cmpr="^=")', opts=forkopts)
+            self.len(4, nodes)
+
+            await core.nodes('''[
+                (ou:conference=* :names=(bar, baz))
+                (transport:sea:vessel=* :name="bad ship")
+                (transport:sea:vessel=* :name="baz ship")
+            ]''')
+
+            await core.nodes('''[
+                (ou:conference=* :name=foo)
+                (ou:conference=* :name=bar)
+                (ou:conference=* :names=(foo, baz))
+                (ou:conference=* :names=(bar, bar2))
+                (transport:sea:vessel=* :name=bar)
+                (transport:sea:vessel=* :name="bad ship")
+                (transport:sea:vessel=* :name="awesome ship")
+            ]''', opts=forkopts)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="ba", cmpr="^=")', opts=forkopts)
+            self.len(5, nodes)
+            self.eq(['bad ship', 'bar', 'bar2', 'baz', 'baz ship'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('meta:name', node.form.name)
+
+            long1 = 'bar' * 100 + 'a'
+            long2 = 'bar' * 100 + 'b'
+            await core.nodes(f'''[
+                (ou:conference=* :names=({long1},))
+                (transport:sea:vessel=* :name={long2})
+            ]''')
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="ba", cmpr="^=")', opts=forkopts)
+            self.len(7, nodes)
+            self.eq(['bad ship', 'bar', 'bar2', long1, long2, 'baz', 'baz ship'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('meta:name', node.form.name)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="az", cmpr="~=")', opts=forkopts)
+            self.len(2, nodes)
+            self.eq(['baz', 'baz ship'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('meta:name', node.form.name)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((ou:conference:name, transport:sea:vessel:name), valu="^ba", cmpr="~=")', opts=forkopts)
+            self.len(7, nodes)
+            self.eq(['bad ship', 'bar', 'bar2', long1, long2, 'baz', 'baz ship'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('meta:name', node.form.name)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(meta:name, valu="^bar", cmpr="~=")', opts=forkopts)
+            self.len(4, nodes)
+            self.eq(['bar', 'bar2', long1, long2], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('meta:name', node.form.name)
+
+            with self.raises(s_exc.BadTypeValu):
+                async for item in view00.iterPropValuesWithCmpr('meta:name', 'newp', 'newp', array=True):
+                    pass
+
+            with self.raises(s_exc.NoSuchCmpr):
+                form = core.model.form('meta:name')
+                cmprvals = (('newp', None, form.type.stortype),)
+                async for item in view00.wlyr.iterPropValuesWithCmpr('meta:name', None, cmprvals):
+                    pass
+
+            async for item in view00.iterPropValuesWithCmpr('test:int', '?=', 'newp'):
+                self.nn(None)
+
+            async for item in view00.iterPropValuesWithCmpr('test:int', '=', 5):
+                self.nn(None)
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('yield $lib.lift.byPropRefs(ou:goal:desc, valu=newp)')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('yield $lib.lift.byPropRefs((test:comp:hehe, test:int:type), valu=newp)')
+
+            await core.nodes('for $i in $lib.range(10) { [test:int=$i :type=bar] }')
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(test:int, valu=3, cmpr="=")', opts=forkopts)
+            self.len(1, nodes)
+            self.eq(('test:int', 3), nodes[0].ndef)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(test:int, valu=(3, 5), cmpr="range=")', opts=forkopts)
+            self.len(3, nodes)
+            self.eq([3, 4, 5], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('test:int', node.form.name)
+
+            await core.nodes(f'''[
+                test:int=12 :type=baz
+                test:arrayformtype=(bar, bar, bararray)
+                test:arrayformtype=(foo, fooarray, {long1}, {long2})
+            ]''')
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((test:arrayformtype, test:int:type), valu=ba, cmpr="^=")', opts=forkopts)
+            self.len(5, nodes)
+            self.eq(['bar', 'bararray', long1, long2, 'baz'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('test:str', node.form.name)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((test:arrayformtype, test:int:type), valu="^ba", cmpr="~=")', opts=forkopts)
+            self.len(5, nodes)
+            self.eq(['bar', 'bararray', long1, long2, 'baz'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('test:str', node.form.name)
+
+            # Delete a sode from the layer while index values are still present for coverage
+            nodes = await core.nodes('test:arrayformtype*[=foo]')
+            await view00.wlyr._saveDirtySodes()
+            nid = nodes[0].nid
+            view00.wlyr.nidcache.pop(nid)
+            view00.wlyr.weakcache.pop(nid)
+            view00.wlyr.layrslab.delete(nid, db=view00.wlyr.bynid)
+
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((test:arrayformtype, test:int:type), valu="^ba", cmpr="~=")', opts=forkopts)
+            self.len(3, nodes)
+            self.eq(['bar', 'bararray', 'baz'], [n.valu() for n in nodes])
+            for node in nodes:
+                self.eq('test:str', node.form.name)
 
     async def test_view_edge_counts(self):
 
