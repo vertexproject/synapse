@@ -3569,6 +3569,7 @@ class Layer(s_nexus.Pusher):
 
         if not self.mayDelBuid(buid, sode):
             self.setSodeDirty(buid, sode, form)
+            self.layrslab.dirty = True
 
         return (
             (EDIT_NODE_DEL, (valu, stortype), ()),
