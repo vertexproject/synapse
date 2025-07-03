@@ -5318,7 +5318,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 ip00 = await core00.nodes('[ inet:ip=3.3.3.3 ]')
 
-                await core00.nodes('$lib.queue.add(hehe)')
+                qiden = await core00.callStorm('$q = $lib.queue.add(hehe) return($q.iden)')
                 q = 'trigger.add node:add --form inet:fqdn {$lib.queue.byname(hehe).put($node.repr())}'
                 msgs = await core00.stormlist(q)
 
@@ -5381,7 +5381,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     ddef = await core01.callStorm('return($lib.dmon.get($iden))', opts=opts)
                     self.none(ddef)
 
-                    await core00.callStorm('queue.del hehe')
+                    await core00.callStorm('queue.del $iden', opts={'vars': {'iden': qiden}})
                     await core01.sync()
 
                     self.none(await core00.getAuthGate('queue:hehe'))
@@ -5629,6 +5629,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                             self.eq(logentrycount00, logentrycount01)
                             self.eq(logentrycount01, logentrycount02)
                             self.eq(logentrycount02, logentrycount02a)
+
+    async def test_cortex_queue_del_noauthgate(self):
+        async with self.getTestCore() as core:
+            iden = s_common.guid()
+            await core._addCoreQueue(
+                {'name': 'woot',
+                'creator': core.auth.rootuser.iden,
+                'created': s_common.now(),
+                'iden': iden,
+                'some': 'info'}
+            )
+            await core.auth.delAuthGate(iden)
+            await core._delCoreQueue(iden)
+            self.none(core.quedefs.get('woot'))
 
     async def test_norms(self):
         async with self.getTestCoreAndProxy() as (core, prox):
