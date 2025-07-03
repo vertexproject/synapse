@@ -1,5 +1,5 @@
 ---
-desc: Added ``it:os:windows:serivce`` to model Microsoft Windows Service configuration
+desc: Added ``it:os:windows:service`` to model Microsoft Windows Service configuration
   details.
 prs: []
 type: model
