@@ -3666,6 +3666,8 @@ class LibQueue(Lib):
         }
 
     async def _methQueueAdd(self, name, iden=None):
+        name = await tostr(name)
+        iden = await tostr(iden, noneok=True)
 
         qdef = {
             'creator': self.runt.user.iden,
@@ -3684,14 +3686,16 @@ class LibQueue(Lib):
 
     @stormfunc(readonly=True)
     async def _methQueueGet(self, iden):
-        self.runt.confirm(('queue', 'get'), gateiden=iden)
+        iden = await tostr(iden, noneok=True)
         info = await self.runt.view.core.reqCoreQueue(iden)
         name = info.get('name')
         iden = info.get('iden')
+        self.runt.confirm(('queue', 'get'), gateiden=iden)
         return Queue(self.runt, name, iden, info)
 
     @stormfunc(readonly=True)
     async def _methQueueGetByName(self, name):
+        name = await tostr(name)
         info = await self.runt.view.core.reqCoreQueueByName(name)
         name = info.get('name')
         iden = info.get('iden')
@@ -3699,12 +3703,14 @@ class LibQueue(Lib):
         return Queue(self.runt, name, iden, info)
 
     async def _methQueueGen(self, name):
+        name = await tostr(name)
         try:
             return await self._methQueueGetByName(name)
         except s_exc.NoSuchName:
             return await self._methQueueAdd(name)
 
     async def _methQueueDel(self, iden):
+        iden = await tostr(iden, noneok=True)
         if not s_common.isguid(iden):
             raise s_exc.BadArg(name='iden', arg=iden, mesg=f'Argument {iden} it not a valid iden.')
 
