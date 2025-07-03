@@ -1058,6 +1058,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._addModelSave(iden, model)
 
+    async def checkModelSaved(self):
+
+        if not self.isactive:
+            return
+
+        if not self.getModelSave(self.model.iden):
+            model = self.model.getModelDict()
+            await self.addModelSave(self.model.iden, model)
+
     async def _storCortexHiveMigration(self):
 
         logger.warning('migrating Cortex data out of hive')
@@ -1613,15 +1622,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
         self.dmon.share('cortex', self)
-
-    async def checkModelSaved(self):
-
-        if not self.isactive:
-            return
-
-        if not self.getModelSave(self.model.iden):
-            model = self.model.getModelDict()
-            await self.addModelSave(self.model.iden, model)
 
     async def initServiceActive(self):
 
