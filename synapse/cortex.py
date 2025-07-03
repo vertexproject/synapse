@@ -1569,6 +1569,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return copy.deepcopy(gdef)
 
     async def addCoreQueue(self, qdef):
+        qdef['created'] = s_common.now()
         s_schemas.reqValidQueueDef(qdef)
 
         if self.quedefs.get(qdef['name']) is not None:
@@ -1616,15 +1617,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return self.multiqueue.status(iden)
         return
 
-    async def reqCoreQueue(self, iden):
+    async def reqCoreQueue(self, iden=None, name=None):
+        if name:
+            if (iden := self.quedefs.get(name)) is None:
+                raise s_exc.NoSuchName(mesg=f'No queue with name {name}', name=name)
+
         if (info := await self.getCoreQueue(iden)) is None:
             raise s_exc.NoSuchName(mesg=f'No queue with iden {iden}', iden=iden)
         return info
-
-    async def getCoreQueueByName(self, name):
-        if (iden := self.quedefs.get(name)) is None:
-            raise s_exc.NoSuchName(mesg=f'No queue with name {name}', name=name)
-        return await self.getCoreQueue(iden)
 
     async def delCoreQueue(self, iden):
         await self.reqCoreQueue(iden)

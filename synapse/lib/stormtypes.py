@@ -3667,7 +3667,6 @@ class LibQueue(Lib):
     async def _methQueueAdd(self, name):
 
         qdef = {
-            'created': s_common.now(),
             'creator': self.runt.user.iden,
             'name': name,
         }
@@ -3687,8 +3686,11 @@ class LibQueue(Lib):
 
     @stormfunc(readonly=True)
     async def _methQueueGetByName(self, name):
-        info = await self.runt.view.core.getCoreQueueByName(name)
-        return await self._methQueueGet(info.get('iden'))
+        info = await self.runt.view.core.reqCoreQueue(name=name)
+        name = info.get('name')
+        iden = info.get('iden')
+        self.runt.confirm(('queue', 'get'), gateiden=iden)
+        return Queue(self.runt, name, iden, info)
 
     async def _methQueueGen(self, name):
         try:

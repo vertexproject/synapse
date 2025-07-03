@@ -223,8 +223,10 @@ stormcmds = (
             init {
                 $conf = ({
                     "columns": [
-                        {"name": "iden", "width": 40},
+                        {"name": "iden", "width": 32},
                         {"name": "name", "width": 30},
+                        {"name": "creator", "width": 20},
+                        {"name": "created", "width": 20},
                         {"name": "size", "width": 10},
                         {"name": "offs", "width": 10},
                     ],
@@ -243,7 +245,7 @@ stormcmds = (
             $lib.print($printer.header())
             for $info in $queues {
                 $row = (
-                    $info.iden, $info.name, $info.size, $info.offs
+                    $info.iden, $info.name, $info.creator, $info.created, $info.size, $info.offs
                 )
                 $lib.print($printer.row($row))
             }
