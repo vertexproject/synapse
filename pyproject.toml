@@ -102,6 +102,7 @@ include = [
     'examples/*.py',
 ]
 target-version = "py311"
+
 [tool.ruff.lint]
 select = [
     "F821",  # Check for undefined names - this is generally fatal
