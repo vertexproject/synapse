@@ -1576,9 +1576,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         qdef['created'] = s_common.now()
         if qdef.get('iden') is None:
             qdef['iden'] = s_common.guid()
-        else:
-            if not s_common.isguid(qdef['iden']):
-                raise s_exc.BadArg(name='iden', arg=qdef['iden'], mesg=f'Argument {qdef["iden"]} it not a valid iden.')
 
         s_schemas.reqValidQueueDef(qdef)
         await self._push('queue:add', qdef)
@@ -1619,14 +1616,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return self.multiqueue.status(iden)
         return
 
-    async def reqCoreQueue(self, iden=None, name=None):
-        if name:
-            if (iden := self.quedefs.get(name)) is None:
-                raise s_exc.NoSuchName(mesg=f'No queue with name {name}', name=name)
-
+    async def reqCoreQueue(self, iden):
         if (info := await self.getCoreQueue(iden)) is None:
             raise s_exc.NoSuchIden(mesg=f'No queue with iden {iden}', iden=iden)
         return info
+
+    async def getCoreQueueByName(self, name):
+        if (info := await self.reqCoreQueueByName(name)):
+            return info
+        return
+
+    async def reqCoreQueueByName(self, name):
+        if (iden := self.quedefs.get(name)) is None:
+            raise s_exc.NoSuchName(mesg=f'No queue with name {name}', name=name)
+        return await self.getCoreQueue(iden)
 
     async def delCoreQueue(self, iden):
         await self.reqCoreQueue(iden)

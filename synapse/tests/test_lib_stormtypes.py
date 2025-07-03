@@ -2969,16 +2969,14 @@ class StormTypesTest(s_test.SynTest):
                 name = 'deleteme'
                 iden = s_common.guid()
                 await core.addCoreQueue(
-                    name,
                     {'name': name,
                      'creator': core.auth.rootuser.iden,
-                     'created': s_common.now(),
                      'iden': iden}
                 )
-                await core.auth.delAuthGate(f'queue:{name}')
-                await core.delCoreQueue(name)
-                with self.raises(s_exc.NoSuchName):
-                    await core.getCoreQueue(name)
+                await core.auth.delAuthGate(iden)
+                await core.delCoreQueue(iden)
+                with self.raises(s_exc.NoSuchIden):
+                    await core.reqCoreQueue(iden)
 
     async def test_storm_node_data(self):
 

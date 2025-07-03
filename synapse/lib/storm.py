@@ -245,7 +245,12 @@ stormcmds = (
             $lib.print($printer.header())
             for $info in $queues {
                 $row = (
-                    $info.iden, $info.name, $info.creator, $info.created, $info.size, $info.offs
+                    $info.iden,
+                    $info.name,
+                    $lib.auth.users.get($info.creator).name,
+                    $lib.time.format($info.created, '%Y-%m-%d %H:%M:%S'),
+                    $info.size,
+                    $info.offs
                 )
                 $lib.print($printer.row($row))
             }

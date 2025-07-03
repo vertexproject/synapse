@@ -5630,20 +5630,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                             self.eq(logentrycount01, logentrycount02)
                             self.eq(logentrycount02, logentrycount02a)
 
-    async def test_cortex_queue_del_noauthgate(self):
-        async with self.getTestCore() as core:
-            name = 'deleteme'
-            iden = s_common.guid()
-            qdef = await core.addCoreQueue({
-                'name': name,
-                'creator': core.auth.rootuser.iden,
-                'iden': iden,
-            })
-            await core.auth.delAuthGate(iden)
-            await core.delCoreQueue(iden)
-            with self.raises(s_exc.NoSuchIden):
-                await core.reqCoreQueue(iden)
-
     async def test_norms(self):
         async with self.getTestCoreAndProxy() as (core, prox):
             # getPropNorm base tests

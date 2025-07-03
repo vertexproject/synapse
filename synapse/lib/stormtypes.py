@@ -3673,6 +3673,10 @@ class LibQueue(Lib):
             'name': name,
         }
 
+        if iden is not None:
+            if not s_common.isguid(iden):
+                raise s_exc.BadArg(name='iden', arg=iden, mesg=f'Argument {iden} it not a valid iden.')
+
         self.runt.confirm(('queue', 'add'))
         info = await self.runt.view.core.addCoreQueue(qdef)
         iden = info.get('iden')
@@ -3688,7 +3692,7 @@ class LibQueue(Lib):
 
     @stormfunc(readonly=True)
     async def _methQueueGetByName(self, name):
-        info = await self.runt.view.core.reqCoreQueue(name=name)
+        info = await self.runt.view.core.reqCoreQueueByName(name)
         name = info.get('name')
         iden = info.get('iden')
         self.runt.confirm(('queue', 'get'), gateiden=iden)
