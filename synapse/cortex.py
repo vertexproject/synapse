@@ -1615,13 +1615,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.dmon.share('cortex', self)
 
     async def checkModelSaved(self):
-        iden = self.model.iden
-        model = self.model.getModelDict()
-        if self.isactive:
-            await self.addModelSave(iden, model)
-        else:
-            # prevent blocking on this in mirrors which are behind...
-            self.schedCoro(self.addModelSave(iden, model))
+
+        if not self.isactive:
+            return
+
+        if not self.getModelSave(self.model.iden):
+            model = self.model.getModelDict()
+            await self.addModelSave(self.model.iden, model)
 
     async def initServiceActive(self):
 
