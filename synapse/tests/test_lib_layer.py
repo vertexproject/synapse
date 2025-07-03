@@ -982,7 +982,7 @@ class LayerTest(s_t_utils.SynTest):
 
             await core.addTagProp('score2', ('int', {}), {})
             nodes = await core.nodes('[test:str=multi +#foo:score=5 +#foo:score2=6]')
-            self.eq(('score', 'score2'), nodes[0].getTagProps('foo'))
+            self.sorteq(('score', 'score2'), nodes[0].getTagProps('foo'))
 
             nodes = await core.nodes('test:str=multi [-#foo:score]')
             self.eq(('score2',), nodes[0].getTagProps('foo'))

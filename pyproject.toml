@@ -102,7 +102,7 @@ include = [
     'synapse/*.py',
     'examples/*.py',
 ]
-target-version = "py311"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = [
