@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where certain JsonStor edit operations could have delays before
+  being committed to the slab.
+prs: []
+type: bug
+...
