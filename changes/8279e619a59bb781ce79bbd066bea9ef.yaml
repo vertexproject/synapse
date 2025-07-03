@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where removing a tag property from a tag could also remove other
+  tag properties on that same tag.
+prs: []
+type: bug
+...
