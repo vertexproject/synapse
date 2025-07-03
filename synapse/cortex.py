@@ -1063,7 +1063,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if not self.isactive:
             return
 
-        if not self.getModelSave(self.model.iden):
+        if not self.hasModelSave(self.model.iden):
             model = self.model.getModelDict()
             await self.addModelSave(self.model.iden, model)
 
