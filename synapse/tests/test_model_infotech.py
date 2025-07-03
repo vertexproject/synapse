@@ -701,7 +701,7 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_it_forms_screenshot(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
-                it:screenshot=*
+                it:exec:screenshot=*
                     :host=*
                     :image=*
                     :desc=WootWoot
@@ -709,12 +709,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             ]''')
 
             self.len(1, nodes)
-            self.eq('it:screenshot', nodes[0].ndef[0])
+            self.eq('it:exec:screenshot', nodes[0].ndef[0])
             self.eq('WootWoot', nodes[0].get('desc'))
 
-            self.len(1, await core.nodes('it:screenshot :host -> it:host'))
-            self.len(1, await core.nodes('it:screenshot :image -> file:bytes'))
-            self.len(1, await core.nodes('it:screenshot :sandbox:file -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:screenshot :host -> it:host'))
+            self.len(1, await core.nodes('it:exec:screenshot :image -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:screenshot :sandbox:file -> file:bytes'))
 
     async def test_it_forms_hardware(self):
         async with self.getTestCore() as core:

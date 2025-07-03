@@ -34,6 +34,12 @@ modeldefs = (
                     ('titles', ('array', {'type': 'entity:title', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate job titles or roles for this {contactable}.'}),
 
+                    ('org', ('ou:org', {}), {
+                        'doc': 'An associated organization listed as part of the contact information.'}),
+
+                    ('org:name', ('meta:name', {}), {
+                        'doc': 'The name of an associated organization listed as part of the contact information.'}),
+
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary url for the {contactable}.'}),
 
@@ -41,7 +47,6 @@ modeldefs = (
                         'doc': 'The lifespan of the {contactable}.'}),
 
                     # FIXME place of birth / death?
-                    # FIXME org:name / employer etc?
                     # FIXME lang
                     # FIXME bio / tagline
 
@@ -71,6 +76,9 @@ modeldefs = (
 
                     ('social:accounts', ('array', {'type': 'inet:service:account', 'uniq': True, 'sorted': True}), {
                         'doc': 'Social media or other online accounts listed for the {contactable}.'}),
+
+                    ('crypto:currency:addresses', ('array', {'type': 'crypto:currency:address', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Crypto currency addresses listed for the {contactable}.'}),
 
                     ('websites', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                         'doc': 'Web sites listed for the {contactable}.'}),
