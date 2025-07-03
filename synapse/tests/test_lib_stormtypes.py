@@ -2783,7 +2783,7 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(f'queue.del {qiden}')
             self.stormIsInPrint(f'queue removed: {qiden}', msgs)
 
-            with self.raises(s_exc.NoSuchName):
+            with self.raises(s_exc.BadArg):
                 await core.nodes('queue.del visi')
 
             with self.raises(s_exc.NoSuchName):
@@ -2869,6 +2869,16 @@ class StormTypesTest(s_test.SynTest):
                 self.eq((5, 'baz'), await core.callStorm('return($lib.queue.byname(poptest).pop())'))
                 self.none(await core.callStorm('return($lib.queue.byname(poptest).pop())'))
 
+    async def test_storm_lib_queue_add_iden(self):
+        async with self.getTestCore() as core:
+            iden = s_common.guid()
+            opts = {'vars': {'iden': iden}}
+            qiden = await core.callStorm('$q = $lib.queue.add(foo, iden=$iden) return($q.iden)', opts=opts)
+            self.eq(iden, qiden)
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$q = $lib.queue.add(bar, iden=12345)')
+
     async def test_storm_lib_queue_add_and_list(self):
         async with self.getTestCore() as core:
 
@@ -2888,14 +2898,15 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             await core.callStorm('$lib.queue.add(foo)')
 
-            with self.raises(s_exc.NoSuchName):
+            with self.raises(s_exc.BadArg):
                 await core.callStorm('$lib.queue.del(foo)')
             qiden = await core.callStorm('$q = $lib.queue.byname(foo) return($q.iden)')
             await core.callStorm(f'$lib.queue.del({qiden})')
 
             # delete a non-existent queue
-            with self.raises(s_exc.NoSuchName):
-                await core.callStorm('$lib.queue.del(bar)')
+            fakeiden = s_common.guid()
+            with self.raises(s_exc.NoSuchIden):
+                await core.callStorm(f'$lib.queue.del({fakeiden})')
 
     async def test_storm_lib_queue_gen(self):
         async with self.getTestCore() as core:
@@ -2925,7 +2936,7 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_queue_nosuchname(self):
         async with self.getTestCore() as core:
-            with self.raises(s_exc.NoSuchName) as cm:
+            with self.raises(s_exc.NoSuchIden) as cm:
                 await core.reqCoreQueue('deedbeef12341234')
             self.isin('No queue with iden', str(cm.exception))
 

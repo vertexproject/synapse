@@ -1569,16 +1569,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return copy.deepcopy(gdef)
 
     async def addCoreQueue(self, qdef):
-        qdef['created'] = s_common.now()
-        s_schemas.reqValidQueueDef(qdef)
-
         if self.quedefs.get(qdef['name']) is not None:
             mesg = f'Queue named {qdef["name"]} already exists!'
             raise s_exc.DupName(mesg=mesg)
 
-        iden = s_common.guid()
-        qdef['iden'] = iden
+        qdef['created'] = s_common.now()
+        if qdef.get('iden') is None:
+            qdef['iden'] = s_common.guid()
+        else:
+            if not s_common.isguid(qdef['iden']):
+                raise s_exc.BadArg(name='iden', arg=qdef['iden'], mesg=f'Argument {qdef["iden"]} it not a valid iden.')
 
+        s_schemas.reqValidQueueDef(qdef)
         await self._push('queue:add', qdef)
         return qdef
 

@@ -3611,6 +3611,7 @@ class LibQueue(Lib):
          'type': {'type': 'function', '_funcname': '_methQueueAdd',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to add.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden to assign to the queue.', 'default': None},
                   ),
                   'returns': {'type': 'queue', }}},
         {'name': 'gen', 'desc': 'Add or get a Storm Queue in a single operation.',
@@ -3664,10 +3665,11 @@ class LibQueue(Lib):
             'list': self._methQueueList,
         }
 
-    async def _methQueueAdd(self, name):
+    async def _methQueueAdd(self, name, iden=None):
 
         qdef = {
             'creator': self.runt.user.iden,
+            'iden': iden,
             'name': name,
         }
 
@@ -3699,6 +3701,9 @@ class LibQueue(Lib):
             return await self._methQueueAdd(name)
 
     async def _methQueueDel(self, iden):
+        if not s_common.isguid(iden):
+            raise s_exc.BadArg(name='iden', arg=iden, mesg=f'Argument {iden} it not a valid iden.')
+
         self.runt.confirm(('queue', 'del'), gateiden=iden)
         await self.runt.view.core.delCoreQueue(iden)
 
