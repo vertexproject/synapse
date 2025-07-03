@@ -1028,7 +1028,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._initVaults()
 
     def getModelSave(self, iden):
-        byts = await self.slab.get(s_common.uhex(iden), db='model:saves')
+        byts = self.slab.get(s_common.uhex(iden), db='model:saves')
         if byts is not None:
             return s_msgpack.un(byts)
 
@@ -1038,7 +1038,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'fmt': 1,
             'iden': iden,
             'model': model,
-            'synapse': s_verison.verstring,
+            'synapse': s_version.verstring,
         }
         self.slab._put(lkey, s_msgpack.en(envl), db='model:saves')
 
@@ -3297,7 +3297,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # set the current model iden after loading all the extended model elements
         model = self.model.getModelDict()
-        self.model.iden = s_common.guid(s_common.flattent(model))
+        self.model.iden = s_common.guid(s_common.flatten(model))
 
         if await self.getModelSave(self.model.iden) is None:
             await self.addModelSave(self.model.iden, model)
