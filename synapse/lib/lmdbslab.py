@@ -559,18 +559,12 @@ class MultiQueue(s_base.Base):
         return [self.status(n) for n in self.queues.keys()]
 
     def status(self, name):
-
         meta = self.queues.get(name)
         if meta is None:
             mesg = f'No queue named {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
 
-        return {
-            'name': name,
-            'meta': meta,
-            'size': self.sizes.get(name),
-            'offs': self.offsets.get(name),
-        }
+        return dict(meta)
 
     def exists(self, name):
         return self.queues.get(name) is not None
@@ -581,15 +575,14 @@ class MultiQueue(s_base.Base):
     def offset(self, name):
         return self.offsets.get(name)
 
-    async def add(self, name, info):
-
+    async def add(self, name, qdef):
         if self.queues.get(name) is not None:
             mesg = f'A queue already exists with the name {name}.'
             raise s_exc.DupName(mesg=mesg, name=name)
 
         self.abrv.setBytsToAbrv(name.encode())
 
-        self.queues.set(name, info)
+        self.queues.set(name, qdef)
         self.sizes.set(name, 0)
         self.offsets.set(name, 0)
 
