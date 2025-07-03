@@ -918,10 +918,10 @@ class AstTest(s_test.SynTest):
             q = '''[
                 it:log:event=(event,)
                 it:exec:query=(query,)
-                it:screenshot=(screenshot,)
+                it:exec:screenshot=(screenshot,)
                 :host=(host,)
 
-                it:screenshot=(nohost,)
+                it:exec:screenshot=(nohost,)
 
                 inet:dns:a=(vertex.link, 1.2.3.4)
                 inet:dns:aaaa=(vertex.link, 1::)
@@ -1036,10 +1036,10 @@ class AstTest(s_test.SynTest):
             q = '''[
                 it:log:event=(event,)
                 it:exec:query=(query,)
-                it:screenshot=(screenshot,)
+                it:exec:screenshot=(screenshot,)
                 :host=(host,)
 
-                it:screenshot=(nohost,)
+                it:exec:screenshot=(nohost,)
 
                 (inet:dns:a=(vertex.link, 1.2.3.4) +#bar:score=4)
                 (inet:dns:aaaa=(vertex.link, 1::) +#bar:score=2)
