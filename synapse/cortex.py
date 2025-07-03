@@ -966,6 +966,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._loadExtModel()
         await self._initStormCmds()
 
+        self.bumpModelSave()
+
         # Initialize our storage and views
         await self._initCoreAxon()
         await self._initJsonStor()
@@ -1028,6 +1030,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self._initVaults()
 
+    def hasModelSave(self, iden):
+        return self.slab.has(s_common.uhex(iden), db='model:saves')
+
     def getModelSave(self, iden):
         byts = self.slab.get(s_common.uhex(iden), db='model:saves')
         if byts is not None:
@@ -1045,10 +1050,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def bumpModelSave(self):
         model = self.model.getModelDict()
-
         self.model.iden = s_common.guid(s_common.flatten(model))
-
-        self.addModelSave(self.model.iden, model)
+        if not self.hasModelSave(self.model.iden)
+            self.addModelSave(self.model.iden, model)
 
     async def _storCortexHiveMigration(self):
 
