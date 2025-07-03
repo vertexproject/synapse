@@ -1,7 +1,6 @@
 import io
 import os
 import ssl
-import time
 import shutil
 import socket
 import logging
@@ -398,6 +397,28 @@ class CertDir:
         '''
         return self._genPkeyCsr(name, 'hosts', outp=outp)
 
+    def delHostCsr(self, name: str, outp: OutPutOrNone = None) -> bool:
+        '''
+        Delete an existing host CSR.
+
+        Args:
+            name: The name of the host CSR.
+            outp: The output buffer.
+
+        Returns:
+            bool: True if the CSR is deleted, False if it did not exist.
+        '''
+        path = self.getHostCsrPath(name)
+        if path is None:
+            return False
+        try:
+            os.unlink(path)
+        except Exception as e:  # pragma: no cover
+            raise s_exc.SynErr(mesg=f'Failed to delete CSR {path} - {e}') from e
+        if outp:
+            outp.printf(f'Deleted CSR at {path}')
+        return True
+
     def genUserCert(self,
                     name: str,
                     signas: StrOrNone = None,
@@ -697,6 +718,28 @@ class CertDir:
             The bytes of the CSR.
         '''
         return self._genPkeyCsr(name, 'users', outp=outp)
+
+    def delUserCsr(self, name: str, outp: OutPutOrNone = None) -> bool:
+        '''
+        Delete an existing user CSR.
+
+        Args:
+            name: The name of the user CSR.
+            outp: The output buffer.
+
+        Returns:
+            bool: True if the CSR is deleted, False if it did not exist.
+        '''
+        path = self.getUserCsrPath(name)
+        if path is None:
+            return False
+        try:
+            os.unlink(path)
+        except Exception as e:  # pragma: no cover
+            raise s_exc.SynErr(mesg=f'Failed to delete CSR {path} - {e}') from e
+        if outp:
+            outp.printf(f'Deleted CSR at {path}')
+        return True
 
     def getCaCert(self, name: str) -> CertOrNone:
         '''

@@ -5381,6 +5381,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                     ddef = await core01.callStorm('return($lib.dmon.get($iden))', opts=opts)
                     self.none(ddef)
 
+                    await core00.callStorm('queue.del hehe')
+                    await core01.sync()
+
+                    self.none(await core00.getAuthGate('queue:hehe'))
+                    self.none(await core01.getAuthGate('queue:hehe'))
+
             # now lets start up in the opposite order...
             async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
 

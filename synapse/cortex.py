@@ -1632,11 +1632,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('queue:del')
     async def _delCoreQueue(self, iden):
-        info = self.multiqueue.status(iden)
+        if (info := await self.getCoreQueue(iden)) is None:
+            return
+
+        try:
+            await self.auth.delAuthGate(iden)
+        except s_exc.NoSuchAuthGate: # pragma: no cover
+            pass
+
         await self.multiqueue.rem(iden)
         name = info.get('name')
         self.quedefs.pop(name, None)
-        await self.auth.delAuthGate(iden)
 
     async def coreQueueGet(self, name, offs=0, cull=True, wait=False):
         if offs and cull:
