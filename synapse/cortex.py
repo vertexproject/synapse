@@ -1597,8 +1597,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # do any post-nexus initialization here...
         if self.isactive:
             await self._checkNexsIndx()
-            if not self.hasModelSave(self.model.iden):
-                await self.addModelSave(self.model.iden, self.model.getModelDict())
 
         await self._initCoreMods()
 
