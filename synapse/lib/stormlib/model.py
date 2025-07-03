@@ -326,6 +326,14 @@ class LibModel(s_stormtypes.Lib):
                   'returns': {'type': ['model:tagprop', 'null'],
                               'desc': 'The ``model:tagprop`` instance of the tag prop if present or null.',
                               }}},
+
+        {'name': 'load', 'desc': 'Return a previously saved data model dictionary version.',
+         'type': {'type': 'function', '_funcname': '_loadModelSave',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the data model version.'},
+                  ),
+                  'returns': {'type': ['dict', 'null'],
+                              'desc': 'The data model dictionary or null.'}}},
     )
 
     def __init__(self, runt, name=()):
@@ -338,7 +346,12 @@ class LibModel(s_stormtypes.Lib):
             'prop': self._methProp,
             'form': self._methForm,
             'tagprop': self._methTagProp,
+            'load': self._loadModelSave,
         }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _loadModelSave(self, iden):
+        return self.runt.snap.core.getModelSave(iden)
 
     @s_cache.memoizemethod(size=100)
     @s_stormtypes.stormfunc(readonly=True)

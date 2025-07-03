@@ -932,6 +932,9 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.nodes('$lib.print(newp)', opts={'vars': {123: 'newp'}})
 
+            msgs = await core.stormlist('$lib.print(hi)')
+            self.nn(msgs[0][1]['model'])
+
             # test that runtsafe vars stay runtsafe
             msgs = await core.stormlist('$foo=bar $lib.print($foo) if $node { $foo=$node.value() }')
             self.stormIsInPrint('bar', msgs)

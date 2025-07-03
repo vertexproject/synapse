@@ -22,6 +22,9 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'true'))
 
+            opts = {'vars': {'iden': core.model.iden}}
+            self.nn(await core.callStorm('return($lib.model.load($iden))', opts=opts))
+
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.form(inet:dns:a).type.name)'))
             self.eq('inet:ipv4', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).type.name)'))
             self.eq(s_layer.STOR_TYPE_U32, await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).type.stortype)'))

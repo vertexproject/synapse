@@ -154,7 +154,7 @@ def flatten(item):
     if item is None:
         return None
 
-    if isinstance(item, (str, int, bytes)):
+    if isinstance(item, (str, int, bytes, float)):
         return item
 
     if isinstance(item, (tuple, list)):
