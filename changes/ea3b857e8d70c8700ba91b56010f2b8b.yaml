@@ -1,0 +1,5 @@
+---
+desc: Fixed a bug in the error handling when deleting a Cortex queue.
+prs: []
+type: bug
+...
