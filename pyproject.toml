@@ -95,3 +95,15 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 include = ["synapse*"]
+
+[tool.ruff]
+include = [
+    'synapse/*.py',
+    'examples/*.py',
+]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "F821",  # Check for undefined names - this is generally fatal
+]

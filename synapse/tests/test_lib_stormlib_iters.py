@@ -94,7 +94,7 @@ class StormLibItersTest(s_test.SynTest):
                 self.stormIsInErr(err, msgs)
 
                 async def boom(self, genr):
-                    print(newp)
+                    raise NameError("name 'newp' is not defined")
                     yield True
 
                 with mock.patch.object(s_stormlib_iters.LibIters, 'enum', boom):
