@@ -108,7 +108,7 @@ class Foo:
 
     def raze(self):
         # test that SynErr makes it through
-        raise s_exc.NoSuchMeth(name='haha')
+        raise s_exc.SynErr(mesg='hehe', key='valu')
 
     async def corovalu(self, x, y):
         return x * 2 + y
@@ -269,11 +269,24 @@ class TeleTest(s_t_utils.SynTest):
             genr = prox.agenrboom()
             await self.asyncraises(s_exc.SynErr, genr.list())
 
-            await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
+            with self.raises(s_exc.SynErr) as cm:
+                await prox.raze()
+            self.eq(cm.exception.get('mesg'), 'hehe')
+            self.eq(cm.exception.get('key'), 'valu')
 
-            await self.asyncraises(s_exc.NoSuchMeth, prox.fake())
+            with self.raises(s_exc.NoSuchMeth) as cm:
+                await prox.fake()
+            self.eq(cm.exception.get('mesg'), 'Foo has no method: fake.')
+            self.eq(cm.exception.get('name'), 'fake')
 
-            await self.asyncraises(s_exc.SynErr, prox.boom())
+            with self.raises(s_exc.NoSuchMeth) as cm:
+                await prox._fake()
+            self.eq(cm.exception.get('mesg'), 'Foo has no method: _fake.')
+            self.eq(cm.exception.get('name'), '_fake')
+
+            with self.raises(s_exc.NotMsgpackSafe) as cm:
+                await prox.boom()
+            self.isin("can not serialize 'Boom' object", cm.exception.get('mesg'))
 
         # Fini'ing a daemon fini's proxies connected to it.
         self.true(await s_coro.event_wait(evt, 2))

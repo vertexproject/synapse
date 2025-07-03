@@ -1,5 +1,6 @@
 import math
 import decimal
+import datetime
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
@@ -1508,7 +1509,10 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str:tick=201401*')
             self.eq({node.ndef[1] for node in nodes}, {'a'})
 
-            nodes = await core.nodes('test:str:tick*range=("-4200 days", now)')
+            utc = datetime.timezone.utc
+            delta = datetime.datetime.now(tz=utc) - datetime.datetime(2014, 1, 1, tzinfo=utc)
+            days = delta.days + 14
+            nodes = await core.nodes(f'test:str:tick*range=("-{days} days", now)')
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b', 'c', 'd'})
 
             opts = {'vars': {'tick': tick, 'tock': tock}}
