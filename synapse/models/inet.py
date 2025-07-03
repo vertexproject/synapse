@@ -1730,6 +1730,8 @@ modeldefs = (
                     ('remover', ('inet:service:account', {}), {
                         'doc': 'The service account which removed or decommissioned the {service:base}.'}),
 
+                    ('app', ('inet:service:app', {}), {
+                        'doc': 'The app which contains the {service:base}.'}),
                 ),
             }),
 
@@ -2784,6 +2786,9 @@ modeldefs = (
 
                 ('tenant', ('inet:service:tenant', {}), {
                     'doc': 'The tenant which contains the instance.'}),
+
+                ('app', ('inet:service:app', {}), {
+                    'doc': 'The app which contains the instance.'}),
             )),
 
             ('inet:service:app', {}, (
