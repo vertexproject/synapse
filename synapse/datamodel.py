@@ -13,6 +13,7 @@ import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
+import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
@@ -58,25 +59,13 @@ class TagProp:
     def getTagPropDef(self):
         return (self.name, self.tdef, self.info)
 
-    def getStorNode(self, form):
-
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
-
-        props = {
-            'doc': self.info.get('doc', ''),
-            'type': self.type.name,
-        }
-
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms
+    def getRuntPode(self):
+        ndef = ('syn:tagprop', self.name)
+        return (ndef, {
+            'props': {
+                'doc': self.info.get('doc', ''),
+                'type': self.type.name,
+            },
         })
 
 class Prop:
@@ -91,40 +80,20 @@ class Prop:
         self.modl = modl
         self.name = name
         self.info = info
-        self.univ = None
-
-        if form is not None:
-            if name.startswith('.'):
-                self.univ = modl.prop(name)
-                self.full = '%s%s' % (form.name, name)
-                self.isext = name.startswith('._')
-            else:
-                self.full = '%s:%s' % (form.name, name)
-                self.isext = name.startswith('_')
-            self.isuniv = False
-            self.isrunt = form.isrunt
-            self.compoffs = form.type.getCompOffs(self.name)
-        else:
-            self.full = name
-            self.isuniv = True
-            self.isrunt = False
-            self.compoffs = None
-            self.isext = name.startswith('._')
         self.isform = False     # for quick Prop()/Form() detection
 
-        self.delperms = [('node', 'prop', 'del', self.full)]
-        self.setperms = [('node', 'prop', 'set', self.full)]
+        self.full = '%s:%s' % (form.name, name)
+        self.isext = name.startswith('_')
+        self.isrunt = form.isrunt
+        self.compoffs = form.type.getCompOffs(self.name)
 
-        if form is not None:
-            self.setperms.append(('node', 'prop', 'set', form.name, self.name))
-            self.delperms.append(('node', 'prop', 'del', form.name, self.name))
-
-        self.setperms.reverse()  # Make them in precedence order
-        self.delperms.reverse()  # Make them in precedence order
+        self.setperm = ('node', 'prop', 'set', form.name, self.name)
+        self.delperm = ('node', 'prop', 'del', form.name, self.name)
 
         self.form = form
         self.type = None
         self.typedef = typedef
+        self.ifaces = []
 
         self.alts = None
         self.locked = False
@@ -136,14 +105,15 @@ class Prop:
         if self.type.isarray:
             self.arraytypehash = self.type.arraytype.typehash
 
-        if form is not None:
-            form.setProp(name, self)
-            self.modl.propsbytype[self.type.name][self.full] = self
+        form.setProp(name, self)
+        self.modl.propsbytype[self.type.name][self.full] = self
 
         if self.deprecated or self.type.deprecated:
             async def depfunc(node, oldv):
-                mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
-                await node.snap.warnonce(mesg)
+                mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
+                if (runt := s_scope.get('runt')) is not None:
+                    await runt.warnonce(mesg)
+
                 if __debug__:
                     sys.audit('synapse.datamodel.Prop.deprecated', mesg, self.full)
 
@@ -230,31 +200,23 @@ class Prop:
     def getPropDef(self):
         return (self.name, self.typedef, self.info)
 
-    def getStorNode(self, form):
+    def getRuntPode(self):
 
-        ndef = (form.name, form.type.norm(self.full)[0])
+        ndef = ('syn:prop', self.full)
 
-        buid = s_common.buid(ndef)
-        props = {
-            'doc': self.info.get('doc', ''),
-            'type': self.type.name,
-            'relname': self.name,
-            'univ': self.isuniv,
-            'base': self.name.split(':')[-1],
-            'ro': int(self.info.get('ro', False)),
-            'extmodel': self.isext,
-        }
+        pode = (ndef, {
+            'props': {
+                'doc': self.info.get('doc', ''),
+                'type': self.type.name,
+                'form': self.form.name,
+                'relname': self.name,
+                'base': self.name.split(':')[-1],
+                'ro': int(self.info.get('ro', False)),
+                'extmodel': self.isext,
+            },
+        })
 
-        if self.form is not None:
-            props['form'] = self.form.name
-
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {'props': pnorms, 'ndef': ndef})
+        return pode
 
     def getAlts(self):
         '''
@@ -279,6 +241,7 @@ class Form:
         self.full = name    # so a Form() can act like a Prop().
         self.info = info
 
+        self.isext = name.startswith('_')
         self.isform = True
         self.isrunt = bool(info.get('runt', False))
 
@@ -309,39 +272,39 @@ class Form:
 
         if self.deprecated:
             async def depfunc(node):
-                mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
-                await node.snap.warnonce(mesg)
+                mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
+                if (runt := s_scope.get('runt')) is not None:
+                    await runt.warnonce(mesg)
+
                 if __debug__:
                     sys.audit('synapse.datamodel.Form.deprecated', mesg, self.full)
+
             self.onAdd(depfunc)
 
-    def getStorNode(self, form):
+        if self.isrunt and (liftfunc := self.info.get('liftfunc')) is not None:
+            func = s_dyndeps.tryDynLocal(liftfunc)
+            modl.core.addRuntLift(name, func)
 
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
+    def getRuntPode(self):
 
-        props = {
-            'doc': self.info.get('doc', self.type.info.get('doc', '')),
-            'type': self.type.name,
-        }
+        return (('syn:form', self.full), {
+            'props': {
+                'doc': self.info.get('doc', self.type.info.get('doc', '')),
+                'runt': self.isrunt,
+                'type': self.type.name,
+            },
+        })
 
-        if form.name == 'syn:form':
-            props['runt'] = self.isrunt
-        elif form.name == 'syn:prop':
-            props['univ'] = False
-            props['extmodel'] = False
-            props['form'] = self.name
+    def getRuntPropPode(self):
 
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-                'ndef': ndef,
-                'props': pnorms,
-                })
+        return (('syn:prop', self.full), {
+            'props': {
+                'doc': self.info.get('doc', self.type.info.get('doc', '')),
+                'type': self.type.name,
+                'extmodel': self.isext,
+                'form': self.name,
+            },
+        })
 
     def setProp(self, name, prop):
         self.refsout = None
@@ -378,6 +341,8 @@ class Form:
                     self.refsout['ndef'].append(name)
 
                 elif self.modl.forms.get(prop.type.name) is not None:
+                    if prop.type.name in self.type.pivs:
+                        continue
                     self.refsout['prop'].append((name, prop.type.name))
 
         return self.refsout
@@ -458,7 +423,12 @@ class Form:
             return prop
 
         full = f'{self.name}:{name}'
-        exc = s_exc.NoSuchProp.init(full)
+        mesg = f'No property named {full}.'
+
+        if (prevname := self.modl.propprevnames.get(full)) is not None:
+            mesg += f' Did you mean {prevname}?'
+
+        exc = s_exc.NoSuchProp.init(full, mesg=mesg)
         if extra is not None:
             exc = extra(exc)
 
@@ -475,7 +445,7 @@ class Form:
         return info
 
     def getFormDef(self):
-        propdefs = [p.getPropDef() for p in self.props.values() if not p.isuniv]
+        propdefs = [p.getPropDef() for p in self.props.values()]
         return (self.name, self.info, propdefs)
 
 class Edge:
@@ -499,13 +469,16 @@ class Model:
         self.forms = {}  # name: Form()
         self.props = {}  # (form,name): Prop() and full: Prop()
         self.edges = {}  # (n1form, verb, n2form): Edge()
+        self._valid_edges = collections.defaultdict(list)
         self.ifaces = {}  # name: <ifdef>
         self.tagprops = {}  # name: TagProp()
         self.formabbr = {}  # name: [Form(), ... ]
         self.modeldefs = []
 
-        self.univs = {}
-        self.allunivs = collections.defaultdict(list)
+        self.formprevnames = {}
+        self.propprevnames = {}
+
+        self.metatypes = {}  # name: Type()
 
         self.propsbytype = collections.defaultdict(dict)  # name: Prop()
         self.arraysbytype = collections.defaultdict(dict)
@@ -521,7 +494,6 @@ class Model:
             'ctors': [],
             'types': [],
             'forms': [],
-            'univs': [],
             'edges': [],
         }
 
@@ -590,14 +562,6 @@ class Model:
         item = s_types.Array(self, 'array', info, {'type': 'int'})
         self.addBaseType(item)
 
-        info = {'doc': 'An digraph edge base type.', 'deprecated': True}
-        item = s_types.Edge(self, 'edge', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'An digraph edge base type with a unique time.', 'deprecated': True}
-        item = s_types.TimeEdge(self, 'timeedge', info, {})
-        self.addBaseType(item)
-
         info = {'doc': 'Arbitrary json compatible data.'}
         item = s_types.Data(self, 'data', info, {})
         self.addBaseType(item)
@@ -623,14 +587,12 @@ class Model:
         item = s_types.Velocity(self, 'velocity', info, {})
         self.addBaseType(item)
 
-        # add the base universal properties...
-        self.addUnivProp('seen', ('ival', {}), {
-            'doc': 'The time interval for first/last observation of the node.',
-        })
-        self.addUnivProp('created', ('time', {'ismin': True}), {
-            'ro': True,
-            'doc': 'The time the node was created in the cortex.',
-        })
+        info = {'doc': 'A time precision value.'}
+        item = s_types.TimePrecision(self, 'timeprecision', info, {})
+        self.addBaseType(item)
+
+        self.metatypes['created'] = self.getTypeClone(('time', {'ismin': True}))
+        self.metatypes['updated'] = self.getTypeClone(('time', {}))
 
     def getPropsByType(self, name):
         props = self.propsbytype.get(name)
@@ -669,19 +631,43 @@ class Model:
         if prop is not None:
             return prop
 
-        exc = s_exc.NoSuchProp.init(name)
+        mesg = None
+        if (prevname := self.propprevnames.get(name)) is not None:
+            mesg = f'No property named {name}. Did you mean {prevname}?'
+
+        exc = s_exc.NoSuchProp.init(name, mesg=mesg)
+        if extra is not None:
+            raise extra(exc)
+        raise exc
+
+    def reqPropList(self, name, extra=None):
+        if (prop := self.prop(name)) is not None:
+            return (prop,)
+
+        if (props := self.ifaceprops.get(name)) is not None:
+            return [self.props.get(prop) for prop in props]
+
+        mesg = None
+
+        if ((prevname := self.propprevnames.get(name)) is not None or
+            (prevname := self.formprevnames.get(name)) is not None):
+            mesg = f'No property named {name}. Did you mean {prevname}?'
+
+        exc = s_exc.NoSuchProp.init(name, mesg=mesg)
         if extra is not None:
             exc = extra(exc)
 
         raise exc
 
-    def reqUniv(self, name):
-        prop = self.univ(name)
-        if prop is not None:
-            return prop
+    def reqMetaType(self, name, extra=None):
+        if (mtyp := self.metatypes.get(name)) is not None:
+            return mtyp
 
-        mesg = f'No universal property named {name}.'
-        raise s_exc.NoSuchUniv(mesg=mesg, name=name)
+        exc = s_exc.NoSuchProp.init(name, mesg=f'No meta property named {name}.')
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
 
     def reqTagProp(self, name):
         prop = self.getTagProp(name)
@@ -712,7 +698,11 @@ class Model:
         if name.endswith('*'):
             return self.reqFormsByPrefix(name[:-1], extra=extra)
 
-        exc = s_exc.NoSuchForm.init(name)
+        mesg = None
+        if (prevname := self.formprevnames.get(name)) is not None:
+            mesg = f'No form named {name}. Did you mean {prevname}?'
+
+        exc = s_exc.NoSuchForm.init(name, mesg=mesg)
         if extra is not None:
             exc = extra(exc)
 
@@ -728,7 +718,11 @@ class Model:
         if name.endswith('*'):
             return self.reqFormsByPrefix(name[:-1], extra=extra)
 
-        exc = s_exc.NoSuchProp.init(name)
+        mesg = None
+        if (prevname := self.propprevnames.get(name)) is not None:
+            mesg = f'No property named {name}. Did you mean {prevname}?'
+
+        exc = s_exc.NoSuchProp.init(name, mesg=mesg)
         if extra is not None:
             exc = extra(exc)
 
@@ -750,7 +744,6 @@ class Model:
         mdef = self._modeldef.copy()
         # dynamically generate form defs due to extended props
         mdef['forms'] = [f.getFormDef() for f in self.forms.values()]
-        mdef['univs'] = [u.getPropDef() for u in self.univs.values()]
         mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops.values()]
         mdef['interfaces'] = list(self.ifaces.items())
         mdef['edges'] = [e.pack() for e in self.edges.values()]
@@ -758,10 +751,16 @@ class Model:
 
     def getModelDict(self):
         retn = {
+            'metas': (
+                ('created', ('time', {}), {
+                    'doc': 'The time that the node was created.'}),
+
+                ('updated', ('time', {}), {
+                    'doc': 'The time that the node was most recently modified.'}),
+            ),
             'types': {},
             'forms': {},
             'edges': [],
-            'univs': {},
             'tagprops': {},
             'interfaces': self.ifaces.copy()
         }
@@ -771,9 +770,6 @@ class Model:
 
         for fobj in self.forms.values():
             retn['forms'][fobj.name] = fobj.pack()
-
-        for uobj in self.univs.values():
-            retn['univs'][uobj.name] = uobj.pack()
 
         for pobj in self.tagprops.values():
             retn['tagprops'][pobj.name] = pobj.pack()
@@ -803,9 +799,6 @@ class Model:
                         (propname, (typename, typeopts), {info}),
                     )),
                 ),
-                "univs":(
-                    (propname, (typename, typeopts), {info}),
-                )
                 "tagprops":(
                     (tagpropname, (typename, typeopts), {info}),
                 )
@@ -828,31 +821,33 @@ class Model:
 
         self.modeldefs.extend(mods)
 
+        ctors = {}
+
         # load all the base type ctors in order...
         for _, mdef in mods:
 
             for name, ctor, opts, info in mdef.get('ctors', ()):
-                item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts)
+                item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts, skipinit=True)
                 self.types[name] = item
-                self._modeldef['ctors'].append((name, ctor, opts, info))
+                ctors[name] = (name, ctor, opts, info)
 
         # load all the types in order...
         for _, mdef in mods:
-            custom = mdef.get('custom', False)
             for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
-                typeinfo['custom'] = custom
-                self.addType(typename, basename, typeopts, typeinfo)
+                self.addType(typename, basename, typeopts, typeinfo, skipinit=True)
+
+        # finish initializing types
+        for name, tobj in self.types.items():
+            tobj._initType()
+            if (info := ctors.get(name)) is not None:
+                self._modeldef['ctors'].append(info)
+            else:
+                self._modeldef['types'].append(tobj.getTypeDef())
 
         # load all the interfaces...
         for _, mdef in mods:
             for name, info in mdef.get('interfaces', ()):
                 self.addIface(name, info)
-
-        # Load all the universal properties
-        for _, mdef in mods:
-            for univname, typedef, univinfo in mdef.get('univs', ()):
-                univinfo['custom'] = custom
-                self.addUnivProp(univname, typedef, univinfo)
 
         # Load all the tagprops
         for _, mdef in mods:
@@ -865,6 +860,21 @@ class Model:
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 self.addForm(formname, forminfo, propdefs, checks=False)
 
+        # load form/prop hooks
+        for _, mdef in mods:
+
+            if (hdef := mdef.get('hooks')) is not None:
+                if (prehooks := hdef.get('pre')) is not None:
+                    for propname, func in prehooks.get('props', ()):
+                        self.core._setPropSetHook(propname, func)
+
+                if (posthooks := hdef.get('post')) is not None:
+                    for formname, func in posthooks.get('forms', ()):
+                        self.form(formname).onAdd(func)
+
+                    for propname, func in posthooks.get('props', ()):
+                        self.prop(propname).onSet(func)
+
         # now we can load edge definitions...
         for _, mdef in mods:
             for etype, einfo in mdef.get('edges', ()):
@@ -874,15 +884,22 @@ class Model:
         for form in self.forms.values():
             self._checkFormDisplay(form)
 
+    def _getFormsMaybeIface(self, name):
+
+        form = self.forms.get(name)
+        if form is not None:
+            return (name,)
+
+        forms = self.formsbyiface.get(name)
+        if forms is None:
+            mesg = f'No form or interface named {name}.'
+            raise s_exc.NoSuchForm(mesg=mesg, name=name)
+
+        return tuple(forms)
+
     def addEdge(self, edgetype, edgeinfo):
 
         n1form, verb, n2form = edgetype
-
-        if n1form is not None:
-            self._reqFormName(n1form)
-
-        if n2form is not None:
-            self._reqFormName(n2form)
 
         if not isinstance(verb, str):
             mesg = f'Edge definition verb must be a string: {edgetype}.'
@@ -892,21 +909,47 @@ class Model:
             mesg = f'Duplicate edge declared: {edgetype}.'
             raise s_exc.BadArg(mesg=mesg)
 
-        edge = Edge(self, edgetype, edgeinfo)
+        n1forms = (None,)
+        if n1form is not None:
+            n1forms = self._getFormsMaybeIface(n1form)
 
+        n2forms = (None,)
+        if n2form is not None:
+            n2forms = self._getFormsMaybeIface(n2form)
+
+        edge = Edge(self, edgetype, edgeinfo)
         self.edges[edgetype] = edge
-        self.edgesbyn1[n1form].add(edge)
-        self.edgesbyn2[n2form].add(edge)
+        [self.edgesbyn1[n1form].add(edge) for n1form in n1forms]
+        [self.edgesbyn2[n2form].add(edge) for n2form in n2forms]
+
+        for n1form in n1forms:
+            for n2form in n2forms:
+                self._valid_edges[(n1form, verb, n2form)].append(edge)
 
     def delEdge(self, edgetype):
-        if self.edges.get(edgetype) is None:
+
+        edge = self.edges.get(edgetype)
+        if edge is None:
             return
 
         n1form, verb, n2form = edgetype
 
+        n1forms = (None,)
+        if n1form is not None:
+            n1forms = self._getFormsMaybeIface(n1form)
+
+        n2forms = (None,)
+        if n2form is not None:
+            n2forms = self._getFormsMaybeIface(n2form)
+
         self.edges.pop(edgetype, None)
-        self.edgesbyn1[n1form].discard(edgetype)
-        self.edgesbyn2[n2form].discard(edgetype)
+
+        [self.edgesbyn1[n1form].discard(edge) for n1form in n1forms]
+        [self.edgesbyn2[n2form].discard(edge) for n2form in n2forms]
+
+        for n1form in n1forms:
+            for n2form in n2forms:
+                self._valid_edges[(n1form, verb, n2form)].remove(edge)
 
     def _reqFormName(self, name):
         form = self.forms.get(name)
@@ -914,20 +957,22 @@ class Model:
             raise s_exc.NoSuchForm.init(name)
         return form
 
-    def addType(self, typename, basename, typeopts, typeinfo):
+    def addType(self, typename, basename, typeopts, typeinfo, skipinit=False):
         base = self.types.get(basename)
         if base is None:
             raise s_exc.NoSuchType(name=basename)
 
-        newtype = base.extend(typename, typeopts, typeinfo)
+        newtype = base.extend(typename, typeopts, typeinfo, skipinit=skipinit)
 
-        if newtype.deprecated and typeinfo.get('custom'):
+        if newtype.deprecated:
             mesg = f'The type {typename} is based on a deprecated type {newtype.name} which ' \
-                   f'will be removed in 3.0.0.'
+                   f'will be removed in 4.0.0.'
             logger.warning(mesg)
 
         self.types[typename] = newtype
-        self._modeldef['types'].append(newtype.getTypeDef())
+
+        if not skipinit:
+            self._modeldef['types'].append(newtype.getTypeDef())
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
 
@@ -944,11 +989,12 @@ class Model:
         self.forms[formname] = form
         self.props[formname] = form
 
+        if (prevnames := forminfo.get('prevnames')) is not None:
+            for prevname in prevnames:
+                self.formprevnames[prevname] = formname
+
         if isinstance(form.type, s_types.Array):
             self.arraysbytype[form.type.arraytype.name][form.name] = form
-
-        for univname, typedef, univinfo in (u.getPropDef() for u in self.univs.values()):
-            self._addFormUniv(form, univname, typedef, univinfo)
 
         for propdef in propdefs:
 
@@ -960,8 +1006,8 @@ class Model:
 
         # interfaces are listed in typeinfo for the form to
         # maintain backward compatibility for populated models
-        for ifname in form.type.info.get('interfaces', ()):
-            self._addFormIface(form, ifname)
+        for ifname, ifinfo in form.type.info.get('interfaces', ()):
+            self._addFormIface(form, ifname, ifinfo)
 
         if checks:
             self._checkFormDisplay(form)
@@ -987,7 +1033,12 @@ class Model:
                 propname = colopts.get('name')
                 parts = propname.split('::')
 
-                for partname in parts:
+                for i, partname in enumerate(parts):
+
+                    if curf is None and i == (len(parts) - 1):
+                        mesg = f'No form named {prop.type.name} for property {prop.full}.'  # noqa: F821
+                        raise s_exc.NoSuchForm(mesg=mesg)
+
                     prop = curf.prop(partname)
                     if prop is None:
                         mesg = (f'Form {form.name} defines prop column {propname}'
@@ -1013,7 +1064,7 @@ class Model:
 
         formprops = []
         for propname, prop in form.props.items():
-            if prop.univ is not None or propname in ifaceprops:
+            if propname in ifaceprops:
                 continue
             formprops.append(prop)
 
@@ -1025,8 +1076,8 @@ class Model:
         if isinstance(form.type, s_types.Array):
             self.arraysbytype[form.type.arraytype.name].pop(form.name, None)
 
-        for ifname in form.type.info.get('interfaces', ()):
-            self._delFormIface(form, ifname)
+        for ifname, ifinfo in form.type.info.get('interfaces', ()):
+            self._delFormIface(form, ifname, ifinfo)
 
         self.forms.pop(formname, None)
         self.props.pop(formname, None)
@@ -1060,41 +1111,6 @@ class Model:
         self.propsbytype.pop(typename, None)
         self.arraysbytype.pop(typename, None)
 
-    def _addFormUniv(self, form, name, tdef, info):
-
-        univ = self.reqUniv(name)
-
-        prop = Prop(self, form, name, tdef, info)
-        prop.locked = univ.locked
-
-        full = f'{form.name}{name}'
-
-        self.props[full] = prop
-        self.props[(form.name, name)] = prop
-
-        self.allunivs[name].append(prop)
-
-    def addUnivProp(self, name, tdef, info):
-
-        base = '.' + name
-        univ = Prop(self, None, base, tdef, info)
-
-        if univ.type.deprecated:
-            mesg = f'The universal property {univ.full} is using a deprecated type {univ.type.name} which will' \
-                   f' be removed in 3.0.0'
-            logger.warning(mesg)
-
-        self.props[base] = univ
-        self.univs[base] = univ
-
-        self.allunivs[base].append(univ)
-
-        for form in self.forms.values():
-            prop = self._addFormUniv(form, base, tdef, info)
-
-    def getAllUnivs(self, name):
-        return list(self.allunivs.get(name, ()))
-
     def addFormProp(self, formname, propname, tdef, info):
         form = self.forms.get(formname)
         if form is None:
@@ -1110,12 +1126,42 @@ class Model:
             self.arraysbytype[prop.type.arraytype.name][prop.full] = prop
 
         self.props[prop.full] = prop
+
+        if (prevnames := info.get('prevnames')) is not None:
+            for prevname in prevnames:
+                prevfull = f'{form.name}:{prevname}'
+                self.propprevnames[prevfull] = prop.full
+
         return prop
 
-    def _prepFormIface(self, form, iface):
+    def _reqIface(self, name):
+        iface = self.ifaces.get(name)
+        if iface is None:
+            raise s_exc.NoSuchIface.init(name)
+        return iface
 
-        template = s_msgpack.deepcopy(iface.get('template', {}))
-        template.update(form.type.info.get('template', {}))
+    def _prepIfaceTemplate(self, iface, ifinfo, template=None):
+
+        # outer interface templates take precedence
+        if template is None:
+            template = {}
+
+        for subname, subinfo in iface.get('interfaces', ()):
+            subi = self._reqIface(subname)
+            self._prepIfaceTemplate(subi, subinfo, template=template)
+
+        template.update(iface.get('template', {}))
+        template.update(ifinfo.get('template', {}))
+
+        return template
+
+    def _prepFormIface(self, form, iface, ifinfo):
+
+        prefix = iface.get('prefix')
+        prefix = ifinfo.get('prefix', prefix)
+
+        # TODO decide if/how to handle subinterface prefixes
+        template = self._prepIfaceTemplate(iface, ifinfo)
 
         def convert(item):
 
@@ -1141,9 +1187,28 @@ class Model:
 
             return item
 
-        return convert(iface)
+        iface = convert(iface)
 
-    def _addFormIface(self, form, name, subifaces=None):
+        if prefix is not None:
+
+            props = []
+            for propname, typeinfo, propinfo in iface.get('props'):
+
+                if prefix:
+                    if propname:
+                        propname = f'{prefix}:{propname}'
+                    else:
+                        propname = prefix
+
+                # allow a property named by the prefix to fall away if prefix is ""
+                if propname:
+                    props.append((propname, typeinfo, propinfo))
+
+            iface['props'] = tuple(props)
+
+        return iface
+
+    def _addFormIface(self, form, name, ifinfo, ifaceparents=None):
 
         iface = self.ifaces.get(name)
 
@@ -1152,10 +1217,10 @@ class Model:
             raise s_exc.NoSuchName(mesg=mesg)
 
         if iface.get('deprecated'):
-            mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 3.0.0'
+            mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 4.0.0'
             logger.warning(mesg)
 
-        iface = self._prepFormIface(form, iface)
+        iface = self._prepFormIface(form, iface, ifinfo)
 
         for propname, typedef, propinfo in iface.get('props', ()):
 
@@ -1163,55 +1228,55 @@ class Model:
             if (prop := form.prop(propname)) is None:
                 prop = self._addFormProp(form, propname, typedef, propinfo)
 
-            self.ifaceprops[f'{name}:{propname}'].append(prop.full)
+            iprop = f'{name}:{propname}'
+            prop.ifaces.append(iprop)
+            self.ifaceprops[iprop].append(prop.full)
 
-            if subifaces is not None:
-                for subi in subifaces:
-                    self.ifaceprops[f'{subi}:{propname}'].append(prop.full)
+            if ifaceparents is not None:
+                for iname in ifaceparents:
+                    subiprop = f'{iname}:{propname}'
+                    prop.ifaces.append(subiprop)
+                    self.ifaceprops[subiprop].append(prop.full)
 
         form.ifaces[name] = iface
         self.formsbyiface[name].append(form.name)
 
-        if (ifaces := iface.get('interfaces')) is not None:
-            if subifaces is None:
-                subifaces = []
+        for subname, subinfo in iface.get('interfaces', ()):
+
+            if ifaceparents is None:
+                ifaceparents = [name]
             else:
-                subifaces = list(subifaces)
+                ifaceparents.append(name)
 
-            subifaces.append(name)
+            self._addFormIface(form, subname, subinfo, ifaceparents=ifaceparents)
 
-            for ifname in ifaces:
-                self._addFormIface(form, ifname, subifaces=subifaces)
-
-    def _delFormIface(self, form, name, subifaces=None):
+    def _delFormIface(self, form, name, ifinfo, ifaceparents=None):
 
         if (iface := self.ifaces.get(name)) is None:
             return
 
-        iface = self._prepFormIface(form, iface)
+        iface = self._prepFormIface(form, iface, ifinfo)
 
         for propname, typedef, propinfo in iface.get('props', ()):
             fullprop = f'{form.name}:{propname}'
             self.delFormProp(form.name, propname)
             self.ifaceprops[f'{name}:{propname}'].remove(fullprop)
 
-            if subifaces is not None:
-                for subi in subifaces:
-                    self.ifaceprops[f'{subi}:{propname}'].remove(fullprop)
+            if ifaceparents is not None:
+                for iname in ifaceparents:
+                    self.ifaceprops[f'{iname}:{propname}'].remove(fullprop)
 
         form.ifaces.pop(name, None)
         self.formsbyiface[name].remove(form.name)
 
-        if (ifaces := iface.get('interfaces')) is not None:
-            if subifaces is None:
-                subifaces = []
+        for subname, subinfo in iface.get('interfaces', ()):
+
+            if ifaceparents is None:
+                ifaceparents = [name]
             else:
-                subifaces = list(subifaces)
+                ifaceparents.append(name)
 
-            subifaces.append(name)
-
-            for ifname in ifaces:
-                self._delFormIface(form, ifname, subifaces=subifaces)
+            self._delFormIface(form, subname, subinfo, ifaceparents=ifaceparents)
 
     def delTagProp(self, name):
         return self.tagprops.pop(name)
@@ -1225,7 +1290,7 @@ class Model:
 
         if prop.type.deprecated:
             mesg = f'The tag property {prop.name} is using a deprecated type {prop.type.name} which will' \
-                   f' be removed in 3.0.0'
+                   f' be removed in 4.0.0'
             logger.warning(mesg)
 
         return prop
@@ -1253,20 +1318,6 @@ class Model:
 
         self.propsbytype[prop.type.name].pop(prop.full, None)
 
-    def delUnivProp(self, propname):
-
-        univname = '.' + propname
-
-        univ = self.props.pop(univname, None)
-        if univ is None:
-            raise s_exc.NoSuchUniv(name=propname)
-
-        self.univs.pop(univname, None)
-        self.allunivs.pop(univname, None)
-
-        for form in self.forms.values():
-            self.delFormProp(form.name, univname)
-
     def addBaseType(self, item):
         '''
         Add a Type instance to the data model.
@@ -1293,13 +1344,24 @@ class Model:
             return form
 
         mesg = f'No form named {name}.'
-        raise s_exc.NoSuchForm(mesg=mesg, name=name)
+        if (prevname := self.formprevnames.get(name)) is not None:
+            mesg += f' Did you mean {prevname}?'
 
-    def univ(self, name):
-        return self.univs.get(name)
+        raise s_exc.NoSuchForm(mesg=mesg, name=name)
 
     def tagprop(self, name):
         return self.tagprops.get(name)
 
     def edge(self, edgetype):
         return self.edges.get(edgetype)
+
+    def edgeIsValid(self, n1form, verb, n2form):
+        if self._valid_edges.get((n1form, verb, n2form)):
+            return True
+        if self._valid_edges.get((None, verb, None)):
+            return True
+        if self._valid_edges.get((None, verb, n2form)):
+            return True
+        if self._valid_edges.get((n1form, verb, None)):
+            return True
+        return False

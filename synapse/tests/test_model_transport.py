@@ -6,10 +6,17 @@ class TransportTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            craft = (await core.nodes('[ transport:air:craft=* :tailnum=FF023 :type=helicopter :built=202002 :make=boeing :model=747 :serial=1234 :operator=*]'))[0]
-            self.eq('helicopter', craft.get('type'))
-            self.eq(1580515200000, craft.get('built'))
-            self.eq('boeing', craft.get('make'))
+            craft = (await core.nodes('''[
+                transport:air:craft=*
+                    :tailnum=FF023
+                    :type=helicopter
+                    :built=202002
+                    :model=747
+                    :serial=1234
+                    :operator={[ entity:contact=* ]}
+            ]'''))[0]
+            self.eq('helicopter.', craft.get('type'))
+            self.eq(1580515200000000, craft.get('built'))
             self.eq('747', craft.get('model'))
             self.eq('1234', craft.get('serial'))
             self.nn(craft.get('operator'))
@@ -24,34 +31,13 @@ class TransportTest(s_test.SynTest):
                     :scheduled:arrival=20200203
                     :departed=2020020202
                     :arrived=202002020302
-                    :carrier=*
-                    :craft=*
-                    :from:port=IAD
-                    :to:port=LAS
-                    :stops=(iad, visi, las)
-                    :cancelled=true
                 ]'''))[0]
 
-            self.len(1, await core.nodes('transport:air:flight -> transport:air:craft'))
-
             self.eq('ua2437', flight.get('num'))
-            self.eq(1580601600000, flight.get('scheduled:departure'))
-            self.eq(1580688000000, flight.get('scheduled:arrival'))
-            self.eq(1580608800000, flight.get('departed'))
-            self.eq(1580612520000, flight.get('arrived'))
-            self.true(flight.get('cancelled'))
-
-            self.nn(flight.get('carrier'))
-
-            self.eq('las', flight.get('to:port'))
-            self.eq('iad', flight.get('from:port'))
-
-            flightiden = flight.ndef[1]
-            occup = (await core.nodes(f'[ transport:air:occupant=* :flight={flightiden} :seat=1A :contact=* ]'))[0]
-
-            self.eq('1a', occup.get('seat'))
-            self.len(1, await core.nodes('transport:air:occupant -> ps:contact'))
-            self.len(1, await core.nodes('transport:air:occupant -> transport:air:flight'))
+            self.eq(1580601600000000, flight.get('scheduled:departure'))
+            self.eq(1580688000000000, flight.get('scheduled:arrival'))
+            self.eq(1580608800000000, flight.get('departed'))
+            self.eq(1580612520000000, flight.get('arrived'))
 
             telem = (await core.nodes('''
                 [ transport:air:telem=*
@@ -79,7 +65,7 @@ class TransportTest(s_test.SynTest):
             self.eq(-6096, telem.get('verticalspeed'))
             self.eq(6380152800, telem.get('altitude'))
             self.eq(10000, telem.get('altitude:accuracy'))
-            self.eq(1580601600000, telem.get('time'))
+            self.eq(1580601600000000, telem.get('time'))
             self.eq('79.1', telem.get('course'))
             self.eq('99.02', telem.get('heading'))
 
@@ -91,26 +77,20 @@ class TransportTest(s_test.SynTest):
                     :type=cargo.tanker.oil
                     :imo="IMO 1234567"
                     :built=2020
-                    :make="The Vertex Project"
                     :model="Speed Boat 9000"
-                    :length=20m
-                    :beam=10m
-                    :operator=*
+                    :operator={[ entity:contact=* ]}
                 ]'''))[0]
             self.eq('123456789', vessel.get('mmsi'))
             self.eq('slice of life', vessel.get('name'))
             self.eq('cargo.tanker.oil.', vessel.get('type'))
-            self.eq('the vertex project', vessel.get('make'))
             self.eq('speed boat 9000', vessel.get('model'))
             self.eq('us', vessel.get('flag'))
             self.eq('imo1234567', vessel.get('imo'))
-            self.eq(1577836800000, vessel.get('built'))
-            self.eq(20000, vessel.get('length'))
-            self.eq(10000, vessel.get('beam'))
+            self.eq(1577836800000000, vessel.get('built'))
             self.nn(vessel.get('operator'))
 
             self.len(1, await core.nodes('transport:sea:vessel:imo^="IMO 123"'))
-            self.len(1, await core.nodes('transport:sea:vessel :name -> entity:name'))
+            self.len(1, await core.nodes('transport:sea:vessel :name -> meta:name'))
             self.len(1, await core.nodes('transport:sea:vessel -> transport:sea:vessel:type:taxonomy'))
 
             seatelem = (await core.nodes('''[
@@ -135,7 +115,7 @@ class TransportTest(s_test.SynTest):
             self.eq((20.22, 80.1111), seatelem.get('latlong'))
             self.eq('us', seatelem.get('loc'))
             self.eq(10000, seatelem.get('accuracy'))
-            self.eq(1580601600000, seatelem.get('time'))
+            self.eq(1580601600000000, seatelem.get('time'))
             self.eq(20000, seatelem.get('draft'))
             self.eq(30000, seatelem.get('airdraft'))
             self.eq(299792458000, seatelem.get('speed'))
@@ -144,7 +124,7 @@ class TransportTest(s_test.SynTest):
 
             self.nn(seatelem.get('destination'))
             self.eq('woot', seatelem.get('destination:name'))
-            self.eq(1580688000000, seatelem.get('destination:eta'))
+            self.eq(1580688000000000, seatelem.get('destination:eta'))
 
             airport = (await core.nodes('transport:air:port=VISI [:name="Visi Airport" :place=*]'))[0]
             self.eq('visi', airport.ndef[1])
@@ -167,7 +147,6 @@ class TransportTest(s_test.SynTest):
                     :vehicle={[ transport:land:vehicle=*
                         :serial=V-31337
                         :built=2005
-                        :make=lotus
                         :model=elise
                         :registration=$regid
                         :type=car
@@ -187,8 +166,8 @@ class TransportTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('id'), 'zeroday')
             self.eq(nodes[0].get('issuer:name'), 'virginia dmv')
-            self.eq(nodes[0].get('issued'), 1422835200000)
-            self.eq(nodes[0].get('expires'), 1675296000000)
+            self.eq(nodes[0].get('issued'), 1422835200000000)
+            self.eq(nodes[0].get('expires'), 1675296000000000)
 
             self.nn(nodes[0].get('issuer'))
             self.nn(nodes[0].get('contact'))
@@ -198,10 +177,9 @@ class TransportTest(s_test.SynTest):
             nodes = await core.nodes('transport:land:registration:id=zeroday :vehicle -> transport:land:vehicle')
             self.len(1, nodes)
             self.eq(nodes[0].get('type'), 'car.')
-            self.eq(nodes[0].get('make'), 'lotus')
             self.eq(nodes[0].get('model'), 'elise')
             self.eq(nodes[0].get('serial'), 'V-31337')
-            self.eq(nodes[0].get('built'), 1104537600000)
+            self.eq(nodes[0].get('built'), 1104537600000000)
             self.nn(nodes[0].get('owner'))
             self.nn(nodes[0].get('registration'))
             self.len(1, await core.nodes('transport:land:vehicle -> transport:land:vehicle:type:taxonomy'))
@@ -209,8 +187,8 @@ class TransportTest(s_test.SynTest):
             nodes = await core.nodes('transport:land:registration:id=zeroday -> transport:land:license')
             self.len(1, nodes)
             self.eq(nodes[0].get('id'), 'V-31337')
-            self.eq(nodes[0].get('issued'), 1671235200000)
-            self.eq(nodes[0].get('expires'), 1765929600000)
+            self.eq(nodes[0].get('issued'), 1671235200000000)
+            self.eq(nodes[0].get('expires'), 1765929600000000)
             self.eq(nodes[0].get('issuer:name'), 'virginia dmv')
 
             self.nn(nodes[0].get('issuer'))
@@ -267,28 +245,28 @@ class TransportTest(s_test.SynTest):
                                 :max:occupants=2
                                 :max:cargo:mass=1000kg
                                 :max:cargo:volume=1000m
-                                :owner={[ ps:contact=* :name="road runner" ]}
+                                :owner={[ entity:contact=* :name="road runner" ]}
                             ]}
                     ]}
-                    :operator={[ ps:contact=* :name="visi" ]}
+                    :operator={[ entity:contact=* :name="visi" ]}
             ]''')
 
-            self.eq(10800000, nodes[0].get('duration'))
-            self.eq(10800000, nodes[0].get('scheduled:duration'))
+            self.eq(10800000000, nodes[0].get('duration'))
+            self.eq(10800000000, nodes[0].get('scheduled:duration'))
 
-            self.eq(1737109800000, nodes[0].get('departed'))
+            self.eq(1737109800000000, nodes[0].get('departed'))
             self.eq('2c', nodes[0].get('departed:point'))
             self.nn(nodes[0].get('departed:place'))
 
-            self.eq(1737109800000, nodes[0].get('scheduled:departure'))
+            self.eq(1737109800000000, nodes[0].get('scheduled:departure'))
             self.eq('2c', nodes[0].get('scheduled:departure:point'))
             self.nn(nodes[0].get('scheduled:departure:place'))
 
-            self.eq(1737120600000, nodes[0].get('arrived'))
+            self.eq(1737120600000000, nodes[0].get('arrived'))
             self.nn(nodes[0].get('arrived:place'))
             self.eq('2c', nodes[0].get('arrived:point'))
 
-            self.eq(1737120600000, nodes[0].get('scheduled:arrival'))
+            self.eq(1737120600000000, nodes[0].get('scheduled:arrival'))
             self.nn(nodes[0].get('scheduled:arrival:place'))
             self.eq('2c', nodes[0].get('scheduled:arrival:point'))
 
@@ -299,7 +277,7 @@ class TransportTest(s_test.SynTest):
             nodes = await core.nodes('transport:rail:car')
             self.eq('001', nodes[0].get('serial'))
             self.eq('engine.diesel.', nodes[0].get('type'))
-            self.eq(1670803200000, nodes[0].get('built'))
+            self.eq(1670803200000000, nodes[0].get('built'))
             self.eq('acme', nodes[0].get('manufacturer:name'))
             self.eq('engine that could', nodes[0].get('model'))
             self.eq(2, nodes[0].get('max:occupants'))
@@ -320,7 +298,7 @@ class TransportTest(s_test.SynTest):
             nodes = await core.nodes('''[
                 transport:occupant=*
                     :role=passenger
-                    :contact={[ ps:contact=({"name": "visi"}) ]}
+                    :contact={[ entity:contact=({"name": "visi"}) ]}
                     :trip={ transport:rail:train }
                     :vehicle={ transport:rail:consist }
                     :seat=2c
@@ -338,11 +316,11 @@ class TransportTest(s_test.SynTest):
             self.eq('transport:rail:train', nodes[0].get('trip')[0])
             self.eq('transport:rail:consist', nodes[0].get('vehicle')[0])
 
-            self.eq(1737109200000, nodes[0].get('boarded'))
+            self.eq(1737109200000000, nodes[0].get('boarded'))
             self.nn(nodes[0].get('boarded:place'))
             self.eq('2c', nodes[0].get('boarded:point'))
 
-            self.eq(1737120900000, nodes[0].get('disembarked'))
+            self.eq(1737120900000000, nodes[0].get('disembarked'))
             self.nn(nodes[0].get('disembarked:place'))
             self.eq('2c', nodes[0].get('disembarked:point'))
             self.len(1, await core.nodes('transport:occupant -> transport:occupant:role:taxonomy'))
@@ -370,10 +348,10 @@ class TransportTest(s_test.SynTest):
             self.eq('transport:rail:consist', nodes[0].get('vehicle')[0])
             self.eq('transport:shipping:container', nodes[0].get('object')[0])
 
-            self.eq(1737109200000, nodes[0].get('loaded'))
+            self.eq(1737109200000000, nodes[0].get('loaded'))
             self.nn(nodes[0].get('loaded:place'))
             self.eq('2c', nodes[0].get('loaded:point'))
 
-            self.eq(1737120900000, nodes[0].get('unloaded'))
+            self.eq(1737120900000000, nodes[0].get('unloaded'))
             self.nn(nodes[0].get('unloaded:place'))
             self.eq('2c', nodes[0].get('unloaded:point'))
