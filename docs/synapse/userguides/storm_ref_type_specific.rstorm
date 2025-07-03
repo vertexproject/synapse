@@ -1097,7 +1097,7 @@ Set the ``:count`` of the ``biz:bundle`` to 42:
 
 Use a hex value to set the ``:ip:proto`` property for the ``inet:flow`` node to 6:
 
-.. storm-pre:: [ inet:flow=(tcp://142.118.95.50, tcp, 142.118.95.50) :dst=tcp://142.118.95.50 ]
+.. storm-pre:: [ inet:flow=(tcp://142.118.95.50, tcp, 142.118.95.50) :server=tcp://142.118.95.50 ]
 .. storm-cli:: inet:flow=684babd42810ae9dc11132805abc2831 [ :ip:proto=0x06 ]
 
 Use an octal value to set the ``:posix:perms`` property for the ``file:archive:entry`` node to 755:
@@ -1126,7 +1126,7 @@ Lift all ``risk:alert`` nodes where the ``:priority`` is set to less than 10:
 
 Lift all ``inet:flow`` nodes tagged with ``#my.tag`` and filter to include only those where the ``:ip:proto`` property is set to the hex equivalent of 6:
 
-.. storm-pre:: [ inet:flow=(tcp://62.152.42.139, tcp, 62.152.42.139) :dst=tcp://62.152.42.139 :ip:proto=6 +#my.tag]
+.. storm-pre:: [ inet:flow=(tcp://62.152.42.139, tcp, 62.152.42.139) :server=tcp://62.152.42.139 :ip:proto=6 +#my.tag]
 .. storm-cli:: inet:flow#mytag +:ip:proto=0x06
 
 Use an octal value to lift all ``it:group`` nodes where the ``:posix:gid`` values equate to 278:

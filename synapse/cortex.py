@@ -1619,12 +1619,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.NoSuchName(mesg=mesg)
 
         await self._push('queue:del', name)
-        await self.auth.delAuthGate(f'queue:{name}')
 
     @s_nexus.Pusher.onPush('queue:del')
     async def _delCoreQueue(self, name):
         if not self.multiqueue.exists(name):
             return
+
+        try:
+            await self.auth.delAuthGate(f'queue:{name}')
+        except NoSuchAuthGate:  # pragma: no cover
+            pass
 
         await self.multiqueue.rem(name)
 

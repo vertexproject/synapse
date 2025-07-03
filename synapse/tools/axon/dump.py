@@ -14,6 +14,7 @@ descr = '''
 Dump blobs from a Synapse Axon.
 '''
 
+MAX_SPOOL_SIZE = s_const.mebibyte * 512
 DEFAULT_ROTATE_SIZE = s_const.gigabyte * 4
 
 def getTarName(celliden, start, end):
@@ -35,17 +36,6 @@ async def dumpBlobs(opts, outp):
                 raise s_exc.BadDataValu(mesg=f'Specified output directory {opts.outdir} exists but is not a directory.')
             os.makedirs(opts.outdir, exist_ok=True)
 
-            start = opts.offset
-            rotate_size = opts.rotate_size
-            hashes_iter = axon.hashes(start)
-            last_offset = start
-            tar = None
-            tar_path = None
-            file_start = start
-            file_blobcount = 0
-            tar_size = 0
-            for_open = True
-
             if opts.statefile is None:
                 statefile_path = os.path.join(opts.outdir, f'{celliden}.yaml')
             else:
@@ -57,6 +47,22 @@ async def dumpBlobs(opts, outp):
                 if (data := s_common.yamlload(statefile_path)) is not None:
                     state = data
             opts.statefile = statefile_path
+
+            if opts.offset is not None:
+                start = opts.offset
+            else:
+                start = state.get('offset:next', 0)
+            outp.printf(f'Starting the dump from offs={start}')
+
+            rotate_size = opts.rotate_size
+            hashes_iter = axon.hashes(start)
+            last_offset = start
+            tar = None
+            tar_path = None
+            file_start = start
+            file_blobcount = 0
+            tar_size = 0
+            for_open = True
 
             try:
                 async for (offs, (sha256, size)) in hashes_iter:
@@ -73,7 +79,7 @@ async def dumpBlobs(opts, outp):
                     sha2hex = s_common.ehex(sha256)
                     outp.printf(f'Dumping blob {sha2hex} (size={size}, offs={offs})')
 
-                    with s_common.tmpfile(opts.outdir) as (tmpf, tmp_path):
+                    with tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE, mode='w+b', dir=opts.outdir) as tmpf:
                         total = 0
                         async for byts in axon.get(sha256):
                             tmpf.write(byts)
@@ -103,9 +109,8 @@ async def dumpBlobs(opts, outp):
                     tar = None
                     tar_path = None
 
-                if opts.statefile is not None:
-                    state['offset:next'] = last_offset + 1
-                    s_common.yamlsave(state, statefile_path)
+                state['offset:next'] = last_offset + 1
+                s_common.yamlsave(state, statefile_path)
 
             finally:
                 if tar is not None:
@@ -126,7 +131,7 @@ async def dumpBlobs(opts, outp):
 async def main(argv, outp=s_output.stdout):
     pars = s_cmd.Parser(prog='synapse.tools.axon.dump', outp=outp, description=descr)
     pars.add_argument('--url', default='cell:///vertex/storage', help='Telepath URL for the Axon.')
-    pars.add_argument('--offset', type=int, default=0, help='Starting offset in the Axon.')
+    pars.add_argument('--offset', type=int, default=None, help='Starting offset in the Axon.')
     pars.add_argument('--rotate-size', type=int, default=DEFAULT_ROTATE_SIZE,
                       help='Rotate to a new .blobs file after the current file exceeds this size in bytes (default: 4GB). '
                            'Note: files may exceed this size if a single blob is larger than the remaining space.')
