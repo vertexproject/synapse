@@ -121,9 +121,9 @@ commands:
           # a single runner using xdist.
           name: syntax
           command: |
-            pip install "pycodestyle>=2.10.0,<3.0.0"
-            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle synapse; fi;
-            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle scripts; fi;
+            pip install "pycodestyle>=2.10.0,<3.0.0" ruff
+            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle synapse; ruff check; fi;
+            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle scripts; ruff check; fi;
 
       - run:
           name: install pandoc
