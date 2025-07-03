@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.jsonstor as s_jsonstor
 
 import synapse.tests.utils as s_test
@@ -127,3 +128,47 @@ class JsonStorTest(s_test.SynTest):
 
                     self.true(await prox.delQueue('hehe'))
                     self.false(await prox.delQueue('hehe'))
+
+    async def test_lib_jsonstor_syncing(self):
+
+        with self.getTestDir() as dirn:
+            async with self.getTestJsonStor(dirn=dirn) as jsonstor:
+                async with jsonstor.getLocalProxy() as prox:
+
+                    await prox.setPathObj('foo/bar', {'hehe': 'haha'})
+                    await s_lmdbslab.Slab.syncLoopOnce()
+
+                    self.true(await prox.setPathObjProp('foo/bar', 'zip', 'zop'))
+                    self.len(1, jsonstor.jsonstor.dirty.items())
+
+                    await s_lmdbslab.Slab.syncLoopOnce()
+                    self.len(0, jsonstor.jsonstor.dirty.items())
+
+                    self.eq({'hehe': 'haha', 'zip': 'zop'}, await prox.getPathObj('foo/bar'))
+
+                    self.true(await prox.delPathObjProp('foo/bar', 'zip'))
+                    self.len(1, jsonstor.jsonstor.dirty.items())
+
+                    await s_lmdbslab.Slab.syncLoopOnce()
+                    self.len(0, jsonstor.jsonstor.dirty.items())
+
+                    self.eq({'hehe': 'haha'}, await prox.getPathObj('foo/bar'))
+
+                    self.true(await prox.cmpDelPathObjProp('foo/bar', 'hehe', 'haha'))
+                    self.len(1, jsonstor.jsonstor.dirty.items())
+
+                    await s_lmdbslab.Slab.syncLoopOnce()
+                    self.len(0, jsonstor.jsonstor.dirty.items())
+
+                    self.eq({}, await prox.getPathObj('foo/bar'))
+
+                    self.true(await prox.setPathObjProp('foo/bar', 'zip', 'zop'))
+                    await s_lmdbslab.Slab.syncLoopOnce()
+
+                    self.true(await prox.popPathObjProp('foo/bar', 'zip'))
+                    self.len(1, jsonstor.jsonstor.dirty.items())
+
+                    await s_lmdbslab.Slab.syncLoopOnce()
+                    self.len(0, jsonstor.jsonstor.dirty.items())
+
+                    self.eq({}, await prox.getPathObj('foo/bar'))

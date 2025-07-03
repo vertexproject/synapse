@@ -1895,3 +1895,34 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(2, nodes[0].get('assets:vulns:preexisting'))
 
             self.len(1, await core.nodes('it:sec:metrics -> ou:org +:name=vertex'))
+
+    async def test_infotech_windows(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ it:os:windows:service=*
+                    :name=Woot
+                    :host=*
+                    :type=(0x20)
+                    :start=(0x20)
+                    :errorcontrol=(0x20)
+                    :displayname="Foo Bar Baz"
+                    :imagepath=c:/windows/system32/woot.exe
+                    :description="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+                ]
+            ''')
+
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'woot')
+            self.eq(nodes[0].get('type'), 0x20)
+            self.eq(nodes[0].get('start'), 0x20)
+            self.eq(nodes[0].get('errorcontrol'), 0x20)
+            self.eq(nodes[0].get('displayname'), 'foo bar baz')
+            self.eq(nodes[0].get('imagepath'), 'c:/windows/system32/woot.exe')
+            self.eq(nodes[0].get('description'), 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.')
+
+            self.len(1, await core.nodes('it:os:windows:service -> it:host'))
+            self.len(1, await core.nodes('it:os:windows:service -> file:path'))
+
+            self.len(1, await core.nodes('[ it:exec:proc=* :windows:service={ it:os:windows:service } ] -> it:os:windows:service'))

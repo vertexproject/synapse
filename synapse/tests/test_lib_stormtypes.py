@@ -2965,6 +2965,21 @@ class StormTypesTest(s_test.SynTest):
             async with core.getLocalProxy(user='authgateuser') as usercore:
                 await usercore.callStorm(f'$lib.queue.del({qiden})')
 
+                # Coverage for the Cortex queue:del nexus handler
+                name = 'deleteme'
+                iden = s_common.guid()
+                await core.addCoreQueue(
+                    name,
+                    {'name': name,
+                     'creator': core.auth.rootuser.iden,
+                     'created': s_common.now(),
+                     'iden': iden}
+                )
+                await core.auth.delAuthGate(f'queue:{name}')
+                await core.delCoreQueue(name)
+                with self.raises(s_exc.NoSuchName):
+                    await core.getCoreQueue(name)
+
     async def test_storm_node_data(self):
 
         async with self.getTestCore() as core:
