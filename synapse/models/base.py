@@ -228,9 +228,6 @@ modeldefs = (
                     ('name', ('base:id', {}), {
                         'doc': 'The rule name.'}),
 
-                    ('desc', ('text', {}), {
-                        'doc': 'A description of the {authorable}.'}),
-
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL which documents the {authorable}.'}),
 
@@ -418,9 +415,6 @@ modeldefs = (
 
                 ('type', ('meta:ruleset:type:taxonomy', {}), {
                     'doc': 'The ruleset type.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the ruleset.'}),
             )),
 
             ('meta:rule:type:taxonomy', {}, ()),

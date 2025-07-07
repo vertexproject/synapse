@@ -3,7 +3,7 @@ modeldefs = (
         'types': (
             ('plan:system', ('guid', {}), {
                 'interfaces': (
-                    ('doc:authorable', {'template': {'authorable': 'procedure'}}),
+                    ('doc:authorable', {'template': {'authorable': 'planning system'}}),
                 ),
                 'doc': 'A planning or behavioral analysis system that defines phases and procedures.'}),
 

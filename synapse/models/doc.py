@@ -34,7 +34,7 @@ modeldefs = (
                         'doc': 'The version of the {authorable}.'}),
 
                     ('supersedes', ('array', {'type': '$self', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of {authorable} instances which are superseded by this {authorable}.'}),
+                        'doc': 'An array of {authorable} versions which are superseded by this {authorable}.'}),
                 ),
             }),
             ('doc:document', {
