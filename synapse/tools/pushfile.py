@@ -120,4 +120,3 @@ def getArgParser(outp: s_output.OutPut):
 
 if __name__ == '__main__':  # pragma: no cover
     s_cmd.exitmain(main)
-
