@@ -90,7 +90,7 @@ class JsonStor(s_base.Base):
         if oldb is not None:
             await self._incRefObj(oldb, -1)
 
-        await self.slab.put(buid + b'refs', s_msgpack.en(1), db=self.metadb)
+        self.slab._put(buid + b'refs', s_msgpack.en(1), db=self.metadb)
 
         self.dirty[buid] = item
 
