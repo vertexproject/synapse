@@ -1,21 +1,22 @@
 modeldefs = (
     ('gov:cn', {
         'types': (
-            ('gov:cn:icp',
-                ('int', {}),
-                {'doc': 'A Chinese Internet Content Provider ID.'},
-             ),
-            ('gov:cn:mucd',
-                ('int', {}),
-                {'doc': 'A Chinese PLA MUCD.'},
-             ),
+
+            # FIXME update type. not just an int.
+            ('gov:cn:icp', ('int', {}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
+                'doc': 'A Chinese Internet Content Provider ID.'}),
+
+            ('gov:cn:mucd', ('int', {}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
+                'doc': 'A Chinese PLA MUCD.'}),
         ),
         'forms': (
-            ('gov:cn:icp', {}, (
-                ('org', ('ou:org', {}), {
-                    'doc': 'The org with the Internet Content Provider ID.',
-                }),
-            )),
+            ('gov:cn:icp', {}, ()),
             ('gov:cn:mucd', {}, ()),
         )
     }),

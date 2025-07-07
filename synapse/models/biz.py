@@ -6,6 +6,11 @@ modeldefs = (
         'types': (
 
             ('biz:rfp', ('guid', {}), {
+                'interfaces': (
+                    ('doc:document', {'template': {
+                        'document': 'RFP',
+                        'authorable': 'RFP'}}),
+                ),
                 'doc': 'An RFP (Request for Proposal) soliciting proposals.'}),
 
             ('biz:deal', ('guid', {}), {

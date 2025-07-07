@@ -103,6 +103,9 @@ modeldefs = (
                 'doc': 'An International Bank Account Number.'}),
 
             ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{5}'}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
                 'doc': 'A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business Identifier Code (BIC).'}),
 
             ('econ:pay:instrument', ('ndef', {'interface': 'econ:pay:instrument'}), {

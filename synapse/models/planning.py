@@ -2,12 +2,21 @@ modeldefs = (
     ('plan', {
         'types': (
             ('plan:system', ('guid', {}), {
+                'interfaces': (
+                    ('doc:authorable', {'template': {'authorable': 'procedure'}}),
+                ),
                 'doc': 'A planning or behavioral analysis system that defines phases and procedures.'}),
 
             ('plan:phase', ('guid', {}), {
                 'doc': 'A phase within a planning system which may be used to group steps within a procedure.'}),
 
             ('plan:procedure', ('guid', {}), {
+                'interfaces': (
+                    ('doc:document', {'template': {
+                        'document': 'procedure',
+                        'authorable': 'procedure'}}),
+                ),
+
                 'doc': 'A procedure consisting of steps.'}),
 
             ('plan:procedure:type:taxonomy', ('taxonomy', {}), {

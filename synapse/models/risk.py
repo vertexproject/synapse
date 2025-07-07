@@ -356,13 +356,14 @@ modeldefs = (
                 ('activity', ('meta:activity', {}), {
                     'doc': 'The most recently assessed activity level of the threat cluster.'}),
 
-                ('source:discovered', ('time', {}), {
-                    'prevnames': ('reporter:discovered',),
-                    'doc': 'The time that the source first discovered the threat cluster.'}),
+                # NOTE: removed per discussion, but i suspect it'll be back...
+                # ('source:discovered', ('time', {}), {
+                #     'prevnames': ('reporter:discovered',),
+                #     'doc': 'The time that the source first discovered the threat cluster.'}),
 
-                ('source:published', ('time', {}), {
-                    'prevnames': ('reporter:published',),
-                    'doc': 'The time that the source first publicly disclosed the threat cluster.'}),
+                # ('source:published', ('time', {}), {
+                #     'prevnames': ('reporter:published',),
+                #     'doc': 'The time that the source first publicly disclosed the threat cluster.'}),
 
                 # FIXME geo:locatable?
                 ('country', ('pol:country', {}), {
@@ -406,14 +407,14 @@ modeldefs = (
                 ('sophistication', ('meta:sophistication', {}), {
                     'doc': "The source's assessed sophistication of the tool."}),
 
-                # TODO transfer to the interface?
-                ('source:discovered', ('time', {}), {
-                    'prevnames': ('reporter:discovered',),
-                    'doc': 'The time that the source first discovered the tool.'}),
+                # NOTE: removed per discussion, but i suspect it'll be back...
+                # ('source:discovered', ('time', {}), {
+                #     'prevnames': ('reporter:discovered',),
+                #     'doc': 'The time that the source first discovered the tool.'}),
 
-                ('source:published', ('time', {}), {
-                    'prevnames': ('reporter:published',),
-                    'doc': 'The time that the source first publicly disclosed the tool.'}),
+                # ('source:published', ('time', {}), {
+                #     'prevnames': ('reporter:published',),
+                #     'doc': 'The time that the source first publicly disclosed the tool.'}),
 
                 ('software', ('it:software', {}), {
                     'prevnames': ('soft',),
