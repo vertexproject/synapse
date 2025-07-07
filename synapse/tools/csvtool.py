@@ -118,7 +118,7 @@ async def runCsvImport(opts, outp, text, stormopts):
                     logfd.write(s_json.dumps(mesg, newline=True))
 
         if opts.cli:
-            await s_t_storm.runItemStorm(prox, outp=outp)
+            await s_t_storm.runItemStorm(core, outp=outp)
 
         return nodecount
 

@@ -1107,7 +1107,7 @@ class Model:
                 for i, partname in enumerate(parts):
 
                     if curf is None and i == (len(parts) - 1):
-                        mesg = f'No form named {prop.type.name} for property {prop.full}.'
+                        mesg = f'No form named {prop.type.name} for property {prop.full}.'  # noqa: F821
                         raise s_exc.NoSuchForm(mesg=mesg)
 
                     prop = curf.prop(partname)

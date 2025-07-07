@@ -12,6 +12,27 @@ v3.0.0 - 2025-XX-YY
 Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
 changes.
 
+v2.215.0 - 2025-07-03
+=====================
+
+Model Changes
+-------------
+- Added ``it:os:windows:service`` to model Microsoft Windows Service
+  configuration details.
+  (`#4380 <https://github.com/vertexproject/synapse/pull/4380>`_)
+- See :ref:`userguide_model_v2_215_0` for more detailed model changes.
+
+Bugfixes
+--------
+- Fixed an issue where certain JsonStor edit operations could have delays
+  before being committed to the slab.
+  (`#4383 <https://github.com/vertexproject/synapse/pull/4383>`_)
+- Fixed an issue where removing a tag property from a tag could also remove
+  other tag properties on that same tag.
+  (`#4384 <https://github.com/vertexproject/synapse/pull/4384>`_)
+- Fixed an issue in the error handling when deleting a Cortex queue.
+  (`#4385 <https://github.com/vertexproject/synapse/pull/4385>`_)
+
 v2.214.0 - 2025-07-02
 =====================
 
@@ -89,7 +110,6 @@ Notes
   (`#4368 <https://github.com/vertexproject/synapse/pull/4368>`_)
 - Added ``mesg`` values to Telepath ``NoSuchMeth`` exceptions.
   (`#4369 <https://github.com/vertexproject/synapse/pull/4369>`_)
->>>>>>> master
 
 v2.213.0 - 2025-06-10
 =====================

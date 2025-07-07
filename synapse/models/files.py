@@ -378,6 +378,9 @@ modeldefs = (
 
             (('file:bytes', 'refs', 'it:dev:str'), {
                 'doc': 'The source file contains the target string.'}),
+
+            # FIXME picturable?
+            # (('file:mime:image', 'imageof', None), {
         ),
         'forms': (
 
@@ -614,9 +617,6 @@ modeldefs = (
 
                 ('sha256', ('crypto:hash:sha256', {}), {
                     'doc': 'The sha256 hash of the bytes of the segment.'}),
-
-                ('offset', ('int', {}), {
-                    'doc': 'The file offset to the beginning of the segment.'}),
             )),
             ('file:mime:macho:section', {}, (
 
