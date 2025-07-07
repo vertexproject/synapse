@@ -2929,16 +2929,16 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ inet:service:subscription=*
                     :level=vertex.synapse.enterprise
-                    :pay:instrument={[ econ:bank:account=* :contact={[ entity:contact=* :name=visi]} ]}
+                    :pay:instrument={[ econ:pay:card=* ]}
                     :subscriber={[ inet:service:tenant=({"id": "VS-31337"}) ]}
                 ]
             ''')
             self.len(1, nodes)
             self.eq('vertex.synapse.enterprise.', nodes[0].get('level'))
-            self.eq('econ:bank:account', nodes[0].get('pay:instrument')[0])
+            self.eq('econ:pay:card', nodes[0].get('pay:instrument')[0])
             self.eq('inet:service:tenant', nodes[0].get('subscriber')[0])
             self.len(1, await core.nodes('inet:service:subscription -> inet:service:subscription:level:taxonomy'))
-            self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:bank:account'))
+            self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:pay:card'))
             self.len(1, await core.nodes('inet:service:subscription :subscriber -> inet:service:tenant'))
 
     async def test_ipv4_fallback(self):

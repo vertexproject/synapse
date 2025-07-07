@@ -392,6 +392,7 @@ testmodel = (
 
             ('test:enums:int', ('int', {'enums': ((1, 'fooz'), (2, 'barz'), (3, 'bazz'))}), {}),
             ('test:enums:str', ('str', {'enums': 'testx,foox,barx,bazx'}), {}),
+            ('test:protocol', ('int', {}), {}),
         ),
         'forms': (
 
@@ -542,6 +543,25 @@ testmodel = (
 
             ('test:enums:int', {}, ()),
             ('test:enums:str', {}, ()),
+
+            ('test:protocol', {
+                'protocols': {
+                    'test:adjustable': {'vars': {
+                        'time': {'type': 'prop', 'name': 'time'},
+                        'currency': {'type': 'prop', 'name': 'currency'}}},
+                },
+                'doc': 'An adjustable form value.',
+              }, (
+                ('time', ('time', {}), {}),
+                ('currency', ('str', {}), {}),
+                ('otherval', ('int', {}), {
+                    'protocols': {
+                        'another:adjustable': {'vars': {
+                            'time': {'type': 'prop', 'name': 'time'},
+                            'currency': {'type': 'prop', 'name': 'currency'}}},
+                    },
+                    'doc': 'Another value adjustable in a different way.'}),
+            )),
         ),
     }),
 )

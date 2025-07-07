@@ -857,7 +857,6 @@ modeldefs = (
                 ('compromise', ('risk:compromise', {}), {
                     'doc': 'The compromise which allowed the attacker to extort the target.'}),
 
-                # FIXME econ:valuable
                 ('demanded:payment:price', ('econ:price', {}), {
                     'doc': 'The payment price which was demanded.'}),
 
@@ -867,7 +866,7 @@ modeldefs = (
                 ('paid:price', ('econ:price', {}), {
                     'doc': 'The total price paid by the target of the extortion.'}),
 
-                ('payments', ('array', {'type': 'econ:acct:payment', 'sorted': True, 'uniq': True}), {
+                ('payments', ('array', {'type': 'econ:payment', 'sorted': True, 'uniq': True}), {
                     'doc': 'Payments made from the target to the attacker.'}),
             )),
             ('risk:technique:masquerade', {}, (
