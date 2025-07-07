@@ -226,17 +226,17 @@ modeldefs = (
                 'props': (
 
                     ('desc', ('text', {}), {
-                        'doc': 'A description of the {document}.'}),
+                        'doc': 'A description of the {authorable}.'}),
 
                     ('url', ('inet:url', {}), {
-                        'doc': 'A URL which documents the {document}.'}),
+                        'doc': 'A URL which documents the {authorable}.'}),
 
                     ('enabled', ('bool', {}), {
-                        'doc': 'The enabled status of the {document}.'}),
+                        'doc': 'The enabled status of the {authorable}.'}),
 
                     ('text', ('text', {}), {
                         'display': {'syntax': '{syntax}'},
-                        'doc': 'The text of the {document}.'})
+                        'doc': 'The text of the {authorable}.'})
                 ),
             }),
             ('meta:matchish', {
