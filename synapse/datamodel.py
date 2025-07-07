@@ -1190,13 +1190,8 @@ class Model:
 
     def _addFormProp(self, form, name, tdef, info):
 
-        if tdef is None:
-
-            # check if there was an already declared interface def
-            if (prop := form.prop(name)) is not None:
-                tdef = (prop.type.name, prop.type.info)
-                for name, valu in prop.info.items():
-                    info.setdefault(name, valu)
+        # TODO - implement resolving tdef from inherited interfaces
+        # if omitted from a prop or iface definition to allow doc edits
 
         _type = self.types.get(tdef[0])
         if _type is None:
