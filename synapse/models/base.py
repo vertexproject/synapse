@@ -225,6 +225,9 @@ modeldefs = (
                 ),
                 'props': (
 
+                    ('name', ('base:id', {}), {
+                        'doc': 'The rule name.'}),
+
                     ('desc', ('text', {}), {
                         'doc': 'A description of the {authorable}.'}),
 
@@ -410,7 +413,7 @@ modeldefs = (
 
             ('meta:ruleset', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:id', {}), {
                     'doc': 'A name for the ruleset.'}),
 
                 ('type', ('meta:ruleset:type:taxonomy', {}), {

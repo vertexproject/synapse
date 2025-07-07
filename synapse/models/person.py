@@ -35,9 +35,6 @@ modeldefs = (
                 'doc': 'A person.'}),
 
             ('ps:workhist', ('guid', {}), {
-                'interfaces': (
-                    ('econ:valuable', {'prefix': 'pay', 'template': {'econ:valuable': 'pay'}}),
-                ),
                 'doc': "An entry in a contact's work history."}),
 
             ('ps:vitals', ('guid', {}), {
@@ -118,6 +115,12 @@ modeldefs = (
                 ('title', ('entity:title', {}), {
                     'prevnames': ('jobtitle',),
                     'doc': 'The title held by the contact.'}),
+
+                ('pay', ('econ:price', {}), {
+                    'doc': 'The average yearly income paid to the contact.'}),
+
+                ('pay:currency', ('econ:currency', {}), {
+                    'doc': 'The currency of the pay.'}),
 
                 ('period', ('ival', {}), {
                     'prevnames': ('started', 'ended', 'duration'),
