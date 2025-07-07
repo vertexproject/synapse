@@ -108,6 +108,7 @@ modeldefs = (
                 ),
                 'doc': 'A taxonomy of requirement types.'}),
 
+            # FIXME doc:document seems like overkill. doc:authorable?
             ('doc:requirement', ('guid', {}), {
                 'interfaces': (
                     ('doc:document', {
