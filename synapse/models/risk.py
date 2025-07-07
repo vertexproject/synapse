@@ -361,16 +361,9 @@ modeldefs = (
                 #     'prevnames': ('reporter:discovered',),
                 #     'doc': 'The time that the source first discovered the threat cluster.'}),
 
-                # ('source:published', ('time', {}), {
-                #     'prevnames': ('reporter:published',),
-                #     'doc': 'The time that the source first publicly disclosed the threat cluster.'}),
-
-                # FIXME geo:locatable?
-                ('country', ('pol:country', {}), {
-                    'doc': "The source's assessed country of origin of the threat cluster."}),
-
-                ('country:code', ('pol:iso2', {}), {
-                    'doc': "The 2 digit ISO 3166 country code for the threat cluster's assessed country of origin."}),
+                ('source:published', ('time', {}), {
+                    'prevnames': ('reporter:published',),
+                    'doc': 'The time that the source first publicly disclosed the threat cluster.'}),
 
                 ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
                     'doc': "The source's assessed goals of the threat cluster."}),
@@ -412,9 +405,9 @@ modeldefs = (
                 #     'prevnames': ('reporter:discovered',),
                 #     'doc': 'The time that the source first discovered the tool.'}),
 
-                # ('source:published', ('time', {}), {
-                #     'prevnames': ('reporter:published',),
-                #     'doc': 'The time that the source first publicly disclosed the tool.'}),
+                ('source:published', ('time', {}), {
+                    'prevnames': ('reporter:published',),
+                    'doc': 'The time that the source first publicly disclosed the tool.'}),
 
                 ('software', ('it:software', {}), {
                     'prevnames': ('soft',),
