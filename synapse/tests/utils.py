@@ -1168,7 +1168,7 @@ class SynTest(unittest.TestCase):
                 m = f'{m} mesg={mesg}'
             raise unittest.SkipTest(m)
 
-    def getTestOutp(self):
+    def getTestOutp(self) -> TstOutPut:
         '''
         Get a Output instance with a expects() function.
 
