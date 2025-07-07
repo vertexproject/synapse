@@ -1,6 +1,0 @@
----
-desc: Fixed an issue where deleting a Queue did not remove the Queue's AuthGate on
-  mirrors.
-prs: []
-type: bug
-...
