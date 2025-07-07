@@ -3,7 +3,6 @@ import re
 import copy
 import gzip
 import pprint
-import argparse
 import datetime
 import tempfile
 import textwrap
@@ -457,7 +456,7 @@ def _getModelFile(fp: str) -> dict | None:
         ref_modl = s_common.yamlloads(large_bytz)
     return ref_modl
 
-async def gen(opts: argparse.Namespace,
+async def gen(opts: s_cmd.argparse.Namespace,
               outp: s_output.OutPut):
 
     name = opts.name
@@ -805,7 +804,7 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
     return rst
 
 
-async def format(opts: argparse.Namespace,
+async def format(opts: s_cmd.argparse.Namespace,
            outp: s_output.OutPut):
 
     if not regex.match(version_regex, opts.version):
@@ -975,7 +974,7 @@ async def format(opts: argparse.Namespace,
 
     return 0
 
-async def model(opts: argparse.Namespace,
+async def model(opts: s_cmd.argparse.Namespace,
            outp: s_output.OutPut):
 
     if opts.save:
@@ -1017,7 +1016,7 @@ async def model(opts: argparse.Namespace,
         return 0
 
 async def main(argv, outp=s_output.stdout):
-    pars = makeargparser()
+    pars = getArgParser()
 
     opts = pars.parse_args(argv)
     if opts.git_dir_check:
@@ -1034,11 +1033,11 @@ async def main(argv, outp=s_output.stdout):
         outp.printf(f'Error running {opts.func}: {traceback.format_exc()}')
     return 1
 
-def makeargparser():
+def getArgParser(outp: s_output.OutPut):
     desc = '''Command line tool to manage changelog entries.
     This tool and any data formats associated with it may change at any time.
     '''
-    pars = argparse.ArgumentParser('synapse.tools.changelog', description=desc)
+    pars = s_cmd.Parser(prog='synapse.tools.changelog', outp=outp, description=desc)
 
     subpars = pars.add_subparsers(required=True,
                                   title='subcommands',
@@ -1055,7 +1054,7 @@ def makeargparser():
                           help='Add the newly created file to the current git staging area.')
     # Hidden name override. Mainly for testing.
     gen_pars.add_argument('-n', '--name', default=None, type=str,
-                          help=argparse.SUPPRESS)
+                          help=s_cmd.argparse.SUPPRESS)
 
     format_pars = subpars.add_parser('format', help='Format existing files into a RST block.')
     format_pars.set_defaults(func=format)
@@ -1097,8 +1096,9 @@ def makeargparser():
                        help='Enable verbose output')
         p.add_argument('--cdir', default='./changes', action='store',
                        help='Directory of changelog files.')
+        # Hidden name override. Mainly for testing.
         p.add_argument('--disable-git-dir-check', dest='git_dir_check', default=True, action='store_false',
-                       help=argparse.SUPPRESS)
+                       help=s_cmd.argparse.SUPPRESS)
 
     return pars
 

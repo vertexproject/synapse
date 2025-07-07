@@ -1,6 +1,5 @@
 import copy
 import logging
-import argparse
 import collections
 
 from typing import List, Tuple, Dict, Union
@@ -961,7 +960,7 @@ async def docStormTypes():
     return libspage, typespage
 
 async def main(argv, outp=s_output.stdout):
-    pars = makeargparser()
+    pars = getArgParser(outp)
     opts = pars.parse_args(argv)
 
     if opts.doc_model:
@@ -1012,9 +1011,9 @@ async def main(argv, outp=s_output.stdout):
 
     return 0
 
-def makeargparser():
+def getArgParser(outp: s_output.OutPut):
     desc = 'Command line tool to generate various synapse documentation.'
-    pars = argparse.ArgumentParser('synapse.tools.autodoc', description=desc)
+    pars = s_cmd.Parser(prog='synapse.tools.autodoc', outp=outp, description=desc)
 
     pars.add_argument('--cortex', '-c', default=None,
                       help='Cortex URL for model inspection')

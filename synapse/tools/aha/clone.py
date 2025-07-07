@@ -1,5 +1,3 @@
-import argparse
-
 import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
@@ -17,8 +15,7 @@ Examples:
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.aha.clone', description=descr,
-                        formatter_class=argparse.RawDescriptionHelpFormatter)
+    pars = s_cmd.Parser(prog='synapse.tools.aha.clone', outp=outp, description=descr)
 
     pars.add_argument('dnsname', help='The DNS name of the new AHA server.')
     pars.add_argument('--port', type=int, default=27492, help='The port that the new AHA server should listen on.')

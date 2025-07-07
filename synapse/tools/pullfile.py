@@ -1,5 +1,4 @@
 import pathlib
-import argparse
 
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -9,7 +8,7 @@ import synapse.lib.output as s_output
 
 
 async def main(argv, outp=s_output.stdout):
-    pars = setup()
+    pars = getArgParser(outp)
     opts = pars.parse_args(argv)
 
     if opts.output is None:
@@ -49,9 +48,9 @@ async def main(argv, outp=s_output.stdout):
     return 0
 
 
-def setup():
+def getArgParser(outp: s_output.OutPut):
     desc = 'Fetches file from the given axon'
-    pars = argparse.ArgumentParser('synapse.tools.pullfile', description=desc)
+    pars = s_cmd.Parser(prog='synapse.tools.pullfile', outp=outp, description=desc)
     pars.add_argument('-a', '--axon', type=str, dest='axon', required=True,
                       help='URL to the axon blob store')
     pars.add_argument('-o', '--output', type=str, dest='output',

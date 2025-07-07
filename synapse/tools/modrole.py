@@ -1,5 +1,3 @@
-import argparse
-
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -28,7 +26,7 @@ def printrole(role, outp):
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='modrole', description=descr)
+    pars = s_cmd.Parser(prog='synapse.tools.modrole', outp=outp, description=descr)
     pars.add_argument('--svcurl', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
     pars.add_argument('--add', default=False, action='store_true', help='Add the role if they do not already exist.')
     pars.add_argument('--del', dest='delete', default=False, action='store_true', help='Delete the role if it exists.')

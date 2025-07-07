@@ -3,14 +3,22 @@ import asyncio
 import argparse
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
 
 class Parser(argparse.ArgumentParser):
+    '''
+    argparse.ArgumentParser helper class.
 
-    def __init__(self, prog=None, outp=s_output.stdout, **kwargs):
+    - exit() is overriden to raise a SynErr ( ParserExit )
+    - _print_message prints to an outp object
+    - description formatter uses argparse.RawDescriptionHelpFormatter
+    '''
+    def __init__(self,
+                 prog: str | None =None,
+                 outp: s_output.OutPut =s_output.stdout,
+                 **kwargs):
 
         self.outp = outp
         self.exited = False

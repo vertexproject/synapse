@@ -1,5 +1,3 @@
-import argparse
-
 import synapse.exc as s_exc
 
 import synapse.telepath as s_telepath
@@ -17,8 +15,7 @@ Example:
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.demote', description=descr,
-                        formatter_class=argparse.RawDescriptionHelpFormatter)
+    pars = s_cmd.Parser(prog='synapse.tools.demote', outp=outp, description=descr)
 
     pars.add_argument('--url', default='cell:///vertex/storage',
                       help='The telepath URL of the Synapse service.')

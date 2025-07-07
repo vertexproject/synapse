@@ -11,7 +11,7 @@ import synapse.lib.msgpack as s_msgpack
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.cryo.cat', description='display data items from a cryo cell')
+    pars = s_cmd.Parser(prog='synapse.tools.cryo.cat', outp=outp, description='display data items from a cryo cell')
     pars.add_argument('cryotank', help='The telepath URL for the remote cryotank.')
     pars.add_argument('--offset', default=0, type=int, help='Begin at offset index')
     pars.add_argument('--size', default=10, type=int, help='How many items to display')

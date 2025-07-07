@@ -1,5 +1,3 @@
-import argparse
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -22,8 +20,7 @@ Examples:
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.aha.provision.service', description=descr,
-                        formatter_class=argparse.RawDescriptionHelpFormatter)
+    pars = s_cmd.Parser(prog='synapse.tools.aha.provision.service', outp=outp, description=descr)
 
     pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL to connect to the AHA service.')
     pars.add_argument('--user', help='Provision the new service with the username.')

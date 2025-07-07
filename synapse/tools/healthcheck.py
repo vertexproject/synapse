@@ -28,7 +28,7 @@ def format_component(e, mesg: str) -> dict:
     return d
 
 async def main(argv, outp=s_output.stdout):
-    pars = makeargparser()
+    pars = getArgParser(outp)
     try:
         opts = pars.parse_args(argv)
     except s_exc.ParserExit as e:  # pragma: no cover
@@ -94,11 +94,11 @@ async def main(argv, outp=s_output.stdout):
     outp.printf(serialize(ret))
     return retval
 
-def makeargparser():
+def getArgParser(outp: s_output.OutPut):
     desc = '''
     synapse healthcheck tool
     '''
-    pars = s_cmd.Parser('healthcheck', description=desc)
+    pars = s_cmd.Parser(prog='synapse.tools.healthcheck', outp=outp, description=desc)
     pars.add_argument('--cell', '-c', required=True, type=str,
                       help='Telepath path to the cell to check.')
     pars.add_argument('--timeout', '-t', default=10, type=float,

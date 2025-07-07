@@ -210,7 +210,7 @@ def makeargparser(outp):
 
     }
     '''
-    pars = s_cmd.Parser('synapse.tools.csvtool', description=desc, outp=outp)
+    pars = s_cmd.Parser(prog='synapse.tools.csvtool', description=desc, outp=outp)
     pars.add_argument('--logfile', help='Set a log file to get JSON lines from the server events.')
     pars.add_argument('--csv-header', default=False, action='store_true',
                       help='Skip the first line from each CSV file.')

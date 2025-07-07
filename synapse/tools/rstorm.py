@@ -1,5 +1,4 @@
 import logging
-import argparse
 
 import synapse.common as s_common
 
@@ -14,7 +13,7 @@ descr = 'An RST pre-processor that allows you to embed storm directives.'
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog=prog, description=descr)
+    pars = s_cmd.Parser(prog=prog, outp=outp, description=descr)
     pars.add_argument('rstfile', help='Input RST file with storm directives.')
     pars.add_argument('--save', help='Output file to save (default: stdout)')
 

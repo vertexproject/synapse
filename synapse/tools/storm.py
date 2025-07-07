@@ -2,7 +2,6 @@ import os
 import copy
 import asyncio
 import logging
-import argparse
 
 import regex
 import prompt_toolkit
@@ -611,8 +610,8 @@ class StormCli(s_cli.Cli):
 
         return ret
 
-def getArgParser():
-    pars = argparse.ArgumentParser(prog='synapse.tools.storm')
+def getArgParser(outp: s_output.OutPut):
+    pars = s_cmd.Parser(prog='synapse.tools.storm', outp=outp)
     pars.add_argument('cortex', help='A telepath URL for the Cortex.')
     pars.add_argument('onecmd', nargs='?', help='A single storm command to run and exit.')
     pars.add_argument('--view', default=None, help='The view iden to work in.')
@@ -621,7 +620,7 @@ def getArgParser():
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = getArgParser()
+    pars = getArgParser(outp=outp)
     opts = pars.parse_args(argv)
 
     async with s_telepath.withTeleEnv():

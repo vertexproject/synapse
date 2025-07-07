@@ -1,7 +1,6 @@
 import os
 import glob
 import logging
-import argparse
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -15,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 async def main(argv, outp=s_output.stdout):
-    pars = makeargparser()
+    pars = getArgParser(outp)
     opts = pars.parse_args(argv)
 
     async with s_telepath.withTeleEnv():
@@ -105,10 +104,10 @@ async def main(argv, outp=s_output.stdout):
 
     return 0
 
-def makeargparser():
+def getArgParser(outp: s_output.OutPut):
     desc = 'Command line tool for uploading files to an Axon and making ' \
            'file:bytes in a Cortex.'
-    pars = argparse.ArgumentParser('synapse.tools.pushfile', description=desc)
+    pars = s_cmd.Parser(prog='synapse.tools.pushfile', outp=outp, description=desc)
     pars.add_argument('-a', '--axon', required=True, type=str, dest='axon',
                    help='URL for a target Axon to store files at.')
     pars.add_argument('-c', '--cortex', default=None, type=str, dest='cortex',

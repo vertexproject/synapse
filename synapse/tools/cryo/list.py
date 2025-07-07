@@ -1,16 +1,11 @@
-import logging
-import argparse
-
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 
-logger = logging.getLogger(__name__)
-
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='cryo.list', description='List tanks within a cryo cell.')
+    pars = s_cmd.Parser(prog='synapse.tools.cryo.list', outp=outp, description='List tanks within a cryo cell.')
     pars.add_argument('cryocell', nargs='+', help='Telepath URLs to cryo cells.')
 
     opts = pars.parse_args(argv)

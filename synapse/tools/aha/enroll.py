@@ -1,5 +1,4 @@
 import os
-import argparse
 
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -20,9 +19,7 @@ Examples:
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.aha.enroll', description=descr,
-                        formatter_class=argparse.RawDescriptionHelpFormatter)
-
+    pars = s_cmd.Parser(prog='synapse.tools.aha.enroll', outp=outp, description=descr)
     pars.add_argument('onceurl', help='The one-time use AHA user enrollment URL.')
     opts = pars.parse_args(argv)
 

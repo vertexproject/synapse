@@ -1,5 +1,3 @@
-import argparse
-
 import cryptography.x509 as c_x509
 
 import synapse.common as s_common
@@ -11,7 +9,7 @@ import synapse.lib.certdir as s_certdir
 
 
 async def main(argv, outp=s_output.stdout):
-    pars = getArgParser()
+    pars = getArgParser(outp)
     opts = pars.parse_args(argv)
 
     if opts.network:
@@ -51,9 +49,9 @@ async def main(argv, outp=s_output.stdout):
                 cdir.delUserCsr(name, outp=outp)
                 return 0
 
-def getArgParser():
+def getArgParser(outp: s_output.OutPut):
     desc = 'CLI tool to generate simple x509 certificates from an Aha server.'
-    pars = argparse.ArgumentParser(prog='synapse.tools.aha.easycert', description=desc)
+    pars = s_cmd.Parser(prog='synapse.tools.aha.easycert', outp=outp, description=desc)
 
     pars.add_argument('-a', '--aha', required=True,  # type=str,
                       help='Aha server to connect too.')

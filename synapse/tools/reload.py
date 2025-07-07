@@ -1,5 +1,3 @@
-import argparse
-
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
@@ -12,7 +10,7 @@ List or execute reload subsystems on a Synapse service.
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = getArgParser()
+    pars = getArgParser(outp)
     opts = pars.parse_args(argv)
 
     async with s_telepath.withTeleEnv():
@@ -53,8 +51,8 @@ async def main(argv, outp=s_output.stdout):
                         outp.printf(f'{name.ljust(40)}{result.ljust(10)}{mesg}')
     return 0
 
-def getArgParser():
-    pars = argparse.ArgumentParser(prog='reload', description=descr)
+def getArgParser(outp: s_output.OutPut):
+    pars = s_cmd.Parser(prog='synapse.tools.reload', outp=outp, description=descr)
     pars.add_argument('--svcurl', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
 
     subpars = pars.add_subparsers(required=True,

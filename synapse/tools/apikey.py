@@ -1,7 +1,3 @@
-import sys
-import asyncio
-import argparse
-
 import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
@@ -33,7 +29,7 @@ def printkey(outp, info, apikey=None):
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='apikey', description=descr)
+    pars = s_cmd.Parser(prog='apikey', outp=outp, description=descr)
     pars.add_argument('--svcurl', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
 
     subpars = pars.add_subparsers(dest='action', required=True)

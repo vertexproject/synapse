@@ -1,5 +1,3 @@
-import argparse
-
 import synapse.exc as s_exc
 
 import synapse.telepath as s_telepath
@@ -17,8 +15,7 @@ Example (being run from a Cortex mirror docker container):
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.promote', description=descr,
-                        formatter_class=argparse.RawDescriptionHelpFormatter)
+    pars = s_cmd.Parser(prog='synapse.tools.promote', outp=outp, description=descr)
 
     pars.add_argument('--svcurl', default='cell:///vertex/storage',
                       help='The telepath URL of the Synapse service.')

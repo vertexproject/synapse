@@ -1,6 +1,4 @@
 import logging
-import argparse
-
 import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
@@ -27,9 +25,7 @@ The tool will set the process exit code to 0 on success.
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser('synapse.tools.snapshot',
-                        description=desc,
-                        formatter_class=argparse.RawDescriptionHelpFormatter)
+    pars = s_cmd.Parser(prog='synapse.tools.snapshot', outp=outp, description=desc)
 
     subs = pars.add_subparsers(required=True, title='commands', dest='cmd')
 

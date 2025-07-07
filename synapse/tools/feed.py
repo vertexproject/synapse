@@ -1,7 +1,6 @@
 import os
 import time
 import logging
-import argparse
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -79,7 +78,7 @@ async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=100
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = makeargparser()
+    pars = getArgParser(outp)
     opts = pars.parse_args(argv)
 
     if opts.offset:
@@ -119,9 +118,9 @@ async def main(argv, outp=s_output.stdout):
 
     return 0
 
-def makeargparser():
+def getArgParser(outp: s_output.OutPut):
     desc = 'Command line tool for ingesting data into a cortex'
-    pars = argparse.ArgumentParser('synapse.tools.feed', description=desc)
+    pars = s_cmd.Parser(prog='synapse.tools.feed', outp=outp, description=desc)
 
     muxp = pars.add_mutually_exclusive_group(required=True)
     muxp.add_argument('--cortex', '-c', type=str,

@@ -1,5 +1,3 @@
-import argparse
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -84,8 +82,7 @@ def timeout_type(valu):
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.aha.mirror', description=descr,
-                        formatter_class=argparse.RawDescriptionHelpFormatter)
+    pars = s_cmd.Parser(prog='synapse.tools.aha.mirror', outp=outp, description=descr)
 
     pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL to connect to the AHA service.')
     pars.add_argument('--timeout', type=timeout_type, default=10, help='The timeout in seconds for individual service API calls')
