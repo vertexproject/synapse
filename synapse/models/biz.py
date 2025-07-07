@@ -5,6 +5,12 @@ modeldefs = (
     ('biz', {
         'types': (
 
+            ('biz:rfp:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of RFP types.'}),
+
             ('biz:rfp', ('guid', {}), {
                 'interfaces': (
                     ('doc:document', {'template': {
@@ -61,7 +67,7 @@ modeldefs = (
 
             ('biz:service:type:taxonomy', {}, ()),
 
-            # FIXME doc:document interface?
+            ('biz:rfp:type:taxonomy', {}, ()),
             ('biz:rfp', {}, (
 
                 ('id', ('meta:id', {}), {
