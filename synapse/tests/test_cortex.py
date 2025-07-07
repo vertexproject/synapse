@@ -8819,7 +8819,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, jobs)
                 self.eq(jobs[0].get('enabled'), False)
 
-                # Add a trigger
+                # Add a regular trigger
                 q = '''
                 $lib.log.warning(`SAFEMODE TRIGGER: {$node}`)
                 $tick = :tick
@@ -8829,6 +8829,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                 '''
                 opts = {'vars': {'query': q}}
                 await core.callStorm(f'trigger.add prop:set --prop test:str:tick --query {{{q}}}')
+
+                # Add an async trigger
+                q = '''
+                $lib.log.warning(`SAFEMODE ATRIGGER: {$node}`)
+                $tick = :tick
+                $str = { [( test:str=ATRIGGER :hehe=$tick )] }
+                $queue = $lib.queue.gen(queue:safemode)
+                $queue.put($tick)
+                '''
+                opts = {'vars': {'query': q}}
+                await core.callStorm(f'trigger.add prop:set --prop test:str:tick --async --query {{{q}}}')
 
                 # Add a dmon
                 q = '''
@@ -8842,12 +8853,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 }
                 '''
                 await core.callStorm(f'$iden = $lib.dmon.add(${{{q}}}) $lib.dmon.start($iden)')
-
-                # Add a storm package
-
-                # Setup a merge
-
-                # Configure a storm pool
 
                 nodes = await core.nodes('test:str')
                 self.len(0, nodes)
@@ -8874,6 +8879,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 data = stream.read()
                 self.notin('SAFEMODE CRON', data)
                 self.notin('SAFEMODE TRIGGER', data)
+                self.notin('SAFEMODE ATRIGGER', data)
                 self.notin('SAFEMODE DMON', data)
 
             with self.getLoggerStream('synapse.storm') as stream:
@@ -8884,9 +8890,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(2, item)
 
                     nodes = await core.nodes('test:str')
-                    self.len(4, nodes)
+                    self.len(5, nodes)
                     self.sorteq(
-                        ['newp', 'CRON', 'TRIGGER', 'DMON'],
+                        ['newp', 'CRON', 'TRIGGER', 'DMON', 'ATRIGGER'],
                         [k.repr() for k in nodes]
                     )
 
@@ -8894,6 +8900,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 data = stream.read()
                 self.isin('SAFEMODE CRON', data)
                 self.isin('SAFEMODE TRIGGER', data)
+                self.isin('SAFEMODE ATRIGGER', data)
                 self.isin('SAFEMODE DMON', data)
 
         # Check storm package onload handlers are not executed
