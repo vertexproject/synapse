@@ -1,6 +1,4 @@
-import sys
 import copy
-import asyncio
 import logging
 import argparse
 import collections
@@ -12,7 +10,7 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
-import synapse.lib.coro as s_coro
+import synapse.lib.cmd as s_cmd
 import synapse.lib.json as s_json
 import synapse.lib.storm as s_storm
 import synapse.lib.config as s_config
@@ -962,12 +960,8 @@ async def docStormTypes():
 
     return libspage, typespage
 
-async def main(argv, outp=None):
-    if outp is None:
-        outp = s_output.OutPut()
-
+async def main(argv, outp=s_output.stdout):
     pars = makeargparser()
-
     opts = pars.parse_args(argv)
 
     if opts.doc_model:
@@ -1042,11 +1036,6 @@ def makeargparser():
 
     return pars
 
-async def _main(argv, outp=None):  # pragma: no cover
-    s_common.setlogging(logger, 'DEBUG')
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    asyncio.run(_main(sys.argv[1:]))
+    s_common.setlogging(logger, 'DEBUG')
+    s_cmd.exitmain(main)

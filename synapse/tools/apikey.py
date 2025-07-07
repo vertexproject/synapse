@@ -5,7 +5,7 @@ import argparse
 import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
-import synapse.lib.coro as s_coro
+import synapse.lib.cmd as s_cmd
 import synapse.lib.time as s_time
 import synapse.lib.output as s_output
 
@@ -90,11 +90,5 @@ async def main(argv, outp=s_output.stdout):
 
     return 0
 
-
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_cmd.exitmain(main)

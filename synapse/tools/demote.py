@@ -1,5 +1,3 @@
-import sys
-import asyncio
 import argparse
 
 import synapse.exc as s_exc

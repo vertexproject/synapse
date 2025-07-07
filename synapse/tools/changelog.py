@@ -1,10 +1,8 @@
 import os
 import re
-import sys
 import copy
 import gzip
 import pprint
-import asyncio
 import argparse
 import datetime
 import tempfile
@@ -19,6 +17,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 import synapse.lib.autodoc as s_autodoc
 import synapse.lib.schemas as s_schemas
@@ -1017,10 +1016,7 @@ async def model(opts: argparse.Namespace,
             outp.printf(line)
         return 0
 
-async def main(argv, outp=None):
-    if outp is None:
-        outp = s_output.OutPut()
-
+async def main(argv, outp=s_output.stdout):
     pars = makeargparser()
 
     opts = pars.parse_args(argv)
@@ -1107,4 +1103,4 @@ def makeargparser():
     return pars
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(main(sys.argv[1:], s_output.stdout)))
+    s_cmd.exitmain(main)

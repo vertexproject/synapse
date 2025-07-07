@@ -1,7 +1,4 @@
 import csv
-import sys
-import asyncio
-import contextlib
 
 import synapse.exc as s_exc
 import synapse.cortex as s_cortex
@@ -235,10 +232,5 @@ def makeargparser(outp):
     pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
     return pars
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_cmd.exitmain(main)

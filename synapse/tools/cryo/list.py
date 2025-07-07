@@ -1,10 +1,9 @@
-import sys
 import logging
-import asyncio
 import argparse
 
 import synapse.telepath as s_telepath
 
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
@@ -30,5 +29,4 @@ async def main(argv, outp=s_output.stdout):
     return 0
 
 if __name__ == '__main__':  # pragma: no cover
-    logging.basicConfig()
-    sys.exit(asyncio.run(main(sys.argv[1:])))
+    s_cmd.exitmain(main)
