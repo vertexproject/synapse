@@ -1606,11 +1606,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         user = await self.auth.reqUser(qdef.get('creator'))
         name = qdef.get('name')
 
-        self.quedefs.set(name, iden)
-        await self.multiqueue.add(iden, qdef)
-
         await self.auth.addAuthGate(iden, 'queue')
         await user.setAdmin(True, gateiden=iden, logged=False)
+
+        self.quedefs.set(name, iden)
+        await self.multiqueue.add(iden, qdef)
 
     async def listCoreQueues(self):
         return self.multiqueue.list()
