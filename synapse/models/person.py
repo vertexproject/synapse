@@ -2,6 +2,9 @@ modeldefs = (
     ('ps', {
         'types': (
             ('edu:course', ('guid', {}), {
+                'interfaces': (
+                    ('doc:authorable', {'template': {'authorable': 'course'}}),
+                ),
                 'doc': 'A course of study taught by an org.'}),
 
             ('edu:class', ('guid', {}), {

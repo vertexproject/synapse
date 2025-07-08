@@ -34,7 +34,7 @@ modeldefs = (
                         'doc': 'The version of the {authorable}.'}),
 
                     ('supersedes', ('array', {'type': '$self', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of {authorable}s which are superseded by this {authorable}.'}),
+                        'doc': 'An array of {authorable} versions which are superseded by this {authorable}.'}),
                 ),
             }),
             ('doc:document', {
@@ -47,8 +47,7 @@ modeldefs = (
                 'template': {
                     'type': '{$self}:type:taxonomy',
                     'syntax': '',
-                    'document': 'document',
-                    'documents': 'documents'},
+                    'document': 'document'},
 
                 'props': (
 
@@ -83,7 +82,6 @@ modeldefs = (
                     ('doc:document', {
                         'template': {
                             'document': 'policy',
-                            'documents': 'policies',
                             'type': 'doc:policy:type:taxonomy'},
                     }),
                 ),
@@ -100,7 +98,6 @@ modeldefs = (
                     ('doc:document', {
                         'template': {
                             'document': 'standard',
-                            'documents': 'standards',
                             'type': 'doc:standard:type:taxonomy'}}),
                 ),
                 'doc': 'A group of requirements which define how to implement a policy or goal.'}),
@@ -111,12 +108,12 @@ modeldefs = (
                 ),
                 'doc': 'A taxonomy of requirement types.'}),
 
+            # FIXME doc:document seems like overkill. doc:authorable?
             ('doc:requirement', ('guid', {}), {
                 'interfaces': (
                     ('doc:document', {
                         'template': {
                             'document': 'requirement',
-                            'documents': 'requirements',
                             'type': 'doc:requirement:type:taxonomy'}}),
                 ),
                 'doc': 'A single requirement, often defined by a standard.'}),
@@ -132,7 +129,6 @@ modeldefs = (
                     ('doc:document', {
                         'template': {
                             'document': 'resume',
-                            'documents': 'resumes',
                             'type': 'doc:resume:type:taxonomy'}}),
                 ),
                 'doc': 'A CV/resume document.'}),
@@ -146,7 +142,6 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {'template': {
                         'document': 'report',
-                        'documents': 'reports',
                         'type': 'doc:report:type:taxonomy'}}),
                 ),
                 'doc': 'A report.'}),
