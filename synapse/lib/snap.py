@@ -384,12 +384,22 @@ class ProtoNode:
 
         if norminfo is None:
             try:
-                valu, norminfo = prop.type.norm(valu)
+                if (isinstance(valu, dict) and isinstance(prop.type, s_types.Guid)
+                    and (form := self.ctx.snap.core.model.form(prop.type.name)) is not None):
+
+                    norms, props = await self.ctx.snap._normGuidNodeDict(form, valu)
+                    valu = await self.ctx.snap._addGuidNodeByDict(form, norms, props)
+                    norminfo = {}
+                else:
+                    valu, norminfo = prop.type.norm(valu)
+
             except s_exc.BadTypeValu as e:
-                oldm = e.get('mesg')
-                e.update({'prop': prop.name,
-                          'form': prop.form.name,
-                          'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})
+                if 'prop' not in e.errinfo:
+                    oldm = e.get('mesg')
+                    e.update({'prop': prop.name,
+                              'form': prop.form.name,
+                              'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})
+
                 if self.ctx.snap.strict:
                     raise e
                 await self.ctx.snap.warn(e)
