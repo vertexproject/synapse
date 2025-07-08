@@ -114,7 +114,7 @@ class StormlibModelTest(s_test.SynTest):
                     data = (
                         (('test:deprform', 'depr'), {'props': {'deprprop2': '5678'}}),
                     )
-                    await core.addFeedData(data)
+                    await core.addFeedData(data, reqmeta=False)
                     self.true(await stream.wait(1))
                     nodes = await core.nodes('test:deprform=depr')
                     self.none(nodes[0].get('deprprop2'))

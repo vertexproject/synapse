@@ -1223,6 +1223,49 @@ _httpLoginV1Schema = {
 }
 reqValidHttpLoginV1 = s_config.getJsValidator(_httpLoginV1Schema)
 
+_exportStormMetaSchema = {
+    'type': 'object',
+    'properties': {
+        'type': {'type': 'string', 'enum': ['meta']},
+        'vers': {'type': 'integer', 'minimum': 1},
+        'forms': {
+            'type': 'object',
+            'patternProperties': {
+                '^.*$': {'type': 'integer', 'minimum': 0}
+            },
+            'description': 'Dictionary mapping form names to their counts in the export.'
+        },
+        'edges': {
+            'type': 'object',
+            'patternProperties': {
+                '^.*$': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^.*$': {
+                            'type': 'array',
+                            'items': {'type': 'string'},
+                        }
+                    }
+                }
+            },
+            'description': 'Mapping of source form to verbs to target forms.'
+        },
+        'count': {'type': 'integer', 'minimum': 0, 'description': 'Number of nodes exported.'},
+        'synapse_ver': {
+            'type': 'string',
+            'description': 'Version of Synapse that exported the data.'
+        },
+        'creatorname': {'type': 'string', 'description': 'User who ran the export.'},
+        'creatoriden': {'type': 'string', 'pattern': s_config.re_iden, 'description': 'User iden who ran the export.'},
+        'created': {'type': 'integer', 'minimum': 0, 'description': 'Timestamp of the export.'},
+        'query': {'type': 'string', 'description': 'The Storm query string.'},
+    },
+    'required': ['type', 'vers', 'forms', 'count', 'synapse_ver'],
+    'additionalProperties': False,
+}
+
+reqValidExportStormMeta = s_config.getJsValidator(_exportStormMetaSchema)
+
 _QueueDefSchema = {
     'type': 'object',
     'properties': {

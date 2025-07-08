@@ -3357,6 +3357,8 @@ class LibFeed(Lib):
          'type': {'type': 'function', '_funcname': '_libGenr',
                   'args': (
                       {'name': 'data', 'type': 'prim', 'desc': 'Nodes data to ingest', },
+                      {'name': 'reqmeta', 'type': 'boolean', 'desc': 'Require a meta record.',
+                       'default': False},
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields Nodes as they are created.', }}},
@@ -3370,6 +3372,8 @@ class LibFeed(Lib):
          'type': {'type': 'function', '_funcname': '_libIngest',
                   'args': (
                       {'name': 'data', 'type': 'prim', 'desc': 'Data to send to the ingest function.', },
+                      {'name': 'reqmeta', 'type': 'boolean', 'desc': 'Require a meta record.',
+                       'default': False},
                   ),
                   'returns': {'type': 'null', }}},
     )
@@ -3399,20 +3403,20 @@ class LibFeed(Lib):
         }
         return await self.runt.view.core.feedFromAxon(sha256, opts=opts)
 
-    async def _libGenr(self, data):
+    async def _libGenr(self, data, reqmeta=False):
         data = await toprim(data)
 
         self.runt.layerConfirm(('feed:data',))
 
-        async for node in self.runt.view.addNodes(data, user=self.runt.user):
+        async for node in self.runt.view.addNodes(data, user=self.runt.user, reqmeta=reqmeta):
             yield node
 
-    async def _libIngest(self, data):
+    async def _libIngest(self, data, reqmeta=False):
         data = await toprim(data)
 
         self.runt.layerConfirm(('feed:data',))
 
-        async for node in self.runt.view.addNodes(data, user=self.runt.user):
+        async for node in self.runt.view.addNodes(data, user=self.runt.user, reqmeta=reqmeta):
             await asyncio.sleep(0)
 
 @registry.registerLib

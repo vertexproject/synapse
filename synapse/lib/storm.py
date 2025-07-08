@@ -1275,7 +1275,7 @@ stormcmds = (
                     for $valu in $resp.msgpack() {
                         $nodes.append($valu)
                     }
-                    yield $lib.feed.genr($nodes)
+                    yield $lib.feed.genr($nodes, (true))
                 } else {
                     $lib.exit("nodes.import got HTTP error code: {code} for {url}", code=$resp.code, url=$url)
                 }

@@ -1704,6 +1704,7 @@ class HttpApiTest(s_tests.SynTest):
         async with self.getTestCore() as core:
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            meta = {'type': 'meta', 'vers': 1, 'forms': {}, 'count': 0, 'synapse_ver': '3.0.0'}
 
             root = core.auth.rootuser
             visi = await core.auth.addUser('visi')
@@ -1726,14 +1727,14 @@ class HttpApiTest(s_tests.SynTest):
                 self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
                 self.eq('NoSuchView', (await resp.json())['code'])
 
-                body = {'items': [(('inet:ip', (4, 0x05050505)), {'tags': {'hehe': (None, None)}})]}
+                body = {'items': [meta, (('inet:ip', (4, 0x05050505)), {'tags': {'hehe': (None, None)}})]}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq(resp.status, http.HTTPStatus.OK)
                 self.eq('ok', (await resp.json())['status'])
                 self.len(1, await core.nodes('inet:ip=5.5.5.5 +#hehe'))
 
             async with self.getHttpSess(auth=('visi', 'secret'), port=port) as sess:
-                body = {'items': [(('inet:ip', (4, 0x01020304)), {})]}
+                body = {'items': [meta, (('inet:ip', (4, 0x01020304)), {})]}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                 self.eq('AuthDeny', (await resp.json())['code'])
