@@ -27,7 +27,7 @@ class BizModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('id'), 'WOO123')
-            self.eq(nodes[0].get('title'), 'HeHeHaHa')
+            self.eq(nodes[0].get('title'), 'hehehaha')
             self.eq(nodes[0].get('desc'), 'ZipZop')
             self.eq(nodes[0].get('status'), 'foo.bar.')
             self.eq(nodes[0].get('url'), 'https://vertex.link')
