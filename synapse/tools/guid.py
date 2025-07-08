@@ -1,12 +1,10 @@
+import sys
+
 import synapse.common as s_common
 import synapse.lib.output as s_output
 
-def main(argv, outp=None):
-    if outp is None:  # pragma: no cover
-        outp = s_output.OutPut()
-
+def main(argv, outp=s_output.stdout):
     outp.printf(s_common.guid())
 
 if __name__ == '__main__':  # pragma: no cover
-    import sys
-    sys.exit(main(sys.argv))
+    sys.exit(main(sys.argv[1:]))
