@@ -2,6 +2,9 @@ modeldefs = (
     ('ps', {
         'types': (
             ('edu:course', ('guid', {}), {
+                'interfaces': (
+                    ('doc:authorable', {'template': {'authorable': 'course'}}),
+                ),
                 'doc': 'A course of study taught by an org.'}),
 
             ('edu:class', ('guid', {}), {
@@ -10,7 +13,6 @@ modeldefs = (
                         'ou:attendable': 'class',
                         'geo:locatable': 'class'}}),
                     ('lang:transcript', {}),
-                    ('doc:authorable', {'template': {'authorable': 'curriculum'}}),
                 ),
                 'doc': 'An instance of an edu:course taught at a given time.'}),
 
