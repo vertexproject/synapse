@@ -1371,6 +1371,22 @@ class Slab(s_base.Base):
 
                 yield lkey
 
+    def scanKeysByRange(self, lmin, lmax=None, db=None, nodup=False):
+
+        with ScanKeys(self, db, nodup=nodup) as scan:
+
+            if not scan.set_range(lmin):
+                return
+
+            size = len(lmax) if lmax is not None else None
+
+            for lkey in scan.iternext():
+
+                if lmax is not None and lkey[:size] > lmax:
+                    return
+
+                yield lkey
+
     async def countByPref(self, byts, db=None, maxsize=None):
         '''
         Return the number of rows in the given db with the matching prefix bytes.

@@ -5316,6 +5316,46 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('inet:ip=1.2.3.4 $node.data.pop(hehe)')
             self.len(0, await core.nodes('yield $lib.lift.byNodeData(hehe)'))
 
+            await core.nodes('''[
+                (test:int=1 :type=foo)
+                (test:int=2 :type=bar :types=(foo, baz))
+                (test:int=3 :type=foo :types=(foo, bar))
+                (test:int=4 :type=newp :types=(newp,))
+            ]''')
+
+            nodes = await core.nodes('yield $lib.lift.byPropAlts(test:int:type, foo)')
+            self.len(4, nodes)
+            self.eq([1, 3, 2, 3], [n.valu() for n in nodes])
+
+            nodes = await core.nodes('yield $lib.lift.byPropAlts(test:int:type, ba, cmpr="^=")')
+            self.len(3, nodes)
+            self.eq([2, 3, 2], [n.valu() for n in nodes])
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('yield $lib.lift.byPropAlts(test:int, foo)')
+
+            nodes = await core.nodes('yield $lib.lift.byTypeValue(test:str, foo)')
+            self.len(5, nodes)
+            exp = [
+                ('test:str', 'foo'),
+                ('test:int', 1),
+                ('test:int', 3),
+                ('test:int', 2),
+                ('test:int', 3),
+            ]
+            self.eq(exp, [n.ndef for n in nodes])
+
+            nodes = await core.nodes('yield $lib.lift.byTypeValue(test:str, ba, cmpr="^=")')
+            self.len(5, nodes)
+            exp = [
+                ('test:str', 'bar'),
+                ('test:str', 'baz'),
+                ('test:int', 2),
+                ('test:int', 3),
+                ('test:int', 2),
+            ]
+            self.eq(exp, [n.ndef for n in nodes])
+
     async def test_stormtypes_node(self):
 
         async with self.getTestCore() as core:
