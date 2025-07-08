@@ -1553,22 +1553,22 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''
             $q1 = $lib.queue.gen(hehe)
-            $q2 = $lib.queue.get(hehe)
+            $q2 = $lib.queue.byname(hehe)
             $l = ($q1, $q2)
             return ( $lib.len($l.unique()) ) '''
             self.eq(1, await core.callStorm(q))
 
             q = '''
             $q1 = $lib.queue.gen(hehe)
-            $q2 = $lib.queue.get(hehe)
+            $q2 = $lib.queue.byname(hehe)
             $l = ($q1, $q2, $q2)
             return ( $lib.len($l.unique()) ) '''
             self.eq(1, await core.callStorm(q))
 
             q = '''
             $q1 = $lib.queue.gen(hehe)
-            $q2 = $lib.queue.get(hehe)
-            $q3 = $lib.queue.get(hehe)
+            $q2 = $lib.queue.byname(hehe)
+            $q3 = $lib.queue.byname(hehe)
             $l = ($q1, $q2, $q3)
             return ( $lib.len($l.unique()) ) '''
             self.eq(1, await core.callStorm(q))
@@ -1951,9 +1951,9 @@ class StormTypesTest(s_test.SynTest):
                 $orig = $lib.queue.add(testq)
                 $set = $lib.set()
                 $set.add($orig)
-                $set.add($lib.queue.get(testq))
-                $set.add($lib.queue.get(testq))
-                $set.add($lib.queue.get(testq))
+                $set.add($lib.queue.byname(testq))
+                $set.add($lib.queue.byname(testq))
+                $set.add($lib.queue.byname(testq))
                 $lib.print('There is {count} item in the set', count=$lib.len($set))
             '''
             msgs = await core.stormlist(q)
@@ -2154,7 +2154,7 @@ class StormTypesTest(s_test.SynTest):
             # mix
             q = '''
             $user = $lib.auth.users.add(foo)
-            $list = (1, 1, 'a', $user, $user, $lib.view.get(), $lib.view.get(), $lib.queue.add(neatq), $lib.queue.get(neatq), $lib.false)
+            $list = (1, 1, 'a', $user, $user, $lib.view.get(), $lib.view.get(), $lib.queue.add(neatq), $lib.queue.byname(neatq), $lib.false)
             $set = $lib.set()
             $set.adds($list)
             $lib.print('There are {count} items in the set', count=$lib.len($set))
@@ -2650,13 +2650,13 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('''
                 $lib.queue.add(visi)
                 $lib.dmon.add(${
-                    $visi=$lib.queue.get(visi)
+                    $visi=$lib.queue.byname(visi)
                     for $tick in $lib.time.ticker(0.01) {
                         $visi.put($tick)
                     }
                 }, ddef=({"iden": $iden}))
             ''', opts={'vars': {'iden': iden}})
-            nodes = await core.nodes('for ($offs, $tick) in $lib.queue.get(visi).gets(size=3) { [test:int=$tick] } ')
+            nodes = await core.nodes('for ($offs, $tick) in $lib.queue.byname(visi).gets(size=3) { [test:int=$tick] } ')
             self.len(3, nodes)
             self.eq({0, 1, 2}, {node.ndef[1] for node in nodes})
             self.nn(await core.getStormDmon(iden))
@@ -2742,11 +2742,11 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('Storm queue list:', msgs)
             self.stormIsInPrint('visi', msgs)
 
-            name = await core.callStorm('$q = $lib.queue.get(visi) return ($q.name)')
+            name = await core.callStorm('$q = $lib.queue.byname(visi) return ($q.name)')
             self.eq(name, 'visi')
 
-            nodes = await core.nodes('$q = $lib.queue.get(visi) [ inet:ip=1.2.3.4 ] $q.put( $node.repr() )')
-            nodes = await core.nodes('$q = $lib.queue.get(visi) ($offs, $ipv4) = $q.get(0) inet:ip=$ipv4')
+            nodes = await core.nodes('$q = $lib.queue.byname(visi) [ inet:ip=1.2.3.4 ] $q.put( $node.repr() )')
+            nodes = await core.nodes('$q = $lib.queue.byname(visi) ($offs, $ipv4) = $q.get(0) inet:ip=$ipv4')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
 
@@ -2756,10 +2756,10 @@ class StormTypesTest(s_test.SynTest):
             self.len(2, nodes)
 
             # Put a value into the queue that doesn't exist in the cortex so the lift can nop
-            await core.nodes('$q = $lib.queue.get(blah) $q.put("8.8.8.8")')
+            await core.nodes('$q = $lib.queue.byname(blah) $q.put("8.8.8.8")')
 
             nodes = await core.nodes('''
-                $q = $lib.queue.get(blah)
+                $q = $lib.queue.byname(blah)
                 for ($offs, $ipv4) in $q.gets(0, wait=0) {
                     inet:ip=$ipv4
                 }
@@ -2767,7 +2767,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(2, nodes)
 
             nodes = await core.nodes('''
-                $q = $lib.queue.get(blah)
+                $q = $lib.queue.byname(blah)
                 for ($offs, $ipv4) in $q.gets(wait=0) {
                     inet:ip=$ipv4
                     $q.cull($offs)
@@ -2775,31 +2775,32 @@ class StormTypesTest(s_test.SynTest):
             ''')
             self.len(2, nodes)
 
-            q = '$q = $lib.queue.get(blah) for ($offs, $ipv4) in $q.gets(wait=0) { inet:ip=$ipv4 }'
+            q = '$q = $lib.queue.byname(blah) for ($offs, $ipv4) in $q.gets(wait=0) { inet:ip=$ipv4 }'
             nodes = await core.nodes(q)
             self.len(0, nodes)
 
-            msgs = await core.stormlist('queue.del visi')
-            self.stormIsInPrint('queue removed: visi', msgs)
+            qiden = await core.callStorm('return($lib.queue.byname(visi).iden)')
+            msgs = await core.stormlist(f'queue.del {qiden}')
+            self.stormIsInPrint(f'queue removed: {qiden}', msgs)
 
-            with self.raises(s_exc.NoSuchName):
+            with self.raises(s_exc.BadArg):
                 await core.nodes('queue.del visi')
 
             with self.raises(s_exc.NoSuchName):
-                await core.nodes('$lib.queue.get(newp).get()')
+                await core.nodes('$lib.queue.byname(newp).get()')
 
             await core.nodes('''
                 $doit = $lib.queue.add(doit)
                 $doit.puts((foo,bar))
             ''')
-            nodes = await core.nodes('for ($offs, $name) in $lib.queue.get(doit).gets(size=2) { [test:str=$name] }')
+            nodes = await core.nodes('for ($offs, $name) in $lib.queue.byname(doit).gets(size=2) { [test:str=$name] }')
             self.len(2, nodes)
 
-            q = '$item = $lib.queue.get(doit).get(offs=1) [test:str=$item.0]'
+            q = '$item = $lib.queue.byname(doit).get(offs=1) [test:str=$item.0]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
-            q = 'for ($offs, $name) in $lib.queue.get(doit).gets(size=1, offs=1) { [test:str=$name] }'
+            q = 'for ($offs, $name) in $lib.queue.byname(doit).gets(size=1, offs=1) { [test:str=$name] }'
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
@@ -2823,65 +2824,159 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.stormlist('queue.add synq', opts=opts)
                 self.stormIsInPrint('queue added: synq', msgs)
 
-                rule = (True, ('queue', 'synq', 'put'))
-                await root.addUserRule(synu.iden, rule, indx=None)
+                qiden = await core.callStorm('return($lib.queue.byname(synq).iden)')
+                rule = (True, ('queue', 'get'))
+                await root.addUserRule(synu.iden, rule, indx=None, gateiden=qiden)
+                await root.addUserRule(synu.iden, (True, ('queue', 'put')), indx=None, gateiden=qiden)
 
                 opts = {'user': synu.iden}
-                await core.nodes('$q = $lib.queue.get(synq) $q.puts((bar, baz))', opts=opts)
+                await core.nodes('$q = $lib.queue.byname(synq) $q.puts((bar, baz))', opts=opts)
 
                 # now let's see our other user fail to add things
                 with self.raises(s_exc.AuthDeny):
                     opts = {'user': woot.iden}
-                    await core.nodes('$lib.queue.get(synq).get()', opts=opts)
+                    await core.nodes('$lib.queue.byname(synq).get()', opts=opts)
 
-                rule = (True, ('queue', 'synq', 'get'))
                 await root.addUserRule(woot.iden, rule, indx=None)
-
-                msgs = await core.stormlist('$lib.print($lib.queue.get(synq).get(wait=0))')
+                msgs = await core.stormlist('$lib.print($lib.queue.byname(synq).get(wait=0))')
                 self.stormIsInPrint("(0, 'bar')", msgs)
 
                 with self.raises(s_exc.AuthDeny):
-                    opts = {'user': woot.iden}
-                    await core.nodes('$lib.queue.del(synq)', opts=opts)
+                    opts = {'user': woot.iden, 'vars': {'iden': qiden}}
+                    await core.nodes('$lib.queue.del($iden)', opts=opts)
 
                 rule = (True, ('queue', 'del'))
-                await root.addUserRule(woot.iden, rule, indx=None, gateiden='queue:synq')
+                await root.addUserRule(woot.iden, rule, indx=None, gateiden=qiden)
 
-                opts = {'user': woot.iden}
-                await core.nodes('$lib.queue.del(synq)', opts=opts)
+                opts = {'user': woot.iden, 'vars': {'iden': qiden}}
+                await core.nodes('$lib.queue.del($iden)', opts=opts)
 
                 with self.raises(s_exc.NoSuchName):
-                    await core.nodes('$lib.queue.get(synq)')
+                    await core.nodes('$lib.queue.byname(synq)')
 
                 await core.callStorm('$lib.queue.gen(poptest).puts((foo, bar, baz))')
-                self.eq('poptest', await core.callStorm('return($lib.queue.get(poptest).name)'))
-                self.eq((0, 'foo'), await core.callStorm('return($lib.queue.get(poptest).pop(0))'))
-                self.eq((1, 'bar'), await core.callStorm('return($lib.queue.get(poptest).pop(1))'))
-                self.eq((2, 'baz'), await core.callStorm('return($lib.queue.get(poptest).pop(2))'))
-                self.none(await core.callStorm('return($lib.queue.get(poptest).pop(2))'))
-                self.none(await core.callStorm('return($lib.queue.get(poptest).pop())'))
+                self.eq('poptest', await core.callStorm('return($lib.queue.byname(poptest).name)'))
+                self.eq((0, 'foo'), await core.callStorm('return($lib.queue.byname(poptest).pop(0))'))
+                self.eq((1, 'bar'), await core.callStorm('return($lib.queue.byname(poptest).pop(1))'))
+                self.eq((2, 'baz'), await core.callStorm('return($lib.queue.byname(poptest).pop(2))'))
+                self.none(await core.callStorm('return($lib.queue.byname(poptest).pop(2))'))
+                self.none(await core.callStorm('return($lib.queue.byname(poptest).pop())'))
                 # Repopulate the queue, we now have data in index 3, 4, and 5
                 await core.callStorm('$lib.queue.gen(poptest).puts((foo, bar, baz))')
                 # Out of order pop() with a index does not cull.
-                self.eq((4, 'bar'), await core.callStorm('return($lib.queue.get(poptest).pop(4))'))
-                self.eq((3, 'foo'), await core.callStorm('return($lib.queue.get(poptest).pop())'))
-                self.eq((5, 'baz'), await core.callStorm('return($lib.queue.get(poptest).pop())'))
-                self.none(await core.callStorm('return($lib.queue.get(poptest).pop())'))
+                self.eq((4, 'bar'), await core.callStorm('return($lib.queue.byname(poptest).pop(4))'))
+                self.eq((3, 'foo'), await core.callStorm('return($lib.queue.byname(poptest).pop())'))
+                self.eq((5, 'baz'), await core.callStorm('return($lib.queue.byname(poptest).pop())'))
+                self.none(await core.callStorm('return($lib.queue.byname(poptest).pop())'))
+
+    async def test_storm_lib_queue_add_iden(self):
+        async with self.getTestCore() as core:
+            iden = s_common.guid()
+            opts = {'vars': {'iden': iden}}
+            qiden = await core.callStorm('$q = $lib.queue.add(foo, iden=$iden) return($q.iden)', opts=opts)
+            self.eq(iden, qiden)
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$q = $lib.queue.add(bar, iden=12345)')
+
+    async def test_storm_lib_queue_add_and_list(self):
+        async with self.getTestCore() as core:
+
+            new_q1 = await core.callStorm('$q = $lib.queue.add(foo) return($q.name)')
+            self.eq(new_q1, 'foo')
+
+            with self.raises(s_exc.DupName):
+                new_q1 = await core.callStorm('$q = $lib.queue.add(foo) return($q.name)')
+
+            new_q2 = await core.callStorm('$q = $lib.queue.add(bar) return($q.iden)')
+            self.nn(new_q2)
+
+            qlist = await core.callStorm('return($lib.queue.list())')
+            self.true(any(q['name'] == 'foo' for q in qlist))
+
+    async def test_storm_lib_queue_del(self):
+        async with self.getTestCore() as core:
+            await core.callStorm('$lib.queue.add(foo)')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.queue.del(foo)')
+            qiden = await core.callStorm('$q = $lib.queue.byname(foo) return($q.iden)')
+            await core.callStorm(f'$lib.queue.del({qiden})')
+
+            # delete a non-existent queue
+            fakeiden = s_common.guid()
+            with self.raises(s_exc.NoSuchIden):
+                await core.callStorm(f'$lib.queue.del({fakeiden})')
+
+    async def test_storm_lib_queue_gen(self):
+        async with self.getTestCore() as core:
+            iden1 = await core.callStorm('$q = $lib.queue.gen(genq) return($q.iden)')
+            self.nn(iden1)
+
+            iden2 = await core.callStorm('$q = $lib.queue.gen(genq) return($q.iden)')
+            self.eq(iden1, iden2)
+
+    async def test_storm_lib_queue_get_byname_and_iden(self):
+        async with self.getTestCore() as core:
+
+            qname = await core.callStorm('$q = $lib.queue.add(bynq) return($q.name)')
+            qbyname = await core.callStorm('$q = $lib.queue.byname(bynq) return($q.name)')
+            self.eq(qname, qbyname)
+
+            qiden = await core.callStorm(f'$q = $lib.queue.byname({qname}) return($q.iden)')
+            qnamebyiden = await core.callStorm(f'$q = $lib.queue.get({qiden}) return($q.name)')
+            self.eq(qname, qnamebyiden)
+
+    async def test_storm_lib_queue_put_get(self):
+        async with self.getTestCore() as core:
+            iden = await core.callStorm('$q = $lib.queue.add(putgetq) return($q.iden)')
+            await core.callStorm(f'$q = $lib.queue.get({iden}) $q.put(woot)')
+            val = await core.callStorm(f'$q = $lib.queue.get({iden}) return($q.get().1)')
+            self.eq(val, 'woot')
+
+    async def test_storm_lib_queue_nosuchname(self):
+        async with self.getTestCore() as core:
+            with self.raises(s_exc.NoSuchIden) as cm:
+                await core.reqCoreQueue('deedbeef12341234')
+            self.isin('No queue with iden', str(cm.exception))
+
+    async def test_storm_lib_queue_authgate_perms(self):
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            user = await core.auth.addUser('authgateuser')
+            qiden = await core.callStorm('$q = $lib.queue.add(authgateq) return($q.iden)')
+
+            async with core.getLocalProxy(user='authgateuser') as usercore:
+                with self.raises(s_exc.AuthDeny):
+                    await usercore.callStorm(f'$lib.queue.get({qiden})')
+
+            rule = (True, ('queue', 'get'))
+            await user.addRule(rule, gateiden=qiden)
+            async with core.getLocalProxy(user='authgateuser') as usercore:
+                await usercore.callStorm(f'$lib.queue.get({qiden})')
+
+            rule = (True, ('queue', 'put'))
+            await prox.addUserRule(user.iden, rule, gateiden=qiden)
+            async with core.getLocalProxy(user='authgateuser') as usercore:
+                await usercore.callStorm(f'$q = $lib.queue.get({qiden}) $q.put(woot)')
+
+            rule = (True, ('queue', 'del'))
+            await prox.addUserRule(user.iden, rule, gateiden=qiden)
+            async with core.getLocalProxy(user='authgateuser') as usercore:
+                await usercore.callStorm(f'$lib.queue.del({qiden})')
 
                 # Coverage for the Cortex queue:del nexus handler
                 name = 'deleteme'
                 iden = s_common.guid()
                 await core.addCoreQueue(
-                    name,
                     {'name': name,
                      'creator': core.auth.rootuser.iden,
-                     'created': s_common.now(),
                      'iden': iden}
                 )
-                await core.auth.delAuthGate(f'queue:{name}')
-                await core.delCoreQueue(name)
-                with self.raises(s_exc.NoSuchName):
-                    await core.getCoreQueue(name)
+                await core.auth.delAuthGate(iden)
+                await core.delCoreQueue(iden)
+                with self.raises(s_exc.NoSuchIden):
+                    await core.reqCoreQueue(iden)
 
     async def test_storm_node_data(self):
 
@@ -4720,7 +4815,7 @@ class StormTypesTest(s_test.SynTest):
 
                 async def getNextFoo():
                     return await core.callStorm('''
-                        $foo = $lib.queue.get(foo)
+                        $foo = $lib.queue.byname(foo)
                         ($offs, $valu) = $foo.get()
                         $foo.cull($offs)
                         return($valu)
@@ -4728,7 +4823,7 @@ class StormTypesTest(s_test.SynTest):
 
                 async def getFooSize():
                     return await core.callStorm('''
-                        return($lib.queue.get(foo).size())
+                        return($lib.queue.byname(foo).size())
                     ''')
 
                 async def getCronIden():
@@ -4786,7 +4881,7 @@ class StormTypesTest(s_test.SynTest):
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
                                              tzinfo=tz.utc).timestamp()
 
-                q = '{$lib.queue.get(foo).put(m3) $s=`m3 {$auto.type} {$auto.iden}` $lib.log.info($s, ({"iden": $auto.iden})) }'
+                q = '{$lib.queue.byname(foo).put(m3) $s=`m3 {$auto.type} {$auto.iden}` $lib.log.info($s, ({"iden": $auto.iden})) }'
                 text = f'cron.add --minute 17 {q}'
                 async with getCronJob(text) as guid:
                     with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'm3 cron') as stream:
@@ -4800,7 +4895,7 @@ class StormTypesTest(s_test.SynTest):
                 ##################
 
                 # Test day increment
-                async with getCronJob("cron.add --day +2 {$lib.queue.get(foo).put(d1)}") as guid:
+                async with getCronJob("cron.add --day +2 {$lib.queue.byname(foo).put(d1)}") as guid:
 
                     unixtime += DAYSECS
 
@@ -4822,7 +4917,7 @@ class StormTypesTest(s_test.SynTest):
                 unixtime = datetime.datetime(year=2018, month=12, day=11, hour=7, minute=10,
                                              tzinfo=tz.utc).timestamp()  # A Tuesday
 
-                async with getCronJob("cron.add --hour 3 --day Mon,Thursday {$lib.queue.get(foo).put(d2)}") as guid:
+                async with getCronJob("cron.add --hour 3 --day Mon,Thursday {$lib.queue.byname(foo).put(d2)}") as guid:
 
                     unixtime = datetime.datetime(year=2018, month=12, day=13, hour=3, minute=10,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
@@ -4838,7 +4933,7 @@ class StormTypesTest(s_test.SynTest):
                 ##################
 
                 # Test fixed day of month: second-to-last day of month
-                async with getCronJob("cron.add --day -2 --month Dec {$lib.queue.get(foo).put(d3)}") as guid:
+                async with getCronJob("cron.add --day -2 --month Dec {$lib.queue.byname(foo).put(d3)}") as guid:
 
                     unixtime = datetime.datetime(year=2018, month=12, day=29, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
@@ -4854,7 +4949,7 @@ class StormTypesTest(s_test.SynTest):
 
                 # Test month increment
 
-                async with getCronJob("cron.add --month +2 --day=4 {$lib.queue.get(foo).put(month1)}") as guid:
+                async with getCronJob("cron.add --month +2 --day=4 {$lib.queue.byname(foo).put(month1)}") as guid:
 
                     unixtime = datetime.datetime(year=2019, month=2, day=4, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
@@ -4865,7 +4960,7 @@ class StormTypesTest(s_test.SynTest):
 
                 # Test year increment
 
-                async with getCronJob("cron.add --year +2 {$lib.queue.get(foo).put(year1)}") as guid:
+                async with getCronJob("cron.add --year +2 {$lib.queue.byname(foo).put(year1)}") as guid:
 
                     unixtime = datetime.datetime(year=2021, month=1, day=1, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp() + 1  # Now Thursday
@@ -4873,7 +4968,7 @@ class StormTypesTest(s_test.SynTest):
                     self.eq('year1', await getNextFoo())
 
                 # Make sure second-to-last day works for February
-                async with getCronJob("cron.add --month February --day=-2 {$lib.queue.get(foo).put(year2)}") as guid:
+                async with getCronJob("cron.add --month February --day=-2 {$lib.queue.byname(foo).put(year2)}") as guid:
 
                     unixtime = datetime.datetime(year=2021, month=2, day=27, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp() + 1  # Now Thursday
@@ -4903,7 +4998,7 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Query parameter is required', mesgs)
 
-                q = "cron.at --minute +5,+10 {$lib.queue.get(foo).put(at1)}"
+                q = "cron.at --minute +5,+10 {$lib.queue.byname(foo).put(at1)}"
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('Created cron job', msgs)
 
@@ -4930,7 +5025,7 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
 
-                async with getCronJob("cron.at --day +1,+7 {$lib.queue.get(foo).put(at2)}"):
+                async with getCronJob("cron.at --day +1,+7 {$lib.queue.byname(foo).put(at2)}"):
 
                     unixtime += DAYSECS
                     core.agenda._wake_event.set()
@@ -4943,7 +5038,7 @@ class StormTypesTest(s_test.SynTest):
 
                 ##################
 
-                async with getCronJob("cron.at --dt 202104170415 {$lib.queue.get(foo).put(at3)}") as guid:
+                async with getCronJob("cron.at --dt 202104170415 {$lib.queue.byname(foo).put(at3)}") as guid:
 
                     unixtime = datetime.datetime(year=2021, month=4, day=17, hour=4, minute=15,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
@@ -4977,7 +5072,7 @@ class StormTypesTest(s_test.SynTest):
                 ##################
 
                 # Test --now
-                q = "cron.at --now {$lib.queue.get(foo).put(atnow)}"
+                q = "cron.at --now {$lib.queue.byname(foo).put(atnow)}"
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('Created cron job', msgs)
 
@@ -4987,7 +5082,7 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
 
-                q = "cron.at --now --minute +5 {$lib.queue.get(foo).put(atnow)}"
+                q = "cron.at --now --minute +5 {$lib.queue.byname(foo).put(atnow)}"
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('Created cron job', msgs)
 
@@ -5082,7 +5177,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint('Deleted cron job: ', msgs)
 
                 # Test that stating a failed cron prints failures
-                async with getCronJob("cron.at --now {$lib.queue.get(foo).put(atnow) $lib.newp}") as guid:
+                async with getCronJob("cron.at --now {$lib.queue.byname(foo).put(atnow) $lib.newp}") as guid:
                     self.eq('atnow', await getNextFoo())
                     mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
                     print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
