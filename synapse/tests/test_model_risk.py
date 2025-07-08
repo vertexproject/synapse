@@ -278,6 +278,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :activity=high
                     :source={[ ou:org=({"name": "mandiant"}) ]}
                     :source:name=mandiant
+                    :source:discovered=202202
                     :source:published=202302
                     :goals=(*,)
                     :sophistication=high
@@ -305,6 +306,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('merged:isnow'))
             self.eq((1325376000000000, 1672531200000000), nodes[0].get('active'))
             self.eq(1673395200000000, nodes[0].get('merged:time'))
+            self.eq(1643673600000000, nodes[0].get('source:discovered'))
             self.eq(1675209600000000, nodes[0].get('source:published'))
 
             self.len(1, nodes[0].get('goals'))
@@ -494,6 +496,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :software:names=(beacon,)
                     :source={[ ou:org=({"name": "vertex"}) ]}
                     :source:name=vertex
+                    :source:discovered=202202
                     :source:published=202302
                     :tag=cno.mal.cobaltstrike
                     :id=" AAAbbb123  "
@@ -511,6 +514,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(40, nodes[0].get('sophistication'))
             self.eq('public.', nodes[0].get('availability'))
             self.eq((1325376000000000, 9223372036854775807), nodes[0].get('used'))
+            self.eq(1643673600000000, nodes[0].get('source:discovered'))
             self.eq(1675209600000000, nodes[0].get('source:published'))
             self.eq('AAAbbb123', nodes[0].get('id'))
 

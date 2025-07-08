@@ -356,10 +356,9 @@ modeldefs = (
                 ('activity', ('meta:activity', {}), {
                     'doc': 'The most recently assessed activity level of the threat cluster.'}),
 
-                # NOTE: removed per discussion, but i suspect it'll be back...
-                # ('source:discovered', ('time', {}), {
-                #     'prevnames': ('reporter:discovered',),
-                #     'doc': 'The time that the source first discovered the threat cluster.'}),
+                ('source:discovered', ('time', {}), {
+                    'prevnames': ('reporter:discovered',),
+                    'doc': 'The time that the source first discovered the threat cluster.'}),
 
                 ('source:published', ('time', {}), {
                     'prevnames': ('reporter:published',),
@@ -400,10 +399,9 @@ modeldefs = (
                 ('sophistication', ('meta:sophistication', {}), {
                     'doc': "The source's assessed sophistication of the tool."}),
 
-                # NOTE: removed per discussion, but i suspect it'll be back...
-                # ('source:discovered', ('time', {}), {
-                #     'prevnames': ('reporter:discovered',),
-                #     'doc': 'The time that the source first discovered the tool.'}),
+                ('source:discovered', ('time', {}), {
+                    'prevnames': ('reporter:discovered',),
+                    'doc': 'The time that the source first discovered the tool.'}),
 
                 ('source:published', ('time', {}), {
                     'prevnames': ('reporter:published',),
