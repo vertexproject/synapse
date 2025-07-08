@@ -1583,28 +1583,24 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return copy.deepcopy(gdef)
 
     async def addCoreQueue(self, qdef):
-        if self.quedefs.get(qdef['name']) is not None:
-            mesg = f'Queue named {qdef["name"]} already exists!'
-            raise s_exc.DupName(mesg=mesg)
-
         qdef['created'] = s_common.now()
         if qdef.get('iden') is None:
             qdef['iden'] = s_common.guid()
-
         s_schemas.reqValidQueueDef(qdef)
-        await self._push('queue:add', qdef)
-        return qdef
+        return await self._push('queue:add', qdef)
 
     @s_nexus.Pusher.onPush('queue:add')
     async def _addCoreQueue(self, qdef):
         iden = qdef.get('iden')
         name = qdef.get('name')
 
-        if self.multiqueue.exists(iden):
-            return
+        if (cur_iden := self.quedefs.get(name)) is not None:
+            if cur_iden != iden:
+                mesg = f'Queue named {name} already exists!'
+                raise s_exc.DupName(mesg=mesg)
 
-        if self.quedefs.get(name) is not None:
-            return
+        if self.multiqueue.exists(iden):
+            return self.multiqueue.status(iden)
 
         self.auth.reqNoAuthGate(iden)
 
@@ -1615,6 +1611,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.quedefs.set(name, iden)
         await self.multiqueue.add(iden, qdef)
+        return qdef
 
     async def listCoreQueues(self):
         return self.multiqueue.list()
