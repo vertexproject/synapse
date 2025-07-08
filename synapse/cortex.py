@@ -285,8 +285,6 @@ class CoreApi(s_cell.CellApi):
 
         self.cell._reqValidExportStormMeta(meta)
 
-        if extmodel:
-            await self.cell.addExtModel(meta['model_ext'])
         return
 
     async def addFeedData(self, items, *, viewiden=None, reqmeta=True):
