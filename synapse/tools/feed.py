@@ -118,7 +118,7 @@ async def main(argv, outp=s_output.stdout):
 
     return 0
 
-def getArgParser(outp: s_output.OutPut):
+def getArgParser(outp):
     desc = 'Command line tool for ingesting data into a cortex'
     pars = s_cmd.Parser(prog='synapse.tools.feed', outp=outp, description=desc)
 

@@ -610,7 +610,7 @@ class StormCli(s_cli.Cli):
 
         return ret
 
-def getArgParser(outp: s_output.OutPut):
+def getArgParser(outp):
     pars = s_cmd.Parser(prog='synapse.tools.storm', outp=outp)
     pars.add_argument('cortex', help='A telepath URL for the Cortex.')
     pars.add_argument('onecmd', nargs='?', help='A single storm command to run and exit.')

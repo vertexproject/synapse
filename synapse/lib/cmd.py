@@ -15,11 +15,7 @@ class Parser(argparse.ArgumentParser):
     - _print_message prints to an outp object
     - description formatter uses argparse.RawDescriptionHelpFormatter
     '''
-    def __init__(self,
-                 prog: str | None =None,
-                 outp: s_output.OutPut =s_output.stdout,
-                 **kwargs):
-
+    def __init__(self, prog =None, outp=s_output.stdout, **kwargs):
         self.outp = outp
         self.exited = False
 

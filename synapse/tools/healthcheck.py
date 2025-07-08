@@ -94,7 +94,7 @@ async def main(argv, outp=s_output.stdout):
     outp.printf(serialize(ret))
     return retval
 
-def getArgParser(outp: s_output.OutPut):
+def getArgParser(outp):
     desc = '''
     synapse healthcheck tool
     '''

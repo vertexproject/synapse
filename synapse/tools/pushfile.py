@@ -104,7 +104,7 @@ async def main(argv, outp=s_output.stdout):
 
     return 0
 
-def getArgParser(outp: s_output.OutPut):
+def getArgParser(outp):
     desc = 'Command line tool for uploading files to an Axon and making ' \
            'file:bytes in a Cortex.'
     pars = s_cmd.Parser(prog='synapse.tools.pushfile', outp=outp, description=desc)

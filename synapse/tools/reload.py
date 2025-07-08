@@ -51,7 +51,7 @@ async def main(argv, outp=s_output.stdout):
                         outp.printf(f'{name.ljust(40)}{result.ljust(10)}{mesg}')
     return 0
 
-def getArgParser(outp: s_output.OutPut):
+def getArgParser(outp):
     pars = s_cmd.Parser(prog='synapse.tools.reload', outp=outp, description=descr)
     pars.add_argument('--svcurl', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
 
