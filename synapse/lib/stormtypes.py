@@ -5766,7 +5766,7 @@ class NodeProps(Prim):
 
         if valu is undef:
             confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
-            await self.valu.pop(name, None)
+            await self.valu.pop(name)
             return
 
         valu = await toprim(valu)
