@@ -2735,8 +2735,9 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('queue.add visi')
             self.stormIsInPrint('queue added: visi', msgs)
 
+            rand = s_common.guid()
             with self.raises(s_exc.DupName):
-                await core.nodes('queue.add visi')
+                await core.nodes('$lib.queue.add(visi, iden=$iden)', opts={'vars': {'iden': rand}})
 
             msgs = await core.stormlist('queue.list')
             self.stormIsInPrint('Storm queue list:', msgs)
@@ -2885,8 +2886,9 @@ class StormTypesTest(s_test.SynTest):
             new_q1 = await core.callStorm('$q = $lib.queue.add(foo) return($q.name)')
             self.eq(new_q1, 'foo')
 
+            rand = s_common.guid()
             with self.raises(s_exc.DupName):
-                new_q1 = await core.callStorm('$q = $lib.queue.add(foo) return($q.name)')
+                new_q1 = await core.callStorm('$q = $lib.queue.add(foo, iden=$iden) return($q.name)', opts={'vars': {'iden': rand}})
 
             new_q2 = await core.callStorm('$q = $lib.queue.add(bar) return($q.iden)')
             self.nn(new_q2)

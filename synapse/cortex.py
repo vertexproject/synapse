@@ -1586,8 +1586,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         qdef['created'] = s_common.now()
         if qdef.get('iden') is None:
             coreiden = self.iden
-            iden = s_common.guid(f'{coreiden}:{qdef.get("name")}')
-            qdef['iden'] = iden
+            qdef['iden'] = s_common.guid((self.iden, qdef.get("name")))
         s_schemas.reqValidQueueDef(qdef)
         return await self._push('queue:add', qdef)
 
