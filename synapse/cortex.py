@@ -1583,32 +1583,35 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return copy.deepcopy(gdef)
 
     async def addCoreQueue(self, qdef):
-        if self.quedefs.get(qdef['name']) is not None:
-            mesg = f'Queue named {qdef["name"]} already exists!'
-            raise s_exc.DupName(mesg=mesg)
-
         qdef['created'] = s_common.now()
         if qdef.get('iden') is None:
             qdef['iden'] = s_common.guid()
-
         s_schemas.reqValidQueueDef(qdef)
-        await self._push('queue:add', qdef)
-        return qdef
+        return await self._push('queue:add', qdef)
 
     @s_nexus.Pusher.onPush('queue:add')
     async def _addCoreQueue(self, qdef):
         iden = qdef.get('iden')
-        self.auth.reqNoAuthGate(iden)
         name = qdef.get('name')
-        if not self.multiqueue.exists(iden):
 
-            user = await self.auth.reqUser(qdef.get('creator'))
+        if (cur_iden := self.quedefs.get(name)) is not None:
+            if cur_iden != iden:
+                mesg = f'Queue named {name} already exists!'
+                raise s_exc.DupName(mesg=mesg)
 
-            self.quedefs.set(name, iden)
-            await self.multiqueue.add(iden, qdef)
+        if self.multiqueue.exists(iden):
+            return self.multiqueue.status(iden)
 
-            await self.auth.addAuthGate(iden, 'queue')
-            await user.setAdmin(True, gateiden=iden, logged=False)
+        self.auth.reqNoAuthGate(iden)
+
+        user = await self.auth.reqUser(qdef.get('creator'))
+
+        await self.auth.addAuthGate(iden, 'queue')
+        await user.setAdmin(True, gateiden=iden, logged=False)
+
+        self.quedefs.set(name, iden)
+        await self.multiqueue.add(iden, qdef)
+        return qdef
 
     async def listCoreQueues(self):
         return self.multiqueue.list()
