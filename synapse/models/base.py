@@ -94,6 +94,9 @@ modeldefs = (
                 'doc': 'A taxonomy for meta:ruleset types.'}),
 
             ('meta:ruleset', ('guid', {}), {
+                'interfaces': (
+                    ('doc:authorable', {'template': {'authorable': 'ruleset'}}),
+                ),
                 'doc': 'A set of rules linked with -(has)> edges.'}),
 
             ('meta:rule:type:taxonomy', ('taxonomy', {}), {
@@ -218,25 +221,22 @@ modeldefs = (
             ('meta:ruleish', {
                 'doc': 'Properties which are common to rules used in evaluation systems.',
                 'interfaces': (
-                    ('doc:authorable', {'template': {'document': 'rule', 'syntax': ''}}),
+                    ('doc:authorable', {'template': {'authorable': 'rule', 'syntax': ''}}),
                 ),
                 'props': (
 
                     ('name', ('base:id', {}), {
                         'doc': 'The rule name.'}),
 
-                    ('desc', ('text', {}), {
-                        'doc': 'A description of the {document}.'}),
-
                     ('url', ('inet:url', {}), {
-                        'doc': 'A URL which documents the {document}.'}),
+                        'doc': 'A URL which documents the {authorable}.'}),
 
                     ('enabled', ('bool', {}), {
-                        'doc': 'The enabled status of the {document}.'}),
+                        'doc': 'The enabled status of the {authorable}.'}),
 
                     ('text', ('text', {}), {
                         'display': {'syntax': '{syntax}'},
-                        'doc': 'The text of the {document}.'})
+                        'doc': 'The text of the {authorable}.'})
                 ),
             }),
             ('meta:matchish', {
@@ -415,19 +415,6 @@ modeldefs = (
 
                 ('type', ('meta:ruleset:type:taxonomy', {}), {
                     'doc': 'The ruleset type.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the ruleset.'}),
-
-                # FIXME authored interface?
-                ('author', ('entity:actor', {}), {
-                    'doc': 'The contact information of the ruleset author.'}),
-
-                ('created', ('time', {}), {
-                    'doc': 'The time the ruleset was initially created.'}),
-
-                ('updated', ('time', {}), {
-                    'doc': 'The time the ruleset was most recently modified.'}),
             )),
 
             ('meta:rule:type:taxonomy', {}, ()),

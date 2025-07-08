@@ -757,6 +757,9 @@ modeldefs = (
                 'doc': 'A comment on a diff in a repository.'}),
 
             ('it:software', ('guid', {}), {
+                'interfaces': (
+                    ('doc:authorable', {'template': {'authorable': 'software'}}),
+                ),
                 'doc': 'A software product.'}),
 
             ('it:software:type:taxonomy', ('taxonomy', {}), {

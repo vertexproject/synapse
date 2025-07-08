@@ -399,7 +399,6 @@ modeldefs = (
                     ('loc', ('loc', {}), {
                         'doc': 'The geopolitical location of the {geo:locatable}.'}),
 
-                    # FIXME meta:named interface?
                     ('name', ('meta:name', {}), {
                         'doc': 'The name where the {geo:locatable} was located.'}),
 

@@ -2554,6 +2554,18 @@ class LayerTest(s_t_utils.SynTest):
             self.len(3, nodes)
             self.eq(nodes[::-1], await core.nodes('reverse(test:arrayform.size*range=(2, 3))'))
 
+            indxby = s_layer.IndxByProp(layr, 'test:guid', 'server')
+            self.eq(str(indxby), 'IndxByProp: test:guid:server')
+
+            indxby = s_layer.IndxByPropKeys(layr, 'test:guid', 'server')
+            self.eq(str(indxby), 'IndxByPropKeys: test:guid:server')
+
+            indxby = s_layer.IndxByPropArray(layr, 'test:virtiface', 'servers')
+            self.eq(str(indxby), 'IndxByPropArray: test:virtiface:servers')
+
+            indxby = s_layer.IndxByPropArrayKeys(layr, 'test:virtiface', 'servers')
+            self.eq(str(indxby), 'IndxByPropArrayKeys: test:virtiface:servers')
+
             indxby = s_layer.IndxByFormArrayValu(layr, 'test:arrayform')
             self.eq(str(indxby), 'IndxByFormArrayValu: test:arrayform')
 

@@ -95,6 +95,9 @@ modeldefs = (
                 'ex': 'ua2437'}),
 
             ('transport:air:telem', ('guid', {}), {
+                'interfaces': (
+                    ('geo:locatable', {'template': {'locatable': 'telemetry sample'}}),
+                ),
                 'doc': 'A telemetry sample from an aircraft in transit.'}),
 
             ('transport:air:flight', ('guid', {}), {
@@ -131,6 +134,9 @@ modeldefs = (
                 'doc': 'An International Maritime Organization registration number.'}),
 
             ('transport:sea:telem', ('guid', {}), {
+                'interfaces': (
+                    ('geo:locatable', {'template': {'locatable': 'telemetry sample'}}),
+                ),
                 'doc': 'A telemetry sample from a vessel in transit.'}),
 
             ('transport:rail:train', ('guid', {}), {
@@ -435,19 +441,6 @@ modeldefs = (
                 ('flight', ('transport:air:flight', {}), {
                     'doc': 'The flight being measured.'}),
 
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The lat/lon of the aircraft at the time.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'The location of the aircraft at the time.'}),
-
-                # FIXME geo:locatable
-                ('place', ('geo:place', {}), {
-                    'doc': 'The place that the lat/lon geocodes to.'}),
-
-                ('accuracy', ('geo:dist', {}), {
-                    'doc': 'The horizontal accuracy of the latlong sample.'}),
-
                 ('course', ('transport:direction', {}), {
                     'doc': 'The direction, in degrees from true North, that the aircraft is traveling.'}),
 
@@ -462,12 +455,6 @@ modeldefs = (
 
                 ('verticalspeed', ('velocity', {'relative': True}), {
                     'doc': 'The relative vertical speed of the aircraft at the time.'}),
-
-                ('altitude', ('geo:altitude', {}), {
-                    'doc': 'The altitude of the aircraft at the time.'}),
-
-                ('altitude:accuracy', ('geo:dist', {}), {
-                    'doc': 'The vertical accuracy of the altitude measurement.'}),
 
                 ('time', ('time', {}), {
                     'doc': 'The time the telemetry sample was taken.'})
@@ -503,18 +490,6 @@ modeldefs = (
 
                 ('time', ('time', {}), {
                     'doc': 'The time the telemetry was sampled.'}),
-
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The lat/lon of the vessel at the time.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'The location of the vessel at the time.'}),
-
-                ('place', ('geo:place', {}), {
-                    'doc': 'The place that the lat/lon geocodes to.'}),
-
-                ('accuracy', ('geo:dist', {}), {
-                    'doc': 'The horizontal accuracy of the latlong sample.'}),
 
                 ('course', ('transport:direction', {}), {
                     'doc': 'The direction, in degrees from true North, that the vessel is traveling.'}),

@@ -42,29 +42,29 @@ class TransportTest(s_test.SynTest):
             telem = (await core.nodes('''
                 [ transport:air:telem=*
                     :flight=*
-                    :latlong=(20.22, 80.1111)
-                    :loc=us
+                    :place:latlong=(20.22, 80.1111)
+                    :place:latlong:accuracy=10m
+                    :place:loc=us
                     :place=*
                     :course=-280.9
                     :heading=99.02
                     :speed=374km/h
                     :airspeed=24ft/sec
                     :verticalspeed=-20feet/sec
-                    :accuracy=10m
-                    :altitude=9144m
-                    :altitude:accuracy=10m
+                    :place:altitude=9144m
+                    :place:altitude:accuracy=10m
                     :time=20200202
                 ]'''))[0]
             self.nn(telem.get('flight'))
             self.nn(telem.get('place'))
-            self.eq((20.22, 80.1111), telem.get('latlong'))
-            self.eq('us', telem.get('loc'))
-            self.eq(10000, telem.get('accuracy'))
+            self.eq((20.22, 80.1111), telem.get('place:latlong'))
+            self.eq('us', telem.get('place:loc'))
+            self.eq(10000, telem.get('place:latlong:accuracy'))
             self.eq(103888, telem.get('speed'))
             self.eq(7315, telem.get('airspeed'))
             self.eq(-6096, telem.get('verticalspeed'))
-            self.eq(6380152800, telem.get('altitude'))
-            self.eq(10000, telem.get('altitude:accuracy'))
+            self.eq(6380152800, telem.get('place:altitude'))
+            self.eq(10000, telem.get('place:altitude:accuracy'))
             self.eq(1580601600000000, telem.get('time'))
             self.eq('79.1', telem.get('course'))
             self.eq('99.02', telem.get('heading'))
@@ -97,13 +97,13 @@ class TransportTest(s_test.SynTest):
                  transport:sea:telem=*
                     :time=20200202
                     :vessel=*
-                    :latlong=(20.22, 80.1111)
-                    :loc=us
+                    :place:loc=us
+                    :place:latlong=(20.22, 80.1111)
+                    :place:latlong:accuracy=10m
                     :place=*
                     :course=-280.9
                     :heading=99.02
                     :speed=c
-                    :accuracy=10m
                     :draft=20m
                     :airdraft=30m
                     :destination=*
@@ -112,9 +112,9 @@ class TransportTest(s_test.SynTest):
             ]'''))[0]
 
             self.nn(seatelem.get('place'))
-            self.eq((20.22, 80.1111), seatelem.get('latlong'))
-            self.eq('us', seatelem.get('loc'))
-            self.eq(10000, seatelem.get('accuracy'))
+            self.eq((20.22, 80.1111), seatelem.get('place:latlong'))
+            self.eq('us', seatelem.get('place:loc'))
+            self.eq(10000, seatelem.get('place:latlong:accuracy'))
             self.eq(1580601600000000, seatelem.get('time'))
             self.eq(20000, seatelem.get('draft'))
             self.eq(30000, seatelem.get('airdraft'))
