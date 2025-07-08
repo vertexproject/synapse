@@ -1046,7 +1046,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'fmt': 1,
             'iden': iden,
             'model': model,
-            'synapse': s_version.verstring,
         }
         self.model.iden = iden
         self.slab.put(lkey, s_msgpack.en(envl), db='model:saves')
