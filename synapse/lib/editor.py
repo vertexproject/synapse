@@ -456,7 +456,7 @@ class ProtoNode(s_node.NodeBase):
         if self.node is not None:
             return self.node.getTag(tag, defval=defval)
 
-    async def addTag(self, tag, valu=(None, None), norminfo=None, tagnode=None, merge=True):
+    async def addTag(self, tag, valu=(None, None), norminfo=None, tagnode=None):
 
         if tagnode is None:
             tagnode = await self._getRealTag(tag)
@@ -466,7 +466,7 @@ class ProtoNode(s_node.NodeBase):
 
         if norminfo is None and valu != (None, None):
             try:
-                valu, _ = self.model.type('ival').norm(valu)
+                valu, norminfo = self.model.type('ival').norm(valu)
             except s_exc.BadTypeValu as e:
                 e.set('tag', tagnode.valu)
                 raise e
@@ -486,7 +486,7 @@ class ProtoNode(s_node.NodeBase):
         elif valu == (None, None):
             return tagnode
 
-        if merge:
+        if norminfo.get('merge', True):
             valu = s_time.ival(*valu, *curv)
 
         self.tags[tagnode.valu] = valu
@@ -639,7 +639,7 @@ class ProtoNode(s_node.NodeBase):
 
         return False
 
-    async def setTagProp(self, tag, name, valu, merge=True):
+    async def setTagProp(self, tag, name, valu):
 
         tagnode = await self.addTag(tag)
         if tagnode is None:
@@ -658,7 +658,7 @@ class ProtoNode(s_node.NodeBase):
         if curv == norm:
             return False
 
-        if merge and curv is not None:
+        if curv is not None and info.get('merge', True):
             valu = prop.type.merge(curv, valu)
 
         self.tagprops[(tagnode.valu, name)] = norm
@@ -739,7 +739,7 @@ class ProtoNode(s_node.NodeBase):
         self.meta[name] = valu
         return True
 
-    async def _set(self, prop, valu, norminfo=None, merge=True):
+    async def _set(self, prop, valu, norminfo=None):
 
         if prop.locked:
             raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.', prop=prop.full)
@@ -772,7 +772,7 @@ class ProtoNode(s_node.NodeBase):
         if prop.info.get('ro') and curv[0] is not None:
             raise s_exc.ReadOnlyProp(mesg=f'Property is read only: {prop.full}.')
 
-        if merge and (cval := curv[0]) is not None:
+        if (cval := curv[0]) is not None and norminfo.get('merge', True):
             valu = prop.type.merge(cval, valu)
 
         if self.node is not None:
@@ -784,12 +784,12 @@ class ProtoNode(s_node.NodeBase):
 
         return valu, norminfo
 
-    async def set(self, name, valu, norminfo=None, merge=True):
+    async def set(self, name, valu, norminfo=None):
         prop = self.form.props.get(name)
         if prop is None:
             raise s_exc.NoSuchProp(mesg=f'No property named {name} on form {self.form.name}.')
 
-        retn = await self._set(prop, valu, norminfo=norminfo, merge=merge)
+        retn = await self._set(prop, valu, norminfo=norminfo)
         if retn is False:
             return False
 

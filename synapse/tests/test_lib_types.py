@@ -987,36 +987,28 @@ class TypesTest(s_t_utils.SynTest):
             styp = core.model.type('timeprecision').stortype
             valu = ityp.norm('2025-04-05 12:34:56.123456')[0]
 
-            norminfo = {}
-            exp = ((1743856496123456, 1743856496123457), {'norminfo': norminfo})
+            exp = ((1743856496123456, 1743856496123457), {})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_MICRO), exp)
 
-            norminfo = {'virts': {'precision': (s_time.PREC_MILLI, styp)}}
-            exp = ((1743856496123000, 1743856496123999), {'norminfo': norminfo})
+            exp = ((1743856496123000, 1743856496123999), {'virts': {'precision': (s_time.PREC_MILLI, styp)}})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_MILLI), exp)
 
-            norminfo = {'virts': {'precision': (s_time.PREC_SECOND, styp)}}
-            exp = ((1743856496000000, 1743856496999999), {'norminfo': norminfo})
+            exp = ((1743856496000000, 1743856496999999), {'virts': {'precision': (s_time.PREC_SECOND, styp)}})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_SECOND), exp)
 
-            norminfo = {'virts': {'precision': (s_time.PREC_MINUTE, styp)}}
-            exp = ((1743856440000000, 1743856499999999), {'norminfo': norminfo})
+            exp = ((1743856440000000, 1743856499999999), {'virts': {'precision': (s_time.PREC_MINUTE, styp)}})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_MINUTE), exp)
 
-            norminfo = {'virts': {'precision': (s_time.PREC_HOUR, styp)}}
-            exp = ((1743854400000000, 1743857999999999), {'norminfo': norminfo})
+            exp = ((1743854400000000, 1743857999999999), {'virts': {'precision': (s_time.PREC_HOUR, styp)}})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_HOUR), exp)
 
-            norminfo = {'virts': {'precision': (s_time.PREC_DAY, styp)}}
-            exp = ((1743811200000000, 1743897599999999), {'norminfo': norminfo})
+            exp = ((1743811200000000, 1743897599999999), {'virts': {'precision': (s_time.PREC_DAY, styp)}})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_DAY), exp)
 
-            norminfo = {'virts': {'precision': (s_time.PREC_MONTH, styp)}}
-            exp = ((1743465600000000, 1746057599999999), {'norminfo': norminfo})
+            exp = ((1743465600000000, 1746057599999999), {'virts': {'precision': (s_time.PREC_MONTH, styp)}})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_MONTH), exp)
 
-            norminfo = {'virts': {'precision': (s_time.PREC_YEAR, styp)}}
-            exp = ((1735689600000000, 1767225599999999), {'norminfo': norminfo})
+            exp = ((1735689600000000, 1767225599999999), {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_YEAR), exp)
 
             with self.raises(s_exc.BadTypeDef):

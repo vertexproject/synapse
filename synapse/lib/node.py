@@ -499,7 +499,7 @@ class Node(NodeBase):
 
         return retn
 
-    async def set(self, name, valu, norminfo=None, merge=True):
+    async def set(self, name, valu, norminfo=None):
         '''
         Set a property on the node.
 
@@ -507,7 +507,6 @@ class Node(NodeBase):
             name (str): The name of the property.
             valu (obj): The value of the property.
             norminfo (obj): Norm info for valu if it has already been normalized.
-            merge (bool): True if type merging behavior should be applied.
 
         Returns:
             (bool): True if the property was changed.
@@ -517,7 +516,7 @@ class Node(NodeBase):
             raise s_exc.IsReadOnly(mesg=mesg)
 
         async with self.view.getNodeEditor(self) as editor:
-            return await editor.set(name, valu, norminfo=norminfo, merge=merge)
+            return await editor.set(name, valu, norminfo=norminfo)
 
     def has(self, name, virts=None):
 
@@ -910,7 +909,7 @@ class Node(NodeBase):
 
         return dict(retn)
 
-    async def addTag(self, tag, valu=(None, None), norminfo=None, merge=True):
+    async def addTag(self, tag, valu=(None, None), norminfo=None):
         '''
         Add a tag to a node.
 
@@ -919,13 +918,12 @@ class Node(NodeBase):
             valu: The optional tag value.  If specified, this must be a value that
                   norms as a valid time interval as an ival.
             norminfo (obj): Norm info for valu if it has already been normalized.
-            merge (bool): True if type merging behavior should be applied.
 
         Returns:
             None: This returns None.
         '''
         async with self.view.getNodeEditor(self) as protonode:
-            await protonode.addTag(tag, valu=valu, merge=merge)
+            await protonode.addTag(tag, valu=valu, norminfo=norminfo)
 
     async def delTag(self, tag):
         '''
@@ -1210,7 +1208,7 @@ class RuntNode(NodeBase):
             valu = virt((valu,))
         return valu
 
-    async def set(self, name, valu, merge=True):
+    async def set(self, name, valu):
         prop = self._reqValidProp(name)
         norm = prop.type.norm(valu)[0]
         return await self.view.core.runRuntPropSet(self, prop, norm)
@@ -1219,7 +1217,7 @@ class RuntNode(NodeBase):
         prop = self._reqValidProp(name)
         return await self.view.core.runRuntPropDel(self, prop)
 
-    async def addTag(self, name, valu=None, norminfo=None, merge=True):
+    async def addTag(self, name, valu=None, norminfo=None):
         mesg = f'You can not add a tag to a runtime only node (form: {self.form.name})'
         raise s_exc.IsRuntForm(mesg=mesg)
 

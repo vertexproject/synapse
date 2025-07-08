@@ -4783,9 +4783,9 @@ class EditVirtPropSet(Edit):
             try:
                 oldv = node.get(name)
                 valu = await rval.compute(runt, path)
-                newv, opts = prop.type.normVirt(virts[0], oldv, valu)
+                newv, norminfo = prop.type.normVirt(virts[0], oldv, valu)
 
-                await node.set(name, newv, **opts)
+                await node.set(name, newv, norminfo=norminfo)
             except excignore:
                 pass
 
@@ -5376,9 +5376,9 @@ class EditTagVirtSet(Edit):
                     runt.layerConfirm(('node', 'tag', 'add', *parts))
 
                     oldv = node.getTag(name)
-                    newv, opts = ival.normVirt(virts[0], oldv, valu)
+                    newv, norminfo = ival.normVirt(virts[0], oldv, valu)
 
-                    await node.addTag(name, valu=newv, **opts)
+                    await node.addTag(name, valu=newv, norminfo=norminfo)
 
                 except self.excignore:
                     await asyncio.sleep(0)

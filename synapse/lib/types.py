@@ -1575,10 +1575,11 @@ class Ival(Type):
     def _storVirtMin(self, valu, newmin):
         newv, norminfo = self.norm(newmin)
         if valu is None:
-            return newv, {'norminfo': norminfo}
+            return newv, norminfo
 
         newv = (newv[0], max(newv[1], valu[1]))
-        return newv, {'norminfo': norminfo, 'merge': False}
+        norminfo['merge'] = False
+        return newv, norminfo
 
     def _storVirtMax(self, valu, newmax):
         maxv, _ = self.tocktype.norm(newmax)
@@ -1586,10 +1587,11 @@ class Ival(Type):
         newv, norminfo = self._normPyIter((minv, maxv))
 
         if valu is None:
-            return newv, {'norminfo': norminfo}
+            return newv, norminfo
 
         newv = (min(newv[0], valu[0]), newv[1])
-        return newv, {'norminfo': norminfo, 'merge': False}
+        norminfo['merge'] = False
+        return newv, norminfo
 
     def _storVirtPrec(self, valu, newprec):
         if valu is None:
@@ -1598,7 +1600,7 @@ class Ival(Type):
 
         prec = self.prectype.norm(newprec)[0]
         valu, norminfo = self._normPyIter(valu, prec=prec)
-        return valu, {'norminfo': norminfo}
+        return valu, norminfo
 
     def getTagVirtIndx(self, name):
         indx = self.tagvirtindx.get(name, s_common.novalu)
@@ -2454,7 +2456,7 @@ class Time(IntBase):
 
         prec = self.prectype.norm(newprec)[0]
         valu, norminfo = self._normPyInt(valu, prec=prec)
-        return valu, {'norminfo': norminfo}
+        return valu, norminfo
 
     def _ctorCmprAt(self, valu):
         return self.modl.types.get('ival')._ctorCmprAt(valu)
