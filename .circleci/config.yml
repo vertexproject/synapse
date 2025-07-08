@@ -672,7 +672,6 @@ workflows:
               only:
                 - master
                 - synapse-3xx
-                - bender/SYN-8991/fix-replay-take-2
 
       - python_package_smoketest:
           filters:
