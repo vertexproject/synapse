@@ -1594,13 +1594,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         iden = qdef.get('iden')
         name = qdef.get('name')
 
+        if self.multiqueue.exists(iden):
+            return self.multiqueue.status(iden)
+
         if (cur_iden := self.quedefs.get(name)) is not None:
             if cur_iden != iden:
                 mesg = f'Queue named {name} already exists!'
                 raise s_exc.DupName(mesg=mesg)
-
-        if self.multiqueue.exists(iden):
-            return self.multiqueue.status(iden)
 
         self.auth.reqNoAuthGate(iden)
 

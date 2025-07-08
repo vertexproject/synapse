@@ -3820,10 +3820,15 @@ class LibQueue(Lib):
 
     async def _methQueueGen(self, name):
         name = await tostr(name)
+        celliden = self.runt.view.core.iden
+        iden = s_common.guid(f'{celliden}:{name}')
         try:
             return await self._methQueueGetByName(name)
         except s_exc.NoSuchName:
-            return await self._methQueueAdd(name)
+            try:
+                return await self._methQueueAdd(name, iden)
+            except s_exc.DupName:
+                return await self._methQueueGetByName(name)
 
     async def _methQueueDel(self, iden):
         iden = await tostr(iden)
