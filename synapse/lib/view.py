@@ -574,6 +574,9 @@ class View(s_nexus.Pusher):  # type: ignore
         if not await self.core.isCellActive():
             return
 
+        if self.core.safemode:
+            return
+
         self.trigtask = self.schedCoro(self._trigQueueLoop())
 
     async def finiTrigTask(self):
