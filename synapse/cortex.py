@@ -1598,17 +1598,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('queue:add')
     async def _addCoreQueue(self, qdef):
         iden = qdef.get('iden')
+        if self.multiqueue.exists(iden):
+            return
+
         self.auth.reqNoAuthGate(iden)
+
+        user = await self.auth.reqUser(qdef.get('creator'))
         name = qdef.get('name')
-        if not self.multiqueue.exists(iden):
 
-            user = await self.auth.reqUser(qdef.get('creator'))
+        self.quedefs.set(name, iden)
+        await self.multiqueue.add(iden, qdef)
 
-            self.quedefs.set(name, iden)
-            await self.multiqueue.add(iden, qdef)
-
-            await self.auth.addAuthGate(iden, 'queue')
-            await user.setAdmin(True, gateiden=iden, logged=False)
+        await self.auth.addAuthGate(iden, 'queue')
+        await user.setAdmin(True, gateiden=iden, logged=False)
 
     async def listCoreQueues(self):
         return self.multiqueue.list()
