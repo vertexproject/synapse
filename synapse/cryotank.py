@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class TankApi(s_cell.CellApi):
 
-    async def slice(self, offs, size=None, wait=False, timeout=None):
+    async def slice(self, offs, *, size=None, wait=False, timeout=None):
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.iden())
         async for item in self.cell.slice(offs, size=size, wait=wait, timeout=timeout):
             yield item
@@ -26,7 +26,7 @@ class TankApi(s_cell.CellApi):
         self.user.confirm(('cryo', 'tank', 'put'), gateiden=self.cell.iden())
         return await self.cell.puts(items)
 
-    async def metrics(self, offs, size=None):
+    async def metrics(self, offs, *, size=None):
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.iden())
         async for item in self.cell.metrics(offs, size=size):
             yield item
@@ -171,11 +171,11 @@ class CryoApi(s_cell.CellApi):
 
     This is the API to reference for remote CryoCell use.
     '''
-    async def init(self, name, conf=None):
+    async def init(self, name, *, conf=None):
         tank = await self.cell.init(name, conf=conf, user=self.user)
         return tank.iden()
 
-    async def slice(self, name, offs, size=None, wait=False, timeout=None):
+    async def slice(self, name, offs, *, size=None, wait=False, timeout=None):
         tank = await self.cell.init(name, user=self.user)
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=tank.iden())
         async for item in tank.slice(offs, size=size, wait=wait, timeout=timeout):
@@ -200,7 +200,7 @@ class CryoApi(s_cell.CellApi):
         async for item in tank.rows(offs, size):
             yield item
 
-    async def metrics(self, name, offs, size=None):
+    async def metrics(self, name, offs, *, size=None):
         tank = await self.cell.init(name, user=self.user)
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=tank.iden())
         async for item in tank.metrics(offs, size=size):
@@ -230,10 +230,8 @@ class CryoCell(s_cell.Cell):
 
         self.names = self.slab.getSafeKeyVal('cryo:names')
 
-        await self._bumpCellVers('cryotank', (
-            (2, self._migrateToV2),
-            (3, self._migrateToV3),
-        ), nexs=False)
+        if self.inaugural:
+            self.cellvers.set('cryotank', 3)
 
         self.tanks = await s_base.BaseRef.anit()
         self.onfini(self.tanks.fini)
@@ -249,55 +247,6 @@ class CryoCell(s_cell.Cell):
             self.tanks.put(name, tank)
 
             await self.auth.addAuthGate(iden, 'tank')
-
-    async def _migrateToV2(self):
-
-        logger.warning('Beginning migration to V2')
-
-        async with await self.hive.open(('cryo', 'names')) as names:
-            for name, node in names:
-
-                iden, conf = node.valu
-                if conf is None:
-                    conf = {}
-
-                logger.info(f'Migrating tank {name=} {iden=}')
-
-                path = s_common.genpath(self.dirn, 'tanks', iden)
-
-                # remove old guid file
-                guidpath = s_common.genpath(path, 'guid')
-                if os.path.isfile(guidpath):
-                    os.unlink(guidpath)
-
-                # if its a legacy cell remove that too
-                cellpath = s_common.genpath(path, 'cell.guid')
-                if os.path.isfile(cellpath):
-
-                    os.unlink(cellpath)
-
-                    cellslabpath = s_common.genpath(path, 'slabs', 'cell.lmdb')
-                    if os.path.isdir(cellslabpath):
-                        shutil.rmtree(cellslabpath, ignore_errors=True)
-
-                # drop offsets
-                slabpath = s_common.genpath(path, 'tank.lmdb')
-                async with await s_lmdbslab.Slab.anit(slabpath, **conf) as slab:
-                    offs = s_slaboffs.SlabOffs(slab, 'offsets')
-                    slab.dropdb(offs.db)
-
-        logger.warning('...migration complete')
-
-    async def _migrateToV3(self):
-
-        logger.warning('Beginning migration to V3')
-
-        async with await self.hive.open(('cryo', 'names')) as hivenames:
-            for name, node in hivenames:
-                iden, conf = node.valu
-                self.names.set(name, (iden, conf))
-
-        logger.warning('...migration complete')
 
     @classmethod
     def getEnvPrefix(cls):

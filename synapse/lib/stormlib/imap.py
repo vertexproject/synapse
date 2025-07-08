@@ -63,7 +63,7 @@ class ImapLib(s_stormtypes.Lib):
     )
     _storm_lib_path = ('inet', 'imap', )
     _storm_lib_perms = (
-        {'perm': ('storm', 'inet', 'imap', 'connect'), 'gate': 'cortex',
+        {'perm': ('inet', 'imap', 'connect'), 'gate': 'cortex',
          'desc': 'Controls connecting to external servers via imap.'},
     )
 
@@ -74,7 +74,7 @@ class ImapLib(s_stormtypes.Lib):
 
     async def connect(self, host, port=993, timeout=30, ssl=True, ssl_verify=True):
 
-        self.runt.confirm(('storm', 'inet', 'imap', 'connect'))
+        self.runt.confirm(('inet', 'imap', 'connect'))
 
         ssl = await s_stormtypes.tobool(ssl)
         host = await s_stormtypes.tostr(host)
@@ -83,7 +83,7 @@ class ImapLib(s_stormtypes.Lib):
         timeout = await s_stormtypes.toint(timeout, noneok=True)
 
         if ssl:
-            ctx = self.runt.snap.core.getCachedSslCtx(opts=None, verify=ssl_verify)
+            ctx = self.runt.view.core.getCachedSslCtx(opts=None, verify=ssl_verify)
             imap_cli = aioimaplib.IMAP4_SSL(host=host, port=port, timeout=timeout, ssl_context=ctx)
         else:
             imap_cli = aioimaplib.IMAP4(host=host, port=port, timeout=timeout)
@@ -92,7 +92,7 @@ class ImapLib(s_stormtypes.Lib):
             # call protocol.logout() via a background task
             s_coro.create_task(s_common.wait_for(imap_cli.protocol.logout(), 5))
 
-        self.runt.snap.onfini(fini)
+        self.runt.onfini(fini)
 
         try:
             await imap_cli.wait_hello_from_server()
@@ -341,8 +341,8 @@ class ImapServer(s_stormtypes.StormType):
         # to prevent retrieving a very large blob of data.
         uid = await s_stormtypes.toint(uid)
 
-        await self.runt.snap.core.getAxon()
-        axon = self.runt.snap.core.axon
+        await self.runt.view.core.getAxon()
+        axon = self.runt.view.core.axon
 
         coro = self.imap_cli.uid('FETCH', str(uid), '(RFC822)')
         data = await run_imap_coro(coro)
@@ -353,8 +353,8 @@ class ImapServer(s_stormtypes.StormType):
         props['size'] = size
         props['mime'] = 'message/rfc822'
 
-        filenode = await self.runt.snap.addNode('file:bytes', props['sha256'], props=props)
-        return filenode
+        valu = {'sha256': props['sha256'], '$props': props}
+        return await self.runt.view.addNode('file:bytes', valu)
 
     async def delete(self, uid_set):
         uid_set = await s_stormtypes.tostr(uid_set)
