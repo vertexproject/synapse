@@ -28,7 +28,7 @@ def hasPandoc():
         return True
     return False
 
-async def buildPkgDocs(outp: s_output.OutPut, pkgpath: str, rst_only: bool =False):
+async def buildPkgDocs(outp, pkgpath: str, rst_only: bool =False):
 
     logger.info(f'Building pkg for {pkgpath}')
     pkgdef = s_common.yamlload(pkgpath)

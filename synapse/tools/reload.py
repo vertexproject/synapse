@@ -1,10 +1,6 @@
-import sys
-import asyncio
-import argparse
-
 import synapse.telepath as s_telepath
 
-import synapse.lib.coro as s_coro
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 import synapse.lib.urlhelp as s_urlhelp
 
@@ -14,7 +10,7 @@ List or execute reload subsystems on a Synapse service.
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = getArgParser()
+    pars = getArgParser(outp)
     opts = pars.parse_args(argv)
 
     async with s_telepath.withTeleEnv():
@@ -55,8 +51,8 @@ async def main(argv, outp=s_output.stdout):
                         outp.printf(f'{name.ljust(40)}{result.ljust(10)}{mesg}')
     return 0
 
-def getArgParser():
-    pars = argparse.ArgumentParser(prog='reload', description=descr)
+def getArgParser(outp):
+    pars = s_cmd.Parser(prog='synapse.tools.reload', outp=outp, description=descr)
     pars.add_argument('--svcurl', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
 
     subpars = pars.add_subparsers(required=True,
@@ -68,10 +64,5 @@ def getArgParser():
 
     return pars
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_cmd.exitmain(main)

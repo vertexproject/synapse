@@ -1,4 +1,3 @@
-import sys
 import asyncio
 import logging
 import functools
@@ -9,7 +8,6 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
-import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
 import synapse.lib.version as s_version
 
@@ -18,7 +16,7 @@ logger = logging.getLogger(__name__)
 desc = '''
 Manage permissions of users, roles, and objects in a remote cell.
 '''
-outp = None
+outp = None  # type: s_output.OutPut
 
 min_authgate_vers = (0, 1, 33)
 reqver = '>=0.2.0,<3.0.0'
@@ -266,9 +264,7 @@ async def handleList(opts):
     else:
         return 0
 
-async def main(argv, outprint=None):
-    if outprint is None:   # pragma: no cover
-        outprint = s_output.OutPut()
+async def main(argv, outprint=s_output.stdout):
     global outp
     outp = outprint
 
@@ -289,7 +285,7 @@ async def main(argv, outprint=None):
 
 def makeargparser():
     global outp
-    pars = s_cmd.Parser('synapse.tools.cellauth', outp=outp, description=desc)
+    pars = s_cmd.Parser(prog='synapse.tools.cellauth', outp=outp, description=desc)
 
     pars.add_argument('--debug', action='store_true', help='Show debug traceback on error.')
     pars.add_argument('cellurl', help='The telepath URL to connect to a cell.')
@@ -337,11 +333,6 @@ def makeargparser():
     pars_mod.set_defaults(func=handleModify)
     return pars
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    s_common.setlogging(logger, 'DEBUG')
-    ret = await main(argv, outprint=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_common.setlogging(logger, 'DEBUG')
+    s_cmd.exitmain(main)
