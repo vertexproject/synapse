@@ -232,8 +232,13 @@ class CellTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadVersion):
                     await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0)
 
-                info = {'name': 'win32k.sys', 'type': 'woot'}
+                info = {'name': 'win32k.sys', 'type': 'woot', 'perm': {'users': {}}}
                 info = await cell.addDriveItem(info, reldir=rootdir)
+                self.notin('perm', info)
+                self.eq(info[0]['permissions'], {
+                    'users': {},
+                    'roles': {}
+                })
 
                 iden = info[-1].get('iden')
 

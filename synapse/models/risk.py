@@ -329,6 +329,9 @@ modeldefs = (
             (('meta:event', 'caused', 'risk:outage'), {
                 'doc': 'The event caused the outage.'}),
 
+            (('risk:attack', 'caused', 'risk:alert'), {
+                'doc': 'The attack caused the alert.'}),
+
             (('risk:attack', 'caused', 'risk:outage'), {
                 'doc': 'The attack caused the outage.'}),
 
@@ -573,7 +576,7 @@ modeldefs = (
 
             ('risk:alert:verdict:taxonomy', {}, {}),
             ('risk:alert', {}, (
-                # TODO - This is REALLY close to meta:sourced
+                # FIXME - This is REALLY close to meta:sourced
 
                 ('type', ('risk:alert:type:taxonomy', {}), {
                     'doc': 'A type for the alert, as a taxonomy entry.'}),
@@ -723,9 +726,6 @@ modeldefs = (
                 ('success', ('bool', {}), {
                     'doc': 'Set if the attack was known to have succeeded or not.'}),
 
-                ('targeted', ('bool', {}), {
-                    'doc': 'Set if the attack was assessed to be targeted or not.'}),
-
                 ('goal', ('ou:goal', {}), {
                     'doc': 'The tactical goal of this specific attack.'}),
 
@@ -857,7 +857,6 @@ modeldefs = (
                 ('compromise', ('risk:compromise', {}), {
                     'doc': 'The compromise which allowed the attacker to extort the target.'}),
 
-                # FIXME econ:valuable
                 ('demanded:payment:price', ('econ:price', {}), {
                     'doc': 'The payment price which was demanded.'}),
 
@@ -867,7 +866,7 @@ modeldefs = (
                 ('paid:price', ('econ:price', {}), {
                     'doc': 'The total price paid by the target of the extortion.'}),
 
-                ('payments', ('array', {'type': 'econ:acct:payment', 'sorted': True, 'uniq': True}), {
+                ('payments', ('array', {'type': 'econ:payment', 'sorted': True, 'uniq': True}), {
                     'doc': 'Payments made from the target to the attacker.'}),
             )),
             ('risk:technique:masquerade', {}, (

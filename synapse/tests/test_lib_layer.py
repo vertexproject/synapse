@@ -983,6 +983,16 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('inet:ip=1.2.3.4 [ <(_foo)+ { it:dev:str=n2 } ]', opts=viewopts2)
             self.len(1, await core.nodes('inet:ip=1.2.3.4 <(_foo)- *', opts=viewopts2))
 
+            await core.addTagProp('score2', ('int', {}), {})
+            nodes = await core.nodes('[test:str=multi +#foo:score=5 +#foo:score2=6]')
+            self.sorteq(('score', 'score2'), nodes[0].getTagProps('foo'))
+
+            nodes = await core.nodes('test:str=multi [-#foo:score]')
+            self.eq(('score2',), nodes[0].getTagProps('foo'))
+
+            nodes = await core.nodes('test:str=multi')
+            self.eq(('score2',), nodes[0].getTagProps('foo'))
+
             await core.nodes('inet:ip=1.2.3.4 [ <(_foo)- { it:dev:str=n2 } ]', opts=viewopts2)
             self.len(0, await core.nodes('inet:ip=1.2.3.4 <(_foo)- *', opts=viewopts2))
             self.len(1, await core.nodes('inet:ip=1.2.3.4 <(_foo)- *'))
@@ -2287,12 +2297,12 @@ class LayerTest(s_t_utils.SynTest):
                 (test:guid=* :server="tcp://[::4]:12344")
                 (test:guid=* :server="tcp://[::5]:12345")
                 (test:guid=* :server="tcp://[::6]:12346")
-                (inet:http:request=* :flow={[ inet:flow=* :src=tcp://127.0.0.1:12341 ]})
-                (inet:http:request=* :flow={[ inet:flow=* :src=tcp://127.0.0.2:12342 ]})
-                (inet:http:request=* :flow={[ inet:flow=* :src=tcp://127.0.0.3:12343 ]})
-                (inet:http:request=* :flow={[ inet:flow=* :src="tcp://[::4]:12344" ]})
-                (inet:http:request=* :flow={[ inet:flow=* :src="tcp://[::5]:12345" ]})
-                (inet:http:request=* :flow={[ inet:flow=* :src="tcp://[::6]:12346" ]})
+                (inet:http:request=* :flow={[ inet:flow=* :client=tcp://127.0.0.1:12341 ]})
+                (inet:http:request=* :flow={[ inet:flow=* :client=tcp://127.0.0.2:12342 ]})
+                (inet:http:request=* :flow={[ inet:flow=* :client=tcp://127.0.0.3:12343 ]})
+                (inet:http:request=* :flow={[ inet:flow=* :client="tcp://[::4]:12344" ]})
+                (inet:http:request=* :flow={[ inet:flow=* :client="tcp://[::5]:12345" ]})
+                (inet:http:request=* :flow={[ inet:flow=* :client="tcp://[::6]:12346" ]})
                 (test:virtiface=(if1,) :servers=(tcp://127.0.0.1:12341, tcp://127.0.0.2:12342))
                 (test:virtiface=(if2,) :servers=("tcp://[::1]:12341", "tcp://[::2]:12342"))
                 (test:virtiface=(if3,) :servers=("tcp://127.0.0.1:12341", "tcp://[::2]:12342"))
@@ -2315,20 +2325,20 @@ class LayerTest(s_t_utils.SynTest):
 
             self.len(6, await core.nodes('inet:http:request :server.ip -> *'))
             self.len(6, await core.nodes('inet:http:request :server.ip -> inet:ip'))
-            self.len(3, await core.nodes('inet:http:request :server.ip -> inet:flow:src.ip'))
+            self.len(3, await core.nodes('inet:http:request :server.ip -> inet:flow:client.ip'))
             self.len(6, await core.nodes('$foo=inet:ip inet:http:request :server.ip -> $foo'))
 
-            q = 'inet:http:request :server.ip -> (inet:flow:src.ip, test:guid:server.ip)'
+            q = 'inet:http:request :server.ip -> (inet:flow:client.ip, test:guid:server.ip)'
             self.len(9, await core.nodes(q))
             q = '$foo=test:guid:server inet:http:request :server.ip -> ($foo).ip'
             self.len(6, await core.nodes(q))
             q = '$foo=test:guid:server $bar=ip inet:http:request :server.$bar -> ($foo).$bar'
             self.len(6, await core.nodes(q))
-            q = '$foo=test:guid:server inet:http:request :server.ip -> (($foo).ip, inet:flow:src.ip)'
+            q = '$foo=test:guid:server inet:http:request :server.ip -> (($foo).ip, inet:flow:client.ip)'
             self.len(9, await core.nodes(q))
-            q = '$foo=test:guid:server $bar=ip inet:http:request :server.ip -> (($foo).$bar, inet:flow:src.$bar)'
+            q = '$foo=test:guid:server $bar=ip inet:http:request :server.ip -> (($foo).$bar, inet:flow:client.$bar)'
             self.len(9, await core.nodes(q))
-            q = '$foo=(test:guid:server, inet:flow:src) inet:http:request :server.ip -> ($foo).ip'
+            q = '$foo=(test:guid:server, inet:flow:client) inet:http:request :server.ip -> ($foo).ip'
             self.len(9, await core.nodes(q))
 
             self.len(12, await core.nodes('.created +inet:server.ip'))
@@ -2371,10 +2381,10 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:guid.created +:server.ip=127.0.0.4'))
             self.len(2, await core.nodes('test:guid.created +:server.ip*range=(127.0.0.4, 127.0.0.5)'))
 
-            self.len(1, await core.nodes('inet:http:request.created +:flow::src.ip=127.0.0.2'))
-            self.len(2, await core.nodes('inet:http:request.created +:flow::src.ip*range=(127.0.0.2, 127.0.0.3)'))
-            self.len(2, await core.nodes('inet:http:request.created +:flow::src.ip>"::4"'))
-            self.len(2, await core.nodes('inet:http:request.created +:flow::src.ip*range=("::5", "::6")'))
+            self.len(1, await core.nodes('inet:http:request.created +:flow::client.ip=127.0.0.2'))
+            self.len(2, await core.nodes('inet:http:request.created +:flow::client.ip*range=(127.0.0.2, 127.0.0.3)'))
+            self.len(2, await core.nodes('inet:http:request.created +:flow::client.ip>"::4"'))
+            self.len(2, await core.nodes('inet:http:request.created +:flow::client.ip*range=("::5", "::6")'))
 
             self.len(2, await core.nodes('test:virtiface.created +:servers*[.ip=127.0.0.1]'))
             self.len(2, await core.nodes('test:virtiface.created +:servers*[.ip="::2"]'))

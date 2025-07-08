@@ -8,6 +8,44 @@ logger = logging.getLogger(__name__)
 
 class InetModelTest(s_t_utils.SynTest):
 
+    async def test_inet_handshakes(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ inet:ssh:handshake=*
+                    :flow=*
+                    :client=5.5.5.5
+                    :server=1.2.3.4:22
+                    :client:key={[ crypto:key:rsa=* ]}
+                    :server:key={[ crypto:key:rsa=* ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('client'), 'tcp://5.5.5.5')
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:22')
+
+            self.len(1, await core.nodes('inet:ssh:handshake :flow -> inet:flow'))
+            self.len(1, await core.nodes('inet:ssh:handshake :client:key -> crypto:key'))
+            self.len(1, await core.nodes('inet:ssh:handshake :server:key -> crypto:key'))
+
+            nodes = await core.nodes('''
+                [ inet:rdp:handshake=*
+                    :flow=*
+                    :client=5.5.5.5
+                    :server=1.2.3.4:22
+                    :client:hostname=SYNCODER
+                    :client:keyboard:layout=AZERTY
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('client'), 'tcp://5.5.5.5')
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:22')
+            self.eq(nodes[0].get('client:keyboard:layout'), 'azerty')
+
+            self.len(1, await core.nodes('inet:rdp:handshake :flow -> inet:flow'))
+            self.len(1, await core.nodes('inet:rdp:handshake :client:hostname -> it:hostname'))
+
     async def test_inet_jarm(self):
 
         async with self.getTestCore() as core:
@@ -348,111 +386,73 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_flow(self):
         async with self.getTestCore() as core:
-            valu = s_common.guid()
-            srccert = s_common.guid()
-            dstcert = s_common.guid()
-            shost = s_common.guid()
-            sproc = s_common.guid()
-            sexe = s_common.guid()
-            dhost = s_common.guid()
-            dproc = s_common.guid()
-            dexe = s_common.guid()
-            pfrom = s_common.guid()
-            sfile = s_common.guid()
-            props = {
-                'from': pfrom,
-                'shost': shost,
-                'sproc': sproc,
-                'sexe': sexe,
-                'dhost': dhost,
-                'dproc': dproc,
-                'dexe': dexe,
-                'sfile': sfile,
-                'scrt': srccert,
-                'dcrt': dstcert,
-            }
-            q = '''[(inet:flow=$valu
-                :time=(0)
-                :duration=(1)
-                :from=$p.from
-                :src="tcp://127.0.0.1:45654"
-                :src:host=$p.shost
-                :src:proc=$p.sproc
-                :src:exe=$p.sexe
-                :src:txcount=30
-                :src:txbytes=1
-                :src:handshake="Hello There"
-                :dst="tcp://1.2.3.4:80"
-                :dst:host=$p.dhost
-                :dst:proc=$p.dproc
-                :dst:exe=$p.dexe
-                :dst:txcount=33
-                :dst:txbytes=2
-                :tot:txcount=63
-                :tot:txbytes=3
-                :dst:handshake="OHai!"
-                :src:softnames=(HeHe, haha)
-                :dst:softnames=(FooBar, bazfaz)
-                :src:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
-                :dst:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
-                :ip:proto=6
-                :ip:tcp:flags=(0x20)
-                :sandbox:file=$p.sfile
-                :src:ssh:key={[ crypto:key:rsa=(foo,) ]}
-                :dst:ssh:key={[ crypto:key:rsa=(bar,) ]}
-                :src:ssl:cert=$p.scrt
-                :dst:ssl:cert=$p.dcrt
-                :src:rdp:hostname=SYNCODER
-                :src:rdp:keyboard:layout=AZERTY
-                :raw=((10), (20))
-                :src:txfiles={[ file:attachment=* :name=foo.exe ]}
-                :dst:txfiles={[ file:attachment=* :name=bar.exe ]}
-                :capture:host=*
-            )]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
+
+            nodes = await core.nodes('''
+                [ inet:flow=*
+
+                    :period=(20250701, 20250702)
+
+                    :server=1.2.3.4:443
+                    :server:host=*
+                    :server:proc=*
+                    :server:txcount=33
+                    :server:txbytes=2
+                    :server:handshake="OHai!"
+                    :server:txfiles={[ file:attachment=* :name=bar.exe ]}
+                    :server:softnames=(FooBar, bazfaz)
+                    :server:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
+
+                    :client=5.5.5.5
+                    :client:host=*
+                    :client:proc=*
+                    :client:txcount=30
+                    :client:txbytes=1
+                    :client:handshake="Hello There"
+                    :client:txfiles={[ file:attachment=* :name=foo.exe ]}
+                    :client:softnames=(HeHe, haha)
+                    :client:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
+
+                    :tot:txcount=63
+                    :tot:txbytes=3
+
+                    :ip:proto=6
+                    :ip:tcp:flags=(0x20)
+
+                    :sandbox:file=*
+                    :capture:host=*
+                ]
+            ''')
+
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:flow', valu))
-            self.eq(node.get('time'), 0)
-            self.eq(node.get('duration'), 1)
-            self.eq(node.get('from'), pfrom)
-            self.eq(node.get('src'), 'tcp://127.0.0.1:45654')
-            self.eq(node.get('src:host'), shost)
-            self.eq(node.get('src:proc'), sproc)
-            self.eq(node.get('src:exe'), sexe)
-            self.eq(node.get('src:txcount'), 30)
-            self.eq(node.get('src:txbytes'), 1)
-            self.eq(node.get('src:handshake'), 'Hello There')
-            self.eq(node.get('dst'), 'tcp://1.2.3.4:80')
-            self.eq(node.get('dst:host'), dhost)
-            self.eq(node.get('dst:proc'), dproc)
-            self.eq(node.get('dst:exe'), dexe)
-            self.eq(node.get('dst:txcount'), 33)
-            self.eq(node.get('dst:txbytes'), 2)
-            self.eq(node.get('dst:handshake'), 'OHai!')
-            self.eq(node.get('tot:txcount'), 63)
-            self.eq(node.get('tot:txbytes'), 3)
-            self.eq(node.get('src:softnames'), ('haha', 'hehe'))
-            self.eq(node.get('dst:softnames'), ('bazfaz', 'foobar'))
-            self.eq(node.get('src:cpes'), ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
-            self.eq(node.get('dst:cpes'), ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
-            self.eq(node.get('ip:proto'), 6)
-            self.eq(node.get('ip:tcp:flags'), 0x20)
-            self.eq(node.get('sandbox:file'), sfile)
-            self.eq(node.get('src:ssh:key'), ('crypto:key:rsa', '32fa2cd229fb5a2e63a80e856bcf0121'))
-            self.eq(node.get('dst:ssh:key'), ('crypto:key:rsa', '0635c85c426aacf6614d530e9c7cfdba'))
-            self.eq(node.get('src:ssl:cert'), srccert)
-            self.eq(node.get('dst:ssl:cert'), dstcert)
-            self.eq(node.get('src:rdp:hostname'), 'syncoder')
-            self.eq(node.get('src:rdp:keyboard:layout'), 'azerty')
-            self.eq(node.get('raw'), (10, 20))
-            self.nn(node.get('capture:host'))
-            self.len(2, await core.nodes('inet:flow -> crypto:x509:cert'))
-            self.len(1, await core.nodes('inet:flow :src:ssh:key -> crypto:key'))
-            self.len(1, await core.nodes('inet:flow :dst:ssh:key -> crypto:key'))
-            self.len(1, await core.nodes('inet:flow :src:txfiles -> file:attachment +:name=foo.exe'))
-            self.len(1, await core.nodes('inet:flow :dst:txfiles -> file:attachment +:name=bar.exe'))
+            self.eq(nodes[0].get('client'), 'tcp://5.5.5.5')
+            self.eq(nodes[0].get('client:txcount'), 30)
+            self.eq(nodes[0].get('client:txbytes'), 1)
+            self.eq(nodes[0].get('client:handshake'), 'Hello There')
+            self.eq(nodes[0].get('client:softnames'), ('haha', 'hehe'))
+            self.eq(nodes[0].get('client:cpes'), ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
+
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:443')
+            self.eq(nodes[0].get('server:txcount'), 33)
+            self.eq(nodes[0].get('server:txbytes'), 2)
+            self.eq(nodes[0].get('server:handshake'), 'OHai!')
+            self.eq(nodes[0].get('server:softnames'), ('bazfaz', 'foobar'))
+            self.eq(nodes[0].get('server:cpes'), ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
+
+            self.eq(nodes[0].get('tot:txcount'), 63)
+            self.eq(nodes[0].get('tot:txbytes'), 3)
+            self.eq(nodes[0].get('ip:proto'), 6)
+            self.eq(nodes[0].get('ip:tcp:flags'), 0x20)
+
+            self.len(1, await core.nodes('inet:flow :client:host -> it:host'))
+            self.len(1, await core.nodes('inet:flow :server:host -> it:host'))
+            self.len(1, await core.nodes('inet:flow :client:proc -> it:exec:proc'))
+            self.len(1, await core.nodes('inet:flow :server:proc -> it:exec:proc'))
+
+            self.len(1, await core.nodes('inet:flow :client:txfiles -> file:attachment +:name=foo.exe'))
+            self.len(1, await core.nodes('inet:flow :server:txfiles -> file:attachment +:name=bar.exe'))
+
             self.len(1, await core.nodes('inet:flow :capture:host -> it:host'))
+            self.len(1, await core.nodes('inet:flow :sandbox:file -> file:bytes'))
 
     async def test_fqdn(self):
         formname = 'inet:fqdn'
@@ -2353,6 +2353,7 @@ class InetModelTest(s_t_utils.SynTest):
                         :server=$server
                         :server:cert=*
                         :server:ja3s=$ja3s
+                        :server:jarmhash=07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1
                         :client=$client
                         :client:cert=*
                         :client:ja3=$ja3
@@ -2363,6 +2364,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('flow'))
             self.nn(nodes[0].get('server:cert'))
             self.nn(nodes[0].get('client:cert'))
+            self.eq(nodes[0].get('server:jarmhash'), '07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1')
 
             self.eq(props['ja3'], nodes[0].get('client:ja3'))
             self.eq(props['ja3s'], nodes[0].get('server:ja3s'))
@@ -2448,17 +2450,20 @@ class InetModelTest(s_t_utils.SynTest):
                 :url="https://v.vtx.lk/slack"
                 :name="Synapse users slack"
                 :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
+                :app={[ inet:service:app=({"id": "app00"}) ]}
             ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.nn(nodes[0].get('tenant'))
+            self.nn(nodes[0].get('app'))
             self.eq(nodes[0].ndef, ('inet:service:instance', s_common.guid(('vertex', 'slack'))))
             self.eq(nodes[0].get('id'), 'T2XK1223Y')
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('url'), 'https://v.vtx.lk/slack')
             self.eq(nodes[0].get('name'), 'synapse users slack')
             platinst = nodes[0]
+            app00 = nodes[0].get('app')
 
             q = '''
             [
@@ -2469,6 +2474,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :email=blackout@vertex.link
                     :banner={[ file:bytes=({"name": "greencat.gif"}) ]}
                     :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
+                    :app={[ inet:service:app=({"id": "a001"}) ]}
                 )
 
                 (inet:service:account=(visi, account, vertex, slack)
@@ -2483,6 +2489,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.nn(accounts[0].get('banner'))
             self.nn(accounts[0].get('tenant'))
+            self.nn(accounts[0].get('app'))
 
             self.eq(accounts[0].ndef, ('inet:service:account', s_common.guid(('blackout', 'account', 'vertex', 'slack'))))
             self.eq(accounts[0].get('id'), 'U7RN51U1J')
@@ -2609,6 +2616,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :platform=$platiden
                 :instance=$instiden
                 :topic=' My Topic   '
+                :app={ inet:service:app:id=app00 }
             ]
             '''
             opts = {'vars': {
@@ -2619,6 +2627,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:channel', s_common.guid(('general', 'channel', 'vertex', 'slack'))))
+            self.eq(nodes[0].get('app'), app00)
             self.eq(nodes[0].get('name'), 'general')
             self.eq(nodes[0].get('topic'), 'my topic')
             self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807))
@@ -2920,16 +2929,16 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ inet:service:subscription=*
                     :level=vertex.synapse.enterprise
-                    :pay:instrument={[ econ:bank:account=* :contact={[ entity:contact=* :name=visi]} ]}
+                    :pay:instrument={[ econ:pay:card=* ]}
                     :subscriber={[ inet:service:tenant=({"id": "VS-31337"}) ]}
                 ]
             ''')
             self.len(1, nodes)
             self.eq('vertex.synapse.enterprise.', nodes[0].get('level'))
-            self.eq('econ:bank:account', nodes[0].get('pay:instrument')[0])
+            self.eq('econ:pay:card', nodes[0].get('pay:instrument')[0])
             self.eq('inet:service:tenant', nodes[0].get('subscriber')[0])
             self.len(1, await core.nodes('inet:service:subscription -> inet:service:subscription:level:taxonomy'))
-            self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:bank:account'))
+            self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:pay:card'))
             self.len(1, await core.nodes('inet:service:subscription :subscriber -> inet:service:tenant'))
 
     async def test_ipv4_fallback(self):

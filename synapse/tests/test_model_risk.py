@@ -20,7 +20,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :time=20200202
                     :detected = 20210203
                     :success=true
-                    :targeted=true
                     :goal=*
                     :type=foo.bar
                     :severity=10
@@ -38,7 +37,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('desc'), 'wootwoot')
             self.eq(nodes[0].get('type'), 'foo.bar.')
             self.eq(nodes[0].get('success'), True)
-            self.eq(nodes[0].get('targeted'), True)
             self.eq(nodes[0].get('source:name'), 'vertex')
             self.eq(nodes[0].get('sophistication'), 40)
             self.eq(nodes[0].get('severity'), 10)
@@ -375,7 +373,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 :source={ gen.ou.org vertex }
                 :source:name=vertex
                 :paid:price=12345
-                :payments={[ econ:acct:payment=* ]}
+                :payments={[ econ:payment=* ]}
             ]''')
 
             self.len(1, nodes)
@@ -393,7 +391,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('vertex', nodes[0].get('source:name'))
             self.eq('12345', nodes[0].get('paid:price'))
 
-            self.len(1, await core.nodes('risk:extortion -> econ:acct:payment'))
+            self.len(1, await core.nodes('risk:extortion -> econ:payment'))
             self.len(1, await core.nodes('risk:extortion :target -> ou:org +:name=acme'))
             self.len(1, await core.nodes('risk:extortion :attacker -> entity:contact +:name=agent99'))
             self.len(1, await core.nodes('risk:extortion -> risk:compromise :target -> ou:org +:name=acme'))

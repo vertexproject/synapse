@@ -486,7 +486,6 @@ driveInfoSchema = {
         'parent': {'type': 'string', 'pattern': s_config.re_iden},
         'type': {'type': 'string', 'pattern': re_drivename},
         'name': {'type': 'string', 'pattern': re_drivename},
-        # TODO: This used to be called `perm`, so migrate this as part of the big migration from 2.x
         'permissions': s_msgpack.deepcopy(easyPermSchema),
         'kids': {'type': 'number', 'minimum': 0},
         'created': {'type': 'number'},
@@ -1223,3 +1222,17 @@ _httpLoginV1Schema = {
     'required': ['user', 'passwd'],
 }
 reqValidHttpLoginV1 = s_config.getJsValidator(_httpLoginV1Schema)
+
+_QueueDefSchema = {
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string', 'minLength': 1},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
+    },
+    'required': ['name', 'creator'],
+    'additionalProperties': False,
+}
+
+reqValidQueueDef = s_config.getJsValidator(_QueueDefSchema)

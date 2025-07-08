@@ -330,7 +330,7 @@ You want to use a one-time cron job that runs during off hours to perform some d
 want a job that will lift all existing ``doc:report`` nodes and remove (delete) the ``:publisher:name`` property
 at 0200 UTC.
 
-.. storm-pre:: [ (doc:report=* :publisher:name='ron the cat' :name='my article') (doc:report=* :name='your article') ]
+.. storm-pre:: [ (doc:report=* :publisher:name='ron the cat' :title='my article') (doc:report=* :title='your article') ]
 .. storm-pre:: doc:report:publisher:name [ -:publisher:name ]
 
 .. storm-cli:: cron.at --hour 2 { doc:report:publisher:name [ -:publisher:name ] }

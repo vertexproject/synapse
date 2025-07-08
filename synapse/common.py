@@ -420,27 +420,6 @@ def getTempDir(dirn=None):
     finally:
         shutil.rmtree(tempdir, ignore_errors=True)
 
-@contextlib.contextmanager
-def tmpfile(dirn: typing.Optional[str] = None, prefix: typing.Optional[str] = None):
-    '''
-    Context manager to create a temporary file and close it when finished. If an
-    error occurs within the scope of the context manager, the tempfile will be
-    automatically deleted.
-
-    Args:
-        dirn (Optional[str]): The optional directory name to create the tempfile in.
-        prefix (Optional[str]): The optional tempfile name prefix.
-    '''
-    (_fd, path) = tempfile.mkstemp(dir=dirn, prefix=prefix)
-
-    try:
-        with contextlib.closing(os.fdopen(_fd, 'wb+')) as fd:
-            yield (fd, path)
-
-    except Exception: # pragma: no cover
-        os.unlink(path)
-        raise
-
 def listdir(*paths, glob=None):
     '''
     List the (optionally glob filtered) full paths from a dir.

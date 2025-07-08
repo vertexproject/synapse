@@ -137,21 +137,6 @@ modeldefs = (
                 ('type', ('mat:item:type:taxonomy', {}), {
                     'doc': 'The taxonomy type for the specification.'}),
             )),
-
-            # FIXME keep? Genericize?
-            ('mat:itemimage', {}, (
-
-                ('item', ('mat:item', {}), {
-                    'doc': 'The item contained within the image file.', 'ro': True, }),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file containing an image of the item.', 'ro': True, }),
-            )),
-
-            ('mat:specimage', {}, (
-                ('spec', ('mat:spec', {}), {'doc': 'The spec contained within the image file.', 'ro': True, }),
-                ('file', ('file:bytes', {}), {'doc': 'The file containing an image of the spec.', 'ro': True, }),
-            )),
         ),
     }),
 )

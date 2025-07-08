@@ -18,30 +18,42 @@ modeldefs = (
                     ('id', ('meta:id', {}), {
                         'doc': 'A type or source specific ID for the {contactable}.'}),
 
+                    ('bio', ('text', {}), {
+                        'doc': 'A tagline or bio provided for the {contactable}.'}),
+
                     ('photo', ('file:bytes', {}), {
                         'doc': 'The profile picture or avatar for this {contactable}.'}),
 
                     ('name', ('meta:name', {}), {
                         'alts': ('names',),
-                        'doc': 'The primary name of the {contactable}.'}),
+                        'doc': 'The primary entity name of the {contactable}.'}),
 
                     ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate names for the {contactable}.'}),
+                        'doc': 'An array of alternate entity names for the {contactable}.'}),
 
                     ('title', ('entity:title', {}), {
-                        'doc': 'The title or role for this {contactable}.'}),
+                        'doc': 'The entity title or role for this {contactable}.'}),
 
                     ('titles', ('array', {'type': 'entity:title', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate job titles or roles for this {contactable}.'}),
+                        'doc': 'An array of alternate entity titles or roles for this {contactable}.'}),
+
+                    ('org', ('ou:org', {}), {
+                        'doc': 'An associated organization listed as part of the contact information.'}),
+
+                    ('org:name', ('meta:name', {}), {
+                        'doc': 'The name of an associated organization listed as part of the contact information.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary url for the {contactable}.'}),
 
                     ('lifespan', ('ival', {}), {
+                        'virts': {
+                            'min': (None, {'doc': 'The date of birth for an individual or founded date for an organization.'}),
+                            'max': (None, {'doc': 'The date of death for an individual or dissolved date for an organization.'}),
+                        },
                         'doc': 'The lifespan of the {contactable}.'}),
 
                     # FIXME place of birth / death?
-                    # FIXME org:name / employer etc?
                     # FIXME lang
                     # FIXME bio / tagline
 
@@ -71,6 +83,9 @@ modeldefs = (
 
                     ('social:accounts', ('array', {'type': 'inet:service:account', 'uniq': True, 'sorted': True}), {
                         'doc': 'Social media or other online accounts listed for the {contactable}.'}),
+
+                    ('crypto:currency:addresses', ('array', {'type': 'crypto:currency:address', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Crypto currency addresses listed for the {contactable}.'}),
 
                     ('websites', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                         'doc': 'Web sites listed for the {contactable}.'}),
