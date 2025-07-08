@@ -7,12 +7,12 @@ class CnGovTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[gov:cn:icp=12345678]')
+            nodes = await core.nodes('[gov:cn:icp=京ICP备12345678号]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('gov:cn:icp', 12345678))
+            self.eq(node.ndef, ('gov:cn:icp', '京ICP备12345678号'))
 
             nodes = await core.nodes('[gov:cn:mucd=61786]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('gov:cn:mucd', 61786))
+            self.eq(node.ndef, ('gov:cn:mucd', '61786'))

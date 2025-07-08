@@ -1,15 +1,18 @@
+# CN province abbreviations taken from https://www.cottongen.org/data/nomenclatures/China_provinces
+icpregex = '^(皖|京|渝|闽|粤|甘|桂|黔|豫|鄂|冀|琼|港|黑|湘|吉|苏|赣|辽|澳|蒙|宁|青|川|鲁|沪|陕|晋|津|台|新|藏|滇|浙)ICP(备|证)[0-9]{8}号$'
+
 modeldefs = (
     ('gov:cn', {
         'types': (
 
             # FIXME update type. not just an int.
-            ('gov:cn:icp', ('int', {}), {
+            ('gov:cn:icp', ('str', {'regex': icpregex}), {
                 'interfaces': (
                     ('entity:identifier', {}),
                 ),
                 'doc': 'A Chinese Internet Content Provider ID.'}),
 
-            ('gov:cn:mucd', ('int', {}), {
+            ('gov:cn:mucd', ('str', {'regex': '[0-9]{5}'}), {
                 'interfaces': (
                     ('entity:identifier', {}),
                 ),

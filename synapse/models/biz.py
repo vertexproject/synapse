@@ -70,24 +70,8 @@ modeldefs = (
             ('biz:rfp:type:taxonomy', {}, ()),
             ('biz:rfp', {}, (
 
-                ('id', ('meta:id', {}), {
-                    'prevnames': ('id',),
-                    'doc': 'An externally specified identifier for the RFP.'}),
-
-                ('title', ('str', {}), {
-                    'doc': 'The title of the RFP.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the RFP.'}),
-
                 ('status', ('biz:deal:status:taxonomy', {}), {
                     'doc': 'The status of the RFP.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The official URL for the RFP.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The RFP document.'}),
 
                 ('posted', ('time', {}), {
                     'doc': 'The date/time that the RFP was posted.'}),
