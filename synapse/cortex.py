@@ -276,7 +276,7 @@ class CoreApi(s_cell.CellApi):
         view = self.cell.getView()
         self.user.confirm(perms, gateiden=view.wlyr.iden)
 
-    async def importStormMeta(self, meta, extmodel=False, viewiden=None):
+    async def importStormMeta(self, meta, *, viewiden=None):
         view = self.cell.getView(viewiden, user=self.user)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
