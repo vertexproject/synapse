@@ -89,7 +89,7 @@ class StormLibStixTest(s_test.SynTest):
                 (it:app:yara:rule=$yararule :name=yararulez :text="rule dummy { condition: false }")
                 (it:app:snort:rule=$snortrule :name=snortrulez :text="alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)")
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
-                (doc:report=$news :name=report0 :published=20210328 +(refs)> { inet:fqdn=vertex.link })
+                (doc:report=$news :title=report0 :published=20210328 +(refs)> { inet:fqdn=vertex.link })
                 (file:bytes=$sha256 :size=333 :name=woot.json :mime=application/json +(refs)> { inet:fqdn=vertex.link } +#cno.mal.redtree)
                 (inet:service:account=(twitter, invisig0th) :platform={[inet:service:platform=* :name=twitter]} :id=invisig0th :user="visi stark" :period=2010) //seen=(2010, 2021)
                 (auth:creds=* :service:account=(twitter, invisig0th) :passwd=secret)

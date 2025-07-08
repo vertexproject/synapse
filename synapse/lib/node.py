@@ -63,6 +63,64 @@ class NodeBase:
         props = self.getProps()
         return self._getPropReprs(props)
 
+    def protocols(self, name=None):
+
+        retn = []
+
+        pdefs = self.form.info.get('protocols')
+        if pdefs is not None:
+            for pname, pdef in pdefs.items():
+
+                # TODO we could eventually optimize this...
+                if name is not None and name != pname:
+                    continue
+
+                retn.append(self._pdefToProto(pname, pdef, None))
+
+        for prop in self.form.props.values():
+
+            pdefs = prop.info.get('protocols')
+            if pdefs is None:
+                continue
+
+            for pname, pdef in pdefs.items():
+
+                if name is not None and name != pname:
+                    continue
+
+                retn.append(self._pdefToProto(pname, pdef, prop.name))
+
+        return retn
+
+    def protocol(self, name, propname=None):
+        pdef = self.form.reqProtoDef(name, propname=propname)
+        return self._pdefToProto(name, pdef, propname)
+
+    def _pdefToProto(self, name, pdef, propname):
+
+        proto = {
+            'name': name,
+            'vars': {},
+        }
+
+        if propname is not None:
+            proto['prop'] = propname
+
+        for varn, vdef in pdef['vars'].items():
+
+            if vdef.get('type') != 'prop': # pragma: no cover
+                mesg = f'Invalid protocol var type: {pdef.get("type")}.'
+                raise s_exc.BadFormDef(mesg=mesg)
+
+            varprop = vdef.get('name')
+            if varprop is None: # pragma: no cover
+                mesg = 'Protocol variable type "prop" requires a "name" key.'
+                raise s_exc.BadFormDef(mesg=mesg)
+
+            proto['vars'][varn] = self.get(varprop)
+
+        return proto
+
     def _reqValidProp(self, name):
         prop = self.form.prop(name)
         if prop is None:
@@ -441,14 +499,14 @@ class Node(NodeBase):
 
         return retn
 
-    async def set(self, name, valu, init=False, norminfo=None):
+    async def set(self, name, valu, norminfo=None):
         '''
         Set a property on the node.
 
         Args:
             name (str): The name of the property.
             valu (obj): The value of the property.
-            init (bool): Set to True to disable read-only enforcement
+            norminfo (obj): Norm info for valu if it has already been normalized.
 
         Returns:
             (bool): True if the property was changed.
@@ -655,7 +713,7 @@ class Node(NodeBase):
 
         return False
 
-    async def pop(self, name, init=False):
+    async def pop(self, name):
         '''
         Remove a property from a node and return the value
         '''
@@ -851,7 +909,7 @@ class Node(NodeBase):
 
         return dict(retn)
 
-    async def addTag(self, tag, valu=(None, None)):
+    async def addTag(self, tag, valu=(None, None), norminfo=None):
         '''
         Add a tag to a node.
 
@@ -859,14 +917,15 @@ class Node(NodeBase):
             tag (str): The tag to add to the node.
             valu: The optional tag value.  If specified, this must be a value that
                   norms as a valid time interval as an ival.
+            norminfo (obj): Norm info for valu if it has already been normalized.
 
         Returns:
             None: This returns None.
         '''
         async with self.view.getNodeEditor(self) as protonode:
-            await protonode.addTag(tag, valu=valu)
+            await protonode.addTag(tag, valu=valu, norminfo=norminfo)
 
-    async def delTag(self, tag, init=False):
+    async def delTag(self, tag):
         '''
         Delete a tag from the node.
         '''
@@ -1154,11 +1213,11 @@ class RuntNode(NodeBase):
         norm = prop.type.norm(valu)[0]
         return await self.view.core.runRuntPropSet(self, prop, norm)
 
-    async def pop(self, name, init=False):
+    async def pop(self, name):
         prop = self._reqValidProp(name)
         return await self.view.core.runRuntPropDel(self, prop)
 
-    async def addTag(self, name, valu=None):
+    async def addTag(self, name, valu=None, norminfo=None):
         mesg = f'You can not add a tag to a runtime only node (form: {self.form.name})'
         raise s_exc.IsRuntForm(mesg=mesg)
 

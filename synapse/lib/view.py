@@ -3256,7 +3256,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         async for nid, sref, tomb in s_common.merggenr2(genrs, cmprkey=lambda x: x[0]):
             if not nid == lastnid or sref.layriden in smap:
-                if lastnid is not None and not istomb:
+                if lastnid is not None and not istomb:  # noqa: F821
                     srefs = await self._genSrefList(lastnid, smap)
                     if srefs is not None:
                         yield lastnid, srefs

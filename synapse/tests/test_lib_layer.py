@@ -741,6 +741,9 @@ class LayerTest(s_t_utils.SynTest):
             noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAG_DEL, ('newp', None))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_SET, ('tp', 'score', 5, None, s_layer.STOR_TYPE_I64))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
+
             noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_DEL, ('newp', 'newp', None, None))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
@@ -979,6 +982,16 @@ class LayerTest(s_t_utils.SynTest):
 
             await core.nodes('inet:ip=1.2.3.4 [ <(_foo)+ { it:dev:str=n2 } ]', opts=viewopts2)
             self.len(1, await core.nodes('inet:ip=1.2.3.4 <(_foo)- *', opts=viewopts2))
+
+            await core.addTagProp('score2', ('int', {}), {})
+            nodes = await core.nodes('[test:str=multi +#foo:score=5 +#foo:score2=6]')
+            self.sorteq(('score', 'score2'), nodes[0].getTagProps('foo'))
+
+            nodes = await core.nodes('test:str=multi [-#foo:score]')
+            self.eq(('score2',), nodes[0].getTagProps('foo'))
+
+            nodes = await core.nodes('test:str=multi')
+            self.eq(('score2',), nodes[0].getTagProps('foo'))
 
             await core.nodes('inet:ip=1.2.3.4 [ <(_foo)- { it:dev:str=n2 } ]', opts=viewopts2)
             self.len(0, await core.nodes('inet:ip=1.2.3.4 <(_foo)- *', opts=viewopts2))

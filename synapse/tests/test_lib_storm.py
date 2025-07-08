@@ -295,6 +295,56 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('inet:service:platform:name=barplat'))
 
+            # Gutors work for props
+            nodes = await core.nodes('''[
+                test:str=guidprop
+                    :gprop=({'name': 'someprop', '$props': {'size': 5}})
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'guidprop'))
+            self.nn(node.get('gprop'))
+
+            nodes = await core.nodes('test:str=guidprop -> test:guid')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'someprop')
+            self.eq(node.get('size'), 5)
+
+            with self.raises(s_exc.BadTypeValu) as cm:
+                nodes = await core.nodes('''[
+                    test:str=newpprop
+                        :gprop=({'size': 'newp'})
+                ]''')
+
+            self.eq(cm.exception.get('form'), 'test:guid')
+            self.eq(cm.exception.get('prop'), 'size')
+            self.true(cm.exception.get('mesg').startswith('Bad value for prop test:guid:size: invalid literal'))
+
+            nodes = await core.nodes('''[
+                test:str=newpprop
+                    :gprop?=({'size': 'newp'})
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'newpprop'))
+            self.none(node.get('gprop'))
+
+            nodes = await core.nodes('''
+                [ test:str=methset ]
+                $node.props.gprop = ({'name': 'someprop'})
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'methset'))
+            self.nn(node.get('gprop'))
+
+            nodes = await core.nodes('test:str=methset -> test:guid')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'someprop')
+            self.eq(node.get('size'), 5)
+
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
 
@@ -947,24 +997,24 @@ class StormTest(s_t_utils.SynTest):
                     background {
                         [it:dev:str=haha]
                         fini{
-                            $lib.queue.get($x).put(hehe)
+                            $lib.queue.byname($x).put(hehe)
                         }
                     }
                 }
                 yield $stuff()
             ''')
-            self.eq((0, 'hehe'), await core.callStorm('return($lib.queue.get(foo).get())'))
+            self.eq((0, 'hehe'), await core.callStorm('return($lib.queue.byname(foo).get())'))
 
             await core.nodes('''$lib.queue.gen(bar)
-            background ${ $lib.queue.get(bar).put(haha) }
+            background ${ $lib.queue.byname(bar).put(haha) }
             ''')
-            self.eq((0, 'haha'), await core.callStorm('return($lib.queue.get(bar).get())'))
+            self.eq((0, 'haha'), await core.callStorm('return($lib.queue.byname(bar).get())'))
 
-            await core.nodes('$foo = (foo,) background ${ $foo.append(bar) $lib.queue.get(bar).put($foo) }')
-            self.eq((1, ['foo', 'bar']), await core.callStorm('return($lib.queue.get(bar).get(1))'))
+            await core.nodes('$foo = (foo,) background ${ $foo.append(bar) $lib.queue.byname(bar).put($foo) }')
+            self.eq((1, ['foo', 'bar']), await core.callStorm('return($lib.queue.byname(bar).get(1))'))
 
-            await core.nodes('$foo = ([["foo"]]) background ${ $foo.0.append(bar) $lib.queue.get(bar).put($foo) }')
-            self.eq((2, [['foo', 'bar']]), await core.callStorm('return($lib.queue.get(bar).get(2))'))
+            await core.nodes('$foo = ([["foo"]]) background ${ $foo.0.append(bar) $lib.queue.byname(bar).put($foo) }')
+            self.eq((2, [['foo', 'bar']]), await core.callStorm('return($lib.queue.byname(bar).get(2))'))
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ ou:org=*] $text = $node.repr() | background $text')
@@ -2516,25 +2566,25 @@ class StormTest(s_t_utils.SynTest):
 
             # embed through `econ:pay:instrument` type that extends from `ndef`
             await core.nodes('''
-                [ econ:acct:payment=* :from:instrument={ [ econ:pay:card=(testcard,) :name=infime ] } ]
+                [ econ:payment=* :payer:instrument={ [ econ:pay:card=(testcard,) :name=infime ] } ]
             ''')
 
             opts = {
                 'node:opts': {
                     'embeds': {
-                        'econ:acct:payment': {
-                            'from:instrument': ['name'],
+                        'econ:payment': {
+                            'payer:instrument': ['name'],
                         }
                     }
                 }
             }
-            msgs = await core.stormlist('econ:acct:payment', opts=opts)
+            msgs = await core.stormlist('econ:payment', opts=opts)
             node = [m[1] for m in msgs if m[0] == 'node'][0]
-            self.eq('econ:acct:payment', node[0][0])
+            self.eq('econ:payment', node[0][0])
 
             embeds = node[1]['embeds']
-            self.eq(25, embeds['from:instrument']['$nid'])
-            self.eq('infime', embeds['from:instrument']['name'])
+            self.eq(25, embeds['payer:instrument']['$nid'])
+            self.eq('infime', embeds['payer:instrument']['name'])
 
     async def test_storm_wget(self):
 
@@ -2752,7 +2802,7 @@ class StormTest(s_t_utils.SynTest):
                         $lib.queue.gen(dmonloop)
                         return(
                             $lib.dmon.add(${
-                                $queue = $lib.queue.get(dmonloop)
+                                $queue = $lib.queue.byname(dmonloop)
                                 while $lib.true {
                                     ($offs, $mesg) = $queue.get()
 
@@ -2783,8 +2833,8 @@ class StormTest(s_t_utils.SynTest):
                         self.eq(info['name'], 'dmonloop')
                         self.eq(info['status'], 'running')
 
-                        await core02.callStorm('$lib.queue.get(dmonloop).put((print, printfoo))')
-                        await core02.callStorm('$lib.queue.get(dmonloop).put((warn, warnfoo))')
+                        await core02.callStorm('$lib.queue.byname(dmonloop).put((print, printfoo))')
+                        await core02.callStorm('$lib.queue.byname(dmonloop).put((warn, warnfoo))')
 
                         info = await core02.getStormDmon(ddef['iden'])
                         self.eq(info['status'], 'running')
@@ -2794,7 +2844,7 @@ class StormTest(s_t_utils.SynTest):
                         self.stormIsInPrint('printfoo', msgs)
                         self.stormIsInWarn('warnfoo', msgs)
 
-                        await core02.callStorm('$lib.queue.get(dmonloop).put((leave,))')
+                        await core02.callStorm('$lib.queue.byname(dmonloop).put((leave,))')
 
                         info = await core02.getStormDmon(ddef['iden'])
                         self.eq(info['status'], 'sleeping')
@@ -3615,7 +3665,7 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('scrape "https://t.c\\\\"')
             self.stormHasNoWarnErr(msgs)
-            msgs = await core.stormlist('[ doc:report=* :name="https://t.c\\\\" ] | scrape :name')
+            msgs = await core.stormlist('[ doc:report=* :title="https://t.c\\\\" ] | scrape :title')
             self.stormHasNoWarnErr(msgs)
 
     async def test_storm_tee(self):

@@ -1265,3 +1265,17 @@ _exportStormMetaSchema = {
 }
 
 reqValidExportStormMeta = s_config.getJsValidator(_exportStormMetaSchema)
+
+_QueueDefSchema = {
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string', 'minLength': 1},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
+    },
+    'required': ['name', 'creator'],
+    'additionalProperties': False,
+}
+
+reqValidQueueDef = s_config.getJsValidator(_QueueDefSchema)

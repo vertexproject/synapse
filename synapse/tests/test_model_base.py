@@ -12,18 +12,18 @@ class BaseTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ meta:timeline=* :title=Woot :desc=4LOLZ :type=lol.cats ]')
             self.len(1, nodes)
             nodes = await core.nodes('''
-                [ meta:event=* :title=Zip :duration=1:30:00 :index=0
-                    :desc=Zop :time=20220321 :type=zip.zop :timeline={meta:timeline:title=Woot} ]''')
+                [ meta:event=* :title=Zip :period=(202203211400, 202203211520) :index=0
+                    :desc=Zop :type=zip.zop :timeline={meta:timeline:title=Woot} ]''')
             self.len(1, nodes)
             self.eq(0, nodes[0].get('index'))
-            nodes = await core.nodes('''[ meta:event=* :title=Hehe :duration=2:00
-                    :desc=Haha :time=20220322 :type=hehe.haha :timeline={meta:timeline:title=Woot} ]''')
+            nodes = await core.nodes('''[ meta:event=* :title=Hehe
+                    :desc=Haha :period=(202203221400, 202203221600) :type=hehe.haha :timeline={meta:timeline:title=Woot} ]''')
             self.len(1, nodes)
 
             self.len(2, await core.nodes('meta:timeline +:title=Woot +:desc=4LOLZ +:type=lol.cats -> meta:event'))
             self.len(1, await core.nodes('meta:timeline -> meta:timeline:type:taxonomy'))
             self.len(2, await core.nodes('meta:event -> meta:event:type:taxonomy'))
-            self.len(1, await core.nodes('meta:event +:title=Hehe +:desc=Haha +:time=20220322 +:duration=120 +:type=hehe.haha +:timeline'))
+            self.len(1, await core.nodes('meta:event +:title=Hehe +:desc=Haha +:period.duration=2:00:00 +:type=hehe.haha +:timeline'))
 
     async def test_model_base_meta_taxonomy(self):
         async with self.getTestCore() as core:
@@ -111,20 +111,20 @@ class BaseTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ meta:ruleset=*
                     :created=20200202 :updated=20220401 :author={[ entity:contact=* ]}
-                    :name=" My  Rules" :desc="My cool ruleset" ]
+                    :name=" My Rules" :desc="My cool ruleset" ]
             ''')
             self.len(1, nodes)
 
             self.nn(nodes[0].get('author'))
             self.eq(nodes[0].get('created'), 1580601600000000)
             self.eq(nodes[0].get('updated'), 1648771200000000)
-            self.eq(nodes[0].get('name'), 'my rules')
+            self.eq(nodes[0].get('name'), 'My Rules')
             self.eq(nodes[0].get('desc'), 'My cool ruleset')
 
             nodes = await core.nodes('''
                 [ meta:rule=*
                     :created=20200202 :updated=20220401 :author={[ entity:contact=* ]}
-                    :name=" My  Rule" :desc="My cool rule"
+                    :name=" My Rule" :desc="My cool rule"
                     :type=foo.bar
                     :text="while TRUE { BAD }"
                     :id=WOOT-20 :url=https://vertex.link/rules/WOOT-20
@@ -138,7 +138,7 @@ class BaseTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('type'), 'foo.bar.')
             self.eq(nodes[0].get('created'), 1580601600000000)
             self.eq(nodes[0].get('updated'), 1648771200000000)
-            self.eq(nodes[0].get('name'), 'my rule')
+            self.eq(nodes[0].get('name'), 'My Rule')
             self.eq(nodes[0].get('desc'), 'My cool rule')
             self.eq(nodes[0].get('text'), 'while TRUE { BAD }')
             self.eq(nodes[0].get('url'), 'https://vertex.link/rules/WOOT-20')

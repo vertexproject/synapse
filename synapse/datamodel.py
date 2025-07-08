@@ -122,6 +122,15 @@ class Prop:
     def __repr__(self):
         return f'DataModel Prop: {self.full}'
 
+    def reqProtoDef(self, name):
+
+        pdefs = self.info.get('protocols')
+        if pdefs is None or (pdef := pdefs.get(name)) is None:
+            mesg = f'Property {self.full} does not implement protocol {name}.'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        return pdef
+
     def onSet(self, func):
         '''
         Add a callback for setting this property.
@@ -284,6 +293,18 @@ class Form:
         if self.isrunt and (liftfunc := self.info.get('liftfunc')) is not None:
             func = s_dyndeps.tryDynLocal(liftfunc)
             modl.core.addRuntLift(name, func)
+
+    def reqProtoDef(self, name, propname=None):
+
+        if propname is not None:
+            return self.reqProp(propname).reqProtoDef(name)
+
+        pdefs = self.info.get('protocols')
+        if pdefs is None or (pdef := pdefs.get(name)) is None:
+            mesg = f'Form {self.full} does not implement protocol {name}.'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        return pdef
 
     def getRuntPode(self):
 
@@ -522,7 +543,17 @@ class Model:
         item = s_types.Bool(self, 'bool', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'A date/time value.'}
+        info = {'doc': 'A time precision value.'}
+        item = s_types.TimePrecision(self, 'timeprecision', info, {})
+        self.addBaseType(item)
+
+        info = {
+            'doc': 'A date/time value.',
+            'virts': {
+                'precision': (('timeprecision', {}), {
+                    'doc': 'The precision for display and rounding the time.'}),
+            },
+        }
         item = s_types.Time(self, 'time', info, {})
         self.addBaseType(item)
 
@@ -530,7 +561,23 @@ class Model:
         item = s_types.Duration(self, 'duration', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'A time window/interval.'}
+        info = {
+            'virts': {
+
+                'min': (('time', {}), {
+                    'doc': 'The starting time of the interval.'}),
+
+                'max': (('time', {}), {
+                    'doc': 'The ending time of the interval.'}),
+
+                'duration': (('duration', {}), {
+                    'doc': 'The duration of the interval.'}),
+
+                'precision': (('timeprecision', {}), {
+                    'doc': 'The precision for display and rounding the times.'}),
+            },
+            'doc': 'A time window or interval.',
+        }
         item = s_types.Ival(self, 'ival', info, {})
         self.addBaseType(item)
 
@@ -554,11 +601,22 @@ class Model:
         item = s_types.Loc(self, 'loc', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'The node definition type for a (form,valu) compound field.'}
+        info = {
+            'virts': {
+                'form': (('syn:form', {}), {
+                    'doc': 'The form of node which is referenced.'}),
+            },
+            'doc': 'The node definition type for a (form,valu) compound field.',
+        }
         item = s_types.Ndef(self, 'ndef', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'A typed array which indexes each field.'}
+        info = {
+            'virts': {
+                'size': (('int', {}), {'doc': 'The number of elements in the array.'}),
+            },
+            'doc': 'A typed array which indexes each field.'
+        }
         item = s_types.Array(self, 'array', info, {'type': 'int'})
         self.addBaseType(item)
 
@@ -585,10 +643,6 @@ class Model:
 
         info = {'doc': 'A velocity with base units in mm/sec.'}
         item = s_types.Velocity(self, 'velocity', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A time precision value.'}
-        item = s_types.TimePrecision(self, 'timeprecision', info, {})
         self.addBaseType(item)
 
         self.metatypes['created'] = self.getTypeClone(('time', {'ismin': True}))
@@ -974,6 +1028,16 @@ class Model:
         if not skipinit:
             self._modeldef['types'].append(newtype.getTypeDef())
 
+    def reqVirtTypes(self, virts):
+
+        for (name, (tdef, info)) in virts.items():
+
+            if tdef is None:
+                continue
+
+            if self.types.get(tdef[0]) is None:
+                raise s_exc.NoSuchType(name=tdef[0])
+
     def addForm(self, formname, forminfo, propdefs, checks=True):
 
         if not s_grammar.isFormName(formname):
@@ -983,6 +1047,13 @@ class Model:
         _type = self.types.get(formname)
         if _type is None:
             raise s_exc.NoSuchType(name=formname)
+
+        virts = _type.info.get('virts', {}).copy()
+        virts.update(forminfo.get('virts', {}))
+
+        if virts:
+            self.reqVirtTypes(virts)
+            forminfo['virts'] = virts
 
         form = Form(self, formname, forminfo)
 
@@ -1036,7 +1107,7 @@ class Model:
                 for i, partname in enumerate(parts):
 
                     if curf is None and i == (len(parts) - 1):
-                        mesg = f'No form named {prop.type.name} for property {prop.full}.'
+                        mesg = f'No form named {prop.type.name} for property {prop.full}.'  # noqa: F821
                         raise s_exc.NoSuchForm(mesg=mesg)
 
                     prop = curf.prop(partname)
@@ -1119,6 +1190,21 @@ class Model:
 
     def _addFormProp(self, form, name, tdef, info):
 
+        # TODO - implement resolving tdef from inherited interfaces
+        # if omitted from a prop or iface definition to allow doc edits
+
+        _type = self.types.get(tdef[0])
+        if _type is None:
+            mesg = f'No type named {tdef[0]} while declaring prop {form.name}:{name}.'
+            raise s_exc.NoSuchType(mesg=mesg, name=name)
+
+        virts = _type.info.get('virts', {}).copy()
+        virts.update(info.get('virts', {}))
+
+        if virts:
+            self.reqVirtTypes(virts)
+            info['virts'] = virts
+
         prop = Prop(self, form, name, tdef, info)
 
         # index the array item types
@@ -1162,6 +1248,7 @@ class Model:
 
         # TODO decide if/how to handle subinterface prefixes
         template = self._prepIfaceTemplate(iface, ifinfo)
+        template['$self'] = form.full
 
         def convert(item):
 

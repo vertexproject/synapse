@@ -222,6 +222,9 @@ modeldefs = (
                 ),
                 'props': (
 
+                    ('name', ('base:id', {}), {
+                        'doc': 'The rule name.'}),
+
                     ('desc', ('text', {}), {
                         'doc': 'A description of the {document}.'}),
 
@@ -272,12 +275,11 @@ modeldefs = (
             (('meta:ruleset', 'has', 'meta:ruleish'), {
                'doc': 'The ruleset includes the rule.'}),
 
-            # FIXME meta:rule:match
-            (('meta:rule', 'matches', None), {
-                'doc': 'The meta:rule has matched on target node.'}),
+            (('meta:ruleish', 'matches', None), {
+                'doc': 'The rule matched on the target node.'}),
 
-            (('meta:rule', 'detects', None), {
-                'doc': 'The meta:rule is designed to detect instances of the target node.'}),
+            (('meta:ruleish', 'detects', None), {
+                'doc': 'The rule is designed to detect the target node.'}),
         ),
         'forms': (
 
@@ -384,6 +386,9 @@ modeldefs = (
 
             ('meta:event', {}, (
 
+                ('period', ('ival', {}), {
+                    'doc': 'The period over which the event occurred.'}),
+
                 ('timeline', ('meta:timeline', {}), {
                     'doc': 'The timeline containing the event.'}),
 
@@ -393,15 +398,8 @@ modeldefs = (
                 ('desc', ('text', {}), {
                     'doc': 'A description of the event.'}),
 
-                # FIXME period
-                ('time', ('time', {}), {
-                    'doc': 'The time that the event occurred.'}),
-
                 ('index', ('int', {}), {
                     'doc': 'The index of this event in a timeline without exact times.'}),
-
-                ('duration', ('duration', {}), {
-                    'doc': 'The duration of the event.'}),
 
                 ('type', ('meta:event:type:taxonomy', {}), {
                     'doc': 'Type of event.'}),
@@ -412,7 +410,7 @@ modeldefs = (
 
             ('meta:ruleset', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:id', {}), {
                     'doc': 'A name for the ruleset.'}),
 
                 ('type', ('meta:ruleset:type:taxonomy', {}), {

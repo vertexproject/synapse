@@ -456,7 +456,7 @@ class ProtoNode(s_node.NodeBase):
         if self.node is not None:
             return self.node.getTag(tag, defval=defval)
 
-    async def addTag(self, tag, valu=(None, None), tagnode=None):
+    async def addTag(self, tag, valu=(None, None), norminfo=None, tagnode=None):
 
         if tagnode is None:
             tagnode = await self._getRealTag(tag)
@@ -464,9 +464,9 @@ class ProtoNode(s_node.NodeBase):
         if isinstance(valu, list):
             valu = tuple(valu)
 
-        if valu != (None, None):
+        if norminfo is None and valu != (None, None):
             try:
-                valu, _ = self.model.type('ival').norm(valu)
+                valu, norminfo = self.model.type('ival').norm(valu)
             except s_exc.BadTypeValu as e:
                 e.set('tag', tagnode.valu)
                 raise e
@@ -486,7 +486,9 @@ class ProtoNode(s_node.NodeBase):
         elif valu == (None, None):
             return tagnode
 
-        valu = s_time.ival(*valu, *curv)
+        if norminfo.get('merge', True):
+            valu = s_time.ival(*valu, *curv)
+
         self.tags[tagnode.valu] = valu
         self.tagdels.discard(tagnode.valu)
         self.tagtombs.discard(tagnode.valu)
@@ -656,6 +658,9 @@ class ProtoNode(s_node.NodeBase):
         if curv == norm:
             return False
 
+        if curv is not None and info.get('merge', True):
+            valu = prop.type.merge(curv, valu)
+
         self.tagprops[(tagnode.valu, name)] = norm
         self.tagpropdels.discard((tagnode.valu, name))
         self.tagproptombs.discard((tagnode.valu, name))
@@ -734,7 +739,7 @@ class ProtoNode(s_node.NodeBase):
         self.meta[name] = valu
         return True
 
-    async def _set(self, prop, valu, norminfo=None, ignore_ro=False):
+    async def _set(self, prop, valu, norminfo=None):
 
         if prop.locked:
             raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.', prop=prop.full)
@@ -746,12 +751,21 @@ class ProtoNode(s_node.NodeBase):
 
         if norminfo is None:
             try:
-                valu, norminfo = prop.type.norm(valu)
+                if (isinstance(valu, dict) and isinstance(prop.type, s_types.Guid)
+                    and (form := self.model.form(prop.type.name)) is not None):
+
+                    norms, props = await self.editor.view._normGuidNodeDict(form, valu)
+                    valu = await self.editor.view._addGuidNodeByDict(form, norms, props)
+                    norminfo = {}
+                else:
+                    valu, norminfo = prop.type.norm(valu)
+
             except s_exc.BadTypeValu as e:
-                oldm = e.get('mesg')
-                e.update({'prop': prop.name,
-                          'form': prop.form.name,
-                          'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})
+                if 'prop' not in e.errinfo:
+                    oldm = e.get('mesg')
+                    e.update({'prop': prop.name,
+                              'form': prop.form.name,
+                              'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})
                 raise e
 
         if isinstance(prop.type, s_types.Ndef):
@@ -764,8 +778,13 @@ class ProtoNode(s_node.NodeBase):
         if curv == (valu, virts):
             return False
 
-        if not ignore_ro and prop.info.get('ro') and curv[0] is not None:
+        cval = curv[0]
+
+        if prop.info.get('ro') and cval:
             raise s_exc.ReadOnlyProp(mesg=f'Property is read only: {prop.full}.')
+
+        if cval is not None and norminfo.get('merge', True):
+            valu = prop.type.merge(cval, valu)
 
         if self.node is not None:
             await self.editor.view.core._callPropSetHook(self.node, prop, valu)
@@ -776,12 +795,12 @@ class ProtoNode(s_node.NodeBase):
 
         return valu, norminfo
 
-    async def set(self, name, valu, norminfo=None, ignore_ro=False):
+    async def set(self, name, valu, norminfo=None):
         prop = self.form.props.get(name)
         if prop is None:
             raise s_exc.NoSuchProp(mesg=f'No property named {name} on form {self.form.name}.')
 
-        retn = await self._set(prop, valu, norminfo=norminfo, ignore_ro=ignore_ro)
+        retn = await self._set(prop, valu, norminfo=norminfo)
         if retn is False:
             return False
 

@@ -3615,6 +3615,7 @@ class LibQueue(Lib):
          'type': {'type': 'function', '_funcname': '_methQueueAdd',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to add.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden to assign to the queue.', 'default': None},
                   ),
                   'returns': {'type': 'queue', }}},
         {'name': 'gen', 'desc': 'Add or get a Storm Queue in a single operation.',
@@ -3626,11 +3627,17 @@ class LibQueue(Lib):
         {'name': 'del', 'desc': 'Delete a given named Queue.',
          'type': {'type': 'function', '_funcname': '_methQueueDel',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to delete.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the queue to delete.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get an existing Storm Queue object.',
+        {'name': 'get', 'desc': 'Get an existing Storm Queue object by iden.',
          'type': {'type': 'function', '_funcname': '_methQueueGet',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Queue to get.', },
+                  ),
+                  'returns': {'type': 'queue', 'desc': 'A ``queue`` object.', }}},
+        {'name': 'byname', 'desc': 'Get an existing Storm Queue object by name.',
+         'type': {'type': 'function', '_funcname': '_methQueueGetByName',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to get.', },
                   ),
@@ -3658,50 +3665,69 @@ class LibQueue(Lib):
             'gen': self._methQueueGen,
             'del': self._methQueueDel,
             'get': self._methQueueGet,
+            'byname': self._methQueueGetByName,
             'list': self._methQueueList,
         }
 
-    async def _methQueueAdd(self, name):
+    async def _methQueueAdd(self, name, iden=None):
+        name = await tostr(name)
+        iden = await tostr(iden, noneok=True)
 
-        info = {
-            'time': s_common.now(),
+        qdef = {
             'creator': self.runt.user.iden,
+            'name': name,
         }
 
-        todo = s_common.todo('addCoreQueue', name, info)
-        gatekeys = ((self.runt.user.iden, ('queue', 'add'), None),)
-        info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        if iden is not None:
+            if not s_common.isguid(iden):
+                raise s_exc.BadArg(name='iden', arg=iden, mesg=f'Argument {iden} it not a valid iden.')
+            qdef['iden'] = iden
 
-        return Queue(self.runt, name, info)
+        self.runt.confirm(('queue', 'add'))
+        info = await self.runt.view.core.addCoreQueue(qdef)
+        iden = info.get('iden')
+        return Queue(self.runt, name, iden, info)
 
     @stormfunc(readonly=True)
-    async def _methQueueGet(self, name):
-        todo = s_common.todo('getCoreQueue', name)
-        gatekeys = ((self.runt.user.iden, ('queue', 'get'), f'queue:{name}'),)
-        info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+    async def _methQueueGet(self, iden):
+        iden = await tostr(iden)
+        info = await self.runt.view.core.reqCoreQueue(iden)
+        name = info.get('name')
+        iden = info.get('iden')
+        self.runt.confirm(('queue', 'get'), gateiden=iden)
+        return Queue(self.runt, name, iden, info)
 
-        return Queue(self.runt, name, info)
+    @stormfunc(readonly=True)
+    async def _methQueueGetByName(self, name):
+        name = await tostr(name)
+        info = await self.runt.view.core.reqCoreQueueByName(name)
+        name = info.get('name')
+        iden = info.get('iden')
+        self.runt.confirm(('queue', 'get'), gateiden=iden)
+        return Queue(self.runt, name, iden, info)
 
     async def _methQueueGen(self, name):
+        name = await tostr(name)
         try:
-            return await self._methQueueGet(name)
+            return await self._methQueueGetByName(name)
         except s_exc.NoSuchName:
             return await self._methQueueAdd(name)
 
-    async def _methQueueDel(self, name):
-        todo = s_common.todo('delCoreQueue', name)
-        gatekeys = ((self.runt.user.iden, ('queue', 'del',), f'queue:{name}'), )
-        await self.dyncall('cortex', todo, gatekeys=gatekeys)
+    async def _methQueueDel(self, iden):
+        iden = await tostr(iden)
+        if not s_common.isguid(iden):
+            raise s_exc.BadArg(name='iden', arg=iden, mesg=f'Argument {iden} it not a valid iden.')
+
+        self.runt.confirm(('queue', 'del'), gateiden=iden)
+        await self.runt.view.core.delCoreQueue(iden)
 
     @stormfunc(readonly=True)
     async def _methQueueList(self):
         retn = []
 
-        todo = s_common.todo('listCoreQueues')
-        qlist = await self.dyncall('cortex', todo)
-
+        qlist = await self.runt.view.core.listCoreQueues()
         for queue in qlist:
-            if not allowed(('queue', 'get'), f"queue:{queue['name']}"):
+            if not self.runt.allowed(('queue', 'get'), gateiden=queue['iden']):
                 continue
 
             retn.append(queue)
@@ -3714,6 +3740,7 @@ class Queue(StormType):
     A StormLib API instance of a named channel in the Cortex multiqueue.
     '''
     _storm_locals = (
+        {'name': 'iden', 'desc': 'The iden of the Queue.', 'type': 'str', },
         {'name': 'name', 'desc': 'The name of the Queue.', 'type': 'str', },
         {'name': 'get', 'desc': 'Get a particular item from the Queue.',
          'type': {'type': 'function', '_funcname': '_methQueueGet',
@@ -3776,17 +3803,17 @@ class Queue(StormType):
     _storm_typename = 'queue'
     _ismutable = False
 
-    def __init__(self, runt, name, info):
+    def __init__(self, runt, name, iden, info):
 
         StormType.__init__(self)
         self.runt = runt
         self.name = name
+        self.iden = iden
         self.info = info
-
-        self.gateiden = f'queue:{name}'
 
         self.locls.update(self.getObjLocals())
         self.locls['name'] = self.name
+        self.locls['iden'] = self.iden
 
     def __hash__(self):
         return hash((self._storm_typename, self.name))
@@ -3809,63 +3836,53 @@ class Queue(StormType):
 
     async def _methQueueCull(self, offs):
         offs = await toint(offs)
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
-        await self.runt.view.core.coreQueueCull(self.name, offs)
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
+        await self.runt.view.core.coreQueueCull(self.iden, offs)
 
     @stormfunc(readonly=True)
     async def _methQueueSize(self):
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
-        return await self.runt.view.core.coreQueueSize(self.name)
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
+        return await self.runt.view.core.coreQueueSize(self.iden)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
         wait = await toint(wait)
         offs = await toint(offs)
         size = await toint(size, noneok=True)
 
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
-
-        async for item in self.runt.view.core.coreQueueGets(self.name, offs, cull=cull, wait=wait, size=size):
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
+        async for item in self.runt.view.core.coreQueueGets(self.iden, offs, cull=cull, wait=wait, size=size):
             yield item
 
     async def _methQueuePuts(self, items):
         items = await toprim(items)
-        gatekeys = self._getGateKeys('put')
-        await self.runt.reqGateKeys(gatekeys)
-        return await self.runt.view.core.coreQueuePuts(self.name, items)
+
+        self.runt.confirm(('queue', 'put'), gateiden=self.iden)
+        return await self.runt.view.core.coreQueuePuts(self.iden, items)
 
     async def _methQueueGet(self, offs=0, cull=True, wait=True):
         offs = await toint(offs)
         wait = await toint(wait)
 
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
-
-        return await self.runt.view.core.coreQueueGet(self.name, offs, cull=cull, wait=wait)
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
+        return await self.runt.view.core.coreQueueGet(self.iden, offs, cull=cull, wait=wait)
 
     async def _methQueuePop(self, offs=None, wait=False):
         offs = await toint(offs, noneok=True)
         wait = await tobool(wait)
 
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
+        self.runt.confirm(('queue', 'get'), gateiden=self.iden)
 
         # emulate the old behavior on no argument
         core = self.runt.view.core
         if offs is None:
-            async for item in core.coreQueueGets(self.name, 0, wait=wait):
-                return await core.coreQueuePop(self.name, item[0])
+            async for item in core.coreQueueGets(self.iden, 0, wait=wait):
+                return await core.coreQueuePop(self.iden, item[0])
             return
 
-        return await core.coreQueuePop(self.name, offs)
+        return await core.coreQueuePop(self.iden, offs)
 
     async def _methQueuePut(self, item):
         return await self._methQueuePuts((item,))
-
-    def _getGateKeys(self, perm):
-        return ((self.runt.user.iden, ('queue', perm), self.gateiden),)
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.name}'
@@ -5753,7 +5770,7 @@ class NodeProps(Prim):
 
         if valu is undef:
             confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
-            await self.valu.pop(name, None)
+            await self.valu.pop(name)
             return
 
         valu = await toprim(valu)
@@ -6013,12 +6030,33 @@ class Node(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The form to compare the Node against.', },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the form matches, false otherwise.', }}},
+
+        {'name': 'protocol', 'desc': 'Return a protocol object for the given property.',
+         'type': {'type': 'function', '_funcname': '_methNodeProtocol',
+                  'args': (
+                      {'name': 'name', 'type': 'str',
+                        'desc': 'The protocol name implemented by the property.', },
+                      {'name': 'propname', 'type': 'str', 'default': None,
+                        'desc': 'The relative name of the property which declares the protocol.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A protocol dictionary with populated properties.'}}},
+
+        {'name': 'protocols', 'desc': 'Return a list of protocol objects for the node.',
+         'type': {'type': 'function', '_funcname': '_methNodeProtocols',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'default': None,
+                        'desc': 'Only return protocols with the given name.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of protocol dictionaries.'}}},
+
         {'name': 'value', 'desc': 'Get the value of the primary property of the Node.',
          'type': {'type': 'function', '_funcname': '_methNodeValue',
                   'returns': {'type': 'prim', 'desc': 'The primary property.', }}},
+
         {'name': 'getByLayer', 'desc': 'Return a dict you can use to lookup which props/tags came from which layers.',
          'type': {'type': 'function', '_funcname': '_methGetByLayer',
                   'returns': {'type': 'dict', 'desc': 'property / tag lookup dictionary.', }}},
+
         {'name': 'getStorNodes',
          'desc': 'Return a list of "storage nodes" which were fused from the layers to make this node.',
          'type': {'type': 'function', '_funcname': '_methGetStorNodes',
@@ -6059,6 +6097,8 @@ class Node(Prim):
             'globtags': self._methNodeGlobTags,
             'difftags': self._methNodeDiffTags,
             'isform': self._methNodeIsForm,
+            'protocol': self._methNodeProtocol,
+            'protocols': self._methNodeProtocols,
             'getByLayer': self._methGetByLayer,
             'getStorNodes': self._methGetStorNodes,
         }
@@ -6126,6 +6166,17 @@ class Node(Prim):
     @stormfunc(readonly=True)
     async def _methNodeIsForm(self, name):
         return self.valu.form.name == name
+
+    @stormfunc(readonly=True)
+    async def _methNodeProtocol(self, name, propname=None):
+        name = await tostr(name)
+        propname = await tostr(propname, noneok=True)
+        return self.valu.protocol(name, propname=propname)
+
+    @stormfunc(readonly=True)
+    async def _methNodeProtocols(self, name=None):
+        name = await tostr(name, noneok=True)
+        return self.valu.protocols(name=name)
 
     @stormfunc(readonly=True)
     async def _methNodeTags(self, glob=None, leaf=False):
