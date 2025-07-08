@@ -769,10 +769,12 @@ class ProtoNode(s_node.NodeBase):
         if curv == (valu, virts):
             return False
 
-        if prop.info.get('ro') and curv[0] is not None:
+        cval = curv[0]
+
+        if prop.info.get('ro') and cval:
             raise s_exc.ReadOnlyProp(mesg=f'Property is read only: {prop.full}.')
 
-        if (cval := curv[0]) is not None and norminfo.get('merge', True):
+        if cval is not None and norminfo.get('merge', True):
             valu = prop.type.merge(cval, valu)
 
         if self.node is not None:
