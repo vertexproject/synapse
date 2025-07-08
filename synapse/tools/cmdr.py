@@ -1,15 +1,12 @@
-import sys
-import asyncio
 import logging
 import warnings
-import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.cmd as s_cmd
 import synapse.lib.cmdr as s_cmdr
-import synapse.lib.coro as s_coro
 import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
@@ -52,9 +49,8 @@ async def main(argv):  # pragma: no cover
 
     async with s_telepath.withTeleEnv():
         await _main(argv)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
     return 0
 
 if __name__ == '__main__':  # pragma: no cover
     warnings.filterwarnings("default", category=PendingDeprecationWarning)
-    sys.exit(asyncio.run(main(sys.argv[1:])))
+    s_cmd.exitmain(main)

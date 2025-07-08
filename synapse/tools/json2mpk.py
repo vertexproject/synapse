@@ -12,11 +12,7 @@ def getArgParser():
     pars.add_argument('paths', nargs='+', help='json files or directories full of json files')
     return pars
 
-def main(argv, outp=None):
-
-    if outp is None:  # pragma: no cover
-        outp = s_output.OutPut()
-
+def main(argv, outp=s_output.stdout):
     pars = getArgParser()
     opts = pars.parse_args(argv)
 
