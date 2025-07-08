@@ -625,7 +625,7 @@ class Guid(Type):
         )
 
     def _normPyList(self, valu):
-        if len(valu) == 0:
+        if not valu:
             mesg = 'Guid list values cannot be empty.'
             raise s_exc.BadTypeValu(mesg=mesg)
         return s_common.guid(valu), {}
