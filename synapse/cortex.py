@@ -1584,8 +1584,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def addCoreQueue(self, qdef):
         qdef['created'] = s_common.now()
+        if self.quedefs.get(qdef.get('name')) is not None:
+            mesg = f'Queue named {qdef.get("name")} already exists!'
+            raise s_exc.DupName(mesg=mesg)
+
         if qdef.get('iden') is None:
             qdef['iden'] = s_common.guid((self.iden, qdef.get("name")))
+
         s_schemas.reqValidQueueDef(qdef)
         return await self._push('queue:add', qdef)
 
