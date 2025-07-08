@@ -2001,7 +2001,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         try:
             await self.auth.delAuthGate(f'queue:{name}')
-        except NoSuchAuthGate:  # pragma: no cover
+        except s_exc.NoSuchAuthGate:
             pass
 
         await self.multiqueue.rem(name)
