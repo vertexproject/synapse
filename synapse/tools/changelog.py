@@ -1016,7 +1016,7 @@ async def model(opts: s_cmd.argparse.Namespace,
         return 0
 
 async def main(argv, outp=s_output.stdout):
-    pars = getArgParser()
+    pars = getArgParser(outp)
 
     opts = pars.parse_args(argv)
     if opts.git_dir_check:
