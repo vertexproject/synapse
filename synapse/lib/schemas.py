@@ -297,7 +297,14 @@ _authRulesSchema = {
         'type': 'array',
         'items': [
             {'type': 'boolean'},
-            {'type': 'array', 'items': {'type': 'string', 'minLength': 1}, 'minItems': 1},
+            {
+                'type': 'array',
+                'items': {
+                    'type': 'string',
+                    'minLength': 1
+                },
+                'minItems': 1
+            },
         ],
         'minItems': 2,
         'maxItems': 2,
