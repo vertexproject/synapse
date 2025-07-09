@@ -567,6 +567,10 @@ modeldefs = (
                     'doc': 'The version integer in the certificate. (ex. 2 == v3 ).',
                 }),
 
+                ('cn', ('base:name', {}), {
+                    'doc': 'The Common Name (CN) attribute of the x509 Subject.',
+                }),
+
                 ('validity:notbefore', ('time', {}), {
                     'doc': 'The timestamp for the beginning of the certificate validity period.',
                 }),
