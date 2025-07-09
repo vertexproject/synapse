@@ -1,0 +1,5 @@
+---
+desc: Fixed a bug where guid forms could be created with an empty list.
+prs: []
+type: bug
+...
