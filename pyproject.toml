@@ -99,11 +99,16 @@ include = ["synapse*"]
 [tool.ruff]
 include = [
     'synapse/*.py',
+    'scripts/*.py',
     'examples/*.py',
 ]
 target-version = "py311"
 
 [tool.ruff.lint]
 select = [
+    "E251", # Whitespace around kwargs; preview rule
     "F821",  # Check for undefined names - this is generally fatal
+    "W191", "W191", "W292", "W293", "W391",  # Whitespace checks; W391 is a preview rule.
+    "W605", # invalid escape sequence
 ]
+preview = true

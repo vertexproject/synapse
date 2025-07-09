@@ -1,14 +1,9 @@
-import sys
-import asyncio
-import argparse
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.coro as s_coro
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
-import synapse.lib.version as s_version
 
 descr = '''
 Query the Aha server for the service cluster status of mirrors.
@@ -87,8 +82,7 @@ def timeout_type(valu):
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.aha.mirror', description=descr,
-                        formatter_class=argparse.RawDescriptionHelpFormatter)
+    pars = s_cmd.Parser(prog='synapse.tools.aha.mirror', outp=outp, description=descr)
 
     pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL to connect to the AHA service.')
     pars.add_argument('--timeout', type=timeout_type, default=10, help='The timeout in seconds for individual service API calls')
@@ -192,10 +186,5 @@ async def main(argv, outp=s_output.stdout):
             outp.printf(f'ERROR: {mesg}')
             return 1
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_cmd.exitmain(main)

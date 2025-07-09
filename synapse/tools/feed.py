@@ -1,17 +1,14 @@
 import os
-import sys
 import time
-import asyncio
 import logging
-import argparse
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
+import synapse.lib.cmd as s_cmd
 import synapse.lib.cmdr as s_cmdr
-import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
@@ -79,12 +76,9 @@ async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=100
     if debug:
         await s_cmdr.runItemCmdr(core, outp, True)
 
-async def main(argv, outp=None):
+async def main(argv, outp=s_output.stdout):
 
-    if outp is None:  # pragma: no cover
-        outp = s_output.OutPut()
-
-    pars = makeargparser()
+    pars = getArgParser(outp)
     opts = pars.parse_args(argv)
 
     if opts.offset:
@@ -124,9 +118,9 @@ async def main(argv, outp=None):
 
     return 0
 
-def makeargparser():
+def getArgParser(outp):
     desc = 'Command line tool for ingesting data into a cortex'
-    pars = argparse.ArgumentParser('synapse.tools.feed', description=desc)
+    pars = s_cmd.Parser(prog='synapse.tools.feed', outp=outp, description=desc)
 
     muxp = pars.add_mutually_exclusive_group(required=True)
     muxp.add_argument('--cortex', '-c', type=str,
@@ -150,11 +144,6 @@ def makeargparser():
 
     return pars
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    s_common.setlogging(logger, 'DEBUG')
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_common.setlogging(logger, 'DEBUG')
+    s_cmd.exitmain(main)
