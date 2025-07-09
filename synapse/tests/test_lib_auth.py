@@ -432,7 +432,7 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.allrole.setRules([(True, )])
             with self.raises(s_exc.SchemaViolation):
-                await core.auth.allrole.setRules([])
+                await core.auth.allrole.setRules([(True, '')])
 
     async def test_auth_archived_locked_interaction(self):
 
