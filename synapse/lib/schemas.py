@@ -301,7 +301,8 @@ _authRulesSchema = {
         ],
         'minItems': 2,
         'maxItems': 2,
-    }
+    },
+    'minItems': 1,
 }
 reqValidRules = s_config.getJsValidator(_authRulesSchema)
 
