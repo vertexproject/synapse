@@ -447,7 +447,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             ''', opts={'vars': {'icert': icert}})
             self.eq(nodes[0].ndef, ('crypto:x509:cert', icert))
             self.eq(nodes[0].get('subject'), "CN=issuer.link")
-            self.eq(nodes[0].get('subject:cn'), "issuer.link")
+            self.eq(nodes[0].get('subject:cn'), "Issuer.Link")
             self.eq(nodes[0].get('issuer:cert'), icert)
             self.eq(nodes[0].get('selfsigned'), True)
 
