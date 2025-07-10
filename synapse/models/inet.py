@@ -1177,6 +1177,9 @@ modeldefs = (
         'ctors': (
 
             ('inet:ip', 'synapse.models.inet.IPAddr', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'IP address'}}),
+                ),
                 'ex': '1.2.3.4',
                 'doc': 'An IPv4 or IPv6 address.'}),
 
@@ -1203,6 +1206,9 @@ modeldefs = (
                 'doc': 'An e-mail address.'}),
 
             ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'FQDN'}}),
+                ),
                 'ex': 'vertex.link',
                 'doc': 'A Fully Qualified Domain Name (FQDN).'}),
 
