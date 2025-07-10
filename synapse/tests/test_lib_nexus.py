@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 from unittest import mock
 
 import synapse.exc as s_exc
@@ -110,6 +111,16 @@ class NexusTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     self.isin('while replaying log', stream.read())
+
+                    nexsindx = nexus1.nexsroot.nexslog.index()
+
+                    async def listen():
+                        async for item in nexus1.getNexusChanges(nexsindx, wait=True):
+                            break
+
+                    task = nexus1.schedCoro(listen())
+                    self.eq('foo', await nexus1.doathing(eventdict))
+                    await task
 
     async def test_nexus_modroot(self):
 
@@ -395,3 +406,30 @@ class NexusTest(s_t_utils.SynTest):
                 await core.nodes('[ it:dev:str=foo ]', opts={'view': forkiden})
 
             core.nexsroot._nexskids[layriden] = layr
+
+    async def test_nexus_iter(self):
+        async with self.getTestCell(conf={'nexslog:en': True}) as cell:
+            await cell.sync()
+
+            # Force nexus events to be added while constructing a Window
+            orig = s_nexus.NexsRoot.getMirrorWindow
+
+            @contextlib.asynccontextmanager
+            async def slowwindow(self):
+                await cell.sync()
+                async with orig(self) as wind:
+                    await cell.sync()
+                    yield wind
+
+            items = []
+            with mock.patch('synapse.lib.nexus.NexsRoot.getMirrorWindow', slowwindow):
+                async with cell.getLocalProxy() as prox:
+                    async for indx, item in prox.getNexusChanges(0):
+                        items.append(indx)
+                        if indx == 2:
+                            await cell.sync()
+                        elif indx == 3:
+                            break
+
+            # We didn't miss or duplicate items added during window construction
+            self.eq([0, 1, 2, 3], items)
