@@ -580,6 +580,10 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('zone'), 'foo.com')
 
+            nodes = await core.nodes('[inet:fqdn=vertex.link :seen=(2020,2021)]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000))
+
     async def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
 
@@ -955,6 +959,10 @@ class InetModelTest(s_t_utils.SynTest):
             fini { return ( $l ) }'''
             resp = await core.callStorm(q)
             self.eq(resp, ['unicast', 'private', 'private'])
+
+            nodes = await core.nodes('[inet:ip=1.2.3.4 :seen=(2020,2021)]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000))
 
     async def test_ipv6(self):
         formname = 'inet:ip'
