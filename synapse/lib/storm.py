@@ -1363,7 +1363,7 @@ class DmonManager(s_base.Base):
         '''
         Start all the dmons.
         '''
-        if self.enabled:
+        if self.enabled or self.core.safemode:
             return
         dmons = list(self.dmons.values())
         if not dmons:

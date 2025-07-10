@@ -260,6 +260,9 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.merging: # pragma: no cover
             return
 
+        if self.core.safemode:
+            return
+
         if not await self.isMergeReady():
             return
 
@@ -378,6 +381,9 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         if not await self.core.isCellActive():
+            return
+
+        if self.core.safemode:
             return
 
         self.mergetask = self.core.schedCoro(self.runViewMerge())
@@ -566,6 +572,9 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         if not await self.core.isCellActive():
+            return
+
+        if self.core.safemode:
             return
 
         self.trigtask = self.schedCoro(self._trigQueueLoop())
@@ -1577,7 +1586,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def runTagAdd(self, node, tag, valu):
 
-        if self.core.migration:
+        if self.core.migration or self.core.safemode:
             return
 
         # Run any trigger handlers
@@ -1585,21 +1594,21 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def runTagDel(self, node, tag, valu):
 
-        if self.core.migration:
+        if self.core.migration or self.core.safemode:
             return
 
         await self.triggers.runTagDel(node, tag)
 
     async def runNodeAdd(self, node):
 
-        if self.core.migration:
+        if self.core.migration or self.core.safemode:
             return
 
         await self.triggers.runNodeAdd(node)
 
     async def runNodeDel(self, node):
 
-        if self.core.migration:
+        if self.core.migration or self.core.safemode:
             return
 
         await self.triggers.runNodeDel(node)
@@ -1608,21 +1617,21 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Handle when a prop set trigger event fired
         '''
-        if self.core.migration:
+        if self.core.migration or self.core.safemode:
             return
 
         await self.triggers.runPropSet(node, prop, oldv)
 
     async def runEdgeAdd(self, n1, edge, n2):
 
-        if self.core.migration:
+        if self.core.migration or self.core.safemode:
             return
 
         await self.triggers.runEdgeAdd(n1, edge, n2)
 
     async def runEdgeDel(self, n1, edge, n2):
 
-        if self.core.migration:
+        if self.core.migration or self.core.safemode:
             return
 
         await self.triggers.runEdgeDel(n1, edge, n2)
