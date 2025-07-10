@@ -8875,6 +8875,22 @@ class CortexBasicTest(s_t_utils.SynTest):
                     with self.raises(TimeoutError):
                         await s_common.wait_for(core.coreQueueGet('queue:safemode:done', wait=True), timeout=2)
 
+                    # Add a dmon to make sure it doesn't start
+                    await core.addCoreQueue('queue:safemode:started', {})
+                    q = '''
+                    $queue = $lib.queue.gen(queue:safemode)
+                    $queue2 = $lib.queue.get(queue:safemode:started)
+                    while (true) {
+                        $queue2.put(foo)
+                        $lib.log.warning(`SAFEMODE DMON START`)
+                        ($offs, $item) = $queue.get()
+                    }
+                    '''
+                    await core.callStorm(f'$iden = $lib.dmon.add(${{{q}}}) $lib.dmon.start($iden)')
+
+                    with self.raises(TimeoutError):
+                        await s_common.wait_for(core.coreQueueGet('queue:safemode:started', wait=True), timeout=2)
+
                 stream.seek(0)
                 data = stream.read()
                 self.notin('SAFEMODE CRON', data)

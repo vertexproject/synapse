@@ -1608,7 +1608,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await layer.initLayerActive()
 
             for pkgdef in list(self.stormpkgs.values()):
-                await self._runStormPkgOnload(pkgdef)
+                self._runStormPkgOnload(pkgdef)
 
         self.runActiveTask(_runMigrations())
 
@@ -2674,7 +2674,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 return
 
         self.loadStormPkg(pkgdef)
-        await self._runStormPkgOnload(pkgdef)
+        self._runStormPkgOnload(pkgdef)
         self.pkgdefs.set(name, pkgdef)
 
         self._clearPermDefs()
@@ -2966,16 +2966,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self._initEasyPerm(gdef)
             self.pkggraphs[gdef['iden']] = gdef
 
-    async def _runStormPkgOnload(self, pkgdef):
+    def _runStormPkgOnload(self, pkgdef):
         name = pkgdef.get('name')
         onload = pkgdef.get('onload')
 
         if onload is not None and self.isactive:
-            if self.safemode:
-                await self.fire('core:pkg:onload:skipped', pkg=name, reason='safemode')
-                return
-
             async def _onload():
+                if self.safemode:
+                    await self.fire('core:pkg:onload:skipped', pkg=name, reason='safemode')
+                    return
+
                 await self.fire('core:pkg:onload:start', pkg=name)
                 try:
                     async for mesg in self.storm(onload):
