@@ -3489,7 +3489,10 @@ class Layer(s_nexus.Pusher):
 
         valt = edit[1]
         valu, stortype = valt
-        if sode.get('valu') == valt:
+
+        isarray = stortype & STOR_FLAG_ARRAY
+
+        if not isarray and sode.get('valu') == valt:
             return ()
 
         abrv = self.setPropAbrv(form, None)
@@ -3500,7 +3503,7 @@ class Layer(s_nexus.Pusher):
         sode['valu'] = valt
         self.setSodeDirty(buid, sode, form)
 
-        if stortype & STOR_FLAG_ARRAY:
+        if isarray:
 
             for indx in self.getStorIndx(stortype, valu):
                 self.layrslab.put(abrv + indx, buid, db=self.byarray)
@@ -3587,6 +3590,8 @@ class Layer(s_nexus.Pusher):
         if prop[0] == '.':  # '.' to detect universal props (as quickly as possible)
             univabrv = self.setPropAbrv(None, prop)
 
+        isarray = stortype & STOR_FLAG_ARRAY
+
         if oldv is not None:
 
             # merge intervals and min times
@@ -3599,7 +3604,7 @@ class Layer(s_nexus.Pusher):
             elif stortype == STOR_TYPE_MAXTIME:
                 valu = max(valu, oldv)
 
-            if valu == oldv and stortype == oldt:
+            if not isarray and valu == oldv and stortype == oldt:
                 return ()
 
             if oldt & STOR_FLAG_ARRAY:
@@ -3638,7 +3643,7 @@ class Layer(s_nexus.Pusher):
         sode['props'][prop] = (valu, stortype)
         self.setSodeDirty(buid, sode, form)
 
-        if stortype & STOR_FLAG_ARRAY:
+        if isarray:
 
             realtype = stortype & 0x7fff
 
@@ -3828,7 +3833,7 @@ class Layer(s_nexus.Pusher):
             kvpairs.append((tp_abrv + indx, buid))
             kvpairs.append((ftp_abrv + indx, buid))
 
-        await self.layrslab.putmulti(kvpairs, db=self.bytagprop)
+        self.layrslab._putmulti(kvpairs, db=self.bytagprop)
 
         return (
             (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype), ()),

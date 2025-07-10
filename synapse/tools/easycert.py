@@ -1,9 +1,7 @@
-
-import sys
 import argparse
 
-
 import synapse.exc as s_exc
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 
@@ -11,10 +9,7 @@ descr = '''
 Command line tool to generate simple x509 certs
 '''
 
-def main(argv, outp=None):
-
-    if outp is None:  # pragma: no cover
-        outp = s_output.OutPut()
+def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='easycert', description=descr)
     pars.add_argument('--certdir', default='~/.syn/certs', help='Directory for certs/keys')
@@ -138,4 +133,4 @@ def main(argv, outp=None):
         return 1
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(main(sys.argv[1:]))
+    s_cmd.exitmain(main)

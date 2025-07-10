@@ -1,16 +1,9 @@
-import sys
-import asyncio
-import logging
-
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.coro as s_coro
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 import synapse.lib.version as s_version
-
-logger = logging.getLogger(__name__)
 
 reqver = '>=2.11.0,<3.0.0'
 
@@ -74,11 +67,5 @@ async def main(argv, outp=s_output.stdout):
                 outp.printf(mesg)
             return 0
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    s_common.setlogging(logger, 'WARNING')
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_cmd.exitmain(main)
