@@ -1,5 +1,5 @@
 ---
-desc: Updated Cortex with a safe-mode option (``--safemode`` or ``SYN_CORTEX_SAFEMODE=1``)
+desc: Updated Cortex with a safe-mode option (``SYN_CORTEX_SAFEMODE=true``)
   which disables crons, triggers, dmons, storm package onload handlers, view merge
   tasks, and storm pools.
 prs: []
