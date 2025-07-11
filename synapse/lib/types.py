@@ -380,7 +380,6 @@ class Type:
 
         Args:
             valu (obj): The value to normalize.
-            view (obj): Optional view to use when normalizing.
 
         Returns:
             ((obj,dict)): The normalized valu, info tuple.
@@ -803,10 +802,10 @@ class Guid(Type):
     async def _normPyDict(self, valu):
 
         if (form := self.modl.form(self.name)) is None:
-            mesg = f'Type "{self.name}" is not a form and cannot be lifted using a dictionary.'
+            mesg = f'Type "{self.name}" is not a form and cannot be normalized using a dictionary.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        props = valu.pop('$props', None)
+        props = valu.pop('$props', {})
         trycast = valu.pop('$try', False)
 
         if not valu:
@@ -823,15 +822,7 @@ class Guid(Type):
         addinfo = []
 
         if not exists:
-            for name, (prop, norm, info) in norms.items():
-                subinfo[name] = norm
-                if info:
-                    ptyp = prop.type
-                    if ptyp.isarray:
-                        addinfo.extend(info.get('adds', ()))
-                    elif self.modl.form(ptyp.name):
-                        addinfo.append((ptyp.name, norm, info))
-                        addinfo.extend(info.get('adds', ()))
+            props |= norms
 
         if props:
             for name, (prop, norm, info) in props.items():
