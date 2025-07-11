@@ -1645,7 +1645,7 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _repr(self, name, valu):
         name = await tostr(name)
-        valu = await toprim(valu)
+        valu = await tostor(valu)
 
         parts = name.strip().split('.')
         name = parts[0]
@@ -1681,11 +1681,11 @@ class LibBase(Lib):
         if args:
             if valu is not undef:
                 raise s_exc.BadArg(mesg='Valu cannot be specified if positional arguments are provided')
-            args = await toprim(args)
+            args = await tostor(args, packsafe=True)
             return s_common.guid(args)
 
         if valu is not undef:
-            valu = await toprim(valu)
+            valu = await tostor(valu, packsafe=True)
             return s_common.guid(valu)
 
         return s_common.guid()
@@ -2759,7 +2759,7 @@ class LibLift(Lib):
     async def _byPropAlts(self, name, valu, cmpr='='):
 
         name = await tostr(name)
-        valu = await toprim(valu)
+        valu = await tostor(valu)
         cmpr = await tostr(cmpr)
 
         props = self.runt.model.reqPropList(name)
@@ -2775,7 +2775,7 @@ class LibLift(Lib):
     async def _byPropRefs(self, props, valu=None, cmpr='='):
 
         props = await toprim(props)
-        valu = await toprim(valu)
+        valu = await tostor(valu)
         cmpr = await tostr(cmpr)
 
         if not isinstance(props, tuple):
@@ -2824,7 +2824,7 @@ class LibLift(Lib):
     async def _byTypeValue(self, name, valu, cmpr='='):
 
         name = await tostr(name)
-        valu = await toprim(valu)
+        valu = await tostor(valu)
         cmpr = await tostr(cmpr)
 
         if self.runt.model.prop(name) is not None:
@@ -3516,7 +3516,7 @@ class LibFeed(Lib):
         return await self.runt.view.core.feedFromAxon(sha256, opts=opts)
 
     async def _libGenr(self, data, reqmeta=False):
-        data = await toprim(data)
+        data = await tostor(data)
 
         self.runt.layerConfirm(('feed:data',))
 
@@ -3524,7 +3524,7 @@ class LibFeed(Lib):
             yield node
 
     async def _libIngest(self, data, reqmeta=False):
-        data = await toprim(data)
+        data = await tostor(data)
 
         self.runt.layerConfirm(('feed:data',))
 
@@ -5885,7 +5885,7 @@ class NodeProps(Prim):
             await self.valu.pop(name)
             return
 
-        valu = await toprim(valu)
+        valu = await tostor(valu)
         confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
         return await self.valu.set(name, valu)
 
@@ -7248,7 +7248,7 @@ class Layer(Prim):
         layr = self.runt.view.core.getLayer(layriden)
 
         if valu is not undef:
-            valu = await toprim(valu)
+            valu = await tostor(valu)
 
         props = self.runt.model.reqPropList(propname)
         count = 0
@@ -7287,7 +7287,7 @@ class Layer(Prim):
             raise s_exc.BadTypeValu(mesg=mesg)
 
         if valu is not undef:
-            valu = await toprim(valu)
+            valu = await tostor(valu)
 
         for prop in props:
             await asyncio.sleep(0)
@@ -7327,7 +7327,7 @@ class Layer(Prim):
         if valu is undef:
             return await layr.getTagPropCount(form, tag, prop.name)
 
-        valu = await toprim(valu)
+        valu = await tostor(valu)
         norm, info = await prop.type.norm(valu)
 
         return layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
@@ -8007,8 +8007,8 @@ class View(Prim):
 
     async def addNode(self, form, valu, props=None):
         form = await tostr(form)
-        valu = await toprim(valu)
-        props = await toprim(props)
+        valu = await tostor(valu)
+        props = await tostor(props)
 
         viewiden = self.valu.get('iden')
 
@@ -8066,7 +8066,7 @@ class View(Prim):
         if valu is undef:
             valu = s_common.novalu
         else:
-            valu = await toprim(valu)
+            valu = await tostor(valu)
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
@@ -8083,7 +8083,7 @@ class View(Prim):
         if valu is undef:
             valu = s_common.novalu
         else:
-            valu = await toprim(valu)
+            valu = await tostor(valu)
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
@@ -8098,7 +8098,7 @@ class View(Prim):
         if valu is undef:
             valu = s_common.novalu
         else:
-            valu = await toprim(valu)
+            valu = await tostor(valu)
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)

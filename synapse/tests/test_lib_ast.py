@@ -2756,7 +2756,7 @@ class AstTest(s_test.SynTest):
             self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': -math.inf}}), '-Infinity')
 
             guid = await core.callStorm('return($lib.guid((1.23)))')
-            self.eq(guid, '5c293425e676da3823b81093c7cd829e')
+            self.eq(guid, '2d2d2958944fea3cabb5b7ef36e5c7e9')
 
             await core.callStorm('$lib.globals.foo = bar')
             self.true(await core.callStorm("return(('foo' in $lib.globals))"))

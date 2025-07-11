@@ -875,8 +875,6 @@ class Guid(Type):
 
     async def _getGuidByNorms(self, form, norms):
 
-        runt = s_scope.get('runt')
-
         proplist = []
         for name, info in norms.items():
             proplist.append((name, info[1]))

@@ -478,13 +478,13 @@ class ModelType(s_stormtypes.Prim):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methRepr(self, valu):
-        valu = await s_stormtypes.toprim(valu)
+        valu = await s_stormtypes.tostor(valu)
         nval = await self.valu.norm(valu)
         return self.valu.repr(nval[0])
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methNorm(self, valu):
-        valu = await s_stormtypes.toprim(valu)
+        valu = await s_stormtypes.tostor(valu)
         return await self.valu.norm(valu)
 
     def value(self):

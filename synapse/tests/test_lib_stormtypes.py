@@ -5506,9 +5506,9 @@ class StormTypesTest(s_test.SynTest):
         self.eq(20.1, await s_stormtypes.tonumber('20.1'))
         self.eq(20.1, await s_stormtypes.tonumber(numb))
 
-#        self.eq('20.1', await s_stormtypes.tostor(numb))
-#        self.eq(['20.1', '20.1'], await s_stormtypes.tostor([numb, numb]))
-#        self.eq({'foo': '20.1'}, await s_stormtypes.tostor({'foo': numb}))
+        self.eq('20.1', await s_stormtypes.tostor(numb, packsafe=True))
+        self.eq(['20.1', '20.1'], await s_stormtypes.tostor([numb, numb], packsafe=True))
+        self.eq({'foo': '20.1'}, await s_stormtypes.tostor({'foo': numb}, packsafe=True))
         self.eq((1, 3), await s_stormtypes.tostor([1, s_exc.SynErr, 3]))
         self.eq({'foo': 'bar'}, (await s_stormtypes.tostor({'foo': 'bar', 'exc': s_exc.SynErr})))
 
