@@ -224,10 +224,10 @@ class Dist(s_types.Int):
         self.setNormFunc(str, self._normPyStr)
         self.baseoff = self.opts.get('baseoff', 0)
 
-    def _normPyInt(self, valu):
+    async def _normPyInt(self, valu):
         return valu, {}
 
-    def _normPyStr(self, text):
+    async def _normPyStr(self, text):
         try:
             valu, off = s_grammar.parse_float(text, 0)
         except Exception:
@@ -277,10 +277,10 @@ class Area(s_types.Int):
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
 
-    def _normPyInt(self, valu):
+    async def _normPyInt(self, valu):
         return valu, {}
 
-    def _normPyStr(self, text):
+    async def _normPyStr(self, text):
         try:
             valu, off = s_grammar.parse_float(text, 0)
         except Exception:
@@ -329,38 +329,38 @@ class LatLong(s_types.Type):
             'near=': self._storLiftNear,
         })
 
-    def _normCmprValu(self, valu):
+    async def _normCmprValu(self, valu):
         latlong, dist = valu
-        rlatlong = self.modl.type('geo:latlong').norm(latlong)[0]
-        rdist = self.modl.type('geo:dist').norm(dist)[0]
+        rlatlong = (await self.modl.type('geo:latlong').norm(latlong))[0]
+        rdist = (await self.modl.type('geo:dist').norm(dist))[0]
         return rlatlong, rdist
 
-    def _cmprNear(self, valu):
-        latlong, dist = self._normCmprValu(valu)
+    async def _cmprNear(self, valu):
+        latlong, dist = await self._normCmprValu(valu)
 
-        def cmpr(valu):
+        async def cmpr(valu):
             if s_gis.haversine(valu, latlong) <= dist:
                 return True
             return False
         return cmpr
 
-    def _storLiftNear(self, cmpr, valu):
-        latlong = self.norm(valu[0])[0]
-        dist = self.modl.type('geo:dist').norm(valu[1])[0]
+    async def _storLiftNear(self, cmpr, valu):
+        latlong = (await self.norm(valu[0]))[0]
+        dist = (await self.modl.type('geo:dist').norm(valu[1]))[0]
         return ((cmpr, (latlong, dist), self.stortype),)
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu):
         valu = tuple(valu.strip().split(','))
-        return self._normPyTuple(valu)
+        return await self._normPyTuple(valu)
 
-    def _normPyTuple(self, valu):
+    async def _normPyTuple(self, valu):
         if len(valu) != 2:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Valu must contain valid latitude,longitude')
 
         try:
-            latv = self.modl.type('geo:latitude').norm(valu[0])[0]
-            lonv = self.modl.type('geo:longitude').norm(valu[1])[0]
+            latv = (await self.modl.type('geo:latitude').norm(valu[0]))[0]
+            lonv = (await self.modl.type('geo:longitude').norm(valu[1]))[0]
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg=str(e)) from None

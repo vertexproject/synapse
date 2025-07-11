@@ -2518,9 +2518,9 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestReadWriteCores() as (core, wcore):
 
-            tick0 = core.model.type('time').norm('2014')[0]
-            tick1 = core.model.type('time').norm('2015')[0]
-            tick2 = core.model.type('time').norm('2016')[0]
+            tick0 = (await core.model.type('time').norm('2014'))[0]
+            tick1 = (await core.model.type('time').norm('2015'))[0]
+            tick2 = (await core.model.type('time').norm('2016'))[0]
 
             self.len(1, await wcore.nodes('[ test:str=hehe +#foo=(2014,2016) ]'))
             self.len(1, await wcore.nodes('[ test:str=haha +#bar=2015 ]'))
@@ -4328,7 +4328,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:pivcomp=$foo', opts=opts))
 
             # Vars can also be provided as integers
-            norm = core.model.type('time').norm('2015')[0]
+            norm = (await core.model.type('time').norm('2015'))[0]
             opts = {'vars': {'foo': norm}}
             self.len(1, await core.nodes('test:pivcomp:tick=$foo', opts=opts))
 

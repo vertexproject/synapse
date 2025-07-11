@@ -27,7 +27,7 @@ class Phone(s_types.Str):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu):
         digs = digits(valu)
         if not digs:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
@@ -44,11 +44,11 @@ class Phone(s_types.Str):
         # TODO prefix based validation?
         return digs, {'subs': subs}
 
-    def _normPyInt(self, valu):
+    async def _normPyInt(self, valu):
         if valu < 1:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='phone int must be greater than 0')
-        return self._normPyStr(str(valu))
+        return await self._normPyStr(str(valu))
 
     def repr(self, valu):
         # XXX geo-aware reprs are practically a function of cc which
@@ -89,7 +89,7 @@ class Imsi(s_types.Int):
         self.opts['signed'] = False
         return s_types.Int.postTypeInit(self)
 
-    def _normPyInt(self, valu):
+    async def _normPyInt(self, valu):
         imsi = str(valu)
         ilen = len(imsi)
         if ilen > 15:
@@ -108,7 +108,7 @@ class Imei(s_types.Int):
         self.opts['signed'] = False
         return s_types.Int.postTypeInit(self)
 
-    def _normPyInt(self, valu):
+    async def _normPyInt(self, valu):
         imei = str(valu)
         ilen = len(imei)
 

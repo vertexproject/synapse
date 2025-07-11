@@ -2286,7 +2286,7 @@ class Parser:
             return False
         return self.optargs.get(valu) is not None
 
-    def parse_args(self, argv):
+    async def parse_args(self, argv):
 
         posargs = []
         todo = collections.deque(argv)
@@ -2325,14 +2325,14 @@ class Parser:
                     vals = opts[dest] = []
 
                 fakeopts = {}
-                if not self._get_store(item, argdef, todo, fakeopts):
+                if not await self._get_store(item, argdef, todo, fakeopts):
                     return
 
                 vals.append(fakeopts.get(dest))
                 continue
 
             assert oact == 'store'
-            if not self._get_store(item, argdef, todo, opts):
+            if not await self._get_store(item, argdef, todo, opts):
                 return
 
         # check for help before processing other args
@@ -2347,7 +2347,7 @@ class Parser:
         todo = collections.deque(posargs)
 
         for name, argdef in self.posargs:
-            if not self._get_store(name, argdef, todo, opts):
+            if not await self._get_store(name, argdef, todo, opts):
                 return
 
         if todo:
@@ -2374,7 +2374,7 @@ class Parser:
 
         return retn
 
-    def _get_store(self, name, argdef, todo, opts):
+    async def _get_store(self, name, argdef, todo, opts):
 
         dest = argdef.get('dest')
         nargs = argdef.get('nargs')
@@ -2394,7 +2394,7 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = self.model.type(argtype).norm(valu)[0]
+                    valu = (await self.model.type(argtype).norm(valu))[0]
                 except Exception:
                     mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
@@ -2417,7 +2417,7 @@ class Parser:
                 valu = todo.popleft()
                 if argtype is not None:
                     try:
-                        valu = self.model.type(argtype).norm(valu)[0]
+                        valu = (await self.model.type(argtype).norm(valu))[0]
                     except Exception:
                         mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
@@ -2440,7 +2440,7 @@ class Parser:
 
                 if argtype is not None:
                     try:
-                        valu = self.model.type(argtype).norm(valu)[0]
+                        valu = (await self.model.type(argtype).norm(valu))[0]
                     except Exception:
                         mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
@@ -2469,7 +2469,7 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = self.model.type(argtype).norm(valu)[0]
+                    valu = (await self.model.type(argtype).norm(valu))[0]
                 except Exception:
                     mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
@@ -2693,7 +2693,7 @@ class Cmd:
         self.argv = argv
 
         try:
-            self.opts = self.pars.parse_args(self.argv)
+            self.opts = await self.pars.parse_args(self.argv)
         except s_exc.BadSyntax:  # pragma: no cover
             pass
 
@@ -4881,7 +4881,7 @@ class MaxCmd(Cmd):
                 if valu == (None, None):
                     continue
 
-                ival, info = ivaltype.norm(valu)
+                ival, info = await ivaltype.norm(valu)
                 valu = ival[1]
 
             valu = s_stormtypes.intify(valu)
@@ -4934,7 +4934,7 @@ class MinCmd(Cmd):
                 if valu == (None, None):
                     continue
 
-                ival, info = ivaltype.norm(valu)
+                ival, info = await ivaltype.norm(valu)
                 valu = ival[0]
 
             valu = s_stormtypes.intify(valu)
@@ -5080,7 +5080,7 @@ class MoveTagCmd(Cmd):
         oldparts = oldstr.split('.')
         noldparts = len(oldparts)
 
-        newname, newinfo = view.core.getTagNorm(await s_stormtypes.tostr(self.opts.newtag))
+        newname, newinfo = await view.core.getTagNorm(await s_stormtypes.tostr(self.opts.newtag))
         newparts = newname.split('.')
 
         runt.layerConfirm(('node', 'tag', 'del', *oldparts))

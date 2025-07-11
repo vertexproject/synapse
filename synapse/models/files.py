@@ -14,7 +14,7 @@ class FileBase(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu):
 
         norm = valu.strip().lower().replace('\\', '/')
         if norm.find('/') != -1:
@@ -75,7 +75,7 @@ class FilePath(s_types.Str):
 
         return valu[0]
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu):
 
         if len(valu) == 0:
             return '', {}

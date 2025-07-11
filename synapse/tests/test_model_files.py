@@ -182,41 +182,41 @@ class FileTest(s_t_utils.SynTest):
             base = core.model.type('file:base')
             path = core.model.type('file:path')
 
-            norm, info = base.norm('FOO.EXE')
+            norm, info = await base.norm('FOO.EXE')
             subs = info.get('subs')
 
             self.eq('foo.exe', norm)
             self.eq('exe', subs.get('ext'))
 
-            self.raises(s_exc.BadTypeValu, base.norm, 'foo/bar.exe')
-            self.raises(s_exc.BadTypeValu, base.norm, '/haha')
+            await self.asyncraises(s_exc.BadTypeValu, base.norm('foo/bar.exe'))
+            await self.asyncraises(s_exc.BadTypeValu, base.norm('/haha'))
 
-            norm, info = path.norm('../.././..')
+            norm, info = await path.norm('../.././..')
             self.eq(norm, '')
 
-            norm, info = path.norm('c:\\Windows\\System32\\calc.exe')
+            norm, info = await path.norm('c:\\Windows\\System32\\calc.exe')
 
             self.eq(norm, 'c:/windows/system32/calc.exe')
             self.eq(info['subs']['dir'], 'c:/windows/system32')
             self.eq(info['subs']['base'], 'calc.exe')
 
-            norm, info = path.norm(r'/foo////bar/.././baz.json')
+            norm, info = await path.norm(r'/foo////bar/.././baz.json')
             self.eq(norm, '/foo/baz.json')
 
-            norm, info = path.norm(r'./hehe/haha')
+            norm, info = await path.norm(r'./hehe/haha')
             self.eq(norm, 'hehe/haha')
             # '.' has no normable value.
-            self.raises(s_exc.BadTypeValu, path.norm, '.')
-            self.raises(s_exc.BadTypeValu, path.norm, '..')
+            await self.asyncraises(s_exc.BadTypeValu, path.norm('.'))
+            await self.asyncraises(s_exc.BadTypeValu, path.norm('..'))
 
-            norm, info = path.norm('c:')
+            norm, info = await path.norm('c:')
             self.eq(norm, 'c:')
             subs = info.get('subs')
             self.none(subs.get('ext'))
             self.none(subs.get('dir'))
             self.eq(subs.get('base'), 'c:')
 
-            norm, info = path.norm('/foo')
+            norm, info = await path.norm('/foo')
             self.eq(norm, '/foo')
             subs = info.get('subs')
             self.none(subs.get('ext'))

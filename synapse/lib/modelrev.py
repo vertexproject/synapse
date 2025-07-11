@@ -152,7 +152,7 @@ class ModelRev:
 
             async for nid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
                 try:
-                    norm, info = prop.type.norm(propvalu)
+                    norm, info = await prop.type.norm(propvalu)
                 except s_exc.BadTypeValu as e:
                     nodeedits.append(
                         (nid, prop.form.name, (
@@ -275,7 +275,7 @@ class ModelRev:
                 formvalu = sodevalu[0]
 
                 try:
-                    norm, info = form.type.norm(formvalu)
+                    norm, info = await form.type.norm(formvalu)
                 except s_exc.BadTypeValu as e: # pragma: no cover
                     oldm = e.errinfo.get('mesg')
                     logger.warning(f'Skipping {formname}={formvalu} : {oldm}')
@@ -295,7 +295,7 @@ class ModelRev:
                             continue
 
                         try:
-                            subnorm, subinfo = subprop.type.norm(subvalu)
+                            subnorm, subinfo = await subprop.type.norm(subvalu)
                         except s_exc.BadTypeValu as e: # pragma: no cover
                             oldm = e.errinfo.get('mesg')
                             logger.warning(f'error norming subvalue {subprop.full}={subvalu}: {oldm}')

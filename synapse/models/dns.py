@@ -35,7 +35,7 @@ class DnsName(s_types.Str):
 
         self.setNormFunc(str, self._normPyStr)
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu):
         # Backwards compatible
         norm = valu.lower()
         norm = norm.strip()  # type: str
@@ -50,7 +50,7 @@ class DnsName(s_types.Str):
             temp = norm[:-len(self.inarpa)]
             temp = '.'.join(temp.split('.')[::-1])
             try:
-                ipv4norm, info = self.modl.type('inet:ip').norm(temp)
+                ipv4norm, info = await self.modl.type('inet:ip').norm(temp)
             except s_exc.BadTypeValu as e:
                 pass
             else:
@@ -61,7 +61,7 @@ class DnsName(s_types.Str):
                 if len(parts) != 32:
                     raise s_exc.BadTypeValu(mesg='Invalid number of ipv6 parts')
                 temp = (6, int(''.join(parts), 16))
-                ipv6norm, info = self.modl.type('inet:ip').norm(temp)
+                ipv6norm, info = await self.modl.type('inet:ip').norm(temp)
             except s_exc.BadTypeValu as e:
                 pass
             else:
@@ -69,7 +69,7 @@ class DnsName(s_types.Str):
         else:
             # Try fallbacks to parse out possible ipv4/ipv6 garbage queries
             try:
-                ipnorm, info = self.modl.type('inet:ip').norm(norm)
+                ipnorm, info = await self.modl.type('inet:ip').norm(norm)
             except s_exc.BadTypeValu as e:
                 pass
             else:
@@ -78,7 +78,7 @@ class DnsName(s_types.Str):
 
             # Lastly, try give the norm'd valu a shot as an inet:fqdn
             try:
-                fqdnnorm, info = self.modl.type('inet:fqdn').norm(norm)
+                fqdnnorm, info = await self.modl.type('inet:fqdn').norm(norm)
             except s_exc.BadTypeValu as e:
                 pass
             else:
