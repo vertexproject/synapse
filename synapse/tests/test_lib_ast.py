@@ -2748,9 +2748,9 @@ class AstTest(s_test.SynTest):
             self.true(await core.callStorm('return(($lib.cast(float, 1.23) <= 2.34))'))
 
             self.eq(await core.callStorm('return(($lib.cast(str, (5.3 / 2))))'), '2.65')
-            self.eq(await core.callStorm('return(($lib.cast(str, (1.25 + 2.75))))'), '4.0')
+            self.eq(await core.callStorm('return(($lib.cast(str, (1.25 + 2.75))))'), '4.00')
             self.eq(await core.callStorm('return(($lib.cast(str, (0.00000000000000001))))'), '0.00000000000000001')
-            self.eq(await core.callStorm('return(($lib.cast(str, (0.33333333333333333333))))'), '0.3333333333333333')
+            self.eq(await core.callStorm('return(($lib.cast(str, (0.33333333333333333333))))'), '0.33333333333333333333')
             self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': math.nan}}), 'NaN')
             self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': math.inf}}), 'Infinity')
             self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': -math.inf}}), '-Infinity')

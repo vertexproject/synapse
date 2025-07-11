@@ -92,8 +92,8 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(iden, synuser.repr(iden))
             self.eq(iden, synrole.repr(iden))
 
-            self.eq(iden, synuser.norm(iden)[0])
-            self.eq(iden, synrole.norm(iden)[0])
+            self.eq(iden, (await synuser.norm(iden))[0])
+            self.eq(iden, (await synrole.norm(iden))[0])
 
     async def test_synuser_merge_failure(self):
         async with self.getTestCore() as core:

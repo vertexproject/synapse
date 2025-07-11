@@ -345,6 +345,34 @@ class StormTest(s_t_utils.SynTest):
             self.eq(node.get('name'), 'someprop')
             self.eq(node.get('size'), 5)
 
+            opts = {'vars': {'sha256': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d88'}}
+            nodes = await core.nodes('''[ it:app:yara:match=* :target=('file:bytes', ({"sha256": $sha256})) ]''', opts=opts)
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:app:yara:match -> *')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('sha256'), opts['vars']['sha256'])
+
+            opts = {'vars': {
+                        'phash': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d86',
+                        'chash': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d87'
+            }}
+            nodes = await core.nodes('''[ file:subfile=(({"sha256": $phash}), ({"sha256": $chash})) ]''', opts=opts)
+            self.len(1, nodes)
+
+            nodes = await core.nodes('file:subfile -> file:bytes')
+            self.len(2, nodes)
+            for node in nodes:
+                self.nn(node.get('sha256'))
+
+            nodes = await core.nodes('$file = {[file:bytes=*]} [ inet:service:rule=({"id":"foo", "object": $file}) ]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('id'), 'foo')
+            self.nn(node.get('object'))
+
+            self.len(1, await core.nodes('inet:service:rule :object -> *'))
+
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
 
@@ -3496,9 +3524,9 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            minval = core.model.type('time').norm('2015')[0]
-            midval = core.model.type('time').norm('2016')[0]
-            maxval = core.model.type('time').norm('2017')[0]
+            minval = (await core.model.type('time').norm('2015'))[0]
+            midval = (await core.model.type('time').norm('2016'))[0]
+            maxval = (await core.model.type('time').norm('2017'))[0]
 
             nodes = await core.nodes('[test:guid=* :tick=2015 :seen=2015]')
             self.len(1, nodes)
@@ -4151,13 +4179,13 @@ class StormTest(s_t_utils.SynTest):
 
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('--hehe')
-        self.none(pars.parse_args(['--lol']))
+        self.none(await pars.parse_args(['--lol']))
         mesg = "Expected 0 positional arguments. Got 1: ['--lol']"
         self.eq(('BadArg', {'mesg': mesg}), (pars.exc.errname, pars.exc.errinfo))
 
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('hehe')
-        opts = pars.parse_args(['-h'])
+        opts = await pars.parse_args(['-h'])
         self.none(opts)
         self.notin("ERROR: The argument <hehe> is required.", pars.mesgs)
         self.isin('Usage: hehe [options] <hehe>', pars.mesgs)
@@ -4169,53 +4197,53 @@ class StormTest(s_t_utils.SynTest):
 
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('hehe')
-        opts = pars.parse_args(['newp', '-h'])
+        opts = await pars.parse_args(['newp', '-h'])
         self.none(opts)
         mesg = 'Extra arguments and flags are not supported with the help flag: hehe newp -h'
         self.eq(('BadArg', {'mesg': mesg}), (pars.exc.errname, pars.exc.errinfo))
 
         pars = s_storm.Parser()
         pars.add_argument('--no-foo', default=True, action='store_false')
-        opts = pars.parse_args(['--no-foo'])
+        opts = await pars.parse_args(['--no-foo'])
         self.false(opts.no_foo)
 
         pars = s_storm.Parser()
         pars.add_argument('--no-foo', default=True, action='store_false')
-        opts = pars.parse_args([])
+        opts = await pars.parse_args([])
         self.true(opts.no_foo)
 
         pars = s_storm.Parser()
         pars.add_argument('--no-foo', default=True, action='store_false')
         pars.add_argument('--valu', default=8675309, type='int')
         pars.add_argument('--ques', nargs=2, type='int', default=(1, 2))
-        pars.parse_args(['-h'])
+        await pars.parse_args(['-h'])
         self.isin('  --no-foo                    : No help available.', pars.mesgs)
         self.isin('  --valu <valu>               : No help available. (default: 8675309)', pars.mesgs)
         self.isin('  --ques <ques>               : No help available. (default: (1, 2))', pars.mesgs)
 
         pars = s_storm.Parser()
         pars.add_argument('--yada')
-        self.none(pars.parse_args(['--yada']))
+        self.none(await pars.parse_args(['--yada']))
         self.true(pars.exited)
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', action='append')
-        self.none(pars.parse_args(['--yada']))
+        self.none(await pars.parse_args(['--yada']))
         self.true(pars.exited)
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', nargs='?')
-        opts = pars.parse_args(['--yada'])
+        opts = await pars.parse_args(['--yada'])
         self.none(opts.yada)
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', nargs='+')
-        self.none(pars.parse_args(['--yada']))
+        self.none(await pars.parse_args(['--yada']))
         self.true(pars.exited)
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', type='int')
-        self.none(pars.parse_args(['--yada', 'hehe']))
+        self.none(await pars.parse_args(['--yada', 'hehe']))
         self.true(pars.exited)
 
         # check help output formatting of optargs
@@ -4261,38 +4289,38 @@ class StormTest(s_t_utils.SynTest):
         # test some nargs type intersections
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='?', type='int')
-        self.none(pars.parse_args(['--ques', 'asdf']))
+        self.none(await pars.parse_args(['--ques', 'asdf']))
         self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='*', type='int')
-        self.none(pars.parse_args(['--ques', 'asdf']))
+        self.none(await pars.parse_args(['--ques', 'asdf']))
         self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='+', type='int')
-        self.none(pars.parse_args(['--ques', 'asdf']))
+        self.none(await pars.parse_args(['--ques', 'asdf']))
         self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('foo', type='int')
-        self.none(pars.parse_args(['asdf']))
+        self.none(await pars.parse_args(['asdf']))
         self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         # argument count mismatch
         pars = s_storm.Parser()
         pars.add_argument('--ques')
-        self.none(pars.parse_args(['--ques']))
+        self.none(await pars.parse_args(['--ques']))
         self.eq("An argument is required for --ques.", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs=2)
-        self.none(pars.parse_args(['--ques', 'lolz']))
+        self.none(await pars.parse_args(['--ques', 'lolz']))
         self.eq("2 arguments are required for --ques.", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs=2, type='int')
-        self.none(pars.parse_args(['--ques', 'lolz', 'hehe']))
+        self.none(await pars.parse_args(['--ques', 'lolz', 'hehe']))
         self.eq("Invalid value for type (int): lolz", pars.exc.errinfo['mesg'])
 
         # test time argtype
@@ -4300,15 +4328,15 @@ class StormTest(s_t_utils.SynTest):
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', type='time')
-        args = pars.parse_args(['--yada', '20201021-1day'])
+        args = await pars.parse_args(['--yada', '20201021-1day'])
         self.nn(args)
-        self.eq(ttyp.norm('20201021-1day')[0], args.yada)
+        self.eq((await ttyp.norm('20201021-1day'))[0], args.yada)
 
-        args = pars.parse_args(['--yada', 1603229675444])
+        args = await pars.parse_args(['--yada', 1603229675444])
         self.nn(args)
-        self.eq(ttyp.norm(1603229675444)[0], args.yada)
+        self.eq((await ttyp.norm(1603229675444))[0], args.yada)
 
-        self.none(pars.parse_args(['--yada', 'hehe']))
+        self.none(await pars.parse_args(['--yada', 'hehe']))
         self.true(pars.exited)
         self.eq("Invalid value for type (time): hehe", pars.exc.errinfo['mesg'])
 
@@ -4317,23 +4345,23 @@ class StormTest(s_t_utils.SynTest):
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', type='ival')
-        args = pars.parse_args(['--yada', '20201021-1day'])
+        args = await pars.parse_args(['--yada', '20201021-1day'])
         self.nn(args)
-        self.eq(ityp.norm('20201021-1day')[0], args.yada)
+        self.eq((await ityp.norm('20201021-1day'))[0], args.yada)
 
-        args = pars.parse_args(['--yada', 1603229675444])
+        args = await pars.parse_args(['--yada', 1603229675444])
         self.nn(args)
-        self.eq(ityp.norm(1603229675444)[0], args.yada)
+        self.eq((await ityp.norm(1603229675444))[0], args.yada)
 
-        args = pars.parse_args(['--yada', ('20201021', '20201023')])
+        args = await pars.parse_args(['--yada', ('20201021', '20201023')])
         self.nn(args)
-        self.eq(ityp.norm(('20201021', '20201023'))[0], args.yada)
+        self.eq((await ityp.norm(('20201021', '20201023')))[0], args.yada)
 
-        args = pars.parse_args(['--yada', (1603229675444, '20201021')])
+        args = await pars.parse_args(['--yada', (1603229675444, '20201021')])
         self.nn(args)
-        self.eq(ityp.norm((1603229675444, '20201021'))[0], args.yada)
+        self.eq((await ityp.norm((1603229675444, '20201021')))[0], args.yada)
 
-        self.none(pars.parse_args(['--yada', 'hehe']))
+        self.none(await pars.parse_args(['--yada', 'hehe']))
         self.true(pars.exited)
         self.eq("Invalid value for type (ival): hehe", pars.exc.errinfo['mesg'])
 
@@ -4354,20 +4382,20 @@ class StormTest(s_t_utils.SynTest):
         pars.add_argument('--bar', choices=['baz', 'bam'], help='barhelp')
         pars.add_argument('--cam', action='append', choices=['cat', 'cool'], help='camhelp')
 
-        opts = pars.parse_args(['1', '--bar', 'bam', '--cam', 'cat', '--cam', 'cool'])
+        opts = await pars.parse_args(['1', '--bar', 'bam', '--cam', 'cat', '--cam', 'cool'])
         self.eq(1, opts.foo)
         self.eq('bam', opts.bar)
         self.eq(['cat', 'cool'], opts.cam)
 
-        opts = pars.parse_args([32])
+        opts = await pars.parse_args([32])
         self.none(opts)
         self.eq('Invalid choice for argument <foo> (choose from: 3, 1, 2): 32', pars.exc.errinfo['mesg'])
 
-        opts = pars.parse_args([2, '--bar', 'newp'])
+        opts = await pars.parse_args([2, '--bar', 'newp'])
         self.none(opts)
         self.eq('Invalid choice for argument --bar (choose from: baz, bam): newp', pars.exc.errinfo['mesg'])
 
-        opts = pars.parse_args([2, '--cam', 'cat', '--cam', 'newp'])
+        opts = await pars.parse_args([2, '--cam', 'cat', '--cam', 'newp'])
         self.none(opts)
         self.eq('Invalid choice for argument --cam (choose from: cat, cool): newp', pars.exc.errinfo['mesg'])
 
@@ -4381,7 +4409,7 @@ class StormTest(s_t_utils.SynTest):
         pars = s_storm.Parser()
         pars.add_argument('--foo', default='def', choices=['faz'], help='foohelp')
 
-        opts = pars.parse_args([])
+        opts = await pars.parse_args([])
         self.eq('def', opts.foo)
 
         pars.help()
@@ -4390,12 +4418,12 @@ class StormTest(s_t_utils.SynTest):
         # choices - like defaults, choices are not normalized
         pars = s_storm.Parser()
         ttyp = s_datamodel.Model().type('time')
-        pars.add_argument('foo', type='time', choices=['2022', ttyp.norm('2023')[0]], help='foohelp')
+        pars.add_argument('foo', type='time', choices=['2022', (await ttyp.norm('2023'))[0]], help='foohelp')
 
-        opts = pars.parse_args(['2023'])
-        self.eq(ttyp.norm('2023')[0], opts.foo)
+        opts = await pars.parse_args(['2023'])
+        self.eq((await ttyp.norm('2023'))[0], opts.foo)
 
-        opts = pars.parse_args(['2022'])
+        opts = await pars.parse_args(['2022'])
         self.none(opts)
         errmesg = pars.exc.errinfo['mesg']
         self.eq('Invalid choice for argument <foo> (choose from: 2022, 1672531200000000): 1640995200000000', errmesg)
@@ -4409,19 +4437,19 @@ class StormTest(s_t_utils.SynTest):
         pars.add_argument('--bar', nargs='?', choices=['baz'])
         pars.add_argument('--cat', nargs=2, choices=['cam', 'cool'])
 
-        opts = pars.parse_args(['newp'])
+        opts = await pars.parse_args(['newp'])
         self.none(opts)
         self.eq('Invalid choice for argument <foo> (choose from: faz): newp', pars.exc.errinfo['mesg'])
 
-        opts = pars.parse_args(['faz', '--bar', 'newp'])
+        opts = await pars.parse_args(['faz', '--bar', 'newp'])
         self.none(opts)
         self.eq('Invalid choice for argument --bar (choose from: baz): newp', pars.exc.errinfo['mesg'])
 
-        opts = pars.parse_args(['faz', '--cat', 'newp', 'newp2'])
+        opts = await pars.parse_args(['faz', '--cat', 'newp', 'newp2'])
         self.none(opts)
         self.eq('Invalid choice for argument --cat (choose from: cam, cool): newp', pars.exc.errinfo['mesg'])
 
-        opts = pars.parse_args(['faz', '--cat', 'cam', 'cool'])
+        opts = await pars.parse_args(['faz', '--cat', 'cam', 'cool'])
         self.nn(opts)
 
         pars = s_storm.Parser()

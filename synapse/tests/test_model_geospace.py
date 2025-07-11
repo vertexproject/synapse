@@ -117,44 +117,44 @@ class GeoTest(s_t_utils.SynTest):
 
             # Latitude Type Tests =====================================================================================
             t = core.model.type(formlat)
-            self.raises(s_exc.BadTypeValu, t.norm, '-90.1')
-            self.eq(t.norm('-90')[0], -90.0)
-            self.eq(t.norm('-12.345678901234567890')[0], -12.34567890123456789)
-            self.eq(t.norm('-0')[0], 0.0)
-            self.eq(t.norm('0')[0], 0.0)
-            self.eq(t.norm('12.345678901234567890')[0], 12.34567890123456789)
-            self.eq(t.norm('90')[0], 90.0)
-            self.eq(t.norm('39.94891608')[0], 39.94891608)
-            self.raises(s_exc.BadTypeValu, t.norm, '90.1')
-            self.raises(s_exc.BadTypeValu, t.norm, 'newp')
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('-90.1'))
+            self.eq((await t.norm('-90'))[0], -90.0)
+            self.eq((await t.norm('-12.345678901234567890'))[0], -12.34567890123456789)
+            self.eq((await t.norm('-0'))[0], 0.0)
+            self.eq((await t.norm('0'))[0], 0.0)
+            self.eq((await t.norm('12.345678901234567890'))[0], 12.34567890123456789)
+            self.eq((await t.norm('90'))[0], 90.0)
+            self.eq((await t.norm('39.94891608'))[0], 39.94891608)
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('90.1'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('newp'))
 
             # Longitude Type Tests =====================================================================================
             t = core.model.type(formlon)
-            self.raises(s_exc.BadTypeValu, t.norm, '-180.0')
-            self.eq(t.norm('-12.345678901234567890')[0], -12.34567890123456789)
-            self.eq(t.norm('-0')[0], 0.0)
-            self.eq(t.norm('0')[0], 0.0)
-            self.eq(t.norm('12.345678901234567890')[0], 12.34567890123456789)
-            self.eq(t.norm('180')[0], 180.0)
-            self.eq(t.norm('39.94891608')[0], 39.94891608)
-            self.raises(s_exc.BadTypeValu, t.norm, '180.1')
-            self.raises(s_exc.BadTypeValu, t.norm, 'newp')
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('-180.0'))
+            self.eq((await t.norm('-12.345678901234567890'))[0], -12.34567890123456789)
+            self.eq((await t.norm('-0'))[0], 0.0)
+            self.eq((await t.norm('0'))[0], 0.0)
+            self.eq((await t.norm('12.345678901234567890'))[0], 12.34567890123456789)
+            self.eq((await t.norm('180'))[0], 180.0)
+            self.eq((await t.norm('39.94891608'))[0], 39.94891608)
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('180.1'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('newp'))
 
             # Latlong Type Tests =====================================================================================
             t = core.model.type(formlatlon)
-            self.eq(t.norm('0,-0'), ((0.0, 0.0), {'subs': {'lat': 0.0, 'lon': 0.0}}))
-            self.eq(t.norm('89.999,179.999'), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
-            self.eq(t.norm('-89.999,-179.999'), ((-89.999, -179.999), {'subs': {'lat': -89.999, 'lon': -179.999}}))
+            self.eq(await t.norm('0,-0'), ((0.0, 0.0), {'subs': {'lat': 0.0, 'lon': 0.0}}))
+            self.eq(await t.norm('89.999,179.999'), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
+            self.eq(await t.norm('-89.999,-179.999'), ((-89.999, -179.999), {'subs': {'lat': -89.999, 'lon': -179.999}}))
 
-            self.eq(t.norm([89.999, 179.999]), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
-            self.eq(t.norm((89.999, 179.999)), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
+            self.eq(await t.norm([89.999, 179.999]), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
+            self.eq(await t.norm((89.999, 179.999)), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
 
             # Demonstrate precision
-            self.eq(t.norm('12.345678,-12.345678'),
+            self.eq(await t.norm('12.345678,-12.345678'),
                     ((12.345678, -12.345678), {'subs': {'lat': 12.345678, 'lon': -12.345678}}))
-            self.eq(t.norm('12.3456789,-12.3456789'),
+            self.eq(await t.norm('12.3456789,-12.3456789'),
                     ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
-            self.eq(t.norm('12.34567890,-12.34567890'),
+            self.eq(await t.norm('12.34567890,-12.34567890'),
                     ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
 
             self.eq(t.repr((0, 0)), '0,0')
@@ -165,28 +165,28 @@ class GeoTest(s_t_utils.SynTest):
             formname = 'geo:dist'
             t = core.model.type(formname)
 
-            self.eq(t.norm('11 mm'), (11, {}))
-            self.eq(t.norm('11 millimeter'), (11, {}))
-            self.eq(t.norm('11 millimeters'), (11, {}))
+            self.eq(await t.norm('11 mm'), (11, {}))
+            self.eq(await t.norm('11 millimeter'), (11, {}))
+            self.eq(await t.norm('11 millimeters'), (11, {}))
 
-            self.eq(t.norm('837.33 m')[0], 837330)
-            self.eq(t.norm('837.33 meter')[0], 837330)
-            self.eq(t.norm('837.33 meters')[0], 837330)
+            self.eq((await t.norm('837.33 m'))[0], 837330)
+            self.eq((await t.norm('837.33 meter'))[0], 837330)
+            self.eq((await t.norm('837.33 meters'))[0], 837330)
 
-            self.eq(t.norm('100km')[0], 100000000)
-            self.eq(t.norm('100     km')[0], 100000000)
-            self.eq(t.norm('11.2 km'), (11200000, {}))
-            self.eq(t.norm('11.2 kilometer'), (11200000, {}))
-            self.eq(t.norm('11.2 kilometers'), (11200000, {}))
+            self.eq((await t.norm('100km'))[0], 100000000)
+            self.eq((await t.norm('100     km'))[0], 100000000)
+            self.eq(await t.norm('11.2 km'), (11200000, {}))
+            self.eq(await t.norm('11.2 kilometer'), (11200000, {}))
+            self.eq(await t.norm('11.2 kilometers'), (11200000, {}))
 
-            self.eq(t.norm(11200000), (11200000, {}))
+            self.eq(await t.norm(11200000), (11200000, {}))
 
-            self.eq(t.norm('2 foot')[0], 609)
-            self.eq(t.norm('5 feet')[0], 1524)
-            self.eq(t.norm('1 yard')[0], 914)
-            self.eq(t.norm('10 yards')[0], 9144)
-            self.eq(t.norm('1 mile')[0], 1609344)
-            self.eq(t.norm('3 miles')[0], 4828032)
+            self.eq((await t.norm('2 foot'))[0], 609)
+            self.eq((await t.norm('5 feet'))[0], 1524)
+            self.eq((await t.norm('1 yard'))[0], 914)
+            self.eq((await t.norm('10 yards'))[0], 9144)
+            self.eq((await t.norm('1 mile'))[0], 1609344)
+            self.eq((await t.norm('3 miles'))[0], 4828032)
 
             self.eq(t.repr(5), '5 mm')
             self.eq(t.repr(500), '50.0 cm')
@@ -194,8 +194,8 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(t.repr(10000), '10.0 m')
             self.eq(t.repr(1000000), '1.0 km')
 
-            self.raises(s_exc.BadTypeValu, t.norm, '1.3 pc')
-            self.raises(s_exc.BadTypeValu, t.norm, 'foo')
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('1.3 pc'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('foo'))
 
             # geo:place
 
@@ -466,11 +466,11 @@ class GeoTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             area = core.model.type('geo:area')
-            self.eq(1, area.norm(1)[0])
-            self.eq(1000000, area.norm('1 sq.km')[0])
+            self.eq(1, (await area.norm(1))[0])
+            self.eq(1000000, (await area.norm('1 sq.km'))[0])
             self.eq('1.0 sq.km', area.repr(1000000))
             self.eq('1 sq.mm', area.repr(1))
             with self.raises(s_exc.BadTypeValu):
-                area.norm('asdf')
+                await area.norm('asdf')
             with self.raises(s_exc.BadTypeValu):
-                area.norm('-1sq.km')
+                await area.norm('-1sq.km')
