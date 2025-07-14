@@ -8358,7 +8358,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.nodes('$lib.queue.add(queue:safemode:started)')
                     q = '''
                     $queue = $lib.queue.gen(queue:safemode)
-                    $queue2 = $lib.queue.get(queue:safemode:started)
+                    $queue2 = $lib.queue.byname(queue:safemode:started)
                     while (true) {
                         $queue2.put(foo)
                         $lib.log.warning(`SAFEMODE DMON START`)
