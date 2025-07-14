@@ -41,8 +41,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ crypto:key:secret=*
                     :mode=CBC
-                    :iv=AAAA
-                    :value=BBBB
+                    :iv=$lib.file.fromhex(AAAA)
+                    :bytes=$lib.file.fromhex(BBBB)
                     :algorithm=aes256
                     :seed:passwd=s3cret
                     :seed:algorithm=pbkdf2 ]
@@ -52,8 +52,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('algorithm'), 'aes256')
             self.eq(nodes[0].get('seed:passwd'), 's3cret')
             self.eq(nodes[0].get('seed:algorithm'), 'pbkdf2')
-            self.eq(nodes[0].get('iv'), 'aaaa')
-            self.eq(nodes[0].get('value'), 'bbbb')
+            self.eq(nodes[0].get('iv'), 'c6d32915fd5518f25d33791d1f04bd9a')
+            self.eq(nodes[0].get('bytes'), 'b715fa83ef1c5c8ccf43a4a16f715a9f')
 
             self.len(2, await core.nodes('crypto:key:secret -> crypto:algorithm'))
 
@@ -61,42 +61,27 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [ crypto:key:rsa=*
                     :bits=2048
                     :algorithm=rsa
-                    :public:modulus=AAAA
-                    :public:exponent=CCCC
-                    :private:exponent=BB:BB
-                    :private:coefficient=DDDD
-                    :private:primes = {[ crypto:key:rsa:prime=({"value": "aaaa", "exponent": "bbbb"}) ]}
-                ]
+                    :public=$lib.file.fromhex(AAAA)
+                    :private=$lib.file.fromhex(BBBB) ]
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('bits'), 2048)
             self.eq(nodes[0].get('algorithm'), 'rsa')
-            self.eq(nodes[0].get('public:modulus'), 'aaaa')
-            self.eq(nodes[0].get('public:exponent'), 'cccc')
-            self.eq(nodes[0].get('private:exponent'), 'bbbb')
-            self.eq(nodes[0].get('private:coefficient'), 'dddd')
+            self.eq(nodes[0].get('public'), 'c6d32915fd5518f25d33791d1f04bd9a')
+            self.eq(nodes[0].get('private'), 'b715fa83ef1c5c8ccf43a4a16f715a9f')
 
             self.len(1, await core.nodes('crypto:key:rsa -> crypto:algorithm'))
-            self.len(1, await core.nodes('crypto:key:rsa -> crypto:key:rsa:prime'))
 
             nodes = await core.nodes('''
                 [ crypto:key:dsa=*
                     :algorithm=dsa
-                    :public=aaaa
-                    :private=bbbb
-
-                    :public:p=cccc
-                    :public:q=dddd
-                    :public:g=eeee
-                ]
+                    :public=$lib.file.fromhex(AAAA)
+                    :private=$lib.file.fromhex(BBBB) ]
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('algorithm'), 'dsa')
-            self.eq(nodes[0].get('public'), 'aaaa')
-            self.eq(nodes[0].get('private'), 'bbbb')
-            self.eq(nodes[0].get('public:p'), 'cccc')
-            self.eq(nodes[0].get('public:q'), 'dddd')
-            self.eq(nodes[0].get('public:g'), 'eeee')
+            self.eq(nodes[0].get('public'), 'c6d32915fd5518f25d33791d1f04bd9a')
+            self.eq(nodes[0].get('private'), 'b715fa83ef1c5c8ccf43a4a16f715a9f')
 
             self.len(1, await core.nodes('crypto:key:dsa -> crypto:algorithm'))
 
