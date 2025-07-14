@@ -158,7 +158,7 @@ modeldefs = (
                 'doc': 'An RSA public/private key pair.'}),
 
             ('crypto:key:rsa:prime', ('guid', {}), {
-                'doc': 'A prime value ane exponenet used to generate an RSA key.'}),
+                'doc': 'A prime value and exponent used to generate an RSA key.'}),
 
             ('crypto:key:dsa', ('guid', {}), {
                 'interfaces': (
