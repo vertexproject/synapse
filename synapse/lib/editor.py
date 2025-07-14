@@ -652,7 +652,7 @@ class ProtoNode(s_node.NodeBase):
         if prop.locked:
             raise s_exc.IsDeprLocked(mesg=f'Tagprop {name} is locked.', prop=name)
 
-        norm, info = await prop.type.norm(valu)
+        norm, info = await prop.type.norm(valu, view=self.editor.view)
 
         curv = self.getTagProp(tagnode.valu, name)
         if curv == norm:
@@ -751,7 +751,7 @@ class ProtoNode(s_node.NodeBase):
 
         if norminfo is None:
             try:
-                valu, norminfo = await prop.type.norm(valu)
+                valu, norminfo = await prop.type.norm(valu, view=self.editor.view)
             except s_exc.BadTypeValu as e:
                 if 'prop' not in e.errinfo:
                     oldm = e.get('mesg')
@@ -943,7 +943,7 @@ class NodeEditor:
 
         if norminfo is None:
             try:
-                valu, norminfo = await form.type.norm(valu)
+                valu, norminfo = await form.type.norm(valu, view=self.view)
             except s_exc.BadTypeValu as e:
                 e.set('form', form.name)
                 raise e

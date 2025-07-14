@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class SynUser(s_types.Guid):
 
-    async def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
 
         core = self.modl.core
         if core is not None:
@@ -44,7 +44,7 @@ class SynUser(s_types.Guid):
 
 class SynRole(s_types.Guid):
 
-    async def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
 
         core = self.modl.core
         if core is not None:

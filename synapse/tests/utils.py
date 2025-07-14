@@ -246,14 +246,14 @@ class TestType(s_types.Type):
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
 
-    async def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         return valu.lower(), {}
 
 class ThreeType(s_types.Type):
 
     stortype = s_layer.STOR_TYPE_U8
 
-    async def norm(self, valu):
+    async def norm(self, valu, view=None):
         return 3, {'subs': {'three': 3}}
 
     def repr(self, valu):
@@ -263,7 +263,7 @@ class TestSubType(s_types.Type):
 
     stortype = s_layer.STOR_TYPE_U32
 
-    async def norm(self, valu):
+    async def norm(self, valu, view=None):
         valu = int(valu)
         return valu, {'subs': {'isbig': valu >= 1000}}
 

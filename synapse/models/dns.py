@@ -35,7 +35,7 @@ class DnsName(s_types.Str):
 
         self.setNormFunc(str, self._normPyStr)
 
-    async def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         # Backwards compatible
         norm = valu.lower()
         norm = norm.strip()  # type: str

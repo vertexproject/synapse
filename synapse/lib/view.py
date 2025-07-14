@@ -1121,7 +1121,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 counts[name] += valu
         return counts
 
-    async def getPropCount(self, propname, valu=s_common.novalu):
+    async def getPropCount(self, propname, valu=s_common.novalu, norm=True):
 
         props = self.core.model.reqPropList(propname)
         count = 0
@@ -1141,9 +1141,12 @@ class View(s_nexus.Pusher):  # type: ignore
                     count += layr.getPropCount(formname, propname)
                 continue
 
-            norm, info = await prop.type.norm(valu)
+            normv = valu
+            if norm:
+                normv, info = await prop.type.norm(normv, view=self)
+
             for layr in self.layers:
-                count += layr.getPropValuCount(formname, propname, prop.type.stortype, norm)
+                count += layr.getPropValuCount(formname, propname, prop.type.stortype, normv)
 
         return count
 
@@ -1161,7 +1164,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 count += await layr.getTagPropCount(form, tag, prop.name)
             return count
 
-        norm, info = await prop.type.norm(valu)
+        norm, info = await prop.type.norm(valu, view=self)
 
         for layr in self.layers:
             await asyncio.sleep(0)
@@ -1169,7 +1172,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return count
 
-    async def getPropArrayCount(self, propname, valu=s_common.novalu):
+    async def getPropArrayCount(self, propname, valu=s_common.novalu, norm=True):
 
         props = self.core.model.reqPropList(propname)
 
@@ -1195,10 +1198,12 @@ class View(s_nexus.Pusher):  # type: ignore
                 continue
 
             atyp = prop.type.arraytype
-            norm, info = await atyp.norm(valu)
+            normv = valu
+            if norm:
+                normv, info = await atyp.norm(normv, view=self)
 
             for layr in self.layers:
-                count += layr.getPropArrayValuCount(formname, propname, atyp.stortype, norm)
+                count += layr.getPropArrayValuCount(formname, propname, atyp.stortype, normv)
 
         return count
 
@@ -2589,7 +2594,7 @@ class View(s_nexus.Pusher):  # type: ignore
                             continue
 
                         try:
-                            n2valu, _ = await n2form.type.norm(n2valu)
+                            n2valu, _ = await n2form.type.norm(n2valu, view=self)
                         except s_exc.BadTypeValu as e:
                             continue
 
@@ -2639,13 +2644,14 @@ class View(s_nexus.Pusher):  # type: ignore
         return await self.getNodeByBuid(protonode.buid)
 
     async def getPropAltCount(self, prop, valu):
+        # valu must be normalized in advance
         count = 0
         proptype = prop.type
         for prop in prop.getAlts():
             if prop.type.isarray and prop.type.arraytype == proptype:
-                count += await self.getPropArrayCount(prop.full, valu=valu)
+                count += await self.getPropArrayCount(prop.full, valu=valu, norm=False)
             else:
-                count += await self.getPropCount(prop.full, valu=valu)
+                count += await self.getPropCount(prop.full, valu=valu, norm=False)
         return count
 
     async def nodesByPropAlts(self, prop, cmpr, valu, norm=True, virts=None):
@@ -2839,7 +2845,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 try:
                     tobj = self.core.model.type(form)
-                    valu, _ = await tobj.norm(valu)
+                    valu, _ = await tobj.norm(valu, view=self)
                 except s_exc.BadTypeValu:
                     await asyncio.sleep(0)
                     continue
@@ -2876,7 +2882,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     try:
                         tobj = self.core.model.type(form)
-                        valu, _ = await tobj.norm(valu)
+                        valu, _ = await tobj.norm(valu, view=self)
                     except AttributeError:  # pragma: no cover
                         logger.exception(f'Scrape interface yielded unknown form {form}')
                         await asyncio.sleep(0)

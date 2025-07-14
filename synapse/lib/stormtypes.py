@@ -7087,7 +7087,7 @@ class Layer(Prim):
                     yield await self.runt.view._joinStorNode(nid)
                 return
 
-            norm, info = await ptyp.norm(propvalu)
+            norm, info = await ptyp.norm(propvalu, view=False)
             cmprvals = await ptyp.getStorCmprs(propcmpr, norm)
             async for _, nid, _ in layr.liftByMetaValu(name, cmprvals):
                 yield await self.runt.view._joinStorNode(nid)
@@ -7107,7 +7107,7 @@ class Layer(Prim):
                     yield await self.runt.view._joinStorNode(nid)
                 return
 
-            norm, info = await prop.type.norm(propvalu)
+            norm, info = await prop.type.norm(propvalu, view=False)
             cmprvals = await prop.type.getStorCmprs(propcmpr, norm)
             async for _, nid, _ in layr.liftByPropValu(liftform, liftprop, cmprvals):
                 yield await self.runt.view._joinStorNode(nid)
@@ -7263,7 +7263,7 @@ class Layer(Prim):
                     count += layr.getPropCount(prop.form.name, prop.name)
                 continue
 
-            norm, info = await prop.type.norm(valu)
+            norm, info = await prop.type.norm(valu, view=False)
             if prop.isform:
                 count += layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
             else:
@@ -7300,7 +7300,7 @@ class Layer(Prim):
                 continue
 
             atyp = prop.type.arraytype
-            norm, info = await atyp.norm(valu)
+            norm, info = await atyp.norm(valu, view=False)
 
             if prop.isform:
                 count += layr.getPropArrayValuCount(prop.name, None, atyp.stortype, norm)
@@ -7328,7 +7328,7 @@ class Layer(Prim):
             return await layr.getTagPropCount(form, tag, prop.name)
 
         valu = await tostor(valu)
-        norm, info = await prop.type.norm(valu)
+        norm, info = await prop.type.norm(valu, view=False)
 
         return layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
 

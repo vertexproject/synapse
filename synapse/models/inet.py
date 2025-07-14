@@ -176,7 +176,7 @@ class IPAddr(s_types.Type):
 
         yield valu
 
-    async def _normPyTuple(self, valu):
+    async def _normPyTuple(self, valu, view=None):
 
         if any((len(valu) != 2,
                 type(valu[0]) is not int,
@@ -216,7 +216,7 @@ class IPAddr(s_types.Type):
 
         return valu, {'subs': subs}
 
-    async def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
 
         valu = text.replace('[.]', '.')
         valu = valu.replace('(.)', '.')
@@ -418,7 +418,7 @@ class SockAddr(s_types.Str):
 
         return valu, None, ''
 
-    async def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         orig = valu
         subs = {}
         virts = {}
@@ -504,7 +504,7 @@ class SockAddr(s_types.Str):
 
         return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
 
-    async def _normPyTuple(self, valu):
+    async def _normPyTuple(self, valu, view=None):
         ipaddr = (await self.iptype.norm(valu))[0]
 
         (vers, ip_int) = ipaddr
@@ -535,7 +535,7 @@ class Cidr(s_types.Str):
             'inet:ip': ('range=', self.iptype.getCidrRange),
         }
 
-    async def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
 
         try:
             ip_str, mask_str = valu.split('/', 1)
@@ -591,7 +591,7 @@ class Email(s_types.Str):
         self.fqdntype = self.modl.type('inet:fqdn')
         self.usertype = self.modl.type('inet:user')
 
-    async def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
 
         try:
             user, fqdn = valu.split('@', 1)
@@ -675,7 +675,7 @@ class Fqdn(s_types.Type):
             return norm == valu
         return cmpr
 
-    async def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
 
         valu = unicodedata.normalize('NFKC', valu)
 
@@ -729,7 +729,7 @@ class Fqdn(s_types.Type):
 
 class HttpCookie(s_types.Str):
 
-    async def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
 
         text = text.strip()
         parts = text.split('=', 1)
@@ -777,14 +777,14 @@ class IPRange(s_types.Range):
             'inet:ip': ('range=', None),
         }
 
-    async def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         if '-' in valu:
             return await super()._normPyStr(valu)
         cidrnorm = await self.cidrtype._normPyStr(valu)
         tupl = cidrnorm[1]['subs']['network'], cidrnorm[1]['subs']['broadcast']
         return await self._normPyTuple(tupl)
 
-    async def _normPyTuple(self, valu):
+    async def _normPyTuple(self, valu, view=None):
         if len(valu) != 2:
             raise s_exc.BadTypeValu(numitems=len(valu), name=self.name,
                                     mesg=f'Must be a 2-tuple of type {self.subtype.name}: {s_common.trimText(repr(valu))}')
@@ -813,7 +813,7 @@ class Rfc2822Addr(s_types.Str):
 
         self.emailtype = self.modl.type('inet:email')
 
-    async def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
 
         # remove quotes for normalized version
         valu = valu.replace('"', ' ').replace("'", ' ')
@@ -876,7 +876,7 @@ class Url(s_types.Str):
 
         return cmpr
 
-    async def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         valu = valu.strip()
         orig = valu
         subs = {}

@@ -255,7 +255,7 @@ class Cpe22Str(s_types.Str):
         self.setNormFunc(list, self._normPyList)
         self.setNormFunc(tuple, self._normPyList)
 
-    async def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
 
         text = valu.lower()
 
@@ -285,7 +285,7 @@ class Cpe22Str(s_types.Str):
 
         return v2_2, {}
 
-    async def _normPyList(self, parts):
+    async def _normPyList(self, parts, view=None):
         return zipCpe22(parts), {}
 
 def zipCpe22(parts):
@@ -344,7 +344,7 @@ class Cpe23Str(s_types.Str):
         self.opts['lower'] = True
         s_types.Str.postTypeInit(self)
 
-    async def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
 
@@ -491,7 +491,7 @@ class SemVer(s_types.Int):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
-    async def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         valu = valu.strip()
         if not valu:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
@@ -510,7 +510,7 @@ class SemVer(s_types.Int):
 
         return valu, {'subs': subs}
 
-    async def _normPyInt(self, valu):
+    async def _normPyInt(self, valu, view=None):
         if valu < 0:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Cannot norm a negative integer as a semver.')

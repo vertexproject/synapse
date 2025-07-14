@@ -261,7 +261,7 @@ class Lookup(Query):
                     runt.layerConfirm(('node', 'add', form))
                     return await runt.view.addNode(form, valu)
                 else:
-                    norm, info = await runt.model.form(form).type.norm(valu)
+                    norm, info = await runt.model.form(form).type.norm(valu, view=runt.view)
                     node = await runt.view.getNodeByNdef((form, norm))
                     if node is None:
                         await runt.bus.fire('look:miss', ndef=(form, norm))
@@ -4866,7 +4866,7 @@ class EditPropSet(Edit):
                         # we cant remove something we cant norm...
                         # but that also means it can't be in the array so...
                         for v in valu:
-                            norm, info = await prop.type.arraytype.norm(v)
+                            norm, info = await prop.type.arraytype.norm(v, view=runt.view)
                             try:
                                 arry.remove(norm)
                             except ValueError:
@@ -4947,7 +4947,7 @@ class EditPropSetMulti(Edit):
                     await asyncio.sleep(0)
 
                     try:
-                        norm, info = await atyp.norm(item)
+                        norm, info = await atyp.norm(item, view=runt.view)
                     except excignore:
                         continue
 

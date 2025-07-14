@@ -224,10 +224,10 @@ class Dist(s_types.Int):
         self.setNormFunc(str, self._normPyStr)
         self.baseoff = self.opts.get('baseoff', 0)
 
-    async def _normPyInt(self, valu):
+    async def _normPyInt(self, valu, view=None):
         return valu, {}
 
-    async def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
         try:
             valu, off = s_grammar.parse_float(text, 0)
         except Exception:
@@ -277,10 +277,10 @@ class Area(s_types.Int):
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
 
-    async def _normPyInt(self, valu):
+    async def _normPyInt(self, valu, view=None):
         return valu, {}
 
-    async def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
         try:
             valu, off = s_grammar.parse_float(text, 0)
         except Exception:
@@ -349,11 +349,11 @@ class LatLong(s_types.Type):
         dist = (await self.modl.type('geo:dist').norm(valu[1]))[0]
         return ((cmpr, (latlong, dist), self.stortype),)
 
-    async def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         valu = tuple(valu.strip().split(','))
         return await self._normPyTuple(valu)
 
-    async def _normPyTuple(self, valu):
+    async def _normPyTuple(self, valu, view=None):
         if len(valu) != 2:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Valu must contain valid latitude,longitude')
