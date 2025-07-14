@@ -118,12 +118,7 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ ou:org=({"$try": true}) ]')
 
-            # $try only affects $props
-            # FIXME discuss re-scoping $try and props[$try]
-            # msgs = await core.stormlist('[ ou:org=({"email": "lolnope", "$try": true}) ]')
-            # self.len(0, [m for m in msgs if m[0] == 'node'])
-            # self.stormIsInErr('Bad value for prop ou:org:email: Email address expected', msgs)
-
+            # $try can be used at top level, currently only applies to $props
             msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"phone": "lolnope", "desc": "burritos man"}})]')
             nodes = [m for m in msgs if m[0] == 'node']
             self.len(1, nodes)
@@ -132,6 +127,10 @@ class StormTest(s_t_utils.SynTest):
             self.none(props.get('phone'))
             self.eq(props.get('name'), 'burrito corp')
             self.eq(props.get('desc'), 'burritos man')
+
+            # $try can also be specified in $props which overrides top level $try
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"$try": false, "phone": "lolnope"}})]')
 
             await self.asyncraises(s_exc.BadTypeValu, core.nodes("$lib.view.get().addNode(ou:org, ({'name': 'org name 77', 'phone': 'lolnope'}), props=({'desc': 'an org desc'}))"))
 

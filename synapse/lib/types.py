@@ -820,7 +820,8 @@ class Guid(Type):
 
         norms = await self._normProps(form, valu, view)
         if props:
-            props = await self._normProps(form, props, view, trycast=trycast)
+            tryprops = props.pop('$try', trycast)
+            props = await self._normProps(form, props, view, trycast=tryprops)
 
         guid, exists = await self._getGuidByNorms(form, norms, view)
 
