@@ -814,6 +814,8 @@ class Guid(Type):
             raise s_exc.BadTypeValu(mesg=mesg)
 
         if view is None:
+            # Try to grab the view from the scope runtime if possible,
+            # otherwise set to False so nested norms skip this.
             view = False
             if (runt := s_scope.get('runt')) is not None:
                 view = runt.view
