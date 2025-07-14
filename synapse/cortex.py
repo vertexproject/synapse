@@ -1048,6 +1048,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'model': model,
         }
         self.model.iden = iden
+        self.cellinfo.set('model:iden', iden)
         self.slab.put(lkey, s_msgpack.en(envl), db='model:saves')
 
     async def _bumpModelSave(self):
