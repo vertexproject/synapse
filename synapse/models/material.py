@@ -92,9 +92,6 @@ modeldefs = (
                 'doc': 'A taxonomy of material item/specification types.'}),
 
             ('mat:spec', ('guid', {}), {'doc': 'A GUID assigned to a material specification.'}),
-            # FIXME imageof?
-            ('mat:specimage', ('comp', {'fields': (('spec', 'mat:spec'), ('file', 'file:bytes'))}), {}),
-            ('mat:itemimage', ('comp', {'fields': (('item', 'mat:item'), ('file', 'file:bytes'))}), {}),
 
             ('mass', ('hugenum', {'units': massunits}), {
                 'doc': 'A mass which converts to grams as a base unit.'}),

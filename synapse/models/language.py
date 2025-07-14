@@ -19,6 +19,13 @@ modeldefs = (
             ('lang:idiom', ('guid', {}), {
                 'doc': 'An idiomatic use of a phrase.'}),
 
+            ('lang:hashtag', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {
+                # regex explanation:
+                # - starts with pound
+                # - one or more non-whitespace/non-pound character
+                # The minimum hashtag is a pound with a single non-whitespace character
+                'doc': 'A hashtag used in written text.'}),
+
             ('lang:translation', ('guid', {}), {
                 'doc': 'A translation of text from one language to another.'}),
 
@@ -38,8 +45,21 @@ modeldefs = (
         'forms': (
 
             ('lang:phrase', {}, ()),
+            ('lang:hashtag', {}, ()),
+
+            ('lang:idiom', {}, (
+
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the meaning and origin of the idiom.'}),
+
+                ('phrase', ('lang:phrase', {}), {
+                    'doc': 'The text of the idiom.'}),
+            )),
 
             ('lang:translation', {}, (
+
+                ('time', ('time', {}), {
+                    'doc': 'The time when the translation was completed.'}),
 
                 ('input', ('nodeprop', {}), {
                     'ex': 'hola',
@@ -61,6 +81,9 @@ modeldefs = (
 
                 ('engine', ('it:software', {}), {
                     'doc': 'The translation engine version used.'}),
+
+                ('translator', ('entity:actor', {}), {
+                    'doc': 'The entity who translated the input.'}),
             )),
 
             ('lang:language', {}, (

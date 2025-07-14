@@ -175,7 +175,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name=FooBar
                     :desc=BlahBlah
                     :detected=20501217
-                    :attack=*
                     :vuln=*
                     :status=todo
                     :assignee=$lib.user.iden
@@ -206,7 +205,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('ext:assignee'))
             self.len(1, await core.nodes('risk:alert -> it:host'))
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))
-            self.len(1, await core.nodes('risk:alert -> risk:attack'))
             self.len(1, await core.nodes('risk:alert :engine -> it:software'))
             self.len(1, await core.nodes('risk:alert :service:account -> inet:service:account'))
             self.len(1, await core.nodes('risk:alert :service:platform -> inet:service:platform'))
@@ -326,7 +324,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 :goal={[ ou:goal=* :name=publicity ]}
                 :compromise={[ risk:compromise=* :target={ gen.ou.org acme } ]}
                 :public=(true)
-                :public:url=https://wikileaks.org/acme
+                :public:urls=(https://wikileaks.org/acme,)
                 :source={ gen.ou.org vertex }
                 :source:name=vertex
                 :size:bytes=99
@@ -343,7 +341,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(99, nodes[0].get('size:bytes'))
             self.eq(33, nodes[0].get('size:count'))
             self.eq(12, nodes[0].get('size:percent'))
-            self.eq('https://wikileaks.org/acme', nodes[0].get('public:url'))
+            self.eq(('https://wikileaks.org/acme',), nodes[0].get('public:urls'))
             self.eq('vertex', nodes[0].get('source:name'))
 
             self.len(1, await core.nodes('risk:leak -> risk:extortion'))
