@@ -157,6 +157,9 @@ modeldefs = (
                 ),
                 'doc': 'An RSA public/private key pair.'}),
 
+            ('crypto:key:rsa:prime', ('guid', {}), {
+                'doc': 'A prime value and exponent used to generate an RSA key.'}),
+
             ('crypto:key:dsa', ('guid', {}), {
                 'interfaces': (
                     ('crypto:key', {}),
@@ -454,36 +457,61 @@ modeldefs = (
 
             ('crypto:algorithm', {}, ()),
 
-            # FIXME $lib.crypto.pem.decode()
-            # FIXME interface for public/private keys?
+            ('crypto:key:rsa:prime', {}, (
+
+                ('value', ('hex', {}), {
+                    'doc': 'The hex encoded prime number.'}),
+
+                ('exponent', ('hex', {}), {
+                    'doc': 'The hex encoded exponent.'}),
+            )),
+
             ('crypto:key:rsa', {}, (
 
-                ('public', ('file:bytes', {}), {
-                    'doc': 'The DER encoded bytes of the public key.'}),
+                ('public:modulus', ('hex', {}), {
+                    'doc': 'The public modulus of the RSA key.'}),
 
-                ('private', ('file:bytes', {}), {
-                    'doc': 'The DER encoded bytes of the private key.'}),
+                ('public:exponent', ('hex', {}), {
+                    'doc': 'The public exponent of the RSA key.'}),
+
+                ('private:exponent', ('hex', {}), {
+                    'doc': 'The private exponent of the RSA key.'}),
+
+                ('private:primes', ('array', {'type': 'crypto:key:rsa:prime', 'sorted': True, 'uniq': True}), {
+                    'doc': 'The prime number and exponenent combinations used to generate the RSA key.'}),
+
+                ('private:coefficient', ('hex', {}), {
+                    'doc': 'The private coefficient of the RSA key.'}),
             )),
 
             ('crypto:key:dsa', {}, (
 
-                ('public', ('file:bytes', {}), {
-                    'doc': 'The DER encoded bytes of the public key.'}),
+                ('public', ('hex', {}), {
+                    'doc': 'The HEX encoded public portion of the DSA key.'}),
 
-                ('private', ('file:bytes', {}), {
-                    'doc': 'The DER encoded bytes of the private key.'}),
+                ('public:p', ('hex', {}), {
+                    'doc': 'The HEX encoded public modulus or "P" componenet of the DSA key.'}),
+
+                ('public:q', ('hex', {}), {
+                    'doc': 'The HEX encoded subgroup order or "Q" componenet of the DSA key.'}),
+
+                ('public:g', ('hex', {}), {
+                    'doc': 'The HEX encoded generator or "G" componenet of the DSA key.'}),
+
+                ('private', ('hex', {}), {
+                    'doc': 'The HEX encoded private portion of the DSA key.'}),
             )),
 
             ('crypto:key:secret', {}, (
 
-                ('iv', ('file:bytes', {}), {
-                    'doc': 'The bytes of the initialization vector.'}),
+                ('iv', ('hex', {}), {
+                    'doc': 'The hex encoded initialization vector.'}),
 
                 ('mode', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The algorithm specific mode in use.'}),
 
-                ('bytes', ('file:bytes', {}), {
-                    'doc': 'The bytes of the secret key.'}),
+                ('value', ('hex', {}), {
+                    'doc': 'The hex encoded secret key.'}),
 
                 ('seed:passwd', ('inet:passwd', {}), {
                     'doc': 'The seed password used to generate the key material.'}),
