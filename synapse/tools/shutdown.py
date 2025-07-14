@@ -1,5 +1,4 @@
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
@@ -22,7 +21,7 @@ NOTE: This will also demote the service if run on a leader with mirrors.
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = s_cmd.Parser('synapse.tools.shutdown', outp=outp, description=desc)
+    pars = s_cmd.Parser(prog='synapse.tools.shutdown', outp=outp, description=desc)
 
     pars.add_argument('--url', default='cell:///vertex/storage',
                         help='The telepath URL to connect to the service.')

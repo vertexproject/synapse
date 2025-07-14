@@ -1,7 +1,4 @@
 import csv
-import sys
-import asyncio
-import contextlib
 
 import synapse.exc as s_exc
 import synapse.cortex as s_cortex
@@ -16,6 +13,44 @@ import synapse.lib.output as s_output
 import synapse.lib.version as s_version
 
 reqver = '>=0.2.0,<3.0.0'
+desc = '''Command line tool for ingesting csv files into a cortex
+
+The storm file is run with the CSV rows specified in the variable "rows" so most
+storm files will use a variable based for loop to create edit nodes.  For example:
+
+for ($fqdn, $ipv4, $tag) in $rows {
+
+    [ inet:dns:a=($fqdn, $ipv4) +#$tag ]
+
+}
+
+More advanced uses may include switch cases to provide different logic based on
+a column value.
+
+for ($type, $valu, $info) in $rows {
+
+    switch $type {
+
+        fqdn: {
+            [ inet:fqdn=$valu ]
+        }
+
+        "person name": {
+            [ ps:name=$valu ]
+        }
+
+        *: {
+            // default case...
+        }
+
+    }
+
+    switch $info {
+        "known malware": { [+#cno.mal] }
+    }
+
+}
+'''
 
 async def runCsvExport(opts, outp, text, stormopts):
     if not opts.cortex:
@@ -174,46 +209,7 @@ async def main(argv, outp=s_output.stdout):
             return await runCsvImport(opts, outp, text, stormopts)
 
 def makeargparser(outp):
-    desc = '''
-    Command line tool for ingesting csv files into a cortex
-
-    The storm file is run with the CSV rows specified in the variable "rows" so most
-    storm files will use a variable based for loop to create edit nodes.  For example:
-
-    for ($fqdn, $ipv4, $tag) in $rows {
-
-        [ inet:dns:a=($fqdn, $ipv4) +#$tag ]
-
-    }
-
-    More advanced uses may include switch cases to provide different logic based on
-    a column value.
-
-    for ($type, $valu, $info) in $rows {
-
-        switch $type {
-
-            fqdn: {
-                [ inet:fqdn=$valu ]
-            }
-
-            "person name": {
-                [ ps:name=$valu ]
-            }
-
-            *: {
-                // default case...
-            }
-
-        }
-
-        switch $info {
-            "known malware": { [+#cno.mal] }
-        }
-
-    }
-    '''
-    pars = s_cmd.Parser('synapse.tools.csvtool', description=desc, outp=outp)
+    pars = s_cmd.Parser(prog='synapse.tools.csvtool', description=desc, outp=outp)
     pars.add_argument('--logfile', help='Set a log file to get JSON lines from the server events.')
     pars.add_argument('--csv-header', default=False, action='store_true',
                       help='Skip the first line from each CSV file.')
@@ -235,10 +231,5 @@ def makeargparser(outp):
     pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
     return pars
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_cmd.exitmain(main)
