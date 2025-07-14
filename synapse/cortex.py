@@ -760,7 +760,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     confbase['safemode']['hidecmdl'] = False
     confbase['safemode']['description'] = (
-        'Enable safemode which disables crons, triggers, dmons, storm '
+        'Enable safe-mode which disables crons, triggers, dmons, storm '
         'package onload handlers, view merge tasks, and storm pools.'
     )
 
