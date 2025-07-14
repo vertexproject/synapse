@@ -1,27 +1,20 @@
 import os
-import sys
 import glob
-import asyncio
 import logging
-import argparse
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.coro as s_coro
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 import synapse.lib.hashset as s_hashset
 
 logger = logging.getLogger(__name__)
 
 
-async def main(argv, outp=None):
-
-    if outp is None:  # pragma: no cover
-        outp = s_output.OutPut()
-
-    pars = makeargparser()
+async def main(argv, outp=s_output.stdout):
+    pars = getArgParser(outp)
     opts = pars.parse_args(argv)
 
     async with s_telepath.withTeleEnv():
@@ -111,10 +104,10 @@ async def main(argv, outp=None):
 
     return 0
 
-def makeargparser():
+def getArgParser(outp):
     desc = 'Command line tool for uploading files to an Axon and making ' \
            'file:bytes in a Cortex.'
-    pars = argparse.ArgumentParser('synapse.tools.pushfile', description=desc)
+    pars = s_cmd.Parser(prog='synapse.tools.pushfile', outp=outp, description=desc)
     pars.add_argument('-a', '--axon', required=True, type=str, dest='axon',
                    help='URL for a target Axon to store files at.')
     pars.add_argument('-c', '--cortex', default=None, type=str, dest='cortex',
@@ -125,10 +118,5 @@ def makeargparser():
     pars.add_argument('-t', '--tags', help='comma separated list of tags to add to the nodes')
     return pars
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_cmd.exitmain(main)

@@ -102,7 +102,8 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ ou:org=({}) ]')
 
-            self.len(1, await core.nodes('[ ou:org=() ]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=() ]')
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ ou:org=({}) ]')

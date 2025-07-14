@@ -652,6 +652,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     confbase['mirror']['hidedocs'] = False  # type: ignore
     confbase['mirror']['hidecmdl'] = False  # type: ignore
 
+    confbase['safemode']['hidecmdl'] = False
+    confbase['safemode']['description'] = (
+        'Enable safe-mode which disables crons, triggers, dmons, storm '
+        'package onload handlers, view merge tasks, and storm pools.'
+    )
+
     confdefs = {
         'axon': {
             'description': 'A telepath URL for a remote axon.',
@@ -1259,9 +1265,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.isactive:
             await self._checkLayerModels()
 
-        self.addActiveCoro(self.agenda.runloop)
+        if not self.safemode:
+            self.addActiveCoro(self.agenda.runloop)
 
         await self._initStormDmons()
+
         await self._initStormSvcs()
 
         # share ourself via the cell dmon as "cortex"
@@ -1301,6 +1309,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.finiStormPool()
 
     async def initStormPool(self):
+
+        if self.safemode:
+            return
 
         try:
 
@@ -2443,6 +2454,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if onload is not None and self.isactive:
             async def _onload():
+                if self.safemode:
+                    await self.fire('core:pkg:onload:skipped', pkg=name, reason='safemode')
+                    return
+
                 await self.fire('core:pkg:onload:start', pkg=name)
                 try:
                     async for mesg in self.storm(onload):
