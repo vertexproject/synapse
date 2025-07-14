@@ -240,7 +240,8 @@ modeldefs = (
                 'doc': 'Represents the assessment that a node is designed to resemble another in order to mislead.'}),
         ),
         'edges': (
-            # some explicit examples...
+            (('risk:attack', 'uses', 'inet:service:app'), {
+                'doc': 'The attacker used the online application.'}),
 
             (('risk:attack', 'uses', 'ou:technique'), {
                 'doc': 'The attacker used the technique in the attack.'}),
