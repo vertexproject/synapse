@@ -3560,8 +3560,10 @@ class Layer(s_nexus.Pusher):
 
         if sode is not None and (tagprops := sode.get('tagprops')) is not None:
             if (tp_dict := tagprops.get(tag)) is not None:
-                if (valt := tp_dict.get(prop)) is not None and valt == (valu, stortype):
-                    return
+                if (valt := tp_dict.get(prop)) is not None:
+                    if valt == (valu, stortype):
+                        return
+                    oldv = valt[0]
 
         return (
             (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype)),

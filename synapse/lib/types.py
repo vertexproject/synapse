@@ -785,6 +785,9 @@ class Guid(Type):
 
     async def _normPyList(self, valu, view=None):
         valu = await s_stormtypes.tostor(valu, packsafe=True)
+        if not valu:
+            mesg = 'Guid list values cannot be empty.'
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
         return s_common.guid(valu), {}
 
     async def _normPyStr(self, valu, view=None):

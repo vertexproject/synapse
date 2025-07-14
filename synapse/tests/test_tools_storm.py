@@ -62,7 +62,8 @@ class StormCliTest(s_test.SynTest):
 
             await core.addTagProp('foo', ('int', {}), {})
 
-            pars = s_t_storm.getArgParser()
+            outp = self.getTestOutp()
+            pars = s_t_storm.getArgParser(outp)
             opts = pars.parse_args(('woot',))
             self.eq('woot', opts.cortex)
             self.none(opts.view)
@@ -235,7 +236,7 @@ class StormCliTest(s_test.SynTest):
 
             url = core.getLocalUrl()
 
-            pars = s_t_storm.getArgParser()
+            pars = s_t_storm.getArgParser(self.getTestOutp())
             opts = pars.parse_args(('woot', '--view', '246e7d5dab883eb28d345a33abcdb577'))
             self.eq(opts.view, '246e7d5dab883eb28d345a33abcdb577')
 

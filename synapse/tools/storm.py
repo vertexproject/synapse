@@ -1,9 +1,7 @@
 import os
-import sys
 import copy
 import asyncio
 import logging
-import argparse
 
 import regex
 import prompt_toolkit
@@ -14,7 +12,6 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
-import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.output as s_output
 import synapse.lib.parser as s_parser
@@ -607,8 +604,8 @@ class StormCli(s_cli.Cli):
 
         return ret
 
-def getArgParser():
-    pars = argparse.ArgumentParser(prog='synapse.tools.storm')
+def getArgParser(outp):
+    pars = s_cmd.Parser(prog='synapse.tools.storm', outp=outp)
     pars.add_argument('cortex', help='A telepath URL for the Cortex.')
     pars.add_argument('onecmd', nargs='?', help='A single storm command to run and exit.')
     pars.add_argument('--view', default=None, help='The view iden to work in.')
@@ -631,7 +628,7 @@ async def runItemStorm(prox, outp=None, color=True, opts=None):
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = getArgParser()
+    pars = getArgParser(outp=outp)
     opts = pars.parse_args(argv)
 
     async with s_telepath.withTeleEnv():
@@ -647,10 +644,5 @@ async def main(argv, outp=s_output.stdout):
             else:  # pragma: no cover
                 await runItemStorm(proxy, outp=outp, opts=opts)
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_cmd.exitmain(main)

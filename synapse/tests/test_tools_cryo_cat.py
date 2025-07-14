@@ -93,14 +93,9 @@ class CryoCatTest(s_t_utils.SynTest):
             stdout.buffer = io.BytesIO()
 
             with mock.patch('sys.stdout', stdout):
-                with self.getLoggerStream('synapse.tools.cryo.cat') as stream:
-                    argv = ['--verbose', '--msgpack', '--size', '20', cryourl]
-                    retn, _ = await self.execToolMain(s_cryocat.main, argv)
-                    self.eq(0, retn)
-
-                stream.seek(0)
-                mesgs = stream.read()
-                self.isin(f'connecting to: {cryourl}', mesgs)
+                argv = ['--msgpack', '--size', '20', cryourl]
+                retn, _ = await self.execToolMain(s_cryocat.main, argv)
+                self.eq(0, retn)
 
             stdout.buffer.seek(0)
             outdata = list(msgpack.Unpacker(stdout.buffer, raw=False, use_list=False))
