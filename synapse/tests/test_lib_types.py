@@ -322,7 +322,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(lnorm, tnorm)
 
         with self.raises(s_exc.BadTypeValu) as exc:
-            model.type('guid').norm(())
+            await model.type('guid').norm(())
         self.eq(exc.exception.get('name'), 'guid')
         self.eq(exc.exception.get('valu'), ())
         self.eq(exc.exception.get('mesg'), 'Guid list values cannot be empty.')
