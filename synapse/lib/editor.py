@@ -768,7 +768,7 @@ class ProtoNode(s_node.NodeBase):
         virts = norminfo.get('virts')
         curv = self.getWithVirts(prop.name)
         if curv == (valu, virts):
-            return False
+            return False, valu, norminfo
 
         cval = curv[0]
 
@@ -785,18 +785,14 @@ class ProtoNode(s_node.NodeBase):
         self.propdels.discard(prop.name)
         self.proptombs.discard(prop.name)
 
-        return valu, norminfo
+        return True, valu, norminfo
 
     async def set(self, name, valu, norminfo=None):
         prop = self.form.props.get(name)
         if prop is None:
             raise s_exc.NoSuchProp(mesg=f'No property named {name} on form {self.form.name}.')
 
-        retn = await self._set(prop, valu, norminfo=norminfo)
-        if retn is False:
-            return False
-
-        (valu, norminfo) = retn
+        retn, valu, norminfo = await self._set(prop, valu, norminfo=norminfo)
 
         propform = self.model.form(prop.type.name)
         if propform is not None:
@@ -816,7 +812,7 @@ class ProtoNode(s_node.NodeBase):
             for addname, addvalu, addinfo in propadds:
                 await self.editor.addNode(addname, addvalu, norminfo=addinfo)
 
-        return True
+        return retn
 
     async def pop(self, name):
 
@@ -847,11 +843,7 @@ class ProtoNode(s_node.NodeBase):
         if prop is None or prop.locked:
             return ()
 
-        retn = await self._set(prop, valu, norminfo=norminfo)
-        if retn is False:
-            return ()
-
-        (valu, norminfo) = retn
+        retn, valu, norminfo = await self._set(prop, valu, norminfo=norminfo)
         ops = []
 
         propform = self.editor.view.core.model.form(prop.type.name)
@@ -981,24 +973,26 @@ class NodeEditor:
         norm, norminfo = retn
 
         ndef = (form.name, norm)
+        subs = norminfo.get('subs')
+        adds = norminfo.get('adds')
 
         protonode = self.protonodes.get(ndef)
         if protonode is None:
             buid = s_common.buid(ndef)
             node = await self.view.getNodeByBuid(buid)
 
-            protonode = ProtoNode(self, buid, form, norm, node, norminfo)
+            if node is not None and not (adds or subs):
+                return()
 
+            protonode = ProtoNode(self, buid, form, norm, node, norminfo)
             self.protonodes[ndef] = protonode
 
         ops = []
 
-        subs = norminfo.get('subs')
         if subs is not None:
             for prop, valu in subs.items():
                 ops.append(protonode.getSubSetOps(prop, valu))
 
-        adds = norminfo.get('adds')
         if adds is not None:
             for addname, addvalu, addinfo in adds:
                 ops.append(self.getAddNodeOps(addname, addvalu, norminfo=addinfo))
