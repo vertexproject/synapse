@@ -1,7 +1,0 @@
----
-desc: Updated Cortex with a safe-mode option (``SYN_CORTEX_SAFEMODE=true``)
-  which disables crons, triggers, dmons, Storm package onload handlers, view merge
-  tasks, and Storm pools.
-prs: []
-type: feat
-...
