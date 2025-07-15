@@ -3105,6 +3105,145 @@ class StormTest(s_t_utils.SynTest):
 
             await core00.waitfini()
 
+    async def test_storm_pkg_inits(self):
+
+        async def loadPkg(core, pkg):
+            waiter = core.waiter(2, 'core:pkg:onload:start', 'core:pkg:onload:complete')
+
+            await core.addStormPkg(pkg)
+
+            events = await waiter.wait(timeout=10)
+            self.eq(events, [
+                ('core:pkg:onload:start', {'pkg': 'testload'}),
+                ('core:pkg:onload:complete', {'pkg': 'testload'}),
+            ])
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                pkg = {
+                    'name': 'testload',
+                    'version': '0.1.0',
+                    'inits': {
+                        'var': 'testload:version',
+                        'versions': [
+                            {
+                                'version': 0,
+                                'name': 'init00',
+                                'query': '$lib.globals.set(init00, $lib.time.now())',
+                            },
+                            {
+                                'version': 1,
+                                'name': 'init01',
+                                'inaugural': True,
+                                'query': '$lib.globals.set(init01, $lib.time.now())',
+                            },
+                        ]
+                    },
+                }
+
+                # bad init queries fail on load
+
+                pkg['inits']['versions'].append({
+                    'version': 2,
+                    'name': 'bad',
+                    'query': '...',
+                })
+
+                await self.asyncraises(s_exc.BadSyntax, core.addStormPkg(pkg))
+
+                pkg['inits']['versions'].pop(2)
+
+                # only inaugural inits run on first load
+
+                await loadPkg(core, pkg)
+
+                self.eq(1, await core.getStormVar('testload:version'))
+                self.none(await core.getStormVar('init00'))
+                self.nn(init01 := await core.getStormVar('init01'))
+
+                # non-inaugural inits run on reload
+                # inits always run after onload
+
+                pkg['version'] = '0.2.0'
+                pkg['onload'] = '$lib.globals.set(onload, $lib.time.now()) $lib.time.sleep((0.1))'
+                pkg['inits']['versions'].append({
+                    'version': 2,
+                    'name': 'init02',
+                    'query': '$lib.globals.set(init02, $lib.time.now())',
+                })
+
+                await loadPkg(core, pkg)
+
+                self.eq(2, await core.getStormVar('testload:version'))
+                self.nn(onload := await core.getStormVar('onload'))
+                self.none(await core.getStormVar('init00'))
+                self.eq(init01, await core.getStormVar('init01'))
+                self.nn(init02 := await core.getStormVar('init02'))
+                self.gt(init02, onload)
+
+                # inits run even if onload fails
+                # prior inits do not re-run
+
+                pkg['version'] = '0.3.0'
+                pkg['onload'] = '$lib.raise(SynErr, whoopsie)'
+                pkg['inits']['versions'].append({
+                    'version': 3,
+                    'name': 'init03',
+                    'inaugural': True,
+                    'query': '$lib.globals.set(init03, $lib.time.now())',
+                })
+
+                await loadPkg(core, pkg)
+
+                self.eq(3, await core.getStormVar('testload:version'))
+                self.eq(init02, await core.getStormVar('init02'))
+                self.nn(await core.getStormVar('init03'))
+
+                # init failure stops progression
+
+                await core.setStormVar('dofail', True)
+
+                pkg['version'] = '0.4.0'
+                pkg['onload'] = '$lib.globals.set(onload, $lib.time.now()) $lib.time.sleep((0.1))'
+                pkg['inits']['versions'].extend([
+                    {
+                        'version': 4,
+                        'name': 'init04',
+                        'query': '''
+                            if $lib.globals.get(dofail) { $lib.raise(SynErr, newp) }
+                            $lib.globals.set(init04, $lib.time.now())
+                        ''',
+                    },
+                    {
+                        'version': 6,
+                        'name': 'init06',
+                        'query': '$lib.globals.set(init06, $lib.time.now())',
+                    },
+                ])
+
+                await loadPkg(core, pkg)
+
+                self.eq(3, await core.getStormVar('testload:version'))
+                self.none(await core.getStormVar('init04'))
+                self.none(await core.getStormVar('init06'))
+
+                await core.setStormVar('dofail', False)
+
+            with self.getAsyncLoggerStream('synapse.cortex', 'testload finished init vers=6: init06') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    await stream.wait(timeout=10)
+
+                    # prior versions dont re-run, but a failed one does
+
+                    await core.addStormPkg(pkg)
+
+                    self.gt(await core.getStormVar('onload'), onload)
+                    self.eq(init02, await core.getStormVar('init02'))
+                    self.nn(await core.getStormVar('init04'))
+                    self.nn(await core.getStormVar('init06'))
+
     async def test_storm_tree(self):
 
         async with self.getTestCore() as core:

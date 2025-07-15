@@ -2883,10 +2883,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
         onload = pkgdef.get('onload')
+        inits = pkgdef.get('inits')
         svciden = pkgdef.get('svciden')
 
         if onload is not None and validstorm:
             await self.getStormQuery(onload)
+
+        if inits is not None and validstorm:
+            for initdef in inits['versions']:
+                await self.getStormQuery(initdef['query'])
 
         for mdef in mods:
             mdef.setdefault('modconf', {})
@@ -2997,47 +3002,52 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     except Exception as exc:  # pragma: no cover
                         logger.warning(f'onload failed for package: {name}', exc_info=exc, extra=logextra)
 
-                if inits is None:
-                    return
+                if inits is not None:
+                    varname = inits['var']
+                    curvers = await self.getStormVar(varname, default=-1)
+                    inaugral = curvers == -1
 
-                varname = inits['var']
-                curvers = await self.getStormVar(varname, default=-1)
-                inaugral = curvers == -1
+                    for initdef in inits['versions']:
 
-                for initdef in inits['versions']:
+                        vers = initdef['version']
+                        vname = initdef['name']
 
-                    vers = initdef['version']
-                    vname = initdef['name']
+                        if vers <= curvers:
+                            continue
 
-                    if vers <= curvers:
-                        continue
+                        if inaugral and not initdef.get('inaugural'):
+                            await self.setStormVar(varname, vers)
+                            continue
 
-                    if inaugral and not initdef['inaugural']:
+                        logextra['synapse']['initvers'] = vers
+
+                        logger.info(f'{name} starting init vers={vers}: {vname}', extra=logextra)
+
+                        ok = True
+
+                        try:
+                            async for mesg in self.storm(initdef['query']):
+                                match mesg[0]:
+                                    case 'print':
+                                        logger.info(f'{name} init vers={vers} output: {mesg[1].get("mesg")}', extra=logextra)
+                                    case 'warn':
+                                        logger.warning(f'{name} init vers={vers} output: {mesg[1].get("mesg")}', extra=logextra)
+                                    case 'err':
+                                        logger.error(f'{name} init vers={vers} output: {mesg[1]}', extra=logextra)
+                                        ok = False
+                                await asyncio.sleep(0)
+                        except asyncio.CancelledError:  # pragma: no cover
+                            raise
+                        except Exception as exc:  # pragma: no cover
+                            logger.warning(f'{name} init failed for vers={vers}: {vname}', exc_info=exc, extra=logextra)
+                            ok = False
+
+                        if not ok:
+                            break
+
+                        curvers = vers
                         await self.setStormVar(varname, vers)
-                        continue
-
-                    logextra['synapse']['initvers'] = vers
-
-                    logger.info(f'{name} starting init vers={vers}: {vname}', extra=logextra)
-
-                    try:
-                        async for mesg in self.storm(initdef['query']):
-                            if mesg[0] == 'print':
-                                logger.info(f'{name} init vers={vers} output: {mesg[1].get("mesg")}', extra=logextra)
-                            if mesg[0] == 'warn':
-                                logger.warning(f'{name} init vers={vers} output: {mesg[1].get("mesg")}', extra=logextra)
-                            if mesg[0] == 'err':
-                                logger.error(f'{name} init vers={vers} output: {mesg[1]}', extra=logextra)
-                            await asyncio.sleep(0)
-                    except asyncio.CancelledError:  # pragma: no cover
-                        raise
-                    except Exception as exc:
-                        logger.warning(f'{name} init failed for vers={vers}: {vname}', exc_info=exc, extra=logextra)
-                        return
-
-                    curvers = vers
-                    await self.setStormVar(varname, vers)
-                    logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
+                        logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 await self.fire('core:pkg:onload:complete', pkg=name)
 
