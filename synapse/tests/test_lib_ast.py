@@ -3405,6 +3405,12 @@ class AstTest(s_test.SynTest):
             self.eq('gen(foo, bar, baz)', text[off:end])
             self.stormIsInErr('$lib.gen.campaign()', msgs)
 
+            async def highlighteq(exp, text):
+                msgs = await core.stormlist(text)
+                errm = [m for m in msgs if m[0] == 'err'][0]
+                off, end = errm[1][1]['highlight']['offsets']
+                self.eq(exp, text[off:end])
+
             text = '''
                 function willError() {
                     [ inet:tls:servercert=(("1.2.3.4", 10), {[crypto:x509:cert=*]}) ]
@@ -3412,107 +3418,38 @@ class AstTest(s_test.SynTest):
                 }
                 yield $willError()
             '''
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('(("1.2.3.4", 10), {[crypto:x509:cert=*]})', text[off:end])
+            await highlighteq('(("1.2.3.4", 10), {[crypto:x509:cert=*]})', text)
 
-            text = '[ test:str=foo test:int=$node.value() ]'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('node.value()', text[off:end])
+            await highlighteq('node.value()', '[ test:str=foo test:int=$node.value() ]')
 
-            text = '[ test:str=foo :seen=newp ]'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('newp', text[off:end])
+            await highlighteq('newp', '[ test:str=foo :seen=newp ]')
+            await highlighteq('newp', '[ test:str=foo :seen*unset=newp ]')
+            await highlighteq('newp', '[ test:str=foo :seen=now :seen.precision=newp ]')
 
-            text = '[ test:str=foo :seen*unset=newp ]'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('newp', text[off:end])
+            await highlighteq('([1, 2])', '[ test:str=foo :ndefs++=([1, 2]) ]')
 
-            text = '[ test:str=foo :seen=now :seen.precision=newp ]'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('newp', text[off:end])
+            await highlighteq('#$foo', '$foo=(1) [ test:str=foo +#$foo ]')
 
-            text = '[ test:str=foo :ndefs++=([1, 2]) ]'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('([1, 2])', text[off:end])
-
-            text = '$foo=(1) [ test:str=foo +#$foo ]'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('#$foo', text[off:end])
-
-            text = '[ test:str=foo +#foo=newp ]'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('+#foo=newp', text[off:end])
+            await highlighteq('+#foo=newp', '[ test:str=foo +#foo=newp ]')
 
             await core.nodes('''
                 $regx = ($lib.null, $lib.null, "[0-9]{4}")
                 $lib.model.tags.set(cno.cve, regex, $regx)
             ''')
 
-            text = '[ test:str=foo +#cno.cve.foo ]'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('#cno.cve.foo', text[off:end])
+            await highlighteq('#cno.cve.foo', '[ test:str=foo +#cno.cve.foo ]')
+            await highlighteq('+#cno.cve.foo=2024', '[ test:str=foo +#cno.cve.foo=2024 ]')
+            await highlighteq('+#cno.cve.1234=newp', '[ test:str=foo +#cno.cve.1234=newp ]')
 
-            text = '[ test:str=foo +#cno.cve.foo=2024 ]'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('+#cno.cve.foo=2024', text[off:end])
+            await highlighteq('#$foo', '$foo=(1) #$foo')
+            await highlighteq('#$foo', '$foo=(1) test:str=foo +#$foo')
+            await highlighteq('foo', '$foo=(null) test:str=foo +#foo.$foo')
 
-            text = '[ test:str=foo +#cno.cve.1234=newp ]'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('+#cno.cve.1234=newp', text[off:end])
-
-            text = '$foo=(1) #$foo'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('#$foo', text[off:end])
-
-            text = '$foo=(1) test:str=foo +#$foo'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('#$foo', text[off:end])
-
-            text = '$foo=(null) test:str=foo +#foo.$foo'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('foo', text[off:end])
-
-            text = '[ test:str=foo +#(foo).min=newp ]'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('newp', text[off:end])
+            await highlighteq('newp', '[ test:str=foo +#(foo).min=newp ]')
 
             await core.addTagProp('ival', ('ival', {}), {})
 
-            text = '[ test:str=foo +#foo:ival=newp ]'
-            msgs = await core.stormlist(text)
-            errm = [m for m in msgs if m[0] == 'err'][0]
-            off, end = errm[1][1]['highlight']['offsets']
-            self.eq('+#foo:ival=newp', text[off:end])
+            await highlighteq('+#foo:ival=newp', '[ test:str=foo +#foo:ival=newp ]')
 
     async def test_ast_bulkedges(self):
 
