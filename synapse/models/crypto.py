@@ -478,7 +478,7 @@ modeldefs = (
                     'doc': 'The private exponent of the RSA key.'}),
 
                 ('private:primes', ('array', {'type': 'crypto:key:rsa:prime', 'sorted': True, 'uniq': True}), {
-                    'doc': 'The prime number and exponenent combinations used to generate the RSA key.'}),
+                    'doc': 'The prime number and exponent combinations used to generate the RSA key.'}),
 
                 ('private:coefficient', ('hex', {}), {
                     'doc': 'The private coefficient of the RSA key.'}),
@@ -490,13 +490,13 @@ modeldefs = (
                     'doc': 'The HEX encoded public portion of the DSA key.'}),
 
                 ('public:p', ('hex', {}), {
-                    'doc': 'The HEX encoded public modulus or "P" componenet of the DSA key.'}),
+                    'doc': 'The HEX encoded public modulus or "P" component of the DSA key.'}),
 
                 ('public:q', ('hex', {}), {
-                    'doc': 'The HEX encoded subgroup order or "Q" componenet of the DSA key.'}),
+                    'doc': 'The HEX encoded subgroup order or "Q" component of the DSA key.'}),
 
                 ('public:g', ('hex', {}), {
-                    'doc': 'The HEX encoded generator or "G" componenet of the DSA key.'}),
+                    'doc': 'The HEX encoded generator or "G" component of the DSA key.'}),
 
                 ('private', ('hex', {}), {
                     'doc': 'The HEX encoded private portion of the DSA key.'}),
