@@ -5785,6 +5785,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                     ddef = await core01.callStorm('return($lib.dmon.get($iden))', opts=opts)
                     self.none(ddef)
 
+                    await core00.callStorm('queue.del hehe')
+                    await core01.sync()
+
+                    self.none(await core00.getAuthGate('queue:hehe'))
+                    self.none(await core01.getAuthGate('queue:hehe'))
+
             # now lets start up in the opposite order...
             async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
 
@@ -5889,7 +5895,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     # consumer offline
                     await asyncio.sleep(0)
-                    await self.asyncraises(ConnectionRefusedError, core00.callStorm(strim, opts=opts))
+                    await self.asyncraises(s_exc.LinkErr, core00.callStorm(strim, opts=opts))
 
                     # admin can still cull and break the mirror
                     await core00.nodes('[ inet:ipv4=127.0.0.1/28 ]')
@@ -8478,6 +8484,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(msgs[1].get('hash'), qhash)
                     self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
 
+                    with self.getLoggerStream('synapse') as stream:
+                        core01.boss.is_shutdown = True
+                        self.stormHasNoWarnErr(await core00.stormlist('inet:asn=0'))
+                        core01.boss.is_shutdown = False
+
+                    stream.seek(0)
+                    self.isin('Proxy for pool mirror [01.core.synapse] is shutting down. Skipping.', stream.read())
+
                     with patch('synapse.cortex.CoreApi.getNexsIndx', _hang):
 
                         with self.getLoggerStream('synapse') as stream:
@@ -8761,3 +8775,270 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(core._test_post_service_storage_index, offs)
                 self.eq(core._test_pre_nexus_index, offs)
                 self.ge(core._test_post_nexus_index, core._test_pre_nexus_index)
+
+    async def test_cortex_safemode(self):
+        safemode = {'safemode': True}
+        nosafe = {'safemode': False}
+
+        # Cortex safemode disables the following functionality:
+        # - crons
+        # - triggers
+        # - dmons
+        # - storm package onloads
+        # - merge tasks (e.g. for quorum)
+        # - storm pools
+
+        # Make sure we're logging the message
+        with self.getStructuredAsyncLoggerStream('synapse.lib.cell', 'Booting cortex in safe-mode.') as stream:
+            async with self.getTestCore(conf=safemode) as core:
+                self.true(core.safemode)
+                self.true(await stream.wait(10))
+        msgs = stream.jsonlines()
+        self.len(1, msgs)
+        self.eq(msgs[0].get('message'), 'Booting cortex in safe-mode. Some functionality may be disabled.')
+        self.eq(msgs[0].get('level'), 'WARNING')
+
+        # Check crons, triggers, dmons in this section
+        with self.getTestDir() as dirn:
+
+            # Setup the cortex
+            async with self.getTestCore(dirn=dirn) as core:
+                await core.addCoreQueue('queue:safemode:done', {})
+                # Add a cron job and immediately disable it
+                q = '''
+                cron.add --minute +1 {
+                    $now = $lib.cast(time, now)
+                    $lib.log.warning(`SAFEMODE CRON: {$now}`)
+                    [ test:str=CRON :tick=$now ]
+                } |
+                $job = $lib.cron.list().0
+                cron.disable $job.iden
+                '''
+                await core.callStorm(q)
+                jobs = await core.listCronJobs()
+                self.len(1, jobs)
+                self.eq(jobs[0].get('enabled'), False)
+
+                # Add a regular trigger
+                q = '''
+                $lib.log.warning(`SAFEMODE TRIGGER: {$node}`)
+                $tick = :tick
+                $str = { [( test:str=TRIGGER :hehe=$tick )] }
+                $queue = $lib.queue.gen(queue:safemode)
+                $queue.put($tick)
+                '''
+                opts = {'vars': {'query': q}}
+                await core.callStorm(f'trigger.add prop:set --prop test:str:tick --query {{{q}}}')
+
+                # Add an async trigger
+                q = '''
+                $lib.log.warning(`SAFEMODE ATRIGGER: {$node}`)
+                $tick = :tick
+                $str = { [( test:str=ATRIGGER :hehe=$tick )] }
+                $queue = $lib.queue.gen(queue:safemode)
+                $queue.put($tick)
+                '''
+                opts = {'vars': {'query': q}}
+                await core.callStorm(f'trigger.add prop:set --prop test:str:tick --async --query {{{q}}}')
+
+                # Add a dmon
+                q = '''
+                $queue = $lib.queue.gen(queue:safemode)
+                $queue2 = $lib.queue.gen(queue:safemode:done)
+                while (true) {
+                    ($offs, $item) = $queue.get()
+                    $lib.log.warning(`SAFEMODE DMON: {$item}`)
+                    [ test:str=DMON :hehe=$item ]
+                    $queue2.put($item)
+                }
+                '''
+                await core.callStorm(f'$iden = $lib.dmon.add(${{{q}}}) $lib.dmon.start($iden)')
+
+                nodes = await core.nodes('test:str')
+                self.len(0, nodes)
+
+            # Run in safemode and verify cron, trigger, and dmons don't execute
+            with self.getLoggerStream('synapse.storm') as stream:
+                async with self.getTestCore(dirn=dirn, conf=safemode) as core:
+                    await core.callStorm('cron.enable $lib.cron.list().0.iden')
+                    # Increment the cron tick to get it to fire
+                    core.agenda._addTickOff(60)
+
+                    # Add a test:str:tick to get the trigger to fire
+                    await core.callStorm('[ test:str=newp :tick=1234 ]')
+
+                    # Check for test:strs
+                    nodes = await core.nodes('test:str')
+                    self.len(1, nodes)
+                    self.eq(nodes[0].repr(), 'newp')
+
+                    with self.raises(TimeoutError):
+                        await s_common.wait_for(core.coreQueueGet('queue:safemode:done', wait=True), timeout=2)
+
+                    # Add a dmon to make sure it doesn't start
+                    await core.addCoreQueue('queue:safemode:started', {})
+                    q = '''
+                    $queue = $lib.queue.gen(queue:safemode)
+                    $queue2 = $lib.queue.get(queue:safemode:started)
+                    while (true) {
+                        $queue2.put(foo)
+                        $lib.log.warning(`SAFEMODE DMON START`)
+                        ($offs, $item) = $queue.get()
+                    }
+                    '''
+                    await core.callStorm(f'$iden = $lib.dmon.add(${{{q}}}) $lib.dmon.start($iden)')
+
+                    with self.raises(TimeoutError):
+                        await s_common.wait_for(core.coreQueueGet('queue:safemode:started', wait=True), timeout=2)
+
+                stream.seek(0)
+                data = stream.read()
+                self.notin('SAFEMODE CRON', data)
+                self.notin('SAFEMODE TRIGGER', data)
+                self.notin('SAFEMODE ATRIGGER', data)
+                self.notin('SAFEMODE DMON', data)
+
+            with self.getLoggerStream('synapse.storm') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    core.agenda._addTickOff(60)
+
+                    item = await s_common.wait_for(core.coreQueueGet('queue:safemode:done', wait=True), timeout=5)
+                    self.len(2, item)
+
+                    nodes = await core.nodes('test:str')
+                    self.len(5, nodes)
+                    self.sorteq(
+                        ['newp', 'CRON', 'TRIGGER', 'DMON', 'ATRIGGER'],
+                        [k.repr() for k in nodes]
+                    )
+
+                stream.seek(0)
+                data = stream.read()
+                self.isin('SAFEMODE CRON', data)
+                self.isin('SAFEMODE TRIGGER', data)
+                self.isin('SAFEMODE ATRIGGER', data)
+                self.isin('SAFEMODE DMON', data)
+
+        # Check storm package onload handlers are not executed
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn, conf=safemode) as core:
+                pkgdef = {
+                    'name': 'foopkg',
+                    'version': (0, 0, 1),
+                    'onload': '$lib.import(foo.setup).onload()',
+                    'modules': (
+                        {
+                            'name': 'foo.setup',
+                            'storm': '''
+                                function onload() {
+                                    $lib.warn('foopkg onload')
+                                }
+                            ''',
+                        },
+                    )
+                }
+
+                waiter = core.waiter(1, 'core:pkg:onload:skipped')
+                await core.addStormPkg(pkgdef)
+                events = await waiter.wait(timeout=10)
+                self.nn(events)
+                self.len(1, events)
+                self.eq(events, (('core:pkg:onload:skipped', {'pkg': 'foopkg', 'reason': 'safemode'}),))
+
+            with self.getAsyncLoggerStream('synapse.cortex', 'foopkg onload output: foopkg onload') as stream:
+                async with self.getTestCore(dirn=dirn, conf=nosafe) as core:
+                    self.false(core.safemode)
+                    await stream.wait(timeout=10)
+
+        # Check merge tasks are not executed
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn, conf=safemode) as core:
+                alliden = core.auth.allrole.iden
+
+                blackout = await core.auth.addUser('blackout')
+                await blackout.allow(('view', 'read'))
+
+                await core.auth.rootuser.grant(alliden)
+
+                view = core.getView()
+                qnfo = {
+                    'count': 1,
+                    'roles': [alliden],
+                }
+                await view.setViewInfo('quorum', qnfo)
+
+                forkiden = (await view.fork()).get('iden')
+
+                opts = {'view': forkiden}
+
+                nodes = await core.nodes('[ test:str=fork ]', opts=opts)
+                self.len(1, nodes)
+
+                await core.callStorm('$lib.view.get().setMergeRequest()', opts=opts)
+                await core.callStorm('$lib.view.get().setMergeVote()', opts=opts | {'user': blackout.iden})
+
+                fork = core.getView(forkiden)
+
+                self.true(await fork.isMergeReady())
+                self.none(fork.mergetask)
+
+                self.len(0, await core.nodes('test:str'))
+
+            async with self.getTestCore(dirn=dirn, conf=nosafe) as core:
+                nodes = await core.nodes('test:str')
+                self.len(1, nodes)
+                self.eq(nodes[0].repr(), 'fork')
+
+        # Check storm pools are not enabled
+        async with self.getTestAha() as aha:
+
+            ahanet = aha.conf.req('aha:network')
+
+            async with await s_base.Base.anit() as base:
+
+                with self.getTestDir() as dirn:
+
+                    dirn00 = s_common.genpath(dirn, 'cell00')
+                    dirn01 = s_common.genpath(dirn, 'cell01')
+
+                    core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00,
+                                                                       conf=safemode))
+                    provinfo = {'mirror': 'core'}
+                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01,
+                                                                       provinfo=provinfo))
+
+                    msgs = await core01.stormlist('aha.pool.add pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Created AHA service pool: pool00.synapse', msgs)
+
+                    msgs = await core01.stormlist('aha.pool.svc.add pool00... 01.core...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.synapse)', msgs)
+
+                    msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Storm pool configuration set.', msgs)
+
+                    # Make sure queries still work
+                    nodes = await core00.nodes('[ it:dev:str="stormpools!" ]', opts={'mirror': True})
+                    self.len(1, nodes)
+
+                    self.none(core00.stormpool)
+
+                    await core00.fini()
+
+                    # Now disable safemode and check that the stormpool is enabled
+                    core00 = await base.enter_context(self.getTestCore(dirn=dirn00, conf=nosafe))
+
+                    nodes = await core00.nodes('it:dev:str', opts={'mirror': True})
+                    self.len(1, nodes)
+
+                    self.nn(core00.stormpool)
+
+                    await core00.fini()
+                    await core01.fini()
+
+    async def test_cortex_queue_mirror_authgates(self):
+        async with self.getRegrCore('2.213.0-queue-authgates') as core:
+            self.nn(await core.getAuthGate('queue:stillhere'))
+            self.none(await core.getAuthGate('queue:authtest'))

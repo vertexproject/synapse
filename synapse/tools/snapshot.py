@@ -1,12 +1,8 @@
-import sys
-import asyncio
 import logging
-import argparse
-
 import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
-import synapse.lib.coro as s_coro
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
@@ -29,9 +25,7 @@ The tool will set the process exit code to 0 on success.
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser('synapse.tools.snapshot',
-                        description=desc,
-                        formatter_class=argparse.RawDescriptionHelpFormatter)
+    pars = s_cmd.Parser(prog='synapse.tools.snapshot', outp=outp, description=desc)
 
     subs = pars.add_subparsers(required=True, title='commands', dest='cmd')
 
@@ -66,10 +60,5 @@ async def main(argv, outp=s_output.stdout):
         outp.printf(f'ERROR {e.__class__.__name__}: {mesg}')
         return 1
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_cmd.exitmain(main)

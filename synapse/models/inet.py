@@ -35,6 +35,10 @@ ipv4max = 2 ** 32 - 1
 
 rfc6598 = ipaddress.IPv4Network('100.64.0.0/10')
 
+# defined from https://x.com/4A4133/status/1887269972545839559
+ja4_regex = r'^([tqd])([sd\d]\d)([di])(\d{2})(\d{2})([a-zA-Z0-9]{2})_([0-9a-f]{12})_([0-9a-f]{12})$'
+ja4s_regex = r'^([tq])([sd\d]\d)(\d{2})([a-zA-Z0-9]{2})_([0-9a-f]{4})_([0-9a-f]{12})$'
+
 def getAddrType(ip):
 
     if ip.is_multicast:
@@ -1688,6 +1692,18 @@ class InetModule(s_module.CoreModule):
                     ('inet:tls:handshake', ('guid', {}), {
                         'doc': 'An instance of a TLS handshake between a server and client.'}),
 
+                    ('inet:tls:ja4', ('str', {'strip': True, 'regex': ja4_regex}), {
+                        'doc': 'A JA4 TLS client fingerprint.'}),
+
+                    ('inet:tls:ja4s', ('str', {'strip': True, 'regex': ja4s_regex}), {
+                        'doc': 'A JA4S TLS server fingerprint.'}),
+
+                    ('inet:tls:ja4:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja4', 'inet:tls:ja4'))}), {
+                        'doc': 'A JA4 TLS client fingerprint used by a client.'}),
+
+                    ('inet:tls:ja4s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja4s', 'inet:tls:ja4s'))}), {
+                        'doc': 'A JA4S TLS server fingerprint used by a server.'}),
+
                     ('inet:tls:ja3s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja3s', 'hash:md5'))}), {
                         'doc': 'A JA3 sample taken from a server.'}),
 
@@ -1774,6 +1790,8 @@ class InetModule(s_module.CoreModule):
                             ('remover', ('inet:service:account', {}), {
                                 'doc': 'The service account which removed or decommissioned the {service:base}.'}),
 
+                            ('app', ('inet:service:app', {}), {
+                                'doc': 'The app which contains the {service:base}.'}),
                         ),
                     }),
 
@@ -3576,23 +3594,70 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The server that was sampled to compute the JARM hash.'}),
                     )),
 
+                    ('inet:tls:ja4', {}, ()),
+                    ('inet:tls:ja4s', {}, ()),
+
+                    ('inet:tls:ja4:sample', {}, (
+
+                        ('ja4', ('inet:tls:ja4', {}), {
+                            'ro': True,
+                            'doc': 'The JA4 TLS client fingerprint.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'ro': True,
+                            'doc': 'The client which initiated the TLS handshake with a JA4 fingerprint.'}),
+                    )),
+
+                    ('inet:tls:ja4s:sample', {}, (
+
+                        ('ja4s', ('inet:tls:ja4s', {}), {
+                            'ro': True,
+                            'doc': 'The JA4S TLS server fingerprint.'}),
+
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The server which responded to the TLS handshake with a JA4S fingerprint.'}),
+                    )),
+
                     ('inet:tls:handshake', {}, (
+
                         ('time', ('time', {}), {
                             'doc': 'The time the handshake was initiated.'}),
+
                         ('flow', ('inet:flow', {}), {
                             'doc': 'The raw inet:flow associated with the handshake.'}),
+
                         ('server', ('inet:server', {}), {
                             'doc': 'The TLS server during the handshake.'}),
+
                         ('server:cert', ('crypto:x509:cert', {}), {
                             'doc': 'The x509 certificate sent by the server during the handshake.'}),
-                        ('server:fingerprint:ja3', ('hash:md5', {}), {
-                            'doc': 'The JA3S finger of the server.'}),
+
+                        ('server:ja3s', ('hash:md5', {}), {
+                            'doc': 'The JA3S fingerprint of the server response.'}),
+
+                        ('server:ja4s', ('inet:tls:ja4s', {}), {
+                            'doc': 'The JA4S fingerprint of the server response.'}),
+
                         ('client', ('inet:client', {}), {
                             'doc': 'The TLS client during the handshake.'}),
+
                         ('client:cert', ('crypto:x509:cert', {}), {
                             'doc': 'The x509 certificate sent by the client during the handshake.'}),
+
+                        ('client:ja3', ('hash:md5', {}), {
+                            'doc': 'The JA3 fingerprint of the client request.'}),
+
+                        ('client:ja4', ('inet:tls:ja4', {}), {
+                            'doc': 'The JA4 fingerprint of the client request.'}),
+
                         ('client:fingerprint:ja3', ('hash:md5', {}), {
-                            'doc': 'The JA3 fingerprint of the client.'}),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :client:ja3.'}),
+
+                        ('server:fingerprint:ja3', ('hash:md5', {}), {
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :server:ja3s.'}),
                     )),
 
                     ('inet:tls:ja3s:sample', {}, (
@@ -3696,6 +3761,9 @@ class InetModule(s_module.CoreModule):
 
                         ('tenant', ('inet:service:tenant', {}), {
                             'doc': 'The tenant which contains the instance.'}),
+
+                        ('app', ('inet:service:app', {}), {
+                            'doc': 'The app which contains the instance.'}),
                     )),
 
                     ('inet:service:app', {}, (

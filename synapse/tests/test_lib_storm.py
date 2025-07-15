@@ -101,7 +101,8 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ ou:org=({}) ]')
 
-            self.len(1, await core.nodes('[ ou:org=() ]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=() ]')
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ ou:org=({}) ]')
@@ -130,7 +131,6 @@ class StormTest(s_t_utils.SynTest):
             self.none(props.get('phone'))
             self.eq(props.get('name'), 'burrito corp')
             self.eq(props.get('desc'), 'burritos man')
-            self.stormIsInWarn('Skipping bad value for prop ou:org:phone: requires a digit string', msgs)
 
             await self.asyncraises(s_exc.BadTypeValu, core.addNode(core.auth.rootuser, 'ou:org', {'name': 'org name 77', 'phone': 'lolnope'}, props={'desc': 'an org desc'}))
 
@@ -172,6 +172,177 @@ class StormTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ it:exec:proc=(nulltime,) ]')
             self.len(1, nodes)
+
+            # Recursive gutors
+            nodes = await core.nodes('''[
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'fooplatform',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'foomesg')
+            self.nn(node.get('channel'))
+
+            nodes = await core.nodes('inet:service:message -> inet:service:channel')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('id'), 'foochannel')
+            self.nn(node.get('platform'))
+
+            nodes = await core.nodes('inet:service:message -> inet:service:channel -> inet:service:platform')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'fooplatform')
+            self.eq(node.get('url'), 'http://foo.com')
+
+            nodes = await core.nodes('''
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'fooplatform',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'foomesg')
+
+            nodes = await core.nodes('''[
+                inet:service:message=({
+                    'id': 'barmesg',
+                    'channel': {
+                        'id': 'barchannel',
+                        'platform': {
+                            'name': 'barplatform',
+                            'url': 'http://bar.com'
+                        }
+                    },
+                    '$props': {
+                        'platform': {
+                            'name': 'barplatform',
+                            'url': 'http://bar.com'
+                        }
+                    }
+                })
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'barmesg')
+            self.nn(node.get('channel'))
+
+            platguid = node.get('platform')
+            self.nn(platguid)
+            nodes = await core.nodes('inet:service:message:id=barmesg -> inet:service:channel -> inet:service:platform')
+            self.len(1, nodes)
+            self.eq(platguid, nodes[0].ndef[1])
+
+            # No node lifted if no matching node for inner gutor
+            self.len(0, await core.nodes('''
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'newp',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            '''))
+
+            # BadTypeValu comes through from inner gutor
+            with self.raises(s_exc.BadTypeValu) as cm:
+                await core.nodes('''
+                    inet:service:message=({
+                        'id': 'foomesg',
+                        'channel': {
+                            'id': 'foochannel',
+                            'platform': {
+                                'name': 'newp',
+                                'url': 'newp'
+                            }
+                        }
+                    })
+                ''')
+
+            self.eq(cm.exception.get('form'), 'inet:service:platform')
+            self.eq(cm.exception.get('prop'), 'url')
+            self.eq(cm.exception.get('mesg'), 'Bad value for prop inet:service:platform:url: Invalid/Missing protocol')
+
+            # Ensure inner nodes are not created unless the entire gutor is valid.
+            self.len(0, await core.nodes('''[
+                inet:service:account?=({
+                    "id": "bar",
+                    "platform": {"name": "barplat"},
+                    "url": "newp"})
+            ]'''))
+
+            self.len(0, await core.nodes('inet:service:platform:name=barplat'))
+
+            # Gutors work for props
+            nodes = await core.nodes('''[
+                test:str=guidprop
+                    :gprop=({'name': 'someprop', '$props': {'size': 5}})
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'guidprop'))
+            self.nn(node.get('gprop'))
+
+            nodes = await core.nodes('test:str=guidprop -> test:guid')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'someprop')
+            self.eq(node.get('size'), 5)
+
+            with self.raises(s_exc.BadTypeValu) as cm:
+                nodes = await core.nodes('''[
+                    test:str=newpprop
+                        :gprop=({'size': 'newp'})
+                ]''')
+
+            self.eq(cm.exception.get('form'), 'test:guid')
+            self.eq(cm.exception.get('prop'), 'size')
+            self.true(cm.exception.get('mesg').startswith('Bad value for prop test:guid:size: invalid literal'))
+
+            nodes = await core.nodes('''[
+                test:str=newpprop
+                    :gprop?=({'size': 'newp'})
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'newpprop'))
+            self.none(node.get('gprop'))
+
+            nodes = await core.nodes('''
+                [ test:str=methset ]
+                $node.props.gprop = ({'name': 'someprop'})
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'methset'))
+            self.nn(node.get('gprop'))
+
+            nodes = await core.nodes('test:str=methset -> test:guid')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'someprop')
+            self.eq(node.get('size'), 5)
 
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
@@ -1736,6 +1907,8 @@ class StormTest(s_t_utils.SynTest):
             self.stormHasNoErr(await core.stormlist('merge --diff', opts=altview))
 
             oldn = await core.nodes('[ ou:name=readonly ]', opts=altview)
+            # need to pause a moment so the created times differ
+            await asyncio.sleep(0.01)
             newn = await core.nodes('[ ou:name=readonly ]')
             self.ne(oldn[0].props['.created'], newn[0].props['.created'])
 
@@ -2251,16 +2424,18 @@ class StormTest(s_t_utils.SynTest):
             nodes = [m[1] for m in msgs if m[0] == 'node']
 
             node = nodes[0]
+            self.eq('inet:asn', node[1]['embeds']['asn']['$form'])
             self.eq('hehe', node[1]['embeds']['asn']['name'])
-            self.eq('796d67b92a6ffe9b88fa19d115b46ab6712d673a06ae602d41de84b1464782f2', node[1]['embeds']['asn']['*'])
+            self.eq('796d67b92a6ffe9b88fa19d115b46ab6712d673a06ae602d41de84b1464782f2', node[1]['embeds']['asn']['$iden'])
 
             opts = {'embeds': {'ou:org': {'hq::email': ('user',)}}}
             msgs = await core.stormlist('[ ou:org=* :country=* :hq=* ] { -> ps:contact [ :email=visi@vertex.link ] }', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
 
+            self.eq('inet:email', node[1]['embeds']['hq::email']['$form'])
             self.eq('visi', node[1]['embeds']['hq::email']['user'])
-            self.eq('2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899', node[1]['embeds']['hq::email']['*'])
+            self.eq('2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899', node[1]['embeds']['hq::email']['$iden'])
 
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
 
@@ -2373,10 +2548,17 @@ class StormTest(s_t_utils.SynTest):
             self.eq(['inet:service:rule', 'risk:vulnerable'], [n[0][0] for n in nodes])
 
             embeds = nodes[0][1]['embeds']
+
+            self.nn(embeds['object']['$iden'])
+            self.eq('risk:vulnerable', embeds['object']['$form'])
             self.eq(1, embeds['object']['mitigated'])
             self.eq(None, embeds['object']['newp'])
+
+            self.nn(embeds['object::node']['$iden'])
+            self.eq('it:prod:hardware', embeds['object::node']['$form'])
             self.eq('foohw', embeds['object::node']['name'])
             self.eq(None, embeds['object::node']['newp'])
+            self.eq('inet:service:account', embeds['grantee']['$form'])
             self.eq('foocon', embeds['grantee']['id'])
             self.eq(None, embeds['grantee']['newp'])
 

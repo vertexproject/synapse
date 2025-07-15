@@ -1607,8 +1607,6 @@ async def openinfo(info):
         # cell://rel/path/to/celldir:share
         path = info.get('path')
 
-        name = info.get('name', '*')
-
         # support cell://<relpath>/<to>/<cell>
         # by detecting host...
         host = info.get('host')
@@ -1616,8 +1614,11 @@ async def openinfo(info):
             path = path.strip('/')
             path = os.path.join(host, path)
 
+        name = '*'
         if ':' in path:
             path, name = path.split(':')
+
+        name = info.get('name', name)
 
         full = os.path.join(path, 'sock')
         link = await s_link.unixconnect(full)
@@ -1628,6 +1629,7 @@ async def openinfo(info):
         path = info.get('path')
         if ':' in path:
             path, name = path.split(':')
+        name = info.get('name', name)
         link = await s_link.unixconnect(path)
 
     elif scheme in ('tcp', 'ssl'):

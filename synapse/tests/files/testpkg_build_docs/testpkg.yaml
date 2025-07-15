@@ -1,0 +1,69 @@
+name: testpkg
+version: 1.2.3
+synapse_version: ">=2.64.0,<3.0.0"
+
+genopts:
+  dotstorm: true
+
+author:
+  url: https://vertex.link
+  name: The Vertex Project, LLC.
+
+desc: The test package does things
+
+docs:
+    - title: Foo
+      path: docs/_build/foo.md
+    - title: Bar
+      path: docs/_build/bar.md
+    - title: Package Documentation
+      path: docs/_build/stormpackage.md
+
+modules:
+  - name: testmod
+  - name: apimod
+    apidefs:
+      - name: search
+        desc: |
+          Execute a search
+          
+          This API will foo the bar.
+          
+          Examples:
+              Foo the ``bar``::
+          
+                yield $lib.import(apimod).search(bar)
+          
+              Baz the bam::
+          
+                yield $lib.import(apimod).search(bam)
+
+        type:
+          type: function
+          args:
+            - { name: text, type: str, desc: "The text." }
+            - { name: mintime, type: [str, int], desc: "The mintime.", default: "-30days" }
+            - { name: foo, type: str, desc: "The foo." }
+            - { name: bar, type: str, desc: "The bar." }
+            - { name: baz, type: str, desc: "The baz." }
+          returns:
+            name: yields
+            type: node
+            desc: Yields it:dev:str nodes.
+      - name: status
+        desc: Get the status of the foo.
+        type:
+          type: function
+          returns:
+            type: dict
+            desc: A status dictionary.
+
+commands:
+  - name: testcmd
+    descr: |
+      A testcmd!
+    cmdargs:
+      - - --debug
+        - default: false
+          action: store_true
+          help: Show verbose debug output.

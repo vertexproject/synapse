@@ -1,0 +1,5 @@
+$lib.debug = $cmdopts.debug
+
+$lib.print('Testcmd!')
+
+if $lib.debug { $lib.print('Debug enabled!') }

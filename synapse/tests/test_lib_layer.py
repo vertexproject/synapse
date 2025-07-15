@@ -1281,6 +1281,16 @@ class LayerTest(s_t_utils.SynTest):
 
             self.len(0, list(layr.dataslab.scanByDups(abrv, db=layr.dataname)))
 
+            await core.addTagProp('score2', ('int', {}), {})
+            nodes = await core.nodes('[test:str=multi +#foo:score=5 +#foo:score2=6]')
+            self.eq(('score', 'score2'), nodes[0].getTagProps('foo'))
+
+            nodes = await core.nodes('test:str=multi [-#foo:score]')
+            self.eq(('score2',), nodes[0].getTagProps('foo'))
+
+            nodes = await core.nodes('test:str=multi')
+            self.eq(('score2',), nodes[0].getTagProps('foo'))
+
     async def test_layer_waitForHot(self):
         self.thisHostMust(hasmemlocking=True)
 
@@ -1399,8 +1409,8 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
             self.eq(nodes[0].get('asn'), 33)
-            self.true(nodes[0].getTag('foo.bar'), (None, None))
-            self.true(nodes[0].getTagProp('foo.bar', 'confidence'), 22)
+            self.eq(nodes[0].getTag('foo.bar'), (None, None))
+            self.eq(nodes[0].getTagProp('foo.bar', 'confidence'), 100)
 
             self.eq(10004, await core.count('.created'))
             self.len(2, await core.nodes('syn:tag~=foo'))

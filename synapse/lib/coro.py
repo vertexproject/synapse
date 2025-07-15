@@ -175,10 +175,16 @@ def create_task(coro):
 
     return task
 
-async def await_bg_tasks():
+async def await_bg_tasks(timeout=None):
+
     if not bgtasks:
         return []
-    return await asyncio.gather(*tuple(bgtasks), return_exceptions=True)
+
+    coro = asyncio.gather(*tuple(bgtasks), return_exceptions=True)
+    try:
+        return await s_common.wait_for(coro, timeout)
+    except (asyncio.CancelledError, asyncio.TimeoutError):
+        return []
 
 class GenrHelp:
 

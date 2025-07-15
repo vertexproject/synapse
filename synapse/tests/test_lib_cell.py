@@ -187,12 +187,38 @@ testDataSchema_v1 = {
         'size': {'type': 'number'},
         'stuff': {'type': ['number', 'null'], 'default': None},
         'woot': {'type': 'string'},
+        'blorp': {
+            'type': 'object',
+            'properties': {
+                'bleep': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'neato': {'type': 'string'}
+                        }
+                    }
+                }
+            }
+        }
     },
     'required': ['type', 'size', 'woot'],
     'additionalProperties': False,
 }
 
 class CellTest(s_t_utils.SynTest):
+
+    async def test_cell_getLocalUrl(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCell(dirn=dirn) as cell:
+                url = cell.getLocalUrl()
+                self.eq(url, f'cell://root@{dirn}')
+
+                url = cell.getLocalUrl(share='*/layer')
+                self.eq(url, f'cell://root@{dirn}:*/layer')
+
+                url = cell.getLocalUrl(user='lowuser', share='*/view')
+                self.eq(url, f'cell://lowuser@{dirn}:*/view')
 
     async def test_cell_drive(self):
 
@@ -232,13 +258,21 @@ class CellTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadVersion):
                     await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0)
 
-                info = {'name': 'win32k.sys', 'type': 'woot'}
+                info = {'name': 'win32k.sys', 'type': 'woot', 'perm': {'users': {}}}
                 info = await cell.addDriveItem(info, reldir=rootdir)
+                self.notin('perm', info)
+                self.eq(info[0]['permissions'], {
+                    'users': {},
+                    'roles': {}
+                })
 
                 iden = info[-1].get('iden')
 
                 tick = s_common.now()
                 rootuser = cell.auth.rootuser.iden
+                fooser = await cell.auth.addUser('foo')
+                neatrole = await cell.auth.addRole('neatrole')
+                await fooser.grant(neatrole.iden)
 
                 with self.raises(s_exc.SchemaViolation):
                     versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
@@ -293,12 +327,47 @@ class CellTest(s_t_utils.SynTest):
                 info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 17, 'stuff': 15})
                 self.eq(versinfo, (await cell.getDriveData(iden))[0])
 
+                await cell.setDriveItemProp(iden, versinfo, ('stuff',), 1234)
+                data = await cell.getDriveData(iden)
+                self.eq(data[1]['stuff'], 1234)
+
                 # This will be done by the cell in a cell storage version migration...
                 async def migrate_v1(info, versinfo, data):
                     data['woot'] = 'woot'
                     return data
 
                 await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
+
+                versinfo['version'] = (1, 1, 1)
+                await cell.setDriveItemProp(iden, versinfo, 'stuff', 3829)
+                data = await cell.getDriveData(iden)
+                self.eq(data[0]['version'], (1, 1, 1))
+                self.eq(data[1]['stuff'], 3829)
+
+                await self.asyncraises(s_exc.NoSuchIden, cell.setDriveItemProp(s_common.guid(), versinfo, ('lolnope',), 'not real'))
+
+                await self.asyncraises(s_exc.BadArg, cell.setDriveItemProp(iden, versinfo, ('blorp', 0, 'neato'), 'my special string'))
+                data[1]['blorp'] = {
+                    'bleep': [{'neato': 'thing'}]
+                }
+                info, versinfo = await cell.setDriveData(iden, versinfo, data[1])
+                now = s_common.now()
+                versinfo['updated'] = now
+                await cell.setDriveItemProp(iden, versinfo, ('blorp', 'bleep', 0, 'neato'), 'my special string')
+                data = await cell.getDriveData(iden)
+                self.eq(now, data[0]['updated'])
+                self.eq('my special string', data[1]['blorp']['bleep'][0]['neato'])
+
+                versinfo['version'] = (1, 2, 1)
+                await cell.delDriveItemProp(iden, versinfo, ('blorp', 'bleep', 0, 'neato'))
+                vers, data = await cell.getDriveData(iden)
+                self.eq((1, 2, 1), vers['version'])
+                self.nn(data['blorp']['bleep'][0])
+                self.notin('neato', data['blorp']['bleep'][0])
+
+                await self.asyncraises(s_exc.NoSuchIden, cell.delDriveItemProp(s_common.guid(), versinfo, 'blorp'))
+
+                self.none(await cell.delDriveItemProp(iden, versinfo, ('lolnope', 'nopath')))
 
                 versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
                 self.eq('woot', data.get('woot'))
@@ -313,10 +382,10 @@ class CellTest(s_t_utils.SynTest):
                     await cell.getDriveInfo(iden, typename='newp')
 
                 self.nn(await cell.getDriveInfo(iden))
-                self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
+                self.len(4, [vers async for vers in cell.getDriveDataVersions(iden)])
 
                 await cell.delDriveData(iden)
-                self.len(1, [vers async for vers in cell.getDriveDataVersions(iden)])
+                self.len(3, [vers async for vers in cell.getDriveDataVersions(iden)])
 
                 await cell.delDriveInfo(iden)
 
@@ -340,8 +409,12 @@ class CellTest(s_t_utils.SynTest):
                 baziden = pathinfo[2].get('iden')
                 self.eq(pathinfo, await cell.drive.getItemPath(baziden))
 
-                info = await cell.setDriveInfoPerm(baziden, {'users': {rootuser: 3}, 'roles': {}})
-                self.eq(3, info['perm']['users'][rootuser])
+                info = await cell.setDriveInfoPerm(baziden, {'users': {rootuser: s_cell.PERM_ADMIN}, 'roles': {}})
+                # make sure drive perms work with easy perms
+                self.true(cell._hasEasyPerm(info, cell.auth.rootuser, s_cell.PERM_ADMIN))
+                # defaults to READ
+                self.true(cell._hasEasyPerm(info, fooser, s_cell.PERM_READ))
+                self.false(cell._hasEasyPerm(info, fooser, s_cell.PERM_EDIT))
 
                 with self.raises(s_exc.NoSuchIden):
                     # s_drive.rootdir is all 00s... ;)
@@ -635,6 +708,44 @@ class CellTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.NeedConfValu):
                     await echo.reqAhaProxy()
+
+    async def test_cell_drive_perm_migration(self):
+        async with self.getRegrCore('drive-perm-migr') as core:
+            item = await core.getDrivePath('driveitemdefaultperms')
+            self.len(1, item)
+            self.notin('perm', item)
+            self.eq(item[0]['permissions'], {'users': {}, 'roles': {}})
+
+            ldog = await core.auth.getRoleByName('littledog')
+            bdog = await core.auth.getRoleByName('bigdog')
+
+            louis = await core.auth.getUserByName('lewis')
+            tim = await core.auth.getUserByName('tim')
+            mj = await core.auth.getUserByName('mj')
+
+            item = await core.getDrivePath('permfolder/driveitemwithperms')
+            self.len(2, item)
+            self.notin('perm', item[0])
+            self.notin('perm', item[1])
+            self.eq(item[0]['permissions'], {'users': {tim.iden: s_cell.PERM_ADMIN}, 'roles': {}})
+            self.eq(item[1]['permissions'], {
+                'users': {
+                    mj.iden: s_cell.PERM_ADMIN
+                },
+                'roles': {
+                    ldog.iden: s_cell.PERM_READ,
+                    bdog.iden: s_cell.PERM_EDIT,
+                },
+                'default': s_cell.PERM_DENY
+            })
+
+            # make sure it's all good with easy perms
+            self.true(core._hasEasyPerm(item[0], tim, s_cell.PERM_ADMIN))
+            self.false(core._hasEasyPerm(item[0], mj, s_cell.PERM_EDIT))
+
+            self.true(core._hasEasyPerm(item[1], mj, s_cell.PERM_ADMIN))
+            self.true(core._hasEasyPerm(item[1], tim, s_cell.PERM_READ))
+            self.true(core._hasEasyPerm(item[1], louis, s_cell.PERM_EDIT))
 
     async def test_cell_unix_sock(self):
 
@@ -2580,10 +2691,10 @@ class CellTest(s_t_utils.SynTest):
                     viewiden = view.get('iden')
 
                     opts = {'view': viewiden}
-                    with self.getLoggerStream('synapse.lib.lmdbslab',
+                    with self.getAsyncLoggerStream('synapse.lib.lmdbslab',
                                               'Error during slab resize callback - foo') as stream:
-                        nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ipv4=$x]}', opts=opts)
-                        self.true(stream.wait(1))
+                        msgs = await core.stormlist('for $x in $lib.range(200) {[test:int=$x]}', opts=opts)
+                        self.true(await stream.wait(timeout=30))
 
         async with self.getTestCore() as core:
 

@@ -758,6 +758,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     confbase['mirror']['hidedocs'] = False  # type: ignore
     confbase['mirror']['hidecmdl'] = False  # type: ignore
 
+    confbase['safemode']['hidecmdl'] = False
+    confbase['safemode']['description'] = (
+        'Enable safe-mode which disables crons, triggers, dmons, storm '
+        'package onload handlers, view merge tasks, and storm pools.'
+    )
+
     confdefs = {
         'axon': {
             'description': 'A telepath URL for a remote axon.',
@@ -957,6 +963,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
             (4, self._storCortexHiveMigration),
+            (5, self._storCleanQueueAuthGates),
         ), nexs=False)
 
         # Perform module loading
@@ -1094,6 +1101,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             nomerge = view.info.get('nomerge', False)
             await view.setViewInfo('protected', nomerge)
             await view.setViewInfo('nomerge', None)
+
+    async def _storCleanQueueAuthGates(self):
+
+        logger.warning('removing AuthGates for Queues which no longer exist')
+
+        path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
+
+        async with await s_lmdbslab.Slab.anit(path) as slab:
+            async with await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot) as multiqueue:
+                for info in self.auth.getAuthGates():
+                    if info.type == 'queue':
+                        iden = info.iden
+                        name = info.iden.split(':', 1)[1]
+                        if not multiqueue.exists(name):
+                            await self.auth.delAuthGate(info.iden)
+
+        logger.warning('...Queue AuthGate cleanup complete!')
 
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
@@ -1554,9 +1578,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.isactive:
             await self._checkLayerModels()
 
-        self.addActiveCoro(self.agenda.runloop)
+        if not self.safemode:
+            self.addActiveCoro(self.agenda.runloop)
 
         await self._initStormDmons()
+
         await self._initStormSvcs()
 
         # share ourself via the cell dmon as "cortex"
@@ -1602,6 +1628,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.finiStormPool()
 
     async def initStormPool(self):
+
+        if self.safemode:
+            return
 
         try:
 
@@ -1933,12 +1962,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.NoSuchName(mesg=mesg)
 
         await self._push('queue:del', name)
-        await self.auth.delAuthGate(f'queue:{name}')
 
     @s_nexus.Pusher.onPush('queue:del')
     async def _delCoreQueue(self, name):
         if not self.multiqueue.exists(name):
             return
+
+        try:
+            await self.auth.delAuthGate(f'queue:{name}')
+        except s_exc.NoSuchAuthGate:
+            pass
 
         await self.multiqueue.rem(name)
 
@@ -2939,6 +2972,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if onload is not None and self.isactive:
             async def _onload():
+                if self.safemode:
+                    await self.fire('core:pkg:onload:skipped', pkg=name, reason='safemode')
+                    return
+
                 await self.fire('core:pkg:onload:start', pkg=name)
                 try:
                     async for mesg in self.storm(onload):
@@ -5435,7 +5472,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # push() will refire as needed
 
         async def push():
-            async with await self.boss.promote(f'layer push: {layr.iden} {iden}', self.auth.rootuser):
+            taskname = f'layer push: {layr.iden} {iden}'
+            async with await self.boss.promote(taskname, self.auth.rootuser, background=True):
                 async with await s_telepath.openurl(url) as proxy:
                     await self._pushBulkEdits(layr, proxy, pdef)
 
@@ -5447,7 +5485,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # pull() will refire as needed
 
         async def pull():
-            async with await self.boss.promote(f'layer pull: {layr.iden} {iden}', self.auth.rootuser):
+            taskname = f'layer pull: {layr.iden} {iden}'
+            async with await self.boss.promote(taskname, self.auth.rootuser, background=True):
                 async with await s_telepath.openurl(url) as proxy:
                     await self._pushBulkEdits(proxy, layr, pdef)
 
@@ -5898,15 +5937,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             logger.warning('Storm query mirror pool is empty, running query locally.')
             return None
 
+        timeout = self.stormpoolopts.get('timeout:connection')
+
         for _ in range(size):
 
             try:
-                timeout = self.stormpoolopts.get('timeout:connection')
                 proxy = await self.stormpool.proxy(timeout=timeout)
+
                 proxyname = proxy._ahainfo.get('name')
                 if proxyname is not None and proxyname == self.ahasvcname:
-                    # we are part of the pool and were selected. Convert to local use.
-                    return None
+                    # we are part of the pool and were selected. Skip.
+                    continue
 
             except TimeoutError:
                 logger.warning('Timeout waiting for pool mirror proxy.')
@@ -5921,6 +5962,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 mesg = f'Pool mirror [{proxyname}] is too far out of sync. Skipping.'
                 logger.warning(mesg, extra=await self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
+
+            except s_exc.ShuttingDown:
+                mesg = f'Proxy for pool mirror [{proxyname}] is shutting down. Skipping.'
+                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
 
             except s_exc.IsFini:
                 mesg = f'Proxy for pool mirror [{proxyname}] was shutdown. Skipping.'
@@ -5998,6 +6043,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return await view.callStorm(text, opts=opts)
 
     async def exportStorm(self, text, opts=None):
+
         opts = self._initStormOpts(opts)
 
         if self.stormpool is not None and opts.get('mirror', True):

@@ -1902,6 +1902,17 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'asdf'))
 
+            q = '''
+            $set = $lib.set()
+            for $v in $lib.range($n) {
+                $set.add($v)
+            }
+            if $set { return ( (true) ) }
+            else { return ( (false) ) }
+            '''
+            self.false(await core.callStorm(q, opts={'vars': {'n': 0}}))
+            self.true(await core.callStorm(q, opts={'vars': {'n': 1}}))
+
             # test that some of the more complex objects we've got uniq down properly
             # Bool
             q = '''
@@ -2987,6 +2998,21 @@ class StormTypesTest(s_test.SynTest):
                 self.eq((3, 'foo'), await core.callStorm('return($lib.queue.get(poptest).pop())'))
                 self.eq((5, 'baz'), await core.callStorm('return($lib.queue.get(poptest).pop())'))
                 self.none(await core.callStorm('return($lib.queue.get(poptest).pop())'))
+
+                # Coverage for the Cortex queue:del nexus handler
+                name = 'deleteme'
+                iden = s_common.guid()
+                await core.addCoreQueue(
+                    name,
+                    {'name': name,
+                     'creator': core.auth.rootuser.iden,
+                     'created': s_common.now(),
+                     'iden': iden}
+                )
+                await core.auth.delAuthGate(f'queue:{name}')
+                await core.delCoreQueue(name)
+                with self.raises(s_exc.NoSuchName):
+                    await core.getCoreQueue(name)
 
     async def test_storm_node_data(self):
 

@@ -6,6 +6,180 @@
 Synapse Changelog
 *****************
 
+v2.215.0 - 2025-07-03
+=====================
+
+Model Changes
+-------------
+- Added ``it:os:windows:service`` to model Microsoft Windows Service
+  configuration details.
+  (`#4380 <https://github.com/vertexproject/synapse/pull/4380>`_)
+- See :ref:`userguide_model_v2_215_0` for more detailed model changes.
+
+Bugfixes
+--------
+- Fixed an issue where certain JsonStor edit operations could have delays
+  before being committed to the slab.
+  (`#4383 <https://github.com/vertexproject/synapse/pull/4383>`_)
+- Fixed an issue where removing a tag property from a tag could also remove
+  other tag properties on that same tag.
+  (`#4384 <https://github.com/vertexproject/synapse/pull/4384>`_)
+- Fixed an issue in the error handling when deleting a Cortex queue.
+  (`#4385 <https://github.com/vertexproject/synapse/pull/4385>`_)
+
+v2.214.0 - 2025-07-02
+=====================
+
+Automatic Migrations
+--------------------
+- Removed AuthGates for Queues which no longer exist in the Cortex.
+  (`#4370 <https://github.com/vertexproject/synapse/pull/4370>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added ``inet:service:instance:app`` to capture the app containing the
+  instance.
+  (`#4365 <https://github.com/vertexproject/synapse/pull/4365>`_)
+- Added ``:app`` to the ``inet:service:object`` interface to capture the app
+  containing the object.
+  (`#4365 <https://github.com/vertexproject/synapse/pull/4365>`_)
+- See :ref:`userguide_model_v2_214_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added CLI tools ``synapse.tools.cortex.layer.dump`` and
+  ``synapse.tools.cortex.layer.load`` for exporting node edits from one layer
+and importing them to a layer on a different Cortex.
+  (`#4325 <https://github.com/vertexproject/synapse/pull/4325>`_)
+- Added CLI tool ``synapse.tools.pkgs.gendocs`` for converting Storm package
+  documentation from RST to Markdown.
+  (`#4331 <https://github.com/vertexproject/synapse/pull/4331>`_)
+- Added CLI tools ``synapse.tools.axon.dump`` and ``synapse.tools.axon.load``
+  for exporting blobs from one Axon and importing them to another Axon.
+  (`#4333 <https://github.com/vertexproject/synapse/pull/4333>`_)
+- Updated Cortex Storm pool behavior to prefer all remote pool members before
+  the local leader.
+  (`#4336 <https://github.com/vertexproject/synapse/pull/4336>`_)
+- Added CLI tool ``synapse.tools.shutdown`` to facilitate graceful shutdown of
+  services by allowing them to complete current tasks.
+  (`#4336 <https://github.com/vertexproject/synapse/pull/4336>`_)
+- Remove runtsafety requirement for ``init``, ``fini``, and ``empty`` blocks in
+  Storm.
+  (`#4340 <https://github.com/vertexproject/synapse/pull/4340>`_)
+- Added CLI tool ``synapse.tools.demote`` to allow automatic demotion of
+  service leaders.
+  (`#4341 <https://github.com/vertexproject/synapse/pull/4341>`_)
+- Improved console logging by dropping warning messages for optional
+  properties which fail to normalize in a GUID based dictionary object.
+  (`#4360 <https://github.com/vertexproject/synapse/pull/4360>`_)
+- Updated dictionary GUID syntax to allow nested use when adding or lifting
+  nodes.
+  (`#4362 <https://github.com/vertexproject/synapse/pull/4362>`_)
+- Added more utility APIs for working with the Drive class.
+  (`#4366 <https://github.com/vertexproject/synapse/pull/4366>`_)
+
+Bugfixes
+--------
+- Fixed incorrect output in the graph command when multiple global pivots were
+  specified.
+  (`#4343 <https://github.com/vertexproject/synapse/pull/4343>`_)
+- Improved error handling when connecting to local cells by raising ``LinkErr``
+  if the socket is not listening and ``NoSuchPath`` if the socket is missing.
+  (`#4345 <https://github.com/vertexproject/synapse/pull/4345>`_)
+- Fixed SpooledSet Storm objects not cleaning up their slabs on runtime fini.
+  (`#4346 <https://github.com/vertexproject/synapse/pull/4346>`_)
+- Lowered logging levels for telepath socket early close events.
+  (`#4353 <https://github.com/vertexproject/synapse/pull/4353>`_)
+- Fixed Drive's incompatibility with the EasyPerms API.
+  (`#4366 <https://github.com/vertexproject/synapse/pull/4366>`_)
+- Fixed an issue where deleting a Queue did not remove the Queue's AuthGate on
+  mirrors.
+  (`#4370 <https://github.com/vertexproject/synapse/pull/4370>`_)
+
+Notes
+-----
+- Updated AHA provisioning to remove Certificate Signing Request files after
+  they have been used.
+  (`#4368 <https://github.com/vertexproject/synapse/pull/4368>`_)
+- Added ``mesg`` values to Telepath ``NoSuchMeth`` exceptions.
+  (`#4369 <https://github.com/vertexproject/synapse/pull/4369>`_)
+
+v2.213.0 - 2025-06-10
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated Storm ``hex`` type to allow setting/lifting with integers.
+  (`#4283 <https://github.com/vertexproject/synapse/pull/4283>`_)
+- Updated the Docker image to support the latest Python 3.11.13 release.
+  (`#4284 <https://github.com/vertexproject/synapse/pull/4284>`_)
+- Improved performance of boolean evaluation of container types such as lists
+  and dictionaries in Storm.
+  (`#4322 <https://github.com/vertexproject/synapse/pull/4322>`_)
+- Updated the scrape logic for ``inet:url`` to recognize URLs surrounded by
+  smart quotes (``U+2018``, ``U+2019``, ``U+201C``, ``U+201D``).
+  (`#4328 <https://github.com/vertexproject/synapse/pull/4328>`_)
+
+Bugfixes
+--------
+- Fixed bug in ``synapse.lib.telepath.openurl`` where a share name specified
+  via the ``name`` keyword argument could be ignored if a share name was also
+  specified in the URL.
+  (`#4323 <https://github.com/vertexproject/synapse/pull/4323>`_)
+
+v2.212.0 - 2025-05-29
+=====================
+
+Model Changes
+-------------
+- Added forms for JA4/JA4S TLS fingerprints, samples, and handshakes.
+  (`#4319 <https://github.com/vertexproject/synapse/pull/4319>`_)
+- See :ref:`userguide_model_v2_212_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Embedded node values returned from Storm now include the node's form under
+  the key ``$form``, and the iden under the key ``$iden``.
+  (`#4306 <https://github.com/vertexproject/synapse/pull/4306>`_)
+
+Bugfixes
+--------
+- Fixed a bug with ``$lib.json.schema()`` which would prevent passing a list to
+  specify the valid types for an object property.
+  (`#4314 <https://github.com/vertexproject/synapse/pull/4314>`_)
+
+v2.211.0 - 2025-05-23
+=====================
+
+Model Changes
+-------------
+- Removed the readonly attribute from the ``ou:conference:event:conference``
+  property.
+  (`#4301 <https://github.com/vertexproject/synapse/pull/4301>`_)
+- See :ref:`userguide_model_v2_211_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated ``synapse.tools.genpkg`` to include the Synapse version info used to
+  build the Power-Up in the package definitions.
+  (`#4290 <https://github.com/vertexproject/synapse/pull/4290>`_)
+
+Bugfixes
+--------
+- Fixed an issue where applying a tag in a fork to a node which already had
+  that tag with a value in a parent view would additionally store that tag
+  value in the fork's write layer.
+  (`#4303 <https://github.com/vertexproject/synapse/pull/4303>`_)
+- Fixed bug with embeds including types that extend from ``ndef``.
+  (`#4307 <https://github.com/vertexproject/synapse/pull/4307>`_)
+
+Improved documentation
+----------------------
+- Fixed the documentation for ``$node.data.list()`` to specify that it returns
+  (name, value) tuples, not just names.
+  (`#4297 <https://github.com/vertexproject/synapse/pull/4297>`_)
+
 v2.210.0 - 2025-05-12
 =====================
 

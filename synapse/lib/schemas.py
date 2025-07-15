@@ -297,11 +297,18 @@ _authRulesSchema = {
         'type': 'array',
         'items': [
             {'type': 'boolean'},
-            {'type': 'array', 'items': {'type': 'string'}},
+            {
+                'type': 'array',
+                'items': {
+                    'type': 'string',
+                    'minLength': 1
+                },
+                'minItems': 1
+            },
         ],
         'minItems': 2,
         'maxItems': 2,
-    }
+    },
 }
 reqValidRules = s_config.getJsValidator(_authRulesSchema)
 
@@ -469,7 +476,7 @@ driveInfoSchema = {
         'parent': {'type': 'string', 'pattern': s_config.re_iden},
         'type': {'type': 'string', 'pattern': re_drivename},
         'name': {'type': 'string', 'pattern': re_drivename},
-        'perm': s_msgpack.deepcopy(easyPermSchema),
+        'permissions': s_msgpack.deepcopy(easyPermSchema),
         'kids': {'type': 'number', 'minimum': 0},
         'created': {'type': 'number'},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},

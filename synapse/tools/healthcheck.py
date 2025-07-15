@@ -1,4 +1,3 @@
-import sys
 import socket
 import asyncio
 
@@ -7,7 +6,6 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
-import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.health as s_health
@@ -30,7 +28,7 @@ def format_component(e, mesg: str) -> dict:
     return d
 
 async def main(argv, outp=s_output.stdout):
-    pars = makeargparser()
+    pars = getArgParser(outp)
     try:
         opts = pars.parse_args(argv)
     except s_exc.ParserExit as e:  # pragma: no cover
@@ -44,7 +42,7 @@ async def main(argv, outp=s_output.stdout):
 
             prox = await s_common.wait_for(s_telepath.openurl(url),
                                            timeout=opts.timeout)
-    except (FileNotFoundError, ConnectionError, socket.gaierror) as e:
+    except (s_exc.LinkErr, s_exc.NoSuchPath, socket.gaierror) as e:
         mesg = f'Unable to connect to cell @ {sanitized_url}.'
         ret = {'status': 'failed',
                'iden': opts.cell,
@@ -96,21 +94,16 @@ async def main(argv, outp=s_output.stdout):
     outp.printf(serialize(ret))
     return retval
 
-def makeargparser():
+def getArgParser(outp):
     desc = '''
     synapse healthcheck tool
     '''
-    pars = s_cmd.Parser('healthcheck', description=desc)
+    pars = s_cmd.Parser(prog='synapse.tools.healthcheck', outp=outp, description=desc)
     pars.add_argument('--cell', '-c', required=True, type=str,
                       help='Telepath path to the cell to check.')
     pars.add_argument('--timeout', '-t', default=10, type=float,
                       help='Connection and call timeout')
     return pars
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_cmd.exitmain(main)

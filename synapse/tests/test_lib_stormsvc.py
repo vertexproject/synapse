@@ -780,7 +780,7 @@ class StormSvcTest(s_test.SynTest):
                     }
                     with patchcore(core, 'setStormSvcEvents', badSetStormSvcEvents):
                         svci = await core.addStormSvc(sdef)
-                        self.true(await core.waitStormSvc('dead', timeout=6))
+                        self.true(await core.waitStormSvc('dead', timeout=12))
                         await core.delStormSvc(svci.get('iden'))
 
                     self.len(1, badiden)
@@ -792,7 +792,7 @@ class StormSvcTest(s_test.SynTest):
 
                     with patchcore(core, '_runStormSvcAdd', badRunStormSvcAdd):
                         svci = await core.addStormSvc(sdef)
-                        self.true(await core.waitStormSvc('dead', timeout=6))
+                        self.true(await core.waitStormSvc('dead', timeout=12))
                         await core.delStormSvc(svci.get('iden'))
                     self.len(1, badiden)
                     self.eq(svci.get('iden'), badiden[0])
