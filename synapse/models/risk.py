@@ -610,9 +610,6 @@ modeldefs = (
                 ('vuln', ('risk:vuln', {}), {
                     'doc': 'The optional vulnerability that the alert indicates.'}),
 
-                ('attack', ('risk:attack', {}), {
-                    'doc': 'A confirmed attack that this alert indicates.'}),
-
                 ('url', ('inet:url', {}), {
                     'doc': 'A URL which documents the alert.'}),
 
@@ -773,7 +770,8 @@ modeldefs = (
                 ('public', ('bool', {}), {
                     'doc': 'Set to true if the leaked information was made publicly available.'}),
 
-                ('public:url', ('inet:url', {}), {
+                ('public:urls', ('array', {'type': 'inet:url', 'sorted': True, 'uniq': True}), {
+                    'prevnames': ('public:url',),
                     'doc': 'The URL where the leaked information was made publicly available.'}),
 
                 ('size:bytes', ('int', {'min': 0}), {

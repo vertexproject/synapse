@@ -17,7 +17,6 @@ modeldefs = (
     'synapse.models.language.modeldefs',
     'synapse.models.material.modeldefs',
     'synapse.models.math.modeldefs',
-    'synapse.models.media.modeldefs',
     'synapse.models.orgs.modeldefs',
     'synapse.models.person.modeldefs',
     'synapse.models.planning.modeldefs',

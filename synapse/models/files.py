@@ -372,6 +372,9 @@ modeldefs = (
                 'doc': 'A section inside a Mach-O binary denoting a named region of bytes inside a segment.'}),
 
             ('file:mime:lnk', ('guid', {}), {
+                'interfaces': (
+                    ('file:mime:meta', {}),
+                ),
                 'doc': 'The GUID of the metadata pulled from a Windows shortcut or LNK file.'}),
         ),
         'edges': (
@@ -455,7 +458,7 @@ modeldefs = (
                 ('exports:time', ('time', {}), {
                     'doc': 'The export time of the file.'}),
 
-                ('exports:libname', ('str', {}), {
+                ('exports:libname', ('file:path', {}), {
                     'doc': 'The export library name according to the PE.'}),
 
                 ('versioninfo', ('array', {'type': 'file:mime:pe:vsvers:keyval', 'sorted': True, 'uniq': True}), {
