@@ -3457,7 +3457,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
-            self.eq('newp', text[off:end])
+            self.eq('+#foo=newp', text[off:end])
 
             await core.nodes('''
                 $regx = ($lib.null, $lib.null, "[0-9]{4}")
@@ -3469,6 +3469,18 @@ class AstTest(s_test.SynTest):
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
             self.eq('#cno.cve.foo', text[off:end])
+
+            text = '[ test:str=foo +#cno.cve.foo=2024 ]'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('+#cno.cve.foo=2024', text[off:end])
+
+            text = '[ test:str=foo +#cno.cve.1234=newp ]'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('+#cno.cve.1234=newp', text[off:end])
 
             text = '$foo=(1) #$foo'
             msgs = await core.stormlist(text)

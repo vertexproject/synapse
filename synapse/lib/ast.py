@@ -5357,7 +5357,7 @@ class EditTagAdd(Edit):
 
                 except s_exc.BadTypeValu as e:
                     if valukid is not None:
-                        raise valukid.addExcInfo(e)
+                        raise self.addExcInfo(e)
                     raise namekid.addExcInfo(e)
 
             yield node, path
