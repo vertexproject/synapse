@@ -3017,6 +3017,8 @@ class InetModelTest(s_t_utils.SynTest):
             platinst = nodes[0]
             app00 = nodes[0].get('app')
 
+            self.len(1, await core.nodes('inet:service:instance:id=T2XK1223Y -> inet:service:app [ :provider=* :provider:name=vertex ] :provider -> ou:org'))
+
             q = '''
             [
                 (inet:service:account=(blackout, account, vertex, slack)
