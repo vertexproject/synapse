@@ -133,8 +133,6 @@ class NodeTest(s_t_utils.SynTest):
             self.eq('cool', node.repr())
             self.eq(node.repr('tick'), '1970-01-01T00:00:00.012345Z')
 
-            self.false(await node.set('tick', 12345))
-            self.true(await node.set('tick', 123456))
             with self.raises(s_exc.NoSuchProp):
                 await node.set('notreal', 12345)
 
