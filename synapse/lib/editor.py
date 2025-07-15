@@ -982,7 +982,7 @@ class NodeEditor:
             node = await self.view.getNodeByBuid(buid)
 
             if node is not None and not (adds or subs):
-                return()
+                return ()
 
             protonode = ProtoNode(self, buid, form, norm, node, norminfo)
             self.protonodes[ndef] = protonode
