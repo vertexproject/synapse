@@ -581,14 +581,14 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [ crypto:salthash=*
                     :salt=4141
                     :hash={[ crypto:hash:md5=$md5 ]}
-                    :value={[ inet:passwd=woot ]}
+                    :value=woot
                 ]
             ''', opts=opts)
 
             self.len(1, nodes)
             self.eq(nodes[0].get('salt'), '4141')
             self.eq(nodes[0].get('hash'), ('crypto:hash:md5', '098f6bcd4621d373cade4e832627b4f6'))
-            self.eq(nodes[0].get('value'), ('inet:passwd', 'woot'))
+            self.eq(nodes[0].get('value'), ('auth:passwd', 'woot'))
 
-            self.len(1, await core.nodes('crypto:salthash -> inet:passwd'))
+            self.len(1, await core.nodes('crypto:salthash -> auth:passwd'))
             self.len(1, await core.nodes('crypto:salthash -> crypto:hash:md5'))

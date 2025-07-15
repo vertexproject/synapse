@@ -12,7 +12,7 @@ class EntityModelTest(s_t_utils.SynTest):
                     :names=('visi stark', 'visi k')
                     :lifespan=(19761217, ?)
                     :email=visi@vertex.link
-                    :creds={[ inet:passwd=cool ]}
+                    :creds={[ auth:passwd=cool ]}
                     :websites+=https://vertex.link
                     :social:accounts={[ inet:service:account=({"name": "invisig0th"}) ]}
             ]''')
@@ -20,7 +20,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('name'), 'visi')
             self.eq(nodes[0].get('names'), ('visi k', 'visi stark'))
             self.eq(nodes[0].get('email'), 'visi@vertex.link')
-            self.eq(nodes[0].get('creds'), (('inet:passwd', 'cool'),))
+            self.eq(nodes[0].get('creds'), (('auth:passwd', 'cool'),))
             self.eq(nodes[0].get('websites'), ('https://vertex.link',))
             self.len(1, nodes[0].get('social:accounts'))
             self.len(1, await core.nodes('entity:contact -> inet:service:account'))

@@ -314,8 +314,8 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of ID status values.'}),
 
-            ('ou:id:update', ('guid', {}), {
-                'doc': 'An update to an ID status.'}),
+            ('ou:id:history', ('guid', {}), {
+                'doc': 'Changes made to an ID over time.'}),
 
             ('ou:award:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -425,11 +425,8 @@ modeldefs = (
                 ('org:fqdn', ('inet:fqdn', {}), {
                     'doc': 'The FQDN of the organization as listed in the opening.'}),
 
-                ('posted', ('time', {}), {
-                    'doc': 'The date/time that the job opening was posted.'}),
-
-                ('removed', ('time', {}), {
-                    'doc': 'The date/time that the job opening was removed.'}),
+                ('period', ('ival', {}), {
+                    'doc': 'The time period when the opening existed.'}),
 
                 ('postings', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                     'doc': 'URLs where the opening is listed.'}),
@@ -455,11 +452,21 @@ modeldefs = (
                 ('remote', ('bool', {}), {
                     'doc': 'Set to true if the opening will allow a fully remote worker.'}),
 
-                ('yearlypay', ('econ:price', {}), {
-                    'doc': 'The yearly income associated with the opening.'}),
+                ('pay:min', ('econ:price', {}), {
+                    'prevnames': ('yearlypay',),
+                    'doc': 'The minimum pay for the job.'}),
 
-                ('paycurrency', ('econ:currency', {}), {
+                ('pay:max', ('econ:price', {}), {
+                    'doc': 'The maximum pay for the job.'}),
+
+                ('pay:currency', ('econ:currency', {}), {
+                    'prevnames': ('paycurrency',),
                     'doc': 'The currency that the yearly pay was delivered in.'}),
+
+                # FIXME what to name this?!?!? How to handle commission?
+                ('pay:pertime', ('duration', {}), {
+                    'ex': '1:00:00',
+                    'doc': 'The duration over which the position pays.'}),
 
             )),
             ('ou:candidate:method:taxonomy', {}, ()),
@@ -502,7 +509,8 @@ modeldefs = (
             )),
             ('ou:vitals', {}, (
 
-                ('asof', ('time', {}), {
+                ('time', ('time', {}), {
+                    'prevnames': ('asof',),
                     'doc': 'The time that the vitals represent.'}),
 
                 ('org', ('ou:org', {}), {
@@ -591,6 +599,9 @@ modeldefs = (
                 ('updated', ('date', {}), {
                     'doc': 'The date when the ID was most recently updated.'}),
 
+                ('expires', ('date', {}), {
+                    'doc': 'The date when the ID expires.'}),
+
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The organization which issued the ID.'}),
 
@@ -600,16 +611,16 @@ modeldefs = (
                 ('recipient', ('entity:actor', {}), {
                     'doc': 'The entity which was issued the ID.'}),
             )),
-            ('ou:id:update', {}, (
+            ('ou:id:history', {}, (
 
-                ('id', ('ou:id', {}), {
-                    'doc': 'The ID which was updated.'}),
+                ('current', ('ou:id', {}), {
+                    'doc': 'The current ID information.'}),
 
                 ('updated', ('date', {}), {
-                    'doc': 'The time the ID status was updated.'}),
+                    'doc': 'The time the ID was updated.'}),
 
                 ('status', ('ou:id:status:taxonomy', {}), {
-                    'doc': 'The new status of the ID.'}),
+                    'doc': 'The status of the ID at the time.'}),
             )),
             ('ou:goal:type:taxonomy', {}, ()),
             ('ou:goal', {}, (
