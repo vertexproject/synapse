@@ -39,6 +39,9 @@ modeldefs = (
                               'entity:name', 'geo:name'),
                 'doc': 'A name used to refer to an entity or event.'}),
 
+            ('meta:topic', ('base:name', {}), {
+                'doc': 'A topic string.'}),
+
             ('meta:feed', ('guid', {}), {
                 'doc': 'A data feed provided by a specific source.'}),
 
@@ -285,6 +288,10 @@ modeldefs = (
 
             ('meta:id', {}, ()),
             ('meta:name', {}, ()),
+            ('meta:topic', {}, (
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the topic.'}),
+            )),
 
             ('meta:source:type:taxonomy', {}, ()),
             ('meta:source', {}, (
