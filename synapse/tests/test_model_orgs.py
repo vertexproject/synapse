@@ -343,7 +343,7 @@ class OuModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 ou:attendee=*
-                    :person={[ entity:contact=* ]}
+                    :person={[ ps:person=* ]}
                     :period=(201202,201203)
                     :event={ ou:event }
                     :roles+=staff
@@ -353,7 +353,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(('staff',), nodes[0].get('roles'))
             self.eq(nodes[0].get('period'), (1328054400000000, 1330560000000000))
 
-            self.len(1, await core.nodes('ou:attendee -> entity:contact'))
+            self.len(1, await core.nodes('ou:attendee -> ps:person'))
 
             self.len(1, await core.nodes('ou:attendee -> ou:event'))
             self.len(1, await core.nodes('ou:attendee :event -> ou:event'))

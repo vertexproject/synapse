@@ -2278,9 +2278,12 @@ modeldefs = (
 
 
             ('inet:mac', {}, (
-                ('vendor', ('str', {}), {
-                    'doc': 'The vendor associated with the 24-bit prefix of a MAC address.'
-                }),
+
+                ('vendor', ('ou:org', {}), {
+                    'doc': 'The vendor associated with the 24-bit prefix of a MAC address.'}),
+
+                ('vendor:name', ('meta:name', {}), {
+                    'doc': 'The name of the vendor associated with the 24-bit prefix of a MAC address.'}),
             )),
 
             ('inet:passwd', {}, (
@@ -2962,7 +2965,7 @@ modeldefs = (
                 ('attachments', ('array', {'type': 'inet:service:message:attachment', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of files attached to the message.'}),
 
-                ('hashtags', ('array', {'type': 'media:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
+                ('hashtags', ('array', {'type': 'lang:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
                     'doc': 'An array of hashtags mentioned within the message.'}),
 
                 ('place', ('geo:place', {}), {
@@ -3028,7 +3031,7 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The time period where the channel was available.'}),
 
-                ('topic', ('media:topic', {}), {
+                ('topic', ('base:name', {}), {
                     'doc': 'The visible topic of the channel.'}),
             )),
 

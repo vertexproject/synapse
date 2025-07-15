@@ -1151,17 +1151,13 @@ class InetModelTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadTypeValu, t.norm('GG:ff:FF:ff:FF:ff'))
 
             # Form Tests ======================================================
-            nodes = await core.nodes('[inet:mac="00:00:00:00:00:00"]')
+            nodes = await core.nodes('[inet:mac="00:00:00:00:00:00" :vendor=* :vendor:name=Cool]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:mac', '00:00:00:00:00:00'))
-            self.none(node.get('vendor'))
+            self.eq(node.get('vendor:name'), 'cool')
 
-            nodes = await core.nodes('[inet:mac="00:00:00:00:00:00" :vendor=Cool]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:mac', '00:00:00:00:00:00'))
-            self.eq(node.get('vendor'), 'Cool')
+            self.len(1, await core.nodes('inet:mac -> ou:org'))
 
     async def test_net4(self):
         tname = 'inet:net'

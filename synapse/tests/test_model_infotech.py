@@ -368,10 +368,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('volume'), volume.ndef[1])
 
             valu = (host0, 'http://vertex.ninja/cool.php')
-            nodes = await core.nodes('[it:hosturl=$valu]', opts={'vars': {'valu': valu}})
+            nodes = await core.nodes('[it:host:url=$valu]', opts={'vars': {'valu': valu}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:hosturl', (host0, 'http://vertex.ninja/cool.php')))
+            self.eq(node.ndef, ('it:host:url', (host0, 'http://vertex.ninja/cool.php')))
             self.eq(node.get('host'), host0)
             self.eq(node.get('url'), 'http://vertex.ninja/cool.php')
 
