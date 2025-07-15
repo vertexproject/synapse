@@ -1,16 +1,17 @@
+import hashlib
 
 import synapse.lib.types as s_types
 
 class Passwd(s_types.Str):
 
     def norm(self, valu):
-        retn = Str.norm(self, valu)
+        retn = s_types.Str.norm(self, valu)
         retn[1].setdefault('subs', {})
         byts = retn[0].encode('utf8')
         retn[1]['subs'].update({
-            'md5': hashlib.md5(byts, usedforsecurity=False).hexdigest())
-            'sha1': hashlib.sha1(byts, usedforsecurity=False).hexdigest())
-            'sha256': hashlib.sha256(byts).hexdigest())
+            'md5': hashlib.md5(byts, usedforsecurity=False).hexdigest(),
+            'sha1': hashlib.sha1(byts, usedforsecurity=False).hexdigest(),
+            'sha256': hashlib.sha256(byts).hexdigest(),
         })
         return retn
 
