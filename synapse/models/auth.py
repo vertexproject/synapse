@@ -31,9 +31,6 @@ modeldefs = (
 
             ('auth:credential', ('ndef', {'interfaces': ('auth:credential',)}), {
                 'doc': 'An ndef type including all forms which implement the auth:credential interface.'}),
-
-            ('auth:passwdhash', ('guid', {}), {
-                'doc': 'An instance of a password hash.'}),
         ),
 
         'interfaces': (
@@ -55,22 +52,6 @@ modeldefs = (
                 ('sha256', ('crypto:hash:sha256', {}), {
                     'ro': True,
                     'doc': 'The SHA256 hash of the password.'}),
-            )),
-
-            ('auth:passwdhash', {}, (
-
-                ('hash', ('crypto:hash', {}), {
-                    'doc': 'The hash computed from the salt and password.'}),
-
-                ('salt', ('str', {'strip': False}), {
-                    'doc': 'The salt used to compute the password hash.'}),
-
-                ('passwd', ('auth:passwd', {}), {
-                    'doc': 'The password used to compute the hash.'}),
-
-                ('algorithm', ('crypto:algorithm', {}), {
-                    'ex': 'sha256',
-                    'doc': 'The cryptographic hash algorithm used to compute the hash.'}),
             )),
         ),
 
