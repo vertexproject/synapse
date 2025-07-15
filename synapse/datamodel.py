@@ -4,6 +4,7 @@ An API to assist with the creation and enforcement of cortex data models.
 import sys
 import asyncio
 import logging
+import contextlib
 import collections
 
 import regex
@@ -495,6 +496,8 @@ class Model:
     def __init__(self, core=None):
 
         self.iden = None
+        self.bulkedit = False
+
         self.core = core
         self.types = {}  # name: Type()
         self.forms = {}  # name: Form()
@@ -525,6 +528,20 @@ class Model:
             'univs': [],
             'edges': [],
         }
+
+    @contextlib.contextmanager
+    def bulkEditModel(self):
+        self.bulkedit = True
+        yield
+        self.calcModelIden()
+
+    def calcModelIden(self):
+
+        if self.bulkedit:
+            return
+
+        self.iden = s_common.guid(s_common.flatten(self.getModelDef()))
+        return self.iden
 
     def getPropsByType(self, name):
         props = self.propsbytype.get(name)
@@ -636,19 +653,26 @@ class Model:
 
         return base.clone(typedef[1])
 
+    def getModelDef(self):
+
+        mdef = self._modeldef.copy()
+
+        # dynamically generate form defs due to extended props
+        mdef['forms'] = [f.getFormDef() for f in self.forms.values()]
+        # TODO: remove this in 3.0
+        mdef['univs'] = [u.getPropDef() for u in self.univs.values()]
+        mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops.values()]
+        mdef['interfaces'] = list(self.ifaces.items())
+        mdef['edges'] = [e.pack() for e in self.edges.values()]
+
+        return mdef
+
     def getModelDefs(self):
         '''
         Returns:
             A list of one model definition compatible with addDataModels that represents the current data model
         '''
-        mdef = self._modeldef.copy()
-        # dynamically generate form defs due to extended props
-        mdef['forms'] = [f.getFormDef() for f in self.forms.values()]
-        mdef['univs'] = [u.getPropDef() for u in self.univs.values()]
-        mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops.values()]
-        mdef['interfaces'] = list(self.ifaces.items())
-        mdef['edges'] = [e.pack() for e in self.edges.values()]
-        return [('all', mdef)]
+        return [('all', self.getModelDef())]
 
     def getModelDict(self):
         retn = {
@@ -722,51 +746,53 @@ class Model:
 
         self.modeldefs.extend(mods)
 
-        # load all the base type ctors in order...
-        for _, mdef in mods:
+        with self.bulkEditModel():
 
-            for name, ctor, opts, info in mdef.get('ctors', ()):
-                item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts)
-                self.types[name] = item
-                self._modeldef['ctors'].append((name, ctor, opts, info))
+            # load all the base type ctors in order...
+            for _, mdef in mods:
 
-        # load all the types in order...
-        for _, mdef in mods:
-            custom = mdef.get('custom', False)
-            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
-                typeinfo['custom'] = custom
-                self.addType(typename, basename, typeopts, typeinfo)
+                for name, ctor, opts, info in mdef.get('ctors', ()):
+                    item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts)
+                    self.types[name] = item
+                    self._modeldef['ctors'].append((name, ctor, opts, info))
 
-        # load all the interfaces...
-        for _, mdef in mods:
-            for name, info in mdef.get('interfaces', ()):
-                self.addIface(name, info)
+            # load all the types in order...
+            for _, mdef in mods:
+                custom = mdef.get('custom', False)
+                for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
+                    typeinfo['custom'] = custom
+                    self.addType(typename, basename, typeopts, typeinfo)
 
-        # Load all the universal properties
-        for _, mdef in mods:
-            for univname, typedef, univinfo in mdef.get('univs', ()):
-                univinfo['custom'] = custom
-                self.addUnivProp(univname, typedef, univinfo)
+            # load all the interfaces...
+            for _, mdef in mods:
+                for name, info in mdef.get('interfaces', ()):
+                    self.addIface(name, info)
 
-        # Load all the tagprops
-        for _, mdef in mods:
-            for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
-                self.addTagProp(tpname, typedef, tpinfo)
+            # Load all the universal properties
+            for _, mdef in mods:
+                for univname, typedef, univinfo in mdef.get('univs', ()):
+                    univinfo['custom'] = custom
+                    self.addUnivProp(univname, typedef, univinfo)
 
-        # now we can load all the forms...
-        for _, mdef in mods:
+            # Load all the tagprops
+            for _, mdef in mods:
+                for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
+                    self.addTagProp(tpname, typedef, tpinfo)
 
-            for formname, forminfo, propdefs in mdef.get('forms', ()):
-                self.addForm(formname, forminfo, propdefs, checks=False)
+            # now we can load all the forms...
+            for _, mdef in mods:
 
-        # now we can load edge definitions...
-        for _, mdef in mods:
-            for etype, einfo in mdef.get('edges', ()):
-                self.addEdge(etype, einfo)
+                for formname, forminfo, propdefs in mdef.get('forms', ()):
+                    self.addForm(formname, forminfo, propdefs, checks=False)
 
-        # now we can check the forms display settings...
-        for form in self.forms.values():
-            self._checkFormDisplay(form)
+            # now we can load edge definitions...
+            for _, mdef in mods:
+                for etype, einfo in mdef.get('edges', ()):
+                    self.addEdge(etype, einfo)
+
+            # now we can check the forms display settings...
+            for form in self.forms.values():
+                self._checkFormDisplay(form)
 
     def addEdge(self, edgetype, edgeinfo):
 
@@ -792,6 +818,8 @@ class Model:
         self.edgesbyn1[n1form].add(edge)
         self.edgesbyn2[n2form].add(edge)
 
+        self.calcModelIden()
+
     def delEdge(self, edgetype):
         if self.edges.get(edgetype) is None:
             return
@@ -802,6 +830,8 @@ class Model:
         self.edgesbyn1[n1form].discard(edgetype)
         self.edgesbyn2[n2form].discard(edgetype)
 
+        self.calcModelIden()
+
     def _reqFormName(self, name):
         form = self.forms.get(name)
         if form is None:
@@ -809,6 +839,7 @@ class Model:
         return form
 
     def addType(self, typename, basename, typeopts, typeinfo):
+
         base = self.types.get(basename)
         if base is None:
             raise s_exc.NoSuchType(name=basename)
@@ -822,6 +853,8 @@ class Model:
 
         self.types[typename] = newtype
         self._modeldef['types'].append(newtype.getTypeDef())
+
+        self.calcModelIden()
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
 
@@ -861,6 +894,8 @@ class Model:
             self._checkFormDisplay(form)
 
         self.formprefixcache.clear()
+
+        self.calcModelIden()
 
         return form
 
@@ -927,9 +962,12 @@ class Model:
 
         self.formprefixcache.clear()
 
+        self.calcModelIden()
+
     def addIface(self, name, info):
         # TODO should we add some meta-props here for queries?
         self.ifaces[name] = info
+        self.calcModelIden()
 
     def delType(self, typename):
 
@@ -953,6 +991,8 @@ class Model:
         self.types.pop(typename, None)
         self.propsbytype.pop(typename, None)
         self.arraysbytype.pop(typename, None)
+
+        self.calcModelIden()
 
     def _addFormUniv(self, form, name, tdef, info):
 
@@ -986,6 +1026,8 @@ class Model:
         for form in self.forms.values():
             prop = self._addFormUniv(form, base, tdef, info)
 
+        self.calcModelIden()
+
     def getAllUnivs(self, name):
         return list(self.allunivs.get(name, ()))
 
@@ -993,6 +1035,8 @@ class Model:
         form = self.forms.get(formname)
         if form is None:
             raise s_exc.NoSuchForm.init(formname)
+
+        self.calcModelIden()
         return self._addFormProp(form, propname, tdef, info)
 
     def _addFormProp(self, form, name, tdef, info):
@@ -1004,6 +1048,7 @@ class Model:
             self.arraysbytype[prop.type.arraytype.name][prop.full] = prop
 
         self.props[prop.full] = prop
+
         return prop
 
     def _prepFormIface(self, form, iface):
@@ -1122,6 +1167,7 @@ class Model:
                    f' be removed in 3.0.0'
             logger.warning(mesg)
 
+        self.calcModelIden()
         return prop
 
     def getTagProp(self, name):
@@ -1147,6 +1193,8 @@ class Model:
 
         self.propsbytype[prop.type.name].pop(prop.full, None)
 
+        self.calcModelIden()
+
     def delUnivProp(self, propname):
 
         univname = '.' + propname
@@ -1161,13 +1209,19 @@ class Model:
         for form in self.forms.values():
             self.delFormProp(form.name, univname)
 
+        self.calcModelIden()
+
     def addBaseType(self, item):
         '''
         Add a Type instance to the data model.
         '''
         ctor = '.'.join([item.__class__.__module__, item.__class__.__qualname__])
+
+        item.info['ctor'] = ctor
         self._modeldef['ctors'].append(((item.name, ctor, dict(item.opts), dict(item.info))))
         self.types[item.name] = item
+
+        self.calcModelIden()
 
     def type(self, name):
         '''

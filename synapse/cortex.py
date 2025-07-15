@@ -1059,9 +1059,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _bumpModelSave(self):
 
-        model = self.model.getModelDict()
-        iden = s_common.guid(s_common.flatten(model))
-
+        # FIXME
         await self._addModelSave(iden, model)
 
     async def checkModelSaved(self):
@@ -3305,56 +3303,54 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.extedges = self.cortexdata.getSubKeyVal('model:edges:')
         self.exttagprops = self.cortexdata.getSubKeyVal('model:tagprops:')
 
-        for typename, basetype, typeopts, typeinfo in self.exttypes.values():
-            try:
-                self.model.addType(typename, basetype, typeopts, typeinfo)
-            except Exception as e:
-                logger.warning(f'Extended type ({typename}) error: {e}')
+        with self.bulkEditModel():
 
-        for formname, basetype, typeopts, typeinfo in self.extforms.values():
-            try:
-                self.model.addType(formname, basetype, typeopts, typeinfo)
-                form = self.model.addForm(formname, {}, ())
-            except Exception as e:
-                logger.warning(f'Extended form ({formname}) error: {e}')
-            else:
-                if form.type.deprecated:
-                    mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
-                           f' be removed in 3.0.0'
-                    logger.warning(mesg)
+            for typename, basetype, typeopts, typeinfo in self.exttypes.values():
+                try:
+                    self.model.addType(typename, basetype, typeopts, typeinfo)
+                except Exception as e:
+                    logger.warning(f'Extended type ({typename}) error: {e}')
 
-        for form, prop, tdef, info in self.extprops.values():
-            try:
-                prop = self.model.addFormProp(form, prop, tdef, info)
-            except Exception as e:
-                logger.warning(f'ext prop ({form}:{prop}) error: {e}')
-            else:
-                if prop.type.deprecated:
-                    mesg = f'The extended property {prop.full} is using a deprecated type {prop.type.name} which will' \
-                           f' be removed in 3.0.0'
-                    logger.warning(mesg)
+            for formname, basetype, typeopts, typeinfo in self.extforms.values():
+                try:
+                    self.model.addType(formname, basetype, typeopts, typeinfo)
+                    form = self.model.addForm(formname, {}, ())
+                except Exception as e:
+                    logger.warning(f'Extended form ({formname}) error: {e}')
+                else:
+                    if form.type.deprecated:
+                        mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
+                               f' be removed in 3.0.0'
+                        logger.warning(mesg)
 
-        for prop, tdef, info in self.extunivs.values():
-            try:
-                self.model.addUnivProp(prop, tdef, info)
-            except Exception as e:
-                logger.warning(f'ext univ ({prop}) error: {e}')
+            for form, prop, tdef, info in self.extprops.values():
+                try:
+                    prop = self.model.addFormProp(form, prop, tdef, info)
+                except Exception as e:
+                    logger.warning(f'ext prop ({form}:{prop}) error: {e}')
+                else:
+                    if prop.type.deprecated:
+                        mesg = f'The extended property {prop.full} is using a deprecated type {prop.type.name} which will' \
+                               f' be removed in 3.0.0'
+                        logger.warning(mesg)
 
-        for prop, tdef, info in self.exttagprops.values():
-            try:
-                self.model.addTagProp(prop, tdef, info)
-            except Exception as e:
-                logger.warning(f'ext tag prop ({prop}) error: {e}')
+            for prop, tdef, info in self.extunivs.values():
+                try:
+                    self.model.addUnivProp(prop, tdef, info)
+                except Exception as e:
+                    logger.warning(f'ext univ ({prop}) error: {e}')
 
-        for edge, info in self.extedges.values():
-            try:
-                self.model.addEdge(edge, info)
-            except Exception as e:
-                logger.warning(f'ext edge ({edge}) error: {e}')
+            for prop, tdef, info in self.exttagprops.values():
+                try:
+                    self.model.addTagProp(prop, tdef, info)
+                except Exception as e:
+                    logger.warning(f'ext tag prop ({prop}) error: {e}')
 
-        # set the current model iden after loading all the extended model elements
-        model = self.model.getModelDict()
-        self.model.iden = s_common.guid(s_common.flatten(model))
+            for edge, info in self.extedges.values():
+                try:
+                    self.model.addEdge(edge, info)
+                except Exception as e:
+                    logger.warning(f'ext edge ({edge}) error: {e}')
 
     async def getExtModel(self):
         '''
