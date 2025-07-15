@@ -962,8 +962,8 @@ modeldefs = (
             )),
             ('ou:attendee', {}, (
 
-                ('person', ('entity:individual', {}), {
-                    'doc': 'The individual who attended the event.'}),
+                ('person', ('ps:person', {}), {
+                    'doc': 'The person who attended the event.'}),
 
                 ('period', ('ival', {}), {
                     'doc': 'The time period when the person attended the event.'}),
