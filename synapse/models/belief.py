@@ -48,17 +48,16 @@ modeldefs = (
 
             ('belief:subscriber', {}, (
 
+                # FIXME entity:individual?
                 ('contact', ('entity:actor', {}), {
                     'doc': 'The contact which subscribes to the belief system.'}),
 
                 ('system', ('belief:system', {}), {
                     'doc': 'The belief system to which the contact subscribes.'}),
 
-                ('began', ('time', {}), {
-                    'doc': 'The time that the contact began to be a subscriber to the belief system.'}),
-
-                ('ended', ('time', {}), {
-                    'doc': 'The time when the contact ceased to be a subscriber to the belief system.'}),
+                ('period', ('ival', {}), {
+                    'prevnames': ('began', 'ended'),
+                    'doc': 'The time period when the contact subscribed to the belief system.'}),
             )),
         ),
         'edges': (

@@ -14,7 +14,7 @@ class FileBase(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
 
         norm = valu.strip().lower().replace('\\', '/')
         if norm.find('/') != -1:
@@ -75,7 +75,7 @@ class FilePath(s_types.Str):
 
         return valu[0]
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
 
         if len(valu) == 0:
             return '', {}
@@ -140,6 +140,16 @@ modeldefs = (
                 'ex': 'woot.exe'}),
 
             ('file:path', 'synapse.models.files.FilePath', {}, {
+                'virts': {
+                    'ext': (('str', {}), {
+                        'doc': 'The file extension from the path.'}),
+
+                    'dir': (('file:path', {}), {
+                        'doc': 'The directory from the path.'}),
+
+                    'base': (('file:base', {}), {
+                        'doc': 'The file base name from the path.'}),
+                },
                 'doc': 'A normalized file path.',
                 'ex': 'c:/windows/system32/calc.exe'}),
         ),

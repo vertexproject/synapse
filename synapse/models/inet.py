@@ -1,6 +1,5 @@
 import socket
 import asyncio
-import hashlib
 import logging
 import urllib.parse
 
@@ -132,33 +131,33 @@ class IPAddr(s_types.Type):
 
         self.reqvers = self.opts.get('version')
 
-    def _ctorCmprEq(self, valu):
+    async def _ctorCmprEq(self, valu):
 
         if isinstance(valu, str):
 
             if valu.find('/') != -1:
-                minv, maxv = self.getCidrRange(valu)
+                minv, maxv = await self.getCidrRange(valu)
 
-                def cmpr(norm):
+                async def cmpr(norm):
                     return norm >= minv and norm <= maxv
                 return cmpr
 
             if valu.find('-') != -1:
-                minv, maxv = self.getNetRange(valu)
+                minv, maxv = await self.getNetRange(valu)
 
-                def cmpr(norm):
+                async def cmpr(norm):
                     return norm >= minv and norm <= maxv
                 return cmpr
 
-        return s_types.Type._ctorCmprEq(self, valu)
+        return await s_types.Type._ctorCmprEq(self, valu)
 
-    def getTypeVals(self, valu):
+    async def getTypeVals(self, valu):
 
         if isinstance(valu, str):
 
             if valu.find('/') != -1:
 
-                minv, maxv = self.getCidrRange(valu)
+                minv, maxv = await self.getCidrRange(valu)
                 while minv <= maxv:
                     yield minv
                     minv = (minv[0], minv[1] + 1)
@@ -167,7 +166,7 @@ class IPAddr(s_types.Type):
 
             if valu.find('-') != -1:
 
-                minv, maxv = self.getNetRange(valu)
+                minv, maxv = await self.getNetRange(valu)
                 while minv <= maxv:
                     yield minv
                     minv = (minv[0], minv[1] + 1)
@@ -176,7 +175,7 @@ class IPAddr(s_types.Type):
 
         yield valu
 
-    def _normPyTuple(self, valu):
+    async def _normPyTuple(self, valu, view=None):
 
         if any((len(valu) != 2,
                 type(valu[0]) is not int,
@@ -216,7 +215,7 @@ class IPAddr(s_types.Type):
 
         return valu, {'subs': subs}
 
-    def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
 
         valu = text.replace('[.]', '.')
         valu = valu.replace('(.)', '.')
@@ -276,10 +275,10 @@ class IPAddr(s_types.Type):
         mesg = 'IP proto version {vers} is not supported!'
         raise s_exc.BadTypeValu(mesg=mesg)
 
-    def getNetRange(self, text):
+    async def getNetRange(self, text):
         minstr, maxstr = text.split('-', 1)
-        minv, info = self.norm(minstr)
-        maxv, info = self.norm(maxstr)
+        minv, info = await self.norm(minstr)
+        maxv, info = await self.norm(maxstr)
 
         if minv[0] != maxv[0]:
             raise s_exc.BadTypeValu(valu=text, name=self.name,
@@ -287,9 +286,9 @@ class IPAddr(s_types.Type):
 
         return minv, maxv
 
-    def getCidrRange(self, text):
+    async def getCidrRange(self, text):
         addr, mask_str = text.split('/', 1)
-        (vers, addr), info = self.norm(addr)
+        (vers, addr), info = await self.norm(addr)
 
         if vers == 4:
             try:
@@ -317,50 +316,50 @@ class IPAddr(s_types.Type):
             maxv = int(netw[-1])
             return (6, minv), (6, maxv)
 
-    def _storLiftEq(self, cmpr, valu):
+    async def _storLiftEq(self, cmpr, valu):
 
         if isinstance(valu, str):
 
             if valu.find('/') != -1:
-                minv, maxv = self.getCidrRange(valu)
+                minv, maxv = await self.getCidrRange(valu)
                 maxv = (maxv[0], maxv[1])
                 return (
                     ('range=', (minv, maxv), self.stortype),
                 )
 
             if valu.find('-') != -1:
-                minv, maxv = self.getNetRange(valu)
+                minv, maxv = await self.getNetRange(valu)
                 return (
                     ('range=', (minv, maxv), self.stortype),
                 )
 
-        return self._storLiftNorm(cmpr, valu)
+        return await self._storLiftNorm(cmpr, valu)
 
-    def _ctorCmprGe(self, text):
-        norm, info = self.norm(text)
+    async def _ctorCmprGe(self, text):
+        norm, info = await self.norm(text)
 
-        def cmpr(valu):
+        async def cmpr(valu):
             return valu >= norm
         return cmpr
 
-    def _ctorCmprLe(self, text):
-        norm, info = self.norm(text)
+    async def _ctorCmprLe(self, text):
+        norm, info = await self.norm(text)
 
-        def cmpr(valu):
+        async def cmpr(valu):
             return valu <= norm
         return cmpr
 
-    def _ctorCmprGt(self, text):
-        norm, info = self.norm(text)
+    async def _ctorCmprGt(self, text):
+        norm, info = await self.norm(text)
 
-        def cmpr(valu):
+        async def cmpr(valu):
             return valu > norm
         return cmpr
 
-    def _ctorCmprLt(self, text):
-        norm, info = self.norm(text)
+    async def _ctorCmprLt(self, text):
+        norm, info = await self.norm(text)
 
-        def cmpr(valu):
+        async def cmpr(valu):
             return valu < norm
         return cmpr
 
@@ -406,11 +405,11 @@ class SockAddr(s_types.Str):
 
         return valu[0]
 
-    def _normPort(self, valu):
+    async def _normPort(self, valu):
         parts = valu.split(':', 1)
         if len(parts) == 2:
             valu, port = parts
-            port = self.porttype.norm(port)[0]
+            port = (await self.porttype.norm(port))[0]
             return valu, port, f':{port}'
 
         if self.defport:
@@ -418,7 +417,7 @@ class SockAddr(s_types.Str):
 
         return valu, None, ''
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         orig = valu
         subs = {}
         virts = {}
@@ -441,7 +440,7 @@ class SockAddr(s_types.Str):
         # Treat as host if proto is host
         if proto == 'host':
 
-            valu, port, pstr = self._normPort(valu)
+            valu, port, pstr = await self._normPort(valu)
             if port:
                 subs['port'] = port
 
@@ -456,14 +455,14 @@ class SockAddr(s_types.Str):
             if match:
                 ipv6, port = match.groups()
 
-                ipv6 = self.iptype.norm(ipv6)[0]
+                ipv6 = (await self.iptype.norm(ipv6))[0]
                 host = self.iptype.repr(ipv6)
                 subs['ip'] = ipv6
                 virts['ip'] = (ipv6, self.iptype.stortype)
 
                 portstr = ''
                 if port is not None:
-                    port = self.porttype.norm(port)[0]
+                    port = (await self.porttype.norm(port))[0]
                     subs['port'] = port
                     virts['port'] = (port, self.porttype.stortype)
                     portstr = f':{port}'
@@ -479,7 +478,7 @@ class SockAddr(s_types.Str):
             raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
 
         elif valu.count(':') >= 2:
-            ipv6 = self.iptype.norm(valu)[0]
+            ipv6 = (await self.iptype.norm(valu))[0]
             host = self.iptype.repr(ipv6)
             subs['ip'] = ipv6
             virts['ip'] = (ipv6, self.iptype.stortype)
@@ -492,20 +491,20 @@ class SockAddr(s_types.Str):
             return f'{proto}://{host}', {'subs': subs, 'virts': virts}
 
         # Otherwise treat as IPv4
-        valu, port, pstr = self._normPort(valu)
+        valu, port, pstr = await self._normPort(valu)
         if port:
             subs['port'] = port
             virts['port'] = (port, self.porttype.stortype)
 
-        ipv4 = self.iptype.norm(valu)[0]
+        ipv4 = (await self.iptype.norm(valu))[0]
         ipv4_repr = self.iptype.repr(ipv4)
         subs['ip'] = ipv4
         virts['ip'] = (ipv4, self.iptype.stortype)
 
         return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
 
-    def _normPyTuple(self, valu):
-        ipaddr = self.iptype.norm(valu)[0]
+    async def _normPyTuple(self, valu, view=None):
+        ipaddr = (await self.iptype.norm(valu))[0]
 
         (vers, ip_int) = ipaddr
         ip_repr = self.iptype.repr(ipaddr)
@@ -535,7 +534,7 @@ class Cidr(s_types.Str):
             'inet:ip': ('range=', self.iptype.getCidrRange),
         }
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
 
         try:
             ip_str, mask_str = valu.split('/', 1)
@@ -544,7 +543,7 @@ class Cidr(s_types.Str):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Invalid/Missing CIDR Mask')
 
-        (vers, ip_int) = self.iptype.norm(ip_str)[0]
+        (vers, ip_int) = (await self.iptype.norm(ip_str))[0]
 
         if vers == 4:
             if mask_int > 32 or mask_int < 0:
@@ -591,7 +590,7 @@ class Email(s_types.Str):
         self.fqdntype = self.modl.type('inet:fqdn')
         self.usertype = self.modl.type('inet:user')
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
 
         try:
             user, fqdn = valu.split('@', 1)
@@ -600,8 +599,8 @@ class Email(s_types.Str):
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
         try:
-            fqdnnorm, fqdninfo = self.fqdntype.norm(fqdn)
-            usernorm, userinfo = self.usertype.norm(user)
+            fqdnnorm, fqdninfo = await self.fqdntype.norm(fqdn)
+            usernorm, userinfo = await self.usertype.norm(user)
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
@@ -624,7 +623,7 @@ class Fqdn(s_types.Type):
             '=': self._storLiftEq,
         })
 
-    def _storLiftEq(self, cmpr, valu):
+    async def _storLiftEq(self, cmpr, valu):
 
         if isinstance(valu, str):
 
@@ -638,13 +637,13 @@ class Fqdn(s_types.Type):
                 )
 
             if valu.startswith('*.'):
-                norm, info = self.norm(valu[2:])
+                norm, info = await self.norm(valu[2:])
                 return (
                     ('=', f'*.{norm}', self.stortype),
                 )
 
             if valu.startswith('*'):
-                norm, info = self.norm(valu[1:])
+                norm, info = await self.norm(valu[1:])
                 return (
                     ('=', f'*{norm}', self.stortype),
                 )
@@ -653,29 +652,29 @@ class Fqdn(s_types.Type):
                 mesg = 'Wild card may only appear at the beginning.'
                 raise s_exc.BadLiftValu(valu=valu, name=self.name, mesg=mesg)
 
-        return self._storLiftNorm(cmpr, valu)
+        return await self._storLiftNorm(cmpr, valu)
 
-    def _ctorCmprEq(self, text):
+    async def _ctorCmprEq(self, text):
         if text == '':
             # Asking if a +inet:fqdn='' is a odd filter, but
             # the intuitive answer for that filter is to return False
-            def cmpr(valu):
+            async def cmpr(valu):
                 return False
             return cmpr
 
         if text[0] == '*':
             cval = text[1:]
-            def cmpr(valu):
+            async def cmpr(valu):
                 return valu.endswith(cval)
             return cmpr
 
-        norm, info = self.norm(text)
+        norm, info = await self.norm(text)
 
-        def cmpr(valu):
+        async def cmpr(valu):
             return norm == valu
         return cmpr
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
 
         valu = unicodedata.normalize('NFKC', valu)
 
@@ -729,7 +728,7 @@ class Fqdn(s_types.Type):
 
 class HttpCookie(s_types.Str):
 
-    def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
 
         text = text.strip()
         parts = text.split('=', 1)
@@ -741,7 +740,7 @@ class HttpCookie(s_types.Str):
         valu = parts[1].split(';', 1)[0].strip()
         return text, {'subs': {'name': name, 'value': valu}}
 
-    def getTypeVals(self, valu):
+    async def getTypeVals(self, valu):
 
         if isinstance(valu, str):
             cookies = valu.split(';')
@@ -774,23 +773,23 @@ class IPRange(s_types.Range):
         self.cidrtype = self.modl.type('inet:cidr')
 
         self.pivs |= {
-            'inet:ip': ('range=', lambda valu: valu),
+            'inet:ip': ('range=', None),
         }
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         if '-' in valu:
-            return super()._normPyStr(valu)
-        cidrnorm = self.cidrtype._normPyStr(valu)
+            return await super()._normPyStr(valu)
+        cidrnorm = await self.cidrtype._normPyStr(valu)
         tupl = cidrnorm[1]['subs']['network'], cidrnorm[1]['subs']['broadcast']
-        return self._normPyTuple(tupl)
+        return await self._normPyTuple(tupl)
 
-    def _normPyTuple(self, valu):
+    async def _normPyTuple(self, valu, view=None):
         if len(valu) != 2:
             raise s_exc.BadTypeValu(numitems=len(valu), name=self.name,
                                     mesg=f'Must be a 2-tuple of type {self.subtype.name}: {s_common.trimText(repr(valu))}')
 
-        minv = self.subtype.norm(valu[0])[0]
-        maxv = self.subtype.norm(valu[1])[0]
+        minv = (await self.subtype.norm(valu[0]))[0]
+        maxv = (await self.subtype.norm(valu[1]))[0]
 
         if minv[0] != maxv[0]:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
@@ -813,7 +812,7 @@ class Rfc2822Addr(s_types.Str):
 
         self.emailtype = self.modl.type('inet:email')
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
 
         # remove quotes for normalized version
         valu = valu.replace('"', ' ').replace("'", ' ')
@@ -837,7 +836,7 @@ class Rfc2822Addr(s_types.Str):
             subs['name'] = name
 
         try:
-            data = self.emailtype.norm(addr)
+            data = await self.emailtype.norm(addr)
             if len(data) == 2:
                 mail = data[0]
 
@@ -861,22 +860,22 @@ class Url(s_types.Str):
         self.fqdntype = self.modl.type('inet:fqdn')
         self.porttype = self.modl.type('inet:port')
 
-    def _ctorCmprEq(self, text):
+    async def _ctorCmprEq(self, text):
         if text == '':
             # Asking if a +inet:url='' is a odd filter, but
             # the intuitive answer for that filter is to return False
-            def cmpr(valu):
+            async def cmpr(valu):
                 return False
             return cmpr
 
-        norm, info = self.norm(text)
+        norm, info = await self.norm(text)
 
-        def cmpr(valu):
+        async def cmpr(valu):
             return norm == valu
 
         return cmpr
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         valu = valu.strip()
         orig = valu
         subs = {}
@@ -981,7 +980,7 @@ class Url(s_types.Str):
                 if match:
                     valu, port = match.groups()
 
-                ipv6 = self.iptype.norm(valu)[0]
+                ipv6 = (await self.iptype.norm(valu))[0]
                 host = self.iptype.repr(ipv6)
                 subs['ip'] = ipv6
 
@@ -1001,7 +1000,7 @@ class Url(s_types.Str):
             # IPv4
             try:
                 # Norm and repr to handle fangs
-                ipv4 = self.iptype.norm(part)[0]
+                ipv4 = (await self.iptype.norm(part))[0]
                 host = self.iptype.repr(ipv4)
                 subs['ip'] = ipv4
             except Exception:
@@ -1010,7 +1009,7 @@ class Url(s_types.Str):
             # FQDN
             if host is None:
                 try:
-                    host = self.fqdntype.norm(part)[0]
+                    host = (await self.fqdntype.norm(part))[0]
                     subs['fqdn'] = host
                 except Exception:
                     pass
@@ -1026,13 +1025,13 @@ class Url(s_types.Str):
 
         # Optional Port
         if port is not None:
-            port = self.porttype.norm(port)[0]
+            port = (await self.porttype.norm(port))[0]
             subs['port'] = port
         else:
             # Look up default port for protocol, but don't add it back into the url
             defport = s_l_iana.services.get(proto)
             if defport:
-                subs['port'] = self.porttype.norm(defport)[0]
+                subs['port'] = (await self.porttype.norm(defport))[0]
 
         # Set up Normed URL
         if isUNC:
@@ -1153,12 +1152,6 @@ async def _onSetFqdnZone(node, oldv):
                 await protonode.set('zone', zone)
 
                 todo.append(child.ndef[1])
-
-async def _onAddPasswd(node):
-    byts = node.ndef[1].encode('utf8')
-    await node.set('md5', hashlib.md5(byts, usedforsecurity=False).hexdigest())
-    await node.set('sha1', hashlib.sha1(byts, usedforsecurity=False).hexdigest())
-    await node.set('sha256', hashlib.sha256(byts).hexdigest())
 
 async def _onSetWhoisText(node, oldv):
 
@@ -1321,13 +1314,6 @@ modeldefs = (
             ('inet:net', ('inet:iprange', {}), {
                 'ex': '(1.2.3.4, 1.2.3.20)',
                 'doc': 'An IP address range.'}),
-
-            ('inet:passwd', ('str', {'strip': False}), {
-                'interfaces': (
-                    ('auth:credential', {}),
-                    ('crypto:hashable', {}),
-                ),
-                'doc': 'A password string.'}),
 
             ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
                 'ex': '80',
@@ -2286,21 +2272,6 @@ modeldefs = (
                     'doc': 'The name of the vendor associated with the 24-bit prefix of a MAC address.'}),
             )),
 
-            ('inet:passwd', {}, (
-                ('md5', ('crypto:hash:md5', {}), {
-                    'ro': True,
-                    'doc': 'The MD5 hash of the password.'
-                }),
-                ('sha1', ('crypto:hash:sha1', {}), {
-                    'ro': True,
-                    'doc': 'The SHA1 hash of the password.'
-                }),
-                ('sha256', ('crypto:hash:sha256', {}), {
-                    'ro': True,
-                    'doc': 'The SHA256 hash of the password.'
-                }),
-            )),
-
             ('inet:rfc2822:addr', {}, (
                 ('name', ('meta:name', {}), {
                     'ro': True,
@@ -2366,7 +2337,7 @@ modeldefs = (
                     'doc': 'The IP address used in the URL (e.g., http://1.2.3.4/page.html).',
                     'prevnames': ('ipv4', 'ipv6')}),
 
-                ('passwd', ('inet:passwd', {}), {
+                ('passwd', ('auth:passwd', {}), {
                     'ro': True,
                     'doc': 'The optional password used to access the URL.'}),
 
@@ -3125,7 +3096,6 @@ modeldefs = (
             'post': {
                 'forms': (
                     ('inet:fqdn', _onAddFqdn),
-                    ('inet:passwd', _onAddPasswd),
                 ),
                 'props': (
                     ('inet:fqdn:zone', _onSetFqdnZone),

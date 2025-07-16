@@ -261,7 +261,7 @@ class Lookup(Query):
                     runt.layerConfirm(('node', 'add', form))
                     return await runt.view.addNode(form, valu)
                 else:
-                    norm, info = runt.model.form(form).type.norm(valu)
+                    norm, info = await runt.model.form(form).type.norm(valu, view=runt.view)
                     node = await runt.view.getNodeByNdef((form, norm))
                     if node is None:
                         await runt.bus.fire('look:miss', ndef=(form, norm))
@@ -433,7 +433,10 @@ class SubGraph:
         if self.rules.get('refs'):
 
             for formname, (cmpr, func) in node.form.type.pivs.items():
-                valu = func(node.ndef[1])
+                valu = node.ndef[1]
+                if func is not None:
+                    valu = await func(valu)
+
                 link = {'type': 'type'}
                 async for pivonode in node.view.nodesByPropValu(formname, cmpr, valu, norm=False):
                     yield pivonode, path.fork(pivonode, link), link
@@ -2118,9 +2121,7 @@ class LiftPropBy(LiftOper):
         name = await self.kids[0].compute(runt, path)
         cmpr = await self.kids[1].compute(runt, path)
         valu = await self.kids[2].compute(runt, path)
-
-        if not isinstance(valu, s_node.Node):
-            valu = await s_stormtypes.tostor(valu)
+        valu = await s_stormtypes.tostor(valu)
 
         pivs = None
         if name.find('::') != -1:
@@ -2174,9 +2175,7 @@ class LiftPropVirtBy(LiftOper):
         vnames = await self.kids[1].compute(runt, path)
         cmpr = await self.kids[2].compute(runt, path)
         valu = await self.kids[3].compute(runt, path)
-
-        if not isinstance(valu, s_node.Node):
-            valu = await s_stormtypes.tostor(valu)
+        valu = await s_stormtypes.tostor(valu)
 
         pivs = None
         if name.find('::') != -1:
@@ -2272,7 +2271,10 @@ class PivotOut(PivotOper):
             return
 
         for formname, (cmpr, func) in node.form.type.pivs.items():
-            valu = func(node.ndef[1])
+            valu = node.ndef[1]
+            if func is not None:
+                valu = await func(valu)
+
             link = {'type': 'type'}
             async for pivo in runt.view.nodesByPropValu(formname, cmpr, valu, norm=False):
                 yield pivo, path.fork(pivo, link)
@@ -2512,7 +2514,9 @@ class FormPivot(PivotOper):
 
                     found = True
                     cmpr, func = tpiv
-                    valu = func(node.ndef[1])
+                    valu = node.ndef[1]
+                    if func is not None:
+                        valu = await func(valu)
 
                     link = {'type': 'type'}
                     async for pivo in runt.view.nodesByPropValu(destform.name, cmpr, valu, norm=False):
@@ -2685,7 +2689,10 @@ class PropPivotOut(PivotOper):
 
             link = {'type': 'prop', 'prop': srcname}
             for typename, (cmpr, func) in srctype.pivs.items():
-                pivvalu = func(valu)
+                pivvalu = valu
+                if func is not None:
+                    pivvalu = await func(pivvalu)
+
                 async for pivo in runt.view.nodesByPropValu(typename, cmpr, pivvalu, norm=False):
                     yield pivo, path.fork(pivo, link)
 
@@ -2754,7 +2761,10 @@ class PropPivot(PivotOper):
 
             if (tpiv := srctype.pivs.get(ptyp.name)) is not None:
                 cmpr, func = tpiv
-                pivvalu = func(valu)
+                pivvalu = valu
+                if func is not None:
+                    pivvalu = await func(pivvalu)
+
                 async for pivo in runt.view.nodesByPropValu(prop.full, cmpr, pivvalu, norm=False, virts=virts):
                     yield pivo, link
 
@@ -3318,7 +3328,7 @@ class VirtPropCond(Cond):
                 raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
             val2 = await self.kids[2].compute(runt, path)
-            return ctor(val2)(val1)
+            return await (await ctor(val2))(val1)
 
         return cond
 
@@ -3362,9 +3372,10 @@ class ArrayCond(Cond):
                 return False
 
             val2 = await valukid.compute(runt, path)
+            vcmp = await ctor(val2)
 
             for item in items:
-                if ctor(val2)(item):
+                if await vcmp(item):
                     return True
 
             return False
@@ -3397,7 +3408,7 @@ class AbsPropCond(Cond):
 
                 val1 = node.ndef[1]
                 val2 = await self.kids[2].compute(runt, path)
-                return ctor(val2)(val1)
+                return await (await ctor(val2))(val1)
 
             return cond
 
@@ -3409,7 +3420,7 @@ class AbsPropCond(Cond):
                 return False
 
             val2 = await self.kids[2].compute(runt, path)
-            return ctor(val2)(val1)
+            return await (await ctor(val2))(val1)
 
         return cond
 
@@ -3436,7 +3447,7 @@ class AbsVirtPropCond(Cond):
 
                 val1 = node.getMeta(metaname)
                 val2 = await self.kids[3].compute(runt, path)
-                return ctor(val2)(val1)
+                return await (await ctor(val2))(val1)
 
             return cond
 
@@ -3454,7 +3465,7 @@ class AbsVirtPropCond(Cond):
                     return False
 
                 val2 = await self.kids[3].compute(runt, path)
-                return ctor(val2)(val1)
+                return await (await ctor(val2))(val1)
 
             return cond
 
@@ -3468,7 +3479,7 @@ class AbsVirtPropCond(Cond):
                 return False
 
             val2 = await self.kids[3].compute(runt, path)
-            return ctor(val2)(val1)
+            return await (await ctor(val2))(val1)
 
         return cond
 
@@ -3492,7 +3503,7 @@ class TagValuCond(Cond):
                     raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=name))
 
                 valu = await rval.compute(runt, path)
-                return cmprctor(valu)(node.getTag(name))
+                return await (await cmprctor(valu))(node.getTag(name))
 
             return cond
 
@@ -3500,17 +3511,17 @@ class TagValuCond(Cond):
 
         if isinstance(rval, Const):
             valu = await rval.compute(runt, None)
-            cmpr = cmprctor(valu)
+            cmpr = await cmprctor(valu)
 
             async def cond(node, path):
-                return cmpr(node.getTag(name))
+                return await cmpr(node.getTag(name))
 
             return cond
 
         # it's a runtime value...
         async def cond(node, path):
             valu = await rval.compute(runt, path)
-            return cmprctor(valu)(node.getTag(name))
+            return await (await cmprctor(valu))(node.getTag(name))
 
         return cond
 
@@ -3544,7 +3555,7 @@ class TagVirtCond(Cond):
                 for func in getr:
                     tval = func(tval)
 
-                return cmprctor(valu)(tval)
+                return await (await cmprctor(valu))(tval)
 
             return cond
 
@@ -3559,13 +3570,13 @@ class TagVirtCond(Cond):
             if (cmprctor := ptyp.getCmprCtor(cmpr)) is None:
                 raise self.kids[2].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
-            cmpr = cmprctor(valu)
+            cmpr = await cmprctor(valu)
 
             async def cond(node, path):
                 tval = node.getTag(name)
                 for func in getr:
                     tval = func(tval)
-                return cmpr(tval)
+                return await cmpr(tval)
 
             return cond
 
@@ -3583,7 +3594,7 @@ class TagVirtCond(Cond):
             for func in getr:
                 tval = func(tval)
 
-            return cmprctor(valu)(tval)
+            return await (await cmprctor(valu))(tval)
 
         return cond
 
@@ -3600,8 +3611,7 @@ class RelPropCond(Cond):
             ptyp, valu, _ = await self.kids[0].getTypeValuProp(runt, path)
 
             xval = await valukid.compute(runt, path)
-            if not isinstance(xval, s_node.Node):
-                xval = await s_stormtypes.tostor(xval)
+            xval = await s_stormtypes.tostor(xval)
 
             if xval is None or valu is None:
                 return False
@@ -3609,7 +3619,7 @@ class RelPropCond(Cond):
             if (ctor := ptyp.getCmprCtor(cmpr)) is None:
                 raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
-            return ctor(xval)(valu)
+            return await (await ctor(xval))(valu)
 
         return cond
 
@@ -3679,7 +3689,7 @@ class TagPropCond(Cond):
             for func in getr:
                 curv = func(curv)
 
-            return ctor(valu)(curv)
+            return await (await ctor(valu))(curv)
 
         return cond
 
@@ -4176,7 +4186,7 @@ class TagName(Value):
                 mesg = 'Invalid value type for tag name, tag names must be strings.'
                 raise self.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
 
-            normtupl = runt.view.core.getTagNorm(valu)
+            normtupl = await runt.view.core.getTagNorm(valu)
             return normtupl[0]
 
         vals = []
@@ -4187,7 +4197,7 @@ class TagName(Value):
                 raise kid.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
 
             part = await tostr(part)
-            partnorm = runt.view.core.getTagNorm(part)
+            partnorm = await runt.view.core.getTagNorm(part)
             vals.append(partnorm[0])
 
         return '.'.join(vals)
@@ -4211,7 +4221,7 @@ class TagName(Value):
                         mesg = 'Invalid value type for tag name, tag names must be strings.'
                         raise s_exc.BadTypeValu(mesg=mesg)
 
-                    normtupl = runt.view.core.getTagNorm(valu)
+                    normtupl = await runt.view.core.getTagNorm(valu)
                     if normtupl is None:
                         continue
 
@@ -4232,7 +4242,7 @@ class TagName(Value):
                 raise kid.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
 
             part = await tostr(part)
-            partnorm = runt.view.core.getTagNorm(part)
+            partnorm = await runt.view.core.getTagNorm(part)
             vals.append(partnorm[0])
 
         return ('.'.join(vals),)
@@ -4595,10 +4605,9 @@ class EditNodeAdd(Edit):
         vals = await self.kids[2].compute(runt, path)
 
         try:
-            if isinstance(form.type, s_types.Guid):
-                vals = await s_stormtypes.toprim(vals)
+            vals = await s_stormtypes.tostor(vals)
 
-            for valu in form.type.getTypeVals(vals):
+            async for valu in form.type.getTypeVals(vals):
                 try:
                     newn = await runt.view.addNode(form.name, valu)
                 except self.excignore:
@@ -4675,7 +4684,7 @@ class EditNodeAdd(Edit):
                 valu = await s_stormtypes.tostor(valu)
 
                 try:
-                    for valu in form.type.getTypeVals(valu):
+                    async for valu in form.type.getTypeVals(valu):
                         try:
                             node = await runt.view.addNode(formname, valu)
                         except self.excignore:
@@ -4748,14 +4757,12 @@ class EditCondPropSet(Edit):
                 # runt node property permissions are enforced by the callback
                 runt.confirmPropSet(prop)
 
-            isndef = isinstance(prop.type, s_types.Ndef)
-
             try:
                 valu = await rval.compute(runt, path)
-                valu = await s_stormtypes.tostor(valu, isndef=isndef)
+                valu = await s_stormtypes.tostor(valu)
 
                 if isinstance(prop.type, s_types.Ival) and oldv is not None:
-                    valu, _ = prop.type.norm(valu)
+                    valu, _ = await prop.type.norm(valu)
                     valu = prop.type.merge(oldv, valu)
 
                 await node.set(name, valu)
@@ -4797,7 +4804,7 @@ class EditVirtPropSet(Edit):
             try:
                 oldv = node.get(name)
                 valu = await rval.compute(runt, path)
-                newv, norminfo = prop.type.normVirt(virts[0], oldv, valu)
+                newv, norminfo = await prop.type.normVirt(virts[0], oldv, valu)
 
                 await node.set(name, newv, norminfo=norminfo)
             except excignore:
@@ -4840,10 +4847,7 @@ class EditPropSet(Edit):
                 # runt node property permissions are enforced by the callback
                 runt.confirmPropSet(prop)
 
-            isndef = isinstance(prop.type, s_types.Ndef)
             isarray = prop.type.isarray
-            if isarray and isinstance(prop.type.arraytype, s_types.Ndef):
-                isndef = True
 
             try:
 
@@ -4854,7 +4858,7 @@ class EditPropSet(Edit):
                 else:
                     valu = await rval.compute(runt, path)
 
-                valu = await s_stormtypes.tostor(valu, isndef=isndef)
+                valu = await s_stormtypes.tostor(valu)
 
                 if isadd or issub:
 
@@ -4881,7 +4885,7 @@ class EditPropSet(Edit):
                         # we cant remove something we cant norm...
                         # but that also means it can't be in the array so...
                         for v in valu:
-                            norm, info = prop.type.arraytype.norm(v)
+                            norm, info = await prop.type.arraytype.norm(v, view=runt.view)
                             try:
                                 arry.remove(norm)
                             except ValueError:
@@ -4892,7 +4896,7 @@ class EditPropSet(Edit):
                 if isinstance(prop.type, s_types.Ival):
                     oldv = node.get(name)
                     if oldv is not None:
-                        valu, _ = prop.type.norm(valu)
+                        valu, _ = await prop.type.norm(valu)
                         valu = prop.type.merge(oldv, valu)
 
                 if node.form.isrunt:
@@ -4953,8 +4957,7 @@ class EditPropSetMulti(Edit):
                 continue
 
             atyp = prop.type.arraytype
-            isndef = isinstance(atyp, s_types.Ndef)
-            valu = await s_stormtypes.tostor(valu, isndef=isndef)
+            valu = await s_stormtypes.tostor(valu)
 
             if (arry := node.get(name)) is None:
                 arry = ()
@@ -4966,7 +4969,7 @@ class EditPropSetMulti(Edit):
                     await asyncio.sleep(0)
 
                     try:
-                        norm, info = atyp.norm(item)
+                        norm, info = await atyp.norm(item, view=runt.view)
                     except excignore:
                         continue
                     except s_exc.BadTypeValu as e:
@@ -5077,13 +5080,13 @@ class N1Walk(Oper):
         async def destfilt(node, path, cmprvalu):
 
             if node.form.full in forms:
-                return node.form.type.cmpr(node.ndef[1], cmpr, cmprvalu)
+                return await node.form.type.cmpr(node.ndef[1], cmpr, cmprvalu)
 
             props = formprops.get(node.form.full)
             if props is not None:
                 for name, prop in props.items():
                     if (propvalu := node.get(name)) is not None:
-                        if prop.type.cmpr(propvalu, cmpr, cmprvalu):
+                        if await prop.type.cmpr(propvalu, cmpr, cmprvalu):
                             return True
 
             return False
@@ -5403,7 +5406,7 @@ class EditTagVirtSet(Edit):
                     runt.layerConfirm(('node', 'tag', 'add', *parts))
 
                     oldv = node.getTag(name)
-                    newv, norminfo = ival.normVirt(virts[0], oldv, valu)
+                    newv, norminfo = await ival.normVirt(virts[0], oldv, valu)
 
                     await node.addTag(name, valu=newv, norminfo=norminfo)
 

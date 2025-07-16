@@ -173,6 +173,6 @@ class LibStorm(s_stormtypes.Lib):
         valu = await asteval.compute(self.runt, None)
 
         if casttype:
-            valu, _ = casttype.norm(valu)
+            valu, _ = await casttype.norm(valu)
 
         return valu

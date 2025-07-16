@@ -439,7 +439,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                         :period=(20210314,202103140201)
                         :account=$acct
                         :host=$host
-                        :creds={[ inet:passwd=cool ]}
+                        :creds={[ auth:passwd=cool ]}
                         :flow={[ inet:flow=(foo,) ]})
                 ]
             ''')
@@ -453,7 +453,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[1].get('host'))
             self.nn(nodes[1].get('account'))
             self.eq(nodes[1].get('period'), (1615680000000000, 1615687260000000))
-            self.eq(nodes[1].get('creds'), (('inet:passwd', 'cool'),))
+            self.eq(nodes[1].get('creds'), (('auth:passwd', 'cool'),))
 
             # Sample SIDs from here:
             # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/81d92bba-d22b-4a8c-908a-554ab29148ab
@@ -674,7 +674,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             for v, e in testvectors:
                 ev, es = e
-                valu, rdict = t.norm(v)
+                valu, rdict = await t.norm(v)
                 subs = rdict.get('subs')
                 self.eq(valu, ev)
                 self.eq(subs, es)
@@ -688,7 +688,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 ' alpha ',
             )
             for v in testvectors_bad:
-                self.raises(s_exc.BadTypeValu, t.norm, v)
+                await self.asyncraises(s_exc.BadTypeValu, t.norm(v))
 
             testvectors_repr = (
                 (0, '0.0.0'),
@@ -1119,14 +1119,14 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'reg': '*',
                 'sandbox:file': sandfile,
             }
-            forms = ('it:exec:reg:get',
-                     'it:exec:reg:set',
-                     'it:exec:reg:del',
+            forms = ('it:exec:windows:registry:get',
+                     'it:exec:windows:registry:set',
+                     'it:exec:windows:registry:del',
                      )
             for form in forms:
                 rk0 = s_common.guid()
                 nprops = rprops.copy()
-                q = '''[(*$form=$valu :host=$p.host :proc=$p.proc :exe=$p.exe :time=$p.time :reg=$p.reg
+                q = '''[(*$form=$valu :host=$p.host :proc=$p.proc :exe=$p.exe :time=$p.time :entry=$p.reg
                     :sandbox:file=$p."sandbox:file")]'''
                 nodes = await core.nodes(q, opts={'vars': {'form': form, 'valu': rk0, 'p': nprops}})
                 self.len(1, nodes)
@@ -1136,7 +1136,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('proc'), proc)
                 self.eq(node.get('exe'), exe)
                 self.eq(node.get('time'), tick)
-                self.nn(node.get('reg'))
+                self.nn(node.get('entry'))
                 self.eq(node.get('sandbox:file'), sandfile)
 
         async with self.getTestCore() as core:
@@ -1302,7 +1302,7 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_infotech_cpes(self):
 
         async with self.getTestCore() as core:
-            self.eq(r'foo:bar', core.model.type('it:sec:cpe').norm(r'cpe:2.3:a:foo\:bar:*:*:*:*:*:*:*:*:*')[1]['subs']['vendor'])
+            self.eq(r'foo:bar', (await core.model.type('it:sec:cpe').norm(r'cpe:2.3:a:foo\:bar:*:*:*:*:*:*:*:*:*'))[1]['subs']['vendor'])
 
             with self.raises(s_exc.BadTypeValu):
                 nodes = await core.nodes('[it:sec:cpe=asdf]')
@@ -1355,17 +1355,17 @@ class InfotechModelTest(s_t_utils.SynTest):
             cpe22 = core.model.type('it:sec:cpe:v2_2')
 
             with self.raises(s_exc.BadTypeValu):
-                cpe22.norm('cpe:/a:vertex:synapse:0:1:2:3:4:5:6:7:8:9')
+                await cpe22.norm('cpe:/a:vertex:synapse:0:1:2:3:4:5:6:7:8:9')
 
             with self.raises(s_exc.BadTypeValu):
-                cpe23.norm('cpe:/a:vertex:synapse:0:1:2:3:4:5:6:7:8:9')
+                await cpe23.norm('cpe:/a:vertex:synapse:0:1:2:3:4:5:6:7:8:9')
 
             # test cast 2.2 -> 2.3 upsample
-            norm, info = cpe23.norm('cpe:/a:vertex:synapse')
+            norm, info = await cpe23.norm('cpe:/a:vertex:synapse')
             self.eq(norm, 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*')
 
             # test cast 2.3 -> 2.2 downsample
-            norm, info = cpe22.norm('cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*')
+            norm, info = await cpe22.norm('cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*')
             self.eq(norm, 'cpe:/a:vertex:synapse')
 
             nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:* ]')
@@ -1378,22 +1378,22 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
 
             # Test cpe22 -> cpe23 escaping logic
-            norm, info = cpe23.norm('cpe:/a:%21')
+            norm, info = await cpe23.norm('cpe:/a:%21')
             self.eq(norm, 'cpe:2.3:a:\\!:*:*:*:*:*:*:*:*:*')
 
-            norm, info = cpe23.norm('cpe:/a:%5c%21')
+            norm, info = await cpe23.norm('cpe:/a:%5c%21')
             self.eq(norm, 'cpe:2.3:a:\\!:*:*:*:*:*:*:*:*:*')
 
-            norm, info = cpe23.norm('cpe:/a:%5cb')
+            norm, info = await cpe23.norm('cpe:/a:%5cb')
             self.eq(norm, 'cpe:2.3:a:\\\\b:*:*:*:*:*:*:*:*:*')
 
-            norm, info = cpe23.norm('cpe:/a:b%5c')
+            norm, info = await cpe23.norm('cpe:/a:b%5c')
             self.eq(norm, 'cpe:2.3:a:b\\\\:*:*:*:*:*:*:*:*:*')
 
-            norm, info = cpe23.norm('cpe:/a:b%5c%5c')
+            norm, info = await cpe23.norm('cpe:/a:b%5c%5c')
             self.eq(norm, 'cpe:2.3:a:b\\\\:*:*:*:*:*:*:*:*:*')
 
-            norm, info = cpe23.norm('cpe:/a:b%5c%5cb')
+            norm, info = await cpe23.norm('cpe:/a:b%5c%5cb')
             self.eq(norm, 'cpe:2.3:a:b\\\\b:*:*:*:*:*:*:*:*:*')
 
             # Examples based on customer reports
@@ -1436,10 +1436,10 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             for (_cpe22, _cpe23) in cpedata:
                 # Convert cpe22 -> cpe23
-                norm, info = cpe23.norm(_cpe22)
+                norm, info = await cpe23.norm(_cpe22)
                 self.eq(norm, _cpe23)
 
-                norm, info = cpe23.norm(_cpe23)
+                norm, info = await cpe23.norm(_cpe23)
                 self.eq(norm, _cpe23)
 
                 # No escaped characters in the secondary props
@@ -1450,10 +1450,10 @@ class InfotechModelTest(s_t_utils.SynTest):
                     self.notin('\\', valu)
 
                 # Norm cpe23 and check the cpe22 conversion
-                norm, info = cpe23.norm(_cpe23)
+                norm, info = await cpe23.norm(_cpe23)
                 v2_2 = info['subs']['v2_2']
 
-                norm, info = cpe22.norm(v2_2)
+                norm, info = await cpe22.norm(v2_2)
                 self.eq(norm, _cpe22)
 
     async def test_cpe_scrape_one_to_one(self):

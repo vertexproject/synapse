@@ -1130,7 +1130,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 counts[name] += valu
         return counts
 
-    async def getPropCount(self, propname, valu=s_common.novalu):
+    async def getPropCount(self, propname, valu=s_common.novalu, norm=True):
 
         props = self.core.model.reqPropList(propname)
         count = 0
@@ -1150,9 +1150,12 @@ class View(s_nexus.Pusher):  # type: ignore
                     count += layr.getPropCount(formname, propname)
                 continue
 
-            norm, info = prop.type.norm(valu)
+            normv = valu
+            if norm:
+                normv, info = await prop.type.norm(normv, view=self)
+
             for layr in self.layers:
-                count += layr.getPropValuCount(formname, propname, prop.type.stortype, norm)
+                count += layr.getPropValuCount(formname, propname, prop.type.stortype, normv)
 
         return count
 
@@ -1170,7 +1173,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 count += await layr.getTagPropCount(form, tag, prop.name)
             return count
 
-        norm, info = prop.type.norm(valu)
+        norm, info = await prop.type.norm(valu, view=self)
 
         for layr in self.layers:
             await asyncio.sleep(0)
@@ -1178,7 +1181,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return count
 
-    async def getPropArrayCount(self, propname, valu=s_common.novalu):
+    async def getPropArrayCount(self, propname, valu=s_common.novalu, norm=True):
 
         props = self.core.model.reqPropList(propname)
 
@@ -1204,10 +1207,12 @@ class View(s_nexus.Pusher):  # type: ignore
                 continue
 
             atyp = prop.type.arraytype
-            norm, info = atyp.norm(valu)
+            normv = valu
+            if norm:
+                normv, info = await atyp.norm(normv, view=self)
 
             for layr in self.layers:
-                count += layr.getPropArrayValuCount(formname, propname, atyp.stortype, norm)
+                count += layr.getPropArrayValuCount(formname, propname, atyp.stortype, normv)
 
         return count
 
@@ -1299,7 +1304,7 @@ class View(s_nexus.Pusher):  # type: ignore
             if array:
                 ptyp = ptyp.arraytype
 
-            if not (cmprvals := ptyp.getStorCmprs(cmpr, valu)):
+            if not (cmprvals := await ptyp.getStorCmprs(cmpr, valu)):
                 return
 
             if prop.isform:
@@ -2463,13 +2468,6 @@ class View(s_nexus.Pusher):  # type: ignore
             else:
                 user = self.core.auth.rootuser
 
-        if isinstance(valu, dict):
-            fobj = self.core.model.reqForm(form)
-            if isinstance(fobj.type, s_types.Guid):
-                norms, props = await self._normGuidNodeDict(fobj, valu, props=props)
-                valu = await self._addGuidNodeByDict(fobj, norms, props)
-                return await self.getNodeByNdef((form, valu))
-
         async with self.getEditor(user=user, transaction=True) as editor:
             node = await editor.addNode(form, valu, props=props, norminfo=norminfo)
 
@@ -2605,7 +2603,7 @@ class View(s_nexus.Pusher):  # type: ignore
                             continue
 
                         try:
-                            n2valu, _ = n2form.type.norm(n2valu)
+                            n2valu, _ = await n2form.type.norm(n2valu, view=self)
                         except s_exc.BadTypeValu as e:
                             continue
 
@@ -2654,171 +2652,16 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return await self.getNodeByBuid(protonode.buid)
 
-    async def _addGuidNodeByDict(self, form, norms, props):
-
-        for name, info in norms.items():
-            if info[0].isform:
-                valu = await self._addGuidNodeByDict(*info)
-                norms[name] = (form.prop(name), valu, {})
-
-        for name, info in props.items():
-            if info[0].isform:
-                valu = await self._addGuidNodeByDict(*info)
-                props[name] = (form.prop(name), valu, {})
-
-        node = await self._getGuidNodeByNorms(form, norms)
-
-        async with self.getEditor() as editor:
-
-            if node is not None:
-                proto = editor.loadNode(node)
-            else:
-                proplist = [(name, info[1]) for name, info in norms.items()]
-                proplist.sort()
-
-                proto = await editor.addNode(form.name, proplist)
-                for name, (prop, valu, info) in norms.items():
-                    await proto.set(name, valu, norminfo=info)
-
-            # ensure the non-deconf props are set
-            for name, (prop, valu, info) in props.items():
-                await proto.set(name, valu, norminfo=info)
-
-        return proto.valu
-
-    async def _normGuidNodeDict(self, form, vals, props=None):
-
-        if props is None:
-            props = {}
-
-        trycast = vals.pop('$try', False)
-        addprops = vals.pop('$props', None)
-
-        if not vals:
-            mesg = f'No values provided for form {form.full}'
-            raise s_exc.BadTypeValu(mesg=mesg)
-
-        props |= await self._normGuidNodeProps(form, props)
-
-        if addprops:
-            props |= await self._normGuidNodeProps(form, addprops, trycast=trycast)
-
-        norms = await self._normGuidNodeProps(form, vals)
-
-        return norms, props
-
-    async def _normGuidNodeProps(self, form, props, trycast=False):
-
-        norms = {}
-
-        for name, valu in list(props.items()):
-            prop = form.reqProp(name)
-
-            if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid):
-                pform = self.core.model.reqForm(prop.type.name)
-                gnorm, gprop = await self._normGuidNodeDict(pform, valu)
-                norms[name] = (pform, gnorm, gprop)
-                continue
-
-            try:
-                norms[name] = (prop, *prop.type.norm(valu))
-
-            except s_exc.BadTypeValu as e:
-                mesg = e.get('mesg')
-                if not trycast:
-                    if 'prop' not in e.errinfo:
-                        e.update({
-                            'prop': name,
-                            'form': form.name,
-                            'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
-                        })
-                    raise e
-
-        return norms
-
-    async def _getGuidNodeByDict(self, form, props):
-        norms, _ = await self._normGuidNodeDict(form, props)
-        return await self._getGuidNodeByNorms(form, norms)
-
-    async def _getGuidNodeByNorms(self, form, norms):
-
-        proplist = []
-        for name, info in norms.items():
-            if info[0].isform:
-                if (node := await self._getGuidNodeByNorms(*info[:2])) is None:
-                    return
-                valu = node.ndef[1]
-                norms[name] = (form.prop(name), valu, {})
-                proplist.append((name, valu))
-            else:
-                proplist.append((name, info[1]))
-
-        # check first for an exact match via our same deconf strategy
-        proplist.sort()
-
-        node = await self.getNodeByNdef((form.full, s_common.guid(proplist)))
-        if node is not None:
-
-            # ensure we still match the property deconf criteria
-            for (prop, norm, info) in norms.values():
-                if not self._filtByPropAlts(node, prop, norm):
-                    break
-            else:
-                return node
-
-        # TODO there is an opportunity here to populate
-        # a look-aside for the alternative iden to speed
-        # up future deconfliction and potentially pop them
-        # if we lookup a node and it no longer passes the
-        # filter...
-
-        # no exact match. lets do some counting.
-
-        counts = []
-
-        for (prop, norm, info) in norms.values():
-            count = await self._getPropAltCount(prop, norm)
-            counts.append((count, prop, norm))
-
-        counts.sort(key=lambda x: x[0])
-
-        # lift starting with the lowest count
-        count, prop, norm = counts[0]
-        async for node in self.nodesByPropAlts(prop, '=', norm, norm=False):
-            await asyncio.sleep(0)
-
-            # filter on the remaining props/alts
-            for count, prop, norm in counts[1:]:
-                if not self._filtByPropAlts(node, prop, norm):
-                    break
-            else:
-                return node
-
-        return None
-
-    async def _getPropAltCount(self, prop, valu):
+    async def getPropAltCount(self, prop, valu):
+        # valu must be normalized in advance
         count = 0
         proptype = prop.type
         for prop in prop.getAlts():
             if prop.type.isarray and prop.type.arraytype == proptype:
-                count += await self.getPropArrayCount(prop.full, valu=valu)
+                count += await self.getPropArrayCount(prop.full, valu=valu, norm=False)
             else:
-                count += await self.getPropCount(prop.full, valu=valu)
+                count += await self.getPropCount(prop.full, valu=valu, norm=False)
         return count
-
-    def _filtByPropAlts(self, node, prop, valu):
-        # valu must be normalized in advance
-        proptype = prop.type
-        for prop in prop.getAlts():
-            if prop.type.isarray and prop.type.arraytype == proptype:
-                arryvalu = node.get(prop.name)
-                if arryvalu is not None and valu in arryvalu:
-                    return True
-            else:
-                if node.get(prop.name) == valu:
-                    return True
-
-        return False
 
     async def nodesByPropAlts(self, prop, cmpr, valu, norm=True, virts=None):
         proptype = prop.type
@@ -3011,7 +2854,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 try:
                     tobj = self.core.model.type(form)
-                    valu, _ = tobj.norm(valu)
+                    valu, _ = await tobj.norm(valu, view=self)
                 except s_exc.BadTypeValu:
                     await asyncio.sleep(0)
                     continue
@@ -3048,7 +2891,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     try:
                         tobj = self.core.model.type(form)
-                        valu, _ = tobj.norm(valu)
+                        valu, _ = await tobj.norm(valu, view=self)
                     except AttributeError:  # pragma: no cover
                         logger.exception(f'Scrape interface yielded unknown form {form}')
                         await asyncio.sleep(0)
@@ -3354,7 +3197,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         mtyp = self.core.model.reqMetaType(name)
 
-        if not (cmprvals := mtyp.getStorCmprs(cmpr, valu)):
+        if not (cmprvals := await mtyp.getStorCmprs(cmpr, valu)):
             return
 
         async for nid, srefs in self.liftByMetaValu(name, cmprvals, reverse=reverse):
@@ -3412,25 +3255,8 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
 
-        if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid) and cmpr == '=':
-            if prop.isform:
-                if (node := await self._getGuidNodeByDict(prop, valu)) is not None:
-                    yield node
-                return
-
-            fname = prop.type.name
-            if (form := prop.modl.form(fname)) is None:
-                mesg = f'The property "{full}" type "{fname}" is not a form and cannot be lifted using a dictionary.'
-                raise s_exc.BadTypeValu(mesg=mesg)
-
-            if (node := await self._getGuidNodeByDict(form, valu)) is None:
-                return
-
-            norm = False
-            valu = node.ndef[1]
-
         if norm or virts is not None:
-            cmprvals = prop.type.getStorCmprs(cmpr, valu, virts=virts)
+            cmprvals = await prop.type.getStorCmprs(cmpr, valu, virts=virts)
             # an empty return probably means ?= with invalid value
             if not cmprvals:
                 return
@@ -3466,7 +3292,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def nodesByTagValu(self, tag, cmpr, valu, form=None, reverse=False):
 
-        cmprvals = self.core.model.type('ival').getStorCmprs(cmpr, valu)
+        cmprvals = await self.core.model.type('ival').getStorCmprs(cmpr, valu)
         async for nid, srefs in self.liftByTagValu(tag, cmprvals, form, reverse=reverse):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
@@ -3498,7 +3324,7 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.BadTypeValu(mesg=mesg)
 
         if norm or virts is not None:
-            cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu, virts=virts)
+            cmprvals = await prop.type.arraytype.getStorCmprs(cmpr, valu, virts=virts)
         else:
             cmprvals = ((cmpr, valu, prop.type.arraytype.stortype),)
 
@@ -3534,7 +3360,7 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'No tag property named {name}'
             raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
 
-        cmprvals = prop.type.getStorCmprs(cmpr, valu)
+        cmprvals = await prop.type.getStorCmprs(cmpr, valu)
         # an empty return probably means ?= with invalid value
         if not cmprvals:
             return
@@ -3558,7 +3384,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 mesg = f'Bad comparison ({cmpr}) for type {prop.type.name}.'
                 raise s_exc.BadCmprType(mesg=mesg, cmpr=cmpr)
 
-            filt = ctor(valu)
+            filt = await ctor(valu)
             if filt is None:
                 mesg = f'Bad value ({valu}) for comparison {cmpr} {prop.type.name}.'
                 raise s_exc.BadCmprValu(mesg=mesg, cmpr=cmpr)
@@ -3582,7 +3408,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 else:
                     nval = pode[1]['props'].get(prop.name, s_common.novalu)
 
-                if nval is s_common.novalu or not filt(nval):
+                if nval is s_common.novalu or not await filt(nval):
                     await asyncio.sleep(0)
                     continue
 

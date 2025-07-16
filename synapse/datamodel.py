@@ -1012,6 +1012,7 @@ class Model:
         return form
 
     def addType(self, typename, basename, typeopts, typeinfo, skipinit=False):
+        assert typename not in self.types, f'{typename} type already present in model'
         base = self.types.get(basename)
         if base is None:
             raise s_exc.NoSuchType(name=basename)
@@ -1039,6 +1040,7 @@ class Model:
                 raise s_exc.NoSuchType(name=tdef[0])
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
+        assert formname not in self.forms, f'{formname} form already present in model'
 
         if not s_grammar.isFormName(formname):
             mesg = f'Invalid form name {formname}'
@@ -1157,6 +1159,7 @@ class Model:
 
     def addIface(self, name, info):
         # TODO should we add some meta-props here for queries?
+        assert name not in self.ifaces, f'{name} interface already present in model'
         self.ifaces[name] = info
 
     def delType(self, typename):

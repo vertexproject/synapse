@@ -92,8 +92,8 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(iden, synuser.repr(iden))
             self.eq(iden, synrole.repr(iden))
 
-            self.eq(iden, synuser.norm(iden)[0])
-            self.eq(iden, synrole.norm(iden)[0])
+            self.eq(iden, (await synuser.norm(iden))[0])
+            self.eq(iden, (await synrole.norm(iden))[0])
 
     async def test_synuser_merge_failure(self):
         async with self.getTestCore() as core:
@@ -602,6 +602,22 @@ class SynModelTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=bar ]')
             await core.nodes('test:str=bar delnode', opts=viewopts2)
 
-            task = core.schedCoro(core.nodes('$q=$lib.queue.gen(wait) diff | $q.put(1) $q.get(1) | merge', opts=viewopts2))
-            await core.nodes('$q=$lib.queue.gen(wait) $q.get() diff | merge --apply | $q.put(2)', opts=viewopts2)
+            q1 = '''
+            $q1=$lib.queue.gen(q1)
+            $q2=$lib.queue.gen(q2)
+            diff |
+            $q1.put(1)
+            $q2.get()
+            merge
+            '''
+            task = core.schedCoro(core.nodes(q1, opts=viewopts2))
+
+            q2 = '''
+            $q1=$lib.queue.gen(q1)
+            $q2=$lib.queue.gen(q2)
+            $q1.get()
+            diff | merge --apply |
+            $q2.put(2)
+            '''
+            await core.nodes(q2, opts=viewopts2)
             await task

@@ -513,7 +513,7 @@ modeldefs = (
                 ('value', ('hex', {}), {
                     'doc': 'The hex encoded secret key.'}),
 
-                ('seed:passwd', ('inet:passwd', {}), {
+                ('seed:passwd', ('auth:passwd', {}), {
                     'doc': 'The seed password used to generate the key material.'}),
 
                 ('seed:algorithm', ('crypto:algorithm', {}), {

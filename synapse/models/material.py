@@ -55,7 +55,6 @@ modeldefs = (
         ),
 
         'types': (
-            ('mat:item', ('guid', {}), {'doc': 'A GUID assigned to a material object.'}),
             ('mat:item:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),

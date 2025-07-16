@@ -26,326 +26,6 @@ import synapse.tools.backup as s_tools_backup
 
 class StormTest(s_t_utils.SynTest):
 
-    async def test_lib_storm_guidctor(self):
-        async with self.getTestCore() as core:
-
-            nodes00 = await core.nodes('[ ou:org=({"name": "vertex"}) ]')
-            self.len(1, nodes00)
-            self.eq('vertex', nodes00[0].get('name'))
-
-            nodes01 = await core.nodes('[ ou:org=({"name": "vertex"}) :names+="the vertex project"]')
-            self.len(1, nodes01)
-            self.eq('vertex', nodes01[0].get('name'))
-            self.eq(nodes00[0].ndef, nodes01[0].ndef)
-
-            nodes02 = await core.nodes('[ ou:org=({"name": "the vertex project"}) ]')
-            self.len(1, nodes02)
-            self.eq('vertex', nodes02[0].get('name'))
-            self.eq(nodes01[0].ndef, nodes02[0].ndef)
-
-            nodes03 = await core.nodes('[ ou:org=({"name": "vertex", "type": "woot"}) :names+="the vertex project" ]')
-            self.len(1, nodes03)
-            self.ne(nodes02[0].ndef, nodes03[0].ndef)
-
-            nodes04 = await core.nodes('[ ou:org=({"name": "the vertex project", "type": "woot"}) ]')
-            self.len(1, nodes04)
-            self.eq(nodes03[0].ndef, nodes04[0].ndef)
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ ou:org=({"email": "woot"}) ]')
-
-            nodes05 = await core.nodes('[ ou:org=({"name": "vertex", "$props": {"motto": "for the people"}}) ]')
-            self.len(1, nodes05)
-            self.eq('vertex', nodes05[0].get('name'))
-            self.eq('for the people', nodes05[0].get('motto'))
-            self.eq(nodes00[0].ndef, nodes05[0].ndef)
-
-            nodes06 = await core.nodes('[ ou:org=({"name": "acme", "$props": {"motto": "HURR DURR"}}) ]')
-            self.len(1, nodes06)
-            self.eq('acme', nodes06[0].get('name'))
-            self.eq('HURR DURR', nodes06[0].get('motto'))
-            self.ne(nodes00[0].ndef, nodes06[0].ndef)
-
-            goals = [s_common.guid(), s_common.guid()]
-            goals.sort()
-
-            nodes07 = await core.nodes('[ ou:org=({"name": "goal driven", "goals": $goals}) ]', opts={'vars': {'goals': goals}})
-            self.len(1, nodes07)
-            self.eq(goals, nodes07[0].get('goals'))
-
-            nodes08 = await core.nodes('[ ou:org=({"name": "goal driven", "goals": $goals}) ]', opts={'vars': {'goals': goals}})
-            self.len(1, nodes08)
-            self.eq(goals, nodes08[0].get('goals'))
-            self.eq(nodes07[0].ndef, nodes08[0].ndef)
-
-            nodes09 = await core.nodes('[ ou:org=({"name": "vertex"}) :name=foobar :names=() ]')
-            nodes10 = await core.nodes('[ ou:org=({"name": "vertex"}) :type=lulz ]')
-            self.len(1, nodes09)
-            self.len(1, nodes10)
-            self.ne(nodes09[0].ndef, nodes10[0].ndef)
-
-            await core.nodes('[ ou:org=* :type=lulz ]')
-            await core.nodes('[ ou:org=* :type=hehe ]')
-            nodes11 = await core.nodes('[ ou:org=({"name": "vertex", "$props": {"type": "lulz"}}) ]')
-            self.len(1, nodes11)
-
-            nodes12 = await core.nodes('[ ou:org=({"name": "vertex", "type": "hehe"}) ]')
-            self.len(1, nodes12)
-            self.ne(nodes11[0].ndef, nodes12[0].ndef)
-
-            # GUID ctor has a short-circuit where it tries to find an existing ndef before it does,
-            # some property deconfliction, and `<form>=({})` when pushed through guid generation gives
-            # back the same guid as `<form>=()`, which if we're not careful could lead to an
-            # inconsistent case where you fail to make a node because you don't provide any props,
-            # make a node with that matching ndef, and then run that invalid GUID ctor query again,
-            # and have it return back a node due to the short circuit. So test that we're consistent here.
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ ou:org=({}) ]')
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ ou:org=() ]')
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ ou:org=({}) ]')
-
-            msgs = await core.stormlist('[ ou:org=({"$props": {"desc": "lol"}})]')
-            self.len(0, [m for m in msgs if m[0] == 'node'])
-            self.stormIsInErr('No values provided for form ou:org', msgs)
-
-            msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$props": {"phone": "lolnope"}})]')
-            self.len(0, [m for m in msgs if m[0] == 'node'])
-            self.stormIsInErr('Bad value for prop ou:org:phone: requires a digit string', msgs)
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ ou:org=({"$try": true}) ]')
-
-            # $try only affects $props
-            # FIXME discuss re-scoping $try and props[$try]
-            # msgs = await core.stormlist('[ ou:org=({"email": "lolnope", "$try": true}) ]')
-            # self.len(0, [m for m in msgs if m[0] == 'node'])
-            # self.stormIsInErr('Bad value for prop ou:org:email: Email address expected', msgs)
-
-            msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"phone": "lolnope", "desc": "burritos man"}})]')
-            nodes = [m for m in msgs if m[0] == 'node']
-            self.len(1, nodes)
-            node = nodes[0][1]
-            props = node[1]['props']
-            self.none(props.get('phone'))
-            self.eq(props.get('name'), 'burrito corp')
-            self.eq(props.get('desc'), 'burritos man')
-
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes("$lib.view.get().addNode(ou:org, ({'name': 'org name 77', 'phone': 'lolnope'}), props=({'desc': 'an org desc'}))"))
-
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes("$lib.view.get().addNode(ou:org, ({'name': 'org name 77'}), props=({'desc': 'an org desc', 'phone': 'lolnope'}))"))
-
-            nodes = await core.nodes("yield $lib.view.get().addNode(ou:org, ({'$try': true, '$props': {'phone': 'invalid'}, 'name': 'org name 77'}), props=({'desc': 'an org desc'}))")
-            self.len(1, nodes)
-            node = nodes[0]
-            self.none(node.get('phone'))
-            self.eq(node.get('name'), 'org name 77')
-            self.eq(node.get('desc'), 'an org desc')
-
-            nodes = await core.nodes('ou:org=({"name": "the vertex project", "type": "lulz"})')
-            self.len(1, nodes)
-            orgn = nodes[0].ndef
-            self.eq(orgn, nodes11[0].ndef)
-
-            q = '[ entity:contact=* :resolved={ ou:org=({"name": "the vertex project", "type": "lulz"}) } ]'
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            cont = nodes[0]
-            self.eq(cont.get('resolved'), orgn)
-
-            nodes = await core.nodes('entity:contact:resolved={[ ou:org=({"name": "the vertex project", "type": "lulz"})]}')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, cont.ndef)
-
-            self.len(0, await core.nodes('entity:contact:resolved={[ ou:org=({"name": "vertex", "type": "newp"}) ]}'))
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('test:guid:iden=({"name": "vertex", "type": "newp"})')
-
-            await core.nodes('[ ou:org=({"name": "origname"}) ]')
-            self.len(1, await core.nodes('ou:org=({"name": "origname"}) [ :name=newname ]'))
-            self.len(0, await core.nodes('ou:org=({"name": "origname"})'))
-
-            nodes = await core.nodes('[ it:exec:proc=(notime,) ]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('[ it:exec:proc=(nulltime,) ]')
-            self.len(1, nodes)
-
-            # Recursive gutors
-            nodes = await core.nodes('''[
-                inet:service:message=({
-                    'id': 'foomesg',
-                    'channel': {
-                        'id': 'foochannel',
-                        'platform': {
-                            'name': 'fooplatform',
-                            'url': 'http://foo.com'
-                        }
-                    }
-                })
-            ]''')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef[0], 'inet:service:message')
-            self.eq(node.get('id'), 'foomesg')
-            self.nn(node.get('channel'))
-
-            nodes = await core.nodes('inet:service:message -> inet:service:channel')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('id'), 'foochannel')
-            self.nn(node.get('platform'))
-
-            nodes = await core.nodes('inet:service:message -> inet:service:channel -> inet:service:platform')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('name'), 'fooplatform')
-            self.eq(node.get('url'), 'http://foo.com')
-
-            nodes = await core.nodes('''
-                inet:service:message=({
-                    'id': 'foomesg',
-                    'channel': {
-                        'id': 'foochannel',
-                        'platform': {
-                            'name': 'fooplatform',
-                            'url': 'http://foo.com'
-                        }
-                    }
-                })
-            ''')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef[0], 'inet:service:message')
-            self.eq(node.get('id'), 'foomesg')
-
-            nodes = await core.nodes('''[
-                inet:service:message=({
-                    'id': 'barmesg',
-                    'channel': {
-                        'id': 'barchannel',
-                        'platform': {
-                            'name': 'barplatform',
-                            'url': 'http://bar.com'
-                        }
-                    },
-                    '$props': {
-                        'platform': {
-                            'name': 'barplatform',
-                            'url': 'http://bar.com'
-                        }
-                    }
-                })
-            ]''')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef[0], 'inet:service:message')
-            self.eq(node.get('id'), 'barmesg')
-            self.nn(node.get('channel'))
-
-            platguid = node.get('platform')
-            self.nn(platguid)
-            nodes = await core.nodes('inet:service:message:id=barmesg -> inet:service:channel -> inet:service:platform')
-            self.len(1, nodes)
-            self.eq(platguid, nodes[0].ndef[1])
-
-            # No node lifted if no matching node for inner gutor
-            self.len(0, await core.nodes('''
-                inet:service:message=({
-                    'id': 'foomesg',
-                    'channel': {
-                        'id': 'foochannel',
-                        'platform': {
-                            'name': 'newp',
-                            'url': 'http://foo.com'
-                        }
-                    }
-                })
-            '''))
-
-            # BadTypeValu comes through from inner gutor
-            with self.raises(s_exc.BadTypeValu) as cm:
-                await core.nodes('''
-                    inet:service:message=({
-                        'id': 'foomesg',
-                        'channel': {
-                            'id': 'foochannel',
-                            'platform': {
-                                'name': 'newp',
-                                'url': 'newp'
-                            }
-                        }
-                    })
-                ''')
-
-            self.eq(cm.exception.get('form'), 'inet:service:platform')
-            self.eq(cm.exception.get('prop'), 'url')
-            self.eq(cm.exception.get('mesg'), 'Bad value for prop inet:service:platform:url: Invalid/Missing protocol')
-
-            # Ensure inner nodes are not created unless the entire gutor is valid.
-            self.len(0, await core.nodes('''[
-                inet:service:account?=({
-                    "id": "bar",
-                    "platform": {"name": "barplat"},
-                    "url": "newp"})
-            ]'''))
-
-            self.len(0, await core.nodes('inet:service:platform:name=barplat'))
-
-            # Gutors work for props
-            nodes = await core.nodes('''[
-                test:str=guidprop
-                    :gprop=({'name': 'someprop', '$props': {'size': 5}})
-            ]''')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('test:str', 'guidprop'))
-            self.nn(node.get('gprop'))
-
-            nodes = await core.nodes('test:str=guidprop -> test:guid')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('name'), 'someprop')
-            self.eq(node.get('size'), 5)
-
-            with self.raises(s_exc.BadTypeValu) as cm:
-                nodes = await core.nodes('''[
-                    test:str=newpprop
-                        :gprop=({'size': 'newp'})
-                ]''')
-
-            self.eq(cm.exception.get('form'), 'test:guid')
-            self.eq(cm.exception.get('prop'), 'size')
-            self.true(cm.exception.get('mesg').startswith('Bad value for prop test:guid:size: invalid literal'))
-
-            nodes = await core.nodes('''[
-                test:str=newpprop
-                    :gprop?=({'size': 'newp'})
-            ]''')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('test:str', 'newpprop'))
-            self.none(node.get('gprop'))
-
-            nodes = await core.nodes('''
-                [ test:str=methset ]
-                $node.props.gprop = ({'name': 'someprop'})
-            ''')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('test:str', 'methset'))
-            self.nn(node.get('gprop'))
-
-            nodes = await core.nodes('test:str=methset -> test:guid')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('name'), 'someprop')
-            self.eq(node.get('size'), 5)
-
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
 
@@ -3497,9 +3177,9 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            minval = core.model.type('time').norm('2015')[0]
-            midval = core.model.type('time').norm('2016')[0]
-            maxval = core.model.type('time').norm('2017')[0]
+            minval = (await core.model.type('time').norm('2015'))[0]
+            midval = (await core.model.type('time').norm('2016'))[0]
+            maxval = (await core.model.type('time').norm('2017'))[0]
 
             nodes = await core.nodes('[test:guid=* :tick=2015 :seen=2015]')
             self.len(1, nodes)
@@ -4152,13 +3832,13 @@ class StormTest(s_t_utils.SynTest):
 
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('--hehe')
-        self.none(pars.parse_args(['--lol']))
+        self.none(await pars.parse_args(['--lol']))
         mesg = "Expected 0 positional arguments. Got 1: ['--lol']"
         self.eq(('BadArg', {'mesg': mesg}), (pars.exc.errname, pars.exc.errinfo))
 
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('hehe')
-        opts = pars.parse_args(['-h'])
+        opts = await pars.parse_args(['-h'])
         self.none(opts)
         self.notin("ERROR: The argument <hehe> is required.", pars.mesgs)
         self.isin('Usage: hehe [options] <hehe>', pars.mesgs)
@@ -4170,53 +3850,53 @@ class StormTest(s_t_utils.SynTest):
 
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('hehe')
-        opts = pars.parse_args(['newp', '-h'])
+        opts = await pars.parse_args(['newp', '-h'])
         self.none(opts)
         mesg = 'Extra arguments and flags are not supported with the help flag: hehe newp -h'
         self.eq(('BadArg', {'mesg': mesg}), (pars.exc.errname, pars.exc.errinfo))
 
         pars = s_storm.Parser()
         pars.add_argument('--no-foo', default=True, action='store_false')
-        opts = pars.parse_args(['--no-foo'])
+        opts = await pars.parse_args(['--no-foo'])
         self.false(opts.no_foo)
 
         pars = s_storm.Parser()
         pars.add_argument('--no-foo', default=True, action='store_false')
-        opts = pars.parse_args([])
+        opts = await pars.parse_args([])
         self.true(opts.no_foo)
 
         pars = s_storm.Parser()
         pars.add_argument('--no-foo', default=True, action='store_false')
         pars.add_argument('--valu', default=8675309, type='int')
         pars.add_argument('--ques', nargs=2, type='int', default=(1, 2))
-        pars.parse_args(['-h'])
+        await pars.parse_args(['-h'])
         self.isin('  --no-foo                    : No help available.', pars.mesgs)
         self.isin('  --valu <valu>               : No help available. (default: 8675309)', pars.mesgs)
         self.isin('  --ques <ques>               : No help available. (default: (1, 2))', pars.mesgs)
 
         pars = s_storm.Parser()
         pars.add_argument('--yada')
-        self.none(pars.parse_args(['--yada']))
+        self.none(await pars.parse_args(['--yada']))
         self.true(pars.exited)
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', action='append')
-        self.none(pars.parse_args(['--yada']))
+        self.none(await pars.parse_args(['--yada']))
         self.true(pars.exited)
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', nargs='?')
-        opts = pars.parse_args(['--yada'])
+        opts = await pars.parse_args(['--yada'])
         self.none(opts.yada)
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', nargs='+')
-        self.none(pars.parse_args(['--yada']))
+        self.none(await pars.parse_args(['--yada']))
         self.true(pars.exited)
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', type='int')
-        self.none(pars.parse_args(['--yada', 'hehe']))
+        self.none(await pars.parse_args(['--yada', 'hehe']))
         self.true(pars.exited)
 
         # check help output formatting of optargs
@@ -4262,38 +3942,38 @@ class StormTest(s_t_utils.SynTest):
         # test some nargs type intersections
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='?', type='int')
-        self.none(pars.parse_args(['--ques', 'asdf']))
+        self.none(await pars.parse_args(['--ques', 'asdf']))
         self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='*', type='int')
-        self.none(pars.parse_args(['--ques', 'asdf']))
+        self.none(await pars.parse_args(['--ques', 'asdf']))
         self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='+', type='int')
-        self.none(pars.parse_args(['--ques', 'asdf']))
+        self.none(await pars.parse_args(['--ques', 'asdf']))
         self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('foo', type='int')
-        self.none(pars.parse_args(['asdf']))
+        self.none(await pars.parse_args(['asdf']))
         self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         # argument count mismatch
         pars = s_storm.Parser()
         pars.add_argument('--ques')
-        self.none(pars.parse_args(['--ques']))
+        self.none(await pars.parse_args(['--ques']))
         self.eq("An argument is required for --ques.", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs=2)
-        self.none(pars.parse_args(['--ques', 'lolz']))
+        self.none(await pars.parse_args(['--ques', 'lolz']))
         self.eq("2 arguments are required for --ques.", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs=2, type='int')
-        self.none(pars.parse_args(['--ques', 'lolz', 'hehe']))
+        self.none(await pars.parse_args(['--ques', 'lolz', 'hehe']))
         self.eq("Invalid value for type (int): lolz", pars.exc.errinfo['mesg'])
 
         # test time argtype
@@ -4301,15 +3981,15 @@ class StormTest(s_t_utils.SynTest):
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', type='time')
-        args = pars.parse_args(['--yada', '20201021-1day'])
+        args = await pars.parse_args(['--yada', '20201021-1day'])
         self.nn(args)
-        self.eq(ttyp.norm('20201021-1day')[0], args.yada)
+        self.eq((await ttyp.norm('20201021-1day'))[0], args.yada)
 
-        args = pars.parse_args(['--yada', 1603229675444])
+        args = await pars.parse_args(['--yada', 1603229675444])
         self.nn(args)
-        self.eq(ttyp.norm(1603229675444)[0], args.yada)
+        self.eq((await ttyp.norm(1603229675444))[0], args.yada)
 
-        self.none(pars.parse_args(['--yada', 'hehe']))
+        self.none(await pars.parse_args(['--yada', 'hehe']))
         self.true(pars.exited)
         self.eq("Invalid value for type (time): hehe", pars.exc.errinfo['mesg'])
 
@@ -4318,23 +3998,23 @@ class StormTest(s_t_utils.SynTest):
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', type='ival')
-        args = pars.parse_args(['--yada', '20201021-1day'])
+        args = await pars.parse_args(['--yada', '20201021-1day'])
         self.nn(args)
-        self.eq(ityp.norm('20201021-1day')[0], args.yada)
+        self.eq((await ityp.norm('20201021-1day'))[0], args.yada)
 
-        args = pars.parse_args(['--yada', 1603229675444])
+        args = await pars.parse_args(['--yada', 1603229675444])
         self.nn(args)
-        self.eq(ityp.norm(1603229675444)[0], args.yada)
+        self.eq((await ityp.norm(1603229675444))[0], args.yada)
 
-        args = pars.parse_args(['--yada', ('20201021', '20201023')])
+        args = await pars.parse_args(['--yada', ('20201021', '20201023')])
         self.nn(args)
-        self.eq(ityp.norm(('20201021', '20201023'))[0], args.yada)
+        self.eq((await ityp.norm(('20201021', '20201023')))[0], args.yada)
 
-        args = pars.parse_args(['--yada', (1603229675444, '20201021')])
+        args = await pars.parse_args(['--yada', (1603229675444, '20201021')])
         self.nn(args)
-        self.eq(ityp.norm((1603229675444, '20201021'))[0], args.yada)
+        self.eq((await ityp.norm((1603229675444, '20201021')))[0], args.yada)
 
-        self.none(pars.parse_args(['--yada', 'hehe']))
+        self.none(await pars.parse_args(['--yada', 'hehe']))
         self.true(pars.exited)
         self.eq("Invalid value for type (ival): hehe", pars.exc.errinfo['mesg'])
 
@@ -4355,20 +4035,20 @@ class StormTest(s_t_utils.SynTest):
         pars.add_argument('--bar', choices=['baz', 'bam'], help='barhelp')
         pars.add_argument('--cam', action='append', choices=['cat', 'cool'], help='camhelp')
 
-        opts = pars.parse_args(['1', '--bar', 'bam', '--cam', 'cat', '--cam', 'cool'])
+        opts = await pars.parse_args(['1', '--bar', 'bam', '--cam', 'cat', '--cam', 'cool'])
         self.eq(1, opts.foo)
         self.eq('bam', opts.bar)
         self.eq(['cat', 'cool'], opts.cam)
 
-        opts = pars.parse_args([32])
+        opts = await pars.parse_args([32])
         self.none(opts)
         self.eq('Invalid choice for argument <foo> (choose from: 3, 1, 2): 32', pars.exc.errinfo['mesg'])
 
-        opts = pars.parse_args([2, '--bar', 'newp'])
+        opts = await pars.parse_args([2, '--bar', 'newp'])
         self.none(opts)
         self.eq('Invalid choice for argument --bar (choose from: baz, bam): newp', pars.exc.errinfo['mesg'])
 
-        opts = pars.parse_args([2, '--cam', 'cat', '--cam', 'newp'])
+        opts = await pars.parse_args([2, '--cam', 'cat', '--cam', 'newp'])
         self.none(opts)
         self.eq('Invalid choice for argument --cam (choose from: cat, cool): newp', pars.exc.errinfo['mesg'])
 
@@ -4382,7 +4062,7 @@ class StormTest(s_t_utils.SynTest):
         pars = s_storm.Parser()
         pars.add_argument('--foo', default='def', choices=['faz'], help='foohelp')
 
-        opts = pars.parse_args([])
+        opts = await pars.parse_args([])
         self.eq('def', opts.foo)
 
         pars.help()
@@ -4391,12 +4071,12 @@ class StormTest(s_t_utils.SynTest):
         # choices - like defaults, choices are not normalized
         pars = s_storm.Parser()
         ttyp = s_datamodel.Model().type('time')
-        pars.add_argument('foo', type='time', choices=['2022', ttyp.norm('2023')[0]], help='foohelp')
+        pars.add_argument('foo', type='time', choices=['2022', (await ttyp.norm('2023'))[0]], help='foohelp')
 
-        opts = pars.parse_args(['2023'])
-        self.eq(ttyp.norm('2023')[0], opts.foo)
+        opts = await pars.parse_args(['2023'])
+        self.eq((await ttyp.norm('2023'))[0], opts.foo)
 
-        opts = pars.parse_args(['2022'])
+        opts = await pars.parse_args(['2022'])
         self.none(opts)
         errmesg = pars.exc.errinfo['mesg']
         self.eq('Invalid choice for argument <foo> (choose from: 2022, 1672531200000000): 1640995200000000', errmesg)
@@ -4410,19 +4090,19 @@ class StormTest(s_t_utils.SynTest):
         pars.add_argument('--bar', nargs='?', choices=['baz'])
         pars.add_argument('--cat', nargs=2, choices=['cam', 'cool'])
 
-        opts = pars.parse_args(['newp'])
+        opts = await pars.parse_args(['newp'])
         self.none(opts)
         self.eq('Invalid choice for argument <foo> (choose from: faz): newp', pars.exc.errinfo['mesg'])
 
-        opts = pars.parse_args(['faz', '--bar', 'newp'])
+        opts = await pars.parse_args(['faz', '--bar', 'newp'])
         self.none(opts)
         self.eq('Invalid choice for argument --bar (choose from: baz): newp', pars.exc.errinfo['mesg'])
 
-        opts = pars.parse_args(['faz', '--cat', 'newp', 'newp2'])
+        opts = await pars.parse_args(['faz', '--cat', 'newp', 'newp2'])
         self.none(opts)
         self.eq('Invalid choice for argument --cat (choose from: cam, cool): newp', pars.exc.errinfo['mesg'])
 
-        opts = pars.parse_args(['faz', '--cat', 'cam', 'cool'])
+        opts = await pars.parse_args(['faz', '--cat', 'cam', 'cool'])
         self.nn(opts)
 
         pars = s_storm.Parser()
