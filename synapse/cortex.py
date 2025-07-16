@@ -3029,17 +3029,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             async for mesg in self.storm(initdef['query']):
                                 match mesg[0]:
                                     case 'print':
-                                        logger.info(f'{name} init vers={vers} output: {mesg[1].get("mesg")}', extra=logextra)
+                                        msg = f'{name} init vers={vers} output: {mesg[1].get("mesg")}'
+                                        logger.info(msg, extra=logextra)
                                     case 'warn':
-                                        logger.warning(f'{name} init vers={vers} output: {mesg[1].get("mesg")}', extra=logextra)
+                                        msg = f'{name} init vers={vers} output: {mesg[1].get("mesg")}'
+                                        logger.warning(msg, extra=logextra)
                                     case 'err':
-                                        logger.error(f'{name} init vers={vers} output: {mesg[1]}', extra=logextra)
+                                        msg = f'{name} init vers={vers} output: {mesg[1]}'
+                                        logger.error(msg, extra=logextra)
                                         ok = False
                                 await asyncio.sleep(0)
                         except asyncio.CancelledError:  # pragma: no cover
                             raise
                         except Exception as exc:  # pragma: no cover
-                            logger.warning(f'{name} init failed for vers={vers}: {vname}', exc_info=exc, extra=logextra)
+                            msg = f'{name} init failed for vers={vers}: {vname}'
+                            logger.warning(msg, exc_info=exc, extra=logextra)
                             ok = False
 
                         if not ok:
