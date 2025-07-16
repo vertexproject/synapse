@@ -553,17 +553,15 @@ modeldefs = (
                 ('seat', ('str', {'strip': True}), {
                     'doc': 'The seat which the occupant sat in. Likely in a vehicle specific format.'}),
 
-                ('boarded', ('time', {}), {
-                    'doc': 'The time when the occupant boarded the vehicle.'}),
+                ('period', ('ival', {}), {
+                    'prevnames': ('boarded', 'disembarked'),
+                    'doc': 'The period when the occupant was aboard the vehicle.'}),
 
                 ('boarded:place', ('geo:place', {}), {
                     'doc': 'The place where the occupant boarded the vehicle.'}),
 
                 ('boarded:point', ('transport:point', {}), {
                     'doc': 'The boarding point such as an airport gate or train platform.'}),
-
-                ('disembarked', ('time', {}), {
-                    'doc': 'The time when the occupant disembarked from the vehicle.'}),
 
                 ('disembarked:place', ('geo:place', {}), {
                     'doc': 'The place where the occupant disembarked the vehicle.'}),
@@ -586,17 +584,15 @@ modeldefs = (
                 ('container', ('transport:container', {}), {
                     'doc': 'The container in which the cargo was shipped.'}),
 
-                ('loaded', ('time', {}), {
-                    'doc': 'The time when the cargo was loaded.'}),
+                ('period', ('ival', {}), {
+                    'prevnames': ('loaded', 'unloaded'),
+                    'doc': 'The period when the cargo was loaded in the vehicle.'}),
 
                 ('loaded:place', ('geo:place', {}), {
                     'doc': 'The place where the cargo was loaded.'}),
 
                 ('loaded:point', ('transport:point', {}), {
                     'doc': 'The point where the cargo was loaded such as an airport gate or train platform.'}),
-
-                ('unloaded', ('time', {}), {
-                    'doc': 'The time when the cargo was unloaded.'}),
 
                 ('unloaded:place', ('geo:place', {}), {
                     'doc': 'The place where the cargo was unloaded.'}),

@@ -64,14 +64,12 @@ modeldefs = (
                 ('desc', ('text', {}), {
                     'doc': 'A description of the experiment.'}),
 
-                ('time', ('time', {}), {
-                    'doc': 'The time when the experiment was initiated.'}),
-
                 ('type', ('sci:experiment:type:taxonomy', {}), {
                     'doc': 'The type of experiment as a user defined taxonomy.'}),
 
-                ('window', ('ival', {}), {
-                    'doc': 'The time window where the experiment was run.'}),
+                ('period', ('ival', {}), {
+                    'prevnames': ('window', 'time'),
+                    'doc': 'The time period when the experiment was run.'}),
 
             )),
 

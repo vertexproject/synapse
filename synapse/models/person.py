@@ -214,7 +214,8 @@ modeldefs = (
             )),
             ('ps:vitals', {}, (
 
-                ('asof', ('time', {}), {
+                ('time', ('time', {}), {
+                    'prevnames': ('asof',),
                     'doc': 'The time the vitals were gathered or computed.'}),
 
                 ('individual', ('entity:individual', {}), {

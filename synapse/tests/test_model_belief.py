@@ -30,15 +30,13 @@ class BeliefModelTest(s_test.SynTest):
                 belief:subscriber=*
                     :contact={[ entity:contact=* :name=visi ]}
                     :system={ belief:system:type=hehe.haha }
-                    :began=20230209
-                    :ended=20230210
+                    :period=(20230209, 20230210)
                     +(follows)> { belief:tenet:name="zip zop" }
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('system'))
             self.nn(nodes[0].get('contact'))
 
-            self.eq(nodes[0].get('began'), 1675900800000000)
-            self.eq(nodes[0].get('ended'), 1675987200000000)
+            self.eq(nodes[0].get('period'), (1675900800000000, 1675987200000000))
 
             self.len(1, await core.nodes('belief:subscriber -(follows)> belief:tenet'))

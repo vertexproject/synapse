@@ -1217,16 +1217,6 @@ class InetModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await t.norm(((6, 1), (4, 1)))
 
-    async def test_passwd(self):
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:passwd=2Cool4u]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:passwd', '2Cool4u'))
-            self.eq(node.get('md5'), '91112d75297841c12ca655baafc05104')
-            self.eq(node.get('sha1'), '2984ab44774294be9f7a369bbd73b52021bf0bb4')
-            self.eq(node.get('sha256'), '62c7174a99ff0afd4c828fc779d2572abc2438415e3ca9769033d4a36479b14f')
-
     async def test_port(self):
         tname = 'inet:port'
         async with self.getTestCore() as core:
@@ -2580,14 +2570,14 @@ class InetModelTest(s_t_utils.SynTest):
                 :session=$blcksess
                 :server=tcp://10.10.10.4:443
                 :client=tcp://192.168.0.10:12345
-                :creds={[inet:passwd=cool]}
+                :creds={[auth:passwd=cool]}
             ]
             '''
             opts = {'vars': {'blcksess': blcksess.ndef[1]}}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('method'), 'password.')
-            self.eq(nodes[0].get('creds'), (('inet:passwd', 'cool'),))
+            self.eq(nodes[0].get('creds'), (('auth:passwd', 'cool'),))
 
             server = await core.nodes('inet:server=tcp://10.10.10.4:443')
             self.len(1, server)

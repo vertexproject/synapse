@@ -685,11 +685,13 @@ modeldefs = (
             ('it:dev:int', ('int', {}), {
                 'doc': 'A developer selected integer constant.'}),
 
-            ('it:dev:regkey', ('str', {}), {
+            ('it:os:windows:registry:key', ('str', {}), {
+                'prevnames': ('it:dev:regkey',),
                 'ex': 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
                 'doc': 'A Windows registry key.'}),
 
-            ('it:dev:regval', ('guid', {}), {
+            ('it:os:windows:registry:entry', ('guid', {}), {
+                'prevnames': ('it:dev:regval',),
                 'doc': 'A Windows registry key, name, and value.'}),
 
             ('it:dev:repo:type:taxonomy', ('taxonomy', {}), {
@@ -757,6 +759,7 @@ modeldefs = (
                 'doc': 'A comment on a diff in a repository.'}),
 
             ('it:software', ('guid', {}), {
+                'prevnames': ('it:prod:soft', 'it:prod:softver'),
                 'interfaces': (
                     ('doc:authorable', {'template': {'authorable': 'software'}}),
                 ),
@@ -829,9 +832,6 @@ modeldefs = (
 
             ('it:av:scan:result', ('guid', {}), {
                 'doc': 'The result of running an antivirus scanner.'}),
-
-            ('it:auth:passwdhash', ('guid', {}), {
-                'doc': 'An instance of a password hash.'}),
 
             ('it:exec:proc', ('guid', {}), {
                 'interfaces': (
@@ -928,19 +928,22 @@ modeldefs = (
                 ),
                 'doc': 'An instance of a host writing a file to a filesystem.'}),
 
-            ('it:exec:reg:get', ('guid', {}), {
+            ('it:exec:windows:registry:get', ('guid', {}), {
+                'prevnames': ('it:exec:reg:get',),
                 'interfaces': (
                     ('it:host:activity', {}),
                 ),
                 'doc': 'An instance of a host getting a registry key.', }),
 
-            ('it:exec:reg:set', ('guid', {}), {
+            ('it:exec:windows:registry:set', ('guid', {}), {
+                'prevnames': ('it:exec:reg:set',),
                 'interfaces': (
                     ('it:host:activity', {}),
                 ),
                 'doc': 'An instance of a host creating or setting a registry key.', }),
 
-            ('it:exec:reg:del', ('guid', {}), {
+            ('it:exec:windows:registry:del', ('guid', {}), {
+                'prevnames': ('it:exec:reg:del',),
                 'interfaces': (
                     ('it:host:activity', {}),
                 ),
@@ -1072,8 +1075,8 @@ modeldefs = (
             (('it:software', 'creates', 'file:filepath'), {
                 'doc': 'The software creates the file path.'}),
 
-            (('it:software', 'creates', 'it:dev:regval'), {
-                'doc': 'The software creates the windows registry value.'}),
+            (('it:software', 'creates', 'it:os:windows:registry:entry'), {
+                'doc': 'The software creates the windows registry entry.'}),
 
             (('it:exec:query', 'found', None), {
                 'doc': 'The target node was returned as a result of running the query.'}),
@@ -1581,16 +1584,18 @@ modeldefs = (
             )),
 
             ('it:dev:int', {}, ()),
-            ('it:dev:regkey', {}, ()),
-            ('it:dev:regval', {}, (
+            ('it:os:windows:registry:key', {}, (
+                ('parent', ('it:os:windows:registry:key', {}), {
+                    'doc': 'The parent key.'}),
+            )),
+            ('it:os:windows:registry:entry', {}, (
 
-                ('key', ('it:dev:regkey', {}), {
+                ('key', ('it:os:windows:registry:key', {}), {
                     'doc': 'The Windows registry key.'}),
 
                 ('name', ('it:dev:str', {}), {
                     'doc': 'The name of the registry value within the key.'}),
 
-                # FIXME primitive scalar type for indexing? Or an ndef?
                 ('value', ('data', {}), {
                     'prevnames': ('str', 'int', 'bytes'),
                     'doc': 'The value assigned to the name within the key.'}),
@@ -1873,9 +1878,6 @@ modeldefs = (
             ('it:software:type:taxonomy', {}, ()),
             ('it:software', {}, (
 
-                ('id', ('meta:id', {}), {
-                    'doc': 'A unique ID for the software.'}),
-
                 ('type', ('it:software:type:taxonomy', {}), {
                     'doc': 'The type of software.'}),
 
@@ -1889,17 +1891,8 @@ modeldefs = (
                 ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'Observed/variant names for this software version.'}),
 
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the software.'}),
-
                 ('released', ('time', {}), {
                     'doc': 'Timestamp for when the software was released.'}),
-
-                ('version', ('it:semver', {}), {
-                    'doc': 'System normalized semantic version number.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'URL where a specific version of the software is available from.'}),
 
                 ('cpe', ('it:sec:cpe', {}), {
                     'doc': 'The NIST CPE 2.3 string specifying this software version.'}),
@@ -1933,7 +1926,7 @@ modeldefs = (
             #     ('softver', ('it:software', {}), {'ro': True,
             #         'doc': 'The software which creates the registry entry.'}),
 
-            #     ('regval', ('it:dev:regval', {}), {'ro': True,
+            #     ('regval', ('it:os:windows:registry:entry', {}), {'ro': True,
             #         'doc': 'The registry entry created by the software.'}),
             # )),
 
@@ -2432,7 +2425,7 @@ modeldefs = (
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
-            ('it:exec:reg:get', {}, (
+            ('it:exec:windows:registry:get', {}, (
 
                 ('proc', ('it:exec:proc', {}), {
                     'doc': 'The main process executing code that read the registry.'}),
@@ -2446,13 +2439,14 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time the registry was read.'}),
 
-                ('reg', ('it:dev:regval', {}), {
+                ('entry', ('it:os:windows:registry:entry', {}), {
+                    'prevnames': ('reg',),
                     'doc': 'The registry key or value that was read.'}),
 
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
-            ('it:exec:reg:set', {}, (
+            ('it:exec:windows:registry:set', {}, (
 
                 ('proc', ('it:exec:proc', {}), {
                     'doc': 'The main process executing code that wrote to the registry.'}),
@@ -2466,13 +2460,14 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time the registry was written to.'}),
 
-                ('reg', ('it:dev:regval', {}), {
+                ('entry', ('it:os:windows:registry:entry', {}), {
+                    'prevnames': ('reg',),
                     'doc': 'The registry key or value that was written to.'}),
 
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
-            ('it:exec:reg:del', {}, (
+            ('it:exec:windows:registry:del', {}, (
 
                 ('proc', ('it:exec:proc', {}), {
                     'doc': 'The main process executing code that deleted data from the registry.'}),
@@ -2486,8 +2481,9 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time the data from the registry was deleted.'}),
 
-                ('reg', ('it:dev:regval', {}), {
-                    'doc': 'The registry key or value that was deleted.'}),
+                ('entry', ('it:os:windows:registry:entry', {}), {
+                    'prevnames': ('reg',),
+                    'doc': 'The registry entry that was deleted.'}),
 
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),

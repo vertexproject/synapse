@@ -23,16 +23,16 @@ class SciModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ sci:experiment=*
                     :name=double-slit
-                    :time=2024-03-19
+                    :period=(20240319, 20240320)
                     :type=lab.light
                     :desc="Foo bar baz."
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(1710806400000000, nodes[0].get('time'))
             self.eq('lab.light.', nodes[0].get('type'))
             self.eq('double-slit', nodes[0].get('name'))
             self.eq('Foo bar baz.', nodes[0].get('desc'))
+            self.eq((1710806400000000, 1710892800000000), nodes[0].get('period'))
 
             nodes = await core.nodes('''
                 [ sci:evidence=*

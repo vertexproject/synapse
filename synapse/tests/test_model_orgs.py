@@ -324,7 +324,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('updated'), 1748131200000000)
 
             nodes = await core.nodes('''[
-                ou:id:update=*
+                ou:id:history=*
                     :id={ ou:id }
                     :updated=20250525
                     :status=suspended
@@ -332,7 +332,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('updated'), 1748131200000000)
             self.eq(nodes[0].get('status'), 'suspended.')
-            self.len(1, await core.nodes('ou:id:update -> ou:id'))
+            self.len(1, await core.nodes('ou:id:history -> ou:id'))
 
             nodes = await core.nodes('[ ou:org=* :desc=hehe :dns:mx=(hehe.com, haha.com)]')
             self.len(1, nodes)
@@ -671,8 +671,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :org = {[ ou:org=* :name=vertex ]}
                     :org:name = vertex
                     :org:fqdn = vertex.link
-                    :posted = 20210807
-                    :removed = 2022
+                    :period = (20210807, 2022)
                     :postings = {[ inet:url=https://vertex.link ]}
                     :contact = {[ entity:contact=* :email=visi@vertex.link ]}
                     :loc = us.va
@@ -680,8 +679,10 @@ class OuModelTest(s_t_utils.SynTest):
                     :employment:type = fulltime.salary
                     :title = PyDev
                     :remote = (1)
-                    :yearlypay = 20
-                    :paycurrency = BTC
+                    :pay:min=20
+                    :pay:max=22
+                    :pay:currency=BTC
+                    :pay:pertime=1:00:00
                 ]
             ''')
             self.len(1, nodes)
@@ -689,12 +690,14 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('org:fqdn'), 'vertex.link')
             self.eq(nodes[0].get('title'), 'pydev')
             self.eq(nodes[0].get('remote'), 1)
-            self.eq(nodes[0].get('yearlypay'), '20')
-            self.eq(nodes[0].get('paycurrency'), 'btc')
             self.eq(nodes[0].get('employment:type'), 'fulltime.salary.')
-            self.eq(nodes[0].get('posted'), 1628294400000000)
-            self.eq(nodes[0].get('removed'), 1640995200000000)
+            self.eq(nodes[0].get('period'), (1628294400000000, 1640995200000000))
             self.eq(nodes[0].get('postings'), ('https://vertex.link',))
+
+            self.eq(nodes[0].get('pay:min'), '20')
+            self.eq(nodes[0].get('pay:max'), '22')
+            self.eq(nodes[0].get('pay:currency'), 'btc')
+            self.eq(nodes[0].get('pay:pertime'), 3600000000)
 
             self.nn(nodes[0].get('org'))
             self.nn(nodes[0].get('contact'))
@@ -712,7 +715,7 @@ class OuModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
                 [ ou:vitals=*
-                    :asof = 20210731
+                    :time = 20210731
                     :org = *
                     :org:name = WootCorp
                     :org:fqdn = wootwoot.com
@@ -732,7 +735,7 @@ class OuModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.nn(nodes[0].get('org'))
-            self.eq(nodes[0].get('asof'), 1627689600000000)
+            self.eq(nodes[0].get('time'), 1627689600000000)
             self.eq(nodes[0].get('org:name'), 'wootcorp')
             self.eq(nodes[0].get('org:fqdn'), 'wootwoot.com')
             self.eq(nodes[0].get('currency'), 'usd')
