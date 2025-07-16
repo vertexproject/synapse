@@ -140,6 +140,16 @@ modeldefs = (
                 'ex': 'woot.exe'}),
 
             ('file:path', 'synapse.models.files.FilePath', {}, {
+                'virts': {
+                    'ext': (('str', {}), {
+                        'doc': 'The file extension from the path.'}),
+
+                    'dir': (('file:path', {}), {
+                        'doc': 'The file base name from the path.'}),
+
+                    'base': (('file:base', {}), {
+                        'doc': 'The file base name from the path.'}),
+                },
                 'doc': 'A normalized file path.',
                 'ex': 'c:/windows/system32/calc.exe'}),
         ),

@@ -315,6 +315,7 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of ID status values.'}),
 
             ('ou:id:history', ('guid', {}), {
+                'prevnames': ('ou:id:update',),
                 'doc': 'Changes made to an ID over time.'}),
 
             ('ou:award:type:taxonomy', ('taxonomy', {}), {
@@ -461,9 +462,8 @@ modeldefs = (
 
                 ('pay:currency', ('econ:currency', {}), {
                     'prevnames': ('paycurrency',),
-                    'doc': 'The currency that the yearly pay was delivered in.'}),
+                    'doc': 'The currency used for payment.'}),
 
-                # FIXME what to name this?!?!? How to handle commission?
                 ('pay:pertime', ('duration', {}), {
                     'ex': '1:00:00',
                     'doc': 'The duration over which the position pays.'}),
