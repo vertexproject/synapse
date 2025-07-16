@@ -824,7 +824,7 @@ _reqValidPkgdefSchema = {
             'type': 'object',
             'properties': {
                 'desc': {'type': 'string'},
-                'inaugural': {'type': 'boolean'},
+                'inaugural': {'type': 'boolean', 'default': False},
                 'name': {'type': 'string'},
                 'query': {'type': 'string'},
                 'version': {'type': 'integer', 'minimum': 0},
