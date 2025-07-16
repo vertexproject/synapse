@@ -928,18 +928,21 @@ modeldefs = (
                 'doc': 'An instance of a host writing a file to a filesystem.'}),
 
             ('it:exec:windows:registry:get', ('guid', {}), {
+                'prevnames': ('it:exec:reg:get',),
                 'interfaces': (
                     ('it:host:activity', {}),
                 ),
                 'doc': 'An instance of a host getting a registry key.', }),
 
             ('it:exec:windows:registry:set', ('guid', {}), {
+                'prevnames': ('it:exec:reg:set',),
                 'interfaces': (
                     ('it:host:activity', {}),
                 ),
                 'doc': 'An instance of a host creating or setting a registry key.', }),
 
             ('it:exec:windows:registry:del', ('guid', {}), {
+                'prevnames': ('it:exec:reg:del',),
                 'interfaces': (
                     ('it:host:activity', {}),
                 ),
