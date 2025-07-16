@@ -4,8 +4,8 @@ import synapse.lib.types as s_types
 
 class Passwd(s_types.Str):
 
-    def norm(self, valu):
-        retn = s_types.Str.norm(self, valu)
+    async def norm(self, valu, view=None):
+        retn = await s_types.Str.norm(self, valu)
         retn[1].setdefault('subs', {})
         byts = retn[0].encode('utf8')
         retn[1]['subs'].update({
