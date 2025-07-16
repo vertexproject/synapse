@@ -3223,9 +3223,12 @@ class StormTest(s_t_utils.SynTest):
                     },
                 ])
 
-                await loadPkg(core, pkg)
+                mesg = 'testload init vers=4 output: (\'SynErr\''
+                with self.getAsyncLoggerStream('synapse.cortex', mesg) as stream:
+                    await loadPkg(core, pkg)
+                    self.eq(3, await core.getStormVar('testload:version'))
+                    await stream.wait(timeout=10)
 
-                self.eq(3, await core.getStormVar('testload:version'))
                 self.none(await core.getStormVar('init04'))
                 self.none(await core.getStormVar('init06'))
 
@@ -3239,10 +3242,37 @@ class StormTest(s_t_utils.SynTest):
 
                     await core.addStormPkg(pkg)
 
+                    self.eq(6, await core.getStormVar('testload:version'))
                     self.gt(await core.getStormVar('onload'), onload)
                     self.eq(init02, await core.getStormVar('init02'))
                     self.nn(await core.getStormVar('init04'))
                     self.nn(await core.getStormVar('init06'))
+
+                    # coverage for prints and warns
+
+                    pkg['version'] = '0.5.0'
+                    pkg['inits']['versions'].append({
+                        'version': 7,
+                        'name': 'init07',
+                        'query': '$lib.print("doing a print")',
+                    })
+
+                    with self.getAsyncLoggerStream('synapse.cortex', 'doing a print') as stream:
+                        await loadPkg(core, pkg)
+                        self.eq(7, await core.getStormVar('testload:version'))
+                        await stream.wait(timeout=10)
+
+                    pkg['version'] = '0.6.0'
+                    pkg['inits']['versions'].append({
+                        'version': 8,
+                        'name': 'init08',
+                        'query': '$lib.warn("doing a warn")',
+                    })
+
+                    with self.getAsyncLoggerStream('synapse.cortex', 'doing a warn') as stream:
+                        await loadPkg(core, pkg)
+                        self.eq(8, await core.getStormVar('testload:version'))
+                        await stream.wait(timeout=10)
 
     async def test_storm_tree(self):
 
