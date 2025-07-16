@@ -90,7 +90,6 @@ import synapse.lib.stormlib.hashes as s_stormlib_hashes  # NOQA
 import synapse.lib.stormlib.random as s_stormlib_random  # NOQA
 import synapse.lib.stormlib.scrape as s_stormlib_scrape   # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
-import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
 import synapse.lib.stormlib.spooled as s_stormlib_spooled  # NOQA
 import synapse.lib.stormlib.tabular as s_stormlib_tabular  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA

@@ -115,7 +115,7 @@ modeldefs = (
             ('proj:project:type:taxonomy', {}, {}),
             ('proj:project', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('str', {}), {
                     'doc': 'The project name.'}),
 
                 ('type', ('proj:project:type:taxonomy', {}), {
@@ -133,7 +133,7 @@ modeldefs = (
 
             ('proj:sprint', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('str', {}), {
                     'doc': 'The name of the sprint.'}),
 
                 ('status', ('str', {'enums': 'planned,current,completed'}), {
@@ -162,7 +162,7 @@ modeldefs = (
                     'prevnames': ('ext:url',),
                     'doc': 'A URL which contains details about the task.'}),
 
-                ('name', ('str', {'onespace': True}), {
+                ('name', ('str', {}), {
                     'doc': 'The name of the ticket.'}),
 
                 ('desc', ('text', {}), {

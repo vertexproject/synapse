@@ -174,11 +174,14 @@ modeldefs = (
             )),
             ('biz:service', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the service being performed.'}),
 
                 ('provider', ('entity:actor', {}), {
-                    'doc': 'The contact info of the entity which performs the service.'}),
+                    'doc': 'The entity which performs the service.'}),
+
+                ('provider:name', ('meta:name', {}), {
+                    'doc': 'The name of the entity which performs the service.'}),
 
                 ('desc', ('text', {}), {
                     'doc': 'A description of the service.'}),
@@ -186,26 +189,27 @@ modeldefs = (
                 ('type', ('biz:service:type:taxonomy', {}), {
                     'doc': 'A taxonomy of service types.'}),
 
-                # FIXME offered=ival?
                 ('launched', ('time', {}), {
                     'doc': 'The time when the operator first made the service available.'}),
                 # TODO: billing types (fixed, hourly, subscription, etc)
             )),
             ('biz:product', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the product.'}),
 
                 ('type', ('biz:product:type:taxonomy', {}), {
                     'doc': 'The type of product.'}),
 
-                # TODO ('upc', ('biz:upc', {}), {}),
                 ('desc', ('text', {}), {
                     'doc': 'A description of the product.'}),
 
-                # FIXME: manufactur?
-                ('maker', ('entity:actor', {}), {
-                    'doc': 'A contact for the maker of the product.'}),
+                ('manufacturer', ('entity:actor', {}), {
+                    'prevnames': ('maker',),
+                    'doc': 'A contact for the manufacturer of the product.'}),
+
+                ('manufacturer:name', ('meta:name', {}), {
+                    'doc': 'The name of the manufacturer of the product.'}),
 
                 ('price:retail', ('econ:price', {}), {
                     'doc': 'The MSRP price of the product.'}),

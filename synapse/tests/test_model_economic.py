@@ -165,7 +165,7 @@ class EconTest(s_utils.SynTest):
             nodes = await core.nodes('''
                 [
                     econ:fin:bar=*
-                        :ival=(20200202, 20200203)
+                        :period=(20200202, 20200203)
                         :security=(us, nasdaq, tsla)
                         :price:open=9999.00
                         :price:close=9999.01
@@ -174,7 +174,7 @@ class EconTest(s_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq((1580601600000000, 1580688000000000), nodes[0].get('ival'))
+            self.eq((1580601600000000, 1580688000000000), nodes[0].get('period'))
             self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].get('security'))
             self.eq('9999', nodes[0].get('price:open'))
             self.eq('9999.01', nodes[0].get('price:close'))
@@ -199,20 +199,16 @@ class EconTest(s_utils.SynTest):
             self.len(1, await core.nodes('econ:balance :account -> econ:fin:account'))
 
             nodes = await core.nodes('''
-                [ econ:receipt:item=*
-                    :purchase=*
+                [ econ:lineitem=*
                     :count=10
-                    :product={[ biz:product=* :name=bananna ]}
                     :price=100
+                    :item={[ biz:product=* :name=bananna ]}
                 ]
             ''')
             self.len(1, nodes)
-            self.nn(nodes[0].get('product'))
-            self.nn(nodes[0].get('purchase'))
             self.eq(nodes[0].get('count'), 10)
             self.eq(nodes[0].get('price'), '100')
-            self.len(1, await core.nodes('econ:receipt:item -> econ:purchase'))
-            self.len(1, await core.nodes('econ:receipt:item -> biz:product +:name=bananna'))
+            self.len(1, await core.nodes('econ:lineitem -> biz:product +:name=bananna'))
 
             nodes = await core.nodes('''
                 [ econ:bank:aba:account=*

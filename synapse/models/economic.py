@@ -265,8 +265,8 @@ modeldefs = (
                 ('price', ('econ:price', {}), {
                     'doc': 'The total cost of this receipt line item.'}),
 
-                ('product', ('biz:product', {}), {
-                    'doc': 'The product being being purchased in this line item.'}),
+                ('item', ('biz:sellable', {}), {
+                    'doc': 'The product or service.'}),
             )),
 
             ('econ:cash:deposit', {}, (
