@@ -824,9 +824,6 @@ modeldefs = (
                                           )}), {
                 'doc': 'The given software broadcasts the given Android intent.'}),
 
-            ('it:software', ('guid', {}), {
-                'doc': 'A software family or specific version.'}),
-
             ('it:av:signame', ('base:name', {}), {
                 'doc': 'An antivirus signature name.'}),
 
