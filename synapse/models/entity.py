@@ -157,21 +157,6 @@ modeldefs = (
                     ),
                 },
 
-                'aliases': (
-
-                    ('dob', {'target': 'lifespan*min',
-                        'doc': 'The date of birth for the {contactable}.'}),
-
-                    ('dod', {'target': 'lifespan*max',
-                        'doc': 'The date of death for the {contactable}.'}),
-
-                    ('founded', {'target': 'lifespan*max',
-                        'doc': 'The founded time for the {contactable}.'}),
-
-                    ('dissolved', {'target': 'lifespan*max',
-                        'doc': 'The dissolved time for the {contactable}.'}),
-                ),
-
                 'doc': 'A set of contact information which is used by an entity.'}),
 
             ('entity:history', ('guid', {}), {

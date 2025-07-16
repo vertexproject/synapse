@@ -77,13 +77,6 @@ modeldefs = (
                         'template': {'contactable': 'organization'}}),
                 ),
                 'doc': 'An organization, such as a company or military unit.',
-                'aliases': (
-                    ('founded', {'target': 'lifespan*max',
-                        'doc': 'The founded time for the entity.'}),
-
-                    ('dissolved', {'target': 'lifespan*max',
-                        'doc': 'The dissolved time for the entity.'}),
-                ),
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
