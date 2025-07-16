@@ -327,6 +327,352 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(exc.exception.get('valu'), ())
         self.eq(exc.exception.get('mesg'), 'Guid list values cannot be empty.')
 
+        async with self.getTestCore() as core:
+
+            nodes00 = await core.nodes('[ ou:org=({"name": "vertex"}) ]')
+            self.len(1, nodes00)
+            self.eq('vertex', nodes00[0].get('name'))
+
+            nodes01 = await core.nodes('[ ou:org=({"name": "vertex"}) :names+="the vertex project"]')
+            self.len(1, nodes01)
+            self.eq('vertex', nodes01[0].get('name'))
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+
+            nodes02 = await core.nodes('[ ou:org=({"name": "the vertex project"}) ]')
+            self.len(1, nodes02)
+            self.eq('vertex', nodes02[0].get('name'))
+            self.eq(nodes01[0].ndef, nodes02[0].ndef)
+
+            nodes03 = await core.nodes('[ ou:org=({"name": "vertex", "type": "woot"}) :names+="the vertex project" ]')
+            self.len(1, nodes03)
+            self.ne(nodes02[0].ndef, nodes03[0].ndef)
+
+            nodes04 = await core.nodes('[ ou:org=({"name": "the vertex project", "type": "woot"}) ]')
+            self.len(1, nodes04)
+            self.eq(nodes03[0].ndef, nodes04[0].ndef)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({"email": "woot"}) ]')
+
+            nodes05 = await core.nodes('[ ou:org=({"name": "vertex", "$props": {"motto": "for the people"}}) ]')
+            self.len(1, nodes05)
+            self.eq('vertex', nodes05[0].get('name'))
+            self.eq('for the people', nodes05[0].get('motto'))
+            self.eq(nodes00[0].ndef, nodes05[0].ndef)
+
+            nodes06 = await core.nodes('[ ou:org=({"name": "acme", "$props": {"motto": "HURR DURR"}}) ]')
+            self.len(1, nodes06)
+            self.eq('acme', nodes06[0].get('name'))
+            self.eq('HURR DURR', nodes06[0].get('motto'))
+            self.ne(nodes00[0].ndef, nodes06[0].ndef)
+
+            goals = [s_common.guid(), s_common.guid()]
+            goals.sort()
+
+            nodes07 = await core.nodes('[ ou:org=({"name": "goal driven", "goals": $goals}) ]', opts={'vars': {'goals': goals}})
+            self.len(1, nodes07)
+            self.eq(goals, nodes07[0].get('goals'))
+
+            nodes08 = await core.nodes('[ ou:org=({"name": "goal driven", "goals": $goals}) ]', opts={'vars': {'goals': goals}})
+            self.len(1, nodes08)
+            self.eq(goals, nodes08[0].get('goals'))
+            self.eq(nodes07[0].ndef, nodes08[0].ndef)
+
+            nodes09 = await core.nodes('[ ou:org=({"name": "vertex"}) :name=foobar :names=() ]')
+            nodes10 = await core.nodes('[ ou:org=({"name": "vertex"}) :type=lulz ]')
+            self.len(1, nodes09)
+            self.len(1, nodes10)
+            self.ne(nodes09[0].ndef, nodes10[0].ndef)
+
+            await core.nodes('[ ou:org=* :type=lulz ]')
+            await core.nodes('[ ou:org=* :type=hehe ]')
+            nodes11 = await core.nodes('[ ou:org=({"name": "vertex", "$props": {"type": "lulz"}}) ]')
+            self.len(1, nodes11)
+
+            nodes12 = await core.nodes('[ ou:org=({"name": "vertex", "type": "hehe"}) ]')
+            self.len(1, nodes12)
+            self.ne(nodes11[0].ndef, nodes12[0].ndef)
+
+            # GUID ctor has a short-circuit where it tries to find an existing ndef before it does,
+            # some property deconfliction, and `<form>=({})` when pushed through guid generation gives
+            # back the same guid as `<form>=()`, which if we're not careful could lead to an
+            # inconsistent case where you fail to make a node because you don't provide any props,
+            # make a node with that matching ndef, and then run that invalid GUID ctor query again,
+            # and have it return back a node due to the short circuit. So test that we're consistent here.
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({}) ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=() ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({}) ]')
+
+            msgs = await core.stormlist('[ ou:org=({"$props": {"desc": "lol"}})]')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInErr('No values provided for form ou:org', msgs)
+
+            msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$props": {"phone": "lolnope"}})]')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInErr('Bad value for prop ou:org:phone: requires a digit string', msgs)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({"$try": true}) ]')
+
+            # $try can be used at top level, currently only applies to $props
+            msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"phone": "lolnope", "desc": "burritos man"}})]')
+            nodes = [m for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            node = nodes[0][1]
+            props = node[1]['props']
+            self.none(props.get('phone'))
+            self.eq(props.get('name'), 'burrito corp')
+            self.eq(props.get('desc'), 'burritos man')
+
+            # $try can also be specified in $props which overrides top level $try
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"$try": false, "phone": "lolnope"}})]')
+
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes("$lib.view.get().addNode(ou:org, ({'name': 'org name 77', 'phone': 'lolnope'}), props=({'desc': 'an org desc'}))"))
+
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes("$lib.view.get().addNode(ou:org, ({'name': 'org name 77'}), props=({'desc': 'an org desc', 'phone': 'lolnope'}))"))
+
+            nodes = await core.nodes("yield $lib.view.get().addNode(ou:org, ({'$try': true, '$props': {'phone': 'invalid'}, 'name': 'org name 77'}), props=({'desc': 'an org desc'}))")
+            self.len(1, nodes)
+            node = nodes[0]
+            self.none(node.get('phone'))
+            self.eq(node.get('name'), 'org name 77')
+            self.eq(node.get('desc'), 'an org desc')
+
+            nodes = await core.nodes('ou:org=({"name": "the vertex project", "type": "lulz"})')
+            self.len(1, nodes)
+            orgn = nodes[0].ndef
+            self.eq(orgn, nodes11[0].ndef)
+
+            q = '[ entity:contact=* :resolved={ ou:org=({"name": "the vertex project", "type": "lulz"}) } ]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            cont = nodes[0]
+            self.eq(cont.get('resolved'), orgn)
+
+            nodes = await core.nodes('entity:contact:resolved={[ ou:org=({"name": "the vertex project", "type": "lulz"})]}')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, cont.ndef)
+
+            self.len(0, await core.nodes('entity:contact:resolved={[ ou:org=({"name": "vertex", "type": "newp"}) ]}'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:guid:iden=({"name": "vertex", "type": "newp"})')
+
+            await core.nodes('[ ou:org=({"name": "origname"}) ]')
+            self.len(1, await core.nodes('ou:org=({"name": "origname"}) [ :name=newname ]'))
+            self.len(0, await core.nodes('ou:org=({"name": "origname"})'))
+
+            nodes = await core.nodes('[ it:exec:proc=(notime,) ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('[ it:exec:proc=(nulltime,) ]')
+            self.len(1, nodes)
+
+            # Recursive gutors
+            nodes = await core.nodes('''[
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'fooplatform',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'foomesg')
+            self.nn(node.get('channel'))
+
+            nodes = await core.nodes('inet:service:message -> inet:service:channel')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('id'), 'foochannel')
+            self.nn(node.get('platform'))
+
+            nodes = await core.nodes('inet:service:message -> inet:service:channel -> inet:service:platform')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'fooplatform')
+            self.eq(node.get('url'), 'http://foo.com')
+
+            nodes = await core.nodes('''
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'fooplatform',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'foomesg')
+
+            nodes = await core.nodes('''[
+                inet:service:message=({
+                    'id': 'barmesg',
+                    'channel': {
+                        'id': 'barchannel',
+                        'platform': {
+                            'name': 'barplatform',
+                            'url': 'http://bar.com'
+                        }
+                    },
+                    '$props': {
+                        'platform': {
+                            'name': 'barplatform',
+                            'url': 'http://bar.com'
+                        }
+                    }
+                })
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'barmesg')
+            self.nn(node.get('channel'))
+
+            platguid = node.get('platform')
+            self.nn(platguid)
+            nodes = await core.nodes('inet:service:message:id=barmesg -> inet:service:channel -> inet:service:platform')
+            self.len(1, nodes)
+            self.eq(platguid, nodes[0].ndef[1])
+
+            # No node lifted if no matching node for inner gutor
+            self.len(0, await core.nodes('''
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'newp',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            '''))
+
+            # BadTypeValu comes through from inner gutor
+            with self.raises(s_exc.BadTypeValu) as cm:
+                await core.nodes('''
+                    inet:service:message=({
+                        'id': 'foomesg',
+                        'channel': {
+                            'id': 'foochannel',
+                            'platform': {
+                                'name': 'newp',
+                                'url': 'newp'
+                            }
+                        }
+                    })
+                ''')
+
+            self.eq(cm.exception.get('form'), 'inet:service:platform')
+            self.eq(cm.exception.get('prop'), 'url')
+            self.eq(cm.exception.get('mesg'), 'Bad value for prop inet:service:platform:url: Invalid/Missing protocol')
+
+            # Ensure inner nodes are not created unless the entire gutor is valid.
+            self.len(0, await core.nodes('''[
+                inet:service:account?=({
+                    "id": "bar",
+                    "platform": {"name": "barplat"},
+                    "url": "newp"})
+            ]'''))
+
+            self.len(0, await core.nodes('inet:service:platform:name=barplat'))
+
+            # Gutors work for props
+            nodes = await core.nodes('''[
+                test:str=guidprop
+                    :gprop=({'name': 'someprop', '$props': {'size': 5}})
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'guidprop'))
+            self.nn(node.get('gprop'))
+
+            nodes = await core.nodes('test:str=guidprop -> test:guid')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'someprop')
+            self.eq(node.get('size'), 5)
+
+            with self.raises(s_exc.BadTypeValu) as cm:
+                nodes = await core.nodes('''[
+                    test:str=newpprop
+                        :gprop=({'size': 'newp'})
+                ]''')
+
+            self.eq(cm.exception.get('form'), 'test:guid')
+            self.eq(cm.exception.get('prop'), 'size')
+            self.true(cm.exception.get('mesg').startswith('Bad value for prop test:guid:size: invalid literal'))
+
+            nodes = await core.nodes('''[
+                test:str=newpprop
+                    :gprop?=({'size': 'newp'})
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'newpprop'))
+            self.none(node.get('gprop'))
+
+            nodes = await core.nodes('''
+                [ test:str=methset ]
+                $node.props.gprop = ({'name': 'someprop'})
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'methset'))
+            self.nn(node.get('gprop'))
+
+            nodes = await core.nodes('test:str=methset -> test:guid')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'someprop')
+            self.eq(node.get('size'), 5)
+
+            opts = {'vars': {'sha256': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d88'}}
+            nodes = await core.nodes('''[ it:app:yara:match=* :target=('file:bytes', ({"sha256": $sha256})) ]''', opts=opts)
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:app:yara:match -> *')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('sha256'), opts['vars']['sha256'])
+
+            opts = {'vars': {
+                        'phash': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d86',
+                        'chash': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d87'
+            }}
+            nodes = await core.nodes('''[ file:subfile=(({"sha256": $phash}), ({"sha256": $chash})) ]''', opts=opts)
+            self.len(1, nodes)
+
+            nodes = await core.nodes('file:subfile -> file:bytes')
+            self.len(2, nodes)
+            for node in nodes:
+                self.nn(node.get('sha256'))
+
+            nodes = await core.nodes('$file = {[file:bytes=*]} [ inet:service:rule=({"id":"foo", "object": $file}) ]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('id'), 'foo')
+            self.nn(node.get('object'))
+
+            self.len(1, await core.nodes('inet:service:rule :object -> *'))
+
     async def test_hex(self):
 
         async with self.getTestCore() as core:
