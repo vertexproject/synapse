@@ -366,7 +366,7 @@ modeldefs = (
 
             ('ou:enacted', ('guid', {}), {
                 'interfaces': (
-                    ('proj:task', {
+                    ('proj:doable', {
                         'template': {
                             'task': 'adoption task'}}),
                 ),

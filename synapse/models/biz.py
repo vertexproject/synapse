@@ -55,6 +55,15 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of product types.'}),
         ),
+
+        'edges': (
+            (('biz:listing', 'has', 'econ:lineitem'), {
+                'doc': 'The listing offers the line item.'}),
+
+            (('biz:deal', 'has', 'econ:lineitem'), {
+                'doc': 'The deal includes the line item.'}),
+        ),
+
         'forms': (
             ('biz:deal:type:taxonomy', {
                 'prevnames': ('biz:dealtype',)}, ()),
@@ -138,31 +147,19 @@ modeldefs = (
                 ('purchase', ('econ:purchase', {}), {
                     'doc': 'Records a purchase resulting from the deal.'}),
             )),
-            # FIXME convert to aggregates?
-            # ('biz:bundle', {}, (
+
             ('biz:listing', {}, (
 
                 ('seller', ('entity:actor', {}), {
                     'doc': 'The contact information for the seller.'}),
 
-                # FIXME valuable?
-                ('product', ('biz:product', {}), {
-                    'doc': 'The product being offered.'}),
-
-                ('service', ('biz:service', {}), {
-                    'doc': 'The service being offered.'}),
-
                 ('current', ('bool', {}), {
                     'doc': 'Set to true if the offer is still current.'}),
 
-                # FIXME period
-                ('time', ('time', {}), {
-                    'doc': 'The first known offering of this product/service by the organization for the asking price.'}),
+                ('period', ('ival', {}), {
+                    'prevnames': ('time', 'expires'),
+                    'doc': 'The period when the listing existed.'}),
 
-                ('expires', ('time', {}), {
-                    'doc': 'Set if the offer has a known expiration date.'}),
-
-                # FIXME valuable
                 ('price', ('econ:price', {}), {
                     'doc': 'The asking price of the product or service.'}),
 

@@ -543,6 +543,12 @@ modeldefs = (
 
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file which was attached.'}),
+
+                ('creator', ('syn:user', {}), {
+                    'doc': 'The synapse user who added the attachment.'}),
+
+                ('created', ('time', {}), {
+                    'doc': 'The time the attachment was added.'}),
             )),
 
             ('file:archive:entry', {}, (
