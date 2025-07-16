@@ -581,7 +581,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [ crypto:salthash=*
                     :salt=4141
                     :hash={[ crypto:hash:md5=$md5 ]}
-                    :value=woot
+                    :value=(auth:passwd, woot)
                 ]
             ''', opts=opts)
 

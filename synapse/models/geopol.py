@@ -75,7 +75,7 @@ modeldefs = (
                 ('place', ('geo:place', {}), {
                     'doc': 'A geo:place node representing the geospatial properties of the country.'}),
 
-                ('period', ('time', {}), {
+                ('period', ('ival', {}), {
                     'prevnames': ('founded', 'dissolved'),
                     'doc': 'The period over which the country existed.'}),
 

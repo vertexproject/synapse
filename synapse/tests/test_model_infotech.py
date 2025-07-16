@@ -1119,14 +1119,14 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'reg': '*',
                 'sandbox:file': sandfile,
             }
-            forms = ('it:exec:reg:get',
-                     'it:exec:reg:set',
-                     'it:exec:reg:del',
+            forms = ('it:exec:windows:registry:get',
+                     'it:exec:windows:registry:set',
+                     'it:exec:windows:registry:del',
                      )
             for form in forms:
                 rk0 = s_common.guid()
                 nprops = rprops.copy()
-                q = '''[(*$form=$valu :host=$p.host :proc=$p.proc :exe=$p.exe :time=$p.time :reg=$p.reg
+                q = '''[(*$form=$valu :host=$p.host :proc=$p.proc :exe=$p.exe :time=$p.time :entry=$p.reg
                     :sandbox:file=$p."sandbox:file")]'''
                 nodes = await core.nodes(q, opts={'vars': {'form': form, 'valu': rk0, 'p': nprops}})
                 self.len(1, nodes)
@@ -1136,7 +1136,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('proc'), proc)
                 self.eq(node.get('exe'), exe)
                 self.eq(node.get('time'), tick)
-                self.nn(node.get('reg'))
+                self.nn(node.get('entry'))
                 self.eq(node.get('sandbox:file'), sandfile)
 
         async with self.getTestCore() as core:

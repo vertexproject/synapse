@@ -613,7 +613,7 @@ modeldefs = (
             )),
             ('ou:id:history', {}, (
 
-                ('current', ('ou:id', {}), {
+                ('id', ('ou:id', {}), {
                     'doc': 'The current ID information.'}),
 
                 ('updated', ('date', {}), {

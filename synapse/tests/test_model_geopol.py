@@ -7,8 +7,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
                 [ pol:country=*
-                    :founded=2022
-                    :dissolved=2023
+                    :period=(2022, 2023)
                     :name=visiland
                     :names=(visitopia,)
                     :iso2=vi
@@ -21,8 +20,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq('visiland', nodes[0].get('name'))
             self.eq(('visitopia',), nodes[0].get('names'))
-            self.eq(1640995200000000, nodes[0].get('founded'))
-            self.eq(1672531200000000, nodes[0].get('dissolved'))
+            self.eq((1640995200000000, 1672531200000000), nodes[0].get('period'))
             self.eq('vi', nodes[0].get('iso2'))
             self.eq('vis', nodes[0].get('iso3'))
             self.eq(31337, nodes[0].get('isonum'))
@@ -36,6 +34,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                     [ pol:vitals=*
                         :country={pol:country:name=visiland}
+                        :time=2025
                         :area=1sq.km
                         :population=1
                         :currency=usd
@@ -51,6 +50,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq('usd', nodes[0].get('currency'))
             self.eq('100', nodes[0].get('econ:gdp'))
             self.eq('usd', nodes[0].get('econ:currency'))
+            self.eq(1735689600000000, nodes[0].get('time'))
             self.len(1, await core.nodes('pol:country:vitals :vitals -> pol:vitals'))
 
     async def test_types_iso2(self):
@@ -133,12 +133,10 @@ class GeoPolModelTest(s_t_utils.SynTest):
                     :contact={entity:contact:name=whippit}
                     :race={pol:race}
                     :party={ou:org:name=vertex}
-                    :start=20250120
-                    :end=20290120
+                    :period=(20250120, 20290120)
                 ]
             ''')
-            self.eq(1737331200000000, nodes[0].get('start'))
-            self.eq(1863561600000000, nodes[0].get('end'))
+            self.eq((1737331200000000, 1863561600000000), nodes[0].get('period'))
             self.len(1, await core.nodes('pol:term -> pol:race'))
             self.len(1, await core.nodes('pol:term -> ou:org +:name=vertex'))
             self.len(1, await core.nodes('pol:term -> pol:office +:title=potus'))
@@ -173,8 +171,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
                     :contact = {[ entity:contact=* :name=visi ]}
                     :type = citizen.naturalized
                     :state = requested
-                    :began = 20230328
-                    :ended = 2024
+                    :period = (20230328, 2024)
                 ]
             ''')
             self.len(1, nodes)
@@ -182,5 +179,4 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('contact'))
             self.eq('requested', nodes[0].get('state'))
             self.eq('citizen.naturalized.', nodes[0].get('type'))
-            self.eq(1679961600000000, nodes[0].get('began'))
-            self.eq(1704067200000000, nodes[0].get('ended'))
+            self.eq((1679961600000000, 1704067200000000), nodes[0].get('period'))
