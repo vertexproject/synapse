@@ -117,24 +117,6 @@ modeldefs = (
                     'doc': 'The transcribed text of the statement.'}),
             )),
 
-            ('lang:statement', {}, (
-
-                ('time', ('time', {}), {
-                    'doc': 'The time that the speaker made the statement.'}),
-
-                ('transcript', ('lang:transcript', {}), {
-                    'doc': 'The transcript where the statement was recorded.'}),
-
-                ('transcript:offset', ('duration', {}), {
-                    'doc': 'The time offset of the statement within the transcript.'}),
-
-                ('speaker', ('entity:actor', {}), {
-                    'doc': 'The entity making the statement.'}),
-
-                ('text', ('str', {}), {
-                    'doc': 'The transcribed text of the statement.'}),
-            )),
-
         ),
 
     }),
