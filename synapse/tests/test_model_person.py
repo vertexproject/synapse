@@ -138,7 +138,7 @@ class PsModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
                 [ ps:vitals=*
-                    :asof=20220815
+                    :time=20220815
                     :individual={[ ps:person=* ]}
                     :econ:currency=usd
                     :econ:net:worth=100
@@ -149,7 +149,7 @@ class PsModelTest(s_t_utils.SynTest):
                 { -> ps:person [ :vitals={ps:vitals} ] }
             ''')
             self.len(1, nodes)
-            self.eq(1660521600000000, nodes[0].get('asof'))
+            self.eq(1660521600000000, nodes[0].get('time'))
 
             self.eq(1828, nodes[0].get('phys:height'))
             self.eq('45359.2', nodes[0].get('phys:mass'))

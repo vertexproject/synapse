@@ -1,6 +1,5 @@
 import socket
 import asyncio
-import hashlib
 import logging
 import urllib.parse
 
@@ -1154,12 +1153,6 @@ async def _onSetFqdnZone(node, oldv):
 
                 todo.append(child.ndef[1])
 
-async def _onAddPasswd(node):
-    byts = node.ndef[1].encode('utf8')
-    await node.set('md5', hashlib.md5(byts, usedforsecurity=False).hexdigest())
-    await node.set('sha1', hashlib.sha1(byts, usedforsecurity=False).hexdigest())
-    await node.set('sha256', hashlib.sha256(byts).hexdigest())
-
 async def _onSetWhoisText(node, oldv):
 
     text = node.get('text')
@@ -1321,13 +1314,6 @@ modeldefs = (
             ('inet:net', ('inet:iprange', {}), {
                 'ex': '(1.2.3.4, 1.2.3.20)',
                 'doc': 'An IP address range.'}),
-
-            ('inet:passwd', ('str', {'strip': False}), {
-                'interfaces': (
-                    ('auth:credential', {}),
-                    ('crypto:hashable', {}),
-                ),
-                'doc': 'A password string.'}),
 
             ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
                 'ex': '80',
@@ -2286,21 +2272,6 @@ modeldefs = (
                     'doc': 'The name of the vendor associated with the 24-bit prefix of a MAC address.'}),
             )),
 
-            ('inet:passwd', {}, (
-                ('md5', ('crypto:hash:md5', {}), {
-                    'ro': True,
-                    'doc': 'The MD5 hash of the password.'
-                }),
-                ('sha1', ('crypto:hash:sha1', {}), {
-                    'ro': True,
-                    'doc': 'The SHA1 hash of the password.'
-                }),
-                ('sha256', ('crypto:hash:sha256', {}), {
-                    'ro': True,
-                    'doc': 'The SHA256 hash of the password.'
-                }),
-            )),
-
             ('inet:rfc2822:addr', {}, (
                 ('name', ('meta:name', {}), {
                     'ro': True,
@@ -2366,7 +2337,7 @@ modeldefs = (
                     'doc': 'The IP address used in the URL (e.g., http://1.2.3.4/page.html).',
                     'prevnames': ('ipv4', 'ipv6')}),
 
-                ('passwd', ('inet:passwd', {}), {
+                ('passwd', ('auth:passwd', {}), {
                     'ro': True,
                     'doc': 'The optional password used to access the URL.'}),
 
@@ -3125,7 +3096,6 @@ modeldefs = (
             'post': {
                 'forms': (
                     ('inet:fqdn', _onAddFqdn),
-                    ('inet:passwd', _onAddPasswd),
                 ),
                 'props': (
                     ('inet:fqdn:zone', _onSetFqdnZone),

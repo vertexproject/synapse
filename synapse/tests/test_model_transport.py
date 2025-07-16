@@ -302,11 +302,9 @@ class TransportTest(s_test.SynTest):
                     :trip={ transport:rail:train }
                     :vehicle={ transport:rail:consist }
                     :seat=2c
-                    :boarded=202501171020
+                    :period=(202501171020, 202501171335)
                     :boarded:point=2c
                     :boarded:place={ geo:place:name="grand central station" }
-
-                    :disembarked=202501171335
                     :disembarked:point=2c
                     :disembarked:place={ geo:place:name="union station" }
             ]''')
@@ -316,11 +314,11 @@ class TransportTest(s_test.SynTest):
             self.eq('transport:rail:train', nodes[0].get('trip')[0])
             self.eq('transport:rail:consist', nodes[0].get('vehicle')[0])
 
-            self.eq(1737109200000000, nodes[0].get('boarded'))
+            self.eq(nodes[0].get('period'), (1737109200000000, 1737120900000000))
+
             self.nn(nodes[0].get('boarded:place'))
             self.eq('2c', nodes[0].get('boarded:point'))
 
-            self.eq(1737120900000000, nodes[0].get('disembarked'))
             self.nn(nodes[0].get('disembarked:place'))
             self.eq('2c', nodes[0].get('disembarked:point'))
             self.len(1, await core.nodes('transport:occupant -> transport:occupant:role:taxonomy'))
@@ -334,11 +332,11 @@ class TransportTest(s_test.SynTest):
                     :container={ transport:rail:car }
                     :object={[ transport:shipping:container=({"serial": "007"}) ]}
 
-                    :loaded=202501171020
+                    :period=(202501171020, 202501171335)
+
                     :loaded:point=2c
                     :loaded:place={ geo:place:name="grand central station" }
 
-                    :unloaded=202501171335
                     :unloaded:point=2c
                     :unloaded:place={ geo:place:name="union station" }
             ]''')
@@ -348,10 +346,10 @@ class TransportTest(s_test.SynTest):
             self.eq('transport:rail:consist', nodes[0].get('vehicle')[0])
             self.eq('transport:shipping:container', nodes[0].get('object')[0])
 
-            self.eq(1737109200000000, nodes[0].get('loaded'))
             self.nn(nodes[0].get('loaded:place'))
+            self.eq(nodes[0].get('period'), (1737109200000000, 1737120900000000))
+
             self.eq('2c', nodes[0].get('loaded:point'))
 
-            self.eq(1737120900000000, nodes[0].get('unloaded'))
             self.nn(nodes[0].get('unloaded:place'))
             self.eq('2c', nodes[0].get('unloaded:point'))

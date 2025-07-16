@@ -75,11 +75,9 @@ modeldefs = (
                 ('place', ('geo:place', {}), {
                     'doc': 'A geo:place node representing the geospatial properties of the country.'}),
 
-                ('founded', ('time', {}), {
-                    'doc': 'The date that the country was founded.'}),
-
-                ('dissolved', ('time', {}), {
-                    'doc': 'The date that the country was dissolved.'}),
+                ('period', ('ival', {}), {
+                    'prevnames': ('founded', 'dissolved'),
+                    'doc': 'The period over which the country existed.'}),
 
                 ('vitals', ('pol:vitals', {}), {
                     'doc': 'The most recent known vitals for the country.'}),
@@ -103,26 +101,32 @@ modeldefs = (
                 ('state', ('str', {'enums': 'requested,active,rejected,revoked,renounced'}), {
                     'doc': 'The state of the immigration status.'}),
 
-                ('began', ('time', {}), {
-                    'doc': 'The time when the status was granted to the contact.'}),
-
-                ('ended', ('time', {}), {
-                    'doc': 'The time when the status no longer applied to the contact.'}),
+                ('period', ('ival', {}), {
+                    'prevnames': ('began', 'ended'),
+                    'doc': 'The time period when the contact was granted the status.'}),
 
             )),
             ('pol:vitals', {}, (
+
                 ('country', ('pol:country', {}), {
                     'doc': 'The country that the statistics are about.'}),
-                ('asof', ('time', {}), {
+
+                ('time', ('time', {}), {
+                    'prevnames': ('asof',),
                     'doc': 'The time that the vitals were measured.'}),
+
                 ('area', ('geo:area', {}), {
                     'doc': 'The area of the country.'}),
+
                 ('population', ('int', {}), {
                     'doc': 'The total number of people living in the country.'}),
+
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The national currency.'}),
+
                 ('econ:currency', ('econ:currency', {}), {
                     'doc': 'The currency used to record price properties.'}),
+
                 ('econ:gdp', ('econ:price', {}), {
                     'doc': 'The gross domestic product of the country.'}),
             )),
@@ -167,11 +171,9 @@ modeldefs = (
                 ('office', ('pol:office', {}), {
                     'doc': 'The office held for the term.'}),
 
-                ('start', ('time', {}), {
-                    'doc': 'The start of the term of office.'}),
-
-                ('end', ('time', {}), {
-                    'doc': 'The end of the term of office.'}),
+                ('period', ('ival', {}), {
+                    'prevnames': ('start', 'end'),
+                    'doc': 'The time period of the term of office.'}),
 
                 ('race', ('pol:race', {}), {
                     'doc': 'The race that determined who held office during the term.'}),

@@ -557,7 +557,8 @@ modeldefs = (
                 ('balance', ('econ:price', {}), {
                     'doc': 'The most recently known balance of the account.'}),
 
-                ('balance:asof', ('time', {}), {
+                ('balance:time', ('time', {}), {
+                    'prevnames': ('balance:asof',),
                     'doc': 'The time the balance was most recently updated.'}),
 
                 ('currency', ('econ:currency', {}), {
