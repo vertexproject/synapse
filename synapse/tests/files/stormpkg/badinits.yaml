@@ -1,0 +1,12 @@
+name: badinits
+version: 0.0.1
+
+inits:
+  name: badinits:version
+  versions:
+    - name: first
+      version: 7
+      query: ""
+    - name: second
+      version: 2
+      query: ""
