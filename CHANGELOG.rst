@@ -6,6 +6,29 @@
 Synapse Changelog
 *****************
 
+v2.216.0 - 2025-07-15
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_216_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated Cortex with a safe-mode option (``SYN_CORTEX_SAFEMODE=true``) which
+  disables cron, triggers, dmons, Storm package onload handlers, view merge
+  tasks, and Storm pools.
+  (`#4367 <https://github.com/vertexproject/synapse/pull/4367>`_)
+- Updated property set behavior to allow using dictionary GUID syntax.
+  (`#4372 <https://github.com/vertexproject/synapse/pull/4372>`_)
+
+Bugfixes
+--------
+- Fixed a bug where guid forms could be created with an empty list.
+  (`#4392 <https://github.com/vertexproject/synapse/pull/4392>`_)
+- Fixed bug where auth rules could be specified without any rule text.
+  (`#4394 <https://github.com/vertexproject/synapse/pull/4394>`_)
+
 v2.215.0 - 2025-07-03
 =====================
 
