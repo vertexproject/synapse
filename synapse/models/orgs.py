@@ -427,6 +427,7 @@ modeldefs = (
                     'doc': 'The FQDN of the organization as listed in the opening.'}),
 
                 ('period', ('ival', {}), {
+                    'prevnames': ('posted', 'removed'),
                     'doc': 'The time period when the opening existed.'}),
 
                 ('postings', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
