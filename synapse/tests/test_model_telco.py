@@ -8,15 +8,15 @@ class TelcoModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             typ = core.model.type('tel:mob:mcc')
-            self.eq(typ.norm('001')[0], '001')
-            self.raises(s_exc.BadTypeValu, typ.norm, '01')
-            self.raises(s_exc.BadTypeValu, typ.norm, '0001')
+            self.eq((await typ.norm('001'))[0], '001')
+            await self.asyncraises(s_exc.BadTypeValu, typ.norm('01'))
+            await self.asyncraises(s_exc.BadTypeValu, typ.norm('0001'))
 
             typ = core.model.type('tel:mob:mnc')
-            self.eq(typ.norm('01')[0], '01')
-            self.eq(typ.norm('001')[0], '001')
-            self.raises(s_exc.BadTypeValu, typ.norm, '0001')
-            self.raises(s_exc.BadTypeValu, typ.norm, '1')
+            self.eq((await typ.norm('01'))[0], '01')
+            self.eq((await typ.norm('001'))[0], '001')
+            await self.asyncraises(s_exc.BadTypeValu, typ.norm('0001'))
+            await self.asyncraises(s_exc.BadTypeValu, typ.norm('1'))
 
             # tel:mob:tac
             oguid = s_common.guid()
@@ -177,26 +177,26 @@ class TelcoModelTest(s_t_utils.SynTest):
     async def test_telco_phone(self):
         async with self.getTestCore() as core:
             t = core.model.type('tel:phone')
-            norm, subs = t.norm('123 456 7890')
+            norm, subs = await t.norm('123 456 7890')
             self.eq(norm, '1234567890')
             self.eq(subs, {'subs': {'loc': 'us'}})
 
-            norm, subs = t.norm('123 456 \udcfe7890')
+            norm, subs = await t.norm('123 456 \udcfe7890')
             self.eq(norm, '1234567890')
 
-            norm, subs = t.norm(1234567890)
+            norm, subs = await t.norm(1234567890)
             self.eq(norm, '1234567890')
             self.eq(subs, {'subs': {'loc': 'us'}})
 
-            norm, subs = t.norm('+1911')
+            norm, subs = await t.norm('+1911')
             self.eq(norm, '1911')
             self.eq(subs, {'subs': {'loc': 'us'}})
 
             self.eq(t.repr('12345678901'), '+1 (234) 567-8901')
             self.eq(t.repr('9999999999'), '+9999999999')
 
-            self.raises(s_exc.BadTypeValu, t.norm, -1)
-            self.raises(s_exc.BadTypeValu, t.norm, '+()*')
+            await self.asyncraises(s_exc.BadTypeValu, t.norm(-1))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('+()*'))
 
             nodes = await core.nodes('[tel:phone="+1 (703) 555-1212" :type=fax ]')
             self.len(1, nodes)

@@ -1210,7 +1210,7 @@ class RuntNode(NodeBase):
 
     async def set(self, name, valu):
         prop = self._reqValidProp(name)
-        norm = prop.type.norm(valu)[0]
+        norm = (await prop.type.norm(valu))[0]
         return await self.view.core.runRuntPropSet(self, prop, norm)
 
     async def pop(self, name):

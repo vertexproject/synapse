@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class SynUser(s_types.Guid):
 
-    def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
 
         core = self.modl.core
         if core is not None:
@@ -27,7 +27,7 @@ class SynUser(s_types.Guid):
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         try:
-            return s_types.Guid._normPyStr(self, text)
+            return await s_types.Guid._normPyStr(self, text)
         except s_exc.BadTypeValu:
             mesg = f'No user named {text} and value is not a guid.'
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
@@ -44,7 +44,7 @@ class SynUser(s_types.Guid):
 
 class SynRole(s_types.Guid):
 
-    def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
 
         core = self.modl.core
         if core is not None:
@@ -63,7 +63,7 @@ class SynRole(s_types.Guid):
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         try:
-            return s_types.Guid._normPyStr(self, text)
+            return await s_types.Guid._normPyStr(self, text)
         except s_exc.BadTypeValu:
             mesg = f'No role named {text} and value is not a guid.'
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
