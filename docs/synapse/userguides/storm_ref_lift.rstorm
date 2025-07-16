@@ -141,7 +141,7 @@ You can use the name of an :ref:`interface` to lift all forms that inherit that 
 
 *Lift all host activity nodes (all nodes of all forms that inherit it:host:activity interface):*
 
-.. storm-pre:: [ it:exec:file:add=* it:exec:reg:set=* it:exec:url=*  ]
+.. storm-pre:: [ it:exec:file:add=* it:exec:windows:registry:set=* it:exec:url=*  ]
 .. storm-pre:: it:host:activity
 ::
   
@@ -213,7 +213,7 @@ by specifying the full name of the interface and its property.
 
 *Lift all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that have a :time property:*
 
-.. storm-pre:: [ (it:exec:file:add=* :time=now) (it:exec:reg:set=* :time=2024/01/01) (it:exec:url=* :time=2023/12/18) ] 
+.. storm-pre:: [ (it:exec:file:add=* :time=now) (it:exec:windows:registry:set=* :time=2024/01/01) (it:exec:url=* :time=2023/12/18) ] 
 .. storm-pre:: it:host:activity:time
 
 ::
@@ -516,7 +516,7 @@ by using the name of the interface.
 
 *Lift all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that were observed on or after February 1, 2024:*
 
-.. storm-pre:: [ (it:exec:file:write=* :time=now) (it:exec:reg:del=* :time=2023/06/23) (it:exec:url=* :time=2024/02/04) ]
+.. storm-pre:: [ (it:exec:file:write=* :time=now) (it:exec:windows:registry:del=* :time=2023/06/23) (it:exec:url=* :time=2024/02/04) ]
 .. storm-pre:: it:host:activity:time >= 2024/02/01
 
 ::

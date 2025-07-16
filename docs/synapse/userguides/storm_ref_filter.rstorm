@@ -156,7 +156,7 @@ You can use the name of an interface to filter all forms that inherit that inter
 
 ..
     FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ inet:fqdn=woot.com file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 it:exec:file:add=* it:exec:reg:set=* ] +it:host:activity
+    .. storm-pre:: [ inet:fqdn=woot.com file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 it:exec:file:add=* it:exec:windows:registry:set=* ] +it:host:activity
 
 ::
   
