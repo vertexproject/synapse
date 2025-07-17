@@ -206,6 +206,7 @@ modeldefs = (
                     'doc': 'The current version of this historical contact.'}),
             )),
 
+            # FIXME rename to entity:had?
             ('entity:possession:type:taxonomy', {}, ()),
             ('entity:possession', {}, (
 

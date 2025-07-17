@@ -1172,6 +1172,7 @@ modeldefs = (
             ('inet:ip', 'synapse.models.inet.IPAddr', {}, {
                 'interfaces': (
                     ('meta:observable', {'template': {'observable': 'IP address'}}),
+                    ('geo:locatable', {'template': {'geo:locatable': 'IP address'}}),
                 ),
                 'ex': '1.2.3.4',
                 'doc': 'An IPv4 or IPv6 address.'}),
@@ -1373,7 +1374,7 @@ modeldefs = (
 
             ('inet:wifi:ap', ('guid', {}), {
                 'interfaces': (
-                    ('meta:havable', {}),
+                    ('meta:havable', {'template': {'havable': 'access point'}}),
                     ('geo:locatable', {'template': {'geo:locatable': 'access point'}}),
                 ),
                 'doc': 'An SSID/MAC address combination for a wireless access point.'}),
@@ -2240,15 +2241,6 @@ modeldefs = (
                 ('asn', ('inet:asn', {}), {
                     'doc': 'The ASN to which the IP address is currently assigned.'}),
 
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The best known latitude/longitude for the node.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'The geo-political location string for the IP.'}),
-
-                ('place', ('geo:place', {}), {
-                    'doc': 'The geo:place associated with the latlong property.'}),
-
                 ('type', ('str', {}), {
                     'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
 
@@ -2553,9 +2545,6 @@ modeldefs = (
 
                 ('encryption', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
-
-                ('place', ('geo:place', {}), {
-                    'doc': 'The geo:place associated with the latlong property.'}),
 
                 # FIXME ownable interface?
                 ('org', ('ou:org', {}), {

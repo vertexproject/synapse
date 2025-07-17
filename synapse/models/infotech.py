@@ -609,6 +609,12 @@ modeldefs = (
 
                     ('phys:object', {
                         'template': {'phys:object': 'physical host'}}),
+
+                    ('meta:havable', {
+                        'template': {'havable': 'host'}}),
+
+                    ('geo:loctable', {
+                        'template': {'locatable': 'host'}}),
                 ),
                 'doc': 'A GUID that represents a host or system.'}),
 
@@ -1131,15 +1137,6 @@ modeldefs = (
                 ('ip', ('inet:ip', {}), {
                     'doc': 'The last known IP address for the host.',
                     'prevnames': ('ipv4',)}),
-
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The last known location for the host.'}),
-
-                ('place', ('geo:place', {}), {
-                    'doc': 'The place where the host resides.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'The geo-political location string for the node.'}),
 
                 ('os', ('it:software', {}), {
                     'doc': 'The operating system of the host.'}),
