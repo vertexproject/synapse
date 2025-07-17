@@ -222,6 +222,15 @@ modeldefs = (
             }),
         ),
 
+        'edges': (
+
+            (('crypto:x509:cert', 'has', 'crypto:key:rsa'), {
+                'doc': 'The certificate contains the public portion of the RSA key.'}),
+
+            (('crypto:x509:cert', 'has', 'crypto:key:dsa'), {
+                'doc': 'The certificate contains the public portion of the DSA key.'}),
+        ),
+
         'forms': (
 
             ('crypto:payment:input', {}, (
