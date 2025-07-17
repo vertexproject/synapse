@@ -1373,7 +1373,7 @@ modeldefs = (
 
             ('inet:wifi:ap', ('guid', {}), {
                 'interfaces': (
-                    ('meta:haveable', {}),
+                    ('meta:havable', {}),
                     ('geo:locatable', {'template': {'geo:locatable': 'access point'}}),
                 ),
                 'doc': 'An SSID/MAC address combination for a wireless access point.'}),

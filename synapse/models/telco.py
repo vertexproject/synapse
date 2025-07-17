@@ -184,7 +184,10 @@ modeldefs = (
             ('tel:mob:mnc', ('str', {'regex': '^[0-9]{2,3}$', 'strip': True}), {
                 'doc': 'ITU Mobile Network Code.'}),
 
-            ('tel:mob:carrier', ('comp', {'fields': (('mcc', 'tel:mob:mcc'), ('mnc', 'tel:mob:mnc')}), {
+            ('tel:mob:carrier', ('comp', {'fields': (
+                                            ('mcc', 'tel:mob:mcc'),
+                                            ('mnc', 'tel:mob:mnc')
+                                          )}), {
                 'interfaces': (
                     ('entity:identifier', {}),
                 ),
@@ -294,7 +297,7 @@ modeldefs = (
                     'ro': True,
                     'doc': 'The IMSI with the assigned phone number.'}),
             )),
-            ('tel:mob:mcc', {}, ()),
+            ('tel:mob:mcc', {}, (
                 ('place:country:code', ('pol:iso2', {}), {
                     'doc': 'The country code which the MCC is assigned to.'}),
             )),
@@ -303,7 +306,7 @@ modeldefs = (
                 ('mcc', ('tel:mob:mcc', {}), {
                     'ro': True}),
 
-                ('mnc', ('tel:mob:mnc', {}), {}),
+                ('mnc', ('tel:mob:mnc', {}), {
                     'ro': True}),
             )),
             ('tel:mob:cell:radio:type:taxonomy', {}, ()),
@@ -336,7 +339,6 @@ modeldefs = (
 
                 # telco specific data
                 ('cell', ('tel:mob:cell', {}), {}),
-                ('cell:carrier', ('tel:mob:carrier', {}), {}),
                 ('imsi', ('tel:mob:imsi', {}), {}),
                 ('imei', ('tel:mob:imei', {}), {}),
                 ('phone', ('tel:phone', {}), {}),
@@ -373,7 +375,6 @@ modeldefs = (
                 ('data', ('data', {}), {}),
                 # any other fields may be refs...
             )),
-
         )
     }),
 )

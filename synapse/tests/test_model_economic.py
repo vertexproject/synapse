@@ -232,11 +232,11 @@ class EconTest(s_utils.SynTest):
             nodes = await core.nodes('''[
                 econ:bank:swift:bic=DEUTDEFFXXX
                     :business={ gen.ou.org "Deutsche Bank" }
-                    :office={[ entity:contact=* ]}
+                    :office=*
             ]''')
             self.len(1, nodes)
             self.len(1, await core.nodes('econ:bank:swift:bic -> ou:org +:name="deutsche bank"'))
-            self.len(1, await core.nodes('econ:bank:swift:bic -> entity:contact'))
+            self.len(1, await core.nodes('econ:bank:swift:bic -> geo:place'))
 
             nodes = await core.nodes('''[
                 econ:statement=*

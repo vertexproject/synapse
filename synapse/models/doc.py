@@ -146,7 +146,7 @@ modeldefs = (
                 'doc': 'A contract between multiple entities.'}),
 
             ('doc:contract:type:taxonomy', ('taxonomy', {}), {
-                'prevnames': ('ou:conttype',)}, ()),
+                'prevnames': ('ou:conttype',),
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),

@@ -191,7 +191,6 @@ modeldefs = (
 
                 ('launched', ('time', {}), {
                     'doc': 'The time when the operator first made the service available.'}),
-                # TODO: billing types (fixed, hourly, subscription, etc)
             )),
             ('biz:product', {}, (
 
@@ -205,7 +204,7 @@ modeldefs = (
                     'doc': 'A description of the product.'}),
 
                 ('launched', ('time', {}), {
-                    'doc': 'The time the product was first made available.'})
+                    'doc': 'The time the product was first made available.'}),
 
                 ('manufacturer', ('entity:actor', {}), {
                     'prevnames': ('maker',),

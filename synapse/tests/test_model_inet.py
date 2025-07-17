@@ -1317,19 +1317,6 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ it:network=* :dns:resolvers=("[::1]",)]')
             self.eq(nodes[0].get('dns:resolvers'), ('udp://[::1]:53',))
 
-    async def test_servfile(self):
-        async with self.getTestCore() as core:
-            file = s_common.guid()
-            valu = ('tcp://127.0.0.1:4040', file)
-            nodes = await core.nodes('[(inet:servfile=$valu :server:host=$host)]',
-                                     opts={'vars': {'valu': valu, 'host': 32 * 'a'}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:servfile', ('tcp://127.0.0.1:4040', file)))
-            self.eq(node.get('server'), 'tcp://127.0.0.1:4040')
-            self.eq(node.get('server:host'), 32 * 'a')
-            self.eq(node.get('file'), file)
-
     async def test_url(self):
         formname = 'inet:url'
         async with self.getTestCore() as core:
@@ -2132,28 +2119,27 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:wifi:ssid', "The Best SSID"))
 
-            valu = ('The Best SSID2 ', '00:11:22:33:44:55')
-            place = s_common.guid()
-            props = {
-                'accuracy': '10km',
-                'latlong': (20, 30),
-                'place': place,
-                'channel': 99,
-                'encryption': 'wpa2',
-            }
-            q = '''[(inet:wifi:ap=$valu :place=$p.place :channel=$p.channel :latlong=$p.latlong :accuracy=$p.accuracy
-                    :encryption=$p.encryption)]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
+            nodes = await core.nodes('''
+                [ inet:wifi:ap=*
+                    :ssid="The Best SSID2 "
+                    :bssid=00:11:22:33:44:55
+                    :place=*
+                    :channel=99
+                    :place:latlong=(20, 30)
+                    :place:latlong:accuracy=10km
+                    :encryption=wpa2
+                ]
+            ''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:wifi:ap', valu))
-            self.eq(node.get('ssid'), valu[0])
-            self.eq(node.get('bssid'), valu[1])
-            self.eq(node.get('latlong'), (20.0, 30.0))
-            self.eq(node.get('accuracy'), 10000000)
-            self.eq(node.get('place'), place)
+            self.eq(node.get('ssid'), 'The Best SSID2 ')
+            self.eq(node.get('bssid'), '00:11:22:33:44:55')
+            self.eq(node.get('place:latlong'), (20.0, 30.0))
+            self.eq(node.get('place:latlong:accuracy'), 10000000)
             self.eq(node.get('channel'), 99)
             self.eq(node.get('encryption'), 'wpa2')
+
+            self.len(1, await core.nodes('inet:wifi:ap -> geo:place'))
 
     async def test_banner(self):
 

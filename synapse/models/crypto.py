@@ -109,6 +109,9 @@ modeldefs = (
             ('crypto:hashable', ('ndef', {'interface': 'crypto:hashable'}), {
                 'doc': 'A node which can be cryptographically hashed.'}),
 
+            ('crypto:pki:key', ('ndef', {'forms': ('crypto:key:rsa', 'crypto:key:dsa')}), {
+                'doc': 'A node which is a public key.'}),
+
             ('crypto:hash:md5', ('hex', {'size': 32}), {
                 'ex': ex_md5,
                 'interfaces': (
@@ -207,9 +210,6 @@ modeldefs = (
                         'doc': 'The cryptographic algorithm which uses the key material.'}),
                 ),
                 'doc': 'An interface inherited by all cryptographic keys.'}),
-
-            ('crypto:pki:key', ('ndef', {'forms': ('crypto:key:rsa', 'crypto:key:dsa')}), {
-                'doc': 'A node which is a public key.'}),
 
             ('crypto:hash', {
                 'doc': 'An interface inherited by all cryptographic hashes.'}),

@@ -1076,7 +1076,10 @@ modeldefs = (
                 'doc': 'The software creates the file path.'}),
 
             (('it:software', 'creates', 'it:os:windows:registry:entry'), {
-                'doc': 'The software creates the windows registry entry.'}),
+                'doc': 'The software creates the Microsoft Windows registry entry.'}),
+
+            (('it:software', 'creates', 'it:os:windows:service'), {
+                'doc': 'The software creates the Microsoft Windows service.'}),
 
             (('it:exec:query', 'found', None), {
                 'doc': 'The target node was returned as a result of running the query.'}),
@@ -1113,16 +1116,6 @@ modeldefs = (
 
             (('it:software', 'has', 'it:software'), {
                 'doc': 'The source software directly includes the target software.'}),
-
-            (('it:software', 'creates', 'file:filepath'), {
-                'doc': 'The software creates the file path.'}),
-
-            (('it:software', 'creates', 'it:os:windows:registry:entry'), {
-                'doc': 'The software creates the Microsoft Windows registry entry.'}),
-
-            (('it:software', 'creates', 'it:os:windows:service'), {
-                'doc': 'The software creates the Microsoft Windows service.'}),
-
         ),
         'forms': (
             ('it:hostname', {}, ()),
