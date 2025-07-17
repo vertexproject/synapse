@@ -52,20 +52,20 @@ modeldefs = (
                 'props': (
 
                     ('type', ('{type}', {}), {
-                        'doc': 'The type of {document}.'}),
+                        'doc': 'The type of {authorable}.'}),
 
                     ('text', ('text', {}), {
                         'display': {'syntax': '{syntax}'},
-                        'doc': 'The text of the {document}.'}),
+                        'doc': 'The text of the {authorable}.'}),
 
-                    ('title', ('base:name', {}), {
-                        'doc': 'The title of the {document}.'}),
+                    ('title', ('str', {}), {
+                        'doc': 'The title of the {authorable}.'}),
 
                     ('file', ('file:bytes', {}), {
-                        'doc': 'The file containing the {document} contents.'}),
+                        'doc': 'The file containing the {authorable} contents.'}),
 
                     ('file:name', ('file:base', {}), {
-                        'doc': 'The name of the file containing the {document} contents.'}),
+                        'doc': 'The name of the file containing the {authorable} contents.'}),
                 ),
             }),
         ),
@@ -81,7 +81,7 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {
                         'template': {
-                            'document': 'policy',
+                            'authorable': 'policy',
                             'type': 'doc:policy:type:taxonomy'},
                     }),
                 ),
@@ -97,24 +97,14 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {
                         'template': {
-                            'document': 'standard',
+                            'authorable': 'standard',
                             'type': 'doc:standard:type:taxonomy'}}),
                 ),
                 'doc': 'A group of requirements which define how to implement a policy or goal.'}),
 
-            ('doc:requirement:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A taxonomy of requirement types.'}),
-
-            # FIXME doc:document seems like overkill. doc:authorable?
             ('doc:requirement', ('guid', {}), {
                 'interfaces': (
-                    ('doc:document', {
-                        'template': {
-                            'document': 'requirement',
-                            'type': 'doc:requirement:type:taxonomy'}}),
+                    ('doc:authorable', {'template': {'authorable': 'requirement'}}),
                 ),
                 'doc': 'A single requirement, often defined by a standard.'}),
 
@@ -128,7 +118,7 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {
                         'template': {
-                            'document': 'resume',
+                            'authorable': 'resume',
                             'type': 'doc:resume:type:taxonomy'}}),
                 ),
                 'doc': 'A CV/resume document.'}),
@@ -141,10 +131,31 @@ modeldefs = (
                 'prevnames': ('media:news',),
                 'interfaces': (
                     ('doc:document', {'template': {
-                        'document': 'report',
+                        'authorable': 'report',
                         'type': 'doc:report:type:taxonomy'}}),
                 ),
                 'doc': 'A report.'}),
+
+            ('doc:contract', ('guid', {}), {
+                'prevnames': ('ou:contract',),
+                'interfaces': (
+                    ('doc:document', {'template': {
+                        'authorable': 'contract',
+                        'type': 'doc:contract:type:taxonomy'}}),
+                ),
+                'doc': 'A contract between multiple entities.'}),
+
+            ('doc:contract:type:taxonomy', ('taxonomy', {}), {
+                'prevnames': ('ou:conttype',)}, ()),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of contract types.'}),
+
+        ),
+        'edges': (
+            (('doc:contract', 'has', 'doc:requirement'), {
+                'doc': 'The contract contains the requirement.'}),
         ),
         'forms': (
 
@@ -157,7 +168,6 @@ modeldefs = (
                     'doc': 'The policy which was used to derive the standard.'}),
             )),
 
-            ('doc:requirement:type:taxonomy', {}, ()),
             ('doc:requirement', {}, (
 
                 ('text', ('text', {}), {
@@ -206,6 +216,32 @@ modeldefs = (
 
                 ('publisher:name', ('meta:name', {}), {
                     'doc': 'The name of the entity which published the report.'}),
+            )),
+
+            ('doc:contract:type:taxonomy', {}, ()),
+            ('doc:contract', {}, (
+
+                ('issuer', ('entity:actor', {}), {
+                    'prevnames': ('sponsor',),
+                    'doc': 'The contract sponsor.'}),
+
+                ('parties', ('array', {'type': 'entity:actor', 'uniq': True, 'sorted': True}), {
+                    'doc': 'The entities bound by the contract.'}),
+
+                ('signers', ('array', {'type': 'entity:individual', 'uniq': True, 'sorted': True}), {
+                    'doc': 'The individuals who signed the contract.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The time period when the contract is in effect.'}),
+
+                ('signed', ('time', {}), {
+                    'doc': 'The date that the contract signing was complete.'}),
+
+                ('completed', ('time', {}), {
+                    'doc': 'The date that the contract was completed.'}),
+
+                ('terminated', ('time', {}), {
+                    'doc': 'The date that the contract was terminated.'}),
             )),
         ),
         'edges': (),

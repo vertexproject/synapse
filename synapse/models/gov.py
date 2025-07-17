@@ -5,14 +5,13 @@ modeldefs = (
     ('gov:cn', {
         'types': (
 
-            # FIXME update type. not just an int.
             ('gov:cn:icp', ('str', {'regex': icpregex}), {
                 'interfaces': (
                     ('entity:identifier', {}),
                 ),
                 'doc': 'A Chinese Internet Content Provider ID.'}),
 
-            ('gov:cn:mucd', ('str', {'regex': '[0-9]{5}'}), {
+            ('gov:cn:mucd', ('str', {'regex': '^[0-9]{5}部队$'}), {
                 'interfaces': (
                     ('entity:identifier', {}),
                 ),

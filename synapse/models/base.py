@@ -436,7 +436,6 @@ modeldefs = (
             )),
 
             ('meta:aggregate:type:taxonomy', {}, ()),
-            # FIXME valuable?
             ('meta:aggregate', {}, (
 
                 ('type', ('meta:aggregate:type:taxonomy', {}), {

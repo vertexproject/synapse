@@ -515,7 +515,6 @@ modeldefs = (
                 ('type', ('geo:place:type:taxonomy', {}), {
                     'doc': 'The type of place.'}),
 
-                # FIXME should geo:locatable have :names?
                 ('name', ('meta:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the place.'}),

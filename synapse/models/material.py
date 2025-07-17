@@ -33,6 +33,7 @@ modeldefs = (
 
             ('phys:object', {
                 'doc': 'Properties common to all physical objects.',
+                'interfaces': (('meta:haveable', {}),),
                 'template': {'phys:object': 'object'},
                 'props': (
 

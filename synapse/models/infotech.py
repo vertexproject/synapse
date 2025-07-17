@@ -633,9 +633,6 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of network types.'}),
 
-            # ('it:domain', ('guid', {}), {
-            #     'doc': 'A logical boundary of authentication and configuration such as a windows domain.'}),
-
             ('it:host:account', ('guid', {}), {
                 'prevnames': ('it:account',),
                 'doc': 'A local account on a host.'}),
@@ -1084,7 +1081,6 @@ modeldefs = (
             (('it:exec:query', 'found', None), {
                 'doc': 'The target node was returned as a result of running the query.'}),
 
-            # FIXME tighten these down...
             (('it:app:snort:rule', 'detects', 'risk:vuln'), {
                 'doc': 'The snort rule detects use of the vulnerability.'}),
 
@@ -1097,11 +1093,36 @@ modeldefs = (
             (('it:app:snort:rule', 'detects', 'ou:technique'), {
                 'doc': 'The snort rule detects use of the technique.'}),
 
-            (('it:app:yara:rule', 'detects', None), {
-                'doc': 'The YARA rule is intended for use in detecting the target node.'}),
+            (('it:app:yara:rule', 'detects', 'it:software'), {
+                'doc': 'The YARA rule detects the software.'}),
+
+            (('it:app:yara:rule', 'detects', 'risk:tool:software'), {
+                'doc': 'The YARA rule detects the tool.'}),
+
+            (('it:app:yara:rule', 'detects', 'ou:technique'), {
+                'doc': 'The YARA rule detects the technique.'}),
+
+            (('it:app:yara:rule', 'detects', 'risk:vuln'), {
+                'doc': 'The YARA rule detects the vulnerability.'}),
 
             (('it:dev:repo', 'has', 'inet:url'), {
                 'doc': 'The repo has content hosted at the URL.'}),
+
+            (('it:software', 'uses', 'it:software'), {
+                'doc': 'The source software uses the target software.'}),
+
+            (('it:software', 'has', 'it:software'), {
+                'doc': 'The source software directly includes the target software.'}),
+
+            (('it:software', 'creates', 'file:filepath'), {
+                'doc': 'The software creates the file path.'}),
+
+            (('it:software', 'creates', 'it:os:windows:registry:entry'), {
+                'doc': 'The software creates the Microsoft Windows registry entry.'}),
+
+            (('it:software', 'creates', 'it:os:windows:service'), {
+                'doc': 'The software creates the Microsoft Windows service.'}),
+
         ),
         'forms': (
             ('it:hostname', {}, ()),
@@ -1113,9 +1134,6 @@ modeldefs = (
 
                 ('desc', ('str', {}), {
                     'doc': 'A free-form description of the host.'}),
-
-                # ('domain', ('it:domain', {}), {
-                #     'doc': 'The authentication domain that the host is a member of.'}),
 
                 ('ip', ('inet:ip', {}), {
                     'doc': 'The last known IP address for the host.',
@@ -1908,63 +1926,6 @@ modeldefs = (
 
             )),
 
-            (('it:software', 'uses', 'it:software'), {
-                'doc': 'The source software uses the target software.'}),
-
-            (('it:software', 'has', 'it:software'), {
-                'doc': 'The source software directly includes the target software.'}),
-
-            # FIXME use a guid form instead? convert filepath to guid?
-            (('it:software', 'creates', 'file:filepath'), {
-                'doc': 'The software creates the file path.'}),
-
-            (('it:software', 'creates', 'it:os:windows:registry:entry'), {
-                'doc': 'The software creates the Microsoft Windows registry entry.'}),
-
-            (('it:software', 'creates', 'it:os:windows:service'), {
-                'doc': 'The software creates the Microsoft Windows service.'}),
-
-            # # FIXME depends
-            # ('it:prod:softlib', {}, (
-
-            #     ('soft', ('it:software', {}), {'ro': True,
-            #         'doc': 'The software version that contains the library.'}),
-
-            #     ('lib', ('it:software', {}), {'ro': True,
-            #         'doc': 'The library software version.'}),
-            # )),
-
-            # # FIXME has?
-            # ('it:prod:softfile', {}, (
-
-            #     ('soft', ('it:software', {}), {'ro': True,
-            #         'doc': 'The software which distributes the file.'}),
-
-            #     ('file', ('file:bytes', {}), {'ro': True,
-            #         'doc': 'The file distributed by the software.'}),
-            #     ('path', ('file:path', {}), {
-            #         'doc': 'The default installation path of the file.'}),
-            # )),
-
-            # ('it:prod:softreg', {}, (
-
-            #     ('softver', ('it:software', {}), {'ro': True,
-            #         'doc': 'The software which creates the registry entry.'}),
-
-            #     ('regval', ('it:os:windows:registry:entry', {}), {'ro': True,
-            #         'doc': 'The registry entry created by the software.'}),
-            # )),
-
-            #  FIXME - it:host:installed?
-            # ('it:hostsoft', {}, (
-
-            #     ('host', ('it:host', {}), {'ro': True,
-            #         'doc': 'Host with the software.'}),
-
-            #     ('softver', ('it:software', {}), {'ro': True,
-            #         'doc': 'Software on the host.'})
-
-            # )),
             ('it:host:installed', {}, (
 
                 ('host', ('it:host', {}), {

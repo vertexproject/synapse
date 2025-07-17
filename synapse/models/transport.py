@@ -212,7 +212,7 @@ modeldefs = (
                     ('max:cargo:volume', ('geo:dist', {}), {
                         'doc': 'The maximum volume the {phys:object} can carry as cargo.'}),
 
-                    # FIXME deprecate for entity:ownership?
+                    # FIXME ownership interface?
                     ('owner', ('entity:actor', {}), {
                         'doc': 'The contact information of the owner of the {phys:object}.'}),
                 ),
@@ -482,7 +482,7 @@ modeldefs = (
                     'doc': 'The contact information of the operator.'}),
                 # TODO tonnage / gross tonnage?
             )),
-            # FIXME vectorable interface?
+
             ('transport:sea:telem', {}, (
 
                 ('vessel', ('transport:sea:vessel', {}), {
@@ -540,8 +540,7 @@ modeldefs = (
                 ('role', ('transport:occupant:role:taxonomy', {}), {
                     'doc': 'The role of the occupant such as captain, crew, passenger.'}),
 
-                # FIXME individual?
-                ('contact', ('entity:actor', {}), {
+                ('contact', ('entity:individual', {}), {
                     'doc': 'Contact information of the occupant.'}),
 
                 ('trip', ('transport:trip', {}), {

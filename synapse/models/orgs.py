@@ -122,15 +122,6 @@ modeldefs = (
                     ),
                 }}),
 
-            ('ou:contract', ('guid', {}), {
-                'doc': 'A contract between multiple entities.'}),
-
-            ('ou:contract:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of contract types.'}),
-
             ('ou:industry', ('guid', {}), {
                 'interfaces': (
                     ('meta:sourced', {'template': {'sourced': 'industry'}}),
@@ -194,7 +185,7 @@ modeldefs = (
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        # FIXME allow columns to use virtual props
+                        # TODO allow columns to use virtual props
                         # {'type': 'prop', 'opts': {'name': 'period.min'}},
                         # {'type': 'prop', 'opts': {'name': 'period.max'}},
                     ),
@@ -712,7 +703,6 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The period of time when the conflict was ongoing.'}),
 
-                # FIXME timeline interface?
                 ('timeline', ('meta:timeline', {}), {
                     'doc': 'A timeline of significant events related to the conflict.'}),
             )),
@@ -772,7 +762,6 @@ modeldefs = (
                 ('industries', ('array', {'type': 'ou:industry', 'uniq': True, 'sorted': True}), {
                     'doc': 'The industries associated with the org.'}),
 
-                # FIXME discuss
                 ('subs', ('array', {'type': 'ou:org', 'uniq': True, 'sorted': True}), {
                     'doc': 'An set of sub-organizations.'}),
 
@@ -856,57 +845,6 @@ modeldefs = (
                     'doc': 'An array of positions which report to this position.'}),
             )),
 
-            ('ou:contract:type:taxonomy', {
-                'prevnames': ('ou:conttype',)}, ()),
-
-            ('ou:contract', {}, (
-
-                ('title', ('str', {}), {
-                    'doc': 'A terse title for the contract.'}),
-
-                ('type', ('ou:contract:type:taxonomy', {}), {
-                    'doc': 'The type of contract.'}),
-
-                ('sponsor', ('entity:actor', {}), {
-                    'doc': 'The contract sponsor.'}),
-
-                ('parties', ('array', {'type': 'entity:actor', 'uniq': True, 'sorted': True}), {
-                    'doc': 'The non-sponsor entities bound by the contract.'}),
-
-                ('document', ('file:bytes', {}), {
-                    'doc': 'The best/current contract document.'}),
-
-                ('signed', ('time', {}), {
-                    'doc': 'The date that the contract signing was complete.'}),
-
-                ('begins', ('time', {}), {
-                    'doc': 'The date that the contract goes into effect.'}),
-
-                ('expires', ('time', {}), {
-                    'doc': 'The date that the contract expires.'}),
-
-                ('completed', ('time', {}), {
-                    'doc': 'The date that the contract was completed.'}),
-
-                ('terminated', ('time', {}), {
-                    'doc': 'The date that the contract was terminated.'}),
-
-                ('award:price', ('econ:price', {}), {
-                    'doc': 'The value of the contract at time of award.'}),
-
-                ('budget:price', ('econ:price', {}), {
-                    'doc': 'The amount of money budgeted for the contract.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the econ:price values.'}),
-
-                ('purchase', ('econ:purchase', {}), {
-                    'doc': 'Purchase details of the contract.'}),
-
-                # FIXME should this be modified?
-                ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {
-                    'doc': 'The requirements levied upon the parties.'}),
-            )),
             ('ou:industry:type:taxonomy', {}, ()),
             ('ou:industry', {}, (
 
