@@ -160,7 +160,7 @@ modeldefs = (
                 'doc': 'The purchase included the line item.'}),
 
             (('econ:receipt', 'has', 'econ:lineitem'), {
-                'doc': 'The purchase included the line item.'}),
+                'doc': 'The receipt included the line item.'}),
 
             (('econ:statement', 'has', 'econ:payment'), {
                 'doc': 'The financial statement includes the payment.'}),
