@@ -651,6 +651,9 @@ modeldefs = (
             ('it:host:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
                 'doc': 'A URL hosted on or served by a specific host.'}),
 
+            ('it:host:installed', ('guid', {}), {
+                'doc': 'Software installed on a specific host.'}),
+
             ('it:exec:screenshot', ('guid', {}), {
                 'interfaces': (
                     ('it:host:activity', {}),
@@ -1082,8 +1085,17 @@ modeldefs = (
                 'doc': 'The target node was returned as a result of running the query.'}),
 
             # FIXME tighten these down...
-            (('it:app:snort:rule', 'detects', None), {
-                'doc': 'The snort rule is intended for use in detecting the target node.'}),
+            (('it:app:snort:rule', 'detects', 'risk:vuln'), {
+                'doc': 'The snort rule detects use of the vulnerability.'}),
+
+            (('it:app:snort:rule', 'detects', 'it:software'), {
+                'doc': 'The snort rule detects use of the software.'}),
+
+            (('it:app:snort:rule', 'detects', 'risk:tool:software'), {
+                'doc': 'The snort rule detects use of the tool.'}),
+
+            (('it:app:snort:rule', 'detects', 'ou:technique'), {
+                'doc': 'The snort rule detects use of the technique.'}),
 
             (('it:app:yara:rule', 'detects', None), {
                 'doc': 'The YARA rule is intended for use in detecting the target node.'}),
@@ -1305,9 +1317,8 @@ modeldefs = (
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The optional service account which the local account maps to.'}),
 
-                # FIXME need to make into a relationship form?
                 ('groups', ('array', {'type': 'it:host:group', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of groups that the account is a member of.'}),
+                    'doc': 'Groups that the account is a member of.'}),
             )),
             ('it:host:group', {}, (
 
@@ -1330,7 +1341,6 @@ modeldefs = (
                 ('service:group', ('inet:service:group', {}), {
                     'doc': 'The optional service group which the local group maps to.'}),
 
-                # FIXME need to make into a relationship form?
                 ('groups', ('array', {'type': 'it:host:group', 'uniq': True, 'sorted': True}), {
                     'doc': 'Groups that are a member of this group.'}),
             )),
@@ -1821,7 +1831,6 @@ modeldefs = (
                 ('serial', ('meta:id', {}), {
                     'doc': 'The serial number of this component.'}),
 
-                # FIXME hardware component container interface?
                 ('host', ('it:host', {}), {
                     'doc': 'The it:host which has this component installed.'}),
             )),
@@ -1899,6 +1908,22 @@ modeldefs = (
 
             )),
 
+            (('it:software', 'uses', 'it:software'), {
+                'doc': 'The source software uses the target software.'}),
+
+            (('it:software', 'has', 'it:software'), {
+                'doc': 'The source software directly includes the target software.'}),
+
+            # FIXME use a guid form instead? convert filepath to guid?
+            (('it:software', 'creates', 'file:filepath'), {
+                'doc': 'The software creates the file path.'}),
+
+            (('it:software', 'creates', 'it:os:windows:registry:entry'), {
+                'doc': 'The software creates the Microsoft Windows registry entry.'}),
+
+            (('it:software', 'creates', 'it:os:windows:service'), {
+                'doc': 'The software creates the Microsoft Windows service.'}),
+
             # # FIXME depends
             # ('it:prod:softlib', {}, (
 
@@ -1940,6 +1965,18 @@ modeldefs = (
             #         'doc': 'Software on the host.'})
 
             # )),
+            ('it:host:installed', {}, (
+
+                ('host', ('it:host', {}), {
+                    'doc': 'The host which the software was installed on.'}),
+
+                ('software', ('it:software', {}), {
+                    'doc': 'The software installed on the host.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The period when the software was installed on the host.'}),
+            )),
+
             ('it:av:signame', {}, ()),
 
             ('it:av:scan:result', {}, (

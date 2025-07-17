@@ -208,6 +208,9 @@ modeldefs = (
                 ),
                 'doc': 'An interface inherited by all cryptographic keys.'}),
 
+            ('crypto:pki:key', ('ndef', {'forms': ('crypto:key:rsa', 'crypto:key:dsa')}), {
+                'doc': 'A node which is a public key.'}),
+
             ('crypto:hash', {
                 'doc': 'An interface inherited by all cryptographic hashes.'}),
 
@@ -223,15 +226,6 @@ modeldefs = (
                         'doc': 'The transaction where the smart contract was called.'}),
                 ),
             }),
-        ),
-
-        'edges': (
-
-            (('crypto:x509:cert', 'has', 'crypto:key:rsa'), {
-                'doc': 'The certificate contains the public portion of the RSA key.'}),
-
-            (('crypto:x509:cert', 'has', 'crypto:key:dsa'), {
-                'doc': 'The certificate contains the public portion of the DSA key.'}),
         ),
 
         'forms': (
@@ -582,6 +576,9 @@ modeldefs = (
             )),
 
             ('crypto:x509:cert', {}, (
+
+                ('key', ('crypto:pki:key', {}), {
+                    'doc': 'The public key embedded in the certificate.'}),
 
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file that the certificate metadata was parsed from.',
