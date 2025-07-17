@@ -175,7 +175,7 @@ modeldefs = (
                     'doc': 'The issuer organization.'}),
 
                 ('issuer:name', ('meta:name', {}), {
-                    'prevnames': ('org',),
+                    'prevnames': ('name',),
                     'doc': 'The registered name of the issuer.'}),
             )),
 
