@@ -142,20 +142,26 @@ class GeoTest(s_t_utils.SynTest):
 
             # Latlong Type Tests =====================================================================================
             t = core.model.type(formlatlon)
-            self.eq(await t.norm('0,-0'), ((0.0, 0.0), {'subs': {'lat': 0.0, 'lon': 0.0}}))
-            self.eq(await t.norm('89.999,179.999'), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
-            self.eq(await t.norm('-89.999,-179.999'), ((-89.999, -179.999), {'subs': {'lat': -89.999, 'lon': -179.999}}))
+            subs = {'lat': (t.lattype.typehash, 0.0, {}), 'lon': (t.lontype.typehash, 0.0, {})}
+            self.eq(await t.norm('0,-0'), ((0.0, 0.0), {'subs': subs}))
 
-            self.eq(await t.norm([89.999, 179.999]), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
-            self.eq(await t.norm((89.999, 179.999)), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
+            subs = {'lat': (t.lattype.typehash, 89.999, {}), 'lon': (t.lontype.typehash, 179.999, {})}
+            self.eq(await t.norm('89.999,179.999'), ((89.999, 179.999), {'subs': subs}))
+
+            subs = {'lat': (t.lattype.typehash, -89.999, {}), 'lon': (t.lontype.typehash, -179.999, {})}
+            self.eq(await t.norm('-89.999,-179.999'), ((-89.999, -179.999), {'subs': subs}))
+
+            subs = {'lat': (t.lattype.typehash, 89.999, {}), 'lon': (t.lontype.typehash, 179.999, {})}
+            self.eq(await t.norm([89.999, 179.999]), ((89.999, 179.999), {'subs': subs}))
+            self.eq(await t.norm((89.999, 179.999)), ((89.999, 179.999), {'subs': subs}))
 
             # Demonstrate precision
-            self.eq(await t.norm('12.345678,-12.345678'),
-                    ((12.345678, -12.345678), {'subs': {'lat': 12.345678, 'lon': -12.345678}}))
-            self.eq(await t.norm('12.3456789,-12.3456789'),
-                    ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
-            self.eq(await t.norm('12.34567890,-12.34567890'),
-                    ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
+            subs = {'lat': (t.lattype.typehash, 12.345678, {}), 'lon': (t.lontype.typehash, -12.345678, {})}
+            self.eq(await t.norm('12.345678,-12.345678'), ((12.345678, -12.345678), {'subs': subs}))
+
+            subs = {'lat': (t.lattype.typehash, 12.3456789, {}), 'lon': (t.lontype.typehash, -12.3456789, {})}
+            self.eq(await t.norm('12.3456789,-12.3456789'), ((12.3456789, -12.3456789), {'subs': subs}))
+            self.eq(await t.norm('12.34567890,-12.34567890'), ((12.3456789, -12.3456789), {'subs': subs}))
 
             self.eq(t.repr((0, 0)), '0,0')
             self.eq(t.repr((0, -0)), '0,0')

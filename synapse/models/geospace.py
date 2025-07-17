@@ -329,6 +329,9 @@ class LatLong(s_types.Type):
             'near=': self._storLiftNear,
         })
 
+        self.lattype = self.modl.type('geo:latitude')
+        self.lontype = self.modl.type('geo:longitude')
+
     async def _normCmprValu(self, valu):
         latlong, dist = valu
         rlatlong = (await self.modl.type('geo:latlong').norm(latlong))[0]
@@ -359,13 +362,14 @@ class LatLong(s_types.Type):
                                     mesg='Valu must contain valid latitude,longitude')
 
         try:
-            latv = (await self.modl.type('geo:latitude').norm(valu[0]))[0]
-            lonv = (await self.modl.type('geo:longitude').norm(valu[1]))[0]
+            latv, latfo = await self.lattype.norm(valu[0])
+            lonv, lonfo = await self.lontype.norm(valu[1])
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg=str(e)) from None
 
-        return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
+        return (latv, lonv), {'subs': {'lat': (self.lattype.typehash, latv, latfo),
+                                       'lon': (self.lontype.typehash, lonv, lonfo)}}
 
     def repr(self, norm):
         return f'{norm[0]},{norm[1]}'
