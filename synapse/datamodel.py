@@ -531,8 +531,15 @@ class Model:
 
     @contextlib.contextmanager
     def bulkEditModel(self):
+
+        oldbulk = self.bulkedit
         self.bulkedit = True
+
         yield
+
+        if not oldbulk:
+            self.bulkedit = False
+
         self.calcModelIden()
 
     def calcModelIden(self):
@@ -758,9 +765,7 @@ class Model:
 
             # load all the types in order...
             for _, mdef in mods:
-                custom = mdef.get('custom', False)
                 for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
-                    typeinfo['custom'] = custom
                     self.addType(typename, basename, typeopts, typeinfo)
 
             # load all the interfaces...
@@ -771,7 +776,6 @@ class Model:
             # Load all the universal properties
             for _, mdef in mods:
                 for univname, typedef, univinfo in mdef.get('univs', ()):
-                    univinfo['custom'] = custom
                     self.addUnivProp(univname, typedef, univinfo)
 
             # Load all the tagprops
@@ -844,12 +848,12 @@ class Model:
         if base is None:
             raise s_exc.NoSuchType(name=basename)
 
-        newtype = base.extend(typename, typeopts, typeinfo)
-
-        if newtype.deprecated and typeinfo.get('custom'):
-            mesg = f'The type {typename} is based on a deprecated type {newtype.name} which ' \
-                   f'will be removed in 3.0.0.'
+        # if our parent type is deprecatred and we are not...
+        if base.deprecated and not typeinfo.get('deprecated'):
+            mesg = f'Type {typename} is not marked deprecated, but is based on deprecated type {basename}.'
             logger.warning(mesg)
+
+        newtype = base.extend(typename, typeopts, typeinfo)
 
         self.types[typename] = newtype
         self._modeldef['types'].append(newtype.getTypeDef())
@@ -1211,17 +1215,17 @@ class Model:
 
         self.calcModelIden()
 
-    def addBaseType(self, item):
-        '''
-        Add a Type instance to the data model.
-        '''
-        ctor = '.'.join([item.__class__.__module__, item.__class__.__qualname__])
+    # def addBaseType(self, item):
+    #     '''
+    #     Add a Type instance to the data model.
+    #     '''
+    #     ctor = '.'.join([item.__class__.__module__, item.__class__.__qualname__])
 
-        item.info['ctor'] = ctor
-        self._modeldef['ctors'].append(((item.name, ctor, dict(item.opts), dict(item.info))))
-        self.types[item.name] = item
+    #     item.info['ctor'] = ctor
+    #     self._modeldef['ctors'].append(((item.name, ctor, dict(item.opts), dict(item.info))))
+    #     self.types[item.name] = item
 
-        self.calcModelIden()
+    #     self.calcModelIden()
 
     def type(self, name):
         '''
