@@ -46,6 +46,7 @@ modeldefs = (
                 'doc': 'A purchase event.'}),
 
             ('econ:lineitem', ('guid', {}), {
+                'prevnames': ('econ:receipt:item',),
                 'doc': 'A line item included as part of a purchase.'}),
 
             ('econ:payment', ('guid', {}), {
