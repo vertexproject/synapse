@@ -1597,7 +1597,7 @@ modeldefs = (
                 ('name', ('it:dev:str', {}), {
                     'doc': 'The name of the registry value within the key.'}),
 
-                ('value', ('data', {}), {
+                ('value', ('str', {}), {
                     'prevnames': ('str', 'int', 'bytes'),
                     'doc': 'The value assigned to the name within the key.'}),
             )),

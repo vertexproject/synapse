@@ -118,35 +118,22 @@ class BizModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ biz:listing=*
                     :seller={ entity:contact:name=visi | limit 1 }
-                    :product={[ biz:product=* :name=wootprod ]}
-                    :service={[ biz:service=*
-                        :name=wootsvc
-                        :type=awesome
-                        :desc="hehe haha"
-                        :provider={ entity:contact:name=visi | limit 1}
-                        :launched=20230124
-                    ]}
-                    :current=1
-                    :time=20221221
-                    :expires=2023
+                    +(has)> {[ econ:lineitem=* :item={[ biz:service=* :launched=20250716 ]} ]}
+                    :current=(true)
+                    :period=(20221221, 2023)
                     :price=1000000
                     :currency=usd
                 ]
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('seller'))
-            self.nn(nodes[0].get('product'))
-            self.nn(nodes[0].get('service'))
             self.eq(True, nodes[0].get('current'))
-            self.eq(1671580800000000, nodes[0].get('time'))
-            self.eq(1672531200000000, nodes[0].get('expires'))
+            self.eq(nodes[0].get('period'), (1671580800000000, 1672531200000000))
             self.eq('1000000', nodes[0].get('price'))
             self.eq('usd', nodes[0].get('currency'))
 
             self.len(1, await core.nodes('biz:listing -> entity:contact +:name=visi'))
-            self.len(1, await core.nodes('biz:listing -> biz:product +:name=wootprod'))
-            self.len(1, await core.nodes('biz:listing -> biz:service +:name=wootsvc'))
 
-            nodes = await core.nodes('biz:listing -> biz:service')
+            nodes = await core.nodes('biz:listing -(has)> econ:lineitem -> biz:service')
             self.len(1, nodes)
-            self.eq(1674518400000000, nodes[0].get('launched'))
+            self.eq(1752624000000000, nodes[0].get('launched'))

@@ -3,6 +3,9 @@ modeldefs = (
 
         'types': (
 
+            ('biz:sellable', ('ndef', {'forms': ('biz:product', 'biz:service')}), {
+                'doc': 'A product or service which may be sold.'}),
+
             ('econ:pay:cvv', ('str', {'regex': '^[0-9]{1,6}$'}), {
                 'doc': 'A Card Verification Value (CVV).'}),
 
@@ -16,6 +19,9 @@ modeldefs = (
                 'doc': 'A Primary Account Number (PAN) or card number.'}),
 
             ('econ:pay:iin', ('int', {'min': 0, 'max': 999999}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
                 'doc': 'An Issuer Id Number (IIN).'}),
 
             ('econ:pay:card', ('guid', {}), {
@@ -39,7 +45,8 @@ modeldefs = (
                 ),
                 'doc': 'A purchase event.'}),
 
-            ('econ:receipt:item', ('guid', {}), {
+            ('econ:lineitem', ('guid', {}), {
+                'prevnames': ('econ:receipt:item',),
                 'doc': 'A line item included as part of a purchase.'}),
 
             ('econ:payment', ('guid', {}), {
@@ -110,9 +117,15 @@ modeldefs = (
                 'doc': 'A cash withdrawal event from a financial account.'}),
 
             ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
                 'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),
 
             ('econ:bank:iban', ('str', {'regex': '[A-Z]{2}[0-9]{2}[a-zA-Z0-9]{1,30}'}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
                 'doc': 'An International Bank Account Number.'}),
 
             ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{5}'}), {
@@ -143,6 +156,12 @@ modeldefs = (
             # (('econ:purchase', 'acquired', 'entity:havable'), {
                 # 'doc': 'The purchase was used to acquire the target node.'}),
 
+            (('econ:purchase', 'has', 'econ:lineitem'), {
+                'doc': 'The purchase included the line item.'}),
+
+            (('econ:receipt', 'has', 'econ:lineitem'), {
+                'doc': 'The receipt included the line item.'}),
+
             (('econ:statement', 'has', 'econ:payment'), {
                 'doc': 'The financial statement includes the payment.'}),
         ),
@@ -152,10 +171,12 @@ modeldefs = (
             ('econ:currency', {}, ()),
             ('econ:pay:iin', {}, (
 
-                ('org', ('ou:org', {}), {
+                ('issuer', ('ou:org', {}), {
+                    'prevnames': ('org',),
                     'doc': 'The issuer organization.'}),
 
-                ('name', ('meta:name', {}), {
+                ('issuer:name', ('meta:name', {}), {
+                    'prevnames': ('name',),
                     'doc': 'The registered name of the issuer.'}),
             )),
 
@@ -237,10 +258,7 @@ modeldefs = (
                 #   'doc': 'The purchase was made based on the given listing.'}),
             )),
 
-            ('econ:receipt:item', {}, (
-
-                ('purchase', ('econ:purchase', {}), {
-                    'doc': 'The purchase that contains this line item.'}),
+            ('econ:lineitem', {}, (
 
                 ('count', ('int', {'min': 1}), {
                     'doc': 'The number of items included in this line item.'}),
@@ -248,8 +266,9 @@ modeldefs = (
                 ('price', ('econ:price', {}), {
                     'doc': 'The total cost of this receipt line item.'}),
 
-                ('product', ('biz:product', {}), {
-                    'doc': 'The product being being purchased in this line item.'}),
+                ('item', ('biz:sellable', {}), {
+                    'prevnames': ('product',),
+                    'doc': 'The product or service.'}),
             )),
 
             ('econ:cash:deposit', {}, (
@@ -338,7 +357,7 @@ modeldefs = (
                 #   doc': 'The invoices that the payment applies to.'}),
 
                 # FIXME one to many?
-                # ('receipts', ('econ:receipt', {}),
+                # ('receipt', ('econ:receipt', {}),
                     # 'doc': 'The receipts that was issued for the payment.'}),
 
                 # FIXME geo:locatable
@@ -459,7 +478,8 @@ modeldefs = (
                 ('security', ('econ:fin:security', {}), {
                     'doc': 'The security measured by the bar.'}),
 
-                ('ival', ('ival', {}), {
+                ('period', ('ival', {}), {
+                    'prevnames': ('ival',),
                     'doc': 'The interval of measurement.'}),
 
                 ('price:open', ('econ:price', {}), {
@@ -510,6 +530,7 @@ modeldefs = (
                 ('purchase', ('econ:purchase', {}), {
                     'doc': 'The purchase that the receipt confirms payment for.'}),
 
+                # FIXME entity:contact?
                 ('issuer', ('entity:actor', {}), {
                     'doc': 'The contact information for the entity which issued the receipt.'}),
 

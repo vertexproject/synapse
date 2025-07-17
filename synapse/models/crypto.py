@@ -145,6 +145,9 @@ modeldefs = (
                 'doc': 'A hex encoded SHA512 hash.'}),
 
             ('crypto:salthash', ('guid', {}), {
+                'interfaces': (
+                    ('auth:credential', {}),
+                ),
                 'doc': 'A salted hash computed for a value.'}),
 
             ('crypto:key', ('ndef', {'interface': 'crypto:key'}), {

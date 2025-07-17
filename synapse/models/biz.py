@@ -55,6 +55,15 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of product types.'}),
         ),
+
+        'edges': (
+            (('biz:listing', 'has', 'econ:lineitem'), {
+                'doc': 'The listing offers the line item.'}),
+
+            (('biz:deal', 'has', 'econ:lineitem'), {
+                'doc': 'The deal includes the line item.'}),
+        ),
+
         'forms': (
             ('biz:deal:type:taxonomy', {
                 'prevnames': ('biz:dealtype',)}, ()),
@@ -138,31 +147,19 @@ modeldefs = (
                 ('purchase', ('econ:purchase', {}), {
                     'doc': 'Records a purchase resulting from the deal.'}),
             )),
-            # FIXME convert to aggregates?
-            # ('biz:bundle', {}, (
+
             ('biz:listing', {}, (
 
                 ('seller', ('entity:actor', {}), {
                     'doc': 'The contact information for the seller.'}),
 
-                # FIXME valuable?
-                ('product', ('biz:product', {}), {
-                    'doc': 'The product being offered.'}),
-
-                ('service', ('biz:service', {}), {
-                    'doc': 'The service being offered.'}),
-
                 ('current', ('bool', {}), {
                     'doc': 'Set to true if the offer is still current.'}),
 
-                # FIXME period
-                ('time', ('time', {}), {
-                    'doc': 'The first known offering of this product/service by the organization for the asking price.'}),
+                ('period', ('ival', {}), {
+                    'prevnames': ('time', 'expires'),
+                    'doc': 'The period when the listing existed.'}),
 
-                ('expires', ('time', {}), {
-                    'doc': 'Set if the offer has a known expiration date.'}),
-
-                # FIXME valuable
                 ('price', ('econ:price', {}), {
                     'doc': 'The asking price of the product or service.'}),
 
@@ -177,11 +174,14 @@ modeldefs = (
             )),
             ('biz:service', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the service being performed.'}),
 
                 ('provider', ('entity:actor', {}), {
-                    'doc': 'The contact info of the entity which performs the service.'}),
+                    'doc': 'The entity which performs the service.'}),
+
+                ('provider:name', ('meta:name', {}), {
+                    'doc': 'The name of the entity which performs the service.'}),
 
                 ('desc', ('text', {}), {
                     'doc': 'A description of the service.'}),
@@ -189,26 +189,27 @@ modeldefs = (
                 ('type', ('biz:service:type:taxonomy', {}), {
                     'doc': 'A taxonomy of service types.'}),
 
-                # FIXME offered=ival?
                 ('launched', ('time', {}), {
                     'doc': 'The time when the operator first made the service available.'}),
                 # TODO: billing types (fixed, hourly, subscription, etc)
             )),
             ('biz:product', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the product.'}),
 
                 ('type', ('biz:product:type:taxonomy', {}), {
                     'doc': 'The type of product.'}),
 
-                # TODO ('upc', ('biz:upc', {}), {}),
                 ('desc', ('text', {}), {
                     'doc': 'A description of the product.'}),
 
-                # FIXME: manufactur?
-                ('maker', ('entity:actor', {}), {
-                    'doc': 'A contact for the maker of the product.'}),
+                ('manufacturer', ('entity:actor', {}), {
+                    'prevnames': ('maker',),
+                    'doc': 'A contact for the manufacturer of the product.'}),
+
+                ('manufacturer:name', ('meta:name', {}), {
+                    'doc': 'The name of the manufacturer of the product.'}),
 
                 ('price:retail', ('econ:price', {}), {
                     'doc': 'The MSRP price of the product.'}),
