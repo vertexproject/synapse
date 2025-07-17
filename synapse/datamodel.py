@@ -529,27 +529,6 @@ class Model:
             'edges': [],
         }
 
-    @contextlib.contextmanager
-    def bulkEditModel(self):
-
-        oldbulk = self.bulkedit
-        self.bulkedit = True
-
-        yield
-
-        if not oldbulk:
-            self.bulkedit = False
-
-        self.calcModelIden()
-
-    def calcModelIden(self):
-
-        if self.bulkedit:
-            return
-
-        self.iden = s_common.guid(s_common.flatten(self.getModelDef()))
-        return self.iden
-
     def getPropsByType(self, name):
         props = self.propsbytype.get(name)
         if props is None:
@@ -660,6 +639,13 @@ class Model:
 
         return base.clone(typedef[1])
 
+    def getModelDefs(self):
+        '''
+        Returns:
+            A list of one model definition compatible with addDataModels that represents the current data model
+        '''
+        return [('all', self.getModelDef())]
+
     def getModelDef(self):
 
         mdef = self._modeldef.copy()
@@ -673,13 +659,6 @@ class Model:
         mdef['edges'] = [e.pack() for e in self.edges.values()]
 
         return mdef
-
-    def getModelDefs(self):
-        '''
-        Returns:
-            A list of one model definition compatible with addDataModels that represents the current data model
-        '''
-        return [('all', self.getModelDef())]
 
     def getModelDict(self):
         retn = {
@@ -707,6 +686,27 @@ class Model:
             retn['edges'].append(eobj.pack())
 
         return retn
+
+    @contextlib.contextmanager
+    def bulkEditModel(self):
+
+        oldbulk = self.bulkedit
+        self.bulkedit = True
+
+        yield
+
+        if not oldbulk:
+            self.bulkedit = False
+
+        self.calcModelIden()
+
+    def calcModelIden(self):
+
+        if self.bulkedit:
+            return
+
+        self.iden = s_common.guid(s_common.flatten(self.getModelDef()))
+        return self.iden
 
     def addDataModels(self, mods):
         '''
