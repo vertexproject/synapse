@@ -272,6 +272,9 @@ modeldefs = (
             (('meta:note', 'about', None), {
                 'doc': 'The meta:note is about the target node.'}),
 
+            (('meta:note', 'has', 'file:attachment'), {
+                'doc': 'The note includes the file attachment.'}),
+
             (('meta:ruleset', 'has', 'meta:ruleish'), {
                'doc': 'The ruleset includes the rule.'}),
 
