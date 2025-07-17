@@ -220,6 +220,8 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The threat cluster targeted the target node.'}),
                 (('risk:threat', 'uses', None), {
                     'doc': 'The threat cluster uses the target node.'}),
+                (('risk:threat', 'uses', 'inet:service:app'), {
+                    'doc': 'The threat cluster uses the online application.'}),
                 (('risk:attack', 'targets', None), {
                     'doc': 'The attack targeted the target node.'}),
                 (('risk:attack', 'uses', None), {

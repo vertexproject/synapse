@@ -1542,7 +1542,7 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:app', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
                         'template': {'service:base': 'application'},
-                        'doc': 'A platform specific application.'}),
+                        'doc': 'An application which is part of a service architecture.'}),
 
                     ('inet:service:instance', ('guid', {}), {
                         'doc': 'An instance of the platform such as Slack or Discord instances.'}),
@@ -3769,6 +3769,12 @@ class InetModule(s_module.CoreModule):
                         ('desc', ('str', {}), {
                             'disp': {'hint': 'text'},
                             'doc': 'A description of the platform specific application.'}),
+
+                        ('provider', ('ou:org', {}), {
+                            'doc': 'The organization which provides the application.'}),
+
+                        ('provider:name', ('ou:name', {}), {
+                            'doc': 'The name of the organization which provides the application.'}),
                     )),
 
                     ('inet:service:account', {}, (
