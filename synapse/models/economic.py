@@ -267,6 +267,7 @@ modeldefs = (
                     'doc': 'The total cost of this receipt line item.'}),
 
                 ('item', ('biz:sellable', {}), {
+                    'prevnames': ('product',),
                     'doc': 'The product or service.'}),
             )),
 
