@@ -14,6 +14,8 @@ class FileBase(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
+        self.exttype = self.modl.type('str')
+
     async def _normPyStr(self, valu, view=None):
 
         norm = valu.strip().lower().replace('\\', '/')
@@ -21,11 +23,11 @@ class FileBase(s_types.Str):
             mesg = 'file:base may not contain /'
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
 
-        subs = {}
+        info = {}
         if norm.find('.') != -1:
-            subs['ext'] = norm.rsplit('.', 1)[1]
+            info['subs'] = {'ext': (self.exttype.typehash, norm.rsplit('.', 1)[1], {})}
 
-        return norm, {'subs': subs}
+        return norm, info
 
 class FilePath(s_types.Str):
 
@@ -116,17 +118,19 @@ class FilePath(s_types.Str):
         fullpath = lead + '/'.join(path)
 
         base = path[-1]
-        subs = {'base': base}
+        subs = {'base': (self.basetype.typehash, base, {})}
         virts = {'base': (base, self.basetype.stortype)}
 
         if '.' in base:
             ext = base.rsplit('.', 1)[1]
-            subs['ext'] = ext
+            extsub = (self.exttype.typehash, ext, {})
+            subs['ext'] = extsub
+            subs['base'][2]['subs'] = {'ext': extsub}
             virts['ext'] = (ext, self.exttype.stortype)
 
         if len(path) > 1:
-            dirn = lead + '/'.join(path[:-1])
-            subs['dir'] = dirn
+            dirn, info = await self._normPyStr(lead + '/'.join(path[:-1]))
+            subs['dir'] = (self.typehash, dirn, info)
             virts['dir'] = (dirn, self.stortype)
 
         return fullpath, {'subs': subs, 'virts': virts}

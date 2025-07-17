@@ -134,42 +134,59 @@ class InetModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             t = core.model.type(formname)
 
+            ipnorm, ipinfo = await t.iptype.norm('1.2.3.4')
+            ipsub = (t.iptype.typehash, (4, 16909060), ipinfo)
+
+            portsub = (t.porttype.typehash, 80, {})
+
+            tcpsub = (t.prototype.typehash, 'tcp', {})
+            udpsub = (t.prototype.typehash, 'udp', {})
+            icmpsub = (t.prototype.typehash, 'icmp', {})
+
             # Proto defaults to tcp
-            subs = {'ip': (4, 16909060), 'proto': 'tcp'}
+            subs = {'ip': ipsub, 'proto': tcpsub}
             virts = {'ip': ((4, 16909060), 26)}
+            self.maxDiff = None
             self.eq(await t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'subs': subs, 'virts': virts}))
 
-            subs = {'ip': (4, 16909060), 'proto': 'tcp', 'port': 80}
+            subs = {'ip': ipsub, 'proto': tcpsub, 'port': portsub}
             virts = {'ip': ((4, 16909060), 26), 'port': (80, 9)}
             self.eq(await t.norm('1.2.3.4:80'), ('tcp://1.2.3.4:80', {'subs': subs, 'virts': virts}))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('https://192.168.1.1:80'))  # bad proto
 
             # IPv4
-            subs = {'ip': (4, 16909060), 'proto': 'tcp'}
+            subs = {'ip': ipsub, 'proto': tcpsub}
             virts = {'ip': ((4, 16909060), 26)}
             self.eq(await t.norm('tcp://1.2.3.4'), ('tcp://1.2.3.4', {'subs': subs, 'virts': virts}))
             self.eq(await t.norm('tcp://1[.]2.3[.]4'), ('tcp://1.2.3.4', {'subs': subs, 'virts': virts}))
 
-            subs = {'ip': (4, 16909060), 'proto': 'udp', 'port': 80}
+            subs = {'ip': ipsub, 'proto': udpsub, 'port': portsub}
             virts = {'ip': ((4, 16909060), 26), 'port': (80, 9)}
             self.eq(await t.norm('udp://1.2.3.4:80'), ('udp://1.2.3.4:80', {'subs': subs, 'virts': virts}))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://1.2.3.4:-1'))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://1.2.3.4:66000'))
 
+            ipnorm, ipinfo = await t.iptype.norm('::1')
+            ipsub = (t.iptype.typehash, (6, 1), ipinfo)
+            portsub = (t.porttype.typehash, 2, {})
+
             # IPv6
-            subs = {'ip': (6, 1), 'proto': 'icmp'}
+            subs = {'ip': ipsub, 'proto': icmpsub}
             virts = {'ip': ((6, 1), 26)}
             self.eq(await t.norm('icmp://::1'), ('icmp://::1', {'subs': subs, 'virts': virts}))
 
-            subs = {'ip': (6, 1), 'proto': 'tcp', 'port': 2}
+            subs = {'ip': ipsub, 'proto': tcpsub, 'port': portsub}
             virts = {'ip': ((6, 1), 26), 'port': (2, 9)}
             self.eq(await t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'subs': subs, 'virts': virts}))
 
-            subs = {'ip': (6, 1), 'proto': 'tcp'}
+            subs = {'ip': ipsub, 'proto': tcpsub}
             virts = {'ip': ((6, 1), 26)}
             self.eq(await t.norm('tcp://[::1]'), ('tcp://[::1]', {'subs': subs, 'virts': virts}))
 
-            subs = {'ip': (6, 0xffff01020304), 'proto': 'tcp', 'port': 2}
+            ipnorm, ipinfo = await t.iptype.norm('::fFfF:0102:0304')
+            ipsub = (t.iptype.typehash, (6, 0xffff01020304), ipinfo)
+
+            subs = {'ip': ipsub, 'proto': tcpsub, 'port': portsub}
             virts = {'ip': ((6, 0xffff01020304), 26), 'port': (2, 9)}
             self.eq(await t.norm('tcp://[::fFfF:0102:0304]:2'),
                     ('tcp://[::ffff:1.2.3.4]:2', {'subs': subs, 'virts': virts}))
@@ -177,9 +194,13 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Host
             hstr = 'ffa3e574aa219e553e1b2fc1ccd0180f'
-            self.eq(await t.norm('host://vertex.link'), (f'host://{hstr}', {'subs': {'host': hstr, 'proto': 'host'}}))
+            hostsub = (t.hosttype.typehash, hstr, {})
+            portsub = (t.porttype.typehash, 1337, {})
+            protosub = (t.prototype.typehash, 'host', {})
+
+            self.eq(await t.norm('host://vertex.link'), (f'host://{hstr}', {'subs': {'host': hostsub, 'proto': protosub}}))
             self.eq(await t.norm('host://vertex.link:1337'),
-                    (f'host://{hstr}:1337', {'subs': {'host': hstr, 'port': 1337, 'proto': 'host'}}))
+                    (f'host://{hstr}:1337', {'subs': {'host': hostsub, 'port': portsub, 'proto': protosub}}))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('vertex.link'))  # must use host proto
 
     async def test_asn_collection(self):
@@ -225,28 +246,27 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(formname)
 
             valu = '0.0.0.0/24'
-            expected = ('0.0.0.0/24', {'subs': {
-                'broadcast': (4, 255),
-                'network': (4, 0),
-                'mask': 24,
-            }})
-            self.eq(await t.norm(valu), expected)
+            norm, info = await t.norm(valu)
+            self.eq(norm, valu)
+            self.eq(info['subs']['broadcast'][1], (4, 255))
+            self.eq(info['subs']['network'][1], (4, 0))
+            self.eq(info['subs']['mask'][1], 24)
 
             valu = '192.168.1.101/24'
-            expected = ('192.168.1.0/24', {'subs': {
-                'broadcast': (4, 3232236031),  # 192.168.1.255
-                'network': (4, 3232235776),    # 192.168.1.0
-                'mask': 24,
-            }})
-            self.eq(await t.norm(valu), expected)
+            exp = '192.168.1.0/24'
+            norm, info = await t.norm(valu)
+            self.eq(norm, exp)
+            self.eq(info['subs']['broadcast'][1], (4, 3232236031))  # 192.168.1.255
+            self.eq(info['subs']['network'][1], (4, 3232235776))    # 192.168.1.0
+            self.eq(info['subs']['mask'][1], 24)
 
             valu = '123.123.0.5/30'
-            expected = ('123.123.0.4/30', {'subs': {
-                'broadcast': (4, 2071658503),  # 123.123.0.7
-                'network': (4, 2071658500),    # 123.123.0.4
-                'mask': 30,
-            }})
-            self.eq(await t.norm(valu), expected)
+            exp = '123.123.0.4/30'
+            norm, info = await t.norm(valu)
+            self.eq(norm, exp)
+            self.eq(info['subs']['broadcast'][1], (4, 2071658503))  # 123.123.0.7
+            self.eq(info['subs']['network'][1], (4, 2071658500))    # 123.123.0.4
+            self.eq(info['subs']['mask'][1], 30)
 
             await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/-1'))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/33'))
@@ -273,20 +293,18 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(formname)
 
             valu = '::/0'
-            expected = ('::/0', {'subs': {
-                'broadcast': (6, 0xffffffffffffffffffffffffffffffff),
-                'network': (6, 0),
-                'mask': 0,
-            }})
-            self.eq(await t.norm(valu), expected)
+            norm, info = await t.norm(valu)
+            self.eq(norm, valu)
+            self.eq(info['subs']['broadcast'][1], (6, 0xffffffffffffffffffffffffffffffff))
+            self.eq(info['subs']['network'][1], (6, 0))
+            self.eq(info['subs']['mask'][1], 0)
 
             valu = '2001:db8::/59'
-            expected = ('2001:db8::/59', {'subs': {
-                'broadcast': (6, 0x20010db80000001fffffffffffffffff),
-                'network': (6, 0x20010db8000000000000000000000000),
-                'mask': 59,
-            }})
-            self.eq(await t.norm(valu), expected)
+            norm, info = await t.norm(valu)
+            self.eq(norm, valu)
+            self.eq(info['subs']['broadcast'][1], (6, 0x20010db80000001fffffffffffffffff))
+            self.eq(info['subs']['network'][1], (6, 0x20010db8000000000000000000000000))
+            self.eq(info['subs']['mask'][1], 59)
 
             with self.raises(s_exc.BadTypeValu):
                 await t.norm('10.0.0.1/-1')
@@ -357,7 +375,11 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(formname)
 
             email = 'UnitTest@Vertex.link'
-            expected = ('unittest@vertex.link', {'subs': {'fqdn': 'vertex.link', 'user': 'unittest'}})
+            expected = ('unittest@vertex.link', {'subs': {
+                            'fqdn': (t.fqdntype.typehash, 'vertex.link', {
+                                'subs': {'domain': (None, 'link', None),
+                                         'host': (t.fqdntype.hosttype.typehash, 'vertex', {})}}),
+                            'user': (t.usertype.typehash, 'unittest', {})}})
             self.eq(await t.norm(email), expected)
 
             valu = (await t.norm('bob\udcfesmith@woot.com'))[0]
@@ -832,7 +854,8 @@ class InetModelTest(s_t_utils.SynTest):
             ip_str_enfanged2 = '1(.)2(.)3(.)4'
             ip_str_unicode = '1\u200b.\u200b2\u200b.\u200b3\u200b.\u200b4'
 
-            info = {'subs': {'type': 'unicast', 'version': 4}}
+            info = {'subs': {'type': (t.typetype.typehash, 'unicast', {}),
+                             'version': (t.verstype.typehash, 4, {})}}
             self.eq(await t.norm(ip_tup), (ip_tup, info))
             self.eq(await t.norm(ip_str), (ip_tup, info))
             self.eq(await t.norm(ip_str_enfanged), (ip_tup, info))
@@ -844,19 +867,19 @@ class InetModelTest(s_t_utils.SynTest):
             ip_str = '169.254.1.1'
             norm, info = await t.norm(ip_str)
             self.eq((4, 2851995905), norm)
-            self.eq(info.get('subs').get('type'), 'linklocal')
+            self.eq(info.get('subs').get('type')[1], 'linklocal')
 
             norm, info = await t.norm('100.63.255.255')
-            self.eq(info.get('subs').get('type'), 'unicast')
+            self.eq(info.get('subs').get('type')[1], 'unicast')
 
             norm, info = await t.norm('100.64.0.0')
-            self.eq(info.get('subs').get('type'), 'shared')
+            self.eq(info.get('subs').get('type')[1], 'shared')
 
             norm, info = await t.norm('100.127.255.255')
-            self.eq(info.get('subs').get('type'), 'shared')
+            self.eq(info.get('subs').get('type')[1], 'shared')
 
             norm, info = await t.norm('100.128.0.0')
-            self.eq(info.get('subs').get('type'), 'unicast')
+            self.eq(info.get('subs').get('type')[1], 'unicast')
 
             # Don't allow invalid values
             with self.raises(s_exc.BadTypeValu):
@@ -972,16 +995,22 @@ class InetModelTest(s_t_utils.SynTest):
             # Type Tests ======================================================
             t = core.model.type(formname)
 
-            info = {'subs': {'type': 'loopback', 'scope': 'link-local', 'version': 6}}
+            info = {'subs': {'type': (t.typetype.typehash, 'loopback', {}),
+                             'scope': (t.scopetype.typehash, 'link-local', {}),
+                             'version': (t.verstype.typehash, 6, {})}}
             self.eq(await t.norm('::1'), ((6, 1), info))
             self.eq(await t.norm('0:0:0:0:0:0:0:1'), ((6, 1), info))
 
             addrnorm = (6, 0xff010000000000000000000000000001)
-            info = {'subs': {'type': 'multicast', 'scope': 'interface-local', 'version': 6}}
+            info = {'subs': {'type': (t.typetype.typehash, 'multicast', {}),
+                             'scope': (t.scopetype.typehash, 'interface-local', {}),
+                             'version': (t.verstype.typehash, 6, {})}}
             self.eq(await t.norm('ff01::1'), (addrnorm, info))
 
             addrnorm = (6, 0x20010db8000000000000ff0000428329)
-            info = {'subs': {'type': 'private', 'scope': 'global', 'version': 6}}
+            info = {'subs': {'type': (t.typetype.typehash, 'private', {}),
+                             'scope': (t.scopetype.typehash, 'global', {}),
+                             'version': (t.verstype.typehash, 6, {})}}
             self.eq(await t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), (addrnorm, info))
             self.eq(await t.norm('2001:0db8:0000:0000:0000:ff00:0042\u200b:8329'), (addrnorm, info))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('newp'))
@@ -1011,7 +1040,7 @@ class InetModelTest(s_t_utils.SynTest):
             ip_str = 'fe80::1'
             norm, info = await t.norm(ip_str)
             self.eq(norm, (6, 0xfe800000000000000000000000000001))
-            self.eq(info.get('subs').get('type'), 'linklocal')
+            self.eq(info.get('subs').get('type')[1], 'linklocal')
 
             # Form Tests ======================================================
             place = s_common.guid()

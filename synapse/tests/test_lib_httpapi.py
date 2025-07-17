@@ -855,7 +855,7 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq((4, 0x01020304), retn['result']['norm'])
-                    self.eq('unicast', retn['result']['info']['subs']['type'])
+                    self.eq('unicast', retn['result']['info']['subs']['type'][1])
 
                 body = {'prop': 'fake:prop', 'value': '1.2.3.4'}
                 async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
@@ -889,7 +889,7 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq((4, 0x01020304), retn['result']['norm'])
-                    self.eq('unicast', retn['result']['info']['subs']['type'])
+                    self.eq('unicast', retn['result']['info']['subs']['type'][1])
 
             # Auth failures
             conn = aiohttp.TCPConnector(ssl=False)
