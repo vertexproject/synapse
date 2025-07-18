@@ -2946,19 +2946,19 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 nodes = await core.nodes('ou:org:hq::email::newp=a')
 
-            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.4]} ]}]')
-            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://5.6.7.8]} ]}]')
-            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.5]} ]}]')
+            await core.nodes('[it:exec:fetch=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.4]} ]}]')
+            await core.nodes('[it:exec:fetch=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://5.6.7.8]} ]}]')
+            await core.nodes('[it:exec:fetch=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.5]} ]}]')
 
-            self.len(2, await core.nodes('it:exec:url:http:request::flow::client.ip*in=(1.2.3.4, 5.6.7.8)'))
-            self.len(2, await core.nodes('it:exec:url:http:request::flow::client::ip*in=(1.2.3.4, 5.6.7.8)'))
+            self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client.ip*in=(1.2.3.4, 5.6.7.8)'))
+            self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client::ip*in=(1.2.3.4, 5.6.7.8)'))
 
             await core.nodes('inet:ip=1.2.3.4 [:asn=5]')
             await core.nodes('inet:ip=1.2.3.5 [:asn=6]')
             await core.nodes('inet:ip=5.6.7.8 [:asn=7]')
 
-            self.len(1, await core.nodes('it:exec:url:http:request::flow::client::ip::asn>6'))
-            self.len(2, await core.nodes('it:exec:url:http:request::flow::client::ip::asn*in=(5,6)'))
+            self.len(1, await core.nodes('it:exec:fetch:http:request::flow::client::ip::asn>6'))
+            self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client::ip::asn*in=(5,6)'))
 
 class CortexBasicTest(s_t_utils.SynTest):
     '''
