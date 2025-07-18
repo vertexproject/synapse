@@ -420,7 +420,7 @@ modeldefs = (
                     ('country', ('pol:country', {}), {
                         'doc': 'The country where the {geo:locatable} was located.'}),
 
-                    ('country:code', ('pol:iso2', {}), {
+                    ('country:code', ('iso:3166:alpha2', {}), {
                         'doc': 'The country code where the {geo:locatable} was located.'}),
 
                     ('bbox', ('geo:bbox', {}), {

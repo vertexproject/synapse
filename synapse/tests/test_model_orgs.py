@@ -220,7 +220,7 @@ class OuModelTest(s_t_utils.SynTest):
 
             await core.nodes('ou:org:url=http://arrowinc.link [ :place:country={ gen.pol.country ua } :place:country:code=ua ]')
             self.len(1, await core.nodes('ou:org:place:country:code=ua'))
-            self.len(1, await core.nodes('pol:country:iso2=ua -> ou:org'))
+            self.len(1, await core.nodes('pol:country:code=ua -> ou:org'))
             self.len(1, await core.nodes('ou:org -> ou:org:type:taxonomy'))
             self.len(1, await core.nodes('ou:org :motto -> lang:phrase'))
 

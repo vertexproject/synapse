@@ -894,7 +894,8 @@ modeldefs = (
                 ),
                 'doc': 'A named pipe created by a process at runtime.'}),
 
-            ('it:exec:url', ('guid', {}), {
+            ('it:exec:fetch', ('guid', {}), {
+                'prevnames': ('it:hosturl',),
                 'interfaces': (
                     ('it:host:activity', {}),
                 ),
@@ -2234,7 +2235,7 @@ modeldefs = (
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
-            ('it:exec:url', {}, (
+            ('it:exec:fetch', {}, (
 
                 ('proc', ('it:exec:proc', {}), {
                     'doc': 'The main process executing code that requested the URL.'}),

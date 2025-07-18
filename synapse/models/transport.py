@@ -472,7 +472,7 @@ modeldefs = (
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the vessel.'}),
 
-                ('flag', ('iso:3166:cc', {}), {
+                ('flag', ('iso:3166:alpha2', {}), {
                     'doc': 'The country the vessel is flagged to.'}),
 
                 ('mmsi', ('transport:sea:mmsi', {}), {

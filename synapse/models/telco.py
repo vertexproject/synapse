@@ -298,7 +298,7 @@ modeldefs = (
                     'doc': 'The IMSI with the assigned phone number.'}),
             )),
             ('tel:mob:mcc', {}, (
-                ('place:country:code', ('pol:iso2', {}), {
+                ('place:country:code', ('iso:3166:alpha2', {}), {
                     'doc': 'The country code which the MCC is assigned to.'}),
             )),
             ('tel:mob:carrier', {}, (

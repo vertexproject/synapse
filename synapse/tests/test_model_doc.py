@@ -92,36 +92,27 @@ class DocModelTest(s_tests.SynTest):
             [ doc:contract=*
                 :title="Fullbright Scholarship"
                 :type=foo.bar
-                :sponsor={[ ou:org=({"name": "vertex"}) ]}
-                :currency=USD
-                :award:price=20.00
-                :budget:price=21.50
+                :issuer={[ ou:org=({"name": "vertex"}) ]}
                 :parties={[ entity:contact=* entity:contact=* ]}
-                :document={[ file:bytes=* ]}
+                :signers={[ entity:contact=* entity:contact=* ]}
+                :file={[ file:bytes=* ]}
                 :signed=202001
-                :begins=202002
-                :expires=202003
+                :period=(202002, 202003)
                 :completed=202004
                 :terminated=202005
-                :requirements={
-                    [( ou:goal=* :name="world peace" )]
-                    [( ou:goal=* :name="whirled peas" )]
-                }
             ]''')
             self.len(1, nodes)
-            self.nn(nodes[0].get('sponsor'))
             self.eq('Fullbright Scholarship', nodes[0].get('title'))
-            self.eq('usd', nodes[0].get('currency'))
-            self.eq('20', nodes[0].get('award:price'))
-            self.eq('21.5', nodes[0].get('budget:price'))
             self.eq('foo.bar.', nodes[0].get('type'))
             self.eq(1577836800000000, nodes[0].get('signed'))
-            self.eq(1580515200000000, nodes[0].get('begins'))
-            self.eq(1583020800000000, nodes[0].get('expires'))
+            self.eq(nodes[0].get('period'), (1580515200000000, 1583020800000000))
             self.eq(1585699200000000, nodes[0].get('completed'))
             self.eq(1588291200000000, nodes[0].get('terminated'))
             self.len(2, nodes[0].get('parties'))
-            self.len(2, nodes[0].get('requirements'))
+
+            self.len(1, await core.nodes('doc:contract :issuer -> ou:org'))
+            self.len(2, await core.nodes('doc:contract :parties -> *'))
+            self.len(2, await core.nodes('doc:contract :signers -> *'))
 
             nodes = await core.nodes('doc:contract -> doc:contract:type:taxonomy')
             self.len(1, nodes)

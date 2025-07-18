@@ -27,8 +27,20 @@ modeldefs = (
             ('iso:oid', ('str', {'regex': '^([0-2])((\\.0)|(\\.[1-9][0-9]*))*$'}), {
                 'doc': 'An ISO Object Identifier string.'}),
 
-            ('iso:3166:cc', ('str', {'lower': True, 'regex': '^[a-z]{2}$'}), {
-                'doc': 'An ISO 3166 2 digit country code.'}),
+            ('iso:3166:alpha2', ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$'}), {
+                'prevnames': ('pol:iso2', 'iso:3166:cc'),
+                'ex': 'us',
+                'doc': 'An ISO 3166 Alpha-2 country code.'}),
+
+            ('iso:3166:alpha3', ('str', {'lower': True, 'regex': '^[a-z0-9]{3}$'}), {
+                'prevnames': ('pol:iso3',),
+                'ex': 'usa',
+                'doc': 'An ISO 3166 Alpha-3 country code.'}),
+
+            ('iso:3166:numeric3', ('int', {'min': 0, 'max': 999, 'fmt': '%.3d'}), {
+                'prevnames': ('pol:isonum',),
+                'ex': '840',
+                'doc': 'An ISO 3166 Numeric-3 country code.'}),
 
             ('gov:intl:un:m49', ('int', {'min': 1, 'max': 999}), {
                 'doc': 'UN M49 Numeric Country Code.'}),
@@ -73,7 +85,7 @@ modeldefs = (
                 ('city', ('str', {'lower': True}), {}),
                 ('state', ('str', {'lower': True}), {}),
                 ('zip', ('gov:us:zip', {}), {}),
-                ('cc', ('pol:iso2', {}), {}),
+                ('cc', ('iso:3166:alpha2', {}), {}),
                 ('country', ('str', {'lower': True}), {}),
                 ('phone0', ('tel:phone', {}), {}),
                 ('phone1', ('tel:phone', {}), {}),

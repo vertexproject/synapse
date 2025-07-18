@@ -2516,8 +2516,8 @@ modeldefs = (
                 ('name', ('meta:id', {}), {
                     'doc': 'The name ID assigned to the network by the registrant.'}),
 
-                ('country', ('pol:iso2', {}), {
-                    'doc': 'The two-letter ISO 3166 country code.'}),
+                ('country', ('iso:3166:alpha2', {}), {
+                    'doc': 'The ISO 3166 Alpha-2 country code.'}),
 
                 ('status', ('str', {'lower': True}), {
                     'doc': 'The state of the registered network.'}),
