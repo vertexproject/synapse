@@ -387,7 +387,7 @@ _innerderefexpr: "$"? innerdollarexpr
 innerdollarexpr: "(" expror ")" -> dollarexpr
 
 exprrelprop: (EXPRRELNAME | _COLONDOLLAR _exprvarvaluatom | _COLONPAREN _exprvarvalu ")") -> relprop
-EXPRRELNAME: /(?<!\w):[a-z_][a-z0-9_]*(?:(\:\:|\:)[a-z0-9_]+)*/
+EXPRRELNAME: /(?<!\w):[a-z0-9_]+(?:(\:\:|\:)[a-z0-9_]+)*/
 
 exprrelpropvalue: exprrelprop virtprops? -> relpropvalue
 exprvirtpropvalue: virtprops -> virtpropvalue
