@@ -614,7 +614,7 @@ modeldefs = (
                         'template': {'havable': 'host'}}),
 
                     ('geo:locatable', {
-                        'template': {'locatable': 'host'}}),
+                        'template': {'geo:locatable': 'host'}}),
                 ),
                 'doc': 'A GUID that represents a host or system.'}),
 
