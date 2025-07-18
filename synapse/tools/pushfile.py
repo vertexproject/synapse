@@ -86,7 +86,7 @@ async def main(argv, outp=s_output.stdout):
                     'tags': tags,
                 }}
 
-                q = '[file:bytes=$sha256 :md5=$md5 :sha1=$sha1 :size=$size :name=$name] ' \
+                q = '[file:bytes=({"sha256": $sha256}) :md5=$md5 :sha1=$sha1 :size=$size :name=$name] ' \
                     '{ for $tag in $tags { [+#$tag] } }'
 
                 msgs = await core.storm(q, opts=opts).list()
