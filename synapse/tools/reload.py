@@ -15,19 +15,19 @@ async def main(argv, outp=s_output.stdout):
 
     async with s_telepath.withTeleEnv():
 
-        async with await s_telepath.openurl(opts.svcurl) as cell:
+        async with await s_telepath.openurl(opts.url) as cell:
 
             if opts.cmd == 'list':
                 names = await cell.getReloadableSystems()
                 if names:
-                    outp.printf(f'Cell at {s_urlhelp.sanitizeUrl(opts.svcurl)} has the following reload subsystems:')
+                    outp.printf(f'Cell at {s_urlhelp.sanitizeUrl(opts.url)} has the following reload subsystems:')
                     for name in names:
                         outp.printf(name)
                 else:
-                    outp.printf(f'Cell at {s_urlhelp.sanitizeUrl(opts.svcurl)} has no registered reload subsystems.')
+                    outp.printf(f'Cell at {s_urlhelp.sanitizeUrl(opts.url)} has no registered reload subsystems.')
 
             if opts.cmd == 'reload':
-                outp.printf(f'Reloading cell at {s_urlhelp.sanitizeUrl(opts.svcurl)}')
+                outp.printf(f'Reloading cell at {s_urlhelp.sanitizeUrl(opts.url)}')
                 try:
                     ret = await cell.reload(subsystem=opts.name)
                 except Exception as e:
@@ -53,7 +53,7 @@ async def main(argv, outp=s_output.stdout):
 
 def getArgParser(outp):
     pars = s_cmd.Parser(prog='synapse.tools.reload', outp=outp, description=descr)
-    pars.add_argument('--svcurl', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
+    pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
 
     subpars = pars.add_subparsers(required=True,
                                   title='subcommands',
