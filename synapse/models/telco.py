@@ -351,12 +351,6 @@ modeldefs = (
                 ('wifi:ap', ('inet:wifi:ap', {}), {
                     'prevnames': ('wifi',)}),
 
-                ('wifi:ap:ssid', ('inet:wifi:ssid', {}), {
-                    'prevnames': ('wifi:ssid',)}),
-
-                ('wifi:ap:bssid', ('inet:mac', {}), {
-                    'prevnames': ('wifi:bssid',)}),
-
                 # host specific data
                 ('adid', ('it:adid', {}), {
                     'doc': 'The advertising ID of the mobile telemetry sample.'}),

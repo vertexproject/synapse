@@ -263,7 +263,6 @@ class OuModelTest(s_t_utils.SynTest):
             # ou:conference
             nodes = await core.nodes('''[
                 ou:conference=39f8d9599cd663b00013bfedf69dcf53
-                    :org=39f8d9599cd663b00013bfedf69dcf53
                     :name="arrowcon 2018"
                     :names=("arrow conference 2018", "arrcon18", "arrcon18")
                     :family=arrowcon
@@ -276,7 +275,6 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('name'), 'arrowcon 2018')
             self.eq(nodes[0].get('names'), ('arrcon18', 'arrow conference 2018',))
             self.eq(nodes[0].get('family'), 'arrowcon')
-            self.eq(nodes[0].get('org'), '39f8d9599cd663b00013bfedf69dcf53')
             self.eq(nodes[0].get('period'), (1519862400000000, 1520035200000000))
             self.eq(nodes[0].get('place'), '39f8d9599cd663b00013bfedf69dcf53')
             self.eq(nodes[0].get('website'), 'http://arrowcon.org/2018')
@@ -582,57 +580,6 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(3, await core.nodes('ou:industry:naics*[^=2211]'))
             self.len(2, await core.nodes('ou:industry:naics*[^=22112]'))
 
-    async def test_ou_contract(self):
-
-        async with self.getTestCore() as core:
-
-            nodes = await core.nodes('''
-            [ ou:contract=*
-                :title="Fullbright Scholarship"
-                :type=foo.bar
-                :sponsor={[ ou:org=({"name": "vertex"}) ]}
-                :currency=USD
-                :award:price=20.00
-                :budget:price=21.50
-                :parties={[ entity:contact=* entity:contact=* ]}
-                :document={[ file:bytes=* ]}
-                :signed=202001
-                :begins=202002
-                :expires=202003
-                :completed=202004
-                :terminated=202005
-                :requirements={
-                    [( ou:goal=* :name="world peace" )]
-                    [( ou:goal=* :name="whirled peas" )]
-                }
-            ]''')
-            self.len(1, nodes)
-            self.nn(nodes[0].get('sponsor'))
-            self.eq('Fullbright Scholarship', nodes[0].get('title'))
-            self.eq('usd', nodes[0].get('currency'))
-            self.eq('20', nodes[0].get('award:price'))
-            self.eq('21.5', nodes[0].get('budget:price'))
-            self.eq('foo.bar.', nodes[0].get('type'))
-            self.eq(1577836800000000, nodes[0].get('signed'))
-            self.eq(1580515200000000, nodes[0].get('begins'))
-            self.eq(1583020800000000, nodes[0].get('expires'))
-            self.eq(1585699200000000, nodes[0].get('completed'))
-            self.eq(1588291200000000, nodes[0].get('terminated'))
-            self.len(2, nodes[0].get('parties'))
-            self.len(2, nodes[0].get('requirements'))
-
-            nodes = await core.nodes('ou:contract -> ou:contract:type:taxonomy')
-            self.len(1, nodes)
-            self.eq(1, nodes[0].get('depth'))
-            self.eq('bar', nodes[0].get('base'))
-            self.eq('foo.', nodes[0].get('parent'))
-
-            nodes = await core.nodes('ou:contract:type:taxonomy')
-            self.len(2, nodes)
-            self.eq(0, nodes[0].get('depth'))
-            self.eq('foo', nodes[0].get('base'))
-            self.none(nodes[0].get('parent'))
-
     async def test_ou_industry(self):
 
         async with self.getTestCore() as core:
@@ -785,22 +732,12 @@ class OuModelTest(s_t_utils.SynTest):
                     :value=10
                     :currency=usd
                     :campaign={ou:campaign:name="good guys"}
-                    :monetary:payment=*
-                    :material:spec=*
-                    :material:count=1
-                    :personnel:title=analysts
-                    :personnel:count=1
                 ]
             ''')
             self.eq(1658102400000000, nodes[0].get('time'))
             self.eq('10', nodes[0].get('value'))
             self.eq('usd', nodes[0].get('currency'))
-            self.eq(1, nodes[0].get('material:count'))
-            self.eq(1, nodes[0].get('personnel:count'))
             self.len(1, await core.nodes('ou:contribution -> ou:campaign'))
-            self.len(1, await core.nodes('ou:contribution -> econ:payment'))
-            self.len(1, await core.nodes('ou:contribution -> mat:spec'))
-            self.len(1, await core.nodes('ou:contribution -> entity:title +entity:title=analysts'))
 
     async def test_ou_technique(self):
 

@@ -887,26 +887,25 @@ class InetModelTest(s_t_utils.SynTest):
                 t.repr((7, 1))
 
             # Form Tests ======================================================
-            place = s_common.guid()
-            props = {
-                'asn': 3,
-                'loc': 'uS',
-                'dns:rev': 'vertex.link',
-                'latlong': '-50.12345, 150.56789',
-                'place': place,
-            }
-            q = '[(inet:ip=$valu :asn=$p.asn :loc=$p.loc :dns:rev=$p."dns:rev" :latlong=$p.latlong :place=$p.place)]'
-            opts = {'vars': {'valu': '1.2.3.4', 'p': props}}
-            nodes = await core.nodes(q, opts=opts)
+            nodes = await core.nodes('''
+                [ inet:ip=1.2.3.4
+
+                    :asn=3
+                    :dns:rev=vertex.link
+
+                    :place=*
+                    :place:loc=us
+                    :place:latlong=(-50.12345, 150.56789)
+                ]
+            ''')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:ip', (4, 0x01020304)))
-            self.eq(node.get('asn'), 3)
-            self.eq(node.get('loc'), 'us')
-            self.eq(node.get('type'), 'unicast')
-            self.eq(node.get('dns:rev'), 'vertex.link')
-            self.eq(node.get('latlong'), (-50.12345, 150.56789))
-            self.eq(node.get('place'), place)
+            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
+            self.eq(nodes[0].get('asn'), 3)
+            self.eq(nodes[0].get('type'), 'unicast')
+            self.eq(nodes[0].get('dns:rev'), 'vertex.link')
+            self.eq(nodes[0].get('place:loc'), 'us')
+            self.eq(nodes[0].get('place:latlong'), (-50.12345, 150.56789))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4 :place -> geo:place'))
 
             # > / < lifts and filters
             self.len(4, await core.nodes('[inet:ip=0.0.0.0 inet:ip=0.0.0.1 inet:ip=0.0.0.2 inet:ip=0.0.0.3]'))
@@ -1014,30 +1013,14 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(info.get('subs').get('type'), 'linklocal')
 
             # Form Tests ======================================================
-            place = s_common.guid()
-            valu = '::fFfF:1.2.3.4'
-            props = {
-                'loc': 'cool',
-                'latlong': '0,2',
-                'dns:rev': 'vertex.link',
-                'place': place,
-            }
-            opts = {'vars': {'valu': valu, 'p': props}}
-            q = '[(inet:ip=$valu :loc=$p.loc :latlong=$p.latlong :dns:rev=$p."dns:rev" :place=$p.place)]'
-            nodes = await core.nodes(q, opts=opts)
+
+            nodes = await core.nodes('[ inet:ip="::fFfF:1.2.3.4" ]')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:ip', (6, 0xffff01020304)))
-            self.eq(node.get('dns:rev'), 'vertex.link')
-            self.eq(node.get('latlong'), (0.0, 2.0))
-            self.eq(node.get('loc'), 'cool')
-            self.eq(node.get('place'), place)
+            self.eq(nodes[0].ndef, ('inet:ip', (6, 0xffff01020304)))
 
             nodes = await core.nodes('[inet:ip="::1"]')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:ip', (6, 1)))
-            self.none(node.get('ipv4'))
+            self.eq(nodes[0].ndef, ('inet:ip', (6, 1)))
 
             self.len(1, await core.nodes('inet:ip=0::1'))
             self.len(1, await core.nodes('inet:ip*range=(0::1, 0::1)'))
