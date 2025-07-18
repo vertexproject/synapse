@@ -38,7 +38,7 @@ def printuser(user, outp):
 async def main(argv, outp=s_output.stdout):
 
     pars = s_cmd.Parser(prog='synapse.tools.moduser', outp=outp, description=descr)
-    pars.add_argument('--svcurl', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
+    pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
     pars.add_argument('--add', default=False, action='store_true', help='Add the user if they do not already exist.')
     pars.add_argument('--del', dest='delete', default=False, action='store_true', help='Delete the user if they exist.')
     pars.add_argument('--list', default=False, action='store_true',
@@ -62,7 +62,7 @@ async def main(argv, outp=s_output.stdout):
 
     async with s_telepath.withTeleEnv():
 
-        async with await s_telepath.openurl(opts.svcurl) as cell:
+        async with await s_telepath.openurl(opts.url) as cell:
 
             if opts.list:
                 if opts.username:
