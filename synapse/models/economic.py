@@ -238,10 +238,6 @@ modeldefs = (
                 ('paid:time', ('time', {}), {
                     'doc': 'The point in time where the purchase was paid in full.'}),
 
-                # FIXME overfit...
-                # ('campaign', ('ou:campaign', {}), {
-                #   'doc': 'The campaign that the purchase was in support of.'}),
-
                 ('price', ('econ:price', {}), {
                     'protocols': {
                         'econ:adjustable': {'vars': {
@@ -252,10 +248,6 @@ modeldefs = (
 
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The econ:price of the purchase.'}),
-
-                # FIXME biz discussion
-                # ('listing', ('biz:listing', {}), {
-                #   'doc': 'The purchase was made based on the given listing.'}),
             )),
 
             ('econ:lineitem', {}, (
@@ -266,6 +258,7 @@ modeldefs = (
                 ('price', ('econ:price', {}), {
                     'doc': 'The total cost of this receipt line item.'}),
 
+                # FIXME rename biz:sellable? donation / volunteers
                 ('item', ('biz:sellable', {}), {
                     'prevnames': ('product',),
                     'doc': 'The product or service.'}),
@@ -334,10 +327,6 @@ modeldefs = (
                 ('payer:instrument', ('econ:pay:instrument', {}), {
                     'doc': 'The payment instrument used by the payer to make the payment.'}),
 
-                # FIXME one to many?
-                # ('purchases', ('array', {'type': 'econ:purchase', 'uniq': True, 'sorted': True}), {
-                #    'doc': 'The payment was made in exchange for the given purchases.'}),
-
                 ('amount', ('econ:price', {}), {
                     'protocols': {
                         'econ:adjustable': {'vars': {
@@ -353,28 +342,16 @@ modeldefs = (
                     'doc': 'A crypto currency transaction that initiated the payment.'}),
 
                 # FIXME one to many?
+                # ('purchases', ('array', {'type': 'econ:purchase', 'uniq': True, 'sorted': True}), {
+                #    'doc': 'The payment was made in exchange for the given purchases.'}),
+
+                # FIXME one to many?
                 # ('invoice', ('array', {'type': 'econ:invoice', 'uniq': True, 'sorted': True}), {
                 #   doc': 'The invoices that the payment applies to.'}),
 
                 # FIXME one to many?
                 # ('receipt', ('econ:receipt', {}),
                     # 'doc': 'The receipts that was issued for the payment.'}),
-
-                # FIXME geo:locatable
-                # ('place', ('geo:place', {}), {
-                    # 'doc': 'The place where the payment occurred.'}),
-
-                # ('place:name', ('meta:name', {}), {
-                    # 'doc': 'The name of the place where the payment occurred.'}),
-
-                # ('place:address', ('geo:address', {}), {
-                    # 'doc': 'The address of the place where the payment occurred.'}),
-
-                # ('place:loc', ('loc', {}), {
-                    # 'doc': 'The loc of the place where the payment occurred.'}),
-
-                # ('place:latlong', ('geo:latlong', {}), {
-                    # 'doc': 'The latlong where the payment occurred.'}),
             )),
 
             ('econ:balance', {}, (
@@ -561,8 +538,7 @@ modeldefs = (
                 ('business', ('ou:org', {}), {
                     'doc': 'The business which is the registered owner of the SWIFT BIC.'}),
 
-                # FIXME ou:office?
-                ('office', ('entity:actor', {}), {
+                ('office', ('geo:place', {}), {
                     'doc': 'The branch or office which is specified in the last 3 digits of the SWIFT BIC.'}),
             )),
 

@@ -190,19 +190,19 @@ conditions are met.
 The ``*unset=`` operator will only set a property when it does not already have a value to prevent overwriting
 existing data. For example:
 
-``inet:ipv4 = 1.2.3.4 [ :asn *unset= 12345 ]``
+``inet:ip = 1.2.3.4 [ :asn *unset= 12345 ]``
 
-will only set the ``:asn`` property on the ``inet:ipv4`` node if it is not already set. The conditional edit operators
+will only set the ``:asn`` property on the ``inet:ip`` node if it is not already set. The conditional edit operators
 can also be combined with the "try" operator ( ``*unset?=`` ) to prevent failures due to bad data:
 
-``inet:ipv4 = 1.2.3.4 [ :asn *unset?= invalid ]``
+``inet:ip = 1.2.3.4 [ :asn *unset?= invalid ]``
 
 Variable values may also be used to control the conditional edit behavior, and allow two more values in addition to
 ``unset``; ``always`` and ``never``. For example:
 
-``$asn = 'always' $loc = 'never' inet:ipv4 = 1.2.4.5 [ :loc *$loc= us :asn *$asn?= 12345 ]``
+``$asn = 'always' $loc = 'never' inet:ip = 1.2.4.5 [ :place:loc *$loc= us :asn *$asn?= 12345 ]``
 
-will never set the ``:loc`` property and will always attempt to set the ``:asn`` property. This behavior is useful
+will never set the ``:place:loc`` property and will always attempt to set the ``:asn`` property. This behavior is useful
 when creating Storm ingest functions where fine tuned control over specific property edit behavior is needed. Rather
 than creating variations of the same ingest function with different combinations of property set behavior, one function
 can use a dictionary of configuration options to control the edit behavior used during each execution.
@@ -344,10 +344,10 @@ The same syntax is used to apply a new property or modify an existing property.
 *Add (or modify) a secondary property:*
 
 
-.. storm-pre:: [ inet:ip=127.0.0.1 ] [ :loc=us.oh.wilmington ]
+.. storm-pre:: [ inet:ip=127.0.0.1 ] [ :place:loc=us.oh.wilmington ]
 ::
 
-    <inet:ip> [ :loc=us.oh.wilmington ]
+    <inet:ip> [ :place:loc=us.oh.wilmington ]
 
 
 **Usage Notes:**
@@ -355,8 +355,8 @@ The same syntax is used to apply a new property or modify an existing property.
 - Specifying a property will set the *<prop> = <pval>* if it does not exist, or modify (overwrite) the *<prop> = <pval>*
   if it already exists. **There is no prompt to confirm overwriting of an existing property.**
 - Storm will return an error if the inbound set of nodes contains any forms for which *<prop>* is not a valid property.
-  For example, attempting to set a ``:loc`` property when the inbound nodes contain both domains and IP addresses will
-  return an error as ``:loc`` is not a valid secondary property for a domain (``inet:fqdn``).
+  For example, attempting to set a ``:place:loc`` property when the inbound nodes contain both domains and IP addresses will
+  return an error as ``:place:loc`` is not a valid secondary property for a domain (``inet:fqdn``).
 - Properties to be set or modified **must** be specified by their relative property name. For example, for the form ``foo:bar`` with
   the property ``baz`` (i.e., ``foo:bar:baz``) the relative property name is specified as ``:baz``.
 
@@ -387,24 +387,19 @@ a more "human friendly" method.
 
 *Use a subquery to assign an organization's (ou:org) guid as the secondary property of a ps:contact node:*
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ ou:org=0fa690c06970d2d2ae74e43a18f46c2a :url=https://www.justice.gov/ :name="U.S. Department of Justice" ]
-    .. storm-pre:: [ ps:contact=d41d8cd98f00b204e9800998ecf8427e :orgname="U.S. Department of Justice" :address="950 Pennsylvania Avenue NW, Washington, DC, 20530-0001" :phone="+1 202-514-2000" :loc="us.dc.washington" ]
-    .. storm-cli:: ps:contact:orgname="U.S. Department of Justice" [ :org={ ou:org:name="U.S. Department of Justice" } ]
+.. storm-pre:: [ ou:org=0fa690c06970d2d2ae74e43a18f46c2a :url=https://www.justice.gov/ :name="U.S. Department of Justice" ]
+.. storm-pre:: [ entity:contact=d41d8cd98f00b204e9800998ecf8427e :org:name="U.S. Department of Justice" :place:address="950 Pennsylvania Avenue NW, Washington, DC, 20530-0001" :phone="+1 202-514-2000" :place:loc="us.dc.washington" ]
+.. storm-cli:: entity:contact:org:name="U.S. Department of Justice" [ :org={ ou:org:name="U.S. Department of Justice" } ]
 
 In the example above, the subquery ``ou:org:name="U.S. Department of Justice"`` is used to lift the organization node with
-that ``:name`` property value and assign the ``ou:org`` node's guid value to the ``:org`` property of the ``ps:contact`` node.
+that ``:name`` property value and assign the ``ou:org`` node's guid value to the ``:org`` property of the ``entity:contact`` node.
 
 *Use a subquery to assign one or more industries (ou:industry) to an organization (ou:org):*
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ ou:org=2848b564bf1e68563e3fea4ce27299f3 :name=apple :names=(apple, "apple, inc.") :phone="+1 408-996-1010" :loc=us.ca.cupertino]
-    .. storm-pre:: [ps:contact="*" :orgname="Apple" :address="1 Apple Park Way, Cupertino, CA 95014" :phone="+1 202-514-2000" :loc="us.ca.cupertino"]
-    .. storm-pre:: [ ou:industry="*" :name="Computers and Electronics" ]
-    .. storm-pre:: [ ou:industry="*" :name="Telecommunications" ]
-    .. storm-cli:: ou:org:name=apple [ :industries+={ ou:industry:name="computers and electronics" ou:industry:name="telecommunications" } ]
+.. storm-pre:: [ ou:org=2848b564bf1e68563e3fea4ce27299f3 :name=apple :names=(apple, "apple, inc.") :phone="+1 408-996-1010" :place:loc=us.ca.cupertino]
+.. storm-pre:: [ ou:industry="*" :name="Computers and Electronics" ]
+.. storm-pre:: [ ou:industry="*" :name="Telecommunications" ]
+.. storm-cli:: ou:org:name=apple [ :industries+={ ou:industry:name="computers and electronics" ou:industry:name="telecommunications" } ]
 
 In the example above, the subquery is used to lift the specified industry nodes (``ou:industry``) and assign both nodes'
 guid values to the ``ou:org:industries`` property for Apple's organization node.
@@ -443,13 +438,13 @@ Operation to delete (fully remove) one or more properties from the specified nod
 
 **Examples:**
 
-*Delete the :loc property from an inet:ip node:*
+*Delete the :place:loc property from an inet:ip node:*
 
 
-.. storm-pre:: inet:ip=127.0.0.1 [ -:loc ]
+.. storm-pre:: inet:ip=127.0.0.1 [ -:place:loc ]
 ::
 
-    <inet:ip> [ -:loc ]
+    <inet:ip> [ -:place:loc ]
 
 
 *Delete multiple properties from a doc:report node:*
@@ -875,10 +870,10 @@ Simple Examples
 *Create a node and add secondary properties:*
 
 
-.. storm-pre:: [ inet:ip=94.75.194.194 :loc=nl :asn=60781 ]
+.. storm-pre:: [ inet:ip=94.75.194.194 :place:loc=nl :asn=60781 ]
 ::
 
-    [ inet:ip=94.75.194.194 :loc=nl :asn=60781 ]
+    [ inet:ip=94.75.194.194 :place:loc=nl :asn=60781 ]
 
 
 *Create a node and add a tag:*

@@ -1172,6 +1172,7 @@ modeldefs = (
             ('inet:ip', 'synapse.models.inet.IPAddr', {}, {
                 'interfaces': (
                     ('meta:observable', {'template': {'observable': 'IP address'}}),
+                    ('geo:locatable', {'template': {'geo:locatable': 'IP address'}}),
                 ),
                 'ex': '1.2.3.4',
                 'doc': 'An IPv4 or IPv6 address.'}),
@@ -1329,9 +1330,6 @@ modeldefs = (
             ('inet:banner', ('comp', {'fields': (('server', 'inet:server'), ('text', 'it:dev:str'))}), {
                 'doc': 'A network protocol banner string presented by a server.'}),
 
-            ('inet:servfile', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
-                'doc': 'A file hosted on a server for access over a network protocol.'}),
-
             ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'observable': 'the hosted file and URL'}}),
@@ -1374,8 +1372,11 @@ modeldefs = (
             ('inet:whois:iprecord', ('guid', {}), {
                 'doc': 'An IPv4/IPv6 block registration record.'}),
 
-            # FIXME de-comp
-            ('inet:wifi:ap', ('comp', {'fields': (('ssid', 'inet:wifi:ssid'), ('bssid', 'inet:mac'))}), {
+            ('inet:wifi:ap', ('guid', {}), {
+                'interfaces': (
+                    ('meta:havable', {'template': {'havable': 'access point'}}),
+                    ('geo:locatable', {'template': {'geo:locatable': 'access point'}}),
+                ),
                 'doc': 'An SSID/MAC address combination for a wireless access point.'}),
 
             ('inet:wifi:ssid', ('str', {'strip': False}), {
@@ -2240,15 +2241,6 @@ modeldefs = (
                 ('asn', ('inet:asn', {}), {
                     'doc': 'The ASN to which the IP address is currently assigned.'}),
 
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The best known latitude/longitude for the node.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'The geo-political location string for the IP.'}),
-
-                ('place', ('geo:place', {}), {
-                    'doc': 'The geo:place associated with the latlong property.'}),
-
                 ('type', ('str', {}), {
                     'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
 
@@ -2311,27 +2303,12 @@ modeldefs = (
                     'doc': 'The banner text.'}),
             )),
 
-            # FIXME dedup with urlfile?
-            ('inet:servfile', {}, (
-                ('file', ('file:bytes', {}), {
-                    'ro': True,
-                    'doc': 'The file hosted by the server.'
-                }),
-                ('server', ('inet:server', {}), {
-                    'ro': True,
-                    'doc': 'The listening socket address of the server.'
-                }),
-                ('server:host', ('it:host', {}), {
-                    'ro': True,
-                    'doc': 'The it:host node for the server.'
-                }),
-            )),
-
             ('inet:url', {}, (
+
                 ('fqdn', ('inet:fqdn', {}), {
                     'ro': True,
-                    'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'
-                }),
+                    'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
+
                 ('ip', ('inet:ip', {}), {
                     'ro': True,
                     'doc': 'The IP address used in the URL (e.g., http://1.2.3.4/page.html).',
@@ -2397,16 +2374,15 @@ modeldefs = (
                     'doc': 'The FQDN within the dst URL (if present).'}),
             )),
 
-            # FIXME used anywhere?
             ('inet:url:mirror', {}, (
+
                 ('of', ('inet:url', {}), {
                     'ro': True,
-                    'doc': 'The URL being mirrored.',
-                }),
+                    'doc': 'The URL being mirrored.'}),
+
                 ('at', ('inet:url', {}), {
                     'ro': True,
-                    'doc': 'The URL of the mirror.',
-                }),
+                    'doc': 'The URL of the mirror.'}),
             )),
 
             ('inet:user', {}, ()),
@@ -2422,8 +2398,7 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The host that issued the query.'}),
 
-                # FIXME software name? ( runs software interface?!?! )
-                ('engine', ('str', {'lower': True}), {
+                ('engine', ('base:name', {}), {
                     'ex': 'google',
                     'doc': 'A simple name for the search engine used.'}),
 
@@ -2541,8 +2516,8 @@ modeldefs = (
                 ('name', ('meta:id', {}), {
                     'doc': 'The name ID assigned to the network by the registrant.'}),
 
-                ('country', ('pol:iso2', {}), {
-                    'doc': 'The two-letter ISO 3166 country code.'}),
+                ('country', ('iso:3166:alpha2', {}), {
+                    'doc': 'The ISO 3166 Alpha-2 country code.'}),
 
                 ('status', ('str', {'lower': True}), {
                     'doc': 'The state of the registered network.'}),
@@ -2565,24 +2540,11 @@ modeldefs = (
                 ('bssid', ('inet:mac', {}), {
                     'doc': 'The MAC address for the wireless access point.', 'ro': True, }),
 
-                # FIXME locatable
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The best known latitude/longitude for the wireless access point.'}),
-
-                ('accuracy', ('geo:dist', {}), {
-                    'doc': 'The reported accuracy of the latlong telemetry reading.',
-                }),
                 ('channel', ('int', {}), {
                     'doc': 'The WIFI channel that the AP was last observed operating on.'}),
 
                 ('encryption', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
-
-                ('place', ('geo:place', {}), {
-                    'doc': 'The geo:place associated with the latlong property.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'The geo-political location string for the wireless access point.'}),
 
                 # FIXME ownable interface?
                 ('org', ('ou:org', {}), {

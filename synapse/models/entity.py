@@ -195,7 +195,6 @@ modeldefs = (
             ('entity:contact:type:taxonomy', {}, ()),
             ('entity:contact', {}, (
 
-                # FIXME should this be part of the template?
                 ('type', ('entity:contact:type:taxonomy', {}), {
                     'doc': 'The contact type.'}),
 
@@ -206,7 +205,8 @@ modeldefs = (
                 ('current', ('entity:contactable', {}), {
                     'doc': 'The current version of this historical contact.'}),
             )),
-            # FIXME possession with an :ownership=<bool>?
+
+            # FIXME rename to entity:had?
             ('entity:possession:type:taxonomy', {}, ()),
             ('entity:possession', {}, (
 

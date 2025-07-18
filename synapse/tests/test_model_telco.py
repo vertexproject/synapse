@@ -50,39 +50,39 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('imsi'), 310150123456789)
             self.eq(node.get('phone'), '74951245983')
 
-            nodes = await core.nodes('[tel:mob:mcc=611 :loc=gn]')
+            nodes = await core.nodes('[tel:mob:mcc=611 :place:country:code=gn]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:mob:mcc', '611'))
-            self.eq(node.get('loc'), 'gn')
+            self.eq(node.get('place:country:code'), 'gn')
 
-            nodes = await core.nodes('[(tel:mob:carrier=(001, 02) :org=$org :loc=us :tadig=USAVX )]', opts={'vars': {'org': oguid}})
+            nodes = await core.nodes('[ tel:mob:carrier=(001, 02) ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:mob:carrier', ('001', '02')))
             self.eq(node.get('mcc'), '001')
             self.eq(node.get('mnc'), '02')
-            self.eq(node.get('org'), oguid)
-            self.eq(node.get('loc'), 'us')
-            self.eq(node.get('tadig'), 'USAVX')
 
-            self.len(1, await core.nodes('tel:mob:carrier -> tel:mob:tadig'))
-
-            q = '[(tel:mob:cell=((001, 02), 3, 4) :radio="Pirate " :place=$place :place:loc=us.ca.la :place:latlong=(0, 0))]'
-            nodes = await core.nodes(q, opts={'vars': {'place': place}})
+            nodes = await core.nodes('''
+                [ tel:mob:cell=*
+                    :radio="Pirate "
+                    :carrier=(001, 02)
+                    :lac=3
+                    :cid=4
+                    :place=*
+                    :place:loc=us.ca.la
+                    :place:latlong=(0, 0)
+                ]
+            ''')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('tel:mob:cell', (('001', '02'), 3, 4)))
-            self.eq(node.get('carrier'), ('001', '02'))
-            self.eq(node.get('carrier:mcc'), '001')
-            self.eq(node.get('carrier:mnc'), '02')
-            self.eq(node.get('lac'), 3)
-            self.eq(node.get('cid'), 4)
-            self.eq(node.get('radio'), 'pirate.')
-            self.eq(node.get('place'), place)
-            self.eq(node.get('place:loc'), 'us.ca.la')
-            self.eq(node.get('place:latlong'), (0.0, 0.0))
-            self.len(1, await core.nodes('tel:mob:mcc=001'))
+            self.eq(nodes[0].get('carrier'), ('001', '02'))
+            self.eq(nodes[0].get('lac'), 3)
+            self.eq(nodes[0].get('cid'), 4)
+            self.eq(nodes[0].get('radio'), 'pirate.')
+            self.eq(nodes[0].get('place:loc'), 'us.ca.la')
+            self.eq(nodes[0].get('place:latlong'), (0.0, 0.0))
+            self.len(1, await core.nodes('tel:mob:cell :place -> geo:place'))
+            self.len(1, await core.nodes('tel:mob:cell -> tel:mob:carrier -> tel:mob:mcc'))
 
             # tel:mob:telem
             guid = s_common.guid()
@@ -94,13 +94,11 @@ class TelcoModelTest(s_t_utils.SynTest):
                      'host': host,
                      'loc': 'us',
                      'accuracy': '100mm',
-                     'cell': (('001', '02'), 3, 4),
                      'imsi': '310150123456789',
                      'imei': '490154203237518',
                      'phone': '123 456 7890',
                      'mac': '00:00:00:00:00:00',
                      'ip': '1.2.3.4',
-                     'wifi:ap': ('The Best SSID2', '00:11:22:33:44:55'),
                      'adid': 'someadid',
                      'name': 'Robert Grey',
                      'email': 'clown@vertex.link',
@@ -110,8 +108,8 @@ class TelcoModelTest(s_t_utils.SynTest):
                      }
             q = '''[(tel:mob:telem=$valu :time=$p.time :place:latlong=$p.latlong :place=$p.place :host=$p.host
              :place:loc=$p.loc :place:latlong:accuracy=$p.accuracy
-             :cell=$p.cell :imsi=$p.imsi :imei=$p.imei :phone=$p.phone
-             :mac=$p.mac :ip=$p.ip :wifi:ap=$p."wifi:ap" :adid=$p.adid
+             :cell=* :imsi=$p.imsi :imei=$p.imei :phone=$p.phone
+             :mac=$p.mac :ip=$p.ip :wifi:ap=* :adid=$p.adid
              :name=$p.name :email=$p.email :app=$p.app :data=$p.data :account=*)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': guid, 'p': props}})
             self.len(1, nodes)
@@ -123,21 +121,18 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('host'), host)
             self.eq(node.get('place:loc'), 'us')
             self.eq(node.get('place:latlong:accuracy'), 100)
-            self.eq(node.get('cell'), (('001', '02'), 3, 4))
-            self.eq(node.get('cell:carrier'), ('001', '02'))
             self.eq(node.get('imsi'), 310150123456789)
             self.eq(node.get('imei'), 490154203237518)
             self.eq(node.get('phone'), '1234567890')
             self.eq(node.get('mac'), '00:00:00:00:00:00')
             self.eq(node.get('ip'), (4, 0x01020304))
-            self.eq(node.get('wifi:ap'), ('The Best SSID2', '00:11:22:33:44:55')),
-            self.eq(node.get('wifi:ap:ssid'), 'The Best SSID2')
-            self.eq(node.get('wifi:ap:bssid'), '00:11:22:33:44:55')
             self.eq(node.get('adid'), 'someadid')
             self.eq(node.get('name'), 'robert grey')
             self.eq(node.get('email'), 'clown@vertex.link')
             self.eq(node.get('app'), softguid)
             self.eq(node.get('data'), {'some key': 'some valu', 'BEEP': 1})
+            self.len(1, await core.nodes('tel:mob:telem :cell -> tel:mob:cell'))
+            self.len(1, await core.nodes('tel:mob:telem :wifi:ap -> inet:wifi:ap'))
             self.len(1, await core.nodes('tel:mob:telem :account -> inet:service:account'))
 
     async def test_telco_imei(self):
@@ -212,70 +207,21 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('tel:phone=1703555*'))
 
     async def test_telco_call(self):
-        async with self.getTestCore() as core:
-            guid = s_common.guid()
-            file = s_common.guid()
-            props = {
-                'src': '+1 (703) 555-1212',
-                'dst': '123 456 7890',
-                'time': '2001',
-                'duration': 90,
-                'connected': True,
-                'file': file,
-            }
-            q = '''[(tel:call=$valu :src=$p.src :dst=$p.dst :period=$p.time
-            :connected=$p.connected :recording=$p.file)]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': guid, 'p': props}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('tel:call', guid))
-            self.eq(node.get('src'), '17035551212')
-            self.eq(node.get('dst'), '1234567890')
-            self.eq(node.get('period'), (978307200000000, 978307200000001))
-            self.eq(node.get('connected'), True)
-            self.eq(node.get('recording'), file)
 
-    async def test_telco_txtmesg(self):
         async with self.getTestCore() as core:
-            guid = s_common.guid()
-            props = {
-                'from': '+1 (703) 555-1212',
-                'to': '123 456 7890',
-                'recipients': ('567 890 1234', '555 444 3333'),
-                'svctype': 'sms',
-                'time': '2001',
-                'text': 'I wrote some stuff',
-            }
-            q = '''[tel:txtmesg=$valu :from=$p.from :to=$p.to :recipients=$p.recipients :svctype=$p.svctype
-            :time=$p.time :text=$p.text]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': guid, 'p': props}})
+
+            nodes = await core.nodes('''
+                [ tel:call=*
+                    :src="+1 (703) 555-1212"
+                    :dst="123 456 7890"
+                    :period=2001
+                    :connected=(true)
+                    :recording=*
+                ]
+            ''')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('tel:txtmesg', guid))
-            self.eq(node.get('from'), '17035551212')
-            self.eq(node.get('to'), '1234567890')
-            self.eq(node.get('recipients'), ('5554443333', '5678901234'))
-            self.eq(node.get('svctype'), 'sms')
-            self.eq(node.get('time'), 978307200000000)
-            self.eq(node.get('text'), 'I wrote some stuff')
-            # add other valid message types
-            nodes = await core.nodes('[tel:txtmesg=* :svctype=mms]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('svctype'), 'mms')
-            nodes = await core.nodes('[tel:txtmesg=* :svctype=" MMS"]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('svctype'), 'mms')
-            nodes = await core.nodes('[tel:txtmesg=* :svctype=rcs]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('svctype'), 'rcs')
-            # no message type specified
-            nodes = await core.nodes('[tel:txtmesg=*]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.none(node.get('svctype'))
-            # add bad svc type
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[tel:txtmesg=* :svctype=newp]')
+            self.eq(nodes[0].get('src'), '17035551212')
+            self.eq(nodes[0].get('dst'), '1234567890')
+            self.eq(nodes[0].get('period'), (978307200000000, 978307200000001))
+            self.eq(nodes[0].get('connected'), True)
+            self.len(1, await core.nodes('tel:call :recording -> file:bytes'))

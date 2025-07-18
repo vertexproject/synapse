@@ -78,7 +78,7 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(0, await core.nodes('gen.risk.vuln newp --try'))
 
-            nodes00 = await core.nodes('yield $lib.gen.polCountryByIso2(UA)')
+            nodes00 = await core.nodes('yield $lib.gen.polCountryByCode(UA)')
             nodes01 = await core.nodes('gen.pol.country ua')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
@@ -87,7 +87,7 @@ class StormLibGenTest(s_test.SynTest):
             self.len(1, await core.nodes('''
                 gen.pol.country.government ua |
                 +ou:org +:name="ua government"
-                -> pol:country +:iso2=ua
+                -> pol:country +:code=ua
             '''))
 
             self.len(0, await core.nodes('gen.pol.country.government newp --try'))

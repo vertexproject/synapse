@@ -211,7 +211,6 @@ modeldefs = (
                     ('author', ('entity:contact', {}), {
                         'doc': 'MIME specific contact information extracted from metadata.'}),
 
-                    # FIXME geo:locatable?
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'MIME specific lat/long information extracted from metadata.'}),
 

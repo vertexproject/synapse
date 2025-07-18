@@ -1581,13 +1581,13 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(['v0', 'v1', 'v2', 'v3', 'v4'], await nodeVals('risk:vuln:desc^=v', prop='desc'))
             self.eq(['v4', 'v3', 'v2', 'v1', 'v0'], await nodeVals('reverse(risk:vuln:desc^=v)', prop='desc'))
 
-            await core.nodes('for $x in $lib.range(5) {[ inet:ip=([4, $x]) :loc=`foo.bar` ]}')
-            await buidRevEq('inet:ip:loc=foo.bar')
+            await core.nodes('for $x in $lib.range(5) {[ inet:ip=([4, $x]) :place:loc=`foo.bar` ]}')
+            await buidRevEq('inet:ip:place:loc=foo.bar')
 
-            await core.nodes('for $x in $lib.range(3) {[ inet:ip=([4, $x]) :loc=`loc.{$x}` ]}')
+            await core.nodes('for $x in $lib.range(3) {[ inet:ip=([4, $x]) :place:loc=`loc.{$x}` ]}')
 
-            self.eq(['loc.0', 'loc.1', 'loc.2'], await nodeVals('inet:ip:loc^=loc', prop='loc'))
-            self.eq(['loc.2', 'loc.1', 'loc.0'], await nodeVals('reverse(inet:ip:loc^=loc)', prop='loc'))
+            self.eq(['loc.0', 'loc.1', 'loc.2'], await nodeVals('inet:ip:place:loc^=loc', prop='place:loc'))
+            self.eq(['loc.2', 'loc.1', 'loc.0'], await nodeVals('reverse(inet:ip:place:loc^=loc)', prop='place:loc'))
 
             await core.nodes('for $x in $lib.range(5) {[ inet:fqdn=`f{$x}.lk` ]}')
 
@@ -2946,19 +2946,19 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 nodes = await core.nodes('ou:org:hq::email::newp=a')
 
-            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.4]} ]}]')
-            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://5.6.7.8]} ]}]')
-            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.5]} ]}]')
+            await core.nodes('[it:exec:fetch=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.4]} ]}]')
+            await core.nodes('[it:exec:fetch=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://5.6.7.8]} ]}]')
+            await core.nodes('[it:exec:fetch=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.5]} ]}]')
 
-            self.len(2, await core.nodes('it:exec:url:http:request::flow::client.ip*in=(1.2.3.4, 5.6.7.8)'))
-            self.len(2, await core.nodes('it:exec:url:http:request::flow::client::ip*in=(1.2.3.4, 5.6.7.8)'))
+            self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client.ip*in=(1.2.3.4, 5.6.7.8)'))
+            self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client::ip*in=(1.2.3.4, 5.6.7.8)'))
 
             await core.nodes('inet:ip=1.2.3.4 [:asn=5]')
             await core.nodes('inet:ip=1.2.3.5 [:asn=6]')
             await core.nodes('inet:ip=5.6.7.8 [:asn=7]')
 
-            self.len(1, await core.nodes('it:exec:url:http:request::flow::client::ip::asn>6'))
-            self.len(2, await core.nodes('it:exec:url:http:request::flow::client::ip::asn*in=(5,6)'))
+            self.len(1, await core.nodes('it:exec:fetch:http:request::flow::client::ip::asn>6'))
+            self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client::ip::asn*in=(5,6)'))
 
 class CortexBasicTest(s_t_utils.SynTest):
     '''
@@ -4572,34 +4572,34 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Practical real world example
 
-            self.len(2, await core.nodes('[ inet:ip=1.2.3.4 :loc=us inet:dns:a=(vertex.link,1.2.3.4) ]'))
-            self.len(2, await core.nodes('[ inet:ip=4.3.2.1 :loc=zz inet:dns:a=(example.com,4.3.2.1) ]'))
-            self.len(1, await core.nodes('inet:ip:loc=us'))
+            self.len(2, await core.nodes('[ inet:ip=1.2.3.4 :place:loc=us inet:dns:a=(vertex.link,1.2.3.4) ]'))
+            self.len(2, await core.nodes('[ inet:ip=4.3.2.1 :place:loc=zz inet:dns:a=(example.com,4.3.2.1) ]'))
+            self.len(1, await core.nodes('inet:ip::place:loc=us'))
             self.len(1, await core.nodes('inet:dns:a:fqdn=vertex.link'))
-            self.len(1, await core.nodes('inet:ip:loc=zz'))
+            self.len(1, await core.nodes('inet:ip:place:loc=zz'))
             self.len(1, await core.nodes('inet:dns:a:fqdn=example.com'))
 
             # lift all dns, pivot to ip where loc=us, remove the results
             # this should return the example node because the vertex node matches the filter and should be removed
-            nodes = await core.nodes('inet:dns:a -{ :ip -> inet:ip +:loc=us }')
+            nodes = await core.nodes('inet:dns:a -{ :ip -> inet:ip +:place:loc=us }')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], ('example.com', (4, 67305985)))
 
             # lift all dns, pivot to ip where loc=us, add the results
             # this should return the vertex node because only the vertex node matches the filter
-            nodes = await core.nodes('inet:dns:a +{ :ip -> inet:ip +:loc=us }')
+            nodes = await core.nodes('inet:dns:a +{ :ip -> inet:ip +:place:loc=us }')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], ('vertex.link', (4, 16909060)))
 
             # lift all dns, pivot to ip where cc!=us, remove the results
             # this should return the vertex node because the example node matches the filter and should be removed
-            nodes = await core.nodes('inet:dns:a -{ :ip -> inet:ip -:loc=us }')
+            nodes = await core.nodes('inet:dns:a -{ :ip -> inet:ip -:place:loc=us }')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], ('vertex.link', (4, 16909060)))
 
             # lift all dns, pivot to ip where cc!=us, add the results
             # this should return the example node because only the example node matches the filter
-            nodes = await core.nodes('inet:dns:a +{ :ip -> inet:ip -:loc=us }')
+            nodes = await core.nodes('inet:dns:a +{ :ip -> inet:ip -:place:loc=us }')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], ('example.com', (4, 67305985)))
 

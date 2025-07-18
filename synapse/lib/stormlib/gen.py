@@ -79,14 +79,15 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'node', 'desc': 'A entity:contact node.'}}},
 
-        {'name': 'polCountryByIso2', 'desc': 'Returns a pol:country node by deconflicting the :iso2 property.',
+        {'name': 'polCountryByCode', 'desc': 'Returns a pol:country node by deconflicting the :code property.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'iso2', 'type': 'str', 'desc': 'The pol:country:iso2 property.'},
+                      {'name': 'code', 'type': 'str', 'desc': 'The pol:country:code property.'},
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A pol:country node.'}}},
+
         {'name': 'langByName', 'desc': 'Returns a lang:language node by name, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -290,22 +291,20 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function polCountryByIso2(iso2, try=$lib.false) {
-            ($ok, $iso2) = $__maybeCast($try, pol:iso2, $iso2)
-            if (not $ok) { return() }
-
-            pol:country:iso2=$iso2
-            return($node)
-
-            [ pol:country=(gen, iso2, $iso2) :iso2=$iso2 ]
+        function polCountryByCode(code, try=$lib.false) {
+            if $try {
+                ($ok, $code) = $lib.trycast(iso:3166:alpha2, $code)
+                if (not $ok) { return() }
+            }
+            [ pol:country=({"code": $code}) ]
             return($node)
         }
 
-        function polCountryOrgByIso2(iso2, try=$lib.false) {
+        function polCountryOrgByCode(code, try=$lib.false) {
 
-            yield $lib.gen.polCountryByIso2($iso2, try=$try)
+            yield $lib.gen.polCountryByCode($code, try=$try)
 
-            { -:government [ :government = $lib.gen.orgByName(`{:iso2} government`) ] }
+            { -:government [ :government = $lib.gen.orgByName(`{:code} government`) ] }
             :government -> ou:org
             return($node)
         }
@@ -517,11 +516,11 @@ stormcmds = (
                 gen.pol.country ua
         ''',
         'cmdargs': (
-            ('iso2', {'help': 'The 2 letter ISO-3166 country code.'}),
+            ('code', {'help': 'The 2 letter ISO-3166 country code.'}),
             ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
                        'action': 'store_true'}),
         ),
-        'storm': 'yield $lib.gen.polCountryByIso2($cmdopts.iso2, try=$cmdopts.try)',
+        'storm': 'yield $lib.gen.polCountryByCode($cmdopts.code, try=$cmdopts.try)',
     },
     {
         'name': 'gen.pol.country.government',
@@ -534,11 +533,11 @@ stormcmds = (
                 gen.pol.country.government ua
         ''',
         'cmdargs': (
-            ('iso2', {'help': 'The 2 letter ISO-3166 country code.'}),
+            ('code', {'help': 'The 2 letter ISO-3166 country code.'}),
             ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
                        'action': 'store_true'}),
         ),
-        'storm': 'yield $lib.gen.polCountryOrgByIso2($cmdopts.iso2, try=$cmdopts.try)',
+        'storm': 'yield $lib.gen.polCountryOrgByCode($cmdopts.code, try=$cmdopts.try)',
     },
     {
         'name': 'gen.ps.contact.email',

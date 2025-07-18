@@ -18,34 +18,28 @@ class BizModelTest(s_t_utils.SynTest):
                     :url = "https://vertex.link"
                     :file = *
                     :posted = 20210731
-                    :quesdue = 20210802
-                    :propdue = 20210820
+                    :due:questions = 20210802
+                    :due:proposal = 20210820
                     :contact = {[ entity:contact=* :name=visi ]}
-                    :purchases += *
-                    :requirements += *
                 ]
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('id'), 'WOO123')
-            self.eq(nodes[0].get('title'), 'hehehaha')
+            self.eq(nodes[0].get('title'), 'HeHeHaHa')
             self.eq(nodes[0].get('desc'), 'ZipZop')
             self.eq(nodes[0].get('status'), 'foo.bar.')
             self.eq(nodes[0].get('url'), 'https://vertex.link')
             self.eq(nodes[0].get('posted'), 1627689600000000)
-            self.eq(nodes[0].get('quesdue'), 1627862400000000)
-            self.eq(nodes[0].get('propdue'), 1629417600000000)
+            self.eq(nodes[0].get('due:questions'), 1627862400000000)
+            self.eq(nodes[0].get('due:proposal'), 1629417600000000)
 
             self.nn(nodes[0].get('file'))
             self.nn(nodes[0].get('contact'))
-            self.nn(nodes[0].get('purchases'))
-            self.nn(nodes[0].get('requirements'))
 
             self.len(2, await core.nodes('biz:deal:status:taxonomy'))
 
-            self.len(1, await core.nodes('biz:rfp -> ou:goal'))
-            self.len(1, await core.nodes('biz:rfp -> entity:contact'))
             self.len(1, await core.nodes('biz:rfp -> file:bytes'))
-            self.len(1, await core.nodes('biz:rfp -> econ:purchase'))
+            self.len(1, await core.nodes('biz:rfp -> entity:contact'))
             self.len(1, await core.nodes('biz:rfp -> biz:deal:status:taxonomy'))
 
             nodes = await core.nodes('''

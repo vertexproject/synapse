@@ -2105,8 +2105,8 @@ class TypesTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             opts = {'vars': {'url': url}}
-            self.len(1, await core.nodes('[ it:exec:url="*" :url=$url ]', opts=opts))
-            self.len(1, await core.nodes('it:exec:url:url=$url', opts=opts))
+            self.len(1, await core.nodes('[ it:exec:fetch="*" :url=$url ]', opts=opts))
+            self.len(1, await core.nodes('it:exec:fetch:url=$url', opts=opts))
 
     async def test_types_array(self):
 

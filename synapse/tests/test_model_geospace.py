@@ -428,7 +428,7 @@ class GeoTest(s_t_utils.SynTest):
                     :place={[ geo:place=({"name": "Woot"}) ]}
                     :place:loc=us.ny.woot
                     :place:name=Woot
-                    :place:country={[ pol:country=({"iso2": "us"}) ]}
+                    :place:country={[ pol:country=({"code": "us"}) ]}
                     :place:country:code=us
                     :place:address="123 main street"
 

@@ -334,7 +334,6 @@ modeldefs = (
                 ('provider:fqdn', ('inet:fqdn', {}), {
                     'doc': 'The FQDN of the organization which provides the dynamic DNS FQDN.'}),
 
-                # FIXME inet:service:account?
                 ('contact', ('entity:contact', {}), {
                     'doc': 'The contact information of the registrant.'}),
 
