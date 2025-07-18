@@ -599,7 +599,7 @@ class LayerTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ test:int=1 :place:loc=us ]')
+            nodes = await core.nodes('[ test:int=1 :loc=us ]')
             created00 = nodes[0].get('.created')
             self.nn(created00)
 
