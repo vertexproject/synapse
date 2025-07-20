@@ -20,7 +20,7 @@ import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.tools.genpkg as s_genpkg
+import synapse.tools.pkgs.genpkg as s_genpkg
 
 logger = logging.getLogger(__name__)
 
