@@ -1,8 +1,6 @@
 import io
 import os
-import sys
 import base64
-import asyncio
 import logging
 import argparse
 
@@ -12,7 +10,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.coro as s_coro
+import synapse.lib.cmd as s_cmd
 import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
@@ -24,14 +22,14 @@ logger = logging.getLogger(__name__)
 
 wflownamere = regex.compile(r'^([\w-]+)\.yaml$')
 
-def getStormStr(fn):
+def _getStormStr(fn):
     if not os.path.isfile(fn):
         raise s_exc.NoSuchFile(mesg='Storm file {} not found'.format(fn), path=fn)
 
     with open(fn, 'rb') as f:
         return f.read().decode()
 
-def loadOpticFiles(pkgdef, path):
+def _loadOpticFiles(pkgdef, path):
 
     pkgfiles = pkgdef['optic']['files']
 
@@ -54,7 +52,7 @@ def loadOpticFiles(pkgdef, path):
                     'file': base64.b64encode(fd.read()).decode(),
                 }
 
-def loadOpticWorkflows(pkgdef, path):
+def _loadOpticWorkflows(pkgdef, path):
 
     wdefs = pkgdef['optic']['workflows']
 
@@ -175,7 +173,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
 
         mod_path = s_common.genpath(protodir, 'storm', 'modules', basename)
         if readonly:
-            mod['storm'] = getStormStr(mod_path)
+            mod['storm'] = _getStormStr(mod_path)
         else:
             with s_common.genfile(mod_path) as fd:
                 mod['storm'] = fd.read().decode()
@@ -183,7 +181,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     for extmod in pkgdef.get('external_modules', ()):
         fpth = extmod.get('file_path')
         if fpth is not None:
-            extmod['storm'] = getStormStr(fpth)
+            extmod['storm'] = _getStormStr(fpth)
         else:
             path = extmod.get('package_path')
             extpkg = s_dyndeps.tryDynMod(extmod.get('package'))
@@ -206,7 +204,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
 
         cmd_path = s_common.genpath(protodir, 'storm', 'commands', basename)
         if readonly:
-            cmd['storm'] = getStormStr(cmd_path)
+            cmd['storm'] = _getStormStr(cmd_path)
         else:
             with s_common.genfile(cmd_path) as fd:
                 cmd['storm'] = fd.read().decode()
@@ -220,7 +218,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     if os.path.isdir(wflowdir):
         pkgdef.setdefault('optic', {})
         pkgdef['optic'].setdefault('workflows', {})
-        loadOpticWorkflows(pkgdef, wflowdir)
+        _loadOpticWorkflows(pkgdef, wflowdir)
 
     if opticdir is None:
         opticdir = s_common.genpath(protodir, 'optic')
@@ -228,7 +226,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     if os.path.isdir(opticdir):
         pkgdef.setdefault('optic', {})
         pkgdef['optic'].setdefault('files', {})
-        loadOpticFiles(pkgdef, opticdir)
+        _loadOpticFiles(pkgdef, opticdir)
 
     s_schemas.reqValidPkgdef(pkgdef)
 
