@@ -603,18 +603,10 @@ modeldefs = (
                 'doc': 'The name of a host or system.'}),
 
             ('it:host', ('guid', {}), {
+                'template': {'title': 'host'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'host'}}),
-
-                    ('phys:object', {
-                        'template': {'phys:object': 'physical host'}}),
-
-                    ('meta:havable', {
-                        'template': {'havable': 'host'}}),
-
-                    ('geo:locatable', {
-                        'template': {'locatable': 'host'}}),
+                    ('phys:object', {}),
+                    ('inet:service:object', {'template': {'service:base': 'host'}}),
                 ),
                 'doc': 'A GUID that represents a host or system.'}),
 

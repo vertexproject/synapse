@@ -9,10 +9,7 @@ modeldefs = (
 
             ('edu:class', ('guid', {}), {
                 'interfaces': (
-                    ('ou:attendable', {'template': {
-                        'ou:attendable': 'class',
-                        'geo:locatable': 'class'}}),
-                    ('lang:transcript', {}),
+                    ('ou:attendable', {'template': {'title': 'class'}}),
                 ),
                 'doc': 'An instance of an edu:course taught at a given time.'}),
 

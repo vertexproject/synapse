@@ -45,6 +45,7 @@ modeldefs = (
             ('risk:vuln', ('guid', {}), {
                 'interfaces': (
                     ('meta:usable', {}),
+                    ('risk:mitigatable', {}),
                     ('meta:sourced', {'template': {'sourced': 'vulnerability'}}),
                 ),
                 'doc': 'A unique vulnerability.'}),
@@ -58,9 +59,6 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of vulnerability types.'}),
-
-            ('risk:vuln:soft:range', ('guid', {}), {
-                'doc': 'A contiguous range of software versions which contain a vulnerability.'}),
 
             ('risk:vulnerable', ('guid', {}), {
                 'doc': 'Indicates that a node is susceptible to a vulnerability.'}),
@@ -82,7 +80,9 @@ modeldefs = (
                 },
             }),
             ('risk:attack', ('guid', {}), {
+                'template': {'title': 'attack'},
                 'interfaces': (
+                    ('entity:action', {}),
                     ('meta:sourced', {'template': {'sourced': 'attack'}}),
                 ),
                 'doc': 'An instance of an actor attacking a target.'}),
@@ -100,6 +100,7 @@ modeldefs = (
                 'interfaces': (
                     ('meta:sourced', {
                         'template': {'sourced': 'compromise'}}),
+                    ('entity:action', {}),
                 ),
                 'display': {
                     'columns': (
@@ -186,6 +187,7 @@ modeldefs = (
                 'interfaces': (
                     ('meta:sourced', {
                         'template': {'sourced': 'leak'}}),
+                    ('entity:action', {}),
                 ),
                 'doc': 'An event where information was disclosed without permission.'}),
 
@@ -199,6 +201,7 @@ modeldefs = (
                 'interfaces': (
                     ('meta:sourced', {
                         'template': {'sourced': 'extortion'}}),
+                    ('entity:action', {}),
                 ),
                 'doc': 'An event where an attacker attempted to extort a victim.'}),
 
@@ -239,14 +242,22 @@ modeldefs = (
 
             ('risk:technique:masquerade', ('guid', {}), {
                 'doc': 'Represents the assessment that a node is designed to resemble another in order to mislead.'}),
+
+            ('risk:mitigatable', ('ndef', {'interface': 'risk:mitigatable'}), {
+                'doc': 'A node whose effect may be reduced by a mitigation.'}),
+        ),
+        'interfaces': (
+            ('risk:mitigatable', {
+                'doc': 'A common interface for risks which may be mitigated.',
+            }),
         ),
         'edges': (
             # some explicit examples...
 
-            (('risk:attack', 'uses', 'ou:technique'), {
+            (('risk:attack', 'used', 'ou:technique'), {
                 'doc': 'The attacker used the technique in the attack.'}),
 
-            (('risk:threat', 'uses', 'ou:technique'), {
+            (('risk:threat', 'used', 'ou:technique'), {
                 'doc': 'The threat cluster uses the technique.'}),
 
             (('risk:tool:software', 'uses', 'ou:technique'), {
@@ -261,7 +272,7 @@ modeldefs = (
             (('risk:attack', 'used', 'risk:vuln'), {
                 'doc': 'The attack used the vulnerability.'}),
 
-            (('risk:threat', 'uses', 'risk:vuln'), {
+            (('risk:threat', 'used', 'risk:vuln'), {
                 'doc': 'The threat cluster uses the vulnerability.'}),
 
             (('risk:tool:software', 'uses', 'risk:vuln'), {
@@ -273,25 +284,25 @@ modeldefs = (
             (('risk:attack', 'targeted', 'ou:industry'), {
                 'doc': 'The attack targeted the industry.'}),
 
+            (('risk:threat', 'targeted', 'ou:industry'), {
+                'doc': 'The threat cluster targets the industry.'}),
+
             (('risk:compromise', 'targeted', 'ou:industry'), {
                 'doc': "The compromise was assessed to be based on the victim's role in the industry."}),
 
-            (('risk:threat', 'targets', 'ou:industry'), {
-                'doc': 'The threat cluster targets the industry.'}),
+            #(('risk:threat', 'targeted', None), {
+                #'doc': 'The threat cluster targeted the target node.'}),
 
-            (('risk:threat', 'targets', None), {
-                'doc': 'The threat cluster targeted the target node.'}),
-
-            (('risk:threat', 'uses', None), {
+            (('risk:threat', 'used', 'meta:usable'), {
                 'doc': 'The threat cluster uses the target node.'}),
 
-            (('risk:attack', 'targeted', None), {
+            (('risk:attack', 'targeted', 'meta:usable'), {
                 'doc': 'The attack targeted the target node.'}),
 
-            (('risk:attack', 'used', None), {
-                'doc': 'The attack used the target node to facilitate the attack.'}),
+            (('risk:attack', 'used', 'meta:usable'), {
+                'doc': 'The attacker used the target node to facilitate the attack.'}),
 
-            (('risk:tool:software', 'uses', None), {
+            (('risk:tool:software', 'uses', 'meta:usable'), {
                 'doc': 'The tool uses the target node.'}),
 
             (('risk:compromise', 'stole', None), {
@@ -300,17 +311,11 @@ modeldefs = (
             (('risk:mitigation', 'addresses', 'ou:technique'), {
                 'doc': 'The mitigation addresses the technique.'}),
 
-            (('risk:mitigation', 'uses', 'meta:rule'), {
+            (('risk:mitigation', 'addresses', 'risk:vuln'), {
+                'doc': 'The mitigation addresses the vulnerability.'}),
+
+            (('risk:mitigation', 'uses', 'meta:ruleish'), {
                 'doc': 'The mitigation uses the rule.'}),
-
-            (('risk:mitigation', 'uses', 'it:app:yara:rule'), {
-                'doc': 'The mitigation uses the YARA rule.'}),
-
-            (('risk:mitigation', 'uses', 'it:app:snort:rule'), {
-                'doc': 'The mitigation uses the Snort rule.'}),
-
-            (('risk:mitigation', 'uses', 'inet:service:rule'), {
-                'doc': 'The mitigation uses the service rule.'}),
 
             (('risk:mitigation', 'uses', 'it:software'), {
                 'doc': 'The mitigation uses the software version.'}),
@@ -425,9 +430,6 @@ modeldefs = (
             ('risk:mitigation:type:taxonomy', {}, ()),
             ('risk:mitigation', {}, (
 
-                ('vuln', ('risk:vuln', {}), {
-                    'doc': 'The vulnerability that this mitigation addresses.'}),
-
                 ('type', ('risk:mitigation:type:taxonomy', {}), {
                     'doc': 'A taxonomy type entry for the mitigation.'}),
 
@@ -530,21 +532,9 @@ modeldefs = (
                     'doc': 'MITRE CWE values that apply to the vulnerability.'}),
             )),
 
-            # FIXME refactor? ( should this even exist? )
-            ('risk:vuln:soft:range', {}, (
-
-                ('vuln', ('risk:vuln', {}), {
-                    'doc': 'The vulnerability present in this software version range.'}),
-
-                ('version:min', ('it:software', {}), {
-                    'doc': 'The minimum version which is vulnerable in this range.'}),
-
-                ('version:max', ('it:software', {}), {
-                    'doc': 'The maximum version which is vulnerable in this range.'}),
-            )),
-
             ('risk:vulnerable', {}, (
 
+                # FIXME either/or prop?
                 ('vuln', ('risk:vuln', {}), {
                     'doc': 'The vulnerability that the node is susceptible to.'}),
 
@@ -648,16 +638,9 @@ modeldefs = (
                 ('target', ('entity:actor', {}), {
                     'doc': 'Contact information representing the target.'}),
 
-                ('attacker', ('entity:actor', {}), {
-                    'doc': 'Contact information representing the attacker.'}),
-
                 # FIXME - is this overfit being one-to-one?
                 ('campaign', ('ou:campaign', {}), {
                     'doc': 'The campaign that this compromise is part of.'}),
-
-                ('period', ('ival', {}), {
-                    'prevnames': ('time', 'lasttime', 'duration'),
-                    'doc': 'The period where there is evidence that target was compromised.'}),
 
                 ('detected', ('time', {}), {
                     'doc': 'The first confirmed detection time of the compromise.'}),

@@ -96,7 +96,7 @@ modeldefs = (
 
             ('transport:air:telem', ('guid', {}), {
                 'interfaces': (
-                    ('geo:locatable', {'template': {'locatable': 'telemetry sample'}}),
+                    ('geo:locatable', {'template': {'title': 'telemetry sample'}}),
                 ),
                 'doc': 'A telemetry sample from an aircraft in transit.'}),
 
@@ -135,7 +135,7 @@ modeldefs = (
 
             ('transport:sea:telem', ('guid', {}), {
                 'interfaces': (
-                    ('geo:locatable', {'template': {'locatable': 'telemetry sample'}}),
+                    ('geo:locatable', {'template': {'title': 'telemetry sample'}}),
                 ),
                 'doc': 'A telemetry sample from a vessel in transit.'}),
 
@@ -189,32 +189,32 @@ modeldefs = (
                 'props': (
 
                     ('built', ('time', {}), {
-                        'doc': 'The date when the {phys:object} was built.'}),
+                        'doc': 'The date when the {title} was built.'}),
 
                     ('manufacturer', ('entity:actor', {}), {
-                        'doc': 'The organization which manufactured the {phys:object}.'}),
+                        'doc': 'The organization which manufactured the {title}.'}),
 
                     ('manufacturer:name', ('meta:name', {}), {
-                        'doc': 'The name of the organization which manufactured the {phys:object}.'}),
+                        'doc': 'The name of the organization which manufactured the {title}.'}),
 
                     ('model', ('base:name', {}), {
-                        'doc': 'The model of the {phys:object}.'}),
+                        'doc': 'The model of the {title}.'}),
 
                     ('serial', ('base:id', {}), {
-                        'doc': 'The manufacturer assigned serial number of the {phys:object}.'}),
+                        'doc': 'The manufacturer assigned serial number of the {title}.'}),
 
                     ('max:occupants', ('int', {'min': 0}), {
-                        'doc': 'The maximum number of occupants the {phys:object} can hold.'}),
+                        'doc': 'The maximum number of occupants the {title} can hold.'}),
 
                     ('max:cargo:mass', ('mass', {}), {
-                        'doc': 'The maximum mass the {phys:object} can carry as cargo.'}),
+                        'doc': 'The maximum mass the {title} can carry as cargo.'}),
 
                     ('max:cargo:volume', ('geo:dist', {}), {
-                        'doc': 'The maximum volume the {phys:object} can carry as cargo.'}),
+                        'doc': 'The maximum volume the {title} can carry as cargo.'}),
 
                     # FIXME ownership interface?
                     ('owner', ('entity:actor', {}), {
-                        'doc': 'The contact information of the owner of the {phys:object}.'}),
+                        'doc': 'The contact information of the owner of the {title}.'}),
                 ),
             }),
             # most containers are vehicles, but some are not...
@@ -226,7 +226,7 @@ modeldefs = (
                 'doc': 'Properties common to a vehicle.',
                 'props': (
                     ('operator', ('entity:actor', {}), {
-                        'doc': 'The contact information of the operator of the {phys:object}.'}),
+                        'doc': 'The contact information of the operator of the {title}.'}),
                 ),
             }),
 

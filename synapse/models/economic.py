@@ -41,7 +41,7 @@ modeldefs = (
 
             ('econ:purchase', ('guid', {}), {
                 'interfaces': (
-                    ('geo:locatable', {'template': {'geo:locatable': 'purchase event'}}),
+                    ('geo:locatable', {'template': {'title': 'purchase event'}}),
                 ),
                 'doc': 'A purchase event.'}),
 
@@ -51,7 +51,7 @@ modeldefs = (
 
             ('econ:payment', ('guid', {}), {
                 'interfaces': (
-                    ('geo:locatable', {'template': {'geo:locatable': 'payment event'}}),
+                    ('geo:locatable', {'template': {'title': 'payment event'}}),
                 ),
                 'doc': 'A payment, crypto currency transaction, or account withdrawal.'}),
 

@@ -3,11 +3,46 @@ modeldefs = (
 
         'interfaces': (
 
-            # FIXME phys:made? ( product :manufacturer :made=<time> etc
-            # FIXME meta:sourced?
-
             ('entity:identifier', {
                 'doc': 'An interface which is inherited by entity identifier forms.',
+            }),
+
+            ('entity:action', {
+                'template': {'title': 'action'},
+                'doc': 'Properties which are common to actions taken by entities.',
+                'props': (
+
+                    ('actor', ('entity:actor', {}), {
+                        'doc': 'The actor who carried out the {title}.'}),
+
+                    ('actor:name', ('entity:name', {}), {
+                        'doc': 'The name of the actor who carried out the {title}.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period over which the {title} occurred.'}),
+
+                    # TODO
+                    # ('parent', ('entity:action', {}), {
+                    #     'doc': 'A parent action which this action contributed to.'}),
+            }),
+
+            ('entity:attendable', {
+                'template': {'title': 'event'},
+                'interfaces': (
+                    ('geo:locatable', {}),
+                    ('lang:transcript', {}),
+                ),
+                'props': (
+                    ('desc', ('text', {}), {
+                        'doc': 'An description of the {title}.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period of time over which the {title} occurred.'}),
+
+                    ('parent', ('entity:attendable', {}), {
+                        'doc': 'The parent event which hosts the {title}.'}),
+                ),
+                'doc': 'Properties common to events which individuals may attend.'}),
             }),
 
             ('entity:contactable', {
@@ -110,6 +145,9 @@ modeldefs = (
 
         'types': (
 
+            ('entity:attendable', ('ndef', {'interface': 'entity:attendable'}), {
+                'doc': 'An event where individuals may attend or paticipate.'}),
+
             ('entity:contactable', ('ndef', {'interface': 'entity:contactable'}), {
                 'doc': 'A node which implements the entity:contactable interface.'}),
 
@@ -184,9 +222,17 @@ modeldefs = (
             ('entity:possession', ('guid', {}), {
                 'doc': 'An item which is possessed by an entity.'}),
 
+            ('entity:attendee', ('guid', {}), {
+                'doc': 'An individual attending an event.'}),
+
+            ('entity:conversation', ('guid', {}), {
+                'doc': 'An conversation between entities.'}),
         ),
 
-        'edges': (),
+        'edges': (
+            (('entity:actor', 'used', 'meta:usable'), {
+                'doc': 'The actor used the target node.'}),
+        ),
 
         'forms': (
 
@@ -206,7 +252,6 @@ modeldefs = (
                     'doc': 'The current version of this historical contact.'}),
             )),
 
-            # FIXME rename to entity:had?
             ('entity:possession:type:taxonomy', {}, ()),
             ('entity:possession', {}, (
 
@@ -242,6 +287,25 @@ modeldefs = (
 
                 ('target', ('entity:actor', {}), {
                     'doc': 'The target entity in the relationship.'}),
+            )),
+
+            ('entity:attendee', {}, (
+
+                ('person', ('entity:individual', {}), {
+                    'doc': 'The person who attended the event.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The time period when the person attended the event.'}),
+
+                ('roles', ('array', {'type': 'base:name', 'split': ',', 'uniq': True, 'sorted': True}), {
+                    'doc': 'List of the roles the person had at the event.'}),
+
+                ('event', ('entity:attendable', {}), {
+                    'prevnames': ('meet', 'conference', 'conference:event', 'contest', 'preso'),
+                    'doc': 'The event that the person attended.'}),
+
+                # ('link', ('entity:link', {}), {
+                #     'doc': 'The remote communication mechanism used by the person to attend the event.'}),
             )),
         ),
     }),

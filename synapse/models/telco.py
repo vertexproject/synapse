@@ -152,7 +152,7 @@ modeldefs = (
                 'interfaces': (
                     ('lang:transcript', {}),
                 ),
-                'doc': 'A guid for a telephone call record.'}),
+                'doc': 'A telephone call.'}),
 
             ('tel:phone:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -174,7 +174,7 @@ modeldefs = (
 
             ('tel:mob:telem', ('guid', {}), {
                 'interfaces': (
-                    ('geo:locatable', {'template': {'geo:locatable': 'telemetry sample'}}),
+                    ('geo:locatable', {'template': {'title': 'telemetry sample'}}),
                 ),
                 'doc': 'A single mobile telemetry measurement.'}),
 
@@ -201,7 +201,7 @@ modeldefs = (
 
             ('tel:mob:cell', ('guid', {}), {
                 'interfaces': (
-                    ('geo:locatable', {'template': {'geo:locatable': 'cell tower'}}),
+                    ('geo:locatable', {'template': {'title': 'cell tower'}}),
                 ),
                 'doc': 'A mobile cell site which a phone may connect to.'}),
 
@@ -229,11 +229,19 @@ modeldefs = (
 
             ('tel:call', {}, (
 
-                ('src', ('tel:phone', {}), {
-                    'doc': 'The source phone number for a call.'}),
+                ('caller', ('entity:actor', {}), {
+                    'doc': 'The entity which placed the call.'}),
 
-                ('dst', ('tel:phone', {}), {
-                    'doc': 'The destination phone number for a call.'}),
+                ('caller:phone', ('tel:phone', {}), {
+                    'prevnames': ('src',),
+                    'doc': 'The phone number the caller placed the call from.'}),
+
+                ('recipient', ('entity:actor', {}), {
+                    'doc': 'The entity which received the call.'}),
+
+                ('recipient:phone', ('tel:phone', {}), {
+                    'prevnames': ('dst',),
+                    'doc': 'The phone number the caller placed the call to.'}),
 
                 ('period', ('ival', {}), {
                     'doc': 'The time period when the call took place.'}),
@@ -241,6 +249,7 @@ modeldefs = (
                 ('connected', ('bool', {}), {
                     'doc': 'Indicator of whether the call was connected.'}),
 
+                #FIXME interface? # lang:transcript
                 ('recording', ('file:bytes', {}), {
                     'doc': 'An audio file which recorded the call.'}),
             )),

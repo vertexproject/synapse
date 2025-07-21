@@ -14,51 +14,49 @@ modeldefs = (
         'interfaces': (
 
             ('ou:attendable', {
-                'template': {'ou:attendable': 'event'},
+                'template': {'title': 'event'},
                 'interfaces': (
-                    ('geo:locatable', {
-                        'template': {'geo:locatable': 'event'}}),
+                    ('entity:attendable', {}),
                 ),
                 'props': (
+
                     ('name', ('meta:name', {}), {
                         'alts': ('names',),
-                        'doc': 'The name of the {ou:attendable}.'}),
+                        'doc': 'The name of the {title}.'}),
 
                     ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate names for the {ou:attendable}.'}),
+                        'doc': 'An array of alternate names for the {title}.'}),
 
-                    ('desc', ('text', {}), {
-                        'doc': 'An organizer provided description of the {ou:attendable}.'}),
+                ),
+                'doc': 'An interface which is inherited by all organized events.'}),
+
+            ('ou:sponsored', {
+                'template': {'title': 'event'},
+                'interfaces': (
+                    ('ou:attendable', {}),
+                ),
+                'props': (
 
                     ('family', ('meta:name', {}), {
                         'ex': 'cyberwarcon',
-                        'doc': 'A base name for a series of recurring {ou:attendable}s.'}),
-
-                    ('period', ('ival', {}), {
-                        'doc': 'The period of time over which the {ou:attendable} occurred.'}),
+                        'doc': 'A base name for a series of recurring {title}s.'}),
 
                     ('website', ('inet:url', {}), {
                         'prevnames': ('url',),
-                        'doc': 'The URL of the {ou:attendable} website.'}),
+                        'doc': 'The URL of the {title} website.'}),
 
-                    ('parent', ('ou:attendable', {}), {
-                        'doc': 'The parent event which hosts the {ou:attendable}.'}),
-
-                    ('accounts', ('array', {'type': 'inet:service:account', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of social media accounts for the {ou:attendable}.'}),
+                    ('contact', ('entity:contact', {}), {
+                        'doc': 'Contact information for the {title}.'}),
 
                     ('sponsors', ('array', {'type': 'entity:actor', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of {ou:attendable} sponsors.'}),
+                        'doc': 'The entities which sponsored the {title}.'}),
 
                     ('organizers', ('array', {'type': 'entity:actor', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of {ou:attendable} organizers.'}),
+                        'doc': 'An array of {title} organizers.'}),
                 ),
-                'doc': 'An interface which is inherited by all organized events.'}),
+                'doc': 'Properties which are common to events which are hosted or sponsored by organizations.'}),
         ),
         'types': (
-            ('ou:attendable', ('ndef', {'interface': 'ou:attendable'}), {
-                'doc': 'An event which can be formally attended.'}),
-
             ('ou:sic', ('str', {'regex': r'^[0-9]{4}$'}), {
                 'ex': '0111',
                 'doc': 'The four digit Standard Industrial Classification Code.'}),
@@ -145,41 +143,22 @@ modeldefs = (
             ('ou:position', ('guid', {}), {
                 'doc': 'A position within an org which can be organized into an org chart with replaceable contacts.'}),
 
-            ('ou:attendee', ('guid', {}), {
+            ('ou:meeting', ('guid', {}), {
+                'prevnames': ('ou:meet',),
                 'interfaces': (
-                    ('entity:contactable', {'template': {'contactable': 'attendee'}}),
+                    ('ou:attendable', {'template': {'title': 'meeting'}}),
                 ),
-                'doc': 'An individual attending an organized event.'}),
-
-            ('ou:meet', ('guid', {}), {
-                'interfaces': (
-
-                    ('ou:attendable', {
-                        'template': {
-                            'ou:attendable': 'meet',
-                            'geo:locatable': 'meet'}}),
-
-                    ('lang:transcript', {}),
-                ),
-                'doc': 'A meeting of people which has no title or sponsor.'}),
+                'doc': 'A meeting.'}),
 
             ('ou:preso', ('guid', {}), {
                 'interfaces': (
-
-                    ('ou:attendable', {'template': {
-                        'ou:attendable': 'presentation',
-                        'geo:locatable': 'presentation'}}),
-
-                    ('lang:transcript', {}),
+                    ('ou:attendable', {'template': {'title': 'presentation'}}),
                 ),
                 'doc': 'A webinar, conference talk, or other type of presentation.'}),
 
             ('ou:conference', ('guid', {}), {
                 'interfaces': (
-                    ('ou:attendable', {
-                        'template': {
-                            'ou:attendable': 'conference',
-                            'geo:locatable': 'conference'}}),
+                    ('ou:attendable', {'template': {'title': 'conference'}),
                 ),
 
                 'display': {
@@ -201,11 +180,7 @@ modeldefs = (
             ('ou:event', ('guid', {}), {
                 'prevnames': ('ou:conference:event',),
                 'interfaces': (
-                    ('ou:attendable', {
-                        'template': {
-                            'ou:attendable': 'event',
-                            'geo:locatable': 'event'}}),
-                    ('lang:transcript', {}),
+                    ('ou:attendable', {'template': {'title': 'event'}}),
                 ),
                 'doc': 'An generic organized event.'}),
 
@@ -217,7 +192,7 @@ modeldefs = (
 
             ('ou:contest', ('guid', {}), {
                 'interfaces': (
-                    ('ou:attendable', {}),
+                    ('ou:attendable', {'template': {'title': 'contest'}),
                 ),
                 'doc': 'A competitive event resulting in a ranked set of participants.'}),
 
@@ -268,6 +243,7 @@ modeldefs = (
                 'doc': 'A specific technique used to achieve a goal.',
                 'interfaces': (
                     ('meta:usable', {}),
+                    ('risk:mitigatable', {}),
                     ('meta:sourced', {'template': {'sourced': 'technique'}}),
                 ),
                 'display': {
@@ -871,21 +847,6 @@ modeldefs = (
 
                 ('name', ('base:name', {}), {
                     'doc': 'The name that the organization assigns to this netblock.'}),
-            )),
-            ('ou:attendee', {}, (
-
-                ('person', ('ps:person', {}), {
-                    'doc': 'The person who attended the event.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period when the person attended the event.'}),
-
-                ('roles', ('array', {'type': 'entity:title', 'split': ',', 'uniq': True, 'sorted': True}), {
-                    'doc': 'List of the roles the person had at the event.'}),
-
-                ('event', ('ou:attendable', {}), {
-                    'prevnames': ('meet', 'conference', 'conference:event', 'contest', 'preso'),
-                    'doc': 'The event that the person attended.'}),
             )),
             ('ou:preso', {}, (
 

@@ -1172,7 +1172,7 @@ modeldefs = (
             ('inet:ip', 'synapse.models.inet.IPAddr', {}, {
                 'interfaces': (
                     ('meta:observable', {'template': {'observable': 'IP address'}}),
-                    ('geo:locatable', {'template': {'geo:locatable': 'IP address'}}),
+                    ('geo:locatable', {'template': {'title': 'IP address'}}),
                 ),
                 'ex': '1.2.3.4',
                 'doc': 'An IPv4 or IPv6 address.'}),
@@ -1336,15 +1336,24 @@ modeldefs = (
                 ),
                 'doc': 'A file hosted at a specific Universal Resource Locator (URL).'}),
 
-            ('inet:urlredir', ('comp', {'fields': (('src', 'inet:url'), ('dst', 'inet:url'))}), {
+            ('inet:url:redir', ('comp', {'fields': (('source', 'inet:url'), ('target', 'inet:url'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'URL redirection'}}),
+                ),
                 'ex': '(http://foo.com/,http://bar.com/)',
                 'doc': 'A URL that redirects to another URL, such as via a URL shortening service '
                        'or an HTTP 302 response.'}),
 
             ('inet:url:mirror', ('comp', {'fields': (('of', 'inet:url'), ('at', 'inet:url'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'URL mirror'}}),
+                ),
                 'doc': 'A URL mirror site.'}),
 
             ('inet:user', ('str', {'lower': True}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'username'}}),
+                ),
                 'doc': 'A username string.'}),
 
             ('inet:service:object', ('ndef', {'interfaces': ('inet:service:object',)}), {
@@ -1373,9 +1382,10 @@ modeldefs = (
                 'doc': 'An IPv4/IPv6 block registration record.'}),
 
             ('inet:wifi:ap', ('guid', {}), {
+                'template': {'title': 'access point'},
                 'interfaces': (
-                    ('meta:havable', {'template': {'havable': 'access point'}}),
-                    ('geo:locatable', {'template': {'geo:locatable': 'access point'}}),
+                    ('meta:havable', {}),
+                    ('geo:locatable', {}),
                 ),
                 'doc': 'An SSID/MAC address combination for a wireless access point.'}),
 
@@ -2356,22 +2366,14 @@ modeldefs = (
                     'doc': 'The file that was hosted at the URL.'}),
             )),
 
-            ('inet:urlredir', {}, (
-                ('src', ('inet:url', {}), {
+            ('inet:url:redir', {}, (
+                ('source', ('inet:url', {}), {
                     'ro': True,
                     'doc': 'The original/source URL before redirect.'}),
 
-                ('src:fqdn', ('inet:fqdn', {}), {
-                    'ro': True,
-                    'doc': 'The FQDN within the src URL (if present).'}),
-
-                ('dst', ('inet:url', {}), {
+                ('target', ('inet:url', {}), {
                     'ro': True,
                     'doc': 'The redirected/destination URL.'}),
-
-                ('dst:fqdn', ('inet:fqdn', {}), {
-                    'ro': True,
-                    'doc': 'The FQDN within the dst URL (if present).'}),
             )),
 
             ('inet:url:mirror', {}, (

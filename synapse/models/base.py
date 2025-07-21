@@ -157,14 +157,14 @@ modeldefs = (
 
             ('meta:havable', {
                 'doc': 'An interface used to describe items that can be possessed by an entity.',
-                'template': {'havable': 'item'},
+                'template': {'title': 'item'},
                 'props': (
 
                     ('owner', ('entity:actor', {}), {
-                        'doc': 'The current owner of the {havable}.'}),
+                        'doc': 'The current owner of the {title}.'}),
 
                     ('owner:name', ('meta:name', {}), {
-                        'doc': 'The name of the current owner of the {havable}.'}),
+                        'doc': 'The name of the current owner of the {title}.'}),
                 ),
             }),
 
