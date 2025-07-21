@@ -1,0 +1,5 @@
+---
+desc: Importing ``synapse.tools.genpkg`` has been deprecated. Import ``synapse.tools.pkgs.genpkg``.
+prs: []
+type: deprecation
+...
