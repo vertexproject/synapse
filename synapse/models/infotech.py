@@ -344,6 +344,10 @@ class Cpe23Str(s_types.Str):
         self.opts['lower'] = True
         s_types.Str.postTypeInit(self)
 
+        self.cpe22 = self.modl.type('it:sec:cpe:v2_2')
+        self.strtype = self.modl.type('str').clone({'lower': True, 'strip': True})
+        self.metatype = self.modl.type('meta:name')
+
     async def _normPyStr(self, valu, view=None):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
@@ -454,19 +458,21 @@ class Cpe23Str(s_types.Str):
             mesg = 'CPE 2.3 string is expected to start with "cpe:2.3:"'
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
 
+        styp = self.strtype.typehash
+
         subs = {
-            'part': parts[PART_IDX_PART],
-            'vendor': parts[PART_IDX_VENDOR],
-            'product': parts[PART_IDX_PRODUCT],
-            'version': parts[PART_IDX_VERSION],
-            'update': parts[PART_IDX_UPDATE],
-            'edition': parts[PART_IDX_EDITION],
-            'language': parts[PART_IDX_LANG],
-            'sw_edition': parts[PART_IDX_SW_EDITION],
-            'target_sw': parts[PART_IDX_TARGET_SW],
-            'target_hw': parts[PART_IDX_TARGET_HW],
-            'other': parts[PART_IDX_OTHER],
-            'v2_2': v2_2,
+            'part': (styp, parts[PART_IDX_PART], {}),
+            'vendor': (self.metatype.typehash, parts[PART_IDX_VENDOR], {}),
+            'product': (styp, parts[PART_IDX_PRODUCT], {}),
+            'version': (styp, parts[PART_IDX_VERSION], {}),
+            'update': (styp, parts[PART_IDX_UPDATE], {}),
+            'edition': (styp, parts[PART_IDX_EDITION], {}),
+            'language': (styp, parts[PART_IDX_LANG], {}),
+            'sw_edition': (styp, parts[PART_IDX_SW_EDITION], {}),
+            'target_sw': (styp, parts[PART_IDX_TARGET_SW], {}),
+            'target_hw': (styp, parts[PART_IDX_TARGET_HW], {}),
+            'other': (styp, parts[PART_IDX_OTHER], {}),
+            'v2_2': (self.cpe22.typehash, v2_2, {}),
         }
 
         return v2_3, {'subs': subs}
@@ -497,18 +503,16 @@ class SemVer(s_types.Int):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='No text left after stripping whitespace')
 
-        subs = s_version.parseSemver(valu)
-        if subs is None:
-            subs = s_version.parseVersionParts(valu)
-            if subs is None:
+        info = s_version.parseSemver(valu)
+        if info is None:
+            info = s_version.parseVersionParts(valu)
+            if info is None:
                 raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                         mesg='Unable to parse string as a semver.')
 
-        subs.setdefault('minor', 0)
-        subs.setdefault('patch', 0)
-        valu = s_version.packVersion(subs.get('major'), subs.get('minor'), subs.get('patch'))
+        valu = s_version.packVersion(info.get('major'), info.get('minor', 0), info.get('patch', 0))
 
-        return valu, {'subs': subs}
+        return valu, {}
 
     async def _normPyInt(self, valu, view=None):
         if valu < 0:
@@ -519,10 +523,7 @@ class SemVer(s_types.Int):
                                     mesg='Cannot norm a integer larger than 1152921504606846975 as a semver.')
         major, minor, patch = s_version.unpackVersion(valu)
         valu = s_version.packVersion(major, minor, patch)
-        subs = {'major': major,
-                'minor': minor,
-                'patch': patch}
-        return valu, {'subs': subs}
+        return valu, {}
 
     def repr(self, valu):
         major, minor, patch = s_version.unpackVersion(valu)
