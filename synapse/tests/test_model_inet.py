@@ -1363,6 +1363,18 @@ class InetModelTest(s_t_utils.SynTest):
                 for p, v in props.items():
                     self.eq(node.get(p), v)
 
+            nodes = await core.nodes('[ inet:server=gre://::1 ]')
+            self.eq(nodes[0].get('proto'), 'gre')
+
+            nodes = await core.nodes('[ inet:server=gre://1.2.3.4 ]')
+            self.eq(nodes[0].get('proto'), 'gre')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:server=gre://1.2.3.4:99 ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:server="gre://[::1]:99" ]')
+
     async def test_servfile(self):
         async with self.getTestCore() as core:
             valu = ('tcp://127.0.0.1:4040', 64 * 'f')

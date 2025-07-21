@@ -140,7 +140,7 @@ class Addr(s_types.Str):
         if len(parts) == 2:
             proto, valu = parts
 
-        if proto not in ('tcp', 'udp', 'icmp', 'host'):
+        if proto not in ('tcp', 'udp', 'icmp', 'host', 'gre'):
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
         subs['proto'] = proto
@@ -181,6 +181,11 @@ class Addr(s_types.Str):
                     subs['port'] = port
                     portstr = f':{port}'
 
+                # TODO: this should include icmp and host but requires a migration
+                if port and proto in ('gre',):
+                    mesg = f'Protocol {proto} does not allow specifying ports.'
+                    raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
+
                 return f'{proto}://[{ipv6}]{portstr}', {'subs': subs}
 
             mesg = f'Invalid IPv6 w/port ({orig})'
@@ -195,6 +200,11 @@ class Addr(s_types.Str):
         valu, port, pstr = self._getPort(valu)
         if port:
             subs['port'] = port
+
+        # TODO this should include icmp and host but requires a migration
+        if port and proto in ('gre',):
+            mesg = f'Protocol {proto} does not allow specifying ports.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
 
         ipv4 = self.modl.type('inet:ipv4').norm(valu)[0]
         ipv4_repr = self.modl.type('inet:ipv4').repr(ipv4)
