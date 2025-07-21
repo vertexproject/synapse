@@ -1294,7 +1294,6 @@ class Int(IntBase):
         ('signed', True),
         ('enums:strict', True),
 
-        # Note: currently unused
         ('fmt', '%d'),  # Set to an integer compatible format string to control repr.
 
         ('min', None),  # Set to a value to enforce minimum value for the type.
@@ -1316,6 +1315,7 @@ class Int(IntBase):
         self.enumnorm = {}
         self.enumrepr = {}
 
+        self.fmt = self.opts.get('fmt')
         self.enumstrict = self.opts.get('enums:strict')
 
         enums = self.opts.get('enums')
@@ -1378,6 +1378,10 @@ class Int(IntBase):
             if ival is not None:
                 return await self._normPyInt(ival)
 
+        # strip leading 0s that do not change base...
+        if len(valu) >= 2 and valu[0] == '0' and valu[1].isdigit():
+            valu = valu.lstrip('0')
+
         try:
             valu = int(valu, 0)
         except ValueError as e:
@@ -1413,7 +1417,7 @@ class Int(IntBase):
         if text is not None:
             return text
 
-        return str(norm)
+        return self.fmt % norm
 
 class Float(Type):
     _opt_defs = (

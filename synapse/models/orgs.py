@@ -122,15 +122,6 @@ modeldefs = (
                     ),
                 }}),
 
-            ('ou:contract', ('guid', {}), {
-                'doc': 'A contract between multiple entities.'}),
-
-            ('ou:contract:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of contract types.'}),
-
             ('ou:industry', ('guid', {}), {
                 'interfaces': (
                     ('meta:sourced', {'template': {'sourced': 'industry'}}),
@@ -194,9 +185,9 @@ modeldefs = (
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        # FIXME allow columns to use virtual props
-                        # {'type': 'prop', 'opts': {'name': 'period*min'}},
-                        # {'type': 'prop', 'opts': {'name': 'period*max'}},
+                        # TODO allow columns to use virtual props
+                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
+                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
                     ),
                 },
                 'doc': 'A conference.'}),
@@ -276,6 +267,7 @@ modeldefs = (
             ('ou:technique', ('guid', {}), {
                 'doc': 'A specific technique used to achieve a goal.',
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('meta:sourced', {'template': {'sourced': 'technique'}}),
                 ),
                 'display': {
@@ -374,31 +366,27 @@ modeldefs = (
         ),
         'edges': (
 
-            (('ou:campaign', 'used', 'ou:technique'), {
-                'doc': 'The campaign used the technique.'}),
+            (('ou:campaign', 'used', 'meta:usable'), {
+                'doc': 'The campaign used the target node.'}),
 
-            (('entity:actor', 'used', 'ou:technique'), {
-                'doc': 'The actor used the technique.'}),
+            (('entity:actor', 'used', 'meta:usable'), {
+                'doc': 'The entity used the target node.'}),
 
             (('risk:vuln', 'uses', 'ou:technique'), {
                 'doc': 'The vulnerability uses the technique.'}),
 
-            # FIXME usable?
-            (('ou:org', 'uses', None), {
-                'doc': 'The ou:org makes use of the target node.'}),
-
+            # FIXME targetable? ( goals? )
             (('ou:org', 'targeted', None), {
                 'doc': 'The organization targets the target node.'}),
 
-            # FIXME targetable?
             (('ou:campaign', 'targeted', None), {
                 'doc': 'The campaign targeted the target nodes.'}),
 
-            (('ou:campaign', 'used', None), {
-                'doc': 'The campaign made use of the target node.'}),
+            (('ou:contribution', 'has', 'econ:lineitem'), {
+                'doc': 'The contribution includes the line item.'}),
 
-            (('ou:contribution', 'included', None), {
-                'doc': 'The contribution includes the specific node.'}),
+            (('ou:contribution', 'has', 'econ:payment'), {
+                'doc': 'The contribution includes the payment.'}),
         ),
         'forms': (
 
@@ -715,7 +703,6 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The period of time when the conflict was ongoing.'}),
 
-                # FIXME timeline interface?
                 ('timeline', ('meta:timeline', {}), {
                     'doc': 'A timeline of significant events related to the conflict.'}),
             )),
@@ -735,23 +722,6 @@ modeldefs = (
 
                 ('time', ('time', {}), {
                     'doc': 'The time the contribution occurred.'}),
-
-                # FIXME aggregates?
-                ('material:spec', ('mat:spec', {}), {
-                    'doc': 'The specification of material items contributed.'}),
-
-                ('material:count', ('int', {}), {
-                    'doc': 'The number of material items contributed.'}),
-
-                ('monetary:payment', ('econ:payment', {}), {
-                    'doc': 'Payment details for a monetary contribution.'}),
-
-                ('personnel:count', ('int', {}), {
-                    'doc': 'Number of personnel contributed to the campaign.'}),
-
-                ('personnel:title', ('entity:title', {}), {
-                    'prevnames': ('personnel:jobtitle',),
-                    'doc': 'Title or designation for the contributed personnel.'}),
             )),
             ('ou:technique', {}, (
 
@@ -763,8 +733,8 @@ modeldefs = (
 
                 ('tag', ('syn:tag', {}), {
                     'doc': 'The tag used to annotate nodes where the technique was employed.'}),
-
             )),
+
             ('ou:technique:type:taxonomy', {
                 'prevnames': ('ou:technique:taxonomy',)}, ()),
 
@@ -792,23 +762,11 @@ modeldefs = (
                 ('industries', ('array', {'type': 'ou:industry', 'uniq': True, 'sorted': True}), {
                     'doc': 'The industries associated with the org.'}),
 
-                # FIXME: invert this or use org ID?
-                ('gov:us:cage', ('gov:us:cage', {}), {
-                    'prevnames': ('us:cage',),
-                    'doc': 'The US Commercial and Government Entity (CAGE) code for the organization.'}),
-
-                # FIXME discuss
                 ('subs', ('array', {'type': 'ou:org', 'uniq': True, 'sorted': True}), {
                     'doc': 'An set of sub-organizations.'}),
 
                 ('orgchart', ('ou:position', {}), {
                     'doc': 'The root node for an orgchart made up ou:position nodes.'}),
-
-                # FIXME geo:locatable
-                # FIXME geo:place with owner/operator?
-                # ('locations', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
-                #   'doc': 'An array of contacts for facilities operated by the org.',
-                # }),
 
                 ('dns:mx', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of MX domains used by email addresses issued by the org.'}),
@@ -887,57 +845,6 @@ modeldefs = (
                     'doc': 'An array of positions which report to this position.'}),
             )),
 
-            ('ou:contract:type:taxonomy', {
-                'prevnames': ('ou:conttype',)}, ()),
-
-            ('ou:contract', {}, (
-
-                ('title', ('str', {}), {
-                    'doc': 'A terse title for the contract.'}),
-
-                ('type', ('ou:contract:type:taxonomy', {}), {
-                    'doc': 'The type of contract.'}),
-
-                ('sponsor', ('entity:actor', {}), {
-                    'doc': 'The contract sponsor.'}),
-
-                ('parties', ('array', {'type': 'entity:actor', 'uniq': True, 'sorted': True}), {
-                    'doc': 'The non-sponsor entities bound by the contract.'}),
-
-                ('document', ('file:bytes', {}), {
-                    'doc': 'The best/current contract document.'}),
-
-                ('signed', ('time', {}), {
-                    'doc': 'The date that the contract signing was complete.'}),
-
-                ('begins', ('time', {}), {
-                    'doc': 'The date that the contract goes into effect.'}),
-
-                ('expires', ('time', {}), {
-                    'doc': 'The date that the contract expires.'}),
-
-                ('completed', ('time', {}), {
-                    'doc': 'The date that the contract was completed.'}),
-
-                ('terminated', ('time', {}), {
-                    'doc': 'The date that the contract was terminated.'}),
-
-                ('award:price', ('econ:price', {}), {
-                    'doc': 'The value of the contract at time of award.'}),
-
-                ('budget:price', ('econ:price', {}), {
-                    'doc': 'The amount of money budgeted for the contract.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the econ:price values.'}),
-
-                ('purchase', ('econ:purchase', {}), {
-                    'doc': 'Purchase details of the contract.'}),
-
-                # FIXME should this be modified?
-                ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {
-                    'doc': 'The requirements levied upon the parties.'}),
-            )),
             ('ou:industry:type:taxonomy', {}, ()),
             ('ou:industry', {}, (
 
@@ -1001,13 +908,8 @@ modeldefs = (
                     'doc': 'A file containing a recording of the presentation.'}),
             )),
             ('ou:meet', {}, ()),
-            ('ou:conference', {}, (
-                # FIXME remove?
-                ('org', ('ou:org', {}), {
-                    'doc': 'The org which created/managed the conference.'}),
-            )),
+            ('ou:conference', {}, ()),
             ('ou:event', {}, (
-                # FIXME make type part of the interface template
                 ('type', ('ou:event:type:taxonomy', {}), {
                     'doc': 'The type of event.'}),
             )),

@@ -1066,6 +1066,10 @@ class Model:
             for prevname in prevnames:
                 self.formprevnames[prevname] = formname
 
+        if (prevnames := form.type.info.get('prevnames')) is not None:
+            for prevname in prevnames:
+                self.formprevnames[prevname] = formname
+
         if isinstance(form.type, s_types.Array):
             self.arraysbytype[form.type.arraytype.name][form.name] = form
 

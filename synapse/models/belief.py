@@ -48,9 +48,8 @@ modeldefs = (
 
             ('belief:subscriber', {}, (
 
-                # FIXME entity:individual?
-                ('contact', ('entity:actor', {}), {
-                    'doc': 'The contact which subscribes to the belief system.'}),
+                ('contact', ('entity:individual', {}), {
+                    'doc': 'The individual who subscribes to the belief system.'}),
 
                 ('system', ('belief:system', {}), {
                     'doc': 'The belief system to which the contact subscribes.'}),

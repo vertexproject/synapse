@@ -609,6 +609,12 @@ modeldefs = (
 
                     ('phys:object', {
                         'template': {'phys:object': 'physical host'}}),
+
+                    ('meta:havable', {
+                        'template': {'havable': 'host'}}),
+
+                    ('geo:locatable', {
+                        'template': {'geo:locatable': 'host'}}),
                 ),
                 'doc': 'A GUID that represents a host or system.'}),
 
@@ -633,9 +639,6 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of network types.'}),
 
-            # ('it:domain', ('guid', {}), {
-            #     'doc': 'A logical boundary of authentication and configuration such as a windows domain.'}),
-
             ('it:host:account', ('guid', {}), {
                 'prevnames': ('it:account',),
                 'doc': 'A local account on a host.'}),
@@ -650,6 +653,9 @@ modeldefs = (
 
             ('it:host:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
                 'doc': 'A URL hosted on or served by a specific host.'}),
+
+            ('it:host:installed', ('guid', {}), {
+                'doc': 'Software installed on a specific host.'}),
 
             ('it:exec:screenshot', ('guid', {}), {
                 'interfaces': (
@@ -888,7 +894,8 @@ modeldefs = (
                 ),
                 'doc': 'A named pipe created by a process at runtime.'}),
 
-            ('it:exec:url', ('guid', {}), {
+            ('it:exec:fetch', ('guid', {}), {
+                'prevnames': ('it:hosturl',),
                 'interfaces': (
                     ('it:host:activity', {}),
                 ),
@@ -1076,20 +1083,46 @@ modeldefs = (
                 'doc': 'The software creates the file path.'}),
 
             (('it:software', 'creates', 'it:os:windows:registry:entry'), {
-                'doc': 'The software creates the windows registry entry.'}),
+                'doc': 'The software creates the Microsoft Windows registry entry.'}),
+
+            (('it:software', 'creates', 'it:os:windows:service'), {
+                'doc': 'The software creates the Microsoft Windows service.'}),
 
             (('it:exec:query', 'found', None), {
                 'doc': 'The target node was returned as a result of running the query.'}),
 
-            # FIXME tighten these down...
-            (('it:app:snort:rule', 'detects', None), {
-                'doc': 'The snort rule is intended for use in detecting the target node.'}),
+            (('it:app:snort:rule', 'detects', 'risk:vuln'), {
+                'doc': 'The snort rule detects use of the vulnerability.'}),
 
-            (('it:app:yara:rule', 'detects', None), {
-                'doc': 'The YARA rule is intended for use in detecting the target node.'}),
+            (('it:app:snort:rule', 'detects', 'it:software'), {
+                'doc': 'The snort rule detects use of the software.'}),
+
+            (('it:app:snort:rule', 'detects', 'risk:tool:software'), {
+                'doc': 'The snort rule detects use of the tool.'}),
+
+            (('it:app:snort:rule', 'detects', 'ou:technique'), {
+                'doc': 'The snort rule detects use of the technique.'}),
+
+            (('it:app:yara:rule', 'detects', 'it:software'), {
+                'doc': 'The YARA rule detects the software.'}),
+
+            (('it:app:yara:rule', 'detects', 'risk:tool:software'), {
+                'doc': 'The YARA rule detects the tool.'}),
+
+            (('it:app:yara:rule', 'detects', 'ou:technique'), {
+                'doc': 'The YARA rule detects the technique.'}),
+
+            (('it:app:yara:rule', 'detects', 'risk:vuln'), {
+                'doc': 'The YARA rule detects the vulnerability.'}),
 
             (('it:dev:repo', 'has', 'inet:url'), {
                 'doc': 'The repo has content hosted at the URL.'}),
+
+            (('it:software', 'uses', 'it:software'), {
+                'doc': 'The source software uses the target software.'}),
+
+            (('it:software', 'has', 'it:software'), {
+                'doc': 'The source software directly includes the target software.'}),
         ),
         'forms': (
             ('it:hostname', {}, ()),
@@ -1102,21 +1135,9 @@ modeldefs = (
                 ('desc', ('str', {}), {
                     'doc': 'A free-form description of the host.'}),
 
-                # ('domain', ('it:domain', {}), {
-                #     'doc': 'The authentication domain that the host is a member of.'}),
-
                 ('ip', ('inet:ip', {}), {
                     'doc': 'The last known IP address for the host.',
                     'prevnames': ('ipv4',)}),
-
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The last known location for the host.'}),
-
-                ('place', ('geo:place', {}), {
-                    'doc': 'The place where the host resides.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'The geo-political location string for the node.'}),
 
                 ('os', ('it:software', {}), {
                     'doc': 'The operating system of the host.'}),
@@ -1305,9 +1326,8 @@ modeldefs = (
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The optional service account which the local account maps to.'}),
 
-                # FIXME need to make into a relationship form?
                 ('groups', ('array', {'type': 'it:host:group', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of groups that the account is a member of.'}),
+                    'doc': 'Groups that the account is a member of.'}),
             )),
             ('it:host:group', {}, (
 
@@ -1330,7 +1350,6 @@ modeldefs = (
                 ('service:group', ('inet:service:group', {}), {
                     'doc': 'The optional service group which the local group maps to.'}),
 
-                # FIXME need to make into a relationship form?
                 ('groups', ('array', {'type': 'it:host:group', 'uniq': True, 'sorted': True}), {
                     'doc': 'Groups that are a member of this group.'}),
             )),
@@ -1821,7 +1840,6 @@ modeldefs = (
                 ('serial', ('meta:id', {}), {
                     'doc': 'The serial number of this component.'}),
 
-                # FIXME hardware component container interface?
                 ('host', ('it:host', {}), {
                     'doc': 'The it:host which has this component installed.'}),
             )),
@@ -1899,47 +1917,18 @@ modeldefs = (
 
             )),
 
-            # # FIXME depends
-            # ('it:prod:softlib', {}, (
+            ('it:host:installed', {}, (
 
-            #     ('soft', ('it:software', {}), {'ro': True,
-            #         'doc': 'The software version that contains the library.'}),
+                ('host', ('it:host', {}), {
+                    'doc': 'The host which the software was installed on.'}),
 
-            #     ('lib', ('it:software', {}), {'ro': True,
-            #         'doc': 'The library software version.'}),
-            # )),
+                ('software', ('it:software', {}), {
+                    'doc': 'The software installed on the host.'}),
 
-            # # FIXME has?
-            # ('it:prod:softfile', {}, (
+                ('period', ('ival', {}), {
+                    'doc': 'The period when the software was installed on the host.'}),
+            )),
 
-            #     ('soft', ('it:software', {}), {'ro': True,
-            #         'doc': 'The software which distributes the file.'}),
-
-            #     ('file', ('file:bytes', {}), {'ro': True,
-            #         'doc': 'The file distributed by the software.'}),
-            #     ('path', ('file:path', {}), {
-            #         'doc': 'The default installation path of the file.'}),
-            # )),
-
-            # ('it:prod:softreg', {}, (
-
-            #     ('softver', ('it:software', {}), {'ro': True,
-            #         'doc': 'The software which creates the registry entry.'}),
-
-            #     ('regval', ('it:os:windows:registry:entry', {}), {'ro': True,
-            #         'doc': 'The registry entry created by the software.'}),
-            # )),
-
-            #  FIXME - it:host:installed?
-            # ('it:hostsoft', {}, (
-
-            #     ('host', ('it:host', {}), {'ro': True,
-            #         'doc': 'Host with the software.'}),
-
-            #     ('softver', ('it:software', {}), {'ro': True,
-            #         'doc': 'Software on the host.'})
-
-            # )),
             ('it:av:signame', {}, ()),
 
             ('it:av:scan:result', {}, (
@@ -2246,7 +2235,7 @@ modeldefs = (
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
-            ('it:exec:url', {}, (
+            ('it:exec:fetch', {}, (
 
                 ('proc', ('it:exec:proc', {}), {
                     'doc': 'The main process executing code that requested the URL.'}),

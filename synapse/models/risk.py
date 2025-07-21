@@ -44,6 +44,7 @@ modeldefs = (
         'types': (
             ('risk:vuln', ('guid', {}), {
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('meta:sourced', {'template': {'sourced': 'vulnerability'}}),
                 ),
                 'doc': 'A unique vulnerability.'}),
