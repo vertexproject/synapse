@@ -152,13 +152,13 @@ modeldefs = (
 
             ('ou:preso', ('guid', {}), {
                 'interfaces': (
-                    ('ou:attendable', {'template': {'title': 'presentation'}}),
+                    ('ou:sponsored', {'template': {'title': 'presentation'}}),
                 ),
                 'doc': 'A webinar, conference talk, or other type of presentation.'}),
 
             ('ou:conference', ('guid', {}), {
                 'interfaces': (
-                    ('ou:attendable', {'template': {'title': 'conference'}),
+                    ('ou:sponsored', {'template': {'title': 'conference'}),
                 ),
 
                 'display': {
@@ -868,7 +868,7 @@ modeldefs = (
                 ('recording:file', ('file:bytes', ()), {
                     'doc': 'A file containing a recording of the presentation.'}),
             )),
-            ('ou:meet', {}, ()),
+            ('ou:meeting', {}, ()),
             ('ou:conference', {}, ()),
             ('ou:event', {}, (
                 ('type', ('ou:event:type:taxonomy', {}), {
