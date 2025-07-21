@@ -22,15 +22,15 @@ DEFAULT_TIMEOUT = 10  # secs
 
 def normOAuthTokenData(issued_at, data):
     '''
-    Normalize timestamps to be in epoch millis and set expires_at/refresh_at.
+    Normalize timestamps to be in epoch micros and set expires_at/refresh_at.
     '''
     s_schemas.reqValidOauth2TokenResponse(data)
     expires_in = data['expires_in']
     return {
         'access_token': data['access_token'],
         'expires_in': expires_in,
-        'expires_at': issued_at + expires_in * 1000,
-        'refresh_at': issued_at + (expires_in * REFRESH_WINDOW) * 1000,
+        'expires_at': issued_at + expires_in * 1000000,
+        'refresh_at': issued_at + (expires_in * REFRESH_WINDOW) * 1000000,
         'refresh_token': data.get('refresh_token'),
     }
 
@@ -127,7 +127,7 @@ class OAuthMixin(s_nexus.Pusher):
             while self._oauth_sched_heap:
 
                 refresh_at, provideriden, useriden = self._oauth_sched_heap[0]
-                refresh_in = int(max(0, refresh_at - s_common.now()) / 1000)
+                refresh_in = int(max(0, refresh_at - s_common.now()) / 1000000)
 
                 if await s_coro.event_wait(self._oauth_sched_wake, timeout=refresh_in):
                     self._oauth_sched_wake.clear()
