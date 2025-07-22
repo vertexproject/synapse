@@ -146,7 +146,7 @@ class Addr(s_types.Str):
 
         if proto not in self.protos:
             protostr = ','.join(self.protos)
-            mesg = f'inet:addr protocol must be in: {protos}'
+            mesg = f'inet:addr protocol must be in: {self.protos}'
             raise s_exc.BadTypeValu(mesg=mesg, valu=orig, name=self.name)
 
         subs['proto'] = proto
