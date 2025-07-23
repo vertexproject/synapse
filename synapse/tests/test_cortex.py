@@ -125,7 +125,7 @@ class CortexTest(s_t_utils.SynTest):
                         self.eq((await core01.getCellInfo())['cell']['mirror'], 'aha://root@00.cortex...')
 
                         outp = s_output.OutPutStr()
-                        argv = ('--svcurl', core01.getLocalUrl())
+                        argv = ('--url', core01.getLocalUrl())
                         ret = await s_tools_promote.main(argv, outp=outp)  # this is a graceful promotion
                         self.eq(ret, 0)
 

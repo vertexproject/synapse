@@ -790,6 +790,9 @@ Queries = [
     '[ +?#($foo).min=2020 ]',
     '[ +?#(foo).$var=2020 ]',
     '[ +?#($foo).$var=2020 ]',
+    '[ test:str=foo :1234=bar ]',
+    'return(:1234)',
+    'return(#foo:1234)',
 ]
 
 # Generated with print_parse_list below
@@ -1414,7 +1417,7 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: pvar, Const: ints], LiftProp: [Const: test:arrayprop], FiltOper: [Const: +, ArrayCond: [RelProp: [VarValue: [Const: pvar]], Const: =, VarValue: [Const: othervar]]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprDict: [Const: foo, EmbedQuery:  inet:fqdn ]]]]',
     'Query: [EditPropSet: [RelProp: [Const: seen], Const: ?=, DollarExpr: [ExprNode: [VarDeref: [VarValue: [Const: foo], Const: bar], Const: *, Const: 1000]]]]',
-    'Query: [EditPropSet: [RelProp: [Const: seen], Const: ?=, DollarExpr: [ExprNode: [RelPropValue: [RelProp: [Const: foo.virt]], Const: *, Const: 1000]]]]',
+    'Query: [EditPropSet: [RelProp: [Const: seen], Const: ?=, DollarExpr: [ExprNode: [RelPropValue: [RelProp: [Const: foo], VirtProps: [Const: virt]], Const: *, Const: 1000]]]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [Const: hehe], CondSetOper: [Const: unset], Const: heval]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [Const: hehe], CondSetOper: [VarValue: [Const: foo]], Const: heval]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [Const: unset], Const: heval]]',
@@ -1480,6 +1483,9 @@ _ParseResults = [
     'Query: [EditTagVirtSet: [TagName: [VarValue: [Const: foo]], VirtProps: [Const: min], Const: =, Const: 2020]]',
     'Query: [EditTagVirtSet: [TagName: [Const: foo], VirtProps: [VarValue: [Const: var]], Const: =, Const: 2020]]',
     'Query: [EditTagVirtSet: [TagName: [VarValue: [Const: foo]], VirtProps: [VarValue: [Const: var]], Const: =, Const: 2020]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSet: [RelProp: [Const: 1234], Const: =, Const: bar]]',
+    'Query: [Return: [RelPropValue: [RelProp: [Const: 1234]]]]',
+    'Query: [Return: [TagPropValue: [TagProp: [TagName: [Const: foo], Const: 1234]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):

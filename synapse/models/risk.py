@@ -275,6 +275,9 @@ modeldefs = (
             (('risk:threat', 'used', 'risk:vuln'), {
                 'doc': 'The threat cluster uses the vulnerability.'}),
 
+            (('risk:threat', 'uses', 'inet:service:app'), {
+                'doc': 'The threat cluster uses the online application.'}),
+
             (('risk:tool:software', 'uses', 'risk:vuln'), {
                 'doc': 'The tool uses the vulnerability.'}),
 
@@ -289,9 +292,6 @@ modeldefs = (
 
             (('risk:compromise', 'targeted', 'ou:industry'), {
                 'doc': "The compromise was assessed to be based on the victim's role in the industry."}),
-
-            #(('risk:threat', 'targeted', None), {
-                #'doc': 'The threat cluster targeted the target node.'}),
 
             (('risk:threat', 'used', 'meta:usable'), {
                 'doc': 'The threat cluster uses the target node.'}),
