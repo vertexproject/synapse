@@ -292,11 +292,13 @@ class OuModule(s_module.CoreModule):
                     'doc': 'An organization enacting a document.'}),
 
                 ('ou:requirement:type:taxonomy', ('taxonomy', {}), {
+                    'deprecated': True,
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of requirement types.'}),
+                    'doc': 'Deprecated. Please use doc:requirement and ou:enacted.'}),
 
                 ('ou:requirement', ('guid', {}), {
-                    'doc': 'A specific requirement.'}),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use doc:requirement and ou:enacted.'}),
 
             ),
             'edges': (
