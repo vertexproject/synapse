@@ -1369,11 +1369,20 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:server=gre://1.2.3.4 ]')
             self.eq(nodes[0].get('proto'), 'gre')
 
-            with self.raises(s_exc.BadTypeValu):
+            with self.raises(s_exc.BadTypeValu) as ctx:
                 await core.nodes('[ inet:server=gre://1.2.3.4:99 ]')
 
-            with self.raises(s_exc.BadTypeValu):
+            self.eq(ctx.exception.get('mesg'), 'Protocol gre does not allow specifying ports.')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
                 await core.nodes('[ inet:server="gre://[::1]:99" ]')
+
+            self.eq(ctx.exception.get('mesg'), 'Protocol gre does not allow specifying ports.')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server=newp://1.2.3.4:99 ]')
+
+            self.eq(ctx.exception.get('mesg'), 'inet:addr protocol must be one of: tcp,udp,icmp,host,gre')
 
     async def test_servfile(self):
         async with self.getTestCore() as core:
