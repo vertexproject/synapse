@@ -730,6 +730,14 @@ class LibPkg(Lib):
                       {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'A dictionary listing dependencies and if they are met.', }}},
+        {'name': 'vars',
+         'desc': "Get a dictionary representing the package's persistent variables.",
+         'type': {'type': 'function', '_funcname': '_libPkgVars',
+                  'args': (
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'A Storm Package name to get vars for.', },
+                  ),
+                  'returns': {'type': 'pkg:vars', 'desc': 'A dictionary representing the package variables.', }}},
     )
     _storm_lib_path = ('pkg',)
 
@@ -741,6 +749,7 @@ class LibPkg(Lib):
             'del': self._libPkgDel,
             'list': self._libPkgList,
             'deps': self._libPkgDeps,
+            'vars': self._libPkgVars,
         }
 
     async def _libPkgAdd(self, pkgdef, verify=False):
@@ -779,6 +788,10 @@ class LibPkg(Lib):
     async def _libPkgDeps(self, pkgdef):
         pkgdef = await toprim(pkgdef)
         return await self.runt.snap.core.verifyStormPkgDeps(pkgdef)
+
+    async def _libPkgVars(self, name):
+        name = await tostr(name)
+        return PkgVars(self.runt, name)
 
 @registry.registerLib
 class LibDmon(Lib):
@@ -6008,6 +6021,45 @@ class LibVars(Lib):
     @stormfunc(readonly=True)
     async def _libVarsType(self, valu):
         return await totype(valu)
+
+@registry.registerType
+class PkgVars(Prim):
+    '''
+    The Storm deref/setitem/iter convention on top of pkg vars information.
+    '''
+    _storm_typename = 'pkg:vars'
+    _ismutable = True
+
+    def __init__(self, runt, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+    def _reqPkgAdmin(self):
+        self.runt.confirm(('power-ups', self.valu, 'admin'))
+
+    @stormfunc(readonly=True)
+    async def deref(self, name):
+        self._reqPkgAdmin()
+        name = await tostr(name)
+        return await self.runt.snap.core.getStormPkgVar(self.valu, name)
+
+    async def setitem(self, name, valu):
+        self._reqPkgAdmin()
+        name = await tostr(name)
+
+        if valu is undef:
+            await self.runt.snap.core.popStormPkgVar(self.valu, name)
+            return
+
+        valu = await toprim(valu)
+        await self.runt.snap.core.setStormPkgVar(self.valu, name, valu)
+
+    @stormfunc(readonly=True)
+    async def iter(self):
+        self._reqPkgAdmin()
+        async for name, valu in self.runt.snap.core.iterStormPkgVars(self.valu):
+            yield name, valu
+            await asyncio.sleep(0)
 
 @registry.registerType
 class Query(Prim):
