@@ -285,6 +285,9 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of technique types.'}),
 
             ('ou:id', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'organization ID'}}),
+                ),
                 'doc': 'An ID value issued by an organization.'}),
 
             ('ou:id:type:taxonomy', ('taxonomy', {}), {

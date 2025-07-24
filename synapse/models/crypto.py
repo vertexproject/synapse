@@ -92,6 +92,7 @@ modeldefs = (
 
                 'interfaces': (
                     ('econ:pay:instrument', {'template': {'instrument': 'crypto currency address'}}),
+                    ('meta:observable', {'template': {'observable': 'crypto currency address'}}),
                 ),
                 'ex': 'btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
                 'doc': 'An individual crypto currency address.'}),
@@ -100,6 +101,9 @@ modeldefs = (
                                                     ('inetaddr', 'inet:client'),
                                                     ('coinaddr', 'crypto:currency:address')
                                                 )}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'crypto currency address and Internet client'}}),
+                ),
                 'ex': '(1.2.3.4, (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2))',
                 'doc': 'A fused node representing a crypto currency address used by an Internet client.'}),
 
@@ -116,6 +120,7 @@ modeldefs = (
                 'ex': ex_md5,
                 'interfaces': (
                     ('crypto:hash', {}),
+                    ('meta:observable', {'template': {'observable': 'MD5'}}),
                 ),
                 'doc': 'A hex encoded MD5 hash.'}),
 
@@ -123,6 +128,7 @@ modeldefs = (
                 'ex': ex_sha1,
                 'interfaces': (
                     ('crypto:hash', {}),
+                    ('meta:observable', {'template': {'observable': 'SHA1'}}),
                 ),
                 'doc': 'A hex encoded SHA1 hash.'}),
 
@@ -130,6 +136,7 @@ modeldefs = (
                 'ex': ex_sha256,
                 'interfaces': (
                     ('crypto:hash', {}),
+                    ('meta:observable', {'template': {'observable': 'SHA256'}}),
                 ),
                 'doc': 'A hex encoded SHA256 hash.'}),
 
@@ -137,6 +144,7 @@ modeldefs = (
                 'ex': ex_sha384,
                 'interfaces': (
                     ('crypto:hash', {}),
+                    ('meta:observable', {'template': {'observable': 'SHA384'}}),
                 ),
                 'doc': 'A hex encoded SHA384 hash.'}),
 
@@ -144,12 +152,14 @@ modeldefs = (
                 'ex': ex_sha512,
                 'interfaces': (
                     ('crypto:hash', {}),
+                    ('meta:observable', {'template': {'observable': 'SHA512'}}),
                 ),
                 'doc': 'A hex encoded SHA512 hash.'}),
 
             ('crypto:salthash', ('guid', {}), {
                 'interfaces': (
                     ('auth:credential', {}),
+                    ('meta:observable', {'template': {'observable': 'salted hash'}}),
                 ),
                 'doc': 'A salted hash computed for a value.'}),
 
@@ -160,6 +170,7 @@ modeldefs = (
             ('crypto:key:rsa', ('guid', {}), {
                 'interfaces': (
                     ('crypto:key', {}),
+                    ('meta:observable', {'template': {'observable': 'RSA key pair'}}),
                 ),
                 'doc': 'An RSA public/private key pair.'}),
 
@@ -169,12 +180,14 @@ modeldefs = (
             ('crypto:key:dsa', ('guid', {}), {
                 'interfaces': (
                     ('crypto:key', {}),
+                    ('meta:observable', {'template': {'observable': 'DSA key pair'}}),
                 ),
                 'doc': 'A DSA public/private key pair.'}),
 
             ('crypto:key:secret', ('guid', {}), {
                 'interfaces': (
                     ('crypto:key', {}),
+                    ('meta:observable', {'template': {'observable': 'secret key'}}),
                 ),
                 'doc': 'A secret key with an optional initialiation vector.'}),
 

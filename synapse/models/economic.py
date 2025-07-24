@@ -27,6 +27,7 @@ modeldefs = (
             ('econ:pay:card', ('guid', {}), {
                 'interfaces': (
                     ('econ:pay:instrument', {'template': {'instrument': 'payment card'}}),
+                    ('meta:observable', {'template': {'observable': 'payment card'}}),
                 ),
                 'doc': 'A single payment card.'}),
 
@@ -100,6 +101,9 @@ modeldefs = (
                 'doc': 'A financial account type taxonomy.'}),
 
             ('econ:fin:account', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'financial account'}}),
+                ),
                 'doc': 'A financial account which contains a balance of funds.'}),
 
             ('econ:bank:aba:account:type:taxonomy', ('taxonomy', {}), {
@@ -107,6 +111,9 @@ modeldefs = (
                 'doc': 'A type taxonomy for ABA bank account numbers.'}),
 
             ('econ:bank:aba:account', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'ABA account'}}),
+                ),
                 'doc': 'An ABA routing number and bank account number.'}),
 
             # TODO: econ:pay:cash (for an individual grip of cash. could reference bills/coins with numbers)
