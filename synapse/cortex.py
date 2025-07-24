@@ -5500,6 +5500,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # TODO Remove the defaults in 3.0.0
         csize = pdef.get('chunk:size', s_const.layer_pdef_csize)
         qsize = pdef.get('queue:size', s_const.layer_pdef_qsize)
+        soffs = pdef.get('offs', -1)
 
         async with await s_base.Base.anit() as base:
 
@@ -5508,7 +5509,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async def fill():
 
                 try:
-                    filloffs = await self.getStormVar(gvar, -1)
+                    filloffs = await self.getStormVar(gvar, soffs)
                     async for item in layr0.syncNodeEdits(filloffs + 1, wait=True):
                         await queue.put(item)
                     await queue.close()
@@ -5538,6 +5539,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 if alledits:
                     await layr1.storNodeEdits(alledits, meta)
                     await self.setStormVar(gvar, offs)
+                    pdef['offs'] = offs
 
     async def _checkNexsIndx(self):
         layroffs = [await layr.getEditIndx() for layr in list(self.layers.values())]
