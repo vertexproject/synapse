@@ -759,6 +759,7 @@ modeldefs = (
             ('it:software', ('guid', {}), {
                 'prevnames': ('it:prod:soft', 'it:prod:softver'),
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('doc:authorable', {'template': {'authorable': 'software'}}),
                 ),
                 'doc': 'A software product.'}),
@@ -770,17 +771,19 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of software types.'}),
 
-            ('it:prod:softid', ('guid', {}), {
+            ('it:softid', ('guid', {}), {
+                'prevnames': ('it:prod:softid',),
                 'doc': 'An identifier issued to a given host by a specific software application.'}),
 
             ('it:hardware', ('guid', {}), {
-                'prevnames': ('it:hardware',),
+                'prevnames': ('it:prod:hardware',),
                 'doc': 'A specification for a piece of IT hardware.'}),
 
             ('it:host:component', ('guid', {}), {
                 'doc': 'Hardware components which are part of a host.'}),
 
             ('it:hardware:type:taxonomy', ('taxonomy', {}), {
+                'prevnames': ('it:prod:hardwaretype',),
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
@@ -1836,7 +1839,7 @@ modeldefs = (
                     'doc': 'The it:host which has this component installed.'}),
             )),
 
-            ('it:prod:softid', {}, (
+            ('it:softid', {}, (
 
                 ('id', ('meta:id', {}), {
                     'doc': 'The ID issued by the software to the host.'}),

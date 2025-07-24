@@ -1359,6 +1359,9 @@ modeldefs = (
             ('inet:service:object', ('ndef', {'interfaces': ('inet:service:object',)}), {
                 'doc': 'An ndef type including all forms which implement the inet:service:object interface.'}),
 
+            ('inet:service:recipient', ('ndef', {'interfaces': ('inet:service:recipient',)}), {
+                'doc': 'A node which may be the recipient of a message.'}),
+
             ('inet:search:query', ('guid', {}), {
                 'interfaces': (
                     ('inet:service:action', {}),
@@ -1420,6 +1423,7 @@ modeldefs = (
 
             ('inet:service:app', ('guid', {}), {
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('inet:service:object', {'template': {'service:base': 'application'}}),
                 ),
                 'doc': 'An application which is part of a service architecture.'}),

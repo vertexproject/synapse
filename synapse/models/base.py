@@ -168,37 +168,35 @@ modeldefs = (
                 ),
             }),
 
-            ('meta:sourced', {
+            ('meta:reported', {
                 'doc': 'Properties common to forms which are created on a per-source basis.',
-                'template': {'sourced': 'item'},
+                'template': {'title': 'item'},
                 'props': (
 
                     ('id', ('meta:id', {}), {
-                        'doc': 'A unique ID given to the {sourced} by the source.'}),
+                        'doc': 'A unique ID given to the {title} by the source.'}),
 
                     ('name', ('meta:name', {}), {
                         'alts': ('names',),
-                        'doc': 'The primary name of the {sourced} according to the source.'}),
+                        'doc': 'The primary name of the {title} according to the source.'}),
 
                     ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
-                        'doc': 'A list of alternate names for the {sourced} according to the source.'}),
+                        'doc': 'A list of alternate names for the {title} according to the source.'}),
 
                     ('desc', ('text', {}), {
-                        'doc': 'A description of the {sourced}, according to the source.'}),
+                        'doc': 'A description of the {title}, according to the source.'}),
 
-                    ('source', ('entity:actor', {}), {
-                        'prevnames': ('reporter',),
-                        'doc': 'The entity which was the source of the {sourced}.'}),
+                    ('reporter', ('entity:actor', {}), {
+                        'doc': 'The entity which reported on the {title}.'}),
 
-                    ('source:name', ('meta:name', {}), {
-                        'prevnames': ('reporter:name',),
-                        'doc': 'The name of the entity which was the source of the {sourced}.'}),
+                    ('reporter:name', ('meta:name', {}), {
+                        'doc': 'The name of the entity which reported on the {title}.'}),
 
-                    ('source:created', ('time', {}), {
-                        'doc': 'The time when the source first created the {sourced}.'}),
+                    ('reporter:created', ('time', {}), {
+                        'doc': 'The time when the reporter first created the {title}.'}),
 
-                    ('source:updated', ('time', {}), {
-                        'doc': 'The time when the source last updated the {sourced}.'}),
+                    ('reporter:updated', ('time', {}), {
+                        'doc': 'The time when the reporter last updated the {title}.'}),
                 ),
             }),
 
@@ -294,8 +292,14 @@ modeldefs = (
             (('meta:ruleish', 'matches', None), {
                 'doc': 'The rule matched on the target node.'}),
 
-            (('meta:ruleish', 'detects', None), {
+            (('meta:ruleish', 'detects', 'meta:usable'), {
                 'doc': 'The rule is designed to detect the target node.'}),
+
+            (('meta:ruleish', 'detects', 'meta:observable'), {
+                'doc': 'The rule is designed to detect the target node.'}),
+
+            (('meta:usable', 'uses', 'meta:usable'), {
+                'doc': 'The source node uses the target node.'}),
         ),
         'forms': (
 

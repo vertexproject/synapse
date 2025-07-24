@@ -4,6 +4,9 @@ modeldefs = (
         'types': (
 
             ('pol:country', ('guid', {}), {
+                'interfaces': (
+                    ('risk:targetable', {}),
+                ),
                 'doc': 'A GUID for a country.'}),
 
             ('pol:immigration:status', ('guid', {}), {

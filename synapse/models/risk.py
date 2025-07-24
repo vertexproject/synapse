@@ -42,17 +42,16 @@ modeldefs = (
             }),
         ),
         'types': (
+
             ('risk:vuln', ('guid', {}), {
+                'template': {'title': 'vulnerability'},
                 'interfaces': (
                     ('meta:usable', {}),
+                    ('meta:reported', {}),
+                    ('risk:targetable', {}),
                     ('risk:mitigatable', {}),
-                    ('meta:sourced', {'template': {'sourced': 'vulnerability'}}),
                 ),
                 'doc': 'A unique vulnerability.'}),
-
-            # FIXME meta:name
-            ('risk:vulnname', ('str', {'lower': True, 'onespace': True}), {
-                'doc': 'A vulnerability name such as log4j or rowhammer.'}),
 
             ('risk:vuln:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -65,7 +64,7 @@ modeldefs = (
 
             ('risk:threat', ('guid', {}), {
                 'interfaces': (
-                    ('meta:sourced', {'template': {'sourced': 'threat'}}),
+                    ('meta:reported', {'template': {'title': 'threat'}}),
                     ('entity:actor', {'template': {'contactable': 'threat'}}),
                     ('entity:abstract', {'template': {'contactable': 'threat'}}),
                 ),
@@ -83,7 +82,7 @@ modeldefs = (
                 'template': {'title': 'attack'},
                 'interfaces': (
                     ('entity:action', {}),
-                    ('meta:sourced', {'template': {'sourced': 'attack'}}),
+                    ('meta:reported', {}),
                 ),
                 'doc': 'An instance of an actor attacking a target.'}),
 
@@ -97,9 +96,9 @@ modeldefs = (
                 'doc': 'An alert which indicates the presence of a risk.'}),
 
             ('risk:compromise', ('guid', {}), {
+                'template': {'title': 'compromise'},
                 'interfaces': (
-                    ('meta:sourced', {
-                        'template': {'sourced': 'compromise'}}),
+                    ('meta:reported', {}),
                     ('entity:action', {}),
                 ),
                 'display': {
@@ -118,8 +117,7 @@ modeldefs = (
 
             ('risk:mitigation', ('guid', {}), {
                 'interfaces': (
-                    ('meta:sourced', {
-                        'template': {'sourced': 'mitigation'}}),
+                    ('meta:reported', {'template': {'title': 'mitigation'}}),
                 ),
                 'display': {
                     'columns': (
@@ -129,7 +127,7 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
                 },
-                'doc': 'A mitigation for a specific risk:vuln.'}),
+                'doc': 'A mitigation for a specific vulnerability or technique.'}),
 
             ('risk:attack:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -158,8 +156,8 @@ modeldefs = (
 
             ('risk:tool:software', ('guid', {}), {
                 'interfaces': (
-                    ('meta:sourced', {
-                        'template': {'sourced': 'tool'}}),
+                    ('meta:usable', {}),
+                    ('meta:reported', {'template': {'title': 'tool'}}),
                 ),
                 'display': {
                     'columns': (
@@ -184,9 +182,9 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of threat types.'}),
 
             ('risk:leak', ('guid', {}), {
+                'template': {'title': 'leak'},
                 'interfaces': (
-                    ('meta:sourced', {
-                        'template': {'sourced': 'leak'}}),
+                    ('meta:reported', {}),
                     ('entity:action', {}),
                 ),
                 'doc': 'An event where information was disclosed without permission.'}),
@@ -198,9 +196,9 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of leak event types.'}),
 
             ('risk:extortion', ('guid', {}), {
+                'template': {'title': 'extortion'},
                 'interfaces': (
-                    ('meta:sourced', {
-                        'template': {'sourced': 'extortion'}}),
+                    ('meta:reported', {}),
                     ('entity:action', {}),
                 ),
                 'doc': 'An event where an attacker attempted to extort a victim.'}),
@@ -219,8 +217,7 @@ modeldefs = (
 
             ('risk:outage', ('guid', {}), {
                 'interfaces': (
-                    ('meta:sourced', {
-                        'template': {'sourced': 'outage'}}),
+                    ('meta:reported', {'template': {'title': 'outage'}}),
                 ),
                 'display': {
                     'columns': (
@@ -247,67 +244,31 @@ modeldefs = (
                 'doc': 'A node whose effect may be reduced by a mitigation.'}),
         ),
         'interfaces': (
+
             ('risk:mitigatable', {
                 'doc': 'A common interface for risks which may be mitigated.',
+            }),
+
+            ('risk:targetable', {
+                'doc': 'A common interface for nodes which may target selection criteria for threats.',
             }),
         ),
         'edges': (
             # some explicit examples...
 
-            (('risk:attack', 'used', 'ou:technique'), {
-                'doc': 'The attacker used the technique in the attack.'}),
+            (('entity:actor', 'targeted', 'risk:targetable'), {
+                'doc': 'The actor targets based on the target node.'}),
 
-            (('risk:threat', 'used', 'ou:technique'), {
-                'doc': 'The threat cluster uses the technique.'}),
+            (('entity:action', 'targeted', 'risk:targetable'), {
+                'doc': 'The actor targets based on the target node.'}),
 
-            (('risk:tool:software', 'uses', 'ou:technique'), {
-                'doc': 'The tool uses the technique.'}),
-
-            (('risk:compromise', 'used', 'ou:technique'), {
-                'doc': 'The attacker used the technique in the compromise.'}),
-
-            (('risk:extortion', 'used', 'ou:technique'), {
-                'doc': 'The attacker used the technique to extort the victim.'}),
-
-            (('risk:attack', 'used', 'risk:vuln'), {
-                'doc': 'The attack used the vulnerability.'}),
-
-            (('risk:threat', 'used', 'risk:vuln'), {
-                'doc': 'The threat cluster uses the vulnerability.'}),
-
-            (('risk:threat', 'uses', 'inet:service:app'), {
-                'doc': 'The threat cluster uses the online application.'}),
-
-            (('risk:tool:software', 'uses', 'risk:vuln'), {
-                'doc': 'The tool uses the vulnerability.'}),
-
-            (('ou:technique', 'uses', 'risk:vuln'), {
-                'doc': 'The technique uses the vulnerability.'}),
-
-            (('risk:attack', 'targeted', 'ou:industry'), {
-                'doc': 'The attack targeted the industry.'}),
-
-            (('risk:threat', 'targeted', 'ou:industry'), {
-                'doc': 'The threat cluster targets the industry.'}),
-
-            (('risk:compromise', 'targeted', 'ou:industry'), {
-                'doc': "The compromise was assessed to be based on the victim's role in the industry."}),
-
-            (('risk:threat', 'used', 'meta:usable'), {
-                'doc': 'The threat cluster uses the target node.'}),
-
-            (('risk:attack', 'targeted', 'meta:usable'), {
-                'doc': 'The attack targeted the target node.'}),
-
-            (('risk:attack', 'used', 'meta:usable'), {
-                'doc': 'The attacker used the target node to facilitate the attack.'}),
-
-            (('risk:tool:software', 'uses', 'meta:usable'), {
-                'doc': 'The tool uses the target node.'}),
-
-            (('risk:compromise', 'stole', None), {
+            (('risk:compromise', 'stole', 'meta:observable'), {
                 'doc': 'The target node was stolen or copied as a result of the compromise.'}),
 
+            (('risk:compromise', 'stole', 'phys:object'), {
+                'doc': 'The target node was stolen as a result of the compromise.'}),
+
+            # TODO - risk:mitigation addresses meta:usable?
             (('risk:mitigation', 'addresses', 'ou:technique'), {
                 'doc': 'The mitigation addresses the technique.'}),
 
@@ -323,13 +284,13 @@ modeldefs = (
             (('risk:mitigation', 'uses', 'it:hardware'), {
                 'doc': 'The mitigation uses the hardware.'}),
 
-            (('risk:leak', 'leaked', None), {
+            (('risk:leak', 'leaked', 'meta:observable'), {
                 'doc': 'The leak included the disclosure of the target node.'}),
 
             (('risk:leak', 'enabled', 'risk:leak'), {
                 'doc': 'The source leak enabled the target leak to occur.'}),
 
-            (('risk:extortion', 'leveraged', None), {
+            (('risk:extortion', 'leveraged', 'meta:observable'), {
                 'doc': 'The extortion event was based on attacker access to the target node.'}),
 
             (('meta:event', 'caused', 'risk:outage'), {
@@ -456,19 +417,30 @@ modeldefs = (
                 ('exploited', ('bool', {}), {
                     'doc': 'Set to true if the vulnerability has been exploited in the wild.'}),
 
-                ('timeline:discovered', ('time', {"ismin": True}), {
+                ('discovered', ('time', {}), {
+                    'prevnames': ('timeline:discovered',),
                     'doc': 'The earliest known discovery time for the vulnerability.'}),
 
-                ('timeline:published', ('time', {"ismin": True}), {
+                ('published', ('time', {}), {
+                    'prevnames': ('timeline:published',),
                     'doc': 'The earliest known time the vulnerability was published.'}),
 
-                ('timeline:vendor:notified', ('time', {"ismin": True}), {
-                    'doc': 'The earliest known vendor notification time for the vulnerability.'}),
+                ('vendor', ('entity:actor', {}), {
+                    'doc': 'The vendor whose product contains the vulnerability.'}),
 
-                ('timeline:vendor:fixed', ('time', {"ismin": True}), {
+                ('vendor:name', ('meta:name', {}), {
+                    'doc': 'The name of the vendor whose product contains the vulnerability.'}),
+
+                ('vendor:fixed', ('time', {}), {
+                    'prevnames': ('timeline:vendor:fixed',),
                     'doc': 'The earliest known time the vendor issued a fix for the vulnerability.'}),
 
-                ('timeline:exploited', ('time', {"ismin": True}), {
+                ('vendor:notified', ('time', {}), {
+                    'prevnames': ('timeline:vendor:notified',),
+                    'doc': 'The earliest known vendor notification time for the vulnerability.'}),
+
+                ('exploited', ('time', {}), {
+                    'prevnames': ('timeline:exploited',),
                     'doc': 'The earliest known time when the vulnerability was exploited in the wild.'}),
 
                 ('tag', ('syn:tag', {}), {
@@ -559,7 +531,8 @@ modeldefs = (
 
             ('risk:alert:verdict:taxonomy', {}, {}),
             ('risk:alert', {}, (
-                # FIXME - This is REALLY close to meta:sourced
+                # FIXME - This is REALLY close to meta:reported
+                # FIXME - This is also REALLY close to proj:doable
 
                 ('type', ('risk:alert:type:taxonomy', {}), {
                     'doc': 'A type for the alert, as a taxonomy entry.'}),
@@ -604,7 +577,7 @@ modeldefs = (
                 ('url', ('inet:url', {}), {
                     'doc': 'A URL which documents the alert.'}),
 
-                ('id', ('str', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'An external identifier for the alert.'}),
 
                 ('host', ('it:host', {}), {

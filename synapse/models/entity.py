@@ -18,9 +18,6 @@ modeldefs = (
                     ('actor:name', ('entity:name', {}), {
                         'doc': 'The name of the actor who carried out the {title}.'}),
 
-                    ('period', ('ival', {}), {
-                        'doc': 'The period over which the {title} occurred.'}),
-
                     # TODO
                     # ('parent', ('entity:action', {}), {
                     #     'doc': 'A parent action which this action contributed to.'}),
@@ -232,6 +229,15 @@ modeldefs = (
         'edges': (
             (('entity:actor', 'used', 'meta:usable'), {
                 'doc': 'The actor used the target node.'}),
+
+            (('entity:actor', 'used', 'meta:observable'), {
+                'doc': 'The actor used the target node.'}),
+
+            (('entity:action', 'used', 'meta:usable'), {
+                'doc': 'The action was taken using the target node.'}),
+
+            (('entity:action', 'used', 'meta:observable'), {
+                'doc': 'The action was taken using the target node.'}),
         ),
 
         'forms': (

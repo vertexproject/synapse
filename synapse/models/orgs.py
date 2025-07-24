@@ -122,7 +122,8 @@ modeldefs = (
 
             ('ou:industry', ('guid', {}), {
                 'interfaces': (
-                    ('meta:sourced', {'template': {'sourced': 'industry'}}),
+                    ('risk:targetable', {}),
+                    ('meta:reported', {'template': {'title': 'industry'}}),
                 ),
                 'display': {
                     'columns': (
@@ -222,7 +223,8 @@ modeldefs = (
             ('ou:campaign', ('guid', {}), {
                 'doc': "Represents an org's activity in pursuit of a goal.",
                 'interfaces': (
-                    ('meta:sourced', {'template': {'sourced': 'campaign'}}),
+                    ('entity:action', {}),
+                    ('meta:reported', {'template': {'title': 'campaign'}}),
                 ),
                 'display': {
                     'columns': (
@@ -244,7 +246,7 @@ modeldefs = (
                 'interfaces': (
                     ('meta:usable', {}),
                     ('risk:mitigatable', {}),
-                    ('meta:sourced', {'template': {'sourced': 'technique'}}),
+                    ('meta:reported', {'template': {'title': 'technique'}}),
                 ),
                 'display': {
                     'columns': (
@@ -341,22 +343,6 @@ modeldefs = (
                 'doc': 'An organization enacting a document.'}),
         ),
         'edges': (
-
-            (('ou:campaign', 'used', 'meta:usable'), {
-                'doc': 'The campaign used the target node.'}),
-
-            (('entity:actor', 'used', 'meta:usable'), {
-                'doc': 'The entity used the target node.'}),
-
-            (('risk:vuln', 'uses', 'ou:technique'), {
-                'doc': 'The vulnerability uses the technique.'}),
-
-            # FIXME targetable? ( goals? )
-            (('ou:org', 'targeted', None), {
-                'doc': 'The organization targets the target node.'}),
-
-            (('ou:campaign', 'targeted', None), {
-                'doc': 'The campaign targeted the target nodes.'}),
 
             (('ou:contribution', 'has', 'econ:lineitem'), {
                 'doc': 'The contribution includes the line item.'}),
@@ -607,13 +593,6 @@ modeldefs = (
 
                 ('slogan', ('lang:phrase', {}), {
                     'doc': 'The slogan used by the campaign.'}),
-
-                # TODO: move to contribution?
-                ('actor', ('entity:actor', {}), {
-                    'doc': 'The primary actor responsible for executing the campaign.'}),
-
-                ('actor:name', ('meta:name', {}), {
-                    'doc': 'The name of the primary actor responsible for executing the campaign.'}),
 
                 ('actors', ('array', {'type': 'entity:actor', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'Actors who participated in the campaign.'}),
