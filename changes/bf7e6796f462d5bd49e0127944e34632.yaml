@@ -1,5 +1,0 @@
----
-desc: Deprecated ``ou:requirement``. Please use ``doc:requirement`` and ``ou:enacted``.
-prs: []
-type: model
-...
