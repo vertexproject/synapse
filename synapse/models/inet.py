@@ -1692,6 +1692,9 @@ modeldefs = (
                 'doc': 'A JA4S TLS server fingerprint used by a server.'}),
 
             ('inet:tls:ja3s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja3s', 'crypto:hash:md5'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'JA3S sample'}}),
+                ),
                 'doc': 'A JA3 sample taken from a server.'}),
 
             ('inet:tls:ja3:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja3', 'crypto:hash:md5'))}), {
