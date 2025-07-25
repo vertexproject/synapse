@@ -662,7 +662,7 @@ modeldefs = (
                 }),
 
                 ('identities:emails', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
-                    'doc': 'The fused list of e-mail addresses identified by the cert CN and SANs.',
+                    'doc': 'The fused list of email addresses identified by the cert CN and SANs.',
                 }),
 
                 ('identities:ips', ('array', {'type': 'inet:ip', 'uniq': True, 'sorted': True}), {

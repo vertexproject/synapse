@@ -1198,9 +1198,9 @@ modeldefs = (
 
             ('inet:email', 'synapse.models.inet.Email', {}, {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'e-mail address'}}),
+                    ('meta:observable', {'template': {'observable': 'email address'}}),
                 ),
-                'doc': 'An e-mail address.'}),
+                'doc': 'An email address.'}),
 
             ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
                 'interfaces': (
@@ -1401,7 +1401,7 @@ modeldefs = (
 
             ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'email address'}}),
+                    ('meta:observable', {'template': {'observable': 'whois email address'}}),
                 ),
                 'doc': 'An email address associated with an FQDN via whois registration text.'}),
 
