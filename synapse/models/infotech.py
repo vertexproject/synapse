@@ -600,6 +600,9 @@ modeldefs = (
         'types': (
 
             ('it:hostname', ('str', {'strip': True, 'lower': True}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'hostname'}}),
+                ),
                 'doc': 'The name of a host or system.'}),
 
             ('it:host', ('guid', {}), {
@@ -652,6 +655,9 @@ modeldefs = (
                 'doc': 'A host specific login session.'}),
 
             ('it:host:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'host at this URL'}}),
+                ),
                 'doc': 'A URL hosted on or served by a specific host.'}),
 
             ('it:host:installed', ('guid', {}), {
@@ -686,6 +692,9 @@ modeldefs = (
                 'doc': "A vulnerability scan result for an asset."}),
 
             ('it:dev:str', ('str', {'strip': False}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'string'}}),
+                ),
                 'doc': 'A developer selected string.'}),
 
             ('it:dev:int', ('int', {}), {
@@ -779,6 +788,9 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of software types.'}),
 
             ('it:prod:softid', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'software identifier'}}),
+                ),
                 'doc': 'An identifier issued to a given host by a specific software application.'}),
 
             ('it:hardware', ('guid', {}), {
@@ -795,7 +807,10 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of IT hardware types.'}),
 
             ('it:adid', ('meta:id', {}), {
-                'interfaces': (('entity:identifier', {}), ),
+                'interfaces': (
+                    ('entity:identifier', {}),
+                    ('meta:observable', {'template': {'observable': 'advertising ID'}}),
+                ),
                 'doc': 'An advertising identification string.'}),
 
             # https://learn.microsoft.com/en-us/windows-hardware/drivers/install/hklm-system-currentcontrolset-services-registry-tree
