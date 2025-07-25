@@ -1260,7 +1260,7 @@ modeldefs = (
                     'port': (None, {'doc': 'The port the client connected from.'}),
                 },
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'network client address'}}),
+                    ('meta:observable', {'template': {'observable': 'network client'}}),
                 ),
                 'doc': 'A network client address.'}),
 
@@ -1287,7 +1287,7 @@ modeldefs = (
 
             ('inet:egress', ('guid', {}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'egress client address'}}),
+                    ('meta:observable', {'template': {'observable': 'egress client'}}),
                 ),
                 'doc': 'A host using a specific network egress client address.'}),
 
@@ -1347,7 +1347,7 @@ modeldefs = (
                     'port': (None, {'doc': 'The port the server is listening on.'}),
                 },
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'network server address'}}),
+                    ('meta:observable', {'template': {'observable': 'network server'}}),
                 ),
                 'doc': 'A network server address.'}),
 
