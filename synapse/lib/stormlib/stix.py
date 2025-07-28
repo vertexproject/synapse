@@ -6,9 +6,12 @@ import datetime
 import regex
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 import synapse.common as s_common
+
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
+import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.stormctrl as s_stormctrl
@@ -585,9 +588,6 @@ def _validateConfig(runt, config):
 # was causing issues with fastjsonschema.
 _validator = None
 def validateStix(bundle, version='2.1'):
-    import synapse.data as s_data
-    import synapse.lib.config as s_config
-
     ret = {
         'ok': False,
         'mesg': '',
