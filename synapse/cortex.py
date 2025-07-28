@@ -5473,11 +5473,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 nonlocal feedexc
                 try:
 
-                    itermpkfile = self.axon.iterMpkFile(sha256)
-                    first = await itermpkfile.__anext__()
-                    self._reqValidExportStormMeta(first)
-
-                    async for item in itermpkfile:
+                    # We avoid using anext() because telepath client objects return GenrIter
+                    # objects which don't implement __anext__, causing AttributeError
+                    first = True
+                    async for item in self.axon.iterMpkFile(sha256):
+                        if first:
+                            self._reqValidExportStormMeta(item)
+                            first = False
+                            continue
                         await q.put(item)
 
                 except Exception as e:
