@@ -73,7 +73,7 @@ modeldefs = (
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'names'}},
-                        {'type': 'prop', 'opts': {'name': 'source:name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
                 },
@@ -104,7 +104,7 @@ modeldefs = (
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'source:name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                     ),
                 },
                 'doc': 'A compromise and its aggregate impact. The compromise is the result of a successful attack.'}),
@@ -122,7 +122,7 @@ modeldefs = (
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'source:name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         {'type': 'prop', 'opts': {'name': 'type'}},
                         {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
@@ -163,7 +163,7 @@ modeldefs = (
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'software:name'}},
                         {'type': 'prop', 'opts': {'name': 'software:names'}},
-                        {'type': 'prop', 'opts': {'name': 'source:name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
                 },
@@ -226,7 +226,7 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'cause'}},
                         {'type': 'prop', 'opts': {'name': 'period'}},
                         {'type': 'prop', 'opts': {'name': 'provider:name'}},
-                        {'type': 'prop', 'opts': {'name': 'source:name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                     ),
                 },
                 'doc': 'An outage event which affected resource availability.'}),
@@ -323,17 +323,6 @@ modeldefs = (
                 ('activity', ('meta:activity', {}), {
                     'doc': 'The most recently assessed activity level of the threat cluster.'}),
 
-                ('source:discovered', ('time', {}), {
-                    'prevnames': ('reporter:discovered',),
-                    'doc': 'The time that the source first discovered the threat cluster.'}),
-
-                ('source:published', ('time', {}), {
-                    'prevnames': ('reporter:published',),
-                    'doc': 'The time that the source first publicly disclosed the threat cluster.'}),
-
-                ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
-                    'doc': "The source's assessed goals of the threat cluster."}),
-
                 ('sophistication', ('meta:sophistication', {}), {
                     'doc': "The sources's assessed sophistication of the threat cluster."}),
 
@@ -365,14 +354,6 @@ modeldefs = (
 
                 ('sophistication', ('meta:sophistication', {}), {
                     'doc': "The source's assessed sophistication of the tool."}),
-
-                ('source:discovered', ('time', {}), {
-                    'prevnames': ('reporter:discovered',),
-                    'doc': 'The time that the source first discovered the tool.'}),
-
-                ('source:published', ('time', {}), {
-                    'prevnames': ('reporter:published',),
-                    'doc': 'The time that the source first publicly disclosed the tool.'}),
 
                 ('software', ('it:software', {}), {
                     'prevnames': ('soft',),
@@ -449,15 +430,7 @@ modeldefs = (
                 ('cve', ('it:sec:cve', {}), {
                     'doc': 'The CVE ID of the vulnerability.'}),
 
-                ('cve:desc', ('text', {}), {
-                    'doc': 'The description of the vulnerability according to the CVE database.'}),
-
-                ('cve:url', ('inet:url', {}), {
-                    'doc': 'A URL linking this vulnerability to the CVE description.'}),
-
-                ('cve:references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Documentation URLs provided by the CVE database.'}),
-
+                # FIXME cvss / vuln scoring
                 ('cvss:v2', ('cvss:v2', {}), {
                     'doc': 'The CVSS v2 vector for the vulnerability.'}),
 
@@ -516,6 +489,7 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The time window where the node was vulnerable.'}),
 
+                # TODO - interface for things which can be vulnerable?
                 ('node', ('ndef', {}), {
                     'doc': 'The node which is vulnerable.'}),
 
@@ -611,6 +585,9 @@ modeldefs = (
                 ('target', ('entity:actor', {}), {
                     'doc': 'Contact information representing the target.'}),
 
+                ('period', ('ival', {}), {
+                    'doc': 'The period over which the target was compromised.'}),
+
                 # FIXME - is this overfit being one-to-one?
                 ('campaign', ('ou:campaign', {}), {
                     'doc': 'The campaign that this compromise is part of.'}),
@@ -647,12 +624,6 @@ modeldefs = (
 
                 ('severity', ('meta:severity', {}), {
                     'doc': 'A severity rank for the compromise.'}),
-
-                ('goal', ('ou:goal', {}), {
-                    'doc': 'The assessed primary goal of the attacker for the compromise.'}),
-
-                ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
-                    'doc': 'Additional assessed attacker goals for the compromise.'}),
             )),
             ('risk:attack:type:taxonomy', {
                 'prevnames': ('risk:attacktype',)}, ()),
@@ -672,9 +643,6 @@ modeldefs = (
                 ('success', ('bool', {}), {
                     'doc': 'Set if the attack was known to have succeeded or not.'}),
 
-                ('goal', ('ou:goal', {}), {
-                    'doc': 'The tactical goal of this specific attack.'}),
-
                 ('campaign', ('ou:campaign', {}), {
                     'doc': 'Set if the attack was part of a larger campaign.'}),
 
@@ -690,9 +658,6 @@ modeldefs = (
                 ('prev', ('risk:attack', {}), {
                     'doc': 'The previous/parent attack in a list or hierarchy.'}),
 
-                ('attacker', ('entity:actor', {}), {
-                    'doc': 'Contact information representing the attacker.'}),
-
                 ('url', ('inet:url', {}), {
                     'doc': 'A URL which documents the attack.'}),
             )),
@@ -706,17 +671,11 @@ modeldefs = (
                 ('owner', ('entity:actor', {}), {
                     'doc': 'The owner of the leaked information.'}),
 
-                ('leaker', ('entity:actor', {}), {
-                    'doc': 'The identity which leaked the information.'}),
-
                 ('recipient', ('entity:actor', {}), {
                     'doc': 'The identity which received the leaked information.'}),
 
                 ('type', ('risk:leak:type:taxonomy', {}), {
                     'doc': 'A type taxonomy for the leak.'}),
-
-                ('goal', ('ou:goal', {}), {
-                    'doc': 'The goal of the leaker in disclosing the information.'}),
 
                 ('compromise', ('risk:compromise', {}), {
                     'doc': 'The compromise which allowed the leaker access to the information.'}),
@@ -776,15 +735,8 @@ modeldefs = (
                 ('deadline', ('time', {}), {
                     'doc': 'The time that the demand must be met.'}),
 
-                ('goal', ('ou:goal', {}), {
-                    'doc': 'The goal of the attacker in extorting the victim.'}),
-
                 ('type', ('risk:extortion:type:taxonomy', {}), {
                     'doc': 'A type taxonomy for the extortion event.'}),
-
-                # risk:hostility attacker/target/success/compromise?/public/goal?
-                ('attacker', ('entity:actor', {}), {
-                    'doc': 'The extortion attacker identity.'}),
 
                 ('target', ('entity:actor', {}), {
                     'doc': 'The extortion target identity.'}),

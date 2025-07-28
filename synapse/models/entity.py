@@ -15,12 +15,9 @@ modeldefs = (
                     ('actor', ('entity:actor', {}), {
                         'doc': 'The actor who carried out the {title}.'}),
 
-                    ('actor:name', ('entity:name', {}), {
+                    ('actor:name', ('meta:name', {}), {
                         'doc': 'The name of the actor who carried out the {title}.'}),
-
-                    # TODO
-                    # ('parent', ('entity:action', {}), {
-                    #     'doc': 'A parent action which this action contributed to.'}),
+                ),
             }),
 
             ('entity:attendable', {
@@ -39,7 +36,7 @@ modeldefs = (
                     ('parent', ('entity:attendable', {}), {
                         'doc': 'The parent event which hosts the {title}.'}),
                 ),
-                'doc': 'Properties common to events which individuals may attend.'}),
+                'doc': 'Properties common to events which individuals may attend.',
             }),
 
             ('entity:contactable', {
@@ -87,7 +84,6 @@ modeldefs = (
 
                     # FIXME place of birth / death?
                     # FIXME lang
-                    # FIXME bio / tagline
 
                     ('email', ('inet:email', {}), {
                         'doc': 'The primary email address for the {contactable}.'}),
@@ -208,6 +204,10 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of entity relationship types.'}),
 
             ('entity:relationship', ('guid', {}), {
+                'template': {'title': 'relationship'},
+                'interfaces': (
+                    ('meta:reported', {}),
+                ),
                 'doc': 'A directional relationship between two actor entities.'}),
 
             ('entity:possession:type:taxonomy', ('taxonomy', {}), {
@@ -224,9 +224,35 @@ modeldefs = (
 
             ('entity:conversation', ('guid', {}), {
                 'doc': 'An conversation between entities.'}),
+
+            # FIXME entity:goal needs an interface ( for extensible goals without either/or props? )
+            # FIXME entity:goal needs to clearly differentiate actor/action goals vs goal types
+            # FIXME entity:goal should consider a backlink to entity:actor/entity:action SO specifics
+            ('entity:goal', ('guid', {}), {
+                'prevnames': ('ou:goal',),
+                'template': {'title': 'goal'},
+                'interfaces': (
+                    ('meta:reported', {}),
+                ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                    ),
+                },
+                'doc': 'A stated or assessed goal.'}),
+
+            ('entity:goal:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of goal types.'}),
+
         ),
 
         'edges': (
+            (('entity:actor', 'had', 'entity:goal'), {
+                'doc': 'The actor had the goal.'}),
+
             (('entity:actor', 'used', 'meta:usable'), {
                 'doc': 'The actor used the target node.'}),
 
@@ -238,6 +264,9 @@ modeldefs = (
 
             (('entity:action', 'used', 'meta:observable'), {
                 'doc': 'The action was taken using the target node.'}),
+
+            (('entity:action', 'had', 'entity:goal'), {
+                'doc': 'The action was taken in persuit of the goal.'}),
         ),
 
         'forms': (
@@ -312,6 +341,25 @@ modeldefs = (
 
                 # ('link', ('entity:link', {}), {
                 #     'doc': 'The remote communication mechanism used by the person to attend the event.'}),
+            )),
+
+            ('entity:goal:type:taxonomy', {}, ()),
+
+            # FIXME interface for goals to allow granular $$$, population, etc
+            ('entity:goal', {}, (
+
+                ('name', ('base:name', {}), {
+                    'alts': ('names',),
+                    'doc': 'A terse name for the goal.'}),
+
+                ('names', ('array', {'type': 'base:name', 'sorted': True, 'uniq': True}), {
+                    'doc': 'Alternative names for the goal.'}),
+
+                ('type', ('entity:goal:type:taxonomy', {}), {
+                    'doc': 'A type taxonomy entry for the goal.'}),
+
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the goal.'}),
             )),
         ),
     }),

@@ -248,10 +248,6 @@ modeldefs = (
 
                 ('connected', ('bool', {}), {
                     'doc': 'Indicator of whether the call was connected.'}),
-
-                #FIXME interface? # lang:transcript
-                ('recording', ('file:bytes', {}), {
-                    'doc': 'An audio file which recorded the call.'}),
             )),
             ('tel:mob:tac', {}, (
 

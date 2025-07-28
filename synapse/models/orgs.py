@@ -16,17 +16,22 @@ modeldefs = (
             ('ou:attendable', {
                 'template': {'title': 'event'},
                 'interfaces': (
+                    ('meta:havable', {}),
                     ('entity:attendable', {}),
                 ),
                 'props': (
 
                     ('name', ('meta:name', {}), {
                         'alts': ('names',),
+                        'ex': 'cyberwarcon 2025',
                         'doc': 'The name of the {title}.'}),
+
+                    ('name:base', ('meta:name', {}), {
+                        'ex': 'cyberwarcon',
+                        'doc': 'The base name of the {title} (for a recurring event).'}),
 
                     ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate names for the {title}.'}),
-
                 ),
                 'doc': 'An interface which is inherited by all organized events.'}),
 
@@ -36,10 +41,6 @@ modeldefs = (
                     ('ou:attendable', {}),
                 ),
                 'props': (
-
-                    ('family', ('meta:name', {}), {
-                        'ex': 'cyberwarcon',
-                        'doc': 'A base name for a series of recurring {title}s.'}),
 
                     ('website', ('inet:url', {}), {
                         'prevnames': ('url',),
@@ -158,10 +159,10 @@ modeldefs = (
                 'doc': 'A webinar, conference talk, or other type of presentation.'}),
 
             ('ou:conference', ('guid', {}), {
+                'template': {'title': 'conference'},
                 'interfaces': (
-                    ('ou:sponsored', {'template': {'title': 'conference'}),
+                    ('ou:sponsored', {}),
                 ),
-
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
@@ -179,9 +180,10 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of event types.'}),
 
             ('ou:event', ('guid', {}), {
+                'template': {'title': 'event'},
                 'prevnames': ('ou:conference:event',),
                 'interfaces': (
-                    ('ou:attendable', {'template': {'title': 'event'}}),
+                    ('ou:sponsored', {}),
                 ),
                 'doc': 'An generic organized event.'}),
 
@@ -192,27 +194,14 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of contest types.'}),
 
             ('ou:contest', ('guid', {}), {
+                'template': {'title': 'contest'},
                 'interfaces': (
-                    ('ou:attendable', {'template': {'title': 'contest'}),
+                    ('ou:sponsored', {}),
                 ),
                 'doc': 'A competitive event resulting in a ranked set of participants.'}),
 
             ('ou:contest:result', ('guid', {}), {
                 'doc': 'The results from a single contest participant.'}),
-
-            ('ou:goal', ('guid', {}), {
-                'display': {
-                    'columns': (
-                        {'type': 'prop', 'opts': {'name': 'name'}},
-                    ),
-                },
-                'doc': 'An assessed or stated goal which may be abstract or org specific.'}),
-
-            ('ou:goal:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of goal types.'}),
 
             ('ou:campaign:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -230,7 +219,7 @@ modeldefs = (
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'names'}},
-                        {'type': 'prop', 'opts': {'name': 'source:name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
                 }}),
@@ -251,7 +240,7 @@ modeldefs = (
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'source:name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
                 }}),
@@ -376,7 +365,7 @@ modeldefs = (
                 ('postings', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                     'doc': 'URLs where the opening is listed.'}),
 
-                ('contact', ('entity:actor', {}), {
+                ('contact', ('entity:contact', {}), {
                     'doc': 'The contact details to inquire about the opening.'}),
 
                 ('loc', ('loc', {}), {
@@ -566,30 +555,10 @@ modeldefs = (
                 ('status', ('ou:id:status:taxonomy', {}), {
                     'doc': 'The status of the ID at the time.'}),
             )),
-            ('ou:goal:type:taxonomy', {}, ()),
-            ('ou:goal', {}, (
-
-                ('name', ('meta:name', {}), {
-                    'alts': ('names',),
-                    'doc': 'A terse name for the goal.'}),
-
-                ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
-                    'doc': 'An array of alternate names for the goal. Used to merge/resolve goals.'}),
-
-                ('type', ('ou:goal:type:taxonomy', {}), {
-                    'doc': 'A type taxonomy entry for the goal.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the goal.'}),
-            )),
             ('ou:campaign:type:taxonomy', {
                 'prevnames': ('ou:camptype',)}, ()),
 
             ('ou:campaign', {}, (
-
-                ('goal', ('ou:goal', {}), {
-                    'alts': ('goals',),
-                    'doc': 'The assessed primary goal of the campaign.'}),
 
                 ('slogan', ('lang:phrase', {}), {
                     'doc': 'The slogan used by the campaign.'}),
@@ -597,14 +566,11 @@ modeldefs = (
                 ('actors', ('array', {'type': 'entity:actor', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'Actors who participated in the campaign.'}),
 
-                ('goals', ('array', {'type': 'ou:goal', 'split': ',', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Additional assessed goals of the campaign.'}),
-
                 ('success', ('bool', {}), {
-                    'doc': 'Records the success/failure status of the campaign if known.'}),
+                    'doc': "Set to true if the campaign achieved it's goals."}),
 
                 ('sophistication', ('meta:sophistication', {}), {
-                    'doc': 'The assessed sophistication of the campaign.'}),
+                    'doc': 'The sophistication of the campaign.'}),
 
                 # FIXME meta:timeline interface...
                 ('timeline', ('meta:timeline', {}), {
@@ -618,7 +584,10 @@ modeldefs = (
                     'doc': 'The time interval when the organization was running the campaign.'}),
 
                 ('cost', ('econ:price', {}), {
-                    'doc': 'The actual cost to the organization.'}),
+                    'protocols': {
+                        'econ:adjustable': {'props': {'time': 'period.min', 'currency': 'currency'}},
+                    },
+                    'doc': 'The actual cost of the campaign.'}),
 
                 ('budget', ('econ:price', {}), {
                     'protocols': {
@@ -657,6 +626,9 @@ modeldefs = (
 
                 ('period', ('ival', {}), {
                     'doc': 'The period of time when the conflict was ongoing.'}),
+
+                # TODO
+                # ('adversaries', ('array', {'type': 'entity:actor'}), {}),
 
                 ('timeline', ('meta:timeline', {}), {
                     'doc': 'A timeline of significant events related to the conflict.'}),
@@ -725,9 +697,6 @@ modeldefs = (
 
                 ('dns:mx', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of MX domains used by email addresses issued by the org.'}),
-
-                ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
-                    'doc': 'The assessed goals of the organization.'}),
 
                 ('tag', ('syn:tag', {}), {
                     'doc': 'A base tag used to encode assessments made by the organization.'}),
@@ -847,7 +816,10 @@ modeldefs = (
                 ('recording:file', ('file:bytes', ()), {
                     'doc': 'A file containing a recording of the presentation.'}),
             )),
-            ('ou:meeting', {}, ()),
+            ('ou:meeting', {}, (
+                ('hosts', ('array', {'type': 'entity:actor'}), {
+                    'doc': 'The contacts who hosted or called the meeting.'}),
+            )),
             ('ou:conference', {}, ()),
             ('ou:event', {}, (
                 ('type', ('ou:event:type:taxonomy', {}), {

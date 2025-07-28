@@ -42,6 +42,41 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('entity:possession :item -> inet:fqdn'))
             self.len(1, await core.nodes('entity:possession :actor -> * +:name=visi'))
 
+            nodes = await core.nodes('''[
+                entity:goal=*
+                    :name=MyGoal
+                    :names=(Foo Goal, Bar Goal, Bar Goal)
+                    :type=foo.bar
+                    :desc=MyDesc
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'entity:goal')
+            self.eq(nodes[0].get('name'), 'mygoal')
+            self.eq(nodes[0].get('names'), ('bar goal', 'foo goal'))
+            self.eq(nodes[0].get('type'), 'foo.bar.')
+            self.eq(nodes[0].get('desc'), 'MyDesc')
+
+            ndef = nodes[0].ndef
+            self.len(1, nodes := await core.nodes('[ entity:goal=({"name": "foo goal"}) ]'))
+            self.eq(nodes[0].ndef, ndef)
+
+            nodes = await core.nodes('''[
+                entity:attendee=*
+                    :person={[ ps:person=* ]}
+                    :period=(201202,201203)
+                    :event={[ ou:event=* ]}
+                    :roles+=staff
+                    :roles+=STAFF
+            ]''')
+            self.len(1, nodes)
+            self.eq(('staff',), nodes[0].get('roles'))
+            self.eq(nodes[0].get('period'), (1328054400000000, 1330560000000000))
+
+            self.len(1, await core.nodes('entity:attendee -> ps:person'))
+
+            self.len(1, await core.nodes('entity:attendee -> ou:event'))
+            self.len(1, await core.nodes('entity:attendee :event -> ou:event'))
+
     async def test_entity_relationship(self):
 
         async with self.getTestCore() as core:
@@ -50,12 +85,12 @@ class EntityModelTest(s_t_utils.SynTest):
                 entity:relationship=*
                     :type=tasks
                     :period=(2022, ?)
-                    :source={[ ou:org=({"name": "China Ministry of State Security (MSS)"}) ]}
-                    :target={[ risk:threat=({"name": "APT34", "source:name": "vertex"}) ]}
+                    :reporter={[ ou:org=({"name": "China Ministry of State Security (MSS)"}) ]}
+                    :target={[ risk:threat=({"name": "APT34", "reporter:name": "vertex"}) ]}
             ]''')
 
             self.len(1, nodes)
             self.eq(nodes[0].get('type'), 'tasks.')
             self.eq(nodes[0].get('period'), (1640995200000000, 9223372036854775807))
-            self.eq(nodes[0].get('source'), ('ou:org', '3332a704ed21dc3274d5731acc54a0ee'))
-            self.eq(nodes[0].get('target'), ('risk:threat', '0396f471ec63fedb7a6276f3a95f27b1'))
+            self.eq(nodes[0].get('reporter'), ('ou:org', '3332a704ed21dc3274d5731acc54a0ee'))
+            self.eq(nodes[0].get('target'), ('risk:threat', 'c0b2aeb72e61e692bdee1554bf931819'))

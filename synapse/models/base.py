@@ -197,6 +197,13 @@ modeldefs = (
 
                     ('reporter:updated', ('time', {}), {
                         'doc': 'The time when the reporter last updated the {title}.'}),
+
+                    ('reporter:published', ('time', {}), {
+                        'doc': 'The time when the reporter published the {title}.'}),
+
+                    ('reporter:discovered', ('time', {}), {
+                        'doc': 'The time when the reporter first discovered the {title}.'}),
+
                 ),
             }),
 
