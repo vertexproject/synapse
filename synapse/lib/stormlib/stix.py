@@ -14,8 +14,6 @@ import synapse.lib.schemas as s_schemas
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
-import stix2validator
-
 logger = logging.getLogger(__name__)
 
 def uuid5(valu=None):
@@ -577,22 +575,35 @@ def _validateConfig(runt, config):
                             mesg = f'STIX Bundle config has unknown pivot STIX type {pivtype} for form {formname}.'
                             raise s_exc.BadConfValu(mesg=mesg)
 
+_validator = None
 def validateStix(bundle, version='2.1'):
+    import synapse.data as s_data
+    import synapse.lib.config as s_config
+
     ret = {
         'ok': False,
         'mesg': '',
         'result': {},
     }
+
+    global _validator
+    if _validator is None:
+        schema = s_data.getJSON(f'stix/stix-{version}')
+        _validator = s_config.getJsValidator(schema)
+
     bundle = s_msgpack.deepcopy(bundle, use_list=True)
-    opts = stix2validator.ValidationOptions(strict=True, version=version)
+
     try:
-        results = stix2validator.validate_parsed_json(bundle, options=opts)
-    except stix2validator.ValidationError as e:
-        logger.exception('Error validating STIX bundle.')
-        ret['mesg'] = f'Error validating bundle: {e}'
+        bundle = _validator(bundle)
+    except s_exc.SchemaViolation as exc:
+        extra = {'synapse': exc.items()}
+        logger.exception('Error validating STIX bundle.', extra=extra)
+        mesg = exc.get('mesg')
+        ret['mesg'] = f'Error validating bundle: {mesg}'
     else:
-        ret['result'] = results.as_dict()
-        ret['ok'] = bool(results.is_valid)
+        ret['result'] = bundle
+        ret['ok'] = True
+
     return ret
 
 @s_stormtypes.registry.registerLib
