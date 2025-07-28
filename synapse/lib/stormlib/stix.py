@@ -575,6 +575,14 @@ def _validateConfig(runt, config):
                             mesg = f'STIX Bundle config has unknown pivot STIX type {pivtype} for form {formname}.'
                             raise s_exc.BadConfValu(mesg=mesg)
 
+# The stix/stix-{version} JSON schema is a slightly modified version of the
+# published STIX common/bundle.json file. I had to add the
+# `extension-definition.json` schema into the list of valid types to get it to
+# work. This does mean that it only does structural validation and no validation
+# of data such as (e.g.) checking that modified times are >= created times.
+# I also had to modify observables/software.json to escape a couple of
+# dollar signs in the CPE regex because they weren't correctly escaped and it
+# was causing issues with fastjsonschema.
 _validator = None
 def validateStix(bundle, version='2.1'):
     import synapse.data as s_data
