@@ -242,10 +242,60 @@ modeldefs = (
                 'doc': 'A stated or assessed goal.'}),
 
             ('entity:goal:type:taxonomy', ('taxonomy', {}), {
+                'prevnames': ('ou:goal:type:taxonomy',),
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of goal types.'}),
+
+            ('entity:campaign:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of campaign types.'}),
+
+            ('entity:campaign', ('guid', {}), {
+                'template': {'title': 'campaign'},
+                'interfaces': (
+                    ('entity:action', {}),
+                    ('meta:reported', {'template': {'title': 'campaign'}}),
+                ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'names'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'tag'}},
+                    ),
+                },
+                'doc': "Activity in pursuit of a goal."}),
+
+            ('entity:conflict', ('guid', {}), {
+                'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.'}),
+
+            ('entity:contribution', ('guid', {}), {
+                'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
+
+            ('entity:technique', ('guid', {}), {
+                'doc': 'A specific technique used to achieve a goal.',
+                'interfaces': (
+                    ('meta:usable', {}),
+                    ('risk:mitigatable', {}),
+                    ('meta:reported', {'template': {'title': 'technique'}}),
+                ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'tag'}},
+                    ),
+                }}),
+
+            ('entity:technique:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of technique types.'}),
 
         ),
 
@@ -267,6 +317,12 @@ modeldefs = (
 
             (('entity:action', 'had', 'entity:goal'), {
                 'doc': 'The action was taken in persuit of the goal.'}),
+
+            (('entity:contribution', 'had', 'econ:lineitem'), {
+                'doc': 'The contribution includes the line item.'}),
+
+            (('entity:contribution', 'had', 'econ:payment'), {
+                'doc': 'The contribution includes the payment.'}),
         ),
 
         'forms': (
@@ -361,6 +417,107 @@ modeldefs = (
                 ('desc', ('text', {}), {
                     'doc': 'A description of the goal.'}),
             )),
+
+            ('entity:campaign:type:taxonomy', {
+                'prevnames': ('ou:camptype',)}, ()),
+
+            ('entity:campaign', {}, (
+
+                ('slogan', ('lang:phrase', {}), {
+                    'doc': 'The slogan used by the campaign.'}),
+
+                ('actors', ('array', {'type': 'entity:actor', 'split': ',', 'uniq': True, 'sorted': True}), {
+                    'doc': 'Actors who participated in the campaign.'}),
+
+                ('success', ('bool', {}), {
+                    'doc': "Set to true if the campaign achieved it's goals."}),
+
+                ('sophistication', ('meta:sophistication', {}), {
+                    'doc': 'The sophistication of the campaign.'}),
+
+                # FIXME meta:timeline interface...
+                ('timeline', ('meta:timeline', {}), {
+                    'doc': 'A timeline of significant events related to the campaign.'}),
+
+                ('type', ('entity:campaign:type:taxonomy', {}), {
+                    'doc': 'The campaign type taxonomy.',
+                    'prevnames': ('camptype',)}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The time interval when the organization was running the campaign.'}),
+
+                ('cost', ('econ:price', {}), {
+                    'protocols': {
+                        'econ:adjustable': {'props': {'time': 'period.min', 'currency': 'currency'}},
+                    },
+                    'doc': 'The actual cost of the campaign.'}),
+
+                ('budget', ('econ:price', {}), {
+                    'protocols': {
+                        'econ:adjustable': {'props': {'time': 'period.min', 'currency': 'currency'}},
+                    },
+                    'doc': 'The budget allocated by the organization to execute the campaign.'}),
+
+                ('currency', ('econ:currency', {}), {
+                    'doc': 'The currency used to record econ:price properties.'}),
+
+                ('team', ('ou:team', {}), {
+                    'doc': 'The org team responsible for carrying out the campaign.'}),
+
+                # FIXME overfit?
+                ('conflict', ('entity:conflict', {}), {
+                    'doc': 'The conflict in which this campaign is a primary participant.'}),
+
+                ('tag', ('syn:tag', {}), {
+                    'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
+            )),
+
+            ('entity:conflict', {}, (
+
+                ('name', ('meta:name', {}), {
+                    'doc': 'The name of the conflict.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The period of time when the conflict was ongoing.'}),
+
+                # TODO
+                # ('adversaries', ('array', {'type': 'entity:actor'}), {}),
+
+                ('timeline', ('meta:timeline', {}), {
+                    'doc': 'A timeline of significant events related to the conflict.'}),
+            )),
+            ('entity:contribution', {}, (
+
+                ('from', ('entity:actor', {}), {
+                    'doc': 'The actor who made the contribution.'}),
+
+                ('campaign', ('entity:campaign', {}), {
+                    'doc': 'The campaign receiving the contribution.'}),
+
+                ('value', ('econ:price', {}), {
+                    'doc': 'The assessed value of the contribution.'}),
+
+                ('currency', ('econ:currency', {}), {
+                    'doc': 'The currency used for the assessed value.'}),
+
+                ('time', ('time', {}), {
+                    'doc': 'The time the contribution occurred.'}),
+            )),
+            ('entity:technique', {}, (
+
+                ('type', ('entity:technique:type:taxonomy', {}), {
+                    'doc': 'The taxonomy classification of the technique.'}),
+
+                ('sophistication', ('meta:sophistication', {}), {
+                    'doc': 'The assessed sophistication of the technique.'}),
+
+                ('tag', ('syn:tag', {}), {
+                    'doc': 'The tag used to annotate nodes where the technique was employed.'}),
+            )),
+
+            ('entity:technique:type:taxonomy', {
+                'prevnames': ('entity:technique:taxonomy',)}, ()),
+
         ),
     }),
 )

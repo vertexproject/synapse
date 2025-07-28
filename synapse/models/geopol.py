@@ -72,10 +72,10 @@ modeldefs = (
                     'doc': 'An array of alternate or localized names for the country.'}),
 
                 ('government', ('ou:org', {}), {
-                    'doc': 'The ou:org node which represents the government of the country.'}),
+                    'doc': 'The federal government of the country.'}),
 
                 ('place', ('geo:place', {}), {
-                    'doc': 'A geo:place node representing the geospatial properties of the country.'}),
+                    'doc': 'The geospatial properties of the country.'}),
 
                 ('period', ('ival', {}), {
                     'prevnames': ('founded', 'dissolved'),
@@ -197,7 +197,7 @@ modeldefs = (
                 ('race', ('pol:race', {}), {
                     'doc': 'The race the candidate is participating in.'}),
 
-                ('campaign', ('ou:campaign', {}), {
+                ('campaign', ('entity:campaign', {}), {
                     'doc': 'The official campaign to elect the candidate.'}),
 
                 ('winner', ('bool', {}), {

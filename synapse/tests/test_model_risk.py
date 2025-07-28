@@ -47,7 +47,7 @@ class RiskModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('risk:attack -(had)> entity:goal'))
             self.len(1, await core.nodes('risk:attack -> risk:attack:type:taxonomy'))
-            self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f -> ou:campaign'))
+            self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f -> entity:campaign'))
             self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f :prev -> risk:attack'))
             self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f :actor -> entity:contact'))
 
@@ -253,7 +253,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('1010', nodes[0].get('response:cost'))
             self.eq('usd', nodes[0].get('econ:currency'))
             self.eq(10, nodes[0].get('severity'))
-            self.len(1, await core.nodes('risk:compromise -> ou:campaign'))
+            self.len(1, await core.nodes('risk:compromise -> entity:campaign'))
             self.len(1, await core.nodes('risk:compromise -> risk:compromise:type:taxonomy'))
             self.len(1, await core.nodes('risk:compromise :vector -> risk:attack'))
             self.len(1, await core.nodes('risk:compromise :target -> entity:contact +:name=ledo'))
@@ -393,7 +393,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 risk:technique:masquerade=*
                     :node=(inet:fqdn, microsoft-verify.com)
                     :target=(inet:fqdn, microsoft.com)
-                    :technique={[ ou:technique=* :name=masq ]}
+                    :technique={[ entity:technique=* :name=masq ]}
                     :period=(2021, 2022)
             ]''')
             self.len(1, nodes)
@@ -401,7 +401,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(('inet:fqdn', 'microsoft-verify.com'), nodes[0].get('node'))
             self.eq((1609459200000000, 1640995200000000), nodes[0].get('period'))
             self.nn(nodes[0].get('technique'))
-            self.len(1, await core.nodes('risk:technique:masquerade -> ou:technique'))
+            self.len(1, await core.nodes('risk:technique:masquerade -> entity:technique'))
             self.len(1, await core.nodes('risk:technique:masquerade :node -> * +inet:fqdn=microsoft-verify.com'))
             self.len(1, await core.nodes('risk:technique:masquerade :target -> * +inet:fqdn=microsoft.com'))
 
@@ -410,7 +410,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :period=(2022, ?)
                     :node=(inet:fqdn, vertex.link)
                     :vuln={[ risk:vuln=* :name=redtree ]}
-                    :technique={[ ou:technique=* :name=foo ]}
+                    :technique={[ entity:technique=* :name=foo ]}
                     :mitigated=true
                     :mitigations={[ risk:mitigation=* :name=patchstuff ]}
                 ]
@@ -423,7 +423,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:vulnerable -> risk:vuln'))
             self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
             self.len(1, await core.nodes('risk:vulnerable -> risk:mitigation'))
-            self.len(1, await core.nodes('risk:vulnerable -> ou:technique'))
+            self.len(1, await core.nodes('risk:vulnerable -> entity:technique'))
 
             nodes = await core.nodes('''
                 [ risk:outage=*
@@ -462,7 +462,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :desc=BazFaz
                     :reporter:name=vertex
                     :reporter = { gen.ou.org vertex }
-                    +(addresses)> {[ risk:vuln=* ou:technique=* ]}
+                    +(addresses)> {[ risk:vuln=* entity:technique=* ]}
             ]''')
             self.eq('foobar', nodes[0].get('name'))
             self.eq('BazFaz', nodes[0].get('desc'))
@@ -523,6 +523,6 @@ class RiskModelTest(s_t_utils.SynTest):
     async def test_model_risk_vuln_technique(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
-                [ risk:vuln=* :name=foo <(uses)+ { [ ou:technique=* :name=bar ] } ]
+                [ risk:vuln=* :name=foo <(uses)+ { [ entity:technique=* :name=bar ] } ]
             ''')
-            self.len(1, await core.nodes('risk:vuln:name=foo <(uses)- ou:technique:name=bar'))
+            self.len(1, await core.nodes('risk:vuln:name=foo <(uses)- entity:technique:name=bar'))

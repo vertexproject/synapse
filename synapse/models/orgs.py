@@ -203,54 +203,6 @@ modeldefs = (
             ('ou:contest:result', ('guid', {}), {
                 'doc': 'The results from a single contest participant.'}),
 
-            ('ou:campaign:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of campaign types.'}),
-
-            ('ou:campaign', ('guid', {}), {
-                'doc': "Represents an org's activity in pursuit of a goal.",
-                'interfaces': (
-                    ('entity:action', {}),
-                    ('meta:reported', {'template': {'title': 'campaign'}}),
-                ),
-                'display': {
-                    'columns': (
-                        {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'names'}},
-                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
-                        {'type': 'prop', 'opts': {'name': 'tag'}},
-                    ),
-                }}),
-
-            ('ou:conflict', ('guid', {}), {
-                'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.'}),
-
-            ('ou:contribution', ('guid', {}), {
-                'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
-
-            ('ou:technique', ('guid', {}), {
-                'doc': 'A specific technique used to achieve a goal.',
-                'interfaces': (
-                    ('meta:usable', {}),
-                    ('risk:mitigatable', {}),
-                    ('meta:reported', {'template': {'title': 'technique'}}),
-                ),
-                'display': {
-                    'columns': (
-                        {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
-                        {'type': 'prop', 'opts': {'name': 'tag'}},
-                    ),
-                }}),
-
-            ('ou:technique:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of technique types.'}),
-
             ('ou:id', ('guid', {}), {
                 'doc': 'An ID value issued by an organization.'}),
 
@@ -333,11 +285,6 @@ modeldefs = (
         ),
         'edges': (
 
-            (('ou:contribution', 'has', 'econ:lineitem'), {
-                'doc': 'The contribution includes the line item.'}),
-
-            (('ou:contribution', 'has', 'econ:payment'), {
-                'doc': 'The contribution includes the payment.'}),
         ),
         'forms': (
 
@@ -555,115 +502,6 @@ modeldefs = (
                 ('status', ('ou:id:status:taxonomy', {}), {
                     'doc': 'The status of the ID at the time.'}),
             )),
-            ('ou:campaign:type:taxonomy', {
-                'prevnames': ('ou:camptype',)}, ()),
-
-            ('ou:campaign', {}, (
-
-                ('slogan', ('lang:phrase', {}), {
-                    'doc': 'The slogan used by the campaign.'}),
-
-                ('actors', ('array', {'type': 'entity:actor', 'split': ',', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Actors who participated in the campaign.'}),
-
-                ('success', ('bool', {}), {
-                    'doc': "Set to true if the campaign achieved it's goals."}),
-
-                ('sophistication', ('meta:sophistication', {}), {
-                    'doc': 'The sophistication of the campaign.'}),
-
-                # FIXME meta:timeline interface...
-                ('timeline', ('meta:timeline', {}), {
-                    'doc': 'A timeline of significant events related to the campaign.'}),
-
-                ('type', ('ou:campaign:type:taxonomy', {}), {
-                    'doc': 'The campaign type taxonomy.',
-                    'prevnames': ('camptype',)}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time interval when the organization was running the campaign.'}),
-
-                ('cost', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'props': {'time': 'period.min', 'currency': 'currency'}},
-                    },
-                    'doc': 'The actual cost of the campaign.'}),
-
-                ('budget', ('econ:price', {}), {
-                    'protocols': {
-                        'econ:adjustable': {'props': {'time': 'period.min', 'currency': 'currency'}},
-                    },
-                    'doc': 'The budget allocated by the organization to execute the campaign.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency used to record econ:price properties.'}),
-
-                ('goal:revenue', ('econ:price', {}), {
-                    'doc': 'A goal for revenue resulting from the campaign.'}),
-
-                ('result:revenue', ('econ:price', {}), {
-                    'doc': 'The revenue resulting from the campaign.'}),
-
-                ('goal:pop', ('int', {}), {
-                    'doc': 'A goal for the number of people affected by the campaign.'}),
-
-                ('result:pop', ('int', {}), {
-                    'doc': 'The count of people affected by the campaign.'}),
-
-                ('team', ('ou:team', {}), {
-                    'doc': 'The org team responsible for carrying out the campaign.'}),
-
-                ('conflict', ('ou:conflict', {}), {
-                    'doc': 'The conflict in which this campaign is a primary participant.'}),
-
-                ('tag', ('syn:tag', {}), {
-                    'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
-            )),
-            ('ou:conflict', {}, (
-
-                ('name', ('meta:name', {}), {
-                    'doc': 'The name of the conflict.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The period of time when the conflict was ongoing.'}),
-
-                # TODO
-                # ('adversaries', ('array', {'type': 'entity:actor'}), {}),
-
-                ('timeline', ('meta:timeline', {}), {
-                    'doc': 'A timeline of significant events related to the conflict.'}),
-            )),
-            ('ou:contribution', {}, (
-
-                ('from', ('entity:actor', {}), {
-                    'doc': 'The actor who made the contribution.'}),
-
-                ('campaign', ('ou:campaign', {}), {
-                    'doc': 'The campaign receiving the contribution.'}),
-
-                ('value', ('econ:price', {}), {
-                    'doc': 'The assessed value of the contribution.'}),
-
-                ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency used for the assessed value.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the contribution occurred.'}),
-            )),
-            ('ou:technique', {}, (
-
-                ('type', ('ou:technique:type:taxonomy', {}), {
-                    'doc': 'The taxonomy classification of the technique.'}),
-
-                ('sophistication', ('meta:sophistication', {}), {
-                    'doc': 'The assessed sophistication of the technique.'}),
-
-                ('tag', ('syn:tag', {}), {
-                    'doc': 'The tag used to annotate nodes where the technique was employed.'}),
-            )),
-
-            ('ou:technique:type:taxonomy', {
-                'prevnames': ('ou:technique:taxonomy',)}, ()),
 
             ('ou:org:type:taxonomy', {
                 'prevnames': ('ou:orgtype',)}, ()),

@@ -269,7 +269,7 @@ modeldefs = (
                 'doc': 'The target node was stolen as a result of the compromise.'}),
 
             # TODO - risk:mitigation addresses meta:usable?
-            (('risk:mitigation', 'addresses', 'ou:technique'), {
+            (('risk:mitigation', 'addresses', 'entity:technique'), {
                 'doc': 'The mitigation addresses the technique.'}),
 
             (('risk:mitigation', 'addresses', 'risk:vuln'), {
@@ -483,7 +483,7 @@ modeldefs = (
                 ('vuln', ('risk:vuln', {}), {
                     'doc': 'The vulnerability that the node is susceptible to.'}),
 
-                ('technique', ('ou:technique', {}), {
+                ('technique', ('entity:technique', {}), {
                     'doc': 'The technique that the node is susceptible to.'}),
 
                 ('period', ('ival', {}), {
@@ -589,7 +589,7 @@ modeldefs = (
                     'doc': 'The period over which the target was compromised.'}),
 
                 # FIXME - is this overfit being one-to-one?
-                ('campaign', ('ou:campaign', {}), {
+                ('campaign', ('entity:campaign', {}), {
                     'doc': 'The campaign that this compromise is part of.'}),
 
                 ('detected', ('time', {}), {
@@ -643,7 +643,8 @@ modeldefs = (
                 ('success', ('bool', {}), {
                     'doc': 'Set if the attack was known to have succeeded or not.'}),
 
-                ('campaign', ('ou:campaign', {}), {
+                # FIXME overfit
+                ('campaign', ('entity:campaign', {}), {
                     'doc': 'Set if the attack was part of a larger campaign.'}),
 
                 ('compromise', ('risk:compromise', {}), {
@@ -779,7 +780,7 @@ modeldefs = (
                 ('target', ('ndef', {}), {
                     'doc': 'The being masqueraded as.'}),
 
-                ('technique', ('ou:technique', {}), {
+                ('technique', ('entity:technique', {}), {
                     'doc': 'The specific technique which describes the type of masquerading.'}),
             )),
         ),

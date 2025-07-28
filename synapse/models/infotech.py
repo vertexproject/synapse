@@ -1068,7 +1068,7 @@ modeldefs = (
         ),
         'edges': (
 
-            (('it:software', 'uses', 'ou:technique'), {
+            (('it:software', 'uses', 'entity:technique'), {
                 'doc': 'The software uses the technique.'}),
 
             (('it:software', 'uses', 'risk:vuln'), {
@@ -1095,7 +1095,7 @@ modeldefs = (
             (('it:app:snort:rule', 'detects', 'risk:tool:software'), {
                 'doc': 'The snort rule detects use of the tool.'}),
 
-            (('it:app:snort:rule', 'detects', 'ou:technique'), {
+            (('it:app:snort:rule', 'detects', 'entity:technique'), {
                 'doc': 'The snort rule detects use of the technique.'}),
 
             (('it:app:yara:rule', 'detects', 'it:software'), {
@@ -1104,7 +1104,7 @@ modeldefs = (
             (('it:app:yara:rule', 'detects', 'risk:tool:software'), {
                 'doc': 'The YARA rule detects the tool.'}),
 
-            (('it:app:yara:rule', 'detects', 'ou:technique'), {
+            (('it:app:yara:rule', 'detects', 'entity:technique'), {
                 'doc': 'The YARA rule detects the technique.'}),
 
             (('it:app:yara:rule', 'detects', 'risk:vuln'), {
