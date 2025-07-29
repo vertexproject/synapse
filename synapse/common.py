@@ -1194,20 +1194,24 @@ def _patch_tarfile_count():
     '''
     Patch tarfile block size reading from the cpython implementation if
     the interpreter has not been patched for CVE-2025-8194.
+    See https://mail.python.org/archives/list/security-announce@python.org/thread/ZULLF3IZ726XP5EY7XJ7YIN3K5MDYR2D/
     '''
-    cvers = (sys.version_info.major, sys.version_info.minor, sys.version_info.micro)
-    # These will be the minimum versions that contains the fix.
-    min_patched_versions = (
-        (3, 14, 0),
-        (3, 13, 6),
-        (3, 12, 12),
-        (3, 11, 14)
-    )
-    for minver in min_patched_versions:
-        if cvers >= minver:
-            return
+    if sys.version_info.major > 3:
+        return
 
-    # Patch for
+    # Map of minor versions to micro versions which contain the patch
+    min_patched_micros = {
+        11: 14,
+        12: 12,
+        13: 6,
+        14: 0,
+    }
+    req_micro = min_patched_micros.get(sys.version_info.minor)
+    if req_micro is None:
+        return
+    if sys.version_info.micro >= req_micro:
+        return
+
     def _block_patched(self, count):
         if count < 0:  # pragma: no cover
             raise tarfile.InvalidHeaderError("invalid offset")
