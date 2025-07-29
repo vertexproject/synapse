@@ -4906,6 +4906,9 @@ class ViewExecCmd(Cmd):
 
             query = await runt.getStormQuery(text)
             async with runt.getSubRuntime(query, opts=opts) as subr:
+                await subr.enter_context(subr.snap.onWith('print', runt.snap.dist))
+                await subr.enter_context(subr.snap.onWith('warn', runt.snap.dist))
+
                 async for item in subr.execute():
                     await asyncio.sleep(0)
 
@@ -4918,6 +4921,9 @@ class ViewExecCmd(Cmd):
 
             opts = {'view': view}
             async with runt.getSubRuntime(query, opts=opts) as subr:
+                await subr.enter_context(subr.snap.onWith('print', runt.snap.dist))
+                await subr.enter_context(subr.snap.onWith('warn', runt.snap.dist))
+
                 async for item in subr.execute():
                     await asyncio.sleep(0)
 
@@ -5713,8 +5719,6 @@ class RunAsCmd(Cmd):
         pars.add_argument('user', help='The user name or iden to execute the storm query as.')
         pars.add_argument('storm', help='The storm query to execute.')
         pars.add_argument('--asroot', default=False, action='store_true', help='Propagate asroot to query subruntime.')
-        pars.add_argument('--show-msgs', default=False, action='store_true',
-                          help='Show output from $lib.print(), $lib.warn(), and $lib.exit().')
 
         return pars
 
@@ -5738,9 +5742,8 @@ class RunAsCmd(Cmd):
             opts = {'vars': path.vars}
 
             async with await core.snap(user=user, view=runt.snap.view) as snap:
-                if self.opts.show_msgs:
-                    snap.on('warn', runt.snap.dist)
-                    snap.on('print', runt.snap.dist)
+                await snap.enter_context(snap.onWith('warn', runt.snap.dist))
+                await snap.enter_context(snap.onWith('print', runt.snap.dist))
 
                 async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
                     subr.debug = runt.debug
@@ -5751,10 +5754,6 @@ class RunAsCmd(Cmd):
 
                     async for item in subr.execute():
                         await asyncio.sleep(0)
-
-                if self.opts.show_msgs:
-                    snap.off('warn', runt.snap.dist)
-                    snap.off('print', runt.snap.dist)
 
             yield node, path
 
@@ -5768,9 +5767,8 @@ class RunAsCmd(Cmd):
             opts = {'user': user}
 
             async with await core.snap(user=user, view=runt.snap.view) as snap:
-                if self.opts.show_msgs:
-                    snap.on('warn', runt.snap.dist)
-                    snap.on('print', runt.snap.dist)
+                await snap.enter_context(snap.onWith('warn', runt.snap.dist))
+                await snap.enter_context(snap.onWith('print', runt.snap.dist))
 
                 async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
                     subr.debug = runt.debug
@@ -5781,10 +5779,6 @@ class RunAsCmd(Cmd):
 
                     async for item in subr.execute():
                         await asyncio.sleep(0)
-
-                if self.opts.show_msgs:
-                    snap.off('warn', runt.snap.dist)
-                    snap.off('print', runt.snap.dist)
 
 class IntersectCmd(Cmd):
     '''

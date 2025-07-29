@@ -4113,6 +4113,29 @@ class StormTest(s_t_utils.SynTest):
             view = await core.callStorm('return( $lib.view.get().iden )')
             fork = await core.callStorm('return( $lib.view.get().fork().iden )')
 
+            q = '''view.exec $view {
+                $lib.print(foo)
+                $lib.warn(bar)
+                [ it:dev:str=nomsg ]
+             }'''
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInWarn('bar', msgs)
+
+            q = '''
+                [ it:dev:str=woot ] $valu=$node.repr()
+                view.exec $view {
+                    $lib.print(foo)
+                    $lib.print($valu)
+                    $lib.warn(bar)
+                    [ it:dev:str=nomsg ]
+                }
+            '''
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInPrint('woot', msgs)
+            self.stormIsInWarn('bar', msgs)
+
             await core.addStormPkg({
                 'name': 'testpkg',
                 'version': (0, 0, 1),
@@ -5354,47 +5377,28 @@ class StormTest(s_t_utils.SynTest):
             for node in nodes:
                 self.none(node.tags.get('btag'))
 
-            # non-runtime
+            q = '''runas visi {
+                $lib.print(foo)
+                $lib.warn(bar)
+                [ it:dev:str=nomsg ]
+             }'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInWarn('bar', msgs)
+
             q = '''
-                $user = $lib.user.name()
-                $lib.print(`PRINT {$user}`)
-                $lib.warn(`WARN {$user}`)
-                $lib.exit(`EXIT {$user}`)
-                $lib.print(`NEWP {$user}`)
+                [it:dev:str=woot] $valu=$node.repr()
+                runas visi {
+                    $lib.print(foo)
+                    $lib.warn(bar)
+                    $lib.print($valu)
+                    [ it:dev:str=nomsg ]
+                }
             '''
-            opts = {'vars': {'query': q}}
-            msgs = await core.stormlist('runas visi $query', opts=opts)
-            self.stormNotInPrint('PRINT visi', msgs)
-            self.stormHasNoWarnErr(msgs)
-            self.stormNotInPrint('NEWP', msgs)
-
-            msgs = await core.stormlist('runas visi --show-msgs $query', opts=opts)
-            self.stormIsInPrint('PRINT visi', msgs)
-            self.stormIsInWarn('WARN visi', msgs)
-            self.stormIsInWarn('EXIT visi', msgs)
-            self.stormNotInPrint('NEWP visi', msgs)
-
-            # runtime
-            q = '''
-                $user = $lib.user.name()
-                $lib.print(`{$valu} {$user}`)
-                $lib.print(`PRINT {$user}`)
-                $lib.warn(`WARN {$user}`)
-                $lib.exit(`EXIT {$user}`)
-                $lib.print(`NEWP {$user}`)
-            '''
-            opts = {'vars': {'query': q}}
-            msgs = await core.stormlist('[test:str=WOOT] $valu=$node.repr() runas visi $query', opts=opts)
-            self.stormNotInPrint('PRINT', msgs)
-            self.stormHasNoWarnErr(msgs)
-            self.stormNotInPrint('NEWP', msgs)
-
-            msgs = await core.stormlist('[test:str=WOOT] $valu=$node.repr() runas visi --show-msgs $query', opts=opts)
-            self.stormIsInPrint('WOOT visi', msgs)
-            self.stormIsInPrint('PRINT visi', msgs)
-            self.stormIsInWarn('WARN visi', msgs)
-            self.stormIsInWarn('EXIT visi', msgs)
-            self.stormNotInPrint('NEWP', msgs)
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInPrint('woot', msgs)
+            self.stormIsInWarn('bar', msgs)
 
             msgs = await core.stormlist('runas visi {$lib.raise(Foo, asdf)}')
             self.stormIsInErr('asdf', msgs)
