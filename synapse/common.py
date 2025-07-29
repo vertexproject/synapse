@@ -17,6 +17,7 @@ import decimal
 import fnmatch
 import hashlib
 import logging
+import tarfile
 import binascii
 import builtins
 import tempfile
@@ -1189,8 +1190,27 @@ def _patch_tornado_json():
     if hasattr(tornado.escape, 'json_decode'):
         tornado.escape.json_decode = s_json.loads
 
+def _patch_tarfile_count():
+    '''
+    Patch tarfile block size reading from the cpython implementation if
+    the interpreter has not been patched for CVE-2025-8194.
+    '''
+    min_patched_version = (3, 11, 14)  # This will be the minimum version that contains the fix.
+    if (sys.version_info.major, sys.version_info.minor, sys.version_info.micro) > min_patched_version:
+        return
+
+    # Patch for
+    def _block_patched(self, count):
+        if count < 0:  # pragma: no cover
+            raise tarfile.InvalidHeaderError("invalid offset")
+        return _block_patched._orig_block(self, count)
+
+    _block_patched._orig_block = tarfile.TarInfo._block
+    tarfile.TarInfo._block = _block_patched
+
 _patch_http_cookies()
 _patch_tornado_json()
+_patch_tarfile_count()
 
 # TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
 # This is a workaround for a race where asyncio.wait_for can end up
