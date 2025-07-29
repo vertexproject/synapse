@@ -6,6 +6,27 @@
 Synapse Changelog
 *****************
 
+v2.217.0 - 2025-07-25
+=====================
+
+Model Changes
+-------------
+- Deprecated ``ou:requirement``. Please use ``doc:requirement`` and
+  ``ou:enacted``.
+  (`#4416 <https://github.com/vertexproject/synapse/pull/4416>`_)
+- See :ref:`userguide_model_v2_217_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added support for ``gre://`` to ``inet:addr`` type used by ``inet:server``
+  and ``inet:client``.
+  (`#4414 <https://github.com/vertexproject/synapse/pull/4414>`_)
+
+Improved documentation
+----------------------
+- Added Storm library documentation for ``$lib.feed.fromAxon``.
+  (`#4420 <https://github.com/vertexproject/synapse/pull/4420>`_)
+
 v2.216.0 - 2025-07-15
 =====================
 
