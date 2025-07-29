@@ -28,7 +28,7 @@ modeldefs = (
                 ),
                 'props': (
                     ('desc', ('text', {}), {
-                        'doc': 'An description of the {title}.'}),
+                        'doc': 'A description of the {title}.'}),
 
                     ('period', ('ival', {}), {
                         'doc': 'The period of time over which the {title} occurred.'}),
@@ -426,10 +426,10 @@ modeldefs = (
                     'doc': 'Actors who participated in the campaign.'}),
 
                 ('success', ('bool', {}), {
-                    'doc': "Set to true if the campaign achieved it's goals."}),
+                    'doc': "Set to true if the campaign achieved its goals."}),
 
                 ('sophistication', ('meta:sophistication', {}), {
-                    'doc': 'The sophistication of the campaign.'}),
+                    'doc': 'The assessed sophistication of the campaign.'}),
 
                 # FIXME meta:timeline interface...
                 ('timeline', ('meta:timeline', {}), {
@@ -440,7 +440,7 @@ modeldefs = (
                     'prevnames': ('camptype',)}),
 
                 ('period', ('ival', {}), {
-                    'doc': 'The time interval when the organization was running the campaign.'}),
+                    'doc': 'The time interval when the entity was running the campaign.'}),
 
                 ('cost', ('econ:price', {}), {
                     'protocols': {
@@ -452,7 +452,7 @@ modeldefs = (
                     'protocols': {
                         'econ:adjustable': {'props': {'time': 'period.min', 'currency': 'currency'}},
                     },
-                    'doc': 'The budget allocated by the organization to execute the campaign.'}),
+                    'doc': 'The budget allocated to execute the campaign.'}),
 
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The currency used to record econ:price properties.'}),
