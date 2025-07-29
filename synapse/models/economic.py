@@ -51,7 +51,7 @@ modeldefs = (
                 'doc': 'A line item included as part of a purchase.'}),
 
             ('econ:payment', ('guid', {}), {
-                'template': {'title': 'payment event'}
+                'template': {'title': 'payment event'},
                 'interfaces': (
                     ('geo:locatable', {}),
                 ),

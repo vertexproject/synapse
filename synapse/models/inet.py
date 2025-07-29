@@ -1450,7 +1450,7 @@ modeldefs = (
                 'doc': 'A service object relationship type taxonomy.'}),
 
             ('inet:service:relationship', ('guid', {}), {
-                'template': {'title': 'relationship'}}),
+                'template': {'title': 'relationship'},
                 'interfaces': (
                     ('inet:service:object', {}),
                 ),

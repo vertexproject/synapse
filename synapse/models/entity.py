@@ -272,11 +272,12 @@ modeldefs = (
                 'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
 
             ('entity:technique', ('guid', {}), {
+                'template': {'title': 'technique'},
                 'doc': 'A specific technique used to achieve a goal.',
                 'interfaces': (
                     ('meta:usable', {}),
+                    ('meta:reported', {}),
                     ('risk:mitigatable', {}),
-                    ('meta:reported', {'template': {'title': 'technique'}}),
                 ),
                 'display': {
                     'columns': (

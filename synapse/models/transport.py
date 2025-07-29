@@ -44,7 +44,7 @@ modeldefs = (
                 'doc': 'A type taxonomy for land vehicles.'}),
 
             ('transport:land:vehicle', ('guid', {}), {
-                'template': {'title': 'vehicle'}),
+                'template': {'title': 'vehicle'},
                 'interfaces': (
                     ('transport:vehicle', {}),
                 ),
