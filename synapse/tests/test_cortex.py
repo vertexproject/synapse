@@ -6999,7 +6999,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.feedFromAxon(s_common.ehex(sha256b))
 
-    async def test_cortex_export_toaxon_clientobject(self):
+    async def test_cortex_feed_remote_axon(self):
 
         async with self.getTestAxon() as axon:
             aurl = axon.getLocalUrl()
