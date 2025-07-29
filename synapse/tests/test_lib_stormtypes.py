@@ -1673,10 +1673,10 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_node_repr(self):
         text = '''
-            [ inet:ip=1.2.3.4 :loc=us]
+            [ inet:ip=1.2.3.4 :place:loc=us]
             $ipv4 = $node.repr()
-            $loc = $node.repr(loc)
-            $latlong = $node.repr(latlong, defv="??")
+            $loc = $node.repr(place:loc)
+            $latlong = $node.repr(place:latlong, defv="??")
             $valu = `{$ipv4} in {$loc} at {$latlong}`
             [ test:str=$valu ]
             +test:str
@@ -5599,7 +5599,7 @@ class StormTypesTest(s_test.SynTest):
             q = 'return($lib.layer.get().getPropCount(inet:ip:asn, valu=1))'
             self.eq(0, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropCount(inet:ip:loc, valu=1))'
+            q = 'return($lib.layer.get().getPropCount(inet:ip:place:loc, valu=1))'
             self.eq(0, await core.callStorm(q))
 
             q = 'return($lib.layer.get().getPropCount(inet:ip:asn, valu=4))'
@@ -6749,7 +6749,7 @@ words\tword\twrd'''
             q = 'return($lib.view.get().getPropCount(inet:ip:asn, valu=1))'
             self.eq(0, await core.callStorm(q, opts=forkopts))
 
-            q = 'return($lib.view.get().getPropCount(inet:ip:loc, valu=1))'
+            q = 'return($lib.view.get().getPropCount(inet:ip:place:loc, valu=1))'
             self.eq(0, await core.callStorm(q, opts=forkopts))
 
             q = 'return($lib.view.get().getPropCount(inet:ip:asn, valu=4))'

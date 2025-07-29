@@ -199,7 +199,7 @@ class DataModelTest(s_t_utils.SynTest):
             refs = core.model.form('test:comp').getRefsOut()
             self.len(1, refs['prop'])
 
-            self.len(1, [prop for prop in core.model.getPropsByType('time') if prop.full == 'it:exec:url:time'])
+            self.len(1, [prop for prop in core.model.getPropsByType('time') if prop.full == 'it:exec:fetch:time'])
 
     async def test_model_deprecation(self):
 

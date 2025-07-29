@@ -211,7 +211,6 @@ modeldefs = (
                     ('author', ('entity:contact', {}), {
                         'doc': 'MIME specific contact information extracted from metadata.'}),
 
-                    # FIXME geo:locatable?
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'MIME specific lat/long information extracted from metadata.'}),
 
@@ -543,6 +542,12 @@ modeldefs = (
 
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file which was attached.'}),
+
+                ('creator', ('syn:user', {}), {
+                    'doc': 'The synapse user who added the attachment.'}),
+
+                ('created', ('time', {}), {
+                    'doc': 'The time the attachment was added.'}),
             )),
 
             ('file:archive:entry', {}, (

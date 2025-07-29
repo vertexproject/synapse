@@ -24,6 +24,7 @@ modeldefs = (
                 'interfaces': (
                     ('auth:credential', {}),
                     ('crypto:hashable', {}),
+                    ('meta:observable', {'template': {'observable': 'password'}}),
                 ),
                 'doc': 'A password string.'}),
         ),

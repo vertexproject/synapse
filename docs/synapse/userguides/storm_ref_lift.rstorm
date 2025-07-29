@@ -141,7 +141,7 @@ You can use the name of an :ref:`interface` to lift all forms that inherit that 
 
 *Lift all host activity nodes (all nodes of all forms that inherit it:host:activity interface):*
 
-.. storm-pre:: [ it:exec:file:add=* it:exec:windows:registry:set=* it:exec:url=*  ]
+.. storm-pre:: [ it:exec:file:add=* it:exec:windows:registry:set=* it:exec:fetch=*  ]
 .. storm-pre:: it:host:activity
 ::
   
@@ -177,13 +177,13 @@ Lift by Secondary Property
 
 **Examples:**
 
-*Lift all IP (inet:ip) nodes that have a location (:loc property):*
+*Lift all IP (inet:ip) nodes that have a location (:place:loc property):*
 
-.. storm-pre:: [ (inet:ip=41.164.23.42 :loc=za.wc.worcester) (inet:ip=155.254.9.3 :loc='us.mt.three forks') (inet:ip=102.64.66.222 :loc='tz.02.dar es salaam') ]
-.. storm-pre:: inet:ip:loc
+.. storm-pre:: [ (inet:ip=41.164.23.42 :place:loc=za.wc.worcester) (inet:ip=155.254.9.3 :place:loc='us.mt.three forks') (inet:ip=102.64.66.222 :place:loc='tz.02.dar es salaam') ]
+.. storm-pre:: inet:ip:place:loc
 ::
   
-  inet:ip:loc
+  inet:ip:place:loc
 
 *Lift all file (file:bytes) nodes that have a PDB path (:mime:pe:pdbpath property):*
 
@@ -213,7 +213,7 @@ by specifying the full name of the interface and its property.
 
 *Lift all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that have a :time property:*
 
-.. storm-pre:: [ (it:exec:file:add=* :time=now) (it:exec:windows:registry:set=* :time=2024/01/01) (it:exec:url=* :time=2023/12/18) ] 
+.. storm-pre:: [ (it:exec:file:add=* :time=now) (it:exec:windows:registry:set=* :time=2024/01/01) (it:exec:fetch=* :time=2023/12/18) ] 
 .. storm-pre:: it:host:activity:time
 
 ::
@@ -500,7 +500,7 @@ by using the name of the interface.
 
 *Lift all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) associated with the host name "ron-pc":*
 
-.. storm-pre:: [ ( it:host=* :name=ron-pc ) ( it:exec:file:add=* :host={ it:host:name=ron-pc } ) ( it:exec:url=* :host={ it:host:name=ron-pc } ) ]
+.. storm-pre:: [ ( it:host=* :name=ron-pc ) ( it:exec:file:add=* :host={ it:host:name=ron-pc } ) ( it:exec:fetch=* :host={ it:host:name=ron-pc } ) ]
 .. storm-pre:: it:host:activity:host = { it:host:name=ron-pc } 
 
 ::
@@ -516,7 +516,7 @@ by using the name of the interface.
 
 *Lift all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that were observed on or after February 1, 2024:*
 
-.. storm-pre:: [ (it:exec:file:write=* :time=now) (it:exec:windows:registry:del=* :time=2023/06/23) (it:exec:url=* :time=2024/02/04) ]
+.. storm-pre:: [ (it:exec:file:write=* :time=now) (it:exec:windows:registry:del=* :time=2023/06/23) (it:exec:fetch=* :time=2024/02/04) ]
 .. storm-pre:: it:host:activity:time >= 2024/02/01
 
 ::
@@ -1376,10 +1376,10 @@ A "reverse" lift can be followed by additional Storm operations (pivots, filters
 
 **Examples:**
 
-*Lift inet:ip nodes with a :loc property (sorted descending based on the :loc property value):*
+*Lift inet:ip nodes with a :place:loc property (sorted descending based on the :place:loc property value):*
 
-.. storm-pre:: [ (inet:ip=197.155.229.194 :loc=zw.ha.harare) (inet:ip=41.221.147.14 :loc=zw) (inet:ip=41.164.23.42 :loc=za.wc.worcester) (inet:ip=155.254.9.3 :loc='us.mt.three forks') (inet:ip=102.64.66.222 :loc='tz.02.dar es salaam') ]
-.. storm-cli:: reverse ( inet:ip:loc )
+.. storm-pre:: [ (inet:ip=197.155.229.194 :place:loc=zw.ha.harare) (inet:ip=41.221.147.14 :place:loc=zw) (inet:ip=41.164.23.42 :place:loc=za.wc.worcester) (inet:ip=155.254.9.3 :place:loc='us.mt.three forks') (inet:ip=102.64.66.222 :place:loc='tz.02.dar es salaam') ]
+.. storm-cli:: reverse ( inet:ip:place:loc )
 
 
 *Lift five inet:ip nodes (sorted descending based on the integer value of the inet:ip primary property):*

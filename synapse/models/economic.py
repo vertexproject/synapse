@@ -3,6 +3,9 @@ modeldefs = (
 
         'types': (
 
+            ('biz:sellable', ('ndef', {'forms': ('biz:product', 'biz:service')}), {
+                'doc': 'A product or service which may be sold.'}),
+
             ('econ:pay:cvv', ('str', {'regex': '^[0-9]{1,6}$'}), {
                 'doc': 'A Card Verification Value (CVV).'}),
 
@@ -16,11 +19,15 @@ modeldefs = (
                 'doc': 'A Primary Account Number (PAN) or card number.'}),
 
             ('econ:pay:iin', ('int', {'min': 0, 'max': 999999}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
                 'doc': 'An Issuer Id Number (IIN).'}),
 
             ('econ:pay:card', ('guid', {}), {
                 'interfaces': (
                     ('econ:pay:instrument', {'template': {'instrument': 'payment card'}}),
+                    ('meta:observable', {'template': {'observable': 'payment card'}}),
                 ),
                 'doc': 'A single payment card.'}),
 
@@ -39,7 +46,8 @@ modeldefs = (
                 ),
                 'doc': 'A purchase event.'}),
 
-            ('econ:receipt:item', ('guid', {}), {
+            ('econ:lineitem', ('guid', {}), {
+                'prevnames': ('econ:receipt:item',),
                 'doc': 'A line item included as part of a purchase.'}),
 
             ('econ:payment', ('guid', {}), {
@@ -93,6 +101,9 @@ modeldefs = (
                 'doc': 'A financial account type taxonomy.'}),
 
             ('econ:fin:account', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'financial account'}}),
+                ),
                 'doc': 'A financial account which contains a balance of funds.'}),
 
             ('econ:bank:aba:account:type:taxonomy', ('taxonomy', {}), {
@@ -100,6 +111,9 @@ modeldefs = (
                 'doc': 'A type taxonomy for ABA bank account numbers.'}),
 
             ('econ:bank:aba:account', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'ABA account'}}),
+                ),
                 'doc': 'An ABA routing number and bank account number.'}),
 
             # TODO: econ:pay:cash (for an individual grip of cash. could reference bills/coins with numbers)
@@ -110,9 +124,15 @@ modeldefs = (
                 'doc': 'A cash withdrawal event from a financial account.'}),
 
             ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
                 'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),
 
             ('econ:bank:iban', ('str', {'regex': '[A-Z]{2}[0-9]{2}[a-zA-Z0-9]{1,30}'}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
                 'doc': 'An International Bank Account Number.'}),
 
             ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{5}'}), {
@@ -143,6 +163,12 @@ modeldefs = (
             # (('econ:purchase', 'acquired', 'entity:havable'), {
                 # 'doc': 'The purchase was used to acquire the target node.'}),
 
+            (('econ:purchase', 'has', 'econ:lineitem'), {
+                'doc': 'The purchase included the line item.'}),
+
+            (('econ:receipt', 'has', 'econ:lineitem'), {
+                'doc': 'The receipt included the line item.'}),
+
             (('econ:statement', 'has', 'econ:payment'), {
                 'doc': 'The financial statement includes the payment.'}),
         ),
@@ -152,10 +178,12 @@ modeldefs = (
             ('econ:currency', {}, ()),
             ('econ:pay:iin', {}, (
 
-                ('org', ('ou:org', {}), {
+                ('issuer', ('ou:org', {}), {
+                    'prevnames': ('org',),
                     'doc': 'The issuer organization.'}),
 
-                ('name', ('meta:name', {}), {
+                ('issuer:name', ('meta:name', {}), {
+                    'prevnames': ('name',),
                     'doc': 'The registered name of the issuer.'}),
             )),
 
@@ -217,10 +245,6 @@ modeldefs = (
                 ('paid:time', ('time', {}), {
                     'doc': 'The point in time where the purchase was paid in full.'}),
 
-                # FIXME overfit...
-                # ('campaign', ('ou:campaign', {}), {
-                #   'doc': 'The campaign that the purchase was in support of.'}),
-
                 ('price', ('econ:price', {}), {
                     'protocols': {
                         'econ:adjustable': {'vars': {
@@ -231,16 +255,9 @@ modeldefs = (
 
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The econ:price of the purchase.'}),
-
-                # FIXME biz discussion
-                # ('listing', ('biz:listing', {}), {
-                #   'doc': 'The purchase was made based on the given listing.'}),
             )),
 
-            ('econ:receipt:item', {}, (
-
-                ('purchase', ('econ:purchase', {}), {
-                    'doc': 'The purchase that contains this line item.'}),
+            ('econ:lineitem', {}, (
 
                 ('count', ('int', {'min': 1}), {
                     'doc': 'The number of items included in this line item.'}),
@@ -248,8 +265,10 @@ modeldefs = (
                 ('price', ('econ:price', {}), {
                     'doc': 'The total cost of this receipt line item.'}),
 
-                ('product', ('biz:product', {}), {
-                    'doc': 'The product being being purchased in this line item.'}),
+                # FIXME rename biz:sellable? donation / volunteers
+                ('item', ('biz:sellable', {}), {
+                    'prevnames': ('product',),
+                    'doc': 'The product or service.'}),
             )),
 
             ('econ:cash:deposit', {}, (
@@ -315,10 +334,6 @@ modeldefs = (
                 ('payer:instrument', ('econ:pay:instrument', {}), {
                     'doc': 'The payment instrument used by the payer to make the payment.'}),
 
-                # FIXME one to many?
-                # ('purchases', ('array', {'type': 'econ:purchase', 'uniq': True, 'sorted': True}), {
-                #    'doc': 'The payment was made in exchange for the given purchases.'}),
-
                 ('amount', ('econ:price', {}), {
                     'protocols': {
                         'econ:adjustable': {'vars': {
@@ -334,28 +349,16 @@ modeldefs = (
                     'doc': 'A crypto currency transaction that initiated the payment.'}),
 
                 # FIXME one to many?
+                # ('purchases', ('array', {'type': 'econ:purchase', 'uniq': True, 'sorted': True}), {
+                #    'doc': 'The payment was made in exchange for the given purchases.'}),
+
+                # FIXME one to many?
                 # ('invoice', ('array', {'type': 'econ:invoice', 'uniq': True, 'sorted': True}), {
                 #   doc': 'The invoices that the payment applies to.'}),
 
                 # FIXME one to many?
-                # ('receipts', ('econ:receipt', {}),
+                # ('receipt', ('econ:receipt', {}),
                     # 'doc': 'The receipts that was issued for the payment.'}),
-
-                # FIXME geo:locatable
-                # ('place', ('geo:place', {}), {
-                    # 'doc': 'The place where the payment occurred.'}),
-
-                # ('place:name', ('meta:name', {}), {
-                    # 'doc': 'The name of the place where the payment occurred.'}),
-
-                # ('place:address', ('geo:address', {}), {
-                    # 'doc': 'The address of the place where the payment occurred.'}),
-
-                # ('place:loc', ('loc', {}), {
-                    # 'doc': 'The loc of the place where the payment occurred.'}),
-
-                # ('place:latlong', ('geo:latlong', {}), {
-                    # 'doc': 'The latlong where the payment occurred.'}),
             )),
 
             ('econ:balance', {}, (
@@ -459,7 +462,8 @@ modeldefs = (
                 ('security', ('econ:fin:security', {}), {
                     'doc': 'The security measured by the bar.'}),
 
-                ('ival', ('ival', {}), {
+                ('period', ('ival', {}), {
+                    'prevnames': ('ival',),
                     'doc': 'The interval of measurement.'}),
 
                 ('price:open', ('econ:price', {}), {
@@ -510,6 +514,7 @@ modeldefs = (
                 ('purchase', ('econ:purchase', {}), {
                     'doc': 'The purchase that the receipt confirms payment for.'}),
 
+                # FIXME entity:contact?
                 ('issuer', ('entity:actor', {}), {
                     'doc': 'The contact information for the entity which issued the receipt.'}),
 
@@ -540,8 +545,7 @@ modeldefs = (
                 ('business', ('ou:org', {}), {
                     'doc': 'The business which is the registered owner of the SWIFT BIC.'}),
 
-                # FIXME ou:office?
-                ('office', ('entity:actor', {}), {
+                ('office', ('geo:place', {}), {
                     'doc': 'The branch or office which is specified in the last 3 digits of the SWIFT BIC.'}),
             )),
 

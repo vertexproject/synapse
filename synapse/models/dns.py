@@ -173,6 +173,9 @@ modeldefs = (
 
             ('inet:dns:query',
                 ('comp', {'fields': (('client', 'inet:client'), ('name', 'inet:dns:name'), ('type', 'int'))}), {
+                    'interfaces': (
+                        ('meta:observable', {'template': {'observable': 'DNS query'}}),
+                    ),
                     'ex': '(1.2.3.4, woot.com, 1)',
                     'doc': 'A DNS query unique to a given client.'}),
 
@@ -334,7 +337,6 @@ modeldefs = (
                 ('provider:fqdn', ('inet:fqdn', {}), {
                     'doc': 'The FQDN of the organization which provides the dynamic DNS FQDN.'}),
 
-                # FIXME inet:service:account?
                 ('contact', ('entity:contact', {}), {
                     'doc': 'The contact information of the registrant.'}),
 

@@ -44,6 +44,7 @@ modeldefs = (
         'types': (
             ('risk:vuln', ('guid', {}), {
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('meta:sourced', {'template': {'sourced': 'vulnerability'}}),
                 ),
                 'doc': 'A unique vulnerability.'}),
@@ -262,6 +263,9 @@ modeldefs = (
 
             (('risk:threat', 'uses', 'risk:vuln'), {
                 'doc': 'The threat cluster uses the vulnerability.'}),
+
+            (('risk:threat', 'uses', 'inet:service:app'), {
+                'doc': 'The threat cluster uses the online application.'}),
 
             (('risk:tool:software', 'uses', 'risk:vuln'), {
                 'doc': 'The tool uses the vulnerability.'}),

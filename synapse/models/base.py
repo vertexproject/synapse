@@ -157,6 +157,15 @@ modeldefs = (
 
             ('meta:havable', {
                 'doc': 'An interface used to describe items that can be possessed by an entity.',
+                'template': {'havable': 'item'},
+                'props': (
+
+                    ('owner', ('entity:actor', {}), {
+                        'doc': 'The current owner of the {havable}.'}),
+
+                    ('owner:name', ('meta:name', {}), {
+                        'doc': 'The name of the current owner of the {havable}.'}),
+                ),
             }),
 
             ('meta:sourced', {
@@ -218,6 +227,10 @@ modeldefs = (
                         'doc': 'The taxonomy parent.'}),
                 ),
             }),
+
+            ('meta:usable', {
+                'doc': 'An interface for forms which can be used by an actor.'}),
+
             ('meta:ruleish', {
                 'doc': 'Properties which are common to rules used in evaluation systems.',
                 'interfaces': (
@@ -271,6 +284,9 @@ modeldefs = (
 
             (('meta:note', 'about', None), {
                 'doc': 'The meta:note is about the target node.'}),
+
+            (('meta:note', 'has', 'file:attachment'), {
+                'doc': 'The note includes the file attachment.'}),
 
             (('meta:ruleset', 'has', 'meta:ruleish'), {
                'doc': 'The ruleset includes the rule.'}),
@@ -429,7 +445,6 @@ modeldefs = (
             )),
 
             ('meta:aggregate:type:taxonomy', {}, ()),
-            # FIXME valuable?
             ('meta:aggregate', {}, (
 
                 ('type', ('meta:aggregate:type:taxonomy', {}), {
