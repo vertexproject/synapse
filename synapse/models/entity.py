@@ -41,30 +41,30 @@ modeldefs = (
 
             ('entity:contactable', {
 
-                'template': {'contactable': 'entity'},
+                'template': {'title': 'entity'},
                 'props': (
 
                     ('id', ('meta:id', {}), {
-                        'doc': 'A type or source specific ID for the {contactable}.'}),
+                        'doc': 'A type or source specific ID for the {title}.'}),
 
                     ('bio', ('text', {}), {
-                        'doc': 'A tagline or bio provided for the {contactable}.'}),
+                        'doc': 'A tagline or bio provided for the {title}.'}),
 
                     ('photo', ('file:bytes', {}), {
-                        'doc': 'The profile picture or avatar for this {contactable}.'}),
+                        'doc': 'The profile picture or avatar for this {title}.'}),
 
                     ('name', ('meta:name', {}), {
                         'alts': ('names',),
-                        'doc': 'The primary entity name of the {contactable}.'}),
+                        'doc': 'The primary entity name of the {title}.'}),
 
                     ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate entity names for the {contactable}.'}),
+                        'doc': 'An array of alternate entity names for the {title}.'}),
 
                     ('title', ('entity:title', {}), {
-                        'doc': 'The entity title or role for this {contactable}.'}),
+                        'doc': 'The entity title or role for this {title}.'}),
 
                     ('titles', ('array', {'type': 'entity:title', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate entity titles or roles for this {contactable}.'}),
+                        'doc': 'An array of alternate entity titles or roles for this {title}.'}),
 
                     ('org', ('ou:org', {}), {
                         'doc': 'An associated organization listed as part of the contact information.'}),
@@ -73,35 +73,35 @@ modeldefs = (
                         'doc': 'The name of an associated organization listed as part of the contact information.'}),
 
                     ('url', ('inet:url', {}), {
-                        'doc': 'The primary url for the {contactable}.'}),
+                        'doc': 'The primary url for the {title}.'}),
 
                     ('lifespan', ('ival', {}), {
                         'virts': {
                             'min': (None, {'doc': 'The date of birth for an individual or founded date for an organization.'}),
                             'max': (None, {'doc': 'The date of death for an individual or dissolved date for an organization.'}),
                         },
-                        'doc': 'The lifespan of the {contactable}.'}),
+                        'doc': 'The lifespan of the {title}.'}),
 
                     # FIXME place of birth / death?
                     # FIXME lang
 
                     ('email', ('inet:email', {}), {
-                        'doc': 'The primary email address for the {contactable}.'}),
+                        'doc': 'The primary email address for the {title}.'}),
 
                     ('emails', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate email addresses for the {contactable}.'}),
+                        'doc': 'An array of alternate email addresses for the {title}.'}),
 
                     ('phone', ('tel:phone', {}), {
-                        'doc': 'The primary phone number for the {contactable}.'}),
+                        'doc': 'The primary phone number for the {title}.'}),
 
                     ('phones', ('array', {'type': 'tel:phone', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate telephone numbers for the {contactable}.'}),
+                        'doc': 'An array of alternate telephone numbers for the {title}.'}),
 
                     ('user', ('inet:user', {}), {
-                        'doc': 'The primary user name for the {contactable}.'}),
+                        'doc': 'The primary user name for the {title}.'}),
 
                     ('users', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate user names for the {contactable}.'}),
+                        'doc': 'An array of alternate user names for the {title}.'}),
 
                     ('creds', ('array', {'type': 'auth:credential', 'sorted': True, 'uniq': True}), {
                         'doc': 'An array of non-ephemeral credentials.'}),
@@ -110,13 +110,13 @@ modeldefs = (
                         'doc': 'Additional entity identifiers.'}),
 
                     ('social:accounts', ('array', {'type': 'inet:service:account', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Social media or other online accounts listed for the {contactable}.'}),
+                        'doc': 'Social media or other online accounts listed for the {title}.'}),
 
                     ('crypto:currency:addresses', ('array', {'type': 'crypto:currency:address', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Crypto currency addresses listed for the {contactable}.'}),
+                        'doc': 'Crypto currency addresses listed for the {title}.'}),
 
                     ('websites', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Web sites listed for the {contactable}.'}),
+                        'doc': 'Web sites listed for the {title}.'}),
                 ),
                 'doc': 'An interface for forms which contain contact info.'}),
 
@@ -128,10 +128,10 @@ modeldefs = (
                 'doc': 'An interface for entities which have initiative to act.'}),
 
             ('entity:abstract', {
-                'template': {'contactable': 'entity'},
+                'template': {'title': 'entity'},
                 'props': (
                     ('resolved', ('entity:resolved', {}), {
-                        'doc': 'The resolved entity to which this {contactable} belongs.'}),
+                        'doc': 'The resolved entity to which this {title} belongs.'}),
                 ),
                 'doc': 'An abstract entity which can be resolved to an organization or person.'}),
         ),
@@ -168,16 +168,11 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of entity contact types.'}),
 
             ('entity:contact', ('guid', {}), {
+                'template': {'title': 'contact'},
                 'interfaces': (
-
-                    ('entity:abstract', {
-                        'template': {'contactable': 'contact'}}),
-
-                    ('entity:actor', {
-                            'template': {'contactable': 'contact'}}),
-
-                    ('meta:observable', {
-                        'template': {'observable': 'contact'}}),
+                    ('entity:abstract', {}),
+                    ('entity:actor', {}),
+                    ('meta:observable', {}),
                 ),
 
                 'display': {
@@ -191,10 +186,10 @@ modeldefs = (
                 'doc': 'A set of contact information which is used by an entity.'}),
 
             ('entity:history', ('guid', {}), {
+                'template': {'title': 'contact history'},
                 'interfaces': (
                     ('entity:contactable', {}),
                 ),
-                'template': {'contactable': 'contact'},
                 'doc': 'Historical contact information about another contact.'}),
 
             ('entity:relationship:type:taxonomy', ('taxonomy', {}), {

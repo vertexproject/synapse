@@ -44,9 +44,9 @@ modeldefs = (
                 'doc': 'A type taxonomy for land vehicles.'}),
 
             ('transport:land:vehicle', ('guid', {}), {
+                'template': {'title': 'vehicle'}),
                 'interfaces': (
-                    ('transport:vehicle', {
-                        'template': {'phys:object': 'vehicle'}}),
+                    ('transport:vehicle', {}),
                 ),
                 'doc': 'An individual land based vehicle.'}),
 
@@ -74,9 +74,9 @@ modeldefs = (
                 'doc': 'A drive taken by a land vehicle.'}),
 
             ('transport:air:craft', ('guid', {}), {
+                'template': {'title': 'aircraft'},
                 'interfaces': (
-                    ('transport:vehicle', {
-                        'template': {'phys:object': 'aircraft'}}),
+                    ('transport:vehicle', {}),
                 ),
                 'doc': 'An individual aircraft.'}),
 
@@ -121,9 +121,9 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of sea vessel types.'}),
 
             ('transport:sea:vessel', ('guid', {}), {
+                'template': {'title': 'vessel'},
                 'interfaces': (
-                    ('transport:vehicle', {
-                        'template': {'phys:object': 'vessel'}}),
+                    ('transport:vehicle', {}),
                 ),
                 'doc': 'An individual sea vessel.'}),
 
@@ -158,23 +158,23 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of rail car types.'}),
 
             ('transport:rail:car', ('guid', {}), {
+                'template': {'title': 'train car'},
                 'interfaces': (
-                    ('transport:container', {
-                        'template': {'phys:object': 'train car'}}),
+                    ('transport:container', {}),
                 ),
                 'doc': 'An individual train car.'}),
 
             ('transport:rail:consist', ('guid', {}), {
+                'template': {'title': 'train'},
                 'interfaces': (
-                    ('transport:vehicle', {
-                        'template': {'phys:object': 'train'}}),
+                    ('transport:vehicle', {}),
                 ),
                 'doc': 'A group of rail cars and locomotives connected together.'}),
 
             ('transport:shipping:container', ('guid', {}), {
+                'template': {'title': 'shipping container'},
                 'interfaces': (
-                    ('transport:container', {
-                        'template': {'phys:object': 'shipping container'}}),
+                    ('transport:container', {}),
                 ),
                 'doc': 'An individual shipping container.'}),
 
@@ -220,8 +220,7 @@ modeldefs = (
             # most containers are vehicles, but some are not...
             ('transport:vehicle', {
                 'interfaces': (
-                    ('transport:container', {
-                        'templates': {'phys:object': 'vehicle'}}),
+                    ('transport:container', {}),
                 ),
                 'doc': 'Properties common to a vehicle.',
                 'props': (

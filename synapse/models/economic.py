@@ -40,8 +40,9 @@ modeldefs = (
             # ('econ:bank:wire', ('guid', {}), {}),
 
             ('econ:purchase', ('guid', {}), {
+                'template': {'title': 'purchase event'},
                 'interfaces': (
-                    ('geo:locatable', {'template': {'title': 'purchase event'}}),
+                    ('geo:locatable', {}),
                 ),
                 'doc': 'A purchase event.'}),
 
@@ -50,8 +51,9 @@ modeldefs = (
                 'doc': 'A line item included as part of a purchase.'}),
 
             ('econ:payment', ('guid', {}), {
+                'template': {'title': 'payment event'}
                 'interfaces': (
-                    ('geo:locatable', {'template': {'title': 'payment event'}}),
+                    ('geo:locatable', {}),
                 ),
                 'doc': 'A payment, crypto currency transaction, or account withdrawal.'}),
 
