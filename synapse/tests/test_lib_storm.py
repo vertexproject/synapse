@@ -5356,28 +5356,7 @@ class StormTest(s_t_utils.SynTest):
 
             # non-runtime
             q = '''
-                $lib.print(PRINT)
-                $lib.warn(WARN)
-                $lib.exit(EXIT)
-                $lib.print(NEWP)
-            '''
-            opts = {'vars': {'query': q}}
-            msgs = await core.stormlist('runas visi $query', opts=opts)
-            self.stormNotInPrint('PRINT', msgs)
-            self.stormHasNoWarnErr(msgs)
-            self.stormNotInPrint('NEWP', msgs)
-
-            msgs = await core.stormlist('runas visi --show-msgs $query', opts=opts)
-            self.stormIsInPrint('PRINT', msgs)
-            self.stormIsInWarn('WARN', msgs)
-            self.stormIsInWarn('EXIT', msgs)
-            self.stormNotInPrint('NEWP', msgs)
-
-            # runtime
-            q = '''
                 $user = $lib.user.name()
-                [ test:str=WOOT ]
-                $lib.print(`{$node.repr()} {$user}`)
                 $lib.print(`PRINT {$user}`)
                 $lib.warn(`WARN {$user}`)
                 $lib.exit(`EXIT {$user}`)
@@ -5385,11 +5364,32 @@ class StormTest(s_t_utils.SynTest):
             '''
             opts = {'vars': {'query': q}}
             msgs = await core.stormlist('runas visi $query', opts=opts)
-            self.stormNotInPrint('PRINT', msgs)
+            self.stormNotInPrint('PRINT visi', msgs)
             self.stormHasNoWarnErr(msgs)
             self.stormNotInPrint('NEWP', msgs)
 
             msgs = await core.stormlist('runas visi --show-msgs $query', opts=opts)
+            self.stormIsInPrint('PRINT visi', msgs)
+            self.stormIsInWarn('WARN visi', msgs)
+            self.stormIsInWarn('EXIT visi', msgs)
+            self.stormNotInPrint('NEWP visi', msgs)
+
+            # runtime
+            q = '''
+                $user = $lib.user.name()
+                $lib.print(`{$valu} {$user}`)
+                $lib.print(`PRINT {$user}`)
+                $lib.warn(`WARN {$user}`)
+                $lib.exit(`EXIT {$user}`)
+                $lib.print(`NEWP {$user}`)
+            '''
+            opts = {'vars': {'query': q}}
+            msgs = await core.stormlist('[test:str=WOOT] $valu=$node.repr() runas visi $query', opts=opts)
+            self.stormNotInPrint('PRINT', msgs)
+            self.stormHasNoWarnErr(msgs)
+            self.stormNotInPrint('NEWP', msgs)
+
+            msgs = await core.stormlist('[test:str=WOOT] $valu=$node.repr() runas visi --show-msgs $query', opts=opts)
             self.stormIsInPrint('WOOT visi', msgs)
             self.stormIsInPrint('PRINT visi', msgs)
             self.stormIsInWarn('WARN visi', msgs)
