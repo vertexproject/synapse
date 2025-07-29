@@ -30,11 +30,11 @@ modeldefs = (
                 'doc': "An entry in a contact's work history."}),
 
             ('ps:vitals', ('guid', {}), {
+                'template': {'title': 'person'},
                 'interfaces': (
-                    ('phys:object', {
-                        'template': {'phys:object': 'person'}}),
+                    ('phys:object', {}),
                 ),
-                'doc': 'Statistics and demographic data about a person or contact.'}),
+                'doc': 'Statistics and demographic data about a person.'}),
 
             ('edu:learnable', ('ndef', {'interface': 'edu:learnable'}), {
                 'doc': 'An interface inherited by nodes which represent something which can be learned.'}),

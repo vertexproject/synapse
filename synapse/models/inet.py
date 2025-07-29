@@ -1422,9 +1422,10 @@ modeldefs = (
                 'doc': 'A network platform which provides services.'}),
 
             ('inet:service:app', ('guid', {}), {
+                'template': {'title': 'service application'},
                 'interfaces': (
                     ('meta:usable', {}),
-                    ('inet:service:object', {'template': {'service:base': 'application'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'An application which is part of a service architecture.'}),
 
@@ -1435,10 +1436,10 @@ modeldefs = (
                 'doc': 'An object status enumeration.'}),
 
             ('inet:service:account', ('guid', {}), {
+                'template': {'title': 'service account'},
                 'interfaces': (
-                    ('inet:service:subscriber', {'template': {
-                        'service:base': 'account', 'title': 'account'}}),
-                    ('econ:pay:instrument', {'template': {'instrument': 'account'}}),
+                    ('econ:pay:instrument', {}),
+                    ('inet:service:subscriber', {}),
                 ),
                 'doc': 'An account within a service platform. Accounts may be instance specific.'}),
 
@@ -1449,9 +1450,9 @@ modeldefs = (
                 'doc': 'A service object relationship type taxonomy.'}),
 
             ('inet:service:relationship', ('guid', {}), {
+                'template': {'title': 'relationship'}}),
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'relationship'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A relationship between two service objects.'}),
 
@@ -1462,16 +1463,16 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of service permission types.'}),
 
             ('inet:service:permission', ('guid', {}), {
+                'template': {'title': 'permission'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'permission'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A permission which may be granted to a service account or role.'}),
 
             ('inet:service:rule', ('guid', {}), {
+                'template': {'title': 'rule'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'rule'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A rule which grants or denies a permission to a service account or role.'}),
 
@@ -1488,44 +1489,44 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of service login methods.'}),
 
             ('inet:service:session', ('guid', {}), {
+                'template': {'title': 'session'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'session'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'An authenticated session.'}),
 
             ('inet:service:group', ('guid', {}), {
+                'template': {'title': 'service group'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'group'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A group or role which contains member accounts.'}),
 
             ('inet:service:group:member', ('guid', {}), {
+                'template': {'title': 'group membership'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'group membership'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'Represents a service account being a member of a group.'}),
 
             ('inet:service:channel', ('guid', {}), {
+                'template': {'title': 'channel'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'channel'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A channel used to distribute messages.'}),
 
             ('inet:service:thread', ('guid', {}), {
+                'template': {'title': 'thread'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'thread'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A message thread.'}),
 
             ('inet:service:channel:member', ('guid', {}), {
+                'template': {'title': 'channel membership'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'channel membership'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'Represents a service account being a member of a channel.'}),
 
@@ -1548,9 +1549,9 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of message types.'}),
 
             ('inet:service:emote', ('guid', {}), {
+                'template': {'title': 'emote'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'emote'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'An emote or reaction by an account.'}),
 
@@ -1565,9 +1566,9 @@ modeldefs = (
                 'doc': 'Represents a user access request to a service resource.'}),
 
             ('inet:service:tenant', ('guid', {}), {
+                'template': {'title': 'tenant'},
                 'interfaces': (
-                    ('inet:service:subscriber', {
-                        'template': {'service:base': 'tenant', 'title': 'tenant'}}),
+                    ('inet:service:subscriber', {}),
                 ),
                 'doc': 'A tenant which groups accounts and instances.'}),
 
@@ -1578,9 +1579,9 @@ modeldefs = (
                 'doc': 'A taxonomy of platform specific subscription levels.'}),
 
             ('inet:service:subscription', ('guid', {}), {
+                'template': {'title': 'subscription'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'subscription'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A subscription to a service platform or instance.'}),
 
@@ -1594,23 +1595,23 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of service resource types.'}),
 
             ('inet:service:resource', ('guid', {}), {
+                'template': {'title': 'resource'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'resource'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A generic resource provided by the service architecture.'}),
 
             ('inet:service:bucket', ('guid', {}), {
+                'template': {'title': 'bucket'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'bucket'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A file/blob storage object within a service architecture.'}),
 
             ('inet:service:bucket:item', ('guid', {}), {
+                'template': {'title': 'bucket item'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'bucket item'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'An individual file stored within a bucket.'}),
 
@@ -1715,60 +1716,56 @@ modeldefs = (
 
             ('inet:service:base', {
                 'doc': 'Properties common to most forms within a service platform.',
-                'template': {'service:base': 'node'},
+                'template': {'title': 'node'},
                 'props': (
 
                     ('id', ('meta:id', {}), {
-                        'doc': 'A platform specific ID which identifies the {service:base}.'}),
+                        'doc': 'A platform specific ID which identifies the {title}.'}),
 
                     ('platform', ('inet:service:platform', {}), {
-                        'doc': 'The platform which defines the {service:base}.'}),
+                        'doc': 'The platform which defines the {title}.'}),
 
                     ('instance', ('inet:service:instance', {}), {
-                        'doc': 'The platform instance which defines the {service:base}.'}),
+                        'doc': 'The platform instance which defines the {title}.'}),
                 ),
             }),
 
             ('inet:service:object', {
 
                 'doc': 'Properties common to objects within a service platform.',
+                'template': {'title': 'object'},
                 'interfaces': (
-                    ('inet:service:base', {
-                        'template': {'service:base': 'object'}}),
+                    ('inet:service:base', {}),
                 ),
                 'props': (
 
                     ('url', ('inet:url', {}), {
-                        'doc': 'The primary URL associated with the {service:base}.'}),
+                        'doc': 'The primary URL associated with the {title}.'}),
 
                     ('status', ('inet:service:object:status', {}), {
-                        'doc': 'The status of the {service:base}.'}),
+                        'doc': 'The status of the {title}.'}),
 
                     ('period', ('ival', {}), {
-                        'doc': 'The period when the {service:base} existed.'}),
+                        'doc': 'The period when the {title} existed.'}),
 
                     ('creator', ('inet:service:account', {}), {
-                        'doc': 'The service account which created the {service:base}.'}),
+                        'doc': 'The service account which created the {title}.'}),
 
                     ('remover', ('inet:service:account', {}), {
-                        'doc': 'The service account which removed or decommissioned the {service:base}.'}),
+                        'doc': 'The service account which removed or decommissioned the {title}.'}),
 
                     ('app', ('inet:service:app', {}), {
-                        'doc': 'The app which contains the {service:base}.'}),
+                        'doc': 'The app which contains the {title}.'}),
                 ),
             }),
 
             ('inet:service:subscriber', {
                 'doc': 'Properties common to the nodes which subscribe to services.',
+                'template': {'title': 'subscriber'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'subscriber'}}),
-
-                    ('entity:actor', {
-                        'template': {'title': 'subscriber'}}),
-
-                    ('entity:abstract', {
-                        'template': {'title': 'subscriber'}}),
+                    ('entity:actor', {}),
+                    ('entity:abstract', {}),
+                    ('inet:service:object', {}),
                 ),
                 'props': (
                     ('banner', ('file:bytes', {}), {
