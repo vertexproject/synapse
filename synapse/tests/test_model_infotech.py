@@ -1953,6 +1953,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('product'), 'product%23')
 
+    async def test_infotech_cpe_conversions(self):
+        self.thisEnvMust('CIRCLECI')
+
+        async with self.getTestCore() as core:
+            cpe23 = core.model.type('it:sec:cpe')
+            cpe22 = core.model.type('it:sec:cpe:v2_2')
             # Test 2.2->2.3 and 2.3->2.2 conversions
             filename = s_t_files.getAssetPath('cpedata.json')
             with open(filename, 'r') as fp:
