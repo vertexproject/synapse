@@ -1204,7 +1204,6 @@ def _patch_tarfile_count():
         11: 14,
         12: 12,
         13: 6,
-        14: 0,
     }
     req_micro = min_patched_micros.get(sys.version_info.minor)
     if req_micro is None:
