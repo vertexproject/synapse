@@ -1,5 +1,5 @@
 ---
-desc: Updated ``runas`` command with an argument to output prints from ``$lib.print()``
+desc: Updated the ``runas`` and ``view.exec`` commands to output prints from ``$lib.print()``
   and warnings from ``$lib.warn()`` and ``$lib.exit()``.
 prs: []
 type: feat
