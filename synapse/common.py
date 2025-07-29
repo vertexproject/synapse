@@ -1195,9 +1195,17 @@ def _patch_tarfile_count():
     Patch tarfile block size reading from the cpython implementation if
     the interpreter has not been patched for CVE-2025-8194.
     '''
-    min_patched_version = (3, 11, 14)  # This will be the minimum version that contains the fix.
-    if (sys.version_info.major, sys.version_info.minor, sys.version_info.micro) > min_patched_version:
-        return
+    cvers = (sys.version_info.major, sys.version_info.minor, sys.version_info.micro)
+    # These will be the minimum versions that contains the fix.
+    min_patched_versions = (
+        (3, 14, 0),
+        (3, 13, 6),
+        (3, 12, 12),
+        (3, 11, 14)
+    )
+    for minver in min_patched_versions:
+        if cvers >= minver:
+            return
 
     # Patch for
     def _block_patched(self, count):
