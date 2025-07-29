@@ -862,9 +862,6 @@ class TeleTest(s_t_utils.SynTest):
         self.isin('Cell path does not exist', cm.exception.get('mesg'))
 
     async def test_ipv6(self):
-        if s_common.envbool('CIRCLECI'):
-            self.skip('ipv6 listener is not supported in circleci')
-
         foo = Foo()
 
         async with self.getTestDmon() as dmon:
