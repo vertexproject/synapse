@@ -95,7 +95,7 @@ modeldefs = (
 
             ('meta:ruleset', ('guid', {}), {
                 'interfaces': (
-                    ('doc:authorable', {'template': {'authorable': 'ruleset'}}),
+                    ('doc:authorable', {'template': {'title': 'ruleset'}}),
                 ),
                 'doc': 'A set of rules linked with -(has)> edges.'}),
 
@@ -239,7 +239,7 @@ modeldefs = (
             ('meta:ruleish', {
                 'doc': 'Properties which are common to rules used in evaluation systems.',
                 'interfaces': (
-                    ('doc:authorable', {'template': {'authorable': 'rule', 'syntax': ''}}),
+                    ('doc:authorable', {'template': {'title': 'rule', 'syntax': ''}}),
                 ),
                 'props': (
 
@@ -247,14 +247,14 @@ modeldefs = (
                         'doc': 'The rule name.'}),
 
                     ('url', ('inet:url', {}), {
-                        'doc': 'A URL which documents the {authorable}.'}),
+                        'doc': 'A URL which documents the {title}.'}),
 
                     ('enabled', ('bool', {}), {
-                        'doc': 'The enabled status of the {authorable}.'}),
+                        'doc': 'The enabled status of the {title}.'}),
 
                     ('text', ('text', {}), {
                         'display': {'syntax': '{syntax}'},
-                        'doc': 'The text of the {authorable}.'})
+                        'doc': 'The text of the {title}.'})
                 ),
             }),
             ('meta:matchish', {

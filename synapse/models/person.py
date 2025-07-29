@@ -3,7 +3,7 @@ modeldefs = (
         'types': (
             ('edu:course', ('guid', {}), {
                 'interfaces': (
-                    ('doc:authorable', {'template': {'authorable': 'course'}}),
+                    ('doc:authorable', {'template': {'title': 'course'}}),
                 ),
                 'doc': 'A course of study taught by an org.'}),
 
