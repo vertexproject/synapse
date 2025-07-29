@@ -5354,12 +5354,12 @@ class StormTest(s_t_utils.SynTest):
             for node in nodes:
                 self.none(node.tags.get('btag'))
 
+            # non-runtime
             q = '''
-                $user = $lib.user.name()
-                $lib.print(`PRINT {$user}`)
-                $lib.warn(`WARN {$user}`)
-                $lib.exit(`EXIT {$user}`)
-                $lib.print(`NEWP {$user}`)
+                $lib.print(PRINT)
+                $lib.warn(WARN)
+                $lib.exit(EXIT)
+                $lib.print(NEWP)
             '''
             opts = {'vars': {'query': q}}
             msgs = await core.stormlist('runas visi $query', opts=opts)
@@ -5368,11 +5368,12 @@ class StormTest(s_t_utils.SynTest):
             self.stormNotInPrint('NEWP', msgs)
 
             msgs = await core.stormlist('runas visi --show-msgs $query', opts=opts)
-            self.stormIsInPrint('PRINT visi', msgs)
-            self.stormIsInWarn('WARN visi', msgs)
-            self.stormIsInWarn('EXIT visi', msgs)
+            self.stormIsInPrint('PRINT', msgs)
+            self.stormIsInWarn('WARN', msgs)
+            self.stormIsInWarn('EXIT', msgs)
             self.stormNotInPrint('NEWP', msgs)
 
+            # runtime
             q = '''
                 $user = $lib.user.name()
                 [ test:str=WOOT ]
