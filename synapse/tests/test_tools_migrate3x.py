@@ -29,8 +29,8 @@ REGR_CORE = '3x-migr3'
 class MigrationTest(s_t_utils.SynTest):
 
     @contextlib.asynccontextmanager
-    async def _getTestMigrCore(self, conf):
-        with self.getRegrDir('cortexes', REGR_CORE) as src:
+    async def _getTestMigrCore(self, conf, regrname=REGR_CORE):
+        with self.getRegrDir('cortexes', regrname) as src:
             with self.getTestDir(copyfrom=conf.get('dest')) as dest:
                 tconf = copy.deepcopy(conf)
                 tconf['src'] = src
@@ -103,3 +103,28 @@ class MigrationTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('input'), 'notenglish')
                 self.eq(nodes[0].get('output'), 'english')
                 self.eq(nodes[0].get('output:lang'), 'en')
+
+    async def test_migr_layeroffs(self):
+        conf = {
+            'src': None,
+            'dest': None,
+        }
+
+        async with self._getTestMigrCore(conf, regrname='pushpull-v2') as (migr, dest):
+            await migr.migrate()
+            await migr.fini()
+
+            async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+
+                # test view has our nodes from the source cortex-view
+                nodes = await core.nodes('ps:contact', opts={'view': '41552988daf582ac7d05813a834e9c26'})
+                self.len(3, nodes)
+
+                # test offset is returned from the layer's hotcount
+                q = '$layer=$lib.layer.get($layr2) return ($layer)'
+                opts = {'vars': {'layr2': 'dd924b9a39f26638411a719dfff6caca'}}
+                layrinfo = await core.callStorm(q, opts=opts)
+                pulls = layrinfo.get('pulls')
+                self.len(1, pulls)
+                pdef = list(pulls.values())[0]
+                self.eq(23, pdef.get('offs', 0))
