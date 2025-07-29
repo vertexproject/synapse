@@ -5354,6 +5354,50 @@ class StormTest(s_t_utils.SynTest):
             for node in nodes:
                 self.none(node.tags.get('btag'))
 
+            q = '''
+                $user = $lib.user.name()
+                $lib.print(`PRINT {$user}`)
+                $lib.warn(`WARN {$user}`)
+                $lib.exit(`EXIT {$user}`)
+                $lib.print(`NEWP {$user}`)
+            '''
+            opts = {'vars': {'query': q}}
+            msgs = await core.stormlist('runas visi $query', opts=opts)
+            self.stormNotInPrint('PRINT', msgs)
+            self.stormHasNoWarnErr(msgs)
+            self.stormNotInPrint('NEWP', msgs)
+
+            msgs = await core.stormlist('runas visi --show-msgs $query', opts=opts)
+            self.stormIsInPrint('PRINT visi', msgs)
+            self.stormIsInWarn('WARN visi', msgs)
+            self.stormIsInWarn('EXIT visi', msgs)
+            self.stormNotInPrint('NEWP', msgs)
+
+            q = '''
+                $user = $lib.user.name()
+                [ test:str=WOOT ]
+                $lib.print(`{$node.repr()} {$user}`)
+                $lib.print(`PRINT {$user}`)
+                $lib.warn(`WARN {$user}`)
+                $lib.exit(`EXIT {$user}`)
+                $lib.print(`NEWP {$user}`)
+            '''
+            opts = {'vars': {'query': q}}
+            msgs = await core.stormlist('runas visi $query', opts=opts)
+            self.stormNotInPrint('PRINT', msgs)
+            self.stormHasNoWarnErr(msgs)
+            self.stormNotInPrint('NEWP', msgs)
+
+            msgs = await core.stormlist('runas visi --show-msgs $query', opts=opts)
+            self.stormIsInPrint('WOOT visi', msgs)
+            self.stormIsInPrint('PRINT visi', msgs)
+            self.stormIsInWarn('WARN visi', msgs)
+            self.stormIsInWarn('EXIT visi', msgs)
+            self.stormNotInPrint('NEWP', msgs)
+
+            msgs = await core.stormlist('runas visi {$lib.raise(Foo, asdf)}')
+            self.stormIsInErr('asdf', msgs)
+
     async def test_storm_batch(self):
         async with self.getTestCore() as core:
             q = '''

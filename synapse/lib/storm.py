@@ -5713,6 +5713,8 @@ class RunAsCmd(Cmd):
         pars.add_argument('user', help='The user name or iden to execute the storm query as.')
         pars.add_argument('storm', help='The storm query to execute.')
         pars.add_argument('--asroot', default=False, action='store_true', help='Propagate asroot to query subruntime.')
+        pars.add_argument('--show-msgs', default=False, action='store_true',
+                          help='Show output from $lib.print(), $lib.warn(), and $lib.exit().')
 
         return pars
 
@@ -5736,6 +5738,10 @@ class RunAsCmd(Cmd):
             opts = {'vars': path.vars}
 
             async with await core.snap(user=user, view=runt.snap.view) as snap:
+                if self.opts.show_msgs:
+                    snap.on('warn', runt.snap.dist)
+                    snap.on('print', runt.snap.dist)
+
                 async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
                     subr.debug = runt.debug
                     subr.readonly = runt.readonly
@@ -5758,6 +5764,10 @@ class RunAsCmd(Cmd):
             opts = {'user': user}
 
             async with await core.snap(user=user, view=runt.snap.view) as snap:
+                if self.opts.show_msgs:
+                    snap.on('warn', runt.snap.dist)
+                    snap.on('print', runt.snap.dist)
+
                 async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
                     subr.debug = runt.debug
                     subr.readonly = runt.readonly
