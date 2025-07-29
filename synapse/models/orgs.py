@@ -73,7 +73,7 @@ modeldefs = (
             ('ou:org', ('guid', {}), {
                 'interfaces': (
                     ('entity:actor', {
-                        'template': {'contactable': 'organization'}}),
+                        'template': {'title': 'organization'}}),
                 ),
                 'doc': 'An organization, such as a company or military unit.',
                 'display': {

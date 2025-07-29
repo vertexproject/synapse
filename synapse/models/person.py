@@ -22,7 +22,7 @@ modeldefs = (
             ('ps:person', ('guid', {}), {
                 'interfaces': (
                     ('entity:actor', {
-                        'template': {'contactable': 'person'}}),
+                        'template': {'title': 'person'}}),
                 ),
                 'doc': 'A person.'}),
 

@@ -65,8 +65,8 @@ modeldefs = (
             ('risk:threat', ('guid', {}), {
                 'interfaces': (
                     ('meta:reported', {'template': {'title': 'threat'}}),
-                    ('entity:actor', {'template': {'contactable': 'threat'}}),
-                    ('entity:abstract', {'template': {'contactable': 'threat'}}),
+                    ('entity:actor', {'template': {'title': 'threat'}}),
+                    ('entity:abstract', {'template': {'title': 'threat'}}),
                 ),
                 'doc': 'A threat cluster or subgraph of threat activity, as defined by a specific source.',
                 'display': {

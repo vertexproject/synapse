@@ -1437,7 +1437,7 @@ modeldefs = (
             ('inet:service:account', ('guid', {}), {
                 'interfaces': (
                     ('inet:service:subscriber', {'template': {
-                        'service:base': 'account', 'contactable': 'account'}}),
+                        'service:base': 'account', 'title': 'account'}}),
                     ('econ:pay:instrument', {'template': {'instrument': 'account'}}),
                 ),
                 'doc': 'An account within a service platform. Accounts may be instance specific.'}),
@@ -1567,7 +1567,7 @@ modeldefs = (
             ('inet:service:tenant', ('guid', {}), {
                 'interfaces': (
                     ('inet:service:subscriber', {
-                        'template': {'service:base': 'tenant', 'contactable': 'tenant'}}),
+                        'template': {'service:base': 'tenant', 'title': 'tenant'}}),
                 ),
                 'doc': 'A tenant which groups accounts and instances.'}),
 
@@ -1765,10 +1765,10 @@ modeldefs = (
                         'template': {'service:base': 'subscriber'}}),
 
                     ('entity:actor', {
-                        'template': {'contactable': 'subscriber'}}),
+                        'template': {'title': 'subscriber'}}),
 
                     ('entity:abstract', {
-                        'template': {'contactable': 'subscriber'}}),
+                        'template': {'title': 'subscriber'}}),
                 ),
                 'props': (
                     ('banner', ('file:bytes', {}), {
