@@ -5752,6 +5752,10 @@ class RunAsCmd(Cmd):
                     async for item in subr.execute():
                         await asyncio.sleep(0)
 
+                if self.opts.show_msgs:
+                    snap.off('warn', runt.snap.dist)
+                    snap.off('print', runt.snap.dist)
+
             yield node, path
 
         if node is None and self.runtsafe:
@@ -5777,6 +5781,10 @@ class RunAsCmd(Cmd):
 
                     async for item in subr.execute():
                         await asyncio.sleep(0)
+
+                if self.opts.show_msgs:
+                    snap.off('warn', runt.snap.dist)
+                    snap.off('print', runt.snap.dist)
 
 class IntersectCmd(Cmd):
     '''
