@@ -592,12 +592,14 @@ class Migrator(s_base.Base):
             pulls = layrinfo.get('pulls', None)
             if pushs:
                 for push in pushs:
-                    offs = stormvars.pop(f'push:{push}')
-                    self.layeroffs.set(push, offs)
+                    offs = stormvars.pop(f'push:{push}', None)
+                    if offs is not None:
+                        self.layeroffs.set(push, offs)
             if pulls:
                 for pull in pulls:
-                    offs = stormvars.pop(f'push:{pull}')
-                    self.layeroffs.set(pull, offs)
+                    offs = stormvars.pop(f'push:{pull}', None)
+                    if offs is not None:
+                        self.layeroffs.set(pull, offs)
 
         logger.info(f'Completed cell migration, removed deprecated confdefs: {remconfs}')
         await self._migrlogAdd('cell', 'prog', 'none', s_common.now())
