@@ -2,7 +2,6 @@ import io
 import os
 import base64
 import logging
-import argparse
 
 import regex
 
