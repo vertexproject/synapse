@@ -1300,6 +1300,27 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ it:network=* :dns:resolvers=("[::1]",)]')
             self.eq(nodes[0].get('dns:resolvers'), ('udp://[::1]:53',))
 
+            nodes = await core.nodes('[ inet:server=gre://::1 ]')
+            self.eq(nodes[0].get('proto'), 'gre')
+
+            nodes = await core.nodes('[ inet:server=gre://1.2.3.4 ]')
+            self.eq(nodes[0].get('proto'), 'gre')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server=gre://1.2.3.4:99 ]')
+
+            self.eq(ctx.exception.get('mesg'), 'Protocol gre does not allow specifying ports.')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server="gre://[::1]:99" ]')
+
+            self.eq(ctx.exception.get('mesg'), 'Protocol gre does not allow specifying ports.')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server=newp://1.2.3.4:99 ]')
+
+            self.eq(ctx.exception.get('mesg'), 'inet:sockaddr protocol must be one of: tcp,udp,icmp,host,gre')
+
     async def test_url(self):
         formname = 'inet:url'
         async with self.getTestCore() as core:

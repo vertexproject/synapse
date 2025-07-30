@@ -5048,6 +5048,32 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, [m for m in msgs if m[0] == 'csv:row'])
             self.len(0, [m for m in msgs if m[0] == 'node:edits'])
 
+            q = '''runas visi {
+                $lib.print(foo)
+                $lib.warn(bar)
+                [ it:dev:str=nomsg ]
+             }'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInWarn('bar', msgs)
+
+            q = '''
+                [it:dev:str=woot] $valu=$node.repr()
+                runas visi {
+                    $lib.print(foo)
+                    $lib.warn(bar)
+                    $lib.print($valu)
+                    [ it:dev:str=nomsg ]
+                }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInPrint('woot', msgs)
+            self.stormIsInWarn('bar', msgs)
+
+            msgs = await core.stormlist('runas visi {$lib.raise(Foo, asdf)}')
+            self.stormIsInErr('asdf', msgs)
+
     async def test_storm_batch(self):
         async with self.getTestCore() as core:
             q = '''

@@ -3488,6 +3488,12 @@ class LibFeed(Lib):
                        'default': False},
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'fromAxon', 'desc': 'Load a syn.nodes formatted export from axon.',
+         'type': {'type': 'function', '_funcname': '_fromAxon',
+                   'args': (
+                       {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 of the file stored in the axon.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The number of nodes loaded.', }}},
     )
     _storm_lib_path = ('feed',)
 

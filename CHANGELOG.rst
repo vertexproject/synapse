@@ -12,6 +12,28 @@ v3.0.0 - 2025-XX-YY
 Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
 changes.
 
+v2.217.0 - 2025-07-25
+=====================
+
+Model Changes
+-------------
+- Deprecated ``ou:requirement``. Please use ``doc:requirement`` and
+  ``ou:enacted``.
+  (`#4416 <https://github.com/vertexproject/synapse/pull/4416>`_)
+- See :ref:`userguide_model_v2_217_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added support for ``gre://`` to ``inet:addr`` type used by ``inet:server``
+  and ``inet:client``.
+  (`#4414 <https://github.com/vertexproject/synapse/pull/4414>`_)
+
+Improved documentation
+----------------------
+- Added Storm library documentation for ``$lib.feed.fromAxon``.
+  (`#4420 <https://github.com/vertexproject/synapse/pull/4420>`_)
+>>>>>>> master
+
 v2.216.0 - 2025-07-15
 =====================
 
@@ -79,7 +101,7 @@ Features and Enhancements
 -------------------------
 - Added CLI tools ``synapse.tools.cortex.layer.dump`` and
   ``synapse.tools.cortex.layer.load`` for exporting node edits from one layer
-and importing them to a layer on a different Cortex.
+  and importing them to a layer on a different Cortex.
   (`#4325 <https://github.com/vertexproject/synapse/pull/4325>`_)
 - Added CLI tool ``synapse.tools.pkgs.gendocs`` for converting Storm package
   documentation from RST to Markdown.

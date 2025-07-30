@@ -365,6 +365,10 @@ class IPAddr(s_types.Type):
 
 class SockAddr(s_types.Str):
 
+    protos = ('tcp', 'udp', 'icmp', 'host', 'gre')
+    # TODO: this should include icmp and host but requires a migration
+    noports = ('gre',)
+
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
@@ -430,9 +434,11 @@ class SockAddr(s_types.Str):
         if len(parts) == 2:
             proto, valu = parts
 
-        if proto not in ('tcp', 'udp', 'icmp', 'host'):
-            raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='inet:sockaddr protocol must be in: tcp, udp, icmp, host')
+        if proto not in self.protos:
+            protostr = ','.join(self.protos)
+            mesg = f'inet:sockaddr protocol must be one of: {protostr}'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=orig, name=self.name)
+
         subs['proto'] = proto
 
         valu = valu.strip().strip('/')
@@ -472,6 +478,10 @@ class SockAddr(s_types.Str):
                     virts['port'] = (self.defport, self.porttype.stortype)
                     portstr = f':{self.defport}'
 
+                if port and proto in self.noports:
+                    mesg = f'Protocol {proto} does not allow specifying ports.'
+                    raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
+
                 return f'{proto}://[{host}]{portstr}', {'subs': subs, 'virts': virts}
 
             mesg = f'Invalid IPv6 w/port ({orig})'
@@ -495,6 +505,10 @@ class SockAddr(s_types.Str):
         if port:
             subs['port'] = port
             virts['port'] = (port, self.porttype.stortype)
+
+        if port and proto in self.noports:
+            mesg = f'Protocol {proto} does not allow specifying ports.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
 
         ipv4 = (await self.iptype.norm(valu))[0]
         ipv4_repr = self.iptype.repr(ipv4)
