@@ -182,6 +182,10 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('place'), '39f8d9599cd663b00013bfedf69dcf53')
             self.eq(nodes[0].get('website'), 'http://arrowcon.org/2018')
 
+            # confirm that multi-inheritance resolves template values correctly
+            self.eq(core.model.prop('ou:conference:place:address').info['doc'],
+                    'The postal address where the conference was located.')
+
             gutors = await core.nodes('[ ou:conference=({"name": "arrcon18"}) ]')
             self.eq(nodes[0].ndef, gutors[0].ndef)
 

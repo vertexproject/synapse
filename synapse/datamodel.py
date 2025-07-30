@@ -1256,6 +1256,7 @@ class Model:
         # TODO decide if/how to handle subinterface prefixes
         template = self._prepIfaceTemplate(iface, ifinfo)
         template['$self'] = form.full
+        template.update(form.type.info.get('template', {}))
 
         def convert(item):
 
