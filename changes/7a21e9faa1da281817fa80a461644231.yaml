@@ -1,5 +1,5 @@
 ---
-desc: Added a patch for Python ``tarfile`` module to address CVE-2025-8194 exposure
+desc: Added a patch for Python ``tarfile`` module to address CVE-2025-8194 exposure.
 prs: []
 type: bug
 ...
