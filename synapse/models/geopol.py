@@ -72,7 +72,7 @@ modeldefs = (
                     'doc': 'An array of alternate or localized names for the country.'}),
 
                 ('government', ('ou:org', {}), {
-                    'doc': 'The federal government of the country.'}),
+                    'doc': 'The government of the country.'}),
 
                 ('place', ('geo:place', {}), {
                     'doc': 'The geospatial properties of the country.'}),
