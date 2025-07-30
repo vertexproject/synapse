@@ -390,48 +390,45 @@ modeldefs = (
 
             ('geo:locatable', {
                 'doc': 'Properties common to items and events which may be geolocated.',
+                'prefix': 'place',
                 'template': {'title': 'item'},
                 'props': (
-                    ('place', ('geo:place', {}), {
+                    ('', ('geo:place', {}), {
                         'doc': 'The place where the {title} was located.'}),
 
-                    ('place:loc', ('loc', {}), {
+                    ('loc', ('loc', {}), {
                         'doc': 'The geopolitical location of the {title}.'}),
 
-                    ('place:name', ('meta:name', {}), {
+                    ('name', ('meta:name', {}), {
                         'doc': 'The name where the {title} was located.'}),
 
-                    ('place:address', ('geo:address', {}), {
+                    ('address', ('geo:address', {}), {
                         'doc': 'The postal address where the {title} was located.'}),
 
-                    ('place:latlong', ('geo:latlong', {}), {
+                    ('latlong', ('geo:latlong', {}), {
                         'doc': 'The latlong where the {title} was located.'}),
 
-                    ('place:latlong:accuracy', ('geo:dist', {}), {
+                    ('latlong:accuracy', ('geo:dist', {}), {
                         'doc': 'The accuracy of the latlong where the {title} was located.'}),
 
-                    ('place:altitude', ('geo:altitude', {}), {
+                    ('altitude', ('geo:altitude', {}), {
                         'doc': 'The altitude where the {title} was located.'}),
 
-                    ('place:altitude:accuracy', ('geo:dist', {}), {
+                    ('altitude:accuracy', ('geo:dist', {}), {
                         'doc': 'The accuracy of the altitude where the {title} was located.'}),
 
-                    ('place:country', ('pol:country', {}), {
+                    ('country', ('pol:country', {}), {
                         'doc': 'The country where the {title} was located.'}),
 
-                    ('place:country:code', ('iso:3166:alpha2', {}), {
+                    ('country:code', ('iso:3166:alpha2', {}), {
                         'doc': 'The country code where the {title} was located.'}),
 
-                    ('place:bbox', ('geo:bbox', {}), {
+                    ('bbox', ('geo:bbox', {}), {
                         'doc': 'A bounding box which encompasses the {title}.'}),
 
-                    ('place:geojson', ('geo:json', {}), {
+                    ('geojson', ('geo:json', {}), {
                         'doc': 'A GeoJSON representation of where the {title} was located.'}),
                 ),
-            }),
-            ('geo:location', {
-                'props': {
-                },
             }),
         ),
 
@@ -448,6 +445,10 @@ modeldefs = (
                 'doc': 'GeoJSON structured JSON data.'}),
 
             ('geo:place', ('guid', {}), {
+                'template': {'title': 'place'},
+                'interfaces': (
+                    ('geo:locatable', {'prefix': ''}),
+                ),
                 'doc': 'A geographic place.'}),
 
             ('geo:place:type:taxonomy', ('taxonomy', {}), {
@@ -520,36 +521,6 @@ modeldefs = (
 
                 ('desc', ('text', {}), {
                     'doc': 'A description of the place.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'The geopolitical location of the place.'}),
-
-                ('address', ('geo:address', {}), {
-                    'doc': 'The postal address of the place.'}),
-
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The latlong of the place.'}),
-
-                ('latlong:accuracy', ('geo:dist', {}), {
-                    'doc': 'The accuracy of the latlong property.'}),
-
-                ('altitude', ('geo:altitude', {}), {
-                    'doc': 'The altitude of the place.'}),
-
-                ('altitude:accuracy', ('geo:dist', {}), {
-                    'doc': 'The accuracy of the altitude property.'}),
-
-                ('country', ('pol:country', {}), {
-                    'doc': 'The country where the place was located.'}),
-
-                ('country:code', ('iso:3166:alpha2', {}), {
-                    'doc': 'The country code where the place was located.'}),
-
-                ('bbox', ('geo:bbox', {}), {
-                    'doc': 'A bounding box which encompasses the place.'}),
-
-                ('geojson', ('geo:json', {}), {
-                    'doc': 'A GeoJSON representation of the place.'}),
 
                 ('photo', ('file:bytes', {}), {
                     'doc': 'The image file to use as the primary image of the place.'}),
