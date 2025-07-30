@@ -17,7 +17,7 @@ modeldefs = (
                 'doc': 'An individual crypto currency transaction recorded on the blockchain.'}),
 
             ('crypto:currency:block', ('comp', {'fields': (
-                                                    ('coin', 'crypto:currency:coin'),
+                                                    ('coin', 'econ:currency'),
                                                     ('offset', 'int'),
                                                ), 'sepr': '/'}), {
                 'doc': 'An individual crypto currency block record on the blockchain.'}),
@@ -84,11 +84,7 @@ modeldefs = (
             ('crypto:smart:token', ('comp', {'fields': (('contract', 'crypto:smart:contract'), ('tokenid', 'hugenum'))}), {
                 'doc': 'A token managed by a smart contract.'}),
 
-            ('crypto:currency:coin', ('str', {'lower': True}), {
-                'ex': 'btc',
-                'doc': 'An individual crypto currency type.'}),
-
-            ('crypto:currency:address', ('comp', {'fields': (('coin', 'crypto:currency:coin'), ('iden', 'str')), 'sepr': '/'}), {
+            ('crypto:currency:address', ('comp', {'fields': (('coin', 'econ:currency'), ('iden', 'str')), 'sepr': '/'}), {
 
                 'interfaces': (
                     ('econ:pay:instrument', {'template': {'instrument': 'crypto currency address'}}),
@@ -266,7 +262,7 @@ modeldefs = (
                     'doc': 'An analyst specified description of the transaction.'}),
                 ('block', ('crypto:currency:block', {}), {
                     'doc': 'The block which records the transaction.'}),
-                ('block:coin', ('crypto:currency:coin', {}), {
+                ('block:coin', ('econ:currency', {}), {
                     'doc': 'The coin/blockchain of the block which records this transaction.'}),
                 ('block:offset', ('int', {}), {
                     'doc': 'The offset of the block which records this transaction.'}),
@@ -304,7 +300,7 @@ modeldefs = (
             )),
 
             ('crypto:currency:block', {}, (
-                ('coin', ('crypto:currency:coin', {}), {
+                ('coin', ('econ:currency', {}), {
                     'doc': 'The coin/blockchain this block resides on.', 'ro': True, }),
                 ('offset', ('int', {}), {
                     'doc': 'The index of this block.', 'ro': True, }),
@@ -358,11 +354,6 @@ modeldefs = (
 
                 ('nft:meta:image', ('inet:url', {}), {
                     'doc': 'The image URL from the NFT metadata.'}),
-            )),
-            ('crypto:currency:coin', {}, (
-
-                ('name', ('meta:name', {}), {
-                    'doc': 'The full name of the crypto coin.'}),
             )),
 
             ('crypto:smart:effect:transfertoken', {}, (
@@ -458,7 +449,7 @@ modeldefs = (
 
             ('crypto:currency:address', {}, (
 
-                ('coin', ('crypto:currency:coin', {}), {
+                ('coin', ('econ:currency', {}), {
                     'doc': 'The crypto coin to which the address belongs.', 'ro': True, }),
 
                 ('seed', ('crypto:key', {}), {

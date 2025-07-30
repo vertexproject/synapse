@@ -74,7 +74,7 @@ modeldefs = (
                 'doc': 'The amount of money expected, required, or given in payment for something.',
                 'ex': '2.20'}),
 
-            ('econ:currency', ('str', {'lower': True, 'strip': False}), {
+            ('econ:currency', ('str', {'lower': True}), {
                 'doc': 'The name of a system of money in general use.',
                 'ex': 'usd'}),
 
@@ -177,7 +177,12 @@ modeldefs = (
 
         'forms': (
 
-            ('econ:currency', {}, ()),
+            ('econ:currency', {}, (
+
+                ('name', ('base:name', {}), {
+                    'doc': 'The full name of the currency.'}),
+            )),
+
             ('econ:pay:iin', {}, (
 
                 ('issuer', ('ou:org', {}), {

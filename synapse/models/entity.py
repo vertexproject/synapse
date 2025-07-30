@@ -205,14 +205,14 @@ modeldefs = (
                 ),
                 'doc': 'A directional relationship between two actor entities.'}),
 
-            ('entity:possession:type:taxonomy', ('taxonomy', {}), {
+            ('entity:had:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of types of possession.'}),
 
-            ('entity:possession', ('guid', {}), {
-                'doc': 'An item which is possessed by an entity.'}),
+            ('entity:had', ('guid', {}), {
+                'doc': 'An item which was possessed by an actor.'}),
 
             ('entity:attendee', ('guid', {}), {
                 'doc': 'An individual attending an event.'}),
@@ -339,8 +339,8 @@ modeldefs = (
                     'doc': 'The current version of this historical contact.'}),
             )),
 
-            ('entity:possession:type:taxonomy', {}, ()),
-            ('entity:possession', {}, (
+            ('entity:had:type:taxonomy', {}, ()),
+            ('entity:had', {}, (
 
                 ('item', ('meta:havable', {}), {
                     'doc': 'The item owned by the entity.'}),
@@ -348,7 +348,7 @@ modeldefs = (
                 ('actor', ('entity:actor', {}), {
                     'doc': 'The entity which possessed the item.'}),
 
-                ('type', ('entity:possession:type:taxonomy', {}), {
+                ('type', ('entity:had:type:taxonomy', {}), {
                     'doc': 'A taxonomy for different types of possession.'}),
 
                 ('period', ('ival', {}), {
