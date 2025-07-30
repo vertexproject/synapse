@@ -236,12 +236,12 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     return pkgdef
 
 
-prog = 'synapse.tools.genpkg'
+prog = 'synapse.tools.pkgs.genpkg'
 desc = 'A tool for generating/pushing storm packages from YAML prototypes.'
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser()
+    pars = s_cmd.Parser(prog=prog, outp=outp, description=desc)
     pars.add_argument('--push', metavar='<url>', help='A telepath URL of a Cortex or PkgRepo.')
     pars.add_argument('--push-verify', default=False, action='store_true',
                       help='Tell the Cortex to verify the package signature.')
