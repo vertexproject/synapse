@@ -370,7 +370,7 @@ modeldefs = (
                 ('intro', ('str', {'strip': True}), {
                     'doc': 'An introduction or cover letter text submitted by the candidate.'}),
 
-                ('resume', ('file:bytes', {}), {
+                ('resume', ('doc:resume', {}), {
                     'doc': "The candidate's resume or CV."}),
 
                 ('opening', ('ou:opening', {}), {
