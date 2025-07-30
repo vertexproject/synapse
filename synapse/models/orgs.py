@@ -204,6 +204,9 @@ modeldefs = (
                 'doc': 'The results from a single contest participant.'}),
 
             ('ou:id', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'ID'}}),
+                ),
                 'doc': 'An ID value issued by an organization.'}),
 
             ('ou:id:type:taxonomy', ('taxonomy', {}), {

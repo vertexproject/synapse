@@ -133,14 +133,23 @@ modeldefs = (
         'ctors': (
 
             ('tel:mob:imei', 'synapse.models.telco.Imei', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'IMEI'}}),
+                ),
                 'ex': '490154203237518',
                 'doc': 'An International Mobile Equipment Id.'}),
 
             ('tel:mob:imsi', 'synapse.models.telco.Imsi', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'IMSI'}}),
+                ),
                 'ex': '310150123456789',
                 'doc': 'An International Mobile Subscriber Id.'}),
 
             ('tel:phone', 'synapse.models.telco.Phone', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'phone number'}}),
+                ),
                 'ex': '+15558675309',
                 'doc': 'A phone number.'}),
 
@@ -165,10 +174,16 @@ modeldefs = (
                 'doc': 'A mobile Type Allocation Code.'}),
 
             ('tel:mob:imid', ('comp', {'fields': (('imei', 'tel:mob:imei'), ('imsi', 'tel:mob:imsi'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'IMEI and IMSI'}}),
+                ),
                 'ex': '(490154203237518, 310150123456789)',
                 'doc': 'Fused knowledge of an IMEI/IMSI used together.'}),
 
             ('tel:mob:imsiphone', ('comp', {'fields': (('imsi', 'tel:mob:imsi'), ('phone', 'tel:phone'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'IMSI and phone number'}}),
+                ),
                 'ex': '(310150123456789, "+7(495) 124-59-83")',
                 'doc': 'Fused knowledge of an IMSI assigned phone number.'}),
 

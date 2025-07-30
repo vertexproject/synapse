@@ -1197,7 +1197,10 @@ modeldefs = (
                 'doc': 'An IP address block in Classless Inter-Domain Routing (CIDR) notation.'}),
 
             ('inet:email', 'synapse.models.inet.Email', {}, {
-                'doc': 'An e-mail address.'}),
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'email address'}}),
+                ),
+                'doc': 'An email address.'}),
 
             ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
                 'interfaces': (
@@ -1207,10 +1210,16 @@ modeldefs = (
                 'doc': 'A Fully Qualified Domain Name (FQDN).'}),
 
             ('inet:rfc2822:addr', 'synapse.models.inet.Rfc2822Addr', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'RFC 2822 address'}}),
+                ),
                 'ex': '"Visi Kenshoto" <visi@vertex.link>',
                 'doc': 'An RFC 2822 Address field.'}),
 
             ('inet:url', 'synapse.models.inet.Url', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'URL'}}),
+                ),
                 'ex': 'http://www.woot.com/files/index.html',
                 'doc': 'A Universal Resource Locator (URL).'}),
 
@@ -1250,6 +1259,9 @@ modeldefs = (
                     'ip': (None, {'doc': 'The IP address of the client.'}),
                     'port': (None, {'doc': 'The port the client connected from.'}),
                 },
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'network client'}}),
+                ),
                 'doc': 'A network client address.'}),
 
             ('inet:download', ('guid', {}), {
@@ -1268,9 +1280,15 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of tunnel types.'}),
 
             ('inet:tunnel', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'tunnel'}}),
+                ),
                 'doc': 'A specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
 
             ('inet:egress', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'egress client'}}),
+                ),
                 'doc': 'A host using a specific network egress client address.'}),
 
             ('inet:group', ('str', {}), {
@@ -1309,6 +1327,9 @@ modeldefs = (
                 'doc': 'A network interface with a set of associated protocol addresses.'}),
 
             ('inet:mac', ('str', {'lower': True, 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$'}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'MAC address'}}),
+                ),
                 'ex': 'aa:bb:cc:dd:ee:ff',
                 'doc': 'A 48-bit Media Access Control (MAC) address.'}),
 
@@ -1325,9 +1346,15 @@ modeldefs = (
                     'ip': (None, {'doc': 'The IP address of the server.'}),
                     'port': (None, {'doc': 'The port the server is listening on.'}),
                 },
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'network server'}}),
+                ),
                 'doc': 'A network server address.'}),
 
             ('inet:banner', ('comp', {'fields': (('server', 'inet:server'), ('text', 'it:dev:str'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'banner'}}),
+                ),
                 'doc': 'A network protocol banner string presented by a server.'}),
 
             ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
@@ -1337,16 +1364,18 @@ modeldefs = (
                 'doc': 'A file hosted at a specific Universal Resource Locator (URL).'}),
 
             ('inet:url:redir', ('comp', {'fields': (('source', 'inet:url'), ('target', 'inet:url'))}), {
+                'template': {'title': 'URL redirection'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'URL redirection'}}),
+                    ('meta:observable', {}),
                 ),
                 'ex': '(http://foo.com/,http://bar.com/)',
                 'doc': 'A URL that redirects to another URL, such as via a URL shortening service '
                        'or an HTTP 302 response.'}),
 
             ('inet:url:mirror', ('comp', {'fields': (('of', 'inet:url'), ('at', 'inet:url'))}), {
+                'template': {'title': 'URL mirror'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'URL mirror'}}),
+                    ('meta:observable', {}),
                 ),
                 'doc': 'A URL mirror site.'}),
 
@@ -1376,6 +1405,9 @@ modeldefs = (
                 'doc': 'An FQDN whois registration record.'}),
 
             ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'whois email address'}}),
+                ),
                 'doc': 'An email address associated with an FQDN via whois registration text.'}),
 
             ('inet:whois:ipquery', ('guid', {}), {
@@ -1385,14 +1417,19 @@ modeldefs = (
                 'doc': 'An IPv4/IPv6 block registration record.'}),
 
             ('inet:wifi:ap', ('guid', {}), {
-                'template': {'title': 'access point'},
+                'template': {'title': 'WiFi access point'},
                 'interfaces': (
                     ('meta:havable', {}),
                     ('geo:locatable', {}),
+                    ('meta:observable', {}),
                 ),
                 'doc': 'An SSID/MAC address combination for a wireless access point.'}),
 
             ('inet:wifi:ssid', ('str', {'strip': False}), {
+                'template': {'title': 'WiFi SSID'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
                 'ex': 'The Vertex Project',
                 'doc': 'A WiFi service set identifier (SSID) name.'}),
 
@@ -1413,9 +1450,15 @@ modeldefs = (
                 'doc': 'A url/link embedded in an email message.'}),
 
             ('inet:tls:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'JARM fingerprint'}}),
+                ),
                 'doc': 'A TLS JARM fingerprint hash.'}),
 
             ('inet:tls:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:tls:jarmhash'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'JARM sample'}}),
+                ),
                 'doc': 'A JARM hash sample taken from a server.'}),
 
             ('inet:service:platform', ('guid', {}), {
@@ -1634,28 +1677,52 @@ modeldefs = (
                 'doc': 'An instance of a TLS handshake between a client and server.'}),
 
             ('inet:tls:ja4', ('str', {'strip': True, 'regex': ja4_regex}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'JA4 fingerprint'}}),
+                ),
                 'doc': 'A JA4 TLS client fingerprint.'}),
 
             ('inet:tls:ja4s', ('str', {'strip': True, 'regex': ja4s_regex}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'JA4S fingerprint'}}),
+                ),
                 'doc': 'A JA4S TLS server fingerprint.'}),
 
             ('inet:tls:ja4:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja4', 'inet:tls:ja4'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'JA4 sample'}}),
+                ),
                 'doc': 'A JA4 TLS client fingerprint used by a client.'}),
 
             ('inet:tls:ja4s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja4s', 'inet:tls:ja4s'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'JA4S sample'}}),
+                ),
                 'doc': 'A JA4S TLS server fingerprint used by a server.'}),
 
             ('inet:tls:ja3s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja3s', 'crypto:hash:md5'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'JA3S sample'}}),
+                ),
                 'doc': 'A JA3 sample taken from a server.'}),
 
             ('inet:tls:ja3:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja3', 'crypto:hash:md5'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'JA3 sample'}}),
+                ),
                 'doc': 'A JA3 sample taken from a client.'}),
 
             ('inet:tls:servercert', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'TLS server certificate'}}),
+                ),
                 'ex': '(1.2.3.4:443, c7437790af01ae1bb2f8f3b684c70bf8)',
                 'doc': 'An x509 certificate sent by a server for TLS.'}),
 
             ('inet:tls:clientcert', ('comp', {'fields': (('client', 'inet:client'), ('cert', 'crypto:x509:cert'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'observable': 'TLS client certificate'}}),
+                ),
                 'ex': '(1.2.3.4:443, 3fdf364e081c14997b291852d1f23868)',
                 'doc': 'An x509 certificate sent by a client for TLS.'}),
 

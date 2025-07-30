@@ -3405,6 +3405,52 @@ class AstTest(s_test.SynTest):
             self.eq('gen(foo, bar, baz)', text[off:end])
             self.stormIsInErr('$lib.gen.campaign()', msgs)
 
+            async def highlighteq(exp, text):
+                msgs = await core.stormlist(text)
+                errm = [m for m in msgs if m[0] == 'err'][0]
+                off, end = errm[1][1]['highlight']['offsets']
+                self.eq(exp, text[off:end])
+
+            text = '''
+                function willError() {
+                    [ inet:tls:servercert=(("1.2.3.4", 10), {[crypto:x509:cert=*]}) ]
+                    return($node)
+                }
+                yield $willError()
+            '''
+            await highlighteq('(("1.2.3.4", 10), {[crypto:x509:cert=*]})', text)
+
+            await highlighteq('node.value()', '[ test:str=foo test:int=$node.value() ]')
+
+            await highlighteq('newp', '[ test:str=foo :seen=newp ]')
+            await highlighteq('newp', '[ test:str=foo :seen*unset=newp ]')
+            await highlighteq('newp', '[ test:str=foo :seen=now :seen.precision=newp ]')
+
+            await highlighteq('([1, 2])', '[ test:str=foo :ndefs++=([1, 2]) ]')
+
+            await highlighteq('#$foo', '$foo=(1) [ test:str=foo +#$foo ]')
+
+            await highlighteq('+#foo=newp', '[ test:str=foo +#foo=newp ]')
+
+            await core.nodes('''
+                $regx = ($lib.null, $lib.null, "[0-9]{4}")
+                $lib.model.tags.set(cno.cve, regex, $regx)
+            ''')
+
+            await highlighteq('#cno.cve.foo', '[ test:str=foo +#cno.cve.foo ]')
+            await highlighteq('+#cno.cve.foo=2024', '[ test:str=foo +#cno.cve.foo=2024 ]')
+            await highlighteq('+#cno.cve.1234=newp', '[ test:str=foo +#cno.cve.1234=newp ]')
+
+            await highlighteq('#$foo', '$foo=(1) #$foo')
+            await highlighteq('#$foo', '$foo=(1) test:str=foo +#$foo')
+            await highlighteq('foo', '$foo=(null) test:str=foo +#foo.$foo')
+
+            await highlighteq('newp', '[ test:str=foo +#(foo).min=newp ]')
+
+            await core.addTagProp('ival', ('ival', {}), {})
+
+            await highlighteq('+#foo:ival=newp', '[ test:str=foo +#foo:ival=newp ]')
+
     async def test_ast_bulkedges(self):
 
         async with self.getTestCore() as core:
