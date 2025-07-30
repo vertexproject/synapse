@@ -930,6 +930,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     confdefs = {}  # type: ignore  # This should be a JSONSchema properties list for an object.
     confbase = {
+        'safemode': {
+            'default': False,
+            'description': 'Boot the service in safe-mode.',
+            'type': 'boolean',
+            'hidecmdl': True,
+        },
         'cell:guid': {
             'description': 'An optional hard-coded GUID to store as the permanent GUID for the service.',
             'type': 'string',
@@ -1199,6 +1205,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'dynmirror': 1,
             'tasks': 1,
         }
+
+        self.safemode = self.conf.req('safemode')
+        if self.safemode:
+            mesg = f'Booting {self.getCellType()} in safe-mode. Some functionality may be disabled.'
+            logger.warning(mesg)
 
         self.minfree = self.conf.get('limit:disk:free')
         if self.minfree is not None:
@@ -4816,6 +4827,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'iden': self.getCellIden(),
                 'paused': self.paused,
                 'active': self.isactive,
+                'safemode': self.safemode,
                 'started': self.startms,
                 'ready': self.nexsroot.ready.is_set(),
                 'commit': self.COMMIT,

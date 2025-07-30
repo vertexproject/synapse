@@ -101,7 +101,8 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ ou:org=({}) ]')
 
-            self.len(1, await core.nodes('[ ou:org=() ]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=() ]')
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ ou:org=({}) ]')
@@ -292,6 +293,56 @@ class StormTest(s_t_utils.SynTest):
             ]'''))
 
             self.len(0, await core.nodes('inet:service:platform:name=barplat'))
+
+            # Gutors work for props
+            nodes = await core.nodes('''[
+                test:str=guidprop
+                    :gprop=({'name': 'someprop', '$props': {'size': 5}})
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'guidprop'))
+            self.nn(node.get('gprop'))
+
+            nodes = await core.nodes('test:str=guidprop -> test:guid')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'someprop')
+            self.eq(node.get('size'), 5)
+
+            with self.raises(s_exc.BadTypeValu) as cm:
+                nodes = await core.nodes('''[
+                    test:str=newpprop
+                        :gprop=({'size': 'newp'})
+                ]''')
+
+            self.eq(cm.exception.get('form'), 'test:guid')
+            self.eq(cm.exception.get('prop'), 'size')
+            self.true(cm.exception.get('mesg').startswith('Bad value for prop test:guid:size: invalid literal'))
+
+            nodes = await core.nodes('''[
+                test:str=newpprop
+                    :gprop?=({'size': 'newp'})
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'newpprop'))
+            self.none(node.get('gprop'))
+
+            nodes = await core.nodes('''
+                [ test:str=methset ]
+                $node.props.gprop = ({'name': 'someprop'})
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'methset'))
+            self.nn(node.get('gprop'))
+
+            nodes = await core.nodes('test:str=methset -> test:guid')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'someprop')
+            self.eq(node.get('size'), 5)
 
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
@@ -4062,6 +4113,29 @@ class StormTest(s_t_utils.SynTest):
             view = await core.callStorm('return( $lib.view.get().iden )')
             fork = await core.callStorm('return( $lib.view.get().fork().iden )')
 
+            q = '''view.exec $view {
+                $lib.print(foo)
+                $lib.warn(bar)
+                [ it:dev:str=nomsg ]
+             }'''
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInWarn('bar', msgs)
+
+            q = '''
+                [ it:dev:str=woot ] $valu=$node.repr()
+                view.exec $view {
+                    $lib.print(foo)
+                    $lib.print($valu)
+                    $lib.warn(bar)
+                    [ it:dev:str=nomsg ]
+                }
+            '''
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInPrint('woot', msgs)
+            self.stormIsInWarn('bar', msgs)
+
             await core.addStormPkg({
                 'name': 'testpkg',
                 'version': (0, 0, 1),
@@ -5302,6 +5376,32 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
             for node in nodes:
                 self.none(node.tags.get('btag'))
+
+            q = '''runas visi {
+                $lib.print(foo)
+                $lib.warn(bar)
+                [ it:dev:str=nomsg ]
+             }'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInWarn('bar', msgs)
+
+            q = '''
+                [it:dev:str=woot] $valu=$node.repr()
+                runas visi {
+                    $lib.print(foo)
+                    $lib.warn(bar)
+                    $lib.print($valu)
+                    [ it:dev:str=nomsg ]
+                }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInPrint('woot', msgs)
+            self.stormIsInWarn('bar', msgs)
+
+            msgs = await core.stormlist('runas visi {$lib.raise(Foo, asdf)}')
+            self.stormIsInErr('asdf', msgs)
 
     async def test_storm_batch(self):
         async with self.getTestCore() as core:

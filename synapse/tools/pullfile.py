@@ -1,22 +1,15 @@
-import sys
-import asyncio
 import pathlib
-import argparse
 
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.coro as s_coro
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 
 
-async def main(argv, outp=None):
-
-    pars = setup()
+async def main(argv, outp=s_output.stdout):
+    pars = getArgParser(outp)
     opts = pars.parse_args(argv)
-
-    if outp is None:  # pragma: no cover
-        outp = s_output.OutPut()
 
     if opts.output is None:
         opts.output = '.'
@@ -55,9 +48,9 @@ async def main(argv, outp=None):
     return 0
 
 
-def setup():
+def getArgParser(outp):
     desc = 'Fetches file from the given axon'
-    pars = argparse.ArgumentParser('synapse.tools.pullfile', description=desc)
+    pars = s_cmd.Parser(prog='synapse.tools.pullfile', outp=outp, description=desc)
     pars.add_argument('-a', '--axon', type=str, dest='axon', required=True,
                       help='URL to the axon blob store')
     pars.add_argument('-o', '--output', type=str, dest='output',
@@ -67,10 +60,5 @@ def setup():
 
     return pars
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_cmd.exitmain(main)

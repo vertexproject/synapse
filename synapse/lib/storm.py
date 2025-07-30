@@ -1363,7 +1363,7 @@ class DmonManager(s_base.Base):
         '''
         Start all the dmons.
         '''
-        if self.enabled:
+        if self.enabled or self.core.safemode:
             return
         dmons = list(self.dmons.values())
         if not dmons:
@@ -4906,6 +4906,9 @@ class ViewExecCmd(Cmd):
 
             query = await runt.getStormQuery(text)
             async with runt.getSubRuntime(query, opts=opts) as subr:
+                await subr.enter_context(subr.snap.onWith('print', runt.snap.dist))
+                await subr.enter_context(subr.snap.onWith('warn', runt.snap.dist))
+
                 async for item in subr.execute():
                     await asyncio.sleep(0)
 
@@ -4918,6 +4921,9 @@ class ViewExecCmd(Cmd):
 
             opts = {'view': view}
             async with runt.getSubRuntime(query, opts=opts) as subr:
+                await subr.enter_context(subr.snap.onWith('print', runt.snap.dist))
+                await subr.enter_context(subr.snap.onWith('warn', runt.snap.dist))
+
                 async for item in subr.execute():
                     await asyncio.sleep(0)
 
@@ -5736,6 +5742,9 @@ class RunAsCmd(Cmd):
             opts = {'vars': path.vars}
 
             async with await core.snap(user=user, view=runt.snap.view) as snap:
+                await snap.enter_context(snap.onWith('warn', runt.snap.dist))
+                await snap.enter_context(snap.onWith('print', runt.snap.dist))
+
                 async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
                     subr.debug = runt.debug
                     subr.readonly = runt.readonly
@@ -5758,6 +5767,9 @@ class RunAsCmd(Cmd):
             opts = {'user': user}
 
             async with await core.snap(user=user, view=runt.snap.view) as snap:
+                await snap.enter_context(snap.onWith('warn', runt.snap.dist))
+                await snap.enter_context(snap.onWith('print', runt.snap.dist))
+
                 async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
                     subr.debug = runt.debug
                     subr.readonly = runt.readonly

@@ -1,22 +1,15 @@
-import sys
-import asyncio
-import logging
-import argparse
-
 import cryptography.x509 as c_x509
 
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.coro as s_coro
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 
 
-logger = logging.getLogger(__name__)
-
 async def main(argv, outp=s_output.stdout):
-    pars = getArgParser()
+    pars = getArgParser(outp)
     opts = pars.parse_args(argv)
 
     if opts.network:
@@ -56,9 +49,9 @@ async def main(argv, outp=s_output.stdout):
                 cdir.delUserCsr(name, outp=outp)
                 return 0
 
-def getArgParser():
+def getArgParser(outp):
     desc = 'CLI tool to generate simple x509 certificates from an Aha server.'
-    pars = argparse.ArgumentParser(prog='synapse.tools.aha.easycert', description=desc)
+    pars = s_cmd.Parser(prog='synapse.tools.aha.easycert', outp=outp, description=desc)
 
     pars.add_argument('-a', '--aha', required=True,  # type=str,
                       help='Aha server to connect too.')
@@ -77,11 +70,5 @@ def getArgParser():
 
     return pars
 
-async def _main(argv, outp=s_output.stdout):  # pragma: no cover
-    s_common.setlogging(logger, 'WARNING')
-    ret = await main(argv, outp=outp)
-    await asyncio.wait_for(s_coro.await_bg_tasks(), timeout=60)
-    return ret
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main(sys.argv[1:])))
+    s_cmd.exitmain(main)

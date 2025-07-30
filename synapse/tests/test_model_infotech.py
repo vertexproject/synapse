@@ -1953,6 +1953,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('product'), 'product%23')
 
+    async def test_infotech_cpe_conversions(self):
+        self.thisEnvMust('CIRCLECI')
+
+        async with self.getTestCore() as core:
+            cpe23 = core.model.type('it:sec:cpe')
+            cpe22 = core.model.type('it:sec:cpe:v2_2')
             # Test 2.2->2.3 and 2.3->2.2 conversions
             filename = s_t_files.getAssetPath('cpedata.json')
             with open(filename, 'r') as fp:
@@ -1960,25 +1966,24 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             for (_cpe22, _cpe23) in cpedata:
                 # Convert cpe22 -> cpe23
-                norm, info = cpe23.norm(_cpe22)
-                self.eq(norm, _cpe23)
+                norm_22, _ = cpe23.norm(_cpe22)
+                self.eq(norm_22, _cpe23)
 
-                norm, info = cpe23.norm(_cpe23)
-                self.eq(norm, _cpe23)
+                norm_23, info_23 = cpe23.norm(_cpe23)
+                self.eq(norm_23, _cpe23)
 
                 # No escaped characters in the secondary props
-                for name, valu in info.items():
+                for name, valu in info_23.items():
                     if name == 'v2_2':
                         continue
 
                     self.notin('\\', valu)
 
                 # Norm cpe23 and check the cpe22 conversion
-                norm, info = cpe23.norm(_cpe23)
-                v2_2 = info['subs']['v2_2']
+                sub_23_v2_2 = info_23['subs']['v2_2']
 
-                norm, info = cpe22.norm(v2_2)
-                self.eq(norm, _cpe22)
+                norm_sub_23_v2_2, _ = cpe22.norm(sub_23_v2_2)
+                self.eq(norm_sub_23_v2_2, sub_23_v2_2)
 
     async def test_cpe_scrape_one_to_one(self):
 
@@ -2438,3 +2443,34 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(2, nodes[0].get('assets:vulns:preexisting'))
 
             self.len(1, await core.nodes('it:sec:metrics -> ou:org +:name=vertex'))
+
+    async def test_infotech_windows(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ it:os:windows:service=*
+                    :name=Woot
+                    :host=*
+                    :type=(0x20)
+                    :start=(0x20)
+                    :errorcontrol=(0x20)
+                    :displayname="Foo Bar Baz"
+                    :imagepath=c:/windows/system32/woot.exe
+                    :description="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+                ]
+            ''')
+
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'woot')
+            self.eq(nodes[0].get('type'), 0x20)
+            self.eq(nodes[0].get('start'), 0x20)
+            self.eq(nodes[0].get('errorcontrol'), 0x20)
+            self.eq(nodes[0].get('displayname'), 'foo bar baz')
+            self.eq(nodes[0].get('imagepath'), 'c:/windows/system32/woot.exe')
+            self.eq(nodes[0].get('description'), 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.')
+
+            self.len(1, await core.nodes('it:os:windows:service -> it:host'))
+            self.len(1, await core.nodes('it:os:windows:service -> file:path'))
+
+            self.len(1, await core.nodes('[ it:exec:proc=* :windows:service={ it:os:windows:service } ] -> it:os:windows:service'))

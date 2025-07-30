@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'synapse'
-version = '2.214.0'
+version = '2.217.0'
 authors = [
     { name = 'The Vertex Project LLC', email = 'root@vertex.link'},
 ]
@@ -26,7 +26,7 @@ dependencies = [
     'cryptography>=43.0.1,<44.0.0',
     'msgpack>=1.0.5,<1.2.0',
     'xxhash>=1.4.4,<3.6.0',
-    'lmdb>=1.2.1,<1.7.0',
+    'lmdb>=1.7.0,<1.8.0',
     'tornado>=6.2.0,<7.0.0',
     'regex>=2022.9.11',
     'PyYAML>=5.4,<6.1.0',
@@ -95,3 +95,20 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 include = ["synapse*"]
+
+[tool.ruff]
+include = [
+    'synapse/*.py',
+    'scripts/*.py',
+    'examples/*.py',
+]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E251", # Whitespace around kwargs; preview rule
+    "F821",  # Check for undefined names - this is generally fatal
+    "W191", "W191", "W292", "W293", "W391",  # Whitespace checks; W391 is a preview rule.
+    "W605", # invalid escape sequence
+]
+preview = true
