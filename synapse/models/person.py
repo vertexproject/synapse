@@ -27,13 +27,6 @@ modeldefs = (
                     ('entity:actor', {
                         'template': {'contactable': 'person'}}),
                 ),
-                'aliases': (
-                    ('dob', {'target': 'lifespan*min',
-                        'doc': 'The date of birth for the entity.'}),
-
-                    ('dod', {'target': 'lifespan*max',
-                        'doc': 'The date of death for the entity.'}),
-                ),
                 'doc': 'A person.'}),
 
             ('ps:workhist', ('guid', {}), {

@@ -416,7 +416,7 @@ class ProtoNode(s_node.NodeBase):
 
     async def _getRealTag(self, tag):
 
-        norm, info = self.editor.view.core.getTagNorm(tag)
+        norm, info = await self.editor.view.core.getTagNorm(tag)
         tagnode = await self.editor.view.getTagNode(norm)
         if tagnode is not s_common.novalu:
             return self.editor.loadNode(tagnode)
@@ -439,7 +439,7 @@ class ProtoNode(s_node.NodeBase):
             if tagnode is not s_common.novalu:
                 return self.editor.loadNode(tagnode)
 
-            norm, info = self.editor.view.core.getTagNorm(realnow)
+            norm, info = await self.editor.view.core.getTagNorm(realnow)
             break
 
         return await self.editor.addNode('syn:tag', norm, norminfo=info)
@@ -466,7 +466,7 @@ class ProtoNode(s_node.NodeBase):
 
         if norminfo is None and valu != (None, None):
             try:
-                valu, norminfo = self.model.type('ival').norm(valu)
+                valu, norminfo = await self.model.type('ival').norm(valu)
             except s_exc.BadTypeValu as e:
                 e.set('tag', tagnode.valu)
                 raise e
@@ -652,7 +652,7 @@ class ProtoNode(s_node.NodeBase):
         if prop.locked:
             raise s_exc.IsDeprLocked(mesg=f'Tagprop {name} is locked.', prop=name)
 
-        norm, info = prop.type.norm(valu)
+        norm, info = await prop.type.norm(valu, view=self.editor.view)
 
         curv = self.getTagProp(tagnode.valu, name)
         if curv == norm:
@@ -751,15 +751,7 @@ class ProtoNode(s_node.NodeBase):
 
         if norminfo is None:
             try:
-                if (isinstance(valu, dict) and isinstance(prop.type, s_types.Guid)
-                    and (form := self.model.form(prop.type.name)) is not None):
-
-                    norms, props = await self.editor.view._normGuidNodeDict(form, valu)
-                    valu = await self.editor.view._addGuidNodeByDict(form, norms, props)
-                    norminfo = {}
-                else:
-                    valu, norminfo = prop.type.norm(valu)
-
+                valu, norminfo = await prop.type.norm(valu, view=self.editor.view)
             except s_exc.BadTypeValu as e:
                 if 'prop' not in e.errinfo:
                     oldm = e.get('mesg')
@@ -776,7 +768,7 @@ class ProtoNode(s_node.NodeBase):
         virts = norminfo.get('virts')
         curv = self.getWithVirts(prop.name)
         if curv == (valu, virts):
-            return False
+            return False, valu, norminfo
 
         cval = curv[0]
 
@@ -793,18 +785,14 @@ class ProtoNode(s_node.NodeBase):
         self.propdels.discard(prop.name)
         self.proptombs.discard(prop.name)
 
-        return valu, norminfo
+        return True, valu, norminfo
 
     async def set(self, name, valu, norminfo=None):
         prop = self.form.props.get(name)
         if prop is None:
             raise s_exc.NoSuchProp(mesg=f'No property named {name} on form {self.form.name}.')
 
-        retn = await self._set(prop, valu, norminfo=norminfo)
-        if retn is False:
-            return False
-
-        (valu, norminfo) = retn
+        retn, valu, norminfo = await self._set(prop, valu, norminfo=norminfo)
 
         propform = self.model.form(prop.type.name)
         if propform is not None:
@@ -824,7 +812,7 @@ class ProtoNode(s_node.NodeBase):
             for addname, addvalu, addinfo in propadds:
                 await self.editor.addNode(addname, addvalu, norminfo=addinfo)
 
-        return True
+        return retn
 
     async def pop(self, name):
 
@@ -855,11 +843,7 @@ class ProtoNode(s_node.NodeBase):
         if prop is None or prop.locked:
             return ()
 
-        retn = await self._set(prop, valu, norminfo=norminfo)
-        if retn is False:
-            return ()
-
-        (valu, norminfo) = retn
+        retn, valu, norminfo = await self._set(prop, valu, norminfo=norminfo)
         ops = []
 
         propform = self.editor.view.core.model.form(prop.type.name)
@@ -951,7 +935,7 @@ class NodeEditor:
 
         if norminfo is None:
             try:
-                valu, norminfo = form.type.norm(valu)
+                valu, norminfo = await form.type.norm(valu, view=self.view)
             except s_exc.BadTypeValu as e:
                 e.set('form', form.name)
                 raise e
@@ -989,28 +973,26 @@ class NodeEditor:
         norm, norminfo = retn
 
         ndef = (form.name, norm)
+        subs = norminfo.get('subs')
+        adds = norminfo.get('adds')
 
         protonode = self.protonodes.get(ndef)
-        if protonode is not None:
-            return ()
+        if protonode is None:
+            buid = s_common.buid(ndef)
+            node = await self.view.getNodeByBuid(buid)
 
-        buid = s_common.buid(ndef)
-        node = await self.view.getNodeByBuid(buid)
-        if node is not None:
-            return ()
+            if node is not None and not (adds or subs):
+                return ()
 
-        protonode = ProtoNode(self, buid, form, norm, node, norminfo)
-
-        self.protonodes[ndef] = protonode
+            protonode = ProtoNode(self, buid, form, norm, node, norminfo)
+            self.protonodes[ndef] = protonode
 
         ops = []
 
-        subs = norminfo.get('subs')
         if subs is not None:
             for prop, valu in subs.items():
                 ops.append(protonode.getSubSetOps(prop, valu))
 
-        adds = norminfo.get('adds')
         if adds is not None:
             for addname, addvalu, addinfo in adds:
                 ops.append(self.getAddNodeOps(addname, addvalu, norminfo=addinfo))
@@ -1030,15 +1012,14 @@ class NodeEditor:
         ndef = (form.name, norm)
 
         protonode = self.protonodes.get(ndef)
-        if protonode is not None:
-            return protonode
 
-        buid = s_common.buid(ndef)
-        node = await self.view.getNodeByBuid(buid, tombs=True)
+        if protonode is None:
+            buid = s_common.buid(ndef)
+            node = await self.view.getNodeByBuid(buid, tombs=True)
 
-        protonode = ProtoNode(self, buid, form, norm, node, norminfo)
+            protonode = ProtoNode(self, buid, form, norm, node, norminfo)
 
-        self.protonodes[ndef] = protonode
+            self.protonodes[ndef] = protonode
 
         ops = collections.deque()
 

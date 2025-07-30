@@ -157,21 +157,6 @@ modeldefs = (
                     ),
                 },
 
-                'aliases': (
-
-                    ('dob', {'target': 'lifespan*min',
-                        'doc': 'The date of birth for the {contactable}.'}),
-
-                    ('dod', {'target': 'lifespan*max',
-                        'doc': 'The date of death for the {contactable}.'}),
-
-                    ('founded', {'target': 'lifespan*max',
-                        'doc': 'The founded time for the {contactable}.'}),
-
-                    ('dissolved', {'target': 'lifespan*max',
-                        'doc': 'The dissolved time for the {contactable}.'}),
-                ),
-
                 'doc': 'A set of contact information which is used by an entity.'}),
 
             ('entity:history', ('guid', {}), {
@@ -210,7 +195,6 @@ modeldefs = (
             ('entity:contact:type:taxonomy', {}, ()),
             ('entity:contact', {}, (
 
-                # FIXME should this be part of the template?
                 ('type', ('entity:contact:type:taxonomy', {}), {
                     'doc': 'The contact type.'}),
 
@@ -221,7 +205,8 @@ modeldefs = (
                 ('current', ('entity:contactable', {}), {
                     'doc': 'The current version of this historical contact.'}),
             )),
-            # FIXME possession with an :ownership=<bool>?
+
+            # FIXME rename to entity:had?
             ('entity:possession:type:taxonomy', {}, ()),
             ('entity:possession', {}, (
 

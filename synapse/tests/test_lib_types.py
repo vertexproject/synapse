@@ -15,13 +15,14 @@ from synapse.tests.utils import alist
 
 class TypesTest(s_t_utils.SynTest):
 
-    def test_type(self):
+    async def test_type(self):
         # Base type tests, mainly sad paths
         model = s_datamodel.Model()
         t = model.type('bool')
         self.eq(t.info.get('bases'), ('base',))
         self.none(t.getCompOffs('newp'))
-        self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
+        with self.raises(s_exc.NoSuchCmpr):
+            await t.cmpr(val1=1, name='newp', val2=0)
 
         str00 = model.type('str').clone({})
         str01 = model.type('str').clone({})
@@ -35,140 +36,140 @@ class TypesTest(s_t_utils.SynTest):
 
             mass = core.model.type('mass')
 
-            self.eq('0.000042', mass.norm('42µg')[0])
-            self.eq('0.2', mass.norm('200mg')[0])
-            self.eq('1000', mass.norm('1kg')[0])
-            self.eq('606452.504', mass.norm('1,337 lbs')[0])
-            self.eq('8490337.73', mass.norm('1,337 stone')[0])
+            self.eq('0.000042', (await mass.norm('42µg'))[0])
+            self.eq('0.2', (await mass.norm('200mg'))[0])
+            self.eq('1000', (await mass.norm('1kg'))[0])
+            self.eq('606452.504', (await mass.norm('1,337 lbs'))[0])
+            self.eq('8490337.73', (await mass.norm('1,337 stone'))[0])
 
             with self.raises(s_exc.BadTypeValu):
-                mass.norm('1337 newps')
+                await mass.norm('1337 newps')
 
             with self.raises(s_exc.BadTypeValu):
-                mass.norm('newps')
+                await mass.norm('newps')
 
     async def test_velocity(self):
         model = s_datamodel.Model()
         velo = model.type('velocity')
 
         with self.raises(s_exc.BadTypeValu):
-            velo.norm('10newps/sec')
+            await velo.norm('10newps/sec')
 
         with self.raises(s_exc.BadTypeValu):
-            velo.norm('10km/newp')
+            await velo.norm('10km/newp')
 
         with self.raises(s_exc.BadTypeValu):
-            velo.norm('10km/newp')
+            await velo.norm('10km/newp')
 
         with self.raises(s_exc.BadTypeValu):
-            velo.norm('10newp')
+            await velo.norm('10newp')
 
         with self.raises(s_exc.BadTypeValu):
-            velo.norm('-10k/h')
+            await velo.norm('-10k/h')
 
         with self.raises(s_exc.BadTypeValu):
-            velo.norm(-1)
+            await velo.norm(-1)
 
         with self.raises(s_exc.BadTypeValu):
-            velo.norm('')
+            await velo.norm('')
 
-        self.eq(1, velo.norm('mm/sec')[0])
-        self.eq(1, velo.norm('1mm/sec')[0])
-        self.eq(407517, velo.norm('1337feet/sec')[0])
+        self.eq(1, (await velo.norm('mm/sec'))[0])
+        self.eq(1, (await velo.norm('1mm/sec'))[0])
+        self.eq(407517, (await velo.norm('1337feet/sec'))[0])
 
-        self.eq(514, velo.norm('knots')[0])
-        self.eq(299792458000, velo.norm('c')[0])
+        self.eq(514, (await velo.norm('knots'))[0])
+        self.eq(299792458000, (await velo.norm('c'))[0])
 
-        self.eq(2777, velo.norm('10kph')[0])
-        self.eq(4470, velo.norm('10mph')[0])
-        self.eq(10, velo.norm(10)[0])
+        self.eq(2777, (await velo.norm('10kph'))[0])
+        self.eq(4470, (await velo.norm('10mph'))[0])
+        self.eq(10, (await velo.norm(10))[0])
 
         relv = velo.clone({'relative': True})
-        self.eq(-2777, relv.norm('-10k/h')[0])
+        self.eq(-2777, (await relv.norm('-10k/h'))[0])
 
-        self.eq(1, velo.norm('1.23')[0])
+        self.eq(1, (await velo.norm('1.23'))[0])
 
         async with self.getTestCore() as core:
             nodes = await core.nodes('[transport:sea:telem=(foo,) :speed=(1.1 * 2) ]')
             self.eq(2, nodes[0].get('speed'))
 
-    def test_hugenum(self):
+    async def test_hugenum(self):
 
         model = s_datamodel.Model()
         huge = model.type('hugenum')
 
         with self.raises(s_exc.BadTypeValu):
-            huge.norm('730750818665451459101843')
+            await huge.norm('730750818665451459101843')
 
         with self.raises(s_exc.BadTypeValu):
-            huge.norm('-730750818665451459101843')
+            await huge.norm('-730750818665451459101843')
 
         with self.raises(s_exc.BadTypeValu):
-            huge.norm(None)
+            await huge.norm(None)
 
         with self.raises(s_exc.BadTypeValu):
-            huge.norm('foo')
+            await huge.norm('foo')
 
-        self.eq('0.000000000000000000000001', huge.norm('1E-24')[0])
-        self.eq('0.000000000000000000000001', huge.norm('1.0E-24')[0])
-        self.eq('0.000000000000000000000001', huge.norm('0.000000000000000000000001')[0])
+        self.eq('0.000000000000000000000001', (await huge.norm('1E-24'))[0])
+        self.eq('0.000000000000000000000001', (await huge.norm('1.0E-24'))[0])
+        self.eq('0.000000000000000000000001', (await huge.norm('0.000000000000000000000001'))[0])
 
-        self.eq('0', huge.norm('1E-25')[0])
-        self.eq('0', huge.norm('5E-25')[0])
-        self.eq('0.000000000000000000000001', huge.norm('6E-25')[0])
-        self.eq('1.000000000000000000000002', huge.norm('1.0000000000000000000000015')[0])
+        self.eq('0', (await huge.norm('1E-25'))[0])
+        self.eq('0', (await huge.norm('5E-25'))[0])
+        self.eq('0.000000000000000000000001', (await huge.norm('6E-25'))[0])
+        self.eq('1.000000000000000000000002', (await huge.norm('1.0000000000000000000000015'))[0])
 
         bign = '730750818665451459101841.000000000000000000000002'
-        self.eq(bign, huge.norm(bign)[0])
+        self.eq(bign, (await huge.norm(bign))[0])
 
         big2 = '730750818665451459101841.0000000000000000000000015'
-        self.eq(bign, huge.norm(big2)[0])
+        self.eq(bign, (await huge.norm(big2))[0])
 
         bign = '-730750818665451459101841.000000000000000000000002'
-        self.eq(bign, huge.norm(bign)[0])
+        self.eq(bign, (await huge.norm(bign))[0])
 
         big2 = '-730750818665451459101841.0000000000000000000000015'
-        self.eq(bign, huge.norm(big2)[0])
+        self.eq(bign, (await huge.norm(big2))[0])
 
     async def test_taxonomy(self):
 
         model = s_datamodel.Model()
         taxo = model.type('taxonomy')
-        self.eq('foo.bar.baz.', taxo.norm('foo.bar.baz')[0])
-        self.eq('foo.bar.baz.', taxo.norm('foo.bar.baz.')[0])
-        self.eq('foo.bar.baz.', taxo.norm('foo.bar.baz.')[0])
-        self.eq('foo.bar.baz.', taxo.norm(('foo', 'bar', 'baz'))[0])
-        self.eq('foo.b_a_r.baz.', taxo.norm('foo.b-a-r.baz.')[0])
-        self.eq('foo.b_a_r.baz.', taxo.norm('foo.  b   a   r  .baz.')[0])
+        self.eq('foo.bar.baz.', (await taxo.norm('foo.bar.baz'))[0])
+        self.eq('foo.bar.baz.', (await taxo.norm('foo.bar.baz.'))[0])
+        self.eq('foo.bar.baz.', (await taxo.norm('foo.bar.baz.'))[0])
+        self.eq('foo.bar.baz.', (await taxo.norm(('foo', 'bar', 'baz')))[0])
+        self.eq('foo.b_a_r.baz.', (await taxo.norm('foo.b-a-r.baz.'))[0])
+        self.eq('foo.b_a_r.baz.', (await taxo.norm('foo.  b   a   r  .baz.'))[0])
 
         self.eq('foo.bar.baz', taxo.repr('foo.bar.baz.'))
 
         with self.raises(s_exc.BadTypeValu):
-            taxo.norm('foo.---.baz')
+            await taxo.norm('foo.---.baz')
 
-        norm, info = taxo.norm('foo.bar.baz')
+        norm, info = await taxo.norm('foo.bar.baz')
         self.eq(2, info['subs']['depth'])
         self.eq('baz', info['subs']['base'])
         self.eq('foo.bar.', info['subs']['parent'])
 
-        self.true(taxo.cmpr('foo', '~=', 'foo'))
-        self.false(taxo.cmpr('foo', '~=', 'foo.'))
-        self.false(taxo.cmpr('foo', '~=', 'foo.bar'))
-        self.false(taxo.cmpr('foo', '~=', 'foo.bar.'))
-        self.true(taxo.cmpr('foo.bar', '~=', 'foo'))
-        self.true(taxo.cmpr('foo.bar', '~=', 'foo.'))
-        self.true(taxo.cmpr('foo.bar', '~=', 'foo.bar'))
-        self.false(taxo.cmpr('foo.bar', '~=', 'foo.bar.'))
-        self.false(taxo.cmpr('foo.bar', '~=', 'foo.bar.x'))
-        self.true(taxo.cmpr('foo.bar.baz', '~=', 'bar'))
-        self.true(taxo.cmpr('foo.bar.baz', '~=', '[a-z].bar.[a-z]'))
-        self.true(taxo.cmpr('foo.bar.baz', '~=', r'^foo\.[a-z]+\.baz$'))
-        self.true(taxo.cmpr('foo.bar.baz', '~=', r'\.baz$'))
-        self.true(taxo.cmpr('bar.foo.baz', '~=', 'foo.'))
-        self.false(taxo.cmpr('bar.foo.baz', '~=', r'^foo\.'))
-        self.true(taxo.cmpr('foo.bar.xbazx', '~=', r'\.bar\.'))
-        self.true(taxo.cmpr('foo.bar.xbazx', '~=', '.baz.'))
-        self.false(taxo.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
+        self.true(await taxo.cmpr('foo', '~=', 'foo'))
+        self.false(await taxo.cmpr('foo', '~=', 'foo.'))
+        self.false(await taxo.cmpr('foo', '~=', 'foo.bar'))
+        self.false(await taxo.cmpr('foo', '~=', 'foo.bar.'))
+        self.true(await taxo.cmpr('foo.bar', '~=', 'foo'))
+        self.true(await taxo.cmpr('foo.bar', '~=', 'foo.'))
+        self.true(await taxo.cmpr('foo.bar', '~=', 'foo.bar'))
+        self.false(await taxo.cmpr('foo.bar', '~=', 'foo.bar.'))
+        self.false(await taxo.cmpr('foo.bar', '~=', 'foo.bar.x'))
+        self.true(await taxo.cmpr('foo.bar.baz', '~=', 'bar'))
+        self.true(await taxo.cmpr('foo.bar.baz', '~=', '[a-z].bar.[a-z]'))
+        self.true(await taxo.cmpr('foo.bar.baz', '~=', r'^foo\.[a-z]+\.baz$'))
+        self.true(await taxo.cmpr('foo.bar.baz', '~=', r'\.baz$'))
+        self.true(await taxo.cmpr('bar.foo.baz', '~=', 'foo.'))
+        self.false(await taxo.cmpr('bar.foo.baz', '~=', r'^foo\.'))
+        self.true(await taxo.cmpr('foo.bar.xbazx', '~=', r'\.bar\.'))
+        self.true(await taxo.cmpr('foo.bar.xbazx', '~=', '.baz.'))
+        self.false(await taxo.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
 
         async with self.getTestCore() as core:
             nodes = await core.nodes('[test:taxonomy=foo.bar.baz :title="title words" :desc="a test taxonomy" :sort=1 ]')
@@ -222,7 +223,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=(foo, b)'))
             self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=(foo, bar)'))
 
-    def test_duration(self):
+    async def test_duration(self):
         model = s_datamodel.Model()
         t = model.type('duration')
 
@@ -230,48 +231,49 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('00:05:00.333333', t.repr(300333333))
         self.eq('11D 11:47:12.344', t.repr(992832344000))
 
-        self.eq(300333333, t.norm('00:05:00.333333')[0])
-        self.eq(992832344000, t.norm('11D 11:47:12.344')[0])
+        self.eq(300333333, (await t.norm('00:05:00.333333'))[0])
+        self.eq(992832344000, (await t.norm('11D 11:47:12.344'))[0])
 
-        self.eq(172800000000, t.norm('2D')[0])
-        self.eq(60000000, t.norm('1:00')[0])
-        self.eq(60200000, t.norm('1:00.2')[0])
-        self.eq(9999999, t.norm('9.9999999')[0])
-
-        with self.raises(s_exc.BadTypeValu):
-            t.norm('    ')
+        self.eq(172800000000, (await t.norm('2D'))[0])
+        self.eq(60000000, (await t.norm('1:00'))[0])
+        self.eq(60200000, (await t.norm('1:00.2'))[0])
+        self.eq(9999999, (await t.norm('9.9999999'))[0])
 
         with self.raises(s_exc.BadTypeValu):
-            t.norm('1:2:3:4')
+            await t.norm('    ')
 
         with self.raises(s_exc.BadTypeValu):
-            t.norm('1:a:b')
+            await t.norm('1:2:3:4')
 
-    def test_bool(self):
+        with self.raises(s_exc.BadTypeValu):
+            await t.norm('1:a:b')
+
+    async def test_bool(self):
         model = s_datamodel.Model()
         t = model.type('bool')
 
-        self.eq(t.norm(-1), (1, {}))
-        self.eq(t.norm(0), (0, {}))
-        self.eq(t.norm(1), (1, {}))
-        self.eq(t.norm(2), (1, {}))
-        self.eq(t.norm(True), (1, {}))
-        self.eq(t.norm(False), (0, {}))
+        self.eq(await t.norm(-1), (1, {}))
+        self.eq(await t.norm(0), (0, {}))
+        self.eq(await t.norm(1), (1, {}))
+        self.eq(await t.norm(2), (1, {}))
+        self.eq(await t.norm(True), (1, {}))
+        self.eq(await t.norm(False), (0, {}))
 
-        self.eq(t.norm('-1'), (1, {}))
-        self.eq(t.norm('0'), (0, {}))
-        self.eq(t.norm('1'), (1, {}))
+        self.eq(await t.norm('-1'), (1, {}))
+        self.eq(await t.norm('0'), (0, {}))
+        self.eq(await t.norm('1'), (1, {}))
 
-        self.eq(t.norm(s_stormtypes.Number('1')), (1, {}))
-        self.eq(t.norm(s_stormtypes.Number('0')), (0, {}))
+        self.eq(await t.norm(s_stormtypes.Number('1')), (1, {}))
+        self.eq(await t.norm(s_stormtypes.Number('0')), (0, {}))
 
         for s in ('trUe', 'T', 'y', ' YES', 'On '):
-            self.eq(t.norm(s), (1, {}))
+            self.eq(await t.norm(s), (1, {}))
 
         for s in ('faLSe', 'F', 'n', 'NO', 'Off '):
-            self.eq(t.norm(s), (0, {}))
+            self.eq(await t.norm(s), (0, {}))
 
-        self.raises(s_exc.BadTypeValu, t.norm, 'a')
+        with self.raises(s_exc.BadTypeValu):
+            await t.norm('a')
 
         self.eq(t.repr(1), 'true')
         self.eq(t.repr(0), 'false')
@@ -293,34 +295,383 @@ class TypesTest(s_t_utils.SynTest):
 
             typ = core.model.type(t)
             self.eq(typ.info.get('bases'), ('base', 'comp'))
-            self.raises(s_exc.BadTypeValu, typ.norm,
-                        (123, 'haha', 'newp'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await typ.norm((123, 'haha', 'newp'))
+
             self.eq(0, typ.getCompOffs('foo'))
             self.eq(1, typ.getCompOffs('bar'))
             self.none(typ.getCompOffs('newp'))
 
-    def test_guid(self):
+    async def test_guid(self):
         model = s_datamodel.Model()
 
         guid = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
-        self.eq(guid.lower(), model.type('guid').norm(guid)[0])
-        self.raises(s_exc.BadTypeValu, model.type('guid').norm, 'visi')
+        self.eq(guid.lower(), (await model.type('guid').norm(guid))[0])
+        with self.raises(s_exc.BadTypeValu):
+            await model.type('guid').norm('visi')
 
-        guid = model.type('guid').norm('*')[0]
+        guid = (await model.type('guid').norm('*'))[0]
         self.true(s_common.isguid(guid))
 
         objs = [1, 2, 'three', {'four': 5}]
         tobjs = tuple(objs)
-        lnorm, _ = model.type('guid').norm(objs)
-        tnorm, _ = model.type('guid').norm(tobjs)
+        lnorm, _ = await model.type('guid').norm(objs)
+        tnorm, _ = await model.type('guid').norm(tobjs)
         self.true(s_common.isguid(lnorm))
         self.eq(lnorm, tnorm)
 
         with self.raises(s_exc.BadTypeValu) as exc:
-            model.type('guid').norm(())
+            await model.type('guid').norm(())
         self.eq(exc.exception.get('name'), 'guid')
         self.eq(exc.exception.get('valu'), ())
         self.eq(exc.exception.get('mesg'), 'Guid list values cannot be empty.')
+
+        async with self.getTestCore() as core:
+
+            nodes00 = await core.nodes('[ ou:org=({"name": "vertex"}) ]')
+            self.len(1, nodes00)
+            self.eq('vertex', nodes00[0].get('name'))
+
+            nodes01 = await core.nodes('[ ou:org=({"name": "vertex"}) :names+="the vertex project"]')
+            self.len(1, nodes01)
+            self.eq('vertex', nodes01[0].get('name'))
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+
+            nodes02 = await core.nodes('[ ou:org=({"name": "the vertex project"}) ]')
+            self.len(1, nodes02)
+            self.eq('vertex', nodes02[0].get('name'))
+            self.eq(nodes01[0].ndef, nodes02[0].ndef)
+
+            nodes03 = await core.nodes('[ ou:org=({"name": "vertex", "type": "woot"}) :names+="the vertex project" ]')
+            self.len(1, nodes03)
+            self.ne(nodes02[0].ndef, nodes03[0].ndef)
+
+            nodes04 = await core.nodes('[ ou:org=({"name": "the vertex project", "type": "woot"}) ]')
+            self.len(1, nodes04)
+            self.eq(nodes03[0].ndef, nodes04[0].ndef)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({"email": "woot"}) ]')
+
+            nodes05 = await core.nodes('[ ou:org=({"name": "vertex", "$props": {"motto": "for the people"}}) ]')
+            self.len(1, nodes05)
+            self.eq('vertex', nodes05[0].get('name'))
+            self.eq('for the people', nodes05[0].get('motto'))
+            self.eq(nodes00[0].ndef, nodes05[0].ndef)
+
+            nodes06 = await core.nodes('[ ou:org=({"name": "acme", "$props": {"motto": "HURR DURR"}}) ]')
+            self.len(1, nodes06)
+            self.eq('acme', nodes06[0].get('name'))
+            self.eq('HURR DURR', nodes06[0].get('motto'))
+            self.ne(nodes00[0].ndef, nodes06[0].ndef)
+
+            goals = [s_common.guid(), s_common.guid()]
+            goals.sort()
+
+            nodes07 = await core.nodes('[ ou:org=({"name": "goal driven", "goals": $goals}) ]', opts={'vars': {'goals': goals}})
+            self.len(1, nodes07)
+            self.eq(goals, nodes07[0].get('goals'))
+
+            nodes08 = await core.nodes('[ ou:org=({"name": "goal driven", "goals": $goals}) ]', opts={'vars': {'goals': goals}})
+            self.len(1, nodes08)
+            self.eq(goals, nodes08[0].get('goals'))
+            self.eq(nodes07[0].ndef, nodes08[0].ndef)
+
+            nodes09 = await core.nodes('[ ou:org=({"name": "vertex"}) :name=foobar :names=() ]')
+            nodes10 = await core.nodes('[ ou:org=({"name": "vertex"}) :type=lulz ]')
+            self.len(1, nodes09)
+            self.len(1, nodes10)
+            self.ne(nodes09[0].ndef, nodes10[0].ndef)
+
+            await core.nodes('[ ou:org=* :type=lulz ]')
+            await core.nodes('[ ou:org=* :type=hehe ]')
+            nodes11 = await core.nodes('[ ou:org=({"name": "vertex", "$props": {"type": "lulz"}}) ]')
+            self.len(1, nodes11)
+
+            nodes12 = await core.nodes('[ ou:org=({"name": "vertex", "type": "hehe"}) ]')
+            self.len(1, nodes12)
+            self.ne(nodes11[0].ndef, nodes12[0].ndef)
+
+            # GUID ctor has a short-circuit where it tries to find an existing ndef before it does,
+            # some property deconfliction, and `<form>=({})` when pushed through guid generation gives
+            # back the same guid as `<form>=()`, which if we're not careful could lead to an
+            # inconsistent case where you fail to make a node because you don't provide any props,
+            # make a node with that matching ndef, and then run that invalid GUID ctor query again,
+            # and have it return back a node due to the short circuit. So test that we're consistent here.
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({}) ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=() ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({}) ]')
+
+            msgs = await core.stormlist('[ ou:org=({"$props": {"desc": "lol"}})]')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInErr('No values provided for form ou:org', msgs)
+
+            msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$props": {"phone": "lolnope"}})]')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInErr('Bad value for prop ou:org:phone: requires a digit string', msgs)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({"$try": true}) ]')
+
+            # $try can be used at top level, currently only applies to $props
+            msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"phone": "lolnope", "desc": "burritos man"}})]')
+            nodes = [m for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            node = nodes[0][1]
+            props = node[1]['props']
+            self.none(props.get('phone'))
+            self.eq(props.get('name'), 'burrito corp')
+            self.eq(props.get('desc'), 'burritos man')
+
+            # $try can also be specified in $props which overrides top level $try
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"$try": false, "phone": "lolnope"}})]')
+
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes("$lib.view.get().addNode(ou:org, ({'name': 'org name 77', 'phone': 'lolnope'}), props=({'desc': 'an org desc'}))"))
+
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes("$lib.view.get().addNode(ou:org, ({'name': 'org name 77'}), props=({'desc': 'an org desc', 'phone': 'lolnope'}))"))
+
+            nodes = await core.nodes("yield $lib.view.get().addNode(ou:org, ({'$try': true, '$props': {'phone': 'invalid'}, 'name': 'org name 77'}), props=({'desc': 'an org desc'}))")
+            self.len(1, nodes)
+            node = nodes[0]
+            self.none(node.get('phone'))
+            self.eq(node.get('name'), 'org name 77')
+            self.eq(node.get('desc'), 'an org desc')
+
+            nodes = await core.nodes('ou:org=({"name": "the vertex project", "type": "lulz"})')
+            self.len(1, nodes)
+            orgn = nodes[0].ndef
+            self.eq(orgn, nodes11[0].ndef)
+
+            q = '[ entity:contact=* :resolved={ ou:org=({"name": "the vertex project", "type": "lulz"}) } ]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            cont = nodes[0]
+            self.eq(cont.get('resolved'), orgn)
+
+            nodes = await core.nodes('entity:contact:resolved={[ ou:org=({"name": "the vertex project", "type": "lulz"})]}')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, cont.ndef)
+
+            self.len(0, await core.nodes('entity:contact:resolved={[ ou:org=({"name": "vertex", "type": "newp"}) ]}'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:guid:iden=({"name": "vertex", "type": "newp"})')
+
+            await core.nodes('[ ou:org=({"name": "origname"}) ]')
+            self.len(1, await core.nodes('ou:org=({"name": "origname"}) [ :name=newname ]'))
+            self.len(0, await core.nodes('ou:org=({"name": "origname"})'))
+
+            nodes = await core.nodes('[ it:exec:proc=(notime,) ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('[ it:exec:proc=(nulltime,) ]')
+            self.len(1, nodes)
+
+            # Recursive gutors
+            nodes = await core.nodes('''[
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'fooplatform',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'foomesg')
+            self.nn(node.get('channel'))
+
+            nodes = await core.nodes('inet:service:message -> inet:service:channel')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('id'), 'foochannel')
+            self.nn(node.get('platform'))
+
+            nodes = await core.nodes('inet:service:message -> inet:service:channel -> inet:service:platform')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'fooplatform')
+            self.eq(node.get('url'), 'http://foo.com')
+
+            nodes = await core.nodes('''
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'fooplatform',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'foomesg')
+
+            nodes = await core.nodes('''[
+                inet:service:message=({
+                    'id': 'barmesg',
+                    'channel': {
+                        'id': 'barchannel',
+                        'platform': {
+                            'name': 'barplatform',
+                            'url': 'http://bar.com'
+                        }
+                    },
+                    '$props': {
+                        'platform': {
+                            'name': 'barplatform',
+                            'url': 'http://bar.com'
+                        }
+                    }
+                })
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'inet:service:message')
+            self.eq(node.get('id'), 'barmesg')
+            self.nn(node.get('channel'))
+
+            platguid = node.get('platform')
+            self.nn(platguid)
+            nodes = await core.nodes('inet:service:message:id=barmesg -> inet:service:channel -> inet:service:platform')
+            self.len(1, nodes)
+            self.eq(platguid, nodes[0].ndef[1])
+
+            # No node lifted if no matching node for inner gutor
+            self.len(0, await core.nodes('''
+                inet:service:message=({
+                    'id': 'foomesg',
+                    'channel': {
+                        'id': 'foochannel',
+                        'platform': {
+                            'name': 'newp',
+                            'url': 'http://foo.com'
+                        }
+                    }
+                })
+            '''))
+
+            # BadTypeValu comes through from inner gutor
+            with self.raises(s_exc.BadTypeValu) as cm:
+                await core.nodes('''
+                    inet:service:message=({
+                        'id': 'foomesg',
+                        'channel': {
+                            'id': 'foochannel',
+                            'platform': {
+                                'name': 'newp',
+                                'url': 'newp'
+                            }
+                        }
+                    })
+                ''')
+
+            self.eq(cm.exception.get('form'), 'inet:service:platform')
+            self.eq(cm.exception.get('prop'), 'url')
+            self.eq(cm.exception.get('mesg'), 'Bad value for prop inet:service:platform:url: Invalid/Missing protocol')
+
+            # Ensure inner nodes are not created unless the entire gutor is valid.
+            self.len(0, await core.nodes('''[
+                inet:service:account?=({
+                    "id": "bar",
+                    "platform": {"name": "barplat"},
+                    "url": "newp"})
+            ]'''))
+
+            self.len(0, await core.nodes('inet:service:platform:name=barplat'))
+
+            # Gutors work for props
+            nodes = await core.nodes('''[
+                test:str=guidprop
+                    :gprop=({'name': 'someprop', '$props': {'size': 5}})
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'guidprop'))
+            self.nn(node.get('gprop'))
+
+            nodes = await core.nodes('test:str=guidprop -> test:guid')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'someprop')
+            self.eq(node.get('size'), 5)
+
+            with self.raises(s_exc.BadTypeValu) as cm:
+                nodes = await core.nodes('''[
+                    test:str=newpprop
+                        :gprop=({'size': 'newp'})
+                ]''')
+
+            self.eq(cm.exception.get('form'), 'test:guid')
+            self.eq(cm.exception.get('prop'), 'size')
+            self.true(cm.exception.get('mesg').startswith('Bad value for prop test:guid:size: invalid literal'))
+
+            nodes = await core.nodes('''[
+                test:str=newpprop
+                    :gprop?=({'size': 'newp'})
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'newpprop'))
+            self.none(node.get('gprop'))
+
+            nodes = await core.nodes('''
+                [ test:str=methset ]
+                $node.props.gprop = ({'name': 'someprop'})
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:str', 'methset'))
+            self.nn(node.get('gprop'))
+
+            nodes = await core.nodes('test:str=methset -> test:guid')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'someprop')
+            self.eq(node.get('size'), 5)
+
+            opts = {'vars': {'sha256': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d88'}}
+            nodes = await core.nodes('''[ it:app:yara:match=* :target=('file:bytes', ({"sha256": $sha256})) ]''', opts=opts)
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:app:yara:match -> *')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('sha256'), opts['vars']['sha256'])
+
+            opts = {'vars': {
+                        'phash': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d86',
+                        'chash': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d87'
+            }}
+            nodes = await core.nodes('''[ file:subfile=(({"sha256": $phash}), ({"sha256": $chash})) ]''', opts=opts)
+            self.len(1, nodes)
+
+            nodes = await core.nodes('file:subfile -> file:bytes')
+            self.len(2, nodes)
+            for node in nodes:
+                self.nn(node.get('sha256'))
+
+            nodes = await core.nodes('$file = {[file:bytes=*]} [ inet:service:rule=({"id":"foo", "object": $file}) ]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('id'), 'foo')
+            self.nn(node.get('object'))
+
+            self.len(1, await core.nodes('inet:service:rule :object -> *'))
 
     async def test_hex(self):
 
@@ -340,7 +691,7 @@ class TypesTest(s_t_utils.SynTest):
                 core.model.type('hex').clone({'zeropad': -1})
 
             t = core.model.type('hex').clone({'zeropad': False})
-            self.eq('1010', t.norm(b'\x10\x10')[0])
+            self.eq('1010', (await t.norm(b'\x10\x10'))[0])
 
             t = core.model.type('test:hexa')
             # Test norming to index values
@@ -375,14 +726,14 @@ class TypesTest(s_t_utils.SynTest):
 
             for valu, expected in testvectors:
                 if isinstance(expected, str):
-                    norm, subs = t.norm(valu)
+                    norm, subs = await t.norm(valu)
                     self.isinstance(norm, str)
                     self.eq(subs, {})
                     self.eq(norm, expected)
                 else:
                     etype, mesg = expected
                     with self.raises(etype) as exc:
-                        t.norm(valu)
+                        await t.norm(valu)
                     self.eq(exc.exception.get('mesg'), mesg, f'{valu=}')
 
             # size = 4
@@ -410,14 +761,14 @@ class TypesTest(s_t_utils.SynTest):
             t = core.model.type('test:hex4')
             for valu, expected in testvectors4:
                 if isinstance(expected, str):
-                    norm, subs = t.norm(valu)
+                    norm, subs = await t.norm(valu)
                     self.isinstance(norm, str)
                     self.eq(subs, {})
                     self.eq(norm, expected)
                 else:
                     etype, mesg = expected
                     with self.raises(etype) as exc:
-                        t.norm(valu)
+                        await t.norm(valu)
                     self.eq(exc.exception.get('mesg'), mesg, f'{valu=}')
 
             # size = 8, zeropad = True
@@ -447,14 +798,14 @@ class TypesTest(s_t_utils.SynTest):
             t = core.model.type('test:hexpad')
             for valu, expected in testvectors:
                 if isinstance(expected, str):
-                    norm, subs = t.norm(valu)
+                    norm, subs = await t.norm(valu)
                     self.isinstance(norm, str)
                     self.eq(subs, {})
                     self.eq(norm, expected)
                 else:
                     etype, mesg = expected
                     with self.raises(etype) as exc:
-                        t.norm(valu)
+                        await t.norm(valu)
                     self.eq(exc.exception.get('mesg'), mesg, f'{valu=}')
 
             # zeropad = 20
@@ -484,14 +835,14 @@ class TypesTest(s_t_utils.SynTest):
             t = core.model.type('test:zeropad')
             for valu, expected in testvectors:
                 if isinstance(expected, str):
-                    norm, subs = t.norm(valu)
+                    norm, subs = await t.norm(valu)
                     self.isinstance(norm, str)
                     self.eq(subs, {})
                     self.eq(norm, expected)
                 else:
                     etype, mesg = expected
                     with self.raises(etype) as exc:
-                        t.norm(valu)
+                        await t.norm(valu)
                     self.eq(exc.exception.get('mesg'), mesg, f'{valu=}')
 
             # Do some node creation and lifting
@@ -579,29 +930,30 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:zeropad=00000000000000000444'))  # len=20
             self.len(0, await core.nodes('test:zeropad=0000000000000000000444'))  # len=22
 
-    def test_int(self):
+    async def test_int(self):
 
         model = s_datamodel.Model()
         t = model.type('int')
 
         # test ranges
-        self.nn(t.norm(-2**63))
+        self.nn(await t.norm(-2**63))
         with self.raises(s_exc.BadTypeValu) as cm:
-            t.norm((-2**63) - 1)
+            await t.norm((-2**63) - 1)
         self.isinstance(cm.exception.get('valu'), str)
-        self.nn(t.norm(2**63 - 1))
+        self.nn(await t.norm(2**63 - 1))
         with self.raises(s_exc.BadTypeValu) as cm:
-            t.norm(2**63)
+            await t.norm(2**63)
         self.isinstance(cm.exception.get('valu'), str)
 
         # test base types that Model snaps in...
-        self.eq(t.norm('100')[0], 100)
-        self.eq(t.norm('0x20')[0], 32)
-        self.raises(s_exc.BadTypeValu, t.norm, 'newp')
-        self.eq(t.norm(True)[0], 1)
-        self.eq(t.norm(False)[0], 0)
-        self.eq(t.norm(decimal.Decimal('1.0'))[0], 1)
-        self.eq(t.norm(s_stormtypes.Number('1.0'))[0], 1)
+        self.eq((await t.norm('100'))[0], 100)
+        self.eq((await t.norm('0x20'))[0], 32)
+        with self.raises(s_exc.BadTypeValu):
+            await t.norm('newp')
+        self.eq((await t.norm(True))[0], 1)
+        self.eq((await t.norm(False))[0], 0)
+        self.eq((await t.norm(decimal.Decimal('1.0')))[0], 1)
+        self.eq((await t.norm(s_stormtypes.Number('1.0')))[0], 1)
 
         # Test merge
         self.eq(30, t.merge(20, 30))
@@ -610,9 +962,14 @@ class TypesTest(s_t_utils.SynTest):
 
         # Test min and max
         minmax = model.type('int').clone({'min': 10, 'max': 30})
-        self.eq(20, minmax.norm(20)[0])
-        self.raises(s_exc.BadTypeValu, minmax.norm, 9)
-        self.raises(s_exc.BadTypeValu, minmax.norm, 31)
+        self.eq(20, (await minmax.norm(20))[0])
+
+        with self.raises(s_exc.BadTypeValu):
+            await minmax.norm(9)
+
+        with self.raises(s_exc.BadTypeValu):
+            await minmax.norm(31)
+
         ismin = model.type('int').clone({'ismin': True})
         self.eq(20, ismin.merge(20, 30))
         ismin = model.type('int').clone({'ismax': True})
@@ -620,58 +977,68 @@ class TypesTest(s_t_utils.SynTest):
 
         # Test unsigned
         uint64 = model.type('int').clone({'signed': False})
-        self.eq(uint64.norm(0)[0], 0)
-        self.eq(uint64.norm(-0)[0], 0)
-        self.raises(s_exc.BadTypeValu, uint64.norm, -1)
+        self.eq((await uint64.norm(0))[0], 0)
+        self.eq((await uint64.norm(-0))[0], 0)
+
+        with self.raises(s_exc.BadTypeValu):
+            await uint64.norm(-1)
 
         # Test size, 8bit signed
         int8 = model.type('int').clone({'size': 1})
-        self.eq(int8.norm(127)[0], 127)
-        self.eq(int8.norm(0)[0], 0)
-        self.eq(int8.norm(-128)[0], -128)
-        self.raises(s_exc.BadTypeValu, int8.norm, 128)
-        self.raises(s_exc.BadTypeValu, int8.norm, -129)
+        self.eq((await int8.norm(127))[0], 127)
+        self.eq((await int8.norm(0))[0], 0)
+        self.eq((await int8.norm(-128))[0], -128)
+
+        with self.raises(s_exc.BadTypeValu):
+            await int8.norm(128)
+
+        with self.raises(s_exc.BadTypeValu):
+            await int8.norm(-129)
 
         # Test size, 128bit signed
         int128 = model.type('int').clone({'size': 16})
-        self.eq(int128.norm(2**127 - 1)[0], 170141183460469231731687303715884105727)
-        self.eq(int128.norm(0)[0], 0)
-        self.eq(int128.norm(-2**127)[0], -170141183460469231731687303715884105728)
-        self.raises(s_exc.BadTypeValu, int128.norm, 170141183460469231731687303715884105728)
-        self.raises(s_exc.BadTypeValu, int128.norm, -170141183460469231731687303715884105729)
+        self.eq((await int128.norm(2**127 - 1))[0], 170141183460469231731687303715884105727)
+        self.eq((await int128.norm(0))[0], 0)
+        self.eq((await int128.norm(-2**127))[0], -170141183460469231731687303715884105728)
+
+        with self.raises(s_exc.BadTypeValu):
+            await int128.norm(170141183460469231731687303715884105728)
+
+        with self.raises(s_exc.BadTypeValu):
+            await int128.norm(-170141183460469231731687303715884105729)
 
         # test both unsigned and signed comparators
-        self.true(uint64.cmpr(10, '<', 20))
-        self.true(uint64.cmpr(10, '<=', 20))
-        self.true(uint64.cmpr(20, '<=', 20))
+        self.true(await uint64.cmpr(10, '<', 20))
+        self.true(await uint64.cmpr(10, '<=', 20))
+        self.true(await uint64.cmpr(20, '<=', 20))
 
-        self.true(uint64.cmpr(20, '>', 10))
-        self.true(uint64.cmpr(20, '>=', 10))
-        self.true(uint64.cmpr(20, '>=', 20))
+        self.true(await uint64.cmpr(20, '>', 10))
+        self.true(await uint64.cmpr(20, '>=', 10))
+        self.true(await uint64.cmpr(20, '>=', 20))
 
-        self.true(int8.cmpr(-10, '<', 20))
-        self.true(int8.cmpr(-10, '<=', 20))
-        self.true(int8.cmpr(-20, '<=', -20))
+        self.true(await int8.cmpr(-10, '<', 20))
+        self.true(await int8.cmpr(-10, '<=', 20))
+        self.true(await int8.cmpr(-20, '<=', -20))
 
-        self.true(int8.cmpr(20, '>', -10))
-        self.true(int8.cmpr(20, '>=', -10))
-        self.true(int8.cmpr(-20, '>=', -20))
+        self.true(await int8.cmpr(20, '>', -10))
+        self.true(await int8.cmpr(20, '>=', -10))
+        self.true(await int8.cmpr(-20, '>=', -20))
 
         # test integer enums for repr and norm
         eint = model.type('int').clone({'enums': ((1, 'hehe'), (2, 'haha'))})
 
-        self.eq(1, eint.norm(1)[0])
-        self.eq(1, eint.norm('1')[0])
-        self.eq(1, eint.norm('hehe')[0])
-        self.eq(2, eint.norm('haha')[0])
-        self.eq(2, eint.norm('HAHA')[0])
+        self.eq(1, (await eint.norm(1))[0])
+        self.eq(1, (await eint.norm('1'))[0])
+        self.eq(1, (await eint.norm('hehe'))[0])
+        self.eq(2, (await eint.norm('haha'))[0])
+        self.eq(2, (await eint.norm('HAHA'))[0])
 
         self.eq('hehe', eint.repr(1))
         self.eq('haha', eint.repr(2))
 
-        self.raises(s_exc.BadTypeValu, eint.norm, 0)
-        self.raises(s_exc.BadTypeValu, eint.norm, '0')
-        self.raises(s_exc.BadTypeValu, eint.norm, 'newp')
+        await self.asyncraises(s_exc.BadTypeValu, eint.norm(0))
+        await self.asyncraises(s_exc.BadTypeValu, eint.norm('0'))
+        await self.asyncraises(s_exc.BadTypeValu, eint.norm('newp'))
 
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('int').clone, {'min': 100, 'max': 1})
@@ -682,25 +1049,25 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         t = model.type('float')
 
-        self.nn(t.norm(1.2345)[0])
-        self.eq(t.norm('inf')[0], math.inf)
-        self.eq(t.norm('-inf')[0], -math.inf)
-        self.true(math.isnan(t.norm('NaN')[0]))
-        self.eq(t.norm('-0.0')[0], -0.0)
-        self.eq(t.norm('42')[0], 42.0)
-        self.eq(t.norm(s_stormtypes.Number('1.23'))[0], 1.23)
+        self.nn((await t.norm(1.2345))[0])
+        self.eq((await t.norm('inf'))[0], math.inf)
+        self.eq((await t.norm('-inf'))[0], -math.inf)
+        self.true(math.isnan((await t.norm('NaN'))[0]))
+        self.eq((await t.norm('-0.0'))[0], -0.0)
+        self.eq((await t.norm('42'))[0], 42.0)
+        self.eq((await t.norm(s_stormtypes.Number('1.23')))[0], 1.23)
         minmax = model.type('float').clone({'min': -10.0, 'max': 100.0, 'maxisvalid': True, 'minisvalid': False})
-        self.raises(s_exc.BadTypeValu, minmax.norm, 'NaN')
-        self.raises(s_exc.BadTypeValu, minmax.norm, '-inf')
-        self.raises(s_exc.BadTypeValu, minmax.norm, 'inf')
-        self.raises(s_exc.BadTypeValu, minmax.norm, '-10')
-        self.raises(s_exc.BadTypeValu, minmax.norm, '-10.00001')
-        self.raises(s_exc.BadTypeValu, minmax.norm, '100.00001')
-        self.eq(minmax.norm('100.000')[0], 100.0)
-        self.true(t.cmpr(10, '<', 20.0))
-        self.false(t.cmpr(-math.inf, '>', math.inf))
-        self.false(t.cmpr(-math.nan, '<=', math.inf))
-        self.true(t.cmpr('inf', '>=', '-0.0'))
+        await self.asyncraises(s_exc.BadTypeValu, minmax.norm('NaN'))
+        await self.asyncraises(s_exc.BadTypeValu, minmax.norm('-inf'))
+        await self.asyncraises(s_exc.BadTypeValu, minmax.norm('inf'))
+        await self.asyncraises(s_exc.BadTypeValu, minmax.norm('-10'))
+        await self.asyncraises(s_exc.BadTypeValu, minmax.norm('-10.00001'))
+        await self.asyncraises(s_exc.BadTypeValu, minmax.norm('100.00001'))
+        self.eq((await minmax.norm('100.000'))[0], 100.0)
+        self.true(await t.cmpr(10, '<', 20.0))
+        self.false(await t.cmpr(-math.inf, '>', math.inf))
+        self.false(await t.cmpr(-math.nan, '<=', math.inf))
+        self.true(await t.cmpr('inf', '>=', '-0.0'))
 
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:float=42.0 ]')
@@ -733,50 +1100,50 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         ival = model.types.get('ival')
 
-        self.eq(('2016-01-01T00:00:00Z', '2017-01-01T00:00:00Z'), ival.repr(ival.norm(('2016', '2017'))[0]))
+        self.eq(('2016-01-01T00:00:00Z', '2017-01-01T00:00:00Z'), ival.repr((await ival.norm(('2016', '2017')))[0]))
 
-        self.eq((0, 5356800000000), ival.norm((0, '1970-03-04'))[0])
-        self.eq((1451606400000000, 1451606400000001), ival.norm('2016')[0])
-        self.eq((1451606400000000, 1451606400000001), ival.norm(1451606400000000)[0])
-        self.eq((1451606400000000, 1451606400000001), ival.norm(decimal.Decimal(1451606400000000))[0])
-        self.eq((1451606400000000, 1451606400000001), ival.norm(s_stormtypes.Number(1451606400000000))[0])
-        self.eq((1451606400000000, 1451606400000001), ival.norm('2016')[0])
-        self.eq((1451606400000000, 1483228800000000), ival.norm(('2016', '  2017'))[0])
-        self.eq((1451606400000000, 1483228800000000), ival.norm(('2016-01-01', '  2017'))[0])
-        self.eq((1451606400000000, 1483142400000000), ival.norm(('2016', '+365 days'))[0])
-        self.eq((1448150400000000, 1451606400000000), ival.norm(('2016', '-40 days'))[0])
-        self.eq((1447891200000000, 1451347200000000), ival.norm(('2016-3days', '-40 days   '))[0])
-        self.eq((1451347200000000, 0x7fffffffffffffff), ival.norm(('2016-3days', '?'))[0])
-        self.eq((1593576000000000, 1593576000000001), ival.norm('2020-07-04:00')[0])
-        self.eq((1594124993000000, 1594124993000001), ival.norm('2020-07-07T16:29:53+04:00')[0])
-        self.eq((1594153793000000, 1594153793000001), ival.norm('2020-07-07T16:29:53-04:00')[0])
-        self.eq((1594211393000000, 1594211393000001), ival.norm('20200707162953+04:00+1day')[0])
-        self.eq((1594038593000000, 1594038593000001), ival.norm('20200707162953+04:00-1day')[0])
-        self.eq((1594240193000000, 1594240193000001), ival.norm('20200707162953-04:00+1day')[0])
-        self.eq((1594067393000000, 1594067393000001), ival.norm('20200707162953-04:00-1day')[0])
-        self.eq((1594240193000000, 1594240193000001), ival.norm('20200707162953EDT+1day')[0])
-        self.eq((1594067393000000, 1594067393000001), ival.norm('20200707162953EDT-1day')[0])
-        self.eq((1594240193000000, 1594240193000001), ival.norm('7 Jul 2020 16:29:53 EDT+1day')[0])
-        self.eq((1594067393000000, 1594067393000001), ival.norm('7 Jul 2020 16:29:53 -0400-1day')[0])
+        self.eq((0, 5356800000000), (await ival.norm((0, '1970-03-04')))[0])
+        self.eq((1451606400000000, 1451606400000001), (await ival.norm('2016'))[0])
+        self.eq((1451606400000000, 1451606400000001), (await ival.norm(1451606400000000))[0])
+        self.eq((1451606400000000, 1451606400000001), (await ival.norm(decimal.Decimal(1451606400000000)))[0])
+        self.eq((1451606400000000, 1451606400000001), (await ival.norm(s_stormtypes.Number(1451606400000000)))[0])
+        self.eq((1451606400000000, 1451606400000001), (await ival.norm('2016'))[0])
+        self.eq((1451606400000000, 1483228800000000), (await ival.norm(('2016', '  2017')))[0])
+        self.eq((1451606400000000, 1483228800000000), (await ival.norm(('2016-01-01', '  2017')))[0])
+        self.eq((1451606400000000, 1483142400000000), (await ival.norm(('2016', '+365 days')))[0])
+        self.eq((1448150400000000, 1451606400000000), (await ival.norm(('2016', '-40 days')))[0])
+        self.eq((1447891200000000, 1451347200000000), (await ival.norm(('2016-3days', '-40 days   ')))[0])
+        self.eq((1451347200000000, 0x7fffffffffffffff), (await ival.norm(('2016-3days', '?')))[0])
+        self.eq((1593576000000000, 1593576000000001), (await ival.norm('2020-07-04:00'))[0])
+        self.eq((1594124993000000, 1594124993000001), (await ival.norm('2020-07-07T16:29:53+04:00'))[0])
+        self.eq((1594153793000000, 1594153793000001), (await ival.norm('2020-07-07T16:29:53-04:00'))[0])
+        self.eq((1594211393000000, 1594211393000001), (await ival.norm('20200707162953+04:00+1day'))[0])
+        self.eq((1594038593000000, 1594038593000001), (await ival.norm('20200707162953+04:00-1day'))[0])
+        self.eq((1594240193000000, 1594240193000001), (await ival.norm('20200707162953-04:00+1day'))[0])
+        self.eq((1594067393000000, 1594067393000001), (await ival.norm('20200707162953-04:00-1day'))[0])
+        self.eq((1594240193000000, 1594240193000001), (await ival.norm('20200707162953EDT+1day'))[0])
+        self.eq((1594067393000000, 1594067393000001), (await ival.norm('20200707162953EDT-1day'))[0])
+        self.eq((1594240193000000, 1594240193000001), (await ival.norm('7 Jul 2020 16:29:53 EDT+1day'))[0])
+        self.eq((1594067393000000, 1594067393000001), (await ival.norm('7 Jul 2020 16:29:53 -0400-1day'))[0])
 
         # these fail because ival norming will split on a comma
-        self.raises(s_exc.BadTypeValu, ival.norm, 'Tue, 7 Jul 2020 16:29:53 EDT+1day')
-        self.raises(s_exc.BadTypeValu, ival.norm, 'Tue, 7 Jul 2020 16:29:53 -0400+1day')
+        await self.asyncraises(s_exc.BadTypeValu, ival.norm('Tue, 7 Jul 2020 16:29:53 EDT+1day'))
+        await self.asyncraises(s_exc.BadTypeValu, ival.norm('Tue, 7 Jul 2020 16:29:53 -0400+1day'))
 
         start = s_common.now() + s_time.oneday - 1
-        end = ival.norm(('now', '+1day'))[0][1]
+        end = (await ival.norm(('now', '+1day')))[0][1]
         self.lt(start, end)
 
-        oldv = ival.norm(('2016', '2017'))[0]
-        newv = ival.norm(('2015', '2018'))[0]
+        oldv = (await ival.norm(('2016', '2017')))[0]
+        newv = (await ival.norm(('2015', '2018')))[0]
         self.eq((1420070400000000, 1514764800000000), ival.merge(oldv, newv))
 
-        self.eq((1420070400000000, 1420070400000001), ival.norm(('2015', '2015'))[0])
+        self.eq((1420070400000000, 1420070400000001), (await ival.norm(('2015', '2015')))[0])
 
-        self.raises(s_exc.BadTypeValu, ival.norm, '?')
-        self.raises(s_exc.BadTypeValu, ival.norm, ('', ''))
-        self.raises(s_exc.BadTypeValu, ival.norm, ('2016-3days', '+77days', '-40days'))
-        self.raises(s_exc.BadTypeValu, ival.norm, ('?', '-1 day'))
+        await self.asyncraises(s_exc.BadTypeValu, ival.norm('?'))
+        await self.asyncraises(s_exc.BadTypeValu, ival.norm(('', '')))
+        await self.asyncraises(s_exc.BadTypeValu, ival.norm(('2016-3days', '+77days', '-40days')))
+        await self.asyncraises(s_exc.BadTypeValu, ival.norm(('?', '-1 day')))
 
         async with self.getTestCore() as core:
 
@@ -991,31 +1358,31 @@ class TypesTest(s_t_utils.SynTest):
 
             ityp = core.model.type('ival')
             styp = core.model.type('timeprecision').stortype
-            valu = ityp.norm('2025-04-05 12:34:56.123456')[0]
+            valu = (await ityp.norm('2025-04-05 12:34:56.123456'))[0]
 
             exp = ((1743856496123456, 1743856496123457), {})
-            self.eq(ityp.normVirt('precision', valu, s_time.PREC_MICRO), exp)
+            self.eq(await ityp.normVirt('precision', valu, s_time.PREC_MICRO), exp)
 
             exp = ((1743856496123000, 1743856496123999), {'virts': {'precision': (s_time.PREC_MILLI, styp)}})
-            self.eq(ityp.normVirt('precision', valu, s_time.PREC_MILLI), exp)
+            self.eq(await ityp.normVirt('precision', valu, s_time.PREC_MILLI), exp)
 
             exp = ((1743856496000000, 1743856496999999), {'virts': {'precision': (s_time.PREC_SECOND, styp)}})
-            self.eq(ityp.normVirt('precision', valu, s_time.PREC_SECOND), exp)
+            self.eq(await ityp.normVirt('precision', valu, s_time.PREC_SECOND), exp)
 
             exp = ((1743856440000000, 1743856499999999), {'virts': {'precision': (s_time.PREC_MINUTE, styp)}})
-            self.eq(ityp.normVirt('precision', valu, s_time.PREC_MINUTE), exp)
+            self.eq(await ityp.normVirt('precision', valu, s_time.PREC_MINUTE), exp)
 
             exp = ((1743854400000000, 1743857999999999), {'virts': {'precision': (s_time.PREC_HOUR, styp)}})
-            self.eq(ityp.normVirt('precision', valu, s_time.PREC_HOUR), exp)
+            self.eq(await ityp.normVirt('precision', valu, s_time.PREC_HOUR), exp)
 
             exp = ((1743811200000000, 1743897599999999), {'virts': {'precision': (s_time.PREC_DAY, styp)}})
-            self.eq(ityp.normVirt('precision', valu, s_time.PREC_DAY), exp)
+            self.eq(await ityp.normVirt('precision', valu, s_time.PREC_DAY), exp)
 
             exp = ((1743465600000000, 1746057599999999), {'virts': {'precision': (s_time.PREC_MONTH, styp)}})
-            self.eq(ityp.normVirt('precision', valu, s_time.PREC_MONTH), exp)
+            self.eq(await ityp.normVirt('precision', valu, s_time.PREC_MONTH), exp)
 
             exp = ((1735689600000000, 1767225599999999), {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
-            self.eq(ityp.normVirt('precision', valu, s_time.PREC_YEAR), exp)
+            self.eq(await ityp.normVirt('precision', valu, s_time.PREC_YEAR), exp)
 
             with self.raises(s_exc.BadTypeDef):
                 await core.addFormProp('test:int', '_newp', ('ival', {'precision': 'newp'}), {})
@@ -1024,9 +1391,9 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         loctype = model.types.get('loc')
 
-        self.eq('us.va', loctype.norm('US.    VA')[0])
-        self.eq('', loctype.norm('')[0])
-        self.eq('us.va.ओं.reston', loctype.norm('US.    VA.ओं.reston')[0])
+        self.eq('us.va', (await loctype.norm('US.    VA'))[0])
+        self.eq('', (await loctype.norm(''))[0])
+        self.eq('us.va.ओं.reston', (await loctype.norm('US.    VA.ओं.reston'))[0])
 
         async with self.getTestCore() as core:
             self.eq(1, await core.count('[test:int=1 :loc=us.va.syria]'))
@@ -1092,7 +1459,7 @@ class TypesTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             t = core.model.type('test:ndef')
 
-            norm, info = t.norm(('test:str', 'Foobar!'))
+            norm, info = await t.norm(('test:str', 'Foobar!'))
             self.eq(norm, ('test:str', 'Foobar!'))
             self.eq(info, {'adds': (('test:str', 'Foobar!', {}),),
                            'subs': {'form': 'test:str'}})
@@ -1102,9 +1469,9 @@ class TypesTest(s_t_utils.SynTest):
             rval = t.repr(('test:int', 1234))
             self.eq(rval, ('test:int', '1234'))
 
-            self.raises(s_exc.NoSuchForm, t.norm, ('test:newp', 'newp'))
+            await self.asyncraises(s_exc.NoSuchForm, t.norm(('test:newp', 'newp')))
             self.raises(s_exc.NoSuchForm, t.repr, ('test:newp', 'newp'))
-            self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm(('newp',)))
 
             await core.nodes('[ test:str=ndefs :ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
             await core.nodes('[ risk:vulnerable=(foo,) :node=(it:dev:int, 1) ]')
@@ -1125,52 +1492,52 @@ class TypesTest(s_t_utils.SynTest):
                 await core.nodes('test:str.created +:ndefs*[.form>it:dev:str]')
 
             ndef = core.model.type('test:ndef:formfilter1')
-            ndef.norm(('inet:ip', '1.2.3.4'))
-            ndef.norm(('inet:ip', '::1'))
+            await ndef.norm(('inet:ip', '1.2.3.4'))
+            await ndef.norm(('inet:ip', '::1'))
 
             with self.raises(s_exc.BadTypeValu):
-                ndef.norm(('inet:fqdn', 'newp.com'))
+                await ndef.norm(('inet:fqdn', 'newp.com'))
 
             ndef = core.model.type('test:ndef:formfilter2')
 
             with self.raises(s_exc.BadTypeValu):
-                ndef.norm(('inet:fqdn', 'newp.com'))
+                await ndef.norm(('inet:fqdn', 'newp.com'))
 
             ndef = core.model.type('test:ndef:formfilter3')
-            ndef.norm(('inet:ip', '1.2.3.4'))
-            ndef.norm(('file:mime:msdoc', s_common.guid()))
+            await ndef.norm(('inet:ip', '1.2.3.4'))
+            await ndef.norm(('file:mime:msdoc', s_common.guid()))
 
             with self.raises(s_exc.BadTypeValu):
-                ndef.norm(('inet:fqdn', 'newp.com'))
+                await ndef.norm(('inet:fqdn', 'newp.com'))
 
     async def test_nodeprop(self):
         async with self.getTestCore() as core:
             t = core.model.type('nodeprop')
 
             expected = (('test:str', 'This is a sTring'), {'subs': {'prop': 'test:str'}})
-            self.eq(t.norm('test:str=This is a sTring'), expected)
-            self.eq(t.norm(('test:str', 'This is a sTring')), expected)
+            self.eq(await t.norm('test:str=This is a sTring'), expected)
+            self.eq(await t.norm(('test:str', 'This is a sTring')), expected)
 
-            self.raises(s_exc.NoSuchProp, t.norm, ('test:str:newp', 'newp'))
-            self.raises(s_exc.BadTypeValu, t.norm, ('test:str:tick', '2020', 'a wild argument appears'))
+            await self.asyncraises(s_exc.NoSuchProp, t.norm(('test:str:newp', 'newp')))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm(('test:str:tick', '2020', 'a wild argument appears')))
 
-    def test_range(self):
+    async def test_range(self):
         model = s_datamodel.Model()
         t = model.type('range')
 
-        self.raises(s_exc.BadTypeValu, t.norm, 1)
-        self.raises(s_exc.BadTypeValu, t.norm, '1')
-        self.raises(s_exc.BadTypeValu, t.norm, (1,))
-        self.raises(s_exc.BadTypeValu, t.norm, (1, -1))
+        await self.asyncraises(s_exc.BadTypeValu, t.norm(1))
+        await self.asyncraises(s_exc.BadTypeValu, t.norm('1'))
+        await self.asyncraises(s_exc.BadTypeValu, t.norm((1,)))
+        await self.asyncraises(s_exc.BadTypeValu, t.norm((1, -1)))
 
-        norm, info = t.norm((0, 0))
+        norm, info = await t.norm((0, 0))
         self.eq(norm, (0, 0))
         self.eq(info['subs']['min'], 0)
         self.eq(info['subs']['max'], 0)
 
-        self.eq((10, 20), t.norm('10-20')[0])
+        self.eq((10, 20), (await t.norm('10-20'))[0])
 
-        norm, info = t.norm((-10, 0xFF))
+        norm, info = await t.norm((-10, 0xFF))
         self.eq(norm, (-10, 255))
         self.eq(info['subs']['min'], -10)
         self.eq(info['subs']['max'], 255)
@@ -1235,123 +1602,123 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadCmprValu):
                 await core.nodes('test:int +test:int*range=3456')
 
-    def test_str(self):
+    async def test_str(self):
 
         model = s_datamodel.Model()
 
         lowr = model.type('str').clone({'lower': True})
-        self.eq('foo', lowr.norm('FOO')[0])
+        self.eq('foo', (await lowr.norm('FOO'))[0])
 
-        self.eq(True, lowr.cmpr('xxherexx', '~=', 'here'))
-        self.eq(False, lowr.cmpr('xxherexx', '~=', '^here'))
+        self.eq(True, await lowr.cmpr('xxherexx', '~=', 'here'))
+        self.eq(False, await lowr.cmpr('xxherexx', '~=', '^here'))
 
-        self.eq(True, lowr.cmpr('foo', '!=', 'bar'))
-        self.eq(False, lowr.cmpr('foo', '!=', 'FOO'))
+        self.eq(True, await lowr.cmpr('foo', '!=', 'bar'))
+        self.eq(False, await lowr.cmpr('foo', '!=', 'FOO'))
 
-        self.eq(True, lowr.cmpr('foobar', '^=', 'FOO'))
-        self.eq(False, lowr.cmpr('foubar', '^=', 'FOO'))
+        self.eq(True, await lowr.cmpr('foobar', '^=', 'FOO'))
+        self.eq(False, await lowr.cmpr('foubar', '^=', 'FOO'))
 
         regx = model.type('str').clone({'regex': '^[a-f][0-9]+$'})
-        self.eq('a333', regx.norm('a333')[0])
-        self.raises(s_exc.BadTypeValu, regx.norm, 'A333')
+        self.eq('a333', (await regx.norm('a333'))[0])
+        await self.asyncraises(s_exc.BadTypeValu, regx.norm('A333'))
 
         regl = model.type('str').clone({'regex': '^[a-f][0-9]+$', 'lower': True})
-        self.eq('a333', regl.norm('a333')[0])
-        self.eq('a333', regl.norm('A333')[0])
+        self.eq('a333', (await regl.norm('a333'))[0])
+        self.eq('a333', (await regl.norm('A333'))[0])
 
         byts = s_common.uhex('e2889e')
 
         # The real world is a harsh place.
         strp = model.type('str').clone({'strip': True})
-        self.eq('foo', strp.norm('  foo \t')[0])
+        self.eq('foo', (await strp.norm('  foo \t'))[0])
 
         onespace = model.type('str').clone({'onespace': True})
-        self.eq('foo', onespace.norm('  foo\t')[0])
-        self.eq('hehe haha', onespace.norm('hehe    haha')[0])
+        self.eq('foo', (await onespace.norm('  foo\t'))[0])
+        self.eq('hehe haha', (await onespace.norm('hehe    haha'))[0])
 
         enums = model.type('str').clone({'enums': 'hehe,haha,zork'})
-        self.eq('hehe', enums.norm('hehe')[0])
-        self.eq('haha', enums.norm('haha')[0])
-        self.eq('zork', enums.norm('zork')[0])
-        self.raises(s_exc.BadTypeValu, enums.norm, 1.23)
-        self.raises(s_exc.BadTypeValu, enums.norm, 'zing')
+        self.eq('hehe', (await enums.norm('hehe'))[0])
+        self.eq('haha', (await enums.norm('haha'))[0])
+        self.eq('zork', (await enums.norm('zork'))[0])
+        await self.asyncraises(s_exc.BadTypeValu, enums.norm(1.23))
+        await self.asyncraises(s_exc.BadTypeValu, enums.norm('zing'))
 
         strsubs = model.type('str').clone({'regex': r'(?P<first>[ab]+)(?P<last>[zx]+)'})
-        norm, info = strsubs.norm('aabbzxxxxxz')
+        norm, info = await strsubs.norm('aabbzxxxxxz')
         self.eq(info.get('subs'), {'first': 'aabb', 'last': 'zxxxxxz'})
 
         flt = model.type('str').clone({})
-        self.eq('0.0', flt.norm(0.0)[0])
-        self.eq('-0.0', flt.norm(-0.0)[0])
-        self.eq('2.65', flt.norm(2.65)[0])
-        self.eq('2.65', flt.norm(2.65000000)[0])
-        self.eq('0.65', flt.norm(00.65)[0])
-        self.eq('42.0', flt.norm(42.0)[0])
-        self.eq('42.0', flt.norm(42.)[0])
-        self.eq('42.0', flt.norm(00042.00000)[0])
-        self.eq('0.000000000000000000000000001', flt.norm(0.000000000000000000000000001)[0])
-        self.eq('0.0000000000000000000000000000000000001', flt.norm(0.0000000000000000000000000000000000001)[0])
+        self.eq('0.0', (await flt.norm(0.0))[0])
+        self.eq('-0.0', (await flt.norm(-0.0))[0])
+        self.eq('2.65', (await flt.norm(2.65))[0])
+        self.eq('2.65', (await flt.norm(2.65000000))[0])
+        self.eq('0.65', (await flt.norm(00.65))[0])
+        self.eq('42.0', (await flt.norm(42.0))[0])
+        self.eq('42.0', (await flt.norm(42.))[0])
+        self.eq('42.0', (await flt.norm(00042.00000))[0])
+        self.eq('0.000000000000000000000000001', (await flt.norm(0.000000000000000000000000001))[0])
+        self.eq('0.0000000000000000000000000000000000001', (await flt.norm(0.0000000000000000000000000000000000001))[0])
         self.eq('0.00000000000000000000000000000000000000000000001',
-                flt.norm(0.00000000000000000000000000000000000000000000001)[0])
-        self.eq('0.3333333333333333', flt.norm(0.333333333333333333333333333)[0])
-        self.eq('0.4444444444444444', flt.norm(0.444444444444444444444444444)[0])
-        self.eq('1234567890.1234567', flt.norm(1234567890.123456790123456790123456789)[0])
-        self.eq('1234567891.1234567', flt.norm(1234567890.123456790123456790123456789 + 1)[0])
-        self.eq('1234567890.1234567', flt.norm(1234567890.123456790123456790123456789 + 0.0000000001)[0])
-        self.eq('2.718281828459045', flt.norm(2.718281828459045)[0])
-        self.eq('1.23', flt.norm(s_stormtypes.Number(1.23))[0])
+                (await flt.norm(0.00000000000000000000000000000000000000000000001))[0])
+        self.eq('0.3333333333333333', (await flt.norm(0.333333333333333333333333333))[0])
+        self.eq('0.4444444444444444', (await flt.norm(0.444444444444444444444444444))[0])
+        self.eq('1234567890.1234567', (await flt.norm(1234567890.123456790123456790123456789))[0])
+        self.eq('1234567891.1234567', (await flt.norm(1234567890.123456790123456790123456789 + 1))[0])
+        self.eq('1234567890.1234567', (await flt.norm(1234567890.123456790123456790123456789 + 0.0000000001))[0])
+        self.eq('2.718281828459045', (await flt.norm(2.718281828459045))[0])
+        self.eq('1.23', (await flt.norm(s_stormtypes.Number(1.23)))[0])
 
-    def test_syntag(self):
+    async def test_syntag(self):
 
         model = s_datamodel.Model()
         tagtype = model.type('syn:tag')
 
-        self.eq('foo.bar', tagtype.norm(('FOO', ' BAR'))[0])
-        self.eq('foo.st_lucia', tagtype.norm(('FOO', 'st.lucia'))[0])
+        self.eq('foo.bar', (await tagtype.norm(('FOO', ' BAR')))[0])
+        self.eq('foo.st_lucia', (await tagtype.norm(('FOO', 'st.lucia')))[0])
 
-        self.eq('foo.bar', tagtype.norm('FOO.BAR')[0])
-        self.eq('foo.bar', tagtype.norm('#foo.bar')[0])
-        self.eq('foo.bar', tagtype.norm('foo   .   bar')[0])
+        self.eq('foo.bar', (await tagtype.norm('FOO.BAR'))[0])
+        self.eq('foo.bar', (await tagtype.norm('#foo.bar'))[0])
+        self.eq('foo.bar', (await tagtype.norm('foo   .   bar'))[0])
 
-        tag, info = tagtype.norm('foo')
+        tag, info = await tagtype.norm('foo')
         subs = info.get('subs')
         self.none(subs.get('up'))
         self.eq('foo', subs.get('base'))
         self.eq(0, subs.get('depth'))
 
-        tag, info = tagtype.norm('foo.bar')
+        tag, info = await tagtype.norm('foo.bar')
         subs = info.get('subs')
         self.eq('foo', subs.get('up'))
 
-        self.eq('r_y', tagtype.norm('@#R)(Y')[0])
-        self.eq('foo.bar', tagtype.norm('foo\udcfe.bar')[0])
-        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo.')
-        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo..bar')
-        self.raises(s_exc.BadTypeValu, tagtype.norm, '.')
-        self.raises(s_exc.BadTypeValu, tagtype.norm, '')
+        self.eq('r_y', (await tagtype.norm('@#R)(Y'))[0])
+        self.eq('foo.bar', (await tagtype.norm('foo\udcfe.bar'))[0])
+        await self.asyncraises(s_exc.BadTypeValu, tagtype.norm('foo.'))
+        await self.asyncraises(s_exc.BadTypeValu, tagtype.norm('foo..bar'))
+        await self.asyncraises(s_exc.BadTypeValu, tagtype.norm('.'))
+        await self.asyncraises(s_exc.BadTypeValu, tagtype.norm(''))
         # Tags including non-english unicode letters are okay
-        self.eq('icon.ॐ', tagtype.norm('ICON.ॐ')[0])
+        self.eq('icon.ॐ', (await tagtype.norm('ICON.ॐ'))[0])
         # homoglyphs are also possible
-        self.eq('is.ｂob.evil', tagtype.norm('is.\uff42ob.evil')[0])
+        self.eq('is.ｂob.evil', (await tagtype.norm('is.\uff42ob.evil'))[0])
 
-        self.true(tagtype.cmpr('foo', '~=', 'foo'))
-        self.false(tagtype.cmpr('foo', '~=', 'foo.'))
-        self.false(tagtype.cmpr('foo', '~=', 'foo.bar'))
-        self.false(tagtype.cmpr('foo', '~=', 'foo.bar.'))
-        self.true(tagtype.cmpr('foo.bar', '~=', 'foo'))
-        self.true(tagtype.cmpr('foo.bar', '~=', 'foo.'))
-        self.true(tagtype.cmpr('foo.bar', '~=', 'foo.bar'))
-        self.false(tagtype.cmpr('foo.bar', '~=', 'foo.bar.'))
-        self.false(tagtype.cmpr('foo.bar', '~=', 'foo.bar.x'))
-        self.true(tagtype.cmpr('foo.bar.baz', '~=', 'bar'))
-        self.true(tagtype.cmpr('foo.bar.baz', '~=', '[a-z].bar.[a-z]'))
-        self.true(tagtype.cmpr('foo.bar.baz', '~=', r'^foo\.[a-z]+\.baz$'))
-        self.true(tagtype.cmpr('foo.bar.baz', '~=', r'\.baz$'))
-        self.true(tagtype.cmpr('bar.foo.baz', '~=', 'foo.'))
-        self.false(tagtype.cmpr('bar.foo.baz', '~=', r'^foo\.'))
-        self.true(tagtype.cmpr('foo.bar.xbazx', '~=', r'\.bar\.'))
-        self.true(tagtype.cmpr('foo.bar.xbazx', '~=', '.baz.'))
-        self.false(tagtype.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
+        self.true(await tagtype.cmpr('foo', '~=', 'foo'))
+        self.false(await tagtype.cmpr('foo', '~=', 'foo.'))
+        self.false(await tagtype.cmpr('foo', '~=', 'foo.bar'))
+        self.false(await tagtype.cmpr('foo', '~=', 'foo.bar.'))
+        self.true(await tagtype.cmpr('foo.bar', '~=', 'foo'))
+        self.true(await tagtype.cmpr('foo.bar', '~=', 'foo.'))
+        self.true(await tagtype.cmpr('foo.bar', '~=', 'foo.bar'))
+        self.false(await tagtype.cmpr('foo.bar', '~=', 'foo.bar.'))
+        self.false(await tagtype.cmpr('foo.bar', '~=', 'foo.bar.x'))
+        self.true(await tagtype.cmpr('foo.bar.baz', '~=', 'bar'))
+        self.true(await tagtype.cmpr('foo.bar.baz', '~=', '[a-z].bar.[a-z]'))
+        self.true(await tagtype.cmpr('foo.bar.baz', '~=', r'^foo\.[a-z]+\.baz$'))
+        self.true(await tagtype.cmpr('foo.bar.baz', '~=', r'\.baz$'))
+        self.true(await tagtype.cmpr('bar.foo.baz', '~=', 'foo.'))
+        self.false(await tagtype.cmpr('bar.foo.baz', '~=', r'^foo\.'))
+        self.true(await tagtype.cmpr('foo.bar.xbazx', '~=', r'\.bar\.'))
+        self.true(await tagtype.cmpr('foo.bar.xbazx', '~=', '.baz.'))
+        self.false(await tagtype.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
 
     async def test_time(self):
 
@@ -1359,9 +1726,9 @@ class TypesTest(s_t_utils.SynTest):
         ttime = model.types.get('time')
 
         with self.raises(s_exc.BadTypeValu):
-            ttime.norm('0000-00-00')
+            await ttime.norm('0000-00-00')
 
-        self.gt(s_common.now(), ttime.norm('-1hour')[0])
+        self.gt(s_common.now(), (await ttime.norm('-1hour'))[0])
 
         tminmax = ttime.clone({'min': True, 'max': True})
         # Merge testing with tminmax
@@ -1375,128 +1742,127 @@ class TypesTest(s_t_utils.SynTest):
 
             # explicitly test our "future/ongoing" value...
             future = 0x7fffffffffffffff
-            self.eq(t.norm('?')[0], future)
-            self.eq(t.norm(future)[0], future)
+            self.eq((await t.norm('?'))[0], future)
+            self.eq((await t.norm(future))[0], future)
             self.eq(t.repr(future), '?')
 
             # Explicitly test our max time vs. future marker
             maxtime = 253402300799999999  # 9999/12/31 23:59:59.999999
-            self.eq(t.norm(maxtime)[0], maxtime)
+            self.eq((await t.norm(maxtime))[0], maxtime)
             self.eq(t.repr(maxtime), '9999-12-31T23:59:59.999999Z')
-            self.eq(t.norm('9999-12-31T23:59:59.999999Z')[0], maxtime)
-            self.raises(s_exc.BadTypeValu, t.norm, maxtime + 1)
+            self.eq((await t.norm('9999-12-31T23:59:59.999999Z'))[0], maxtime)
+            await self.asyncraises(s_exc.BadTypeValu, t.norm(maxtime + 1))
 
             tmax = t.clone({'maxfill': True})
-            self.eq(tmax.norm('9999-12-31T23:59:59.999999Z')[0], maxtime)
+            self.eq((await tmax.norm('9999-12-31T23:59:59.999999Z'))[0], maxtime)
 
-            tick = t.norm('2014')[0]
+            tick = (await t.norm('2014'))[0]
             self.eq(t.repr(tick), '2014-01-01T00:00:00Z')
 
-            tock = t.norm('2015')[0]
+            tock = (await t.norm('2015'))[0]
 
-            self.raises(s_exc.BadCmprValu,
-                        t.cmpr, '2015', 'range=', tick)
+            await self.asyncraises(s_exc.BadCmprValu, t.cmpr('2015', 'range=', tick))
 
             prec = core.model.type('timeprecision')
             styp = prec.stortype
 
-            self.eq(prec.norm(4), (s_time.PREC_YEAR, {}))
-            self.eq(prec.norm('4'), (s_time.PREC_YEAR, {}))
-            self.eq(prec.norm('year'), (s_time.PREC_YEAR, {}))
+            self.eq(await prec.norm(4), (s_time.PREC_YEAR, {}))
+            self.eq(await prec.norm('4'), (s_time.PREC_YEAR, {}))
+            self.eq(await prec.norm('year'), (s_time.PREC_YEAR, {}))
             self.eq(prec.repr(s_time.PREC_YEAR), 'year')
 
             with self.raises(s_exc.BadTypeValu):
-                prec.norm('123')
+                await prec.norm('123')
 
             with self.raises(s_exc.BadTypeValu):
-                prec.norm(123)
+                await prec.norm(123)
 
             with self.raises(s_exc.BadTypeValu):
                 prec.repr(123)
 
-            self.eq(t.norm('2025?'), (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}}))
-            self.eq(t.norm('2025-04?'), (1743465600000000, {'virts': {'precision': (s_time.PREC_MONTH, styp)}}))
-            self.eq(t.norm('2025-04-05?'), (1743811200000000, {'virts': {'precision': (s_time.PREC_DAY, styp)}}))
-            self.eq(t.norm('2025-04-05 12?'), (1743854400000000, {'virts': {'precision': (s_time.PREC_HOUR, styp)}}))
-            self.eq(t.norm('2025-04-05 12:34?'), (1743856440000000, {'virts': {'precision': (s_time.PREC_MINUTE, styp)}}))
-            self.eq(t.norm('2025-04-05 12:34:56?'), (1743856496000000, {'virts': {'precision': (s_time.PREC_SECOND, styp)}}))
-            self.eq(t.norm('2025-04-05 12:34:56.1?'), (1743856496100000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}}))
-            self.eq(t.norm('2025-04-05 12:34:56.12?'), (1743856496120000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}}))
-            self.eq(t.norm('2025-04-05 12:34:56.123?'), (1743856496123000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}}))
-            self.eq(t.norm('2025-04-05 12:34:56.1234?'), (1743856496123400, {}))
-            self.eq(t.norm('2025-04-05 12:34:56.12345?'), (1743856496123450, {}))
-            self.eq(t.norm('2025-04-05 12:34:56.123456?'), (1743856496123456, {}))
-            self.eq(t.norm('2025-04-05 12:34:56.123456'), (1743856496123456, {}))
+            self.eq(await t.norm('2025?'), (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}}))
+            self.eq(await t.norm('2025-04?'), (1743465600000000, {'virts': {'precision': (s_time.PREC_MONTH, styp)}}))
+            self.eq(await t.norm('2025-04-05?'), (1743811200000000, {'virts': {'precision': (s_time.PREC_DAY, styp)}}))
+            self.eq(await t.norm('2025-04-05 12?'), (1743854400000000, {'virts': {'precision': (s_time.PREC_HOUR, styp)}}))
+            self.eq(await t.norm('2025-04-05 12:34?'), (1743856440000000, {'virts': {'precision': (s_time.PREC_MINUTE, styp)}}))
+            self.eq(await t.norm('2025-04-05 12:34:56?'), (1743856496000000, {'virts': {'precision': (s_time.PREC_SECOND, styp)}}))
+            self.eq(await t.norm('2025-04-05 12:34:56.1?'), (1743856496100000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}}))
+            self.eq(await t.norm('2025-04-05 12:34:56.12?'), (1743856496120000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}}))
+            self.eq(await t.norm('2025-04-05 12:34:56.123?'), (1743856496123000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}}))
+            self.eq(await t.norm('2025-04-05 12:34:56.1234?'), (1743856496123400, {}))
+            self.eq(await t.norm('2025-04-05 12:34:56.12345?'), (1743856496123450, {}))
+            self.eq(await t.norm('2025-04-05 12:34:56.123456?'), (1743856496123456, {}))
+            self.eq(await t.norm('2025-04-05 12:34:56.123456'), (1743856496123456, {}))
 
             exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
-            self.eq(t.norm(1743856496123456, prec=s_time.PREC_YEAR), exp)
+            self.eq(await t.norm(1743856496123456, prec=s_time.PREC_YEAR), exp)
 
             exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
-            self.eq(t.norm(decimal.Decimal(1743856496123456), prec=s_time.PREC_YEAR), exp)
+            self.eq(await t.norm(decimal.Decimal(1743856496123456), prec=s_time.PREC_YEAR), exp)
 
             exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
-            self.eq(t.norm(s_stormtypes.Number(1743856496123456), prec=s_time.PREC_YEAR), exp)
+            self.eq(await t.norm(s_stormtypes.Number(1743856496123456), prec=s_time.PREC_YEAR), exp)
 
             exp = (1743856496123456, {})
-            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MICRO), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MICRO), exp)
 
             exp = (1743856496123000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}})
-            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MILLI), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MILLI), exp)
 
             exp = (1743856496000000, {'virts': {'precision': (s_time.PREC_SECOND, styp)}})
-            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_SECOND), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_SECOND), exp)
 
             exp = (1743856440000000, {'virts': {'precision': (s_time.PREC_MINUTE, styp)}})
-            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MINUTE), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MINUTE), exp)
 
             exp = (1743854400000000, {'virts': {'precision': (s_time.PREC_HOUR, styp)}})
-            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_HOUR), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_HOUR), exp)
 
             exp = (1743811200000000, {'virts': {'precision': (s_time.PREC_DAY, styp)}})
-            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_DAY), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_DAY), exp)
 
             exp = (1743465600000000, {'virts': {'precision': (s_time.PREC_MONTH, styp)}})
-            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MONTH), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MONTH), exp)
 
             exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
-            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_YEAR), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_YEAR), exp)
 
             tmax = t.clone({'maxfill': True})
 
             exp = (1743856496123456, {})
-            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MICRO), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MICRO), exp)
 
             exp = (1743856496123999, {'virts': {'precision': (s_time.PREC_MILLI, styp)}})
-            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MILLI), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MILLI), exp)
 
             exp = (1743856496999999, {'virts': {'precision': (s_time.PREC_SECOND, styp)}})
-            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_SECOND), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_SECOND), exp)
 
             exp = (1743856499999999, {'virts': {'precision': (s_time.PREC_MINUTE, styp)}})
-            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MINUTE), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MINUTE), exp)
 
             exp = (1743857999999999, {'virts': {'precision': (s_time.PREC_HOUR, styp)}})
-            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_HOUR), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_HOUR), exp)
 
             exp = (1743897599999999, {'virts': {'precision': (s_time.PREC_DAY, styp)}})
-            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_DAY), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_DAY), exp)
 
             exp = (1746057599999999, {'virts': {'precision': (s_time.PREC_MONTH, styp)}})
-            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MONTH), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MONTH), exp)
 
             exp = (1767225599999999, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
-            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_YEAR), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_YEAR), exp)
 
-            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_YEAR)[0])
-            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MONTH)[0])
-            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_DAY)[0])
-            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_HOUR)[0])
-            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MINUTE)[0])
-            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_SECOND)[0])
-            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MILLI)[0])
+            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_YEAR))[0])
+            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MONTH))[0])
+            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_DAY))[0])
+            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_HOUR))[0])
+            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MINUTE))[0])
+            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_SECOND))[0])
+            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MILLI))[0])
 
             with self.raises(s_exc.BadTypeValu):
-                tmax.norm('2025-04-05 12:34:56.123456', prec=123)
+                await tmax.norm('2025-04-05 12:34:56.123456', prec=123)
 
             with self.raises(s_exc.BadTypeDef):
                 await core.addFormProp('test:int', '_newp', ('time', {'precision': 'newp'}), {})
@@ -1541,15 +1907,15 @@ class TypesTest(s_t_utils.SynTest):
 
             self.eq({node.ndef[1] for node in nodes}, {'d'})
 
-            self.true(t.cmpr('2015', '>=', '20140202'))
-            self.true(t.cmpr('2015', '>=', '2015'))
-            self.true(t.cmpr('2015', '>', '20140202'))
-            self.false(t.cmpr('2015', '>', '2015'))
+            self.true(await t.cmpr('2015', '>=', '20140202'))
+            self.true(await t.cmpr('2015', '>=', '2015'))
+            self.true(await t.cmpr('2015', '>', '20140202'))
+            self.false(await t.cmpr('2015', '>', '2015'))
 
-            self.true(t.cmpr('20150202', '<=', '2016'))
-            self.true(t.cmpr('20150202', '<=', '2016'))
-            self.true(t.cmpr('20150202', '<', '2016'))
-            self.false(t.cmpr('2015', '<', '2015'))
+            self.true(await t.cmpr('20150202', '<=', '2016'))
+            self.true(await t.cmpr('20150202', '<=', '2016'))
+            self.true(await t.cmpr('20150202', '<', '2016'))
+            self.false(await t.cmpr('2015', '<', '2015'))
 
             self.eq(1, await core.count('test:str +:tick=2015'))
 
@@ -1739,8 +2105,8 @@ class TypesTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             opts = {'vars': {'url': url}}
-            self.len(1, await core.nodes('[ it:exec:url="*" :url=$url ]', opts=opts))
-            self.len(1, await core.nodes('it:exec:url:url=$url', opts=opts))
+            self.len(1, await core.nodes('[ it:exec:fetch="*" :url=$url ]', opts=opts))
+            self.len(1, await core.nodes('it:exec:fetch:url=$url', opts=opts))
 
     async def test_types_array(self):
 

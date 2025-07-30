@@ -1370,22 +1370,20 @@ level of resolution within the dotted hierarchy:
 
 Lift all organizations located in Turkey (``tr``):
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :loc=tr.istanbul ) ]
-    .. storm-cli:: ou:org:loc ^= tr
+.. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :place:loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :place:loc=tr.istanbul ) ]
+.. storm-cli:: ou:org:place:loc ^= tr
 
 
 Lift all IP addresses geolocated in the province of Ontario, Canada (``ca.on``):
 
 
-.. storm-pre:: [ ( inet:ip=149.248.52.240 :loc=ca.on ) ( inet:ip=49.51.12.195 :loc=ca.on.barrie ) ( inet:ip=199.201.123.200 :loc=ca.on.keswick ) ]
-.. storm-cli:: inet:ip:loc ^= ca.on
+.. storm-pre:: [ ( inet:ip=149.248.52.240 :place:loc=ca.on ) ( inet:ip=49.51.12.195 :place:loc=ca.on.barrie ) ( inet:ip=199.201.123.200 :place:loc=ca.on.keswick ) ]
+.. storm-cli:: inet:ip:place:loc ^= ca.on
 
 .. NOTE::
   
-  Specifying a more granular prefix value will not match values that are less granular. That is, ``inet:ip:loc ^= ca.on``
-  will fail to match ``inet:ip:loc = ca``.
+  Specifying a more granular prefix value will not match values that are less granular. That is, ``inet:ip:place:loc ^= ca.on``
+  will fail to match ``inet:ip:place:loc = ca``.
 
 
 Equals Operator
@@ -1407,22 +1405,21 @@ be the final character in the expression (e.g., expressions such as ``:loc = us.
 invalid; the expressions will not generate an error but will fail to return any nodes).
 
 Lift all organizations located in Turkey:
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-cli:: ou:org:loc = tr.*
+
+.. storm-cli:: ou:org:place:loc = tr.*
 
 Lift all IP addresses geolocated in the province of Ontario, Canada:
 
-.. storm-cli:: inet:ip:loc = ca.on.*
+.. storm-cli:: inet:ip:place:loc = ca.on.*
 
 .. NOTE::
 
   Lifting by ``loc`` property value using the wildcard is equivalent to a prefix lift. The following queries will
   return the same results:
   
-  Wildcard: ``ou:org:loc = de.*``
+  Wildcard: ``ou:org:place:loc = de.*``
   
-  Prefix match: ``ou:org:loc ^= de``
+  Prefix match: ``ou:org:place:loc ^= de``
 
 
 .. _type-str:

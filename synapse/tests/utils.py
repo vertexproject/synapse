@@ -246,14 +246,14 @@ class TestType(s_types.Type):
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         return valu.lower(), {}
 
 class ThreeType(s_types.Type):
 
     stortype = s_layer.STOR_TYPE_U8
 
-    def norm(self, valu):
+    async def norm(self, valu, view=None):
         return 3, {'subs': {'three': 3}}
 
     def repr(self, valu):
@@ -263,35 +263,12 @@ class TestSubType(s_types.Type):
 
     stortype = s_layer.STOR_TYPE_U32
 
-    def norm(self, valu):
+    async def norm(self, valu, view=None):
         valu = int(valu)
         return valu, {'subs': {'isbig': valu >= 1000}}
 
     def repr(self, norm):
         return str(norm)
-
-class TestRunt:
-
-    def __init__(self, name, **kwargs):
-        self.name = name
-        self.props = kwargs
-        self.props.setdefault('.created', s_common.now())
-
-    def getStorNode(self, form):
-
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
-
-        pnorms = {}
-        for prop, valu in self.props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms,
-        })
 
 testmodel = (
     ('test', {

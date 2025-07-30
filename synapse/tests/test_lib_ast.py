@@ -2748,15 +2748,15 @@ class AstTest(s_test.SynTest):
             self.true(await core.callStorm('return(($lib.cast(float, 1.23) <= 2.34))'))
 
             self.eq(await core.callStorm('return(($lib.cast(str, (5.3 / 2))))'), '2.65')
-            self.eq(await core.callStorm('return(($lib.cast(str, (1.25 + 2.75))))'), '4.0')
+            self.eq(await core.callStorm('return(($lib.cast(str, (1.25 + 2.75))))'), '4.00')
             self.eq(await core.callStorm('return(($lib.cast(str, (0.00000000000000001))))'), '0.00000000000000001')
-            self.eq(await core.callStorm('return(($lib.cast(str, (0.33333333333333333333))))'), '0.3333333333333333')
+            self.eq(await core.callStorm('return(($lib.cast(str, (0.33333333333333333333))))'), '0.33333333333333333333')
             self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': math.nan}}), 'NaN')
             self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': math.inf}}), 'Infinity')
             self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': -math.inf}}), '-Infinity')
 
             guid = await core.callStorm('return($lib.guid((1.23)))')
-            self.eq(guid, '5c293425e676da3823b81093c7cd829e')
+            self.eq(guid, '2d2d2958944fea3cabb5b7ef36e5c7e9')
 
             await core.callStorm('$lib.globals.foo = bar')
             self.true(await core.callStorm("return(('foo' in $lib.globals))"))
@@ -3404,6 +3404,52 @@ class AstTest(s_test.SynTest):
             off, end = errm[1][1]['highlight']['offsets']
             self.eq('gen(foo, bar, baz)', text[off:end])
             self.stormIsInErr('$lib.gen.campaign()', msgs)
+
+            async def highlighteq(exp, text):
+                msgs = await core.stormlist(text)
+                errm = [m for m in msgs if m[0] == 'err'][0]
+                off, end = errm[1][1]['highlight']['offsets']
+                self.eq(exp, text[off:end])
+
+            text = '''
+                function willError() {
+                    [ inet:tls:servercert=(("1.2.3.4", 10), {[crypto:x509:cert=*]}) ]
+                    return($node)
+                }
+                yield $willError()
+            '''
+            await highlighteq('(("1.2.3.4", 10), {[crypto:x509:cert=*]})', text)
+
+            await highlighteq('node.value()', '[ test:str=foo test:int=$node.value() ]')
+
+            await highlighteq('newp', '[ test:str=foo :seen=newp ]')
+            await highlighteq('newp', '[ test:str=foo :seen*unset=newp ]')
+            await highlighteq('newp', '[ test:str=foo :seen=now :seen.precision=newp ]')
+
+            await highlighteq('([1, 2])', '[ test:str=foo :ndefs++=([1, 2]) ]')
+
+            await highlighteq('#$foo', '$foo=(1) [ test:str=foo +#$foo ]')
+
+            await highlighteq('+#foo=newp', '[ test:str=foo +#foo=newp ]')
+
+            await core.nodes('''
+                $regx = ($lib.null, $lib.null, "[0-9]{4}")
+                $lib.model.tags.set(cno.cve, regex, $regx)
+            ''')
+
+            await highlighteq('#cno.cve.foo', '[ test:str=foo +#cno.cve.foo ]')
+            await highlighteq('+#cno.cve.foo=2024', '[ test:str=foo +#cno.cve.foo=2024 ]')
+            await highlighteq('+#cno.cve.1234=newp', '[ test:str=foo +#cno.cve.1234=newp ]')
+
+            await highlighteq('#$foo', '$foo=(1) #$foo')
+            await highlighteq('#$foo', '$foo=(1) test:str=foo +#$foo')
+            await highlighteq('foo', '$foo=(null) test:str=foo +#foo.$foo')
+
+            await highlighteq('newp', '[ test:str=foo +#(foo).min=newp ]')
+
+            await core.addTagProp('ival', ('ival', {}), {})
+
+            await highlighteq('+#foo:ival=newp', '[ test:str=foo +#foo:ival=newp ]')
 
     async def test_ast_bulkedges(self):
 

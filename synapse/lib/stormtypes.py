@@ -1145,7 +1145,7 @@ class LibTags(Lib):
         async for part in toiter(names):
             if not ispart:
                 try:
-                    partnorm = tagpart.norm(part)[0]
+                    partnorm = (await tagpart.norm(part))[0]
                     retn.append(f'{prefix}.{partnorm}')
                 except s_exc.BadTypeValu:
                     pass
@@ -1621,23 +1621,23 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _cast(self, name, valu):
         name = await toprim(name)
-        valu = await toprim(valu)
+        valu = await tostor(valu)
 
         typeitem = self._reqTypeByName(name)
         # TODO an eventual mapping between model types and storm prims
 
-        norm, info = typeitem.norm(valu)
+        norm, info = await typeitem.norm(valu)
         return fromprim(norm, basetypes=False)
 
     @stormfunc(readonly=True)
     async def trycast(self, name, valu):
         name = await toprim(name)
-        valu = await toprim(valu)
+        valu = await tostor(valu)
 
         typeitem = self._reqTypeByName(name)
 
         try:
-            norm, info = typeitem.norm(valu)
+            norm, info = await typeitem.norm(valu)
             return (True, fromprim(norm, basetypes=False))
         except s_exc.BadTypeValu:
             return (False, None)
@@ -1645,7 +1645,7 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _repr(self, name, valu):
         name = await tostr(name)
-        valu = await toprim(valu)
+        valu = await tostor(valu)
 
         parts = name.strip().split('.')
         name = parts[0]
@@ -1681,11 +1681,11 @@ class LibBase(Lib):
         if args:
             if valu is not undef:
                 raise s_exc.BadArg(mesg='Valu cannot be specified if positional arguments are provided')
-            args = await toprim(args)
+            args = await tostor(args, packsafe=True)
             return s_common.guid(args)
 
         if valu is not undef:
-            valu = await toprim(valu)
+            valu = await tostor(valu, packsafe=True)
             return s_common.guid(valu)
 
         return s_common.guid()
@@ -2515,7 +2515,7 @@ class LibAxon(Lib):
             await self.runt.warn(mesg, log=False)
             return
 
-        now = self.runt.model.type('time').norm('now')[0]
+        now = (await self.runt.model.type('time').norm('now'))[0]
 
         original_url = resp.get('original_url')
         hashes = resp.get('hashes')
@@ -2759,7 +2759,7 @@ class LibLift(Lib):
     async def _byPropAlts(self, name, valu, cmpr='='):
 
         name = await tostr(name)
-        valu = await toprim(valu)
+        valu = await tostor(valu)
         cmpr = await tostr(cmpr)
 
         props = self.runt.model.reqPropList(name)
@@ -2775,7 +2775,7 @@ class LibLift(Lib):
     async def _byPropRefs(self, props, valu=None, cmpr='='):
 
         props = await toprim(props)
-        valu = await toprim(valu)
+        valu = await tostor(valu)
         cmpr = await tostr(cmpr)
 
         if not isinstance(props, tuple):
@@ -2824,7 +2824,7 @@ class LibLift(Lib):
     async def _byTypeValue(self, name, valu, cmpr='='):
 
         name = await tostr(name)
-        valu = await toprim(valu)
+        valu = await tostor(valu)
         cmpr = await tostr(cmpr)
 
         if self.runt.model.prop(name) is not None:
@@ -3046,7 +3046,7 @@ class LibTime(Lib):
 
         timetype = self.runt.view.core.model.type('time')
 
-        norm, info = timetype.norm(tick)
+        norm, info = await timetype.norm(tick)
         try:
             return (True, s_time.toUTC(norm, timezone))
         except s_exc.BadArg as e:
@@ -3060,70 +3060,70 @@ class LibTime(Lib):
     async def day(self, tick):
         tick = await toprim(tick)
         timetype = self.runt.view.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        norm, info = await timetype.norm(tick)
         return s_time.day(norm)
 
     @stormfunc(readonly=True)
     async def hour(self, tick):
         tick = await toprim(tick)
         timetype = self.runt.view.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        norm, info = await timetype.norm(tick)
         return s_time.hour(norm)
 
     @stormfunc(readonly=True)
     async def year(self, tick):
         tick = await toprim(tick)
         timetype = self.runt.view.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        norm, info = await timetype.norm(tick)
         return s_time.year(norm)
 
     @stormfunc(readonly=True)
     async def month(self, tick):
         tick = await toprim(tick)
         timetype = self.runt.view.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        norm, info = await timetype.norm(tick)
         return s_time.month(norm)
 
     @stormfunc(readonly=True)
     async def minute(self, tick):
         tick = await toprim(tick)
         timetype = self.runt.view.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        norm, info = await timetype.norm(tick)
         return s_time.minute(norm)
 
     @stormfunc(readonly=True)
     async def second(self, tick):
         tick = await toprim(tick)
         timetype = self.runt.view.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        norm, info = await timetype.norm(tick)
         return s_time.second(norm)
 
     @stormfunc(readonly=True)
     async def dayofweek(self, tick):
         tick = await toprim(tick)
         timetype = self.runt.view.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        norm, info = await timetype.norm(tick)
         return s_time.dayofweek(norm)
 
     @stormfunc(readonly=True)
     async def dayofyear(self, tick):
         tick = await toprim(tick)
         timetype = self.runt.view.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        norm, info = await timetype.norm(tick)
         return s_time.dayofyear(norm)
 
     @stormfunc(readonly=True)
     async def dayofmonth(self, tick):
         tick = await toprim(tick)
         timetype = self.runt.view.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        norm, info = await timetype.norm(tick)
         return s_time.dayofmonth(norm)
 
     @stormfunc(readonly=True)
     async def monthofyear(self, tick):
         tick = await toprim(tick)
         timetype = self.runt.view.core.model.type('time')
-        norm, info = timetype.norm(tick)
+        norm, info = await timetype.norm(tick)
         return s_time.month(norm) - 1
 
     @stormfunc(readonly=True)
@@ -3131,7 +3131,7 @@ class LibTime(Lib):
         timetype = self.runt.view.core.model.type('time')
         # Give a times string a shot at being normed prior to formatting.
         try:
-            norm, _ = timetype.norm(valu)
+            norm, _ = await timetype.norm(valu)
         except s_exc.BadTypeValu as e:
             mesg = f'Failed to norm a time value prior to formatting - {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu,
@@ -3516,7 +3516,7 @@ class LibFeed(Lib):
         return await self.runt.view.core.feedFromAxon(sha256, opts=opts)
 
     async def _libGenr(self, data, reqmeta=False):
-        data = await toprim(data)
+        data = await tostor(data)
 
         self.runt.layerConfirm(('feed:data',))
 
@@ -3524,7 +3524,7 @@ class LibFeed(Lib):
             yield node
 
     async def _libIngest(self, data, reqmeta=False):
-        data = await toprim(data)
+        data = await tostor(data)
 
         self.runt.layerConfirm(('feed:data',))
 
@@ -5468,7 +5468,7 @@ class Number(Prim):
         return float(self.valu)
 
     def __str__(self):
-        return str(self.value())
+        return format(self.value(), 'f')
 
     def __int__(self):
         return int(self.value())
@@ -5885,7 +5885,7 @@ class NodeProps(Prim):
             await self.valu.pop(name)
             return
 
-        valu = await toprim(valu)
+        valu = await tostor(valu)
         confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
         return await self.valu.set(name, valu)
 
@@ -5985,7 +5985,7 @@ class NodeData(Prim):
 
         timetype = self.valu.view.core.model.type('time')
 
-        asoftick = timetype.norm(asof)[0]
+        asoftick = (await timetype.norm(asof))[0]
         if envl.get('asof') >= asoftick:
             return envl.get('data')
 
@@ -6345,7 +6345,7 @@ class Node(Prim):
 
             async for part in toiter(tags):
                 try:
-                    normtags.add(tagpart.norm(part)[0])
+                    normtags.add((await tagpart.norm(part))[0])
                 except s_exc.BadTypeValu:
                     pass
 
@@ -7070,7 +7070,7 @@ class Layer(Prim):
     async def liftByProp(self, propname, propvalu=None, propcmpr='='):
 
         propname = await tostr(propname)
-        propvalu = await toprim(propvalu)
+        propvalu = await tostor(propvalu)
         propcmpr = await tostr(propcmpr)
 
         iden = self.valu.get('iden')
@@ -7087,8 +7087,8 @@ class Layer(Prim):
                     yield await self.runt.view._joinStorNode(nid)
                 return
 
-            norm, info = ptyp.norm(propvalu)
-            cmprvals = ptyp.getStorCmprs(propcmpr, norm)
+            norm, info = await ptyp.norm(propvalu, view=False)
+            cmprvals = await ptyp.getStorCmprs(propcmpr, norm)
             async for _, nid, _ in layr.liftByMetaValu(name, cmprvals):
                 yield await self.runt.view._joinStorNode(nid)
 
@@ -7107,8 +7107,8 @@ class Layer(Prim):
                     yield await self.runt.view._joinStorNode(nid)
                 return
 
-            norm, info = prop.type.norm(propvalu)
-            cmprvals = prop.type.getStorCmprs(propcmpr, norm)
+            norm, info = await prop.type.norm(propvalu, view=False)
+            cmprvals = await prop.type.getStorCmprs(propcmpr, norm)
             async for _, nid, _ in layr.liftByPropValu(liftform, liftprop, cmprvals):
                 yield await self.runt.view._joinStorNode(nid)
 
@@ -7248,7 +7248,7 @@ class Layer(Prim):
         layr = self.runt.view.core.getLayer(layriden)
 
         if valu is not undef:
-            valu = await toprim(valu)
+            valu = await tostor(valu)
 
         props = self.runt.model.reqPropList(propname)
         count = 0
@@ -7263,7 +7263,7 @@ class Layer(Prim):
                     count += layr.getPropCount(prop.form.name, prop.name)
                 continue
 
-            norm, info = prop.type.norm(valu)
+            norm, info = await prop.type.norm(valu, view=False)
             if prop.isform:
                 count += layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
             else:
@@ -7287,7 +7287,7 @@ class Layer(Prim):
             raise s_exc.BadTypeValu(mesg=mesg)
 
         if valu is not undef:
-            valu = await toprim(valu)
+            valu = await tostor(valu)
 
         for prop in props:
             await asyncio.sleep(0)
@@ -7300,7 +7300,7 @@ class Layer(Prim):
                 continue
 
             atyp = prop.type.arraytype
-            norm, info = atyp.norm(valu)
+            norm, info = await atyp.norm(valu, view=False)
 
             if prop.isform:
                 count += layr.getPropArrayValuCount(prop.name, None, atyp.stortype, norm)
@@ -7327,8 +7327,8 @@ class Layer(Prim):
         if valu is undef:
             return await layr.getTagPropCount(form, tag, prop.name)
 
-        valu = await toprim(valu)
-        norm, info = prop.type.norm(valu)
+        valu = await tostor(valu)
+        norm, info = await prop.type.norm(valu, view=False)
 
         return layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
 
@@ -8007,8 +8007,8 @@ class View(Prim):
 
     async def addNode(self, form, valu, props=None):
         form = await tostr(form)
-        valu = await toprim(valu)
-        props = await toprim(props)
+        valu = await tostor(valu)
+        props = await tostor(props)
 
         viewiden = self.valu.get('iden')
 
@@ -8066,7 +8066,7 @@ class View(Prim):
         if valu is undef:
             valu = s_common.novalu
         else:
-            valu = await toprim(valu)
+            valu = await tostor(valu)
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
@@ -8083,7 +8083,7 @@ class View(Prim):
         if valu is undef:
             valu = s_common.novalu
         else:
-            valu = await toprim(valu)
+            valu = await tostor(valu)
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
@@ -8098,7 +8098,7 @@ class View(Prim):
         if valu is undef:
             valu = s_common.novalu
         else:
-            valu = await toprim(valu)
+            valu = await tostor(valu)
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
@@ -8929,7 +8929,7 @@ class LibJsonStor(Lib):
             return None
 
         timetype = self.runt.view.core.model.type('time')
-        asoftick = timetype.norm(asof)[0]
+        asoftick = (await timetype.norm(asof))[0]
 
         if cachetick >= asoftick:
             if envl:
@@ -9674,16 +9674,35 @@ def fromprim(valu, path=None, basetypes=True):
 
     return valu
 
-async def tostor(valu, isndef=False):
+async def tostor(valu, packsafe=False):
 
-    if isinstance(valu, Number):
-        return str(valu.value())
+    if not packsafe:
+        if isinstance(valu, s_node.Node):
+            return valu
+
+        if isinstance(valu, Node):
+            return valu.valu
+
+        if isinstance(valu, Number):
+            return valu
+
+    elif isinstance(valu, Number):
+        return str(valu)
 
     if isinstance(valu, (tuple, list)):
         retn = []
         for v in valu:
             try:
-                retn.append(await tostor(v, isndef=isndef))
+                retn.append(await tostor(v, packsafe=packsafe))
+            except s_exc.NoSuchType:
+                pass
+        return tuple(retn)
+
+    if isinstance(valu, List):
+        retn = []
+        for v in valu.valu:
+            try:
+                retn.append(await tostor(v, packsafe=packsafe))
             except s_exc.NoSuchType:
                 pass
         return tuple(retn)
@@ -9692,13 +9711,19 @@ async def tostor(valu, isndef=False):
         retn = {}
         for k, v in valu.items():
             try:
-                retn[k] = await tostor(v, isndef=isndef)
+                retn[k] = await tostor(v, packsafe=packsafe)
             except s_exc.NoSuchType:
                 pass
         return retn
 
-    if isndef and isinstance(valu, s_node.Node):
-        return valu.ndef
+    if isinstance(valu, Dict):
+        retn = {}
+        for k, v in valu.valu.items():
+            try:
+                retn[k] = await tostor(v, packsafe=packsafe)
+            except s_exc.NoSuchType:
+                pass
+        return retn
 
     return await toprim(valu)
 

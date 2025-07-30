@@ -14,7 +14,7 @@ class FileBase(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
 
         norm = valu.strip().lower().replace('\\', '/')
         if norm.find('/') != -1:
@@ -75,7 +75,7 @@ class FilePath(s_types.Str):
 
         return valu[0]
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
 
         if len(valu) == 0:
             return '', {}
@@ -145,7 +145,7 @@ modeldefs = (
                         'doc': 'The file extension from the path.'}),
 
                     'dir': (('file:path', {}), {
-                        'doc': 'The file base name from the path.'}),
+                        'doc': 'The directory from the path.'}),
 
                     'base': (('file:base', {}), {
                         'doc': 'The file base name from the path.'}),
@@ -211,7 +211,6 @@ modeldefs = (
                     ('author', ('entity:contact', {}), {
                         'doc': 'MIME specific contact information extracted from metadata.'}),
 
-                    # FIXME geo:locatable?
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'MIME specific lat/long information extracted from metadata.'}),
 
@@ -543,6 +542,12 @@ modeldefs = (
 
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file which was attached.'}),
+
+                ('creator', ('syn:user', {}), {
+                    'doc': 'The synapse user who added the attachment.'}),
+
+                ('created', ('time', {}), {
+                    'doc': 'The time the attachment was added.'}),
             )),
 
             ('file:archive:entry', {}, (

@@ -1154,7 +1154,7 @@ class LayerTest(s_t_utils.SynTest):
             visiopts = {'view': viewiden2, 'user': visi.iden}
 
             await core.nodes('inet:ip=1.2.3.4 [ :asn=4 ]')
-            await core.nodes('inet:ip=1.2.3.4 [ :loc=us -:asn ]', opts=viewopts2)
+            await core.nodes('inet:ip=1.2.3.4 [ :place:loc=us -:asn ]', opts=viewopts2)
             await core.nodes('inet:ip=1.2.3.4 [ -:asn ]')
 
             await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
@@ -1163,7 +1163,7 @@ class LayerTest(s_t_utils.SynTest):
             self.true(await view2.waitfini(timeout=5))
 
             nodes = await core.nodes('inet:ip=1.2.3.4')
-            self.eq(nodes[0].get('loc'), 'us')
+            self.eq(nodes[0].get('place:loc'), 'us')
             self.none(nodes[0].get('asn'))
             await notombs()
 
@@ -1430,12 +1430,12 @@ class LayerTest(s_t_utils.SynTest):
 
             # node re-added above a tombstone is empty
             await core.nodes(addq)
-            await core.nodes('[ inet:ip=1.2.3.4 :loc=uk ]', opts=viewopts3)
+            await core.nodes('[ inet:ip=1.2.3.4 :place:loc=uk ]', opts=viewopts3)
             await core.nodes('inet:ip=1.2.3.4 [ <(_foo)- { it:dev:str=n2 } ] | delnode', opts=viewopts2)
 
-            self.len(0, await core.nodes('inet:ip:loc=uk', opts=viewopts3))
+            self.len(0, await core.nodes('inet:ip:place:loc=uk', opts=viewopts3))
 
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 -:loc ]', opts=viewopts3)
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 -:place:loc ]', opts=viewopts3)
             await checkempty(opts=viewopts3)
 
             bylayer = await core.callStorm('inet:ip=1.2.3.4 return($node.getByLayer())', opts=viewopts3)
@@ -1458,7 +1458,7 @@ class LayerTest(s_t_utils.SynTest):
             self.false(node.hasInLayers('asn'))
             self.eq((None, None), node.getWithLayer('asn'))
             self.none(node.getFromLayers('asn'))
-            self.none(node.getFromLayers('loc', strt=2))
+            self.none(node.getFromLayers('place:loc', strt=2))
 
             self.none(node.getTag('foo.tag'))
             self.none(node.getTagFromLayers('foo.tag'))

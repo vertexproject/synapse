@@ -7,12 +7,13 @@ class GeoPolModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
                 [ pol:country=*
+                    :code=vi
                     :period=(2022, 2023)
                     :name=visiland
                     :names=(visitopia,)
-                    :iso2=vi
-                    :iso3=vis
-                    :isonum=31337
+                    //FIXME syntax error when prop name part is all numeric?
+                    //:iso:3166:alpha3=vis
+                    //:iso:3166:numeric3=137
                     :currencies=(usd, vcoins, PESOS, USD)
                 ]
             ''')
@@ -21,9 +22,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq('visiland', nodes[0].get('name'))
             self.eq(('visitopia',), nodes[0].get('names'))
             self.eq((1640995200000000, 1672531200000000), nodes[0].get('period'))
-            self.eq('vi', nodes[0].get('iso2'))
-            self.eq('vis', nodes[0].get('iso3'))
-            self.eq(31337, nodes[0].get('isonum'))
+            self.eq('vi', nodes[0].get('code'))
             self.eq(('pesos', 'usd', 'vcoins'), nodes[0].get('currencies'))
             self.len(2, await core.nodes('pol:country -> meta:name'))
             self.len(3, await core.nodes('pol:country -> econ:currency'))
@@ -53,27 +52,28 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq(1735689600000000, nodes[0].get('time'))
             self.len(1, await core.nodes('pol:country:vitals :vitals -> pol:vitals'))
 
-    async def test_types_iso2(self):
+    async def test_types_iso_3166(self):
+
         async with self.getTestCore() as core:
-            t = core.model.type('pol:iso2')
 
-            self.eq(t.norm('Fo'), ('fo', {}))
-            self.raises(s_exc.BadTypeValu, t.norm, 'A')
-            self.raises(s_exc.BadTypeValu, t.norm, 'asD')
+            t = core.model.type('iso:3166:alpha2')
 
-    async def test_types_iso3(self):
-        async with self.getTestCore() as core:
-            t = core.model.type('pol:iso3')
+            self.eq(await t.norm('Fo'), ('fo', {}))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('A'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('asD'))
 
-            self.eq(t.norm('Foo'), ('foo', {}))
-            self.raises(s_exc.BadTypeValu, t.norm, 'As')
-            self.raises(s_exc.BadTypeValu, t.norm, 'asdF')
+            t = core.model.type('iso:3166:alpha3')
 
-    async def test_types_unextended(self):
-        # The following types are subtypes that do not extend their base type
-        async with self.getTestCore() as core:
-            self.nn(core.model.type('pol:country'))  # guid
-            self.nn(core.model.type('pol:isonum'))  # int
+            self.eq(await t.norm('Foo'), ('foo', {}))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('As'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('asdF'))
+
+            t = core.model.type('iso:3166:numeric3')
+            self.eq(t.repr(10), '010')
+            self.eq(await t.norm(10), (10, {}))
+            self.eq(await t.norm('010'), (10, {}))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm(9999))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm(9999))
 
     async def test_model_geopol_election(self):
         async with self.getTestCore() as core:

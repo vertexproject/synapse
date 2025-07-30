@@ -90,7 +90,6 @@ import synapse.lib.stormlib.hashes as s_stormlib_hashes  # NOQA
 import synapse.lib.stormlib.random as s_stormlib_random  # NOQA
 import synapse.lib.stormlib.scrape as s_stormlib_scrape   # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
-import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
 import synapse.lib.stormlib.spooled as s_stormlib_spooled  # NOQA
 import synapse.lib.stormlib.tabular as s_stormlib_tabular  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
@@ -1853,15 +1852,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return tuple(prune)
 
-    def getTagNorm(self, tagname):
-        return self.tagnorms.get(tagname)
+    async def getTagNorm(self, tagname):
+        return await self.tagnorms.aget(tagname)
 
-    def _getTagNorm(self, tagname):
+    async def _getTagNorm(self, tagname):
 
         if not self.isTagValid(tagname):
             raise s_exc.BadTag(f'The tag ({tagname}) does not meet the regex for the tree.')
 
-        return self.model.type('syn:tag').norm(tagname)
+        return await self.model.type('syn:tag').norm(tagname)
 
     async def getTagModel(self, tagname):
         '''
@@ -5672,7 +5671,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if typeopts:
             tobj = tobj.clone(typeopts)
 
-        norm, info = tobj.norm(valu)
+        norm, info = await tobj.norm(valu)
         return norm, info
 
     async def getTypeNorm(self, name, valu, typeopts=None):
@@ -5698,7 +5697,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if typeopts:
             tobj = tobj.clone(typeopts)
 
-        norm, info = tobj.norm(valu)
+        norm, info = await tobj.norm(valu)
         return norm, info
 
     @staticmethod

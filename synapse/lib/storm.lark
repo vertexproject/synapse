@@ -387,7 +387,7 @@ _innerderefexpr: "$"? innerdollarexpr
 innerdollarexpr: "(" expror ")" -> dollarexpr
 
 exprrelprop: (EXPRRELNAME | _COLONDOLLAR _exprvarvaluatom | _COLONPAREN _exprvarvalu ")") -> relprop
-EXPRRELNAME: /(?<!\w):\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
+EXPRRELNAME: /(?<!\w):[a-z0-9_]+(?:(\:\:|\:)[a-z0-9_]+)*/
 
 exprrelpropvalue: exprrelprop virtprops? -> relpropvalue
 exprvirtpropvalue: virtprops -> virtpropvalue
@@ -537,10 +537,10 @@ formname: PROPS | _DEREF _varvalu
 relprop: RELNAME | _COLONDOLLAR _varvaluatom | _COLONPAREN _varvalu ")"
 
 // Similar to PROPS, but starts with a colon and allows :: as separator
-RELNAME: /(?<!\w):[a-z_][a-z0-9_]*(?:(\:\:|\:)[a-z_][a-z0-9_]*)*/
+RELNAME: /(?<!\w):[a-z0-9_]+(?:(\:\:|\:)[a-z0-9_]+)*/
 
 // Similar to PROPS but does not require a colon
-BASEPROP: /[a-z_][a-z0-9_]*(?:(\:\:|\:)[a-z_][a-z0-9_]*)*/
+BASEPROP: /[a-z0-9_]+(?:(\:\:|\:)[a-z0-9_]+)*/
 
 // The entry point for a $(...) expression.  The initial dollar sign is now optional
 _dollarexprs: "$"? dollaroper
