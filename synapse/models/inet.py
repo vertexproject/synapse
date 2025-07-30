@@ -1171,7 +1171,7 @@ modeldefs = (
 
             ('inet:ip', 'synapse.models.inet.IPAddr', {}, {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'IP address'}}),
+                    ('meta:observable', {'template': {'title': 'IP address'}}),
                     ('geo:locatable', {'template': {'title': 'IP address'}}),
                 ),
                 'ex': '1.2.3.4',
@@ -1198,27 +1198,27 @@ modeldefs = (
 
             ('inet:email', 'synapse.models.inet.Email', {}, {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'email address'}}),
+                    ('meta:observable', {'template': {'title': 'email address'}}),
                 ),
                 'doc': 'An email address.'}),
 
             ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'FQDN'}}),
+                    ('meta:observable', {'template': {'title': 'FQDN'}}),
                 ),
                 'ex': 'vertex.link',
                 'doc': 'A Fully Qualified Domain Name (FQDN).'}),
 
             ('inet:rfc2822:addr', 'synapse.models.inet.Rfc2822Addr', {}, {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'RFC 2822 address'}}),
+                    ('meta:observable', {'template': {'title': 'RFC 2822 address'}}),
                 ),
                 'ex': '"Visi Kenshoto" <visi@vertex.link>',
                 'doc': 'An RFC 2822 Address field.'}),
 
             ('inet:url', 'synapse.models.inet.Url', {}, {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'URL'}}),
+                    ('meta:observable', {'template': {'title': 'URL'}}),
                 ),
                 'ex': 'http://www.woot.com/files/index.html',
                 'doc': 'A Universal Resource Locator (URL).'}),
@@ -1260,7 +1260,7 @@ modeldefs = (
                     'port': (None, {'doc': 'The port the client connected from.'}),
                 },
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'network client'}}),
+                    ('meta:observable', {'template': {'title': 'network client'}}),
                 ),
                 'doc': 'A network client address.'}),
 
@@ -1281,13 +1281,13 @@ modeldefs = (
 
             ('inet:tunnel', ('guid', {}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'tunnel'}}),
+                    ('meta:observable', {'template': {'title': 'tunnel'}}),
                 ),
                 'doc': 'A specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
 
             ('inet:egress', ('guid', {}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'egress client'}}),
+                    ('meta:observable', {'template': {'title': 'egress client'}}),
                 ),
                 'doc': 'A host using a specific network egress client address.'}),
 
@@ -1328,7 +1328,7 @@ modeldefs = (
 
             ('inet:mac', ('str', {'lower': True, 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$'}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'MAC address'}}),
+                    ('meta:observable', {'template': {'title': 'MAC address'}}),
                 ),
                 'ex': 'aa:bb:cc:dd:ee:ff',
                 'doc': 'A 48-bit Media Access Control (MAC) address.'}),
@@ -1347,19 +1347,19 @@ modeldefs = (
                     'port': (None, {'doc': 'The port the server is listening on.'}),
                 },
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'network server'}}),
+                    ('meta:observable', {'template': {'title': 'network server'}}),
                 ),
                 'doc': 'A network server address.'}),
 
             ('inet:banner', ('comp', {'fields': (('server', 'inet:server'), ('text', 'it:dev:str'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'banner'}}),
+                    ('meta:observable', {'template': {'title': 'banner'}}),
                 ),
                 'doc': 'A network protocol banner string presented by a server.'}),
 
             ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'the hosted file and URL'}}),
+                    ('meta:observable', {'template': {'title': 'the hosted file and URL'}}),
                 ),
                 'doc': 'A file hosted at a specific Universal Resource Locator (URL).'}),
 
@@ -1381,7 +1381,7 @@ modeldefs = (
 
             ('inet:user', ('str', {'lower': True}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'username'}}),
+                    ('meta:observable', {'template': {'title': 'username'}}),
                 ),
                 'doc': 'A username string.'}),
 
@@ -1406,7 +1406,7 @@ modeldefs = (
 
             ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'whois email address'}}),
+                    ('meta:observable', {'template': {'title': 'whois email address'}}),
                 ),
                 'doc': 'An email address associated with an FQDN via whois registration text.'}),
 
@@ -1451,13 +1451,13 @@ modeldefs = (
 
             ('inet:tls:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'JARM fingerprint'}}),
+                    ('meta:observable', {'template': {'title': 'JARM fingerprint'}}),
                 ),
                 'doc': 'A TLS JARM fingerprint hash.'}),
 
             ('inet:tls:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:tls:jarmhash'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'JARM sample'}}),
+                    ('meta:observable', {'template': {'title': 'JARM sample'}}),
                 ),
                 'doc': 'A JARM hash sample taken from a server.'}),
 
@@ -1678,50 +1678,50 @@ modeldefs = (
 
             ('inet:tls:ja4', ('str', {'strip': True, 'regex': ja4_regex}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'JA4 fingerprint'}}),
+                    ('meta:observable', {'template': {'title': 'JA4 fingerprint'}}),
                 ),
                 'doc': 'A JA4 TLS client fingerprint.'}),
 
             ('inet:tls:ja4s', ('str', {'strip': True, 'regex': ja4s_regex}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'JA4S fingerprint'}}),
+                    ('meta:observable', {'template': {'title': 'JA4S fingerprint'}}),
                 ),
                 'doc': 'A JA4S TLS server fingerprint.'}),
 
             ('inet:tls:ja4:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja4', 'inet:tls:ja4'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'JA4 sample'}}),
+                    ('meta:observable', {'template': {'title': 'JA4 sample'}}),
                 ),
                 'doc': 'A JA4 TLS client fingerprint used by a client.'}),
 
             ('inet:tls:ja4s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja4s', 'inet:tls:ja4s'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'JA4S sample'}}),
+                    ('meta:observable', {'template': {'title': 'JA4S sample'}}),
                 ),
                 'doc': 'A JA4S TLS server fingerprint used by a server.'}),
 
             ('inet:tls:ja3s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja3s', 'crypto:hash:md5'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'JA3S sample'}}),
+                    ('meta:observable', {'template': {'title': 'JA3S sample'}}),
                 ),
                 'doc': 'A JA3 sample taken from a server.'}),
 
             ('inet:tls:ja3:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja3', 'crypto:hash:md5'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'JA3 sample'}}),
+                    ('meta:observable', {'template': {'title': 'JA3 sample'}}),
                 ),
                 'doc': 'A JA3 sample taken from a client.'}),
 
             ('inet:tls:servercert', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'TLS server certificate'}}),
+                    ('meta:observable', {'template': {'title': 'TLS server certificate'}}),
                 ),
                 'ex': '(1.2.3.4:443, c7437790af01ae1bb2f8f3b684c70bf8)',
                 'doc': 'An x509 certificate sent by a server for TLS.'}),
 
             ('inet:tls:clientcert', ('comp', {'fields': (('client', 'inet:client'), ('cert', 'crypto:x509:cert'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'TLS client certificate'}}),
+                    ('meta:observable', {'template': {'title': 'TLS client certificate'}}),
                 ),
                 'ex': '(1.2.3.4:443, 3fdf364e081c14997b291852d1f23868)',
                 'doc': 'An x509 certificate sent by a client for TLS.'}),

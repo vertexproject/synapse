@@ -205,7 +205,7 @@ modeldefs = (
 
             ('ou:id', ('guid', {}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'ID'}}),
+                    ('meta:observable', {'template': {'title': 'ID'}}),
                 ),
                 'doc': 'An ID value issued by an organization.'}),
 

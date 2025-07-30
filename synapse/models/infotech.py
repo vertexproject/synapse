@@ -601,7 +601,7 @@ modeldefs = (
 
             ('it:hostname', ('str', {'strip': True, 'lower': True}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'hostname'}}),
+                    ('meta:observable', {'template': {'title': 'hostname'}}),
                 ),
                 'doc': 'The name of a host or system.'}),
 
@@ -648,7 +648,7 @@ modeldefs = (
 
             ('it:host:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'host at this URL'}}),
+                    ('meta:observable', {'template': {'title': 'host at this URL'}}),
                 ),
                 'doc': 'A URL hosted on or served by a specific host.'}),
 
@@ -685,7 +685,7 @@ modeldefs = (
 
             ('it:dev:str', ('str', {'strip': False}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'string'}}),
+                    ('meta:observable', {'template': {'title': 'string'}}),
                 ),
                 'doc': 'A developer selected string.'}),
 
@@ -804,7 +804,7 @@ modeldefs = (
             ('it:adid', ('meta:id', {}), {
                 'interfaces': (
                     ('entity:identifier', {}),
-                    ('meta:observable', {'template': {'observable': 'advertising ID'}}),
+                    ('meta:observable', {'template': {'title': 'advertising ID'}}),
                 ),
                 'doc': 'An advertising identification string.'}),
 

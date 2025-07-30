@@ -27,7 +27,7 @@ modeldefs = (
             ('econ:pay:card', ('guid', {}), {
                 'interfaces': (
                     ('econ:pay:instrument', {'template': {'instrument': 'payment card'}}),
-                    ('meta:observable', {'template': {'observable': 'payment card'}}),
+                    ('meta:observable', {'template': {'title': 'payment card'}}),
                 ),
                 'doc': 'A single payment card.'}),
 
@@ -104,7 +104,7 @@ modeldefs = (
 
             ('econ:fin:account', ('guid', {}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'financial account'}}),
+                    ('meta:observable', {'template': {'title': 'financial account'}}),
                 ),
                 'doc': 'A financial account which contains a balance of funds.'}),
 
@@ -114,7 +114,7 @@ modeldefs = (
 
             ('econ:bank:aba:account', ('guid', {}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'ABA account'}}),
+                    ('meta:observable', {'template': {'title': 'ABA account'}}),
                 ),
                 'doc': 'An ABA routing number and bank account number.'}),
 

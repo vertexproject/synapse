@@ -148,10 +148,10 @@ modeldefs = (
 
             ('meta:observable', {
                 'doc': 'Properties common to forms which can be observed.',
-                'template': {'observable': 'node'},
+                'template': {'title': 'node'},
                 'props': (
                     ('seen', ('ival', {}), {
-                        'doc': 'The {observable} was observed during the time interval.'}),
+                        'doc': 'The {title} was observed during the time interval.'}),
                 ),
             }),
 
