@@ -6999,6 +6999,26 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.feedFromAxon(s_common.ehex(sha256b))
 
+    async def test_cortex_feed_remote_axon(self):
+
+        async with self.getTestAxon() as axon:
+            aurl = axon.getLocalUrl()
+            async with self.getTestCore(conf={'axon': aurl}) as core:
+                await core.auth.rootuser.setPasswd('root')
+                host, port = await core.dmon.listen('tcp://127.0.0.1:0')
+                curl = f'tcp://root:root@127.0.0.1:{port}/*'
+
+                test_data = b'foobar'
+                size, sha256b = await axon.put(test_data)
+                sha256 = s_common.ehex(sha256b)
+                opts = {'vars': {'sha256': sha256}}
+
+                async with await s_telepath.Client.anit(curl) as client_obj:
+                    await client_obj.waitready()
+                    with self.raises(s_exc.BadDataValu) as cm:
+                        await client_obj.callStorm(f'$lib.feed.fromAxon($sha256)', opts=opts)
+                    self.isin('Invalid syn.nodes data.', cm.exception.get('mesg'))
+
     async def test_cortex_export_toaxon(self):
         async with self.getTestCore() as core:
             await core.nodes('[inet:dns:a=(vertex.link, 1.2.3.4)]')
