@@ -1,5 +1,0 @@
----
-desc: Added support for ``gre://`` to ``inet:addr`` type used by ``inet:server`` and ``inet:client``.
-prs: []
-type: feat
-...
