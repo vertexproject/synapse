@@ -5539,7 +5539,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 if alledits:
                     await layr1.storNodeEdits(alledits, meta)
                     await self.setStormVar(gvar, offs)
-                    pdef['offs'] = offs
 
     async def _checkNexsIndx(self):
         layroffs = [await layr.getEditIndx() for layr in list(self.layers.values())]
