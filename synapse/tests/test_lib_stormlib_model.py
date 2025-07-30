@@ -31,9 +31,14 @@ class StormlibModelTest(s_test.SynTest):
             self.eq('123', await core.callStorm('return($lib.model.type(int).repr((1.23 *100)))'))
             self.eq((123, {}), await core.callStorm('return($lib.model.type(int).norm((1.23 *100)))'))
             self.eq((4, 0x01020304), await core.callStorm('return($lib.model.type(inet:ip).norm(1.2.3.4).index(0))'))
-            self.eq({'subs': {'type': 'unicast', 'version': 4}}, await core.callStorm('return($lib.model.type(inet:ip).norm(1.2.3.4).index(1))'))
             self.eq('inet:dns:a:ip', await core.callStorm('return($lib.model.form(inet:dns:a).prop(ip).full)'))
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.prop(inet:dns:a:ip).form.name)'))
+
+            styp = core.model.type('str').typehash
+            ityp = core.model.type('int').clone({'enums': ((4, '4'), (6, '6'))}).typehash
+
+            exp = {'subs': {'type': (styp, 'unicast', {}), 'version': (ityp, 4, {})}}
+            self.eq(exp, await core.callStorm('return($lib.model.type(inet:ip).norm(1.2.3.4).index(1))'))
 
             await core.addTagProp('score', ('int', {}), {})
             self.eq('score', await core.callStorm('return($lib.model.tagprop(score).name)'))

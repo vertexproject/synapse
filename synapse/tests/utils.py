@@ -254,7 +254,8 @@ class ThreeType(s_types.Type):
     stortype = s_layer.STOR_TYPE_U8
 
     async def norm(self, valu, view=None):
-        return 3, {'subs': {'three': 3}}
+        typehash = self.modl.type('int').typehash
+        return 3, {'subs': {'three': (typehash, 3, {})}}
 
     def repr(self, valu):
         return '3'
@@ -265,7 +266,8 @@ class TestSubType(s_types.Type):
 
     async def norm(self, valu, view=None):
         valu = int(valu)
-        return valu, {'subs': {'isbig': valu >= 1000}}
+        typehash = self.modl.type('bool').typehash
+        return valu, {'subs': {'isbig': (typehash, valu >= 1000, {})}}
 
     def repr(self, norm):
         return str(norm)
