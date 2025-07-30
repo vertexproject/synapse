@@ -7683,7 +7683,23 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def _methLayerGet(self, name, defv=None):
-        return self.valu.get(name, defv)
+        match name:
+            case 'pushs':
+                pushs = copy.deepcopy(self.valu.get('pushs', {}))
+                for iden, pdef in pushs.items():
+                    gvar = f'push:{iden}'
+                    pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, 0)
+                return pushs
+
+            case 'pulls':
+                pulls = copy.deepcopy(self.valu.get('pulls', {}))
+                for iden, pdef in pulls.items():
+                    gvar = f'pull:{iden}'
+                    pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, 0)
+                return pulls
+
+            case _:
+                return self.valu.get(name, defv)
 
     async def _methLayerSet(self, name, valu):
         name = await tostr(name)
