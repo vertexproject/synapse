@@ -391,6 +391,7 @@ class Migrator(s_base.Base):
 
         self.cortexdata = self.cellslab.getSafeKeyVal('cortex')
         self.cellinfo = self.cellslab.getSafeKeyVal('cell:info')
+        self.layeroffs = await self.cellslab.getHotCount('layeroffs')
         self.viewdefs = self.cortexdata.getSubKeyVal('view:info:')
         self.layrdefs = self.cortexdata.getSubKeyVal('layer:info:')
 
@@ -583,6 +584,22 @@ class Migrator(s_base.Base):
             info['view'] = profilekv.get('cortex:view', defview)
 
             apptdefs.set(apptiden, info)
+
+        stormvars = self.cortexdata.getSubKeyVal('storm:vars:')
+        for iden, layrinfo in self.layrdefs.items():
+            logger.info(f'Migrating layer offsets for {iden}')
+            pushs = layrinfo.get('pushs', None)
+            pulls = layrinfo.get('pulls', None)
+            if pushs:
+                for push in pushs:
+                    offs = stormvars.pop(f'push:{push}', None)
+                    if offs is not None:
+                        self.layeroffs.set(push, offs)
+            if pulls:
+                for pull in pulls:
+                    offs = stormvars.pop(f'push:{pull}', None)
+                    if offs is not None:
+                        self.layeroffs.set(pull, offs)
 
         logger.info(f'Completed cell migration, removed deprecated confdefs: {remconfs}')
         await self._migrlogAdd('cell', 'prog', 'none', s_common.now())
