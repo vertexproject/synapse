@@ -98,7 +98,7 @@ modeldefs = (
                 'doc': 'A timeboxed period to complete a set amount of work.'}),
 
             ('proj:project', ('guid', {}), {
-                'doc': 'A project in a ticketing system.'}),
+                'doc': 'A project in a tasking system.'}),
         ),
 
         'edges': (
@@ -163,10 +163,10 @@ modeldefs = (
                     'doc': 'A URL which contains details about the task.'}),
 
                 ('name', ('str', {}), {
-                    'doc': 'The name of the ticket.'}),
+                    'doc': 'The name of the task.'}),
 
                 ('desc', ('text', {}), {
-                    'doc': 'A description of the ticket.'}),
+                    'doc': 'A description of the task.'}),
 
                 ('points', ('int', {}), {
                     'doc': 'Optional SCRUM style story points value.'}),
