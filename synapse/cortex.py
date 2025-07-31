@@ -5501,7 +5501,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         csize = pdef.get('chunk:size', s_const.layer_pdef_csize)
         qsize = pdef.get('queue:size', s_const.layer_pdef_qsize)
         soffs = pdef.get('offs', -1)
-        if soffs == 0: soffs = -1
+        if soffs <= 0:
+            soffs = -1
 
         async with await s_base.Base.anit() as base:
 

@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where a default offset in a push/pull function caused fill to
+  advance farther ahead than required.
+prs: []
+type: bug
+...
