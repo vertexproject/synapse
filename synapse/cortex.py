@@ -5500,9 +5500,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # TODO Remove the defaults in 3.0.0
         csize = pdef.get('chunk:size', s_const.layer_pdef_csize)
         qsize = pdef.get('queue:size', s_const.layer_pdef_qsize)
-        soffs = pdef.get('offs', -1)
-        if soffs <= 0:
-            soffs = -1
+        soffs = max(pdef.get('offs', 0), 0)
 
         async with await s_base.Base.anit() as base:
 
@@ -5511,8 +5509,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async def fill():
 
                 try:
-                    filloffs = await self.getStormVar(gvar, soffs)
-                    async for item in layr0.syncNodeEdits(filloffs + 1, wait=True):
+                    if (filloffs := await self.getStormVar(gvar)) is not None:
+                        filloffs += 1
+                    else:
+                        filloffs = soffs
+
+                    async for item in layr0.syncNodeEdits(filloffs, wait=True):
                         await queue.put(item)
                     await queue.close()
 
