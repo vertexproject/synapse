@@ -6,6 +6,32 @@
 Synapse Changelog
 *****************
 
+v2.218.0 - 2025-07-31
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated the ``runas`` and ``view.exec`` commands to output prints from
+  ``$lib.print()`` and warnings from ``$lib.warn()`` and ``$lib.exit()``.
+  (`#4425 <https://github.com/vertexproject/synapse/pull/4425>`_)
+- Updated the allowed range for the ``lmdb`` dependency to
+  ``lmdb>=1.7.0,<1.8.0``.
+  (`#4429 <https://github.com/vertexproject/synapse/pull/4429>`_)
+
+Bugfixes
+--------
+- Fixed the set and get of custom offsets for the layer ``addPull()`` and
+  ``addPush()`` methods.
+  (`#4418 <https://github.com/vertexproject/synapse/pull/4418>`_)
+- Added a patch for Python ``tarfile`` module to address CVE-2025-8194
+  exposure.
+  (`#4428 <https://github.com/vertexproject/synapse/pull/4428>`_)
+
+Improved documentation
+----------------------
+- Added documentation for the ``links`` option to the Storm runtime.
+  (`#4417 <https://github.com/vertexproject/synapse/pull/4417>`_)
+
 v2.217.0 - 2025-07-25
 =====================
 

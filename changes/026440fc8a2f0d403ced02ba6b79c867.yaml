@@ -1,5 +1,0 @@
----
-desc: Fixed the set and get of custom offsets for the layer addPull/addPush methods.
-prs: []
-type: bug
-...
