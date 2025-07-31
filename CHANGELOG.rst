@@ -6,6 +6,15 @@
 Synapse Changelog
 *****************
 
+v2.218.1 - 2025-07-31
+=====================
+
+Bugfixes
+--------
+- Fixed an issue where a default offset in a push/pull function caused fill to
+  advance farther ahead than required.
+  (`#4432 <https://github.com/vertexproject/synapse/pull/4432>`_)
+
 v2.218.0 - 2025-07-31
 =====================
 
