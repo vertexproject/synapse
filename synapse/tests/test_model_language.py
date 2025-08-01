@@ -43,7 +43,7 @@ class LangModuleTest(s_t_utils.SynTest):
                     :time=20150823
                     :speaker={[ ps:person=({"name": "visi"}) ]}
                     :text="We should be handing out UNCs like candy."
-                    :transcript={[ ou:meet=* ]}
+                    :transcript={[ ou:meeting=* ]}
                     :transcript:offset=02:00
                 ]
             ''')
@@ -52,7 +52,7 @@ class LangModuleTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('transcript:offset'), 120000000)
             self.eq(nodes[0].get('text'), 'We should be handing out UNCs like candy.')
             self.len(1, await core.nodes('lang:statement :speaker -> ps:person +:name=visi'))
-            self.len(1, await core.nodes('lang:statement :transcript -> ou:meet'))
+            self.len(1, await core.nodes('lang:statement :transcript -> ou:meeting'))
 
     async def test_hashtag(self):
 

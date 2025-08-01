@@ -13,7 +13,7 @@ class DataModelTest(s_t_utils.SynTest):
     async def test_datamodel_basics(self):
         async with self.getTestCore() as core:
             iface = core.model.ifaces.get('phys:object')
-            self.eq('object', iface['template']['phys:object'])
+            self.eq('object', iface['template']['title'])
             core.model.addType('woot:one', 'guid', {}, {
                 'display': {
                     'columns': (

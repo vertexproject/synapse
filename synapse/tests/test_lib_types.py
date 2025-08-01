@@ -366,16 +366,13 @@ class TypesTest(s_t_utils.SynTest):
             self.eq('HURR DURR', nodes06[0].get('motto'))
             self.ne(nodes00[0].ndef, nodes06[0].ndef)
 
-            goals = [s_common.guid(), s_common.guid()]
-            goals.sort()
-
-            nodes07 = await core.nodes('[ ou:org=({"name": "goal driven", "goals": $goals}) ]', opts={'vars': {'goals': goals}})
+            nodes07 = await core.nodes('[ ou:org=({"name": "goal driven", "emails": ["foo@vertex.link", "bar@vertex.link"]}) ]')
             self.len(1, nodes07)
-            self.eq(goals, nodes07[0].get('goals'))
+            self.eq(nodes07[0].get('emails'), ('bar@vertex.link', 'foo@vertex.link'))
 
-            nodes08 = await core.nodes('[ ou:org=({"name": "goal driven", "goals": $goals}) ]', opts={'vars': {'goals': goals}})
+            nodes08 = await core.nodes('[ ou:org=({"name": "goal driven", "emails": ["bar@vertex.link", "foo@vertex.link"]}) ]')
             self.len(1, nodes08)
-            self.eq(goals, nodes08[0].get('goals'))
+            self.eq(nodes08[0].get('emails'), ('bar@vertex.link', 'foo@vertex.link'))
             self.eq(nodes07[0].ndef, nodes08[0].ndef)
 
             nodes09 = await core.nodes('[ ou:org=({"name": "vertex"}) :name=foobar :names=() ]')
@@ -1313,40 +1310,40 @@ class TypesTest(s_t_utils.SynTest):
                 await core.nodes(q)
 
             await core.nodes('''[
-                (ou:campaign=* :period=(2020-01-01, 2020-01-02))
-                (ou:campaign=* :period=(2021-01-01, 2021-02-01))
-                (ou:campaign=* :period=(2022-01-01, 2022-05-01))
-                (ou:campaign=* :period=(2023-01-01, 2024-01-01))
-                (ou:campaign=* :period=(2024-01-01, 2026-01-01))
-                (ou:campaign=*)
+                (entity:campaign=* :period=(2020-01-01, 2020-01-02))
+                (entity:campaign=* :period=(2021-01-01, 2021-02-01))
+                (entity:campaign=* :period=(2022-01-01, 2022-05-01))
+                (entity:campaign=* :period=(2023-01-01, 2024-01-01))
+                (entity:campaign=* :period=(2024-01-01, 2026-01-01))
+                (entity:campaign=*)
             ]''')
 
-            self.len(1, await core.nodes('ou:campaign.created +:period.min=2020-01-01'))
-            self.len(2, await core.nodes('ou:campaign.created +:period.min<2022-01-01'))
-            self.len(3, await core.nodes('ou:campaign.created +:period.min<=2022-01-01'))
-            self.len(3, await core.nodes('ou:campaign.created +:period.min>=2022-01-01'))
-            self.len(2, await core.nodes('ou:campaign.created +:period.min>2022-01-01'))
-            self.len(1, await core.nodes('ou:campaign.created +:period.min@=2020'))
-            self.len(2, await core.nodes('ou:campaign.created +:period.min@=(2020-01-01, 2022-01-01)'))
+            self.len(1, await core.nodes('entity:campaign.created +:period.min=2020-01-01'))
+            self.len(2, await core.nodes('entity:campaign.created +:period.min<2022-01-01'))
+            self.len(3, await core.nodes('entity:campaign.created +:period.min<=2022-01-01'))
+            self.len(3, await core.nodes('entity:campaign.created +:period.min>=2022-01-01'))
+            self.len(2, await core.nodes('entity:campaign.created +:period.min>2022-01-01'))
+            self.len(1, await core.nodes('entity:campaign.created +:period.min@=2020'))
+            self.len(2, await core.nodes('entity:campaign.created +:period.min@=(2020-01-01, 2022-01-01)'))
 
-            self.len(1, await core.nodes('ou:campaign.created +:period.max=2020-01-02'))
-            self.len(2, await core.nodes('ou:campaign.created +:period.max<2022-05-01'))
-            self.len(3, await core.nodes('ou:campaign.created +:period.max<=2022-05-01'))
-            self.len(3, await core.nodes('ou:campaign.created +:period.max>=2022-05-01'))
-            self.len(2, await core.nodes('ou:campaign.created +:period.max>2022-05-01'))
-            self.len(1, await core.nodes('ou:campaign.created +:period.max@=2022-05-01'))
-            self.len(2, await core.nodes('ou:campaign.created +:period.max@=(2020-01-02, 2022-05-01)'))
+            self.len(1, await core.nodes('entity:campaign.created +:period.max=2020-01-02'))
+            self.len(2, await core.nodes('entity:campaign.created +:period.max<2022-05-01'))
+            self.len(3, await core.nodes('entity:campaign.created +:period.max<=2022-05-01'))
+            self.len(3, await core.nodes('entity:campaign.created +:period.max>=2022-05-01'))
+            self.len(2, await core.nodes('entity:campaign.created +:period.max>2022-05-01'))
+            self.len(1, await core.nodes('entity:campaign.created +:period.max@=2022-05-01'))
+            self.len(2, await core.nodes('entity:campaign.created +:period.max@=(2020-01-02, 2022-05-01)'))
 
-            self.len(1, await core.nodes('ou:campaign.created +:period.duration=1D'))
-            self.len(1, await core.nodes('ou:campaign.created +:period.duration<31D'))
-            self.len(2, await core.nodes('ou:campaign.created +:period.duration<=31D'))
-            self.len(4, await core.nodes('ou:campaign.created +:period.duration>=31D'))
-            self.len(3, await core.nodes('ou:campaign.created +:period.duration>31D'))
+            self.len(1, await core.nodes('entity:campaign.created +:period.duration=1D'))
+            self.len(1, await core.nodes('entity:campaign.created +:period.duration<31D'))
+            self.len(2, await core.nodes('entity:campaign.created +:period.duration<=31D'))
+            self.len(4, await core.nodes('entity:campaign.created +:period.duration>=31D'))
+            self.len(3, await core.nodes('entity:campaign.created +:period.duration>31D'))
 
-            self.len(0, await core.nodes('ou:campaign.created +:period.min@=(2022-01-01, 2020-01-01)'))
+            self.len(0, await core.nodes('entity:campaign.created +:period.min@=(2022-01-01, 2020-01-01)'))
 
             with self.raises(s_exc.NoSuchFunc):
-                await core.nodes('ou:campaign.created +:period.min@=({})')
+                await core.nodes('entity:campaign.created +:period.min@=({})')
 
             self.eq(ival.getVirtType(['min']), model.types.get('time'))
 

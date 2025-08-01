@@ -27,7 +27,7 @@ modeldefs = (
             ('econ:pay:card', ('guid', {}), {
                 'interfaces': (
                     ('econ:pay:instrument', {'template': {'instrument': 'payment card'}}),
-                    ('meta:observable', {'template': {'observable': 'payment card'}}),
+                    ('meta:observable', {'template': {'title': 'payment card'}}),
                 ),
                 'doc': 'A single payment card.'}),
 
@@ -41,8 +41,9 @@ modeldefs = (
             # ('econ:bank:wire', ('guid', {}), {}),
 
             ('econ:purchase', ('guid', {}), {
+                'template': {'title': 'purchase event'},
                 'interfaces': (
-                    ('geo:locatable', {'template': {'geo:locatable': 'purchase event'}}),
+                    ('geo:locatable', {}),
                 ),
                 'doc': 'A purchase event.'}),
 
@@ -51,8 +52,9 @@ modeldefs = (
                 'doc': 'A line item included as part of a purchase.'}),
 
             ('econ:payment', ('guid', {}), {
+                'template': {'title': 'payment event'},
                 'interfaces': (
-                    ('geo:locatable', {'template': {'geo:locatable': 'payment event'}}),
+                    ('geo:locatable', {}),
                 ),
                 'doc': 'A payment, crypto currency transaction, or account withdrawal.'}),
 
@@ -72,7 +74,7 @@ modeldefs = (
                 'doc': 'The amount of money expected, required, or given in payment for something.',
                 'ex': '2.20'}),
 
-            ('econ:currency', ('str', {'lower': True, 'strip': False}), {
+            ('econ:currency', ('str', {'lower': True}), {
                 'doc': 'The name of a system of money in general use.',
                 'ex': 'usd'}),
 
@@ -102,7 +104,7 @@ modeldefs = (
 
             ('econ:fin:account', ('guid', {}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'financial account'}}),
+                    ('meta:observable', {'template': {'title': 'financial account'}}),
                 ),
                 'doc': 'A financial account which contains a balance of funds.'}),
 
@@ -112,7 +114,7 @@ modeldefs = (
 
             ('econ:bank:aba:account', ('guid', {}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'ABA account'}}),
+                    ('meta:observable', {'template': {'title': 'ABA account'}}),
                 ),
                 'doc': 'An ABA routing number and bank account number.'}),
 
@@ -175,7 +177,12 @@ modeldefs = (
 
         'forms': (
 
-            ('econ:currency', {}, ()),
+            ('econ:currency', {}, (
+
+                ('name', ('base:name', {}), {
+                    'doc': 'The full name of the currency.'}),
+            )),
+
             ('econ:pay:iin', {}, (
 
                 ('issuer', ('ou:org', {}), {

@@ -3,16 +3,13 @@ modeldefs = (
         'types': (
             ('edu:course', ('guid', {}), {
                 'interfaces': (
-                    ('doc:authorable', {'template': {'authorable': 'course'}}),
+                    ('doc:authorable', {'template': {'title': 'course'}}),
                 ),
                 'doc': 'A course of study taught by an org.'}),
 
             ('edu:class', ('guid', {}), {
                 'interfaces': (
-                    ('ou:attendable', {'template': {
-                        'ou:attendable': 'class',
-                        'geo:locatable': 'class'}}),
-                    ('lang:transcript', {}),
+                    ('ou:attendable', {'template': {'title': 'class'}}),
                 ),
                 'doc': 'An instance of an edu:course taught at a given time.'}),
 
@@ -25,7 +22,7 @@ modeldefs = (
             ('ps:person', ('guid', {}), {
                 'interfaces': (
                     ('entity:actor', {
-                        'template': {'contactable': 'person'}}),
+                        'template': {'title': 'person'}}),
                 ),
                 'doc': 'A person.'}),
 
@@ -33,11 +30,11 @@ modeldefs = (
                 'doc': "An entry in a contact's work history."}),
 
             ('ps:vitals', ('guid', {}), {
+                'template': {'title': 'person'},
                 'interfaces': (
-                    ('phys:object', {
-                        'template': {'phys:object': 'person'}}),
+                    ('phys:object', {}),
                 ),
-                'doc': 'Statistics and demographic data about a person or contact.'}),
+                'doc': 'Statistics and demographic data about a person.'}),
 
             ('edu:learnable', ('ndef', {'interface': 'edu:learnable'}), {
                 'doc': 'An interface inherited by nodes which represent something which can be learned.'}),

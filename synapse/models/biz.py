@@ -15,7 +15,7 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {'template': {
                         'document': 'RFP',
-                        'authorable': 'RFP'}}),
+                        'title': 'RFP'}}),
                 ),
                 'doc': 'An RFP (Request for Proposal) soliciting proposals.'}),
 

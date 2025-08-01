@@ -1527,7 +1527,7 @@ class ViewTest(s_t_utils.SynTest):
                 self.nn(None)
 
             with self.raises(s_exc.StormRuntimeError):
-                await core.nodes('yield $lib.lift.byPropRefs(ou:goal:desc, valu=newp)')
+                await core.nodes('yield $lib.lift.byPropRefs(entity:goal:desc, valu=newp)')
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('yield $lib.lift.byPropRefs((test:comp:hehe, test:int:type), valu=newp)')

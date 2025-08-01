@@ -2564,7 +2564,7 @@ class LibAxon(Lib):
             for valu in redirs:
                 # props = {'seen': now}
                 props = {}
-                await self.runt.view.addNode('inet:urlredir', valu, props=props)
+                await self.runt.view.addNode('inet:url:redir', valu, props=props)
 
         return urlfile
 

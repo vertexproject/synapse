@@ -3,7 +3,7 @@ modeldefs = (
         'types': (
             ('plan:system', ('guid', {}), {
                 'interfaces': (
-                    ('doc:authorable', {'template': {'authorable': 'planning system'}}),
+                    ('doc:authorable', {'template': {'title': 'planning system'}}),
                 ),
                 'doc': 'A planning or behavioral analysis system that defines phases and procedures.'}),
 
@@ -14,7 +14,7 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {'template': {
                         'document': 'procedure',
-                        'authorable': 'procedure'}}),
+                        'title': 'procedure'}}),
                 ),
                 'doc': 'A procedure consisting of steps.'}),
 
@@ -129,7 +129,7 @@ modeldefs = (
                 ('outputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of variables defined in this step.'}),
 
-                ('techniques', ('array', {'type': 'ou:technique', 'uniq': True, 'sorted': True}), {
+                ('techniques', ('array', {'type': 'entity:technique', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of techniques used when executing this step.'}),
 
                 ('links', ('array', {'type': 'plan:procedure:link', 'uniq': True}), {

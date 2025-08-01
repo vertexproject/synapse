@@ -241,7 +241,7 @@ modeldefs = (
 
             ('file:bytes', ('guid', {}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'file'}}),
+                    ('meta:observable', {'template': {'title': 'file'}}),
                 ),
                 'doc': 'A file.'}),
 

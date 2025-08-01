@@ -65,8 +65,7 @@ query:
 .. TIP::
   
   Some forms include both a singular and an array property for the same type. This allows you to record a
-  primary value along with optional variations (e.g., such as ``ou:org:name`` and ``ou:org:names``),
-  or a primary and optional secondary values (e.g., such as  ``ou:campaign:goal`` and ``ou:campaign:goals``).
+  primary value along with optional variations (e.g., such as ``ou:org:name`` and ``ou:org:names``).
 
 Indexing
 ++++++++
@@ -575,8 +574,8 @@ and sets the specified secondary properties.
   arbitrary guid.
 
 The advantage of arbitrary values is that they are simple to generate. This is particularly useful
-for analysts who need to manually create one-off guid nodes (for example, ``ps:contact`` or ``ou:technique``
-nodes) as part of their workflow.
+for analysts who need to manually create one-off guid nodes (for example, ``entity:contact`` or
+``entity:technique`` nodes) as part of their workflow.
 
 The disadvantage is that arbitrary values are truly arbitrary; there is no easy way to deconflict
 the nodes. This can have undesirable consequences:
@@ -1668,8 +1667,8 @@ The trailing dot is masked / omitted when displaying the taxonomy value. This di
 displaying the value's representation (display value, using the method ``$node.repr()``) as opposed to its actual
 value (using the method ``$node.value()``):
 
-.. storm-pre:: [ ou:goal:type:taxonomy=financial_gain ]
-.. storm-cli:: ou:goal:type:taxonomy=financial_gain $lib.print($node.repr()) $lib.print($node.value())
+.. storm-pre:: [ entity:goal:type:taxonomy=financial_gain ]
+.. storm-cli:: entity:goal:type:taxonomy=financial_gain $lib.print($node.repr()) $lib.print($node.value())
 
 
 Parsing

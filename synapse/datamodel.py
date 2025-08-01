@@ -959,9 +959,12 @@ class Model:
             mesg = f'Edge definition verb must be a string: {edgetype}.'
             raise s_exc.BadArg(mesg=mesg)
 
-        if self.edges.get(edgetype) is not None:
-            mesg = f'Duplicate edge declared: {edgetype}.'
-            raise s_exc.BadArg(mesg=mesg)
+        if (edge := self.edges.get(edgetype)) is not None:
+            # this extra check allows more specific edges to be defined
+            # while less specific interface based edges are also present.
+            if edge.edgetype == edgetype:
+                mesg = f'Duplicate edge declared: {edgetype}.'
+                raise s_exc.BadArg(mesg=mesg)
 
         n1forms = (None,)
         if n1form is not None:
@@ -973,12 +976,15 @@ class Model:
 
         edge = Edge(self, edgetype, edgeinfo)
         self.edges[edgetype] = edge
+
         [self.edgesbyn1[n1form].add(edge) for n1form in n1forms]
         [self.edgesbyn2[n2form].add(edge) for n2form in n2forms]
 
         for n1form in n1forms:
             for n2form in n2forms:
-                self._valid_edges[(n1form, verb, n2form)].append(edge)
+                edgetype = (n1form, verb, n2form)
+                self.edges[edgetype] = edge
+                self._valid_edges[edgetype].append(edge)
 
     def delEdge(self, edgetype):
 
@@ -1255,6 +1261,7 @@ class Model:
 
         # TODO decide if/how to handle subinterface prefixes
         template = self._prepIfaceTemplate(iface, ifinfo)
+        template.update(form.type.info.get('template', {}))
         template['$self'] = form.full
 
         def convert(item):

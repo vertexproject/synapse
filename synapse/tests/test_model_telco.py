@@ -212,16 +212,14 @@ class TelcoModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ tel:call=*
-                    :src="+1 (703) 555-1212"
-                    :dst="123 456 7890"
+                    :caller:phone="+1 (703) 555-1212"
+                    :recipient:phone="123 456 7890"
                     :period=2001
                     :connected=(true)
-                    :recording=*
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('src'), '17035551212')
-            self.eq(nodes[0].get('dst'), '1234567890')
+            self.eq(nodes[0].get('caller:phone'), '17035551212')
+            self.eq(nodes[0].get('recipient:phone'), '1234567890')
             self.eq(nodes[0].get('period'), (978307200000000, 978307200000001))
             self.eq(nodes[0].get('connected'), True)
-            self.len(1, await core.nodes('tel:call :recording -> file:bytes'))

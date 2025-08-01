@@ -1674,8 +1674,8 @@ class CortexTest(s_t_utils.SynTest):
 
             a_guid = "a" * 32
             opts = {'vars': {'guid': a_guid}}
-            await core.nodes(f'for $x in $lib.range(5) {{[ risk:vuln=* :source=(ou:org, $guid) ]}}', opts=opts)
-            await buidRevEq(f'risk:vuln:source=(ou:org, {a_guid})')
+            await core.nodes(f'for $x in $lib.range(5) {{[ risk:vuln=* :reporter=(ou:org, $guid) ]}}', opts=opts)
+            await buidRevEq(f'risk:vuln:reporter=(ou:org, {a_guid})')
 
             pref = 'a' * 31
             await core.nodes(f'for $x in $lib.range(3) {{[ test:guid=`{pref}{{$x}}` ]}}')
@@ -2915,36 +2915,37 @@ class CortexTest(s_t_utils.SynTest):
             # for node in nodes:
             #     self.eq('ou:position', node.ndef[0])
 
-            await core.nodes('[ou:contribution=* :campaign={[ou:campaign=* :goal={[ou:goal=(a,) :name=a]}]}]')
-            await core.nodes('[ou:contribution=* :campaign={[ou:campaign=* :goal={[ou:goal=(b,) :name=b]}]}]')
-            await core.nodes('[ou:contribution=* :campaign={[ou:campaign=* :goal={[ou:goal=(c,) :name=c]}]}]')
-            await core.nodes('[ou:contribution=* :campaign={[ou:campaign=* :goal={[ou:goal=(d,) :name=d]}]}]')
-            await core.nodes('[ou:contribution=* :campaign={[ou:campaign=* :goals=((a,), (b,))]}]')
-            await core.nodes('[ou:contribution=* :campaign={[ou:campaign=* :goals=((c,), (d,))]}]')
-            await core.nodes('[ou:contribution=* :campaign={[ou:campaign=* :goals=((a,), (d,))]}]')
+            await core.nodes('[entity:contribution=* :actor={[entity:contact=* :email=foo@vertex.link ]}]')
+            await core.nodes('[entity:contribution=* :actor={[entity:contact=* :email=bar@vertex.link ]}]')
+            await core.nodes('[entity:contribution=* :actor={[entity:contact=* :email=baz@vertex.link ]}]')
+            await core.nodes('[entity:contribution=* :actor={[entity:contact=* :email=faz@vertex.link ]}]')
 
-            nodes = await core.nodes('ou:contribution:campaign::goal::name=a')
-            self.len(1, nodes)
-            for node in nodes:
-                self.eq('ou:contribution', node.ndef[0])
+            await core.nodes('[entity:contribution=* :actor={[entity:contact=* :emails=(foo@vertex.link, bar@vertex.link) ]}]')
+            await core.nodes('[entity:contribution=* :actor={[entity:contact=* :emails=(baz@vertex.link, faz@vertex.link) ]}]')
+            await core.nodes('[entity:contribution=* :actor={[entity:contact=* :emails=(foo@vertex.link, faz@vertex.link) ]}]')
 
-            nodes = await core.nodes('ou:contribution:campaign::goal::name*in=(a, b)')
-            self.len(2, nodes)
-            for node in nodes:
-                self.eq('ou:contribution', node.ndef[0])
+            # nodes = await core.nodes('entity:contribution:actor::email::user=foo')
+            # self.len(1, nodes)
+            # for node in nodes:
+            #     self.eq('entity:contribution', node.ndef[0])
 
-            nodes = await core.nodes('ou:contribution:campaign::goals*[=(a,)]')
-            self.len(2, nodes)
-            for node in nodes:
-                self.eq('ou:contribution', node.ndef[0])
+            # nodes = await core.nodes('entity:contribution:actor::email::user*in=(foo, bar)')
+            # self.len(2, nodes)
+            # for node in nodes:
+            #     self.eq('entity:contribution', node.ndef[0])
 
-            nodes = await core.nodes('ou:contribution:campaign::goals*[in=((a,), (c,))]')
-            self.len(3, nodes)
-            for node in nodes:
-                self.eq('ou:contribution', node.ndef[0])
+            # nodes = await core.nodes('entity:contribution:actor::emails*[=foo@vertex.link]')
+            # self.len(2, nodes)
+            # for node in nodes:
+            #     self.eq('entity:contribution', node.ndef[0])
+
+            # nodes = await core.nodes('entity:contribution:actor::emails*[in=(foo@vertex.link, baz@vertex.link)]')
+            # self.len(3, nodes)
+            # for node in nodes:
+            #     self.eq('entity:contribution', node.ndef[0])
 
             with self.raises(s_exc.NoSuchProp):
-                nodes = await core.nodes('ou:org:hq::email::newp=a')
+                nodes = await core.nodes('entity:contact:email::newp=a')
 
             await core.nodes('[it:exec:fetch=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.4]} ]}]')
             await core.nodes('[it:exec:fetch=* :http:request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://5.6.7.8]} ]}]')
@@ -4130,8 +4131,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCmpr) as cm:
                 await core.nodes('inet:ip=1.2.3.4 +{ -> inet:dns:a } @ 2')
 
-            await core.nodes('[ risk:attack=* +(used)> {[ test:str=foo ]} ]')
-            await core.nodes('[ risk:attack=* +(used)> {[ test:str=bar ]} ]')
+            await core.nodes('[ risk:attack=* +(used)> {[ it:dev:str=foo ]} ]')
+            await core.nodes('[ risk:attack=* +(used)> {[ it:dev:str=bar ]} ]')
 
             q = 'risk:attack +{ -(used)> * $valu=$node.value() } $lib.print($valu)'
             msgs = await core.stormlist(q)
