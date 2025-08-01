@@ -327,7 +327,7 @@ IPs are the destination IP (for example), you must use explicit syntax to clarif
 
 *Pivot from a set of tags (syn:tag nodes) to the threat clusters (risk:threat nodes) represented by those tags:*
 
-.. storm-pre:: [ syn:tag=rep.eset.vicious_wombat (risk:threat=* :source:name=eset :tag=rep.eset.vicious_wombat) syn:tag=rep.symantec.sparkling_unicorn (risk:threat=* :source:name=symantec :tag=rep.symantec.sparkling_unicorn) ]
+.. storm-pre:: [ syn:tag=rep.eset.vicious_wombat (risk:threat=* :reporter:name=eset :tag=rep.eset.vicious_wombat) syn:tag=rep.symantec.sparkling_unicorn (risk:threat=* :reporter:name=symantec :tag=rep.symantec.sparkling_unicorn) ]
 .. storm-pre:: syn:tag -> risk:threat:tag
 
 ::
@@ -744,7 +744,7 @@ Pivot in ( ``<-`` ) and pivot in and join ( ``<+-`` ) are not supported.
   
   The custom behavior used with tag pivots may lead to counterintuitive results when attempting to pivot
   between tags (``syn:tag`` nodes) and properties that are ``syn:tag`` types (such as ``risk:threat:tag``
-  or ``ou:technique:tag``).
+  or ``entity:technique:tag``).
   
   For example, if you attempt to pivot from a ``syn:tag`` node used to associate nodes with a threat cluster
   to the ``risk:threat`` node representing the cluster, the following Storm query will fail to return
@@ -1101,7 +1101,7 @@ Specify the name (verb) of the edge you want to traverse to navigate a single ed
 
 ..
     FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ (risk:threat=* :org:name='vicious wombat' :source:name=thesilence) ] [ +(uses)> { [ risk:tool:software=* ] } ]
+    .. storm-pre:: [ (risk:threat=* :org:name='vicious wombat' :reporter:name=thesilence) ] [ +(uses)> { [ risk:tool:software=* ] } ]
     .. storm-pre:: risk:threat -(uses)> risk:tool:software
 
 ::

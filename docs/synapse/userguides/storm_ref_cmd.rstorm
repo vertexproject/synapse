@@ -1010,9 +1010,9 @@ property set). Users can set additional property values as they see fit.
 
 - `gen.geo.place`_
 - `gen.it.av.scan.result`_
-- `gen.it.prod.soft`_
+- `gen.it.software`_
 - `gen.lang.language`_
-- `gen.ou.campaign`_
+- `gen.entity.campaign`_
 - `gen.ou.id.number`_
 - `gen.ou.id.type`_
 - `gen.ou.industry`_
@@ -1065,17 +1065,17 @@ for additional deconfliction.
 .. storm-cli:: gen.it.av.scan.result --help
 
 
-.. _storm-gen-it-prod-soft:
+.. _storm-gen-it-software:
 
-gen.it.prod.soft
-++++++++++++++++
+gen.it.software
++++++++++++++++
 
-The ``gen.it.prod.soft`` command locates (lifts) or creates an ``it:prod:soft`` node based on
-the software name (``it:prod:soft:name`` and / or ``it:prod:soft:names``).
+The ``gen.it.software`` command locates (lifts) or creates an ``it:software`` node based on
+the software name (``it:software:name`` and / or ``it:software:names``).
 
 **Syntax:**
 
-.. storm-cli:: gen.it.prod.soft --help
+.. storm-cli:: gen.it.software --help
 
 
 .. _storm-gen-lang-language:
@@ -1093,16 +1093,16 @@ the language name (``lang:language:name`` and / or ``lang:language:names``).
 
 .. _storm-gen-ou-campaign:
 
-gen.ou.campaign
+gen.entity.campaign
 +++++++++++++++
 
-The ``gen.ou.campaign`` command locates (lifts) or creates an ``ou:campaign`` node based on the
-campaign name (``ou:campaign:name`` and / or ``ou:campaign:names``) and the name of the reporting
-organization (``ou:campaign:source:name``).
+The ``gen.entity.campaign`` command locates (lifts) or creates an ``entity:campaign`` node based on the
+campaign name (``entity:campaign:name`` and / or ``entity:campaign:names``) and the name of the reporting
+organization (``entity:campaign:reporter:name``).
 
 **Syntax:**
 
-.. storm-cli:: gen.ou.campaign --help
+.. storm-cli:: gen.entity.campaign --help
 
 
 .. _storm-gen-ou-id-number:
@@ -1222,7 +1222,7 @@ gen.risk.threat
 
 The ``gen.risk.threat`` command locates (lifts) or creates a ``risk:threat`` node using the
 name of the threat group (``risk:threat:org:name`` and / or ``risk:threat:org:names``) and the
-name of the entity reporting on the threat (``risk:threat:source:name``).
+name of the entity reporting on the threat (``risk:threat:reporter:name``).
 
 **Syntax:**
 
@@ -1237,7 +1237,7 @@ gen.risk.tool.software
 The ``gen.risk.tool.software`` command locates (lifts) or creates a ``risk:tool:software``
 node using the name of the software / malware (``risk:tool:software:soft:name`` and / or 
 ``risk:software:soft:names``) and the name of the entity reporting on the software / malware
-(``risk:tool:software:source:name``).
+(``risk:tool:software:reporter:name``).
 
 **Syntax:**
 
@@ -1251,7 +1251,7 @@ gen.risk.vuln
 
 The ``gen.risk.vuln`` command locates (lifts) or creates a ``risk:tool:vuln`` node using the
 Common Vulnerabilities and Exposures (CVE) number associated with the vulnerability
-(``risk:vuln:cve``) and the name of the entity reporting on the vulnerability (``risk:vuln:source:name``).
+(``risk:vuln:cve``) and the name of the entity reporting on the vulnerability (``risk:vuln:reporter:name``).
 
 **Syntax:**
 

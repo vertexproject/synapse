@@ -237,9 +237,6 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of extortion event types.'}),
 
-            ('risk:technique:masquerade', ('guid', {}), {
-                'doc': 'Represents the assessment that a node is designed to resemble another in order to mislead.'}),
-
             ('risk:mitigatable', ('ndef', {'interface': 'risk:mitigatable'}), {
                 'doc': 'A node whose effect may be reduced by a mitigation.'}),
         ),
@@ -304,6 +301,9 @@ modeldefs = (
 
             (('risk:outage', 'impacted', None), {
                 'doc': 'The outage event impacted the availability of the target node.'}),
+
+            (('meta:observable', 'resembles', 'meta:observable'), {
+                'doc': 'The source node resembles the target node.'}),
         ),
         'forms': (
 
@@ -768,20 +768,6 @@ modeldefs = (
 
                 ('payments', ('array', {'type': 'econ:payment', 'sorted': True, 'uniq': True}), {
                     'doc': 'Payments made from the target to the attacker.'}),
-            )),
-            ('risk:technique:masquerade', {}, (
-
-                ('node', ('ndef', {}), {
-                    'doc': 'The node masquerading as another.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period when the masquerading was active.'}),
-
-                ('target', ('ndef', {}), {
-                    'doc': 'The being masqueraded as.'}),
-
-                ('technique', ('entity:technique', {}), {
-                    'doc': 'The specific technique which describes the type of masquerading.'}),
             )),
         ),
     }),
