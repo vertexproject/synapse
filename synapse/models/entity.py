@@ -269,6 +269,10 @@ modeldefs = (
                 'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.'}),
 
             ('entity:contribution', ('guid', {}), {
+                'template': {'title': 'contribution'},
+                'interfaces': (
+                    ('entity:action', {}),
+                ),
                 'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
 
             ('entity:technique', ('guid', {}), {
@@ -483,9 +487,6 @@ modeldefs = (
                     'doc': 'A timeline of significant events related to the conflict.'}),
             )),
             ('entity:contribution', {}, (
-
-                ('from', ('entity:actor', {}), {
-                    'doc': 'The actor who made the contribution.'}),
 
                 ('campaign', ('entity:campaign', {}), {
                     'doc': 'The campaign receiving the contribution.'}),
