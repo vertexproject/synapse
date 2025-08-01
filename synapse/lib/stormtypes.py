@@ -2,7 +2,6 @@ import bz2
 import copy
 import gzip
 import time
-
 import regex
 import types
 import base64
@@ -10,6 +9,7 @@ import pprint
 import struct
 import asyncio
 import decimal
+import hashlib
 import inspect
 import logging
 import binascii
@@ -2745,9 +2745,13 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'upload'))
 
-        await self.runt.snap.core.getAxon()
-        size, sha256 = await self.runt.snap.core.axon.put(byts)
+        sha256 = hashlib.sha256(byts).digest()
 
+        await self.runt.snap.core.getAxon()
+        if await self.runt.snap.core.axon.has(sha256):
+            return (len(byts), s_common.ehex(sha256))
+
+        size, sha256 = await self.runt.snap.core.axon.put(byts)
         return (size, s_common.ehex(sha256))
 
     @stormfunc(readonly=True)

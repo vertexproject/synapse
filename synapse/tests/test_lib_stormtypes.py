@@ -13,6 +13,7 @@ from datetime import timezone as tz
 from unittest import mock
 
 import synapse.exc as s_exc
+import synapse.axon as s_axon
 import synapse.common as s_common
 
 import synapse.lib.json as s_json
@@ -6444,6 +6445,30 @@ words\tword\twrd'''
                 for $item in $lib.axon.readlines($sha256, errors=ignore) { $items.append($item) }
                 return($items)
             ''', opts=opts))
+
+            # Upload some test data
+            data = b'foobarbaz'
+            sha256 = hashlib.sha256(data).hexdigest()
+            await core.axon.put(data)
+
+            # raise an exception if axon.put is called
+            def axonput(*args, **kwargs):
+                raise Exception('newp')
+
+            with mock.patch.object(s_axon.Axon, 'put', axonput):
+                # This doesn't raise because the data is already in the axon
+                opts = {'vars': {'byts': data}}
+                (size, _sha256) = await core.callStorm('return($lib.axon.put($byts))', opts=opts)
+                self.eq(size, len(data))
+                self.eq(_sha256, sha256)
+
+                # This does raise because the data isn't already in the axon
+                with self.raises(Exception) as exc:
+                    data = b'newp'
+                    opts = {'vars': {'byts': data}}
+                    await core.callStorm('return($lib.axon.put($byts))', opts=opts)
+
+                self.eq(exc.exception.args, ('newp',))
 
     async def test_storm_lib_axon_perms(self):
 
