@@ -140,7 +140,7 @@ class EntityModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ entity:contribution=*
-                    :from={[ ou:org=* :name=vertex ]}
+                    :actor={[ ou:org=* :name=vertex ]}
                     :time=20220718
                     :value=10
                     :currency=usd
@@ -151,6 +151,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq('10', nodes[0].get('value'))
             self.eq('usd', nodes[0].get('currency'))
             self.len(1, await core.nodes('entity:contribution -> entity:campaign'))
+            self.len(1, await core.nodes('entity:contribution -> ou:org +:name=vertex'))
 
             nodes = await core.nodes('''
                 [ entity:conflict=*

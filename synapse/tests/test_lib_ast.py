@@ -1376,12 +1376,10 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.len(2, nodes[0].get('industries'))
 
-            nodes = await core.nodes('[ou:campaign=* :goal={[ou:goal=* :name="paperclip manufacturing" ]} ]')
+            nodes = await core.nodes('[entity:campaign=* :actor={[entity:contact=* :name=paperclip ]} ]')
             self.len(1, nodes)
             # Make sure we're not accidentally adding extra nodes
-            nodes = await core.nodes('ou:goal')
-            self.len(1, nodes)
-            self.nn(nodes[0].get('name'))
+            self.len(1, await core.nodes('entity:contact +:name=paperclip'))
 
             nodes = await core.nodes('[ entity:contact=* :resolved={ou:org:name=visiacme}]')
             self.len(1, nodes)
@@ -3888,13 +3886,13 @@ class AstTest(s_test.SynTest):
                 'ival5': ('2025-01-01, ?')
             }}
             await core.nodes('''[
-                (ou:campaign=(c1,) :period=$ival1 +#tag=$ival1 +#tag:ival=$ival1)
-                (ou:campaign=* :period=$ival2 +#tag=$ival2 +#tag:ival=$ival2)
-                (ou:campaign=* :period=$ival3 +#tag=$ival3 +#tag:ival=$ival3)
-                (ou:campaign=* :period=$ival4 +#tag=$ival4 +#tag:ival=$ival4)
-                (ou:campaign=* :period=$ival5 +#tag=$ival5 +#tag:ival=$ival5)
-                (ou:campaign=*)
-                (ou:contribution=* :campaign=(c1,))
+                (entity:campaign=(c1,) :period=$ival1 +#tag=$ival1 +#tag:ival=$ival1)
+                (entity:campaign=* :period=$ival2 +#tag=$ival2 +#tag:ival=$ival2)
+                (entity:campaign=* :period=$ival3 +#tag=$ival3 +#tag:ival=$ival3)
+                (entity:campaign=* :period=$ival4 +#tag=$ival4 +#tag:ival=$ival4)
+                (entity:campaign=* :period=$ival5 +#tag=$ival5 +#tag:ival=$ival5)
+                (entity:campaign=*)
+                (entity:contribution=* :campaign=(c1,))
                 test:ival=$ival1
                 test:ival=$ival2
                 test:ival=$ival3
@@ -3904,17 +3902,17 @@ class AstTest(s_test.SynTest):
                 (test:hasiface=bar :seen=$ival2)
             ]''', opts=opts)
 
-            self.len(6, await core.nodes('ou:campaign.created +ou:campaign.created>2000'))
-            self.len(0, await core.nodes('ou:campaign.created +ou:campaign.created>now'))
+            self.len(6, await core.nodes('entity:campaign.created +entity:campaign.created>2000'))
+            self.len(0, await core.nodes('entity:campaign.created +entity:campaign.created>now'))
 
-            self.len(1, await core.nodes('ou:campaign.created +#(tag).min=2020'))
-            self.len(1, await core.nodes('ou:campaign.created $tag=tag +#($tag).min=2020'))
-            self.len(1, await core.nodes('ou:campaign.created $val=2020 +#(tag).min=$val'))
-            self.len(1, await core.nodes('ou:campaign.created +#(tag).max=?'))
-            self.len(1, await core.nodes('ou:campaign.created +#(tag).duration=?'))
-            self.len(1, await core.nodes('ou:campaign.created +#tag:ival.min=2020'))
-            self.len(1, await core.nodes('ou:campaign.created +:period.min=2020'))
-            self.len(1, await core.nodes('ou:campaign.created +ou:campaign:period.min=2020'))
+            self.len(1, await core.nodes('entity:campaign.created +#(tag).min=2020'))
+            self.len(1, await core.nodes('entity:campaign.created $tag=tag +#($tag).min=2020'))
+            self.len(1, await core.nodes('entity:campaign.created $val=2020 +#(tag).min=$val'))
+            self.len(1, await core.nodes('entity:campaign.created +#(tag).max=?'))
+            self.len(1, await core.nodes('entity:campaign.created +#(tag).duration=?'))
+            self.len(1, await core.nodes('entity:campaign.created +#tag:ival.min=2020'))
+            self.len(1, await core.nodes('entity:campaign.created +:period.min=2020'))
+            self.len(1, await core.nodes('entity:campaign.created +entity:campaign:period.min=2020'))
             self.len(1, await core.nodes('test:ival +.min=2020'))
             self.len(1, await core.nodes('test:ival $virt=min +.$virt=2020'))
             self.len(1, await core.nodes('test:ival +test:ival.min=2020'))
@@ -3952,9 +3950,9 @@ class AstTest(s_test.SynTest):
                 ('test:ival', None, None),
                 ('#(tag)', '#tag', None),
                 ('#tag:ival', 'ival', 'tag'),
-                ('ou:campaign#(tag)', '#tag', None),
-                ('ou:campaign#tag:ival', 'ival', 'tag'),
-                ('ou:campaign:period', 'period', None),
+                ('entity:campaign#(tag)', '#tag', None),
+                ('entity:campaign#tag:ival', 'ival', 'tag'),
+                ('entity:campaign:period', 'period', None),
             )
 
             for (lift, prop, tag) in tests:
@@ -3966,11 +3964,11 @@ class AstTest(s_test.SynTest):
                 '#(tag).min=2020 return(#(tag).min)',
                 '#(tag).min=2020 for $i in (#(tag).min,) { return($i) }',
                 'test:ival.min=2020 return(.min)',
-                'ou:campaign:period.min=2020 return(:period.min)',
-                'ou:campaign:period.min=2020 $virt=min return(:period.$virt)',
-                'ou:campaign#(tag).min=2020 return(#(tag).min)',
-                'ou:campaign#tag:ival.min=2020 return(#tag:ival.min)',
-                'ou:contribution return(:campaign::period.min)'
+                'entity:campaign:period.min=2020 return(:period.min)',
+                'entity:campaign:period.min=2020 $virt=min return(:period.$virt)',
+                'entity:campaign#(tag).min=2020 return(#(tag).min)',
+                'entity:campaign#tag:ival.min=2020 return(#tag:ival.min)',
+                'entity:contribution return(:campaign::period.min)'
             )
 
             for query in queries:
@@ -3993,10 +3991,10 @@ class AstTest(s_test.SynTest):
                 await core.nodes('#tag $lib.print(#(tag).newp)')
 
             with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('ou:campaign:period.newp')
+                await core.nodes('entity:campaign:period.newp')
 
             with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('ou:campaign $lib.print(:period.newp)')
+                await core.nodes('entity:campaign $lib.print(:period.newp)')
 
             self.eq(s_time.PREC_MICRO, await core.callStorm('[ it:exec:query=* :time=now ] return(:time.precision)'))
             self.eq(s_time.PREC_MICRO, await core.callStorm('it:exec:query  [ :time.precision?=newp ] return(:time.precision)'))
