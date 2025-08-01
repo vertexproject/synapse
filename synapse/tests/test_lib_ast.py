@@ -873,40 +873,12 @@ class AstTest(s_test.SynTest):
             self.len(3, await core.nodes('test:str=ndefs :ndefs -> *'))
             self.len(2, await core.nodes('test:str=ndefs :ndefs -> it:dev:int'))
 
-            await core.nodes('[ risk:technique:masquerade=* :node=(it:dev:int, 1) ]')
-            nodes = await core.nodes('it:dev:int=1 <- *')
-            self.len(2, nodes)
-            self.eq('test:str', nodes[0].ndef[0])
-            self.eq('risk:technique:masquerade', nodes[1].ndef[0])
-
-            await core.nodes('risk:technique:masquerade [ :target=(it:dev:int, 1) ]')
-            nodes = await core.nodes('it:dev:int=1 <- *')
-            self.len(2, nodes)
-            self.eq('test:str', nodes[0].ndef[0])
-            self.eq('risk:technique:masquerade', nodes[1].ndef[0])
-
-            await core.nodes('risk:technique:masquerade [ :target=(it:dev:int, 2) ]')
-            nodes = await core.nodes('it:dev:int=1 <- *')
-            self.len(2, nodes)
-            self.eq('test:str', nodes[0].ndef[0])
-            self.eq('risk:technique:masquerade', nodes[1].ndef[0])
-
-            await core.nodes('risk:technique:masquerade [ -:node ]')
-            nodes = await core.nodes('it:dev:int=1 <- *')
+            await core.nodes('[ entity:contribution=* :actor={[ ps:person=* ]} ]')
+            nodes = await core.nodes('ps:person <- *')
             self.len(1, nodes)
-            self.eq('test:str', nodes[0].ndef[0])
-
-            await core.nodes('test:str=ndefs [ :ndefs-=(it:dev:int, 1) ]')
-            self.len(0, await core.nodes('it:dev:int=1 <- *'))
-            nodes = await core.nodes('it:dev:int=2 <- *')
-            self.len(2, nodes)
-            self.eq('test:str', nodes[0].ndef[0])
-            self.eq('risk:technique:masquerade', nodes[1].ndef[0])
-
-            await core.nodes('risk:technique:masquerade [ -:target ]')
-            await core.nodes('test:str=ndefs [ -:ndefs ]')
-            self.len(0, await core.nodes('it:dev:int=1 <- *'))
-            self.len(0, await core.nodes('it:dev:int=2 <- *'))
+            self.eq('entity:contribution', nodes[0].ndef[0])
+            await core.nodes('entity:contribution [ -:actor ]')
+            self.len(0, await core.nodes('ps:person <- *'))
 
     async def test_ast_pivot(self):
         # a general purpose pivot test. come on in!

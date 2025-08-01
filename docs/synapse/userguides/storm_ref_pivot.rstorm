@@ -225,7 +225,7 @@ and the **same value**:
 .. TIP::
   
   This includes cases where the secondary property value is the **node definition** (:ref:`gloss-ndef`) of the corresponding
-  primary property (these cases are uncommon, but includes forms such as ``risk:technique:masquerade``).
+  primary property.
 
 Implicit pivot syntax **cannot** be used in the following cases:
 
@@ -407,32 +407,29 @@ you must use explicit syntax.
     
     <inet:user nodes> -> file:path:base tree { -> file:path:dir }
 
-*Pivot from a set of FQDNs (inet:fqdn nodes) to the "masquerade" technique nodes (risk:technique:masquerade nodes) associated with those FQDNs:*
+*Pivot from a set of risk:threat nodes to the entity:relationship nodes associated with the threat:*
 
-.. storm-pre:: [ (risk:technique:masquerade=* :target=(inet:fqdn,nato.int) :node=(inet:fqdn,nato-hq.com) ) ]
-.. storm-pre:: inet:fqdn -> risk:technique:masquerade
-.. storm-pre:: inet:fqdn -> risk:technique:masquerade:node
+.. storm-pre:: [ entity:relationship=* :source={[ risk:threat=* :org:name=greencat]} ]
+.. storm-pre:: risk:threat:org:name=greencat -> entity:relationship
+.. storm-pre:: risk:threat:org:name=greencat -> entity:relationship:source
 
 ::
   
-  <inet:fqdn nodes> -> risk:technique:masquerade
+  <risk:threat nodes> -> entity:relationship
 
 The above query uses implicit pivot syntax.
 
-A ``risk:technique:masquerade`` node represents an object that is purposely crafted to imitate (masquerade as)
-another object, typically for malicious purposes. The node records the relationship between the "original"
-object being imitated (``risk:technique:masquerade:target``) and the object that is imitating it
-(``risk:technique:masquerade:node``). (Both properties are of type "ndef" (node definition), and consist of
-``( <form>, <valu> )`` pairs.)
+A ``entity:relationship`` node represents a specific relationship between entities. The ``:source`` and ``:target``
+properties are a type of ``ndef`` which consists of a ``( <form>, <valu> )`` pair which is limited to nodes which
+implement the ``entity:actor`` interface, such as ``risk:threat``.
 
-Because the query above uses implicit syntax, it will return any ``risk:technique:masquerade`` nodes where
-the inbound FQDNs are either the ``:target`` or ``:node`` value. If (for example) the inbound FQDNs were a
-set of suspicious FQDNs and you wanted to return only those "masquerade" nodes where the inbound FQDNs were
-the ``:node`` masquerading as a valid FQDN, you would need to use explicit syntax:
+Because the query above uses implicit syntax, it will return any ``risk:threat`` nodes which are either the ``:source``
+or ``:target`` property on the ``entity:relationship``. If you wanted to return only relationship nodes which
+have a specific ``risk:threat`` as the ``entity:relationship:source`` you need to use explicit syntax:
 
 ::
   
-  <inet:fqdn nodes> -> risk:technique:masquerade:node
+  <risk:threat nodes> -> entity:relationship:source
 
 
 .. _pivot-secondary-primary:
