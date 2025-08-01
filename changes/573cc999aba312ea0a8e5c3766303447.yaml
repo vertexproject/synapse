@@ -1,0 +1,6 @@
+---
+desc: '- Updated ``$lib.axon.put()`` to check for the existence of the bytes in the
+  Axon   before uploading again.'
+prs: []
+type: feat
+...
