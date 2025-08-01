@@ -80,7 +80,7 @@ modeldefs = (
 
             ('mat:item', ('guid', {}), {
                 'interfaces': (
-                    ('phys:object', { 'template': {'title': 'item'}}),
+                    ('phys:object', {'template': {'title': 'item'}}),
                 ),
                 'doc': 'A GUID assigned to a material object.'}),
 
