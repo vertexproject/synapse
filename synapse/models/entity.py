@@ -430,7 +430,7 @@ modeldefs = (
                     'doc': 'Actors who participated in the campaign.'}),
 
                 ('success', ('bool', {}), {
-                    'doc': "Set to true if the campaign achieved its goals."}),
+                    'doc': 'Set to true if the campaign achieved its goals.'}),
 
                 ('sophistication', ('meta:sophistication', {}), {
                     'doc': 'The assessed sophistication of the campaign.'}),
