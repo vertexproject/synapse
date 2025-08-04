@@ -1417,7 +1417,7 @@ modeldefs = (
                 'doc': 'An IPv4/IPv6 block registration record.'}),
 
             ('inet:wifi:ap', ('guid', {}), {
-                'template': {'title': 'WiFi access point'},
+                'template': {'title': 'Wi-Fi access point'},
                 'interfaces': (
                     ('meta:havable', {}),
                     ('geo:locatable', {}),
@@ -1426,12 +1426,12 @@ modeldefs = (
                 'doc': 'An SSID/MAC address combination for a wireless access point.'}),
 
             ('inet:wifi:ssid', ('str', {'strip': False}), {
-                'template': {'title': 'WiFi SSID'},
+                'template': {'title': 'Wi-Fi SSID'},
                 'interfaces': (
                     ('meta:observable', {}),
                 ),
                 'ex': 'The Vertex Project',
-                'doc': 'A WiFi service set identifier (SSID) name.'}),
+                'doc': 'A Wi-Fi service set identifier (SSID) name.'}),
 
             ('inet:email:message', ('guid', {}), {
                 'doc': 'An individual email message delivered to an inbox.'}),
@@ -2298,10 +2298,10 @@ modeldefs = (
                     'doc': 'The telephone number of the interface.'}),
 
                 ('wifi:ap:ssid', ('inet:wifi:ssid', {}), {
-                    'doc': 'The SSID of the wifi AP the interface connected to.'}),
+                    'doc': 'The SSID of the Wi-Fi AP the interface connected to.'}),
 
                 ('wifi:ap:bssid', ('inet:mac', {}), {
-                    'doc': 'The BSSID of the wifi AP the interface connected to.'}),
+                    'doc': 'The BSSID of the Wi-Fi AP the interface connected to.'}),
 
                 ('adid', ('it:adid', {}), {
                     'doc': 'An advertising ID associated with the interface.'}),

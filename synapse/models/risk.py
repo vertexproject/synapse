@@ -257,7 +257,7 @@ modeldefs = (
                 'doc': 'The actor targets based on the target node.'}),
 
             (('entity:action', 'targeted', 'risk:targetable'), {
-                'doc': 'The actor targets based on the target node.'}),
+                'doc': 'The action represents the actor targeting based on the target node.'}),
 
             (('risk:compromise', 'stole', 'meta:observable'), {
                 'doc': 'The target node was stolen or copied as a result of the compromise.'}),
