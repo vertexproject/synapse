@@ -440,7 +440,7 @@ modeldefs = (
                     'doc': 'A timeline of significant events related to the campaign.'}),
 
                 ('type', ('entity:campaign:type:taxonomy', {}), {
-                    'doc': 'The campaign type taxonomy.',
+                    'doc': 'A type taxonomy entry for the campaign.',
                     'prevnames': ('camptype',)}),
 
                 ('period', ('ival', {}), {
