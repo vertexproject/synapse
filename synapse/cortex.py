@@ -217,14 +217,14 @@ class CoreApi(s_cell.CellApi):
     def getCoreMods(self):
         return self.cell.getCoreMods()
 
-    async def getModelDict(self):
+    async def getModelDict(self, iden=None):
         '''
         Return a dictionary which describes the data model.
 
         Returns:
             (dict): A model description dictionary.
         '''
-        return await self.cell.getModelDict()
+        return await self.cell.getModelDict(iden=iden)
 
     async def getModelDefs(self):
         return await self.cell.getModelDefs()
@@ -955,6 +955,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._initCortexExtHttpApi()
 
         self.model = s_datamodel.Model(core=self)
+        self.slab.initdb('model:defs')
+        self.slab.initdb('model:dicts')
 
         await self._bumpCellVers('cortex:extmodel', (
             (1, self._migrateTaxonomyIface),
@@ -967,8 +969,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ), nexs=False)
 
         # Perform module loading
-        await self._loadCoreMods()
-        await self._loadExtModel()
+        with self.model.bulkEditModel():
+            await self._loadCoreMods()
+            await self._loadExtModel()
+
         await self._initStormCmds()
 
         # Initialize our storage and views
@@ -1032,6 +1036,55 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             logger.warning(mesg, extra=await self.getLogExtra(role=roleiden, rolename=role.name))
 
         self._initVaults()
+
+    def hasModelDef(self, iden):
+        return self.slab.has(s_common.uhex(iden), db='model:defs')
+
+    def getModelDef(self, iden):
+        byts = self.slab.get(s_common.uhex(iden), db='model:defs')
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    async def setModelDef(self, iden, mdef):
+        return await self._push('model:set', iden, mdef)
+
+    @s_nexus.Pusher.onPush('model:set')
+    async def _setModelDef(self, iden, mdef, fmt=1):
+
+        lkey = s_common.uhex(iden)
+        envl = {
+            'fmt': fmt,
+            'iden': iden,
+            'mdef': mdef,
+        }
+
+        # save the model defs and the fully constructed model dict
+        self.slab.put(lkey, s_msgpack.en(envl), db='model:defs')
+
+        self.cellinfo.set('model:iden', iden)
+
+        # only need to do this for non-incremental model edits
+        if iden != self.model.iden:
+            self.model = self._loadModelDef(iden)
+            assert iden == self.model.iden
+
+        self.slab.put(lkey, s_msgpack.en(self.model.getModelDict()), db='model:dicts')
+
+    def _loadModelDef(self, iden):
+
+        skey = s_common.uhex(iden)
+        byts = self.slab.get(skey, db='model:defs')
+        if byts is None:
+            return None
+
+        envl = s_msgpack.un(byts)
+        model = s_datamodel.Model(core=self)
+        model.addModelDefs([('all', envl['mdef'])])
+
+        return model
+
+    async def _bumpModelSave(self):
+        await self._setModelDef(self.model.iden, self.model.getModelDef())
 
     async def _storCortexHiveMigration(self):
 
@@ -1577,6 +1630,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.isactive:
             await self._checkLayerModels()
+
+        # if we have yet to save the model, lets do that...
+        if self.isactive and not self.hasModelDef(self.model.iden):
+            await self.setModelDef(self.model.iden, self.model.getModelDef())
+
+        iden = self.cellinfo.get('model:iden')
+        if iden != self.model.iden:
+            self.model = self._loadModelDef(iden)
 
         if not self.safemode:
             self.addActiveCoro(self.agenda.runloop)
@@ -3490,6 +3551,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if univ:
             await self.feedBeholder('model:univ:add', univ.pack())
 
+        await self._bumpModelSave()
+
     async def addForm(self, formname, basetype, typeopts, typeinfo):
         if not isinstance(typeopts, dict):
             mesg = 'Form type options should be a dict.'
@@ -3538,6 +3601,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if form and ftyp:
             await self.feedBeholder('model:form:add', {'form': form.pack(), 'type': ftyp.pack()})
 
+        await self._bumpModelSave()
+
     async def delForm(self, formname):
         if not formname.startswith('_'):
             mesg = 'Extended form must begin with "_"'
@@ -3564,6 +3629,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.extforms.pop(formname, None)
         await self.fire('core:extmodel:change', form=formname, act='del', type='form')
         await self.feedBeholder('model:form:del', {'form': formname})
+
+        await self._bumpModelSave()
 
     async def addType(self, typename, basetype, typeopts, typeinfo):
         if not isinstance(typeopts, dict):
@@ -3612,6 +3679,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if (_type := self.model.type(typename)) is not None:
             await self.feedBeholder('model:type:add', {'type': _type.pack()})
 
+        await self._bumpModelSave()
+
     async def delType(self, typename):
         if not typename.startswith('_'):
             mesg = 'Extended type must begin with "_".'
@@ -3632,6 +3701,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.exttypes.pop(typename, None)
         await self.fire('core:extmodel:change', name=typename, act='del', type='type')
         await self.feedBeholder('model:type:del', {'type': typename})
+
+        await self._bumpModelSave()
 
     async def addFormProp(self, form, prop, tdef, info):
         if not isinstance(tdef, tuple):
@@ -3670,6 +3741,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         prop = self.model.prop(full)
         if prop:
             await self.feedBeholder('model:prop:add', {'form': form, 'prop': prop.pack()})
+
+        await self._bumpModelSave()
 
     async def delFormProp(self, form, prop):
         self.reqExtProp(form, prop)
@@ -3807,6 +3880,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.feedBeholder('model:prop:del', {'form': form, 'prop': prop})
 
+        await self._bumpModelSave()
+
     async def delUnivProp(self, prop):
         self.reqExtUniv(prop)
         return await self._push('model:univ:del', prop)
@@ -3831,6 +3906,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.modellocks.pop(f'univ/{prop}', None)
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
         await self.feedBeholder('model:univ:del', {'prop': univname})
+
+        await self._bumpModelSave()
 
     async def addTagProp(self, name, tdef, info):
         if not isinstance(tdef, tuple):
@@ -3859,6 +3936,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if tagp:
             await self.feedBeholder('model:tagprop:add', tagp.pack())
 
+        await self._bumpModelSave()
+
     async def delTagProp(self, name):
         self.reqExtTagProp(name)
         return await self._push('model:tagprop:del', name)
@@ -3880,6 +3959,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.modellocks.pop(f'tagprop/{name}', None)
         await self.fire('core:tagprop:change', name=name, act='del')
         await self.feedBeholder('model:tagprop:del', {'tagprop': name})
+
+        await self._bumpModelSave()
 
     async def addEdge(self, edge, edgeinfo):
         if not isinstance(edgeinfo, dict):
@@ -3913,6 +3994,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change', edge=edge, act='add', type='edge')
         await self.feedBeholder('model:edge:add', {'edge': edge, 'info': edgeinfo})
 
+        await self._bumpModelSave()
+
     async def delEdge(self, edge):
         if self.extedges.get(s_common.guid(edge)) is None:
             raise s_exc.NoSuchEdge.init(edge)
@@ -3930,6 +4013,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.extedges.pop(edgeguid, None)
         await self.fire('core:extmodel:change', edge=edge, act='del', type='edge')
         await self.feedBeholder('model:edge:del', {'edge': edge})
+
+        await self._bumpModelSave()
 
     async def addNodeTag(self, user, iden, tag, valu=(None, None)):
         '''
@@ -4738,7 +4823,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         raise s_exc.NoSuchPath(mesg=f'Invalid telepath path={path}', path=path)
 
-    async def getModelDict(self):
+    async def getModelDict(self, iden=None):
+
+        if iden is not None:
+
+            skey = s_common.uhex(iden)
+            byts = self.slab.get(skey, db='model:dicts')
+
+            if byts is None:
+                mesg = f'No data model dictionary with iden {iden}.'
+                raise s_exc.NoSuchIden(mesg=mesg)
+
+            return s_msgpack.un(byts)
+
         return self.model.getModelDict()
 
     async def getModelDefs(self):
@@ -6430,13 +6527,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for ctor in list(s_modules.coremods):
             await self._preLoadCoreModule(ctor, mods, cmds, mdefs)
+
         for ctor in self.conf.get('modules'):
-            await self._preLoadCoreModule(ctor, mods, cmds, mdefs, custom=True)
+            await self._preLoadCoreModule(ctor, mods, cmds, mdefs)
 
         self.model.addDataModels(mdefs)
         [self.addStormCmd(c) for c in cmds]
 
-    async def _preLoadCoreModule(self, ctor, mods, cmds, mdefs, custom=False):
+    async def _preLoadCoreModule(self, ctor, mods, cmds, mdefs):
+
         conf = None
         # allow module entry to be (ctor, conf) tuple
         if isinstance(ctor, (list, tuple)):
@@ -6462,9 +6561,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         cmds.extend(modu.getStormCmds())
         model_defs = modu.getModelDefs()
-        if custom:
-            for _mdef, mnfo in model_defs:
-                mnfo['custom'] = True
         mdefs.extend(model_defs)
 
     async def _initCoreMods(self):
