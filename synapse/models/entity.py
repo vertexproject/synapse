@@ -218,7 +218,7 @@ modeldefs = (
                 'doc': 'An individual attending an event.'}),
 
             ('entity:conversation', ('guid', {}), {
-                'doc': 'An conversation between entities.'}),
+                'doc': 'A conversation between entities.'}),
 
             # FIXME entity:goal needs an interface ( for extensible goals without either/or props? )
             # FIXME entity:goal needs to clearly differentiate actor/action goals vs goal types
