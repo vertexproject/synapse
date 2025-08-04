@@ -1,0 +1,6 @@
+---
+desc: Moved the tool ``synapse.tools.genpkg`` to ``synapse.tools.pkgs.genpkg``. An
+  alias has been provided for backwards compatibilty.
+prs: []
+type: feat
+...
