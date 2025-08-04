@@ -139,7 +139,7 @@ modeldefs = (
         'types': (
 
             ('entity:attendable', ('ndef', {'interface': 'entity:attendable'}), {
-                'doc': 'An event where individuals may attend or paticipate.'}),
+                'doc': 'An event where individuals may attend or participate.'}),
 
             ('entity:contactable', ('ndef', {'interface': 'entity:contactable'}), {
                 'doc': 'A node which implements the entity:contactable interface.'}),
@@ -218,7 +218,7 @@ modeldefs = (
                 'doc': 'An individual attending an event.'}),
 
             ('entity:conversation', ('guid', {}), {
-                'doc': 'An conversation between entities.'}),
+                'doc': 'A conversation between entities.'}),
 
             # FIXME entity:goal needs an interface ( for extensible goals without either/or props? )
             # FIXME entity:goal needs to clearly differentiate actor/action goals vs goal types
@@ -263,7 +263,7 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
                 },
-                'doc': "Activity in pursuit of a goal."}),
+                'doc': 'Activity in pursuit of a goal.'}),
 
             ('entity:conflict', ('guid', {}), {
                 'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.'}),
@@ -430,7 +430,7 @@ modeldefs = (
                     'doc': 'Actors who participated in the campaign.'}),
 
                 ('success', ('bool', {}), {
-                    'doc': "Set to true if the campaign achieved its goals."}),
+                    'doc': 'Set to true if the campaign achieved its goals.'}),
 
                 ('sophistication', ('meta:sophistication', {}), {
                     'doc': 'The assessed sophistication of the campaign.'}),
@@ -440,7 +440,7 @@ modeldefs = (
                     'doc': 'A timeline of significant events related to the campaign.'}),
 
                 ('type', ('entity:campaign:type:taxonomy', {}), {
-                    'doc': 'The campaign type taxonomy.',
+                    'doc': 'A type taxonomy entry for the campaign.',
                     'prevnames': ('camptype',)}),
 
                 ('period', ('ival', {}), {
@@ -513,7 +513,7 @@ modeldefs = (
             )),
 
             ('entity:technique:type:taxonomy', {
-                'prevnames': ('entity:technique:taxonomy',)}, ()),
+                'prevnames': ('ou:technique:taxonomy',)}, ()),
 
         ),
     }),
