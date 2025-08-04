@@ -609,7 +609,7 @@ modeldefs = (
                 'template': {'title': 'host'},
                 'interfaces': (
                     ('phys:object', {}),
-                    ('inet:service:object', {'template': {'service:base': 'host'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A GUID that represents a host or system.'}),
 
