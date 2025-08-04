@@ -263,7 +263,7 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
                 },
-                'doc': "Activity in pursuit of a goal."}),
+                'doc': 'Activity in pursuit of a goal.'}),
 
             ('entity:conflict', ('guid', {}), {
                 'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.'}),
