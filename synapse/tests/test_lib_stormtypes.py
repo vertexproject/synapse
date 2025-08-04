@@ -7420,6 +7420,7 @@ words\tword\twrd'''
 
                 # perms
 
+                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.print($lib.pkg.vars(pkg0))', opts=aslow))
                 await self.asyncraises(s_exc.AuthDeny, core.callStorm('return($lib.pkg.vars(pkg0).baz)', opts=aslow))
                 await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.pkg.vars(pkg0).baz = cool', opts=aslow))
                 await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef', opts=aslow))
@@ -7431,6 +7432,7 @@ words\tword\twrd'''
 
                 await core.callStorm('auth.user.addrule lowuser "power-ups.pkg0.admin"')
 
+                self.stormHasNoWarnErr(await core.nodes('$lib.print($lib.pkg.vars(pkg0))', opts=aslow))
                 await core.callStorm('$lib.pkg.vars(pkg0).baz = cool', opts=aslow)
                 self.eq('cool', await core.callStorm('return($lib.pkg.vars(pkg0).baz)', opts=aslow))
                 await core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef', opts=aslow)

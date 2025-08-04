@@ -739,6 +739,10 @@ class LibPkg(Lib):
                   ),
                   'returns': {'type': 'pkg:vars', 'desc': 'A dictionary representing the package variables.', }}},
     )
+    _storm_lib_perms = (
+        {'perm': ('power-ups', '<name>', 'admin'), 'gate': 'cortex',
+         'desc': 'Controls the ability to interact with the vars for a Storm Package by name.'},
+    )
     _storm_lib_path = ('pkg',)
 
     def getObjLocals(self):
@@ -791,6 +795,7 @@ class LibPkg(Lib):
 
     async def _libPkgVars(self, name):
         name = await tostr(name)
+        self.runt.confirm(('power-ups', name, 'admin'))
         return PkgVars(self.runt, name)
 
 @registry.registerLib
