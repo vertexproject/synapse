@@ -253,7 +253,7 @@ modeldefs = (
                 'template': {'title': 'campaign'},
                 'interfaces': (
                     ('entity:action', {}),
-                    ('meta:reported', {'template': {'title': 'campaign'}}),
+                    ('meta:reported', {}),
                 ),
                 'display': {
                     'columns': (

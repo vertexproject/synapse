@@ -25,15 +25,18 @@ modeldefs = (
                 'doc': 'An Issuer Id Number (IIN).'}),
 
             ('econ:pay:card', ('guid', {}), {
+                'template': {'title': 'payment card'},
                 'interfaces': (
-                    ('econ:pay:instrument', {'template': {'instrument': 'payment card'}}),
-                    ('meta:observable', {'template': {'title': 'payment card'}}),
+                    ('meta:observable', {}),
+                    ('econ:pay:instrument', {}),
                 ),
                 'doc': 'A single payment card.'}),
 
             ('econ:bank:check', ('guid', {}), {
+                'template': {'title': 'check'},
                 'interfaces': (
-                    ('econ:pay:instrument', {'template': {'instrument': 'check'}}),
+                    ('meta:observable', {}),
+                    ('econ:pay:instrument', {}),
                 ),
                 'doc': 'A check written out to a recipient.'}),
 
@@ -151,11 +154,11 @@ modeldefs = (
             ('econ:pay:instrument', {
 
                 'doc': 'An interface for forms which may act as a payment instrument.',
-                'template': {'instrument': 'instrument'},
+                'template': {'title': 'instrument'},
 
                 'props': (
                     ('account', ('econ:fin:account', {}), {
-                        'doc': 'The account contains the funds used by the {instrument}.'}),
+                        'doc': 'The account contains the funds used by the {title}.'}),
                 ),
             }),
         ),

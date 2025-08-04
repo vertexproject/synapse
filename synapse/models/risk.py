@@ -63,10 +63,11 @@ modeldefs = (
                 'doc': 'Indicates that a node is susceptible to a vulnerability.'}),
 
             ('risk:threat', ('guid', {}), {
+                'template': {'title': 'threat'},
                 'interfaces': (
-                    ('meta:reported', {'template': {'title': 'threat'}}),
-                    ('entity:actor', {'template': {'title': 'threat'}}),
-                    ('entity:abstract', {'template': {'title': 'threat'}}),
+                    ('meta:reported', {}),
+                    ('entity:actor', {}),
+                    ('entity:abstract', {}),
                 ),
                 'doc': 'A threat cluster or subgraph of threat activity, as defined by a specific source.',
                 'display': {
