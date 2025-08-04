@@ -2,7 +2,6 @@ import bz2
 import copy
 import gzip
 import time
-
 import regex
 import types
 import base64
@@ -10,6 +9,7 @@ import pprint
 import struct
 import asyncio
 import decimal
+import hashlib
 import inspect
 import logging
 import binascii
@@ -2763,9 +2763,13 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'upload'))
 
-        await self.runt.snap.core.getAxon()
-        size, sha256 = await self.runt.snap.core.axon.put(byts)
+        sha256 = hashlib.sha256(byts).digest()
 
+        await self.runt.snap.core.getAxon()
+        if await self.runt.snap.core.axon.has(sha256):
+            return (len(byts), s_common.ehex(sha256))
+
+        size, sha256 = await self.runt.snap.core.axon.put(byts)
         return (size, s_common.ehex(sha256))
 
     @stormfunc(readonly=True)
@@ -3671,6 +3675,12 @@ class LibFeed(Lib):
                       {'name': 'data', 'type': 'prim', 'desc': 'Data to send to the ingest function.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'fromAxon', 'desc': 'Load a syn.nodes formatted export from axon.',
+         'type': {'type': 'function', '_funcname': '_fromAxon',
+                   'args': (
+                       {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 of the file stored in the axon.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The number of nodes loaded.', }}},
     )
     _storm_lib_path = ('feed',)
 
@@ -7734,7 +7744,23 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def _methLayerGet(self, name, defv=None):
-        return self.valu.get(name, defv)
+        match name:
+            case 'pushs':
+                pushs = copy.deepcopy(self.valu.get('pushs', {}))
+                for iden, pdef in pushs.items():
+                    gvar = f'push:{iden}'
+                    pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, 0)
+                return pushs
+
+            case 'pulls':
+                pulls = copy.deepcopy(self.valu.get('pulls', {}))
+                for iden, pdef in pulls.items():
+                    gvar = f'pull:{iden}'
+                    pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, 0)
+                return pulls
+
+            case _:
+                return self.valu.get(name, defv)
 
     async def _methLayerSet(self, name, valu):
         name = await tostr(name)

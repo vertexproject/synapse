@@ -481,6 +481,32 @@ Example:
 
         opts = {'limit': 100}
 
+links
+-----
+
+If this is set to True, the packed nodes will each contain a ``links`` key, which contains an ordered list of node iden and path information tuples that were used in the
+pivot or edge walk operations to get to the node.
+
+Example:
+
+.. code:: python3
+
+   opts = {'links': True}
+
+   # A Storm node message with a node links property added to it, from the query media:news -> file:bytes -(refs)> *
+   ('node',
+    (('it:dev:str', 'foobar'),
+     {'iden': 'ee45b493c07663b3106d1423ad7f67317682779145fe2bebdeb05aa56f277346',
+      'links': [('b0fb12b120e1077f1ee47eced0460626a8fc597e044984d17fe16d55d9e5bdbb',
+                 {'prop': 'file', 'type': 'prop'}),
+                ('7c4aaec3db11fcea2114a930b76f15df8bdd9f34d9d37e6794d79b97613782f6',
+                 {'type': 'edge', 'verb': 'refs'})],
+      'nodedata': {},
+      'path': {},
+      'props': {'.created': 1753300994528, 'norm': 'foobar'},
+      'tagprops': {},
+      'tags': {}}))
+
 mode
 ----
 
