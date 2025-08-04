@@ -513,7 +513,7 @@ modeldefs = (
             )),
 
             ('entity:technique:type:taxonomy', {
-                'prevnames': ('entity:technique:taxonomy',)}, ()),
+                'prevnames': ('ou:technique:taxonomy',)}, ()),
 
         ),
     }),
