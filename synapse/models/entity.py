@@ -139,7 +139,7 @@ modeldefs = (
         'types': (
 
             ('entity:attendable', ('ndef', {'interface': 'entity:attendable'}), {
-                'doc': 'An event where individuals may attend or paticipate.'}),
+                'doc': 'An event where individuals may attend or participate.'}),
 
             ('entity:contactable', ('ndef', {'interface': 'entity:contactable'}), {
                 'doc': 'A node which implements the entity:contactable interface.'}),
