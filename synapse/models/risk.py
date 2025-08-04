@@ -117,8 +117,9 @@ modeldefs = (
                 'doc': 'A taxonomy of mitigation types.'}),
 
             ('risk:mitigation', ('guid', {}), {
+                'template': {'title': 'mitigation'},
                 'interfaces': (
-                    ('meta:reported', {'template': {'title': 'mitigation'}}),
+                    ('meta:reported', {}),
                 ),
                 'display': {
                     'columns': (
@@ -156,9 +157,10 @@ modeldefs = (
                 'doc': 'A taxonomy of availability status values.'}),
 
             ('risk:tool:software', ('guid', {}), {
+                'template': {'title': 'tool'},
                 'interfaces': (
                     ('meta:usable', {}),
-                    ('meta:reported', {'template': {'title': 'tool'}}),
+                    ('meta:reported', {}),
                 ),
                 'display': {
                     'columns': (
@@ -217,8 +219,9 @@ modeldefs = (
                 'doc': 'An outage type taxonomy.'}),
 
             ('risk:outage', ('guid', {}), {
+                'template': {'title': 'outage'},
                 'interfaces': (
-                    ('meta:reported', {'template': {'title': 'outage'}}),
+                    ('meta:reported', {}),
                 ),
                 'display': {
                     'columns': (
