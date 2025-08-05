@@ -7407,6 +7407,7 @@ words\tword\twrd'''
 
                 lowuser = await core.addUser('lowuser')
                 aslow = {'user': lowuser.get('iden')}
+                await core.callStorm('auth.user.addrule lowuser node')
 
                 # basic crud
 
@@ -7454,6 +7455,12 @@ words\tword\twrd'''
                     for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
                     return($kvs)
                 ''', opts=aslow))
+                await self.asyncraises(s_exc.AuthDeny, core.callStorm('''
+                    [ test:str=foo ]
+                    $kvs = ([])
+                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
+                    fini { return($kvs) }
+                ''', opts=aslow))
 
                 await core.callStorm('auth.user.addrule lowuser "power-ups.pkg0.admin"')
 
@@ -7465,6 +7472,12 @@ words\tword\twrd'''
                     $kvs = ([])
                     for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
                     return($kvs)
+                ''', opts=aslow))
+                self.eq([('bar', 'cat')], await core.callStorm('''
+                    [ test:str=foo ]
+                    $kvs = ([])
+                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
+                    fini { return($kvs) }
                 ''', opts=aslow))
 
             async with self.getTestCore(dirn=dirn) as core:

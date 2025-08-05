@@ -795,7 +795,7 @@ class LibPkg(Lib):
 
     async def _libPkgVars(self, name):
         name = await tostr(name)
-        self.runt.confirm(('power-ups', name, 'admin'))
+        confirm(('power-ups', name, 'admin'))
         return PkgVars(self.runt, name)
 
 @registry.registerLib
@@ -6050,7 +6050,7 @@ class PkgVars(Prim):
         self.runt = runt
 
     def _reqPkgAdmin(self):
-        self.runt.confirm(('power-ups', self.valu, 'admin'))
+        confirm(('power-ups', self.valu, 'admin'))
 
     @stormfunc(readonly=True)
     async def deref(self, name):
