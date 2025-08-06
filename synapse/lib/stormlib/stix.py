@@ -41,14 +41,14 @@ _DefaultConfig = {
 
     'forms': {
 
-        'ou:campaign': {
+        'entity:campaign': {
             'default': 'campaign',
             'stix': {
                 'campaign': {
                     'props': {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'description': '+:desc return(:desc)',
-                        'objective': '+:goal :goal -> ou:goal +:name return(:name)',
+                        'objective': '+:goal :goal -> entity:goal +:name return(:name)',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                     },
@@ -89,15 +89,15 @@ _DefaultConfig = {
 #                        'last_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.1))',
                         'goals': '''
                             init { $goals = () }
-                            -> ou:campaign:actor -> ou:goal | uniq | +:name $goals.append(:name)
+                            -> entity:campaign:actor -> entity:goal | uniq | +:name $goals.append(:name)
                             fini { if $goals { return($goals) } }
                         ''',
                     },
                     'rels': (
                         ('attributed-to', 'identity', ''),
                         ('located-at', 'location', '-> geo:place'),
-                        ('targets', 'identity', '-> ou:campaign -> risk:attack -(targets)> ou:org'),
-                        ('targets', 'vulnerability', '-> ou:campaign -> risk:attack -(used)> risk:vuln'),
+                        ('targets', 'identity', '-> entity:campaign -> risk:attack -(targets)> ou:org'),
+                        ('targets', 'vulnerability', '-> entity:campaign -> risk:attack -(used)> risk:vuln'),
                         # ('impersonates', 'identity', ''),
                     ),
                 },
@@ -388,7 +388,7 @@ _DefaultConfig = {
             }
         },
 
-        'ou:technique': {
+        'entity:technique': {
             'default': 'attack-pattern',
             'stix': {
                 'attack-pattern': {
@@ -742,7 +742,7 @@ stixingest = {
         },
         'campaign': {
             'storm': '''
-                [ ou:campaign=(stix, campaign, $object.id)
+                [ entity:campaign=(stix, campaign, $object.id)
                     :name?=$object.name
                     :desc?=$object.description
                     :period?=$object.last_seen
@@ -1073,17 +1073,17 @@ class LibStixExport(s_stormtypes.Lib):
                         },
                     },
 
-                For example, the default config includes the following entry to map ou:campaign nodes to stix campaigns::
+                For example, the default config includes the following entry to map entity:campaign nodes to stix campaigns::
 
                     { "forms": {
-                        "ou:campaign": {
+                        "entity:campaign": {
                             "default": "campaign",
                             "stix": {
                                 "campaign": {
                                     "props": {
                                         "name": "{+:name return(:name)} return($node.repr())",
                                         "description": "+:desc return(:desc)",
-                                        "objective": "+:goal :goal -> ou:goal +:name return(:name)",
+                                        "objective": "+:goal :goal -> entity:goal +:name return(:name)",
                                         "created": "return($lib.stix.export.timestamp(.created))",
                                         "modified": "return($lib.stix.export.timestamp(.created))",
                                     },

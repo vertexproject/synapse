@@ -2360,7 +2360,7 @@ class StormTest(s_t_utils.SynTest):
 
             # $lib.axon.urlfile makes redirect nodes for the chain, starting from
             # the original request URL to the final URL
-            q = 'inet:url=$url -> inet:urlredir | tree { :dst -> inet:urlredir:src }'
+            q = 'inet:url=$url -> inet:url:redir | tree { :target -> inet:url:redir:source }'
             nodes = await core.nodes(q, opts={'vars': {'url': url}})
             self.len(2, nodes)
 

@@ -134,21 +134,21 @@ modeldefs = (
 
             ('tel:mob:imei', 'synapse.models.telco.Imei', {}, {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'IMEI'}}),
+                    ('meta:observable', {'template': {'title': 'IMEI'}}),
                 ),
                 'ex': '490154203237518',
                 'doc': 'An International Mobile Equipment Id.'}),
 
             ('tel:mob:imsi', 'synapse.models.telco.Imsi', {}, {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'IMSI'}}),
+                    ('meta:observable', {'template': {'title': 'IMSI'}}),
                 ),
                 'ex': '310150123456789',
                 'doc': 'An International Mobile Subscriber Id.'}),
 
             ('tel:phone', 'synapse.models.telco.Phone', {}, {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'phone number'}}),
+                    ('meta:observable', {'template': {'title': 'phone number'}}),
                 ),
                 'ex': '+15558675309',
                 'doc': 'A phone number.'}),
@@ -161,7 +161,7 @@ modeldefs = (
                 'interfaces': (
                     ('lang:transcript', {}),
                 ),
-                'doc': 'A guid for a telephone call record.'}),
+                'doc': 'A telephone call.'}),
 
             ('tel:phone:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -175,21 +175,21 @@ modeldefs = (
 
             ('tel:mob:imid', ('comp', {'fields': (('imei', 'tel:mob:imei'), ('imsi', 'tel:mob:imsi'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'IMEI and IMSI'}}),
+                    ('meta:observable', {'template': {'title': 'IMEI and IMSI'}}),
                 ),
                 'ex': '(490154203237518, 310150123456789)',
                 'doc': 'Fused knowledge of an IMEI/IMSI used together.'}),
 
             ('tel:mob:imsiphone', ('comp', {'fields': (('imsi', 'tel:mob:imsi'), ('phone', 'tel:phone'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'IMSI and phone number'}}),
+                    ('meta:observable', {'template': {'title': 'IMSI and phone number'}}),
                 ),
                 'ex': '(310150123456789, "+7(495) 124-59-83")',
                 'doc': 'Fused knowledge of an IMSI assigned phone number.'}),
 
             ('tel:mob:telem', ('guid', {}), {
                 'interfaces': (
-                    ('geo:locatable', {'template': {'geo:locatable': 'telemetry sample'}}),
+                    ('geo:locatable', {'template': {'title': 'telemetry sample'}}),
                 ),
                 'doc': 'A single mobile telemetry measurement.'}),
 
@@ -216,7 +216,7 @@ modeldefs = (
 
             ('tel:mob:cell', ('guid', {}), {
                 'interfaces': (
-                    ('geo:locatable', {'template': {'geo:locatable': 'cell tower'}}),
+                    ('geo:locatable', {'template': {'title': 'cell tower'}}),
                 ),
                 'doc': 'A mobile cell site which a phone may connect to.'}),
 
@@ -244,20 +244,25 @@ modeldefs = (
 
             ('tel:call', {}, (
 
-                ('src', ('tel:phone', {}), {
-                    'doc': 'The source phone number for a call.'}),
+                ('caller', ('entity:actor', {}), {
+                    'doc': 'The entity which placed the call.'}),
 
-                ('dst', ('tel:phone', {}), {
-                    'doc': 'The destination phone number for a call.'}),
+                ('caller:phone', ('tel:phone', {}), {
+                    'prevnames': ('src',),
+                    'doc': 'The phone number the caller placed the call from.'}),
+
+                ('recipient', ('entity:actor', {}), {
+                    'doc': 'The entity which received the call.'}),
+
+                ('recipient:phone', ('tel:phone', {}), {
+                    'prevnames': ('dst',),
+                    'doc': 'The phone number the caller placed the call to.'}),
 
                 ('period', ('ival', {}), {
                     'doc': 'The time period when the call took place.'}),
 
                 ('connected', ('bool', {}), {
                     'doc': 'Indicator of whether the call was connected.'}),
-
-                ('recording', ('file:bytes', {}), {
-                    'doc': 'An audio file which recorded the call.'}),
             )),
             ('tel:mob:tac', {}, (
 

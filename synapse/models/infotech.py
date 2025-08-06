@@ -601,23 +601,15 @@ modeldefs = (
 
             ('it:hostname', ('str', {'strip': True, 'lower': True}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'hostname'}}),
+                    ('meta:observable', {'template': {'title': 'hostname'}}),
                 ),
                 'doc': 'The name of a host or system.'}),
 
             ('it:host', ('guid', {}), {
+                'template': {'title': 'host'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'host'}}),
-
-                    ('phys:object', {
-                        'template': {'phys:object': 'physical host'}}),
-
-                    ('meta:havable', {
-                        'template': {'havable': 'host'}}),
-
-                    ('geo:locatable', {
-                        'template': {'geo:locatable': 'host'}}),
+                    ('phys:object', {}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A GUID that represents a host or system.'}),
 
@@ -656,7 +648,7 @@ modeldefs = (
 
             ('it:host:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'host at this URL'}}),
+                    ('meta:observable', {'template': {'title': 'host at this URL'}}),
                 ),
                 'doc': 'A URL hosted on or served by a specific host.'}),
 
@@ -693,7 +685,7 @@ modeldefs = (
 
             ('it:dev:str', ('str', {'strip': False}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'string'}}),
+                    ('meta:observable', {'template': {'title': 'string'}}),
                 ),
                 'doc': 'A developer selected string.'}),
 
@@ -776,7 +768,8 @@ modeldefs = (
             ('it:software', ('guid', {}), {
                 'prevnames': ('it:prod:soft', 'it:prod:softver'),
                 'interfaces': (
-                    ('doc:authorable', {'template': {'authorable': 'software'}}),
+                    ('meta:usable', {}),
+                    ('doc:authorable', {'template': {'title': 'software'}}),
                 ),
                 'doc': 'A software product.'}),
 
@@ -787,20 +780,22 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of software types.'}),
 
-            ('it:prod:softid', ('guid', {}), {
+            ('it:softid', ('guid', {}), {
+                'template': {'title': 'software identifier'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'software identifier'}}),
+                    ('meta:observable', {}),
                 ),
                 'doc': 'An identifier issued to a given host by a specific software application.'}),
 
             ('it:hardware', ('guid', {}), {
-                'prevnames': ('it:hardware',),
+                'prevnames': ('it:prod:hardware',),
                 'doc': 'A specification for a piece of IT hardware.'}),
 
             ('it:host:component', ('guid', {}), {
                 'doc': 'Hardware components which are part of a host.'}),
 
             ('it:hardware:type:taxonomy', ('taxonomy', {}), {
+                'prevnames': ('it:prod:hardwaretype',),
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
@@ -809,7 +804,7 @@ modeldefs = (
             ('it:adid', ('meta:id', {}), {
                 'interfaces': (
                     ('entity:identifier', {}),
-                    ('meta:observable', {'template': {'observable': 'advertising ID'}}),
+                    ('meta:observable', {'template': {'title': 'advertising ID'}}),
                 ),
                 'doc': 'An advertising identification string.'}),
 
@@ -1088,7 +1083,7 @@ modeldefs = (
         ),
         'edges': (
 
-            (('it:software', 'uses', 'ou:technique'), {
+            (('it:software', 'uses', 'entity:technique'), {
                 'doc': 'The software uses the technique.'}),
 
             (('it:software', 'uses', 'risk:vuln'), {
@@ -1115,7 +1110,7 @@ modeldefs = (
             (('it:app:snort:rule', 'detects', 'risk:tool:software'), {
                 'doc': 'The snort rule detects use of the tool.'}),
 
-            (('it:app:snort:rule', 'detects', 'ou:technique'), {
+            (('it:app:snort:rule', 'detects', 'entity:technique'), {
                 'doc': 'The snort rule detects use of the technique.'}),
 
             (('it:app:yara:rule', 'detects', 'it:software'), {
@@ -1124,7 +1119,7 @@ modeldefs = (
             (('it:app:yara:rule', 'detects', 'risk:tool:software'), {
                 'doc': 'The YARA rule detects the tool.'}),
 
-            (('it:app:yara:rule', 'detects', 'ou:technique'), {
+            (('it:app:yara:rule', 'detects', 'entity:technique'), {
                 'doc': 'The YARA rule detects the technique.'}),
 
             (('it:app:yara:rule', 'detects', 'risk:vuln'), {
@@ -1859,7 +1854,7 @@ modeldefs = (
                     'doc': 'The it:host which has this component installed.'}),
             )),
 
-            ('it:prod:softid', {}, (
+            ('it:softid', {}, (
 
                 ('id', ('meta:id', {}), {
                     'doc': 'The ID issued by the software to the host.'}),

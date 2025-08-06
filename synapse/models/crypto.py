@@ -17,7 +17,7 @@ modeldefs = (
                 'doc': 'An individual crypto currency transaction recorded on the blockchain.'}),
 
             ('crypto:currency:block', ('comp', {'fields': (
-                                                    ('coin', 'crypto:currency:coin'),
+                                                    ('coin', 'econ:currency'),
                                                     ('offset', 'int'),
                                                ), 'sepr': '/'}), {
                 'doc': 'An individual crypto currency block record on the blockchain.'}),
@@ -84,15 +84,11 @@ modeldefs = (
             ('crypto:smart:token', ('comp', {'fields': (('contract', 'crypto:smart:contract'), ('tokenid', 'hugenum'))}), {
                 'doc': 'A token managed by a smart contract.'}),
 
-            ('crypto:currency:coin', ('str', {'lower': True}), {
-                'ex': 'btc',
-                'doc': 'An individual crypto currency type.'}),
-
-            ('crypto:currency:address', ('comp', {'fields': (('coin', 'crypto:currency:coin'), ('iden', 'str')), 'sepr': '/'}), {
+            ('crypto:currency:address', ('comp', {'fields': (('coin', 'econ:currency'), ('iden', 'str')), 'sepr': '/'}), {
 
                 'interfaces': (
                     ('econ:pay:instrument', {'template': {'instrument': 'crypto currency address'}}),
-                    ('meta:observable', {'template': {'observable': 'crypto currency address'}}),
+                    ('meta:observable', {'template': {'title': 'crypto currency address'}}),
                 ),
                 'ex': 'btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
                 'doc': 'An individual crypto currency address.'}),
@@ -102,7 +98,7 @@ modeldefs = (
                                                     ('coinaddr', 'crypto:currency:address')
                                                 )}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'crypto currency address and Internet client'}}),
+                    ('meta:observable', {'template': {'title': 'crypto currency address and Internet client'}}),
                 ),
                 'ex': '(1.2.3.4, (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2))',
                 'doc': 'A fused node representing a crypto currency address used by an Internet client.'}),
@@ -120,7 +116,7 @@ modeldefs = (
                 'ex': ex_md5,
                 'interfaces': (
                     ('crypto:hash', {}),
-                    ('meta:observable', {'template': {'observable': 'MD5'}}),
+                    ('meta:observable', {'template': {'title': 'MD5'}}),
                 ),
                 'doc': 'A hex encoded MD5 hash.'}),
 
@@ -128,7 +124,7 @@ modeldefs = (
                 'ex': ex_sha1,
                 'interfaces': (
                     ('crypto:hash', {}),
-                    ('meta:observable', {'template': {'observable': 'SHA1'}}),
+                    ('meta:observable', {'template': {'title': 'SHA1'}}),
                 ),
                 'doc': 'A hex encoded SHA1 hash.'}),
 
@@ -136,7 +132,7 @@ modeldefs = (
                 'ex': ex_sha256,
                 'interfaces': (
                     ('crypto:hash', {}),
-                    ('meta:observable', {'template': {'observable': 'SHA256'}}),
+                    ('meta:observable', {'template': {'title': 'SHA256'}}),
                 ),
                 'doc': 'A hex encoded SHA256 hash.'}),
 
@@ -144,7 +140,7 @@ modeldefs = (
                 'ex': ex_sha384,
                 'interfaces': (
                     ('crypto:hash', {}),
-                    ('meta:observable', {'template': {'observable': 'SHA384'}}),
+                    ('meta:observable', {'template': {'title': 'SHA384'}}),
                 ),
                 'doc': 'A hex encoded SHA384 hash.'}),
 
@@ -152,14 +148,14 @@ modeldefs = (
                 'ex': ex_sha512,
                 'interfaces': (
                     ('crypto:hash', {}),
-                    ('meta:observable', {'template': {'observable': 'SHA512'}}),
+                    ('meta:observable', {'template': {'title': 'SHA512'}}),
                 ),
                 'doc': 'A hex encoded SHA512 hash.'}),
 
             ('crypto:salthash', ('guid', {}), {
                 'interfaces': (
                     ('auth:credential', {}),
-                    ('meta:observable', {'template': {'observable': 'salted hash'}}),
+                    ('meta:observable', {'template': {'title': 'salted hash'}}),
                 ),
                 'doc': 'A salted hash computed for a value.'}),
 
@@ -170,7 +166,7 @@ modeldefs = (
             ('crypto:key:rsa', ('guid', {}), {
                 'interfaces': (
                     ('crypto:key', {}),
-                    ('meta:observable', {'template': {'observable': 'RSA key pair'}}),
+                    ('meta:observable', {'template': {'title': 'RSA key pair'}}),
                 ),
                 'doc': 'An RSA public/private key pair.'}),
 
@@ -180,14 +176,14 @@ modeldefs = (
             ('crypto:key:dsa', ('guid', {}), {
                 'interfaces': (
                     ('crypto:key', {}),
-                    ('meta:observable', {'template': {'observable': 'DSA key pair'}}),
+                    ('meta:observable', {'template': {'title': 'DSA key pair'}}),
                 ),
                 'doc': 'A DSA public/private key pair.'}),
 
             ('crypto:key:secret', ('guid', {}), {
                 'interfaces': (
                     ('crypto:key', {}),
-                    ('meta:observable', {'template': {'observable': 'secret key'}}),
+                    ('meta:observable', {'template': {'title': 'secret key'}}),
                 ),
                 'doc': 'A secret key with an optional initialiation vector.'}),
 
@@ -266,7 +262,7 @@ modeldefs = (
                     'doc': 'An analyst specified description of the transaction.'}),
                 ('block', ('crypto:currency:block', {}), {
                     'doc': 'The block which records the transaction.'}),
-                ('block:coin', ('crypto:currency:coin', {}), {
+                ('block:coin', ('econ:currency', {}), {
                     'doc': 'The coin/blockchain of the block which records this transaction.'}),
                 ('block:offset', ('int', {}), {
                     'doc': 'The offset of the block which records this transaction.'}),
@@ -304,7 +300,7 @@ modeldefs = (
             )),
 
             ('crypto:currency:block', {}, (
-                ('coin', ('crypto:currency:coin', {}), {
+                ('coin', ('econ:currency', {}), {
                     'doc': 'The coin/blockchain this block resides on.', 'ro': True, }),
                 ('offset', ('int', {}), {
                     'doc': 'The index of this block.', 'ro': True, }),
@@ -358,11 +354,6 @@ modeldefs = (
 
                 ('nft:meta:image', ('inet:url', {}), {
                     'doc': 'The image URL from the NFT metadata.'}),
-            )),
-            ('crypto:currency:coin', {}, (
-
-                ('name', ('meta:name', {}), {
-                    'doc': 'The full name of the crypto coin.'}),
             )),
 
             ('crypto:smart:effect:transfertoken', {}, (
@@ -458,7 +449,7 @@ modeldefs = (
 
             ('crypto:currency:address', {}, (
 
-                ('coin', ('crypto:currency:coin', {}), {
+                ('coin', ('econ:currency', {}), {
                     'doc': 'The crypto coin to which the address belongs.', 'ro': True, }),
 
                 ('seed', ('crypto:key', {}), {

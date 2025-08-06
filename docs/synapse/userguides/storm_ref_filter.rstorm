@@ -650,7 +650,7 @@ The extended comparator ``~=`` is used to filter nodes based on PCRE-compatible 
 
 *Filter the current working set to only include taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface) whose description (:desc property) includes the string 'credential':*
 
-.. storm-pre:: [ risk:attack=* (risk:attack:type:taxonomy=foo.bar :desc='credential phishing') (ou:goal:type:taxonomy=baz.faz :desc='obtain admin credentials') (belief:system:type:taxonomy=hurr.derp :desc='hand out uncs like candy') ] +meta:taxonomy:desc ~= credential
+.. storm-pre:: [ risk:attack=* (risk:attack:type:taxonomy=foo.bar :desc='credential phishing') (entity:goal:type:taxonomy=baz.faz :desc='obtain admin credentials') (belief:system:type:taxonomy=hurr.derp :desc='hand out uncs like candy') ] +meta:taxonomy:desc ~= credential
 
 ::
   

@@ -1944,14 +1944,12 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_urlredir(self):
         async with self.getTestCore() as core:
             valu = ('https://vertex.link/idk', 'https://cool.vertex.newp:443/something_else')
-            nodes = await core.nodes('[inet:urlredir=$valu]', opts={'vars': {'valu': valu}})
+            nodes = await core.nodes('[inet:url:redir=$valu]', opts={'vars': {'valu': valu}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:urlredir', valu))
-            self.eq(node.get('src'), 'https://vertex.link/idk')
-            self.eq(node.get('src:fqdn'), 'vertex.link')
-            self.eq(node.get('dst'), 'https://cool.vertex.newp:443/something_else')
-            self.eq(node.get('dst:fqdn'), 'cool.vertex.newp')
+            self.eq(node.ndef, ('inet:url:redir', valu))
+            self.eq(node.get('source'), 'https://vertex.link/idk')
+            self.eq(node.get('target'), 'https://cool.vertex.newp:443/something_else')
             self.len(1, await core.nodes('inet:fqdn=vertex.link'))
             self.len(1, await core.nodes('inet:fqdn=cool.vertex.newp'))
 
