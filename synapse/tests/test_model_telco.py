@@ -222,6 +222,6 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('src'), '17035551212')
             self.eq(nodes[0].get('dst'), '1234567890')
-            self.eq(nodes[0].get('period'), (978307200000000, 978307200000001))
+            self.eq(nodes[0].get('period'), (978307200000000, 978307200000001, 1))
             self.eq(nodes[0].get('connected'), True)
             self.len(1, await core.nodes('tel:call :recording -> file:bytes'))

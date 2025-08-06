@@ -1436,8 +1436,10 @@ class StorTypeTime(StorTypeInt):
     def __init__(self, layr):
         StorTypeInt.__init__(self, layr, STOR_TYPE_TIME, 8, True)
         self.futsize = 0x7fffffffffffffff
-        self.futbyts = (self.futsize + self.offset).to_bytes(8, 'big')
-        self.maxbyts = (self.futsize + self.offset - 1).to_bytes(8, 'big')
+        self.unksize = 0x7ffffffffffffffe
+        self.unkbyts = (self.futsize + self.offset).to_bytes(8, 'big')
+        self.futbyts = (self.unksize + self.offset).to_bytes(8, 'big')
+        self.maxbyts = (self.unksize + self.offset - 1).to_bytes(8, 'big')
         self.lifters.update({
             '@=': self._liftAtIval,
         })
@@ -1459,15 +1461,26 @@ class StorTypeIval(StorType):
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_IVAL)
         self.timetype = StorTypeTime(layr)
-        self.maxdura = (2 ** (8 * 8) - 1).to_bytes(8, 'big')
+
+        self.unkdura = 0xffffffffffffffff
+        self.futdura = 0xfffffffffffffffe
+        self.unkdurabyts = self.unkdura.to_bytes(8, 'big')
+        self.futdurabyts = self.futdura.to_bytes(8, 'big')
+        self.maxdurabyts = (0xfffffffffffffffd).to_bytes(8, 'big')
+
         self.lifters.update({
             '=': self._liftIvalEq,
             '@=': self._liftIvalAt,
             'min@=': self._liftIvalPartAt,
             'max@=': self._liftIvalPartAt,
+            'duration=': self._liftIvalDurationEq,
+            'duration<': self._liftIvalDurationLt,
+            'duration>': self._liftIvalDurationGt,
+            'duration<=': self._liftIvalDurationLe,
+            'duration>=': self._liftIvalDurationGe,
         })
 
-        for part in ('min', 'max', 'duration'):
+        for part in ('min', 'max'):
             self.lifters.update({
                 f'{part}=': self._liftIvalPartEq,
                 f'{part}<': self._liftIvalPartLt,
@@ -1601,11 +1614,98 @@ class StorTypeIval(StorType):
         for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
             yield item
 
+    async def _liftIvalDurationEq(self, liftby, valu, reverse=False):
+        norm, futstart = valu
+        duraindx = norm.to_bytes(8, 'big')
+
+        if futstart is not None:
+            futindx = self.futdurabyts + (self.unkdura - futstart).to_bytes(8, 'big')
+            if reverse:
+                indxs = (futindx, duraindx)
+            else:
+                indxs = (duraindx, futindx)
+        else:
+            indxs = (duraindx,)
+
+        for indx in indxs:
+            for item in liftby.keyNidsByPref(indx, reverse=reverse):
+                yield item
+
+    async def _liftIvalDurationGt(self, liftby, valu, reverse=False):
+        norm, futstart = valu
+        async for item in self._liftIvalDurationGe(liftby, (norm + 1, futstart - 1), reverse=reverse):
+            yield item
+
+    async def _liftIvalDurationGe(self, liftby, valu, reverse=False):
+        norm, futstart = valu
+        duraindx = (norm.to_bytes(8, 'big'), self.maxdurabyts)
+
+        if futstart is not None:
+            strtindx = (self.unkdura - (futstart + self.timetype.offset)).to_bytes(8, 'big')
+            futindx = (self.futdurabyts + strtindx, self.futdurabyts + self.unkdurabyts)
+            if reverse:
+                indxs = (futindx, duraindx)
+            else:
+                indxs = (duraindx, futindx)
+        else:
+            indxs = (duraindx,)
+
+        for (pkeymin, pkeymax) in indxs:
+            for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+                yield item
+
+    async def _liftIvalDurationLt(self, liftby, valu, reverse=False):
+        norm, futstart = valu
+        async for item in self._liftIvalDurationLe(liftby, (norm - 1, futstart + 1), reverse=reverse):
+            yield item
+
+    async def _liftIvalDurationLe(self, liftby, valu, reverse=False):
+        norm, futstart = valu
+        duraindx = (self.timetype.zerobyts, norm.to_bytes(8, 'big'))
+
+        if futstart is not None:
+            strtindx = (self.unkdura - (futstart + self.timetype.offset)).to_bytes(8, 'big')
+            futindx = (self.futdurabyts + self.timetype.zerobyts, self.futdurabyts + strtindx)
+            if reverse:
+                indxs = (futindx, duraindx)
+            else:
+                indxs = (duraindx, futindx)
+        else:
+            indxs = (duraindx,)
+
+        for (pkeymin, pkeymax) in indxs:
+            for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+                yield item
+
+    async def _liftIvalDurationLt(self, liftby, valu, reverse=False):
+        norm, futstart = valu
+        async for item in self._liftIvalDurationLe(liftby, (norm - 1, futstart + 1), reverse=reverse):
+            yield item
+
     def indx(self, valu):
         return (self.timetype.getIntIndx(valu[0]) + self.timetype.getIntIndx(valu[1]),)
 
     def decodeIndx(self, bytz):
-        return (self.timetype.decodeIndx(bytz[:8]), self.timetype.decodeIndx(bytz[8:]))
+        minv = self.timetype.decodeIndx(bytz[:8])
+        maxv = self.timetype.decodeIndx(bytz[8:16])
+
+        if minv == self.timetype.unksize or maxv == self.timetype.unksize:
+            return (minv, maxv, self.unkdura)
+
+        elif maxv == self.timetype.futsize:
+            return (minv, maxv, self.futdura)
+
+        return (minv, maxv, maxv - minv)
+
+    def getDurationIndx(self, valu):
+
+        if (dura := valu[2]) == self.unkdura:
+            return self.unkdurabyts
+
+        elif dura != self.futdura:
+            return dura.to_bytes(8, 'big')
+
+        return self.futdurabyts + (self.unkdura - (valu[0] + self.timetype.offset)).to_bytes(8, 'big')
 
     def getVirtIndxVals(self, nid, form, prop, virts):
         return ()
@@ -1977,7 +2077,8 @@ class Layer(s_nexus.Pusher):
         ]
 
         self.timetype = self.stortypes[STOR_TYPE_TIME]
-        self.ivaltimetype = self.stortypes[STOR_TYPE_IVAL].timetype
+        self.ivaltype = self.stortypes[STOR_TYPE_IVAL]
+        self.ivaltimetype = self.ivaltype.timetype
 
         self.createdabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'created')
         self.updatedabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'updated')
@@ -2254,7 +2355,7 @@ class Layer(s_nexus.Pusher):
             if autofix == 'node':
                 sode = self._genStorNode(nid)
                 sode.setdefault('form', form)
-                sode['tags'][tag] = (None, None)
+                sode['tags'][tag] = (None, None, None)
                 self.dirty[nid] = sode
             elif autofix == 'index':
                 self.layrslab.delete(lkey, nid, db=self.indxdb)
@@ -3021,12 +3122,12 @@ class Layer(s_nexus.Pusher):
 
             if reverse:
                 scan = self.layrslab.scanByRangeBack
-                pkeymin = self.ivaltimetype.fullbyts
-                pkeymax = self.ivaltimetype.getIntIndx(0)
+                pkeymin = self.ivaltimetype.fullbyts * 2
+                pkeymax = self.ivaltimetype.zerobyts
             else:
                 scan = self.layrslab.scanByRange
-                pkeymin = self.ivaltimetype.getIntIndx(0)
-                pkeymax = self.ivaltimetype.fullbyts
+                pkeymin = self.ivaltimetype.zerobyts
+                pkeymax = self.ivaltimetype.fullbyts * 2
 
             for lkey, nid in scan(abrv + pkeymin, abrv + pkeymax, db=self.indxdb):
                 yield lkey, nid, self.genStorNodeRef(nid)
@@ -3811,18 +3912,12 @@ class Layer(s_nexus.Pusher):
                 self.indxcounts.inc(abrv)
 
             if stortype == STOR_TYPE_IVAL:
-                if valu[1] == self.ivaltimetype.futsize:
-                    dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-                else:
-                    dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
-
+                dura = self.ivaltype.getDurationIndx(valu)
                 duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, None)
                 kvpairs.append((duraabrv + dura, nid))
-                self.indxcounts.inc(duraabrv)
 
-                indx = indx[8:]
                 maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, None)
-                kvpairs.append((maxabrv + indx, nid))
+                kvpairs.append((maxabrv + indx[8:], nid))
 
         if virts is not None:
             if stortype & 0x8000:
@@ -3902,14 +3997,9 @@ class Layer(s_nexus.Pusher):
                 self.indxcounts.inc(abrv, -1)
 
             if stortype == STOR_TYPE_IVAL:
-                if valu[1] == self.ivaltimetype.futsize:
-                    dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-                else:
-                    dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
-
+                dura = self.ivaltype.getDurationIndx(valu)
                 duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, None)
                 self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
-                self.indxcounts.inc(duraabrv, -1)
 
                 indx = indx[8:]
                 maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, None)
@@ -4016,20 +4106,13 @@ class Layer(s_nexus.Pusher):
                         self.layrslab.delete(self.ndefabrv + oldi[8:], nid + abrv, db=self.indxdb)
 
                 if oldt == STOR_TYPE_IVAL:
-                    if oldv[1] == self.ivaltimetype.futsize:
-                        dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-                    else:
-                        dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
-
+                    dura = self.ivaltype.getDurationIndx(oldv)
                     duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                     self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
-                    self.indxcounts.inc(duraabrv, -1)
 
                     if not oldv[1] == valu[1]:
-                        oldi = oldi[8:]
                         maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, prop)
-
-                        self.layrslab.delete(maxabrv + oldi, nid, db=self.indxdb)
+                        self.layrslab.delete(maxabrv + oldi[8:], nid, db=self.indxdb)
 
             if oldvirts is not None:
                 self.stortypes[realtype].delVirtIndxVals(nid, form, prop, oldvirts)
@@ -4078,19 +4161,13 @@ class Layer(s_nexus.Pusher):
                     kvpairs.append((self.ndefabrv + indx[8:], nid + abrv))
 
             if stortype == STOR_TYPE_IVAL:
-                if valu[1] == self.ivaltimetype.futsize:
-                    dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-                else:
-                    dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
-
+                dura = self.ivaltype.getDurationIndx(valu)
                 duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                 kvpairs.append((duraabrv + dura, nid))
-                self.indxcounts.inc(duraabrv)
 
                 if oldv is None or oldv[1] != valu[1]:
-                    indx = indx[8:]
                     maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, prop)
-                    kvpairs.append((maxabrv + indx, nid))
+                    kvpairs.append((maxabrv + indx[8:], nid))
 
         if virts is not None:
             if stortype & 0x8000:
@@ -4145,19 +4222,12 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(self.ndefabrv + indx[8:], nid + abrv, db=self.indxdb)
 
             if stortype == STOR_TYPE_IVAL:
-                if valu[1] == self.ivaltimetype.futsize:
-                    dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-                else:
-                    dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
-
-                indx = indx[8:]
-
                 maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, prop)
-                duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
+                self.layrslab.delete(maxabrv + indx[8:], nid, db=self.indxdb)
 
-                self.layrslab.delete(maxabrv + indx, nid, db=self.indxdb)
+                dura = self.ivaltype.getDurationIndx(valu)
+                duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                 self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
-                self.indxcounts.inc(duraabrv, -1)
 
         if virts is not None:
             self.stortypes[realtype].delVirtIndxVals(nid, form, prop, virts)
@@ -4222,22 +4292,16 @@ class Layer(s_nexus.Pusher):
 
         else:
 
-            if oldv == (None, None):
+            if oldv == (None, None, None):
                 self.layrslab.delete(abrv, nid, db=self.indxdb)
                 self.layrslab.delete(formabrv, nid, db=self.indxdb)
             else:
-                if oldv[1] == self.ivaltimetype.futsize:
-                    dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-                else:
-                    dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
-
+                dura = self.ivaltype.getDurationIndx(oldv)
                 duraabrv = self.core.setIndxAbrv(INDX_TAG_DURATION, None, tag)
                 duraformabrv = self.core.setIndxAbrv(INDX_TAG_DURATION, form, tag)
 
                 self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
                 self.layrslab.delete(duraformabrv + dura, nid, db=self.indxdb)
-                self.indxcounts.inc(duraabrv, -1)
-                self.indxcounts.inc(duraformabrv, -1)
 
                 minindx = self.ivaltimetype.getIntIndx(oldv[0])
                 maxindx = self.ivaltimetype.getIntIndx(oldv[1])
@@ -4267,22 +4331,16 @@ class Layer(s_nexus.Pusher):
             formabrv = self.core.setIndxAbrv(INDX_FORM, form)
             kvpairs.append((formabrv, nid))
 
-        if valu == (None, None):
+        if valu == (None, None, None):
             kvpairs.append((abrv, nid))
             kvpairs.append((formabrv, nid))
         else:
-            if valu[1] == self.ivaltimetype.futsize:
-                dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-            else:
-                dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
-
+            dura = self.ivaltype.getDurationIndx(valu)
             duraabrv = self.core.setIndxAbrv(INDX_TAG_DURATION, None, tag)
             duraformabrv = self.core.setIndxAbrv(INDX_TAG_DURATION, form, tag)
 
             kvpairs.append((duraabrv + dura, nid))
             kvpairs.append((duraformabrv + dura, nid))
-            self.indxcounts.inc(duraabrv)
-            self.indxcounts.inc(duraformabrv)
 
             minindx = self.ivaltimetype.getIntIndx(valu[0])
             maxindx = self.ivaltimetype.getIntIndx(valu[1])
@@ -4313,22 +4371,16 @@ class Layer(s_nexus.Pusher):
         self.indxcounts.inc(abrv, -1)
         self.indxcounts.inc(formabrv, -1)
 
-        if oldv == (None, None):
+        if oldv == (None, None, None):
             self.layrslab.delete(abrv, nid, db=self.indxdb)
             self.layrslab.delete(formabrv, nid, db=self.indxdb)
         else:
-            if oldv[1] == self.ivaltimetype.futsize:
-                dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-            else:
-                dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
-
+            dura = self.ivaltype.getDurationIndx(oldv)
             duraabrv = self.core.setIndxAbrv(INDX_TAG_DURATION, None, tag)
             duraformabrv = self.core.setIndxAbrv(INDX_TAG_DURATION, form, tag)
 
             self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
             self.layrslab.delete(duraformabrv + dura, nid, db=self.indxdb)
-            self.indxcounts.inc(duraabrv, -1)
-            self.indxcounts.inc(duraformabrv, -1)
 
             minindx = self.ivaltimetype.getIntIndx(oldv[0])
             maxindx = self.ivaltimetype.getIntIndx(oldv[1])
@@ -4407,18 +4459,12 @@ class Layer(s_nexus.Pusher):
                     self.indxcounts.inc(ftp_abrv, -1)
 
                 if oldt == STOR_TYPE_IVAL:
-                    if oldv[1] == self.ivaltimetype.futsize:
-                        dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-                    else:
-                        dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
-
+                    dura = self.ivaltype.getDurationIndx(oldv)
                     duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, tag, prop)
                     duraformabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, tag, prop)
 
                     self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
                     self.layrslab.delete(duraformabrv + dura, nid, db=self.indxdb)
-                    self.indxcounts.inc(duraabrv, -1)
-                    self.indxcounts.inc(duraformabrv, -1)
 
                     if not oldv[1] == valu[1]:
                         oldi = oldi[8:]
@@ -4457,17 +4503,11 @@ class Layer(s_nexus.Pusher):
             self.indxcounts.inc(ftp_abrv)
 
         if stortype == STOR_TYPE_IVAL:
-            if valu[1] == self.ivaltimetype.futsize:
-                dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-            else:
-                dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
-
+            dura = self.ivaltype.getDurationIndx(valu)
             duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, tag, prop)
             duraformabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, tag, prop)
             kvpairs.append((duraabrv + dura, nid))
             kvpairs.append((duraformabrv + dura, nid))
-            self.indxcounts.inc(duraabrv)
-            self.indxcounts.inc(duraformabrv)
 
             if oldv is None or oldv[1] != valu[1]:
                 indx = indx[8:]
@@ -4504,17 +4544,11 @@ class Layer(s_nexus.Pusher):
             self.indxcounts.inc(ftp_abrv, -1)
 
         if oldt == STOR_TYPE_IVAL:
-            if oldv[1] == self.ivaltimetype.futsize:
-                dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-            else:
-                dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
-
+            dura = self.ivaltype.getDurationIndx(oldv)
             duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, tag, prop)
             duraformabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, tag, prop)
             self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
             self.layrslab.delete(duraformabrv + dura, nid, db=self.indxdb)
-            self.indxcounts.inc(duraabrv, -1)
-            self.indxcounts.inc(duraformabrv, -1)
 
             indx = oldi[8:]
             maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, tag, prop)
@@ -5053,7 +5087,7 @@ class Layer(s_nexus.Pusher):
         Args:
             tag (str): the tag to match
             form (Optional[str]):  if present, only yields nids of nodes that match the form.
-            starttupl (Optional[Tuple[nid, Tuple[int, int] | Tuple[None, None]]]): if present, (re)starts the stream of values there.
+            starttupl (Optional[Tuple[nid, Tuple[int, int, int] | Tuple[None, None, None]]]): if present, (re)starts the stream of values there.
 
         Yields:
             (nid, valu)
@@ -5066,14 +5100,14 @@ class Layer(s_nexus.Pusher):
         abrvlen = len(abrv)
         ivallen = self.ivaltimetype.size
 
-        nonetupl = (None, None)
+        nonetupl = (None, None, None)
         startkey = None
         startvalu = None
 
         if starttupl is not None:
             (nid, valu) = starttupl
             startvalu = nid
-            if valu != (None, None):
+            if valu != (None, None, None):
                 minindx = self.ivaltimetype.getIntIndx(valu[0])
                 maxindx = self.ivaltimetype.getIntIndx(valu[1])
                 startkey = minindx + maxindx
@@ -5085,9 +5119,7 @@ class Layer(s_nexus.Pusher):
                 yield nid, nonetupl
                 continue
 
-            minvalu = self.ivaltimetype.decodeIndx(lkey[abrvlen:-ivallen])
-            maxvalu = self.ivaltimetype.decodeIndx(lkey[-ivallen:])
-            yield nid, (minvalu, maxvalu)
+            yield nid, self.ivaltype.decodeIndx(lkey[abrvlen:])
 
     async def iterTagPropRows(self, tag, prop, form=None, stortype=None, startvalu=None):
         '''

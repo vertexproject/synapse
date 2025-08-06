@@ -415,7 +415,7 @@ class LayerTest(s_t_utils.SynTest):
     async def test_layer_stortype_ival(self):
         stor = s_layer.StorTypeIval(self)
 
-        vals = [(2000, 2020), (1960, 1970)]
+        vals = [(2000, 2020, 20), (1960, 1970, 10)]
 
         for valu, indx in ((v, stor.indx(v)) for v in vals):
             self.eq(valu, stor.decodeIndx(indx[0]))
@@ -821,7 +821,8 @@ class LayerTest(s_t_utils.SynTest):
                 (ipnid, 'inet:ip', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64)),
             ])
 
-            ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
+            time = [s_time.parse(x) for x in ('2012', '2014')]
+            ival = (time[0], time[1], time[1] - time[0])
 
             mdef = {'tags': ['foo.bar']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
@@ -1766,7 +1767,7 @@ class LayerTest(s_t_utils.SynTest):
             rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp))
             self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
 
-            tm = lambda x, y: (s_time.parse(x), s_time.parse(y))  # NOQA
+            tm = lambda x, y: (s_time.parse(x), s_time.parse(y), s_time.parse(y) - s_time.parse(x))  # NOQA
 
             # iterFormRows
             rows = await alist(layr.iterFormRows('inet:ip'))
@@ -1780,7 +1781,7 @@ class LayerTest(s_t_utils.SynTest):
 
             # iterTagRows
             expect = (
-                (nid3, (None, None)),
+                (nid3, (None, None, None)),
                 (nid2, tm('2019', '2020')),
                 (nid1, tm('2020', '2021')),
             )

@@ -3664,7 +3664,7 @@ class MergeCmd(Cmd):
             tags = []
             tagadds = []
             for tag, valu in sode.get('tags', {}).items():
-                if valu != (None, None):
+                if valu != (None, None, None):
                     tagadds.append(tag)
                     tagperm = tuple(tag.split('.'))
                     if not self.opts.wipe:
@@ -3960,7 +3960,7 @@ class MergeCmd(Cmd):
 
                     if not doapply:
                         valurepr = ''
-                        if valu != (None, None):
+                        if valu != (None, None, None):
                             tagrepr = runt.model.type('ival').repr(valu)
                             valurepr = f' = {tagrepr}'
                         await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
@@ -4476,17 +4476,17 @@ class MoveNodesCmd(Cmd):
             for tag, valu in sode.get('tags', {}).items():
 
                 if (oldv := tagvals.get(tag)) is not s_common.novalu:
-                    if (oldv := tagvals.get(tag)) is None or oldv == (None, None):
+                    if (oldv := tagvals.get(tag)) is None or oldv == (None, None, None):
                         tagvals[tag] = valu
-
+                    elif valu == (None, None, None):
+                        tagvals[tag] = oldv
                     else:
-                        allv = oldv + valu
-                        tagvals[tag] = (min(allv), max(allv))
+                        tagvals[tag] = tagtype.merge(oldv, valu)
 
                 if not layr == self.destlayr:
                     if not self.opts.apply:
                         valurepr = ''
-                        if valu != (None, None):
+                        if valu != (None, None, None):
                             valurepr = f' = {tagtype.repr(valu)}'
                         await self.runt.printf(f'{layr} delete {nodeiden} {form}#{tag}{valurepr}')
                     else:
@@ -4510,7 +4510,7 @@ class MoveNodesCmd(Cmd):
                 if valu is not s_common.novalu:
                     if not self.opts.apply:
                         valurepr = ''
-                        if valu != (None, None):
+                        if valu != (None, None, None):
                             valurepr = f' = {tagtype.repr(valu)}'
 
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}#{tag}{valurepr}')
@@ -4521,7 +4521,7 @@ class MoveNodesCmd(Cmd):
                     if desttags is not None and (destvalu := desttags.get(tag)) is not None:
                         if not self.opts.apply:
                             valurepr = ''
-                            if valu != (None, None):
+                            if valu != (None, None, None):
                                 valurepr = f' = {tagtype.repr(destvalu)}'
                             await self.runt.printf(f'{self.destlayr} delete {nodeiden} {form}#{tag}{valurepr}')
                         else:
@@ -4878,7 +4878,7 @@ class MaxCmd(Cmd):
                 continue
 
             if isinstance(valu, (list, tuple)):
-                if valu == (None, None):
+                if valu == (None, None, None):
                     continue
 
                 ival, info = await ivaltype.norm(valu)
@@ -4931,7 +4931,7 @@ class MinCmd(Cmd):
                 continue
 
             if isinstance(valu, (list, tuple)):
-                if valu == (None, None):
+                if valu == (None, None, None):
                     continue
 
                 ival, info = await ivaltype.norm(valu)

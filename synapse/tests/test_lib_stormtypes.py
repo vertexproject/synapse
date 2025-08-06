@@ -2578,12 +2578,18 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, ernfos)
             self.isin('Failed to norm a time value prior to formatting', ernfos[0][1].get('mesg'))
 
-            # Cant format ? times
+            # Cant format ?/* times
             query = '$valu=$lib.time.format("?", "%Y")'
             mesgs = await core.stormlist(query)
             ernfos = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, ernfos)
-            self.isin('Cannot format a timestamp for ongoing/future time.', ernfos[0][1].get('mesg'))
+            self.isin('', ernfos[0][1].get('mesg'))
+
+            query = '$valu=$lib.time.format("*", "%Y")'
+            mesgs = await core.stormlist(query)
+            ernfos = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, ernfos)
+            self.isin('', ernfos[0][1].get('mesg'))
 
             # Get time parts
             self.eq(2021, await core.callStorm('return($lib.time.year(20211031020304))'))
@@ -3456,7 +3462,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             data = [
                 (('test:str', 'hello'), {'props': {'tick': '2001'},
-                                         'tags': {'test': (None, None)}}),
+                                         'tags': {'test': (None, None, None)}}),
                 (('test:str', 'stars'), {'props': {'tick': '3001'},
                                          'tags': {}}),
             ]
@@ -3471,7 +3477,7 @@ class StormTypesTest(s_test.SynTest):
 
             data = [
                 (('test:str', 'sup!'), {'props': {'tick': '2001'},
-                                        'tags': {'test': (None, None)}}),
+                                        'tags': {'test': (None, None, None)}}),
                 (('test:str', 'dawg'), {'props': {'tick': '3001'},
                                         'tags': {}}),
             ]
