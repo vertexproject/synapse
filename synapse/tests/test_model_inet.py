@@ -583,7 +583,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[inet:fqdn=vertex.link :seen=(2020,2021)]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000))
+            self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000, 31622400000000))
 
     async def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
@@ -962,7 +962,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[inet:ip=1.2.3.4 :seen=(2020,2021)]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000))
+            self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000, 31622400000000))
 
     async def test_ipv6(self):
         formname = 'inet:ip'
@@ -2530,13 +2530,13 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.eq(nodes[0].get('account'), blckacct.ndef[1])
             self.eq(nodes[0].get('group'), devsgrp.ndef[1])
-            self.eq(nodes[0].get('period'), (1685577600000000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1685577600000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('remover'), visiacct.ndef[1])
 
             self.eq(nodes[1].get('account'), visiacct.ndef[1])
             self.eq(nodes[1].get('group'), devsgrp.ndef[1])
-            self.eq(nodes[1].get('period'), (1420070400000000, 9223372036854775807))
+            self.eq(nodes[1].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.none(nodes[1].get('creator'))
             self.none(nodes[1].get('remover'))
 
@@ -2552,7 +2552,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('http:session'))
             self.eq(nodes[0].get('creator'), blckacct.ndef[1])
-            self.eq(nodes[0].get('period'), (1715850000000000, 1715856900000000))
+            self.eq(nodes[0].get('period'), (1715850000000000, 1715856900000000, 6900000000))
             blcksess = nodes[0]
             self.len(1, await core.nodes('inet:service:session -> inet:http:session'))
 
@@ -2617,7 +2617,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('app'), app00)
             self.eq(nodes[0].get('name'), 'general')
             self.eq(nodes[0].get('topic'), 'my topic')
-            self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('instance'), platinst.ndef[1])
@@ -2651,12 +2651,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('inet:service:channel:member', s_common.guid(('visi', 'general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[0].get('account'), visiacct.ndef[1])
-            self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('channel'), gnrlchan.ndef[1])
 
             self.eq(nodes[1].ndef, ('inet:service:channel:member', s_common.guid(('blackout', 'general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[1].get('account'), blckacct.ndef[1])
-            self.eq(nodes[1].get('period'), (1685577600000000, 9223372036854775807))
+            self.eq(nodes[1].get('period'), (1685577600000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[1].get('channel'), gnrlchan.ndef[1])
 
             for node in nodes:

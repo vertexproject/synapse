@@ -37,6 +37,6 @@ class BeliefModelTest(s_test.SynTest):
             self.nn(nodes[0].get('system'))
             self.nn(nodes[0].get('contact'))
 
-            self.eq(nodes[0].get('period'), (1675900800000000, 1675987200000000))
+            self.eq(nodes[0].get('period'), (1675900800000000, 1675987200000000, 86400000000))
 
             self.len(1, await core.nodes('belief:subscriber -(follows)> belief:tenet'))

@@ -105,7 +105,7 @@ class DocModelTest(s_tests.SynTest):
             self.eq('Fullbright Scholarship', nodes[0].get('title'))
             self.eq('foo.bar.', nodes[0].get('type'))
             self.eq(1577836800000000, nodes[0].get('signed'))
-            self.eq(nodes[0].get('period'), (1580515200000000, 1583020800000000))
+            self.eq(nodes[0].get('period'), (1580515200000000, 1583020800000000, 2505600000000))
             self.eq(1585699200000000, nodes[0].get('completed'))
             self.eq(1588291200000000, nodes[0].get('terminated'))
             self.len(2, nodes[0].get('parties'))

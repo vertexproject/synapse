@@ -1727,7 +1727,7 @@ class HttpApiTest(s_tests.SynTest):
                 self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
                 self.eq('NoSuchView', (await resp.json())['code'])
 
-                body = {'items': [meta, (('inet:ip', (4, 0x05050505)), {'tags': {'hehe': (None, None)}})]}
+                body = {'items': [meta, (('inet:ip', (4, 0x05050505)), {'tags': {'hehe': (None, None, None)}})]}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq(resp.status, http.HTTPStatus.OK)
                 self.eq('ok', (await resp.json())['status'])

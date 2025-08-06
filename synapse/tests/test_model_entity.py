@@ -38,7 +38,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('type'), 'owner.')
             self.eq(nodes[0].get('percent'), '50')
-            self.eq(nodes[0].get('period'), (1451606400000000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1451606400000000, 9223372036854775807, 0xffffffffffffffff))
             self.len(1, await core.nodes('entity:possession :item -> inet:fqdn'))
             self.len(1, await core.nodes('entity:possession :actor -> * +:name=visi'))
 
@@ -56,6 +56,6 @@ class EntityModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes)
             self.eq(nodes[0].get('type'), 'tasks.')
-            self.eq(nodes[0].get('period'), (1640995200000000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1640995200000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('source'), ('ou:org', '3332a704ed21dc3274d5731acc54a0ee'))
             self.eq(nodes[0].get('target'), ('risk:threat', '0396f471ec63fedb7a6276f3a95f27b1'))

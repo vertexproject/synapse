@@ -3137,8 +3137,8 @@ class LibTime(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu,
                                           format=format) from None
 
-        if norm == timetype.futsize:
-            mesg = 'Cannot format a timestamp for ongoing/future time.'
+        if norm in (timetype.futsize, timetype.unksize):
+            mesg = 'Cannot format a timestamp for ongoing/unknown time.'
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, format=format)
 
         try:

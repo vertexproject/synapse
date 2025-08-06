@@ -8,7 +8,6 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.json as s_json
 import synapse.lib.node as s_node
-import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
@@ -456,7 +455,7 @@ class ProtoNode(s_node.NodeBase):
         if self.node is not None:
             return self.node.getTag(tag, defval=defval)
 
-    async def addTag(self, tag, valu=(None, None), norminfo=None, tagnode=None):
+    async def addTag(self, tag, valu=(None, None, None), norminfo=None, tagnode=None):
 
         if tagnode is None:
             tagnode = await self._getRealTag(tag)
@@ -464,9 +463,11 @@ class ProtoNode(s_node.NodeBase):
         if isinstance(valu, list):
             valu = tuple(valu)
 
-        if norminfo is None and valu != (None, None):
+        ityp = self.model.type('ival')
+
+        if norminfo is None and valu != (None, None, None):
             try:
-                valu, norminfo = await self.model.type('ival').norm(valu)
+                valu, norminfo = await ityp.norm(valu)
             except s_exc.BadTypeValu as e:
                 e.set('tag', tagnode.valu)
                 raise e
@@ -483,11 +484,11 @@ class ProtoNode(s_node.NodeBase):
             self.tags[tagnode.valu] = valu
             return tagnode
 
-        elif valu == (None, None):
+        elif valu == (None, None, None):
             return tagnode
 
-        if norminfo.get('merge', True):
-            valu = s_time.ival(*valu, *curv)
+        if curv != (None, None, None) and norminfo.get('merge', True):
+            valu = ityp.merge(valu, curv)
 
         self.tags[tagnode.valu] = valu
         self.tagdels.discard(tagnode.valu)

@@ -5329,7 +5329,7 @@ class EditTagAdd(Edit):
 
         namekid = self.kids[0]
 
-        valu = (None, None)
+        valu = (None, None, None)
         valukid = None
         if len(self.kids) == 3:
             valukid = self.kids[2]

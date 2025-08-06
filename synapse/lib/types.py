@@ -1542,7 +1542,8 @@ class Ival(Type):
     )
 
     def postTypeInit(self):
-        self.futsize = 0x7fffffffffffffff
+        self.unksize = 0x7fffffffffffffff
+        self.futsize = 0x7ffffffffffffffe
         self.maxsize = 253402300799999999  # 9999/12/31 23:59:59.999999
 
         precstr = self.opts.get('precision')
@@ -1568,6 +1569,7 @@ class Ival(Type):
         self.virtstor |= {
             'min': self._storVirtMin,
             'max': self._storVirtMax,
+            'duration': self._storVirtDuration,
             'precision': self._storVirtPrec,
         }
 
@@ -1633,13 +1635,13 @@ class Ival(Type):
 
     async def _ctorCmprAt(self, valu):
 
-        if valu is None or valu == (None, None):
+        if valu is None or valu == (None, None, None):
             async def cmpr(item):
                 return False
             return cmpr
 
         if isinstance(valu, (str, int)):
-            norm = (await self.norm(valu))[0]
+            minv, maxv, _ = (await self.norm(valu))[0]
         elif isinstance(valu, (list, tuple)):
             minv, maxv = (await self._normByTickTock(valu))[0]
             # Use has input the nullset in a comparison operation.
@@ -1647,8 +1649,6 @@ class Ival(Type):
                 async def cmpr(item):
                     return False
                 return cmpr
-            else:
-                norm = (minv, maxv)
         else:
             raise s_exc.NoSuchFunc(name=self.name,
                                    mesg='no norm for @= operator: %r' % (type(valu),))
@@ -1657,15 +1657,15 @@ class Ival(Type):
             if item is None:
                 return False
 
-            if item == (None, None):
+            if item == (None, None, None):
                 return False
 
             othr, info = await self.norm(item)
 
-            if othr[0] >= norm[1]:
+            if othr[0] >= maxv:
                 return False
 
-            if othr[1] <= norm[0]:
+            if othr[1] <= minv:
                 return False
 
             return True
@@ -1690,38 +1690,45 @@ class Ival(Type):
 
     async def _storLiftDuration(self, cmpr, valu):
         norm, _ = await self.duratype.norm(valu)
+        futstart = None
+
+        if norm not in (self.duratype.futdura, self.duratype.unkdura):
+            futstart = s_common.now() - norm
+
         return (
-            (cmpr, norm, self.stortype),
+            (cmpr, (norm, futstart), self.stortype),
         )
 
     def _getMin(self, valu):
         if valu is None:
             return None
 
-        if len(valu) == 3:
-            return valu[0][0]
+        if isinstance(valu := valu[0], int):
+            return valu
         return valu[0]
 
     def _getMax(self, valu):
         if valu is None:
             return None
-        if len(valu) == 3:
-            return valu[0][1]
-        return valu[1]
+
+        if isinstance(ival := valu[0], int):
+            return valu[1]
+        return ival[1]
 
     def _getDuration(self, valu):
         if valu is None:
             return None
 
-        if len(valu) == 3:
-            ival = valu[0]
-        else:
+        if isinstance(ival := valu[0], int):
             ival = valu
 
-        if ival[1] == self.futsize:
-            return self.duratype.maxval
+        if (dura := ival[2]) != self.duratype.futdura:
+            return dura
 
-        return ival[1] - ival[0]
+        if (dura := (s_common.now() - ival[0])) < 0:
+            return None
+
+        return dura
 
     def _getPrec(self, valu):
         if (virts := valu[2]) is None or (vval := virts.get('precision')) is None:
@@ -1733,21 +1740,77 @@ class Ival(Type):
         if valu is None:
             return newv, norminfo
 
-        newv = (newv[0], max(newv[1], valu[1]))
+        minv = newv[0]
+        maxv = max(newv[1], valu[1])
         norminfo['merge'] = False
-        return newv, norminfo
+
+        if maxv == self.futsize:
+            return (minv, maxv, self.duratype.futdura), norminfo
+
+        elif minv == self.unksize:
+            return (minv, maxv, self.duratype.unkdura), norminfo
+
+        elif maxv == self.unksize:
+            if (dura := valu[2]) not in (self.duratype.unkdura, self.duratype.futdura):
+                newmax, _ = await self.ticktype.norm(minv + dura)
+                return (minv, newmax, dura), norminfo
+            return (minv, maxv, self.duratype.unkdura), norminfo
+
+        return (minv, maxv, maxv - minv), norminfo
 
     async def _storVirtMax(self, valu, newmax):
-        maxv, _ = await self.tocktype.norm(newmax)
-        minv, _ = await self.ticktype.norm(maxv - 1)
-        newv, norminfo = await self._normPyIter((minv, maxv))
+        minv = self.unksize
+        if valu is not None:
+            minv = valu[0]
+
+        maxv, norminfo = await self.tocktype.norm(newmax)
+        norminfo['merge'] = False
+
+        if maxv == self.unksize:
+            return (minv, maxv, self.duratype.unkdura), norminfo
+
+        if maxv == self.futsize:
+            return (minv, maxv, self.duratype.futdura), norminfo
+
+        if valu is not None and minv == self.unksize:
+            if (dura := valu[2]) not in (self.duratype.unkdura, self.duratype.futdura):
+                newmin, _ = await self.ticktype.norm(maxv - dura)
+                return (newmin, maxv, dura), norminfo
+            return (newmin, maxv, self.duratype.unkdura), norminfo
+
+        newmin, _ = await self.ticktype.norm(maxv - 1)
+        minv = min(minv, newmin)
+
+        return (minv, maxv, maxv - minv), norminfo
+
+    async def _storVirtDuration(self, valu, newdura):
+        dura, norminfo = await self.duratype.norm(newdura)
+        norminfo['merge'] = False
 
         if valu is None:
-            return newv, norminfo
+            return (self.unksize, self.unksize, dura), norminfo
 
-        newv = (min(newv[0], valu[0]), newv[1])
-        norminfo['merge'] = False
-        return newv, norminfo
+        (minv, maxv, _) = valu
+
+        if minv == self.unksize:
+            if dura == self.duratype.futdura:
+                return (minv, self.futsize, dura), norminfo
+
+            elif maxv == self.unksize:
+                return (minv, maxv, dura), norminfo
+
+            elif maxv == self.futsize:
+                return (minv, self.unksize, dura), norminfo
+
+            newmin, _ = await self.ticktype.norm(maxv - dura)
+            return (newmin, maxv, dura), norminfo
+
+        elif maxv in (self.unksize, self.futsize):
+            newmax, _ = await self.ticktype.norm(minv + dura)
+            return (minv, newmax, dura), norminfo
+
+        mesg = 'Cannot set duration on an ival with known start/end times.'
+        raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
 
     async def _storVirtPrec(self, valu, newprec):
         if valu is None:
@@ -1755,8 +1818,7 @@ class Ival(Type):
             raise s_exc.BadTypeValu(name=self.name, mesg=mesg)
 
         prec = (await self.prectype.norm(newprec))[0]
-        valu, norminfo = await self._normPyIter(valu, prec=prec)
-        return valu, norminfo
+        return await self._normPyIter(valu, prec=prec)
 
     def getTagVirtIndx(self, name):
         indx = self.tagvirtindx.get(name, s_common.novalu)
@@ -1767,8 +1829,14 @@ class Ival(Type):
 
     async def _normPyInt(self, valu, view=None):
         minv, _ = await self.ticktype._normPyInt(valu)
+        if minv == self.unksize:
+            return (minv, minv, self.duratype.unkdura), {}
+
+        if minv == self.futsize:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='Ival min may not be *')
+
         maxv, _ = await self.tocktype._normPyInt(minv + 1)
-        return (minv, maxv), {}
+        return (minv, maxv, 1), {}
 
     async def _normPyDecimal(self, valu, view=None):
         return await self._normPyInt(int(valu))
@@ -1779,49 +1847,74 @@ class Ival(Type):
     async def _normPyStr(self, valu, view=None):
         valu = valu.strip().lower()
 
-        if valu == '?':
-            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires begin time')
-
         if ',' in valu:
-            return await self._normByTickTock(valu.split(',', 1))
+            return await self._normPyIter(valu.split(',', 2))
 
         minv, _ = await self.ticktype.norm(valu)
-        maxv, _ = await self.tocktype._normPyInt(minv + 1)
+        if minv == self.unksize:
+            return (minv, minv, self.duratype.unkdura), {}
 
-        return (minv, maxv), {}
+        if minv == self.futsize:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='Ival min may not be *')
+
+        maxv, _ = await self.tocktype._normPyInt(minv + 1)
+        return (minv, maxv, 1), {}
 
     async def _normPyIter(self, valu, prec=None, view=None):
         (minv, maxv), info = await self._normByTickTock(valu, prec=prec)
 
-        if minv == maxv:
-            maxv = maxv + 1
+        if minv == self.futsize:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='Ival min may not be *')
 
-        # Norm via iter must produce an actual range.
-        if minv > maxv:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg='Ival range must in (min, max) format')
+        if minv != self.unksize:
+            if minv == maxv:
+                maxv = maxv + 1
 
-        if maxv > self.futsize:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg='Ival upper range cannot exceed future size marker')
+            # Norm via iter must produce an actual range if not unknown.
+            if minv > maxv:
+                raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                        mesg='Ival range must in (min, max) format')
 
-        return (minv, maxv), info
+            if maxv > self.unksize:
+                raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                        mesg='Ival upper range cannot exceed unknown value marker')
+
+        if minv == self.unksize or maxv == self.unksize:
+            return (minv, maxv, self.duratype.unkdura), info
+
+        elif maxv == self.futsize:
+            return (minv, maxv, self.duratype.futdura), info
+
+        return (minv, maxv, maxv - minv), info
 
     async def _normByTickTock(self, valu, prec=None, view=None):
-        if len(valu) != 2:
+        if len(valu) not in (2, 3):
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg='Ival _normPyIter requires 2 items')
+                                    mesg='Ival _normPyIter requires 2 or 3 items')
 
-        tick, tock = await self.ticktype.getTickTock(valu, prec=prec)
+        tick, tock = await self.ticktype.getTickTock(valu[:2], prec=prec)
 
         minv, info = await self.ticktype._normPyInt(tick, prec=prec)
         maxv, _ = await self.tocktype._normPyInt(tock, prec=prec)
         return (minv, maxv), info
 
     def merge(self, oldv, newv):
-        mint = min(oldv[0], newv[0])
-        maxt = max(oldv[1], newv[1])
-        return (mint, maxt)
+        minv = min(oldv[0], newv[0])
+
+        if oldv[1] == self.unksize:
+            maxv = newv[1]
+        elif newv[1] != self.unksize:
+            maxv = max(oldv[1], newv[1])
+        else:
+            maxv = oldv[1]
+
+        if minv == self.unksize or maxv == self.unksize:
+            return (minv, maxv, self.duratype.unkdura)
+
+        elif maxv == self.futsize:
+            return (minv, maxv, self.duratype.futdura)
+
+        return (minv, maxv, maxv - minv)
 
     def repr(self, norm):
         mint = self.ticktype.repr(norm[0])
@@ -2456,9 +2549,13 @@ class Duration(IntBase):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
-        self.maxval = 2 ** ((8 * 8) - 1)
+        self.unkdura = 0xffffffffffffffff
+        self.futdura = 0xfffffffffffffffe
 
     async def _normPyInt(self, valu, view=None):
+        if valu < 0 or valu > self.unkdura:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='Duration value  is outside of valid range.')
+
         return valu, {}
 
     async def _normPyStr(self, text, view=None):
@@ -2469,7 +2566,10 @@ class Duration(IntBase):
             raise s_exc.BadTypeValu(mesg=mesg)
 
         if text == '?':
-            return self.maxval, {}
+            return self.unkdura, {}
+
+        if text == '*':
+            return self.futdura, {}
 
         dura = 0
 
@@ -2500,9 +2600,17 @@ class Duration(IntBase):
             mesg = f'Invalid numeric value in duration: {text}.'
             raise s_exc.BadTypeValu(mesg=mesg) from None
 
+        if dura < 0 or dura > self.unkdura:
+            raise s_exc.BadTypeValu(name=self.name, valu=dura, mesg='Duration value  is outside of valid range.')
+
         return dura, {}
 
     def repr(self, valu):
+
+        if valu == self.futdura:
+            return '*'
+        elif valu == self.unkdura:
+            return '?'
 
         days, rem = divmod(valu, s_time.oneday)
         hours, rem = divmod(rem, s_time.onehour)
@@ -2533,7 +2641,8 @@ class Time(IntBase):
 
     def postTypeInit(self):
 
-        self.futsize = 0x7fffffffffffffff
+        self.unksize = 0x7fffffffffffffff
+        self.futsize = 0x7ffffffffffffffe
         self.maxsize = 253402300799999999  # 9999/12/31 23:59:59.999999
 
         self.setNormFunc(int, self._normPyInt)
@@ -2624,6 +2733,9 @@ class Time(IntBase):
 
         # an unspecififed time in the future...
         if valu == '?':
+            return self.unksize, {}
+
+        if valu == '*':
             return self.futsize, {}
 
         # parse timezone
@@ -2653,11 +2765,11 @@ class Time(IntBase):
         return await self._normPyInt(valu, prec=prec)
 
     async def _normPyInt(self, valu, prec=None, view=None):
-        if valu == self.futsize:
+        if valu in (self.futsize, self.unksize):
             return valu, {}
 
         if valu > self.maxsize:
-            mesg = f'Time exceeds max size [{self.maxsize}] allowed for a non-future marker, got {valu}'
+            mesg = f'Time exceeds max size [{self.maxsize}] allowed, got {valu}'
             raise s_exc.BadTypeValu(mesg=mesg, valu=valu, prec=prec, maxfill=self.maxfill, name=self.name)
 
         if prec is None or prec == self.prec:
@@ -2686,6 +2798,9 @@ class Time(IntBase):
 
     def merge(self, oldv, newv):
 
+        if oldv == self.unksize:
+            return newv
+
         if self.ismin:
             return min(oldv, newv)
 
@@ -2697,6 +2812,8 @@ class Time(IntBase):
     def repr(self, valu):
 
         if valu == self.futsize:
+            return '*'
+        elif valu == self.unksize:
             return '?'
 
         return s_time.repr(valu)

@@ -269,7 +269,7 @@ class BaseTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://v.vtx.lk/slack')
             self.eq(nodes[0].get('query'), 'Hi There')
             self.eq(nodes[0].get('opts'), {"foo": "bar"})
-            self.eq(nodes[0].get('period'), (1704067200000000, 1735689600000000))
+            self.eq(nodes[0].get('period'), (1704067200000000, 1735689600000000, 31622400000000))
             self.eq(nodes[0].get('latest'), 1735689600000000)
             self.eq(nodes[0].get('offset'), 17)
             self.eq(nodes[0].get('cursor'), 'FooBar')

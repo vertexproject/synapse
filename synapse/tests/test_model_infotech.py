@@ -428,7 +428,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.nn(nodes[1].get('host'))
             self.nn(nodes[1].get('account'))
-            self.eq(nodes[1].get('period'), (1615680000000000, 1615687260000000))
+            self.eq(nodes[1].get('period'), (1615680000000000, 1615687260000000, 7260000000))
             self.eq(nodes[1].get('creds'), (('auth:passwd', 'cool'),))
 
             # Sample SIDs from here:
@@ -799,7 +799,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('it:host', hostguid))
             self.eq(nodes[1].ndef, ('it:cmd:session', s_common.guid(('202405170900', '202405171000', 'bash', hostguid))))
             self.eq(nodes[1].get('host'), hostguid)
-            self.eq(nodes[1].get('period'), (1715936400000000, 1715940000000000))
+            self.eq(nodes[1].get('period'), (1715936400000000, 1715940000000000, 3600000000))
             cmdsess = nodes[1]
 
             q = '''
@@ -1833,7 +1833,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.eq('vertex', nodes[0].get('org:name'))
             self.eq('vertex.link', nodes[0].get('org:fqdn'))
-            self.eq((1688169600000000, 1690848000000000), nodes[0].get('period'))
+            self.eq((1688169600000000, 1690848000000000, 2678400000000), nodes[0].get('period'))
 
             self.eq(100, nodes[0].get('alerts:count'))
             self.eq(90, nodes[0].get('alerts:falsepos'))

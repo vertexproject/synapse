@@ -247,9 +247,9 @@ class StormlibModelTest(s_test.SynTest):
             ''')
             self.len(1, nodes)
             self.sorteq([
-                ('baz', (None, None)),
-                ('foo', (s_time.parse('2010'), s_time.parse('2012'))),
-                ('foo.bar', (None, None))
+                ('baz', (None, None, None)),
+                ('foo', (s_time.parse('2010'), s_time.parse('2012'), 63072000000000)),
+                ('foo.bar', (None, None, None))
             ], nodes[0].getTags())
             self.eq([], nodes[0].getTagProps('foo'))
             self.eq([], nodes[0].getTagProps('foo.bar'))

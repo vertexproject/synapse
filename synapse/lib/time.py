@@ -432,18 +432,6 @@ def dayofweek(tick):
 def dayofyear(tick):
     return (EPOCH + datetime.timedelta(microseconds=tick)).timetuple().tm_yday - 1
 
-def ival(*times):
-
-    times = [t for t in times if t is not None]
-
-    minv = min(times)
-    maxv = max(times)
-
-    if minv == maxv:
-        maxv += 1
-
-    return (minv, maxv)
-
 # TODO: use synapse.lib.syntax once it gets cleaned up
 def _noms(text, offs, cset):
     begin = offs

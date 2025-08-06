@@ -1441,20 +1441,6 @@ class CortexTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:dns:a :ip -> *'))
 
-    async def test_cortex_of_the_future(self):
-        '''
-        test "future/ongoing" time stamp.
-        '''
-        async with self.getTestReadWriteCores() as (core, wcore):
-
-            nodes = await wcore.nodes('[test:str=foo +#lol=(2015,?)]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq((1420070400000000, 0x7fffffffffffffff), node.getTag('lol'))
-
-            self.len(0, await core.nodes('test:str=foo +#lol@=2014'))
-            self.len(1, await core.nodes('test:str=foo +#lol@=2016'))
-
     async def test_cortex_noderefs(self):
 
         async with self.getTestCore() as core:
@@ -1692,8 +1678,8 @@ class CortexTest(s_t_utils.SynTest):
 
             await core.nodes('for $x in $lib.range(5) {[ test:str=$x :seen=`202{$x}` ]}')
 
-            i2021 = (1609459200000000, 1609459200000001)
-            i2022 = (1640995200000000, 1640995200000001)
+            i2021 = (1609459200000000, 1609459200000001, 1)
+            i2022 = (1640995200000000, 1640995200000001, 1)
             self.eq([i2021, i2022], await nodeVals('test:str:seen@=(2021, 2023)', prop='seen'))
             self.eq([i2022, i2021], await nodeVals('reverse(test:str:seen@=(2021, 2023))', prop='seen'))
 
@@ -1741,7 +1727,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await wcore.nodes('[(test:str=one +#foo.bar=(2016, 2017))]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq((1451606400000000, 1483228800000000), node.getTag('foo.bar', ('2016', '2017')))
+            self.eq((1451606400000000, 1483228800000000, 31622400000000), node.getTag('foo.bar', ('2016', '2017')))
 
             nodes = await wcore.nodes('[(test:comp=(10, hehe) +#foo.bar)]')
             self.len(1, nodes)
@@ -2528,22 +2514,22 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str=hehe')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.getTag('foo'), (tick0, tick2))
+            self.eq(node.getTag('foo')[:2], (tick0, tick2))
 
             nodes = await core.nodes('test:str=haha')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.getTag('bar'), (tick1, tick1 + 1))
+            self.eq(node.getTag('bar')[:2], (tick1, tick1 + 1))
 
             view = core.getView()
             node = await view.getNodeByNdef(('test:str', 'haha'))
-            self.eq(node.getTag('bar'), (tick1, tick1 + 1))
+            self.eq(node.getTag('bar')[:2], (tick1, tick1 + 1))
 
             self.len(1, await wcore.nodes('[ test:str=haha +#bar=2016 ]'))
             nodes = await core.nodes('test:str=haha')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.getTag('bar'), (tick1, tick2 + 1))
+            self.eq(node.getTag('bar')[:2], (tick1, tick2 + 1))
 
             # Sad path
             with self.raises(s_exc.BadTypeValu) as cm:
@@ -4318,7 +4304,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:pivcomp=(hehe,haha) $seen=:seen :targ -> test:pivtarg [ :seen=$seen ]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('seen'), (1420070400000000, 1514764800000000))
+            self.eq(node.get('seen'), (1420070400000000, 1514764800000000, 94694400000000))
 
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('inet:dns:a=(woot.com,1.2.3.4) $newp=:newp')
@@ -4463,13 +4449,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             vdef2 = await core1.view.fork()
             view2_iden = vdef2.get('iden')
 
-            data = [meta, (('test:int', 1), {'tags': {'noprop': [None, None]},
+            data = [meta, (('test:int', 1), {'tags': {'noprop': [None, None, None]},
                                        'tagprops': {'noprop': {'test': 'newp'}}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             self.len(1, await core1.nodes('test:int=1 +#noprop', opts={'view': view2_iden}))
 
-            data = [meta, (('test:int', 1), {'tags': {'noprop': (None, None),
-                                                'noprop.two': (None, None)},
+            data = [meta, (('test:int', 1), {'tags': {'noprop': (None, None, None),
+                                                'noprop.two': (None, None, None)},
                                        'tagprops': {'noprop': {'test': 1}}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#noprop.two', opts={'view': view2_iden})
@@ -4498,25 +4484,25 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
             self.len(1, nodes)
-            self.eq((2020, 2022), nodes[0].getTag('newtag'))
+            self.eq((2020, 2022, 2), nodes[0].getTag('newtag'))
 
             await core1.setTagModel('test', 'regex', (None, '[0-9]{4}'))
 
             # This tag doesn't match the regex but should still make the node
             data = [meta, (
                 ('test:int', 8),
-                {'tags': {'test.12345': (None, None)},
+                {'tags': {'test.12345': (None, None, None)},
                  'tagprops': {'test.12345': {'score': (1, 1)}}}
             )]
             await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:int=8 -#test.12345'))
 
-            data = [meta, (('test:int', 8), {'tags': {'test.1234': (None, None)}})]
+            data = [meta, (('test:int', 8), {'tags': {'test.1234': (None, None, None)}})]
             await core1.addFeedData(data)
             self.len(0, await core1.nodes('test:int=8 -#newtag.1234'))
 
             core1.view.layers[0].readonly = True
-            data = [meta, (('test:int', 8), {'tags': {'test.1235': (None, None)}})]
+            data = [meta, (('test:int', 8), {'tags': {'test.1235': (None, None, None)}})]
             await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData(data))
 
             await core1.nodes('model.deprecated.lock test:deprform:deprprop2')
@@ -4805,7 +4791,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(s_node.tagged(pode, '#timetag'))
 
             mesgs = await core.stormlist('test:str=foo $var=$node.value() [+#$var=2019] $lib.print(#$var)')
-            self.stormIsInPrint('(1546300800000000, 1546300800000001)', mesgs)
+            self.stormIsInPrint('(1546300800000000, 1546300800000001, 1)', mesgs)
             podes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(1, podes)
             pode = podes[0]
@@ -4845,7 +4831,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('tag3'))
 
             mesgs = await core.stormlist('test:str=foo $var=$node.value() [+?#$var=2019] $lib.print(#$var)')
-            self.stormIsInPrint('(1546300800000000, 1546300800000001)', mesgs)
+            self.stormIsInPrint('(1546300800000000, 1546300800000001, 1)', mesgs)
             podes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(1, podes)
             pode = podes[0]
@@ -7144,7 +7130,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # test that the pruning behavior detects when it needs to prune
             nodes = await core.nodes('[ inet:ip=1.2.3.4 -#cno.cve.2021.12345 ]')
             self.len(1, nodes)
-            self.eq((('cno', (None, None)),), nodes[0].getTags())
+            self.eq((('cno', (None, None, None)),), nodes[0].getTags())
 
             # test that the prune caches get cleared correctly
             await core.nodes('$lib.model.tags.pop(cno.cve, prune)')
@@ -7185,7 +7171,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
 
-            tm = lambda x, y: (s_time.parse(x), s_time.parse(y))  # NOQA
+            tm = lambda x, y: (s_time.parse(x), s_time.parse(y), s_time.parse(y) - s_time.parse(x))  # NOQA
 
             # iterFormRows
             await self.agenraises(s_exc.NoSuchLayer, prox.iterFormRows(badiden, 'inet:ip'))
