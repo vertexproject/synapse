@@ -490,7 +490,7 @@ class Model:
         self.forms = {}  # name: Form()
         self.props = {}  # (form,name): Prop() and full: Prop()
         self.edges = {}  # (n1form, verb, n2form): Edge()
-        self._valid_edges = collections.defaultdict(list)
+        self._valid_edges = {} #  (n1form, verb, n2form): Edge()
         self.ifaces = {}  # name: <ifdef>
         self.tagprops = {}  # name: TagProp()
         self.formabbr = {}  # name: [Form(), ... ]
@@ -980,9 +980,10 @@ class Model:
         [self.edgesbyn1[n1form].add(edge) for n1form in n1forms]
         [self.edgesbyn2[n2form].add(edge) for n2form in n2forms]
 
+        self._valid_edges[edgetype] = edge
         for n1form in n1forms:
             for n2form in n2forms:
-                self._valid_edges[(n1form, verb, n2form)].append(edge)
+                self._valid_edges[(n1form, verb, n2form)] = edge
 
     def delEdge(self, edgetype):
 
@@ -1005,9 +1006,10 @@ class Model:
         [self.edgesbyn1[n1form].discard(edge) for n1form in n1forms]
         [self.edgesbyn2[n2form].discard(edge) for n2form in n2forms]
 
+        self._valid_edges.pop(edgetype, None)
         for n1form in n1forms:
             for n2form in n2forms:
-                self._valid_edges[(n1form, verb, n2form)].remove(edge)
+                self._valid_edges.pop((n1form, verb, n2form), None)
 
     def _reqFormName(self, name):
         form = self.forms.get(name)
@@ -1452,7 +1454,7 @@ class Model:
         return self.tagprops.get(name)
 
     def edge(self, edgetype):
-        return self.edges.get(edgetype)
+        return self._valid_edges.get(edgetype)
 
     def edgeIsValid(self, n1form, verb, n2form):
         if self._valid_edges.get((n1form, verb, n2form)):
