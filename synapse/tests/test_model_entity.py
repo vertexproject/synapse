@@ -114,7 +114,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes(f'entity:campaign:id=Foo :slogan -> lang:phrase'))
 
             nodes = await core.nodes('''
-                [ entity:technique=*
+                [ meta:technique=*
                     :id=Foo
                     :name=Woot
                     :type=lol.woot
@@ -134,9 +134,9 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq('Foo', nodes[0].get('id'))
             self.eq(40, nodes[0].get('sophistication'))
             self.eq('vertex', nodes[0].get('reporter:name'))
-            self.len(1, await core.nodes('entity:technique -> syn:tag'))
-            self.len(1, await core.nodes('entity:technique -> entity:technique:type:taxonomy'))
-            self.len(1, await core.nodes('entity:technique :reporter -> ou:org'))
+            self.len(1, await core.nodes('meta:technique -> syn:tag'))
+            self.len(1, await core.nodes('meta:technique -> meta:technique:type:taxonomy'))
+            self.len(1, await core.nodes('meta:technique :reporter -> ou:org'))
 
             nodes = await core.nodes('''
                 [ entity:contribution=*

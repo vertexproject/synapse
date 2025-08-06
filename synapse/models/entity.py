@@ -275,28 +275,6 @@ modeldefs = (
                 ),
                 'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
 
-            ('entity:technique', ('guid', {}), {
-                'template': {'title': 'technique'},
-                'doc': 'A specific technique used to achieve a goal.',
-                'interfaces': (
-                    ('meta:usable', {}),
-                    ('meta:reported', {}),
-                    ('risk:mitigatable', {}),
-                ),
-                'display': {
-                    'columns': (
-                        {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
-                        {'type': 'prop', 'opts': {'name': 'tag'}},
-                    ),
-                }}),
-
-            ('entity:technique:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of technique types.'}),
-
         ),
 
         'edges': (
@@ -500,20 +478,6 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time the contribution occurred.'}),
             )),
-            ('entity:technique', {}, (
-
-                ('type', ('entity:technique:type:taxonomy', {}), {
-                    'doc': 'The taxonomy classification of the technique.'}),
-
-                ('sophistication', ('meta:sophistication', {}), {
-                    'doc': 'The assessed sophistication of the technique.'}),
-
-                ('tag', ('syn:tag', {}), {
-                    'doc': 'The tag used to annotate nodes where the technique was employed.'}),
-            )),
-
-            ('entity:technique:type:taxonomy', {
-                'prevnames': ('ou:technique:taxonomy',)}, ()),
 
         ),
     }),

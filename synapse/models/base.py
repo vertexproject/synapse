@@ -143,6 +143,28 @@ modeldefs = (
 
             ('text', ('str', {'strip': False}), {
                 'doc': 'A multi-line, free form text string.'}),
+
+            ('meta:technique', ('guid', {}), {
+                'template': {'title': 'technique'},
+                'doc': 'A specific technique used to achieve a goal.',
+                'interfaces': (
+                    ('meta:usable', {}),
+                    ('meta:reported', {}),
+                    ('risk:mitigatable', {}),
+                ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'tag'}},
+                    ),
+                }}),
+
+            ('meta:technique:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of technique types.'}),
         ),
         'interfaces': (
 
@@ -468,6 +490,21 @@ modeldefs = (
                 ('count', ('int', {}), {
                     'doc': 'The number of items counted in aggregate.'}),
             )),
+
+            ('meta:technique', {}, (
+
+                ('type', ('meta:technique:type:taxonomy', {}), {
+                    'doc': 'The taxonomy classification of the technique.'}),
+
+                ('sophistication', ('meta:sophistication', {}), {
+                    'doc': 'The assessed sophistication of the technique.'}),
+
+                ('tag', ('syn:tag', {}), {
+                    'doc': 'The tag used to annotate nodes where the technique was employed.'}),
+            )),
+
+            ('meta:technique:type:taxonomy', {
+                'prevnames': ('ou:technique:taxonomy',)}, ()),
 
         ),
     }),
