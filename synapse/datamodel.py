@@ -982,9 +982,7 @@ class Model:
 
         for n1form in n1forms:
             for n2form in n2forms:
-                edgetype = (n1form, verb, n2form)
-                self.edges[edgetype] = edge
-                self._valid_edges[edgetype].append(edge)
+                self._valid_edges[(n1form, verb, n2form)].append(edge)
 
     def delEdge(self, edgetype):
 
