@@ -24,7 +24,7 @@ modeldefs = (
                     ('entity:actor', {
                         'template': {'title': 'person'}}),
                 ),
-                'doc': 'A person.'}),
+                'doc': 'A person or persona.'}),
 
             ('ps:workhist', ('guid', {}), {
                 'doc': "An entry in a contact's work history."}),

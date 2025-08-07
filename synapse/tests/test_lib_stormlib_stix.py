@@ -523,21 +523,21 @@ class StormLibStixTest(s_test.SynTest):
     async def test_stix_revs(self):
 
         async with self.getTestCore() as core:
-            await core.nodes('[risk:mitigation=* :name=bar +(addresses)> {[ entity:technique=* :name=foo ]} ]')
+            await core.nodes('[risk:mitigation=* :name=bar +(addresses)> {[ meta:technique=* :name=foo ]} ]')
 
             with self.raises(s_exc.BadConfValu):
                 bund = await core.callStorm('''
                     $config = $lib.stix.export.config()
-                    $config.forms."entity:technique".stix."attack-pattern".revs = (["a"])
+                    $config.forms."meta:technique".stix."attack-pattern".revs = (["a"])
                     $bundle = $lib.stix.export.bundle(config=$config)
-                    entity:technique
+                    meta:technique
                     $bundle.add($node, "attack-pattern")
                     fini { return($bundle) }
                 ''')
 
             bund = await core.callStorm('''
                 $bundle = $lib.stix.export.bundle()
-                entity:technique
+                meta:technique
                 $bundle.add($node, "attack-pattern")
                 fini { return($bundle) }
             ''')

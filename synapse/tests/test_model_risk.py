@@ -394,7 +394,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :period=(2022, ?)
                     :node=(inet:fqdn, vertex.link)
                     :vuln={[ risk:vuln=* :name=redtree ]}
-                    :technique={[ entity:technique=* :name=foo ]}
+                    :technique={[ meta:technique=* :name=foo ]}
                     :mitigated=true
                     :mitigations={[ risk:mitigation=* :name=patchstuff ]}
                 ]
@@ -407,7 +407,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:vulnerable -> risk:vuln'))
             self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
             self.len(1, await core.nodes('risk:vulnerable -> risk:mitigation'))
-            self.len(1, await core.nodes('risk:vulnerable -> entity:technique'))
+            self.len(1, await core.nodes('risk:vulnerable -> meta:technique'))
 
             nodes = await core.nodes('''
                 [ risk:outage=*
@@ -446,7 +446,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :desc=BazFaz
                     :reporter:name=vertex
                     :reporter = { gen.ou.org vertex }
-                    +(addresses)> {[ risk:vuln=* entity:technique=* ]}
+                    +(addresses)> {[ risk:vuln=* meta:technique=* ]}
             ]''')
             self.eq('foobar', nodes[0].get('name'))
             self.eq('BazFaz', nodes[0].get('desc'))
@@ -507,6 +507,6 @@ class RiskModelTest(s_t_utils.SynTest):
     async def test_model_risk_vuln_technique(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
-                [ risk:vuln=* :name=foo <(uses)+ { [ entity:technique=* :name=bar ] } ]
+                [ risk:vuln=* :name=foo <(uses)+ { [ meta:technique=* :name=bar ] } ]
             ''')
-            self.len(1, await core.nodes('risk:vuln:name=foo <(uses)- entity:technique:name=bar'))
+            self.len(1, await core.nodes('risk:vuln:name=foo <(uses)- meta:technique:name=bar'))

@@ -741,7 +741,7 @@ Pivot in ( ``<-`` ) and pivot in and join ( ``<+-`` ) are not supported.
   
   The custom behavior used with tag pivots may lead to counterintuitive results when attempting to pivot
   between tags (``syn:tag`` nodes) and properties that are ``syn:tag`` types (such as ``risk:threat:tag``
-  or ``entity:technique:tag``).
+  or ``meta:technique:tag``).
   
   For example, if you attempt to pivot from a ``syn:tag`` node used to associate nodes with a threat cluster
   to the ``risk:threat`` node representing the cluster, the following Storm query will fail to return

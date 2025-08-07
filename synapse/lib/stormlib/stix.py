@@ -388,7 +388,7 @@ _DefaultConfig = {
             }
         },
 
-        'entity:technique': {
+        'meta:technique': {
             'default': 'attack-pattern',
             'stix': {
                 'attack-pattern': {
