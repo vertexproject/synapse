@@ -2930,6 +2930,46 @@ class Layer(s_nexus.Pusher):
             return deepcopy(sode)
         return {}
 
+    async def getStorNodesByProp(self, prop, valu=None, cmpr='='):
+        prop = self.core.model.prop(prop)
+        if prop is None:
+            raise s_exc.NoSuchProp(mesg=f'No prop {prop}', name=prop)
+
+        if prop.isform:
+            raise s_exc.BadArg(mesg='getStorNodesByProp requires a property, not a form.',
+                               prop=prop.full)
+
+        form = prop.form.name
+        propname = prop.name
+        stortype = prop.type.stortype
+        isarray = bool(stortype & STOR_FLAG_ARRAY)
+        stortype &= 0x7fff
+
+        if valu is None and cmpr == '=':
+            try:
+                if isarray:
+                    indxby = IndxByPropArray(self, form, propname)
+                else:
+                    indxby = IndxByProp(self, form, propname)
+            except s_exc.NoSuchAbrv:
+                return
+
+            for lkey, buid in indxby.scanByPref():
+                sode = self._getStorNode(buid)
+                if sode is not None:
+                    yield buid, sode
+            return
+
+        if isarray:
+            lifter = self.stortypes[stortype].indxByPropArray
+        else:
+            lifter = self.stortypes[stortype].indxByProp
+
+        async for lkey, buid in lifter(form, propname, cmpr, valu):
+            sode = self._getStorNode(buid)
+            if sode is not None:
+                yield buid, sode
+
     def _getStorNode(self, buid):
         '''
         Return the storage node for the given buid.
@@ -3337,6 +3377,40 @@ class Layer(s_nexus.Pusher):
 
             sode['nodedata'] = {name: s_msgpack.un(byts)}
             yield None, buid, sode
+
+    async def migrNodeProp(self, oldprop, newprop):
+
+        if (newp := self.core.model.prop(newprop)) is None:
+            logger.warning(f'migrNodeProp failed, no such property: {newprop}')
+            return
+
+        if (oldp := self.core.model.prop(oldprop)) is None:
+            logger.warning(f'migrNodeProp failed, no such property: {oldprop}')
+            return
+
+        newp_name = newp.name
+        newp_stortype = newp.type.stortype
+        newp_formname = newp.form.name
+        oldp_name = oldp.name
+
+        async for buid, sode in self.getStorNodesByProp(oldprop):
+
+            if (oldp_vs := sode.get('props', {}).get(oldp_name)) is None:
+                continue
+
+            old_valu, old_stortype = oldp_vs
+
+            try:
+                newp_valu = newp.type.norm(old_valu)[0]
+            except s_exc.BadTypeValu:
+                logger.warning(f'migrNodeProp failed, failed to normalize value for {newprop}')
+                continue
+
+            del_edit = (EDIT_PROP_DEL, (oldp_name, None, old_stortype), ())
+            set_edit = (EDIT_PROP_SET, (newp_name, newp_valu, None, newp_stortype), ())
+
+            nodeedits = [(buid, newp_formname, [set_edit, del_edit])]
+            await self.storNodeEditsNoLift(nodeedits, {'time': s_common.now()})
 
     async def storNodeEdits(self, nodeedits, meta):
 

@@ -2283,3 +2283,55 @@ class LayerTest(s_t_utils.SynTest):
 
             sodes = await s_t_utils.alist(layr00.getStorNodesByForm('inet:ipv4'))
             self.len(0, sodes)
+
+    async def test_layer_migrate_props_fork(self):
+
+        async with self.getTestCore() as core:
+
+            fork00 = await core.view.fork()
+            layr00 = core.getLayer(fork00['layers'][0]['iden'])
+
+            await core.nodes('''
+                $lib.model.ext.addFormProp(
+                    risk:vuln,
+                    _custom:risk:level,
+                    (["int", {"enums": [[10, "low"], [20, "medium"], [30, "high"]]}]),
+                    ({"doc": "hey now"}),
+                )
+            ''')
+            self.len(1, await core.nodes('syn:prop=risk:vuln:_custom:risk:level'))
+
+            await core.nodes('[ risk:vuln=* :name=test1 :_custom:risk:level=low ]', opts={'view': fork00['iden']})
+
+            await core.getView(fork00['iden']).delete()
+
+            with self.raises(s_exc.CantDelProp) as cm:
+                msg = await core.callStorm('''
+                    $fullprop = `risk:vuln:_custom:risk:level`
+                    for $view in $lib.view.list(deporder=$lib.true) {
+                        view.exec $view.iden {
+                            yield $lib.layer.get().liftByProp($fullprop)
+                            $repr = $node.repr("_custom:risk:level")
+                            [ :severity=$repr -:_custom:risk:level ]
+                        }
+                    }
+                    $lib.model.ext.delFormProp("risk:vuln", "_custom:risk:level")
+                ''')
+            self.isin('Nodes still exist with prop: risk:vuln:_custom:risk:level', str(cm.exception))
+            self.len(1, await core.nodes('syn:prop=risk:vuln:_custom:risk:level'))
+
+            await core.callStorm('''
+                for $layer in $lib.layer.list() {
+                    if $layer.getPropCount("risk:vuln:_custom:risk:level", maxsize=1) {
+                        $layer.migrNodeProp("risk:vuln:_custom:risk:level", "risk:vuln:severity")
+                    }
+                }
+                $lib.model.ext.delFormProp("risk:vuln", "_custom:risk:level")
+            ''')
+            self.len(0, await core.nodes('syn:prop=risk:vuln:_custom:risk:level'))
+            self.len(0, await core.nodes('risk:vuln:severity'))
+
+            view00 = (await core.addView(vdef={'layers': [layr00.iden]}))['iden']
+            nodes = await core.nodes('risk:vuln', opts={'view': view00})
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('severity'), 10)

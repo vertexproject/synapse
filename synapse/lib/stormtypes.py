@@ -7073,6 +7073,14 @@ class Layer(Prim):
                        'desc': 'The name of the form to get storage nodes for.'},
                    ),
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
+        {'name': 'migrNodeProp',
+         'desc': 'Migrate a property from an old name to a new name.',
+         'type': {'type': 'function', '_funcname': 'migrNodeProp',
+                    'args': (
+                        {'name': 'oldprop', 'type': 'str', 'desc': 'The old property name.'},
+                        {'name': 'newprop', 'type': 'str', 'desc': 'The new property name.'},
+                    ),
+                    'returns': {'type': 'null'}}},
         {'name': 'getMirrorStatus', 'desc': '''
             Return a dictionary of the mirror synchronization status for the layer.
             ''',
@@ -7282,6 +7290,7 @@ class Layer(Prim):
             'liftByTag': self.liftByTag,
             'liftByProp': self.liftByProp,
             'liftByNodeData': self.liftByNodeData,
+            'migrNodeProp': self.migrNodeProp,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getPropValues': self._methGetPropValues,
@@ -7361,6 +7370,15 @@ class Layer(Prim):
 
         async for _, buid, sode in layr.liftByDataName(name):
             yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+
+    @stormfunc(readonly=True)
+    async def migrNodeProp(self, oldprop, newprop):
+        oldprop = await tostr(oldprop)
+        newprop = await tostr(newprop)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        return await layr.migrNodeProp(oldprop, newprop)
 
     @stormfunc(readonly=True)
     async def getMirrorStatus(self):
