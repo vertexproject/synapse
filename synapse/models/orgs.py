@@ -71,9 +71,10 @@ modeldefs = (
                 'doc': 'An International Standard Industrial Classification of All Economic Activities (ISIC) code.'}),
 
             ('ou:org', ('guid', {}), {
+                'template': {'title': 'organization'},
                 'interfaces': (
-                    ('entity:actor', {
-                        'template': {'title': 'organization'}}),
+                    ('entity:actor', {}),
+                    ('entity:multiple', {}),
                 ),
                 'doc': 'An organization, such as a company or military unit.',
                 'display': {

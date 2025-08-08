@@ -1919,23 +1919,20 @@ class Ndef(Type):
         self.formfilter = None
 
         self.forms = self.opts.get('forms')
-        self.ifaces = self.opts.get('interfaces')
+        self.iface = self.opts.get('interface')
 
-        if self.forms or self.ifaces:
+        if self.forms or self.iface:
+
             if self.forms is not None:
                 forms = set(self.forms)
 
-            if self.ifaces is not None:
-                ifaces = set(self.ifaces)
-
             def filtfunc(form):
+
                 if self.forms is not None and form.name in forms:
                     return False
 
-                if self.ifaces is not None:
-                    for iface in form.ifaces.keys():
-                        if iface in ifaces:
-                            return False
+                if self.iface is not None and form.implements(self.iface):
+                    return False
 
                 return True
 
@@ -1985,10 +1982,10 @@ class Ndef(Type):
             if self.forms is not None:
                 mesg += f' forms={self.forms}'
 
-            if self.ifaces is not None:
-                mesg += f' interfaces={self.ifaces}'
+            if self.iface is not None:
+                mesg += f' interface={self.iface}'
 
-            raise s_exc.BadTypeValu(valu=formname, name=self.name, mesg=mesg, forms=self.forms, interfaces=self.ifaces)
+            raise s_exc.BadTypeValu(valu=formname, name=self.name, mesg=mesg, forms=self.forms, interface=self.iface)
 
         formnorm, forminfo = await form.type.norm(formvalu)
         norm = (form.name, formnorm)

@@ -273,6 +273,7 @@ class Form:
 
         self.props = {}     # name: Prop()
         self.ifaces = {}    # name: <ifacedef>
+        self._full_ifaces = collections.defaultdict(int)
 
         self.refsout = None
 
@@ -293,6 +294,9 @@ class Form:
         if self.isrunt and (liftfunc := self.info.get('liftfunc')) is not None:
             func = s_dyndeps.tryDynLocal(liftfunc)
             modl.core.addRuntLift(name, func)
+
+    def implements(self, ifname):
+        return bool(self._full_ifaces.get(ifname))
 
     def reqProtoDef(self, name, propname=None):
 
@@ -1313,6 +1317,8 @@ class Model:
 
         iface = self.ifaces.get(name)
 
+        form._full_ifaces[name] += 1
+
         if iface is None:
             mesg = f'Form {form.name} depends on non-existent interface: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
@@ -1356,6 +1362,7 @@ class Model:
         if (iface := self.ifaces.get(name)) is None:
             return
 
+        form._full_ifaces[name] -= 1
         iface = self._prepFormIface(form, iface, ifinfo)
 
         for propname, typedef, propinfo in iface.get('props', ()):

@@ -20,9 +20,10 @@ modeldefs = (
                 'doc': 'An instance of an individual receiving an award.'}),
 
             ('ps:person', ('guid', {}), {
+                'template': {'title': 'person'},
                 'interfaces': (
-                    ('entity:actor', {
-                        'template': {'title': 'person'}}),
+                    ('entity:actor', {}),
+                    ('entity:singular', {}),
                 ),
                 'doc': 'A person or persona.'}),
 

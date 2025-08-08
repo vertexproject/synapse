@@ -26,7 +26,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('entity:contact -> inet:service:account'))
 
             nodes = await core.nodes('''
-                $item = {[ inet:fqdn=vertex.link ]}
+                $item = {[ transport:air:craft=* ]}
                 $actor = {[ entity:contact=({"name": "visi"}) ]}
 
                 [ entity:had=({"actor": $actor, "item": $item})
@@ -39,8 +39,8 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('type'), 'owner.')
             self.eq(nodes[0].get('percent'), '50')
             self.eq(nodes[0].get('period'), (1451606400000000, 9223372036854775807))
-            self.len(1, await core.nodes('entity:had :item -> inet:fqdn'))
             self.len(1, await core.nodes('entity:had :actor -> * +:name=visi'))
+            self.len(1, await core.nodes('entity:had :item -> transport:air:craft'))
 
             nodes = await core.nodes('''[
                 entity:goal=*

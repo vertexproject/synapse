@@ -4,8 +4,7 @@ modeldefs = (
         'interfaces': (
 
             ('entity:identifier', {
-                'doc': 'An interface which is inherited by entity identifier forms.',
-            }),
+                'doc': 'An interface which is inherited by entity identifier forms.'}),
 
             ('entity:action', {
                 'template': {'title': 'action'},
@@ -59,18 +58,6 @@ modeldefs = (
 
                     ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate entity names for the {title}.'}),
-
-                    ('title', ('entity:title', {}), {
-                        'doc': 'The entity title or role for this {title}.'}),
-
-                    ('titles', ('array', {'type': 'entity:title', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate entity titles or roles for this {title}.'}),
-
-                    ('org', ('ou:org', {}), {
-                        'doc': 'An associated organization listed as part of the contact information.'}),
-
-                    ('org:name', ('meta:name', {}), {
-                        'doc': 'The name of an associated organization listed as part of the contact information.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary url for the {title}.'}),
@@ -127,6 +114,27 @@ modeldefs = (
                 ),
                 'doc': 'An interface for entities which have initiative to act.'}),
 
+            ('entity:singular', {
+                'props': (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'An associated organization listed as part of the contact information.'}),
+
+                    ('org:name', ('meta:name', {}), {
+                        'doc': 'The name of an associated organization listed as part of the contact information.'}),
+
+                    ('title', ('entity:title', {}), {
+                        'doc': 'The entity title or role for this {title}.'}),
+
+                    ('titles', ('array', {'type': 'entity:title', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of alternate entity titles or roles for this {title}.'}),
+                ),
+                'doc': 'Properties which apply to entities which may represent a person.'}),
+
+            ('entity:multiple', {
+                'props': (
+                ),
+                'doc': 'Properties which apply to entities which may represent a group or organization.'}),
+
             ('entity:abstract', {
                 'template': {'title': 'entity'},
                 'props': (
@@ -170,8 +178,10 @@ modeldefs = (
             ('entity:contact', ('guid', {}), {
                 'template': {'title': 'contact'},
                 'interfaces': (
-                    ('entity:abstract', {}),
                     ('entity:actor', {}),
+                    ('entity:singular', {}),
+                    ('entity:multiple', {}),
+                    ('entity:abstract', {}),
                     ('meta:observable', {}),
                 ),
 
@@ -215,7 +225,7 @@ modeldefs = (
                 'doc': 'An item which was possessed by an actor.'}),
 
             ('entity:attendee', ('guid', {}), {
-                'doc': 'An individual attending an event.'}),
+                'doc': 'A person attending an event.'}),
 
             ('entity:conversation', ('guid', {}), {
                 'doc': 'A conversation between entities.'}),
@@ -235,13 +245,6 @@ modeldefs = (
                     ),
                 },
                 'doc': 'A stated or assessed goal.'}),
-
-            ('entity:goal:type:taxonomy', ('taxonomy', {}), {
-                'prevnames': ('ou:goal:type:taxonomy',),
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of goal types.'}),
 
             ('entity:campaign:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -377,7 +380,6 @@ modeldefs = (
                 #     'doc': 'The remote communication mechanism used by the person to attend the event.'}),
             )),
 
-            ('entity:goal:type:taxonomy', {}, ()),
 
             # FIXME interface for goals to allow granular $$$, population, etc
             ('entity:goal', {}, (
@@ -389,7 +391,7 @@ modeldefs = (
                 ('names', ('array', {'type': 'base:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'Alternative names for the goal.'}),
 
-                ('type', ('entity:goal:type:taxonomy', {}), {
+                ('type', ('meta:goal:type:taxonomy', {}), {
                     'doc': 'A type taxonomy entry for the goal.'}),
 
                 ('desc', ('text', {}), {

@@ -1399,11 +1399,8 @@ modeldefs = (
                 ),
                 'doc': 'A username string.'}),
 
-            ('inet:service:object', ('ndef', {'interfaces': ('inet:service:object',)}), {
-                'doc': 'An ndef type including all forms which implement the inet:service:object interface.'}),
-
-            ('inet:service:recipient', ('ndef', {'interfaces': ('inet:service:recipient',)}), {
-                'doc': 'A node which may be the recipient of a message.'}),
+            ('inet:service:object', ('ndef', {'interface': 'inet:service:object'}), {
+                'doc': 'A node which inherits the inet:service:object interface.'}),
 
             ('inet:search:query', ('guid', {}), {
                 'interfaces': (
@@ -1495,6 +1492,8 @@ modeldefs = (
             ('inet:service:account', ('guid', {}), {
                 'template': {'title': 'service account'},
                 'interfaces': (
+                    ('entity:singular', {}),
+                    ('entity:multiple', {}),
                     ('econ:pay:instrument', {}),
                     ('inet:service:subscriber', {}),
                 ),
