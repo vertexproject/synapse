@@ -2306,8 +2306,8 @@ class LayerTest(s_t_utils.SynTest):
             await core.getView(fork00['iden']).delete()
 
             with self.raises(s_exc.CantDelProp) as cm:
-                msg = await core.callStorm('''
-                    $fullprop = `risk:vuln:_custom:risk:level`
+                await core.callStorm('''
+                    $fullprop = "risk:vuln:_custom:risk:level"
                     for $view in $lib.view.list(deporder=$lib.true) {
                         view.exec $view.iden {
                             yield $lib.layer.get().liftByProp($fullprop)
@@ -2320,10 +2320,40 @@ class LayerTest(s_t_utils.SynTest):
             self.isin('Nodes still exist with prop: risk:vuln:_custom:risk:level', str(cm.exception))
             self.len(1, await core.nodes('syn:prop=risk:vuln:_custom:risk:level'))
 
+            with self.raises(s_exc.NoSuchProp) as cm:
+                await core.callStorm('''
+                    $layer = $lib.layer.get()
+                    $layer.getStorNodesByProp("foo:bar:_custom:risk:level")
+                ''')
+            self.isin('does not exist', str(cm.exception))
+
+            with self.getLoggerStream('synapse') as stream:
+                await core.callStorm('''
+                    $fullprop = "risk:vuln:_custom:risk:level"
+                    for $layer in $lib.layer.list() {
+                        for ($buid, $sode) in $layer.getStorNodesByProp($fullprop) {
+                            $oldv = $sode.props."_custom:risk:level"
+                            $layer.setStorNodeProp($buid, "foo:bar:severity", $oldv.0)
+                            $layer.setStorNodeProp($buid, $fullprop, "newp")
+                            $layer.delStorNodeProp($buid, "foo:bar:severity")
+                        }
+                    }
+                ''')
+            stream.seek(0)
+            data = stream.read()
+            self.isin('setStorNodeProp failed, no such property', data)
+            self.isin('setStorNodeProp failed, failed to normalize value', data)
+            self.isin('delStorNodeProp failed, no such property', data)
+
             await core.callStorm('''
+                $fullprop = "risk:vuln:_custom:risk:level"
                 for $layer in $lib.layer.list() {
-                    if $layer.getPropCount("risk:vuln:_custom:risk:level", maxsize=1) {
-                        $layer.migrNodeProp("risk:vuln:_custom:risk:level", "risk:vuln:severity")
+                    if $layer.getPropCount($fullprop, maxsize=1) {
+                        for ($buid, $sode) in $layer.getStorNodesByProp($fullprop, (10), "=") {
+                            $oldv = $sode.props."_custom:risk:level"
+                            $layer.setStorNodeProp($buid, "risk:vuln:severity", $oldv.0)
+                            $layer.delStorNodeProp($buid, $fullprop)
+                        }
                     }
                 }
                 $lib.model.ext.delFormProp("risk:vuln", "_custom:risk:level")
