@@ -14,16 +14,28 @@ CRLF = b'\r\n'
 CRLFLEN = len(CRLF)
 UNTAGGED = '*'
 
-response_re = regex.compile(
-br'^(?P<tag>\*|\+|[0-9a-pA-P]+)( (?P<uid>[0-9]+))* (?P<response>[A-Z]{2,})( \[(?P<code>.*?)\])* ?(?P<data>.*?(?! {\d+})) ?({(?P<size>\d+)})*$'
+imap_rgx = regex.compile(
+    br'''
+    ^
+      (?P<tag>\*|\+|[0-9a-pA-P]+)
+      (\s(?P<uid>[0-9]+))*\s
+      (?P<response>[A-Z]{2,})
+      (\s\[(?P<code>.*?)\])*\s?
+      (?P<data>.*?(?! {\d+}))\s?
+      ({(?P<size>\d+)})*
+    $
+    ''',
+    flags=regex.VERBOSE
 )
 
+class ImapError(s_exc.SynErr):
+    pass
+
 def parseLine(line):
-    match = response_re.match(line)
+    match = imap_rgx.match(line)
     if match is None:
-        # FIXME
-        mesg = 'Unable to parse message from server.'
-        raise ImapBadMesg(mesg=mesg, data=line)
+        mesg = 'Unable to parse response from server.'
+        raise ImapError(mesg=mesg, data=line)
 
     mesg = match.groupdict()
 
@@ -39,23 +51,11 @@ def parseLine(line):
     if (size := mesg.get('size')) is not None:
         mesg['size'] = int(size)
 
-    mesg['raw'] = line.lstrip(mesg.get('tag') + ' ')
+    mesg['raw'] = line.lstrip((mesg.get('tag') + ' ').encode())
 
     return mesg
 
-class ImapError(s_exc.SynErr):
-    pass
-
-class ImapBadState(ImapError):
-    pass
-
-class ImapBadMesg(ImapError):
-    pass
-
-class ImapDisconnect(ImapError):
-    pass
-
-class IMAP(s_link.Link):
+class IMAPClient(s_link.Link):
     async def postAnit(self):
         self._rxbuf = b''
         self.state = 'LOGOUT'
@@ -71,10 +71,9 @@ class IMAP(s_link.Link):
             self.state = 'AUTH'
         elif greeting.get('response') == 'OK':
             self.state = 'NONAUTH'
-        elif greeting.get('response') == 'BYE':
-            raise ImapDisconnect(mesg=greeting.get('data'))
         else:
-            raise ImapBadMesg(mesg=greeting)
+            # Includes greeting.get('response') == 'BYE'
+            raise ImapError(mesg=greeting.get('data'), response=response)
 
         # Some servers will list capabilities in the greeting
         if (code := greeting.get('code')) is not None and code.startswith('CAPABILITY'):
@@ -153,7 +152,7 @@ class IMAP(s_link.Link):
 
         if self.state not in imaplib.Commands.get(command.upper()):
             mesg = f'{command} not allowed in the {self.state} state.'
-            raise ImapBadState(mesg=mesg, state=self.state, command=command)
+            raise ImapError(mesg=mesg, state=self.state, command=command)
 
         await self.tx((tag, command, args))
         return await self.getResponse(tag)
@@ -254,12 +253,12 @@ class IMAP(s_link.Link):
         self.okSetState(response, 'LOGOUT')
         return True, response.get('data')
 
-async def run_imap_coro(coro):
+async def run_imap_coro(coro, timeout):
     '''
     Raises or returns data.
     '''
     try:
-        status, data = await coro
+        status, data = s_common.wait_for(coro, timeout)
     except asyncio.TimeoutError:
         raise s_exc.StormRuntimeError(mesg='Timed out waiting for IMAP server response.') from None
 
@@ -336,10 +335,10 @@ class ImapLib(s_stormtypes.Lib):
             ctx = None
             port = imaplib.IMAP4_PORT
 
-        coro = IMAP.connect(host=host, port=port, ssl=ctx)
+        coro = IMAPClient.connect(host=host, port=port, ssl=ctx)
 
         try:
-            imap = await asyncio.wait_for(coro, timeout)
+            imap = await s_common.wait_for(coro, timeout)
         except asyncio.TimeoutError:
             raise s_exc.StormRuntimeError(mesg='Timed out waiting for IMAP server hello.') from None
 
@@ -351,7 +350,7 @@ class ImapLib(s_stormtypes.Lib):
 
         self.runt.snap.onfini(fini)
 
-        return ImapServer(self.runt, imap)
+        return ImapServer(self.runt, imap, timeout)
 
 @s_stormtypes.registry.registerType
 class ImapServer(s_stormtypes.StormType):
@@ -529,10 +528,11 @@ class ImapServer(s_stormtypes.StormType):
     )
     _storm_typename = 'inet:imap:server'
 
-    def __init__(self, runt, imap_cli, path=None):
+    def __init__(self, runt, imap_cli, timeout, path=None):
         s_stormtypes.StormType.__init__(self, path=path)
         self.runt = runt
         self.imap_cli = imap_cli
+        self.timeout = timeout
         self.locls.update(self.getObjLocals())
 
     def getObjLocals(self):
@@ -551,7 +551,7 @@ class ImapServer(s_stormtypes.StormType):
         passwd = await s_stormtypes.tostr(passwd)
 
         coro = self.imap_cli.login(user, passwd)
-        await run_imap_coro(coro)
+        await run_imap_coro(coro, self.timeout)
 
         return True, None
 
@@ -560,7 +560,7 @@ class ImapServer(s_stormtypes.StormType):
         reference_name = await s_stormtypes.tostr(reference_name)
 
         coro = self.imap_cli.list(reference_name, pattern)
-        data = await run_imap_coro(coro)
+        data = await run_imap_coro(coro, self.timeout)
 
         names = []
         for item in data:
@@ -572,7 +572,7 @@ class ImapServer(s_stormtypes.StormType):
         mailbox = await s_stormtypes.tostr(mailbox)
 
         coro = self.imap_cli.select(mailbox=mailbox)
-        await run_imap_coro(coro)
+        await run_imap_coro(coro, self.timeout)
 
         return True, None
 
@@ -580,7 +580,7 @@ class ImapServer(s_stormtypes.StormType):
         args = [await s_stormtypes.tostr(arg) for arg in args]
         charset = await s_stormtypes.tostr(charset, noneok=True)
         coro = self.imap_cli.uid_search(*args, charset=charset)
-        data = await run_imap_coro(coro)
+        data = await run_imap_coro(coro, self.timeout)
 
         uids = data[0].decode().split(' ') if data[0] else []
         return True, uids
@@ -595,7 +595,7 @@ class ImapServer(s_stormtypes.StormType):
         axon = self.runt.snap.core.axon
 
         coro = self.imap_cli.uid('FETCH', str(uid), '(RFC822)')
-        data = await run_imap_coro(coro)
+        data = await run_imap_coro(coro, self.timeout)
 
         size, sha256b = await axon.put(data[1])
 
@@ -610,10 +610,10 @@ class ImapServer(s_stormtypes.StormType):
         uid_set = await s_stormtypes.tostr(uid_set)
 
         coro = self.imap_cli.uid('STORE', uid_set, '+FLAGS.SILENT (\\Deleted)')
-        await run_imap_coro(coro)
+        await run_imap_coro(coro, self.timeout)
 
         coro = self.imap_cli.expunge()
-        await run_imap_coro(coro)
+        await run_imap_coro(coro, self.timeout)
 
         return True, None
 
@@ -621,6 +621,6 @@ class ImapServer(s_stormtypes.StormType):
         uid_set = await s_stormtypes.tostr(uid_set)
 
         coro = self.imap_cli.uid('STORE', uid_set, '+FLAGS.SILENT (\\Seen)')
-        await run_imap_coro(coro)
+        await run_imap_coro(coro, self.timeout)
 
         return True, None

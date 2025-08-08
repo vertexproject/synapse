@@ -6,6 +6,8 @@ from unittest import mock
 
 import synapse.common as s_common
 
+import synapse.lib.stormlib.imap as s_imap
+
 import synapse.tests.utils as s_test
 
 resp = collections.namedtuple('Response', ('status', 'data'))
@@ -121,8 +123,354 @@ def mock_create_client(self, host, port, *args, **kwargs):
     return
 
 class ImapTest(s_test.SynTest):
+    async def test_storm_imap_parseLine(self):
 
-    async def test_storm_imap(self):
+        # NB: Most of the examples in this test are taken from RFC9051
+
+        # Server greetings
+        line = b'* OK IMAP4rev2 server ready'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'OK',
+            'data': b'IMAP4rev2 server ready',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = b'* OK [CAPABILITY IMAP4rev1 LITERAL+ SASL-IR LOGIN-REFERRALS ID ENABLE IDLE AUTH=PLAIN AUTH=LOGIN] Dovecot ready.'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'OK',
+            'data': b'Dovecot ready.',
+            'raw': line[2:],
+            'code': 'CAPABILITY IMAP4rev1 LITERAL+ SASL-IR LOGIN-REFERRALS ID ENABLE IDLE AUTH=PLAIN AUTH=LOGIN',
+            'uid': None, 'size': None,
+        })
+
+        line = b'* PREAUTH IMAP4rev2 server logged in as Smith'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'PREAUTH',
+            'data': b'IMAP4rev2 server logged in as Smith',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = b'* BYE Autologout; idle for too long'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'BYE',
+            'data': b'Autologout; idle for too long',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        # Capability response
+        line = b'* CAPABILITY IMAP4rev2 STARTTLS AUTH=GSSAPI LOGINDISABLED'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'CAPABILITY',
+            'data': b'IMAP4rev2 STARTTLS AUTH=GSSAPI LOGINDISABLED',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = b'abcd OK CAPABILITY completed'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': 'abcd',
+            'response': 'OK',
+            'data': b'CAPABILITY completed',
+            'raw': line[5:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        # Login responses
+        line = b'a001 OK LOGIN completed'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': 'a001',
+            'response': 'OK',
+            'data': b'LOGIN completed',
+            'raw': line[5:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        # Select responses
+        line = b'* 172 EXISTS'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'EXISTS',
+            'data': b'',
+            'raw': line[2:],
+            'code': None,
+            'uid': 172,
+            'size': None,
+        })
+
+        line = b'* OK [UIDVALIDITY 3857529045] UIDs valid'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'OK',
+            'data': b'UIDs valid',
+            'raw': line[2:],
+            'code': 'UIDVALIDITY 3857529045',
+            'uid': None, 'size': None,
+        })
+
+        line = b'* OK [UIDNEXT 4392] Predicted next UID'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'OK',
+            'data': b'Predicted next UID',
+            'raw': line[2:],
+            'code': 'UIDNEXT 4392',
+            'uid': None, 'size': None,
+        })
+
+        line = br'* FLAGS (\Answered \Flagged \Deleted \Seen \Draft)'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'FLAGS',
+            'data': br'(\Answered \Flagged \Deleted \Seen \Draft)',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = br'* OK [PERMANENTFLAGS (\Deleted \Seen \*)] Limited'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'OK',
+            'data': br'Limited',
+            'raw': line[2:],
+            'code': r'PERMANENTFLAGS (\Deleted \Seen \*)',
+            'uid': None, 'size': None,
+        })
+
+        line = b'* LIST () "/" INBOX'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'LIST',
+            'data': b'() "/" INBOX',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = b'A142 OK [READ-WRITE] SELECT completed'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': 'A142',
+            'response': 'OK',
+            'data': b'SELECT completed',
+            'raw': line[5:],
+            'code': 'READ-WRITE',
+            'uid': None, 'size': None,
+        })
+
+        # List responses
+        line = br'* LIST (\Noselect) "/" ""'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'LIST',
+            'data': br'(\Noselect) "/" ""',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = br'* LIST (\Noselect) "." #news.'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'LIST',
+            'data': br'(\Noselect) "." #news.',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = br'* LIST (\Noselect) "/" /'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'LIST',
+            'data': br'(\Noselect) "/" /',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = br'* LIST (\Noselect) "/" ~/Mail/foo'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'LIST',
+            'data': br'(\Noselect) "/" ~/Mail/foo',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = b'* LIST () "/" ~/Mail/meetings'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'LIST',
+            'data': br'() "/" ~/Mail/meetings',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = br'* LIST (\Marked \NoInferiors) "/" "inbox"'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'LIST',
+            'data': br'(\Marked \NoInferiors) "/" "inbox"',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = b'* LIST () "/" "Fruit"'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'LIST',
+            'data': b'() "/" "Fruit"',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = b'* LIST () "/" "Fruit/Apple"'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'LIST',
+            'data': br'() "/" "Fruit/Apple"',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = b'A101 OK LIST Completed'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': 'A101',
+            'response': 'OK',
+            'data': b'LIST Completed',
+            'raw': line[5:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        # UID responses
+        line = b'* 3 EXPUNGE'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'EXPUNGE',
+            'data': b'',
+            'raw': line[2:],
+            'code': None,
+            'uid': 3,
+            'size': None,
+        })
+
+        line = b'A003 OK UID EXPUNGE completed'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': 'A003',
+            'response': 'OK',
+            'data': b'UID EXPUNGE completed',
+            'raw': line[5:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = br'* 25 FETCH (FLAGS (\Seen) UID 4828442)'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'FETCH',
+            'data': br'(FLAGS (\Seen) UID 4828442)',
+            'raw': line[2:],
+            'code': None,
+            'uid': 25,
+            'size': None,
+        })
+
+        line = b'* 12 FETCH (BODY[HEADER] {342}'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'FETCH',
+            'data': b'(BODY[HEADER]',
+            'raw': line[2:],
+            'code': None,
+            'uid': 12,
+            'size': 342,
+        })
+
+        line = b'A999 OK UID FETCH completed'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': 'A999',
+            'response': 'OK',
+            'data': b'UID FETCH completed',
+            'raw': line[5:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        # Expunge responses
+        line = b'* 8 EXPUNGE'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'EXPUNGE',
+            'data': b'',
+            'raw': line[2:],
+            'code': None,
+            'uid': 8,
+            'size': None,
+        })
+
+        line = b'A202 OK EXPUNGE completed'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': 'A202',
+            'response': 'OK',
+            'data': b'EXPUNGE completed',
+            'raw': line[5:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        # Logout responses
+        line = b'* BYE IMAP4rev2 Server logging out'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': '*',
+            'response': 'BYE',
+            'data': b'IMAP4rev2 Server logging out',
+            'raw': line[2:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+        line = b'A023 OK LOGOUT completed'
+        mesg = s_imap.parseLine(line)
+        self.eq(mesg, {
+            'tag': 'A023',
+            'response': 'OK',
+            'data': b'LOGOUT completed',
+            'raw': line[5:],
+            'code': None, 'uid': None, 'size': None,
+        })
+
+    async def __test_storm_imap(self):
 
         client_args = []
         def client_mock(*args, **kwargs):
