@@ -46,7 +46,7 @@ onload: |
   $lib.globals.set(testpkg, testpkg-done)
 
 inits:
-  var: testpkg:version
+  key: testpkg:version
   versions:
     - name: first
       version: 0

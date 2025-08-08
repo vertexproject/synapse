@@ -3126,7 +3126,7 @@ class StormTest(s_t_utils.SynTest):
                     'name': 'testload',
                     'version': '0.1.0',
                     'inits': {
-                        'var': 'testload:version',
+                        'key': 'testload:version',
                         'versions': [
                             {
                                 'version': 0,
@@ -3159,7 +3159,7 @@ class StormTest(s_t_utils.SynTest):
 
                 await loadPkg(core, pkg)
 
-                self.eq(1, await core.getStormVar('testload:version'))
+                self.eq(1, await core.getStormPkgVar('testload', 'testload:version'))
                 self.none(await core.getStormVar('init00'))
                 self.nn(init01 := await core.getStormVar('init01'))
 
@@ -3176,7 +3176,7 @@ class StormTest(s_t_utils.SynTest):
 
                 await loadPkg(core, pkg)
 
-                self.eq(2, await core.getStormVar('testload:version'))
+                self.eq(2, await core.getStormPkgVar('testload', 'testload:version'))
                 self.nn(onload := await core.getStormVar('onload'))
                 self.none(await core.getStormVar('init00'))
                 self.eq(init01, await core.getStormVar('init01'))
@@ -3197,7 +3197,7 @@ class StormTest(s_t_utils.SynTest):
 
                 await loadPkg(core, pkg)
 
-                self.eq(3, await core.getStormVar('testload:version'))
+                self.eq(3, await core.getStormPkgVar('testload', 'testload:version'))
                 self.eq(init02, await core.getStormVar('init02'))
                 self.nn(await core.getStormVar('init03'))
 
@@ -3226,7 +3226,7 @@ class StormTest(s_t_utils.SynTest):
                 mesg = 'testload init vers=4 output: (\'SynErr\''
                 with self.getAsyncLoggerStream('synapse.cortex', mesg) as stream:
                     await loadPkg(core, pkg)
-                    self.eq(3, await core.getStormVar('testload:version'))
+                    self.eq(3, await core.getStormPkgVar('testload', 'testload:version'))
                     await stream.wait(timeout=10)
 
                 self.none(await core.getStormVar('init04'))
@@ -3242,7 +3242,7 @@ class StormTest(s_t_utils.SynTest):
 
                     await core.addStormPkg(pkg)
 
-                    self.eq(6, await core.getStormVar('testload:version'))
+                    self.eq(6, await core.getStormPkgVar('testload', 'testload:version'))
                     self.gt(await core.getStormVar('onload'), onload)
                     self.eq(init02, await core.getStormVar('init02'))
                     self.nn(await core.getStormVar('init04'))
@@ -3259,7 +3259,7 @@ class StormTest(s_t_utils.SynTest):
 
                     with self.getAsyncLoggerStream('synapse.cortex', 'doing a print') as stream:
                         await loadPkg(core, pkg)
-                        self.eq(7, await core.getStormVar('testload:version'))
+                        self.eq(7, await core.getStormPkgVar('testload', 'testload:version'))
                         await stream.wait(timeout=10)
 
                     pkg['version'] = '0.6.0'
@@ -3271,7 +3271,7 @@ class StormTest(s_t_utils.SynTest):
 
                     with self.getAsyncLoggerStream('synapse.cortex', 'doing a warn') as stream:
                         await loadPkg(core, pkg)
-                        self.eq(8, await core.getStormVar('testload:version'))
+                        self.eq(8, await core.getStormPkgVar('testload', 'testload:version'))
                         await stream.wait(timeout=10)
 
     async def test_storm_tree(self):

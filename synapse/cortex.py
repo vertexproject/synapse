@@ -3004,8 +3004,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         logger.warning(f'onload failed for package: {name}', exc_info=exc, extra=logextra)
 
                 if inits is not None:
-                    varname = inits['var']
-                    curvers = await self.getStormVar(varname, default=-1)
+                    varname = inits['key']
+                    curvers = await self.getStormPkgVar(name, varname, default=-1)
                     inaugral = curvers == -1
 
                     for initdef in inits['versions']:
@@ -3017,7 +3017,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             continue
 
                         if inaugral and not initdef.get('inaugural'):
-                            await self.setStormVar(varname, vers)
+                            await self.setStormPkgVar(name, varname, vers)
                             continue
 
                         logextra['synapse']['initvers'] = vers
@@ -3051,7 +3051,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             break
 
                         curvers = vers
-                        await self.setStormVar(varname, vers)
+                        await self.setStormPkgVar(name, varname, vers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 await self.fire('core:pkg:onload:complete', pkg=name)
