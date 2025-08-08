@@ -2988,21 +2988,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 logextra = await self.getLogExtra(pkg=name, vers=pkgvers)
 
-                if onload is not None:
-                    try:
-                        async for mesg in self.storm(onload):
-                            if mesg[0] == 'print':
-                                logger.info(f'{name} onload output: {mesg[1].get("mesg")}', extra=logextra)
-                            if mesg[0] == 'warn':
-                                logger.warning(f'{name} onload output: {mesg[1].get("mesg")}', extra=logextra)
-                            if mesg[0] == 'err':
-                                logger.error(f'{name} onload output: {mesg[1]}', extra=logextra)
-                            await asyncio.sleep(0)
-                    except asyncio.CancelledError:  # pragma: no cover
-                        raise
-                    except Exception as exc:  # pragma: no cover
-                        logger.warning(f'onload failed for package: {name}', exc_info=exc, extra=logextra)
-
                 if inits is not None:
                     varname = inits['key']
                     curvers = await self.getStormPkgVar(name, varname, default=-1)
@@ -3053,6 +3038,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         curvers = vers
                         await self.setStormPkgVar(name, varname, vers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
+
+                if onload is not None:
+                    try:
+                        async for mesg in self.storm(onload):
+                            if mesg[0] == 'print':
+                                logger.info(f'{name} onload output: {mesg[1].get("mesg")}', extra=logextra)
+                            if mesg[0] == 'warn':
+                                logger.warning(f'{name} onload output: {mesg[1].get("mesg")}', extra=logextra)
+                            if mesg[0] == 'err':
+                                logger.error(f'{name} onload output: {mesg[1]}', extra=logextra)
+                            await asyncio.sleep(0)
+                    except asyncio.CancelledError:  # pragma: no cover
+                        raise
+                    except Exception as exc:  # pragma: no cover
+                        logger.warning(f'onload failed for package: {name}', exc_info=exc, extra=logextra)
+
+                    logger.info(f'{name} finished onload', extra=logextra)
 
                 await self.fire('core:pkg:onload:complete', pkg=name)
 

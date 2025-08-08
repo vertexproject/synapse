@@ -3164,10 +3164,10 @@ class StormTest(s_t_utils.SynTest):
                 self.nn(init01 := await core.getStormVar('init01'))
 
                 # non-inaugural inits run on reload
-                # inits always run after onload
+                # inits always run before onload
 
                 pkg['version'] = '0.2.0'
-                pkg['onload'] = '$lib.globals.set(onload, $lib.time.now()) $lib.time.sleep((0.1))'
+                pkg['onload'] = '$lib.time.sleep((0.1)) $lib.globals.set(onload, $lib.time.now())'
                 pkg['inits']['versions'].append({
                     'version': 2,
                     'name': 'init02',
@@ -3177,11 +3177,11 @@ class StormTest(s_t_utils.SynTest):
                 await loadPkg(core, pkg)
 
                 self.eq(2, await core.getStormPkgVar('testload', 'testload:version'))
-                self.nn(onload := await core.getStormVar('onload'))
                 self.none(await core.getStormVar('init00'))
                 self.eq(init01, await core.getStormVar('init01'))
                 self.nn(init02 := await core.getStormVar('init02'))
-                self.gt(init02, onload)
+                self.nn(onload := await core.getStormVar('onload'))
+                self.gt(onload, init02)
 
                 # inits run even if onload fails
                 # prior inits do not re-run
@@ -3234,13 +3234,11 @@ class StormTest(s_t_utils.SynTest):
 
                 await core.setStormVar('dofail', False)
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'testload finished init vers=6: init06') as stream:
+            with self.getAsyncLoggerStream('synapse.cortex', 'testload finished onload') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
                     await stream.wait(timeout=10)
 
                     # prior versions dont re-run, but a failed one does
-
-                    await core.addStormPkg(pkg)
 
                     self.eq(6, await core.getStormPkgVar('testload', 'testload:version'))
                     self.gt(await core.getStormVar('onload'), onload)
@@ -3259,8 +3257,8 @@ class StormTest(s_t_utils.SynTest):
 
                     with self.getAsyncLoggerStream('synapse.cortex', 'doing a print') as stream:
                         await loadPkg(core, pkg)
-                        self.eq(7, await core.getStormPkgVar('testload', 'testload:version'))
                         await stream.wait(timeout=10)
+                        self.eq(7, await core.getStormPkgVar('testload', 'testload:version'))
 
                     pkg['version'] = '0.6.0'
                     pkg['inits']['versions'].append({
@@ -3271,8 +3269,8 @@ class StormTest(s_t_utils.SynTest):
 
                     with self.getAsyncLoggerStream('synapse.cortex', 'doing a warn') as stream:
                         await loadPkg(core, pkg)
-                        self.eq(8, await core.getStormPkgVar('testload', 'testload:version'))
                         await stream.wait(timeout=10)
+                        self.eq(8, await core.getStormPkgVar('testload', 'testload:version'))
 
     async def test_storm_tree(self):
 
