@@ -3241,12 +3241,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         pkgvars = self._getStormPkgVarKV(name)
         return pkgvars.get(key, defv=default)
 
-    @s_nexus.Pusher.onPushAuto('stormpkgvar:pop')
+    @s_nexus.Pusher.onPushAuto('storm:pkg:var:pop')
     async def popStormPkgVar(self, name, key, default=None):
         pkgvars = self._getStormPkgVarKV(name)
         return pkgvars.pop(key, defv=default)
 
-    @s_nexus.Pusher.onPushAuto('stormpkgvar:set')
+    @s_nexus.Pusher.onPushAuto('storm:pkg:var:set')
     async def setStormPkgVar(self, name, key, valu):
         pkgvars = self._getStormPkgVarKV(name)
         return pkgvars.set(key, valu)
