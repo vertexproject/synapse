@@ -3338,6 +3338,42 @@ class Layer(s_nexus.Pusher):
             sode['nodedata'] = {name: s_msgpack.un(byts)}
             yield None, buid, sode
 
+    async def setStorNodeProp(self, buid, prop, valu):
+        if (newp := self.core.model.prop(prop)) is None:
+            logger.warning(f'setStorNodeProp failed, no such property: {prop}')
+            return
+
+        try:
+            newp_valu = newp.type.norm(valu)[0]
+        except s_exc.BadTypeValu:
+            logger.warning(f'setStorNodeProp failed, failed to normalize value for {prop}')
+            return
+
+        newp_name = newp.name
+        newp_stortype = newp.type.stortype
+        newp_formname = newp.form.name
+
+        set_edit = (EDIT_PROP_SET, (newp_name, newp_valu, None, newp_stortype), ())
+        nodeedits = [(buid, newp_formname, [set_edit])]
+
+        _, changes = await self.saveNodeEdits(nodeedits, {'time': s_common.now()})
+        return bool(changes[0][2])
+
+    async def delStorNodeProp(self, buid, prop):
+        if (pprop := self.core.model.prop(prop)) is None:
+            logger.warning(f'delStorNodeProp failed, no such property: {prop}')
+            return
+
+        oldp_name = pprop.name
+        oldp_formname = pprop.form.name
+        oldp_stortype = pprop.type.stortype
+
+        del_edit = (EDIT_PROP_DEL, (oldp_name, None, oldp_stortype), ())
+        nodeedits = [(buid, oldp_formname, [del_edit])]
+
+        _, changes = await self.saveNodeEdits(nodeedits, {'time': s_common.now()})
+        return bool(changes[0][2])
+
     async def storNodeEdits(self, nodeedits, meta):
 
         saveoff, results = await self.saveNodeEdits(nodeedits, meta)
@@ -4556,6 +4592,47 @@ class Layer(s_nexus.Pusher):
             sode = await self.getStorNode(buid)
             yield buid, sode
             await asyncio.sleep(0)
+
+    async def getStorNodesByProp(self, prop, valu, cmprvals):
+        '''
+        Yield (buid, sode) tuples for nodes with a given property in this layer.
+        '''
+        prop = self.core.model.prop(prop)
+        form = prop.form.name
+        propname = prop.name
+
+        if valu is None and cmprvals == '=':
+            stortype = prop.type.stortype
+            isarray = bool(stortype & STOR_FLAG_ARRAY)
+            try:
+                if isarray:
+                    indxby = IndxByPropArray(self, form, propname)
+                else:
+                    indxby = IndxByProp(self, form, propname)
+            except s_exc.NoSuchAbrv:
+                return
+
+            for lkey, buid in indxby.scanByPref():
+                sode = self._getStorNode(buid)
+                if sode is not None:
+                    yield buid, sode
+            return
+
+        for cmpr, valu, kind in cmprvals:
+
+            isarray = bool(kind & STOR_FLAG_ARRAY)
+            stortype = kind & 0x7fff
+
+            lifter = self.stortypes[stortype]
+            if isarray:
+                lifter_func = lifter.indxByPropArray
+            else:
+                lifter_func = lifter.indxByProp
+
+            async for lkey, buid in lifter_func(form, propname, cmpr, valu):
+                sode = self._getStorNode(buid)
+                if sode is not None:
+                    yield buid, sode
 
     async def iterNodeEditLog(self, offs=0):
         '''

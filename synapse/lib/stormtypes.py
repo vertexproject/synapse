@@ -7130,6 +7130,37 @@ class Layer(Prim):
                        'desc': 'The name of the form to get storage nodes for.'},
                    ),
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
+        {'name': 'getStorNodesByProp', 'desc': '''
+            Get buid, sode tuples representing the data stored in the layer for a given property.
+            Notes:
+                The storage nodes represent **only** the data stored in the layer
+                and may not represent whole nodes.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getStorNodesByProp',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The full property name to lift by.'},
+                      {'name': 'propvalu', 'type': 'obj', 'desc': 'The value for the property.', 'default': None},
+                      {'name': 'propcmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.',
+                       'default': '='},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
+        {'name': 'setStorNodeProp',
+         'desc': 'Set a property on a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'setStorNodeProp',
+                  'args': (
+                      {'name': 'buid', 'type': 'str', 'desc': 'The buid of the node.'},
+                      {'name': 'prop', 'type': 'str', 'desc': 'The property name to set.'},
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value to set.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true on success.'}}},
+        {'name': 'delStorNodeProp',
+         'desc': 'Delete a property from a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delStorNodeProp',
+                  'args': (
+                      {'name': 'buid', 'type': 'str', 'desc': 'The buid of the node.'},
+                      {'name': 'prop', 'type': 'str', 'desc': 'The property name to delete.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true on success.'}}},
         {'name': 'getMirrorStatus', 'desc': '''
             Return a dictionary of the mirror synchronization status for the layer.
             ''',
@@ -7348,10 +7379,13 @@ class Layer(Prim):
             'getStorNode': self.getStorNode,
             'getStorNodes': self.getStorNodes,
             'getStorNodesByForm': self.getStorNodesByForm,
+            'getStorNodesByProp': self.getStorNodesByProp,
             'getEdgesByN1': self.getEdgesByN1,
             'getEdgesByN2': self.getEdgesByN2,
             'getNodeData': self.getNodeData,
             'getMirrorStatus': self.getMirrorStatus,
+            'setStorNodeProp': self.setStorNodeProp,
+            'delStorNodeProp': self.delStorNodeProp,
         }
 
     @stormfunc(readonly=True)
@@ -7424,6 +7458,27 @@ class Layer(Prim):
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
         return await layr.getMirrorStatus()
+
+    async def setStorNodeProp(self, buid, prop, valu):
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        buid = s_common.uhex(await tostr(buid))
+        prop = await tostr(prop)
+        valu = await toprim(valu)
+        if not self.runt.isAdmin():
+            mesg = 'setStorNodeProp() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+        return await layr.setStorNodeProp(buid, prop, valu)
+
+    async def delStorNodeProp(self, buid, prop):
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        buid = s_common.uhex(await tostr(buid))
+        prop = await tostr(prop)
+        if not self.runt.isAdmin():
+            mesg = 'delStorNodeProp() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+        return await layr.delStorNodeProp(buid, prop)
 
     async def _addPull(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
         url = await tostr(url)
@@ -7706,6 +7761,29 @@ class Layer(Prim):
 
         async for item in layr.getStorNodesByForm(form):
             yield item
+
+    @stormfunc(readonly=True)
+    async def getStorNodesByProp(self, propname, propvalu=None, propcmpr='='):
+        propname = await tostr(propname)
+        propvalu = await toprim(propvalu)
+        propcmpr = await tostr(propcmpr)
+
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        prop = self.runt.snap.core.model.prop(propname)
+        if prop is None:
+            mesg = f'The property {propname} does not exist.'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        cmprvals = propcmpr
+        if propvalu is not None:
+            norm, info = prop.type.norm(propvalu)
+            cmprvals = prop.type.getStorCmprs(propcmpr, norm)
+
+        async for buid, sode in layr.getStorNodesByProp(propname, propvalu, cmprvals):
+            yield (await toprim(s_common.ehex(buid)), await toprim(sode))
 
     @stormfunc(readonly=True)
     async def getEdges(self):
