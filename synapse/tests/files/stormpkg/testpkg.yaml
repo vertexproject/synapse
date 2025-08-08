@@ -45,6 +45,18 @@ onload: |
   $lib.time.sleep($lib.globals.get(onload_sleep, 0))
   $lib.globals.set(testpkg, testpkg-done)
 
+inits:
+  key: testpkg:version
+  versions:
+    - name: first
+      version: 0
+      inaugural: true
+      query: "$lib.globals.set(testpkg-first, (true))"
+    - name: second
+      desc: Another init
+      version: 2
+      query: "$lib.globals.set(testpkg-second, (true))"
+
 external_modules:
     - name: testext
       package: synapse.tests.files

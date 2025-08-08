@@ -80,6 +80,10 @@ class GenPkgTest(s_test.SynTest):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badendpoints.yaml')
             await s_genpkg.main((ymlpath,))
 
+        with self.raises(s_exc.BadPkgDef):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badinits.yaml')
+            await s_genpkg.main((ymlpath,))
+
         ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
         async with self.getTestCore() as core:
 
