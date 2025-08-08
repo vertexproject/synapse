@@ -22,15 +22,7 @@ async def connect(host, port, ssl=None, hostname=None, linkinfo=None):
     '''
     Async connect and return a Link().
     '''
-    info = {'host': host, 'port': port, 'ssl': ssl, 'hostname': hostname, 'tls': bool(ssl)}
-    if linkinfo is not None:
-        info.update(linkinfo)
-
-    ssl = info.get('ssl')
-    hostname = info.get('hostname')
-
-    reader, writer = await asyncio.open_connection(host, port, ssl=ssl, server_hostname=hostname)
-    return await Link.anit(reader, writer, info=info)
+    return await Link.connect(host, port, ssl=ssl, hostname=hostname, linkinfo=linkinfo)
 
 async def listen(host, port, onlink, ssl=None):
     '''
@@ -196,6 +188,18 @@ class Link(s_base.Base):
                 await self.fini()
                 raise s_exc.BadCertHost(mesg=mesg)
 
+    @classmethod
+    async def connect(cls, host, port, ssl=None, hostname=None, linkinfo=None):
+        info = {'host': host, 'port': port, 'ssl': ssl, 'hostname': hostname, 'tls': bool(ssl)}
+        if linkinfo is not None:
+            info.update(linkinfo)
+
+        ssl = info.get('ssl')
+        hostname = info.get('hostname')
+
+        reader, writer = await asyncio.open_connection(host, port, ssl=ssl, server_hostname=hostname)
+        return await cls.anit(reader, writer, info=info)
+
     def getTlsPeerCn(self):
 
         if self.peercert is None:
@@ -249,28 +253,7 @@ class Link(s_base.Base):
 
         async with self._txlock:
 
-            while offs < size:
-
-                self.writer.write(byts[offs:offs + MAXWRITE])
-                offs += MAXWRITE
-
-                await self.writer.drain()
-
-    async def tx(self, mesg):
-        '''
-        Async transmit routine which will wait for writer drain().
-        '''
-        if self.isfini:
-            raise s_exc.IsFini()
-
-        offs = 0
-        byts = s_msgpack.en(mesg)
-        size = len(byts)
-
-        async with self._txlock:
-
             try:
-
                 while offs < size:
 
                     self.writer.write(byts[offs:offs + MAXWRITE])
@@ -286,6 +269,16 @@ class Link(s_base.Base):
                 logger.debug('link.tx connection trouble %s', einfo)
 
                 raise
+
+    async def tx(self, mesg):
+        '''
+        Async transmit routine which will wait for writer drain().
+        '''
+        if self.isfini:
+            raise s_exc.IsFini()
+
+        byts = await self.pack(mesg)
+        await self.send(byts)
 
     def txfini(self):
         self.sock.shutdown(1)
@@ -353,6 +346,12 @@ class Link(s_base.Base):
 
     def feed(self, byts):
         '''
-        Used by Plex() to unpack bytes.
+        Used by rx() to unpack messages from bytes.
         '''
         return self.unpk.feed(byts)
+
+    async def pack(self, mesg):
+        '''
+        Used by tx() to pack messages into bytes
+        '''
+        return s_msgpack.en(mesg)

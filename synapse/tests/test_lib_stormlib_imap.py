@@ -1,15 +1,14 @@
 import ssl
 import asyncio
+import collections
 
 from unittest import mock
-
-import aioimaplib
 
 import synapse.common as s_common
 
 import synapse.tests.utils as s_test
 
-resp = aioimaplib.Response
+resp = collections.namedtuple('Response', ('status', 'data'))
 
 mesgb = bytearray(b'From: Foo <foo@mail.com>\nTo: Bar <bar@mail.com>\nSubject: Test\n\nThe body\n')
 

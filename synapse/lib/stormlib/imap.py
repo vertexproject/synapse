@@ -1,11 +1,258 @@
+import random
 import asyncio
+import imaplib
 
-import aioimaplib
+import regex
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.coro as s_coro
+import synapse.lib.link as s_link
 import synapse.lib.stormtypes as s_stormtypes
+
+CRLF = b'\r\n'
+CRLFLEN = len(CRLF)
+UNTAGGED = '*'
+
+response_re = regex.compile(
+br'^(?P<tag>\*|\+|[0-9a-pA-P]+)( (?P<uid>[0-9]+))* (?P<response>[A-Z]{2,})( \[(?P<code>.*?)\])* ?(?P<data>.*?(?! {\d+})) ?({(?P<size>\d+)})*$'
+)
+
+def parseLine(line):
+    match = response_re.match(line)
+    if match is None:
+        # FIXME
+        mesg = 'Unable to parse message from server.'
+        raise ImapBadMesg(mesg=mesg, data=line)
+
+    mesg = match.groupdict()
+
+    for key, valu in mesg.items():
+        if key == 'data' or valu is None:
+            continue
+
+        mesg[key] = valu.decode()
+
+    if (uid := mesg.get('uid')) is not None:
+        mesg['uid'] = int(uid)
+
+    if (size := mesg.get('size')) is not None:
+        mesg['size'] = int(size)
+
+    mesg['raw'] = line.lstrip(mesg.get('tag') + ' ')
+
+    return mesg
+
+class ImapError(s_exc.SynErr):
+    pass
+
+class ImapBadState(ImapError):
+    pass
+
+class ImapBadMesg(ImapError):
+    pass
+
+class ImapDisconnect(ImapError):
+    pass
+
+class IMAP(s_link.Link):
+    async def postAnit(self):
+        self._rxbuf = b''
+        self.state = 'LOGOUT'
+
+        self.readonly = False
+        self.capabilities = []
+
+        # Get and handle the server greeting
+        response = await self.getResponse()
+        greeting = response.get(UNTAGGED)[0]
+
+        if greeting.get('response') == 'PREAUTH':
+            self.state = 'AUTH'
+        elif greeting.get('response') == 'OK':
+            self.state = 'NONAUTH'
+        elif greeting.get('response') == 'BYE':
+            raise ImapDisconnect(mesg=greeting.get('data'))
+        else:
+            raise ImapBadMesg(mesg=greeting)
+
+        # Some servers will list capabilities in the greeting
+        if (code := greeting.get('code')) is not None and code.startswith('CAPABILITY'):
+            self.capabilities = code.split(' ')[1:]
+
+        if not self.capabilities:
+            await self.capability()
+
+        return self
+
+    def feed(self, byts):
+        ret = []
+
+        # Append new bytes to existing bytes
+        self._rxbuf += byts
+
+        # Iterate through buffer and parse out complete messages
+        while (offs := self._rxbuf.find(CRLF)) != -1:
+
+            # Get the line out of the buffer
+            line = self._rxbuf[:offs]
+
+            # Parse line
+            mesg = parseLine(line)
+
+            end = offs + CRLFLEN
+
+            # Handle continuations
+            if (size := mesg.get('size')) is not None:
+                start = end
+                end = start + size
+
+                # Check for complete data
+                if len(self._rxbuf) < start + end:
+                    break
+
+                mesg['data'] += self._rxbuf[start:end]
+
+            # Increment buffer
+            self._rxbuf = self._rxbuf[end:]
+
+            ret.append((None, mesg))
+
+        return ret
+
+    async def pack(self, mesg):
+        (tag, command, args) = mesg
+
+        cmdargs = ''
+        if args:
+            cmdargs = ' ' + ' '.join(args)
+
+        return f'{tag} {command}{cmdargs}\r\n'.encode()
+
+    async def getResponse(self, tag=None):
+        resp = {}
+
+        while True:
+            msg = await self.rx()
+
+            mtag = msg.get('tag')
+            resp.setdefault(mtag, []).append(msg)
+
+            if tag is None or mtag == tag:
+                break
+
+        return resp
+
+    def _genTag(self):
+        return imaplib.Int2AP(random.randint(4096, 65535)).decode()
+
+    async def _command(self, tag, command, *args):
+        if command.upper() not in imaplib.Commands:
+            mesg = f'Unsupported command: {command}.'
+            raise ImapError(mesg=mesg, command=command)
+
+        if self.state not in imaplib.Commands.get(command.upper()):
+            mesg = f'{command} not allowed in the {self.state} state.'
+            raise ImapBadState(mesg=mesg, state=self.state, command=command)
+
+        await self.tx((tag, command, args))
+        return await self.getResponse(tag)
+
+    def okSetState(self, response, state):
+        if response.get('response') == 'OK':
+            self.state = state
+
+    async def capability(self):
+        tag = self._genTag()
+        resp = await self._command(tag, 'CAPABILITY')
+
+        response = resp.get(tag)[0]
+        if response.get('response') != 'OK':
+            return False, response.get('data')
+
+        if len(untagged := resp.get(UNTAGGED)) != 1:
+            return False, b'Invalid server response.'
+
+        self.capabilities = untagged.get('data').split(' ')
+        return True, self.capabilities
+
+    async def login(self, user, passwd):
+        if 'AUTH=PLAIN' not in self.capabilities:
+            return False, b'Plain authentication not available on server.'
+
+        if 'LOGINDISABLED' in self.capabilities:
+            return False, b'Login disabled on server.'
+
+        tag = self._genTag()
+        resp = await self._command(tag, 'LOGIN', user, passwd)
+
+        response = resp.get(tag)[0]
+
+        # Some servers will update capabilities with the login response
+        if (code := response.get('code')) is not None and code.startswith('CAPABILITY'):
+            self.capabilities = code.split(' ')[1:]
+
+        self.okSetState(response, 'AUTH')
+
+        return True, response.get('data')
+
+    async def select(self, mailbox='INBOX'):
+        tag = self._genTag()
+        resp = await self._command(tag, 'SELECT', mailbox)
+
+        response = resp.get(tag)[0]
+        if response.get('response') != 'OK':
+            return False, response.get('data')
+
+        if (code := response.get('code')) is not None:
+            if 'READ-ONLY' in code:
+                self.readonly = True
+
+            if 'READ-WRITE' in code:
+                self.readonly = False
+
+        self.okSetState(response, 'SELECTED')
+        return True, response.get('data')
+
+    async def list(self, refname, pattern):
+        tag = self._genTag()
+        resp = await self._command(tag, 'LIST', refname, pattern)
+
+        response = resp.get(tag)[0]
+        if response.get('response') != 'OK':
+            return False, response.get('data')
+
+        data = []
+        for mesg in resp.get(UNTAGGED):
+            data.append(mesg.get('data'))
+
+        return True, data
+
+    async def uid(self, command, *args):
+        pass
+
+    async def expunge(self):
+        tag = self._genTag()
+        resp = await self._command(tag, 'EXPUNGE')
+
+        response = resp.get(tag)[0]
+        if response.get('response') != 'OK':
+            return False, response.get('data')
+
+    async def logout(self):
+        tag = self._genTag()
+        resp = await self._command(tag, 'LOGOUT')
+
+        response = resp.get(tag)[0]
+        if response.get('response') != 'OK':
+            return False, response.get('data')
+
+        untagged = resp.get(UNTAGGED)
+        if len(untagged) != 1 or untagged[0].get('response') != 'BYE':
+            return False, b'Server failed to send expected BYE response.'
+
+        self.okSetState(response, 'LOGOUT')
+        return True, response.get('data')
 
 async def run_imap_coro(coro):
     '''
@@ -16,7 +263,7 @@ async def run_imap_coro(coro):
     except asyncio.TimeoutError:
         raise s_exc.StormRuntimeError(mesg='Timed out waiting for IMAP server response.') from None
 
-    if status == 'OK':
+    if status:
         return data
 
     try:
@@ -84,22 +331,27 @@ class ImapLib(s_stormtypes.Lib):
 
         if ssl:
             ctx = self.runt.snap.core.getCachedSslCtx(opts=None, verify=ssl_verify)
-            imap_cli = aioimaplib.IMAP4_SSL(host=host, port=port, timeout=timeout, ssl_context=ctx)
+            port = imaplib.IMAP4_SSL_PORT
         else:
-            imap_cli = aioimaplib.IMAP4(host=host, port=port, timeout=timeout)
+            ctx = None
+            port = imaplib.IMAP4_PORT
 
-        async def fini():
-            # call protocol.logout() via a background task
-            s_coro.create_task(s_common.wait_for(imap_cli.protocol.logout(), 5))
-
-        self.runt.snap.onfini(fini)
+        coro = IMAP.connect(host=host, port=port, ssl=ctx)
 
         try:
-            await imap_cli.wait_hello_from_server()
+            imap = await asyncio.wait_for(coro, timeout)
         except asyncio.TimeoutError:
             raise s_exc.StormRuntimeError(mesg='Timed out waiting for IMAP server hello.') from None
 
-        return ImapServer(self.runt, imap_cli)
+        async def fini():
+            async def _logout():
+                await s_common.wait_for(imap.logout(), 5)
+                await imap.fini()
+            s_coro.create_task(_logout())
+
+        self.runt.snap.onfini(fini)
+
+        return ImapServer(self.runt, imap)
 
 @s_stormtypes.registry.registerType
 class ImapServer(s_stormtypes.StormType):
@@ -312,8 +564,6 @@ class ImapServer(s_stormtypes.StormType):
 
         names = []
         for item in data:
-            if item == b'Success':
-                break
             names.append(item.split(b' ')[-1].decode().strip('"'))
 
         return True, names
