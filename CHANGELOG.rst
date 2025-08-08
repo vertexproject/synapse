@@ -6,6 +6,62 @@
 Synapse Changelog
 *****************
 
+v2.218.1 - 2025-07-31
+=====================
+
+Bugfixes
+--------
+- Fixed an issue where a default offset in a push/pull function caused fill to
+  advance farther ahead than required.
+  (`#4432 <https://github.com/vertexproject/synapse/pull/4432>`_)
+
+v2.218.0 - 2025-07-31
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated the ``runas`` and ``view.exec`` commands to output prints from
+  ``$lib.print()`` and warnings from ``$lib.warn()`` and ``$lib.exit()``.
+  (`#4425 <https://github.com/vertexproject/synapse/pull/4425>`_)
+- Updated the allowed range for the ``lmdb`` dependency to
+  ``lmdb>=1.7.0,<1.8.0``.
+  (`#4429 <https://github.com/vertexproject/synapse/pull/4429>`_)
+
+Bugfixes
+--------
+- Fixed the set and get of custom offsets for the layer ``addPull()`` and
+  ``addPush()`` methods.
+  (`#4418 <https://github.com/vertexproject/synapse/pull/4418>`_)
+- Added a patch for Python ``tarfile`` module to address CVE-2025-8194
+  exposure.
+  (`#4428 <https://github.com/vertexproject/synapse/pull/4428>`_)
+
+Improved documentation
+----------------------
+- Added documentation for the ``links`` option to the Storm runtime.
+  (`#4417 <https://github.com/vertexproject/synapse/pull/4417>`_)
+
+v2.217.0 - 2025-07-25
+=====================
+
+Model Changes
+-------------
+- Deprecated ``ou:requirement``. Please use ``doc:requirement`` and
+  ``ou:enacted``.
+  (`#4416 <https://github.com/vertexproject/synapse/pull/4416>`_)
+- See :ref:`userguide_model_v2_217_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added support for ``gre://`` to ``inet:addr`` type used by ``inet:server``
+  and ``inet:client``.
+  (`#4414 <https://github.com/vertexproject/synapse/pull/4414>`_)
+
+Improved documentation
+----------------------
+- Added Storm library documentation for ``$lib.feed.fromAxon``.
+  (`#4420 <https://github.com/vertexproject/synapse/pull/4420>`_)
+
 v2.216.0 - 2025-07-15
 =====================
 
@@ -73,7 +129,7 @@ Features and Enhancements
 -------------------------
 - Added CLI tools ``synapse.tools.cortex.layer.dump`` and
   ``synapse.tools.cortex.layer.load`` for exporting node edits from one layer
-and importing them to a layer on a different Cortex.
+  and importing them to a layer on a different Cortex.
   (`#4325 <https://github.com/vertexproject/synapse/pull/4325>`_)
 - Added CLI tool ``synapse.tools.pkgs.gendocs`` for converting Storm package
   documentation from RST to Markdown.

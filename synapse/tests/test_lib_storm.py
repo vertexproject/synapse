@@ -4282,6 +4282,29 @@ class StormTest(s_t_utils.SynTest):
             view = await core.callStorm('return( $lib.view.get().iden )')
             fork = await core.callStorm('return( $lib.view.get().fork().iden )')
 
+            q = '''view.exec $view {
+                $lib.print(foo)
+                $lib.warn(bar)
+                [ it:dev:str=nomsg ]
+             }'''
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInWarn('bar', msgs)
+
+            q = '''
+                [ it:dev:str=woot ] $valu=$node.repr()
+                view.exec $view {
+                    $lib.print(foo)
+                    $lib.print($valu)
+                    $lib.warn(bar)
+                    [ it:dev:str=nomsg ]
+                }
+            '''
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInPrint('woot', msgs)
+            self.stormIsInWarn('bar', msgs)
+
             await core.addStormPkg({
                 'name': 'testpkg',
                 'version': (0, 0, 1),
@@ -4974,16 +4997,19 @@ class StormTest(s_t_utils.SynTest):
                 view1, layr1 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
                 view2, layr2 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
                 view3, layr3 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
+                view4, layr4 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
 
                 opts = {'vars': {
                     'view0': view0,
                     'view1': view1,
                     'view2': view2,
                     'view3': view3,
+                    'view4': view4,
                     'layr0': layr0,
                     'layr1': layr1,
                     'layr2': layr2,
                     'layr3': layr3,
+                    'layr4': layr4,
                 }}
 
                 # lets get some auth denies...
@@ -5036,13 +5062,26 @@ class StormTest(s_t_utils.SynTest):
                 self.len(3, await core.nodes('ps:contact', opts={'view': view1}))
                 self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
 
-                # Check offset reporting
+                # Check offset reporting from pack()
                 q = '$layer=$lib.layer.get($layr0) return ($layer.pack())'
                 layrinfo = await core.callStorm(q, opts=opts)
                 pushs = layrinfo.get('pushs')
                 self.len(1, pushs)
                 pdef = list(pushs.values())[0]
-                self.lt(10, pdef.get('offs', 0))
+                eoffs = pdef.get('offs', 0)
+                self.lt(10, eoffs)
+
+                # check offset reporting from list()
+                msgs = await core.stormlist('layer.push.list $layr0', opts=opts)
+                self.stormIsInPrint(f'{eoffs}', msgs)
+
+                # Pull from layr0 using a custom offset (skip first node)
+                await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr4}", offs={offs})', opts=opts)
+                await core.layers.get(layr4).waitEditOffs(offs, timeout=3)
+                self.len(2, await core.nodes('ps:contact', opts={'view': view4}))
+
+                # Clean up
+                self.none(await core.callStorm('$lib.layer.get($layr0).delPush($layr4)', opts=opts))
 
                 q = '$layer=$lib.layer.get($layr2) return ($layer.pack())'
                 layrinfo = await core.callStorm(q, opts=opts)
@@ -5083,7 +5122,7 @@ class StormTest(s_t_utils.SynTest):
                         }
                     }
                 ''')
-                self.eq(actv - 2, len(core.activecoros))
+                self.eq(actv - 3, len(core.activecoros))
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
@@ -5153,7 +5192,7 @@ class StormTest(s_t_utils.SynTest):
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
-                self.eq(actv, len(core.activecoros))
+                self.eq(actv - 1, len(core.activecoros))
 
                 pushpulls = set()
                 for ldef in await core.getLayerDefs():
@@ -5178,7 +5217,7 @@ class StormTest(s_t_utils.SynTest):
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
-                self.eq(actv - 2, len(core.activecoros))
+                self.eq(actv - 3, len(core.activecoros))
 
                 with self.raises(s_exc.SchemaViolation):
                     await core.addLayrPush('newp', {})
@@ -5522,6 +5561,32 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
             for node in nodes:
                 self.none(node.tags.get('btag'))
+
+            q = '''runas visi {
+                $lib.print(foo)
+                $lib.warn(bar)
+                [ it:dev:str=nomsg ]
+             }'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInWarn('bar', msgs)
+
+            q = '''
+                [it:dev:str=woot] $valu=$node.repr()
+                runas visi {
+                    $lib.print(foo)
+                    $lib.warn(bar)
+                    $lib.print($valu)
+                    [ it:dev:str=nomsg ]
+                }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInPrint('woot', msgs)
+            self.stormIsInWarn('bar', msgs)
+
+            msgs = await core.stormlist('runas visi {$lib.raise(Foo, asdf)}')
+            self.stormIsInErr('asdf', msgs)
 
     async def test_storm_batch(self):
         async with self.getTestCore() as core:
