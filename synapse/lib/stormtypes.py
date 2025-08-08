@@ -7408,6 +7408,9 @@ class Layer(Prim):
         buid = s_common.uhex(await tostr(buid))
         prop = await tostr(prop)
         valu = await toprim(valu)
+        if not self.runt.isAdmin():
+            mesg = 'setStorNodeProp() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await layr.setStorNodeProp(buid, prop, valu)
 
     async def delStorNodeProp(self, buid, prop):
@@ -7415,6 +7418,9 @@ class Layer(Prim):
         layr = self.runt.snap.core.getLayer(iden)
         buid = s_common.uhex(await tostr(buid))
         prop = await tostr(prop)
+        if not self.runt.isAdmin():
+            mesg = 'delStorNodeProp() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await layr.delStorNodeProp(buid, prop)
 
     async def _addPull(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):

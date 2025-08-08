@@ -2288,6 +2288,9 @@ class LayerTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            iden = (await core.addUser('lowuser')).get('iden')
+            lowuser = {'user': iden}
+
             fork00 = await core.view.fork()
             layr00 = core.getLayer(fork00['layers'][0]['iden'])
 
@@ -2344,6 +2347,22 @@ class LayerTest(s_t_utils.SynTest):
             self.isin('setStorNodeProp failed, no such property', data)
             self.isin('setStorNodeProp failed, failed to normalize value', data)
             self.isin('delStorNodeProp failed, no such property', data)
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.callStorm('''
+                    $buid = "8c454b27df9c0ba109c123265b50869759bccac5bbec83b41992b4e91207f4a4"
+                    $layer = $lib.layer.get()
+                    $layer.setStorNodeProp($buid, "foo:bar:severity", "newp")
+                ''', opts=lowuser)
+            self.isin('requires admin privileges', str(cm.exception))
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.callStorm('''
+                    $buid = "8c454b27df9c0ba109c123265b50869759bccac5bbec83b41992b4e91207f4a4"
+                    $layer = $lib.layer.get()
+                    $layer.delStorNodeProp($buid, "foo:bar:severity")
+                ''', opts=lowuser)
+            self.isin('requires admin privileges', str(cm.exception))
 
             await core.callStorm('''
                 $fullprop = "risk:vuln:_custom:risk:level"
