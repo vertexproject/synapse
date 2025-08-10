@@ -1,6 +1,7 @@
 import random
 import asyncio
 import imaplib
+import logging
 
 import regex
 
@@ -9,6 +10,8 @@ import synapse.common as s_common
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.stormtypes as s_stormtypes
+
+logger = logging.getLogger(__name__)
 
 CRLF = b'\r\n'
 CRLFLEN = len(CRLF)
@@ -31,35 +34,60 @@ imap_rgx = regex.compile(
 class ImapError(s_exc.SynErr):
     pass
 
-def parseLine(line):
-    match = imap_rgx.match(line)
-    if match is None:
-        mesg = 'Unable to parse response from server.'
-        raise ImapError(mesg=mesg, data=line)
+class IMAPConnection(s_link.Link):
+    async def __anit__(self, reader, writer, info=None, forceclose=False):
+        await s_link.Link.__anit__(self, reader, writer, info=info, forceclose=forceclose)
 
-    mesg = match.groupdict()
-
-    for key, valu in mesg.items():
-        if key == 'data' or valu is None:
-            continue
-
-        mesg[key] = valu.decode()
-
-    if (uid := mesg.get('uid')) is not None:
-        mesg['uid'] = int(uid)
-
-    if (size := mesg.get('size')) is not None:
-        mesg['size'] = int(size)
-
-    mesg['raw'] = line.lstrip((mesg.get('tag') + ' ').encode())
-
-    return mesg
-
-class IMAPClient(s_link.Link):
-    async def postAnit(self):
         self._rxbuf = b''
         self.state = 'LOGOUT'
 
+    def _parseLine(self, line):
+        raise NotImplementedError('Not implemented')
+
+    def pack(self, mesg):
+        raise NotImplementedError('Not implemented')
+
+    def feed(self, byts):
+        ret = []
+
+        # Append new bytes to existing bytes
+        self._rxbuf += byts
+
+        # Iterate through buffer and parse out complete messages
+        while (offs := self._rxbuf.find(CRLF)) != -1:
+
+            # Get the line out of the buffer
+            line = self._rxbuf[:offs]
+
+            # Parse line
+            mesg = self._parseLine(line)
+
+            end = offs + CRLFLEN
+
+            # Handle continuations
+            if (size := mesg.get('size')) is not None:
+                start = end
+                end = start + size
+
+                # Check for complete data
+                if len(self._rxbuf) < start + end:
+                    break
+
+                mesg['data'] += self._rxbuf[start:end]
+
+            # Increment buffer
+            self._rxbuf = self._rxbuf[end:]
+
+            # Log only under __debug__ because there might be sensitive info like passwords
+            if __debug__:
+                logger.debug('RECV: %s', mesg)
+
+            ret.append((None, mesg))
+
+        return ret
+
+class IMAPClient(IMAPConnection):
+    async def postAnit(self):
         self.readonly = False
         self.capabilities = []
 
@@ -84,40 +112,29 @@ class IMAPClient(s_link.Link):
 
         return self
 
-    def feed(self, byts):
-        ret = []
+    def _parseLine(self, line):
+        match = imap_rgx.match(line)
+        if match is None:
+            mesg = 'Unable to parse response from server.'
+            raise ImapError(mesg=mesg, data=line)
 
-        # Append new bytes to existing bytes
-        self._rxbuf += byts
+        mesg = match.groupdict()
 
-        # Iterate through buffer and parse out complete messages
-        while (offs := self._rxbuf.find(CRLF)) != -1:
+        for key, valu in mesg.items():
+            if key == 'data' or valu is None:
+                continue
 
-            # Get the line out of the buffer
-            line = self._rxbuf[:offs]
+            mesg[key] = valu.decode()
 
-            # Parse line
-            mesg = parseLine(line)
+        if (uid := mesg.get('uid')) is not None:
+            mesg['uid'] = int(uid)
 
-            end = offs + CRLFLEN
+        if (size := mesg.get('size')) is not None:
+            mesg['size'] = int(size)
 
-            # Handle continuations
-            if (size := mesg.get('size')) is not None:
-                start = end
-                end = start + size
+        mesg['raw'] = line[len(mesg.get('tag')) + 1:]
 
-                # Check for complete data
-                if len(self._rxbuf) < start + end:
-                    break
-
-                mesg['data'] += self._rxbuf[start:end]
-
-            # Increment buffer
-            self._rxbuf = self._rxbuf[end:]
-
-            ret.append((None, mesg))
-
-        return ret
+        return mesg
 
     async def pack(self, mesg):
         (tag, command, args) = mesg
@@ -126,7 +143,13 @@ class IMAPClient(s_link.Link):
         if args:
             cmdargs = ' ' + ' '.join(args)
 
-        return f'{tag} {command}{cmdargs}\r\n'.encode()
+        mesg = f'{tag} {command}{cmdargs}\r\n'
+
+        # Log only under __debug__ because there might be sensitive info like passwords
+        if __debug__:
+            logger.debug('SEND: %s', mesg)
+
+        return mesg.encode()
 
     async def getResponse(self, tag=None):
         resp = {}
@@ -170,17 +193,17 @@ class IMAPClient(s_link.Link):
             return False, response.get('data')
 
         if len(untagged := resp.get(UNTAGGED)) != 1:
-            return False, b'Invalid server response.'
+            return False, [b'Invalid server response.']
 
-        self.capabilities = untagged.get('data').split(' ')
+        self.capabilities = untagged[0].get('data').decode().split(' ')
         return True, self.capabilities
 
     async def login(self, user, passwd):
         if 'AUTH=PLAIN' not in self.capabilities:
-            return False, b'Plain authentication not available on server.'
+            return False, [b'Plain authentication not available on server.']
 
         if 'LOGINDISABLED' in self.capabilities:
-            return False, b'Login disabled on server.'
+            return False, [b'Login disabled on server.']
 
         tag = self._genTag()
         resp = await self._command(tag, 'LOGIN', user, passwd)
@@ -258,7 +281,7 @@ async def run_imap_coro(coro, timeout):
     Raises or returns data.
     '''
     try:
-        status, data = s_common.wait_for(coro, timeout)
+        status, data = await s_common.wait_for(coro, timeout)
     except asyncio.TimeoutError:
         raise s_exc.StormRuntimeError(mesg='Timed out waiting for IMAP server response.') from None
 
@@ -268,6 +291,7 @@ async def run_imap_coro(coro, timeout):
     try:
         mesg = data[0].decode()
     except (TypeError, AttributeError, IndexError, UnicodeDecodeError):
+        breakpoint()
         mesg = 'IMAP server returned an error'
 
     raise s_exc.StormRuntimeError(mesg=mesg, status=status)
@@ -318,7 +342,7 @@ class ImapLib(s_stormtypes.Lib):
             'connect': self.connect,
         }
 
-    async def connect(self, host, port=993, timeout=30, ssl=True, ssl_verify=True):
+    async def connect(self, host, port=imaplib.IMAP4_SSL_PORT, timeout=30, ssl=True, ssl_verify=True):
 
         self.runt.confirm(('storm', 'inet', 'imap', 'connect'))
 
@@ -328,14 +352,11 @@ class ImapLib(s_stormtypes.Lib):
         ssl_verify = await s_stormtypes.tobool(ssl_verify)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
 
+        ctx = None
         if ssl:
             ctx = self.runt.snap.core.getCachedSslCtx(opts=None, verify=ssl_verify)
-            port = imaplib.IMAP4_SSL_PORT
-        else:
-            ctx = None
-            port = imaplib.IMAP4_PORT
 
-        coro = IMAPClient.connect(host=host, port=port, ssl=ctx)
+        coro = s_link.connect(host=host, port=port, ssl=ctx, linkcls=IMAPClient)
 
         try:
             imap = await s_common.wait_for(coro, timeout)
