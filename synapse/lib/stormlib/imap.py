@@ -17,6 +17,11 @@ CRLF = b'\r\n'
 CRLFLEN = len(CRLF)
 UNTAGGED = '*'
 
+def quote(text):
+    if ' ' not in text:
+        return text
+    return f'"{text}"'
+
 imap_rgx = regex.compile(
     br'''
     ^
@@ -70,10 +75,20 @@ class IMAPConnection(s_link.Link):
                 end = start + size
 
                 # Check for complete data
-                if len(self._rxbuf) < start + end:
+                if len(self._rxbuf) < start + end - start:
                     break
 
-                mesg['data'] += self._rxbuf[start:end]
+                # Check for trailer
+                if (offs := self._rxbuf[end:].find(CRLF)) == -1:
+                    break
+
+                # Copy the message to use as the message for the continuation data and add it to the queue
+                datamesg = mesg.copy()
+                datamesg['data'] = self._rxbuf[start:end]
+                ret.append((None, datamesg))
+
+                mesg['data'] += self._rxbuf[end:end + offs]
+                end = end + offs + CRLFLEN
 
             # Increment buffer
             self._rxbuf = self._rxbuf[end:]
@@ -190,13 +205,15 @@ class IMAPClient(IMAPConnection):
 
         response = resp.get(tag)[0]
         if response.get('response') != 'OK':
-            return False, response.get('data')
+            return False, [response.get('data')]
 
         if len(untagged := resp.get(UNTAGGED)) != 1:
             return False, [b'Invalid server response.']
 
-        self.capabilities = untagged[0].get('data').decode().split(' ')
-        return True, self.capabilities
+        capabilities = untagged[0].get('data').decode()
+        self.capabilities = capabilities.split(' ')
+
+        return True, [capabilities]
 
     async def login(self, user, passwd):
         if 'AUTH=PLAIN' not in self.capabilities:
@@ -209,6 +226,8 @@ class IMAPClient(IMAPConnection):
         resp = await self._command(tag, 'LOGIN', user, passwd)
 
         response = resp.get(tag)[0]
+        if response.get('response') != 'OK':
+            return False, [response.get('data')]
 
         # Some servers will update capabilities with the login response
         if (code := response.get('code')) is not None and code.startswith('CAPABILITY'):
@@ -216,7 +235,7 @@ class IMAPClient(IMAPConnection):
 
         self.okSetState(response, 'AUTH')
 
-        return True, response.get('data')
+        return True, [response.get('data')]
 
     async def select(self, mailbox='INBOX'):
         tag = self._genTag()
@@ -224,7 +243,7 @@ class IMAPClient(IMAPConnection):
 
         response = resp.get(tag)[0]
         if response.get('response') != 'OK':
-            return False, response.get('data')
+            return False, [response.get('data')]
 
         if (code := response.get('code')) is not None:
             if 'READ-ONLY' in code:
@@ -234,7 +253,7 @@ class IMAPClient(IMAPConnection):
                 self.readonly = False
 
         self.okSetState(response, 'SELECTED')
-        return True, response.get('data')
+        return True, [response.get('data')]
 
     async def list(self, refname, pattern):
         tag = self._genTag()
@@ -242,7 +261,7 @@ class IMAPClient(IMAPConnection):
 
         response = resp.get(tag)[0]
         if response.get('response') != 'OK':
-            return False, response.get('data')
+            return False, [response.get('data')]
 
         data = []
         for mesg in resp.get(UNTAGGED):
@@ -250,8 +269,33 @@ class IMAPClient(IMAPConnection):
 
         return True, data
 
-    async def uid(self, command, *args):
-        pass
+    async def uid(self, command, *args, **kwargs):
+        tag = self._genTag()
+        args = ' '.join(args)
+
+        if command == 'SEARCH' and (charset := kwargs.get('charset')) is not None:
+            args = f'CHARSET {charset} {args}'
+
+        resp = await self._command(tag, 'UID', command, args)
+
+        response = resp.get(tag)[0]
+        if response.get('response') != 'OK':
+            return False, [response.get('data')]
+
+        # search
+        # b'EJKO3 UID SEARCH CHARSET utf-8 FROM foo@mail.com\r\n'
+
+        # markSeen
+        # b'INCF3 UID STORE 1:4 +FLAGS.SILENT (\\Seen)\r\n'
+
+        # delete
+        # b'ANJK3 UID STORE 1:4 +FLAGS.SILENT (\\Deleted)\r\n'
+
+        # fetch
+        # b'OLCJ3 UID FETCH 1 (RFC822)\r\n'
+
+        untagged = resp.get(UNTAGGED, [])
+        return True, [u.get('data') for u in untagged]
 
     async def expunge(self):
         tag = self._genTag()
@@ -259,7 +303,9 @@ class IMAPClient(IMAPConnection):
 
         response = resp.get(tag)[0]
         if response.get('response') != 'OK':
-            return False, response.get('data')
+            return False, [response.get('data')]
+
+        return True, [response.get('data')]
 
     async def logout(self):
         tag = self._genTag()
@@ -267,14 +313,14 @@ class IMAPClient(IMAPConnection):
 
         response = resp.get(tag)[0]
         if response.get('response') != 'OK':
-            return False, response.get('data')
+            return False, [response.get('data')]
 
         untagged = resp.get(UNTAGGED)
         if len(untagged) != 1 or untagged[0].get('response') != 'BYE':
-            return False, b'Server failed to send expected BYE response.'
+            return False, [b'Server failed to send expected BYE response.']
 
         self.okSetState(response, 'LOGOUT')
-        return True, response.get('data')
+        return True, [response.get('data')]
 
 async def run_imap_coro(coro, timeout):
     '''
@@ -291,7 +337,6 @@ async def run_imap_coro(coro, timeout):
     try:
         mesg = data[0].decode()
     except (TypeError, AttributeError, IndexError, UnicodeDecodeError):
-        breakpoint()
         mesg = 'IMAP server returned an error'
 
     raise s_exc.StormRuntimeError(mesg=mesg, status=status)
@@ -465,7 +510,7 @@ class ImapServer(s_stormtypes.StormType):
                 'args': (
                     {'type': 'str', 'name': '*args',
                      'desc': 'A set of search criteria to use.'},
-                    {'type': ['str', 'null'], 'name': 'charset', 'default': 'utf-8',
+                    {'type': ['str', 'null'], 'name': 'charset', 'default': None,
                      'desc': 'The CHARSET used for the search. May be set to ``(null)`` to disable CHARSET.'},
                 ),
                 'returns': {
@@ -580,6 +625,8 @@ class ImapServer(s_stormtypes.StormType):
         pattern = await s_stormtypes.tostr(pattern)
         reference_name = await s_stormtypes.tostr(reference_name)
 
+        reference_name = quote(reference_name)
+
         coro = self.imap_cli.list(reference_name, pattern)
         data = await run_imap_coro(coro, self.timeout)
 
@@ -597,10 +644,11 @@ class ImapServer(s_stormtypes.StormType):
 
         return True, None
 
-    async def search(self, *args, charset='utf-8'):
+    async def search(self, *args, charset=None):
         args = [await s_stormtypes.tostr(arg) for arg in args]
         charset = await s_stormtypes.tostr(charset, noneok=True)
-        coro = self.imap_cli.uid_search(*args, charset=charset)
+
+        coro = self.imap_cli.uid('SEARCH', *args, charset=charset)
         data = await run_imap_coro(coro, self.timeout)
 
         uids = data[0].decode().split(' ') if data[0] else []
@@ -618,7 +666,7 @@ class ImapServer(s_stormtypes.StormType):
         coro = self.imap_cli.uid('FETCH', str(uid), '(RFC822)')
         data = await run_imap_coro(coro, self.timeout)
 
-        size, sha256b = await axon.put(data[1])
+        size, sha256b = await axon.put(data[0])
 
         props = await axon.hashset(sha256b)
         props['size'] = size

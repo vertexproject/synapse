@@ -1,7 +1,8 @@
-import ssl
-import asyncio
+import time
+import shlex
+import fnmatch
+import imaplib
 import contextlib
-import collections
 
 import regex
 
@@ -14,118 +15,6 @@ import synapse.lib.stormlib.imap as s_imap
 
 import synapse.tests.utils as s_test
 
-resp = collections.namedtuple('Response', ('status', 'data'))
-
-mesgb = bytearray(b'From: Foo <foo@mail.com>\nTo: Bar <bar@mail.com>\nSubject: Test\n\nThe body\n')
-
-class MockIMAPProtocol:
-    # NOTE: Unused lines are not necessarily IMAP compliant
-
-    def __init__(self, host, port):
-        self.host = host
-        self.port = port
-
-    async def wait(self, *args, **kwargs) -> None:
-        # only used for wait_hello_from_server
-        if self.host == 'hello.timeout':
-            await asyncio.sleep(5)
-
-    async def login(self, user, passwd) -> resp:
-        if self.host == 'login.timeout':
-            await asyncio.sleep(5)
-
-        if self.host == 'login.bad':
-            return resp('NO', [b'[AUTHENTICATIONFAILED] Invalid credentials (Failure)'])
-
-        if self.host == 'login.noerr':
-            return resp('NO', [])
-
-        lines = [
-            b'CAPABILITY IMAP4rev1',
-            f'{user} authenticated (Success)'.encode(),
-        ]
-        return resp('OK', lines)
-
-    async def logout(self) -> resp:
-        lines = [
-            b'BYE LOGOUT Requested',
-            b'73 good day (Success)',
-        ]
-        return resp('OK', lines)
-
-    async def simple_command(self, name, *args) -> resp:
-        # only used for list
-        if self.host == 'list.bad':
-            return resp('BAD', [b'Could not parse command'])
-
-        lines = [
-            b'(\\HasNoChildren) "/" "INBOX"',
-            b'Success',
-        ]
-        return resp('OK', lines)
-
-    async def select(self, mailbox) -> resp:
-        lines = [
-            b'FLAGS (\\Answered \\Flagged \\Draft \\Deleted \\Seen $NotPhishing $Phishing)',
-            b'OK [PERMANENTFLAGS (\\Answered \\Flagged \\Draft \\Deleted \\Seen $NotPhishing $Phishing \\*)] Flags permitted.',
-            b'OK [UIDVALIDITY 1] UIDs valid.',
-            b'8253 EXISTS',
-            b'0 RECENT',
-            b'OK [UIDNEXT 8294] Predicted next UID.',
-            b'OK [HIGHESTMODSEQ 1030674]',
-            b'[READ-WRITE] INBOX selected. (Success)',
-        ]
-        return resp('OK', lines)
-
-    async def search(self, *args, **kwargs) -> resp:
-        if self.host == 'search.empty':
-            lines = [
-                b'',
-                b'SEARCH completed (Success)',
-            ]
-            return resp('OK', lines)
-
-        if kwargs.get('charset') is None:
-            lines = [
-                b'2001 2010 2061 3001',
-                b'SEARCH completed (Success)',
-            ]
-            return resp('OK', lines)
-
-        if kwargs.get('charset') == 'us-ascii':
-            lines = [
-                b'1138 4443 8443',
-                b'SEARCH completed (Success)',
-            ]
-            return resp('OK', lines)
-
-        lines = [
-            b'8181 8192 8194',
-            b'SEARCH completed (Success)',
-        ]
-        return resp('OK', lines)
-
-    async def uid(self, name, *args, **kwargs) -> resp:
-        # only used for store and fetch
-
-        if name == 'STORE':
-            return resp('OK', [b'STORE completed (Success)'])
-
-        lines = [
-            b'8181 FETCH (RFC822 {44714}',
-            mesgb,
-            b')',
-            b'Success',
-        ]
-        return resp('OK', lines)
-
-    async def expunge(self) -> resp:
-        return resp('OK', [b'EXPUNGE completed (Success)'])
-
-def mock_create_client(self, host, port, *args, **kwargs):
-    self.protocol = MockIMAPProtocol(host, port)
-    return
-
 imap_srv_rgx = regex.compile(
     br'''
     ^
@@ -137,7 +26,139 @@ imap_srv_rgx = regex.compile(
     flags=regex.VERBOSE
 )
 
+imap_srv_flags_rgx = regex.compile(
+    r'''
+    ^
+    (?P<op>\+|\-)?
+    (?P<name>(FLAGS|FLAGS.SILENT))\s
+    \(
+      (?P<value>(\\[a-zA-Z]+\s?)+)
+    \)
+    $
+    ''',
+    flags=regex.VERBOSE
+)
+
+email = '''\
+Date: Wed, 17 Jul 1996 02:23:25 -0700 (PDT)\r
+From: Terry Gray <gray@cac.washington.edu>\r
+Subject: IMAP4rev2 WG mtg summary and minutes\r
+To: imap@cac.washington.edu\r
+cc: minutes@CNRI.Reston.VA.US, John Klensin <KLENSIN@MIT.EDU>\r
+Message-Id: <B27397-0100000@cac.washington.edu>\r
+MIME-Version: 1.0\r
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII\r
+
+The meeting minutes are attached.
+
+Thanks,
+Terry
+'''
+
 class IMAPServer(s_imap.IMAPConnection):
+    '''
+    This is an extremely naive IMAP server implementation used only for testing.
+    '''
+
+    async def postAnit(self):
+        self.mail = {
+            'user00@vertex.link': {
+                'password': 'pass00',
+                'mailboxes': {
+                    'inbox': {
+                        'parent': None,
+                        'flags': ['\\HasChildren'],
+                    },
+                    'drafts': {
+                        'parent': None,
+                        'flags': ['\\HasNoChildren', '\\Drafts'],
+                    },
+                    'sent': {
+                        'parent': None,
+                        'flags': ['\\HasNoChildren', '\\Sent'],
+                    },
+                    'deleted': {
+                        'parent': None,
+                        'flags': ['\\HasNoChildren', '\\Trash'],
+                    },
+                    'retain': {
+                        'parent': 'inbox',
+                        'flags': ['\\HasNoChildren'],
+                    },
+                    'status reports': {
+                        'parent': 'inbox',
+                        'flags': ['\\HasNoChildren'],
+                    },
+                },
+                'messages': {
+                    1: {
+                        'mailbox': 'inbox',
+                        'flags': ['\\Answered', '\\Recent', '\\Seen'],
+                        'data': email,
+                    },
+                    6: {
+                        'mailbox': 'inbox',
+                        'flags': [],
+                        'body': '',
+                    },
+                    7: {
+                        'mailbox': 'inbox',
+                        'flags': [],
+                        'body': '',
+                    },
+                    8: {
+                        'mailbox': 'inbox',
+                        'flags': [],
+                        'body': '',
+                    },
+                    2: {
+                        'mailbox': 'drafts',
+                        'flags': ['\\Draft'],
+                        'body': '',
+                    },
+                    3: {
+                        'mailbox': 'deleted',
+                        'flags': ['\\Deleted', '\\Seen'],
+                        'body': '',
+                    },
+                    4: {
+                        'mailbox': 'retain',
+                        'flags': ['\\Seen'],
+                        'body': '',
+                    },
+                    5: {
+                        'mailbox': 'status reports',
+                        'flags': [],
+                        'body': '',
+                    },
+                },
+            },
+
+            'user01@vertex.link': {
+                'password': 'pass01',
+                'mailboxes': {
+                    'inbox': {
+                        'messages': [],
+                    },
+                    'drafts': {
+                        'messages': [],
+                    },
+                    'sent': {
+                        'messages': [],
+                    },
+                },
+                'messages': {
+                },
+            }
+        }
+
+        self.user = None
+        self.selected = None
+        self.validity = int(time.time())
+
+        self.state = 'NONAUTH'
+
+        self.capabilities = ['IMAP4rev1', 'AUTH=PLAIN']
 
     def _parseLine(self, line):
         match = imap_srv_rgx.match(line)
@@ -165,7 +186,7 @@ class IMAPServer(s_imap.IMAPConnection):
         if code is None:
             code = ''
         else:
-            code = f' {code}'
+            code = f' [{code}]'
 
         if size is None:
             size = ''
@@ -182,18 +203,192 @@ class IMAPServer(s_imap.IMAPConnection):
 
     async def capability(self, mesg):
         tag = mesg.get('tag')
-        await self.sendMesg(s_imap.UNTAGGED, 'CAPABILITY', 'IMAP4rev1 AUTH=PLAIN')
+        await self.sendMesg(s_imap.UNTAGGED, 'CAPABILITY', ' '.join(self.capabilities))
         await self.sendMesg(tag, 'OK', 'CAPABILITY completed')
 
     async def login(self, mesg):
         tag = mesg.get('tag')
+        try:
+            username, passwd = mesg.get('data').decode().split(' ')
+        except ValueError:
+            return await self.sendMesg(tag, 'BAD', 'Invalid arguments for LOGIN.')
+
+        if (user := self.mail.get(username)) is None or user.get('password') != passwd:
+            return await self.sendMesg(tag, 'NO', 'Incorrect username or password.')
+
+        self.state = 'AUTH'
+        self.user = username
         await self.sendMesg(tag, 'OK', 'LOGIN completed')
 
     async def logout(self, mesg):
         tag = mesg.get('tag')
-        await self.sendMesg(s_imap.UNTAGGED, 'LOGOUT', 'bye, felicia')
+        await self.sendMesg(s_imap.UNTAGGED, 'LOGOUT', f'bye, {self.user}!')
         await self.sendMesg(tag, 'OK', 'LOGOUT completed')
+        self.user = None
         await self.fini()
+
+    async def list(self, mesg):
+        tag = mesg.get('tag')
+        try:
+            refname, mboxname = shlex.split(mesg.get('data').decode())
+        except ValueError:
+            return await self.sendMesg(tag, 'BAD', 'Invalid arguments for LIST.')
+
+        parent = None
+        if refname:
+            parent = refname
+
+        mailboxes = self.mail.get(self.user).get('mailboxes')
+
+        matches = [k for k in mailboxes.items() if k[1].get('parent') == parent]
+
+        if mboxname:
+            matches = [k for k in matches if fnmatch.fnmatch(k[0], mboxname)]
+
+        matches = sorted(matches, key=lambda k: k[0])
+
+        for match in matches:
+            name = match[0]
+            if parent:
+                name = f'{parent}/{name}'
+
+            name = s_imap.quote(name)
+            await self.sendMesg(s_imap.UNTAGGED, 'LIST', f'() "/" {name}')
+
+        await self.sendMesg(tag, 'OK', 'LIST completed')
+
+    async def select(self, mesg):
+        tag = mesg.get('tag')
+
+        mboxname = mesg.get('data').decode().lower()
+        if (mailbox := self.mail[self.user]) is None or mboxname not in mailbox.get('mailboxes'):
+            return await self.sendMesg(tag, 'NO', f'No such mailbox: {mailbox}.')
+
+        flags = []
+        exists = 0
+        recent = 0
+        uidnext = 0
+
+        for uid, message in mailbox.get('messages').items():
+            exists += 1
+
+            mflags = message.get('flags')
+            flags.extend(mflags)
+
+            if '\\Recent' in mflags:
+                recent += 1
+
+            uidnext = max(uid, uidnext)
+
+        flags = ' '.join(sorted(set(flags)))
+
+        self.state = 'SELECTED'
+        self.selected = mboxname.lower()
+        await self.sendMesg(s_imap.UNTAGGED, 'FLAGS', f'({flags})')
+        await self.sendMesg(s_imap.UNTAGGED, 'OK', 'Flags permitted.',
+                            code='PERMANENTFLAGS (\\Deleted \\Seen \\*)')
+        await self.sendMesg(s_imap.UNTAGGED, 'OK', 'UIDs valid.', code=f'UIDVALIDITY {self.validity}')
+        await self.sendMesg(s_imap.UNTAGGED, f'{exists} EXISTS', '')
+        await self.sendMesg(s_imap.UNTAGGED, f'{recent} RECENT', '')
+        await self.sendMesg(s_imap.UNTAGGED, 'OK', 'Predicted next UID.', code=f'UIDNEXT {uidnext + 1}')
+        await self.sendMesg(tag, 'OK', 'SELECT completed', code='READ-WRITE')
+
+    async def expunge(self, mesg):
+        tag = mesg.get('tag')
+
+        mailbox = self.mail[self.user]
+
+        messages = {
+            k: v for k, v in mailbox['messages'].items()
+            if v['mailbox'] == self.selected
+        }
+
+        uids = []
+        for uid, message in messages.items():
+            if '\\Deleted' in message.get('flags'):
+                uids.append(uid)
+
+        for uid in uids:
+            mailbox['messages'].pop(uid)
+
+        await self.sendMesg(tag, 'OK', 'EXPUNGE completed')
+
+    async def uid(self, mesg):
+        tag = mesg.get('tag')
+        data = mesg.get('data').decode()
+        parts = data.split(' ')
+        command = parts[0]
+
+        mailbox = self.mail[self.user]
+        messages = {
+            k: v for k, v in mailbox['messages'].items()
+            if v['mailbox'] == self.selected
+        }
+
+        if command == 'STORE':
+            uidset = parts[1]
+
+            if ':' in uidset:
+                start, end = uidset.split(':')
+
+                if end == '*':
+                    keys = messages.keys()
+                    end = max(keys)
+
+            else:
+                start = end = uidset
+
+            match = imap_srv_flags_rgx.match(' '.join(parts[2:]))
+            if not match:
+                return await self.sendMesg(tag, 'BAD', 'Invalid STORE arguments.')
+
+            flags = match.groupdict()
+            values = set(flags.get('value').split(' '))
+
+            for uid in range(int(start), int(end) + 1):
+                if uid not in messages:
+                    continue
+
+                curv = set(messages[uid]['flags'])
+                if flags.get('op') == '+':
+                    curv |= values
+                elif flags.get('op') == '-':
+                    curv ^= values
+                else: # op == ''
+                    curv = values
+
+                mailbox['messages'][uid]['flags'] = list(curv)
+
+            return await self.sendMesg(tag, 'OK', 'STORE completed')
+
+        elif command == 'SEARCH':
+            # We only support a couple of search terms for ease of implementation
+            # https://www.rfc-editor.org/rfc/rfc3501#section-6.4.4
+            supported = ('Answered', 'Deleted', 'Draft', 'Recent', 'Seen', 'Unanswered', 'Undeleted', 'Unseen')
+            if parts[-1].title() not in supported:
+                return await self.sendMesg(tag, 'BAD', f'Search term not supported: {parts[-1]}.')
+
+            uids = ' '.join(
+                [str(k[0]) for k in messages.items() if f'\\{parts[-1].title()}' in k[1].get('flags')]
+            )
+
+            await self.sendMesg(s_imap.UNTAGGED, 'SEARCH', uids)
+            return await self.sendMesg(tag, 'OK', 'SEARCH completed')
+
+        elif command == 'FETCH':
+            uid = int(parts[1])
+
+            message = messages[uid]['data']
+
+            size = len(message)
+            await self.sendMesg(s_imap.UNTAGGED, 'FETCH', f'(UID {uid} RFC822 {{{size}}}', uid=uid)
+            await self.send(message.encode())
+            await self.send(b')\r\n')
+
+            return await self.sendMesg(tag, 'OK', 'FETCH completed')
+
+        else:
+            raise s_imap.ImapError(mesg=f'Unsupported command: {command}')
 
 async def imapserv(link):
     await link.greet()
@@ -203,6 +398,11 @@ async def imapserv(link):
 
         # Receive commands from client
         command = mesg.get('command')
+
+        # Check server state
+        if link.state not in imaplib.Commands.get(command.upper()):
+            mesg = f'{command} not allowed in the {link.state} state.'
+            raise s_imap.ImapError(mesg=mesg, state=link.state, command=command)
 
         # Get command handler
         handler = getattr(link, command.lower(), None)
@@ -215,21 +415,167 @@ async def imapserv(link):
     await link.waitfini()
 
 class ImapTest(s_test.SynTest):
-    async def test_storm_imap_basic(self):
+    async def test_storm_imap(self):
 
-        serv = s_link.listen('127.0.0.1', 0, imapserv, linkcls=IMAPServer)
-        with contextlib.closing(await serv) as server:
+        imaplink = None
+        def _imapserv(link):
+            nonlocal imaplink
+            imaplink = link
+            return imapserv(link)
+
+        coro = s_link.listen('127.0.0.1', 0, _imapserv, linkcls=IMAPServer)
+        with contextlib.closing(await coro) as server:
+
+            port = server.sockets[0].getsockname()[1]
+            user = 'user00@vertex.link'
+            opts = {'vars': {'port': port, 'user': user}}
 
             async with self.getTestCore() as core:
 
-                q = '''
-                $imap = $lib.inet.imap.connect("127.0.0.1", port=$port, ssl=(false)) $imap.login(blackout, pass)
+                # list mailboxes
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                    $server.login($user, "pass00")
+                    return($server.list())
                 '''
+                retn = await core.callStorm(scmd, opts=opts)
+                mailboxes = sorted(
+                    [
+                        k[0] for k in imaplink.mail[user]['mailboxes'].items()
+                        if k[1]['parent'] is None
+                    ]
+                )
+                self.eq((True, mailboxes), retn)
 
-                port = server.sockets[0].getsockname()[1]
-                opts = {'vars': {'port': port}}
-                msgs = await core.stormlist(q, opts=opts)
-                self.stormHasNoWarnErr(msgs)
+                # search for UIDs
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                    $server.login($user, "pass00")
+                    $server.select("INBOX")
+                    return($server.search("SEEN"))
+                '''
+                retn = await core.callStorm(scmd, opts=opts)
+                seen = sorted(
+                    [
+                        str(k[0]) for k in imaplink.mail[user]['messages'].items()
+                        if k[1]['mailbox'] == 'inbox' and '\\Seen' in k[1]['flags']
+                    ]
+                )
+                self.eq((True, seen), retn)
+
+                # mark seen
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                    $server.login($user, "pass00")
+                    $server.select("INBOX")
+                    return($server.markSeen("1:7"))
+                '''
+                retn = await core.callStorm(scmd, opts=opts)
+                self.eq((True, None), retn)
+                self.eq(
+                    ['1', '6', '7'],
+                    sorted(
+                        [
+                            str(k[0]) for k in imaplink.mail[user]['messages'].items()
+                            if k[1]['mailbox'] == 'inbox' and '\\Seen' in k[1]['flags']
+                        ]
+                    )
+                )
+
+                # delete
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                    $server.login($user, "pass00")
+                    $server.select("INBOX")
+                    return($server.delete("1:7"))
+                '''
+                retn = await core.callStorm(scmd, opts=opts)
+                messages = imaplink.mail[user]['messages']
+                self.notin(1, messages)
+                self.notin(6, messages)
+                self.notin(7, messages)
+                self.isin(2, messages)
+                self.isin(3, messages)
+                self.isin(4, messages)
+                self.isin(5, messages)
+                self.isin(8, messages)
+                self.eq((True, None), retn)
+
+                # fetch and save a message
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                    $server.login($user, "pass00")
+                    $server.select("INBOX")
+                    yield $server.fetch("1")
+                '''
+                nodes = await core.nodes(scmd, opts=opts)
+                self.len(1, nodes)
+                self.eq('file:bytes', nodes[0].ndef[0])
+                self.true(all(nodes[0].get(p) for p in ('sha512', 'sha256', 'sha1', 'md5', 'size')))
+                self.eq('message/rfc822', nodes[0].get('mime'))
+
+                byts = b''.join([byts async for byts in core.axon.get(s_common.uhex(nodes[0].get('sha256')))])
+                self.eq(email.encode(), byts)
+
+                # fetch must only be for a single message
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                    $server.login($user, "pass00")
+                    $server.select("INBOX")
+                    $server.fetch("1:*")
+                '''
+                mesgs = await core.stormlist(scmd, opts=opts)
+                self.stormIsInErr('Failed to make an integer', mesgs)
+
+                # sad paths
+
+                # FIXME
+                return
+
+                # make sure we can pass around the server object
+                scmd = '''
+                function foo(s) {
+                    return($s.login($user, "pass00"))
+                }
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                $ret00 = $foo($server)
+                $ret01 = $server.list()
+                return(($ret00, $ret01))
+                '''
+                retn = await core.callStorm(scmd, opts=opts)
+                self.eq(((True, None), (True, ('INBOX',))), retn)
+
+                mesgs = await core.stormlist('$lib.inet.imap.connect(hello.timeout, timeout=(1))')
+                self.stormIsInErr('Timed out waiting for IMAP server hello', mesgs)
+
+                scmd = '''
+                    $server = $lib.inet.imap.connect(login.timeout, timeout=(1))
+                    $server.login($user, "secret")
+                '''
+                mesgs = await core.stormlist(scmd)
+                self.stormIsInErr('Timed out waiting for IMAP server response', mesgs)
+
+                scmd = '''
+                    $server = $lib.inet.imap.connect(login.bad)
+                    $server.login($user, "secret")
+                '''
+                mesgs = await core.stormlist(scmd)
+                self.stormIsInErr('[AUTHENTICATIONFAILED] Invalid credentials (Failure)', mesgs)
+
+                scmd = '''
+                    $server = $lib.inet.imap.connect(login.noerr)
+                    $server.login($user, "secret")
+                '''
+                mesgs = await core.stormlist(scmd)
+                self.stormIsInErr('IMAP server returned an error', mesgs)
+
+                scmd = '''
+                    $server = $lib.inet.imap.connect(list.bad)
+                    $server.login($user, "secret")
+                    $server.list()
+                '''
+                mesgs = await core.stormlist(scmd)
+                self.stormIsInErr('Could not parse command', mesgs)
 
     async def test_storm_imap_parseLine(self):
 
@@ -586,161 +932,3 @@ class ImapTest(s_test.SynTest):
             'raw': line[5:],
             'code': None, 'uid': None, 'size': None,
         })
-
-    async def __test_storm_imap(self):
-
-        client_args = []
-        def client_mock(*args, **kwargs):
-            client_args.append((args, kwargs))
-            return mock_create_client(*args, **kwargs)
-
-        with mock.patch('aioimaplib.IMAP4.create_client', client_mock), \
-            mock.patch('aioimaplib.IMAP4_SSL.create_client', client_mock):
-
-            async with self.getTestCore() as core:
-
-                # list mailboxes
-                scmd = '''
-                    $server = $lib.inet.imap.connect(hello)
-                    $server.login("vtx@email.com", "secret")
-                    return($server.list())
-                '''
-                retn = await core.callStorm(scmd)
-                self.eq((True, ('INBOX',)), retn)
-                ctx = self.nn(client_args[-1][0][5])  # type: ssl.SSLContext
-                self.eq(ctx.verify_mode, ssl.CERT_REQUIRED)
-
-                # search for UIDs
-                scmd = '''
-                    $server = $lib.inet.imap.connect(hello, ssl_verify=(false))
-                    $server.login("vtx@email.com", "secret")
-                    $server.select("INBOX")
-                    return($server.search("FROM", "foo@mail.com"))
-                '''
-                retn = await core.callStorm(scmd)
-                self.eq((True, ('8181', '8192', '8194')), retn)
-                ctx = self.nn(client_args[-1][0][5])  # type: ssl.SSLContext
-                self.eq(ctx.verify_mode, ssl.CERT_NONE)
-
-                # search for UIDs with specific charset
-                scmd = '''
-                $server = $lib.inet.imap.connect(hello)
-                $server.login("vtx@email.com", "secret")
-                $server.select("INBOX")
-                return($server.search("FROM", "foo@mail.com", charset=us-ascii))
-                '''
-                retn = await core.callStorm(scmd)
-                self.eq((True, ('1138', '4443', '8443')), retn)
-
-                # search for UIDs with no charset
-                scmd = '''
-                $server = $lib.inet.imap.connect(hello)
-                $server.login("vtx@email.com", "secret")
-                $server.select("INBOX")
-                return($server.search("FROM", "foo@mail.com", charset=$lib.null))
-                '''
-                retn = await core.callStorm(scmd)
-                self.eq((True, ('2001', '2010', '2061', '3001')), retn)
-
-                scmd = '''
-                    $server = $lib.inet.imap.connect(search.empty)
-                    $server.login("vtx@email.com", "secret")
-                    $server.select("INBOX")
-                    return($server.search("FROM", "newp@mail.com"))
-                '''
-                retn = await core.callStorm(scmd)
-                self.eq((True, ()), retn)
-
-                # mark seen
-                scmd = '''
-                    $server = $lib.inet.imap.connect(hello, ssl=$lib.false)
-                    $server.login("vtx@email.com", "secret")
-                    $server.select("INBOX")
-                    return($server.markSeen("1:4"))
-                '''
-                retn = await core.callStorm(scmd)
-                self.eq((True, None), retn)
-                self.none(client_args[-1][0][5])
-
-                # delete
-                scmd = '''
-                    $server = $lib.inet.imap.connect(hello)
-                    $server.login("vtx@email.com", "secret")
-                    $server.select("INBOX")
-                    return($server.delete("1:4"))
-                '''
-                retn = await core.callStorm(scmd)
-                self.eq((True, None), retn)
-
-                # fetch and save a message
-                scmd = '''
-                    $server = $lib.inet.imap.connect(hello)
-                    $server.login("vtx@email.com", "secret")
-                    $server.select("INBOX")
-                    yield $server.fetch("1")
-                '''
-                nodes = await core.nodes(scmd)
-                self.len(1, nodes)
-                self.eq('file:bytes', nodes[0].ndef[0])
-                self.true(all(nodes[0].get(p) for p in ('sha512', 'sha256', 'sha1', 'md5', 'size')))
-                self.eq('message/rfc822', nodes[0].get('mime'))
-
-                byts = b''.join([byts async for byts in core.axon.get(s_common.uhex(nodes[0].get('sha256')))])
-                self.eq(mesgb, byts)
-
-                # fetch must only be for a single message
-                scmd = '''
-                    $server = $lib.inet.imap.connect(hello)
-                    $server.login("vtx@email.com", "secret")
-                    $server.select("INBOX")
-                    $server.fetch("1:*")
-                '''
-                mesgs = await core.stormlist(scmd)
-                self.stormIsInErr('Failed to make an integer', mesgs)
-
-                # make sure we can pass around the server object
-                scmd = '''
-                function foo(s) {
-                    return($s.login("vtx@email.com", "secret"))
-                }
-                $server = $lib.inet.imap.connect(hello)
-                $ret00 = $foo($server)
-                $ret01 = $server.list()
-                return(($ret00, $ret01))
-                '''
-                retn = await core.callStorm(scmd)
-                self.eq(((True, None), (True, ('INBOX',))), retn)
-
-                # sad paths
-
-                mesgs = await core.stormlist('$lib.inet.imap.connect(hello.timeout, timeout=(1))')
-                self.stormIsInErr('Timed out waiting for IMAP server hello', mesgs)
-
-                scmd = '''
-                    $server = $lib.inet.imap.connect(login.timeout, timeout=(1))
-                    $server.login("vtx@email.com", "secret")
-                '''
-                mesgs = await core.stormlist(scmd)
-                self.stormIsInErr('Timed out waiting for IMAP server response', mesgs)
-
-                scmd = '''
-                    $server = $lib.inet.imap.connect(login.bad)
-                    $server.login("vtx@email.com", "secret")
-                '''
-                mesgs = await core.stormlist(scmd)
-                self.stormIsInErr('[AUTHENTICATIONFAILED] Invalid credentials (Failure)', mesgs)
-
-                scmd = '''
-                    $server = $lib.inet.imap.connect(login.noerr)
-                    $server.login("vtx@email.com", "secret")
-                '''
-                mesgs = await core.stormlist(scmd)
-                self.stormIsInErr('IMAP server returned an error', mesgs)
-
-                scmd = '''
-                    $server = $lib.inet.imap.connect(list.bad)
-                    $server.login("vtx@email.com", "secret")
-                    $server.list()
-                '''
-                mesgs = await core.stormlist(scmd)
-                self.stormIsInErr('Could not parse command', mesgs)
