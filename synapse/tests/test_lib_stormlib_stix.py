@@ -84,8 +84,8 @@ class StormLibStixTest(s_test.SynTest):
                 (entity:contact=* :name="visi stark" :email=visi@vertex.link)
                 (ou:org=$targetorg :name=target :industries+={[ou:industry=$ind :name=aerospace]})
                 (ou:org=$attackorg :name=attacker)
-                (ou:campaign=$campaign :name=woot :org={ou:org:name=attacker} :goal={[ou:goal=$goal :name=pwning]})
-                (risk:attack=$attack :campaign={ou:campaign} +(targets)> {ou:org:name=target})
+                (entity:campaign=$campaign :name=woot :org={ou:org:name=attacker} :goal={[entity:goal=$goal :name=pwning]})
+                (risk:attack=$attack :campaign={entity:campaign} +(targets)> {ou:org:name=target})
                 (it:app:yara:rule=$yararule :name=yararulez :text="rule dummy { condition: false }")
                 (it:app:snort:rule=$snortrule :name=snortrulez :text="alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)")
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
@@ -111,7 +111,7 @@ class StormLibStixTest(s_test.SynTest):
                 inet:service:account
                 doc:report
                 ou:org:name=target
-                ou:campaign
+                entity:campaign
 
                 inet:fqdn=vtx.lk
                 inet:fqdn=vertex.link
@@ -311,17 +311,19 @@ class StormLibStixTest(s_test.SynTest):
             await core.nodes('''[(risk:vuln=(vuln1,) :name=vuln1 :desc="bad vuln" :cve="cve-2013-0000")]
             [(risk:vuln=(vuln3,) :name="bobs version of cve-2013-001" :cve="cve-2013-0001")]
             [(ou:org=(bob1,) :name="bobs whitehatz")]
-            [(ou:campaign=(campaign1,) :name="bob hax" :actor=(ou:org, (bob1,)) )]
+            [(entity:campaign=(campaign1,) :name="bob hax" :actor=(ou:org, (bob1,)) )]
             [(risk:attack=(attk1,) +(used)> {risk:vuln=(vuln1,)} :campaign=(campaign1,) )]
             [(risk:attack=(attk2,) +(used)> {risk:vuln=(vuln3,)} :campaign=(campaign1,) )]
             ''')
 
             bund = await core.callStorm('''
             init { $bundle = $lib.stix.export.bundle() }
-            ou:campaign
+            entity:campaign
             $bundle.add($node)
             fini { return($bundle) }''')
             self.reqValidStix(bund)
+            import synapse.lib.json as s_json
+            s_json.jssave(bund, 'risk0.json')
             self.bundeq(self.getTestBundle('risk0.json'), bund)
 
     async def test_stix_import(self):
@@ -521,21 +523,21 @@ class StormLibStixTest(s_test.SynTest):
     async def test_stix_revs(self):
 
         async with self.getTestCore() as core:
-            await core.nodes('[risk:mitigation=* :name=bar +(addresses)> {[ ou:technique=* :name=foo ]} ]')
+            await core.nodes('[risk:mitigation=* :name=bar +(addresses)> {[ entity:technique=* :name=foo ]} ]')
 
             with self.raises(s_exc.BadConfValu):
                 bund = await core.callStorm('''
                     $config = $lib.stix.export.config()
-                    $config.forms."ou:technique".stix."attack-pattern".revs = (["a"])
+                    $config.forms."entity:technique".stix."attack-pattern".revs = (["a"])
                     $bundle = $lib.stix.export.bundle(config=$config)
-                    ou:technique
+                    entity:technique
                     $bundle.add($node, "attack-pattern")
                     fini { return($bundle) }
                 ''')
 
             bund = await core.callStorm('''
                 $bundle = $lib.stix.export.bundle()
-                ou:technique
+                entity:technique
                 $bundle.add($node, "attack-pattern")
                 fini { return($bundle) }
             ''')

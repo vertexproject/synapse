@@ -73,7 +73,7 @@ class PlanModelTest(s_t_utils.SynTest):
                         :procedure=$guid
                         :phase={ plan:phase:title=Recon }
                         :outputs={[ plan:procedure:variable=* :name=services ]}
-                        :techniques={[ ou:technique=* :name=netscan ]}
+                        :techniques={[ entity:technique=* :name=netscan ]}
 
                         :links={[ plan:procedure:link=*
                             :condition=(true)
@@ -116,7 +116,7 @@ class PlanModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('procedure'))
 
             self.len(1, await core.nodes('plan:procedure :firststep -> plan:procedure:step -> plan:phase'))
-            self.len(1, await core.nodes('plan:procedure :firststep -> plan:procedure:step :techniques -> ou:technique'))
+            self.len(1, await core.nodes('plan:procedure :firststep -> plan:procedure:step :techniques -> entity:technique'))
             self.len(1, await core.nodes('plan:procedure :firststep -> plan:procedure:step :outputs -> plan:procedure:variable'))
 
             nodes = await core.nodes('plan:procedure :firststep -> plan:procedure:step -> plan:procedure:link')

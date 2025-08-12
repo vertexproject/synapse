@@ -1493,7 +1493,7 @@ class InfotechModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('''
-                [ it:prod:softid=*
+                [ it:softid=*
                     :id=Woot
                     :host=*
                     :software={[ it:software=* :name=beacon ]}
@@ -1504,8 +1504,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('Woot', nodes[0].get('id'))
             self.nn(nodes[0].get('host'))
             self.nn(nodes[0].get('software'))
-            self.len(1, await core.nodes('it:host -> it:prod:softid'))
-            self.len(1, await core.nodes('it:software:name=beacon -> it:prod:softid'))
+            self.len(1, await core.nodes('it:host -> it:softid'))
+            self.len(1, await core.nodes('it:software:name=beacon -> it:softid'))
 
     async def test_infotech_repo(self):
 
