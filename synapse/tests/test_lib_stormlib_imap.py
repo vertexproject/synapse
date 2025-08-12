@@ -476,7 +476,7 @@ class ImapTest(s_test.SynTest):
                 $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
                 $server.login($user, "pass00")
                 $server.select("INBOX")
-                return($server.search("SEEN"))
+                return($server.search("SEEN", charset="utf-8"))
             '''
             retn = await core.callStorm(scmd, opts=opts)
             seen = sorted(
@@ -645,6 +645,18 @@ class ImapTest(s_test.SynTest):
             user = 'user00@vertex.link'
             opts = {'vars': {'port': port, 'user': user}}
 
+            async def login_w_capability(self, mesg):
+                tag = mesg.get('tag')
+                await self.sendMesg(tag, 'OK', 'LOGIN completed', code='CAPABILITY IMAP4rev1')
+
+            with mock.patch.object(IMAPServer, 'login', login_w_capability):
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                    $server.login($user, pass00)
+                '''
+                mesgs = await core.stormlist(scmd, opts=opts)
+                self.stormHasNoWarnErr(mesgs)
+
             capability = IMAPServer.capability
 
             # No auth=plain capability
@@ -764,6 +776,96 @@ class ImapTest(s_test.SynTest):
                 '''
                 mesgs = await core.stormlist(scmd, opts=opts)
                 self.stormIsInErr('Cannot list mailbox.', mesgs)
+
+    async def test_storm_imap_uid(self):
+
+        async with self.getTestCoreAndImapPort() as (core, port):
+            user = 'user00@vertex.link'
+            opts = {'vars': {'port': port, 'user': user}}
+
+            # Non-OK uid response
+            async def uid_no(self, mesg):
+                tag = mesg.get('tag')
+                await self.sendMesg(tag, 'NO', 'Cannot process UID command.')
+
+            with mock.patch.object(IMAPServer, 'uid', uid_no):
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                    $server.login($user, pass00)
+                    $server.select(INBOX)
+                    $server.delete(1)
+                '''
+                mesgs = await core.stormlist(scmd, opts=opts)
+                self.stormIsInErr('Cannot process UID command.', mesgs)
+
+    async def test_storm_imap_expunge(self):
+
+        async with self.getTestCoreAndImapPort() as (core, port):
+            user = 'user00@vertex.link'
+            opts = {'vars': {'port': port, 'user': user}}
+
+            # Non-OK expunge response
+            async def expunge_no(self, mesg):
+                tag = mesg.get('tag')
+                await self.sendMesg(tag, 'NO', 'Cannot process EXPUNGE command.')
+
+            with mock.patch.object(IMAPServer, 'expunge', expunge_no):
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                    $server.login($user, pass00)
+                    $server.select(INBOX)
+                    $server.delete(1)
+                '''
+                mesgs = await core.stormlist(scmd, opts=opts)
+                self.stormIsInErr('Cannot process EXPUNGE command.', mesgs)
+
+            scmd = '''
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                $server.login(user01@vertex.link, 'spaces lol')
+                $server.select(INBOX)
+                $server.delete(1)
+            '''
+            mesgs = await core.stormlist(scmd, opts=opts)
+            self.stormIsInErr('Selected mailbox is read-only.', mesgs)
+
+    async def test_storm_imap_logout(self):
+
+        async with self.getTestCoreAndImapPort() as (core, port):
+            user = 'user00@vertex.link'
+
+            # Normal response
+            imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+            await imap.login(user, 'pass00')
+            self.eq(
+                await imap.logout(),
+                (True, (b'LOGOUT completed',))
+            )
+
+            # Non-OK logout response
+            async def logout_no(self, mesg):
+                tag = mesg.get('tag')
+                await self.sendMesg(tag, 'NO', 'Cannot logout.')
+
+            with mock.patch.object(IMAPServer, 'logout', logout_no):
+                imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+                await imap.login(user, 'pass00')
+                self.eq(
+                    await imap.logout(),
+                    (False, (b'Cannot logout.',))
+                )
+
+            # Logout without BYE response
+            async def logout_nobye(self, mesg):
+                tag = mesg.get('tag')
+                await self.sendMesg(tag, 'OK', 'LOGOUT completed')
+
+            with mock.patch.object(IMAPServer, 'logout', logout_nobye):
+                imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+                await imap.login(user, 'pass00')
+                self.eq(
+                    await imap.logout(),
+                    (False, (b'Server failed to send expected BYE response.',))
+                )
 
     async def test_storm_imap_errors(self):
 

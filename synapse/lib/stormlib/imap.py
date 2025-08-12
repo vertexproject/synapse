@@ -89,11 +89,11 @@ class IMAPLink(s_link.Link):
                 end = start + size
 
                 # Check for complete data
-                if len(self._rxbuf) < start + end - start:
+                if len(self._rxbuf) < start + end - start: # pragma: no cover
                     break
 
                 # Check for trailer
-                if (offs := self._rxbuf[end:].find(CRLF)) == -1:
+                if (offs := self._rxbuf[end:].find(CRLF)) == -1: # pragma: no cover
                     break
 
                 # Copy the message to use as the message for the continuation data and add it to the queue
@@ -338,7 +338,7 @@ class IMAPClient(IMAPLink):
         if response.get('response') != 'OK':
             return False, [response.get('data')]
 
-        untagged = resp.get(UNTAGGED)
+        untagged = resp.get(UNTAGGED, [])
         if len(untagged) != 1 or untagged[0].get('response') != 'BYE':
             return False, [b'Server failed to send expected BYE response.']
 
