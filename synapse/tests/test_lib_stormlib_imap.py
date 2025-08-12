@@ -746,12 +746,12 @@ class ImapTest(s_test.SynTest):
                 mesgs = await core.stormlist(scmd, opts=opts)
                 self.stormIsInErr('Cannot select mailbox.', mesgs)
 
-            # readonly mailbox
+            # Readonly mailbox
             scmd = '''
                 $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
                 $server.login($user, 'spaces lol')
                 $server.select(INBOX)
-                $lib.print($server.delete(1))
+                $server.delete(1)
             '''
             mesgs = await core.stormlist(scmd, opts=opts)
             self.stormIsInErr('Selected mailbox is read-only.', mesgs)
@@ -819,14 +819,13 @@ class ImapTest(s_test.SynTest):
                 mesgs = await core.stormlist(scmd, opts=opts)
                 self.stormIsInErr('Cannot process EXPUNGE command.', mesgs)
 
-            scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                $server.login(user01@vertex.link, 'spaces lol')
-                $server.select(INBOX)
-                $server.delete(1)
-            '''
-            mesgs = await core.stormlist(scmd, opts=opts)
-            self.stormIsInErr('Selected mailbox is read-only.', mesgs)
+            imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+            await imap.login('user01@vertex.link', 'spaces lol')
+            await imap.select('INBOX')
+            self.eq(
+                await imap.expunge(),
+                (False, (b'Selected mailbox is read-only.',))
+            )
 
     async def test_storm_imap_logout(self):
 

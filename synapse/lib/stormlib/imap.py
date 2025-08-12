@@ -302,18 +302,6 @@ class IMAPClient(IMAPLink):
         if response.get('response') != 'OK':
             return False, [response.get('data')]
 
-        # search
-        # b'EJKO3 UID SEARCH CHARSET utf-8 FROM foo@mail.com\r\n'
-
-        # markSeen
-        # b'INCF3 UID STORE 1:4 +FLAGS.SILENT (\\Seen)\r\n'
-
-        # delete
-        # b'ANJK3 UID STORE 1:4 +FLAGS.SILENT (\\Deleted)\r\n'
-
-        # fetch
-        # b'OLCJ3 UID FETCH 1 (RFC822)\r\n'
-
         untagged = resp.get(UNTAGGED, [])
         return True, [u.get('data') for u in untagged]
 
