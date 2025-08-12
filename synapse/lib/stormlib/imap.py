@@ -39,17 +39,17 @@ imap_rgx = regex.compile(
 class ImapError(s_exc.SynErr):
     pass
 
-class IMAPConnection(s_link.Link):
+class IMAPLink(s_link.Link):
     async def __anit__(self, reader, writer, info=None, forceclose=False):
         await s_link.Link.__anit__(self, reader, writer, info=info, forceclose=forceclose)
 
         self._rxbuf = b''
         self.state = 'LOGOUT'
 
-    def _parseLine(self, line):
+    def _parseLine(self, line): # pragma: no cover
         raise NotImplementedError('Not implemented')
 
-    def pack(self, mesg):
+    def pack(self, mesg): # pragma: no cover
         raise NotImplementedError('Not implemented')
 
     def feed(self, byts):
@@ -101,7 +101,7 @@ class IMAPConnection(s_link.Link):
 
         return ret
 
-class IMAPClient(IMAPConnection):
+class IMAPClient(IMAPLink):
     async def postAnit(self):
         self.readonly = False
         self.capabilities = []
@@ -116,14 +116,17 @@ class IMAPClient(IMAPConnection):
             self.state = 'NONAUTH'
         else:
             # Includes greeting.get('response') == 'BYE'
-            raise ImapError(mesg=greeting.get('data'), response=response)
+            raise ImapError(mesg=greeting.get('data').decode(), response=response)
 
         # Some servers will list capabilities in the greeting
         if (code := greeting.get('code')) is not None and code.startswith('CAPABILITY'):
             self.capabilities = code.split(' ')[1:]
 
         if not self.capabilities:
-            await self.capability()
+            (ok, data) = await self.capability()
+            if not ok:
+                mesg = data[0].decode()
+                raise ImapError(mesg=mesg)
 
         return self
 
@@ -207,7 +210,7 @@ class IMAPClient(IMAPConnection):
         if response.get('response') != 'OK':
             return False, [response.get('data')]
 
-        if len(untagged := resp.get(UNTAGGED)) != 1:
+        if len(untagged := resp.get(UNTAGGED, [])) != 1:
             return False, [b'Invalid server response.']
 
         capabilities = untagged[0].get('data').decode()
@@ -273,6 +276,9 @@ class IMAPClient(IMAPConnection):
         tag = self._genTag()
         args = ' '.join(args)
 
+        if command == 'STORE' and self.readonly:
+            return False, [b'Selected mailbox is read-only.']
+
         if command == 'SEARCH' and (charset := kwargs.get('charset')) is not None:
             args = f'CHARSET {charset} {args}'
 
@@ -298,6 +304,9 @@ class IMAPClient(IMAPConnection):
         return True, [u.get('data') for u in untagged]
 
     async def expunge(self):
+        if self.readonly:
+            return False, [b'Selected mailbox is read-only.']
+
         tag = self._genTag()
         resp = await self._command(tag, 'EXPUNGE')
 
