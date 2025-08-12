@@ -32,10 +32,6 @@ def qsplit(text):
     '''
     return [k.strip('"') for k in qsplit_rgx.findall(text)]
 
-bqsplit_rgx = regex.compile(br'("[^"]*"|\S+)')
-def bqsplit(byts):
-    return [k.strip(b'"') for k in bqsplit_rgx.findall(byts)]
-
 imap_rgx = regex.compile(
     br'''
     ^
@@ -340,7 +336,7 @@ async def run_imap_coro(coro, timeout):
     try:
         status, data = await s_common.wait_for(coro, timeout)
     except asyncio.TimeoutError:
-        raise s_exc.StormRuntimeError(mesg='Timed out waiting for IMAP server response.') from None
+        raise s_exc.TimeOut(mesg='Timed out waiting for IMAP server response.') from None
 
     if status:
         return data
@@ -350,7 +346,7 @@ async def run_imap_coro(coro, timeout):
     except (TypeError, AttributeError, IndexError, UnicodeDecodeError):
         mesg = 'IMAP server returned an error'
 
-    raise s_exc.StormRuntimeError(mesg=mesg, status=status)
+    raise ImapError(mesg=mesg, status=status)
 
 @s_stormtypes.registry.registerLib
 class ImapLib(s_stormtypes.Lib):
@@ -417,7 +413,7 @@ class ImapLib(s_stormtypes.Lib):
         try:
             imap = await s_common.wait_for(coro, timeout)
         except asyncio.TimeoutError:
-            raise s_exc.StormRuntimeError(mesg='Timed out waiting for IMAP server hello.') from None
+            raise s_exc.TimeOut(mesg='Timed out waiting for IMAP server hello.') from None
 
         async def fini():
             async def _logout():
@@ -636,14 +632,12 @@ class ImapServer(s_stormtypes.StormType):
         pattern = await s_stormtypes.tostr(pattern)
         reference_name = await s_stormtypes.tostr(reference_name)
 
-        reference_name = quote(reference_name)
-
         coro = self.imap_cli.list(reference_name, pattern)
         data = await run_imap_coro(coro, self.timeout)
 
         names = []
         for item in data:
-            names.append(bqsplit(item)[-1].decode())
+            names.append(qsplit(item.decode())[-1])
 
         return True, names
 
