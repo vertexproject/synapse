@@ -1892,7 +1892,7 @@ class Ival(Type):
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                     mesg='Ival _normPyIter requires 2 or 3 items')
 
-        tick, tock = await self.ticktype.getTickTock(valu[:2], prec=prec)
+        tick, tock = await self.ticktype.getTickTock(valu, prec=prec)
 
         minv, info = await self.ticktype._normPyInt(tick, prec=prec)
         maxv, _ = await self.tocktype._normPyInt(tock, prec=prec)
@@ -2851,11 +2851,11 @@ class Time(IntBase):
         Returns:
             (int, int): A ordered pair of integers.
         '''
-        if len(vals) != 2:
-            mesg = 'Time range must have a length of 2: %r' % (vals,)
+        if len(vals) not in (2, 3):
+            mesg = 'Time range must have a length of 2 or 3: %r' % (vals,)
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        val0, val1 = vals
+        val0, val1 = vals[:2]
 
         try:
             _tick = await self._getLiftValu(val0, prec=prec)
