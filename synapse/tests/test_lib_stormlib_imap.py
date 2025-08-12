@@ -135,7 +135,7 @@ class IMAPServer(s_imap.IMAPLink):
             },
 
             'user01@vertex.link': {
-                'password': 'pass01',
+                'password': 'spaces lol',
                 'mailboxes': {
                     'inbox': {
                         'readonly': True,
@@ -222,7 +222,7 @@ class IMAPServer(s_imap.IMAPLink):
     async def login(self, mesg):
         tag = mesg.get('tag')
         try:
-            username, passwd = mesg.get('data').decode().split(' ')
+            username, passwd = s_imap.qsplit(mesg.get('data').decode())
         except ValueError:
             return await self.sendMesg(tag, 'BAD', 'Invalid arguments for LOGIN.')
 
@@ -243,7 +243,7 @@ class IMAPServer(s_imap.IMAPLink):
     async def list(self, mesg):
         tag = mesg.get('tag')
         try:
-            refname, mboxname = shlex.split(mesg.get('data').decode())
+            refname, mboxname = s_imap.qsplit(mesg.get('data').decode())
         except ValueError:
             return await self.sendMesg(tag, 'BAD', 'Invalid arguments for LIST.')
 
@@ -273,9 +273,9 @@ class IMAPServer(s_imap.IMAPLink):
     async def select(self, mesg):
         tag = mesg.get('tag')
 
-        mboxname = mesg.get('data').decode().lower()
+        mboxname = s_imap.qsplit(mesg.get('data').decode())[0].lower()
         if (mailbox := self.mail[self.user]) is None or mboxname not in mailbox.get('mailboxes'):
-            return await self.sendMesg(tag, 'NO', f'No such mailbox: {mailbox}.')
+            return await self.sendMesg(tag, 'NO', f'No such mailbox: {mboxname}.')
 
         flags = []
         exists = 0
@@ -333,9 +333,14 @@ class IMAPServer(s_imap.IMAPLink):
 
     async def uid(self, mesg):
         tag = mesg.get('tag')
-        data = mesg.get('data').decode()
-        parts = data.split(' ')
+        parts = s_imap.qsplit(mesg.get('data').decode())
         command = parts[0]
+
+        # This IMAP server doesn't do anything with CHARSET but we still need to handle it being present in the command
+        if 'CHARSET' in parts:
+            indx = parts.index('CHARSET')
+            parts.pop(indx) # CHARSET
+            parts.pop(indx) # utf-8 or whatever
 
         mailbox = self.mail[self.user]
         messages = {
@@ -409,7 +414,7 @@ class IMAPServer(s_imap.IMAPLink):
             raise s_imap.ImapError(mesg=f'Unsupported command: {command}')
 
 class ImapTest(s_test.SynTest):
-    async def imapserv(self, link):
+    async def _imapserv(self, link):
         self.imap = link
 
         await link.greet()
@@ -435,362 +440,351 @@ class ImapTest(s_test.SynTest):
 
         await link.waitfini()
 
-    async def test_storm_imap_basic(self):
-
-        coro = s_link.listen('127.0.0.1', 0, self.imapserv, linkcls=IMAPServer)
+    @contextlib.asynccontextmanager
+    async def getTestCoreAndImapPort(self, *args, **kwargs):
+        coro = s_link.listen('127.0.0.1', 0, self._imapserv, linkcls=IMAPServer)
         with contextlib.closing(await coro) as server:
 
             port = server.sockets[0].getsockname()[1]
+
+            async with self.getTestCore(*args, **kwargs) as core:
+                yield core, port
+
+    async def test_storm_imap_basic(self):
+
+        async with self.getTestCoreAndImapPort() as (core, port):
             user = 'user00@vertex.link'
             opts = {'vars': {'port': port, 'user': user}}
 
-            async with self.getTestCore() as core:
+            # list mailboxes
+            scmd = '''
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                $server.login($user, "pass00")
+                return($server.list())
+            '''
+            retn = await core.callStorm(scmd, opts=opts)
+            mailboxes = sorted(
+                [
+                    k[0] for k in self.imap.mail[user]['mailboxes'].items()
+                    if k[1]['parent'] is None
+                ]
+            )
+            self.eq((True, mailboxes), retn)
 
-                # list mailboxes
-                scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                    $server.login($user, "pass00")
-                    return($server.list())
-                '''
-                retn = await core.callStorm(scmd, opts=opts)
-                mailboxes = sorted(
-                    [
-                        k[0] for k in self.imap.mail[user]['mailboxes'].items()
-                        if k[1]['parent'] is None
-                    ]
-                )
-                self.eq((True, mailboxes), retn)
+            # search for UIDs
+            scmd = '''
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                $server.login($user, "pass00")
+                $server.select("INBOX")
+                return($server.search("SEEN"))
+            '''
+            retn = await core.callStorm(scmd, opts=opts)
+            seen = sorted(
+                [
+                    str(k[0]) for k in self.imap.mail[user]['messages'].items()
+                    if k[1]['mailbox'] == 'inbox' and '\\Seen' in k[1]['flags']
+                ]
+            )
+            self.eq((True, seen), retn)
 
-                # search for UIDs
-                scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                    $server.login($user, "pass00")
-                    $server.select("INBOX")
-                    return($server.search("SEEN"))
-                '''
-                retn = await core.callStorm(scmd, opts=opts)
-                seen = sorted(
+            # mark seen
+            scmd = '''
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                $server.login($user, "pass00")
+                $server.select("INBOX")
+                return($server.markSeen("1:7"))
+            '''
+            retn = await core.callStorm(scmd, opts=opts)
+            self.eq((True, None), retn)
+            self.eq(
+                ['1', '6', '7'],
+                sorted(
                     [
                         str(k[0]) for k in self.imap.mail[user]['messages'].items()
                         if k[1]['mailbox'] == 'inbox' and '\\Seen' in k[1]['flags']
                     ]
                 )
-                self.eq((True, seen), retn)
+            )
 
-                # mark seen
-                scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                    $server.login($user, "pass00")
-                    $server.select("INBOX")
-                    return($server.markSeen("1:7"))
-                '''
-                retn = await core.callStorm(scmd, opts=opts)
-                self.eq((True, None), retn)
-                self.eq(
-                    ['1', '6', '7'],
-                    sorted(
-                        [
-                            str(k[0]) for k in self.imap.mail[user]['messages'].items()
-                            if k[1]['mailbox'] == 'inbox' and '\\Seen' in k[1]['flags']
-                        ]
-                    )
-                )
-
-                # delete
-                scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                    $server.login($user, "pass00")
-                    $server.select("INBOX")
-                    return($server.delete("1:7"))
-                '''
-                retn = await core.callStorm(scmd, opts=opts)
-                messages = self.imap.mail[user]['messages']
-                self.notin(1, messages)
-                self.notin(6, messages)
-                self.notin(7, messages)
-                self.isin(2, messages)
-                self.isin(3, messages)
-                self.isin(4, messages)
-                self.isin(5, messages)
-                self.isin(8, messages)
-                self.eq((True, None), retn)
-
-                # fetch and save a message
-                scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                    $server.login($user, "pass00")
-                    $server.select("INBOX")
-                    yield $server.fetch("1")
-                '''
-                nodes = await core.nodes(scmd, opts=opts)
-                self.len(1, nodes)
-                self.eq('file:bytes', nodes[0].ndef[0])
-                self.true(all(nodes[0].get(p) for p in ('sha512', 'sha256', 'sha1', 'md5', 'size')))
-                self.eq('message/rfc822', nodes[0].get('mime'))
-
-                byts = b''.join([byts async for byts in core.axon.get(s_common.uhex(nodes[0].get('sha256')))])
-                self.eq(email.encode(), byts)
-
-                # fetch must only be for a single message
-                scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                    $server.login($user, "pass00")
-                    $server.select("INBOX")
-                    $server.fetch("1:*")
-                '''
-                mesgs = await core.stormlist(scmd, opts=opts)
-                self.stormIsInErr('Failed to make an integer', mesgs)
-
-                # make sure we can pass around the server object
-                scmd = '''
-                function foo(s) {
-                    return($s.login($user, "pass00"))
-                }
+            # delete
+            scmd = '''
                 $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                $ret00 = $foo($server)
-                $ret01 = $server.list()
-                return(($ret00, $ret01))
-                '''
-                retn = await core.callStorm(scmd, opts=opts)
-                self.eq(((True, None), (True, ('deleted', 'drafts', 'inbox', 'sent'))), retn)
+                $server.login($user, "pass00")
+                $server.select("INBOX")
+                return($server.delete("1:7"))
+            '''
+            retn = await core.callStorm(scmd, opts=opts)
+            messages = self.imap.mail[user]['messages']
+            self.notin(1, messages)
+            self.notin(6, messages)
+            self.notin(7, messages)
+            self.isin(2, messages)
+            self.isin(3, messages)
+            self.isin(4, messages)
+            self.isin(5, messages)
+            self.isin(8, messages)
+            self.eq((True, None), retn)
+
+            # fetch and save a message
+            scmd = '''
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                $server.login($user, "pass00")
+                $server.select("INBOX")
+                yield $server.fetch("1")
+            '''
+            nodes = await core.nodes(scmd, opts=opts)
+            self.len(1, nodes)
+            self.eq('file:bytes', nodes[0].ndef[0])
+            self.true(all(nodes[0].get(p) for p in ('sha512', 'sha256', 'sha1', 'md5', 'size')))
+            self.eq('message/rfc822', nodes[0].get('mime'))
+
+            byts = b''.join([byts async for byts in core.axon.get(s_common.uhex(nodes[0].get('sha256')))])
+            self.eq(email.encode(), byts)
+
+            # fetch must only be for a single message
+            scmd = '''
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                $server.login($user, "pass00")
+                $server.select("INBOX")
+                $server.fetch("1:*")
+            '''
+            mesgs = await core.stormlist(scmd, opts=opts)
+            self.stormIsInErr('Failed to make an integer', mesgs)
+
+            # make sure we can pass around the server object
+            scmd = '''
+            function foo(s) {
+                return($s.login($user, "pass00"))
+            }
+            $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+            $ret00 = $foo($server)
+            $ret01 = $server.list()
+            return(($ret00, $ret01))
+            '''
+            retn = await core.callStorm(scmd, opts=opts)
+            self.eq(((True, None), (True, ('deleted', 'drafts', 'inbox', 'sent'))), retn)
 
     async def test_storm_imap_greet(self):
-        coro = s_link.listen('127.0.0.1', 0, self.imapserv, linkcls=IMAPServer)
-        with contextlib.closing(await coro) as server:
-
-            port = server.sockets[0].getsockname()[1]
+        async with self.getTestCoreAndImapPort() as (core, port):
             user = 'user00@vertex.link'
             opts = {'vars': {'port': port, 'user': user}}
 
-            async with self.getTestCore() as core:
-                # Normal greeting
+            # Normal greeting
+            scmd = '''
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                $server.select("INBOX")
+            '''
+            mesgs = await core.stormlist(scmd, opts=opts)
+            self.stormIsInErr('SELECT not allowed in the NONAUTH state.', mesgs)
+
+            # PREAUTH greeting
+            async def greet_preauth(self):
+                await self.sendMesg(s_imap.UNTAGGED, 'PREAUTH', 'SynImap ready.')
+                self.user = 'user00@vertex.link'
+                self.state = 'AUTH'
+
+            with mock.patch.object(IMAPServer, 'greet', greet_preauth):
+                mesgs = await core.stormlist(scmd, opts=opts)
+                self.stormHasNoWarnErr(mesgs)
+
+            # BYE greeting
+            async def greet_bye(self):
+                await self.sendMesg(s_imap.UNTAGGED, 'BYE', 'SynImap not ready.')
+
+            with mock.patch.object(IMAPServer, 'greet', greet_bye):
+                mesgs = await core.stormlist(scmd, opts=opts)
+                self.stormIsInErr('SynImap not ready.', mesgs)
+
+            # Greeting includes capabilities
+            async def greet_capabilities(self):
+                await self.sendMesg(s_imap.UNTAGGED, 'OK', 'SynImap ready.', code='CAPABILITY IMAP4rev1')
+
+            with mock.patch.object(IMAPServer, 'greet', greet_capabilities):
                 scmd = '''
                     $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                    $server.select("INBOX")
+                    $server.login($user, pass00)
                 '''
                 mesgs = await core.stormlist(scmd, opts=opts)
-                self.stormIsInErr('SELECT not allowed in the NONAUTH state.', mesgs)
+                self.stormIsInErr('Plain authentication not available on server.', mesgs)
 
-                # PREAUTH greeting
-                async def greet_preauth(self):
-                    await self.sendMesg(s_imap.UNTAGGED, 'PREAUTH', 'SynImap ready.')
-                    self.user = 'user00@vertex.link'
-                    self.state = 'AUTH'
+            # Greet timeout
+            async def greet_timeout(self):
+                pass
 
-                with mock.patch.object(IMAPServer, 'greet', greet_preauth):
-                    mesgs = await core.stormlist(scmd, opts=opts)
-                    self.stormHasNoWarnErr(mesgs)
-
-                # BYE greeting
-                async def greet_bye(self):
-                    await self.sendMesg(s_imap.UNTAGGED, 'BYE', 'SynImap not ready.')
-
-                with mock.patch.object(IMAPServer, 'greet', greet_bye):
-                    mesgs = await core.stormlist(scmd, opts=opts)
-                    self.stormIsInErr('SynImap not ready.', mesgs)
-
-                # Greeting includes capabilities
-                async def greet_capabilities(self):
-                    await self.sendMesg(s_imap.UNTAGGED, 'OK', 'SynImap ready.', code='CAPABILITY IMAP4rev1')
-
-                with mock.patch.object(IMAPServer, 'greet', greet_capabilities):
-                    scmd = '''
-                        $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                        $server.login($user, pass00)
-                    '''
-                    mesgs = await core.stormlist(scmd, opts=opts)
-                    self.stormIsInErr('Plain authentication not available on server.', mesgs)
-
-                # Greet timeout
-                async def greet_timeout(self):
-                    pass
-
-                with mock.patch.object(IMAPServer, 'greet', greet_timeout):
-                    mesgs = await core.stormlist('$lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false), timeout=(1))', opts=opts)
-                    self.stormIsInErr('Timed out waiting for IMAP server hello', mesgs)
+            with mock.patch.object(IMAPServer, 'greet', greet_timeout):
+                mesgs = await core.stormlist('$lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false), timeout=(1))', opts=opts)
+                self.stormIsInErr('Timed out waiting for IMAP server hello', mesgs)
 
     async def test_storm_imap_capability(self):
 
-        coro = s_link.listen('127.0.0.1', 0, self.imapserv, linkcls=IMAPServer)
-        with contextlib.closing(await coro) as server:
-
-            port = server.sockets[0].getsockname()[1]
+        async with self.getTestCoreAndImapPort() as (core, port):
             user = 'user00@vertex.link'
             opts = {'vars': {'port': port, 'user': user}}
 
-            async with self.getTestCore() as core:
-                # Capability NO
-                async def capability_no(self, mesg):
-                    tag = mesg.get('tag')
-                    await self.sendMesg(tag, 'NO', 'No capabilities for you.')
+            # Capability NO
+            async def capability_no(self, mesg):
+                tag = mesg.get('tag')
+                await self.sendMesg(tag, 'NO', 'No capabilities for you.')
 
-                with mock.patch.object(IMAPServer, 'capability', capability_no):
-                    mesgs = await core.stormlist('$lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))', opts=opts)
-                    self.stormIsInErr('No capabilities for you.', mesgs)
+            with mock.patch.object(IMAPServer, 'capability', capability_no):
+                mesgs = await core.stormlist('$lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))', opts=opts)
+                self.stormIsInErr('No capabilities for you.', mesgs)
 
-                # Invalid capability response (no untagged message)
-                async def capability_invalid(self, mesg):
-                    tag = mesg.get('tag')
-                    await self.sendMesg(tag, 'OK', 'CAPABILITY completed')
+            # Invalid capability response (no untagged message)
+            async def capability_invalid(self, mesg):
+                tag = mesg.get('tag')
+                await self.sendMesg(tag, 'OK', 'CAPABILITY completed')
 
-                with mock.patch.object(IMAPServer, 'capability', capability_invalid):
-                    mesgs = await core.stormlist('$lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))', opts=opts)
-                    self.stormIsInErr('Invalid server response.', mesgs)
+            with mock.patch.object(IMAPServer, 'capability', capability_invalid):
+                mesgs = await core.stormlist('$lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))', opts=opts)
+                self.stormIsInErr('Invalid server response.', mesgs)
 
     async def test_storm_imap_login(self):
 
-        coro = s_link.listen('127.0.0.1', 0, self.imapserv, linkcls=IMAPServer)
-        with contextlib.closing(await coro) as server:
-
-            port = server.sockets[0].getsockname()[1]
+        async with self.getTestCoreAndImapPort() as (core, port):
             user = 'user00@vertex.link'
             opts = {'vars': {'port': port, 'user': user}}
 
-            async with self.getTestCore() as core:
-                capability = IMAPServer.capability
+            capability = IMAPServer.capability
 
-                # No auth=plain capability
-                async def capability_noauth(self, mesg):
-                    self.capabilities = ['IMAP4rev1']
-                    return await capability(self, mesg)
+            # No auth=plain capability
+            async def capability_noauth(self, mesg):
+                self.capabilities = ['IMAP4rev1']
+                return await capability(self, mesg)
 
-                with mock.patch.object(IMAPServer, 'capability', capability_noauth):
-                    scmd = '''
-                        $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                        $server.login($user, pass00)
-                    '''
-                    mesgs = await core.stormlist(scmd, opts=opts)
-                    self.stormIsInErr('Plain authentication not available on server.', mesgs)
-
-                # Login disabled
-                async def capability_login_disabled(self, mesg):
-                    self.capabilities.append('LOGINDISABLED')
-                    return await capability(self, mesg)
-
-                with mock.patch.object(IMAPServer, 'capability', capability_login_disabled):
-                    scmd = '''
-                        $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                        $server.login($user, pass00)
-                    '''
-                    mesgs = await core.stormlist(scmd, opts=opts)
-                    self.stormIsInErr('Login disabled on server.', mesgs)
-
-                # Login command returns non-OK
-                async def login_no(self, mesg):
-                    tag = mesg.get('tag')
-                    return await self.sendMesg(tag, 'BAD', 'Bad login request.')
-
-                with mock.patch.object(IMAPServer, 'login', login_no):
-                    scmd = '''
-                        $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                        $server.login($user, pass00)
-                    '''
-                    mesgs = await core.stormlist(scmd, opts=opts)
-                    self.stormIsInErr('Bad login request.', mesgs)
-
-                # Bad creds
+            with mock.patch.object(IMAPServer, 'capability', capability_noauth):
                 scmd = '''
                     $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                    $server.login($user, pass00)
+                '''
+                mesgs = await core.stormlist(scmd, opts=opts)
+                self.stormIsInErr('Plain authentication not available on server.', mesgs)
+
+            # Login disabled
+            async def capability_login_disabled(self, mesg):
+                self.capabilities.append('LOGINDISABLED')
+                return await capability(self, mesg)
+
+            with mock.patch.object(IMAPServer, 'capability', capability_login_disabled):
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                    $server.login($user, pass00)
+                '''
+                mesgs = await core.stormlist(scmd, opts=opts)
+                self.stormIsInErr('Login disabled on server.', mesgs)
+
+            # Login command returns non-OK
+            async def login_no(self, mesg):
+                tag = mesg.get('tag')
+                return await self.sendMesg(tag, 'BAD', 'Bad login request.')
+
+            with mock.patch.object(IMAPServer, 'login', login_no):
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                    $server.login($user, pass00)
+                '''
+                mesgs = await core.stormlist(scmd, opts=opts)
+                self.stormIsInErr('Bad login request.', mesgs)
+
+            # Bad creds
+            scmd = '''
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                $server.login($user, "secret")
+            '''
+            mesgs = await core.stormlist(scmd, opts=opts)
+            self.stormIsInErr('Invalid credentials.', mesgs)
+
+            # Login timeout
+            async def login_timeout(self, mesg):
+                pass
+
+            with mock.patch.object(IMAPServer, 'login', login_timeout):
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false), timeout=(1))
                     $server.login($user, "secret")
                 '''
                 mesgs = await core.stormlist(scmd, opts=opts)
-                self.stormIsInErr('Invalid credentials.', mesgs)
-
-                # Login timeout
-                async def login_timeout(self, mesg):
-                    pass
-
-                with mock.patch.object(IMAPServer, 'login', login_timeout):
-                    scmd = '''
-                        $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false), timeout=(1))
-                        $server.login($user, "secret")
-                    '''
-                    mesgs = await core.stormlist(scmd, opts=opts)
-                    self.stormIsInErr('Timed out waiting for IMAP server response', mesgs)
+                self.stormIsInErr('Timed out waiting for IMAP server response', mesgs)
 
     async def test_storm_imap_select(self):
 
-        coro = s_link.listen('127.0.0.1', 0, self.imapserv, linkcls=IMAPServer)
-        with contextlib.closing(await coro) as server:
-
-            port = server.sockets[0].getsockname()[1]
+        async with self.getTestCoreAndImapPort() as (core, port):
             user = 'user01@vertex.link'
             opts = {'vars': {'port': port, 'user': user}}
 
-            async with self.getTestCore() as core:
-                # Non-OK select response
-                async def select_no(self, mesg):
-                    tag = mesg.get('tag')
-                    await self.sendMesg(tag, 'NO', 'Cannot select mailbox.')
+            scmd = '''
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                $server.login(user00@vertex.link, pass00)
+                $server.select("status reports")
+            '''
+            mesgs = await core.stormlist(scmd, opts=opts)
+            self.stormHasNoWarnErr(mesgs)
 
-                with mock.patch.object(IMAPServer, 'select', select_no):
-                    scmd = '''
-                        $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                        $server.login($user, pass01)
-                        $server.select(INBOX)
-                    '''
-                    mesgs = await core.stormlist(scmd, opts=opts)
-                    self.stormIsInErr('Cannot select mailbox.', mesgs)
+            # Non-OK select response
+            async def select_no(self, mesg):
+                tag = mesg.get('tag')
+                await self.sendMesg(tag, 'NO', 'Cannot select mailbox.')
 
-                # readonly mailbox
+            with mock.patch.object(IMAPServer, 'select', select_no):
                 scmd = '''
                     $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                    $server.login($user, pass01)
+                    $server.login($user, 'spaces lol')
                     $server.select(INBOX)
-                    $lib.print($server.delete(1))
                 '''
                 mesgs = await core.stormlist(scmd, opts=opts)
-                self.stormIsInErr('Selected mailbox is read-only.', mesgs)
+                self.stormIsInErr('Cannot select mailbox.', mesgs)
+
+            # readonly mailbox
+            scmd = '''
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                $server.login($user, 'spaces lol')
+                $server.select(INBOX)
+                $lib.print($server.delete(1))
+            '''
+            mesgs = await core.stormlist(scmd, opts=opts)
+            self.stormIsInErr('Selected mailbox is read-only.', mesgs)
 
     async def test_storm_imap_list(self):
 
-        coro = s_link.listen('127.0.0.1', 0, self.imapserv, linkcls=IMAPServer)
-        with contextlib.closing(await coro) as server:
-
-            port = server.sockets[0].getsockname()[1]
+        async with self.getTestCoreAndImapPort() as (core, port):
             user = 'user01@vertex.link'
             opts = {'vars': {'port': port, 'user': user}}
 
-            async with self.getTestCore() as core:
-                # Non-OK list response
-                async def list_no(self, mesg):
-                    tag = mesg.get('tag')
-                    await self.sendMesg(tag, 'NO', 'Cannot list mailbox.')
+            # Non-OK list response
+            async def list_no(self, mesg):
+                tag = mesg.get('tag')
+                await self.sendMesg(tag, 'NO', 'Cannot list mailbox.')
 
-                with mock.patch.object(IMAPServer, 'list', list_no):
-                    scmd = '''
-                        $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                        $server.login($user, pass01)
-                        $server.select(INBOX)
-                        $server.list()
-                    '''
-                    mesgs = await core.stormlist(scmd, opts=opts)
-                    self.stormIsInErr('Cannot list mailbox.', mesgs)
+            with mock.patch.object(IMAPServer, 'list', list_no):
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                    $server.login($user, 'spaces lol')
+                    $server.select(INBOX)
+                    $server.list()
+                '''
+                mesgs = await core.stormlist(scmd, opts=opts)
+                self.stormIsInErr('Cannot list mailbox.', mesgs)
 
     async def test_storm_imap_errors(self):
 
-        coro = s_link.listen('127.0.0.1', 0, self.imapserv, linkcls=IMAPServer)
-        with contextlib.closing(await coro) as server:
-
-            port = server.sockets[0].getsockname()[1]
+        async with self.getTestCoreAndImapPort() as (core, port):
             user = 'user00@vertex.link'
             opts = {'vars': {'port': port, 'user': user}}
 
-            async with self.getTestCore() as core:
-                # Check state tracking
-                scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
-                    $server.select("INBOX")
-                '''
-                mesgs = await core.stormlist(scmd, opts=opts)
-                self.stormIsInErr('SELECT not allowed in the NONAUTH state.', mesgs)
+            # Check state tracking
+            scmd = '''
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                $server.select("INBOX")
+            '''
+            mesgs = await core.stormlist(scmd, opts=opts)
+            self.stormIsInErr('SELECT not allowed in the NONAUTH state.', mesgs)
 
-                # Check command validation
-                imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
-                with self.raises(s_imap.ImapError) as exc:
-                    tag = imap._genTag()
-                    await imap._command(tag, 'NEWP')
-                self.eq(exc.exception.get('mesg'), 'Unsupported command: NEWP.')
+            # Check command validation
+            imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+            with self.raises(s_imap.ImapError) as exc:
+                tag = imap._genTag()
+                await imap._command(tag, 'NEWP')
+            self.eq(exc.exception.get('mesg'), 'Unsupported command: NEWP.')
 
     async def test_storm_imap_parseLine(self):
 

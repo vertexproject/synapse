@@ -18,9 +18,23 @@ CRLFLEN = len(CRLF)
 UNTAGGED = '*'
 
 def quote(text):
+    '''
+    Double-quote text if it has a space in it.
+    '''
     if ' ' not in text:
         return text
     return f'"{text}"'
+
+qsplit_rgx = regex.compile(r'("[^"]*"|\S+)')
+def qsplit(text):
+    '''
+    Split text on whitespace preserving quoted substrings. Quoted strings are unquoted.
+    '''
+    return [k.strip('"') for k in qsplit_rgx.findall(text)]
+
+bqsplit_rgx = regex.compile(br'("[^"]*"|\S+)')
+def bqsplit(byts):
+    return [k.strip(b'"') for k in bqsplit_rgx.findall(byts)]
 
 imap_rgx = regex.compile(
     br'''
@@ -120,7 +134,7 @@ class IMAPClient(IMAPLink):
 
         # Some servers will list capabilities in the greeting
         if (code := greeting.get('code')) is not None and code.startswith('CAPABILITY'):
-            self.capabilities = code.split(' ')[1:]
+            self.capabilities = qsplit(code)[1:]
 
         if not self.capabilities:
             (ok, data) = await self.capability()
@@ -214,7 +228,7 @@ class IMAPClient(IMAPLink):
             return False, [b'Invalid server response.']
 
         capabilities = untagged[0].get('data').decode()
-        self.capabilities = capabilities.split(' ')
+        self.capabilities = qsplit(capabilities)
 
         return True, [capabilities]
 
@@ -226,7 +240,7 @@ class IMAPClient(IMAPLink):
             return False, [b'Login disabled on server.']
 
         tag = self._genTag()
-        resp = await self._command(tag, 'LOGIN', user, passwd)
+        resp = await self._command(tag, 'LOGIN', quote(user), quote(passwd))
 
         response = resp.get(tag)[0]
         if response.get('response') != 'OK':
@@ -234,7 +248,7 @@ class IMAPClient(IMAPLink):
 
         # Some servers will update capabilities with the login response
         if (code := response.get('code')) is not None and code.startswith('CAPABILITY'):
-            self.capabilities = code.split(' ')[1:]
+            self.capabilities = qsplit(code)[1:]
 
         self.okSetState(response, 'AUTH')
 
@@ -242,7 +256,7 @@ class IMAPClient(IMAPLink):
 
     async def select(self, mailbox='INBOX'):
         tag = self._genTag()
-        resp = await self._command(tag, 'SELECT', mailbox)
+        resp = await self._command(tag, 'SELECT', quote(mailbox))
 
         response = resp.get(tag)[0]
         if response.get('response') != 'OK':
@@ -260,7 +274,7 @@ class IMAPClient(IMAPLink):
 
     async def list(self, refname, pattern):
         tag = self._genTag()
-        resp = await self._command(tag, 'LIST', refname, pattern)
+        resp = await self._command(tag, 'LIST', quote(refname), quote(pattern))
 
         response = resp.get(tag)[0]
         if response.get('response') != 'OK':
@@ -272,14 +286,14 @@ class IMAPClient(IMAPLink):
 
         return True, data
 
-    async def uid(self, command, *args, **kwargs):
+    async def uid(self, command, *args, charset=None):
         tag = self._genTag()
-        args = ' '.join(args)
+        args = ' '.join([quote(arg) for arg in args])
 
         if command == 'STORE' and self.readonly:
             return False, [b'Selected mailbox is read-only.']
 
-        if command == 'SEARCH' and (charset := kwargs.get('charset')) is not None:
+        if command == 'SEARCH' and charset is not None:
             args = f'CHARSET {charset} {args}'
 
         resp = await self._command(tag, 'UID', command, args)
@@ -641,7 +655,7 @@ class ImapServer(s_stormtypes.StormType):
 
         names = []
         for item in data:
-            names.append(item.split(b' ')[-1].decode().strip('"'))
+            names.append(bqsplit(item)[-1].decode())
 
         return True, names
 
@@ -660,7 +674,7 @@ class ImapServer(s_stormtypes.StormType):
         coro = self.imap_cli.uid('SEARCH', *args, charset=charset)
         data = await run_imap_coro(coro, self.timeout)
 
-        uids = data[0].decode().split(' ') if data[0] else []
+        uids = qsplit(data[0].decode()) if data[0] else []
         return True, uids
 
     async def fetch(self, uid):
