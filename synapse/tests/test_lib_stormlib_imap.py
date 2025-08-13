@@ -8,6 +8,7 @@ import regex
 
 from unittest import mock
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.link as s_link
@@ -55,7 +56,7 @@ Thanks,
 Terry
 '''
 
-class IMAPServer(s_imap.IMAPLink):
+class IMAPServer(s_imap.IMAPBase):
     '''
     This is an extremely naive IMAP server implementation used only for testing.
     '''
@@ -177,7 +178,7 @@ class IMAPServer(s_imap.IMAPLink):
         match = imap_srv_rgx.match(line)
         if match is None:
             mesg = 'Unable to parse response from client.'
-            raise s_imap.ImapError(mesg=mesg, data=line)
+            raise s_exc.ImapError(mesg=mesg, data=line)
 
         mesg = match.groupdict()
 
@@ -411,7 +412,7 @@ class IMAPServer(s_imap.IMAPLink):
             return await self.sendMesg(tag, 'OK', 'FETCH completed')
 
         else:
-            raise s_imap.ImapError(mesg=f'Unsupported command: {command}')
+            raise s_exc.ImapError(mesg=f'Unsupported command: {command}')
 
 class ImapTest(s_test.SynTest):
     async def _imapserv(self, link):
@@ -428,7 +429,7 @@ class ImapTest(s_test.SynTest):
             # Check server state
             if link.state not in imaplib.Commands.get(command.upper()):
                 mesg = f'{command} not allowed in the {link.state} state.'
-                raise s_imap.ImapError(mesg=mesg, state=link.state, command=command)
+                raise s_exc.ImapError(mesg=mesg, state=link.state, command=command)
 
             # Get command handler
             handler = getattr(link, command.lower(), None)
@@ -882,7 +883,7 @@ class ImapTest(s_test.SynTest):
 
             # Check command validation
             imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
-            with self.raises(s_imap.ImapError) as exc:
+            with self.raises(s_exc.ImapError) as exc:
                 tag = imap._genTag()
                 await imap._command(tag, 'NEWP')
             self.eq(exc.exception.get('mesg'), 'Unsupported command: NEWP.')
@@ -892,7 +893,7 @@ class ImapTest(s_test.SynTest):
         def parseLine(line):
             return s_imap.IMAPClient._parseLine(None, line)
 
-        with self.raises(s_imap.ImapError) as exc:
+        with self.raises(s_exc.ImapError) as exc:
             # q is not a valid tag character
             line = b'abcq OK CAPABILITY completed'
             parseLine(line)

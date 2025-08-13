@@ -35,21 +35,21 @@ def qsplit(text):
 imap_rgx = regex.compile(
     br'''
     ^
-      (?P<tag>\*|\+|[0-9a-pA-P]+)
-      (\s(?P<uid>[0-9]+))*\s
-      (?P<response>[A-Z]{2,})
-      (\s\[(?P<code>.*?)\])*\s?
-      (?P<data>.*?(?! {\d+}))\s?
-      ({(?P<size>\d+)})*
+      (?P<tag>\*|\+|[0-9a-pA-P]+)       # tag is mandatory
+      (\s(?P<uid>[0-9]+))?              # uid is optional
+      (\s(?P<response>[A-Z]{2,}))       # response is mandatory
+      (\s\[(?P<code>.*?)\])?            # code is optional
+      (\s(?P<data>.*?(?! {\d+})))?      # data is optional
+      (\s({(?P<size>\d+)}))?            # size is optional
     $
     ''',
     flags=regex.VERBOSE
 )
 
-class ImapError(s_exc.SynErr):
-    pass
-
-class IMAPLink(s_link.Link):
+class IMAPBase(s_link.Link):
+    '''
+    Base class for IMAPClient and IMAPServer (in test_lib_stormlib_imap.py).
+    '''
     async def __anit__(self, reader, writer, info=None, forceclose=False):
         await s_link.Link.__anit__(self, reader, writer, info=info, forceclose=forceclose)
 
@@ -111,7 +111,7 @@ class IMAPLink(s_link.Link):
 
         return ret
 
-class IMAPClient(IMAPLink):
+class IMAPClient(IMAPBase):
     async def postAnit(self):
         self.readonly = False
         self.capabilities = []
@@ -126,7 +126,7 @@ class IMAPClient(IMAPLink):
             self.state = 'NONAUTH'
         else:
             # Includes greeting.get('response') == 'BYE'
-            raise ImapError(mesg=greeting.get('data').decode(), response=response)
+            raise s_exc.ImapError(mesg=greeting.get('data').decode(), response=response)
 
         # Some servers will list capabilities in the greeting
         if (code := greeting.get('code')) is not None and code.startswith('CAPABILITY'):
@@ -136,7 +136,7 @@ class IMAPClient(IMAPLink):
             (ok, data) = await self.capability()
             if not ok:
                 mesg = data[0].decode()
-                raise ImapError(mesg=mesg)
+                raise s_exc.ImapError(mesg=mesg)
 
         return self
 
@@ -144,7 +144,7 @@ class IMAPClient(IMAPLink):
         match = imap_rgx.match(line)
         if match is None:
             mesg = 'Unable to parse response from server.'
-            raise ImapError(mesg=mesg, data=line)
+            raise s_exc.ImapError(mesg=mesg, data=line)
 
         mesg = match.groupdict()
 
@@ -153,6 +153,9 @@ class IMAPClient(IMAPLink):
                 continue
 
             mesg[key] = valu.decode()
+
+        if mesg.get('data') is None:
+            mesg['data'] = b''
 
         if (uid := mesg.get('uid')) is not None:
             mesg['uid'] = int(uid)
@@ -199,11 +202,11 @@ class IMAPClient(IMAPLink):
     async def _command(self, tag, command, *args):
         if command.upper() not in imaplib.Commands:
             mesg = f'Unsupported command: {command}.'
-            raise ImapError(mesg=mesg, command=command)
+            raise s_exc.ImapError(mesg=mesg, command=command)
 
         if self.state not in imaplib.Commands.get(command.upper()):
             mesg = f'{command} not allowed in the {self.state} state.'
-            raise ImapError(mesg=mesg, state=self.state, command=command)
+            raise s_exc.ImapError(mesg=mesg, state=self.state, command=command)
 
         await self.tx((tag, command, args))
         return await self.getResponse(tag)
@@ -346,7 +349,7 @@ async def run_imap_coro(coro, timeout):
     except (TypeError, AttributeError, IndexError, UnicodeDecodeError):
         mesg = 'IMAP server returned an error'
 
-    raise ImapError(mesg=mesg, status=status)
+    raise s_exc.ImapError(mesg=mesg, status=status)
 
 @s_stormtypes.registry.registerLib
 class ImapLib(s_stormtypes.Lib):
@@ -517,7 +520,7 @@ class ImapServer(s_stormtypes.StormType):
                 'args': (
                     {'type': 'str', 'name': '*args',
                      'desc': 'A set of search criteria to use.'},
-                    {'type': ['str', 'null'], 'name': 'charset', 'default': None,
+                    {'type': ['str', 'null'], 'name': 'charset', 'default': 'utf-8',
                      'desc': 'The CHARSET used for the search. May be set to ``(null)`` to disable CHARSET.'},
                 ),
                 'returns': {
@@ -649,7 +652,7 @@ class ImapServer(s_stormtypes.StormType):
 
         return True, None
 
-    async def search(self, *args, charset=None):
+    async def search(self, *args, charset='utf-8'):
         args = [await s_stormtypes.tostr(arg) for arg in args]
         charset = await s_stormtypes.tostr(charset, noneok=True)
 
