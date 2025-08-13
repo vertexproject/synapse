@@ -2241,6 +2241,10 @@ class LayerTest(s_t_utils.SynTest):
             self.len(3, await core.nodes('entity:campaign#bar:footime*duration>31D'))
             self.len(1, await core.nodes('entity:campaign#bar:footime*duration=?'))
 
+            await core.nodes('[ entity:campaign=(foo,) +#bar:footime=(2018, 2022) ]')
+            self.len(0, await core.nodes('entity:campaign#bar:footime*max=?'))
+            self.len(0, await core.nodes('entity:campaign#bar:footime*min=2019-01-01'))
+
             await core.nodes('[ entity:campaign=(foo,) -:period -#foo -#bar:footime ]')
 
     async def test_layer_ndef_indexes(self):

@@ -660,7 +660,7 @@ class ProtoNode(s_node.NodeBase):
             return False
 
         if curv is not None and info.get('merge', True):
-            valu = prop.type.merge(curv, valu)
+            norm = prop.type.merge(curv, norm)
 
         self.tagprops[(tagnode.valu, name)] = norm
         self.tagpropdels.discard((tagnode.valu, name))

@@ -1677,11 +1677,6 @@ class StorTypeIval(StorType):
             for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
                 yield item
 
-    async def _liftIvalDurationLt(self, liftby, valu, reverse=False):
-        norm, futstart = valu
-        async for item in self._liftIvalDurationLe(liftby, (norm - 1, futstart + 1), reverse=reverse):
-            yield item
-
     def indx(self, valu):
         return (self.timetype.getIntIndx(valu[0]) + self.timetype.getIntIndx(valu[1]),)
 
