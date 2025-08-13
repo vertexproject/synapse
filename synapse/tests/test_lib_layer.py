@@ -737,22 +737,22 @@ class LayerTest(s_t_utils.SynTest):
 
             layr = core0.getLayer()
 
-            noedit = [(None, 'test:int', [(s_layer.EDIT_PROP_SET, ('newp', 5, None, None))])]
+            noedit = [(None, 'test:int', [(s_layer.EDIT_PROP_SET, ('newp', 5, None))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAG_DEL, ('newp', None))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAG_DEL, ('newp',))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_SET, ('tp', 'score', 5, None, s_layer.STOR_TYPE_I64))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_SET, ('tp', 'score', 5, s_layer.STOR_TYPE_I64))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_DEL, ('newp', 'newp', None, None))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_DEL, ('newp', 'newp'))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_DEL, ('tp', 'newp', None, None))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_DEL, ('tp', 'newp'))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(intnid, 'test:int', [(s_layer.EDIT_NODEDATA_SET, ('foo', 'bar', None))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_NODEDATA_SET, ('foo', 'bar'))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
             noedit = [(intnid, 'test:int', [(s_layer.EDIT_EDGE_ADD, ('refs', tstrnid))])]
@@ -812,15 +812,15 @@ class LayerTest(s_t_utils.SynTest):
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.eq(events, [
                 (strnid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8, None)),
-                (strnid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8)),
+                (strnid, 'test:str', s_layer.EDIT_NODE_DEL, ()),
             ])
 
             mdef = {'props': ['inet:ip:asn']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.len(2, events)
             self.eq(events, [
-                (ipnid, 'inet:ip', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64, None)),
-                (ipnid, 'inet:ip', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64)),
+                (ipnid, 'inet:ip', s_layer.EDIT_PROP_SET, ('asn', 42, s_layer.STOR_TYPE_I64, None)),
+                (ipnid, 'inet:ip', s_layer.EDIT_PROP_DEL, ('asn',)),
             ])
 
             time = [s_time.parse(x) for x in ('2012', '2014')]
@@ -829,8 +829,8 @@ class LayerTest(s_t_utils.SynTest):
             mdef = {'tags': ['foo.bar']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.eq(events, [
-                (ipnid, 'inet:ip', s_layer.EDIT_TAG_SET, ('foo.bar', ival, None)),
-                (ipnid, 'inet:ip', s_layer.EDIT_TAG_DEL, ('foo.bar', ival)),
+                (ipnid, 'inet:ip', s_layer.EDIT_TAG_SET, ('foo.bar', ival)),
+                (ipnid, 'inet:ip', s_layer.EDIT_TAG_DEL, ('foo.bar',)),
             ])
 
             mdefs = ({'tagprops': ['score']}, {'tagprops': ['mytag:score']})
@@ -839,9 +839,9 @@ class LayerTest(s_t_utils.SynTest):
                 events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
                 self.eq(events, [
                     (ipnid, 'inet:ip', s_layer.EDIT_TAGPROP_SET,
-                        ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64)),
-                    (ipnid, 'inet:ip', s_layer.EDIT_TAGPROP_DEL,
                         ('mytag', 'score', 99, s_layer.STOR_TYPE_I64)),
+                    (ipnid, 'inet:ip', s_layer.EDIT_TAGPROP_DEL,
+                        ('mytag', 'score')),
                 ])
 
     async def test_layer_tombstone(self):

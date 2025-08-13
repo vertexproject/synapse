@@ -109,7 +109,7 @@ class Prop:
         self.modl.propsbytype[self.type.name][self.full] = self
 
         if self.deprecated or self.type.deprecated:
-            async def depfunc(node, oldv):
+            async def depfunc(node):
                 mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
                 if (runt := s_scope.get('runt')) is not None:
                     await runt.warnonce(mesg)
@@ -143,7 +143,7 @@ class Prop:
         The callback is called within the current transaction,
         with the node, and the old property value (or None).
 
-        def func(node, oldv):
+        def func(node):
             dostuff()
         '''
         self.onsets.append(func)
@@ -160,31 +160,30 @@ class Prop:
         The callback is called within the current transaction,
         with the node, and the old property value (or None).
 
-        def func(node, oldv):
+        def func(node):
             dostuff()
         '''
         self.ondels.append(func)
 
-    async def wasSet(self, node, oldv):
+    async def wasSet(self, node):
         '''
         Fire the onset() handlers for this property.
 
         Args:
             node (synapse.lib.node.Node): The node whose property was set.
-            oldv (obj): The previous value of the property.
         '''
         for func in self.onsets:
             try:
-                await s_coro.ornot(func, node, oldv)
+                await s_coro.ornot(func, node)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 logger.exception('onset() error for %s' % (self.full,))
 
-    async def wasDel(self, node, oldv):
+    async def wasDel(self, node):
         for func in self.ondels:
             try:
-                await s_coro.ornot(func, node, oldv)
+                await s_coro.ornot(func, node)
             except asyncio.CancelledError:
                 raise
             except Exception:
