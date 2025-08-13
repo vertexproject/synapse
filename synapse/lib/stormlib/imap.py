@@ -108,20 +108,16 @@ class IMAPBase(s_link.Link):
 
                 msgdata = self._rxbuf[end:end + offs]
 
-                match = imap_rgx_cont.match(msgdata)
-                if match is None:
-                    mesg['size'] = None
-                    mesg['data'] += msgdata
-                    mesg['raw'] += msgdata
-                else:
-                    continuation = match.groupdict()
-                    if (size := continuation.get('size')) is not None:
-                        size = int(size)
+                # Get the data and/or size from the trailing message data
+                cont = imap_rgx_cont.match(msgdata).groupdict()
+                if (size := cont.get('size')) is not None:
+                    size = int(size)
 
-                    contdata = continuation.get('data', b'')
-                    mesg['size'] = size
-                    mesg['data'] += contdata
-                    mesg['raw'] += contdata
+                mesg['size'] = size
+
+                contdata = cont.get('data', b'')
+                mesg['data'] += contdata
+                mesg['raw'] += contdata
 
                 end = end + offs + CRLFLEN
 
@@ -315,7 +311,7 @@ class IMAPClient(IMAPBase):
 
     async def uid(self, command, *args, charset=None):
         tag = self._genTag()
-        args = ' '.join([quote(arg) for arg in args])
+        args = ' '.join(args)
 
         if command == 'STORE' and self.readonly:
             return False, [b'Selected mailbox is read-only.']

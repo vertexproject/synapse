@@ -1,6 +1,7 @@
 import time
 import fnmatch
 import imaplib
+import textwrap
 import contextlib
 
 import regex
@@ -18,9 +19,9 @@ import synapse.tests.utils as s_test
 imap_srv_rgx = regex.compile(
     br'''
     ^
-      (?P<tag>\*|\+|[0-9a-pA-P]+)\s?
-      (?P<command>[A-Z]{2,})\s?
-      (?P<data>.*?)?
+        (?P<tag>\*|\+|[0-9a-pA-P]+)\s?
+        (?P<command>[A-Z]{2,})\s?
+        (?P<data>.*?)?
     $
     ''',
     flags=regex.VERBOSE
@@ -29,31 +30,50 @@ imap_srv_rgx = regex.compile(
 imap_srv_flags_rgx = regex.compile(
     r'''
     ^
-    (?P<op>\+|\-)?
-    (?P<name>(FLAGS|FLAGS.SILENT))\s
-    \(
-      (?P<value>(\\[a-zA-Z]+\s?)+)
-    \)
+        (?P<op>\+|\-)?
+        (?P<name>(FLAGS|FLAGS.SILENT))\s
+        \(
+          (?P<value>(\\[a-zA-Z]+\s?)+)
+        \)
     $
     ''',
     flags=regex.VERBOSE
 )
 
-email = '''\
-Date: Wed, 17 Jul 1996 02:23:25 -0700 (PDT)\r
-From: Terry Gray <gray@cac.washington.edu>\r
-Subject: IMAP4rev2 WG mtg summary and minutes\r
-To: imap@cac.washington.edu\r
-cc: minutes@CNRI.Reston.VA.US, John Klensin <KLENSIN@MIT.EDU>\r
-Message-Id: <B27397-0100000@cac.washington.edu>\r
-MIME-Version: 1.0\r
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII\r
+imap_srv_uid_fetch_rgx = regex.compile(
+    r'''
+    ^
+        FETCH\s
+        (?P<uid>\d+)\s
+        \((?P<items>.*?)\)
+    $
+    ''',
+    flags=regex.VERBOSE
+)
 
-The meeting minutes are attached.
+email = {
+    'headers': textwrap.dedent(
+        '''\
+        Date: Wed, 17 Jul 1996 02:23:25 -0700 (PDT)\r
+        From: Terry Gray <gray@cac.washington.edu>\r
+        Subject: IMAP4rev2 WG mtg summary and minutes\r
+        To: imap@cac.washington.edu\r
+        cc: minutes@CNRI.Reston.VA.US, John Klensin <KLENSIN@MIT.EDU>\r
+        Message-Id: <B27397-0100000@cac.washington.edu>\r
+        MIME-Version: 1.0\r
+        Content-Type: TEXT/PLAIN; CHARSET=US-ASCII\r
+        '''
+    ),
 
-Thanks,
-Terry
-'''
+    'body': textwrap.dedent(
+        '''\
+        The meeting minutes are attached.
+
+        Thanks,
+        Terry
+        '''
+    ),
+}
 
 class IMAPServer(s_imap.IMAPBase):
     '''
@@ -333,7 +353,8 @@ class IMAPServer(s_imap.IMAPBase):
 
     async def uid(self, mesg):
         tag = mesg.get('tag')
-        parts = s_imap.qsplit(mesg.get('data').decode())
+        data = mesg.get('data').decode()
+        parts = s_imap.qsplit(data)
         command = parts[0]
 
         # This IMAP server doesn't do anything with CHARSET but we still need to handle it being present in the command
@@ -399,13 +420,38 @@ class IMAPServer(s_imap.IMAPBase):
             return await self.sendMesg(tag, 'OK', 'SEARCH completed')
 
         elif command == 'FETCH':
-            uid = int(parts[1])
+            match = imap_srv_uid_fetch_rgx.match(data)
+            if match is None:
+                mesg = 'Invalid UID FETCH request.'
+                raise s_exc.ImapError(mesg=mesg)
+
+            match = match.groupdict()
+
+            uid = int(match.get('uid'))
+            items = match.get('items').split(' ')
 
             message = messages[uid]['data']
 
-            size = len(message)
-            await self.sendMesg(s_imap.UNTAGGED, 'FETCH', f'(UID {uid} RFC822 {{{size}}}', uid=uid)
-            await self.send(message.encode())
+            data = []
+            for item in items:
+                if item == 'RFC822':
+                    data.append((item, ''.join((message.get('headers'), message.get('body')))))
+                elif item == 'BODY[HEADER]':
+                    data.append((item, message.get('headers')))
+
+            # Send the first requested data item
+            name, msgdata = data[0]
+            size = len(msgdata)
+            await self.sendMesg(s_imap.UNTAGGED, 'FETCH', f'(UID {uid} {name} {{{size}}}', uid=uid)
+            await self.send(msgdata.encode())
+
+            # Send subsequent requested data items
+            for (name, msgdata) in data[1:]:
+                size = len(msgdata)
+                await self.send(f' {name} {{{size}}}\r\n'.encode())
+                await self.send(msgdata.encode())
+
+            # Close response
             await self.send(b')\r\n')
 
             return await self.sendMesg(tag, 'OK', 'FETCH completed')
@@ -539,7 +585,8 @@ class ImapTest(s_test.SynTest):
             self.eq('message/rfc822', nodes[0].get('mime'))
 
             byts = b''.join([byts async for byts in core.axon.get(s_common.uhex(nodes[0].get('sha256')))])
-            self.eq(email.encode(), byts)
+            data = ''.join((email.get('headers'), email.get('body'))).encode()
+            self.eq(data, byts)
 
             # fetch must only be for a single message
             scmd = '''
@@ -826,6 +873,22 @@ class ImapTest(s_test.SynTest):
                 await imap.expunge(),
                 (False, (b'Selected mailbox is read-only.',))
             )
+
+    async def test_storm_imap_fetch(self):
+
+        async with self.getTestCoreAndImapPort() as (core, port):
+            user = 'user00@vertex.link'
+
+            # Normal response
+            imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+            await imap.login(user, 'pass00')
+            await imap.select('INBOX')
+            ret = await imap.uid('FETCH', '1', '(RFC822 BODY[HEADER])')
+
+            rfc822 = ''.join((email.get('headers'), email.get('body'))).encode()
+            header = email.get('headers').encode()
+
+            self.eq(ret, (True, (rfc822, header)))
 
     async def test_storm_imap_logout(self):
 
