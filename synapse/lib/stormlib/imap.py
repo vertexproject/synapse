@@ -35,7 +35,7 @@ def qsplit(text):
 imap_rgx = regex.compile(
     br'''
     ^
-      (?P<tag>\*|\+|[0-9a-pA-P]+)       # tag is mandatory
+      (?P<tag>\*|\+|[0-9a-zA-Z]+)       # tag is mandatory
       (\s(?P<uid>[0-9]+))?              # uid is optional
       (\s(?P<response>[A-Z]{2,}))       # response is mandatory
       (\s\[(?P<code>.*?)\])?            # code is optional

@@ -1,5 +1,4 @@
 import time
-import shlex
 import fnmatch
 import imaplib
 import contextlib
@@ -894,8 +893,14 @@ class ImapTest(s_test.SynTest):
             return s_imap.IMAPClient._parseLine(None, line)
 
         with self.raises(s_exc.ImapError) as exc:
-            # q is not a valid tag character
-            line = b'abcq OK CAPABILITY completed'
+            # + is not a valid tag character
+            line = b'abc+ OK CAPABILITY completed'
+            parseLine(line)
+        self.eq(exc.exception.get('mesg'), 'Unable to parse response from server.')
+
+        with self.raises(s_exc.ImapError) as exc:
+            # % is not a valid tag character
+            line = b'a%cd OK CAPABILITY completed'
             parseLine(line)
         self.eq(exc.exception.get('mesg'), 'Unable to parse response from server.')
 
