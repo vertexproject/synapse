@@ -1741,7 +1741,7 @@ class Ival(Type):
             return newv, norminfo
 
         minv = newv[0]
-        maxv = max(newv[1], valu[1])
+        maxv = valu[1]
         norminfo['merge'] = False
 
         if maxv == self.futsize:
@@ -1756,6 +1756,7 @@ class Ival(Type):
                 return (minv, newmax, dura), norminfo
             return (minv, maxv, self.duratype.unkdura), norminfo
 
+        maxv = max(newv[1], maxv)
         return (minv, maxv, maxv - minv), norminfo
 
     async def _storVirtMax(self, valu, newmax):
@@ -1776,7 +1777,7 @@ class Ival(Type):
             if (dura := valu[2]) not in (self.duratype.unkdura, self.duratype.futdura):
                 newmin, _ = await self.ticktype.norm(maxv - dura)
                 return (newmin, maxv, dura), norminfo
-            return (newmin, maxv, self.duratype.unkdura), norminfo
+            return (minv, maxv, self.duratype.unkdura), norminfo
 
         newmin, _ = await self.ticktype.norm(maxv - 1)
         minv = min(minv, newmin)
@@ -1874,10 +1875,6 @@ class Ival(Type):
             if minv > maxv:
                 raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                         mesg='Ival range must in (min, max) format')
-
-            if maxv > self.unksize:
-                raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                        mesg='Ival upper range cannot exceed unknown value marker')
 
         if minv == self.unksize or maxv == self.unksize:
             return (minv, maxv, self.duratype.unkdura), info
@@ -2601,7 +2598,7 @@ class Duration(IntBase):
             raise s_exc.BadTypeValu(mesg=mesg) from None
 
         if dura < 0 or dura > self.unkdura:
-            raise s_exc.BadTypeValu(name=self.name, valu=dura, mesg='Duration value  is outside of valid range.')
+            raise s_exc.BadTypeValu(name=self.name, valu=dura, mesg='Duration value is outside of valid range.')
 
         return dura, {}
 

@@ -2060,6 +2060,15 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('ou:org=(cov,) -(*)> * | count | spin', opts=view2)
             self.stormIsInPrint('1001', msgs)
 
+            await core.nodes('[ ou:org=(tagmerge,) +#foo=2020 ]', opts=view2)
+            await core.nodes('[ ou:org=(tagmerge,) +#foo ]')
+
+            await core.nodes('ou:org=(tagmerge,) | movenodes --apply', opts=view2)
+
+            sodes = await core.callStorm('ou:org=(tagmerge,) return($node.getStorNodes())', opts=view2)
+            self.eq(sodes[0]['tags'], {'foo': (1577836800000000, 1577836800000001, 1)})
+            self.none(sodes[1].get('tags'))
+
             visi = await core.auth.addUser('visi')
             await visi.addRule((True, ('view', 'fork')))
 

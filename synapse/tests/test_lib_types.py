@@ -230,6 +230,8 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('2D 00:00:00', t.repr(172800000000))
         self.eq('00:05:00.333333', t.repr(300333333))
         self.eq('11D 11:47:12.344', t.repr(992832344000))
+        self.eq('?', t.repr(t.unkdura))
+        self.eq('*', t.repr(t.futdura))
 
         self.eq(300333333, (await t.norm('00:05:00.333333'))[0])
         self.eq(992832344000, (await t.norm('11D 11:47:12.344'))[0])
@@ -1154,6 +1156,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:str=c :seen=("now-5days", "now-1day") :tick=2016 +#bar=(1970, 1990)]'))
             self.len(1, await core.nodes('[test:str=d :seen=("now-10days", "?") :tick=now +#baz=now]'))
             self.len(1, await core.nodes('[test:str=e :seen=("now+1day", "now+5days") :tick="now-3days" +#biz=("now-1day", "now+1 day")]'))
+            self.len(1, await core.nodes('[test:str=f +#foo ]'))
             # node whose primary prop is an ival
             self.len(1, await core.nodes('[test:ival=((0),(10)) :interval=(now, "now+4days")]'))
             self.len(1, await core.nodes('[test:ival=((50),(100)) :interval=("now-2days", "now+2days")]'))
@@ -1404,8 +1407,64 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str=faz [ :seen.max=2021 ]')
             self.eq(nodes[0].get('seen'), (1609372800000000, 1609459200000000, 86400000000))
 
+            nodes = await core.nodes('test:str=faz [ :seen.max=? ]')
+            self.eq(nodes[0].get('seen'), (1609372800000000, ityp.unksize, ityp.duratype.unkdura))
+
+            nodes = await core.nodes('test:str=faz [ :seen.min=2022 ]')
+            self.eq(nodes[0].get('seen'), (1640995200000000, ityp.unksize, ityp.duratype.unkdura))
+
+            nodes = await core.nodes('test:str=faz [ :seen.max=* ]')
+            self.eq(nodes[0].get('seen'), (1640995200000000, ityp.futsize, ityp.duratype.futdura))
+
+            nodes = await core.nodes('test:str=faz [ :seen.min=2021 ]')
+            self.eq(nodes[0].get('seen'), (1609459200000000, ityp.futsize, ityp.duratype.futdura))
+
+            nodes = await core.nodes('test:str=faz [ :seen.max=2022 :seen.min=? ]')
+            self.eq(nodes[0].get('seen'), (ityp.unksize, 1640995200000000, ityp.duratype.unkdura))
+
+            nodes = await core.nodes('test:str=faz [ :seen.max=2021 :seen.min=? ]')
+            self.eq(nodes[0].get('seen'), (ityp.unksize, 1609459200000000, ityp.duratype.unkdura))
+
+            nodes = await core.nodes('test:str=faz [ :seen.duration=* ]')
+            self.eq(nodes[0].get('seen'), (ityp.unksize, ityp.futsize, ityp.duratype.futdura))
+
+            nodes = await core.nodes('test:str=faz [ :seen.duration=1D ]')
+            self.eq(nodes[0].get('seen'), (ityp.unksize, ityp.unksize, 86400000000))
+
+            nodes = await core.nodes('[ test:str=int :seen=$valu ]', opts={'vars': {'valu': ityp.unksize}})
+            self.eq(nodes[0].get('seen'), (ityp.unksize, ityp.unksize, ityp.duratype.unkdura))
+
+            nodes = await core.nodes('[ test:str=merge1 :seen=(?, ?) :seen=(?, 2020) ]')
+            self.eq(nodes[0].get('seen'), (ityp.unksize, 1577836800000000, ityp.duratype.unkdura))
+
+            nodes = await core.nodes('[ test:str=merge2 :seen=(?, 2020) :seen=(2019, ?) ]')
+            self.eq(nodes[0].get('seen'), (1546300800000000, 1577836800000000, 31536000000000))
+
+            nodes = await core.nodes('[ test:str=merge2 :seen=(?, *) ]')
+            self.eq(nodes[0].get('seen'), (1546300800000000, ityp.futsize, ityp.duratype.futdura))
+
+            self.len(0, await core.nodes('[ test:str=fut :seen=(now + 1day, *) ] +:seen.duration'))
+
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ test:str=foo :seen=(2021, 2022) :seen.duration=500 ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:str=foo :seen.duration=-1D ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:str=foo :seen.duration=$valu ]', opts={'vars': {'valu': ityp.duratype.unkdura + 1}})
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:str=int :seen=* ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:str=int :seen=(*, *) ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:str=int :seen=$valu ]', opts={'vars': {'valu': ityp.futsize}})
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:seen@=(1, 2, 3, 4)')
 
     async def test_loc(self):
         model = s_datamodel.Model()
@@ -1761,10 +1820,15 @@ class TypesTest(s_t_utils.SynTest):
             t = core.model.type('test:time')
 
             # explicitly test our "future/ongoing" value...
-            future = 0x7fffffffffffffff
-            self.eq((await t.norm('?'))[0], future)
+            future = 0x7ffffffffffffffe
+            self.eq((await t.norm('*'))[0], future)
             self.eq((await t.norm(future))[0], future)
-            self.eq(t.repr(future), '?')
+            self.eq(t.repr(future), '*')
+
+            unk = 0x7fffffffffffffff
+            self.eq((await t.norm('?'))[0], unk)
+            self.eq((await t.norm(unk))[0], unk)
+            self.eq(t.repr(unk), '?')
 
             # Explicitly test our max time vs. future marker
             maxtime = 253402300799999999  # 9999/12/31 23:59:59.999999
@@ -2117,6 +2181,9 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(6, nodes)
             self.eq({node.ndef[1] for node in nodes}, {'b', 'c', 'd'})
+
+            nodes = await core.nodes('[test:str=e :tick=? :tick=2024]')
+            self.eq(nodes[0].get('tick'), 1704067200000000)
 
     async def test_types_long_indx(self):
 
