@@ -46,6 +46,16 @@ imap_rgx = regex.compile(
     flags=regex.VERBOSE
 )
 
+imap_rgx_cont = regex.compile(
+    br'''
+    ^
+      ((?P<data>.*?(?! {\d+})))?        # data is optional
+      (\s({(?P<size>\d+)}))?            # size is optional
+    $
+    ''',
+    flags=regex.VERBOSE
+)
+
 class IMAPBase(s_link.Link):
     '''
     Base class for IMAPClient and IMAPServer (in test_lib_stormlib_imap.py).
@@ -80,24 +90,39 @@ class IMAPBase(s_link.Link):
             end = offs + CRLFLEN
 
             # Handle continuations
-            if (size := mesg.get('size')) is not None:
+            while (size := mesg.get('size')) is not None:
                 start = end
                 end = start + size
 
                 # Check for complete data
                 if len(self._rxbuf) < start + end - start: # pragma: no cover
-                    break
+                    return ret
 
-                # Check for trailer
+                # Check for end of message
                 if (offs := self._rxbuf[end:].find(CRLF)) == -1: # pragma: no cover
-                    break
+                    return ret
 
-                # Copy the message to use as the message for the continuation data and add it to the queue
-                datamesg = mesg.copy()
-                datamesg['data'] = self._rxbuf[start:end]
-                ret.append((None, datamesg))
+                # Extract the attachment and add it to the message
+                attachment = self._rxbuf[start:end]
+                mesg['attachments'].append(attachment)
 
-                mesg['data'] += self._rxbuf[end:end + offs]
+                msgdata = self._rxbuf[end:end + offs]
+
+                match = imap_rgx_cont.match(msgdata)
+                if match is None:
+                    mesg['size'] = None
+                    mesg['data'] += msgdata
+                    mesg['raw'] += msgdata
+                else:
+                    continuation = match.groupdict()
+                    if (size := continuation.get('size')) is not None:
+                        size = int(size)
+
+                    contdata = continuation.get('data', b'')
+                    mesg['size'] = size
+                    mesg['data'] += contdata
+                    mesg['raw'] += contdata
+
                 end = end + offs + CRLFLEN
 
             # Increment buffer
@@ -164,6 +189,9 @@ class IMAPClient(IMAPBase):
             mesg['size'] = int(size)
 
         mesg['raw'] = line[len(mesg.get('tag')) + 1:]
+
+        # For attaching continuation data
+        mesg['attachments'] = []
 
         return mesg
 
@@ -302,6 +330,12 @@ class IMAPClient(IMAPBase):
             return False, [response.get('data')]
 
         untagged = resp.get(UNTAGGED, [])
+
+        if command == 'FETCH':
+            ret = []
+            [ret.extend(u.get('attachments')) for u in untagged]
+            return True, ret
+
         return True, [u.get('data') for u in untagged]
 
     async def expunge(self):

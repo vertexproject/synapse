@@ -915,6 +915,7 @@ class ImapTest(s_test.SynTest):
             'data': b'IMAP4rev2 server ready',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = b'* OK [CAPABILITY IMAP4rev1 LITERAL+ SASL-IR LOGIN-REFERRALS ID ENABLE IDLE AUTH=PLAIN AUTH=LOGIN] Dovecot ready.'
@@ -926,6 +927,7 @@ class ImapTest(s_test.SynTest):
             'raw': line[2:],
             'code': 'CAPABILITY IMAP4rev1 LITERAL+ SASL-IR LOGIN-REFERRALS ID ENABLE IDLE AUTH=PLAIN AUTH=LOGIN',
             'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = b'* PREAUTH IMAP4rev2 server logged in as Smith'
@@ -936,6 +938,7 @@ class ImapTest(s_test.SynTest):
             'data': b'IMAP4rev2 server logged in as Smith',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = b'* BYE Autologout; idle for too long'
@@ -946,6 +949,7 @@ class ImapTest(s_test.SynTest):
             'data': b'Autologout; idle for too long',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         # Capability response
@@ -957,6 +961,7 @@ class ImapTest(s_test.SynTest):
             'data': b'IMAP4rev2 STARTTLS AUTH=GSSAPI LOGINDISABLED',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = b'abcd OK CAPABILITY completed'
@@ -967,6 +972,7 @@ class ImapTest(s_test.SynTest):
             'data': b'CAPABILITY completed',
             'raw': line[5:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         # Login responses
@@ -978,6 +984,7 @@ class ImapTest(s_test.SynTest):
             'data': b'LOGIN completed',
             'raw': line[5:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         # Select responses
@@ -991,6 +998,7 @@ class ImapTest(s_test.SynTest):
             'code': None,
             'uid': 172,
             'size': None,
+            'attachments': [],
         })
 
         line = b'* OK [UIDVALIDITY 3857529045] UIDs valid'
@@ -1002,6 +1010,7 @@ class ImapTest(s_test.SynTest):
             'raw': line[2:],
             'code': 'UIDVALIDITY 3857529045',
             'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = b'* OK [UIDNEXT 4392] Predicted next UID'
@@ -1013,6 +1022,7 @@ class ImapTest(s_test.SynTest):
             'raw': line[2:],
             'code': 'UIDNEXT 4392',
             'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = br'* FLAGS (\Answered \Flagged \Deleted \Seen \Draft)'
@@ -1023,6 +1033,7 @@ class ImapTest(s_test.SynTest):
             'data': br'(\Answered \Flagged \Deleted \Seen \Draft)',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = br'* OK [PERMANENTFLAGS (\Deleted \Seen \*)] Limited'
@@ -1034,6 +1045,7 @@ class ImapTest(s_test.SynTest):
             'raw': line[2:],
             'code': r'PERMANENTFLAGS (\Deleted \Seen \*)',
             'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = b'* LIST () "/" INBOX'
@@ -1044,6 +1056,7 @@ class ImapTest(s_test.SynTest):
             'data': b'() "/" INBOX',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = b'A142 OK [READ-WRITE] SELECT completed'
@@ -1055,6 +1068,7 @@ class ImapTest(s_test.SynTest):
             'raw': line[5:],
             'code': 'READ-WRITE',
             'uid': None, 'size': None,
+            'attachments': [],
         })
 
         # List responses
@@ -1066,6 +1080,7 @@ class ImapTest(s_test.SynTest):
             'data': br'(\Noselect) "/" ""',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = br'* LIST (\Noselect) "." #news.'
@@ -1076,6 +1091,7 @@ class ImapTest(s_test.SynTest):
             'data': br'(\Noselect) "." #news.',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = br'* LIST (\Noselect) "/" /'
@@ -1086,6 +1102,7 @@ class ImapTest(s_test.SynTest):
             'data': br'(\Noselect) "/" /',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = br'* LIST (\Noselect) "/" ~/Mail/foo'
@@ -1096,6 +1113,7 @@ class ImapTest(s_test.SynTest):
             'data': br'(\Noselect) "/" ~/Mail/foo',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = b'* LIST () "/" ~/Mail/meetings'
@@ -1106,6 +1124,7 @@ class ImapTest(s_test.SynTest):
             'data': br'() "/" ~/Mail/meetings',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = br'* LIST (\Marked \NoInferiors) "/" "inbox"'
@@ -1116,6 +1135,7 @@ class ImapTest(s_test.SynTest):
             'data': br'(\Marked \NoInferiors) "/" "inbox"',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = b'* LIST () "/" "Fruit"'
@@ -1126,6 +1146,7 @@ class ImapTest(s_test.SynTest):
             'data': b'() "/" "Fruit"',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = b'* LIST () "/" "Fruit/Apple"'
@@ -1136,6 +1157,7 @@ class ImapTest(s_test.SynTest):
             'data': br'() "/" "Fruit/Apple"',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = b'A101 OK LIST Completed'
@@ -1146,6 +1168,7 @@ class ImapTest(s_test.SynTest):
             'data': b'LIST Completed',
             'raw': line[5:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         # UID responses
@@ -1159,6 +1182,7 @@ class ImapTest(s_test.SynTest):
             'code': None,
             'uid': 3,
             'size': None,
+            'attachments': [],
         })
 
         line = b'A003 OK UID EXPUNGE completed'
@@ -1169,6 +1193,7 @@ class ImapTest(s_test.SynTest):
             'data': b'UID EXPUNGE completed',
             'raw': line[5:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = br'* 25 FETCH (FLAGS (\Seen) UID 4828442)'
@@ -1181,6 +1206,7 @@ class ImapTest(s_test.SynTest):
             'code': None,
             'uid': 25,
             'size': None,
+            'attachments': [],
         })
 
         line = b'* 12 FETCH (BODY[HEADER] {342}'
@@ -1193,6 +1219,7 @@ class ImapTest(s_test.SynTest):
             'code': None,
             'uid': 12,
             'size': 342,
+            'attachments': [],
         })
 
         line = b'A999 OK UID FETCH completed'
@@ -1203,6 +1230,7 @@ class ImapTest(s_test.SynTest):
             'data': b'UID FETCH completed',
             'raw': line[5:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         # Expunge responses
@@ -1216,6 +1244,7 @@ class ImapTest(s_test.SynTest):
             'code': None,
             'uid': 8,
             'size': None,
+            'attachments': [],
         })
 
         line = b'A202 OK EXPUNGE completed'
@@ -1226,6 +1255,7 @@ class ImapTest(s_test.SynTest):
             'data': b'EXPUNGE completed',
             'raw': line[5:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         # Logout responses
@@ -1237,6 +1267,7 @@ class ImapTest(s_test.SynTest):
             'data': b'IMAP4rev2 Server logging out',
             'raw': line[2:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
 
         line = b'A023 OK LOGOUT completed'
@@ -1247,4 +1278,5 @@ class ImapTest(s_test.SynTest):
             'data': b'LOGOUT completed',
             'raw': line[5:],
             'code': None, 'uid': None, 'size': None,
+            'attachments': [],
         })
