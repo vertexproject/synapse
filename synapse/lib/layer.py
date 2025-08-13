@@ -1464,9 +1464,10 @@ class StorTypeIval(StorType):
 
         self.unkdura = 0xffffffffffffffff
         self.futdura = 0xfffffffffffffffe
+        self.maxdura = 0xfffffffffffffffd
         self.unkdurabyts = self.unkdura.to_bytes(8, 'big')
         self.futdurabyts = self.futdura.to_bytes(8, 'big')
-        self.maxdurabyts = (0xfffffffffffffffd).to_bytes(8, 'big')
+        self.maxdurabyts = self.maxdura.to_bytes(8, 'big')
 
         self.lifters.update({
             '=': self._liftIvalEq,
@@ -1619,7 +1620,7 @@ class StorTypeIval(StorType):
         duraindx = norm.to_bytes(8, 'big')
 
         if futstart is not None:
-            futindx = self.futdurabyts + (self.unkdura - futstart).to_bytes(8, 'big')
+            futindx = self.futdurabyts + (self.unkdura - (futstart + self.timetype.offset)).to_bytes(8, 'big')
             if reverse:
                 indxs = (futindx, duraindx)
             else:
@@ -1633,14 +1634,18 @@ class StorTypeIval(StorType):
 
     async def _liftIvalDurationGt(self, liftby, valu, reverse=False):
         norm, futstart = valu
+        if futstart is None:
+            return
+
         async for item in self._liftIvalDurationGe(liftby, (norm + 1, futstart - 1), reverse=reverse):
             yield item
 
     async def _liftIvalDurationGe(self, liftby, valu, reverse=False):
         norm, futstart = valu
-        duraindx = (norm.to_bytes(8, 'big'), self.maxdurabyts)
 
         if futstart is not None:
+            duraindx = (norm.to_bytes(8, 'big'), self.maxdurabyts)
+
             strtindx = (self.unkdura - (futstart + self.timetype.offset)).to_bytes(8, 'big')
             futindx = (self.futdurabyts + strtindx, self.futdurabyts + self.unkdurabyts)
             if reverse:
@@ -1648,7 +1653,9 @@ class StorTypeIval(StorType):
             else:
                 indxs = (duraindx, futindx)
         else:
-            indxs = (duraindx,)
+            # If we got a >= ? or *, we're just going to get values = because > doesn't make sense.
+            byts = norm.to_bytes(8, 'big')
+            indxs = ((byts, byts),)
 
         for (pkeymin, pkeymax) in indxs:
             for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
@@ -1656,14 +1663,18 @@ class StorTypeIval(StorType):
 
     async def _liftIvalDurationLt(self, liftby, valu, reverse=False):
         norm, futstart = valu
+        if futstart is None:
+            return
+
         async for item in self._liftIvalDurationLe(liftby, (norm - 1, futstart + 1), reverse=reverse):
             yield item
 
     async def _liftIvalDurationLe(self, liftby, valu, reverse=False):
         norm, futstart = valu
-        duraindx = (self.timetype.zerobyts, norm.to_bytes(8, 'big'))
 
         if futstart is not None:
+            duraindx = (self.timetype.zerobyts, norm.to_bytes(8, 'big'))
+
             strtindx = (self.unkdura - (futstart + self.timetype.offset)).to_bytes(8, 'big')
             futindx = (self.futdurabyts + self.timetype.zerobyts, self.futdurabyts + strtindx)
             if reverse:
@@ -1671,7 +1682,9 @@ class StorTypeIval(StorType):
             else:
                 indxs = (duraindx, futindx)
         else:
-            indxs = (duraindx,)
+            # If we got a <= ? or *, we're just going to get values = because < doesn't make sense.
+            byts = norm.to_bytes(8, 'big')
+            indxs = ((byts, byts),)
 
         for (pkeymin, pkeymax) in indxs:
             for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):

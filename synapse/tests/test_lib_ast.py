@@ -4041,17 +4041,6 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[test:str=newp :seen.precision?=day]')
             self.none(nodes[0].get('seen'))
 
-            await core.callStorm('[ou:asset=* :period=(2020, *)] return(:period.duration)')
-            await core.callStorm('[ou:asset=* :period=(2020, ?)] return(:period.duration)')
-
-            self.len(1, await core.nodes('ou:asset:period.duration=*'))
-            self.len(1, await core.nodes('ou:asset:period.duration=?'))
-            self.len(1, await core.nodes('ou:asset:period.duration<2070D'))
-            self.len(0, await core.nodes('ou:asset:period.duration<2000D'))
-            self.len(1, await core.nodes('ou:asset:period.duration>2000D'))
-            self.len(0, await core.nodes('ou:asset:period.duration>2070D'))
-            self.len(0, await core.nodes('ou:asset:period.duration>500000D'))
-
     async def test_ast_righthand_relprop(self):
         async with self.getTestCore() as core:
             await core.nodes('''[

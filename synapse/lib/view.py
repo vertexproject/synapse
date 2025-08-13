@@ -3279,20 +3279,20 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def nodesByTag(self, tag, form=None, reverse=False, virt=None):
+    async def nodesByTag(self, tag, form=None, reverse=False, virts=None):
 
         indx = None
-        if virt is not None:
-            indx = self.core.model.type('ival').getTagVirtIndx(virt)
+        if virts is not None:
+            indx = self.core.model.type('ival').getTagVirtIndx(virts)
 
         async for nid, srefs in self.liftByTag(tag, form=form, reverse=reverse, indx=indx):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def nodesByTagValu(self, tag, cmpr, valu, form=None, reverse=False):
+    async def nodesByTagValu(self, tag, cmpr, valu, form=None, reverse=False, virts=None):
 
-        cmprvals = await self.core.model.type('ival').getStorCmprs(cmpr, valu)
+        cmprvals = await self.core.model.type('ival').getStorCmprs(cmpr, valu, virts=virts)
         async for nid, srefs in self.liftByTagValu(tag, cmprvals, form, reverse=reverse):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
@@ -3338,29 +3338,29 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def nodesByTagProp(self, form, tag, name, reverse=False, virt=None):
+    async def nodesByTagProp(self, form, tag, name, reverse=False, virts=None):
         prop = self.core.model.getTagProp(name)
         if prop is None:
             mesg = f'No tag property named {name}'
             raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
 
         indx = None
-        if virt is not None:
-            indx = prop.type.getVirtIndx(virt)
+        if virts is not None:
+            indx = prop.type.getVirtIndx(virts)
 
         async for nid, srefs in self.liftByTagProp(form, tag, name, reverse=reverse, indx=indx):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def nodesByTagPropValu(self, form, tag, name, cmpr, valu, reverse=False):
+    async def nodesByTagPropValu(self, form, tag, name, cmpr, valu, reverse=False, virts=None):
 
         prop = self.core.model.getTagProp(name)
         if prop is None:
             mesg = f'No tag property named {name}'
             raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
 
-        cmprvals = await prop.type.getStorCmprs(cmpr, valu)
+        cmprvals = await prop.type.getStorCmprs(cmpr, valu, virts=virts)
         # an empty return probably means ?= with invalid value
         if not cmprvals:
             return

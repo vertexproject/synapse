@@ -1821,7 +1821,8 @@ class Ival(Type):
         prec = (await self.prectype.norm(newprec))[0]
         return await self._normPyIter(valu, prec=prec)
 
-    def getTagVirtIndx(self, name):
+    def getTagVirtIndx(self, virts):
+        name = virts[0]
         indx = self.tagvirtindx.get(name, s_common.novalu)
         if indx is s_common.novalu:
             raise s_exc.NoSuchVirt.init(name, self)
@@ -2551,7 +2552,7 @@ class Duration(IntBase):
 
     async def _normPyInt(self, valu, view=None):
         if valu < 0 or valu > self.unkdura:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='Duration value  is outside of valid range.')
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='Duration value is outside of valid range.')
 
         return valu, {}
 
@@ -2640,7 +2641,8 @@ class Time(IntBase):
 
         self.unksize = 0x7fffffffffffffff
         self.futsize = 0x7ffffffffffffffe
-        self.maxsize = 253402300799999999  # 9999/12/31 23:59:59.999999
+        self.maxsize = 253402300799999999  # -9999/12/31 23:59:59.999999
+        self.minsize = -377705116800000000 # -9999/01/01 00:00:00.000000
 
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
@@ -2765,8 +2767,8 @@ class Time(IntBase):
         if valu in (self.futsize, self.unksize):
             return valu, {}
 
-        if valu > self.maxsize:
-            mesg = f'Time exceeds max size [{self.maxsize}] allowed, got {valu}'
+        if valu > self.maxsize or valu < self.minsize:
+            mesg = f'Time outisde of allowed range [{self.minsize} to {self.maxsize}], got {valu}'
             raise s_exc.BadTypeValu(mesg=mesg, valu=valu, prec=prec, maxfill=self.maxfill, name=self.name)
 
         if prec is None or prec == self.prec:
