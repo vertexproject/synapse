@@ -3905,13 +3905,6 @@ class MergeCmd(Cmd):
                             continue
 
                     if prop.info.get('ro'):
-                        if name == '.created':
-                            if doapply:
-                                protonode.props['.created'] = (valu, None)
-                                if not self.opts.wipe:
-                                    subs.append((s_layer.EDIT_PROP_DEL, (name,)))
-                            continue
-
                         isset = False
                         for undr in sodes[1:]:
                             props = undr.get('props')
