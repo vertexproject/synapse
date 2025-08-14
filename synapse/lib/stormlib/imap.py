@@ -125,7 +125,7 @@ class IMAPBase(s_link.Link):
 
             # Log only under __debug__ because there might be sensitive info like passwords
             if __debug__:
-                logger.debug('RECV: %s', mesg)
+                logger.debug('%s RECV: %s', self.__class__.__name__, mesg)
 
             ret.append((None, mesg))
 
@@ -199,7 +199,7 @@ class IMAPClient(IMAPBase):
 
         # Log only under __debug__ because there might be sensitive info like passwords
         if __debug__:
-            logger.debug('SEND: %s', mesg)
+            logger.debug('%s SEND: %s', self.__class__.__name__, mesg)
 
         return mesg.encode()
 
@@ -306,17 +306,28 @@ class IMAPClient(IMAPBase):
 
         return True, data
 
-    async def uid(self, command, *args, charset=None):
-        tag = self._genTag()
-        args = ' '.join(args)
-
-        if command == 'STORE' and self.readonly:
+    async def uid_store(self, uidset, dataname, datavalu):
+        if self.readonly:
             return False, [b'Selected mailbox is read-only.']
 
-        if command == 'SEARCH' and charset is not None:
-            args = f'CHARSET {charset} {args}'
+        args = f'{uidset} {dataname} {datavalu}'
+        return await self.uid('STORE', args)
 
-        resp = await self._command(tag, 'UID', command, args)
+    async def uid_search(self, *criteria, charset='UTF-8'):
+        args = ''
+        if charset is not None:
+            args += f'CHARSET {charset} '
+        args += ' '.join(quote(c) for c in criteria)
+        return await self.uid('SEARCH', args)
+
+    async def uid_fetch(self, uidset, datanames):
+        args = f'{uidset} {datanames}'
+        return await self.uid('FETCH', args)
+
+    async def uid(self, cmdname, cmdargs):
+        tag = self._genTag()
+
+        resp = await self._command(tag, 'UID', cmdname, cmdargs)
 
         response = resp.get(tag)[0]
         if response.get('response') != 'OK':
@@ -324,7 +335,7 @@ class IMAPClient(IMAPBase):
 
         untagged = resp.get(UNTAGGED, [])
 
-        if command == 'FETCH':
+        if cmdname == 'FETCH':
             ret = []
             [ret.extend(u.get('attachments')) for u in untagged]
             return True, ret
@@ -683,7 +694,7 @@ class ImapServer(s_stormtypes.StormType):
         args = [await s_stormtypes.tostr(arg) for arg in args]
         charset = await s_stormtypes.tostr(charset, noneok=True)
 
-        coro = self.imap_cli.uid('SEARCH', *args, charset=charset)
+        coro = self.imap_cli.uid_search(*args, charset=charset)
         data = await run_imap_coro(coro, self.timeout)
 
         uids = qsplit(data[0].decode()) if data[0] else []
@@ -698,7 +709,7 @@ class ImapServer(s_stormtypes.StormType):
         await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
 
-        coro = self.imap_cli.uid('FETCH', str(uid), '(RFC822)')
+        coro = self.imap_cli.uid_fetch(str(uid), '(RFC822)')
         data = await run_imap_coro(coro, self.timeout)
 
         size, sha256b = await axon.put(data[0])
@@ -713,7 +724,7 @@ class ImapServer(s_stormtypes.StormType):
     async def delete(self, uid_set):
         uid_set = await s_stormtypes.tostr(uid_set)
 
-        coro = self.imap_cli.uid('STORE', uid_set, '+FLAGS.SILENT (\\Deleted)')
+        coro = self.imap_cli.uid_store(uid_set, '+FLAGS.SILENT', '(\\Deleted)')
         await run_imap_coro(coro, self.timeout)
 
         coro = self.imap_cli.expunge()
@@ -724,7 +735,7 @@ class ImapServer(s_stormtypes.StormType):
     async def markSeen(self, uid_set):
         uid_set = await s_stormtypes.tostr(uid_set)
 
-        coro = self.imap_cli.uid('STORE', uid_set, '+FLAGS.SILENT (\\Seen)')
+        coro = self.imap_cli.uid_store(uid_set, '+FLAGS.SILENT', '(\\Seen)')
         await run_imap_coro(coro, self.timeout)
 
         return True, None

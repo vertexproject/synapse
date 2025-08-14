@@ -1,6 +1,7 @@
 import time
 import fnmatch
 import imaplib
+import logging
 import textwrap
 import contextlib
 
@@ -16,25 +17,14 @@ import synapse.lib.stormlib.imap as s_imap
 
 import synapse.tests.utils as s_test
 
+logger = logging.getLogger(__name__)
+
 imap_srv_rgx = regex.compile(
     br'''
     ^
         (?P<tag>\*|\+|[0-9a-pA-P]+)\s?
         (?P<command>[A-Z]{2,})\s?
         (?P<data>.*?)?
-    $
-    ''',
-    flags=regex.VERBOSE
-)
-
-imap_srv_flags_rgx = regex.compile(
-    r'''
-    ^
-        (?P<op>\+|\-)?
-        (?P<name>(FLAGS|FLAGS.SILENT))\s
-        \(
-          (?P<value>(\\[a-zA-Z]+\s?)+)
-        \)
     $
     ''',
     flags=regex.VERBOSE
@@ -205,6 +195,8 @@ class IMAPServer(s_imap.IMAPBase):
         mesg['tag'] = tag
         mesg['command'] = mesg.get('command').decode()
 
+        logger.debug('%s SEND: %s', self.__class__.__name__, mesg)
+
         return mesg
 
     async def pack(self, mesg):
@@ -353,14 +345,7 @@ class IMAPServer(s_imap.IMAPBase):
     async def uid(self, mesg):
         tag = mesg.get('tag')
         data = mesg.get('data').decode()
-        parts = s_imap.qsplit(data)
-        command = parts[0]
-
-        # This IMAP server doesn't do anything with CHARSET but we still need to handle it being present in the command
-        if 'CHARSET' in parts:
-            indx = parts.index('CHARSET')
-            parts.pop(indx) # CHARSET
-            parts.pop(indx) # utf-8 or whatever
+        cmdname, cmdargs = data.split(' ', maxsplit=1)
 
         mailbox = self.mail[self.user]
         messages = {
@@ -368,8 +353,8 @@ class IMAPServer(s_imap.IMAPBase):
             if v['mailbox'] == self.selected
         }
 
-        if command == 'STORE':
-            uidset = parts[1]
+        if cmdname == 'STORE':
+            uidset, dataname, datavalu = cmdargs.split(' ')
 
             if ':' in uidset:
                 start, end = uidset.split(':')
@@ -381,53 +366,47 @@ class IMAPServer(s_imap.IMAPBase):
             else:
                 start = end = uidset
 
-            match = imap_srv_flags_rgx.match(' '.join(parts[2:]))
-            if not match:
-                return await self.sendMesg(tag, 'BAD', 'Invalid STORE arguments.')
-
-            flags = match.groupdict()
-            values = set(flags.get('value').split(' '))
+            datavalu = set(datavalu.strip('()').split(' '))
 
             for uid in range(int(start), int(end) + 1):
                 if uid not in messages:
                     continue
 
                 curv = set(messages[uid]['flags'])
-                if flags.get('op') == '+':
-                    curv |= values
-                elif flags.get('op') == '-':
-                    curv ^= values
-                else: # op == ''
-                    curv = values
+                if dataname.startswith('+'):
+                    curv |= datavalu
+                elif dataname.startswith('-'):
+                    curv ^= datavalu
+                else:
+                    curv = datavalu
 
                 mailbox['messages'][uid]['flags'] = list(curv)
 
             return await self.sendMesg(tag, 'OK', 'STORE completed')
 
-        elif command == 'SEARCH':
+        elif cmdname == 'SEARCH':
             # We only support a couple of search terms for ease of implementation
             # https://www.rfc-editor.org/rfc/rfc3501#section-6.4.4
             supported = ('Answered', 'Deleted', 'Draft', 'Recent', 'Seen', 'Unanswered', 'Undeleted', 'Unseen')
-            if parts[-1].title() not in supported:
-                return await self.sendMesg(tag, 'BAD', f'Search term not supported: {parts[-1]}.')
+            cmdargs = s_imap.qsplit(cmdargs)
+            if cmdargs[0] == 'CHARSET':
+                cmdargs = cmdargs[2:]
+
+            if cmdargs[0].title() not in supported:
+                return await self.sendMesg(tag, 'BAD', f'Search term not supported: {cmdargs[0]}.')
 
             uids = ' '.join(
-                [str(k[0]) for k in messages.items() if f'\\{parts[-1].title()}' in k[1].get('flags')]
+                [str(k[0]) for k in messages.items() if f'\\{cmdargs[0].title()}' in k[1].get('flags')]
             )
 
             await self.sendMesg(s_imap.UNTAGGED, 'SEARCH', uids)
             return await self.sendMesg(tag, 'OK', 'SEARCH completed')
 
-        elif command == 'FETCH':
-            match = imap_srv_uid_fetch_rgx.match(data)
-            if match is None:
-                mesg = 'Invalid UID FETCH request.'
-                raise s_exc.ImapError(mesg=mesg)
+        elif cmdname == 'FETCH':
+            uid, datanames = cmdargs.split(' ', maxsplit=1)
+            items = datanames.strip('()').split(' ')
 
-            match = match.groupdict()
-
-            uid = int(match.get('uid'))
-            items = match.get('items').split(' ')
+            uid = int(uid)
 
             message = messages[uid]['data']
 
@@ -882,7 +861,7 @@ class ImapTest(s_test.SynTest):
             imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
             await imap.login(user, 'pass00')
             await imap.select('INBOX')
-            ret = await imap.uid('FETCH', '1', '(RFC822 BODY[HEADER])')
+            ret = await imap.uid_fetch('1', '(RFC822 BODY[HEADER])')
 
             rfc822 = ''.join((email.get('headers'), email.get('body'))).encode()
             header = email.get('headers').encode()
