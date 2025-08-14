@@ -88,6 +88,14 @@ class IMAPServer(s_imap.IMAPBase):
                         'parent': 'inbox',
                         'flags': ['\\HasNoChildren'],
                     },
+                    '"important"': {
+                        'parent': 'inbox',
+                        'flags': ['\\HasNoChildren'],
+                    },
+                    '"junk mail"': {
+                        'parent': 'inbox',
+                        'flags': ['\\HasNoChildren'],
+                    },
                 },
                 'messages': {
                     1: {

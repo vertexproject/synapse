@@ -17,20 +17,57 @@ CRLF = b'\r\n'
 CRLFLEN = len(CRLF)
 UNTAGGED = '*'
 
-def quote(text):
-    '''
-    Double-quote text if it has a space in it.
-    '''
-    if ' ' not in text:
+def quote(text, escape=True):
+    if text == '""':
+        # Don't quote empty string
         return text
+
+    if ' ' not in text and '"' not in text:
+        return text
+
+    if escape:
+        text = text.replace('"', '\\"')
+
     return f'"{text}"'
 
-qsplit_rgx = regex.compile(r'("[^"]*"|\S+)')
 def qsplit(text):
     '''
-    Split text on whitespace preserving quoted substrings. Quoted strings are unquoted.
+    Split text on whitespace preserving quoted substrings and escaped quotes. Quoted strings are
+    unquoted and escaped quotes are unescaped.
     '''
-    return [k.strip('"') for k in qsplit_rgx.findall(text)]
+    ret = []
+
+    token = []
+    inquotes = False
+
+    for idx, char in enumerate(text):
+        # Found a space and we're not in a quoted token
+        if char == ' ' and not inquotes:
+            ret.append(''.join(token))
+            token = []
+            continue
+
+        if char != '"':
+            token.append(char)
+            continue
+
+        # From here on, current char is a double-quote
+
+        # This is an escaped quote, put it in the token without the escape
+        if token and token[-1] == '\\':
+            token[-1] = char
+            continue
+
+        if token and not inquotes:
+            token.append(char)
+            continue
+
+        inquotes = not inquotes
+
+    if token:
+        ret.append(''.join(token))
+
+    return ret
 
 imap_rgx = regex.compile(
     br'''
@@ -260,7 +297,7 @@ class IMAPClient(IMAPBase):
             return False, [b'Login disabled on server.']
 
         tag = self._genTag()
-        resp = await self._command(tag, 'LOGIN', quote(user), quote(passwd))
+        resp = await self._command(tag, 'LOGIN', quote(user, escape=False), quote(passwd))
 
         response = resp.get(tag)[0]
         if response.get('response') != 'OK':
@@ -301,7 +338,7 @@ class IMAPClient(IMAPBase):
             return False, [response.get('data')]
 
         data = []
-        for mesg in resp.get(UNTAGGED):
+        for mesg in resp.get(UNTAGGED, []):
             data.append(mesg.get('data'))
 
         return True, data
