@@ -2,7 +2,6 @@ import bz2
 import copy
 import gzip
 import time
-
 import regex
 import types
 import base64
@@ -10,6 +9,7 @@ import pprint
 import struct
 import asyncio
 import decimal
+import hashlib
 import inspect
 import logging
 import binascii
@@ -730,6 +730,18 @@ class LibPkg(Lib):
                       {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'A dictionary listing dependencies and if they are met.', }}},
+        {'name': 'vars',
+         'desc': "Get a dictionary representing the package's persistent variables.",
+         'type': {'type': 'function', '_funcname': '_libPkgVars',
+                  'args': (
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'A Storm Package name to get vars for.', },
+                  ),
+                  'returns': {'type': 'pkg:vars', 'desc': 'A dictionary representing the package variables.', }}},
+    )
+    _storm_lib_perms = (
+        {'perm': ('power-ups', '<name>', 'admin'), 'gate': 'cortex',
+         'desc': 'Controls the ability to interact with the vars for a Storm Package by name.'},
     )
     _storm_lib_path = ('pkg',)
 
@@ -741,6 +753,7 @@ class LibPkg(Lib):
             'del': self._libPkgDel,
             'list': self._libPkgList,
             'deps': self._libPkgDeps,
+            'vars': self._libPkgVars,
         }
 
     async def _libPkgAdd(self, pkgdef, verify=False):
@@ -779,6 +792,11 @@ class LibPkg(Lib):
     async def _libPkgDeps(self, pkgdef):
         pkgdef = await toprim(pkgdef)
         return await self.runt.snap.core.verifyStormPkgDeps(pkgdef)
+
+    async def _libPkgVars(self, name):
+        name = await tostr(name)
+        confirm(('power-ups', name, 'admin'))
+        return PkgVars(self.runt, name)
 
 @registry.registerLib
 class LibDmon(Lib):
@@ -2745,9 +2763,13 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'upload'))
 
-        await self.runt.snap.core.getAxon()
-        size, sha256 = await self.runt.snap.core.axon.put(byts)
+        sha256 = hashlib.sha256(byts).digest()
 
+        await self.runt.snap.core.getAxon()
+        if await self.runt.snap.core.axon.has(sha256):
+            return (len(byts), s_common.ehex(sha256))
+
+        size, sha256 = await self.runt.snap.core.axon.put(byts)
         return (size, s_common.ehex(sha256))
 
     @stormfunc(readonly=True)
@@ -6016,6 +6038,45 @@ class LibVars(Lib):
         return await totype(valu)
 
 @registry.registerType
+class PkgVars(Prim):
+    '''
+    The Storm deref/setitem/iter convention on top of pkg vars information.
+    '''
+    _storm_typename = 'pkg:vars'
+    _ismutable = True
+
+    def __init__(self, runt, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+    def _reqPkgAdmin(self):
+        confirm(('power-ups', self.valu, 'admin'))
+
+    @stormfunc(readonly=True)
+    async def deref(self, name):
+        self._reqPkgAdmin()
+        name = await tostr(name)
+        return await self.runt.snap.core.getStormPkgVar(self.valu, name)
+
+    async def setitem(self, name, valu):
+        self._reqPkgAdmin()
+        name = await tostr(name)
+
+        if valu is undef:
+            await self.runt.snap.core.popStormPkgVar(self.valu, name)
+            return
+
+        valu = await toprim(valu)
+        await self.runt.snap.core.setStormPkgVar(self.valu, name, valu)
+
+    @stormfunc(readonly=True)
+    async def iter(self):
+        self._reqPkgAdmin()
+        async for name, valu in self.runt.snap.core.iterStormPkgVars(self.valu):
+            yield name, valu
+            await asyncio.sleep(0)
+
+@registry.registerType
 class Query(Prim):
     '''
     A storm primitive representing an embedded query.
@@ -7683,7 +7744,23 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def _methLayerGet(self, name, defv=None):
-        return self.valu.get(name, defv)
+        match name:
+            case 'pushs':
+                pushs = copy.deepcopy(self.valu.get('pushs', {}))
+                for iden, pdef in pushs.items():
+                    gvar = f'push:{iden}'
+                    pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, 0)
+                return pushs
+
+            case 'pulls':
+                pulls = copy.deepcopy(self.valu.get('pulls', {}))
+                for iden, pdef in pulls.items():
+                    gvar = f'pull:{iden}'
+                    pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, 0)
+                return pulls
+
+            case _:
+                return self.valu.get(name, defv)
 
     async def _methLayerSet(self, name, valu):
         name = await tostr(name)
