@@ -424,7 +424,7 @@ class IMAPServer(s_imap.IMAPBase):
             return await self.sendMesg(tag, 'OK', 'FETCH completed')
 
         else:
-            raise s_exc.ImapError(mesg=f'Unsupported command: {command}')
+            raise s_exc.ImapError(mesg=f'Unsupported command: {cmdname}')
 
 class ImapTest(s_test.SynTest):
     async def _imapserv(self, link):
