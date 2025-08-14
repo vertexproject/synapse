@@ -866,7 +866,7 @@ class ImapTest(s_test.SynTest):
             rfc822 = ''.join((email.get('headers'), email.get('body'))).encode()
             header = email.get('headers').encode()
 
-            self.eq(ret, (True, (rfc822, header)))
+            self.eq(ret, (True, (rfc822, header, b'(UID 1 RFC822 BODY[HEADER])')))
 
     async def test_storm_imap_logout(self):
 

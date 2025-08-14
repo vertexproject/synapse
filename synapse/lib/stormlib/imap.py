@@ -336,8 +336,19 @@ class IMAPClient(IMAPBase):
         untagged = resp.get(UNTAGGED, [])
 
         if cmdname == 'FETCH':
+            # FETCH returns a list of attachments from each message followed by
+            # the message data. For example, a FETCH 4 (RFC822 BODY[HEADER])
+            # would return:
+            # [ <RFC822 message>, <BODY[HEADER] message>, '(UID 4 RFC822 BODY[HEADER])' ]
+            #
+            # This allows the consumer to get each of the requested data
+            # messages and then parse the message data to figure out which
+            # attachment is which.
+
             ret = []
-            [ret.extend(u.get('attachments')) for u in untagged]
+            for u in untagged:
+                ret.extend(u.get('attachments'))
+                ret.append(u.get('data'))
             return True, ret
 
         return True, [u.get('data') for u in untagged]
