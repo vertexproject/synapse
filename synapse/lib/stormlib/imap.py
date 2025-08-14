@@ -117,7 +117,6 @@ class IMAPBase(s_link.Link):
 
                 contdata = cont.get('data', b'')
                 mesg['data'] += contdata
-                mesg['raw'] += contdata
 
                 end = end + offs + CRLFLEN
 
@@ -183,8 +182,6 @@ class IMAPClient(IMAPBase):
 
         if (size := mesg.get('size')) is not None:
             mesg['size'] = int(size)
-
-        mesg['raw'] = line[len(mesg.get('tag')) + 1:]
 
         # For attaching continuation data
         mesg['attachments'] = []
