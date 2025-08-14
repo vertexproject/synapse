@@ -30,17 +30,6 @@ imap_srv_rgx = regex.compile(
     flags=regex.VERBOSE
 )
 
-imap_srv_uid_fetch_rgx = regex.compile(
-    r'''
-    ^
-        FETCH\s
-        (?P<uid>\d+)\s
-        \((?P<items>.*?)\)
-    $
-    ''',
-    flags=regex.VERBOSE
-)
-
 email = {
     'headers': textwrap.dedent(
         '''\
