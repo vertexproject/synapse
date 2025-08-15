@@ -7,10 +7,27 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
+import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
+
+def calcDuration(valu):
+    if (maxv := valu[1]) == 0x7fffffffffffffff:
+        return maxv + 1
+    return maxv - valu[0]
+
+storvirts = {
+    s_layer.STOR_TYPE_NDEF: {
+        'form': lambda x: x[0]
+    },
+    s_layer.STOR_TYPE_IVAL: {
+        'min': lambda x: x[0],
+        'max': lambda x: x[1],
+        'duration': calcDuration,
+    },
+}
 
 class NodeBase:
 
@@ -853,10 +870,26 @@ class Node(NodeBase):
 
             if virts:
                 for name, valt in props.items():
-                    retn[name] = valt[0]
+                    retn[name] = valu = valt[0]
                     if (vprops := valt[2]) is not None:
-                        for vname, valu in vprops.items():
-                            retn[f'{name}.{vname}'] = valu[0]
+                        for vname, vval in vprops.items():
+                            retn[f'{name}.{vname}'] = vval[0]
+
+                    isarray = False
+                    stortype = valt[1]
+
+                    if valt[1] & s_layer.STOR_FLAG_ARRAY:
+                        isarray = True
+                        stortype = stortype & 0x7fff
+                        retn[f'{name}.size'] = len(valu)
+
+                    if (svirts := storvirts.get(stortype)) is not None:
+                        for vname, getr in svirts.items():
+                            if isarray:
+                                retn[f'{name}.{vname}'] = [getr(v) for v in valu]
+                            else:
+                                retn[f'{name}.{vname}'] = getr(valu)
+
             else:
                 for name, valt in props.items():
                     retn[name] = valt[0]
