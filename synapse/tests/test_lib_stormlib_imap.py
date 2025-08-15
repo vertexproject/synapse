@@ -405,6 +405,9 @@ class IMAPServer(s_imap.IMAPBase):
 
             uid = int(uid)
 
+            if uid not in messages:
+                return await self.sendMesg(tag, 'OK', 'FETCH completed')
+
             message = messages[uid]['data']
 
             data = []
@@ -572,6 +575,15 @@ class ImapTest(s_test.SynTest):
             '''
             mesgs = await core.stormlist(scmd, opts=opts)
             self.stormIsInErr('Failed to make an integer', mesgs)
+
+            scmd = '''
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                $server.login($user, "pass00")
+                $server.select("INBOX")
+                return($server.fetch(10))
+            '''
+            ret = await core.callStorm(scmd, opts=opts)
+            self.eq(ret, (False, 'No data received from fetch request for uid 10.'))
 
             # make sure we can pass around the server object
             scmd = '''
@@ -1286,3 +1298,58 @@ class ImapTest(s_test.SynTest):
             'code': None, 'uid': None, 'size': None,
             'attachments': [],
         })
+
+    async def test_stormlib_imap_quote(self):
+        self.eq(s_imap.quote('""'), '""')
+        self.eq(s_imap.quote('foobar'), 'foobar')
+        self.eq(s_imap.quote('foo"bar'), '"foo\\"bar"')
+        self.eq(s_imap.quote('foo bar'), '"foo bar"')
+        self.eq(s_imap.quote('foo\\bar'), '"foo\\\\bar"')
+        self.eq(s_imap.quote('foo bar\\'), '"foo bar\\\\"')
+        self.eq(s_imap.quote('"foo bar"'), '"\\"foo bar\\""')
+        self.eq(s_imap.quote('foo "bar"'), '"foo \\"bar\\""')
+
+    async def test_stormlib_imap_qsplit(self):
+        self.eq(s_imap.qsplit('"" bar'), ['', 'bar'])
+        self.eq(s_imap.qsplit('foo   bar'), ['foo', 'bar'])
+        self.eq(s_imap.qsplit('"foo   bar"'), ['foo   bar'])
+        self.eq(s_imap.qsplit('foo bar'), ['foo', 'bar'])
+        self.eq(s_imap.qsplit('"foobar"'), ['foobar'])
+        self.eq(s_imap.qsplit('"foo bar"'), ['foo bar'])
+        self.eq(s_imap.qsplit('foo bar "foo bar"'), ['foo', 'bar', 'foo bar'])
+        self.eq(s_imap.qsplit('foo bar "\\"\\"" "\\"foo\\""'), ['foo', 'bar', '""', '"foo"'])
+        self.eq(s_imap.qsplit('foo bar "\\"" "\\"" "\\"foo\\""'), ['foo', 'bar', '"', '"', '"foo"'])
+        self.eq(s_imap.qsplit('foo bar "foo\\\\"'), ['foo', 'bar', 'foo\\'])
+        self.eq(s_imap.qsplit('foo bar "foo\\\\\\""'), ['foo', 'bar', 'foo\\"'])
+        self.eq(s_imap.qsplit('(\\\\HasNoChildren) "/" "\\"foobar\\""'), [r'(\\HasNoChildren)', '/', '"foobar"'])
+        self.eq(s_imap.qsplit('foo \\bar foo'), ['foo', '\\bar', 'foo'])
+
+        with self.raises(s_exc.BadDataValu) as exc:
+            s_imap.qsplit('foo bar "\\bfoo"')
+        self.eq(exc.exception.get('mesg'), 'Invalid data: b cannot be escaped.')
+        self.eq(exc.exception.get('data'), 'foo bar "\\bfoo"')
+
+        with self.raises(s_exc.BadDataValu) as exc:
+            s_imap.qsplit(r'foo bar \"foo\""')
+        self.eq(exc.exception.get('mesg'), 'Quoted strings must be preceded by space.')
+        self.eq(exc.exception.get('data'), r'foo bar \"foo\""')
+
+        with self.raises(s_exc.BadDataValu) as exc:
+            s_imap.qsplit(r'foo bar \"foo\"')
+        self.eq(exc.exception.get('mesg'), 'Quoted strings must be preceded by space.')
+        self.eq(exc.exception.get('data'), r'foo bar \"foo\"')
+
+        with self.raises(s_exc.BadDataValu) as exc:
+            s_imap.qsplit('foo bar"')
+        self.eq(exc.exception.get('mesg'), 'Quoted strings must be preceded by space.')
+        self.eq(exc.exception.get('data'), 'foo bar"')
+
+        with self.raises(s_exc.BadDataValu) as exc:
+            s_imap.qsplit('foo \\bar "foo')
+        self.eq(exc.exception.get('mesg'), 'Unclosed quotes in text.')
+        self.eq(exc.exception.get('data'), 'foo \\bar "foo')
+
+        with self.raises(s_exc.BadDataValu) as exc:
+            s_imap.qsplit('foo bar "foo')
+        self.eq(exc.exception.get('mesg'), 'Unclosed quotes in text.')
+        self.eq(exc.exception.get('data'), 'foo bar "foo')

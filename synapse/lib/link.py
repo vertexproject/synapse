@@ -340,7 +340,7 @@ async def connect(host, port, ssl=None, hostname=None, linkinfo=None, linkcls=Li
     reader, writer = await asyncio.open_connection(host, port, ssl=ssl, server_hostname=hostname)
     return await linkcls.anit(reader, writer, info=info)
 
-async def listen(host, port, onlink, ssl=None, linkcls=None):
+async def listen(host, port, onlink, ssl=None, linkcls=Link):
     '''
     Listen on the given host/port and fire onlink(<linkcls>).
 

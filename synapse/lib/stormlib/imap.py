@@ -22,27 +22,49 @@ def quote(text, escape=True):
         # Don't quote empty string
         return text
 
-    if ' ' not in text and '"' not in text:
+    if ' ' not in text and '"' not in text and '\\' not in text:
         return text
 
-    if escape:
-        text = text.replace('"', '\\"')
+    text = text.replace('\\', '\\\\')
+    text = text.replace('"', '\\"')
 
     return f'"{text}"'
 
 def qsplit(text):
     '''
-    Split text on whitespace preserving quoted substrings and escaped quotes. Quoted strings are
-    unquoted and escaped quotes are unescaped.
+    Split on spaces.
+    Preserve quoted strings.
+    Unescape backslack and double quotes.
+    Unquote quoted strings.
+
+    Raise BadDataValu if quotes are unclosed.
     '''
     ret = []
 
     token = []
+    inescape = False
     inquotes = False
 
-    for idx, char in enumerate(text):
+    for char in text:
+        # Escapes only happen in quotes
+        if char == '\\' and not inescape and inquotes:
+            inescape = True
+            continue
+
+        if inescape:
+            if char not in ('"', '\\'):
+                mesg = f'Invalid data: {char} cannot be escaped.'
+                raise s_exc.BadDataValu(mesg=mesg, data=text)
+
+            token.append(char)
+            inescape = False
+            continue
+
         # Found a space and we're not in a quoted token
         if char == ' ' and not inquotes:
+            if not token:
+                continue
+
             ret.append(''.join(token))
             token = []
             continue
@@ -53,16 +75,22 @@ def qsplit(text):
 
         # From here on, current char is a double-quote
 
-        # This is an escaped quote, put it in the token without the escape
-        if token and token[-1] == '\\':
-            token[-1] = char
-            continue
-
         if token and not inquotes:
-            token.append(char)
+            mesg = 'Quoted strings must be preceded by space.'
+            raise s_exc.BadDataValu(mesg=mesg, data=text)
+
+        # Handle empty string
+        if not token and inquotes:
+            ret.append('')
+            token = []
+            inquotes = False
             continue
 
         inquotes = not inquotes
+
+    if inquotes:
+        mesg = 'Unclosed quotes in text.'
+        raise s_exc.BadDataValu(mesg=mesg, data=text)
 
     if token:
         ret.append(''.join(token))
@@ -297,7 +325,7 @@ class IMAPClient(IMAPBase):
             return False, [b'Login disabled on server.']
 
         tag = self._genTag()
-        resp = await self._command(tag, 'LOGIN', quote(user, escape=False), quote(passwd))
+        resp = await self._command(tag, 'LOGIN', quote(user), quote(passwd))
 
         response = resp.get(tag)[0]
         if response.get('response') != 'OK':
@@ -759,6 +787,9 @@ class ImapServer(s_stormtypes.StormType):
 
         coro = self.imap_cli.uid_fetch(str(uid), '(RFC822)')
         data = await run_imap_coro(coro, self.timeout)
+
+        if not data:
+            return False, f'No data received from fetch request for uid {uid}.'
 
         size, sha256b = await axon.put(data[0])
 
