@@ -196,6 +196,7 @@ class SynModelTest(s_t_utils.SynTest):
             # Ensure that we can lift by syn:form + prop + valu,
             # and expected props are present.
             nodes = await core.nodes('syn:form')
+            self.none(nodes[0].get('.created'))
             self.gt(len(nodes), 1)
 
             nodes = await core.nodes('syn:form:type')
