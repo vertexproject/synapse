@@ -3340,15 +3340,10 @@ class Layer(s_nexus.Pusher):
 
     async def setStorNodeProp(self, buid, prop, valu):
         if (newp := self.core.model.prop(prop)) is None:
-            logger.warning(f'setStorNodeProp failed, no such property: {prop}')
-            return
+            raise s_exc.NoSuchProp(mesg=f'The property {prop} does not exist.',
+                                   prop=prop)
 
-        try:
-            newp_valu = newp.type.norm(valu)[0]
-        except s_exc.BadTypeValu:
-            logger.warning(f'setStorNodeProp failed, failed to normalize value for {prop}')
-            return
-
+        newp_valu = newp.type.norm(valu)[0]
         newp_name = newp.name
         newp_stortype = newp.type.stortype
         newp_formname = newp.form.name
@@ -3361,8 +3356,8 @@ class Layer(s_nexus.Pusher):
 
     async def delStorNodeProp(self, buid, prop):
         if (pprop := self.core.model.prop(prop)) is None:
-            logger.warning(f'delStorNodeProp failed, no such property: {prop}')
-            return
+            raise s_exc.NoSuchProp(mesg=f'The property {prop} does not exist.',
+                                   prop=prop)
 
         oldp_name = pprop.name
         oldp_formname = pprop.form.name
