@@ -865,10 +865,10 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('Imported Module foo.bar', msgs)
             self.stormIsInErr('Cannot find name [newp]', msgs)
 
-            self.eq(s_version.commit, await core.callStorm('return($lib.version.commit())'))
-            self.eq(s_version.version, await core.callStorm('return($lib.version.synapse())'))
-            self.true(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">=2.9.0"))'))
-            self.false(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">0.0.1,<2.0"))'))
+            self.eq(s_version.commit, await core.callStorm('return($lib.version.commit)'))
+            self.eq(s_version.version, await core.callStorm('return($lib.version.synapse)'))
+            self.true(await core.callStorm('return($lib.version.matches($lib.version.synapse, ">=2.9.0"))'))
+            self.false(await core.callStorm('return($lib.version.matches($lib.version.synapse, ">0.0.1,<2.0"))'))
 
             # check that the feed API uses toprim
             email = await core.callStorm('''
