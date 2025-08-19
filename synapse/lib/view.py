@@ -3390,9 +3390,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         async for pode in self.getRuntPodes(prop, cmprvalu=cmprvalu):
 
-            # for runt nodes without a .created time
-            pode[1]['props'].setdefault('.created', now)
-
             # filter based on any specified prop / cmpr / valu
             if filt is None:
                 if not prop.isform:

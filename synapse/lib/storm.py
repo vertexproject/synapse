@@ -657,7 +657,7 @@ stormcmds = (
                 $ssl = $lib.true
                 if $cmdopts.ssl_noverify { $ssl = $lib.false }
 
-                $headers = ({'X-Synapse-Version': ('.').join($lib.version.synapse())})
+                $headers = ({'X-Synapse-Version': ('.').join($lib.version.synapse)})
 
                 $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl, headers=$headers)
 
@@ -688,8 +688,8 @@ stormcmds = (
         'name': 'version',
         'descr': 'Show version metadata relating to Synapse.',
         'storm': '''
-            $comm = $lib.version.commit()
-            $synv = $lib.version.synapse()
+            $comm = $lib.version.commit
+            $synv = $lib.version.synapse
 
             if $synv {
                 $synv = ('.').join($synv)
@@ -699,8 +699,8 @@ stormcmds = (
                 $comm = $comm.slice(0,7)
             }
 
-            $lib.print('Synapse Version: {s}', s=$synv)
-            $lib.print('Commit Hash: {c}', c=$comm)
+            $lib.print('Synapse Version: {$synv}')
+            $lib.print('Commit Hash: {$comm}')
         ''',
     },
     {
