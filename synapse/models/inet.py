@@ -1105,7 +1105,7 @@ async def _onAddFqdn(node):
         if zone is not None:
             await protonode.set('zone', zone)
 
-async def _onSetFqdnIsSuffix(node, oldv):
+async def _onSetFqdnIsSuffix(node):
 
     fqdn = node.ndef[1]
 
@@ -1121,7 +1121,7 @@ async def _onSetFqdnIsSuffix(node, oldv):
             protonode = editor.loadNode(child)
             await protonode.set('iszone', issuffix)
 
-async def _onSetFqdnIsZone(node, oldv):
+async def _onSetFqdnIsZone(node):
 
     fqdn = node.ndef[1]
 
@@ -1146,7 +1146,7 @@ async def _onSetFqdnIsZone(node, oldv):
 
     await node.set('zone', zone)
 
-async def _onSetFqdnZone(node, oldv):
+async def _onSetFqdnZone(node):
 
     todo = collections.deque([node.ndef[1]])
     zone = node.get('zone')
@@ -1167,7 +1167,7 @@ async def _onSetFqdnZone(node, oldv):
 
                 todo.append(child.ndef[1])
 
-async def _onSetWhoisText(node, oldv):
+async def _onSetWhoisText(node):
 
     text = node.get('text')
     fqdn = node.get('fqdn')

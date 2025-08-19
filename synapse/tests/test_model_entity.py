@@ -38,7 +38,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('type'), 'owner.')
             self.eq(nodes[0].get('percent'), '50')
-            self.eq(nodes[0].get('period'), (1451606400000000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1451606400000000, 9223372036854775807, 0xffffffffffffffff))
             self.len(1, await core.nodes('entity:had :item -> inet:fqdn'))
             self.len(1, await core.nodes('entity:had :actor -> * +:name=visi'))
 
@@ -70,7 +70,7 @@ class EntityModelTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.eq(('staff',), nodes[0].get('roles'))
-            self.eq(nodes[0].get('period'), (1328054400000000, 1330560000000000))
+            self.eq(nodes[0].get('period'), (1328054400000000, 1330560000000000, 2505600000000))
 
             self.len(1, await core.nodes('entity:attendee -> ps:person'))
 
@@ -161,7 +161,7 @@ class EntityModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.eq(nodes[0].get('name'), 'world war iii')
-            self.eq(nodes[0].get('period'), (2493072000000000, 2493072000000001))
+            self.eq(nodes[0].get('period'), (2493072000000000, 2493072000000001, 1))
 
             self.len(1, await core.nodes('entity:conflict -> meta:timeline'))
 
@@ -183,6 +183,6 @@ class EntityModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes)
             self.eq(nodes[0].get('type'), 'tasks.')
-            self.eq(nodes[0].get('period'), (1640995200000000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1640995200000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('reporter'), ('ou:org', '3332a704ed21dc3274d5731acc54a0ee'))
             self.eq(nodes[0].get('target'), ('risk:threat', 'c0b2aeb72e61e692bdee1554bf931819'))

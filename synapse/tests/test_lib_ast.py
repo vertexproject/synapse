@@ -3984,37 +3984,37 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[test:str=bar :seen=(2020, 2022)]')
             nodes = await core.nodes('[test:str=bar :seen.min=2021]')
-            self.eq((1609459200000000, 1640995200000000), nodes[0].get('seen'))
+            self.eq((1609459200000000, 1640995200000000, 31536000000000), nodes[0].get('seen'))
 
             nodes = await core.nodes('[test:str=bar :seen.min=2027]')
-            self.eq((1798761600000000, 1798761600000001), nodes[0].get('seen'))
+            self.eq((1798761600000000, 1798761600000001, 1), nodes[0].get('seen'))
 
             nodes = await core.nodes('[test:str=bar -:seen :seen.min=2027]')
-            self.eq((1798761600000000, 1798761600000001), nodes[0].get('seen'))
+            self.eq((1798761600000000, 1798761600000001, 1), nodes[0].get('seen'))
 
             nodes = await core.nodes('[test:str=bar :seen=(2022, 2027)]')
             nodes = await core.nodes('[test:str=bar :seen.max=2024]')
-            self.eq((1640995200000000, 1704067200000000), nodes[0].get('seen'))
+            self.eq((1640995200000000, 1704067200000000, 63072000000000), nodes[0].get('seen'))
 
             nodes = await core.nodes('[test:str=bar :seen.max=2019]')
-            self.eq((1546300799999999, 1546300800000000), nodes[0].get('seen'))
+            self.eq((1546300799999999, 1546300800000000, 1), nodes[0].get('seen'))
 
             nodes = await core.nodes('[test:str=bar -:seen :seen.max=2019]')
-            self.eq((1546300799999999, 1546300800000000), nodes[0].get('seen'))
+            self.eq((1546300799999999, 1546300800000000, 1), nodes[0].get('seen'))
 
             nodes = await core.nodes('[test:str=bar +#foo=(2021, 2023)]')
             nodes = await core.nodes('[test:str=bar +#(foo).min=2022]')
-            self.eq((1640995200000000, 1672531200000000), nodes[0].get('#foo'))
+            self.eq((1640995200000000, 1672531200000000, 31536000000000), nodes[0].get('#foo'))
 
             nodes = await core.nodes('[test:str=bar -#foo +#(foo).min=2022]')
-            self.eq((1640995200000000, 1640995200000001), nodes[0].get('#foo'))
+            self.eq((1640995200000000, 1640995200000001, 1), nodes[0].get('#foo'))
 
             nodes = await core.nodes('[test:str=bar +#foo=(2021, 2023)]')
             nodes = await core.nodes('$var=foo $virt=max [test:str=bar +#($var).$virt=2022]')
-            self.eq((1609459200000000, 1640995200000000), nodes[0].get('#foo'))
+            self.eq((1609459200000000, 1640995200000000, 31536000000000), nodes[0].get('#foo'))
 
             nodes = await core.nodes('[test:str=bar -#foo +#(foo).max=2022]')
-            self.eq((1640995199999999, 1640995200000000), nodes[0].get('#foo'))
+            self.eq((1640995199999999, 1640995200000000, 1), nodes[0].get('#foo'))
 
             nodes = await core.nodes('[test:str=bar +?#(bar).max=newp]')
             self.none(nodes[0].get('#bar'))

@@ -314,7 +314,7 @@ class TransportTest(s_test.SynTest):
             self.eq('transport:rail:train', nodes[0].get('trip')[0])
             self.eq('transport:rail:consist', nodes[0].get('vehicle')[0])
 
-            self.eq(nodes[0].get('period'), (1737109200000000, 1737120900000000))
+            self.eq(nodes[0].get('period'), (1737109200000000, 1737120900000000, 11700000000))
 
             self.nn(nodes[0].get('boarded:place'))
             self.eq('2c', nodes[0].get('boarded:point'))
@@ -347,7 +347,7 @@ class TransportTest(s_test.SynTest):
             self.eq('transport:shipping:container', nodes[0].get('object')[0])
 
             self.nn(nodes[0].get('loaded:place'))
-            self.eq(nodes[0].get('period'), (1737109200000000, 1737120900000000))
+            self.eq(nodes[0].get('period'), (1737109200000000, 1737120900000000, 11700000000))
 
             self.eq('2c', nodes[0].get('loaded:point'))
 

@@ -230,6 +230,8 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('2D 00:00:00', t.repr(172800000000))
         self.eq('00:05:00.333333', t.repr(300333333))
         self.eq('11D 11:47:12.344', t.repr(992832344000))
+        self.eq('?', t.repr(t.unkdura))
+        self.eq('*', t.repr(t.futdura))
 
         self.eq(300333333, (await t.norm('00:05:00.333333'))[0])
         self.eq(992832344000, (await t.norm('11D 11:47:12.344'))[0])
@@ -1099,29 +1101,29 @@ class TypesTest(s_t_utils.SynTest):
 
         self.eq(('2016-01-01T00:00:00Z', '2017-01-01T00:00:00Z'), ival.repr((await ival.norm(('2016', '2017')))[0]))
 
-        self.eq((0, 5356800000000), (await ival.norm((0, '1970-03-04')))[0])
-        self.eq((1451606400000000, 1451606400000001), (await ival.norm('2016'))[0])
-        self.eq((1451606400000000, 1451606400000001), (await ival.norm(1451606400000000))[0])
-        self.eq((1451606400000000, 1451606400000001), (await ival.norm(decimal.Decimal(1451606400000000)))[0])
-        self.eq((1451606400000000, 1451606400000001), (await ival.norm(s_stormtypes.Number(1451606400000000)))[0])
-        self.eq((1451606400000000, 1451606400000001), (await ival.norm('2016'))[0])
-        self.eq((1451606400000000, 1483228800000000), (await ival.norm(('2016', '  2017')))[0])
-        self.eq((1451606400000000, 1483228800000000), (await ival.norm(('2016-01-01', '  2017')))[0])
-        self.eq((1451606400000000, 1483142400000000), (await ival.norm(('2016', '+365 days')))[0])
-        self.eq((1448150400000000, 1451606400000000), (await ival.norm(('2016', '-40 days')))[0])
-        self.eq((1447891200000000, 1451347200000000), (await ival.norm(('2016-3days', '-40 days   ')))[0])
-        self.eq((1451347200000000, 0x7fffffffffffffff), (await ival.norm(('2016-3days', '?')))[0])
-        self.eq((1593576000000000, 1593576000000001), (await ival.norm('2020-07-04:00'))[0])
-        self.eq((1594124993000000, 1594124993000001), (await ival.norm('2020-07-07T16:29:53+04:00'))[0])
-        self.eq((1594153793000000, 1594153793000001), (await ival.norm('2020-07-07T16:29:53-04:00'))[0])
-        self.eq((1594211393000000, 1594211393000001), (await ival.norm('20200707162953+04:00+1day'))[0])
-        self.eq((1594038593000000, 1594038593000001), (await ival.norm('20200707162953+04:00-1day'))[0])
-        self.eq((1594240193000000, 1594240193000001), (await ival.norm('20200707162953-04:00+1day'))[0])
-        self.eq((1594067393000000, 1594067393000001), (await ival.norm('20200707162953-04:00-1day'))[0])
-        self.eq((1594240193000000, 1594240193000001), (await ival.norm('20200707162953EDT+1day'))[0])
-        self.eq((1594067393000000, 1594067393000001), (await ival.norm('20200707162953EDT-1day'))[0])
-        self.eq((1594240193000000, 1594240193000001), (await ival.norm('7 Jul 2020 16:29:53 EDT+1day'))[0])
-        self.eq((1594067393000000, 1594067393000001), (await ival.norm('7 Jul 2020 16:29:53 -0400-1day'))[0])
+        self.eq((0, 5356800000000, 5356800000000), (await ival.norm((0, '1970-03-04')))[0])
+        self.eq((1451606400000000, 1451606400000001, 1), (await ival.norm('2016'))[0])
+        self.eq((1451606400000000, 1451606400000001, 1), (await ival.norm(1451606400000000))[0])
+        self.eq((1451606400000000, 1451606400000001, 1), (await ival.norm(decimal.Decimal(1451606400000000)))[0])
+        self.eq((1451606400000000, 1451606400000001, 1), (await ival.norm(s_stormtypes.Number(1451606400000000)))[0])
+        self.eq((1451606400000000, 1451606400000001, 1), (await ival.norm('2016'))[0])
+        self.eq((1451606400000000, 1483228800000000, 31622400000000), (await ival.norm(('2016', '  2017')))[0])
+        self.eq((1451606400000000, 1483228800000000, 31622400000000), (await ival.norm(('2016-01-01', '  2017')))[0])
+        self.eq((1451606400000000, 1483142400000000, 31536000000000), (await ival.norm(('2016', '+365 days')))[0])
+        self.eq((1448150400000000, 1451606400000000, 3456000000000), (await ival.norm(('2016', '-40 days')))[0])
+        self.eq((1447891200000000, 1451347200000000, 3456000000000), (await ival.norm(('2016-3days', '-40 days   ')))[0])
+        self.eq((1451347200000000, ival.unksize, ival.duratype.unkdura), (await ival.norm(('2016-3days', '?')))[0])
+        self.eq((1593576000000000, 1593576000000001, 1), (await ival.norm('2020-07-04:00'))[0])
+        self.eq((1594124993000000, 1594124993000001, 1), (await ival.norm('2020-07-07T16:29:53+04:00'))[0])
+        self.eq((1594153793000000, 1594153793000001, 1), (await ival.norm('2020-07-07T16:29:53-04:00'))[0])
+        self.eq((1594211393000000, 1594211393000001, 1), (await ival.norm('20200707162953+04:00+1day'))[0])
+        self.eq((1594038593000000, 1594038593000001, 1), (await ival.norm('20200707162953+04:00-1day'))[0])
+        self.eq((1594240193000000, 1594240193000001, 1), (await ival.norm('20200707162953-04:00+1day'))[0])
+        self.eq((1594067393000000, 1594067393000001, 1), (await ival.norm('20200707162953-04:00-1day'))[0])
+        self.eq((1594240193000000, 1594240193000001, 1), (await ival.norm('20200707162953EDT+1day'))[0])
+        self.eq((1594067393000000, 1594067393000001, 1), (await ival.norm('20200707162953EDT-1day'))[0])
+        self.eq((1594240193000000, 1594240193000001, 1), (await ival.norm('7 Jul 2020 16:29:53 EDT+1day'))[0])
+        self.eq((1594067393000000, 1594067393000001, 1), (await ival.norm('7 Jul 2020 16:29:53 -0400-1day'))[0])
 
         # these fail because ival norming will split on a comma
         await self.asyncraises(s_exc.BadTypeValu, ival.norm('Tue, 7 Jul 2020 16:29:53 EDT+1day'))
@@ -1133,13 +1135,18 @@ class TypesTest(s_t_utils.SynTest):
 
         oldv = (await ival.norm(('2016', '2017')))[0]
         newv = (await ival.norm(('2015', '2018')))[0]
-        self.eq((1420070400000000, 1514764800000000), ival.merge(oldv, newv))
+        self.eq((1420070400000000, 1514764800000000, 94694400000000), ival.merge(oldv, newv))
 
-        self.eq((1420070400000000, 1420070400000001), (await ival.norm(('2015', '2015')))[0])
+        self.eq((1420070400000000, 1420070400000001, 1), (await ival.norm(('2015', '2015')))[0])
+        self.eq((ival.unksize, ival.unksize, ival.duratype.unkdura), (await ival.norm('?'))[0])
+        self.eq((ival.unksize, ival.unksize, ival.duratype.unkdura), (await ival.norm(('?', '?')))[0])
 
-        await self.asyncraises(s_exc.BadTypeValu, ival.norm('?'))
         await self.asyncraises(s_exc.BadTypeValu, ival.norm(('', '')))
-        await self.asyncraises(s_exc.BadTypeValu, ival.norm(('2016-3days', '+77days', '-40days')))
+
+        # should norming a triple ignore duration if min/max are both set or validate it matches?
+        # await self.asyncraises(s_exc.BadTypeValu, ival.norm(('2016-3days', '+77days', '-40days')))
+
+        await self.asyncraises(s_exc.BadTypeValu, ival.norm(('2016-3days', '+77days', '-40days', '-40days')))
         await self.asyncraises(s_exc.BadTypeValu, ival.norm(('?', '-1 day')))
 
         async with self.getTestCore() as core:
@@ -1149,6 +1156,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:str=c :seen=("now-5days", "now-1day") :tick=2016 +#bar=(1970, 1990)]'))
             self.len(1, await core.nodes('[test:str=d :seen=("now-10days", "?") :tick=now +#baz=now]'))
             self.len(1, await core.nodes('[test:str=e :seen=("now+1day", "now+5days") :tick="now-3days" +#biz=("now-1day", "now+1 day")]'))
+            self.len(1, await core.nodes('[test:str=f +#foo ]'))
             # node whose primary prop is an ival
             self.len(1, await core.nodes('[test:ival=((0),(10)) :interval=(now, "now+4days")]'))
             self.len(1, await core.nodes('[test:ival=((50),(100)) :interval=("now-2days", "now+2days")]'))
@@ -1282,7 +1290,7 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:guid="*" :seen=("-1 day","?")]')
             node = nodes[0]
             valu = node.get('seen')
-            self.eq(valu[1], ival.futsize)
+            self.eq(valu[1], ival.unksize)
             self.true(now - s_const.day <= valu[0] < now)
 
             # Sad Paths
@@ -1292,10 +1300,7 @@ class TypesTest(s_t_utils.SynTest):
             q = '[test:str=newp :seen=("+-1 day","+-1 day")]'
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes(q)
-            q = '[test:str=newp  :seen=("?","?")]'
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes(q)
-            q = '[test:str=newp :seen=(2008, 2019, 2000)]'
+            q = '[test:str=newp :seen=(2008, 2019, 2000, 2040)]'
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes(q)
             q = '[test:str=newp :seen=("?","-1 day")]'
@@ -1357,32 +1362,109 @@ class TypesTest(s_t_utils.SynTest):
             styp = core.model.type('timeprecision').stortype
             valu = (await ityp.norm('2025-04-05 12:34:56.123456'))[0]
 
-            exp = ((1743856496123456, 1743856496123457), {})
+            exp = ((1743856496123456, 1743856496123457, 1), {})
             self.eq(await ityp.normVirt('precision', valu, s_time.PREC_MICRO), exp)
 
-            exp = ((1743856496123000, 1743856496123999), {'virts': {'precision': (s_time.PREC_MILLI, styp)}})
+            exp = ((1743856496123000, 1743856496123999, 999), {'virts': {'precision': (s_time.PREC_MILLI, styp)}})
             self.eq(await ityp.normVirt('precision', valu, s_time.PREC_MILLI), exp)
 
-            exp = ((1743856496000000, 1743856496999999), {'virts': {'precision': (s_time.PREC_SECOND, styp)}})
+            exp = ((1743856496000000, 1743856496999999, 999999), {'virts': {'precision': (s_time.PREC_SECOND, styp)}})
             self.eq(await ityp.normVirt('precision', valu, s_time.PREC_SECOND), exp)
 
-            exp = ((1743856440000000, 1743856499999999), {'virts': {'precision': (s_time.PREC_MINUTE, styp)}})
+            exp = ((1743856440000000, 1743856499999999, 59999999), {'virts': {'precision': (s_time.PREC_MINUTE, styp)}})
             self.eq(await ityp.normVirt('precision', valu, s_time.PREC_MINUTE), exp)
 
-            exp = ((1743854400000000, 1743857999999999), {'virts': {'precision': (s_time.PREC_HOUR, styp)}})
+            exp = ((1743854400000000, 1743857999999999, 3599999999), {'virts': {'precision': (s_time.PREC_HOUR, styp)}})
             self.eq(await ityp.normVirt('precision', valu, s_time.PREC_HOUR), exp)
 
-            exp = ((1743811200000000, 1743897599999999), {'virts': {'precision': (s_time.PREC_DAY, styp)}})
+            exp = ((1743811200000000, 1743897599999999, 86399999999), {'virts': {'precision': (s_time.PREC_DAY, styp)}})
             self.eq(await ityp.normVirt('precision', valu, s_time.PREC_DAY), exp)
 
-            exp = ((1743465600000000, 1746057599999999), {'virts': {'precision': (s_time.PREC_MONTH, styp)}})
+            exp = ((1743465600000000, 1746057599999999, 2591999999999), {'virts': {'precision': (s_time.PREC_MONTH, styp)}})
             self.eq(await ityp.normVirt('precision', valu, s_time.PREC_MONTH), exp)
 
-            exp = ((1735689600000000, 1767225599999999), {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            exp = ((1735689600000000, 1767225599999999, 31535999999999), {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
             self.eq(await ityp.normVirt('precision', valu, s_time.PREC_YEAR), exp)
 
             with self.raises(s_exc.BadTypeDef):
                 await core.addFormProp('test:int', '_newp', ('ival', {'precision': 'newp'}), {})
+
+            nodes = await core.nodes('[ test:str=foo :seen=(2021, ?) :seen.duration=1D ]')
+            self.eq(nodes[0].get('seen'), (1609459200000000, 1609545600000000, 86400000000))
+
+            nodes = await core.nodes('[ test:str=bar :seen=(?, 2021) :seen.duration=1D ]')
+            self.eq(nodes[0].get('seen'), (1609372800000000, 1609459200000000, 86400000000))
+
+            nodes = await core.nodes('[ test:str=baz :seen=(?, ?) :seen.duration=1D ]')
+            self.eq(nodes[0].get('seen'), (ityp.unksize, ityp.unksize, 86400000000))
+
+            nodes = await core.nodes('test:str=baz [ :seen.min=2021 ]')
+            self.eq(nodes[0].get('seen'), (1609459200000000, 1609545600000000, 86400000000))
+
+            nodes = await core.nodes('[ test:str=faz :seen.duration=1D ]')
+            self.eq(nodes[0].get('seen'), (ityp.unksize, ityp.unksize, 86400000000))
+
+            nodes = await core.nodes('test:str=faz [ :seen.max=2021 ]')
+            self.eq(nodes[0].get('seen'), (1609372800000000, 1609459200000000, 86400000000))
+
+            nodes = await core.nodes('test:str=faz [ :seen.max=? ]')
+            self.eq(nodes[0].get('seen'), (1609372800000000, ityp.unksize, ityp.duratype.unkdura))
+
+            nodes = await core.nodes('test:str=faz [ :seen.min=2022 ]')
+            self.eq(nodes[0].get('seen'), (1640995200000000, ityp.unksize, ityp.duratype.unkdura))
+
+            nodes = await core.nodes('test:str=faz [ :seen.max=* ]')
+            self.eq(nodes[0].get('seen'), (1640995200000000, ityp.futsize, ityp.duratype.futdura))
+
+            nodes = await core.nodes('test:str=faz [ :seen.min=2021 ]')
+            self.eq(nodes[0].get('seen'), (1609459200000000, ityp.futsize, ityp.duratype.futdura))
+
+            nodes = await core.nodes('test:str=faz [ :seen.max=2022 :seen.min=? ]')
+            self.eq(nodes[0].get('seen'), (ityp.unksize, 1640995200000000, ityp.duratype.unkdura))
+
+            nodes = await core.nodes('test:str=faz [ :seen.max=2021 :seen.min=? ]')
+            self.eq(nodes[0].get('seen'), (ityp.unksize, 1609459200000000, ityp.duratype.unkdura))
+
+            nodes = await core.nodes('test:str=faz [ :seen.duration=* ]')
+            self.eq(nodes[0].get('seen'), (ityp.unksize, ityp.futsize, ityp.duratype.futdura))
+
+            nodes = await core.nodes('test:str=faz [ :seen.duration=1D ]')
+            self.eq(nodes[0].get('seen'), (ityp.unksize, ityp.unksize, 86400000000))
+
+            nodes = await core.nodes('[ test:str=int :seen=$valu ]', opts={'vars': {'valu': ityp.unksize}})
+            self.eq(nodes[0].get('seen'), (ityp.unksize, ityp.unksize, ityp.duratype.unkdura))
+
+            nodes = await core.nodes('[ test:str=merge1 :seen=(?, ?) :seen=(?, 2020) ]')
+            self.eq(nodes[0].get('seen'), (ityp.unksize, 1577836800000000, ityp.duratype.unkdura))
+
+            nodes = await core.nodes('[ test:str=merge2 :seen=(?, 2020) :seen=(2019, ?) ]')
+            self.eq(nodes[0].get('seen'), (1546300800000000, 1577836800000000, 31536000000000))
+
+            nodes = await core.nodes('[ test:str=merge2 :seen=(?, *) ]')
+            self.eq(nodes[0].get('seen'), (1546300800000000, ityp.futsize, ityp.duratype.futdura))
+
+            self.len(0, await core.nodes('[ test:str=fut :seen=(now + 1day, *) ] +:seen.duration'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:str=foo :seen=(2021, 2022) :seen.duration=500 ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:str=foo :seen.duration=-1D ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:str=foo :seen.duration=$valu ]', opts={'vars': {'valu': ityp.duratype.unkdura + 1}})
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:str=int :seen=* ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:str=int :seen=(*, *) ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:str=int :seen=$valu ]', opts={'vars': {'valu': ityp.futsize}})
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:seen@=(1, 2, 3, 4)')
 
     async def test_loc(self):
         model = s_datamodel.Model()
@@ -1738,10 +1820,15 @@ class TypesTest(s_t_utils.SynTest):
             t = core.model.type('test:time')
 
             # explicitly test our "future/ongoing" value...
-            future = 0x7fffffffffffffff
-            self.eq((await t.norm('?'))[0], future)
+            future = 0x7ffffffffffffffe
+            self.eq((await t.norm('*'))[0], future)
             self.eq((await t.norm(future))[0], future)
-            self.eq(t.repr(future), '?')
+            self.eq(t.repr(future), '*')
+
+            unk = 0x7fffffffffffffff
+            self.eq((await t.norm('?'))[0], unk)
+            self.eq((await t.norm(unk))[0], unk)
+            self.eq(t.repr(unk), '?')
 
             # Explicitly test our max time vs. future marker
             maxtime = 253402300799999999  # 9999/12/31 23:59:59.999999
@@ -2094,6 +2181,9 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(6, nodes)
             self.eq({node.ndef[1] for node in nodes}, {'b', 'c', 'd'})
+
+            nodes = await core.nodes('[test:str=e :tick=? :tick=2024]')
+            self.eq(nodes[0].get('tick'), 1704067200000000)
 
     async def test_types_long_indx(self):
 
