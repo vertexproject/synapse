@@ -1,6 +1,6 @@
 ---
 desc: Added new ``getStorNodesByProp``, ``setStorNodeProp``, and ``delStorNodeProp``
-  Storm libraries for working with storage nodes in layers.
+  methods to the Layer Storm library for working with storage nodes.
 prs: []
 type: feat
 ...
