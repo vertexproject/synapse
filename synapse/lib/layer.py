@@ -4588,47 +4588,6 @@ class Layer(s_nexus.Pusher):
             yield buid, sode
             await asyncio.sleep(0)
 
-    async def getStorNodesByProp(self, prop, valu, cmprvals):
-        '''
-        Yield (buid, sode) tuples for nodes with a given property in this layer.
-        '''
-        prop = self.core.model.prop(prop)
-        form = prop.form.name
-        propname = prop.name
-
-        if valu is None and cmprvals == '=':
-            stortype = prop.type.stortype
-            isarray = bool(stortype & STOR_FLAG_ARRAY)
-            try:
-                if isarray:
-                    indxby = IndxByPropArray(self, form, propname)
-                else:
-                    indxby = IndxByProp(self, form, propname)
-            except s_exc.NoSuchAbrv:
-                return
-
-            for lkey, buid in indxby.scanByPref():
-                sode = self._getStorNode(buid)
-                if sode is not None:
-                    yield buid, sode
-            return
-
-        for cmpr, valu, kind in cmprvals:
-
-            isarray = bool(kind & STOR_FLAG_ARRAY)
-            stortype = kind & 0x7fff
-
-            lifter = self.stortypes[stortype]
-            if isarray:
-                lifter_func = lifter.indxByPropArray
-            else:
-                lifter_func = lifter.indxByProp
-
-            async for lkey, buid in lifter_func(form, propname, cmpr, valu):
-                sode = self._getStorNode(buid)
-                if sode is not None:
-                    yield buid, sode
-
     async def iterNodeEditLog(self, offs=0):
         '''
         Iterate the node edit log and yield (offs, edits, meta) tuples.

@@ -972,17 +972,23 @@ class Snap(s_base.Base):
             return node
 
         layrs = [layr for layr in self.layers if layr.iden not in cache]
+        newsodes = {}
         if layrs:
-            indx = 0
-            newsodes = await self.core._getStorNodes(buid, layrs)
+            newsodes_list = await self.core._getStorNodes(buid, layrs)
+            newsodes = {layr.iden: newsodes_list[i] for i, layr in enumerate(layrs)}
 
         sodes = []
         for layr in self.layers:
-            sode = cache.get(layr.iden)
-            if sode is None:
-                sode = newsodes[indx]
-                indx += 1
-            sodes.append((layr.iden, sode))
+            iden = layr.iden
+            if iden in cache:
+                sodes.append((iden, cache[iden]))
+                continue
+            if iden in newsodes:
+                sodes.append((iden, newsodes[iden]))
+
+        for iden, sode in cache.items():
+            if iden not in [l.iden for l in self.layers]:
+                sodes.append((iden, sode))
 
         return await self._joinSodes(buid, sodes)
 
