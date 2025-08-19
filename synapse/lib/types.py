@@ -430,18 +430,14 @@ class Type:
         tifo = self.info.copy()
 
         # handle virts by merging them...
-        virts = tifo.get('virts')
+        v0 = tifo.get('virts', ())
+        v1 = info.get('virts', ())
+
+        virts = self.modl.mergeVirts(v0, v1)
+        if virts:
+            info['virts'] = virts
 
         tifo.update(info)
-
-        if virts is not None:
-
-            # inherit any virts from our parent type
-            for vname, (tdef, info) in virts.items():
-
-                # if the type def is not set, inherit from above
-                if tifo['virts'].get(vname)[0] is None:
-                    tifo['virts'][vname] = (tdef, tifo['virts'][vname][1])
 
         bases = self.info.get('bases') + (self.name,)
         tifo['bases'] = bases
