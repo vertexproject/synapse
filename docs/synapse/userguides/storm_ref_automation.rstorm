@@ -697,10 +697,10 @@ email message (``file:bytes`` node) or email metadata nodes (such as ``inet:emai
 or ``inet:email:message:link``).
 
 If the object "used" in the attack has an associated TTP tag (such as ``#cno.ttp.phish.attach`` to represent a malicious
-attachment used in a phishing attack), you want to pivot to the technique (``entity:technique``) represented by the tag (e.g., 
+attachment used in a phishing attack), you want to pivot to the technique (``meta:technique``) represented by the tag (e.g., 
 "Spear phishing attachment"), and create another ``uses`` edge to show the attack uses the specified technique.
 
-.. storm-cli:: trigger.add edge:add --name 'Link technique with attack'--verb uses --form risk:attack { $attack=$node { -(uses)> * +$auto.opts.n2iden -> # -> entity:technique:tag [ <(uses)+ { yield $attack } ] } }
+.. storm-cli:: trigger.add edge:add --name 'Link technique with attack'--verb uses --form risk:attack { $attack=$node { -(uses)> * +$auto.opts.n2iden -> # -> meta:technique:tag [ <(uses)+ { yield $attack } ] } }
 
 .. TIP::
   
@@ -729,7 +729,7 @@ The Storm for this trigger is broken down below (with comments) for clarity:
      -> #
      
      // Pivot to any techniques associated with any tags
-     -> entity:technique:tag
+     -> meta:technique:tag
      
      // Create a 'uses' edge between the technique(s) and the risk:attack node
      [ <(uses)+ { yield $attack } ]

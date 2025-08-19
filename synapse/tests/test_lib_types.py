@@ -664,7 +664,7 @@ class TypesTest(s_t_utils.SynTest):
             for node in nodes:
                 self.nn(node.get('sha256'))
 
-            nodes = await core.nodes('$file = {[file:bytes=*]} [ inet:service:rule=({"id":"foo", "object": $file}) ]')
+            nodes = await core.nodes('$chan = {[inet:service:channel=*]} [ inet:service:rule=({"id":"foo", "object": $chan}) ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.get('id'), 'foo')
@@ -1582,12 +1582,8 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await ndef.norm(('inet:fqdn', 'newp.com'))
 
-            ndef = core.model.type('test:ndef:formfilter3')
-            await ndef.norm(('inet:ip', '1.2.3.4'))
-            await ndef.norm(('file:mime:msdoc', s_common.guid()))
-
-            with self.raises(s_exc.BadTypeValu):
-                await ndef.norm(('inet:fqdn', 'newp.com'))
+            with self.raises(s_exc.BadTypeDef):
+                await core.model.type('ndef').clone({'forms': ('inet:fqdn',), 'interface': 'foo:bar'})
 
     async def test_nodeprop(self):
         async with self.getTestCore() as core:

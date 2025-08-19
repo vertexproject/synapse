@@ -2203,56 +2203,48 @@ class StormTest(s_t_utils.SynTest):
             self.eq(bot['place:country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
 
             await core.nodes('''
-                [( risk:vulnerable=*
-                    :mitigated=true
-                    :node={ [ it:hardware=* :name=foohw ] return($node.ndef()) }
-                    :vuln={[ risk:vuln=* :name=barvuln ]}
+                [ inet:service:rule=*
+                    :object={[
+                        inet:service:channel=*
+                        :name=foochan
+                        :creator={[ inet:service:account=* :name=visi ]}
+                    ]}
+                    :grantee={[ inet:service:account=* :id=foocon ]}
                     +#test
-                )]
-                [( inet:service:rule=*
-                    :object={ risk:vulnerable#test return($node.ndef()) }
-                    :grantee={ [ inet:service:account=* :id=foocon ] return($node.ndef()) }
-                    +#test
-                )]
+                ]
             ''')
 
             opts = {
                 'node:opts': {
                     'embeds': {
-                        'risk:vulnerable': {
-                            'vuln': ['name'],
-                            'node': ['name'],
+                        'inet:service:channel': {
+                            'creator': ['name'],
                         },
                         'inet:service:rule': {
-                            'object': ['mitigated', 'newp'],
-                            'object::node': ['name', 'newp'],
+                            'object': ['name', 'newp'],
+                            'object::creator': ['name', 'newp'],
                             'grantee': ['id', 'newp'],
                         }
                     }
                 }
             }
-            msgs = await core.stormlist('inet:service:rule#test :object -+> risk:vulnerable', opts=opts)
-            nodes = sorted([m[1] for m in msgs if m[0] == 'node'], key=lambda p: p[0][0])
-            self.eq(['inet:service:rule', 'risk:vulnerable'], [n[0][0] for n in nodes])
+            msgs = await core.stormlist('inet:service:rule#test :object -+> *', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.eq(['inet:service:rule', 'inet:service:channel'], [n[0][0] for n in nodes])
 
             embeds = nodes[0][1]['embeds']
 
             self.nn(embeds['object']['$nid'])
-            self.eq('risk:vulnerable', embeds['object']['$form'])
-            self.eq(1, embeds['object']['mitigated'])
+            self.eq('inet:service:channel', embeds['object']['$form'])
+            self.eq('foochan', embeds['object']['name'])
             self.eq(None, embeds['object']['newp'])
 
-            self.nn(embeds['object::node']['$nid'])
-            self.eq('it:hardware', embeds['object::node']['$form'])
-            self.eq('foohw', embeds['object::node']['name'])
-            self.eq(None, embeds['object::node']['newp'])
+            self.eq('inet:service:account', embeds['object::creator']['$form'])
+            self.eq('visi', embeds['object::creator']['name'])
+            self.eq(None, embeds['object::creator']['newp'])
             self.eq('inet:service:account', embeds['grantee']['$form'])
             self.eq('foocon', embeds['grantee']['id'])
             self.eq(None, embeds['grantee']['newp'])
-
-            embeds = nodes[1][1]['embeds']
-            self.eq('barvuln', embeds['vuln']['name'])
-            self.eq('foohw', embeds['node']['name'])
 
             # embed through `econ:pay:instrument` type that extends from `ndef`
             await core.nodes('''
@@ -2273,7 +2265,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq('econ:payment', node[0][0])
 
             embeds = node[1]['embeds']
-            self.eq(25, embeds['payer:instrument']['$nid'])
+            self.nn(embeds['payer:instrument']['$nid'])
             self.eq('infime', embeds['payer:instrument']['name'])
 
     async def test_storm_wget(self):

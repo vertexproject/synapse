@@ -26,7 +26,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('entity:contact -> inet:service:account'))
 
             nodes = await core.nodes('''
-                $item = {[ inet:fqdn=vertex.link ]}
+                $item = {[ transport:air:craft=* ]}
                 $actor = {[ entity:contact=({"name": "visi"}) ]}
 
                 [ entity:had=({"actor": $actor, "item": $item})
@@ -39,8 +39,8 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('type'), 'owner.')
             self.eq(nodes[0].get('percent'), '50')
             self.eq(nodes[0].get('period'), (1451606400000000, 9223372036854775807, 0xffffffffffffffff))
-            self.len(1, await core.nodes('entity:had :item -> inet:fqdn'))
             self.len(1, await core.nodes('entity:had :actor -> * +:name=visi'))
+            self.len(1, await core.nodes('entity:had :item -> transport:air:craft'))
 
             nodes = await core.nodes('''[
                 entity:goal=*
@@ -114,7 +114,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes(f'entity:campaign:id=Foo :slogan -> lang:phrase'))
 
             nodes = await core.nodes('''
-                [ entity:technique=*
+                [ meta:technique=*
                     :id=Foo
                     :name=Woot
                     :type=lol.woot
@@ -134,9 +134,9 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq('Foo', nodes[0].get('id'))
             self.eq(40, nodes[0].get('sophistication'))
             self.eq('vertex', nodes[0].get('reporter:name'))
-            self.len(1, await core.nodes('entity:technique -> syn:tag'))
-            self.len(1, await core.nodes('entity:technique -> entity:technique:type:taxonomy'))
-            self.len(1, await core.nodes('entity:technique :reporter -> ou:org'))
+            self.len(1, await core.nodes('meta:technique -> syn:tag'))
+            self.len(1, await core.nodes('meta:technique -> meta:technique:type:taxonomy'))
+            self.len(1, await core.nodes('meta:technique :reporter -> ou:org'))
 
             nodes = await core.nodes('''
                 [ entity:contribution=*

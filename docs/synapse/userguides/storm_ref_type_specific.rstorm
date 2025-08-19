@@ -575,7 +575,7 @@ and sets the specified secondary properties.
 
 The advantage of arbitrary values is that they are simple to generate. This is particularly useful
 for analysts who need to manually create one-off guid nodes (for example, ``entity:contact`` or
-``entity:technique`` nodes) as part of their workflow.
+``meta:technique`` nodes) as part of their workflow.
 
 The disadvantage is that arbitrary values are truly arbitrary; there is no easy way to deconflict
 the nodes. This can have undesirable consequences:

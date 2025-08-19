@@ -140,7 +140,7 @@ modeldefs = (
                 ),
                 'doc': 'An International Bank Account Number.'}),
 
-            ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{5}'}), {
+            ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?'}), {
                 'interfaces': (
                     ('entity:identifier', {}),
                 ),

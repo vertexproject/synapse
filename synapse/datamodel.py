@@ -272,6 +272,7 @@ class Form:
 
         self.props = {}     # name: Prop()
         self.ifaces = {}    # name: <ifacedef>
+        self._full_ifaces = collections.defaultdict(int)
 
         self.refsout = None
 
@@ -292,6 +293,9 @@ class Form:
         if self.isrunt and (liftfunc := self.info.get('liftfunc')) is not None:
             func = s_dyndeps.tryDynLocal(liftfunc)
             modl.core.addRuntLift(name, func)
+
+    def implements(self, ifname):
+        return bool(self._full_ifaces.get(ifname))
 
     def reqProtoDef(self, name, propname=None):
 
@@ -489,7 +493,7 @@ class Model:
         self.forms = {}  # name: Form()
         self.props = {}  # (form,name): Prop() and full: Prop()
         self.edges = {}  # (n1form, verb, n2form): Edge()
-        self._valid_edges = collections.defaultdict(list)
+        self._valid_edges = {} #  (n1form, verb, n2form): Edge()
         self.ifaces = {}  # name: <ifdef>
         self.tagprops = {}  # name: TagProp()
         self.formabbr = {}  # name: [Form(), ... ]
@@ -982,11 +986,10 @@ class Model:
         [self.edgesbyn1[n1form].add(edge) for n1form in n1forms]
         [self.edgesbyn2[n2form].add(edge) for n2form in n2forms]
 
+        self._valid_edges[edgetype] = edge
         for n1form in n1forms:
             for n2form in n2forms:
-                edgetype = (n1form, verb, n2form)
-                self.edges[edgetype] = edge
-                self._valid_edges[edgetype].append(edge)
+                self._valid_edges[(n1form, verb, n2form)] = edge
 
     def delEdge(self, edgetype):
 
@@ -1009,9 +1012,10 @@ class Model:
         [self.edgesbyn1[n1form].discard(edge) for n1form in n1forms]
         [self.edgesbyn2[n2form].discard(edge) for n2form in n2forms]
 
+        self._valid_edges.pop(edgetype, None)
         for n1form in n1forms:
             for n2form in n2forms:
-                self._valid_edges[(n1form, verb, n2form)].remove(edge)
+                self._valid_edges.pop((n1form, verb, n2form), None)
 
     def _reqFormName(self, name):
         form = self.forms.get(name)
@@ -1346,6 +1350,8 @@ class Model:
 
         iface = self.ifaces.get(name)
 
+        form._full_ifaces[name] += 1
+
         if iface is None:
             mesg = f'Form {form.name} depends on non-existent interface: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
@@ -1389,6 +1395,7 @@ class Model:
         if (iface := self.ifaces.get(name)) is None:
             return
 
+        form._full_ifaces[name] -= 1
         iface = self._prepFormIface(form, iface, ifinfo)
 
         for propname, typedef, propinfo in iface.get('props', ()):
@@ -1487,7 +1494,7 @@ class Model:
         return self.tagprops.get(name)
 
     def edge(self, edgetype):
-        return self.edges.get(edgetype)
+        return self._valid_edges.get(edgetype)
 
     def edgeIsValid(self, n1form, verb, n2form):
         if self._valid_edges.get((n1form, verb, n2form)):
