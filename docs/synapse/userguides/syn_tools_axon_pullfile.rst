@@ -1,6 +1,6 @@
 .. highlight:: none
 
-.. _syn-tools-pullfile:
+.. _syn-tools-axon-pullfile:
 
 pullfile
 ========
@@ -14,7 +14,7 @@ Syntax
 
 ::
   
-  usage: synapse.tools.pullfile [-h] -a AXON [-o OUTPUT] [-l HASHES]
+  usage: synapse.tools.axon.pullfile [-h] -a AXON [-o OUTPUT] [-l HASHES]
 
 
 Where:
@@ -38,7 +38,7 @@ Download the two files with the specified SHA256 hashes from the specified Axon 
 
 ::
   
-  python -m synapse.tools.pullfile -a aha://axon...
+  python -m synapse.tools.axon.pullfile -a aha://axon...
     -o /home/user/Documents
     -l 229cdde419ba9549023de39c6a0ca8af74b45fade2d7a22cdc4105a75cd40ab0
     -l 52c672f45adacca4878461c1bdd5800af8518e675819a0bdcd5c64a72075a478

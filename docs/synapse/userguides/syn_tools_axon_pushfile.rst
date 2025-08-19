@@ -1,6 +1,6 @@
 .. highlight:: none
 
-.. _syn-tools-pushfile:
+.. _syn-tools-axon-pushfile:
 
 pushfile
 ========
@@ -16,7 +16,7 @@ Syntax
 
 ::
   
-  usage: synapse.tools.pushfile [-h] -a AXON [-c CORTEX] [-r] [-t TAGS] filenames [filenames ...]
+  usage: synapse.tools.axon.pushfile [-h] -a AXON [-c CORTEX] [-r] [-t TAGS] filenames [filenames ...]
 
 Where:
 
@@ -44,7 +44,7 @@ Upload the file ``myreport.pdf`` to the specified Axon, create a ``file:bytes`` 
 
 ::
   
-  python -m synapse.tools.pushfile -a aha://axon... -c aha://cortex... -t sometag /home/user/reports/myreport.pdf
+  python -m synapse.tools.axon.pushfile -a aha://axon... -c aha://cortex... -t sometag /home/user/reports/myreport.pdf
   
 Executing the command will result in various status messages (lines are wrapped for readability):
 
@@ -77,7 +77,7 @@ For example (lines wrapped for readability):
 
 ::
   
-  python -m synapse.tools.pushfile -a aha://axon...
+  python -m synapse.tools.axon.pushfile -a aha://axon...
     -c aha://cortex... -t anothertag,athirdtag
       /home/user/reports/anotherreport.pdf
   
@@ -119,7 +119,7 @@ Alternatively, a glob pattern could be used to upload all PDF files in a given d
 
 ::
 
-  python -m synapse.tools.pushfile -a aha://axon...
+  python -m synapse.tools.axon.pushfile -a aha://axon...
     -c aha://cortex... -t anothertag,athirdtag
       /home/user/reports/*.pdf
  
