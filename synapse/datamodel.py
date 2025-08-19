@@ -603,6 +603,7 @@ class Model:
         info = {
             'virts': (
                 ('form', ('syn:form', {}), {
+                    'ro': True,
                     'doc': 'The form of node which is referenced.'}),
             ),
             'doc': 'The node definition type for a (form,valu) compound field.',
@@ -612,7 +613,9 @@ class Model:
 
         info = {
             'virts': (
-                ('size', ('int', {}), {'doc': 'The number of elements in the array.'}),
+                ('size', ('int', {}), {
+                    'ro': True,
+                    'doc': 'The number of elements in the array.'}),
             ),
             'doc': 'A typed array which indexes each field.'
         }

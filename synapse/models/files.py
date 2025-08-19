@@ -142,12 +142,15 @@ modeldefs = (
             ('file:path', 'synapse.models.files.FilePath', {}, {
                 'virts': (
                     ('ext', ('str', {}), {
+                        'ro': True,
                         'doc': 'The file extension from the path.'}),
 
                     ('dir', ('file:path', {}), {
+                        'ro': True,
                         'doc': 'The directory from the path.'}),
 
                     ('base', ('file:base', {}), {
+                        'ro': True,
                         'doc': 'The file base name from the path.'}),
                 ),
                 'doc': 'A normalized file path.',

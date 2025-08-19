@@ -1199,9 +1199,11 @@ modeldefs = (
                 'ex': 'tcp://1.2.3.4:80',
                 'virts': (
                     ('ip', ('inet:ip', {}), {
+                        'ro': True,
                         'doc': 'The IP address contained in the socket address URL.'}),
 
                     ('port', ('inet:port', {}), {
+                        'ro': True,
                         'doc': 'The port contained in the socket address URL.'}),
                 ),
                 'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.'}),
