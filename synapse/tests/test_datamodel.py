@@ -369,10 +369,10 @@ class DataModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            vdef = ('ip', ('inet:ip', {}), {'doc': 'The IP address of the server.'})
+            vdef = ('ip', ('inet:ip', {}), {'doc': 'The IP address of the server.', 'ro': True})
             self.eq(core.model.form('inet:server').info['virts'][0], vdef)
 
-            vdef = ('ip', ('inet:ip', {}), {'doc': 'The IP address contained in the socket address URL.'})
+            vdef = ('ip', ('inet:ip', {}), {'doc': 'The IP address contained in the socket address URL.', 'ro': True})
             self.eq(core.model.type('inet:sockaddr').info['virts'][0], vdef)
 
             vdef = ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'})
