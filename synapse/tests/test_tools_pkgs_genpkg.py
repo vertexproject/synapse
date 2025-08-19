@@ -9,7 +9,7 @@ import synapse.lib.version as s_version
 import synapse.tests.utils as s_test
 import synapse.tests.files as s_files
 
-import synapse.tools.genpkg as s_genpkg
+import synapse.tools.pkgs.genpkg as s_genpkg
 
 dirname = os.path.dirname(__file__)
 
