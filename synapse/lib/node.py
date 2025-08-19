@@ -13,11 +13,6 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
-def calcDuration(valu):
-    if (maxv := valu[1]) == 0x7fffffffffffffff:
-        return maxv + 1
-    return maxv - valu[0]
-
 storvirts = {
     s_layer.STOR_TYPE_NDEF: {
         'form': lambda x: x[0]
@@ -25,7 +20,7 @@ storvirts = {
     s_layer.STOR_TYPE_IVAL: {
         'min': lambda x: x[0],
         'max': lambda x: x[1],
-        'duration': calcDuration,
+        'duration': lambda x: x[2],
     },
 }
 
