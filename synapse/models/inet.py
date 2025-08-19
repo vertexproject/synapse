@@ -1197,13 +1197,13 @@ modeldefs = (
 
             ('inet:sockaddr', 'synapse.models.inet.SockAddr', {}, {
                 'ex': 'tcp://1.2.3.4:80',
-                'virts': {
-                    'ip': (('inet:ip', {}), {
+                'virts': (
+                    ('ip', ('inet:ip', {}), {
                         'doc': 'The IP address contained in the socket address URL.'}),
 
-                    'port': (('inet:port', {}), {
+                    ('port', ('inet:port', {}), {
                         'doc': 'The port contained in the socket address URL.'}),
-                },
+                ),
                 'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.'}),
 
             ('inet:cidr', 'synapse.models.inet.Cidr', {}, {
@@ -1269,10 +1269,10 @@ modeldefs = (
                 'doc': 'An Autonomous System Number (ASN) and its associated IP address range.'}),
 
             ('inet:client', ('inet:sockaddr', {}), {
-                'virts': {
-                    'ip': (None, {'doc': 'The IP address of the client.'}),
-                    'port': (None, {'doc': 'The port the client connected from.'}),
-                },
+                'virts': (
+                    ('ip', None, {'doc': 'The IP address of the client.'}),
+                    ('port', None, {'doc': 'The port the client connected from.'}),
+                ),
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'network client'}}),
                 ),
@@ -1356,10 +1356,10 @@ modeldefs = (
                 'doc': 'A network port.'}),
 
             ('inet:server', ('inet:sockaddr', {}), {
-                'virts': {
-                    'ip': (None, {'doc': 'The IP address of the server.'}),
-                    'port': (None, {'doc': 'The port the server is listening on.'}),
-                },
+                'virts': (
+                    ('ip', None, {'doc': 'The IP address of the server.'}),
+                    ('port', None, {'doc': 'The port the server is listening on.'}),
+                ),
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'network server'}}),
                 ),

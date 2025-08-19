@@ -548,10 +548,10 @@ class Model:
 
         info = {
             'doc': 'A date/time value.',
-            'virts': {
-                'precision': (('timeprecision', {}), {
+            'virts': (
+                ('precision', ('timeprecision', {}), {
                     'doc': 'The precision for display and rounding the time.'}),
-            },
+            ),
         }
         item = s_types.Time(self, 'time', info, {})
         self.addBaseType(item)
@@ -561,20 +561,20 @@ class Model:
         self.addBaseType(item)
 
         info = {
-            'virts': {
+            'virts': (
 
-                'min': (('time', {}), {
+                ('min', ('time', {}), {
                     'doc': 'The starting time of the interval.'}),
 
-                'max': (('time', {}), {
+                ('max', ('time', {}), {
                     'doc': 'The ending time of the interval.'}),
 
-                'duration': (('duration', {}), {
+                ('duration', ('duration', {}), {
                     'doc': 'The duration of the interval.'}),
 
-                'precision': (('timeprecision', {}), {
+                ('precision', ('timeprecision', {}), {
                     'doc': 'The precision for display and rounding the times.'}),
-            },
+            ),
             'doc': 'A time window or interval.',
         }
         item = s_types.Ival(self, 'ival', info, {})
@@ -601,19 +601,19 @@ class Model:
         self.addBaseType(item)
 
         info = {
-            'virts': {
-                'form': (('syn:form', {}), {
+            'virts': (
+                ('form', ('syn:form', {}), {
                     'doc': 'The form of node which is referenced.'}),
-            },
+            ),
             'doc': 'The node definition type for a (form,valu) compound field.',
         }
         item = s_types.Ndef(self, 'ndef', info, {})
         self.addBaseType(item)
 
         info = {
-            'virts': {
-                'size': (('int', {}), {'doc': 'The number of elements in the array.'}),
-            },
+            'virts': (
+                ('size', ('int', {}), {'doc': 'The number of elements in the array.'}),
+            ),
             'doc': 'A typed array which indexes each field.'
         }
         item = s_types.Array(self, 'array', info, {'type': 'int'})
@@ -1036,13 +1036,35 @@ class Model:
 
     def reqVirtTypes(self, virts):
 
-        for (name, (tdef, info)) in virts.items():
-
-            if tdef is None:
-                continue
-
+        for (name, tdef, info) in virts:
             if self.types.get(tdef[0]) is None:
                 raise s_exc.NoSuchType(name=tdef[0])
+
+    def mergeVirts(self, v0, v1):
+        types = {}
+        infos = {}
+
+        for (name, typedef, info) in v0:
+
+            if typedef is not None:
+                types[name] = typedef
+
+            infos.setdefault(name, {})
+            infos[name].update(info)
+
+        for (name, typedef, info) in v1:
+
+            if typedef is not None:
+                types[name] = typedef
+
+            infos.setdefault(name, {})
+            infos[name].update(info)
+
+        virts = []
+        for name, info in infos.items():
+            virts.append((name, types.get(name), info))
+
+        return tuple(virts)
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
         assert formname not in self.forms, f'{formname} form already present in model'
@@ -1055,8 +1077,13 @@ class Model:
         if _type is None:
             raise s_exc.NoSuchType(name=formname)
 
-        virts = _type.info.get('virts', {}).copy()
-        virts.update(forminfo.get('virts', {}))
+        virts = []
+
+        if (typevirts := _type.info.get('virts')) is not None:
+            virts = self.mergeVirts(virts, typevirts)
+
+        if (formvirts := forminfo.get('virts')) is not None:
+            virts = self.mergeVirts(virts, formvirts)
 
         if virts:
             self.reqVirtTypes(virts)
@@ -1210,8 +1237,12 @@ class Model:
             mesg = f'No type named {tdef[0]} while declaring prop {form.name}:{name}.'
             raise s_exc.NoSuchType(mesg=mesg, name=name)
 
-        virts = _type.info.get('virts', {}).copy()
-        virts.update(info.get('virts', {}))
+        virts = []
+        if (typevirts := _type.info.get('virts')) is not None:
+            virts = self.mergeVirts(virts, typevirts)
+
+        if (propvirts := info.get('virts')) is not None:
+            virts = self.mergeVirts(virts, propvirts)
 
         if virts:
             self.reqVirtTypes(virts)
