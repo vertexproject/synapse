@@ -2768,7 +2768,7 @@ class Time(IntBase):
             return valu, {}
 
         if valu > self.maxsize or valu < self.minsize:
-            mesg = f'Time outisde of allowed range [{self.minsize} to {self.maxsize}], got {valu}'
+            mesg = f'Time outside of allowed range [{self.minsize} to {self.maxsize}], got {valu}'
             raise s_exc.BadTypeValu(mesg=mesg, valu=valu, prec=prec, maxfill=self.maxfill, name=self.name)
 
         if prec is None or prec == self.prec:

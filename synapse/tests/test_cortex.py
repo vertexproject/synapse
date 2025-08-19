@@ -2133,9 +2133,8 @@ class CortexTest(s_t_utils.SynTest):
 
         data = {}
 
-        def onPropDel(node, oldv):
+        def onPropDel(node):
             data['prop:del'] = True
-            self.eq(oldv, 100)
 
         def onNodeDel(node):
             data['node:del'] = True
@@ -3198,8 +3197,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         arg_hit = {}
 
-        async def test_cb(node, oldv):
-            arg_hit['hit'] = (node, oldv)
+        async def test_cb(node):
+            arg_hit['hit'] = (node,)
 
         async with self.getTestCore() as core:
             core.model.prop('test:str:hehe').onSet(test_cb)
@@ -3209,7 +3208,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.get('hehe'), 'haha')
             self.eq(node, arg_hit['hit'][0])
-            self.none(arg_hit['hit'][1])
 
             arg_hit.clear()
             nodes = await core.nodes('test:str=hi [:hehe=weee]')
@@ -3218,7 +3216,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.eq(node.get('hehe'), 'weee')
             self.eq(node, arg_hit['hit'][0])
-            self.eq(arg_hit['hit'][1], 'haha')
 
             arg_hit.clear()
             core.model.prop('test:str:hehe').onDel(test_cb)
@@ -3228,7 +3225,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             node = nodes[0]
             self.none(node.get('hehe'))
             self.eq(node, arg_hit['hit'][0])
-            self.eq(arg_hit['hit'][1], 'weee')
 
     async def test_storm_logging(self):
         async with self.getTestCoreAndProxy() as (realcore, core):

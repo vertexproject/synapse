@@ -219,15 +219,15 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if etyp == s_layer.EDIT_PROP_SET:
 
-                    (name, valu, oldv, stype, _) = parms
+                    name = parms[0]
 
                     prop = node.form.props.get(name)
                     if prop is None:  # pragma: no cover
                         logger.warning(f'saveNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form.full}')
                         continue
 
-                    callbacks.append((prop.wasSet, (node, oldv)))
-                    callbacks.append((self.runPropSet, (node, prop, oldv)))
+                    callbacks.append((prop.wasSet, (node,)))
+                    callbacks.append((self.runPropSet, (node, prop)))
 
                     if fireedits is not None:
                         editset.append(edit)
@@ -235,7 +235,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if etyp == s_layer.EDIT_PROP_TOMB_DEL:
 
-                    (name,) = parms
+                    name = parms[0]
 
                     if (oldv := node.getWithVirts(name)) is not None:
                         prop = node.form.props.get(name)
@@ -243,8 +243,8 @@ class View(s_nexus.Pusher):  # type: ignore
                             logger.warning(f'saveNodeEdits got EDIT_PROP_TOMB_DEL for bad prop {name} on form {node.form.full}')
                             continue
 
-                        callbacks.append((prop.wasSet, (node, oldv[0])))
-                        callbacks.append((self.runPropSet, (node, prop, oldv[0])))
+                        callbacks.append((prop.wasSet, (node,)))
+                        callbacks.append((self.runPropSet, (node, prop)))
 
                         if fireedits is not None:
                             editset.append((etyp, (name, *oldv)))
@@ -252,15 +252,15 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if etyp == s_layer.EDIT_PROP_DEL:
 
-                    (name, oldv, stype) = parms
+                    name = parms[0]
 
                     prop = node.form.props.get(name)
                     if prop is None:  # pragma: no cover
                         logger.warning(f'saveNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form.full}')
                         continue
 
-                    callbacks.append((prop.wasDel, (node, oldv)))
-                    callbacks.append((self.runPropSet, (node, prop, oldv)))
+                    callbacks.append((prop.wasDel, (node,)))
+                    callbacks.append((self.runPropSet, (node, prop)))
 
                     if fireedits is not None:
                         editset.append(edit)
@@ -268,7 +268,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if etyp == s_layer.EDIT_PROP_TOMB:
 
-                    (name,) = parms
+                    name = parms[0]
 
                     oldv = node.getFromLayers(name, strt=1, defv=s_common.novalu)
                     if oldv is s_common.novalu:  # pragma: no cover
@@ -279,8 +279,8 @@ class View(s_nexus.Pusher):  # type: ignore
                         logger.warning(f'saveNodeEdits got EDIT_PROP_TOMB for bad prop {name} on form {node.form.full}')
                         continue
 
-                    callbacks.append((prop.wasDel, (node, oldv)))
-                    callbacks.append((self.runPropSet, (node, prop, oldv)))
+                    callbacks.append((prop.wasDel, (node,)))
+                    callbacks.append((self.runPropSet, (node, prop)))
 
                     if fireedits is not None:
                         editset.append(edit)
@@ -288,29 +288,28 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if etyp == s_layer.EDIT_TAG_SET:
 
-                    (tag, valu, oldv) = parms
+                    (tag, valu) = parms
 
-                    callbacks.append((self.runTagAdd, (node, tag, valu)))
+                    callbacks.append((self.runTagAdd, (node, tag)))
 
                     if fireedits is not None:
                         editset.append(edit)
                     continue
 
                 if etyp == s_layer.EDIT_TAG_TOMB_DEL:
-                    (tag,) = parms
+                    tag = parms[0]
 
                     if (oldv := node.getTag(tag)) is not None:
-                        callbacks.append((self.runTagAdd, (node, tag, oldv)))
+                        callbacks.append((self.runTagAdd, (node, tag)))
 
                         if fireedits is not None:
                             editset.append((etyp, (tag, oldv)))
                     continue
 
                 if etyp == s_layer.EDIT_TAG_DEL:
+                    tag = parms[0]
 
-                    (tag, oldv) = parms
-
-                    callbacks.append((self.runTagDel, (node, tag, oldv)))
+                    callbacks.append((self.runTagDel, (node, tag)))
 
                     if fireedits is not None:
                         editset.append(edit)
@@ -318,13 +317,13 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if etyp == s_layer.EDIT_TAG_TOMB:
 
-                    (tag,) = parms
+                    tag = parms[0]
 
                     oldv = node.getTagFromLayers(tag, strt=1, defval=s_common.novalu)
                     if oldv is s_common.novalu:  # pragma: no cover
                         continue
 
-                    callbacks.append((self.runTagDel, (node, tag, oldv)))
+                    callbacks.append((self.runTagDel, (node, tag,)))
 
                     if fireedits is not None:
                         editset.append(edit)
@@ -2301,7 +2300,7 @@ class View(s_nexus.Pusher):  # type: ignore
         layer = self.layers[0]
         await layer.confirmLayerEditPerms(user, layer.iden, delete=True)
 
-    async def runTagAdd(self, node, tag, valu):
+    async def runTagAdd(self, node, tag):
 
         if self.core.migration or self.core.safemode:
             return
@@ -2309,7 +2308,7 @@ class View(s_nexus.Pusher):  # type: ignore
         # Run any trigger handlers
         await self.triggers.runTagAdd(node, tag)
 
-    async def runTagDel(self, node, tag, valu):
+    async def runTagDel(self, node, tag):
 
         if self.core.migration or self.core.safemode:
             return
@@ -2330,14 +2329,14 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.triggers.runNodeDel(node)
 
-    async def runPropSet(self, node, prop, oldv):
+    async def runPropSet(self, node, prop):
         '''
         Handle when a prop set trigger event fired
         '''
         if self.core.migration or self.core.safemode:
             return
 
-        await self.triggers.runPropSet(node, prop, oldv)
+        await self.triggers.runPropSet(node, prop)
 
     async def runEdgeAdd(self, n1, edge, n2ndef):
 
