@@ -81,7 +81,7 @@ Notably, the Synapse ``pushfile`` and ``pullfile`` tools (used to upload and dow
 
 ``storm> !pullfile``
 
-See :ref:`syn-tools-pushfile` and :ref:`syn-tools-pullfile` for additional detail on these tools.
+See :ref:`syn-tools-axon-pushfile` and :ref:`syn-tools-axon-pullfile` for additional detail on these tools.
 
 **Help** for any external command can be viewed by entering ``-h`` or ``--help`` after the command:
 

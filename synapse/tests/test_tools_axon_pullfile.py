@@ -5,7 +5,7 @@ import pathlib
 from unittest import mock
 
 import synapse.tests.utils as s_t_utils
-import synapse.tools.pullfile as s_pullfile
+import synapse.tools.axon.pullfile as s_pullfile
 
 class TestPullFile(s_t_utils.SynTest):
 

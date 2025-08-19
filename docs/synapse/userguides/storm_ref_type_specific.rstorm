@@ -456,7 +456,7 @@ Creating ``file:bytes`` nodes in this manner is often done programmatically (suc
 - the built-in Synapse :ref:`storm-wget` command;
 - the  **Upload File** menu option available from the `Optic UI`_, which allows you to either
   upload a file from local disk, or download a file from a specified URL; or
-- the ``pushfile`` tool, available from the CLI in the community version of Synapse (see :ref:`syn-tools-pushfile`).
+- the ``pushfile`` tool, available from the CLI in the community version of Synapse (see :ref:`syn-tools-axon-pushfile`).
 
 .. TIP::
   

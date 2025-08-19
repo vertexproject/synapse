@@ -3,7 +3,7 @@ import hashlib
 
 import synapse.common as s_common
 
-import synapse.tools.pushfile as s_pushfile
+import synapse.tools.axon.pushfile as s_pushfile
 
 import synapse.tests.utils as s_t_utils
 
