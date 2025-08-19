@@ -1467,12 +1467,12 @@ class StormTest(s_t_utils.SynTest):
 
             self.eq(nodes[1][1]['props']['bar'], ('test:str', 'bar'))
             self.eq(nodes[1][1]['props']['bar.form'], 'test:str')
-            self.eq(nodes[1][1]['props']['seen'], (1577836800000000, 1577836800000001))
+            self.eq(nodes[1][1]['props']['seen'], (1577836800000000, 1577836800000001, 1))
             self.eq(nodes[1][1]['props']['seen.min'], 1577836800000000)
             self.eq(nodes[1][1]['props']['seen.max'], 1577836800000001)
             self.eq(nodes[1][1]['props']['seen.duration'], 1)
 
-            self.eq(nodes[2][1]['props']['seen'], (1577836800000000, 0x7fffffffffffffff))
+            self.eq(nodes[2][1]['props']['seen'], (1577836800000000, 0x7fffffffffffffff, 0xffffffffffffffff))
             self.eq(nodes[2][1]['props']['seen.min'], 1577836800000000)
             self.eq(nodes[2][1]['props']['seen.max'], 0x7fffffffffffffff)
             self.eq(nodes[2][1]['props']['seen.duration'], 0x8000000000000000)
