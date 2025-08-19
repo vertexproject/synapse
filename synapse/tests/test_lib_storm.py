@@ -134,8 +134,8 @@ class StormTest(s_t_utils.SynTest):
 
                 $lib.print(`ip={$node.repr()} asn={:asn} foo={#foo} {:asn=5}`)
             ''')
-            self.stormIsInPrint('ip=0.0.0.0 asn=5 foo=(None, None) true', msgs)
-            self.stormIsInPrint('ip=1.1.1.1 asn=6 foo=(3, 4) false', msgs)
+            self.stormIsInPrint('ip=0.0.0.0 asn=5 foo=(None, None, None) true', msgs)
+            self.stormIsInPrint('ip=1.1.1.1 asn=6 foo=(3, 4, 1) false', msgs)
 
             retn = await core.callStorm('''
                 $foo = mystr
@@ -865,10 +865,10 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('Imported Module foo.bar', msgs)
             self.stormIsInErr('Cannot find name [newp]', msgs)
 
-            self.eq(s_version.commit, await core.callStorm('return($lib.version.commit())'))
-            self.eq(s_version.version, await core.callStorm('return($lib.version.synapse())'))
-            self.true(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">=2.9.0"))'))
-            self.false(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">0.0.1,<2.0"))'))
+            self.eq(s_version.commit, await core.callStorm('return($lib.version.commit)'))
+            self.eq(s_version.version, await core.callStorm('return($lib.version.synapse)'))
+            self.true(await core.callStorm('return($lib.version.matches($lib.version.synapse, ">=2.9.0"))'))
+            self.false(await core.callStorm('return($lib.version.matches($lib.version.synapse, ">0.0.1,<2.0"))'))
 
             # check that the feed API uses toprim
             email = await core.callStorm('''
@@ -1005,7 +1005,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq('11.22.33.44', ipv4)
 
             sodes = await core.callStorm('inet:ip=11.22.33.44 return($node.getStorNodes())', opts=opts)
-            self.eq((1577836800000000, 1577836800000001), sodes[0]['tags']['foo'])
+            self.eq((1577836800000000, 1577836800000001, 1), sodes[0]['tags']['foo'])
             self.eq((99, 9, None), sodes[0]['props']['asn'])
             self.eq(((4, 185999660), 26, None), sodes[1]['valu'])
             self.eq(('unicast', 1, None), sodes[1]['props']['type'])
@@ -1453,7 +1453,7 @@ class StormTest(s_t_utils.SynTest):
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
             self.len(1, nodes)
             self.nn(nodes[0][1]['storage'][1]['meta']['created'])
-            self.eq((None, None), nodes[0][1]['storage'][0]['tags']['foo'])
+            self.eq((None, None, None), nodes[0][1]['storage'][0]['tags']['foo'])
 
             opts = {'node:opts': {'virts': True}}
             msgs = await core.stormlist('[ it:exec:query=* :time=2025-04? ]', opts=opts)
@@ -1728,7 +1728,7 @@ class StormTest(s_t_utils.SynTest):
 
             await core.nodes('diff | merge --exclude-props ou:org:url --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.eq(nodes[0].get('lifespan'), (1609459200000000, 9223372036854775807))
+            self.eq(nodes[0].get('lifespan'), (1609459200000000, 9223372036854775807, 0xffffffffffffffff))
             self.none(nodes[0].get('url'))
 
             await core.nodes('[ ou:org=(org2,) +#six ]', opts=altview)
@@ -1945,7 +1945,7 @@ class StormTest(s_t_utils.SynTest):
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view2)
             sode = sodes[0]
             self.eq(sode['props'].get('desc')[0], 'layr1')
-            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1640995200000001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1640995200000001, 1))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.len(1, await core.nodes('ou:org=(foo,) -(_bar)> *', opts=view2))
             data = await core.callStorm('ou:org=(foo,) return($node.data.get(foo))', opts=view2)
@@ -1973,7 +1973,7 @@ class StormTest(s_t_utils.SynTest):
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view3)
             sode = sodes[0]
             self.eq(sode['props'].get('desc')[0], 'layr1')
-            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1672531200000001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1672531200000001, 31536000000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.eq(sode['tagprops'].get('two').get('score')[0], 1)
 
@@ -1989,7 +1989,7 @@ class StormTest(s_t_utils.SynTest):
 
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view2)
             sode = sodes[0]
-            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1672531200000001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1672531200000001, 31536000000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.eq(sode['tagprops'].get('two').get('score')[0], 1)
             self.len(1, await core.nodes('ou:org=(foo,) -(_bar)> *', opts=view2))
@@ -2018,7 +2018,7 @@ class StormTest(s_t_utils.SynTest):
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view3)
             sode = sodes[0]
             self.eq(sode['props'].get('desc')[0], 'prio')
-            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1704067200000001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1704067200000001, 63072000000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 2)
             self.eq(sode['tagprops'].get('two').get('score')[0], 2)
             self.len(1, await core.nodes('ou:org=(foo,) -(_bar)> *', opts=view3))
@@ -2059,6 +2059,15 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('ou:org=(cov,) -(*)> * | count | spin', opts=view2)
             self.stormIsInPrint('1001', msgs)
+
+            await core.nodes('[ ou:org=(tagmerge,) +#foo=2020 ]', opts=view2)
+            await core.nodes('[ ou:org=(tagmerge,) +#foo ]')
+
+            await core.nodes('ou:org=(tagmerge,) | movenodes --apply', opts=view2)
+
+            sodes = await core.callStorm('ou:org=(tagmerge,) return($node.getStorNodes())', opts=view2)
+            self.eq(sodes[0]['tags'], {'foo': (1577836800000000, 1577836800000001, 1)})
+            self.none(sodes[1].get('tags'))
 
             visi = await core.auth.addUser('visi')
             await visi.addRule((True, ('view', 'fork')))
@@ -2829,7 +2838,7 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq((20, 30), node.get('#woot.haha'))
+            self.eq((20, 30, 10), node.get('#woot.haha'))
             self.none(node.get('#hehe'))
             self.none(node.get('#hehe.haha'))
 
