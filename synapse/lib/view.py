@@ -219,7 +219,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if etyp == s_layer.EDIT_PROP_SET:
 
-                    (name, valu, stype, _) = parms
+                    (name, valu, stype, vvals) = parms
 
                     prop = node.form.props.get(name)
                     if prop is None:  # pragma: no cover
@@ -231,6 +231,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     if fireedits is not None:
                         virts = {}
+                        if vvals is not None:
+                            for vname, vval in vvals.items():
+                                virts[vname] = vval[0]
+
                         edit = (etyp, (name, valu, stype, virts))
 
                         if stype & s_layer.STOR_FLAG_ARRAY:

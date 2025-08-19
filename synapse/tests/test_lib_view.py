@@ -487,6 +487,10 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(cmsgs[1][0][2][0][1][3], {'min': 1577836800000000, 'max': 1577836800000001, 'duration': 1})
             self.eq(cmsgs[2][0][2][0][1][3], {'size': 2, 'form': ['test:str', 'test:str']})
 
+            msgs = await core.stormlist('[test:guid=* :server=1.2.3.4:80]')
+            cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
+            self.eq(cmsgs[1][0][2][0][1][3], {'ip': (4, 16909060), 'port': 80})
+
     async def test_lib_view_addNodeEdits(self):
 
         async with self.getTestCore() as core:
