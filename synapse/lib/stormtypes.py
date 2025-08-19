@@ -7148,7 +7148,7 @@ class Layer(Prim):
          'desc': 'Set a property on a node in this layer.',
          'type': {'type': 'function', '_funcname': 'setStorNodeProp',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The node iden.'},
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                       {'name': 'prop', 'type': 'str', 'desc': 'The property name to set.'},
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to set.'},
                   ),
@@ -7157,7 +7157,7 @@ class Layer(Prim):
          'desc': 'Delete a property from a node in this layer.',
          'type': {'type': 'function', '_funcname': 'delStorNodeProp',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The node iden.'},
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                       {'name': 'prop', 'type': 'str', 'desc': 'The property name to delete.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
@@ -7459,10 +7459,10 @@ class Layer(Prim):
         layr = self.runt.snap.core.getLayer(iden)
         return await layr.getMirrorStatus()
 
-    async def setStorNodeProp(self, buid, prop, valu):
+    async def setStorNodeProp(self, nodeid, prop, valu):
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
-        buid = s_common.uhex(await tostr(buid))
+        buid = s_common.uhex(await tostr(nodeid))
         prop = await tostr(prop)
         valu = await toprim(valu)
         if not self.runt.isAdmin():
@@ -7470,10 +7470,10 @@ class Layer(Prim):
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await layr.setStorNodeProp(buid, prop, valu)
 
-    async def delStorNodeProp(self, buid, prop):
+    async def delStorNodeProp(self, nodeid, prop):
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
-        buid = s_common.uhex(await tostr(buid))
+        buid = s_common.uhex(await tostr(nodeid))
         prop = await tostr(prop)
         if not self.runt.isAdmin():
             mesg = 'delStorNodeProp() requires admin privileges.'
@@ -7781,8 +7781,11 @@ class Layer(Prim):
         if propvalu is not None:
             norm, info = prop.type.norm(propvalu)
             cmprvals = prop.type.getStorCmprs(propcmpr, norm)
+            async for _, buid, sode in layr.liftByPropValu(prop.form.name, prop.name, cmprvals):
+                yield (s_common.ehex(buid), sode)
+            return
 
-        async for _, buid, sode in layr.liftByProp(prop.form.name, prop.name, cmprvals):
+        async for _, buid, sode in layr.liftByProp(prop.form.name, prop.name):
             yield (s_common.ehex(buid), sode)
 
     @stormfunc(readonly=True)
