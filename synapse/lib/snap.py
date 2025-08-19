@@ -987,7 +987,7 @@ class Snap(s_base.Base):
                 sodes.append((iden, newsodes[iden]))
 
         for iden, sode in cache.items():
-            if iden not in [l.iden for l in self.layers]:
+            if iden not in [layr.iden for layr in self.layers]:
                 sodes.append((iden, sode))
 
         return await self._joinSodes(buid, sodes)
