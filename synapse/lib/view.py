@@ -230,6 +230,19 @@ class View(s_nexus.Pusher):  # type: ignore
                     callbacks.append((self.runPropSet, (node, prop, oldv)))
 
                     if fireedits is not None:
+                        virts = {}
+                        edit = (etyp, (name, valu, oldv, stype, virts))
+
+                        if stype & s_layer.STOR_FLAG_ARRAY:
+                            virts['size'] = len(valu)
+                            if (svirts := s_node.storvirts.get(stype & 0x7fff)) is not None:
+                                for vname, getr in svirts.items():
+                                    virts[vname] = [getr(v) for v in valu]
+                        else:
+                            if (svirts := s_node.storvirts.get(stype)) is not None:
+                                for vname, getr in svirts.items():
+                                    virts[vname] = getr(valu)
+
                         editset.append(edit)
                     continue
 

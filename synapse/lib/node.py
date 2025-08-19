@@ -875,19 +875,16 @@ class Node(NodeBase):
                         for vname, vval in vprops.items():
                             retn[f'{name}.{vname}'] = vval[0]
 
-                    isarray = False
                     stortype = valt[1]
 
-                    if valt[1] & s_layer.STOR_FLAG_ARRAY:
-                        isarray = True
-                        stortype = stortype & 0x7fff
+                    if stortype & s_layer.STOR_FLAG_ARRAY:
                         retn[f'{name}.size'] = len(valu)
-
-                    if (svirts := storvirts.get(stortype)) is not None:
-                        for vname, getr in svirts.items():
-                            if isarray:
+                        if (svirts := storvirts.get(stortype & 0x7fff)) is not None:
+                            for vname, getr in svirts.items():
                                 retn[f'{name}.{vname}'] = [getr(v) for v in valu]
-                            else:
+                    else:
+                        if (svirts := storvirts.get(stortype)) is not None:
+                            for vname, getr in svirts.items():
                                 retn[f'{name}.{vname}'] = getr(valu)
 
             else:

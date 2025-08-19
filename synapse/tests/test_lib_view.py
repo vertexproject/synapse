@@ -482,6 +482,11 @@ class ViewTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadConfValu):
                 await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'jsonl'})
 
+            msgs = await core.stormlist('[test:str=virts :seen=2020 :ndefs={[test:str=foo1 test:str=foo3]}]')
+            cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
+            self.eq(cmsgs[1][0][2][0][1][4], {'min': 1577836800000000, 'max': 1577836800000001, 'duration': 1})
+            self.eq(cmsgs[2][0][2][0][1][4], {'size': 2, 'form': ['test:str', 'test:str']})
+
     async def test_lib_view_addNodeEdits(self):
 
         async with self.getTestCore() as core:
