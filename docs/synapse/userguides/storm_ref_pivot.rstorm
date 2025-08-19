@@ -409,9 +409,9 @@ you must use explicit syntax.
 
 *Pivot from a set of risk:threat nodes to the entity:relationship nodes associated with the threat:*
 
-.. storm-pre:: [ entity:relationship=* :source={[ risk:threat=* :org:name=greencat]} ]
-.. storm-pre:: risk:threat:org:name=greencat -> entity:relationship
-.. storm-pre:: risk:threat:org:name=greencat -> entity:relationship:source
+.. storm-pre:: [ entity:relationship=* :source={[ risk:threat=* :name=greencat]} ]
+.. storm-pre:: risk:threat:name=greencat -> entity:relationship
+.. storm-pre:: risk:threat:name=greencat -> entity:relationship:source
 
 ::
   
@@ -1098,7 +1098,7 @@ Specify the name (verb) of the edge you want to traverse to navigate a single ed
 
 ..
     FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ (risk:threat=* :org:name='vicious wombat' :reporter:name=thesilence) ] [ +(uses)> { [ risk:tool:software=* ] } ]
+    .. storm-pre:: [ (risk:threat=* :name='vicious wombat' :reporter:name=thesilence) ] [ +(uses)> { [ risk:tool:software=* ] } ]
     .. storm-pre:: risk:threat -(uses)> risk:tool:software
 
 ::
@@ -1202,7 +1202,7 @@ Use the wildcard (asterisk) character ( ``*`` ) to traverse any edges present in
 
 ..
     FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ risk:vuln=* ] [ <(uses)+ { risk:threat:org:name='vicious wombat' } ]
+    .. storm-pre:: [ risk:vuln=* ] [ <(uses)+ { risk:threat:name='vicious wombat' } ]
     .. storm-pre:: risk:vuln <(*)- *
 
 ::
@@ -1438,8 +1438,8 @@ or with a wildcard to represent any / all edges (e.g., ``-(*)+>`` ).
 
 ..
     FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ ( risk:threat=* :org:name='sparkling unicorn' ) (risk:vuln=* :cve=cve-2012-0158) ]
-    .. storm-pre:: risk:threat:org:name='sparkling unicorn' [ +(uses)> { risk:vuln:cve=cve-2012-0158 } ] [ +(targets)> { ou:org:name=vertex } ]
+    .. storm-pre:: [ ( risk:threat=* :name='sparkling unicorn' ) (risk:vuln=* :cve=cve-2012-0158) ]
+    .. storm-pre:: risk:threat:name='sparkling unicorn' [ +(uses)> { risk:vuln:cve=cve-2012-0158 } ] [ +(targets)> { ou:org:name=vertex } ]
     .. storm-pre:: risk:threat -( (uses, targets) )+> *
 
 ::
