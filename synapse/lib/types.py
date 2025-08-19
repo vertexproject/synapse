@@ -2012,6 +2012,10 @@ class Ndef(Type):
         self.forms = self.opts.get('forms')
         self.iface = self.opts.get('interface')
 
+        if self.forms and self.iface:
+            mesg = 'Ndef type may not specify both forms and iterface.'
+            raise s_exc.BadTypeDef(mesg=mesg, opts=self.opts)
+
         if self.forms or self.iface:
 
             if self.forms is not None:
