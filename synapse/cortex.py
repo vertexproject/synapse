@@ -3137,7 +3137,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     nodeedits = []
                     for nid, valu in rows:
                         nodeedits.append((s_common.int64un(nid), form, (
-                            (s_layer.EDIT_TAGPROP_DEL, (tag, prop.name, None, prop.type.stortype), ()),
+                            (s_layer.EDIT_TAGPROP_DEL, (tag, prop.name), ()),
                         )))
 
                     await layr.saveNodeEdits(nodeedits, meta)

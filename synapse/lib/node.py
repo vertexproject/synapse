@@ -939,7 +939,7 @@ class Node(NodeBase):
 
         return dict(retn)
 
-    async def addTag(self, tag, valu=(None, None), norminfo=None):
+    async def addTag(self, tag, valu=(None, None, None), norminfo=None):
         '''
         Add a tag to a node.
 
@@ -1483,7 +1483,7 @@ def _tagscommon(pode, leafonly):
     for tag, val in sorted((t for t in pode[1]['tags'].items()), reverse=True, key=lambda x: len(x[0])):
         look = tag + '.'
         val = tuple(val)
-        if (leafonly or val == (None, None)) and any([r.startswith(look) for r in retn]):
+        if (leafonly or val == (None, None, None)) and any([r.startswith(look) for r in retn]):
             continue
         retn.append(tag)
     return retn
@@ -1613,7 +1613,7 @@ def reprTag(pode, tag):
     if valu is None:
         return None
     valu = tuple(valu)
-    if valu == (None, None):
+    if valu == (None, None, None):
         return ''
     mint = s_time.repr(valu[0])
     maxt = s_time.repr(valu[1])

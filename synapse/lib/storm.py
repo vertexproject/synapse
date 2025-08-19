@@ -657,7 +657,7 @@ stormcmds = (
                 $ssl = $lib.true
                 if $cmdopts.ssl_noverify { $ssl = $lib.false }
 
-                $headers = ({'X-Synapse-Version': ('.').join($lib.version.synapse())})
+                $headers = ({'X-Synapse-Version': ('.').join($lib.version.synapse)})
 
                 $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl, headers=$headers)
 
@@ -688,8 +688,8 @@ stormcmds = (
         'name': 'version',
         'descr': 'Show version metadata relating to Synapse.',
         'storm': '''
-            $comm = $lib.version.commit()
-            $synv = $lib.version.synapse()
+            $comm = $lib.version.commit
+            $synv = $lib.version.synapse
 
             if $synv {
                 $synv = ('.').join($synv)
@@ -699,8 +699,8 @@ stormcmds = (
                 $comm = $comm.slice(0,7)
             }
 
-            $lib.print('Synapse Version: {s}', s=$synv)
-            $lib.print('Commit Hash: {c}', c=$comm)
+            $lib.print('Synapse Version: {$synv}')
+            $lib.print('Commit Hash: {$comm}')
         ''',
     },
     {
@@ -3664,7 +3664,7 @@ class MergeCmd(Cmd):
             tags = []
             tagadds = []
             for tag, valu in sode.get('tags', {}).items():
-                if valu != (None, None):
+                if valu != (None, None, None):
                     tagadds.append(tag)
                     tagperm = tuple(tag.split('.'))
                     if not self.opts.wipe:
@@ -3927,7 +3927,7 @@ class MergeCmd(Cmd):
                     else:
                         await protonode.set(name, valu)
                         if not self.opts.wipe:
-                            subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
+                            subs.append((s_layer.EDIT_PROP_DEL, (name,)))
 
                 for name in sode.get('antiprops', {}).keys():
                     if not doapply:
@@ -3953,14 +3953,14 @@ class MergeCmd(Cmd):
 
                     if not doapply:
                         valurepr = ''
-                        if valu != (None, None):
+                        if valu != (None, None, None):
                             tagrepr = runt.model.type('ival').repr(valu)
                             valurepr = f' = {tagrepr}'
                         await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
                     else:
                         await protonode.addTag(tag, valu)
                         if not self.opts.wipe:
-                            subs.append((s_layer.EDIT_TAG_DEL, (tag, valu)))
+                            subs.append((s_layer.EDIT_TAG_DEL, (tag,)))
 
                 for tag in sode.get('antitags', {}).keys():
 
@@ -3986,7 +3986,7 @@ class MergeCmd(Cmd):
                         else:
                             await protonode.setTagProp(tag, prop, valu)
                             if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype)))
+                                subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop)))
 
                 for tag, tagdict in sode.get('antitagprops', {}).items():
 
@@ -4019,7 +4019,7 @@ class MergeCmd(Cmd):
                         else:
                             await protonode.setData(name, valu)
                             if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu)))
+                                subs.append((s_layer.EDIT_NODEDATA_DEL, (name,)))
 
                 async for abrv, n2nid, tomb in s_coro.pause(layr0.iterNodeEdgesN1(node.nid)):
                     verb = core.getAbrvIndx(abrv)[0]
@@ -4041,7 +4041,7 @@ class MergeCmd(Cmd):
                                 subs.append((s_layer.EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
 
             if delnode and not self.opts.wipe:
-                subs.append((s_layer.EDIT_NODE_DEL, valu))
+                subs.append((s_layer.EDIT_NODE_DEL, ()))
 
             if doapply:
                 await editor.flushEdits()
@@ -4298,25 +4298,25 @@ class MoveNodesCmd(Cmd):
             await self._moveEdges(node, meta, delnode)
 
             for layr, valu in delnodes:
-                edit = [(s_common.int64un(node.nid), node.form.name, [(s_layer.EDIT_NODE_DEL, valu)])]
+                edit = [(s_common.int64un(node.nid), node.form.name, [(s_layer.EDIT_NODE_DEL, ())])]
                 await self.lyrs[layr].saveNodeEdits(edit, meta=meta)
 
             if delnode and destsode.get('antivalu') is None:
                 if (valu := destsode.get('valu')) is not None:
-                    self.adds.append((s_layer.EDIT_NODE_DEL, valu))
+                    self.adds.append((s_layer.EDIT_NODE_DEL, ()))
 
                 if (tags := destsode.get('tags')) is not None:
                     for name in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
-                        self.adds.append((s_layer.EDIT_TAG_DEL, (name, None)))
+                        self.adds.append((s_layer.EDIT_TAG_DEL, (name,)))
 
                 if (props := destsode.get('props')) is not None:
                     for name, stortype in props.items():
-                        self.adds.append((s_layer.EDIT_PROP_DEL, (name, None, stortype)))
+                        self.adds.append((s_layer.EDIT_PROP_DEL, (name,)))
 
                 if (tagprops := destsode.get('tagprops')) is not None:
                     for tag, props in tagprops.items():
                         for name, stortype in props.items():
-                            self.adds.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, stortype)))
+                            self.adds.append((s_layer.EDIT_TAGPROP_DEL, (tag, name)))
 
                 if self.opts.preserve_tombstones:
                     self.adds.append((s_layer.EDIT_NODE_TOMB, ()))
@@ -4381,7 +4381,7 @@ class MoveNodesCmd(Cmd):
                     await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}.{name} = {valurepr}')
                 else:
                     stortype = self.runt.model.metatypes[name].stortype
-                    self.adds.append((s_layer.EDIT_META_SET, (name, valu, None, stortype)))
+                    self.adds.append((s_layer.EDIT_META_SET, (name, valu, stortype)))
 
         await self._sync(node, meta)
 
@@ -4417,7 +4417,7 @@ class MoveNodesCmd(Cmd):
                         valurepr = node.form.prop(name).type.repr(valu)
                         await self.runt.printf(f'{layr} delete {nodeiden} {form}:{name} = {valurepr}')
                     else:
-                        self.subs[layr].append((s_layer.EDIT_PROP_DEL, (name, None, stortype)))
+                        self.subs[layr].append((s_layer.EDIT_PROP_DEL, (name,)))
 
             for name in sode.get('antiprops', {}).keys():
 
@@ -4440,14 +4440,14 @@ class MoveNodesCmd(Cmd):
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}:{name} = {valurepr}')
                     else:
                         stortype = node.form.prop(name).type.stortype
-                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype, virtvals.get('name'))))
+                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, stortype, virtvals.get('name'))))
                 else:
                     if destprops is not None and (destvalu := destprops.get(name)) is not None:
                         if not self.opts.apply:
                             valurepr = node.form.prop(name).type.repr(destvalu[0])
                             await self.runt.printf(f'{self.destlayr} delete {nodeiden} {form}:{name} = {valurepr}')
                         else:
-                            self.adds.append((s_layer.EDIT_PROP_DEL, (name, None, destvalu[1])))
+                            self.adds.append((s_layer.EDIT_PROP_DEL, (name,)))
 
                     if self.opts.preserve_tombstones:
                         if not self.opts.apply:
@@ -4469,21 +4469,21 @@ class MoveNodesCmd(Cmd):
             for tag, valu in sode.get('tags', {}).items():
 
                 if (oldv := tagvals.get(tag)) is not s_common.novalu:
-                    if (oldv := tagvals.get(tag)) is None or oldv == (None, None):
+                    if (oldv := tagvals.get(tag)) is None or oldv == (None, None, None):
                         tagvals[tag] = valu
-
+                    elif valu == (None, None, None):
+                        tagvals[tag] = oldv
                     else:
-                        allv = oldv + valu
-                        tagvals[tag] = (min(allv), max(allv))
+                        tagvals[tag] = tagtype.merge(oldv, valu)
 
                 if not layr == self.destlayr:
                     if not self.opts.apply:
                         valurepr = ''
-                        if valu != (None, None):
+                        if valu != (None, None, None):
                             valurepr = f' = {tagtype.repr(valu)}'
                         await self.runt.printf(f'{layr} delete {nodeiden} {form}#{tag}{valurepr}')
                     else:
-                        self.subs[layr].append((s_layer.EDIT_TAG_DEL, (tag, None)))
+                        self.subs[layr].append((s_layer.EDIT_TAG_DEL, (tag,)))
 
             for tag in sode.get('antitags', {}).keys():
 
@@ -4503,22 +4503,22 @@ class MoveNodesCmd(Cmd):
                 if valu is not s_common.novalu:
                     if not self.opts.apply:
                         valurepr = ''
-                        if valu != (None, None):
+                        if valu != (None, None, None):
                             valurepr = f' = {tagtype.repr(valu)}'
 
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}#{tag}{valurepr}')
                     else:
-                        self.adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None)))
+                        self.adds.append((s_layer.EDIT_TAG_SET, (tag, valu,)))
 
                 else:
                     if desttags is not None and (destvalu := desttags.get(tag)) is not None:
                         if not self.opts.apply:
                             valurepr = ''
-                            if valu != (None, None):
+                            if valu != (None, None, None):
                                 valurepr = f' = {tagtype.repr(destvalu)}'
                             await self.runt.printf(f'{self.destlayr} delete {nodeiden} {form}#{tag}{valurepr}')
                         else:
-                            self.adds.append((s_layer.EDIT_TAG_DEL, (tag, None)))
+                            self.adds.append((s_layer.EDIT_TAG_DEL, (tag,)))
 
                     if self.opts.preserve_tombstones:
                         if not self.opts.apply:
@@ -4561,7 +4561,7 @@ class MoveNodesCmd(Cmd):
                             mesg = f'{layr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}'
                             await self.runt.printf(mesg)
                         else:
-                            self.subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, None, stortype)))
+                            self.subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop)))
 
             for tag, tagdict in sode.get('antitagprops', {}).items():
                 for prop in tagdict.keys():
@@ -4587,7 +4587,7 @@ class MoveNodesCmd(Cmd):
                         mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
                         await self.runt.printf(mesg)
                     else:
-                        self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, tptype.stortype)))
+                        self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, tptype.stortype)))
 
                 else:
                     if destdict is not None and (destprops := destdict.get(tag)) is not None:
@@ -4598,7 +4598,7 @@ class MoveNodesCmd(Cmd):
                                 mesg = f'{self.destlayr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}'
                                 await self.runt.printf(mesg)
                             else:
-                                self.adds.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, None, destvalu[1])))
+                                self.adds.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop)))
 
                     if self.opts.preserve_tombstones:
                         if not self.opts.apply:
@@ -4639,7 +4639,7 @@ class MoveNodesCmd(Cmd):
                     if tomb:
                         self.subs[layr].append((s_layer.EDIT_NODEDATA_TOMB_DEL, (name,)))
                     else:
-                        self.subs[layr].append((s_layer.EDIT_NODEDATA_DEL, (name, None)))
+                        self.subs[layr].append((s_layer.EDIT_NODEDATA_DEL, (name,)))
                     ecnt += 1
 
             if abrv == last:
@@ -4653,7 +4653,7 @@ class MoveNodesCmd(Cmd):
                         if not self.opts.apply:
                             await self.runt.printf(f'{self.destlayr} delete {nodeiden} {form} DATA {name}')
                         else:
-                            self.adds.append((s_layer.EDIT_NODEDATA_DEL, (name, None)))
+                            self.adds.append((s_layer.EDIT_NODEDATA_DEL, (name,)))
                             ecnt += 1
 
                     if self.opts.preserve_tombstones:
@@ -4668,7 +4668,7 @@ class MoveNodesCmd(Cmd):
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form} DATA {name}')
                     else:
                         (_, valu, _) = await self.lyrs[layr].getNodeData(node.nid, name)
-                        self.adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None)))
+                        self.adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu)))
                         ecnt += 1
 
             if ecnt >= 100:
@@ -4871,7 +4871,7 @@ class MaxCmd(Cmd):
                 continue
 
             if isinstance(valu, (list, tuple)):
-                if valu == (None, None):
+                if valu == (None, None, None):
                     continue
 
                 ival, info = await ivaltype.norm(valu)
@@ -4924,7 +4924,7 @@ class MinCmd(Cmd):
                 continue
 
             if isinstance(valu, (list, tuple)):
-                if valu == (None, None):
+                if valu == (None, None, None):
                     continue
 
                 ival, info = await ivaltype.norm(valu)

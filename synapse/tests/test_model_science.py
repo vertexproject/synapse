@@ -32,7 +32,7 @@ class SciModelTest(s_t_utils.SynTest):
             self.eq('lab.light.', nodes[0].get('type'))
             self.eq('double-slit', nodes[0].get('name'))
             self.eq('Foo bar baz.', nodes[0].get('desc'))
-            self.eq((1710806400000000, 1710892800000000), nodes[0].get('period'))
+            self.eq((1710806400000000, 1710892800000000, 86400000000), nodes[0].get('period'))
 
             nodes = await core.nodes('''
                 [ sci:evidence=*
