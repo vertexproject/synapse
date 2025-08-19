@@ -233,8 +233,13 @@ modeldefs = (
             # FIXME entity:goal needs an interface ( for extensible goals without either/or props? )
             # FIXME entity:goal needs to clearly differentiate actor/action goals vs goal types
             # FIXME entity:goal should consider a backlink to entity:actor/entity:action SO specifics
+            ('entity:goal:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of goal types.'}),
+
             ('entity:goal', ('guid', {}), {
-                'prevnames': ('ou:goal',),
                 'template': {'title': 'goal'},
                 'interfaces': (
                     ('meta:reported', {}),
@@ -381,7 +386,7 @@ modeldefs = (
             )),
 
 
-            # FIXME interface for goals to allow granular $$$, population, etc
+            ('entity:goal:type:taxonomy', {}, ()),
             ('entity:goal', {}, (
 
                 ('name', ('base:name', {}), {
@@ -391,7 +396,7 @@ modeldefs = (
                 ('names', ('array', {'type': 'base:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'Alternative names for the goal.'}),
 
-                ('type', ('meta:goal:type:taxonomy', {}), {
+                ('type', ('entity:goal:type:taxonomy', {}), {
                     'doc': 'A type taxonomy entry for the goal.'}),
 
                 ('desc', ('text', {}), {

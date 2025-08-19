@@ -165,16 +165,6 @@ modeldefs = (
                     ('meta:taxonomy', {}),
                 ),
                 'doc': 'A hierarchical taxonomy of technique types.'}),
-
-            ('meta:goal:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of goal types.'}),
-
-            ('meta:goal', ('ndef', {'interface': 'meta:goal'}), {
-                'doc': 'A node which implements the meta:goal interface.'}),
-
         ),
         'interfaces': (
 
@@ -307,23 +297,6 @@ modeldefs = (
                     ('matched', ('time', {}), {
                         'doc': 'The time that the rule was evaluated to generate the match.'}),
                 ),
-            }),
-            ('meta:goal', {
-                'props': (
-                    ('name', ('base:name', {}), {
-                        'alts': ('names',),
-                        'doc': 'A terse name for the goal.'}),
-
-                    ('names', ('array', {'type': 'base:name', 'sorted': True, 'uniq': True}), {
-                        'doc': 'Alternative names for the goal.'}),
-
-                    ('type', ('entity:goal:type:taxonomy', {}), {
-                        'doc': 'A type taxonomy entry for the goal.'}),
-
-                    ('desc', ('text', {}), {
-                        'doc': 'A description of the goal.'}),
-                ),
-                'doc': 'Properties which are common to different types of goals.'
             }),
         ),
         'edges': (
@@ -531,7 +504,6 @@ modeldefs = (
             )),
 
             ('meta:technique:type:taxonomy', {}, ()),
-            ('meta:goal:type:taxonomy', {}, ()),
 
         ),
     }),
