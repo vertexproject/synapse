@@ -522,9 +522,9 @@ class Drive(s_base.Base):
 
         reqValidName(typename)
 
+        curv = self.getTypeSchemaVersion(typename)
         if vers is not None:
             vers = int(vers)
-            curv = self.getTypeSchemaVersion(typename)
             if curv is not None:
                 if vers == curv:
                     return False
@@ -551,7 +551,7 @@ class Drive(s_base.Base):
                 for lkey, byts in self.slab.scanByPref(LKEY_VERS + bidn, db=self.dbname):
                     versindx = lkey[-9:]
                     databyts = self.slab.get(LKEY_DATA + bidn + versindx, db=self.dbname)
-                    data = await callback(info, s_msgpack.un(byts), s_msgpack.un(databyts))
+                    data = await callback(info, s_msgpack.un(byts), s_msgpack.un(databyts), curv=curv)
                     vtor(data)
                     await self.slab.put(LKEY_DATA + bidn + versindx, s_msgpack.en(data), db=self.dbname)
                     await asyncio.sleep(0)
