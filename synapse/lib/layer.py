@@ -1697,11 +1697,11 @@ class StorTypeIval(StorType):
         minv = self.timetype.decodeIndx(bytz[:8])
         maxv = self.timetype.decodeIndx(bytz[8:16])
 
-        if minv == self.timetype.unksize or maxv == self.timetype.unksize:
-            return (minv, maxv, self.unkdura)
-
-        elif maxv == self.timetype.futsize:
+        if maxv == self.timetype.futsize:
             return (minv, maxv, self.futdura)
+
+        elif minv == self.timetype.unksize or maxv == self.timetype.unksize:
+            return (minv, maxv, self.unkdura)
 
         return (minv, maxv, maxv - minv)
 
