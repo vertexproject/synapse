@@ -4206,7 +4206,7 @@ class Layer(s_nexus.Pusher):
                         self.layrslab.delete(self.ndefabrv + indx[8:], nid + abrv, db=self.indxdb)
 
                     elif realtype == STOR_TYPE_NODEPROP:
-                        self.layrslab.delete(self.nodepropabrv + oldi[8:], nid + abrv, db=self.indxdb)
+                        self.layrslab.delete(self.nodepropabrv + indx[8:], nid + abrv, db=self.indxdb)
 
                 await asyncio.sleep(0)
 
