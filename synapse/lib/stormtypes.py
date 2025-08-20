@@ -7466,7 +7466,8 @@ class Layer(Prim):
         prop = await tostr(prop)
         valu = await tostor(valu)
         self.runt.reqAdmin(mesg='setStorNodeProp() requires admin privileges.')
-        return await layr.setStorNodeProp(buid, prop, valu)
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.setStorNodeProp(buid, prop, valu, meta=meta)
 
     async def delStorNodeProp(self, nodeid, prop):
         iden = self.valu.get('iden')
@@ -7474,7 +7475,8 @@ class Layer(Prim):
         buid = s_common.uhex(await tostr(nodeid))
         prop = await tostr(prop)
         self.runt.reqAdmin(mesg='delStorNodeProp() requires admin privileges.')
-        return await layr.delStorNodeProp(buid, prop)
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delStorNodeProp(buid, prop, meta=meta)
 
     async def _addPull(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
         url = await tostr(url)
