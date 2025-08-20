@@ -3339,9 +3339,7 @@ class Layer(s_nexus.Pusher):
             yield None, buid, sode
 
     async def setStorNodeProp(self, buid, prop, valu):
-        if (newp := self.core.model.prop(prop)) is None:
-            raise s_exc.NoSuchProp(mesg=f'The property {prop} does not exist.',
-                                   prop=prop)
+        newp = self.core.model.reqProp(prop)
 
         newp_valu = newp.type.norm(valu)[0]
         newp_name = newp.name
@@ -3355,9 +3353,7 @@ class Layer(s_nexus.Pusher):
         return bool(changes[0][2])
 
     async def delStorNodeProp(self, buid, prop):
-        if (pprop := self.core.model.prop(prop)) is None:
-            raise s_exc.NoSuchProp(mesg=f'The property {prop} does not exist.',
-                                   prop=prop)
+        pprop = self.core.model.reqProp(prop)
 
         oldp_name = pprop.name
         oldp_formname = pprop.form.name
