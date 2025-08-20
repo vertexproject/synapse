@@ -226,17 +226,10 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
 
-            with self.getAsyncLoggerStream('synapse.lib.types') as tstream, \
-                    self.getAsyncLoggerStream('synapse.datamodel') as dstream:
+            with self.getAsyncLoggerStream('synapse.datamodel') as stream:
                 core = await s_cortex.Cortex.anit(dirn, conf)
-
-            dstream.seek(0)
-            ds = dstream.read()
-            self.isin('universal property .udep is using a deprecated type', ds)
-            self.isin('type test:dep:easy is based on a deprecated type test:dep:easy', ds)
-            tstream.seek(0)
-            ts = tstream.read()
-            self.isin('Array type test:dep:array is based on a deprecated type test:dep:easy', ts)
+                stream.expect('universal property .udep is using a deprecated type')
+                stream.expect('Array type test:dep:array is based on the deprecated type test:dep:easy')
 
             # Using deprecated forms and props is warned to the user
             msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,)] [:guid=(t2,)]')
