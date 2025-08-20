@@ -2991,7 +2991,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 if inits is not None:
                     varname = inits['key']
                     curvers = await self.getStormPkgVar(name, varname, default=-1)
-                    inaugral = curvers == -1
+                    inaugural = curvers == -1
 
                     for initdef in inits['versions']:
 
@@ -3001,7 +3001,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if vers <= curvers:
                             continue
 
-                        if inaugral and not initdef.get('inaugural'):
+                        if inaugural and not initdef.get('inaugural'):
                             await self.setStormPkgVar(name, varname, vers)
                             continue
 
