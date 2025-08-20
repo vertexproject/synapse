@@ -1363,6 +1363,27 @@ class InetModelTest(s_t_utils.SynTest):
                 for p, v in props.items():
                     self.eq(node.get(p), v)
 
+            nodes = await core.nodes('[ inet:server=gre://::1 ]')
+            self.eq(nodes[0].get('proto'), 'gre')
+
+            nodes = await core.nodes('[ inet:server=gre://1.2.3.4 ]')
+            self.eq(nodes[0].get('proto'), 'gre')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server=gre://1.2.3.4:99 ]')
+
+            self.eq(ctx.exception.get('mesg'), 'Protocol gre does not allow specifying ports.')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server="gre://[::1]:99" ]')
+
+            self.eq(ctx.exception.get('mesg'), 'Protocol gre does not allow specifying ports.')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server=newp://1.2.3.4:99 ]')
+
+            self.eq(ctx.exception.get('mesg'), 'inet:addr protocol must be one of: tcp,udp,icmp,host,gre')
+
     async def test_servfile(self):
         async with self.getTestCore() as core:
             valu = ('tcp://127.0.0.1:4040', 64 * 'f')
@@ -3035,6 +3056,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :id=U2XK7PUVB
                     :user=visi
                     :email=visi@vertex.link
+                    :parent=*
                     :profile={ gen.ps.contact.email vertex.employee visi@vertex.link }
                 )
             ]
@@ -3064,6 +3086,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(accounts[1].get('email'), 'visi@vertex.link')
             self.eq(accounts[1].get('profile'), visiprof.ndef[1])
             blckacct, visiacct = accounts
+
+            self.len(1, await core.nodes('inet:service:account:email=visi@vertex.link :parent -> inet:service:account'))
 
             q = '''
             [ inet:service:group=(developers, group, vertex, slack)

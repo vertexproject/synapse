@@ -108,6 +108,10 @@ def getAddrScope(ipv6):
 
 class Addr(s_types.Str):
 
+    protos = ('tcp', 'udp', 'icmp', 'host', 'gre')
+    # TODO: this should include icmp and host but requires a migration
+    noports = ('gre',)
+
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
@@ -140,9 +144,11 @@ class Addr(s_types.Str):
         if len(parts) == 2:
             proto, valu = parts
 
-        if proto not in ('tcp', 'udp', 'icmp', 'host'):
-            raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
+        if proto not in self.protos:
+            protostr = ','.join(self.protos)
+            mesg = f'inet:addr protocol must be one of: {protostr}'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=orig, name=self.name)
+
         subs['proto'] = proto
 
         valu = valu.strip().strip('/')
@@ -181,6 +187,10 @@ class Addr(s_types.Str):
                     subs['port'] = port
                     portstr = f':{port}'
 
+                if port and proto in self.noports:
+                    mesg = f'Protocol {proto} does not allow specifying ports.'
+                    raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
+
                 return f'{proto}://[{ipv6}]{portstr}', {'subs': subs}
 
             mesg = f'Invalid IPv6 w/port ({orig})'
@@ -195,6 +205,10 @@ class Addr(s_types.Str):
         valu, port, pstr = self._getPort(valu)
         if port:
             subs['port'] = port
+
+        if port and proto in self.noports:
+            mesg = f'Protocol {proto} does not allow specifying ports.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
 
         ipv4 = self.modl.type('inet:ipv4').norm(valu)[0]
         ipv4_repr = self.modl.type('inet:ipv4').repr(ipv4)
@@ -3781,6 +3795,9 @@ class InetModule(s_module.CoreModule):
 
                         ('user', ('inet:user', {}), {
                             'doc': 'The current user name of the account.'}),
+
+                        ('parent', ('inet:service:account', {}), {
+                            'doc': 'A parent account which owns this account.'}),
 
                         ('email', ('inet:email', {}), {
                             'doc': 'The current email address associated with the account.'}),

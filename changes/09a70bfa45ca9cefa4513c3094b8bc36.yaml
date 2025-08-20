@@ -1,0 +1,5 @@
+---
+desc: Added ``$lib.pkg.vars`` Storm API to manage persistent values for a Storm Package.
+prs: []
+type: feat
+...

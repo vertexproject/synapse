@@ -13,6 +13,7 @@ from datetime import timezone as tz
 from unittest import mock
 
 import synapse.exc as s_exc
+import synapse.axon as s_axon
 import synapse.common as s_common
 
 import synapse.lib.json as s_json
@@ -6445,6 +6446,30 @@ words\tword\twrd'''
                 return($items)
             ''', opts=opts))
 
+            # Upload some test data
+            data = b'foobarbaz'
+            sha256 = hashlib.sha256(data).hexdigest()
+            await core.axon.put(data)
+
+            # raise an exception if axon.put is called
+            def axonput(*args, **kwargs):
+                raise Exception('newp')
+
+            with mock.patch.object(s_axon.Axon, 'put', axonput):
+                # This doesn't raise because the data is already in the axon
+                opts = {'vars': {'byts': data}}
+                (size, _sha256) = await core.callStorm('return($lib.axon.put($byts))', opts=opts)
+                self.eq(size, len(data))
+                self.eq(_sha256, sha256)
+
+                # This does raise because the data isn't already in the axon
+                with self.raises(Exception) as exc:
+                    data = b'newp'
+                    opts = {'vars': {'byts': data}}
+                    await core.callStorm('return($lib.axon.put($byts))', opts=opts)
+
+                self.eq(exc.exception.args, ('newp',))
+
     async def test_storm_lib_axon_perms(self):
 
         async with self.getTestCore() as core:
@@ -7374,3 +7399,103 @@ words\tword\twrd'''
 
             q = 'return($lib.axon.unpack($sha256, fmt=">Q", offs=24))'
             await self.asyncraises(s_exc.BadDataValu, core.callStorm(q, opts=opts))
+
+    async def test_storm_pkg_vars(self):
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                lowuser = await core.addUser('lowuser')
+                aslow = {'user': lowuser.get('iden')}
+                await core.callStorm('auth.user.addrule lowuser node')
+
+                # basic crud
+
+                self.none(await core.callStorm('return($lib.pkg.vars(pkg0).bar)'))
+                self.none(await core.callStorm('$varz=$lib.pkg.vars(pkg0) $varz.baz=$lib.undef return($varz.baz)'))
+                self.eq([], await core.callStorm('''
+                    $kvs = ([])
+                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
+                    return($kvs)
+                '''))
+
+                await core.callStorm('$lib.pkg.vars(pkg0).bar = cat')
+                await core.callStorm('$lib.pkg.vars(pkg0).baz = dog')
+
+                await core.callStorm('$lib.pkg.vars(pkg1).bar = emu')
+                await core.callStorm('$lib.pkg.vars(pkg1).baz = groot')
+
+                self.eq('cat', await core.callStorm('return($lib.pkg.vars(pkg0).bar)'))
+                self.eq('dog', await core.callStorm('return($lib.pkg.vars(pkg0).baz)'))
+                self.eq('emu', await core.callStorm('return($lib.pkg.vars(pkg1).bar)'))
+                self.eq('groot', await core.callStorm('return($lib.pkg.vars(pkg1).baz)'))
+
+                self.sorteq([('bar', 'cat'), ('baz', 'dog')], await core.callStorm('''
+                    $kvs = ([])
+                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
+                    return($kvs)
+                '''))
+                self.sorteq([('bar', 'emu'), ('baz', 'groot')], await core.callStorm('''
+                    $kvs = ([])
+                    for $kv in $lib.pkg.vars(pkg1) { $kvs.append($kv) }
+                    return($kvs)
+                '''))
+
+                await core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef')
+                self.none(await core.callStorm('return($lib.pkg.vars(pkg0).baz)'))
+
+                # perms
+
+                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.print($lib.pkg.vars(pkg0))', opts=aslow))
+                await self.asyncraises(s_exc.AuthDeny, core.callStorm('return($lib.pkg.vars(pkg0).baz)', opts=aslow))
+                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.pkg.vars(pkg0).baz = cool', opts=aslow))
+                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef', opts=aslow))
+                await self.asyncraises(s_exc.AuthDeny, core.callStorm('''
+                    $kvs = ([])
+                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
+                    return($kvs)
+                ''', opts=aslow))
+                await self.asyncraises(s_exc.AuthDeny, core.callStorm('''
+                    [ test:str=foo ]
+                    $kvs = ([])
+                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
+                    fini { return($kvs) }
+                ''', opts=aslow))
+
+                await core.callStorm('auth.user.addrule lowuser "power-ups.pkg0.admin"')
+
+                self.stormHasNoWarnErr(await core.nodes('$lib.print($lib.pkg.vars(pkg0))', opts=aslow))
+                await core.callStorm('$lib.pkg.vars(pkg0).baz = cool', opts=aslow)
+                self.eq('cool', await core.callStorm('return($lib.pkg.vars(pkg0).baz)', opts=aslow))
+                await core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef', opts=aslow)
+                self.eq([('bar', 'cat')], await core.callStorm('''
+                    $kvs = ([])
+                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
+                    return($kvs)
+                ''', opts=aslow))
+                self.eq([('bar', 'cat')], await core.callStorm('''
+                    [ test:str=foo ]
+                    $kvs = ([])
+                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
+                    fini { return($kvs) }
+                ''', opts=aslow))
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                # data persists
+
+                self.eq('cat', await core.callStorm('return($lib.pkg.vars(pkg0).bar)'))
+                self.none(await core.callStorm('return($lib.pkg.vars(pkg0).baz)'))
+                self.eq('emu', await core.callStorm('return($lib.pkg.vars(pkg1).bar)'))
+                self.eq('groot', await core.callStorm('return($lib.pkg.vars(pkg1).baz)'))
+
+                self.sorteq([('bar', 'cat')], await core.callStorm('''
+                    $kvs = ([])
+                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
+                    return($kvs)
+                '''))
+                self.sorteq([('bar', 'emu'), ('baz', 'groot')], await core.callStorm('''
+                    $kvs = ([])
+                    for $kv in $lib.pkg.vars(pkg1) { $kvs.append($kv) }
+                    return($kvs)
+                '''))

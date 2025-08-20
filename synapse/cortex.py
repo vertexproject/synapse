@@ -897,6 +897,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_lmdbslab.SafeKeyVal
+        self.stormpkgvars = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
@@ -3290,6 +3291,32 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for item in self.stormvars.items():
             yield item
 
+    # Storm package vars APIs
+
+    def _getStormPkgVarKV(self, name):
+        if (pkgvars := self.stormpkgvars.get(name)) is None:
+            self.stormpkgvars[name] = pkgvars = self.cortexdata.getSubKeyVal(f'stormpkg:vars:{name}:')
+        return pkgvars
+
+    async def getStormPkgVar(self, name, key, default=None):
+        pkgvars = self._getStormPkgVarKV(name)
+        return pkgvars.get(key, defv=default)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:var:pop')
+    async def popStormPkgVar(self, name, key, default=None):
+        pkgvars = self._getStormPkgVarKV(name)
+        return pkgvars.pop(key, defv=default)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:var:set')
+    async def setStormPkgVar(self, name, key, valu):
+        pkgvars = self._getStormPkgVarKV(name)
+        return pkgvars.set(key, valu)
+
+    async def iterStormPkgVars(self, name):
+        pkgvars = self._getStormPkgVarKV(name)
+        for item in pkgvars.items():
+            yield item
+
     async def _cortexHealth(self, health):
         health.update('cortex', 'nominal')
 
@@ -5597,6 +5624,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # TODO Remove the defaults in 3.0.0
         csize = pdef.get('chunk:size', s_const.layer_pdef_csize)
         qsize = pdef.get('queue:size', s_const.layer_pdef_qsize)
+        soffs = max(pdef.get('offs', 0), 0)
 
         async with await s_base.Base.anit() as base:
 
@@ -5605,8 +5633,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async def fill():
 
                 try:
-                    filloffs = await self.getStormVar(gvar, -1)
-                    async for item in layr0.syncNodeEdits(filloffs + 1, wait=True):
+                    if (filloffs := await self.getStormVar(gvar)) is not None:
+                        filloffs += 1
+                    else:
+                        filloffs = soffs
+
+                    async for item in layr0.syncNodeEdits(filloffs, wait=True):
                         await queue.put(item)
                     await queue.close()
 

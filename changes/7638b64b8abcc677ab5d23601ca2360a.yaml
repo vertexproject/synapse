@@ -1,0 +1,5 @@
+---
+desc: Removed exception logging for telepath when proxy methods are cancelled.
+prs: []
+type: feat
+...
