@@ -462,6 +462,7 @@ testmodel = (
                 ('tick', ('test:time', {}), {}),
                 ('hehe', ('str', {}), {}),
                 ('ndefs', ('array', {'type': 'ndef'}), {}),
+                ('pdefs', ('array', {'type': 'nodeprop'}), {}),
                 ('cidr', ('inet:cidr', {}), {}),
                 ('somestr', ('test:str', {}), {}),
                 ('seen', ('ival', {}), {}),

@@ -2328,6 +2328,18 @@ class PivotOut(PivotOper):
                     if (pivo := await runt.view.getNodeByNdef(aval)) is not None:
                         yield pivo, path.fork(pivo, link)
 
+        for name in refs['nodeprop']:
+            if (valu := node.get(name)) is not None:
+                async for pivo in runt.view.nodesByPropValu(valu[0], '=', valu[1]):
+                    yield pivo, path.fork(pivo, {'type': 'prop', 'prop': name})
+
+        for name in refs['nodeproparray']:
+            if (valu := node.get(name)) is not None:
+                link = {'type': 'prop', 'prop': name}
+                for aval in valu:
+                    async for pivo in runt.view.nodesByPropValu(aval[0], '=', aval[1]):
+                        yield pivo, path.fork(pivo, link)
+
 class N1WalkNPivo(PivotOut):
 
     async def run(self, runt, genr):
@@ -2443,9 +2455,15 @@ class PivotIn(PivotOper):
             async for pivo in runt.view.nodesByPropArray(prop.full, '=', valu, norm=norm):
                 yield pivo, path.fork(pivo, link)
 
-        async for refsnid, prop in runt.view.getNdefRefs(node.buid, props=True):
+        async for refsnid, prop in runt.view.getNdefRefs(node.buid):
             pivo = await runt.view.getNodeByNid(refsnid)
             yield pivo, path.fork(pivo, {'type': 'prop', 'prop': prop, 'reverse': True})
+
+        for prop, valu in node.getProps().items():
+            buid = s_common.buid((f'{name}:{prop}', valu))
+            async for refsnid, prop in runt.view.getNodePropRefs(buid):
+                pivo = await runt.view.getNodeByNid(refsnid)
+                yield pivo, path.fork(pivo, {'type': 'prop', 'prop': prop, 'reverse': True})
 
 class N2WalkNPivo(PivotIn):
 
@@ -2711,6 +2729,12 @@ class PropPivotOut(PivotOper):
                             yield pivo, path.fork(pivo, link)
                     continue
 
+                if isinstance(srctype.arraytype, s_types.NodeProp):
+                    for item in valu:
+                        async for pivo in runt.view.nodesByPropValu(item[0], '=', item[1]):
+                            yield pivo, path.fork(pivo, link)
+                    continue
+
                 fname = srctype.arraytype.name
                 if runt.model.forms.get(fname) is None:
                     if not warned:
@@ -2733,6 +2757,11 @@ class PropPivotOut(PivotOper):
                     logger.warning(f'Missing node corresponding to ndef {valu}')
                     continue
                 yield pivo, path.fork(pivo, link)
+                continue
+
+            if isinstance(srctype, s_types.NodeProp):
+                async for pivo in runt.view.nodesByPropValu(valu[0], '=', valu[1]):
+                    yield pivo, path.fork(pivo, link)
                 continue
 
             # :prop -> *

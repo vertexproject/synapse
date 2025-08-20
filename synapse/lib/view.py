@@ -1456,28 +1456,31 @@ class View(s_nexus.Pusher):  # type: ignore
                 else:
                     yield verb, n1nid
 
-    async def _getLayrNdefProp(self, layr, buid):
-        async for refsnid, refsabrv in layr.getNdefRefs(buid):
-            yield refsnid, self.core.getAbrvIndx(refsabrv)
-
-    async def getNdefRefs(self, buid, props=False):
+    async def getNdefRefs(self, buid):
         last = None
-        if props:
-            gens = [self._getLayrNdefProp(layr, buid) for layr in self.layers]
-        else:
-            gens = [layr.getNdefRefs(buid) for layr in self.layers]
+        gens = [layr.getNdefRefs(buid) for layr in self.layers]
 
-        async for refsnid, xtra in s_common.merggenr2(gens):
+        async for refsnid, refsabrv in s_common.merggenr2(gens):
             if refsnid == last:
                 continue
 
             await asyncio.sleep(0)
             last = refsnid
 
-            if props:
-                yield refsnid, xtra[1]
-            else:
-                yield refsnid
+            yield refsnid, self.core.getAbrvIndx(refsabrv)[1]
+
+    async def getNodePropRefs(self, buid):
+        last = None
+        gens = [layr.getNodePropRefs(buid) for layr in self.layers]
+
+        async for refsnid, refsabrv in s_common.merggenr2(gens):
+            if refsnid == last:
+                continue
+
+            await asyncio.sleep(0)
+            last = refsnid
+
+            yield refsnid, self.core.getAbrvIndx(refsabrv)[1]
 
     async def hasNodeData(self, nid, name, strt=0, stop=None):
         '''
