@@ -1733,10 +1733,11 @@ class Ival(Type):
 
     async def _storVirtMin(self, valu, newmin):
         newv, norminfo = await self.norm(newmin)
-        if valu is None:
-            return newv, norminfo
-
         minv = newv[0]
+
+        if valu is None:
+            return (minv, self.unksize, self.duratype.unkdura), norminfo
+
         maxv = valu[1]
         norminfo['merge'] = False
 
@@ -1769,8 +1770,8 @@ class Ival(Type):
         if maxv == self.futsize:
             return (minv, maxv, self.duratype.futdura), norminfo
 
-        if valu is not None and minv == self.unksize:
-            if (dura := valu[2]) not in (self.duratype.unkdura, self.duratype.futdura):
+        if minv == self.unksize:
+            if valu is not None and (dura := valu[2]) not in (self.duratype.unkdura, self.duratype.futdura):
                 newmin, _ = await self.ticktype.norm(maxv - dura)
                 return (newmin, maxv, dura), norminfo
             return (minv, maxv, self.duratype.unkdura), norminfo
@@ -1784,10 +1785,9 @@ class Ival(Type):
         dura, norminfo = await self.duratype.norm(newdura)
         norminfo['merge'] = False
 
-        if valu is None:
-            return (self.unksize, self.unksize, dura), norminfo
-
-        (minv, maxv, _) = valu
+        minv = maxv = self.unksize
+        if valu is not None:
+            (minv, maxv, _) = valu
 
         if minv == self.unksize:
             if dura == self.duratype.futdura:
@@ -1873,11 +1873,11 @@ class Ival(Type):
                 raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                         mesg='Ival range must in (min, max) format')
 
-        if minv == self.unksize or maxv == self.unksize:
-            return (minv, maxv, self.duratype.unkdura), info
-
-        elif maxv == self.futsize:
+        if maxv == self.futsize:
             return (minv, maxv, self.duratype.futdura), info
+
+        elif minv == self.unksize or maxv == self.unksize:
+            return (minv, maxv, self.duratype.unkdura), info
 
         return (minv, maxv, maxv - minv), info
 
@@ -1902,11 +1902,11 @@ class Ival(Type):
         else:
             maxv = oldv[1]
 
-        if minv == self.unksize or maxv == self.unksize:
-            return (minv, maxv, self.duratype.unkdura)
-
-        elif maxv == self.futsize:
+        if maxv == self.futsize:
             return (minv, maxv, self.duratype.futdura)
+
+        elif minv == self.unksize or maxv == self.unksize:
+            return (minv, maxv, self.duratype.unkdura)
 
         return (minv, maxv, maxv - minv)
 
