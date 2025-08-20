@@ -1456,9 +1456,35 @@ class StormTest(s_t_utils.SynTest):
             self.eq((None, None, None), nodes[0][1]['storage'][0]['tags']['foo'])
 
             opts = {'node:opts': {'virts': True}}
-            msgs = await core.stormlist('[ it:exec:query=* :time=2025-04? ]', opts=opts)
+            q = '''[
+                (it:exec:query=* :time=2025-04?)
+                (test:str=foo :seen=2020 :bar={[test:str=bar]})
+                (test:str=baz :seen=(2020, ?) :ndefs={[test:str=1 test:str=2]})
+                (test:str=faz :seen=(2020, *))
+            ]'''
+            msgs = await core.stormlist(q, opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
             self.eq(nodes[0][1]['props']['time.precision'], 8)
+
+            self.eq(nodes[1][1]['props']['bar'], ('test:str', 'bar'))
+            self.eq(nodes[1][1]['props']['bar.form'], 'test:str')
+            self.eq(nodes[1][1]['props']['seen'], (1577836800000000, 1577836800000001, 1))
+            self.eq(nodes[1][1]['props']['seen.min'], 1577836800000000)
+            self.eq(nodes[1][1]['props']['seen.max'], 1577836800000001)
+            self.eq(nodes[1][1]['props']['seen.duration'], 1)
+
+            self.eq(nodes[2][1]['props']['seen'], (1577836800000000, 0x7fffffffffffffff, 0xffffffffffffffff))
+            self.eq(nodes[2][1]['props']['seen.min'], 1577836800000000)
+            self.eq(nodes[2][1]['props']['seen.max'], 0x7fffffffffffffff)
+            self.eq(nodes[2][1]['props']['seen.duration'], 0xffffffffffffffff)
+            self.eq(nodes[2][1]['props']['ndefs'], (('test:str', '1'), ('test:str', '2')))
+            self.eq(nodes[2][1]['props']['ndefs.size'], 2)
+            self.eq(nodes[2][1]['props']['ndefs.form'], ('test:str', 'test:str'))
+
+            self.eq(nodes[3][1]['props']['seen'], (1577836800000000, 0x7ffffffffffffffe, 0xfffffffffffffffe))
+            self.eq(nodes[3][1]['props']['seen.min'], 1577836800000000)
+            self.eq(nodes[3][1]['props']['seen.max'], 0x7ffffffffffffffe)
+            self.eq(nodes[3][1]['props']['seen.duration'], 0xfffffffffffffffe)
 
     async def test_storm_diff_merge(self):
 
