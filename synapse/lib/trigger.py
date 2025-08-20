@@ -82,7 +82,7 @@ class Triggers:
         with self._recursion_check():
             [await trig.execute(node) for trig in self.nodedel.get(node.form.name, ())]
 
-    async def runPropSet(self, node, prop, oldv):
+    async def runPropSet(self, node, prop):
         trigs = self.propset.get(prop.full, [])
         for iface in prop.ifaces:
             if (itrigs := self.propset.get(iface)) is not None:

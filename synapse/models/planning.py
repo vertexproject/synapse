@@ -35,7 +35,7 @@ modeldefs = (
         ),
 
         'edges': (
-            (('plan:procedure:step', 'uses', None), {
+            (('plan:procedure:step', 'uses', 'meta:usable'), {
                 'doc': 'The step in the procedure makes use of the target node.'}),
         ),
 
@@ -128,9 +128,6 @@ modeldefs = (
 
                 ('outputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of variables defined in this step.'}),
-
-                ('techniques', ('array', {'type': 'entity:technique', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of techniques used when executing this step.'}),
 
                 ('links', ('array', {'type': 'plan:procedure:link', 'uniq': True}), {
                     'doc': 'An array of links to subsequent steps.'}),

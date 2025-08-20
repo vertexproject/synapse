@@ -1648,20 +1648,20 @@ class LiftTagVirt(LiftOper):
 
     async def lift(self, runt, path):
         tag = await self.kids[0].compute(runt, path)
-        virt = (await self.kids[1].compute(runt, path))[0]
+        virts = await self.kids[1].compute(runt, path)
 
-        async for node in runt.view.nodesByTag(tag, reverse=self.reverse, virt=virt):
+        async for node in runt.view.nodesByTag(tag, reverse=self.reverse, virts=virts):
             yield node
 
 class LiftTagVirtValu(LiftOper):
 
     async def lift(self, runt, path):
         tag = await self.kids[0].compute(runt, path)
-        virt = (await self.kids[1].compute(runt, path))[0]
+        virts = await self.kids[1].compute(runt, path)
         cmpr = await self.kids[2].compute(runt, path)
         valu = await toprim(await self.kids[3].compute(runt, path))
 
-        async for node in runt.view.nodesByTagValu(tag, f'{virt}{cmpr}', valu, reverse=self.reverse):
+        async for node in runt.view.nodesByTagValu(tag, cmpr, valu, reverse=self.reverse, virts=virts):
             yield node
 
 class LiftByArray(LiftOper):
@@ -1801,11 +1801,11 @@ class LiftTagProp(LiftOper):
 
             return
 
-        virt = None
+        virts = None
         if len(self.kids) == 2:
-            virt = await self.kids[1].compute(runt, path)
+            virts = await self.kids[1].compute(runt, path)
 
-        async for node in runt.view.nodesByTagProp(None, tag, prop, reverse=self.reverse, virt=virt):
+        async for node in runt.view.nodesByTagProp(None, tag, prop, reverse=self.reverse, virts=virts):
             yield node
 
 class LiftFormTagProp(LiftOper):
@@ -1824,7 +1824,15 @@ class LiftFormTagProp(LiftOper):
 
         genrs = []
 
-        if len(self.kids) == 3:
+        if len(self.kids) == 4:
+            virts = await self.kids[1].compute(runt, path)
+            cmpr = await self.kids[2].compute(runt, path)
+            valu = await s_stormtypes.tostor(await self.kids[3].compute(runt, path))
+
+            for form in forms:
+                genrs.append(runt.view.nodesByTagPropValu(form, tag, prop, cmpr, valu, reverse=self.reverse, virts=virts))
+
+        elif len(self.kids) == 3:
 
             cmpr = await self.kids[1].compute(runt, path)
             valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
@@ -1833,10 +1841,10 @@ class LiftFormTagProp(LiftOper):
                 genrs.append(runt.view.nodesByTagPropValu(form, tag, prop, cmpr, valu, reverse=self.reverse))
 
         elif len(self.kids) == 2:
-            virt = await self.kids[1].compute(runt, path)
+            virts = await self.kids[1].compute(runt, path)
 
             for form in forms:
-                genrs.append(runt.view.nodesByTagProp(form, tag, prop, reverse=self.reverse, virt=virt))
+                genrs.append(runt.view.nodesByTagProp(form, tag, prop, reverse=self.reverse, virts=virts))
 
         else:
             for form in forms:
@@ -1941,7 +1949,7 @@ class LiftFormTagVirt(LiftOper):
 
         genrs = []
         for form in forms:
-            genrs.append(runt.view.nodesByTag(tag, form=form, reverse=self.reverse, virt=virts[0]))
+            genrs.append(runt.view.nodesByTag(tag, form=form, reverse=self.reverse, virts=virts))
 
         def cmprkey(node):
             tagv = node.getTag(tag, defval=(0, 0))
@@ -5329,7 +5337,7 @@ class EditTagAdd(Edit):
 
         namekid = self.kids[0]
 
-        valu = (None, None)
+        valu = (None, None, None)
         valukid = None
         if len(self.kids) == 3:
             valukid = self.kids[2]

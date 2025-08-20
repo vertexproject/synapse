@@ -1105,7 +1105,7 @@ async def _onAddFqdn(node):
         if zone is not None:
             await protonode.set('zone', zone)
 
-async def _onSetFqdnIsSuffix(node, oldv):
+async def _onSetFqdnIsSuffix(node):
 
     fqdn = node.ndef[1]
 
@@ -1121,7 +1121,7 @@ async def _onSetFqdnIsSuffix(node, oldv):
             protonode = editor.loadNode(child)
             await protonode.set('iszone', issuffix)
 
-async def _onSetFqdnIsZone(node, oldv):
+async def _onSetFqdnIsZone(node):
 
     fqdn = node.ndef[1]
 
@@ -1146,7 +1146,7 @@ async def _onSetFqdnIsZone(node, oldv):
 
     await node.set('zone', zone)
 
-async def _onSetFqdnZone(node, oldv):
+async def _onSetFqdnZone(node):
 
     todo = collections.deque([node.ndef[1]])
     zone = node.get('zone')
@@ -1167,7 +1167,7 @@ async def _onSetFqdnZone(node, oldv):
 
                 todo.append(child.ndef[1])
 
-async def _onSetWhoisText(node, oldv):
+async def _onSetWhoisText(node):
 
     text = node.get('text')
     fqdn = node.get('fqdn')
@@ -1197,13 +1197,15 @@ modeldefs = (
 
             ('inet:sockaddr', 'synapse.models.inet.SockAddr', {}, {
                 'ex': 'tcp://1.2.3.4:80',
-                'virts': {
-                    'ip': (('inet:ip', {}), {
+                'virts': (
+                    ('ip', ('inet:ip', {}), {
+                        'ro': True,
                         'doc': 'The IP address contained in the socket address URL.'}),
 
-                    'port': (('inet:port', {}), {
+                    ('port', ('inet:port', {}), {
+                        'ro': True,
                         'doc': 'The port contained in the socket address URL.'}),
-                },
+                ),
                 'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.'}),
 
             ('inet:cidr', 'synapse.models.inet.Cidr', {}, {
@@ -1269,10 +1271,10 @@ modeldefs = (
                 'doc': 'An Autonomous System Number (ASN) and its associated IP address range.'}),
 
             ('inet:client', ('inet:sockaddr', {}), {
-                'virts': {
-                    'ip': (None, {'doc': 'The IP address of the client.'}),
-                    'port': (None, {'doc': 'The port the client connected from.'}),
-                },
+                'virts': (
+                    ('ip', None, {'doc': 'The IP address of the client.'}),
+                    ('port', None, {'doc': 'The port the client connected from.'}),
+                ),
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'network client'}}),
                 ),
@@ -1356,10 +1358,10 @@ modeldefs = (
                 'doc': 'A network port.'}),
 
             ('inet:server', ('inet:sockaddr', {}), {
-                'virts': {
-                    'ip': (None, {'doc': 'The IP address of the server.'}),
-                    'port': (None, {'doc': 'The port the server is listening on.'}),
-                },
+                'virts': (
+                    ('ip', None, {'doc': 'The IP address of the server.'}),
+                    ('port', None, {'doc': 'The port the server is listening on.'}),
+                ),
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'network server'}}),
                 ),
@@ -1399,11 +1401,8 @@ modeldefs = (
                 ),
                 'doc': 'A username string.'}),
 
-            ('inet:service:object', ('ndef', {'interfaces': ('inet:service:object',)}), {
-                'doc': 'An ndef type including all forms which implement the inet:service:object interface.'}),
-
-            ('inet:service:recipient', ('ndef', {'interfaces': ('inet:service:recipient',)}), {
-                'doc': 'A node which may be the recipient of a message.'}),
+            ('inet:service:object', ('ndef', {'interface': 'inet:service:object'}), {
+                'doc': 'A node which inherits the inet:service:object interface.'}),
 
             ('inet:search:query', ('guid', {}), {
                 'interfaces': (
@@ -1495,6 +1494,8 @@ modeldefs = (
             ('inet:service:account', ('guid', {}), {
                 'template': {'title': 'service account'},
                 'interfaces': (
+                    ('entity:singular', {}),
+                    ('entity:multiple', {}),
                     ('econ:pay:instrument', {}),
                     ('inet:service:subscriber', {}),
                 ),

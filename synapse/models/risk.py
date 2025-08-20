@@ -270,7 +270,7 @@ modeldefs = (
                 'doc': 'The target node was stolen as a result of the compromise.'}),
 
             # TODO - risk:mitigation addresses meta:usable?
-            (('risk:mitigation', 'addresses', 'entity:technique'), {
+            (('risk:mitigation', 'addresses', 'meta:technique'), {
                 'doc': 'The mitigation addresses the technique.'}),
 
             (('risk:mitigation', 'addresses', 'risk:vuln'), {
@@ -487,7 +487,7 @@ modeldefs = (
                 ('vuln', ('risk:vuln', {}), {
                     'doc': 'The vulnerability that the node is susceptible to.'}),
 
-                ('technique', ('entity:technique', {}), {
+                ('technique', ('meta:technique', {}), {
                     'doc': 'The technique that the node is susceptible to.'}),
 
                 ('period', ('ival', {}), {

@@ -122,7 +122,7 @@ class BizModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('seller'))
             self.eq(True, nodes[0].get('current'))
-            self.eq(nodes[0].get('period'), (1671580800000000, 1672531200000000))
+            self.eq(nodes[0].get('period'), (1671580800000000, 1672531200000000, 950400000000))
             self.eq('1000000', nodes[0].get('price'))
             self.eq('usd', nodes[0].get('currency'))
 

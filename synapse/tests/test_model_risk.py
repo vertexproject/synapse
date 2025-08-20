@@ -241,7 +241,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('actor'))
             self.nn(nodes[0].get('campaign'))
             self.nn(nodes[0].get('reporter'))
-            self.eq(nodes[0].get('period'), (1612224000000000, 1612396800000000))
+            self.eq(nodes[0].get('period'), (1612224000000000, 1612396800000000, 172800000000))
             self.eq(1612310400000000, nodes[0].get('detected'))
             self.eq(400, nodes[0].get('loss:pii'))
             self.eq('1337', nodes[0].get('loss:econ'))
@@ -296,7 +296,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('reporter'))
             self.nn(nodes[0].get('place:country'))
             self.nn(nodes[0].get('merged:isnow'))
-            self.eq((1325376000000000, 1672531200000000), nodes[0].get('active'))
+            self.eq((1325376000000000, 1672531200000000, 347155200000000), nodes[0].get('active'))
             self.eq(1673395200000000, nodes[0].get('merged:time'))
             self.eq(1643673600000000, nodes[0].get('reporter:discovered'))
             self.eq(1675209600000000, nodes[0].get('reporter:published'))
@@ -394,7 +394,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :period=(2022, ?)
                     :node=(inet:fqdn, vertex.link)
                     :vuln={[ risk:vuln=* :name=redtree ]}
-                    :technique={[ entity:technique=* :name=foo ]}
+                    :technique={[ meta:technique=* :name=foo ]}
                     :mitigated=true
                     :mitigations={[ risk:mitigation=* :name=patchstuff ]}
                 ]
@@ -402,12 +402,12 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('vuln'))
             self.eq(True, nodes[0].get('mitigated'))
-            self.eq((1640995200000000, 9223372036854775807), nodes[0].get('period'))
+            self.eq((1640995200000000, 9223372036854775807, 0xffffffffffffffff), nodes[0].get('period'))
             self.eq(('inet:fqdn', 'vertex.link'), nodes[0].get('node'))
             self.len(1, await core.nodes('risk:vulnerable -> risk:vuln'))
             self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
             self.len(1, await core.nodes('risk:vulnerable -> risk:mitigation'))
-            self.len(1, await core.nodes('risk:vulnerable -> entity:technique'))
+            self.len(1, await core.nodes('risk:vulnerable -> meta:technique'))
 
             nodes = await core.nodes('''
                 [ risk:outage=*
@@ -430,7 +430,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('desert power', nodes[0].get('provider:name'))
             self.eq('service.power.', nodes[0].get('type'))
             self.eq('nature.earthquake.', nodes[0].get('cause'))
-            self.eq((1672531200000000, 1704067200000000), nodes[0].get('period'))
+            self.eq((1672531200000000, 1704067200000000, 31536000000000), nodes[0].get('period'))
 
             self.len(1, await core.nodes('risk:outage -> risk:attack'))
             self.len(1, await core.nodes('risk:outage -> risk:outage:cause:taxonomy'))
@@ -446,7 +446,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :desc=BazFaz
                     :reporter:name=vertex
                     :reporter = { gen.ou.org vertex }
-                    +(addresses)> {[ risk:vuln=* entity:technique=* ]}
+                    +(addresses)> {[ risk:vuln=* meta:technique=* ]}
             ]''')
             self.eq('foobar', nodes[0].get('name'))
             self.eq('BazFaz', nodes[0].get('desc'))
@@ -489,7 +489,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('vertex', nodes[0].get('reporter:name'))
             self.eq(40, nodes[0].get('sophistication'))
             self.eq('public.', nodes[0].get('availability'))
-            self.eq((1325376000000000, 9223372036854775807), nodes[0].get('used'))
+            self.eq((1325376000000000, 9223372036854775807, 0xffffffffffffffff), nodes[0].get('used'))
             self.eq(1643673600000000, nodes[0].get('reporter:discovered'))
             self.eq(1675209600000000, nodes[0].get('reporter:published'))
             self.eq('AAAbbb123', nodes[0].get('id'))
@@ -507,6 +507,6 @@ class RiskModelTest(s_t_utils.SynTest):
     async def test_model_risk_vuln_technique(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
-                [ risk:vuln=* :name=foo <(uses)+ { [ entity:technique=* :name=bar ] } ]
+                [ risk:vuln=* :name=foo <(uses)+ { [ meta:technique=* :name=bar ] } ]
             ''')
-            self.len(1, await core.nodes('risk:vuln:name=foo <(uses)- entity:technique:name=bar'))
+            self.len(1, await core.nodes('risk:vuln:name=foo <(uses)- meta:technique:name=bar'))

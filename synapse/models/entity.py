@@ -4,8 +4,7 @@ modeldefs = (
         'interfaces': (
 
             ('entity:identifier', {
-                'doc': 'An interface which is inherited by entity identifier forms.',
-            }),
+                'doc': 'An interface which is inherited by entity identifier forms.'}),
 
             ('entity:action', {
                 'template': {'title': 'action'},
@@ -60,26 +59,21 @@ modeldefs = (
                     ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate entity names for the {title}.'}),
 
-                    ('title', ('entity:title', {}), {
-                        'doc': 'The entity title or role for this {title}.'}),
-
-                    ('titles', ('array', {'type': 'entity:title', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate entity titles or roles for this {title}.'}),
-
-                    ('org', ('ou:org', {}), {
-                        'doc': 'An associated organization listed as part of the contact information.'}),
-
-                    ('org:name', ('meta:name', {}), {
-                        'doc': 'The name of an associated organization listed as part of the contact information.'}),
-
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary url for the {title}.'}),
 
                     ('lifespan', ('ival', {}), {
-                        'virts': {
-                            'min': (None, {'doc': 'The date of birth for an individual or founded date for an organization.'}),
-                            'max': (None, {'doc': 'The date of death for an individual or dissolved date for an organization.'}),
-                        },
+                        'virts': (
+
+                            ('min', None, {
+                                'doc': 'The date of birth for an individual or founded date for an organization.'}),
+
+                            ('max', None, {
+                                'doc': 'The date of death for an individual or dissolved date for an organization.'}),
+
+                            ('duration', None, {
+                                'doc': 'The duration of the lifespan of the individual or organziation.'}),
+                        ),
                         'doc': 'The lifespan of the {title}.'}),
 
                     # FIXME place of birth / death?
@@ -127,6 +121,27 @@ modeldefs = (
                 ),
                 'doc': 'An interface for entities which have initiative to act.'}),
 
+            ('entity:singular', {
+                'props': (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'An associated organization listed as part of the contact information.'}),
+
+                    ('org:name', ('meta:name', {}), {
+                        'doc': 'The name of an associated organization listed as part of the contact information.'}),
+
+                    ('title', ('entity:title', {}), {
+                        'doc': 'The entity title or role for this {title}.'}),
+
+                    ('titles', ('array', {'type': 'entity:title', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of alternate entity titles or roles for this {title}.'}),
+                ),
+                'doc': 'Properties which apply to entities which may represent a person.'}),
+
+            ('entity:multiple', {
+                'props': (
+                ),
+                'doc': 'Properties which apply to entities which may represent a group or organization.'}),
+
             ('entity:abstract', {
                 'template': {'title': 'entity'},
                 'props': (
@@ -170,8 +185,10 @@ modeldefs = (
             ('entity:contact', ('guid', {}), {
                 'template': {'title': 'contact'},
                 'interfaces': (
-                    ('entity:abstract', {}),
                     ('entity:actor', {}),
+                    ('entity:singular', {}),
+                    ('entity:multiple', {}),
+                    ('entity:abstract', {}),
                     ('meta:observable', {}),
                 ),
 
@@ -215,7 +232,7 @@ modeldefs = (
                 'doc': 'An item which was possessed by an actor.'}),
 
             ('entity:attendee', ('guid', {}), {
-                'doc': 'An individual attending an event.'}),
+                'doc': 'A person attending an event.'}),
 
             ('entity:conversation', ('guid', {}), {
                 'doc': 'A conversation between entities.'}),
@@ -223,8 +240,13 @@ modeldefs = (
             # FIXME entity:goal needs an interface ( for extensible goals without either/or props? )
             # FIXME entity:goal needs to clearly differentiate actor/action goals vs goal types
             # FIXME entity:goal should consider a backlink to entity:actor/entity:action SO specifics
+            ('entity:goal:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of goal types.'}),
+
             ('entity:goal', ('guid', {}), {
-                'prevnames': ('ou:goal',),
                 'template': {'title': 'goal'},
                 'interfaces': (
                     ('meta:reported', {}),
@@ -235,13 +257,6 @@ modeldefs = (
                     ),
                 },
                 'doc': 'A stated or assessed goal.'}),
-
-            ('entity:goal:type:taxonomy', ('taxonomy', {}), {
-                'prevnames': ('ou:goal:type:taxonomy',),
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of goal types.'}),
 
             ('entity:campaign:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -274,28 +289,6 @@ modeldefs = (
                     ('entity:action', {}),
                 ),
                 'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
-
-            ('entity:technique', ('guid', {}), {
-                'template': {'title': 'technique'},
-                'doc': 'A specific technique used to achieve a goal.',
-                'interfaces': (
-                    ('meta:usable', {}),
-                    ('meta:reported', {}),
-                    ('risk:mitigatable', {}),
-                ),
-                'display': {
-                    'columns': (
-                        {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
-                        {'type': 'prop', 'opts': {'name': 'tag'}},
-                    ),
-                }}),
-
-            ('entity:technique:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of technique types.'}),
 
         ),
 
@@ -399,9 +392,8 @@ modeldefs = (
                 #     'doc': 'The remote communication mechanism used by the person to attend the event.'}),
             )),
 
-            ('entity:goal:type:taxonomy', {}, ()),
 
-            # FIXME interface for goals to allow granular $$$, population, etc
+            ('entity:goal:type:taxonomy', {}, ()),
             ('entity:goal', {}, (
 
                 ('name', ('base:name', {}), {
@@ -500,20 +492,6 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time the contribution occurred.'}),
             )),
-            ('entity:technique', {}, (
-
-                ('type', ('entity:technique:type:taxonomy', {}), {
-                    'doc': 'The taxonomy classification of the technique.'}),
-
-                ('sophistication', ('meta:sophistication', {}), {
-                    'doc': 'The assessed sophistication of the technique.'}),
-
-                ('tag', ('syn:tag', {}), {
-                    'doc': 'The tag used to annotate nodes where the technique was employed.'}),
-            )),
-
-            ('entity:technique:type:taxonomy', {
-                'prevnames': ('ou:technique:taxonomy',)}, ()),
 
         ),
     }),

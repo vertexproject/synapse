@@ -7,10 +7,22 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
+import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
+
+storvirts = {
+    s_layer.STOR_TYPE_NDEF: {
+        'form': lambda x: x[0]
+    },
+    s_layer.STOR_TYPE_IVAL: {
+        'min': lambda x: x[0],
+        'max': lambda x: x[1],
+        'duration': lambda x: x[2],
+    },
+}
 
 class NodeBase:
 
@@ -853,10 +865,23 @@ class Node(NodeBase):
 
             if virts:
                 for name, valt in props.items():
-                    retn[name] = valt[0]
+                    retn[name] = valu = valt[0]
                     if (vprops := valt[2]) is not None:
-                        for vname, valu in vprops.items():
-                            retn[f'{name}.{vname}'] = valu[0]
+                        for vname, vval in vprops.items():
+                            retn[f'{name}.{vname}'] = vval[0]
+
+                    stortype = valt[1]
+
+                    if stortype & s_layer.STOR_FLAG_ARRAY:
+                        retn[f'{name}.size'] = len(valu)
+                        if (svirts := storvirts.get(stortype & 0x7fff)) is not None:
+                            for vname, getr in svirts.items():
+                                retn[f'{name}.{vname}'] = [getr(v) for v in valu]
+                    else:
+                        if (svirts := storvirts.get(stortype)) is not None:
+                            for vname, getr in svirts.items():
+                                retn[f'{name}.{vname}'] = getr(valu)
+
             else:
                 for name, valt in props.items():
                     retn[name] = valt[0]
@@ -909,7 +934,7 @@ class Node(NodeBase):
 
         return dict(retn)
 
-    async def addTag(self, tag, valu=(None, None), norminfo=None):
+    async def addTag(self, tag, valu=(None, None, None), norminfo=None):
         '''
         Add a tag to a node.
 
@@ -1453,7 +1478,7 @@ def _tagscommon(pode, leafonly):
     for tag, val in sorted((t for t in pode[1]['tags'].items()), reverse=True, key=lambda x: len(x[0])):
         look = tag + '.'
         val = tuple(val)
-        if (leafonly or val == (None, None)) and any([r.startswith(look) for r in retn]):
+        if (leafonly or val == (None, None, None)) and any([r.startswith(look) for r in retn]):
             continue
         retn.append(tag)
     return retn
@@ -1583,7 +1608,7 @@ def reprTag(pode, tag):
     if valu is None:
         return None
     valu = tuple(valu)
-    if valu == (None, None):
+    if valu == (None, None, None):
         return ''
     mint = s_time.repr(valu[0])
     maxt = s_time.repr(valu[1])

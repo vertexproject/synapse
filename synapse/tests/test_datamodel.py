@@ -369,17 +369,18 @@ class DataModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            vdef = (('inet:ip', {}), {'doc': 'The IP address of the server.'})
-            self.eq(core.model.form('inet:server').info['virts']['ip'], vdef)
+            vdef = ('ip', ('inet:ip', {}), {'doc': 'The IP address of the server.', 'ro': True})
+            self.eq(core.model.form('inet:server').info['virts'][0], vdef)
 
-            vdef = (('inet:ip', {}), {'doc': 'The IP address contained in the socket address URL.'})
-            self.eq(core.model.type('inet:sockaddr').info['virts']['ip'], vdef)
+            vdef = ('ip', ('inet:ip', {}), {'doc': 'The IP address contained in the socket address URL.', 'ro': True})
+            self.eq(core.model.type('inet:sockaddr').info['virts'][0], vdef)
 
-            vdef = (('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'})
-            self.eq(core.model.prop('it:exec:proc:time').info['virts']['precision'], vdef)
+            vdef = ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'})
+            self.eq(core.model.prop('it:exec:proc:time').info['virts'][0], vdef)
 
             with self.raises(s_exc.NoSuchType):
-                core.model.addFormProp('test:str', 'bar', ('str', {}), {'virts': {'newp': (('newp', {}), {})}})
+                vdef = ('newp', ('newp', {}), {})
+                core.model.addFormProp('test:str', 'bar', ('str', {}), {'virts': (vdef, )})
 
     async def test_datamodel_protocols(self):
         async with self.getTestCore() as core:

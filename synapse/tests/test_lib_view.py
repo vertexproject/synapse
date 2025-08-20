@@ -316,10 +316,10 @@ class ViewTest(s_t_utils.SynTest):
             forkview = await core.callStorm('return($lib.view.get().fork().iden)')
             forkopts = {'view': forkview}
 
-            seen_maxval = (s_time.parse('2010'), s_time.parse('2020') + 1)
-            seen_midval = (s_time.parse('2010'), s_time.parse('2015'))
-            seen_minval = (s_time.parse('2000'), s_time.parse('2015'))
-            seen_exival = (s_time.parse('2000'), s_time.parse('2021'))
+            seen_maxval = (s_time.parse('2010'), s_time.parse('2020') + 1, 315532800000001)
+            seen_midval = (s_time.parse('2010'), s_time.parse('2015'), 157766400000000)
+            seen_minval = (s_time.parse('2000'), s_time.parse('2015'), 473385600000000)
+            seen_exival = (s_time.parse('2000'), s_time.parse('2021'), 662774400000000)
 
             await core.nodes('[ test:str=maxval :seen=(2010, 2015) ]')
 
@@ -481,6 +481,15 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadConfValu):
                 await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'jsonl'})
+
+            msgs = await core.stormlist('[test:str=virts :seen=2020 :ndefs={[test:str=foo1 test:str=foo3]}]')
+            cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
+            self.eq(cmsgs[1][0][2][0][1][3], {'min': 1577836800000000, 'max': 1577836800000001, 'duration': 1})
+            self.eq(cmsgs[2][0][2][0][1][3], {'size': 2, 'form': ['test:str', 'test:str']})
+
+            msgs = await core.stormlist('[test:guid=* :server=1.2.3.4:80]')
+            cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
+            self.eq(cmsgs[1][0][2][0][1][3], {'ip': (4, 16909060), 'port': 80})
 
     async def test_lib_view_addNodeEdits(self):
 
@@ -819,7 +828,7 @@ class ViewTest(s_t_utils.SynTest):
             node = result[0]
             self.eq(node.get('tick'), 3)
             self.ge(node.get('.created', 0), 5)
-            self.eq(node.get('#cool'), (1, 2))
+            self.eq(node.get('#cool'), (1, 2, 1))
 
             nodes = await alist(view.nodesByPropValu('test:str', '=', 'hehe'))
             self.len(1, nodes)
