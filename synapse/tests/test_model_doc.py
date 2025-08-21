@@ -125,3 +125,7 @@ class DocModelTest(s_tests.SynTest):
             self.eq(0, nodes[0].get('depth'))
             self.eq('foo', nodes[0].get('base'))
             self.none(nodes[0].get('parent'))
+
+            nodes = await core.nodes('[ doc:report=* :topics=(foo, Bar) ]')
+            self.len(1, nodes)
+            self.eq(('bar', 'foo'), nodes[0].get('topics'))

@@ -237,6 +237,11 @@ modeldefs = (
             }),
         ),
 
+        'edges': (
+            (('crypto:key:secret', 'decrypts', 'file:bytes'), {
+                'doc': 'The key is used to decrypt the file.'}),
+        ),
+
         'forms': (
 
             ('crypto:payment:input', {}, (

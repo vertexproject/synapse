@@ -45,7 +45,9 @@ class CryptoModelTest(s_t_utils.SynTest):
                     :value=BBBB
                     :algorithm=aes256
                     :seed:passwd=s3cret
-                    :seed:algorithm=pbkdf2 ]
+                    :seed:algorithm=pbkdf2
+                    +(decrypts)> {[ file:bytes=* ]}
+                ]
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('mode'), 'cbc')
@@ -56,6 +58,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('value'), 'bbbb')
 
             self.len(2, await core.nodes('crypto:key:secret -> crypto:algorithm'))
+            self.len(1, await core.nodes('crypto:key:secret -(decrypts)> file:bytes'))
 
             nodes = await core.nodes('''
                 [ crypto:key:rsa=*
