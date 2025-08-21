@@ -1955,8 +1955,8 @@ modeldefs = (
                 ('signame', ('it:av:signame', {}), {
                     'doc': 'The name of the signature returned by the scanner.'}),
 
-                ('categories', ('array', {'sorted': True,
-                        'type': 'str', 'typeopts': {'lower': True, 'onespace': True}}), {
+                ('categories', ('array', {'type': 'str',
+                                          'typeopts': {'lower': True, 'onespace': True}}), {
                     'doc': 'A list of categories for the result returned by the scanner.'}),
 
                 ('target', ('ndef', {'forms': ('file:bytes', 'it:exec:proc', 'it:host',

@@ -357,18 +357,6 @@ modeldefs = (
 
                 ('crypto:transaction', ('crypto:currency:transaction', {}), {
                     'doc': 'A crypto currency transaction that initiated the payment.'}),
-
-                # FIXME one to many?
-                # ('purchases', ('array', {'type': 'econ:purchase'}), {
-                #    'doc': 'The payment was made in exchange for the given purchases.'}),
-
-                # FIXME one to many?
-                # ('invoice', ('array', {'type': 'econ:invoice'}), {
-                #   doc': 'The invoices that the payment applies to.'}),
-
-                # FIXME one to many?
-                # ('receipt', ('econ:receipt', {}),
-                    # 'doc': 'The receipts that was issued for the payment.'}),
             )),
 
             ('econ:balance', {}, (
