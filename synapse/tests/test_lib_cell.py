@@ -306,7 +306,8 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(data[1]['stuff'], 1234)
 
                 # This will be done by the cell in a cell storage version migration...
-                async def migrate_v1(info, versinfo, data):
+                async def migrate_v1(info, versinfo, data, curv):
+                    self.eq(curv, 1)
                     data['woot'] = 'woot'
                     return data
 
