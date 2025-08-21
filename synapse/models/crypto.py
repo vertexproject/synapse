@@ -170,6 +170,11 @@ class CryptoModule(s_module.CoreModule):
                 }),
             ),
 
+            'edges': (
+                (('crypto:key', 'decrypts', 'file:byte'), {
+                    'doc': 'The key is used to decrypt the file.'}),
+            ),
+
             'forms': (
 
                 ('crypto:payment:input', {}, (
