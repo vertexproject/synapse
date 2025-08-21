@@ -1637,7 +1637,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self.setModelDef(self.model.iden, self.model.getModelDef())
 
         iden = self.cellinfo.get('model:iden')
-        if iden != self.model.iden:
+        if iden is not None and iden != self.model.iden:
             self.model = self._loadModelDef(iden)
 
         if not self.safemode:
@@ -3753,6 +3753,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('model:prop:add')
     async def _addFormProp(self, form, prop, tdef, info):
+
         if (_form := self.model.form(form)) is not None and _form.prop(prop) is not None:
             return
 

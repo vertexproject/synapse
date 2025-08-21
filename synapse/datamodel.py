@@ -1140,8 +1140,11 @@ class Model:
         if form is None:
             raise s_exc.NoSuchForm.init(formname)
 
+        prop = self._addFormProp(form, propname, tdef, info)
+
         self.calcModelIden()
-        return self._addFormProp(form, propname, tdef, info)
+
+        return prop
 
     def _addFormProp(self, form, name, tdef, info):
 

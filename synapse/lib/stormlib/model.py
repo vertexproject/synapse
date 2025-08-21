@@ -328,7 +328,7 @@ class LibModel(s_stormtypes.Lib):
                               }}},
 
         {'name': 'load', 'desc': 'Return a previously saved data model dictionary version.',
-         'type': {'type': 'function', '_funcname': '_loadModelSave',
+         'type': {'type': 'function', '_funcname': '_loadModelDict',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the data model version.'},
                   ),
@@ -346,12 +346,12 @@ class LibModel(s_stormtypes.Lib):
             'prop': self._methProp,
             'form': self._methForm,
             'tagprop': self._methTagProp,
-            'load': self._loadModelSave,
+            'load': self._loadModelDict,
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _loadModelSave(self, iden):
-        return self.runt.snap.core.getModelSave(iden)
+    async def _loadModelDict(self, iden):
+        return await self.runt.snap.core.getModelDict(iden=iden)
 
     @s_cache.memoizemethod(size=100)
     @s_stormtypes.stormfunc(readonly=True)
