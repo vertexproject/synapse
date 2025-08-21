@@ -122,6 +122,10 @@ modeldefs = (
                 'doc': 'An interface for entities which have initiative to act.'}),
 
             ('entity:singular', {
+                'interfaces': (
+                    ('geo:locatable', {'prefix': 'birth:place', 'template': {'happened': 'was born'}}),
+                    ('geo:locatable', {'prefix': 'death:place', 'template': {'happened': 'died'}}),
+                ),
                 'props': (
                     ('org', ('ou:org', {}), {
                         'doc': 'An associated organization listed as part of the contact information.'}),
