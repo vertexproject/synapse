@@ -129,7 +129,7 @@ modeldefs = (
                 ('outputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of variables defined in this step.'}),
 
-                ('links', ('array', {'type': 'plan:procedure:link', 'uniq': True}), {
+                ('links', ('array', {'type': 'plan:procedure:link', 'uniq': True, 'sorted': False}), {
                     'doc': 'An array of links to subsequent steps.'}),
 
             )),

@@ -1205,7 +1205,7 @@ modeldefs = (
                 ('publisher', ('entity:contact', {}), {
                     'doc': 'The contact information of the org or person who published the image.'}),
 
-                ('parents', ('array', {'type': 'it:software:image'}), {
+                ('parents', ('array', {'type': 'it:software:image', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of parent images in precedence order.'}),
             )),
 
@@ -1293,9 +1293,8 @@ modeldefs = (
                     'doc': 'The optional contiguous IP address range of this network.',
                     'prevnames': ('net4', 'net6')}),
 
-                ('dns:resolvers', ('array', {'type': 'inet:server',
-                                             'typeopts': {'defport': 53, 'defproto': 'udp'},
-                                             'sorted': True, 'uniq': True}), {
+                ('dns:resolvers', ('array', {'type': 'inet:server', 'sorted': False, 'uniq': False,
+                                             'typeopts': {'defport': 53, 'defproto': 'udp'}}), {
                     'doc': 'An array of DNS servers configured to resolve requests for hosts on the network.'})
 
             )),
@@ -1500,8 +1499,7 @@ modeldefs = (
                 ('url', ('inet:url', {}), {
                     'doc': 'A URL linking this CWE to a full description.'}),
 
-                ('parents', ('array', {'type': 'it:sec:cwe',
-                                       'uniq': True, 'sorted': True, 'split': ','}), {
+                ('parents', ('array', {'type': 'it:sec:cwe', 'uniq': True, 'sorted': True, 'split': ','}), {
                     'doc': 'An array of ChildOf CWE Relationships.'}),
             )),
 
@@ -1646,9 +1644,8 @@ modeldefs = (
                     'doc': 'The type of the version control system used.',
                     'ex': 'svn'}),
 
-                ('submodules', ('array', {'type': 'it:dev:repo:commit'}), {
+                ('submodules', ('array', {'type': 'it:dev:repo:commit', 'uniq': True, 'sorted': True}), {
                     'doc': "An array of other repos that this repo has as submodules, pinned at specific commits."}),
-
             )),
 
             ('it:dev:repo:remote', {}, (
@@ -1690,7 +1687,7 @@ modeldefs = (
                 ('repo', ('it:dev:repo', {}), {
                     'doc': 'The repository the commit lives in.'}),
 
-                ('parents', ('array', {'type': 'it:dev:repo:commit'}), {
+                ('parents', ('array', {'type': 'it:dev:repo:commit', 'uniq': True, 'sorted': True}), {
                     'doc': 'The commit or commits this commit is immediately based on.'}),
 
                 ('branch', ('it:dev:repo:branch', {}), {
@@ -2568,10 +2565,8 @@ modeldefs = (
                 ('desc', ('text', {}), {
                     'doc': 'A description of the function.'}),
 
-                ('impcalls', ('array', {
-                        'type': 'it:dev:str',
-                        'typeopts': {'lower': True},
-                        'uniq': True, 'sorted': True}), {
+                ('impcalls', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True,
+                        'typeopts': {'lower': True}}), {
                     'doc': 'Calls to imported library functions within the scope of the function.'}),
 
                 ('strings', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
@@ -2604,19 +2599,19 @@ modeldefs = (
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file that the C2 config was extracted from.'}),
 
-                ('decoys', ('array', {'type': 'inet:url'}), {
+                ('decoys', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of URLs used as decoy connections to obfuscate the C2 servers.'}),
 
-                ('servers', ('array', {'type': 'inet:url'}), {
+                ('servers', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of connection URLs built from host/port/passwd combinations.'}),
 
-                ('proxies', ('array', {'type': 'inet:url'}), {
+                ('proxies', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of proxy URLs used to communicate with the C2 server.'}),
 
-                ('listens', ('array', {'type': 'inet:url'}), {
+                ('listens', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of listen URLs that the software should bind.'}),
 
-                ('dns:resolvers', ('array', {'type': 'inet:server'}), {
+                ('dns:resolvers', ('array', {'type': 'inet:server', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of inet:servers to use when resolving DNS names.'}),
 
                 ('mutex', ('it:dev:str', {}), {
@@ -2637,7 +2632,7 @@ modeldefs = (
                 ('raw', ('data', {}), {
                     'doc': 'A JSON blob containing the raw config extracted from the binary.'}),
 
-                ('http:headers', ('array', {'type': 'inet:http:header'}), {
+                ('http:headers', ('array', {'type': 'inet:http:header', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of HTTP headers that the sample should transmit to the C2 server.'}),
             )),
         ),

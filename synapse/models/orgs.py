@@ -659,7 +659,7 @@ modeldefs = (
                     'doc': 'A file containing a recording of the presentation.'}),
             )),
             ('ou:meeting', {}, (
-                ('hosts', ('array', {'type': 'entity:actor'}), {
+                ('hosts', ('array', {'type': 'entity:actor', 'uniq': True, 'sorted': True}), {
                     'doc': 'The contacts who hosted or called the meeting.'}),
             )),
             ('ou:conference', {}, ()),

@@ -476,8 +476,8 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The period of time when the conflict was ongoing.'}),
 
-                # TODO
-                # ('adversaries', ('array', {'type': 'entity:actor'}), {}),
+                ('adversaries', ('array', {'type': 'entity:actor', 'sorted': True, 'uniq': True}), {
+                    'doc': 'The primary adversaries in conflict with one another.'}),
 
                 ('timeline', ('meta:timeline', {}), {
                     'doc': 'A timeline of significant events related to the conflict.'}),

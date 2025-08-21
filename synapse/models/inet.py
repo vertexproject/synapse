@@ -1948,7 +1948,7 @@ modeldefs = (
                 ('bytes', ('file:bytes', {}), {
                     'doc': 'The file bytes which contain the email message.'}),
 
-                ('headers', ('array', {'type': 'inet:email:header'}), {
+                ('headers', ('array', {'type': 'inet:email:header', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of email headers from the message.'}),
 
                 ('received:from:ip', ('inet:ip', {}), {
@@ -2256,7 +2256,7 @@ modeldefs = (
                 ('query', ('str', {}), {
                     'doc': 'The HTTP query string which optionally follows the path.'}),
 
-                ('headers', ('array', {'type': 'inet:http:request:header'}), {
+                ('headers', ('array', {'type': 'inet:http:request:header', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of HTTP headers from the request.'}),
 
                 ('body', ('file:bytes', {}), {
@@ -2271,7 +2271,7 @@ modeldefs = (
                 ('response:time', ('time', {}), {}),
                 ('response:code', ('int', {}), {}),
                 ('response:reason', ('str', {}), {}),
-                ('response:headers', ('array', {'type': 'inet:http:response:header'}), {
+                ('response:headers', ('array', {'type': 'inet:http:response:header', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of HTTP headers from the response.'}),
                 ('response:body', ('file:bytes', {}), {}),
                 ('session', ('inet:http:session', {}), {
@@ -2535,7 +2535,7 @@ modeldefs = (
                 ('contacts', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
                     'doc': 'The whois registration contacts.'}),
 
-                ('nameservers', ('array', {'type': 'inet:fqdn'}), {
+                ('nameservers', ('array', {'type': 'inet:fqdn', 'uniq': False, 'sorted': False}), {
                     'doc': 'The DNS nameserver FQDNs for the registered FQDN.'}),
 
             )),
@@ -2780,9 +2780,8 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'A friendly name for the platform.'}),
 
-                ('names', ('array', {'type': 'str',
-                                     'typeopts': {'onespace': True, 'lower': True},
-                                     'sorted': True, 'uniq': True}), {
+                ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True,
+                                     'typeopts': {'onespace': True, 'lower': True}}), {
                     'doc': 'An array of alternate names for the platform.'}),
 
                 ('desc', ('text', {}), {
@@ -2840,9 +2839,8 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'The name of the platform specific application.'}),
 
-                ('names', ('array', {'type': 'str',
-                                     'typeopts': {'onespace': True, 'lower': True},
-                                     'sorted': True, 'uniq': True}), {
+                ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True,
+                                     'typeopts': {'onespace': True, 'lower': True}}), {
                     'doc': 'An array of alternate names for the application.'}),
 
                 ('desc', ('text', {}), {
@@ -3010,9 +3008,8 @@ modeldefs = (
                 ('type', ('inet:service:message:type:taxonomy', {}), {
                     'doc': 'The type of message.'}),
 
-                ('mentions', ('array', {'type': 'ndef',
-                                        'typeopts': {'forms': ('inet:service:account', 'inet:service:group')},
-                                        'uniq': True, 'sorted': True}), {
+                ('mentions', ('array', {'type': 'ndef', 'uniq': True, 'sorted' True,
+                                        'typeopts': {'forms': ('inet:service:account', 'inet:service:group')}}), {
                     'doc': 'Contactable entities mentioned within the message.'}),
             )),
 
