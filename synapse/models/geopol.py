@@ -68,7 +68,7 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'The name of the country.'}),
 
-                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                ('names', ('array', {'type': 'meta:name'}), {
                     'doc': 'An array of alternate or localized names for the country.'}),
 
                 ('government', ('ou:org', {}), {
@@ -84,7 +84,7 @@ modeldefs = (
                 ('vitals', ('pol:vitals', {}), {
                     'doc': 'The most recent known vitals for the country.'}),
 
-                ('currencies', ('array', {'type': 'econ:currency', 'sorted': True, 'uniq': True}), {
+                ('currencies', ('array', {'type': 'econ:currency'}), {
                     'doc': 'The official currencies used in the country.'}),
             )),
             ('pol:immigration:status:type:taxonomy', {}, ()),

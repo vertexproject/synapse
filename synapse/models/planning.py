@@ -91,7 +91,7 @@ modeldefs = (
                 ('type', ('plan:procedure:type:taxonomy', {}), {
                     'doc': 'A type classification for the procedure.'}),
 
-                ('inputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
+                ('inputs', ('array', {'type': 'plan:procedure:variable'}), {
                     'doc': 'An array of inputs required to execute the procedure.'}),
 
                 ('firststep', ('plan:procedure:step', {}), {
@@ -126,10 +126,10 @@ modeldefs = (
                 ('desc', ('text', {}), {
                     'doc': 'A description of the tasks executed within the step.'}),
 
-                ('outputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
+                ('outputs', ('array', {'type': 'plan:procedure:variable'}), {
                     'doc': 'An array of variables defined in this step.'}),
 
-                ('links', ('array', {'type': 'plan:procedure:link', 'uniq': True, 'sorted': False}), {
+                ('links', ('array', {'type': 'plan:procedure:link', 'sorted': False}), {
                     'doc': 'An array of links to subsequent steps.'}),
 
             )),

@@ -56,7 +56,7 @@ modeldefs = (
                         'alts': ('names',),
                         'doc': 'The primary entity name of the {title}.'}),
 
-                    ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                    ('names', ('array', {'type': 'meta:name'}), {
                         'doc': 'An array of alternate entity names for the {title}.'}),
 
                     ('url', ('inet:url', {}), {
@@ -82,34 +82,34 @@ modeldefs = (
                     ('email', ('inet:email', {}), {
                         'doc': 'The primary email address for the {title}.'}),
 
-                    ('emails', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
+                    ('emails', ('array', {'type': 'inet:email'}), {
                         'doc': 'An array of alternate email addresses for the {title}.'}),
 
                     ('phone', ('tel:phone', {}), {
                         'doc': 'The primary phone number for the {title}.'}),
 
-                    ('phones', ('array', {'type': 'tel:phone', 'uniq': True, 'sorted': True}), {
+                    ('phones', ('array', {'type': 'tel:phone'}), {
                         'doc': 'An array of alternate telephone numbers for the {title}.'}),
 
                     ('user', ('inet:user', {}), {
                         'doc': 'The primary user name for the {title}.'}),
 
-                    ('users', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
+                    ('users', ('array', {'type': 'inet:user'}), {
                         'doc': 'An array of alternate user names for the {title}.'}),
 
-                    ('creds', ('array', {'type': 'auth:credential', 'sorted': True, 'uniq': True}), {
+                    ('creds', ('array', {'type': 'auth:credential'}), {
                         'doc': 'An array of non-ephemeral credentials.'}),
 
-                    ('identifiers', ('array', {'type': 'entity:identifier', 'uniq': True, 'sorted': True}), {
+                    ('identifiers', ('array', {'type': 'entity:identifier'}), {
                         'doc': 'Additional entity identifiers.'}),
 
-                    ('social:accounts', ('array', {'type': 'inet:service:account', 'uniq': True, 'sorted': True}), {
+                    ('social:accounts', ('array', {'type': 'inet:service:account'}), {
                         'doc': 'Social media or other online accounts listed for the {title}.'}),
 
-                    ('crypto:currency:addresses', ('array', {'type': 'crypto:currency:address', 'uniq': True, 'sorted': True}), {
+                    ('crypto:currency:addresses', ('array', {'type': 'crypto:currency:address'}), {
                         'doc': 'Crypto currency addresses listed for the {title}.'}),
 
-                    ('websites', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                    ('websites', ('array', {'type': 'inet:url'}), {
                         'doc': 'Web sites listed for the {title}.'}),
                 ),
                 'doc': 'An interface for forms which contain contact info.'}),
@@ -136,7 +136,7 @@ modeldefs = (
                     ('title', ('entity:title', {}), {
                         'doc': 'The entity title or role for this {title}.'}),
 
-                    ('titles', ('array', {'type': 'entity:title', 'uniq': True, 'sorted': True}), {
+                    ('titles', ('array', {'type': 'entity:title'}), {
                         'doc': 'An array of alternate entity titles or roles for this {title}.'}),
                 ),
                 'doc': 'Properties which apply to entities which may represent a person.'}),
@@ -385,7 +385,7 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The time period when the person attended the event.'}),
 
-                ('roles', ('array', {'type': 'base:name', 'split': ',', 'uniq': True, 'sorted': True}), {
+                ('roles', ('array', {'type': 'base:name', 'split': ','}), {
                     'doc': 'List of the roles the person had at the event.'}),
 
                 ('event', ('entity:attendable', {}), {
@@ -404,7 +404,7 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'A terse name for the goal.'}),
 
-                ('names', ('array', {'type': 'base:name', 'sorted': True, 'uniq': True}), {
+                ('names', ('array', {'type': 'base:name'}), {
                     'doc': 'Alternative names for the goal.'}),
 
                 ('type', ('entity:goal:type:taxonomy', {}), {
@@ -422,7 +422,7 @@ modeldefs = (
                 ('slogan', ('lang:phrase', {}), {
                     'doc': 'The slogan used by the campaign.'}),
 
-                ('actors', ('array', {'type': 'entity:actor', 'split': ',', 'uniq': True, 'sorted': True}), {
+                ('actors', ('array', {'type': 'entity:actor', 'split': ','}), {
                     'doc': 'Actors who participated in the campaign.'}),
 
                 ('success', ('bool', {}), {
@@ -476,7 +476,7 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The period of time when the conflict was ongoing.'}),
 
-                ('adversaries', ('array', {'type': 'entity:actor', 'sorted': True, 'uniq': True}), {
+                ('adversaries', ('array', {'type': 'entity:actor'}), {
                     'doc': 'The primary adversaries in conflict with one another.'}),
 
                 ('timeline', ('meta:timeline', {}), {

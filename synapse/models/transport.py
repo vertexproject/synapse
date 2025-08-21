@@ -517,7 +517,7 @@ modeldefs = (
 
             ('transport:rail:consist', {}, (
 
-                ('cars', ('array', {'type': 'transport:rail:car', 'uniq': True, 'sorted': False}), {
+                ('cars', ('array', {'type': 'transport:rail:car', 'sorted': False}), {
                     'doc': 'The rail cars, including locomotives, which compose the consist.'}),
             )),
 

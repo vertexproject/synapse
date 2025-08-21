@@ -1335,7 +1335,7 @@ modeldefs = (
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The optional service account which the local account maps to.'}),
 
-                ('groups', ('array', {'type': 'it:host:group', 'uniq': True, 'sorted': True}), {
+                ('groups', ('array', {'type': 'it:host:group'}), {
                     'doc': 'Groups that the account is a member of.'}),
             )),
             ('it:host:group', {}, (
@@ -1359,7 +1359,7 @@ modeldefs = (
                 ('service:group', ('inet:service:group', {}), {
                     'doc': 'The optional service group which the local group maps to.'}),
 
-                ('groups', ('array', {'type': 'it:host:group', 'uniq': True, 'sorted': True}), {
+                ('groups', ('array', {'type': 'it:host:group'}), {
                     'doc': 'Groups that are a member of this group.'}),
             )),
             ('it:host:login', {}, (
@@ -1376,7 +1376,7 @@ modeldefs = (
                 ('account', ('it:host:account', {}), {
                     'doc': 'The account that logged in.'}),
 
-                ('creds', ('array', {'type': 'auth:credential', 'sorted': True, 'uniq': True}), {
+                ('creds', ('array', {'type': 'auth:credential'}), {
                     'doc': 'The credentials that were used to login.'}),
 
                 ('flow', ('inet:flow', {}), {
@@ -1499,7 +1499,7 @@ modeldefs = (
                 ('url', ('inet:url', {}), {
                     'doc': 'A URL linking this CWE to a full description.'}),
 
-                ('parents', ('array', {'type': 'it:sec:cwe', 'uniq': True, 'sorted': True, 'split': ','}), {
+                ('parents', ('array', {'type': 'it:sec:cwe', 'split': ','}), {
                     'doc': 'An array of ChildOf CWE Relationships.'}),
             )),
 
@@ -1644,7 +1644,7 @@ modeldefs = (
                     'doc': 'The type of the version control system used.',
                     'ex': 'svn'}),
 
-                ('submodules', ('array', {'type': 'it:dev:repo:commit', 'uniq': True, 'sorted': True}), {
+                ('submodules', ('array', {'type': 'it:dev:repo:commit'}), {
                     'doc': "An array of other repos that this repo has as submodules, pinned at specific commits."}),
             )),
 
@@ -1687,7 +1687,7 @@ modeldefs = (
                 ('repo', ('it:dev:repo', {}), {
                     'doc': 'The repository the commit lives in.'}),
 
-                ('parents', ('array', {'type': 'it:dev:repo:commit', 'uniq': True, 'sorted': True}), {
+                ('parents', ('array', {'type': 'it:dev:repo:commit', 'sorted': False}), {
                     'doc': 'The commit or commits this commit is immediately based on.'}),
 
                 ('branch', ('it:dev:repo:branch', {}), {
@@ -1836,7 +1836,7 @@ modeldefs = (
                 ('released', ('time', {}), {
                     'doc': 'The initial release date for this hardware.'}),
 
-                ('parts', ('array', {'type': 'it:hardware', 'uniq': True, 'sorted': True}), {
+                ('parts', ('array', {'type': 'it:hardware'}), {
                     'doc': 'An array of it:hardware parts included in this hardware specification.'}),
             )),
             ('it:host:component', {}, (
@@ -1913,7 +1913,7 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'The name of the software.'}),
 
-                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                ('names', ('array', {'type': 'meta:name'}), {
                     'doc': 'Observed/variant names for this software version.'}),
 
                 ('released', ('time', {}), {
@@ -1955,7 +1955,7 @@ modeldefs = (
                 ('signame', ('it:av:signame', {}), {
                     'doc': 'The name of the signature returned by the scanner.'}),
 
-                ('categories', ('array', {'sorted': True, 'uniq': True,
+                ('categories', ('array', {'sorted': True,
                         'type': 'str', 'typeopts': {'lower': True, 'onespace': True}}), {
                     'doc': 'A list of categories for the result returned by the scanner.'}),
 
@@ -2537,7 +2537,7 @@ modeldefs = (
                 ('updated', ('time', {}), {
                     'doc': 'The time that the indicator pattern was last modified.'}),
 
-                ('labels', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
+                ('labels', ('array', {'type': 'str'}), {
                     'doc': 'The label strings embedded in the STIX indicator pattern.'}),
 
                 ('valid_from', ('time', {}), {
@@ -2565,11 +2565,11 @@ modeldefs = (
                 ('desc', ('text', {}), {
                     'doc': 'A description of the function.'}),
 
-                ('impcalls', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True,
+                ('impcalls', ('array', {'type': 'it:dev:str',
                         'typeopts': {'lower': True}}), {
                     'doc': 'Calls to imported library functions within the scope of the function.'}),
 
-                ('strings', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                ('strings', ('array', {'type': 'it:dev:str'}), {
                     'doc': 'An array of strings referenced within the function.'}),
             )),
 
@@ -2587,7 +2587,7 @@ modeldefs = (
                 ('complexity', ('meta:priority', {}), {
                     'doc': 'The complexity of the function.'}),
 
-                ('calls', ('array', {'type': 'it:dev:function:sample', 'uniq': True, 'sorted': True}), {
+                ('calls', ('array', {'type': 'it:dev:function:sample'}), {
                     'doc': 'Other function calls within the scope of the function.'}),
             )),
 
