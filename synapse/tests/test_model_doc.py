@@ -71,6 +71,7 @@ class DocModelTest(s_tests.SynTest):
                     :id=V-99
                     :contact={[ entity:contact=* :name=visi ]}
                     :desc="Thought leader seeks..."
+                    :skills={[ ps:skill=* ]}
                     :workhist={[ ps:workhist=* ]}
                     :education={[ ps:education=* ]}
                     :achievements={[ ps:achievement=* ]}
@@ -79,10 +80,12 @@ class DocModelTest(s_tests.SynTest):
             self.eq('V-99', nodes[0].get('id'))
             self.eq('Thought leader seeks...', nodes[0].get('desc'))
             self.nn(nodes[0].get('contact'))
+            self.len(1, nodes[0].get('skills'))
             self.len(1, nodes[0].get('workhist'))
             self.len(1, nodes[0].get('education'))
             self.len(1, nodes[0].get('achievements'))
 
+            self.len(1, await core.nodes('doc:resume :skills -> ps:skill'))
             self.len(1, await core.nodes('doc:resume :contact -> entity:contact'))
             self.len(1, await core.nodes('doc:resume :workhist -> ps:workhist'))
             self.len(1, await core.nodes('doc:resume :education -> ps:education'))

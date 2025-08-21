@@ -192,6 +192,9 @@ modeldefs = (
                 ('summary', ('text', {}), {
                     'doc': 'The summary of qualifications from the resume.'}),
 
+                ('skills', ('array', {'type': 'ps:skill', 'sorted': True, 'uniq': True}), {
+                    'doc': 'The skills described in the resume.'}),
+
                 ('workhist', ('array', {'type': 'ps:workhist', 'sorted': True, 'uniq': True}), {
                     'doc': 'Work history described in the resume.'}),
 
