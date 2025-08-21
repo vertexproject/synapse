@@ -171,7 +171,7 @@ class CryptoModule(s_module.CoreModule):
             ),
 
             'edges': (
-                (('crypto:key', 'decrypts', 'file:byte'), {
+                (('crypto:key', 'decrypts', 'file:bytes'), {
                     'doc': 'The key is used to decrypt the file.'}),
             ),
 
