@@ -391,43 +391,43 @@ modeldefs = (
             ('geo:locatable', {
                 'doc': 'Properties common to items and events which may be geolocated.',
                 'prefix': 'place',
-                'template': {'title': 'item'},
+                'template': {'title': 'item', 'happened': 'was located'},
                 'props': (
                     ('', ('geo:place', {}), {
-                        'doc': 'The place where the {title} was located.'}),
+                        'doc': 'The place where the {title} {happened}.'}),
 
                     ('loc', ('loc', {}), {
-                        'doc': 'The geopolitical location of the {title}.'}),
+                        'doc': 'The geopolitical location where the {title} {happened}.'}),
 
                     ('name', ('meta:name', {}), {
-                        'doc': 'The name where the {title} was located.'}),
+                        'doc': 'The name where the {title} {happened}.'}),
 
                     ('address', ('geo:address', {}), {
-                        'doc': 'The postal address where the {title} was located.'}),
+                        'doc': 'The postal address where the {title} {happened}.'}),
 
                     ('latlong', ('geo:latlong', {}), {
-                        'doc': 'The latlong where the {title} was located.'}),
+                        'doc': 'The latlong where the {title} {happened}.'}),
 
                     ('latlong:accuracy', ('geo:dist', {}), {
-                        'doc': 'The accuracy of the latlong where the {title} was located.'}),
+                        'doc': 'The accuracy of the latlong where the {title} {happened}.'}),
 
                     ('altitude', ('geo:altitude', {}), {
-                        'doc': 'The altitude where the {title} was located.'}),
+                        'doc': 'The altitude where the {title} {happened}.'}),
 
                     ('altitude:accuracy', ('geo:dist', {}), {
-                        'doc': 'The accuracy of the altitude where the {title} was located.'}),
+                        'doc': 'The accuracy of the altitude where the {title} {happened}.'}),
 
                     ('country', ('pol:country', {}), {
-                        'doc': 'The country where the {title} was located.'}),
+                        'doc': 'The country where the {title} {happened}.'}),
 
                     ('country:code', ('iso:3166:alpha2', {}), {
-                        'doc': 'The country code where the {title} was located.'}),
+                        'doc': 'The country code where the {title} {happened}.'}),
 
                     ('bbox', ('geo:bbox', {}), {
-                        'doc': 'A bounding box which encompasses the {title}.'}),
+                        'doc': 'A bounding box which encompasses where the {title} {happened}.'}),
 
                     ('geojson', ('geo:json', {}), {
-                        'doc': 'A GeoJSON representation of where the {title} was located.'}),
+                        'doc': 'A GeoJSON representation of where the {title} {happened}.'}),
                 ),
             }),
         ),

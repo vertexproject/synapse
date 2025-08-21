@@ -192,6 +192,9 @@ modeldefs = (
                 ('summary', ('text', {}), {
                     'doc': 'The summary of qualifications from the resume.'}),
 
+                ('skills', ('array', {'type': 'ps:skill', 'sorted': True, 'uniq': True}), {
+                    'doc': 'The skills described in the resume.'}),
+
                 ('workhist', ('array', {'type': 'ps:workhist', 'sorted': True, 'uniq': True}), {
                     'doc': 'Work history described in the resume.'}),
 
@@ -216,6 +219,9 @@ modeldefs = (
 
                 ('publisher:name', ('meta:name', {}), {
                     'doc': 'The name of the entity which published the report.'}),
+
+                ('topics', ('array', {'type': 'meta:topic', 'sorted': True, 'uniq': True}), {
+                    'doc': 'The topics discussed in the report.'}),
             )),
 
             ('doc:contract:type:taxonomy', {}, ()),
