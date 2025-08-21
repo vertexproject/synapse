@@ -2321,6 +2321,8 @@ class LayerTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('risk:vulnerable:node.newp=newp')
 
+            await core.nodes('risk:vulnerable [ -:node ]')
+
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
             view2 = core.getView(viewiden2)
             viewopts2 = {'view': viewiden2}
@@ -2331,6 +2333,32 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+            await core.nodes('[ test:str=foo :bar=(test:int, 2) ]', opts=viewopts2)
+            self.len(0, await core.nodes('test:int=1 <- *', opts=viewopts2))
+
+            await core.nodes('[ test:str=foo -:bar ]', opts=viewopts2)
+            self.len(0, await core.nodes('test:int=1 <- *', opts=viewopts2))
+
+            self.len(1, await core.nodes('it:dev:int=1 <- *', opts=viewopts2))
+
+            await core.nodes('test:str=ndefs [ :ndefs=((test:str, foo),) ]', opts=viewopts2)
+            self.len(0, await core.nodes('it:dev:int=1 <- *', opts=viewopts2))
+
+            await core.nodes('test:str=ndefs [ -:ndefs ]', opts=viewopts2)
+            self.len(0, await core.nodes('test:str=foo <- *', opts=viewopts2))
+
+            q = '''[ test:str=ndefs :ndefs=(
+                (test:str, foo),
+                (test:str, foo),
+                (test:str, bar),
+                (test:str, foo)
+            )]'''
+            await core.nodes(q, opts=viewopts2)
+
+            self.len(3, await core.nodes('test:str=foo <- *', opts=viewopts2))
+            self.len(4, await core.nodes('test:str=ndefs -> *', opts=viewopts2))
+            self.len(4, await core.nodes('test:str=ndefs :ndefs -> *', opts=viewopts2))
 
     async def test_layer_nodeprop_indexes(self):
 
@@ -2391,24 +2419,50 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:str:baz.prop=test:str:somestr'))
 
             await core.nodes('[ test:str=foo :baz=(test:int:type, three) ]', opts=viewopts2)
-            await core.nodes('[ test:str=foo :baz=(test:int:type, three) ]')
 
             self.len(0, await core.nodes('test:str:baz=(test:int:type, one)', opts=viewopts2))
             nodes = await core.nodes('test:str:baz=(test:int:type, three)', opts=viewopts2)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'foo'))
 
+            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'faz'))
+
             await core.nodes('[ test:str=foo -:baz ]', opts=viewopts2)
             self.len(0, await core.nodes('test:str:baz=(test:int:type, three)', opts=viewopts2))
 
-            await core.nodes('[ test:str=faz :pdefs=((test:int:type, one),) ]', opts=viewopts2)
+            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'faz'))
+
+            await core.nodes('[ test:str=faz :pdefs=((test:str:hehe, cool),) ]', opts=viewopts2)
             nodes = await core.nodes('test:str=faz :pdefs -> *', opts=viewopts2)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:int', 1))
+            self.eq(nodes[0].ndef, ('test:str', 'hehe'))
+            self.len(0, await core.nodes('test:int=1 <- *', opts=viewopts2))
 
             await core.nodes('[ test:str=faz -:pdefs]', opts=viewopts2)
-            nodes = await core.nodes('test:str:pdefs*[.prop=test:int:type]', opts=viewopts2)
-            self.len(0, nodes)
+            self.len(0, await core.nodes('test:str:pdefs*[.prop=test:int:type]', opts=viewopts2))
+            self.len(0, await core.nodes('test:int=1 <- *', opts=viewopts2))
+
+            q = '''[ test:str=faz :pdefs=(
+                (test:int:type, one),
+                (test:int:type, one),
+                (test:str:hehe, cool),
+                (test:int:type, one))
+            ]'''
+            await core.nodes(q, opts=viewopts2)
+            await core.nodes('[ test:str=faz :pdefs=((test:int:type, one),) ]')
+
+            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
+            self.len(3, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'faz'))
+            self.eq(nodes[1].ndef, ('test:str', 'faz'))
+            self.eq(nodes[2].ndef, ('test:str', 'faz'))
+
+            self.len(4, await core.nodes('test:str=faz -> *', opts=viewopts2))
+            self.len(4, await core.nodes('test:str=faz :pdefs -> *', opts=viewopts2))
 
     async def test_layer_virt_indexes(self):
 

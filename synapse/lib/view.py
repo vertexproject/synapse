@@ -1456,31 +1456,75 @@ class View(s_nexus.Pusher):  # type: ignore
                 else:
                     yield verb, n1nid
 
-    async def getNdefRefs(self, buid):
-        last = None
-        gens = [layr.getNdefRefs(buid) for layr in self.layers]
+    async def getNdefRefs(self, ndef):
 
-        async for refsnid, refsabrv in s_common.merggenr2(gens):
-            if refsnid == last:
+        async def wrapgenr(lidx, genr):
+            async for item in genr:
+                yield item, lidx
+
+        last = None
+        buid = s_common.buid(ndef)
+        genrs = []
+
+        for lidx, layr in enumerate(self.layers):
+            genr = layr.getNdefRefs(buid)
+            genrs.append(wrapgenr(lidx, genr))
+
+        async for item, lidx in s_common.merggenr2(genrs):
+            if item == last:
                 continue
 
-            await asyncio.sleep(0)
-            last = refsnid
+            (refsnid, refsabrv, isarray) = last = item
 
-            yield refsnid, self.core.getAbrvIndx(refsabrv)[1]
+            node = await self.getNodeByNid(refsnid)
+            propname = self.core.getAbrvIndx(refsabrv)[1]
 
-    async def getNodePropRefs(self, buid):
+            if lidx == 0 or node.getWithLayer(propname)[1] == lidx:
+                if not isarray:
+                    await asyncio.sleep(0)
+                    yield node, propname
+                    continue
+
+                valu = node.get(propname)
+
+                for _ in range(valu.count(ndef)):
+                    await asyncio.sleep(0)
+                    yield node, propname
+
+    async def getNodePropRefs(self, pdef):
+
+        async def wrapgenr(lidx, genr):
+            async for item in genr:
+                yield item, lidx
+
         last = None
-        gens = [layr.getNodePropRefs(buid) for layr in self.layers]
+        buid = s_common.buid(pdef)
+        genrs = []
 
-        async for refsnid, refsabrv in s_common.merggenr2(gens):
-            if refsnid == last:
+        for lidx, layr in enumerate(self.layers):
+            genr = layr.getNodePropRefs(buid)
+            genrs.append(wrapgenr(lidx, genr))
+
+        async for item, lidx in s_common.merggenr2(genrs):
+            if item == last:
                 continue
 
-            await asyncio.sleep(0)
-            last = refsnid
+            (refsnid, refsabrv, isarray) = last = item
 
-            yield refsnid, self.core.getAbrvIndx(refsabrv)[1]
+            node = await self.getNodeByNid(refsnid)
+            propname = self.core.getAbrvIndx(refsabrv)[1]
+
+            if lidx == 0 or node.getWithLayer(propname)[1] == lidx:
+                if not isarray:
+                    await asyncio.sleep(0)
+                    yield node, propname
+                    continue
+
+                valu = node.get(propname)
+
+                for _ in range(valu.count(pdef)):
+                    await asyncio.sleep(0)
+                    yield node, propname
 
     async def hasNodeData(self, nid, name, strt=0, stop=None):
         '''

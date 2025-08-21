@@ -2455,14 +2455,12 @@ class PivotIn(PivotOper):
             async for pivo in runt.view.nodesByPropArray(prop.full, '=', valu, norm=norm):
                 yield pivo, path.fork(pivo, link)
 
-        async for refsnid, prop in runt.view.getNdefRefs(node.buid):
-            pivo = await runt.view.getNodeByNid(refsnid)
+        async for pivo, prop in runt.view.getNdefRefs(node.ndef):
             yield pivo, path.fork(pivo, {'type': 'prop', 'prop': prop, 'reverse': True})
 
         for prop, valu in node.getProps().items():
-            buid = s_common.buid((f'{name}:{prop}', valu))
-            async for refsnid, prop in runt.view.getNodePropRefs(buid):
-                pivo = await runt.view.getNodeByNid(refsnid)
+            pdef = (f'{name}:{prop}', valu)
+            async for pivo, prop in runt.view.getNodePropRefs(pdef):
                 yield pivo, path.fork(pivo, {'type': 'prop', 'prop': prop, 'reverse': True})
 
 class N2WalkNPivo(PivotIn):

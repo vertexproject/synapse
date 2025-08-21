@@ -1599,6 +1599,9 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:str:baz@=newp')
 
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('test:str:baz.prop=newp')
+
             prop = await core.callStorm('[ test:str=foo :baz=(test:int:type, one) ] return(:baz.prop)')
             self.eq(prop, 'test:int:type')
 
