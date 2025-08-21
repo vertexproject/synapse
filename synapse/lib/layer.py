@@ -2026,7 +2026,6 @@ class StorTypeNodeProp(StorType):
     async def indxByPropArray(self, form, prop, cmpr, valu, reverse=False, virts=None):
         try:
             indxby = IndxByPropArray(self.layr, form, prop)
-
         except s_exc.NoSuchAbrv:
             return
 

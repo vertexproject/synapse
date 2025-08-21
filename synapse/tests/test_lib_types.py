@@ -1596,43 +1596,15 @@ class TypesTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchProp, t.norm(('test:str:newp', 'newp')))
             await self.asyncraises(s_exc.BadTypeValu, t.norm(('test:str:tick', '2020', 'a wild argument appears')))
 
-            await core.nodes('[ test:int=1 :type=one test:int=2 (test:str=hehe :hehe=cool) ]')
-            await core.nodes('[ test:str=foo :baz=(test:int:type, one) ]')
-            await core.nodes('[ test:str=bar :baz=(test:int:type, two) ]')
-            await core.nodes('[ test:str=baz :baz=(test:str:hehe, newp) ]')
-            await core.nodes('[ test:str=faz :pdefs=((test:int:type, one), (test:str:hehe, cool)) ]')
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str:baz@=newp')
 
-            nodes = await core.nodes('test:int=1 <- *')
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'foo'))
-            self.eq(nodes[1].ndef, ('test:str', 'faz'))
+            prop = await core.callStorm('[ test:str=foo :baz=(test:int:type, one) ] return(:baz.prop)')
+            self.eq(prop, 'test:int:type')
 
-            nodes = await core.nodes('test:str=foo -> *')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:int', 1))
-
-            nodes = await core.nodes('test:str=foo :baz -> *')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:int', 1))
-
-            nodes = await core.nodes('test:str=faz -> *')
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('test:int', 1))
-            self.eq(nodes[1].ndef, ('test:str', 'hehe'))
-
-            nodes = await core.nodes('test:str=faz :pdefs -> *')
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('test:int', 1))
-            self.eq(nodes[1].ndef, ('test:str', 'hehe'))
-
-            nodes = await core.nodes('test:str:baz.prop=test:int:type')
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'bar'))
-            self.eq(nodes[1].ndef, ('test:str', 'foo'))
-
-            nodes = await core.nodes('test:str:pdefs*[.prop=test:int:type]')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'faz'))
+            await core.nodes('[ test:str=foo :pdefs=((test:int:type, one), (test:str:hehe, two)) ]')
+            await core.nodes('[ test:str=bar :pdefs=((test:str:hehe, two),) ]')
+            self.len(1, await core.nodes('test:str.created +:pdefs*[.prop=test:int:type]'))
 
     async def test_range(self):
         model = s_datamodel.Model()
