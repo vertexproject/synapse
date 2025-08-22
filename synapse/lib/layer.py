@@ -302,7 +302,6 @@ INDX_NODEPROP = b'\x00\x12'
 
 FLAG_TOMB = b'\x00'
 FLAG_NORM = b'\x01'
-FLAG_ARRAY = b'\x02'
 
 class IndxBy:
     '''
@@ -4075,10 +4074,10 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(arryabrv + oldi, nid, db=self.indxdb)
 
                     if realtype == STOR_TYPE_NDEF:
-                        self.layrslab.delete(self.ndefabrv + oldi[8:] + abrv + FLAG_ARRAY, nid, db=self.indxdb)
+                        self.layrslab.delete(self.ndefabrv + oldi[8:] + abrv, nid, db=self.indxdb)
 
                     elif realtype == STOR_TYPE_NODEPROP:
-                        self.layrslab.delete(self.nodepropabrv + oldi[8:] + abrv + FLAG_ARRAY, nid, db=self.indxdb)
+                        self.layrslab.delete(self.nodepropabrv + oldi[8:] + abrv, nid, db=self.indxdb)
 
                     await asyncio.sleep(0)
 
@@ -4138,10 +4137,10 @@ class Layer(s_nexus.Pusher):
                 self.indxcounts.inc(arryabrv)
 
                 if realtype == STOR_TYPE_NDEF:
-                    kvpairs.append((self.ndefabrv + indx[8:] + abrv + FLAG_ARRAY, nid))
+                    kvpairs.append((self.ndefabrv + indx[8:] + abrv, nid))
 
                 elif realtype == STOR_TYPE_NODEPROP:
-                    kvpairs.append((self.nodepropabrv + indx[8:] + abrv + FLAG_ARRAY, nid))
+                    kvpairs.append((self.nodepropabrv + indx[8:] + abrv, nid))
 
                 await asyncio.sleep(0)
 
@@ -4203,10 +4202,10 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(arryabrv + indx, nid, db=self.indxdb)
 
                     if realtype == STOR_TYPE_NDEF:
-                        self.layrslab.delete(self.ndefabrv + indx[8:] + abrv + FLAG_ARRAY, nid, db=self.indxdb)
+                        self.layrslab.delete(self.ndefabrv + indx[8:] + abrv, nid, db=self.indxdb)
 
                     elif realtype == STOR_TYPE_NODEPROP:
-                        self.layrslab.delete(self.nodepropabrv + indx[8:] + abrv + FLAG_ARRAY, nid, db=self.indxdb)
+                        self.layrslab.delete(self.nodepropabrv + indx[8:] + abrv, nid, db=self.indxdb)
 
                 await asyncio.sleep(0)
 
@@ -5044,11 +5043,11 @@ class Layer(s_nexus.Pusher):
 
     async def getNdefRefs(self, buid):
         for lkey, refsnid in self.layrslab.scanByPref(self.ndefabrv + buid, db=self.indxdb):
-            yield refsnid, lkey[40:48], len(lkey) == 49
+            yield refsnid, lkey[40:]
 
     async def getNodePropRefs(self, buid):
         for lkey, refsnid in self.layrslab.scanByPref(self.nodepropabrv + buid, db=self.indxdb):
-            yield refsnid, lkey[40:48], len(lkey) == 49
+            yield refsnid, lkey[40:]
 
     async def iterFormRows(self, form, stortype=None, startvalu=None):
         '''

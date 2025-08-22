@@ -1474,27 +1474,22 @@ class View(s_nexus.Pusher):  # type: ignore
             if item == last:
                 continue
 
-            await asyncio.sleep(0)
-
-            (refsnid, refsabrv, isarray) = last = item
+            (refsnid, refsabrv) = last = item
 
             node = await self.getNodeByNid(refsnid)
             propname = self.core.getAbrvIndx(refsabrv)[1]
 
-            if lidx == 0 and not isarray:
-                yield node, propname
-                continue
-
             (valu, valulayr) = node.getWithLayer(propname)
 
             if lidx == valulayr:
-                if not isarray:
+                if isinstance(valu[0], str):
+                    await asyncio.sleep(0)
                     yield node, propname
                     continue
 
                 for _ in range(valu.count(ndef)):
-                    yield node, propname
                     await asyncio.sleep(0)
+                    yield node, propname
 
     async def getNodePropRefs(self, pdef):
 
@@ -1514,27 +1509,22 @@ class View(s_nexus.Pusher):  # type: ignore
             if item == last:
                 continue
 
-            await asyncio.sleep(0)
-
-            (refsnid, refsabrv, isarray) = last = item
+            (refsnid, refsabrv) = last = item
 
             node = await self.getNodeByNid(refsnid)
             propname = self.core.getAbrvIndx(refsabrv)[1]
 
-            if lidx == 0 and not isarray:
-                yield node, propname
-                continue
-
             (valu, valulayr) = node.getWithLayer(propname)
 
             if lidx == valulayr:
-                if not isarray:
+                if isinstance(valu[0], str):
+                    await asyncio.sleep(0)
                     yield node, propname
                     continue
 
                 for _ in range(valu.count(pdef)):
-                    yield node, propname
                     await asyncio.sleep(0)
+                    yield node, propname
 
     async def hasNodeData(self, nid, name, strt=0, stop=None):
         '''
