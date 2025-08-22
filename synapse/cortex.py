@@ -2945,10 +2945,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
         onload = pkgdef.get('onload')
+        inits = pkgdef.get('inits')
         svciden = pkgdef.get('svciden')
 
         if onload is not None and validstorm:
             await self.getStormQuery(onload)
+
+        if inits is not None:
+            lastver = None
+            for initdef in inits.get('versions'):
+                curver = initdef.get('version')
+                if lastver is not None and not curver > lastver:
+                    raise s_exc.BadPkgDef(mesg='Init versions must be monotonically increasing.', version=curver)
+                lastver = curver
+
+                if validstorm:
+                    await self.getStormQuery(initdef.get('query'))
 
         for mdef in mods:
             mdef.setdefault('modconf', {})
@@ -3030,28 +3042,88 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def _runStormPkgOnload(self, pkgdef):
         name = pkgdef.get('name')
+        inits = pkgdef.get('inits')
         onload = pkgdef.get('onload')
+        pkgvers = pkgdef.get('version')
 
-        if onload is not None and self.isactive:
+        if (onload is not None or inits is not None) and self.isactive:
             async def _onload():
                 if self.safemode:
                     await self.fire('core:pkg:onload:skipped', pkg=name, reason='safemode')
                     return
 
                 await self.fire('core:pkg:onload:start', pkg=name)
-                try:
-                    async for mesg in self.storm(onload):
-                        if mesg[0] == 'print':
-                            logger.info(f'{name} onload output: {mesg[1].get("mesg")}')
-                        if mesg[0] == 'warn':
-                            logger.warning(f'{name} onload output: {mesg[1].get("mesg")}')
-                        if mesg[0] == 'err':
-                            logger.error(f'{name} onload output: {mesg[1]}')
-                        await asyncio.sleep(0)
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
-                except Exception as exc:  # pragma: no cover
-                    logger.warning(f'onload failed for package: {name}', exc_info=exc)
+
+                logextra = await self.getLogExtra(pkg=name, vers=pkgvers)
+
+                if inits is not None:
+                    varname = inits['key']
+                    curvers = await self.getStormPkgVar(name, varname, default=-1)
+                    inaugural = curvers == -1
+
+                    for initdef in inits['versions']:
+
+                        vers = initdef['version']
+                        vname = initdef['name']
+
+                        if vers <= curvers:
+                            continue
+
+                        if inaugural and not initdef.get('inaugural'):
+                            await self.setStormPkgVar(name, varname, vers)
+                            continue
+
+                        logextra['synapse']['initvers'] = vers
+
+                        logger.info(f'{name} starting init vers={vers}: {vname}', extra=logextra)
+
+                        ok = True
+
+                        try:
+                            async for mesg in self.storm(initdef['query']):
+                                match mesg[0]:
+                                    case 'print':
+                                        msg = f'{name} init vers={vers} output: {mesg[1].get("mesg")}'
+                                        logger.info(msg, extra=logextra)
+                                    case 'warn':
+                                        msg = f'{name} init vers={vers} output: {mesg[1].get("mesg")}'
+                                        logger.warning(msg, extra=logextra)
+                                    case 'err':
+                                        msg = f'{name} init vers={vers} output: {mesg[1]}'
+                                        logger.error(msg, extra=logextra)
+                                        ok = False
+                                await asyncio.sleep(0)
+                        except asyncio.CancelledError:  # pragma: no cover
+                            raise
+                        except Exception as exc:  # pragma: no cover
+                            msg = f'{name} init failed for vers={vers}: {vname}'
+                            logger.warning(msg, exc_info=exc, extra=logextra)
+                            ok = False
+
+                        if not ok:
+                            break
+
+                        curvers = vers
+                        await self.setStormPkgVar(name, varname, vers)
+                        logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
+
+                if onload is not None:
+                    try:
+                        async for mesg in self.storm(onload):
+                            if mesg[0] == 'print':
+                                logger.info(f'{name} onload output: {mesg[1].get("mesg")}', extra=logextra)
+                            if mesg[0] == 'warn':
+                                logger.warning(f'{name} onload output: {mesg[1].get("mesg")}', extra=logextra)
+                            if mesg[0] == 'err':
+                                logger.error(f'{name} onload output: {mesg[1]}', extra=logextra)
+                            await asyncio.sleep(0)
+                    except asyncio.CancelledError:  # pragma: no cover
+                        raise
+                    except Exception as exc:  # pragma: no cover
+                        logger.warning(f'onload failed for package: {name}', exc_info=exc, extra=logextra)
+
+                    logger.info(f'{name} finished onload', extra=logextra)
+
                 await self.fire('core:pkg:onload:complete', pkg=name)
 
             self.runActiveTask(_onload())

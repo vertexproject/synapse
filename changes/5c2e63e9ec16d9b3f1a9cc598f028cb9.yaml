@@ -1,0 +1,6 @@
+---
+desc: Add ``inits`` to the Storm package definition, which enables running Storm queries
+  for a particular package storage version.
+prs: []
+type: feat
+...
