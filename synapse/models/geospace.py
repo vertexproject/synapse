@@ -520,7 +520,7 @@ modeldefs = (
                     'alts': ('names',),
                     'doc': 'The name of the place.'}),
 
-                ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
+                ('names', ('array', {'type': 'meta:name'}), {
                     'doc': 'An array of alternative place names.'}),
 
                 ('desc', ('text', {}), {

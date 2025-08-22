@@ -426,7 +426,7 @@ modeldefs = (
                 ('mime', ('file:mime', {}), {
                     'doc': 'The "best" mime type name for the file.'}),
 
-                ('mimes', ('array', {'type': 'file:mime', 'sorted': True, 'uniq': True}), {
+                ('mimes', ('array', {'type': 'file:mime'}), {
                     'doc': 'An array of alternate mime types for the file.'}),
 
                 # FIXME file:mime:exe interface?
@@ -477,7 +477,7 @@ modeldefs = (
                 ('exports:libname', ('file:path', {}), {
                     'doc': 'The export library name according to the PE.'}),
 
-                ('versioninfo', ('array', {'type': 'file:mime:pe:vsvers:keyval', 'sorted': True, 'uniq': True}), {
+                ('versioninfo', ('array', {'type': 'file:mime:pe:vsvers:keyval'}), {
                     'doc': 'The VS_VERSIONINFO key/value data from the PE file.'}),
             )),
 
