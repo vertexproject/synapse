@@ -1596,6 +1596,19 @@ class TypesTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchProp, t.norm(('test:str:newp', 'newp')))
             await self.asyncraises(s_exc.BadTypeValu, t.norm(('test:str:tick', '2020', 'a wild argument appears')))
 
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str:baz@=newp')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('test:str:baz.prop=newp')
+
+            prop = await core.callStorm('[ test:str=foo :baz=(test:int:type, one) ] return(:baz.prop)')
+            self.eq(prop, 'test:int:type')
+
+            await core.nodes('[ test:str=foo :pdefs=((test:int:type, one), (test:str:hehe, two)) ]')
+            await core.nodes('[ test:str=bar :pdefs=((test:str:hehe, two),) ]')
+            self.len(1, await core.nodes('test:str.created +:pdefs*[.prop=test:int:type]'))
+
     async def test_range(self):
         model = s_datamodel.Model()
         t = model.type('range')
