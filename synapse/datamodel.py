@@ -143,7 +143,7 @@ class Prop:
 
         if not self.deprecated and self.type.deprecated:
             self.deprecated = True
-            logger.warning(f'Property {name} uses deprecated type {self.type.name} but is not deprecated.')
+            logger.warning(f'Property {self.full} uses deprecated type {self.type.name} but is not deprecated.')
 
         if self.type.isarray:
             self.arraytypehash = self.type.arraytype.typehash
