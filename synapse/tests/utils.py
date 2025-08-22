@@ -362,8 +362,7 @@ testmodel = (
 
             ('test:ndef', ('ndef', {}), {}),
             ('test:ndef:formfilter1', ('ndef', {'forms': ('inet:ip',)}), {}),
-            ('test:ndef:formfilter2', ('ndef', {'interfaces': ('meta:taxonomy',)}), {}),
-            ('test:ndef:formfilter3', ('ndef', {'forms': ('inet:ip',), 'interfaces': ('file:mime:msoffice',)}), {}),
+            ('test:ndef:formfilter2', ('ndef', {'interface': 'meta:taxonomy'}), {}),
 
             ('test:hasiface', ('str', {}), {'interfaces': (('test:interface', {}),)}),
             ('test:hasiface2', ('str', {}), {'interfaces': (('test:interface', {}),)}),

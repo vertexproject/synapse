@@ -24,14 +24,14 @@ class NodeTest(s_t_utils.SynTest):
 
             iden, info = node.pack()
             self.eq(iden, ('test:str', 'cool'))
-            self.eq(info.get('tags'), {'foo': (None, None)})
+            self.eq(info.get('tags'), {'foo': (None, None, None)})
             self.eq(info.get('tagprops'), {'foo': {'score': 10, 'note': 'this is a really cool tag!'}})
             props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
             self.eq(props, {'tick': 12345})
 
             iden, info = node.pack(dorepr=True)
             self.eq(iden, ('test:str', 'cool'))
-            self.eq(info.get('tags'), {'foo': (None, None)})
+            self.eq(info.get('tags'), {'foo': (None, None, None)})
             props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
             self.eq(props, {'tick': 12345})
             self.eq(info.get('repr'), None)
@@ -127,7 +127,7 @@ class NodeTest(s_t_utils.SynTest):
 
             self.eq(node.get('tick'), 12345)
             self.none(node.get('nope'))
-            self.eq(node.get('#cool'), (1, 2))
+            self.eq(node.get('#cool'), (1, 2, 1))
             self.none(node.get('#newp'))
 
             self.eq('cool', node.repr())
@@ -159,13 +159,13 @@ class NodeTest(s_t_utils.SynTest):
             node = nodes[0]
 
             await node.addTag('cool', valu=(1, 2))
-            self.eq(node.getTag('cool'), (1, 2))
+            self.eq(node.getTag('cool'), (1, 2, 1))
             await node.addTag('cool', valu=(1, 2))  # Add again
-            self.eq(node.getTag('cool'), (1, 2))
+            self.eq(node.getTag('cool'), (1, 2, 1))
             await node.addTag('cool', valu=(1, 3))  # Add again with different valu
-            self.eq(node.getTag('cool'), (1, 3))
+            self.eq(node.getTag('cool'), (1, 3, 2))
             await node.addTag('cool', valu=(-5, 0))  # Add again with different valu
-            self.eq(node.getTag('cool'), (-5, 3))  # merges...
+            self.eq(node.getTag('cool'), (-5, 3, 8))  # merges...
 
             self.true(node.hasTag('cool'))
             self.true(node.hasTag('#cool'))
@@ -174,8 +174,8 @@ class NodeTest(s_t_utils.SynTest):
 
             # Demonstrate that valu is only applied at the level that addTag is called
             await node.addTag('cool.beans.abc', valu=(1, 8))
-            self.eq(node.getTag('cool.beans.abc'), (1, 8))
-            self.eq(node.getTag('cool.beans'), (None, None))
+            self.eq(node.getTag('cool.beans.abc'), (1, 8, 7))
+            self.eq(node.getTag('cool.beans'), (None, None, None))
 
     async def test_node_helpers(self):
 
@@ -396,14 +396,14 @@ class NodeTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 :place:loc=us ]')
             self.len(1, nodes)
 
             node = nodes[0]
 
             self.eq('1.2.3.4', nodes[0].repr())
 
-            self.eq('us', node.repr('loc'))
+            self.eq('us', node.repr('place:loc'))
 
             with self.raises(s_exc.NoSuchProp):
                 node.repr('newp')
@@ -412,7 +412,7 @@ class NodeTest(s_t_utils.SynTest):
 
     async def test_node_data(self):
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
             self.len(1, nodes)
 
             node = nodes[0]
@@ -438,7 +438,7 @@ class NodeTest(s_t_utils.SynTest):
             self.eq((4, 5, 6), await node.getData('bar'))
 
             await node.delete()
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
             node = nodes[0]
 
             self.none(await node.getData('foo'))

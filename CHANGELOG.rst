@@ -12,6 +12,51 @@ v3.0.0 - 2025-XX-YY
 Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
 changes.
 
+v2.217.0 - 2025-07-25
+=====================
+
+Model Changes
+-------------
+- Deprecated ``ou:requirement``. Please use ``doc:requirement`` and
+  ``ou:enacted``.
+  (`#4416 <https://github.com/vertexproject/synapse/pull/4416>`_)
+- See :ref:`userguide_model_v2_217_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added support for ``gre://`` to ``inet:addr`` type used by ``inet:server``
+  and ``inet:client``.
+  (`#4414 <https://github.com/vertexproject/synapse/pull/4414>`_)
+
+Improved documentation
+----------------------
+- Added Storm library documentation for ``$lib.feed.fromAxon``.
+  (`#4420 <https://github.com/vertexproject/synapse/pull/4420>`_)
+>>>>>>> master
+
+v2.216.0 - 2025-07-15
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_216_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated Cortex with a safe-mode option (``SYN_CORTEX_SAFEMODE=true``) which
+  disables cron, triggers, dmons, Storm package onload handlers, view merge
+  tasks, and Storm pools.
+  (`#4367 <https://github.com/vertexproject/synapse/pull/4367>`_)
+- Updated property set behavior to allow using dictionary GUID syntax.
+  (`#4372 <https://github.com/vertexproject/synapse/pull/4372>`_)
+
+Bugfixes
+--------
+- Fixed a bug where guid forms could be created with an empty list.
+  (`#4392 <https://github.com/vertexproject/synapse/pull/4392>`_)
+- Fixed bug where auth rules could be specified without any rule text.
+  (`#4394 <https://github.com/vertexproject/synapse/pull/4394>`_)
+
 v2.215.0 - 2025-07-03
 =====================
 
@@ -56,7 +101,7 @@ Features and Enhancements
 -------------------------
 - Added CLI tools ``synapse.tools.cortex.layer.dump`` and
   ``synapse.tools.cortex.layer.load`` for exporting node edits from one layer
-and importing them to a layer on a different Cortex.
+  and importing them to a layer on a different Cortex.
   (`#4325 <https://github.com/vertexproject/synapse/pull/4325>`_)
 - Added CLI tool ``synapse.tools.pkgs.gendocs`` for converting Storm package
   documentation from RST to Markdown.

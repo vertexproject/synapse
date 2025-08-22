@@ -142,14 +142,23 @@ modeldefs = (
         'ctors': (
 
             ('tel:mob:imei', 'synapse.models.telco.Imei', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'IMEI'}}),
+                ),
                 'ex': '490154203237518',
                 'doc': 'An International Mobile Equipment Id.'}),
 
             ('tel:mob:imsi', 'synapse.models.telco.Imsi', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'IMSI'}}),
+                ),
                 'ex': '310150123456789',
                 'doc': 'An International Mobile Subscriber Id.'}),
 
             ('tel:phone', 'synapse.models.telco.Phone', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'phone number'}}),
+                ),
                 'ex': '+15558675309',
                 'doc': 'A phone number.'}),
 
@@ -161,7 +170,7 @@ modeldefs = (
                 'interfaces': (
                     ('lang:transcript', {}),
                 ),
-                'doc': 'A guid for a telephone call record.'}),
+                'doc': 'A telephone call.'}),
 
             ('tel:phone:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -169,24 +178,27 @@ modeldefs = (
                 ),
                 'doc': 'A taxonomy of phone number types.'}),
 
-            ('tel:txtmesg', ('guid', {}), {
-                'doc': 'A guid for an individual text message.'}),
-
             ('tel:mob:tac', ('int', {}), {
                 'ex': '49015420',
                 'doc': 'A mobile Type Allocation Code.'}),
 
             ('tel:mob:imid', ('comp', {'fields': (('imei', 'tel:mob:imei'), ('imsi', 'tel:mob:imsi'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'IMEI and IMSI'}}),
+                ),
                 'ex': '(490154203237518, 310150123456789)',
                 'doc': 'Fused knowledge of an IMEI/IMSI used together.'}),
 
             ('tel:mob:imsiphone', ('comp', {'fields': (('imsi', 'tel:mob:imsi'), ('phone', 'tel:phone'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'IMSI and phone number'}}),
+                ),
                 'ex': '(310150123456789, "+7(495) 124-59-83")',
                 'doc': 'Fused knowledge of an IMSI assigned phone number.'}),
 
             ('tel:mob:telem', ('guid', {}), {
                 'interfaces': (
-                    ('geo:locatable', {'template': {'geo:locatable': 'telemetry sample'}}),
+                    ('geo:locatable', {'template': {'title': 'telemetry sample'}}),
                 ),
                 'doc': 'A single mobile telemetry measurement.'}),
 
@@ -196,7 +208,13 @@ modeldefs = (
             ('tel:mob:mnc', ('str', {'regex': '^[0-9]{2,3}$', 'strip': True}), {
                 'doc': 'ITU Mobile Network Code.'}),
 
-            ('tel:mob:carrier', ('comp', {'fields': (('mcc', 'tel:mob:mcc'), ('mnc', 'tel:mob:mnc'))}), {
+            ('tel:mob:carrier', ('comp', {'fields': (
+                                            ('mcc', 'tel:mob:mcc'),
+                                            ('mnc', 'tel:mob:mnc')
+                                          )}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
                 'doc': 'The fusion of a MCC/MNC.'}),
 
             ('tel:mob:cell:radio:type:taxonomy', ('taxonomy', {}), {
@@ -205,17 +223,18 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of cell radio types.'}),
 
-            ('tel:mob:cell', ('comp', {'fields': (('carrier', 'tel:mob:carrier'),
-                                                  ('lac', ('int', {})),
-                                                  ('cid', ('int', {})))}), {
+            ('tel:mob:cell', ('guid', {}), {
                 'interfaces': (
-                    ('geo:locatable', {'template': {'geo:locatable': 'cell tower'}}),
+                    ('geo:locatable', {'template': {'title': 'cell tower'}}),
                 ),
                 'doc': 'A mobile cell site which a phone may connect to.'}),
 
             # TODO - eventually break out ISO-3 country code into a sub
             # https://en.wikipedia.org/wiki/TADIG_code
             ('tel:mob:tadig', ('str', {'regex': '^[A-Z0-9]{5}$', 'strip': True}), {
+                'interfaces': (
+                    ('entity:identifier', {}),
+                ),
                 'doc': 'A Transferred Account Data Interchange Group number issued to a GSM carrier.'}),
 
         ),
@@ -234,43 +253,25 @@ modeldefs = (
 
             ('tel:call', {}, (
 
-                ('src', ('tel:phone', {}), {
-                    'doc': 'The source phone number for a call.'}),
+                ('caller', ('entity:actor', {}), {
+                    'doc': 'The entity which placed the call.'}),
 
-                ('dst', ('tel:phone', {}), {
-                    'doc': 'The destination phone number for a call.'}),
+                ('caller:phone', ('tel:phone', {}), {
+                    'prevnames': ('src',),
+                    'doc': 'The phone number the caller placed the call from.'}),
+
+                ('recipient', ('entity:actor', {}), {
+                    'doc': 'The entity which received the call.'}),
+
+                ('recipient:phone', ('tel:phone', {}), {
+                    'prevnames': ('dst',),
+                    'doc': 'The phone number the caller placed the call to.'}),
 
                 ('period', ('ival', {}), {
                     'doc': 'The time period when the call took place.'}),
 
                 ('connected', ('bool', {}), {
                     'doc': 'Indicator of whether the call was connected.'}),
-
-                ('recording', ('file:bytes', {}), {
-                    'doc': 'An audio file which recorded the call.'}),
-            )),
-            ('tel:txtmesg', {}, (
-
-                ('from', ('tel:phone', {}), {
-                    'doc': 'The phone number assigned to the sender.'}),
-
-                ('to', ('tel:phone', {}), {
-                    'doc': 'The phone number assigned to the primary recipient.'}),
-
-                ('recipients', ('array', {'type': 'tel:phone', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of phone numbers for additional recipients of the message.'}),
-
-                ('svctype', ('str', {'enums': 'sms,mms,rcs', 'strip': True, 'lower': True}), {
-                    'doc': 'The message service type (sms, mms, rcs).'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the message was sent.'}),
-
-                ('text', ('text', {}), {
-                    'doc': 'The text of the message.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'A file containing related media.'}),
             )),
             ('tel:mob:tac', {}, (
 
@@ -326,7 +327,8 @@ modeldefs = (
                     'doc': 'The IMSI with the assigned phone number.'}),
             )),
             ('tel:mob:mcc', {}, (
-                ('loc', ('loc', {}), {'doc': 'Location assigned to the MCC.'}),
+                ('place:country:code', ('iso:3166:alpha2', {}), {
+                    'doc': 'The country code which the MCC is assigned to.'}),
             )),
             ('tel:mob:carrier', {}, (
 
@@ -335,25 +337,21 @@ modeldefs = (
 
                 ('mnc', ('tel:mob:mnc', {}), {
                     'ro': True}),
-
-                ('org', ('ou:org', {}), {
-                    'doc': 'Organization operating the carrier.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'Location the carrier operates from.'}),
-
-                ('tadig', ('tel:mob:tadig', {}), {
-                    'doc': 'The TADIG code issued to the carrier.'}),
             )),
             ('tel:mob:cell:radio:type:taxonomy', {}, ()),
             ('tel:mob:cell', {}, (
-                ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier.', 'ro': True, }),
-                ('carrier:mcc', ('tel:mob:mcc', {}), {'doc': 'Mobile Country Code.', 'ro': True, }),
-                ('carrier:mnc', ('tel:mob:mnc', {}), {'doc': 'Mobile Network Code.', 'ro': True, }),
-                ('lac', ('int', {}), {'doc': 'Location Area Code. LTE networks may call this a TAC.',
-                                      'ro': True, }),
-                ('cid', ('int', {}), {'doc': 'The Cell ID.', 'ro': True, }),
-                ('radio', ('tel:mob:cell:radio:type:taxonomy', {}), {'doc': 'Cell radio type.'}),
+
+                ('carrier', ('tel:mob:carrier', {}), {
+                    'doc': 'Mobile carrier which registered the cell tower.'}),
+
+                ('lac', ('int', {}), {
+                    'doc': 'Location Area Code. LTE networks may call this a TAC.'}),
+
+                ('cid', ('int', {}), {
+                    'doc': 'The Cell ID.'}),
+
+                ('radio', ('tel:mob:cell:radio:type:taxonomy', {}), {
+                    'doc': 'Cell radio type.'}),
             )),
 
             ('tel:mob:tadig', {}, ()),
@@ -370,7 +368,6 @@ modeldefs = (
 
                 # telco specific data
                 ('cell', ('tel:mob:cell', {}), {}),
-                ('cell:carrier', ('tel:mob:carrier', {}), {}),
                 ('imsi', ('tel:mob:imsi', {}), {}),
                 ('imei', ('tel:mob:imei', {}), {}),
                 ('phone', ('tel:phone', {}), {}),
@@ -382,12 +379,6 @@ modeldefs = (
 
                 ('wifi:ap', ('inet:wifi:ap', {}), {
                     'prevnames': ('wifi',)}),
-
-                ('wifi:ap:ssid', ('inet:wifi:ssid', {}), {
-                    'prevnames': ('wifi:ssid',)}),
-
-                ('wifi:ap:bssid', ('inet:mac', {}), {
-                    'prevnames': ('wifi:bssid',)}),
 
                 # host specific data
                 ('adid', ('it:adid', {}), {
@@ -407,7 +398,6 @@ modeldefs = (
                 ('data', ('data', {}), {}),
                 # any other fields may be refs...
             )),
-
         )
     }),
 )

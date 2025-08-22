@@ -605,7 +605,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[inet:fqdn=vertex.link :seen=(2020,2021)]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000))
+            self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000, 31622400000000))
 
     async def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
@@ -910,26 +910,25 @@ class InetModelTest(s_t_utils.SynTest):
                 t.repr((7, 1))
 
             # Form Tests ======================================================
-            place = s_common.guid()
-            props = {
-                'asn': 3,
-                'loc': 'uS',
-                'dns:rev': 'vertex.link',
-                'latlong': '-50.12345, 150.56789',
-                'place': place,
-            }
-            q = '[(inet:ip=$valu :asn=$p.asn :loc=$p.loc :dns:rev=$p."dns:rev" :latlong=$p.latlong :place=$p.place)]'
-            opts = {'vars': {'valu': '1.2.3.4', 'p': props}}
-            nodes = await core.nodes(q, opts=opts)
+            nodes = await core.nodes('''
+                [ inet:ip=1.2.3.4
+
+                    :asn=3
+                    :dns:rev=vertex.link
+
+                    :place=*
+                    :place:loc=us
+                    :place:latlong=(-50.12345, 150.56789)
+                ]
+            ''')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:ip', (4, 0x01020304)))
-            self.eq(node.get('asn'), 3)
-            self.eq(node.get('loc'), 'us')
-            self.eq(node.get('type'), 'unicast')
-            self.eq(node.get('dns:rev'), 'vertex.link')
-            self.eq(node.get('latlong'), (-50.12345, 150.56789))
-            self.eq(node.get('place'), place)
+            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
+            self.eq(nodes[0].get('asn'), 3)
+            self.eq(nodes[0].get('type'), 'unicast')
+            self.eq(nodes[0].get('dns:rev'), 'vertex.link')
+            self.eq(nodes[0].get('place:loc'), 'us')
+            self.eq(nodes[0].get('place:latlong'), (-50.12345, 150.56789))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4 :place -> geo:place'))
 
             # > / < lifts and filters
             self.len(4, await core.nodes('[inet:ip=0.0.0.0 inet:ip=0.0.0.1 inet:ip=0.0.0.2 inet:ip=0.0.0.3]'))
@@ -986,7 +985,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[inet:ip=1.2.3.4 :seen=(2020,2021)]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000))
+            self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000, 31622400000000))
 
     async def test_ipv6(self):
         formname = 'inet:ip'
@@ -1043,30 +1042,14 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(info.get('subs').get('type')[1], 'linklocal')
 
             # Form Tests ======================================================
-            place = s_common.guid()
-            valu = '::fFfF:1.2.3.4'
-            props = {
-                'loc': 'cool',
-                'latlong': '0,2',
-                'dns:rev': 'vertex.link',
-                'place': place,
-            }
-            opts = {'vars': {'valu': valu, 'p': props}}
-            q = '[(inet:ip=$valu :loc=$p.loc :latlong=$p.latlong :dns:rev=$p."dns:rev" :place=$p.place)]'
-            nodes = await core.nodes(q, opts=opts)
+
+            nodes = await core.nodes('[ inet:ip="::fFfF:1.2.3.4" ]')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:ip', (6, 0xffff01020304)))
-            self.eq(node.get('dns:rev'), 'vertex.link')
-            self.eq(node.get('latlong'), (0.0, 2.0))
-            self.eq(node.get('loc'), 'cool')
-            self.eq(node.get('place'), place)
+            self.eq(nodes[0].ndef, ('inet:ip', (6, 0xffff01020304)))
 
             nodes = await core.nodes('[inet:ip="::1"]')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:ip', (6, 1)))
-            self.none(node.get('ipv4'))
+            self.eq(nodes[0].ndef, ('inet:ip', (6, 1)))
 
             self.len(1, await core.nodes('inet:ip=0::1'))
             self.len(1, await core.nodes('inet:ip*range=(0::1, 0::1)'))
@@ -1346,18 +1329,26 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ it:network=* :dns:resolvers=("[::1]",)]')
             self.eq(nodes[0].get('dns:resolvers'), ('udp://[::1]:53',))
 
-    async def test_servfile(self):
-        async with self.getTestCore() as core:
-            file = s_common.guid()
-            valu = ('tcp://127.0.0.1:4040', file)
-            nodes = await core.nodes('[(inet:servfile=$valu :server:host=$host)]',
-                                     opts={'vars': {'valu': valu, 'host': 32 * 'a'}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:servfile', ('tcp://127.0.0.1:4040', file)))
-            self.eq(node.get('server'), 'tcp://127.0.0.1:4040')
-            self.eq(node.get('server:host'), 32 * 'a')
-            self.eq(node.get('file'), file)
+            nodes = await core.nodes('[ inet:server=gre://::1 ]')
+            self.eq(nodes[0].get('proto'), 'gre')
+
+            nodes = await core.nodes('[ inet:server=gre://1.2.3.4 ]')
+            self.eq(nodes[0].get('proto'), 'gre')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server=gre://1.2.3.4:99 ]')
+
+            self.eq(ctx.exception.get('mesg'), 'Protocol gre does not allow specifying ports.')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server="gre://[::1]:99" ]')
+
+            self.eq(ctx.exception.get('mesg'), 'Protocol gre does not allow specifying ports.')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server=newp://1.2.3.4:99 ]')
+
+            self.eq(ctx.exception.get('mesg'), 'inet:sockaddr protocol must be one of: tcp,udp,icmp,host,gre')
 
     async def test_url(self):
         formname = 'inet:url'
@@ -1982,14 +1973,12 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_urlredir(self):
         async with self.getTestCore() as core:
             valu = ('https://vertex.link/idk', 'https://cool.vertex.newp:443/something_else')
-            nodes = await core.nodes('[inet:urlredir=$valu]', opts={'vars': {'valu': valu}})
+            nodes = await core.nodes('[inet:url:redir=$valu]', opts={'vars': {'valu': valu}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:urlredir', valu))
-            self.eq(node.get('src'), 'https://vertex.link/idk')
-            self.eq(node.get('src:fqdn'), 'vertex.link')
-            self.eq(node.get('dst'), 'https://cool.vertex.newp:443/something_else')
-            self.eq(node.get('dst:fqdn'), 'cool.vertex.newp')
+            self.eq(node.ndef, ('inet:url:redir', valu))
+            self.eq(node.get('source'), 'https://vertex.link/idk')
+            self.eq(node.get('target'), 'https://cool.vertex.newp:443/something_else')
             self.len(1, await core.nodes('inet:fqdn=vertex.link'))
             self.len(1, await core.nodes('inet:fqdn=cool.vertex.newp'))
 
@@ -2161,28 +2150,27 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:wifi:ssid', "The Best SSID"))
 
-            valu = ('The Best SSID2 ', '00:11:22:33:44:55')
-            place = s_common.guid()
-            props = {
-                'accuracy': '10km',
-                'latlong': (20, 30),
-                'place': place,
-                'channel': 99,
-                'encryption': 'wpa2',
-            }
-            q = '''[(inet:wifi:ap=$valu :place=$p.place :channel=$p.channel :latlong=$p.latlong :accuracy=$p.accuracy
-                    :encryption=$p.encryption)]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
+            nodes = await core.nodes('''
+                [ inet:wifi:ap=*
+                    :ssid="The Best SSID2 "
+                    :bssid=00:11:22:33:44:55
+                    :place=*
+                    :channel=99
+                    :place:latlong=(20, 30)
+                    :place:latlong:accuracy=10km
+                    :encryption=wpa2
+                ]
+            ''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:wifi:ap', valu))
-            self.eq(node.get('ssid'), valu[0])
-            self.eq(node.get('bssid'), valu[1])
-            self.eq(node.get('latlong'), (20.0, 30.0))
-            self.eq(node.get('accuracy'), 10000000)
-            self.eq(node.get('place'), place)
+            self.eq(node.get('ssid'), 'The Best SSID2 ')
+            self.eq(node.get('bssid'), '00:11:22:33:44:55')
+            self.eq(node.get('place:latlong'), (20.0, 30.0))
+            self.eq(node.get('place:latlong:accuracy'), 10000000)
             self.eq(node.get('channel'), 99)
             self.eq(node.get('encryption'), 'wpa2')
+
+            self.len(1, await core.nodes('inet:wifi:ap -> geo:place'))
 
     async def test_banner(self):
 
@@ -2489,6 +2477,8 @@ class InetModelTest(s_t_utils.SynTest):
             platinst = nodes[0]
             app00 = nodes[0].get('app')
 
+            self.len(1, await core.nodes('inet:service:instance:id=T2XK1223Y -> inet:service:app [ :provider=* :provider:name=vertex ] :provider -> ou:org'))
+
             q = '''
             [
                 (inet:service:account=(blackout, account, vertex, slack)
@@ -2567,13 +2557,13 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.eq(nodes[0].get('account'), blckacct.ndef[1])
             self.eq(nodes[0].get('group'), devsgrp.ndef[1])
-            self.eq(nodes[0].get('period'), (1685577600000000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1685577600000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('remover'), visiacct.ndef[1])
 
             self.eq(nodes[1].get('account'), visiacct.ndef[1])
             self.eq(nodes[1].get('group'), devsgrp.ndef[1])
-            self.eq(nodes[1].get('period'), (1420070400000000, 9223372036854775807))
+            self.eq(nodes[1].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.none(nodes[1].get('creator'))
             self.none(nodes[1].get('remover'))
 
@@ -2589,7 +2579,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('http:session'))
             self.eq(nodes[0].get('creator'), blckacct.ndef[1])
-            self.eq(nodes[0].get('period'), (1715850000000000, 1715856900000000))
+            self.eq(nodes[0].get('period'), (1715850000000000, 1715856900000000, 6900000000))
             blcksess = nodes[0]
             self.len(1, await core.nodes('inet:service:session -> inet:http:session'))
 
@@ -2654,7 +2644,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('app'), app00)
             self.eq(nodes[0].get('name'), 'general')
             self.eq(nodes[0].get('topic'), 'my topic')
-            self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('instance'), platinst.ndef[1])
@@ -2688,12 +2678,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('inet:service:channel:member', s_common.guid(('visi', 'general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[0].get('account'), visiacct.ndef[1])
-            self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('channel'), gnrlchan.ndef[1])
 
             self.eq(nodes[1].ndef, ('inet:service:channel:member', s_common.guid(('blackout', 'general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[1].get('account'), blckacct.ndef[1])
-            self.eq(nodes[1].get('period'), (1685577600000000, 9223372036854775807))
+            self.eq(nodes[1].get('period'), (1685577600000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[1].get('channel'), gnrlchan.ndef[1])
 
             for node in nodes:

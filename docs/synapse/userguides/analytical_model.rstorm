@@ -141,7 +141,7 @@ of an assessment ("when" something was true or applicable) is relevant.
 As an example, tag timestamps can be used to indicate when an IP address was used as a TOR exit node. This knowledge
 can aid with both current and historical analysis of network infrastructure.
 
-.. storm-pre:: [inet:ip=185.29.8.215 :asn=60567 :loc=se.ab.stockholm :type=unicast +#cno.infra.anon.tor.exit=('2023/05/08 14:30:51', '2023/08/17 19:39:48') ]
+.. storm-pre:: [inet:ip=185.29.8.215 :asn=60567 :place:loc=se.ab.stockholm :type=unicast +#cno.infra.anon.tor.exit=('2023/05/08 14:30:51', '2023/08/17 19:39:48') ]
 .. storm-cli:: inet:ip = 185.29.8.215 
 
 The tag ``cno.infra.anon.tor.exit`` indicates that the IP has been used as a TOR exit; the dates associated with

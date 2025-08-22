@@ -65,8 +65,7 @@ query:
 .. TIP::
   
   Some forms include both a singular and an array property for the same type. This allows you to record a
-  primary value along with optional variations (e.g., such as ``ou:org:name`` and ``ou:org:names``),
-  or a primary and optional secondary values (e.g., such as  ``ou:campaign:goal`` and ``ou:campaign:goals``).
+  primary value along with optional variations (e.g., such as ``ou:org:name`` and ``ou:org:names``).
 
 Indexing
 ++++++++
@@ -575,8 +574,8 @@ and sets the specified secondary properties.
   arbitrary guid.
 
 The advantage of arbitrary values is that they are simple to generate. This is particularly useful
-for analysts who need to manually create one-off guid nodes (for example, ``ps:contact`` or ``ou:technique``
-nodes) as part of their workflow.
+for analysts who need to manually create one-off guid nodes (for example, ``entity:contact`` or
+``meta:technique`` nodes) as part of their workflow.
 
 The disadvantage is that arbitrary values are truly arbitrary; there is no easy way to deconflict
 the nodes. This can have undesirable consequences:
@@ -1370,22 +1369,20 @@ level of resolution within the dotted hierarchy:
 
 Lift all organizations located in Turkey (``tr``):
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :loc=tr.istanbul ) ]
-    .. storm-cli:: ou:org:loc ^= tr
+.. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :place:loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :place:loc=tr.istanbul ) ]
+.. storm-cli:: ou:org:place:loc ^= tr
 
 
 Lift all IP addresses geolocated in the province of Ontario, Canada (``ca.on``):
 
 
-.. storm-pre:: [ ( inet:ip=149.248.52.240 :loc=ca.on ) ( inet:ip=49.51.12.195 :loc=ca.on.barrie ) ( inet:ip=199.201.123.200 :loc=ca.on.keswick ) ]
-.. storm-cli:: inet:ip:loc ^= ca.on
+.. storm-pre:: [ ( inet:ip=149.248.52.240 :place:loc=ca.on ) ( inet:ip=49.51.12.195 :place:loc=ca.on.barrie ) ( inet:ip=199.201.123.200 :place:loc=ca.on.keswick ) ]
+.. storm-cli:: inet:ip:place:loc ^= ca.on
 
 .. NOTE::
   
-  Specifying a more granular prefix value will not match values that are less granular. That is, ``inet:ip:loc ^= ca.on``
-  will fail to match ``inet:ip:loc = ca``.
+  Specifying a more granular prefix value will not match values that are less granular. That is, ``inet:ip:place:loc ^= ca.on``
+  will fail to match ``inet:ip:place:loc = ca``.
 
 
 Equals Operator
@@ -1407,22 +1404,21 @@ be the final character in the expression (e.g., expressions such as ``:loc = us.
 invalid; the expressions will not generate an error but will fail to return any nodes).
 
 Lift all organizations located in Turkey:
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-cli:: ou:org:loc = tr.*
+
+.. storm-cli:: ou:org:place:loc = tr.*
 
 Lift all IP addresses geolocated in the province of Ontario, Canada:
 
-.. storm-cli:: inet:ip:loc = ca.on.*
+.. storm-cli:: inet:ip:place:loc = ca.on.*
 
 .. NOTE::
 
   Lifting by ``loc`` property value using the wildcard is equivalent to a prefix lift. The following queries will
   return the same results:
   
-  Wildcard: ``ou:org:loc = de.*``
+  Wildcard: ``ou:org:place:loc = de.*``
   
-  Prefix match: ``ou:org:loc ^= de``
+  Prefix match: ``ou:org:place:loc ^= de``
 
 
 .. _type-str:
@@ -1671,8 +1667,8 @@ The trailing dot is masked / omitted when displaying the taxonomy value. This di
 displaying the value's representation (display value, using the method ``$node.repr()``) as opposed to its actual
 value (using the method ``$node.value()``):
 
-.. storm-pre:: [ ou:goal:type:taxonomy=financial_gain ]
-.. storm-cli:: ou:goal:type:taxonomy=financial_gain $lib.print($node.repr()) $lib.print($node.value())
+.. storm-pre:: [ entity:goal:type:taxonomy=financial_gain ]
+.. storm-cli:: entity:goal:type:taxonomy=financial_gain $lib.print($node.repr()) $lib.print($node.value())
 
 
 Parsing

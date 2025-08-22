@@ -33,23 +33,27 @@ modeldefs = (
 
             ('phys:object', {
                 'doc': 'Properties common to all physical objects.',
-                'template': {'phys:object': 'object'},
+                'template': {'title': 'object'},
+                'interfaces': (
+                    ('meta:havable', {}),
+                    ('geo:locatable', {}),
+                ),
                 'props': (
 
                     ('phys:mass', ('mass', {}), {
-                        'doc': 'The mass of the {phys:object}.'}),
+                        'doc': 'The physical mass of the {title}.'}),
 
                     ('phys:volume', ('geo:dist', {}), {
-                        'doc': 'The cubed volume of the {phys:object}.'}),
+                        'doc': 'The physical volume of the {title}.'}),
 
                     ('phys:length', ('geo:dist', {}), {
-                        'doc': 'The length of the {phys:object}.'}),
+                        'doc': 'The physical length of the {title}.'}),
 
                     ('phys:width', ('geo:dist', {}), {
-                        'doc': 'The width of the {phys:object}.'}),
+                        'doc': 'The physical width of the {title}.'}),
 
                     ('phys:height', ('geo:dist', {}), {
-                        'doc': 'The height of the {phys:object}.'}),
+                        'doc': 'The physical height of the {title}.'}),
                 ),
             }),
         ),
@@ -76,11 +80,7 @@ modeldefs = (
 
             ('mat:item', ('guid', {}), {
                 'interfaces': (
-                    ('phys:object', {
-                        'template': {'phys:object': 'item'}}),
-
-                    ('geo:locatable', {
-                        'template': {'geo:locatable': 'item'}}),
+                    ('phys:object', {'template': {'title': 'item'}}),
                 ),
                 'doc': 'A GUID assigned to a material object.'}),
 

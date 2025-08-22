@@ -144,16 +144,19 @@ modeldefs = (
                 'ex': 'woot.exe'}),
 
             ('file:path', 'synapse.models.files.FilePath', {}, {
-                'virts': {
-                    'ext': (('str', {}), {
+                'virts': (
+                    ('ext', ('str', {}), {
+                        'ro': True,
                         'doc': 'The file extension from the path.'}),
 
-                    'dir': (('file:path', {}), {
+                    ('dir', ('file:path', {}), {
+                        'ro': True,
                         'doc': 'The directory from the path.'}),
 
-                    'base': (('file:base', {}), {
+                    ('base', ('file:base', {}), {
+                        'ro': True,
                         'doc': 'The file base name from the path.'}),
-                },
+                ),
                 'doc': 'A normalized file path.',
                 'ex': 'c:/windows/system32/calc.exe'}),
         ),
@@ -215,7 +218,6 @@ modeldefs = (
                     ('author', ('entity:contact', {}), {
                         'doc': 'MIME specific contact information extracted from metadata.'}),
 
-                    # FIXME geo:locatable?
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'MIME specific lat/long information extracted from metadata.'}),
 
@@ -246,7 +248,7 @@ modeldefs = (
 
             ('file:bytes', ('guid', {}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'file'}}),
+                    ('meta:observable', {'template': {'title': 'file'}}),
                 ),
                 'doc': 'A file.'}),
 

@@ -3,7 +3,7 @@ modeldefs = (
         'types': (
             ('plan:system', ('guid', {}), {
                 'interfaces': (
-                    ('doc:authorable', {'template': {'authorable': 'planning system'}}),
+                    ('doc:authorable', {'template': {'title': 'planning system'}}),
                 ),
                 'doc': 'A planning or behavioral analysis system that defines phases and procedures.'}),
 
@@ -14,9 +14,8 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {'template': {
                         'document': 'procedure',
-                        'authorable': 'procedure'}}),
+                        'title': 'procedure'}}),
                 ),
-
                 'doc': 'A procedure consisting of steps.'}),
 
             ('plan:procedure:type:taxonomy', ('taxonomy', {}), {
@@ -36,7 +35,7 @@ modeldefs = (
         ),
 
         'edges': (
-            (('plan:procedure:step', 'uses', None), {
+            (('plan:procedure:step', 'uses', 'meta:usable'), {
                 'doc': 'The step in the procedure makes use of the target node.'}),
         ),
 
@@ -86,25 +85,6 @@ modeldefs = (
             ('plan:procedure:type:taxonomy', {}, ()),
             ('plan:procedure', {}, (
 
-                ('title', ('str', {}), {
-                    'ex': 'Network Reconnaissance Procedure',
-                    'doc': 'The name of the procedure.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the purpose and use cases for the procedure.'}),
-
-                ('author', ('entity:actor', {}), {
-                    'doc': 'The contact of the person or organization which authored the procedure.'}),
-
-                ('created', ('time', {}), {
-                    'doc': 'The time the procedure was created.'}),
-
-                ('updated', ('time', {}), {
-                    'doc': 'The time the procedure was last updated.'}),
-
-                ('version', ('it:semver', {}), {
-                    'doc': 'The version of the procedure.'}),
-
                 ('system', ('plan:system', {}), {
                     'doc': 'The planning system which defines this procedure.'}),
 
@@ -122,7 +102,6 @@ modeldefs = (
                 ('name', ('str', {'strip': True}), {
                     'doc': 'The name of the variable.'}),
 
-                # FIXME taxonomy (TODO: grep type)
                 ('type', ('str', {}), {
                     'doc': 'The type for the input. Types are specific to the planning system.'}),
 
@@ -140,7 +119,6 @@ modeldefs = (
                 ('procedure', ('plan:procedure', {}), {
                     'doc': 'The procedure which defines the step.'}),
 
-                # FIXME base:title? -> :name=<base:name>?
                 ('title', ('str', {}), {
                     'ex': 'Scan the IPv4 address range for open ports',
                     'doc': 'The title of the step.'}),
@@ -150,9 +128,6 @@ modeldefs = (
 
                 ('outputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of variables defined in this step.'}),
-
-                ('techniques', ('array', {'type': 'ou:technique', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of techniques used when executing this step.'}),
 
                 ('links', ('array', {'type': 'plan:procedure:link', 'uniq': True}), {
                     'doc': 'An array of links to subsequent steps.'}),

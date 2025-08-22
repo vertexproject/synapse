@@ -8,7 +8,6 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.json as s_json
 import synapse.lib.node as s_node
-import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
@@ -75,21 +74,21 @@ class ProtoNode(s_node.NodeBase):
 
         if (tags := sode.get('tags')) is not None:
             for name in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
-                edits.append((s_layer.EDIT_TAG_DEL, (name, None)))
+                edits.append((s_layer.EDIT_TAG_DEL, (name,)))
 
         if (props := sode.get('props')) is not None:
             for name in props.keys():
                 prop = self.form.props.get(name)
-                edits.append((s_layer.EDIT_PROP_DEL, (name, None, prop.type.stortype)))
+                edits.append((s_layer.EDIT_PROP_DEL, (name,)))
 
         if (tagprops := sode.get('tagprops')) is not None:
             for tag, props in tagprops.items():
                 for name in props.keys():
                     prop = self.model.getTagProp(name)
-                    edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)))
+                    edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name)))
 
         if self.delnode:
-            edits.append((s_layer.EDIT_NODE_DEL, (self.valu, self.form.type.stortype)))
+            edits.append((s_layer.EDIT_NODE_DEL, ()))
 
         if self.tombnode:
             if (tags := sode.get('antitags')) is not None:
@@ -123,24 +122,24 @@ class ProtoNode(s_node.NodeBase):
             edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype, self.virts)))
 
         for name, valu in self.meta.items():
-            edits.append((s_layer.EDIT_META_SET, (name, valu, None, self.model.metatypes[name].stortype)))
+            edits.append((s_layer.EDIT_META_SET, (name, valu, self.model.metatypes[name].stortype)))
 
         for name, valu in self.props.items():
             prop = self.form.props.get(name)
-            edits.append((s_layer.EDIT_PROP_SET, (name, valu[0], None, prop.type.stortype, valu[1])))
+            edits.append((s_layer.EDIT_PROP_SET, (name, valu[0], prop.type.stortype, valu[1])))
 
         for name in self.propdels:
             prop = self.form.props.get(name)
-            edits.append((s_layer.EDIT_PROP_DEL, (name, None, prop.type.stortype)))
+            edits.append((s_layer.EDIT_PROP_DEL, (name,)))
 
         for name in self.proptombs:
             edits.append((s_layer.EDIT_PROP_TOMB, (name,)))
 
         for name, valu in self.tags.items():
-            edits.append((s_layer.EDIT_TAG_SET, (name, valu, None)))
+            edits.append((s_layer.EDIT_TAG_SET, (name, valu)))
 
         for name in sorted(self.tagdels, key=lambda t: len(t), reverse=True):
-            edits.append((s_layer.EDIT_TAG_DEL, (name, None)))
+            edits.append((s_layer.EDIT_TAG_DEL, (name,)))
 
         for name in self.tagtombs:
             edits.append((s_layer.EDIT_TAG_TOMB, (name,)))
@@ -159,20 +158,20 @@ class ProtoNode(s_node.NodeBase):
 
         for (tag, name), valu in self.tagprops.items():
             prop = self.model.getTagProp(name)
-            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, prop.type.stortype)))
+            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu, prop.type.stortype)))
 
         for (tag, name) in self.tagpropdels:
             prop = self.model.getTagProp(name)
-            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)))
+            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name)))
 
         for (tag, name) in self.tagproptombs:
             edits.append((s_layer.EDIT_TAGPROP_TOMB, (tag, name)))
 
         for name, valu in self.nodedata.items():
-            edits.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None)))
+            edits.append((s_layer.EDIT_NODEDATA_SET, (name, valu)))
 
         for name in self.nodedatadels:
-            edits.append((s_layer.EDIT_NODEDATA_DEL, (name, None)))
+            edits.append((s_layer.EDIT_NODEDATA_DEL, (name,)))
 
         for name in self.nodedatatombs:
             edits.append((s_layer.EDIT_NODEDATA_TOMB, (name,)))
@@ -456,7 +455,7 @@ class ProtoNode(s_node.NodeBase):
         if self.node is not None:
             return self.node.getTag(tag, defval=defval)
 
-    async def addTag(self, tag, valu=(None, None), norminfo=None, tagnode=None):
+    async def addTag(self, tag, valu=(None, None, None), norminfo=None, tagnode=None):
 
         if tagnode is None:
             tagnode = await self._getRealTag(tag)
@@ -464,9 +463,11 @@ class ProtoNode(s_node.NodeBase):
         if isinstance(valu, list):
             valu = tuple(valu)
 
-        if norminfo is None and valu != (None, None):
+        ityp = self.model.type('ival')
+
+        if norminfo is None and valu != (None, None, None):
             try:
-                valu, norminfo = await self.model.type('ival').norm(valu)
+                valu, norminfo = await ityp.norm(valu)
             except s_exc.BadTypeValu as e:
                 e.set('tag', tagnode.valu)
                 raise e
@@ -483,11 +484,11 @@ class ProtoNode(s_node.NodeBase):
             self.tags[tagnode.valu] = valu
             return tagnode
 
-        elif valu == (None, None):
+        elif valu == (None, None, None):
             return tagnode
 
-        if norminfo.get('merge', True):
-            valu = s_time.ival(*valu, *curv)
+        if curv != (None, None, None) and norminfo.get('merge', True):
+            valu = ityp.merge(valu, curv)
 
         self.tags[tagnode.valu] = valu
         self.tagdels.discard(tagnode.valu)
@@ -659,7 +660,7 @@ class ProtoNode(s_node.NodeBase):
             return False
 
         if curv is not None and info.get('merge', True):
-            valu = prop.type.merge(curv, valu)
+            norm = prop.type.merge(curv, norm)
 
         self.tagprops[(tagnode.valu, name)] = norm
         self.tagpropdels.discard((tagnode.valu, name))

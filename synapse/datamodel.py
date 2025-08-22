@@ -109,7 +109,7 @@ class Prop:
         self.modl.propsbytype[self.type.name][self.full] = self
 
         if self.deprecated or self.type.deprecated:
-            async def depfunc(node, oldv):
+            async def depfunc(node):
                 mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
                 if (runt := s_scope.get('runt')) is not None:
                     await runt.warnonce(mesg)
@@ -143,7 +143,7 @@ class Prop:
         The callback is called within the current transaction,
         with the node, and the old property value (or None).
 
-        def func(node, oldv):
+        def func(node):
             dostuff()
         '''
         self.onsets.append(func)
@@ -160,31 +160,30 @@ class Prop:
         The callback is called within the current transaction,
         with the node, and the old property value (or None).
 
-        def func(node, oldv):
+        def func(node):
             dostuff()
         '''
         self.ondels.append(func)
 
-    async def wasSet(self, node, oldv):
+    async def wasSet(self, node):
         '''
         Fire the onset() handlers for this property.
 
         Args:
             node (synapse.lib.node.Node): The node whose property was set.
-            oldv (obj): The previous value of the property.
         '''
         for func in self.onsets:
             try:
-                await s_coro.ornot(func, node, oldv)
+                await s_coro.ornot(func, node)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 logger.exception('onset() error for %s' % (self.full,))
 
-    async def wasDel(self, node, oldv):
+    async def wasDel(self, node):
         for func in self.ondels:
             try:
-                await s_coro.ornot(func, node, oldv)
+                await s_coro.ornot(func, node)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -273,6 +272,7 @@ class Form:
 
         self.props = {}     # name: Prop()
         self.ifaces = {}    # name: <ifacedef>
+        self._full_ifaces = collections.defaultdict(int)
 
         self.refsout = None
 
@@ -293,6 +293,9 @@ class Form:
         if self.isrunt and (liftfunc := self.info.get('liftfunc')) is not None:
             func = s_dyndeps.tryDynLocal(liftfunc)
             modl.core.addRuntLift(name, func)
+
+    def implements(self, ifname):
+        return bool(self._full_ifaces.get(ifname))
 
     def reqProtoDef(self, name, propname=None):
 
@@ -490,7 +493,7 @@ class Model:
         self.forms = {}  # name: Form()
         self.props = {}  # (form,name): Prop() and full: Prop()
         self.edges = {}  # (n1form, verb, n2form): Edge()
-        self._valid_edges = collections.defaultdict(list)
+        self._valid_edges = {} #  (n1form, verb, n2form): Edge()
         self.ifaces = {}  # name: <ifdef>
         self.tagprops = {}  # name: TagProp()
         self.formabbr = {}  # name: [Form(), ... ]
@@ -549,10 +552,10 @@ class Model:
 
         info = {
             'doc': 'A date/time value.',
-            'virts': {
-                'precision': (('timeprecision', {}), {
+            'virts': (
+                ('precision', ('timeprecision', {}), {
                     'doc': 'The precision for display and rounding the time.'}),
-            },
+            ),
         }
         item = s_types.Time(self, 'time', info, {})
         self.addBaseType(item)
@@ -562,20 +565,20 @@ class Model:
         self.addBaseType(item)
 
         info = {
-            'virts': {
+            'virts': (
 
-                'min': (('time', {}), {
+                ('min', ('time', {}), {
                     'doc': 'The starting time of the interval.'}),
 
-                'max': (('time', {}), {
+                ('max', ('time', {}), {
                     'doc': 'The ending time of the interval.'}),
 
-                'duration': (('duration', {}), {
+                ('duration', ('duration', {}), {
                     'doc': 'The duration of the interval.'}),
 
-                'precision': (('timeprecision', {}), {
+                ('precision', ('timeprecision', {}), {
                     'doc': 'The precision for display and rounding the times.'}),
-            },
+            ),
             'doc': 'A time window or interval.',
         }
         item = s_types.Ival(self, 'ival', info, {})
@@ -602,19 +605,22 @@ class Model:
         self.addBaseType(item)
 
         info = {
-            'virts': {
-                'form': (('syn:form', {}), {
+            'virts': (
+                ('form', ('syn:form', {}), {
+                    'ro': True,
                     'doc': 'The form of node which is referenced.'}),
-            },
+            ),
             'doc': 'The node definition type for a (form,valu) compound field.',
         }
         item = s_types.Ndef(self, 'ndef', info, {})
         self.addBaseType(item)
 
         info = {
-            'virts': {
-                'size': (('int', {}), {'doc': 'The number of elements in the array.'}),
-            },
+            'virts': (
+                ('size', ('int', {}), {
+                    'ro': True,
+                    'doc': 'The number of elements in the array.'}),
+            ),
             'doc': 'A typed array which indexes each field.'
         }
         item = s_types.Array(self, 'array', info, {'type': 'int'})
@@ -959,9 +965,12 @@ class Model:
             mesg = f'Edge definition verb must be a string: {edgetype}.'
             raise s_exc.BadArg(mesg=mesg)
 
-        if self.edges.get(edgetype) is not None:
-            mesg = f'Duplicate edge declared: {edgetype}.'
-            raise s_exc.BadArg(mesg=mesg)
+        if (edge := self.edges.get(edgetype)) is not None:
+            # this extra check allows more specific edges to be defined
+            # while less specific interface based edges are also present.
+            if edge.edgetype == edgetype:
+                mesg = f'Duplicate edge declared: {edgetype}.'
+                raise s_exc.BadArg(mesg=mesg)
 
         n1forms = (None,)
         if n1form is not None:
@@ -973,12 +982,14 @@ class Model:
 
         edge = Edge(self, edgetype, edgeinfo)
         self.edges[edgetype] = edge
+
         [self.edgesbyn1[n1form].add(edge) for n1form in n1forms]
         [self.edgesbyn2[n2form].add(edge) for n2form in n2forms]
 
+        self._valid_edges[edgetype] = edge
         for n1form in n1forms:
             for n2form in n2forms:
-                self._valid_edges[(n1form, verb, n2form)].append(edge)
+                self._valid_edges[(n1form, verb, n2form)] = edge
 
     def delEdge(self, edgetype):
 
@@ -1001,9 +1012,10 @@ class Model:
         [self.edgesbyn1[n1form].discard(edge) for n1form in n1forms]
         [self.edgesbyn2[n2form].discard(edge) for n2form in n2forms]
 
+        self._valid_edges.pop(edgetype, None)
         for n1form in n1forms:
             for n2form in n2forms:
-                self._valid_edges[(n1form, verb, n2form)].remove(edge)
+                self._valid_edges.pop((n1form, verb, n2form), None)
 
     def _reqFormName(self, name):
         form = self.forms.get(name)
@@ -1031,13 +1043,35 @@ class Model:
 
     def reqVirtTypes(self, virts):
 
-        for (name, (tdef, info)) in virts.items():
-
-            if tdef is None:
-                continue
-
+        for (name, tdef, info) in virts:
             if self.types.get(tdef[0]) is None:
                 raise s_exc.NoSuchType(name=tdef[0])
+
+    def mergeVirts(self, v0, v1):
+        types = {}
+        infos = {}
+
+        for (name, typedef, info) in v0:
+
+            if typedef is not None:
+                types[name] = typedef
+
+            infos.setdefault(name, {})
+            infos[name].update(info)
+
+        for (name, typedef, info) in v1:
+
+            if typedef is not None:
+                types[name] = typedef
+
+            infos.setdefault(name, {})
+            infos[name].update(info)
+
+        virts = []
+        for name, info in infos.items():
+            virts.append((name, types.get(name), info))
+
+        return tuple(virts)
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
         assert formname not in self.forms, f'{formname} form already present in model'
@@ -1050,8 +1084,13 @@ class Model:
         if _type is None:
             raise s_exc.NoSuchType(name=formname)
 
-        virts = _type.info.get('virts', {}).copy()
-        virts.update(forminfo.get('virts', {}))
+        virts = []
+
+        if (typevirts := _type.info.get('virts')) is not None:
+            virts = self.mergeVirts(virts, typevirts)
+
+        if (formvirts := forminfo.get('virts')) is not None:
+            virts = self.mergeVirts(virts, formvirts)
 
         if virts:
             self.reqVirtTypes(virts)
@@ -1063,6 +1102,10 @@ class Model:
         self.props[formname] = form
 
         if (prevnames := forminfo.get('prevnames')) is not None:
+            for prevname in prevnames:
+                self.formprevnames[prevname] = formname
+
+        if (prevnames := form.type.info.get('prevnames')) is not None:
             for prevname in prevnames:
                 self.formprevnames[prevname] = formname
 
@@ -1201,8 +1244,12 @@ class Model:
             mesg = f'No type named {tdef[0]} while declaring prop {form.name}:{name}.'
             raise s_exc.NoSuchType(mesg=mesg, name=name)
 
-        virts = _type.info.get('virts', {}).copy()
-        virts.update(info.get('virts', {}))
+        virts = []
+        if (typevirts := _type.info.get('virts')) is not None:
+            virts = self.mergeVirts(virts, typevirts)
+
+        if (propvirts := info.get('virts')) is not None:
+            virts = self.mergeVirts(virts, propvirts)
 
         if virts:
             self.reqVirtTypes(virts)
@@ -1251,6 +1298,7 @@ class Model:
 
         # TODO decide if/how to handle subinterface prefixes
         template = self._prepIfaceTemplate(iface, ifinfo)
+        template.update(form.type.info.get('template', {}))
         template['$self'] = form.full
 
         def convert(item):
@@ -1302,6 +1350,8 @@ class Model:
 
         iface = self.ifaces.get(name)
 
+        form._full_ifaces[name] += 1
+
         if iface is None:
             mesg = f'Form {form.name} depends on non-existent interface: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
@@ -1345,6 +1395,7 @@ class Model:
         if (iface := self.ifaces.get(name)) is None:
             return
 
+        form._full_ifaces[name] -= 1
         iface = self._prepFormIface(form, iface, ifinfo)
 
         for propname, typedef, propinfo in iface.get('props', ()):
@@ -1443,7 +1494,7 @@ class Model:
         return self.tagprops.get(name)
 
     def edge(self, edgetype):
-        return self.edges.get(edgetype)
+        return self._valid_edges.get(edgetype)
 
     def edgeIsValid(self, n1form, verb, n2form):
         if self._valid_edges.get((n1form, verb, n2form)):

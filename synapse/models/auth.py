@@ -30,14 +30,15 @@ modeldefs = (
                 'interfaces': (
                     ('auth:credential', {}),
                     ('crypto:hashable', {}),
+                    ('meta:observable', {'template': {'title': 'password'}}),
                 ),
                 'doc': 'A password string.'}),
         ),
 
         'types': (
 
-            ('auth:credential', ('ndef', {'interfaces': ('auth:credential',)}), {
-                'doc': 'An ndef type including all forms which implement the auth:credential interface.'}),
+            ('auth:credential', ('ndef', {'interface': 'auth:credential'}), {
+                'doc': 'A node which inherits the auth:credential interface.'}),
         ),
 
         'interfaces': (

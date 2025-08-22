@@ -1673,10 +1673,10 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_node_repr(self):
         text = '''
-            [ inet:ip=1.2.3.4 :loc=us]
+            [ inet:ip=1.2.3.4 :place:loc=us]
             $ipv4 = $node.repr()
-            $loc = $node.repr(loc)
-            $latlong = $node.repr(latlong, defv="??")
+            $loc = $node.repr(place:loc)
+            $latlong = $node.repr(place:latlong, defv="??")
             $valu = `{$ipv4} in {$loc} at {$latlong}`
             [ test:str=$valu ]
             +test:str
@@ -2578,12 +2578,18 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, ernfos)
             self.isin('Failed to norm a time value prior to formatting', ernfos[0][1].get('mesg'))
 
-            # Cant format ? times
+            # Cant format ?/* times
             query = '$valu=$lib.time.format("?", "%Y")'
             mesgs = await core.stormlist(query)
             ernfos = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, ernfos)
-            self.isin('Cannot format a timestamp for ongoing/future time.', ernfos[0][1].get('mesg'))
+            self.isin('', ernfos[0][1].get('mesg'))
+
+            query = '$valu=$lib.time.format("*", "%Y")'
+            mesgs = await core.stormlist(query)
+            ernfos = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, ernfos)
+            self.isin('', ernfos[0][1].get('mesg'))
 
             # Get time parts
             self.eq(2021, await core.callStorm('return($lib.time.year(20211031020304))'))
@@ -3456,7 +3462,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             data = [
                 (('test:str', 'hello'), {'props': {'tick': '2001'},
-                                         'tags': {'test': (None, None)}}),
+                                         'tags': {'test': (None, None, None)}}),
                 (('test:str', 'stars'), {'props': {'tick': '3001'},
                                          'tags': {}}),
             ]
@@ -3471,7 +3477,7 @@ class StormTypesTest(s_test.SynTest):
 
             data = [
                 (('test:str', 'sup!'), {'props': {'tick': '2001'},
-                                        'tags': {'test': (None, None)}}),
+                                        'tags': {'test': (None, None, None)}}),
                 (('test:str', 'dawg'), {'props': {'tick': '3001'},
                                         'tags': {}}),
             ]
@@ -5599,7 +5605,7 @@ class StormTypesTest(s_test.SynTest):
             q = 'return($lib.layer.get().getPropCount(inet:ip:asn, valu=1))'
             self.eq(0, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropCount(inet:ip:loc, valu=1))'
+            q = 'return($lib.layer.get().getPropCount(inet:ip:place:loc, valu=1))'
             self.eq(0, await core.callStorm(q))
 
             q = 'return($lib.layer.get().getPropCount(inet:ip:asn, valu=4))'
@@ -6749,7 +6755,7 @@ words\tword\twrd'''
             q = 'return($lib.view.get().getPropCount(inet:ip:asn, valu=1))'
             self.eq(0, await core.callStorm(q, opts=forkopts))
 
-            q = 'return($lib.view.get().getPropCount(inet:ip:loc, valu=1))'
+            q = 'return($lib.view.get().getPropCount(inet:ip:place:loc, valu=1))'
             self.eq(0, await core.callStorm(q, opts=forkopts))
 
             q = 'return($lib.view.get().getPropCount(inet:ip:asn, valu=4))'

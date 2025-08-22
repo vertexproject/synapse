@@ -6,35 +6,35 @@ modeldefs = (
 
             ('doc:authorable', {
                 'doc': 'Properties common to authorable forms.',
-                'template': {'authorable': 'document'},
+                'template': {'title': 'document'},
                 'props': (
 
                     ('id', ('meta:id', {}), {
-                        'doc': 'The {authorable} ID.'}),
+                        'doc': 'The {title} ID.'}),
 
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the {authorable} is available.'}),
+                        'doc': 'The URL where the {title} is available.'}),
 
                     ('desc', ('text', {}), {
-                        'doc': 'A description of the {authorable}.'}),
+                        'doc': 'A description of the {title}.'}),
 
                     ('created', ('time', {}), {
-                        'doc': 'The time that the {authorable} was created.'}),
+                        'doc': 'The time that the {title} was created.'}),
 
                     ('updated', ('time', {}), {
-                        'doc': 'The time that the {authorable} was last updated.'}),
+                        'doc': 'The time that the {title} was last updated.'}),
 
                     ('author', ('entity:actor', {}), {
                         'doc': 'The contact information of the primary author.'}),
 
                     ('contributors', ('array', {'type': 'entity:actor', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of contacts which contributed to the {authorable}.'}),
+                        'doc': 'An array of contacts which contributed to the {title}.'}),
 
                     ('version', ('it:semver', {}), {
-                        'doc': 'The version of the {authorable}.'}),
+                        'doc': 'The version of the {title}.'}),
 
                     ('supersedes', ('array', {'type': '$self', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of {authorable} versions which are superseded by this {authorable}.'}),
+                        'doc': 'An array of {title} versions which are superseded by this {title}.'}),
                 ),
             }),
             ('doc:document', {
@@ -52,20 +52,20 @@ modeldefs = (
                 'props': (
 
                     ('type', ('{type}', {}), {
-                        'doc': 'The type of {document}.'}),
+                        'doc': 'The type of {title}.'}),
 
                     ('text', ('text', {}), {
                         'display': {'syntax': '{syntax}'},
-                        'doc': 'The text of the {document}.'}),
+                        'doc': 'The text of the {title}.'}),
 
-                    ('title', ('base:name', {}), {
-                        'doc': 'The title of the {document}.'}),
+                    ('title', ('str', {}), {
+                        'doc': 'The title of the {title}.'}),
 
                     ('file', ('file:bytes', {}), {
-                        'doc': 'The file containing the {document} contents.'}),
+                        'doc': 'The file containing the {title} contents.'}),
 
                     ('file:name', ('file:base', {}), {
-                        'doc': 'The name of the file containing the {document} contents.'}),
+                        'doc': 'The name of the file containing the {title} contents.'}),
                 ),
             }),
         ),
@@ -81,7 +81,7 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {
                         'template': {
-                            'document': 'policy',
+                            'title': 'policy',
                             'type': 'doc:policy:type:taxonomy'},
                     }),
                 ),
@@ -97,24 +97,14 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {
                         'template': {
-                            'document': 'standard',
+                            'title': 'standard',
                             'type': 'doc:standard:type:taxonomy'}}),
                 ),
                 'doc': 'A group of requirements which define how to implement a policy or goal.'}),
 
-            ('doc:requirement:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A taxonomy of requirement types.'}),
-
-            # FIXME doc:document seems like overkill. doc:authorable?
             ('doc:requirement', ('guid', {}), {
                 'interfaces': (
-                    ('doc:document', {
-                        'template': {
-                            'document': 'requirement',
-                            'type': 'doc:requirement:type:taxonomy'}}),
+                    ('doc:authorable', {'template': {'title': 'requirement'}}),
                 ),
                 'doc': 'A single requirement, often defined by a standard.'}),
 
@@ -128,7 +118,7 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {
                         'template': {
-                            'document': 'resume',
+                            'title': 'resume',
                             'type': 'doc:resume:type:taxonomy'}}),
                 ),
                 'doc': 'A CV/resume document.'}),
@@ -141,10 +131,31 @@ modeldefs = (
                 'prevnames': ('media:news',),
                 'interfaces': (
                     ('doc:document', {'template': {
-                        'document': 'report',
+                        'title': 'report',
                         'type': 'doc:report:type:taxonomy'}}),
                 ),
                 'doc': 'A report.'}),
+
+            ('doc:contract', ('guid', {}), {
+                'prevnames': ('ou:contract',),
+                'interfaces': (
+                    ('doc:document', {'template': {
+                        'title': 'contract',
+                        'type': 'doc:contract:type:taxonomy'}}),
+                ),
+                'doc': 'A contract between multiple entities.'}),
+
+            ('doc:contract:type:taxonomy', ('taxonomy', {}), {
+                'prevnames': ('ou:conttype',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of contract types.'}),
+
+        ),
+        'edges': (
+            (('doc:contract', 'has', 'doc:requirement'), {
+                'doc': 'The contract contains the requirement.'}),
         ),
         'forms': (
 
@@ -157,7 +168,6 @@ modeldefs = (
                     'doc': 'The policy which was used to derive the standard.'}),
             )),
 
-            ('doc:requirement:type:taxonomy', {}, ()),
             ('doc:requirement', {}, (
 
                 ('text', ('text', {}), {
@@ -181,6 +191,9 @@ modeldefs = (
 
                 ('summary', ('text', {}), {
                     'doc': 'The summary of qualifications from the resume.'}),
+
+                ('skills', ('array', {'type': 'ps:skill', 'sorted': True, 'uniq': True}), {
+                    'doc': 'The skills described in the resume.'}),
 
                 ('workhist', ('array', {'type': 'ps:workhist', 'sorted': True, 'uniq': True}), {
                     'doc': 'Work history described in the resume.'}),
@@ -206,6 +219,35 @@ modeldefs = (
 
                 ('publisher:name', ('meta:name', {}), {
                     'doc': 'The name of the entity which published the report.'}),
+
+                ('topics', ('array', {'type': 'meta:topic', 'sorted': True, 'uniq': True}), {
+                    'doc': 'The topics discussed in the report.'}),
+            )),
+
+            ('doc:contract:type:taxonomy', {}, ()),
+            ('doc:contract', {}, (
+
+                ('issuer', ('entity:actor', {}), {
+                    'prevnames': ('sponsor',),
+                    'doc': 'The contract sponsor.'}),
+
+                ('parties', ('array', {'type': 'entity:actor', 'uniq': True, 'sorted': True}), {
+                    'doc': 'The entities bound by the contract.'}),
+
+                ('signers', ('array', {'type': 'entity:individual', 'uniq': True, 'sorted': True}), {
+                    'doc': 'The individuals who signed the contract.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The time period when the contract is in effect.'}),
+
+                ('signed', ('time', {}), {
+                    'doc': 'The date that the contract signing was complete.'}),
+
+                ('completed', ('time', {}), {
+                    'doc': 'The date that the contract was completed.'}),
+
+                ('terminated', ('time', {}), {
+                    'doc': 'The date that the contract was terminated.'}),
             )),
         ),
         'edges': (),

@@ -44,9 +44,9 @@ modeldefs = (
                 'doc': 'A type taxonomy for land vehicles.'}),
 
             ('transport:land:vehicle', ('guid', {}), {
+                'template': {'title': 'vehicle'},
                 'interfaces': (
-                    ('transport:vehicle', {
-                        'template': {'phys:object': 'vehicle'}}),
+                    ('transport:vehicle', {}),
                 ),
                 'doc': 'An individual land based vehicle.'}),
 
@@ -74,9 +74,9 @@ modeldefs = (
                 'doc': 'A drive taken by a land vehicle.'}),
 
             ('transport:air:craft', ('guid', {}), {
+                'template': {'title': 'aircraft'},
                 'interfaces': (
-                    ('transport:vehicle', {
-                        'template': {'phys:object': 'aircraft'}}),
+                    ('transport:vehicle', {}),
                 ),
                 'doc': 'An individual aircraft.'}),
 
@@ -96,7 +96,7 @@ modeldefs = (
 
             ('transport:air:telem', ('guid', {}), {
                 'interfaces': (
-                    ('geo:locatable', {'template': {'locatable': 'telemetry sample'}}),
+                    ('geo:locatable', {'template': {'title': 'telemetry sample'}}),
                 ),
                 'doc': 'A telemetry sample from an aircraft in transit.'}),
 
@@ -121,9 +121,9 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of sea vessel types.'}),
 
             ('transport:sea:vessel', ('guid', {}), {
+                'template': {'title': 'vessel'},
                 'interfaces': (
-                    ('transport:vehicle', {
-                        'template': {'phys:object': 'vessel'}}),
+                    ('transport:vehicle', {}),
                 ),
                 'doc': 'An individual sea vessel.'}),
 
@@ -135,7 +135,7 @@ modeldefs = (
 
             ('transport:sea:telem', ('guid', {}), {
                 'interfaces': (
-                    ('geo:locatable', {'template': {'locatable': 'telemetry sample'}}),
+                    ('geo:locatable', {'template': {'title': 'telemetry sample'}}),
                 ),
                 'doc': 'A telemetry sample from a vessel in transit.'}),
 
@@ -158,23 +158,23 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of rail car types.'}),
 
             ('transport:rail:car', ('guid', {}), {
+                'template': {'title': 'train car'},
                 'interfaces': (
-                    ('transport:container', {
-                        'template': {'phys:object': 'train car'}}),
+                    ('transport:container', {}),
                 ),
                 'doc': 'An individual train car.'}),
 
             ('transport:rail:consist', ('guid', {}), {
+                'template': {'title': 'train'},
                 'interfaces': (
-                    ('transport:vehicle', {
-                        'template': {'phys:object': 'train'}}),
+                    ('transport:vehicle', {}),
                 ),
                 'doc': 'A group of rail cars and locomotives connected together.'}),
 
             ('transport:shipping:container', ('guid', {}), {
+                'template': {'title': 'shipping container'},
                 'interfaces': (
-                    ('transport:container', {
-                        'template': {'phys:object': 'shipping container'}}),
+                    ('transport:container', {}),
                 ),
                 'doc': 'An individual shipping container.'}),
 
@@ -189,44 +189,43 @@ modeldefs = (
                 'props': (
 
                     ('built', ('time', {}), {
-                        'doc': 'The date when the {phys:object} was built.'}),
+                        'doc': 'The date when the {title} was built.'}),
 
                     ('manufacturer', ('entity:actor', {}), {
-                        'doc': 'The organization which manufactured the {phys:object}.'}),
+                        'doc': 'The organization which manufactured the {title}.'}),
 
                     ('manufacturer:name', ('meta:name', {}), {
-                        'doc': 'The name of the organization which manufactured the {phys:object}.'}),
+                        'doc': 'The name of the organization which manufactured the {title}.'}),
 
                     ('model', ('base:name', {}), {
-                        'doc': 'The model of the {phys:object}.'}),
+                        'doc': 'The model of the {title}.'}),
 
                     ('serial', ('base:id', {}), {
-                        'doc': 'The manufacturer assigned serial number of the {phys:object}.'}),
+                        'doc': 'The manufacturer assigned serial number of the {title}.'}),
 
                     ('max:occupants', ('int', {'min': 0}), {
-                        'doc': 'The maximum number of occupants the {phys:object} can hold.'}),
+                        'doc': 'The maximum number of occupants the {title} can hold.'}),
 
                     ('max:cargo:mass', ('mass', {}), {
-                        'doc': 'The maximum mass the {phys:object} can carry as cargo.'}),
+                        'doc': 'The maximum mass the {title} can carry as cargo.'}),
 
                     ('max:cargo:volume', ('geo:dist', {}), {
-                        'doc': 'The maximum volume the {phys:object} can carry as cargo.'}),
+                        'doc': 'The maximum volume the {title} can carry as cargo.'}),
 
-                    # FIXME deprecate for entity:ownership?
+                    # FIXME ownership interface?
                     ('owner', ('entity:actor', {}), {
-                        'doc': 'The contact information of the owner of the {phys:object}.'}),
+                        'doc': 'The contact information of the owner of the {title}.'}),
                 ),
             }),
             # most containers are vehicles, but some are not...
             ('transport:vehicle', {
                 'interfaces': (
-                    ('transport:container', {
-                        'templates': {'phys:object': 'vehicle'}}),
+                    ('transport:container', {}),
                 ),
                 'doc': 'Properties common to a vehicle.',
                 'props': (
                     ('operator', ('entity:actor', {}), {
-                        'doc': 'The contact information of the operator of the {phys:object}.'}),
+                        'doc': 'The contact information of the operator of the {title}.'}),
                 ),
             }),
 
@@ -472,7 +471,7 @@ modeldefs = (
                 ('name', ('meta:name', {}), {
                     'doc': 'The name of the vessel.'}),
 
-                ('flag', ('iso:3166:cc', {}), {
+                ('flag', ('iso:3166:alpha2', {}), {
                     'doc': 'The country the vessel is flagged to.'}),
 
                 ('mmsi', ('transport:sea:mmsi', {}), {
@@ -482,7 +481,7 @@ modeldefs = (
                     'doc': 'The contact information of the operator.'}),
                 # TODO tonnage / gross tonnage?
             )),
-            # FIXME vectorable interface?
+
             ('transport:sea:telem', {}, (
 
                 ('vessel', ('transport:sea:vessel', {}), {
@@ -540,8 +539,7 @@ modeldefs = (
                 ('role', ('transport:occupant:role:taxonomy', {}), {
                     'doc': 'The role of the occupant such as captain, crew, passenger.'}),
 
-                # FIXME individual?
-                ('contact', ('entity:actor', {}), {
+                ('contact', ('entity:individual', {}), {
                     'doc': 'Contact information of the occupant.'}),
 
                 ('trip', ('transport:trip', {}), {

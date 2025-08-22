@@ -370,6 +370,10 @@ class IPAddr(s_types.Type):
 
 class SockAddr(s_types.Str):
 
+    protos = ('tcp', 'udp', 'icmp', 'host', 'gre')
+    # TODO: this should include icmp and host but requires a migration
+    noports = ('gre',)
+
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
@@ -437,9 +441,10 @@ class SockAddr(s_types.Str):
         if len(parts) == 2:
             proto, valu = parts
 
-        if proto not in ('tcp', 'udp', 'icmp', 'host'):
-            raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='inet:sockaddr protocol must be in: tcp, udp, icmp, host')
+        if proto not in self.protos:
+            protostr = ','.join(self.protos)
+            mesg = f'inet:sockaddr protocol must be one of: {protostr}'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=orig, name=self.name)
 
         subs['proto'] = (self.prototype.typehash, proto, {})
 
@@ -480,6 +485,10 @@ class SockAddr(s_types.Str):
                     virts['port'] = (self.defport, self.porttype.stortype)
                     portstr = f':{self.defport}'
 
+                if port and proto in self.noports:
+                    mesg = f'Protocol {proto} does not allow specifying ports.'
+                    raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
+
                 return f'{proto}://[{host}]{portstr}', {'subs': subs, 'virts': virts}
 
             mesg = f'Invalid IPv6 w/port ({orig})'
@@ -503,6 +512,10 @@ class SockAddr(s_types.Str):
         if port:
             subs['port'] = (self.porttype.typehash, port, {})
             virts['port'] = (port, self.porttype.stortype)
+
+        if port and proto in self.noports:
+            mesg = f'Protocol {proto} does not allow specifying ports.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
 
         ipv4, norminfo = await self.iptype.norm(valu)
         ipv4_repr = self.iptype.repr(ipv4)
@@ -1115,7 +1128,7 @@ async def _onAddFqdn(node):
         if zone is not None:
             await protonode.set('zone', zone)
 
-async def _onSetFqdnIsSuffix(node, oldv):
+async def _onSetFqdnIsSuffix(node):
 
     fqdn = node.ndef[1]
 
@@ -1131,7 +1144,7 @@ async def _onSetFqdnIsSuffix(node, oldv):
             protonode = editor.loadNode(child)
             await protonode.set('iszone', issuffix)
 
-async def _onSetFqdnIsZone(node, oldv):
+async def _onSetFqdnIsZone(node):
 
     fqdn = node.ndef[1]
 
@@ -1156,7 +1169,7 @@ async def _onSetFqdnIsZone(node, oldv):
 
     await node.set('zone', zone)
 
-async def _onSetFqdnZone(node, oldv):
+async def _onSetFqdnZone(node):
 
     todo = collections.deque([node.ndef[1]])
     zone = node.get('zone')
@@ -1177,7 +1190,7 @@ async def _onSetFqdnZone(node, oldv):
 
                 todo.append(child.ndef[1])
 
-async def _onSetWhoisText(node, oldv):
+async def _onSetWhoisText(node):
 
     text = node.get('text')
     fqdn = node.get('fqdn')
@@ -1195,7 +1208,8 @@ modeldefs = (
 
             ('inet:ip', 'synapse.models.inet.IPAddr', {}, {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'IP address'}}),
+                    ('meta:observable', {'template': {'title': 'IP address'}}),
+                    ('geo:locatable', {'template': {'title': 'IP address'}}),
                 ),
                 'ex': '1.2.3.4',
                 'doc': 'An IPv4 or IPv6 address.'}),
@@ -1206,13 +1220,15 @@ modeldefs = (
 
             ('inet:sockaddr', 'synapse.models.inet.SockAddr', {}, {
                 'ex': 'tcp://1.2.3.4:80',
-                'virts': {
-                    'ip': (('inet:ip', {}), {
+                'virts': (
+                    ('ip', ('inet:ip', {}), {
+                        'ro': True,
                         'doc': 'The IP address contained in the socket address URL.'}),
 
-                    'port': (('inet:port', {}), {
+                    ('port', ('inet:port', {}), {
+                        'ro': True,
                         'doc': 'The port contained in the socket address URL.'}),
-                },
+                ),
                 'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.'}),
 
             ('inet:cidr', 'synapse.models.inet.Cidr', {}, {
@@ -1220,20 +1236,29 @@ modeldefs = (
                 'doc': 'An IP address block in Classless Inter-Domain Routing (CIDR) notation.'}),
 
             ('inet:email', 'synapse.models.inet.Email', {}, {
-                'doc': 'An e-mail address.'}),
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'email address'}}),
+                ),
+                'doc': 'An email address.'}),
 
             ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'FQDN'}}),
+                    ('meta:observable', {'template': {'title': 'FQDN'}}),
                 ),
                 'ex': 'vertex.link',
                 'doc': 'A Fully Qualified Domain Name (FQDN).'}),
 
             ('inet:rfc2822:addr', 'synapse.models.inet.Rfc2822Addr', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'RFC 2822 address'}}),
+                ),
                 'ex': '"Visi Kenshoto" <visi@vertex.link>',
                 'doc': 'An RFC 2822 Address field.'}),
 
             ('inet:url', 'synapse.models.inet.Url', {}, {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'URL'}}),
+                ),
                 'ex': 'http://www.woot.com/files/index.html',
                 'doc': 'A Universal Resource Locator (URL).'}),
 
@@ -1269,10 +1294,13 @@ modeldefs = (
                 'doc': 'An Autonomous System Number (ASN) and its associated IP address range.'}),
 
             ('inet:client', ('inet:sockaddr', {}), {
-                'virts': {
-                    'ip': (None, {'doc': 'The IP address of the client.'}),
-                    'port': (None, {'doc': 'The port the client connected from.'}),
-                },
+                'virts': (
+                    ('ip', None, {'doc': 'The IP address of the client.'}),
+                    ('port', None, {'doc': 'The port the client connected from.'}),
+                ),
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'network client'}}),
+                ),
                 'doc': 'A network client address.'}),
 
             ('inet:download', ('guid', {}), {
@@ -1291,9 +1319,15 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of tunnel types.'}),
 
             ('inet:tunnel', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'tunnel'}}),
+                ),
                 'doc': 'A specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
 
             ('inet:egress', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'egress client'}}),
+                ),
                 'doc': 'A host using a specific network egress client address.'}),
 
             ('inet:group', ('str', {}), {
@@ -1332,6 +1366,9 @@ modeldefs = (
                 'doc': 'A network interface with a set of associated protocol addresses.'}),
 
             ('inet:mac', ('str', {'lower': True, 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$'}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'MAC address'}}),
+                ),
                 'ex': 'aa:bb:cc:dd:ee:ff',
                 'doc': 'A 48-bit Media Access Control (MAC) address.'}),
 
@@ -1344,37 +1381,51 @@ modeldefs = (
                 'doc': 'A network port.'}),
 
             ('inet:server', ('inet:sockaddr', {}), {
-                'virts': {
-                    'ip': (None, {'doc': 'The IP address of the server.'}),
-                    'port': (None, {'doc': 'The port the server is listening on.'}),
-                },
+                'virts': (
+                    ('ip', None, {'doc': 'The IP address of the server.'}),
+                    ('port', None, {'doc': 'The port the server is listening on.'}),
+                ),
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'network server'}}),
+                ),
                 'doc': 'A network server address.'}),
 
             ('inet:banner', ('comp', {'fields': (('server', 'inet:server'), ('text', 'it:dev:str'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'banner'}}),
+                ),
                 'doc': 'A network protocol banner string presented by a server.'}),
-
-            ('inet:servfile', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
-                'doc': 'A file hosted on a server for access over a network protocol.'}),
 
             ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'the hosted file and URL'}}),
+                    ('meta:observable', {'template': {'title': 'the hosted file and URL'}}),
                 ),
                 'doc': 'A file hosted at a specific Universal Resource Locator (URL).'}),
 
-            ('inet:urlredir', ('comp', {'fields': (('src', 'inet:url'), ('dst', 'inet:url'))}), {
+            ('inet:url:redir', ('comp', {'fields': (('source', 'inet:url'), ('target', 'inet:url'))}), {
+                'template': {'title': 'URL redirection'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
                 'ex': '(http://foo.com/,http://bar.com/)',
                 'doc': 'A URL that redirects to another URL, such as via a URL shortening service '
                        'or an HTTP 302 response.'}),
 
             ('inet:url:mirror', ('comp', {'fields': (('of', 'inet:url'), ('at', 'inet:url'))}), {
+                'template': {'title': 'URL mirror'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
                 'doc': 'A URL mirror site.'}),
 
             ('inet:user', ('str', {'lower': True}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'username'}}),
+                ),
                 'doc': 'A username string.'}),
 
-            ('inet:service:object', ('ndef', {'interfaces': ('inet:service:object',)}), {
-                'doc': 'An ndef type including all forms which implement the inet:service:object interface.'}),
+            ('inet:service:object', ('ndef', {'interface': 'inet:service:object'}), {
+                'doc': 'A node which inherits the inet:service:object interface.'}),
 
             ('inet:search:query', ('guid', {}), {
                 'interfaces': (
@@ -1390,6 +1441,9 @@ modeldefs = (
                 'doc': 'An FQDN whois registration record.'}),
 
             ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'whois email address'}}),
+                ),
                 'doc': 'An email address associated with an FQDN via whois registration text.'}),
 
             ('inet:whois:ipquery', ('guid', {}), {
@@ -1398,13 +1452,22 @@ modeldefs = (
             ('inet:whois:iprecord', ('guid', {}), {
                 'doc': 'An IPv4/IPv6 block registration record.'}),
 
-            # FIXME de-comp
-            ('inet:wifi:ap', ('comp', {'fields': (('ssid', 'inet:wifi:ssid'), ('bssid', 'inet:mac'))}), {
+            ('inet:wifi:ap', ('guid', {}), {
+                'template': {'title': 'Wi-Fi access point'},
+                'interfaces': (
+                    ('meta:havable', {}),
+                    ('geo:locatable', {}),
+                    ('meta:observable', {}),
+                ),
                 'doc': 'An SSID/MAC address combination for a wireless access point.'}),
 
             ('inet:wifi:ssid', ('str', {'strip': False}), {
+                'template': {'title': 'Wi-Fi SSID'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
                 'ex': 'The Vertex Project',
-                'doc': 'A WiFi service set identifier (SSID) name.'}),
+                'doc': 'A Wi-Fi service set identifier (SSID) name.'}),
 
             ('inet:email:message', ('guid', {}), {
                 'doc': 'An individual email message delivered to an inbox.'}),
@@ -1423,19 +1486,27 @@ modeldefs = (
                 'doc': 'A url/link embedded in an email message.'}),
 
             ('inet:tls:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'JARM fingerprint'}}),
+                ),
                 'doc': 'A TLS JARM fingerprint hash.'}),
 
             ('inet:tls:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:tls:jarmhash'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'JARM sample'}}),
+                ),
                 'doc': 'A JARM hash sample taken from a server.'}),
 
             ('inet:service:platform', ('guid', {}), {
                 'doc': 'A network platform which provides services.'}),
 
             ('inet:service:app', ('guid', {}), {
+                'template': {'title': 'service application'},
                 'interfaces': (
-                    ('inet:service:object', {'template': {'service:base': 'application'}}),
+                    ('meta:usable', {}),
+                    ('inet:service:object', {}),
                 ),
-                'doc': 'A platform specific application.'}),
+                'doc': 'An application which is part of a service architecture.'}),
 
             ('inet:service:instance', ('guid', {}), {
                 'doc': 'An instance of the platform such as Slack or Discord instances.'}),
@@ -1444,10 +1515,12 @@ modeldefs = (
                 'doc': 'An object status enumeration.'}),
 
             ('inet:service:account', ('guid', {}), {
+                'template': {'title': 'service account'},
                 'interfaces': (
-                    ('inet:service:subscriber', {'template': {
-                        'service:base': 'account', 'contactable': 'account'}}),
-                    ('econ:pay:instrument', {'template': {'instrument': 'account'}}),
+                    ('entity:singular', {}),
+                    ('entity:multiple', {}),
+                    ('econ:pay:instrument', {}),
+                    ('inet:service:subscriber', {}),
                 ),
                 'doc': 'An account within a service platform. Accounts may be instance specific.'}),
 
@@ -1458,9 +1531,9 @@ modeldefs = (
                 'doc': 'A service object relationship type taxonomy.'}),
 
             ('inet:service:relationship', ('guid', {}), {
+                'template': {'title': 'relationship'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'relationship'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A relationship between two service objects.'}),
 
@@ -1471,16 +1544,16 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of service permission types.'}),
 
             ('inet:service:permission', ('guid', {}), {
+                'template': {'title': 'permission'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'permission'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A permission which may be granted to a service account or role.'}),
 
             ('inet:service:rule', ('guid', {}), {
+                'template': {'title': 'rule'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'rule'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A rule which grants or denies a permission to a service account or role.'}),
 
@@ -1497,44 +1570,44 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of service login methods.'}),
 
             ('inet:service:session', ('guid', {}), {
+                'template': {'title': 'session'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'session'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'An authenticated session.'}),
 
             ('inet:service:group', ('guid', {}), {
+                'template': {'title': 'service group'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'group'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A group or role which contains member accounts.'}),
 
             ('inet:service:group:member', ('guid', {}), {
+                'template': {'title': 'group membership'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'group membership'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'Represents a service account being a member of a group.'}),
 
             ('inet:service:channel', ('guid', {}), {
+                'template': {'title': 'channel'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'channel'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A channel used to distribute messages.'}),
 
             ('inet:service:thread', ('guid', {}), {
+                'template': {'title': 'thread'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'thread'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A message thread.'}),
 
             ('inet:service:channel:member', ('guid', {}), {
+                'template': {'title': 'channel membership'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'channel membership'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'Represents a service account being a member of a channel.'}),
 
@@ -1557,9 +1630,9 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of message types.'}),
 
             ('inet:service:emote', ('guid', {}), {
+                'template': {'title': 'emote'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'emote'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'An emote or reaction by an account.'}),
 
@@ -1574,9 +1647,9 @@ modeldefs = (
                 'doc': 'Represents a user access request to a service resource.'}),
 
             ('inet:service:tenant', ('guid', {}), {
+                'template': {'title': 'tenant'},
                 'interfaces': (
-                    ('inet:service:subscriber', {
-                        'template': {'service:base': 'tenant', 'contactable': 'tenant'}}),
+                    ('inet:service:subscriber', {}),
                 ),
                 'doc': 'A tenant which groups accounts and instances.'}),
 
@@ -1587,9 +1660,9 @@ modeldefs = (
                 'doc': 'A taxonomy of platform specific subscription levels.'}),
 
             ('inet:service:subscription', ('guid', {}), {
+                'template': {'title': 'subscription'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'subscription'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A subscription to a service platform or instance.'}),
 
@@ -1603,23 +1676,23 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of service resource types.'}),
 
             ('inet:service:resource', ('guid', {}), {
+                'template': {'title': 'resource'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'resource'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A generic resource provided by the service architecture.'}),
 
             ('inet:service:bucket', ('guid', {}), {
+                'template': {'title': 'bucket'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'bucket'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A file/blob storage object within a service architecture.'}),
 
             ('inet:service:bucket:item', ('guid', {}), {
+                'template': {'title': 'bucket item'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'bucket item'}}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'An individual file stored within a bucket.'}),
 
@@ -1642,28 +1715,52 @@ modeldefs = (
                 'doc': 'An instance of a TLS handshake between a client and server.'}),
 
             ('inet:tls:ja4', ('str', {'strip': True, 'regex': ja4_regex}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'JA4 fingerprint'}}),
+                ),
                 'doc': 'A JA4 TLS client fingerprint.'}),
 
             ('inet:tls:ja4s', ('str', {'strip': True, 'regex': ja4s_regex}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'JA4S fingerprint'}}),
+                ),
                 'doc': 'A JA4S TLS server fingerprint.'}),
 
             ('inet:tls:ja4:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja4', 'inet:tls:ja4'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'JA4 sample'}}),
+                ),
                 'doc': 'A JA4 TLS client fingerprint used by a client.'}),
 
             ('inet:tls:ja4s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja4s', 'inet:tls:ja4s'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'JA4S sample'}}),
+                ),
                 'doc': 'A JA4S TLS server fingerprint used by a server.'}),
 
             ('inet:tls:ja3s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja3s', 'crypto:hash:md5'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'JA3S sample'}}),
+                ),
                 'doc': 'A JA3 sample taken from a server.'}),
 
             ('inet:tls:ja3:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja3', 'crypto:hash:md5'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'JA3 sample'}}),
+                ),
                 'doc': 'A JA3 sample taken from a client.'}),
 
             ('inet:tls:servercert', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'TLS server certificate'}}),
+                ),
                 'ex': '(1.2.3.4:443, c7437790af01ae1bb2f8f3b684c70bf8)',
                 'doc': 'An x509 certificate sent by a server for TLS.'}),
 
             ('inet:tls:clientcert', ('comp', {'fields': (('client', 'inet:client'), ('cert', 'crypto:x509:cert'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'TLS client certificate'}}),
+                ),
                 'ex': '(1.2.3.4:443, 3fdf364e081c14997b291852d1f23868)',
                 'doc': 'An x509 certificate sent by a client for TLS.'}),
 
@@ -1724,60 +1821,56 @@ modeldefs = (
 
             ('inet:service:base', {
                 'doc': 'Properties common to most forms within a service platform.',
-                'template': {'service:base': 'node'},
+                'template': {'title': 'node'},
                 'props': (
 
                     ('id', ('meta:id', {}), {
-                        'doc': 'A platform specific ID which identifies the {service:base}.'}),
+                        'doc': 'A platform specific ID which identifies the {title}.'}),
 
                     ('platform', ('inet:service:platform', {}), {
-                        'doc': 'The platform which defines the {service:base}.'}),
+                        'doc': 'The platform which defines the {title}.'}),
 
                     ('instance', ('inet:service:instance', {}), {
-                        'doc': 'The platform instance which defines the {service:base}.'}),
+                        'doc': 'The platform instance which defines the {title}.'}),
                 ),
             }),
 
             ('inet:service:object', {
 
                 'doc': 'Properties common to objects within a service platform.',
+                'template': {'title': 'object'},
                 'interfaces': (
-                    ('inet:service:base', {
-                        'template': {'service:base': 'object'}}),
+                    ('inet:service:base', {}),
                 ),
                 'props': (
 
                     ('url', ('inet:url', {}), {
-                        'doc': 'The primary URL associated with the {service:base}.'}),
+                        'doc': 'The primary URL associated with the {title}.'}),
 
                     ('status', ('inet:service:object:status', {}), {
-                        'doc': 'The status of the {service:base}.'}),
+                        'doc': 'The status of the {title}.'}),
 
                     ('period', ('ival', {}), {
-                        'doc': 'The period when the {service:base} existed.'}),
+                        'doc': 'The period when the {title} existed.'}),
 
                     ('creator', ('inet:service:account', {}), {
-                        'doc': 'The service account which created the {service:base}.'}),
+                        'doc': 'The service account which created the {title}.'}),
 
                     ('remover', ('inet:service:account', {}), {
-                        'doc': 'The service account which removed or decommissioned the {service:base}.'}),
+                        'doc': 'The service account which removed or decommissioned the {title}.'}),
 
                     ('app', ('inet:service:app', {}), {
-                        'doc': 'The app which contains the {service:base}.'}),
+                        'doc': 'The app which contains the {title}.'}),
                 ),
             }),
 
             ('inet:service:subscriber', {
                 'doc': 'Properties common to the nodes which subscribe to services.',
+                'template': {'title': 'subscriber'},
                 'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'subscriber'}}),
-
-                    ('entity:actor', {
-                        'template': {'contactable': 'subscriber'}}),
-
-                    ('entity:abstract', {
-                        'template': {'contactable': 'subscriber'}}),
+                    ('entity:actor', {}),
+                    ('entity:abstract', {}),
+                    ('inet:service:object', {}),
                 ),
                 'props': (
                     ('banner', ('file:bytes', {}), {
@@ -2243,10 +2336,10 @@ modeldefs = (
                     'doc': 'The telephone number of the interface.'}),
 
                 ('wifi:ap:ssid', ('inet:wifi:ssid', {}), {
-                    'doc': 'The SSID of the wifi AP the interface connected to.'}),
+                    'doc': 'The SSID of the Wi-Fi AP the interface connected to.'}),
 
                 ('wifi:ap:bssid', ('inet:mac', {}), {
-                    'doc': 'The BSSID of the wifi AP the interface connected to.'}),
+                    'doc': 'The BSSID of the Wi-Fi AP the interface connected to.'}),
 
                 ('adid', ('it:adid', {}), {
                     'doc': 'An advertising ID associated with the interface.'}),
@@ -2263,15 +2356,6 @@ modeldefs = (
 
                 ('asn', ('inet:asn', {}), {
                     'doc': 'The ASN to which the IP address is currently assigned.'}),
-
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The best known latitude/longitude for the node.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'The geo-political location string for the IP.'}),
-
-                ('place', ('geo:place', {}), {
-                    'doc': 'The geo:place associated with the latlong property.'}),
 
                 ('type', ('str', {}), {
                     'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
@@ -2335,27 +2419,12 @@ modeldefs = (
                     'doc': 'The banner text.'}),
             )),
 
-            # FIXME dedup with urlfile?
-            ('inet:servfile', {}, (
-                ('file', ('file:bytes', {}), {
-                    'ro': True,
-                    'doc': 'The file hosted by the server.'
-                }),
-                ('server', ('inet:server', {}), {
-                    'ro': True,
-                    'doc': 'The listening socket address of the server.'
-                }),
-                ('server:host', ('it:host', {}), {
-                    'ro': True,
-                    'doc': 'The it:host node for the server.'
-                }),
-            )),
-
             ('inet:url', {}, (
+
                 ('fqdn', ('inet:fqdn', {}), {
                     'ro': True,
-                    'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'
-                }),
+                    'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
+
                 ('ip', ('inet:ip', {}), {
                     'ro': True,
                     'doc': 'The IP address used in the URL (e.g., http://1.2.3.4/page.html).',
@@ -2403,34 +2472,25 @@ modeldefs = (
                     'doc': 'The file that was hosted at the URL.'}),
             )),
 
-            ('inet:urlredir', {}, (
-                ('src', ('inet:url', {}), {
+            ('inet:url:redir', {}, (
+                ('source', ('inet:url', {}), {
                     'ro': True,
                     'doc': 'The original/source URL before redirect.'}),
 
-                ('src:fqdn', ('inet:fqdn', {}), {
-                    'ro': True,
-                    'doc': 'The FQDN within the src URL (if present).'}),
-
-                ('dst', ('inet:url', {}), {
+                ('target', ('inet:url', {}), {
                     'ro': True,
                     'doc': 'The redirected/destination URL.'}),
-
-                ('dst:fqdn', ('inet:fqdn', {}), {
-                    'ro': True,
-                    'doc': 'The FQDN within the dst URL (if present).'}),
             )),
 
-            # FIXME used anywhere?
             ('inet:url:mirror', {}, (
+
                 ('of', ('inet:url', {}), {
                     'ro': True,
-                    'doc': 'The URL being mirrored.',
-                }),
+                    'doc': 'The URL being mirrored.'}),
+
                 ('at', ('inet:url', {}), {
                     'ro': True,
-                    'doc': 'The URL of the mirror.',
-                }),
+                    'doc': 'The URL of the mirror.'}),
             )),
 
             ('inet:user', {}, ()),
@@ -2446,8 +2506,7 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The host that issued the query.'}),
 
-                # FIXME software name? ( runs software interface?!?! )
-                ('engine', ('str', {'lower': True}), {
+                ('engine', ('base:name', {}), {
                     'ex': 'google',
                     'doc': 'A simple name for the search engine used.'}),
 
@@ -2565,8 +2624,8 @@ modeldefs = (
                 ('name', ('meta:id', {}), {
                     'doc': 'The name ID assigned to the network by the registrant.'}),
 
-                ('country', ('pol:iso2', {}), {
-                    'doc': 'The two-letter ISO 3166 country code.'}),
+                ('country', ('iso:3166:alpha2', {}), {
+                    'doc': 'The ISO 3166 Alpha-2 country code.'}),
 
                 ('status', ('str', {'lower': True}), {
                     'doc': 'The state of the registered network.'}),
@@ -2589,24 +2648,11 @@ modeldefs = (
                 ('bssid', ('inet:mac', {}), {
                     'doc': 'The MAC address for the wireless access point.', 'ro': True, }),
 
-                # FIXME locatable
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The best known latitude/longitude for the wireless access point.'}),
-
-                ('accuracy', ('geo:dist', {}), {
-                    'doc': 'The reported accuracy of the latlong telemetry reading.',
-                }),
                 ('channel', ('int', {}), {
                     'doc': 'The WIFI channel that the AP was last observed operating on.'}),
 
                 ('encryption', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
-
-                ('place', ('geo:place', {}), {
-                    'doc': 'The geo:place associated with the latlong property.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'The geo-political location string for the wireless access point.'}),
 
                 # FIXME ownable interface?
                 ('org', ('ou:org', {}), {
@@ -2824,6 +2870,12 @@ modeldefs = (
 
                 ('desc', ('text', {}), {
                     'doc': 'A description of the platform specific application.'}),
+
+                ('provider', ('ou:org', {}), {
+                    'doc': 'The organization which provides the application.'}),
+
+                ('provider:name', ('meta:name', {}), {
+                    'doc': 'The name of the organization which provides the application.'}),
             )),
 
             ('inet:service:account', {}, (

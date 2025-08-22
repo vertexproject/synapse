@@ -415,7 +415,9 @@ class LayerTest(s_t_utils.SynTest):
     async def test_layer_stortype_ival(self):
         stor = s_layer.StorTypeIval(self)
 
-        vals = [(2000, 2020), (1960, 1970)]
+        vals = [(2000, 2020, 20), (1960, 1970, 10),
+                (stor.timetype.unksize, 2020, stor.unkdura),
+                (2020, stor.timetype.futsize, stor.futdura)]
 
         for valu, indx in ((v, stor.indx(v)) for v in vals):
             self.eq(valu, stor.decodeIndx(indx[0]))
@@ -735,22 +737,22 @@ class LayerTest(s_t_utils.SynTest):
 
             layr = core0.getLayer()
 
-            noedit = [(None, 'test:int', [(s_layer.EDIT_PROP_SET, ('newp', 5, None, None))])]
+            noedit = [(None, 'test:int', [(s_layer.EDIT_PROP_SET, ('newp', 5, None))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAG_DEL, ('newp', None))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAG_DEL, ('newp',))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_SET, ('tp', 'score', 5, None, s_layer.STOR_TYPE_I64))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_SET, ('tp', 'score', 5, s_layer.STOR_TYPE_I64))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_DEL, ('newp', 'newp', None, None))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_DEL, ('newp', 'newp'))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_DEL, ('tp', 'newp', None, None))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_DEL, ('tp', 'newp'))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(intnid, 'test:int', [(s_layer.EDIT_NODEDATA_SET, ('foo', 'bar', None))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_NODEDATA_SET, ('foo', 'bar'))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
             noedit = [(intnid, 'test:int', [(s_layer.EDIT_EDGE_ADD, ('refs', tstrnid))])]
@@ -810,24 +812,25 @@ class LayerTest(s_t_utils.SynTest):
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.eq(events, [
                 (strnid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8, None)),
-                (strnid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8)),
+                (strnid, 'test:str', s_layer.EDIT_NODE_DEL, ()),
             ])
 
             mdef = {'props': ['inet:ip:asn']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.len(2, events)
             self.eq(events, [
-                (ipnid, 'inet:ip', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64, None)),
-                (ipnid, 'inet:ip', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64)),
+                (ipnid, 'inet:ip', s_layer.EDIT_PROP_SET, ('asn', 42, s_layer.STOR_TYPE_I64, None)),
+                (ipnid, 'inet:ip', s_layer.EDIT_PROP_DEL, ('asn',)),
             ])
 
-            ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
+            time = [s_time.parse(x) for x in ('2012', '2014')]
+            ival = (time[0], time[1], time[1] - time[0])
 
             mdef = {'tags': ['foo.bar']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.eq(events, [
-                (ipnid, 'inet:ip', s_layer.EDIT_TAG_SET, ('foo.bar', ival, None)),
-                (ipnid, 'inet:ip', s_layer.EDIT_TAG_DEL, ('foo.bar', ival)),
+                (ipnid, 'inet:ip', s_layer.EDIT_TAG_SET, ('foo.bar', ival)),
+                (ipnid, 'inet:ip', s_layer.EDIT_TAG_DEL, ('foo.bar',)),
             ])
 
             mdefs = ({'tagprops': ['score']}, {'tagprops': ['mytag:score']})
@@ -836,9 +839,9 @@ class LayerTest(s_t_utils.SynTest):
                 events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
                 self.eq(events, [
                     (ipnid, 'inet:ip', s_layer.EDIT_TAGPROP_SET,
-                        ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64)),
-                    (ipnid, 'inet:ip', s_layer.EDIT_TAGPROP_DEL,
                         ('mytag', 'score', 99, s_layer.STOR_TYPE_I64)),
+                    (ipnid, 'inet:ip', s_layer.EDIT_TAGPROP_DEL,
+                        ('mytag', 'score')),
                 ])
 
     async def test_layer_tombstone(self):
@@ -1154,7 +1157,7 @@ class LayerTest(s_t_utils.SynTest):
             visiopts = {'view': viewiden2, 'user': visi.iden}
 
             await core.nodes('inet:ip=1.2.3.4 [ :asn=4 ]')
-            await core.nodes('inet:ip=1.2.3.4 [ :loc=us -:asn ]', opts=viewopts2)
+            await core.nodes('inet:ip=1.2.3.4 [ :place:loc=us -:asn ]', opts=viewopts2)
             await core.nodes('inet:ip=1.2.3.4 [ -:asn ]')
 
             await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
@@ -1163,7 +1166,7 @@ class LayerTest(s_t_utils.SynTest):
             self.true(await view2.waitfini(timeout=5))
 
             nodes = await core.nodes('inet:ip=1.2.3.4')
-            self.eq(nodes[0].get('loc'), 'us')
+            self.eq(nodes[0].get('place:loc'), 'us')
             self.none(nodes[0].get('asn'))
             await notombs()
 
@@ -1430,12 +1433,12 @@ class LayerTest(s_t_utils.SynTest):
 
             # node re-added above a tombstone is empty
             await core.nodes(addq)
-            await core.nodes('[ inet:ip=1.2.3.4 :loc=uk ]', opts=viewopts3)
+            await core.nodes('[ inet:ip=1.2.3.4 :place:loc=uk ]', opts=viewopts3)
             await core.nodes('inet:ip=1.2.3.4 [ <(_foo)- { it:dev:str=n2 } ] | delnode', opts=viewopts2)
 
-            self.len(0, await core.nodes('inet:ip:loc=uk', opts=viewopts3))
+            self.len(0, await core.nodes('inet:ip:place:loc=uk', opts=viewopts3))
 
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 -:loc ]', opts=viewopts3)
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 -:place:loc ]', opts=viewopts3)
             await checkempty(opts=viewopts3)
 
             bylayer = await core.callStorm('inet:ip=1.2.3.4 return($node.getByLayer())', opts=viewopts3)
@@ -1458,7 +1461,7 @@ class LayerTest(s_t_utils.SynTest):
             self.false(node.hasInLayers('asn'))
             self.eq((None, None), node.getWithLayer('asn'))
             self.none(node.getFromLayers('asn'))
-            self.none(node.getFromLayers('loc', strt=2))
+            self.none(node.getFromLayers('place:loc', strt=2))
 
             self.none(node.getTag('foo.tag'))
             self.none(node.getTagFromLayers('foo.tag'))
@@ -1529,9 +1532,9 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('#bar.tag:score', opts=viewopts3))
             self.len(0, await core.nodes('#bar.tag:score=5', opts=viewopts3))
 
-            await core.nodes('[ ou:goal=(foo,) :names=(foo, bar) ]')
-            await core.nodes('ou:goal=(foo,) [ -:names ]', opts=viewopts2)
-            self.len(0, await core.nodes('ou:goal:names*[=foo]', opts=viewopts2))
+            await core.nodes('[ entity:goal=(foo,) :names=(foo, bar) ]')
+            await core.nodes('entity:goal=(foo,) [ -:names ]', opts=viewopts2)
+            self.len(0, await core.nodes('entity:goal:names*[=foo]', opts=viewopts2))
 
             with self.raises(s_exc.BadArg):
                 await core.nodes('$lib.layer.get().delTombstone(newp, newp, newp)')
@@ -1766,7 +1769,7 @@ class LayerTest(s_t_utils.SynTest):
             rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp))
             self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
 
-            tm = lambda x, y: (s_time.parse(x), s_time.parse(y))  # NOQA
+            tm = lambda x, y: (s_time.parse(x), s_time.parse(y), s_time.parse(y) - s_time.parse(x))  # NOQA
 
             # iterFormRows
             rows = await alist(layr.iterFormRows('inet:ip'))
@@ -1780,7 +1783,7 @@ class LayerTest(s_t_utils.SynTest):
 
             # iterTagRows
             expect = (
-                (nid3, (None, None)),
+                (nid3, (None, None, None)),
                 (nid2, tm('2019', '2020')),
                 (nid1, tm('2020', '2021')),
             )
@@ -2130,117 +2133,162 @@ class LayerTest(s_t_utils.SynTest):
 
             await core.addTagProp('footime', ('ival', {}), {})
 
-            self.len(0, await core.nodes('ou:campaign#bar:footime*min=2020-01-01'))
+            self.len(0, await core.nodes('entity:campaign#bar:footime.min=2020-01-01'))
 
             await core.nodes('''[
-                ou:campaign=(foo,)
+                entity:campaign=(foo,)
                     :period=(2019-01-01, ?)
                     +#foo=(2019-01-01, ?)
                     +#bar:footime=(2019-01-01, ?)
             ]''')
 
             await core.nodes('''[
-                (ou:campaign=* :period=(2020-01-01, 2020-01-02))
-                (ou:campaign=* :period=(2021-01-01, 2021-02-01))
-                (ou:campaign=* :period=(2022-01-01, 2022-05-01))
-                (ou:campaign=* :period=(2023-01-01, 2024-01-01))
-                (ou:campaign=* :period=(2024-01-01, 2026-01-01))
+                (entity:campaign=* :period=(2020-01-01, 2020-01-02))
+                (entity:campaign=* :period=(2021-01-01, 2021-02-01))
+                (entity:campaign=* :period=(2022-01-01, 2022-05-01))
+                (entity:campaign=* :period=(2023-01-01, 2024-01-01))
+                (entity:campaign=* :period=(2024-01-01, 2026-01-01))
             ]''')
 
-            self.len(1, await core.nodes('ou:campaign:period*min=2020-01-01'))
-            self.len(3, await core.nodes('ou:campaign:period*min<2022-01-01'))
-            self.len(4, await core.nodes('ou:campaign:period*min<=2022-01-01'))
-            self.len(3, await core.nodes('ou:campaign:period*min>=2022-01-01'))
-            self.len(2, await core.nodes('ou:campaign:period*min>2022-01-01'))
-            self.len(1, await core.nodes('ou:campaign:period*min@=2020'))
-            self.len(2, await core.nodes('ou:campaign:period*min@=(2020-01-01, 2022-01-01)'))
+            self.len(1, await core.nodes('entity:campaign:period.min=2020-01-01'))
+            self.len(3, await core.nodes('entity:campaign:period.min<2022-01-01'))
+            self.len(4, await core.nodes('entity:campaign:period.min<=2022-01-01'))
+            self.len(3, await core.nodes('entity:campaign:period.min>=2022-01-01'))
+            self.len(2, await core.nodes('entity:campaign:period.min>2022-01-01'))
+            self.len(1, await core.nodes('entity:campaign:period.min@=2020'))
+            self.len(2, await core.nodes('entity:campaign:period.min@=(2020-01-01, 2022-01-01)'))
 
-            self.len(1, await core.nodes('reverse(ou:campaign:period*min=2020-01-01)'))
-            self.len(3, await core.nodes('reverse(ou:campaign:period*min<2022-01-01)'))
-            self.len(4, await core.nodes('reverse(ou:campaign:period*min<=2022-01-01)'))
-            self.len(3, await core.nodes('reverse(ou:campaign:period*min>=2022-01-01)'))
-            self.len(2, await core.nodes('reverse(ou:campaign:period*min>2022-01-01)'))
-            self.len(1, await core.nodes('reverse(ou:campaign:period*min@=2020)'))
-            self.len(2, await core.nodes('reverse(ou:campaign:period*min@=(2020-01-01, 2022-01-01))'))
+            self.len(1, await core.nodes('reverse(entity:campaign:period.min=2020-01-01)'))
+            self.len(3, await core.nodes('reverse(entity:campaign:period.min<2022-01-01)'))
+            self.len(4, await core.nodes('reverse(entity:campaign:period.min<=2022-01-01)'))
+            self.len(3, await core.nodes('reverse(entity:campaign:period.min>=2022-01-01)'))
+            self.len(2, await core.nodes('reverse(entity:campaign:period.min>2022-01-01)'))
+            self.len(1, await core.nodes('reverse(entity:campaign:period.min@=2020)'))
+            self.len(2, await core.nodes('reverse(entity:campaign:period.min@=(2020-01-01, 2022-01-01))'))
 
-            self.len(1, await core.nodes('ou:campaign:period*max=2020-01-02'))
-            self.len(2, await core.nodes('ou:campaign:period*max<2022-05-01'))
-            self.len(3, await core.nodes('ou:campaign:period*max<=2022-05-01'))
-            self.len(3, await core.nodes('ou:campaign:period*max>=2022-05-01'))
-            self.len(2, await core.nodes('ou:campaign:period*max>2022-05-01'))
-            self.len(2, await core.nodes('ou:campaign:period*max@=(2020-01-02, 2022-05-01)'))
-            self.len(1, await core.nodes('ou:campaign:period*max=?'))
+            self.len(1, await core.nodes('entity:campaign:period.max=2020-01-02'))
+            self.len(2, await core.nodes('entity:campaign:period.max<2022-05-01'))
+            self.len(3, await core.nodes('entity:campaign:period.max<=2022-05-01'))
+            self.len(3, await core.nodes('entity:campaign:period.max>=2022-05-01'))
+            self.len(2, await core.nodes('entity:campaign:period.max>2022-05-01'))
+            self.len(2, await core.nodes('entity:campaign:period.max@=(2020-01-02, 2022-05-01)'))
+            self.len(1, await core.nodes('entity:campaign:period.max=?'))
 
-            self.len(1, await core.nodes('ou:campaign:period*duration=1D'))
-            self.len(1, await core.nodes('ou:campaign:period*duration<31D'))
-            self.len(2, await core.nodes('ou:campaign:period*duration<=31D'))
-            self.len(4, await core.nodes('ou:campaign:period*duration>=31D'))
-            self.len(3, await core.nodes('ou:campaign:period*duration>31D'))
-            self.len(1, await core.nodes('ou:campaign:period*duration=?'))
+            self.len(1, await core.nodes('entity:campaign:period.duration=1D'))
+            self.len(1, await core.nodes('entity:campaign:period.duration<31D'))
+            self.len(2, await core.nodes('entity:campaign:period.duration<=31D'))
+            self.len(4, await core.nodes('entity:campaign:period.duration>=31D'))
+            self.len(3, await core.nodes('entity:campaign:period.duration>31D'))
+            self.len(1, await core.nodes('entity:campaign:period.duration=?'))
 
             await core.nodes('''[
-                (ou:campaign=* +#foo=(2020-01-01, 2020-01-02))
-                (ou:campaign=* +#foo=(2021-01-01, 2021-02-01))
-                (ou:campaign=* +#foo=(2022-01-01, 2022-05-01))
-                (ou:campaign=* +#foo=(2023-01-01, 2024-01-01))
-                (ou:campaign=* +#foo=(2024-01-01, 2026-01-01))
+                (entity:campaign=* +#foo=(2020-01-01, 2020-01-02))
+                (entity:campaign=* +#foo=(2021-01-01, 2021-02-01))
+                (entity:campaign=* +#foo=(2022-01-01, 2022-05-01))
+                (entity:campaign=* +#foo=(2023-01-01, 2024-01-01))
+                (entity:campaign=* +#foo=(2024-01-01, 2026-01-01))
             ]''')
 
-            self.len(1, await core.nodes('ou:campaign#foo*min=2020-01-01'))
-            self.len(3, await core.nodes('ou:campaign#foo*min<2022-01-01'))
-            self.len(4, await core.nodes('ou:campaign#foo*min<=2022-01-01'))
-            self.len(3, await core.nodes('ou:campaign#foo*min>=2022-01-01'))
-            self.len(2, await core.nodes('ou:campaign#foo*min>2022-01-01'))
-            self.len(2, await core.nodes('ou:campaign#foo*min@=(2020-01-01, 2022-01-01)'))
-            self.len(2, await core.nodes('reverse(ou:campaign#foo*min@=(2020-01-01, 2022-01-01))'))
+            self.len(1, await core.nodes('entity:campaign#(foo).min=2020-01-01'))
+            self.len(3, await core.nodes('entity:campaign#(foo).min<2022-01-01'))
+            self.len(4, await core.nodes('entity:campaign#(foo).min<=2022-01-01'))
+            self.len(3, await core.nodes('entity:campaign#(foo).min>=2022-01-01'))
+            self.len(2, await core.nodes('entity:campaign#(foo).min>2022-01-01'))
+            self.len(2, await core.nodes('entity:campaign#(foo).min@=(2020-01-01, 2022-01-01)'))
+            self.len(2, await core.nodes('reverse(entity:campaign#(foo).min@=(2020-01-01, 2022-01-01))'))
 
-            self.len(1, await core.nodes('ou:campaign#foo*max=2020-01-02'))
-            self.len(2, await core.nodes('ou:campaign#foo*max<2022-05-01'))
-            self.len(3, await core.nodes('ou:campaign#foo*max<=2022-05-01'))
-            self.len(3, await core.nodes('ou:campaign#foo*max>=2022-05-01'))
-            self.len(2, await core.nodes('ou:campaign#foo*max>2022-05-01'))
-            self.len(2, await core.nodes('ou:campaign#foo*max@=(2020-01-02, 2022-05-01)'))
-            self.len(1, await core.nodes('ou:campaign#foo*max=?'))
+            self.len(1, await core.nodes('entity:campaign#(foo).max=2020-01-02'))
+            self.len(2, await core.nodes('entity:campaign#(foo).max<2022-05-01'))
+            self.len(3, await core.nodes('entity:campaign#(foo).max<=2022-05-01'))
+            self.len(3, await core.nodes('entity:campaign#(foo).max>=2022-05-01'))
+            self.len(2, await core.nodes('entity:campaign#(foo).max>2022-05-01'))
+            self.len(2, await core.nodes('entity:campaign#(foo).max@=(2020-01-02, 2022-05-01)'))
+            self.len(1, await core.nodes('entity:campaign#(foo).max=?'))
 
-            self.len(1, await core.nodes('ou:campaign#foo*duration=1D'))
-            self.len(1, await core.nodes('ou:campaign#foo*duration<31D'))
-            self.len(2, await core.nodes('ou:campaign#foo*duration<=31D'))
-            self.len(4, await core.nodes('ou:campaign#foo*duration>=31D'))
-            self.len(3, await core.nodes('ou:campaign#foo*duration>31D'))
-            self.len(1, await core.nodes('ou:campaign#foo*duration=?'))
+            self.len(1, await core.nodes('entity:campaign#(foo).duration=1D'))
+            self.len(1, await core.nodes('entity:campaign#(foo).duration<31D'))
+            self.len(2, await core.nodes('entity:campaign#(foo).duration<=31D'))
+            self.len(4, await core.nodes('entity:campaign#(foo).duration>=31D'))
+            self.len(3, await core.nodes('entity:campaign#(foo).duration>31D'))
+            self.len(1, await core.nodes('entity:campaign#(foo).duration=?'))
 
             await core.nodes('''[
-                (ou:campaign=* +#bar:footime=(2020-01-01, 2020-01-02))
-                (ou:campaign=* +#bar:footime=(2021-01-01, 2021-02-01))
-                (ou:campaign=* +#bar:footime=(2022-01-01, 2022-05-01))
-                (ou:campaign=* +#bar:footime=(2023-01-01, 2024-01-01))
-                (ou:campaign=* +#bar:footime=(2024-01-01, 2026-01-01))
+                (entity:campaign=* +#bar:footime=(2020-01-01, 2020-01-02))
+                (entity:campaign=* +#bar:footime=(2021-01-01, 2021-02-01))
+                (entity:campaign=* +#bar:footime=(2022-01-01, 2022-05-01))
+                (entity:campaign=* +#bar:footime=(2023-01-01, 2024-01-01))
+                (entity:campaign=* +#bar:footime=(2024-01-01, 2026-01-01))
             ]''')
 
-            self.len(1, await core.nodes('ou:campaign#bar:footime*min=2020-01-01'))
-            self.len(3, await core.nodes('ou:campaign#bar:footime*min<2022-01-01'))
-            self.len(4, await core.nodes('ou:campaign#bar:footime*min<=2022-01-01'))
-            self.len(3, await core.nodes('ou:campaign#bar:footime*min>=2022-01-01'))
-            self.len(2, await core.nodes('ou:campaign#bar:footime*min>2022-01-01'))
-            self.len(2, await core.nodes('ou:campaign#bar:footime*min@=(2020-01-01, 2022-01-01)'))
-            self.len(2, await core.nodes('reverse(ou:campaign#bar:footime*min@=(2020-01-01, 2022-01-01))'))
+            self.len(1, await core.nodes('entity:campaign#bar:footime.min=2020-01-01'))
+            self.len(3, await core.nodes('entity:campaign#bar:footime.min<2022-01-01'))
+            self.len(4, await core.nodes('entity:campaign#bar:footime.min<=2022-01-01'))
+            self.len(3, await core.nodes('entity:campaign#bar:footime.min>=2022-01-01'))
+            self.len(2, await core.nodes('entity:campaign#bar:footime.min>2022-01-01'))
+            self.len(2, await core.nodes('entity:campaign#bar:footime.min@=(2020-01-01, 2022-01-01)'))
+            self.len(2, await core.nodes('reverse(entity:campaign#bar:footime.min@=(2020-01-01, 2022-01-01))'))
 
-            self.len(1, await core.nodes('ou:campaign#bar:footime*max=2020-01-02'))
-            self.len(2, await core.nodes('ou:campaign#bar:footime*max<2022-05-01'))
-            self.len(3, await core.nodes('ou:campaign#bar:footime*max<=2022-05-01'))
-            self.len(3, await core.nodes('ou:campaign#bar:footime*max>=2022-05-01'))
-            self.len(2, await core.nodes('ou:campaign#bar:footime*max>2022-05-01'))
-            self.len(2, await core.nodes('ou:campaign#bar:footime*max@=(2020-01-02, 2022-05-01)'))
-            self.len(1, await core.nodes('ou:campaign#bar:footime*max=?'))
+            self.len(1, await core.nodes('entity:campaign#bar:footime.max=2020-01-02'))
+            self.len(2, await core.nodes('entity:campaign#bar:footime.max<2022-05-01'))
+            self.len(3, await core.nodes('entity:campaign#bar:footime.max<=2022-05-01'))
+            self.len(3, await core.nodes('entity:campaign#bar:footime.max>=2022-05-01'))
+            self.len(2, await core.nodes('entity:campaign#bar:footime.max>2022-05-01'))
+            self.len(2, await core.nodes('entity:campaign#bar:footime.max@=(2020-01-02, 2022-05-01)'))
+            self.len(1, await core.nodes('entity:campaign#bar:footime.max=?'))
 
-            self.len(1, await core.nodes('ou:campaign#bar:footime*duration=1D'))
-            self.len(1, await core.nodes('ou:campaign#bar:footime*duration<31D'))
-            self.len(2, await core.nodes('ou:campaign#bar:footime*duration<=31D'))
-            self.len(4, await core.nodes('ou:campaign#bar:footime*duration>=31D'))
-            self.len(3, await core.nodes('ou:campaign#bar:footime*duration>31D'))
-            self.len(1, await core.nodes('ou:campaign#bar:footime*duration=?'))
+            self.len(1, await core.nodes('entity:campaign#bar:footime.duration=1D'))
+            self.len(1, await core.nodes('entity:campaign#bar:footime.duration<31D'))
+            self.len(2, await core.nodes('entity:campaign#bar:footime.duration<=31D'))
+            self.len(4, await core.nodes('entity:campaign#bar:footime.duration>=31D'))
+            self.len(3, await core.nodes('entity:campaign#bar:footime.duration>31D'))
+            self.len(1, await core.nodes('entity:campaign#bar:footime.duration=?'))
 
-            await core.nodes('[ ou:campaign=(foo,) -:period -#foo -#bar:footime ]')
+            await core.nodes('[ entity:campaign=(foo,) +#bar:footime=(2018, 2022) ]')
+            self.len(0, await core.nodes('entity:campaign#bar:footime.max=?'))
+            self.len(0, await core.nodes('entity:campaign#bar:footime.min=2019-01-01'))
+
+            await core.nodes('[ entity:campaign=(foo,) -:period -#foo -#bar:footime ]')
+
+            def staticnow():
+                # 2021-01-01
+                return 1609459200000000
+
+            with mock.patch('synapse.common.now', staticnow):
+                await core.callStorm('[ou:asset=* :period=(2020, *)] return(:period.duration)')
+                await core.callStorm('[ou:asset=* :period=(2020, ?)] return(:period.duration)')
+                await core.callStorm('[ou:asset=* :period=(2020, 2021)] return(:period.duration)')
+                await core.callStorm('[ou:asset=* :period=(2020, 2022)] return(:period.duration)')
+
+                self.len(1, await core.nodes('ou:asset:period.duration=*'))
+                self.len(1, await core.nodes('ou:asset:period.duration=?'))
+
+                nodes = await core.nodes('ou:asset:period.duration=366D')
+                rnodes = await core.nodes('reverse(ou:asset:period.duration=366D)')
+                self.len(2, nodes)
+                self.eq(nodes[::-1], rnodes)
+
+                self.len(2, await core.nodes('ou:asset:period.duration<367D'))
+                self.len(0, await core.nodes('ou:asset:period.duration<365D'))
+                self.len(1, await core.nodes('ou:asset:period.duration<=?'))
+                self.len(0, await core.nodes('ou:asset:period.duration<?'))
+                self.len(1, await core.nodes('ou:asset:period.duration<=*'))
+                self.len(0, await core.nodes('ou:asset:period.duration<*'))
+
+                nodes = await core.nodes('ou:asset:period.duration<367D')
+                rnodes = await core.nodes('reverse(ou:asset:period.duration<367D)')
+                self.len(2, nodes)
+                self.eq(nodes[::-1], rnodes)
+
+                self.len(1, await core.nodes('ou:asset:period.duration>366D'))
+                self.len(1, await core.nodes('ou:asset:period.duration>=?'))
+                self.len(0, await core.nodes('ou:asset:period.duration>?'))
+                self.len(1, await core.nodes('ou:asset:period.duration>=*'))
+                self.len(0, await core.nodes('ou:asset:period.duration>*'))
+
+                nodes = await core.nodes('ou:asset:period.duration>365D')
+                rnodes = await core.nodes('reverse(ou:asset:period.duration>365D)')
+                self.len(3, nodes)
+                self.eq(nodes[::-1], rnodes)
 
     async def test_layer_ndef_indexes(self):
 

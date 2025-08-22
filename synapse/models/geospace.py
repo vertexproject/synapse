@@ -394,44 +394,44 @@ modeldefs = (
 
             ('geo:locatable', {
                 'doc': 'Properties common to items and events which may be geolocated.',
-                'template': {'geo:locatable': 'item'},
                 'prefix': 'place',
+                'template': {'title': 'item', 'happened': 'was located'},
                 'props': (
                     ('', ('geo:place', {}), {
-                        'doc': 'The place where the {geo:locatable} was located.'}),
+                        'doc': 'The place where the {title} {happened}.'}),
 
                     ('loc', ('loc', {}), {
-                        'doc': 'The geopolitical location of the {geo:locatable}.'}),
+                        'doc': 'The geopolitical location where the {title} {happened}.'}),
 
                     ('name', ('meta:name', {}), {
-                        'doc': 'The name where the {geo:locatable} was located.'}),
+                        'doc': 'The name where the {title} {happened}.'}),
 
                     ('address', ('geo:address', {}), {
-                        'doc': 'The postal address where the {geo:locatable} was located.'}),
+                        'doc': 'The postal address where the {title} {happened}.'}),
 
                     ('latlong', ('geo:latlong', {}), {
-                        'doc': 'The latlong where the {geo:locatable} was located.'}),
+                        'doc': 'The latlong where the {title} {happened}.'}),
 
                     ('latlong:accuracy', ('geo:dist', {}), {
-                        'doc': 'The accuracy of the latlong where the {geo:locatable} was located.'}),
+                        'doc': 'The accuracy of the latlong where the {title} {happened}.'}),
 
                     ('altitude', ('geo:altitude', {}), {
-                        'doc': 'The altitude where the {geo:locatable} was located.'}),
+                        'doc': 'The altitude where the {title} {happened}.'}),
 
                     ('altitude:accuracy', ('geo:dist', {}), {
-                        'doc': 'The accuracy of the altitude where the {geo:locatable} was located.'}),
+                        'doc': 'The accuracy of the altitude where the {title} {happened}.'}),
 
                     ('country', ('pol:country', {}), {
-                        'doc': 'The country where the {geo:locatable} was located.'}),
+                        'doc': 'The country where the {title} {happened}.'}),
 
-                    ('country:code', ('pol:iso2', {}), {
-                        'doc': 'The country code where the {geo:locatable} was located.'}),
+                    ('country:code', ('iso:3166:alpha2', {}), {
+                        'doc': 'The country code where the {title} {happened}.'}),
 
                     ('bbox', ('geo:bbox', {}), {
-                        'doc': 'A bounding box which encompasses the {geo:locatable}.'}),
+                        'doc': 'A bounding box which encompasses where the {title} {happened}.'}),
 
                     ('geojson', ('geo:json', {}), {
-                        'doc': 'A GeoJSON representation of where the {geo:locatable} was located.'}),
+                        'doc': 'A GeoJSON representation of where the {title} {happened}.'}),
                 ),
             }),
         ),
@@ -440,11 +440,8 @@ modeldefs = (
 
             ('geo:telem', ('guid', {}), {
                 'interfaces': (
-                    ('phys:object', {
-                        'template': {'phys:object': 'object'}}),
-
-                    ('geo:locatable', {
-                        'template': {'geo:locatable': 'object'}}),
+                    ('phys:object', {'template': {'title': 'object'}}),
+                    ('geo:locatable', {'template': {'title': 'object'}}),
                 ),
                 'doc': 'The geospatial position and physical characteristics of a node at a given time.'}),
 
@@ -452,9 +449,9 @@ modeldefs = (
                 'doc': 'GeoJSON structured JSON data.'}),
 
             ('geo:place', ('guid', {}), {
+                'template': {'title': 'place'},
                 'interfaces': (
-                    ('geo:locatable', {'prefix': '',
-                        'template': {'geo:locatable': 'place'}}),
+                    ('geo:locatable', {'prefix': ''}),
                 ),
                 'doc': 'A geographic place.'}),
 
@@ -519,7 +516,6 @@ modeldefs = (
                 ('type', ('geo:place:type:taxonomy', {}), {
                     'doc': 'The type of place.'}),
 
-                # FIXME should geo:locatable have :names?
                 ('name', ('meta:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the place.'}),

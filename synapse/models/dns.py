@@ -105,55 +105,55 @@ modeldefs = (
 
             ('inet:dns:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ipv4'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'DNS A record'}}),
+                    ('meta:observable', {'template': {'title': 'DNS A record'}}),
                 ),
                 'ex': '(vertex.link,1.2.3.4)',
                 'doc': 'The result of a DNS A record lookup.'}),
 
             ('inet:dns:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ipv6'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'DNS AAAA record'}}),
+                    ('meta:observable', {'template': {'title': 'DNS AAAA record'}}),
                 ),
                 'ex': '(vertex.link,2607:f8b0:4004:809::200e)',
                 'doc': 'The result of a DNS AAAA record lookup.'}),
 
             ('inet:dns:rev', ('comp', {'fields': (('ip', 'inet:ip'), ('fqdn', 'inet:fqdn'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'Reverse DNS record'}}),
+                    ('meta:observable', {'template': {'title': 'Reverse DNS record'}}),
                 ),
                 'ex': '(1.2.3.4,vertex.link)',
                 'doc': 'The transformed result of a DNS PTR record lookup.'}),
 
             ('inet:dns:ns', ('comp', {'fields': (('zone', 'inet:fqdn'), ('ns', 'inet:fqdn'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'DNS NS record'}}),
+                    ('meta:observable', {'template': {'title': 'DNS NS record'}}),
                 ),
                 'ex': '(vertex.link,ns.dnshost.com)',
                 'doc': 'The result of a DNS NS record lookup.'}),
 
             ('inet:dns:cname', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('cname', 'inet:fqdn'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'DNS CNAME record'}}),
+                    ('meta:observable', {'template': {'title': 'DNS CNAME record'}}),
                 ),
                 'ex': '(foo.vertex.link,vertex.link)',
                 'doc': 'The result of a DNS CNAME record lookup.'}),
 
             ('inet:dns:mx', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('mx', 'inet:fqdn'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'DNS MX record'}}),
+                    ('meta:observable', {'template': {'title': 'DNS MX record'}}),
                 ),
                 'ex': '(vertex.link,mail.vertex.link)',
                 'doc': 'The result of a DNS MX record lookup.'}),
 
             ('inet:dns:soa', ('guid', {}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'DNS SOA record'}}),
+                    ('meta:observable', {'template': {'title': 'DNS SOA record'}}),
                 ),
                 'doc': 'The result of a DNS SOA record lookup.'}),
 
             ('inet:dns:txt', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('txt', 'str'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'DNS TXT record'}}),
+                    ('meta:observable', {'template': {'title': 'DNS TXT record'}}),
                 ),
                 'ex': '(hehe.vertex.link,"fancy TXT record")',
                 'doc': 'The result of a DNS TXT record lookup.'}),
@@ -176,6 +176,9 @@ modeldefs = (
 
             ('inet:dns:query',
                 ('comp', {'fields': (('client', 'inet:client'), ('name', 'inet:dns:name'), ('type', 'int'))}), {
+                    'interfaces': (
+                        ('meta:observable', {'template': {'title': 'DNS query'}}),
+                    ),
                     'ex': '(1.2.3.4, woot.com, 1)',
                     'doc': 'A DNS query unique to a given client.'}),
 
@@ -190,19 +193,19 @@ modeldefs = (
 
             ('inet:dns:wild:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ip'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'DNS wildcard A record'}}),
+                    ('meta:observable', {'template': {'title': 'DNS wildcard A record'}}),
                 ),
                 'doc': 'A DNS A wild card record and the IPv4 it resolves to.'}),
 
             ('inet:dns:wild:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ip'))}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'DNS wildcard AAAA record'}}),
+                    ('meta:observable', {'template': {'title': 'DNS wildcard AAAA record'}}),
                 ),
                 'doc': 'A DNS AAAA wild card record and the IPv6 it resolves to.'}),
 
             ('inet:dns:dynreg', ('guid', {}), {
                 'interfaces': (
-                    ('meta:observable', {'template': {'observable': 'dynamic DNS registration'}}),
+                    ('meta:observable', {'template': {'title': 'dynamic DNS registration'}}),
                 ),
                 'doc': 'A dynamic DNS registration.'}),
 
@@ -337,7 +340,6 @@ modeldefs = (
                 ('provider:fqdn', ('inet:fqdn', {}), {
                     'doc': 'The FQDN of the organization which provides the dynamic DNS FQDN.'}),
 
-                # FIXME inet:service:account?
                 ('contact', ('entity:contact', {}), {
                     'doc': 'The contact information of the registrant.'}),
 

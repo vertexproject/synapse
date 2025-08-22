@@ -4,6 +4,9 @@ modeldefs = (
         'types': (
 
             ('pol:country', ('guid', {}), {
+                'interfaces': (
+                    ('risk:targetable', {}),
+                ),
                 'doc': 'A GUID for a country.'}),
 
             ('pol:immigration:status', ('guid', {}), {
@@ -17,13 +20,6 @@ modeldefs = (
 
             ('pol:vitals', ('guid', {}), {
                 'doc': 'A set of vital statistics about a country.'}),
-
-            # FIXME rename now?!?!
-            ('pol:iso2', ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$'}), {
-                'doc': 'The 2 digit ISO 3166 country code.', 'ex': 'us'}),
-
-            ('pol:iso3', ('str', {'lower': True, 'regex': '^[a-z0-9]{3}$'}), {
-                'doc': 'The 3 digit ISO 3166 country code.', 'ex': 'usa'}),
 
             ('pol:isonum', ('int', {}), {
                 'doc': 'The ISO integer country code.', 'ex': '840'}),
@@ -54,11 +50,17 @@ modeldefs = (
                 ('flag', ('file:bytes', {}), {
                     'doc': 'A thumbnail image of the flag of the country.'}),
 
-                ('iso2', ('pol:iso2', {}), {}),
+                ('code', ('iso:3166:alpha2', {}), {
+                    'prevnames': ('iso2',),
+                    'doc': 'The ISO 3166 Alpha-2 country code.'}),
 
-                ('iso3', ('pol:iso3', {}), {}),
+                ('iso:3166:alpha3', ('iso:3166:alpha3', {}), {
+                    'prevnames': ('iso3',),
+                    'doc': 'The ISO 3166 Alpha-3 country code.'}),
 
-                ('isonum', ('pol:isonum', {}), {}),
+                ('iso:3166:numeric3', ('iso:3166:numeric3', {}), {
+                    'prevnames': ('isonum',),
+                    'doc': 'The ISO 3166 Numeric-3 country code.'}),
 
                 ('tld', ('inet:fqdn', {}), {}),
 
@@ -70,10 +72,10 @@ modeldefs = (
                     'doc': 'An array of alternate or localized names for the country.'}),
 
                 ('government', ('ou:org', {}), {
-                    'doc': 'The ou:org node which represents the government of the country.'}),
+                    'doc': 'The government of the country.'}),
 
                 ('place', ('geo:place', {}), {
-                    'doc': 'A geo:place node representing the geospatial properties of the country.'}),
+                    'doc': 'The geospatial properties of the country.'}),
 
                 ('period', ('ival', {}), {
                     'prevnames': ('founded', 'dissolved'),
@@ -195,7 +197,7 @@ modeldefs = (
                 ('race', ('pol:race', {}), {
                     'doc': 'The race the candidate is participating in.'}),
 
-                ('campaign', ('ou:campaign', {}), {
+                ('campaign', ('entity:campaign', {}), {
                     'doc': 'The official campaign to elect the candidate.'}),
 
                 ('winner', ('bool', {}), {

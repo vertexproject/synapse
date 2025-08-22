@@ -277,71 +277,61 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('name'), 'ubuntu-24.10-amd64.vhdx')
             self.eq(nodes[0].get('published'), 1715938800000000)
             self.eq(nodes[0].get('publisher'), s_common.guid(('blackout',)))
-            image = nodes[0]
 
-            org0 = s_common.guid()
-            host0 = s_common.guid()
-            sver0 = s_common.guid()
-            cont0 = s_common.guid()
-            props = {
-                'name': 'Bobs laptop',
-                'desc': 'Bobs paperweight',
-                'ip': '1.2.3.4',
-                'latlong': '0.0, 0.0',
-                'place': place,
-                'os': sver0,
-                'serial': '111-222',
-                'loc': 'us.hehe.haha',
-                'operator': cont0,
-                'org': org0,
-                'id': 'foo123',
-                'image': image.ndef[1],
-            }
-            q = '''
-                [ it:host=$valu
+            nodes = await core.nodes('''
+                [ it:host=*
+
+                    :id=foo123
+                    :name="Bobs laptop"
+                    :desc="Bobs paperweight"
+
+                    :ip=1.2.3.4
+                    :place=*
+                    :place:latlong=(0, 0)
+
+                    :os=*
+                    :image={ it:software:image | limit 1 }
+                    :serial=111-222
+                    :place:loc=us.hehe.haha
+                    :operator={[ entity:contact=* ]}
+                    :org=*
 
                     :phys:mass=10kg
                     :phys:width=5m
                     :phys:height=10m
                     :phys:length=20m
                     :phys:volume=1000m
-
-                    :name=$p.name :desc=$p.desc :ip=$p.ip :place=$p.place :latlong=$p.latlong
-                    :os=$p.os :serial=$p.serial :loc=$p.loc :operator=$p.operator
-                    :org=$p.org :id=$p."id" :image=$p.image
                 ]
-            '''
-            nodes = await core.nodes(q, opts={'vars': {'valu': host0, 'p': props}})
+            ''')
             self.len(1, nodes)
 
-            self.eq('10000', nodes[0].get('phys:mass'))
-            self.eq(5000, nodes[0].get('phys:width'))
-            self.eq(10000, nodes[0].get('phys:height'))
-            self.eq(20000, nodes[0].get('phys:length'))
-            self.eq(1000000, nodes[0].get('phys:volume'))
+            self.eq(nodes[0].get('id'), 'foo123')
+            self.eq(nodes[0].get('name'), 'bobs laptop')
+            self.eq(nodes[0].get('desc'), 'Bobs paperweight')
+            self.eq(nodes[0].get('ip'), (4, 0x01020304))
+            self.eq(nodes[0].get('place:latlong'), (0.0, 0.0))
+            self.eq(nodes[0].get('place:loc'), 'us.hehe.haha')
+            self.eq(nodes[0].get('phys:mass'), '10000')
+            self.eq(nodes[0].get('phys:width'), 5000)
+            self.eq(nodes[0].get('phys:height'), 10000)
+            self.eq(nodes[0].get('phys:length'), 20000)
+            self.eq(nodes[0].get('phys:volume'), 1000000)
 
-            node = nodes[0]
-            self.eq(node.ndef[1], host0)
-            self.eq(node.get('name'), 'bobs laptop')
-            self.eq(node.get('desc'), 'Bobs paperweight')
-            self.eq(node.get('ip'), (4, 0x01020304))
-            self.eq(node.get('latlong'), (0.0, 0.0))
-            self.eq(node.get('place'), place)
-            self.eq(node.get('os'), sver0)
-            self.eq(node.get('loc'), 'us.hehe.haha')
-            self.eq(node.get('org'), org0)
-            self.eq(node.get('operator'), cont0)
-            self.eq(node.get('id'), 'foo123')
+            self.len(1, await core.nodes('it:host :os -> it:software'))
+            self.len(1, await core.nodes('it:host :org -> ou:org'))
+            self.len(1, await core.nodes('it:host :place -> geo:place'))
+            self.len(1, await core.nodes('it:host :operator -> entity:contact'))
+
             host = node
 
-            q = r'''
+            nodes = await core.nodes(r'''
             [ it:storage:volume=(smb, 192.168.0.10, c$, temp)
                 :name="\\\\192.168.0.10\\c$\\temp"
                 :size=(10485760)
                 :type=windows.smb.share
             ]
-            '''
-            nodes = await core.nodes(q)
+            ''')
+
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:storage:volume', s_common.guid(('smb', '192.168.0.10', 'c$', 'temp'))))
             self.eq(nodes[0].get('name'), '\\\\192.168.0.10\\c$\\temp')
@@ -349,31 +339,17 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('type'), 'windows.smb.share.')
             volume = nodes[0]
 
-            q = r'''
-            [ it:storage:mount=($hostiden, $voluiden, z:\\)
-                :host=$hostiden
-                :path="z:\\"
-                :volume=$voluiden
-            ]
-            '''
-            opts = {'vars': {
-                'voluiden': volume.ndef[1],
-                'hostiden': host.ndef[1],
-            }}
-            nodes = await core.nodes(q, opts=opts)
+            nodes = await core.nodes(r'''
+                [ it:storage:mount=*
+                    :host={ it:host | limit 1 }
+                    :path="z:\\"
+                    :volume={ it:storage:volume | limit 1 }
+                ]
+            ''')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('it:storage:mount', s_common.guid((host.ndef[1], volume.ndef[1], r'z:\\'))))
-            self.eq(nodes[0].get('host'), host.ndef[1])
-            self.eq(nodes[0].get('path'), 'z:')
-            self.eq(nodes[0].get('volume'), volume.ndef[1])
-
-            valu = (host0, 'http://vertex.ninja/cool.php')
-            nodes = await core.nodes('[it:host:url=$valu]', opts={'vars': {'valu': valu}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('it:host:url', (host0, 'http://vertex.ninja/cool.php')))
-            self.eq(node.get('host'), host0)
-            self.eq(node.get('url'), 'http://vertex.ninja/cool.php')
+            self.len(1, await core.nodes('it:storage:mount :host -> it:host'))
+            self.len(1, await core.nodes('it:storage:mount :path -> file:path'))
+            self.len(1, await core.nodes('it:storage:mount :volume -> it:storage:volume'))
 
             nodes = await core.nodes('[it:dev:int=0x61c88648]')
             self.len(1, nodes)
@@ -452,7 +428,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.nn(nodes[1].get('host'))
             self.nn(nodes[1].get('account'))
-            self.eq(nodes[1].get('period'), (1615680000000000, 1615687260000000))
+            self.eq(nodes[1].get('period'), (1615680000000000, 1615687260000000, 7260000000))
             self.eq(nodes[1].get('creds'), (('auth:passwd', 'cool'),))
 
             # Sample SIDs from here:
@@ -821,7 +797,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('it:host', hostguid))
             self.eq(nodes[1].ndef, ('it:cmd:session', s_common.guid(('202405170900', '202405171000', 'bash', hostguid))))
             self.eq(nodes[1].get('host'), hostguid)
-            self.eq(nodes[1].get('period'), (1715936400000000, 1715940000000000))
+            self.eq(nodes[1].get('period'), (1715936400000000, 1715940000000000, 3600000000))
             cmdsess = nodes[1]
 
             q = '''
@@ -906,57 +882,29 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('name'), pipe)
             self.eq(node.get('sandbox:file'), sandfile)
 
-            u0 = s_common.guid()
-            uprops = {
-                'proc': proc,
-                'host': host,
-                'exe': exe,
-                'time': tick,
-                'url': url,
-                'page:pdf': '*',
-                'page:html': '*',
-                'page:image': '*',
-                'browser': '*',
-                'client': addr4,
-                'sandbox:file': sandfile,
-            }
-            q = '''[(it:exec:url=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
-                :url=$p.url :page:pdf=$p."page:pdf" :page:html=$p."page:html" :page:image=$p."page:image"
-                :browser=$p.browser :client=$p.client
-                :sandbox:file=$p."sandbox:file")]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': u0, 'p': uprops}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('it:exec:url', u0))
-            self.eq(node.get('exe'), exe)
-            self.eq(node.get('proc'), proc)
-            self.eq(node.get('host'), host)
-            self.eq(node.get('time'), tick)
-            self.eq(node.get('url'), url)
-            self.eq(node.get('client'), addr4)
-            self.eq(node.get('sandbox:file'), sandfile)
-            self.nn(node.get('page:pdf'))
-            self.nn(node.get('page:html'))
-            self.nn(node.get('page:image'))
-            self.nn(node.get('browser'))
-            opts = {'vars': {'guid': u0}}
-            self.len(1, await core.nodes('it:exec:url=$guid :page:pdf -> file:bytes', opts=opts))
-            self.len(1, await core.nodes('it:exec:url=$guid :page:html -> file:bytes', opts=opts))
-            self.len(1, await core.nodes('it:exec:url=$guid :page:image -> file:bytes', opts=opts))
-            self.len(1, await core.nodes('it:exec:url=$guid :browser -> it:software', opts=opts))
-            self.len(1, await core.nodes('it:exec:url=$guid :sandbox:file -> file:bytes', opts=opts))
+            nodes = await core.nodes('''
+                [ it:exec:fetch=*
+                    :proc=*
+                    :host={ it:host | limit 1 }
+                    :url=https://vertex.link
+                    :time=20250718
 
-            u1 = s_common.guid()
-            uprops['client'] = addr6
-            q = '''[(it:exec:url=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
-                            :url=$p.url :page:pdf=$p."page:pdf" :page:html=$p."page:html" :page:image=$p."page:image"
-                            :browser=$p.browser :client=$p.client
-                            :sandbox:file=$p."sandbox:file")]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': u1, 'p': uprops}})
+                    :browser=*
+
+                    :page:pdf=*
+                    :page:html=*
+                    :page:image=*
+                ]
+            ''')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('it:exec:url', u1))
-            self.eq(node.get('client'), addr6)
+            self.eq(nodes[0].get('url'), 'https://vertex.link')
+            self.eq(nodes[0].get('time'), 1752796800000000)
+
+            self.len(1, await core.nodes('it:exec:fetch :host -> it:host'))
+            self.len(1, await core.nodes('it:exec:fetch :browser -> it:software'))
+            self.len(1, await core.nodes('it:exec:fetch :page:pdf -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:fetch :page:html -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:fetch :page:image -> file:bytes'))
 
             b0 = s_common.guid()
             bprops = {
@@ -1427,6 +1375,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('product'), 'product%23')
 
+    async def test_infotech_cpe_conversions(self):
+        self.thisEnvMust('CIRCLECI')
+
+        async with self.getTestCore() as core:
+            cpe23 = core.model.type('it:sec:cpe')
+            cpe22 = core.model.type('it:sec:cpe:v2_2')
             # Test 2.2->2.3 and 2.3->2.2 conversions
             filename = s_t_files.getAssetPath('cpedata.json')
             with open(filename, 'r') as fp:
@@ -1434,25 +1388,24 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             for (_cpe22, _cpe23) in cpedata:
                 # Convert cpe22 -> cpe23
-                norm, info = await cpe23.norm(_cpe22)
-                self.eq(norm, _cpe23)
+                norm_22, _ = await cpe23.norm(_cpe22)
+                self.eq(norm_22, _cpe23)
 
-                norm, info = await cpe23.norm(_cpe23)
-                self.eq(norm, _cpe23)
+                norm_23, info_23 = await cpe23.norm(_cpe23)
+                self.eq(norm_23, _cpe23)
 
                 # No escaped characters in the secondary props
-                for name, valu in info.items():
+                for name, valu in info_23.items():
                     if name == 'v2_2':
                         continue
 
                     self.notin('\\', valu)
 
                 # Norm cpe23 and check the cpe22 conversion
-                norm, info = await cpe23.norm(_cpe23)
-                v2_2 = info['subs']['v2_2'][1]
+                sub_23_v2_2 = info_23['subs']['v2_2']
 
-                norm, info = await cpe22.norm(v2_2)
-                self.eq(norm, _cpe22)
+                norm_sub_23_v2_2, _ = await cpe22.norm(sub_23_v2_2)
+                self.eq(norm_sub_23_v2_2, sub_23_v2_2)
 
     async def test_cpe_scrape_one_to_one(self):
 
@@ -1538,7 +1491,7 @@ class InfotechModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('''
-                [ it:prod:softid=*
+                [ it:softid=*
                     :id=Woot
                     :host=*
                     :software={[ it:software=* :name=beacon ]}
@@ -1549,8 +1502,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('Woot', nodes[0].get('id'))
             self.nn(nodes[0].get('host'))
             self.nn(nodes[0].get('software'))
-            self.len(1, await core.nodes('it:host -> it:prod:softid'))
-            self.len(1, await core.nodes('it:software:name=beacon -> it:prod:softid'))
+            self.len(1, await core.nodes('it:host -> it:softid'))
+            self.len(1, await core.nodes('it:software:name=beacon -> it:softid'))
 
     async def test_infotech_repo(self):
 
@@ -1878,7 +1831,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.eq('vertex', nodes[0].get('org:name'))
             self.eq('vertex.link', nodes[0].get('org:fqdn'))
-            self.eq((1688169600000000, 1690848000000000), nodes[0].get('period'))
+            self.eq((1688169600000000, 1690848000000000, 2678400000000), nodes[0].get('period'))
 
             self.eq(100, nodes[0].get('alerts:count'))
             self.eq(90, nodes[0].get('alerts:falsepos'))

@@ -15,7 +15,7 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {'template': {
                         'document': 'RFP',
-                        'authorable': 'RFP'}}),
+                        'title': 'RFP'}}),
                 ),
                 'doc': 'An RFP (Request for Proposal) soliciting proposals.'}),
 
@@ -62,6 +62,9 @@ modeldefs = (
 
             (('biz:deal', 'has', 'econ:lineitem'), {
                 'doc': 'The deal includes the line item.'}),
+
+            (('biz:rfp', 'has', 'doc:requirement'), {
+                'doc': 'The RFP lists the requirement.'}),
         ),
 
         'forms': (
@@ -85,20 +88,17 @@ modeldefs = (
                 ('posted', ('time', {}), {
                     'doc': 'The date/time that the RFP was posted.'}),
 
-                ('quesdue', ('time', {}), {
+                ('due:questions', ('time', {}), {
+                    'prevnames': ('quesdue',),
                     'doc': 'The date/time that questions are due.'}),
 
-                ('propdue', ('time', {}), {
+                ('due:proposal', ('time', {}), {
+                    'prevnames': ('propdue',),
                     'doc': 'The date/time that proposals are due.'}),
 
                 ('contact', ('entity:actor', {}), {
                     'doc': 'The contact information given for the org requesting offers.'}),
 
-                ('purchases', ('array', {'type': 'econ:purchase', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Any known purchases that resulted from the RFP.'}),
-
-                ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Any stated goals of the RFP.'}),
             )),
             ('biz:deal', {}, (
 
@@ -191,7 +191,6 @@ modeldefs = (
 
                 ('launched', ('time', {}), {
                     'doc': 'The time when the operator first made the service available.'}),
-                # TODO: billing types (fixed, hourly, subscription, etc)
             )),
             ('biz:product', {}, (
 
@@ -203,6 +202,9 @@ modeldefs = (
 
                 ('desc', ('text', {}), {
                     'doc': 'A description of the product.'}),
+
+                ('launched', ('time', {}), {
+                    'doc': 'The time the product was first made available.'}),
 
                 ('manufacturer', ('entity:actor', {}), {
                     'prevnames': ('maker',),

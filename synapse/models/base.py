@@ -95,7 +95,7 @@ modeldefs = (
 
             ('meta:ruleset', ('guid', {}), {
                 'interfaces': (
-                    ('doc:authorable', {'template': {'authorable': 'ruleset'}}),
+                    ('doc:authorable', {'template': {'title': 'ruleset'}}),
                 ),
                 'doc': 'A set of rules linked with -(has)> edges.'}),
 
@@ -143,53 +143,89 @@ modeldefs = (
 
             ('text', ('str', {'strip': False}), {
                 'doc': 'A multi-line, free form text string.'}),
+
+            ('meta:technique', ('guid', {}), {
+                'template': {'title': 'technique'},
+                'doc': 'A specific technique used to achieve a goal.',
+                'interfaces': (
+                    ('meta:usable', {}),
+                    ('meta:reported', {}),
+                    ('risk:mitigatable', {}),
+                ),
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        {'type': 'prop', 'opts': {'name': 'tag'}},
+                    ),
+                }}),
+
+            ('meta:technique:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of technique types.'}),
         ),
         'interfaces': (
 
             ('meta:observable', {
                 'doc': 'Properties common to forms which can be observed.',
-                'template': {'observable': 'node'},
+                'template': {'title': 'node'},
                 'props': (
                     ('seen', ('ival', {}), {
-                        'doc': 'The {observable} was observed during the time interval.'}),
+                        'doc': 'The {title} was observed during the time interval.'}),
                 ),
             }),
 
             ('meta:havable', {
                 'doc': 'An interface used to describe items that can be possessed by an entity.',
+                'template': {'title': 'item'},
+                'props': (
+
+                    ('owner', ('entity:actor', {}), {
+                        'doc': 'The current owner of the {title}.'}),
+
+                    ('owner:name', ('meta:name', {}), {
+                        'doc': 'The name of the current owner of the {title}.'}),
+                ),
             }),
 
-            ('meta:sourced', {
+            ('meta:reported', {
                 'doc': 'Properties common to forms which are created on a per-source basis.',
-                'template': {'sourced': 'item'},
+                'template': {'title': 'item'},
                 'props': (
 
                     ('id', ('meta:id', {}), {
-                        'doc': 'A unique ID given to the {sourced} by the source.'}),
+                        'doc': 'A unique ID given to the {title} by the source.'}),
 
                     ('name', ('meta:name', {}), {
                         'alts': ('names',),
-                        'doc': 'The primary name of the {sourced} according to the source.'}),
+                        'doc': 'The primary name of the {title} according to the source.'}),
 
                     ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
-                        'doc': 'A list of alternate names for the {sourced} according to the source.'}),
+                        'doc': 'A list of alternate names for the {title} according to the source.'}),
 
                     ('desc', ('text', {}), {
-                        'doc': 'A description of the {sourced}, according to the source.'}),
+                        'doc': 'A description of the {title}, according to the source.'}),
 
-                    ('source', ('entity:actor', {}), {
-                        'prevnames': ('reporter',),
-                        'doc': 'The entity which was the source of the {sourced}.'}),
+                    ('reporter', ('entity:actor', {}), {
+                        'doc': 'The entity which reported on the {title}.'}),
 
-                    ('source:name', ('meta:name', {}), {
-                        'prevnames': ('reporter:name',),
-                        'doc': 'The name of the entity which was the source of the {sourced}.'}),
+                    ('reporter:name', ('meta:name', {}), {
+                        'doc': 'The name of the entity which reported on the {title}.'}),
 
-                    ('source:created', ('time', {}), {
-                        'doc': 'The time when the source first created the {sourced}.'}),
+                    ('reporter:created', ('time', {}), {
+                        'doc': 'The time when the reporter first created the {title}.'}),
 
-                    ('source:updated', ('time', {}), {
-                        'doc': 'The time when the source last updated the {sourced}.'}),
+                    ('reporter:updated', ('time', {}), {
+                        'doc': 'The time when the reporter last updated the {title}.'}),
+
+                    ('reporter:published', ('time', {}), {
+                        'doc': 'The time when the reporter published the {title}.'}),
+
+                    ('reporter:discovered', ('time', {}), {
+                        'doc': 'The time when the reporter first discovered the {title}.'}),
+
                 ),
             }),
 
@@ -218,10 +254,14 @@ modeldefs = (
                         'doc': 'The taxonomy parent.'}),
                 ),
             }),
+
+            ('meta:usable', {
+                'doc': 'An interface for forms which can be used by an actor.'}),
+
             ('meta:ruleish', {
                 'doc': 'Properties which are common to rules used in evaluation systems.',
                 'interfaces': (
-                    ('doc:authorable', {'template': {'authorable': 'rule', 'syntax': ''}}),
+                    ('doc:authorable', {'template': {'title': 'rule', 'syntax': ''}}),
                 ),
                 'props': (
 
@@ -229,14 +269,14 @@ modeldefs = (
                         'doc': 'The rule name.'}),
 
                     ('url', ('inet:url', {}), {
-                        'doc': 'A URL which documents the {authorable}.'}),
+                        'doc': 'A URL which documents the {title}.'}),
 
                     ('enabled', ('bool', {}), {
-                        'doc': 'The enabled status of the {authorable}.'}),
+                        'doc': 'The enabled status of the {title}.'}),
 
                     ('text', ('text', {}), {
                         'display': {'syntax': '{syntax}'},
-                        'doc': 'The text of the {authorable}.'})
+                        'doc': 'The text of the {title}.'})
                 ),
             }),
             ('meta:matchish', {
@@ -281,8 +321,14 @@ modeldefs = (
             (('meta:ruleish', 'matches', None), {
                 'doc': 'The rule matched on the target node.'}),
 
-            (('meta:ruleish', 'detects', None), {
+            (('meta:ruleish', 'detects', 'meta:usable'), {
                 'doc': 'The rule is designed to detect the target node.'}),
+
+            (('meta:ruleish', 'detects', 'meta:observable'), {
+                'doc': 'The rule is designed to detect the target node.'}),
+
+            (('meta:usable', 'uses', 'meta:usable'), {
+                'doc': 'The source node uses the target node.'}),
         ),
         'forms': (
 
@@ -432,7 +478,6 @@ modeldefs = (
             )),
 
             ('meta:aggregate:type:taxonomy', {}, ()),
-            # FIXME valuable?
             ('meta:aggregate', {}, (
 
                 ('type', ('meta:aggregate:type:taxonomy', {}), {
@@ -445,6 +490,20 @@ modeldefs = (
                 ('count', ('int', {}), {
                     'doc': 'The number of items counted in aggregate.'}),
             )),
+
+            ('meta:technique', {}, (
+
+                ('type', ('meta:technique:type:taxonomy', {}), {
+                    'doc': 'The taxonomy classification of the technique.'}),
+
+                ('sophistication', ('meta:sophistication', {}), {
+                    'doc': 'The assessed sophistication of the technique.'}),
+
+                ('tag', ('syn:tag', {}), {
+                    'doc': 'The tag used to annotate nodes where the technique was employed.'}),
+            )),
+
+            ('meta:technique:type:taxonomy', {}, ()),
 
         ),
     }),

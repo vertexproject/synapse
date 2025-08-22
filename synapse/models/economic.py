@@ -25,14 +25,18 @@ modeldefs = (
                 'doc': 'An Issuer Id Number (IIN).'}),
 
             ('econ:pay:card', ('guid', {}), {
+                'template': {'title': 'payment card'},
                 'interfaces': (
-                    ('econ:pay:instrument', {'template': {'instrument': 'payment card'}}),
+                    ('meta:observable', {}),
+                    ('econ:pay:instrument', {}),
                 ),
                 'doc': 'A single payment card.'}),
 
             ('econ:bank:check', ('guid', {}), {
+                'template': {'title': 'check'},
                 'interfaces': (
-                    ('econ:pay:instrument', {'template': {'instrument': 'check'}}),
+                    ('meta:observable', {}),
+                    ('econ:pay:instrument', {}),
                 ),
                 'doc': 'A check written out to a recipient.'}),
 
@@ -40,8 +44,9 @@ modeldefs = (
             # ('econ:bank:wire', ('guid', {}), {}),
 
             ('econ:purchase', ('guid', {}), {
+                'template': {'title': 'purchase event'},
                 'interfaces': (
-                    ('geo:locatable', {'template': {'geo:locatable': 'purchase event'}}),
+                    ('geo:locatable', {}),
                 ),
                 'doc': 'A purchase event.'}),
 
@@ -50,8 +55,9 @@ modeldefs = (
                 'doc': 'A line item included as part of a purchase.'}),
 
             ('econ:payment', ('guid', {}), {
+                'template': {'title': 'payment event'},
                 'interfaces': (
-                    ('geo:locatable', {'template': {'geo:locatable': 'payment event'}}),
+                    ('geo:locatable', {}),
                 ),
                 'doc': 'A payment, crypto currency transaction, or account withdrawal.'}),
 
@@ -71,7 +77,7 @@ modeldefs = (
                 'doc': 'The amount of money expected, required, or given in payment for something.',
                 'ex': '2.20'}),
 
-            ('econ:currency', ('str', {'lower': True, 'strip': False}), {
+            ('econ:currency', ('str', {'lower': True}), {
                 'doc': 'The name of a system of money in general use.',
                 'ex': 'usd'}),
 
@@ -100,6 +106,9 @@ modeldefs = (
                 'doc': 'A financial account type taxonomy.'}),
 
             ('econ:fin:account', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'financial account'}}),
+                ),
                 'doc': 'A financial account which contains a balance of funds.'}),
 
             ('econ:bank:aba:account:type:taxonomy', ('taxonomy', {}), {
@@ -107,6 +116,9 @@ modeldefs = (
                 'doc': 'A type taxonomy for ABA bank account numbers.'}),
 
             ('econ:bank:aba:account', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'ABA account'}}),
+                ),
                 'doc': 'An ABA routing number and bank account number.'}),
 
             # TODO: econ:pay:cash (for an individual grip of cash. could reference bills/coins with numbers)
@@ -128,7 +140,7 @@ modeldefs = (
                 ),
                 'doc': 'An International Bank Account Number.'}),
 
-            ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{5}'}), {
+            ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?'}), {
                 'interfaces': (
                     ('entity:identifier', {}),
                 ),
@@ -142,11 +154,11 @@ modeldefs = (
             ('econ:pay:instrument', {
 
                 'doc': 'An interface for forms which may act as a payment instrument.',
-                'template': {'instrument': 'instrument'},
+                'template': {'title': 'instrument'},
 
                 'props': (
                     ('account', ('econ:fin:account', {}), {
-                        'doc': 'The account contains the funds used by the {instrument}.'}),
+                        'doc': 'The account contains the funds used by the {title}.'}),
                 ),
             }),
         ),
@@ -168,7 +180,12 @@ modeldefs = (
 
         'forms': (
 
-            ('econ:currency', {}, ()),
+            ('econ:currency', {}, (
+
+                ('name', ('base:name', {}), {
+                    'doc': 'The full name of the currency.'}),
+            )),
+
             ('econ:pay:iin', {}, (
 
                 ('issuer', ('ou:org', {}), {
@@ -238,10 +255,6 @@ modeldefs = (
                 ('paid:time', ('time', {}), {
                     'doc': 'The point in time where the purchase was paid in full.'}),
 
-                # FIXME overfit...
-                # ('campaign', ('ou:campaign', {}), {
-                #   'doc': 'The campaign that the purchase was in support of.'}),
-
                 ('price', ('econ:price', {}), {
                     'protocols': {
                         'econ:adjustable': {'vars': {
@@ -252,10 +265,6 @@ modeldefs = (
 
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The econ:price of the purchase.'}),
-
-                # FIXME biz discussion
-                # ('listing', ('biz:listing', {}), {
-                #   'doc': 'The purchase was made based on the given listing.'}),
             )),
 
             ('econ:lineitem', {}, (
@@ -266,6 +275,7 @@ modeldefs = (
                 ('price', ('econ:price', {}), {
                     'doc': 'The total cost of this receipt line item.'}),
 
+                # FIXME rename biz:sellable? donation / volunteers
                 ('item', ('biz:sellable', {}), {
                     'prevnames': ('product',),
                     'doc': 'The product or service.'}),
@@ -334,10 +344,6 @@ modeldefs = (
                 ('payer:instrument', ('econ:pay:instrument', {}), {
                     'doc': 'The payment instrument used by the payer to make the payment.'}),
 
-                # FIXME one to many?
-                # ('purchases', ('array', {'type': 'econ:purchase', 'uniq': True, 'sorted': True}), {
-                #    'doc': 'The payment was made in exchange for the given purchases.'}),
-
                 ('amount', ('econ:price', {}), {
                     'protocols': {
                         'econ:adjustable': {'vars': {
@@ -353,28 +359,16 @@ modeldefs = (
                     'doc': 'A crypto currency transaction that initiated the payment.'}),
 
                 # FIXME one to many?
+                # ('purchases', ('array', {'type': 'econ:purchase', 'uniq': True, 'sorted': True}), {
+                #    'doc': 'The payment was made in exchange for the given purchases.'}),
+
+                # FIXME one to many?
                 # ('invoice', ('array', {'type': 'econ:invoice', 'uniq': True, 'sorted': True}), {
                 #   doc': 'The invoices that the payment applies to.'}),
 
                 # FIXME one to many?
                 # ('receipt', ('econ:receipt', {}),
                     # 'doc': 'The receipts that was issued for the payment.'}),
-
-                # FIXME geo:locatable
-                # ('place', ('geo:place', {}), {
-                    # 'doc': 'The place where the payment occurred.'}),
-
-                # ('place:name', ('meta:name', {}), {
-                    # 'doc': 'The name of the place where the payment occurred.'}),
-
-                # ('place:address', ('geo:address', {}), {
-                    # 'doc': 'The address of the place where the payment occurred.'}),
-
-                # ('place:loc', ('loc', {}), {
-                    # 'doc': 'The loc of the place where the payment occurred.'}),
-
-                # ('place:latlong', ('geo:latlong', {}), {
-                    # 'doc': 'The latlong where the payment occurred.'}),
             )),
 
             ('econ:balance', {}, (
@@ -561,8 +555,7 @@ modeldefs = (
                 ('business', ('ou:org', {}), {
                     'doc': 'The business which is the registered owner of the SWIFT BIC.'}),
 
-                # FIXME ou:office?
-                ('office', ('entity:actor', {}), {
+                ('office', ('geo:place', {}), {
                     'doc': 'The branch or office which is specified in the last 3 digits of the SWIFT BIC.'}),
             )),
 

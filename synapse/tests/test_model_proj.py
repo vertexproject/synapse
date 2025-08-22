@@ -38,7 +38,7 @@ class ProjModelTest(s_test.SynTest):
             self.eq(nodes[0].get('status'), 'planned')
             self.eq(nodes[0].get('creator'), core.auth.rootuser.iden)
             self.eq(nodes[0].get('created'), 1752624000000000)
-            self.eq(nodes[0].get('period'), (1752451200000000, 1752883200000000))
+            self.eq(nodes[0].get('period'), (1752451200000000, 1752883200000000, 432000000000))
 
             self.len(1, await core.nodes('proj:sprint :project -> proj:project'))
 

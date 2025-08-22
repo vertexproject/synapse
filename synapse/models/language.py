@@ -24,6 +24,9 @@ modeldefs = (
                 # - starts with pound
                 # - one or more non-whitespace/non-pound character
                 # The minimum hashtag is a pound with a single non-whitespace character
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'hashtag'}}),
+                ),
                 'doc': 'A hashtag used in written text.'}),
 
             ('lang:translation', ('guid', {}), {

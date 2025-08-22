@@ -174,7 +174,7 @@ class EconTest(s_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq((1580601600000000, 1580688000000000), nodes[0].get('period'))
+            self.eq((1580601600000000, 1580688000000000, 86400000000), nodes[0].get('period'))
             self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].get('security'))
             self.eq('9999', nodes[0].get('price:open'))
             self.eq('9999.01', nodes[0].get('price:close'))
@@ -232,11 +232,11 @@ class EconTest(s_utils.SynTest):
             nodes = await core.nodes('''[
                 econ:bank:swift:bic=DEUTDEFFXXX
                     :business={ gen.ou.org "Deutsche Bank" }
-                    :office={[ entity:contact=* ]}
+                    :office=*
             ]''')
             self.len(1, nodes)
             self.len(1, await core.nodes('econ:bank:swift:bic -> ou:org +:name="deutsche bank"'))
-            self.len(1, await core.nodes('econ:bank:swift:bic -> entity:contact'))
+            self.len(1, await core.nodes('econ:bank:swift:bic -> geo:place'))
 
             nodes = await core.nodes('''[
                 econ:statement=*
@@ -251,7 +251,7 @@ class EconTest(s_utils.SynTest):
             self.eq('usd', nodes[0].get('currency'))
             self.eq('99', nodes[0].get('starting:balance'))
             self.eq('999', nodes[0].get('ending:balance'))
-            self.eq((1709251200000000, 1709251200000001), nodes[0].get('period'))
+            self.eq((1709251200000000, 1709251200000001, 1), nodes[0].get('period'))
 
             self.len(2, nodes[0].protocols())
             self.len(0, nodes[0].protocols(name='newp:newp'))

@@ -1648,20 +1648,20 @@ class LiftTagVirt(LiftOper):
 
     async def lift(self, runt, path):
         tag = await self.kids[0].compute(runt, path)
-        virt = (await self.kids[1].compute(runt, path))[0]
+        virts = await self.kids[1].compute(runt, path)
 
-        async for node in runt.view.nodesByTag(tag, reverse=self.reverse, virt=virt):
+        async for node in runt.view.nodesByTag(tag, reverse=self.reverse, virts=virts):
             yield node
 
 class LiftTagVirtValu(LiftOper):
 
     async def lift(self, runt, path):
         tag = await self.kids[0].compute(runt, path)
-        virt = (await self.kids[1].compute(runt, path))[0]
+        virts = await self.kids[1].compute(runt, path)
         cmpr = await self.kids[2].compute(runt, path)
         valu = await toprim(await self.kids[3].compute(runt, path))
 
-        async for node in runt.view.nodesByTagValu(tag, f'{virt}{cmpr}', valu, reverse=self.reverse):
+        async for node in runt.view.nodesByTagValu(tag, cmpr, valu, reverse=self.reverse, virts=virts):
             yield node
 
 class LiftByArray(LiftOper):
@@ -1801,11 +1801,11 @@ class LiftTagProp(LiftOper):
 
             return
 
-        virt = None
+        virts = None
         if len(self.kids) == 2:
-            virt = await self.kids[1].compute(runt, path)
+            virts = await self.kids[1].compute(runt, path)
 
-        async for node in runt.view.nodesByTagProp(None, tag, prop, reverse=self.reverse, virt=virt):
+        async for node in runt.view.nodesByTagProp(None, tag, prop, reverse=self.reverse, virts=virts):
             yield node
 
 class LiftFormTagProp(LiftOper):
@@ -1824,7 +1824,15 @@ class LiftFormTagProp(LiftOper):
 
         genrs = []
 
-        if len(self.kids) == 3:
+        if len(self.kids) == 4:
+            virts = await self.kids[1].compute(runt, path)
+            cmpr = await self.kids[2].compute(runt, path)
+            valu = await s_stormtypes.tostor(await self.kids[3].compute(runt, path))
+
+            for form in forms:
+                genrs.append(runt.view.nodesByTagPropValu(form, tag, prop, cmpr, valu, reverse=self.reverse, virts=virts))
+
+        elif len(self.kids) == 3:
 
             cmpr = await self.kids[1].compute(runt, path)
             valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
@@ -1833,10 +1841,10 @@ class LiftFormTagProp(LiftOper):
                 genrs.append(runt.view.nodesByTagPropValu(form, tag, prop, cmpr, valu, reverse=self.reverse))
 
         elif len(self.kids) == 2:
-            virt = await self.kids[1].compute(runt, path)
+            virts = await self.kids[1].compute(runt, path)
 
             for form in forms:
-                genrs.append(runt.view.nodesByTagProp(form, tag, prop, reverse=self.reverse, virt=virt))
+                genrs.append(runt.view.nodesByTagProp(form, tag, prop, reverse=self.reverse, virts=virts))
 
         else:
             for form in forms:
@@ -1941,7 +1949,7 @@ class LiftFormTagVirt(LiftOper):
 
         genrs = []
         for form in forms:
-            genrs.append(runt.view.nodesByTag(tag, form=form, reverse=self.reverse, virt=virts[0]))
+            genrs.append(runt.view.nodesByTag(tag, form=form, reverse=self.reverse, virts=virts))
 
         def cmprkey(node):
             tagv = node.getTag(tag, defval=(0, 0))
@@ -4184,7 +4192,7 @@ class TagName(Value):
 
             if not isinstance(valu, str):
                 mesg = 'Invalid value type for tag name, tag names must be strings.'
-                raise s_exc.BadTypeValu(mesg=mesg)
+                raise self.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
 
             normtupl = await runt.view.core.getTagNorm(valu)
             return normtupl[0]
@@ -4228,6 +4236,10 @@ class TagName(Value):
                     tags.append(normtupl[0])
                 except excignore:
                     pass
+
+                except (s_exc.BadTypeValu, s_exc.BadTag) as e:
+                    raise self.addExcInfo(e)
+
             return tags
 
         vals = []
@@ -4263,7 +4275,7 @@ class TagMatch(TagName):
 
             if not isinstance(valu, str):
                 mesg = 'Invalid value type for tag name, tag names must be strings.'
-                raise s_exc.BadTypeValu(mesg=mesg)
+                raise self.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
 
             return valu
 
@@ -4272,7 +4284,7 @@ class TagMatch(TagName):
             part = await kid.compute(runt, path)
             if part is None:
                 mesg = f'Null value from var ${kid.name} is not allowed in tag names.'
-                raise s_exc.BadTypeValu(mesg=mesg)
+                raise kid.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
 
             vals.append(await tostr(part))
 
@@ -4319,7 +4331,8 @@ class ExprDict(Value):
 
             if s_stormtypes.ismutable(key):
                 key = await s_stormtypes.torepr(key)
-                raise s_exc.BadArg(mesg='Mutable values are not allowed as dictionary keys', name=key)
+                exc = s_exc.BadArg(mesg='Mutable values are not allowed as dictionary keys', name=key)
+                raise self.kids[0].addExcInfo(exc)
 
             key = await toprim(key)
 
@@ -4610,8 +4623,12 @@ class EditNodeAdd(Edit):
                 else:
                     if newn is not None:
                         yield newn, runt.initPath(newn)
+
         except self.excignore:
             await asyncio.sleep(0)
+
+        except s_exc.BadTypeValu as e:
+            raise self.kids[2].addExcInfo(e)
 
     async def run(self, runt, genr):
 
@@ -4684,8 +4701,12 @@ class EditNodeAdd(Edit):
                         if node is not None:
                             yield node, runt.initPath(node)
                         await asyncio.sleep(0)
+
                 except self.excignore:
                     await asyncio.sleep(0)
+
+                except s_exc.BadTypeValu as e:
+                    raise self.kids[2].addExcInfo(e)
 
         if runtsafe:
             async for node, path in genr:
@@ -4757,6 +4778,9 @@ class EditCondPropSet(Edit):
             except excignore:
                 pass
 
+            except s_exc.BadTypeValu as e:
+                raise rval.addExcInfo(e)
+
             yield node, path
 
             await asyncio.sleep(0)
@@ -4793,6 +4817,9 @@ class EditVirtPropSet(Edit):
                 await node.set(name, newv, norminfo=norminfo)
             except excignore:
                 pass
+
+            except s_exc.BadTypeValu as e:
+                raise rval.addExcInfo(e)
 
             yield node, path
             await asyncio.sleep(0)
@@ -4889,6 +4916,9 @@ class EditPropSet(Edit):
             except excignore:
                 pass
 
+            except s_exc.BadTypeValu as e:
+                raise rval.addExcInfo(e)
+
             yield node, path
 
             await asyncio.sleep(0)
@@ -4950,6 +4980,8 @@ class EditPropSetMulti(Edit):
                         norm, info = await atyp.norm(item, view=runt.view)
                     except excignore:
                         continue
+                    except s_exc.BadTypeValu as e:
+                        raise rval.addExcInfo(e)
 
                     if isadd:
                         arry.append(norm)
@@ -5305,7 +5337,7 @@ class EditTagAdd(Edit):
 
         namekid = self.kids[0]
 
-        valu = (None, None)
+        valu = (None, None, None)
         valukid = None
         if len(self.kids) == 3:
             valukid = self.kids[2]
@@ -5333,6 +5365,11 @@ class EditTagAdd(Edit):
                 except self.excignore:
                     await asyncio.sleep(0)
                     pass
+
+                except s_exc.BadTypeValu as e:
+                    if valukid is not None:
+                        raise self.addExcInfo(e)
+                    raise namekid.addExcInfo(e)
 
             yield node, path
 
@@ -5385,6 +5422,9 @@ class EditTagVirtSet(Edit):
                     await asyncio.sleep(0)
                     pass
 
+                except s_exc.BadTypeValu as e:
+                    raise valukid.addExcInfo(e)
+
             yield node, path
             await asyncio.sleep(0)
 
@@ -5435,10 +5475,10 @@ class EditTagPropSet(Edit):
 
             try:
                 await node.setTagProp(tag, prop, valu)
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
             except excignore:
                 pass
+            except Exception as e:
+                raise self.addExcInfo(e)
 
             yield node, path
 

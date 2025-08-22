@@ -873,40 +873,12 @@ class AstTest(s_test.SynTest):
             self.len(3, await core.nodes('test:str=ndefs :ndefs -> *'))
             self.len(2, await core.nodes('test:str=ndefs :ndefs -> it:dev:int'))
 
-            await core.nodes('[ risk:technique:masquerade=* :node=(it:dev:int, 1) ]')
-            nodes = await core.nodes('it:dev:int=1 <- *')
-            self.len(2, nodes)
-            self.eq('test:str', nodes[0].ndef[0])
-            self.eq('risk:technique:masquerade', nodes[1].ndef[0])
-
-            await core.nodes('risk:technique:masquerade [ :target=(it:dev:int, 1) ]')
-            nodes = await core.nodes('it:dev:int=1 <- *')
-            self.len(2, nodes)
-            self.eq('test:str', nodes[0].ndef[0])
-            self.eq('risk:technique:masquerade', nodes[1].ndef[0])
-
-            await core.nodes('risk:technique:masquerade [ :target=(it:dev:int, 2) ]')
-            nodes = await core.nodes('it:dev:int=1 <- *')
-            self.len(2, nodes)
-            self.eq('test:str', nodes[0].ndef[0])
-            self.eq('risk:technique:masquerade', nodes[1].ndef[0])
-
-            await core.nodes('risk:technique:masquerade [ -:node ]')
-            nodes = await core.nodes('it:dev:int=1 <- *')
+            await core.nodes('[ entity:contribution=* :actor={[ ps:person=* ]} ]')
+            nodes = await core.nodes('ps:person <- *')
             self.len(1, nodes)
-            self.eq('test:str', nodes[0].ndef[0])
-
-            await core.nodes('test:str=ndefs [ :ndefs-=(it:dev:int, 1) ]')
-            self.len(0, await core.nodes('it:dev:int=1 <- *'))
-            nodes = await core.nodes('it:dev:int=2 <- *')
-            self.len(2, nodes)
-            self.eq('test:str', nodes[0].ndef[0])
-            self.eq('risk:technique:masquerade', nodes[1].ndef[0])
-
-            await core.nodes('risk:technique:masquerade [ -:target ]')
-            await core.nodes('test:str=ndefs [ -:ndefs ]')
-            self.len(0, await core.nodes('it:dev:int=1 <- *'))
-            self.len(0, await core.nodes('it:dev:int=2 <- *'))
+            self.eq('entity:contribution', nodes[0].ndef[0])
+            await core.nodes('entity:contribution [ -:actor ]')
+            self.len(0, await core.nodes('ps:person <- *'))
 
     async def test_ast_pivot(self):
         # a general purpose pivot test. come on in!
@@ -1376,12 +1348,10 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.len(2, nodes[0].get('industries'))
 
-            nodes = await core.nodes('[ou:campaign=* :goal={[ou:goal=* :name="paperclip manufacturing" ]} ]')
+            nodes = await core.nodes('[entity:campaign=* :actor={[entity:contact=* :name=paperclip ]} ]')
             self.len(1, nodes)
             # Make sure we're not accidentally adding extra nodes
-            nodes = await core.nodes('ou:goal')
-            self.len(1, nodes)
-            self.nn(nodes[0].get('name'))
+            self.len(1, await core.nodes('entity:contact +:name=paperclip'))
 
             nodes = await core.nodes('[ entity:contact=* :resolved={ou:org:name=visiacme}]')
             self.len(1, nodes)
@@ -3405,6 +3375,52 @@ class AstTest(s_test.SynTest):
             self.eq('gen(foo, bar, baz)', text[off:end])
             self.stormIsInErr('$lib.gen.campaign()', msgs)
 
+            async def highlighteq(exp, text):
+                msgs = await core.stormlist(text)
+                errm = [m for m in msgs if m[0] == 'err'][0]
+                off, end = errm[1][1]['highlight']['offsets']
+                self.eq(exp, text[off:end])
+
+            text = '''
+                function willError() {
+                    [ inet:tls:servercert=(("1.2.3.4", 10), {[crypto:x509:cert=*]}) ]
+                    return($node)
+                }
+                yield $willError()
+            '''
+            await highlighteq('(("1.2.3.4", 10), {[crypto:x509:cert=*]})', text)
+
+            await highlighteq('node.value()', '[ test:str=foo test:int=$node.value() ]')
+
+            await highlighteq('newp', '[ test:str=foo :seen=newp ]')
+            await highlighteq('newp', '[ test:str=foo :seen*unset=newp ]')
+            await highlighteq('newp', '[ test:str=foo :seen=now :seen.precision=newp ]')
+
+            await highlighteq('([1, 2])', '[ test:str=foo :ndefs++=([1, 2]) ]')
+
+            await highlighteq('#$foo', '$foo=(1) [ test:str=foo +#$foo ]')
+
+            await highlighteq('+#foo=newp', '[ test:str=foo +#foo=newp ]')
+
+            await core.nodes('''
+                $regx = ($lib.null, $lib.null, "[0-9]{4}")
+                $lib.model.tags.set(cno.cve, regex, $regx)
+            ''')
+
+            await highlighteq('#cno.cve.foo', '[ test:str=foo +#cno.cve.foo ]')
+            await highlighteq('+#cno.cve.foo=2024', '[ test:str=foo +#cno.cve.foo=2024 ]')
+            await highlighteq('+#cno.cve.1234=newp', '[ test:str=foo +#cno.cve.1234=newp ]')
+
+            await highlighteq('#$foo', '$foo=(1) #$foo')
+            await highlighteq('#$foo', '$foo=(1) test:str=foo +#$foo')
+            await highlighteq('foo', '$foo=(null) test:str=foo +#foo.$foo')
+
+            await highlighteq('newp', '[ test:str=foo +#(foo).min=newp ]')
+
+            await core.addTagProp('ival', ('ival', {}), {})
+
+            await highlighteq('+#foo:ival=newp', '[ test:str=foo +#foo:ival=newp ]')
+
     async def test_ast_bulkedges(self):
 
         async with self.getTestCore() as core:
@@ -3842,13 +3858,13 @@ class AstTest(s_test.SynTest):
                 'ival5': ('2025-01-01, ?')
             }}
             await core.nodes('''[
-                (ou:campaign=(c1,) :period=$ival1 +#tag=$ival1 +#tag:ival=$ival1)
-                (ou:campaign=* :period=$ival2 +#tag=$ival2 +#tag:ival=$ival2)
-                (ou:campaign=* :period=$ival3 +#tag=$ival3 +#tag:ival=$ival3)
-                (ou:campaign=* :period=$ival4 +#tag=$ival4 +#tag:ival=$ival4)
-                (ou:campaign=* :period=$ival5 +#tag=$ival5 +#tag:ival=$ival5)
-                (ou:campaign=*)
-                (ou:contribution=* :campaign=(c1,))
+                (entity:campaign=(c1,) :period=$ival1 +#tag=$ival1 +#tag:ival=$ival1)
+                (entity:campaign=* :period=$ival2 +#tag=$ival2 +#tag:ival=$ival2)
+                (entity:campaign=* :period=$ival3 +#tag=$ival3 +#tag:ival=$ival3)
+                (entity:campaign=* :period=$ival4 +#tag=$ival4 +#tag:ival=$ival4)
+                (entity:campaign=* :period=$ival5 +#tag=$ival5 +#tag:ival=$ival5)
+                (entity:campaign=*)
+                (entity:contribution=* :campaign=(c1,))
                 test:ival=$ival1
                 test:ival=$ival2
                 test:ival=$ival3
@@ -3858,17 +3874,17 @@ class AstTest(s_test.SynTest):
                 (test:hasiface=bar :seen=$ival2)
             ]''', opts=opts)
 
-            self.len(6, await core.nodes('ou:campaign.created +ou:campaign.created>2000'))
-            self.len(0, await core.nodes('ou:campaign.created +ou:campaign.created>now'))
+            self.len(6, await core.nodes('entity:campaign.created +entity:campaign.created>2000'))
+            self.len(0, await core.nodes('entity:campaign.created +entity:campaign.created>now'))
 
-            self.len(1, await core.nodes('ou:campaign.created +#(tag).min=2020'))
-            self.len(1, await core.nodes('ou:campaign.created $tag=tag +#($tag).min=2020'))
-            self.len(1, await core.nodes('ou:campaign.created $val=2020 +#(tag).min=$val'))
-            self.len(1, await core.nodes('ou:campaign.created +#(tag).max=?'))
-            self.len(1, await core.nodes('ou:campaign.created +#(tag).duration=?'))
-            self.len(1, await core.nodes('ou:campaign.created +#tag:ival.min=2020'))
-            self.len(1, await core.nodes('ou:campaign.created +:period.min=2020'))
-            self.len(1, await core.nodes('ou:campaign.created +ou:campaign:period.min=2020'))
+            self.len(1, await core.nodes('entity:campaign.created +#(tag).min=2020'))
+            self.len(1, await core.nodes('entity:campaign.created $tag=tag +#($tag).min=2020'))
+            self.len(1, await core.nodes('entity:campaign.created $val=2020 +#(tag).min=$val'))
+            self.len(1, await core.nodes('entity:campaign.created +#(tag).max=?'))
+            self.len(1, await core.nodes('entity:campaign.created +#(tag).duration=?'))
+            self.len(1, await core.nodes('entity:campaign.created +#tag:ival.min=2020'))
+            self.len(1, await core.nodes('entity:campaign.created +:period.min=2020'))
+            self.len(1, await core.nodes('entity:campaign.created +entity:campaign:period.min=2020'))
             self.len(1, await core.nodes('test:ival +.min=2020'))
             self.len(1, await core.nodes('test:ival $virt=min +.$virt=2020'))
             self.len(1, await core.nodes('test:ival +test:ival.min=2020'))
@@ -3906,9 +3922,9 @@ class AstTest(s_test.SynTest):
                 ('test:ival', None, None),
                 ('#(tag)', '#tag', None),
                 ('#tag:ival', 'ival', 'tag'),
-                ('ou:campaign#(tag)', '#tag', None),
-                ('ou:campaign#tag:ival', 'ival', 'tag'),
-                ('ou:campaign:period', 'period', None),
+                ('entity:campaign#(tag)', '#tag', None),
+                ('entity:campaign#tag:ival', 'ival', 'tag'),
+                ('entity:campaign:period', 'period', None),
             )
 
             for (lift, prop, tag) in tests:
@@ -3920,11 +3936,11 @@ class AstTest(s_test.SynTest):
                 '#(tag).min=2020 return(#(tag).min)',
                 '#(tag).min=2020 for $i in (#(tag).min,) { return($i) }',
                 'test:ival.min=2020 return(.min)',
-                'ou:campaign:period.min=2020 return(:period.min)',
-                'ou:campaign:period.min=2020 $virt=min return(:period.$virt)',
-                'ou:campaign#(tag).min=2020 return(#(tag).min)',
-                'ou:campaign#tag:ival.min=2020 return(#tag:ival.min)',
-                'ou:contribution return(:campaign::period.min)'
+                'entity:campaign:period.min=2020 return(:period.min)',
+                'entity:campaign:period.min=2020 $virt=min return(:period.$virt)',
+                'entity:campaign#(tag).min=2020 return(#(tag).min)',
+                'entity:campaign#tag:ival.min=2020 return(#tag:ival.min)',
+                'entity:contribution return(:campaign::period.min)'
             )
 
             for query in queries:
@@ -3947,10 +3963,10 @@ class AstTest(s_test.SynTest):
                 await core.nodes('#tag $lib.print(#(tag).newp)')
 
             with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('ou:campaign:period.newp')
+                await core.nodes('entity:campaign:period.newp')
 
             with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('ou:campaign $lib.print(:period.newp)')
+                await core.nodes('entity:campaign $lib.print(:period.newp)')
 
             self.eq(s_time.PREC_MICRO, await core.callStorm('[ it:exec:query=* :time=now ] return(:time.precision)'))
             self.eq(s_time.PREC_MICRO, await core.callStorm('it:exec:query  [ :time.precision?=newp ] return(:time.precision)'))
@@ -3968,37 +3984,37 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[test:str=bar :seen=(2020, 2022)]')
             nodes = await core.nodes('[test:str=bar :seen.min=2021]')
-            self.eq((1609459200000000, 1640995200000000), nodes[0].get('seen'))
+            self.eq((1609459200000000, 1640995200000000, 31536000000000), nodes[0].get('seen'))
 
             nodes = await core.nodes('[test:str=bar :seen.min=2027]')
-            self.eq((1798761600000000, 1798761600000001), nodes[0].get('seen'))
+            self.eq((1798761600000000, 1798761600000001, 1), nodes[0].get('seen'))
 
             nodes = await core.nodes('[test:str=bar -:seen :seen.min=2027]')
-            self.eq((1798761600000000, 1798761600000001), nodes[0].get('seen'))
+            self.eq((1798761600000000, ival.unksize, ival.duratype.unkdura), nodes[0].get('seen'))
 
             nodes = await core.nodes('[test:str=bar :seen=(2022, 2027)]')
             nodes = await core.nodes('[test:str=bar :seen.max=2024]')
-            self.eq((1640995200000000, 1704067200000000), nodes[0].get('seen'))
+            self.eq((1640995200000000, 1704067200000000, 63072000000000), nodes[0].get('seen'))
 
             nodes = await core.nodes('[test:str=bar :seen.max=2019]')
-            self.eq((1546300799999999, 1546300800000000), nodes[0].get('seen'))
+            self.eq((1546300799999999, 1546300800000000, 1), nodes[0].get('seen'))
 
             nodes = await core.nodes('[test:str=bar -:seen :seen.max=2019]')
-            self.eq((1546300799999999, 1546300800000000), nodes[0].get('seen'))
+            self.eq((ival.unksize, 1546300800000000, ival.duratype.unkdura), nodes[0].get('seen'))
 
             nodes = await core.nodes('[test:str=bar +#foo=(2021, 2023)]')
             nodes = await core.nodes('[test:str=bar +#(foo).min=2022]')
-            self.eq((1640995200000000, 1672531200000000), nodes[0].get('#foo'))
+            self.eq((1640995200000000, 1672531200000000, 31536000000000), nodes[0].get('#foo'))
 
             nodes = await core.nodes('[test:str=bar -#foo +#(foo).min=2022]')
-            self.eq((1640995200000000, 1640995200000001), nodes[0].get('#foo'))
+            self.eq((1640995200000000, ival.unksize, ival.duratype.unkdura), nodes[0].get('#foo'))
 
             nodes = await core.nodes('[test:str=bar +#foo=(2021, 2023)]')
             nodes = await core.nodes('$var=foo $virt=max [test:str=bar +#($var).$virt=2022]')
-            self.eq((1609459200000000, 1640995200000000), nodes[0].get('#foo'))
+            self.eq((1609459200000000, 1640995200000000, 31536000000000), nodes[0].get('#foo'))
 
             nodes = await core.nodes('[test:str=bar -#foo +#(foo).max=2022]')
-            self.eq((1640995199999999, 1640995200000000), nodes[0].get('#foo'))
+            self.eq((ival.unksize, 1640995200000000, ival.duratype.unkdura), nodes[0].get('#foo'))
 
             nodes = await core.nodes('[test:str=bar +?#(bar).max=newp]')
             self.none(nodes[0].get('#bar'))
