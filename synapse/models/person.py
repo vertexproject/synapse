@@ -136,7 +136,7 @@ modeldefs = (
                 ('institution', ('ou:org', {}), {
                     'doc': 'The org or department which teaches the course.'}),
 
-                ('prereqs', ('array', {'type': 'edu:course', 'uniq': True, 'sorted': True}), {
+                ('prereqs', ('array', {'type': 'edu:course'}), {
                     'doc': 'The pre-requisite courses for taking this course.'}),
 
             )),
@@ -148,7 +148,7 @@ modeldefs = (
                 ('instructor', ('entity:individual', {}), {
                     'doc': 'The primary instructor for the class.'}),
 
-                ('assistants', ('array', {'type': 'entity:individual', 'uniq': True, 'sorted': True}), {
+                ('assistants', ('array', {'type': 'entity:individual'}), {
                     'doc': 'An array of assistant/co-instructor contacts.'}),
 
                 ('period', ('ival', {'precision': 'day'}), {

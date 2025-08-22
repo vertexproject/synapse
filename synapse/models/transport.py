@@ -424,7 +424,7 @@ modeldefs = (
                 ('from:port', ('transport:air:port', {}), {
                     'doc': 'The most recently registered origin for the flight number.'}),
 
-                ('stops', ('array', {'type': 'transport:air:port'}), {
+                ('stops', ('array', {'type': 'transport:air:port', 'uniq': False, 'sorted': False}), {
                     'doc': 'An ordered list of aiport codes for the flight segments.'}),
             )),
             ('transport:air:flight', {}, (
@@ -517,7 +517,7 @@ modeldefs = (
 
             ('transport:rail:consist', {}, (
 
-                ('cars', ('array', {'type': 'transport:rail:car', 'uniq': True}), {
+                ('cars', ('array', {'type': 'transport:rail:car', 'sorted': False}), {
                     'doc': 'The rail cars, including locomotives, which compose the consist.'}),
             )),
 

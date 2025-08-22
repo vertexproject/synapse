@@ -1933,7 +1933,7 @@ modeldefs = (
                 ('replyto', ('inet:email', {}), {
                     'doc': 'The email address parsed from the "reply-to" header.'}),
 
-                ('cc', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
+                ('cc', ('array', {'type': 'inet:email'}), {
                     'doc': 'Email addresses parsed from the "cc" header.'}),
 
                 ('subject', ('str', {}), {
@@ -1948,7 +1948,7 @@ modeldefs = (
                 ('bytes', ('file:bytes', {}), {
                     'doc': 'The file bytes which contain the email message.'}),
 
-                ('headers', ('array', {'type': 'inet:email:header'}), {
+                ('headers', ('array', {'type': 'inet:email:header', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of email headers from the message.'}),
 
                 ('received:from:ip', ('inet:ip', {}), {
@@ -1961,10 +1961,10 @@ modeldefs = (
                 ('flow', ('inet:flow', {}), {
                     'doc': 'The inet:flow which delivered the message.'}),
 
-                ('links', ('array', {'type': 'inet:email:message:link', 'sorted': True, 'uniq': True}), {
+                ('links', ('array', {'type': 'inet:email:message:link'}), {
                     'doc': 'An array of links embedded in the email message.'}),
 
-                ('attachments', ('array', {'type': 'inet:email:message:attachment', 'sorted': True, 'uniq': True}), {
+                ('attachments', ('array', {'type': 'inet:email:message:attachment'}), {
                     'doc': 'An array of files attached to the email message.'}),
             )),
 
@@ -2096,7 +2096,7 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'doc': 'The period when the flow was active.'}),
 
-                ('server:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
+                ('server:txfiles', ('array', {'type': 'file:attachment'}), {
                     'doc': 'An array of files sent by the server.'}),
 
                 ('server:txcount', ('int', {}), {
@@ -2108,7 +2108,7 @@ modeldefs = (
                 ('server:handshake', ('text', {}), {
                     'doc': 'A text representation of the initial handshake sent by the server.'}),
 
-                ('client:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
+                ('client:txfiles', ('array', {'type': 'file:attachment'}), {
                     'doc': 'An array of files sent by the client.'}),
 
                 ('client:txcount', ('int', {}), {
@@ -2126,16 +2126,16 @@ modeldefs = (
                 ('tot:txbytes', ('int', {}), {
                     'doc': 'The number of bytes sent in both directions.'}),
 
-                ('server:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
+                ('server:cpes', ('array', {'type': 'it:sec:cpe'}), {
                     'doc': 'An array of NIST CPEs identified on the server.'}),
 
-                ('server:softnames', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                ('server:softnames', ('array', {'type': 'meta:name'}), {
                     'doc': 'An array of software names identified on the server.'}),
 
-                ('client:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
+                ('client:cpes', ('array', {'type': 'it:sec:cpe'}), {
                     'doc': 'An array of NIST CPEs identified on the client.'}),
 
-                ('client:softnames', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                ('client:softnames', ('array', {'type': 'meta:name'}), {
                     'doc': 'An array of software names identified on the client.'}),
 
                 ('ip:proto', ('int', {'min': 0, 'max': 0xff}), {
@@ -2256,7 +2256,7 @@ modeldefs = (
                 ('query', ('str', {}), {
                     'doc': 'The HTTP query string which optionally follows the path.'}),
 
-                ('headers', ('array', {'type': 'inet:http:request:header'}), {
+                ('headers', ('array', {'type': 'inet:http:request:header', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of HTTP headers from the request.'}),
 
                 ('body', ('file:bytes', {}), {
@@ -2265,13 +2265,13 @@ modeldefs = (
                 ('referer', ('inet:url', {}), {
                     'doc': 'The referer URL parsed from the "Referer:" header in the request.'}),
 
-                ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
+                ('cookies', ('array', {'type': 'inet:http:cookie'}), {
                     'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
 
                 ('response:time', ('time', {}), {}),
                 ('response:code', ('int', {}), {}),
                 ('response:reason', ('str', {}), {}),
-                ('response:headers', ('array', {'type': 'inet:http:response:header'}), {
+                ('response:headers', ('array', {'type': 'inet:http:response:header', 'uniq': False, 'sorted': False}), {
                     'doc': 'An array of HTTP headers from the response.'}),
                 ('response:body', ('file:bytes', {}), {}),
                 ('session', ('inet:http:session', {}), {
@@ -2283,7 +2283,7 @@ modeldefs = (
                 ('contact', ('entity:contact', {}), {
                     'doc': 'The entity contact which owns the session.'}),
 
-                ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
+                ('cookies', ('array', {'type': 'inet:http:cookie'}), {
                     'doc': 'An array of cookies used to identify this specific session.'}),
             )),
 
@@ -2532,10 +2532,10 @@ modeldefs = (
                 ('registrant', ('meta:name', {}), {
                     'doc': 'The registrant name from the whois record.'}),
 
-                ('contacts', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
+                ('contacts', ('array', {'type': 'entity:contact'}), {
                     'doc': 'The whois registration contacts.'}),
 
-                ('nameservers', ('array', {'type': 'inet:fqdn'}), {
+                ('nameservers', ('array', {'type': 'inet:fqdn', 'uniq': False, 'sorted': False}), {
                     'doc': 'The DNS nameserver FQDNs for the registered FQDN.'}),
 
             )),
@@ -2610,10 +2610,10 @@ modeldefs = (
                 ('type', ('str', {'lower': True}), {
                     'doc': 'The classification of the registered network (e.g. direct allocation).'}),
 
-                ('links', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                ('links', ('array', {'type': 'inet:url'}), {
                     'doc': 'URLs provided with the record.'}),
 
-                ('contacts', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
+                ('contacts', ('array', {'type': 'entity:contact'}), {
                     'doc': 'The whois registration contacts.'}),
             )),
 
@@ -2772,7 +2772,7 @@ modeldefs = (
                     'alts': ('urls',),
                     'doc': 'The primary URL of the platform.'}),
 
-                ('urls', ('array', {'type': 'inet:url', 'sorted': True, 'uniq': True}), {
+                ('urls', ('array', {'type': 'inet:url'}), {
                     'doc': 'An array of alternate URLs for the platform.'}),
 
                 ('name', ('str', {'onespace': True, 'lower': True}), {
@@ -2781,8 +2781,7 @@ modeldefs = (
                     'doc': 'A friendly name for the platform.'}),
 
                 ('names', ('array', {'type': 'str',
-                                     'typeopts': {'onespace': True, 'lower': True},
-                                     'sorted': True, 'uniq': True}), {
+                                     'typeopts': {'onespace': True, 'lower': True}}), {
                     'doc': 'An array of alternate names for the platform.'}),
 
                 ('desc', ('text', {}), {
@@ -2841,8 +2840,7 @@ modeldefs = (
                     'doc': 'The name of the platform specific application.'}),
 
                 ('names', ('array', {'type': 'str',
-                                     'typeopts': {'onespace': True, 'lower': True},
-                                     'sorted': True, 'uniq': True}), {
+                                     'typeopts': {'onespace': True, 'lower': True}}), {
                     'doc': 'An array of alternate names for the application.'}),
 
                 ('desc', ('text', {}), {
@@ -2940,7 +2938,7 @@ modeldefs = (
                 ('method', ('inet:service:login:method:taxonomy', {}), {
                     'doc': 'The type of authentication used for the login. For example "password" or "multifactor.sms".'}),
 
-                ('creds', ('array', {'type': 'auth:credential', 'sorted': True, 'uniq': True}), {
+                ('creds', ('array', {'type': 'auth:credential'}), {
                     'doc': 'The credentials that were used to login.'}),
             )),
 
@@ -2983,13 +2981,13 @@ modeldefs = (
                 ('repost', ('inet:service:message', {}), {
                     'doc': 'The original message reposted by this message.'}),
 
-                ('links', ('array', {'type': 'inet:service:message:link', 'uniq': True, 'sorted': True}), {
+                ('links', ('array', {'type': 'inet:service:message:link'}), {
                     'doc': 'An array of links contained within the message.'}),
 
-                ('attachments', ('array', {'type': 'inet:service:message:attachment', 'uniq': True, 'sorted': True}), {
+                ('attachments', ('array', {'type': 'inet:service:message:attachment'}), {
                     'doc': 'An array of files attached to the message.'}),
 
-                ('hashtags', ('array', {'type': 'lang:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
+                ('hashtags', ('array', {'type': 'lang:hashtag', 'split': ','}), {
                     'doc': 'An array of hashtags mentioned within the message.'}),
 
                 ('place', ('geo:place', {}), {
@@ -3011,8 +3009,7 @@ modeldefs = (
                     'doc': 'The type of message.'}),
 
                 ('mentions', ('array', {'type': 'ndef',
-                                        'typeopts': {'forms': ('inet:service:account', 'inet:service:group')},
-                                        'uniq': True, 'sorted': True}), {
+                                        'typeopts': {'forms': ('inet:service:account', 'inet:service:group')}}), {
                     'doc': 'Contactable entities mentioned within the message.'}),
             )),
 

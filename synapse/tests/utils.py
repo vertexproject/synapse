@@ -374,10 +374,10 @@ testmodel = (
         'forms': (
 
             ('test:arrayprop', {}, (
-                ('ints', ('array', {'type': 'test:int'}), {}),
-                ('strs', ('array', {'type': 'test:str', 'split': ','}), {}),
-                ('strsnosplit', ('array', {'type': 'test:str'}), {}),
-                ('strregexs', ('array', {'type': 'test:strregex', 'uniq': True, 'sorted': True}), {}),
+                ('ints', ('array', {'type': 'test:int', 'uniq': False, 'sorted': False}), {}),
+                ('strs', ('array', {'type': 'test:str', 'split': ',', 'uniq': False, 'sorted': False}), {}),
+                ('strsnosplit', ('array', {'type': 'test:str', 'uniq': False, 'sorted': False}), {}),
+                ('strregexs', ('array', {'type': 'test:strregex'}), {}),
             )),
             ('test:arrayform', {}, ()),
             ('test:arrayformtype', {}, ()),
@@ -461,7 +461,7 @@ testmodel = (
                 ('baz', ('nodeprop', {}), {}),
                 ('tick', ('test:time', {}), {}),
                 ('hehe', ('str', {}), {}),
-                ('ndefs', ('array', {'type': 'ndef'}), {}),
+                ('ndefs', ('array', {'type': 'ndef', 'uniq': False, 'sorted': False}), {}),
                 ('cidr', ('inet:cidr', {}), {}),
                 ('somestr', ('test:str', {}), {}),
                 ('seen', ('ival', {}), {}),
