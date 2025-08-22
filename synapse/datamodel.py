@@ -137,6 +137,8 @@ class Prop:
         self.locked = False
 
         self.deprecated = self.info.get('deprecated', False)
+        if not self.deprecated and form is not None and form.deprecated:
+            self.deprecated = True
 
         self.type = self.modl.getTypeClone(typedef)
         self.typehash = self.type.typehash

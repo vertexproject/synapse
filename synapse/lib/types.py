@@ -499,7 +499,7 @@ class Array(Type):
     def extend(self, name, opts, info):
 
         tobj = Type.extend(self, name, opts, info)
-        if tobj.arraytype.deprecated and not self.deprecated:
+        if tobj.arraytype.deprecated and not tobj.deprecated:
             tobj.deprecated = True
             logger.warning(f'Array type {name} uses deprecated type {self.name} and is not marked deprecated.')
 
