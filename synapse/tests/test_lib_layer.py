@@ -2340,6 +2340,11 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=foo -:bar ]', opts=viewopts2)
             self.len(0, await core.nodes('test:int=1 <- *', opts=viewopts2))
 
+            await core.nodes('[ test:str=bar :bar=(test:int, 1) ]')
+            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'bar'))
+
             self.len(1, await core.nodes('it:dev:int=1 <- *', opts=viewopts2))
 
             await core.nodes('test:str=ndefs [ :ndefs=((test:str, foo),) ]', opts=viewopts2)
@@ -2432,10 +2437,14 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=foo -:baz ]', opts=viewopts2)
             self.len(0, await core.nodes('test:str:baz=(test:int:type, three)', opts=viewopts2))
 
-            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'faz'))
+            await core.nodes('[ test:str=layr1 :baz=(test:int:type, one) ]')
 
+            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'faz'))
+            self.eq(nodes[1].ndef, ('test:str', 'layr1'))
+
+            await core.nodes('[ test:str=layr1 :baz=(test:int:type, three) ]')
             await core.nodes('[ test:str=faz :pdefs=((test:str:hehe, cool),) ]', opts=viewopts2)
             nodes = await core.nodes('test:str=faz :pdefs -> *', opts=viewopts2)
             self.len(1, nodes)

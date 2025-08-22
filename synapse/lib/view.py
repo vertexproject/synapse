@@ -1474,22 +1474,27 @@ class View(s_nexus.Pusher):  # type: ignore
             if item == last:
                 continue
 
+            await asyncio.sleep(0)
+
             (refsnid, refsabrv, isarray) = last = item
 
             node = await self.getNodeByNid(refsnid)
             propname = self.core.getAbrvIndx(refsabrv)[1]
 
-            if lidx == 0 or node.getWithLayer(propname)[1] == lidx:
+            if lidx == 0 and not isarray:
+                yield node, propname
+                continue
+
+            (valu, valulayr) = node.getWithLayer(propname)
+
+            if lidx == valulayr:
                 if not isarray:
-                    await asyncio.sleep(0)
                     yield node, propname
                     continue
 
-                valu = node.get(propname)
-
                 for _ in range(valu.count(ndef)):
-                    await asyncio.sleep(0)
                     yield node, propname
+                    await asyncio.sleep(0)
 
     async def getNodePropRefs(self, pdef):
 
@@ -1509,22 +1514,27 @@ class View(s_nexus.Pusher):  # type: ignore
             if item == last:
                 continue
 
+            await asyncio.sleep(0)
+
             (refsnid, refsabrv, isarray) = last = item
 
             node = await self.getNodeByNid(refsnid)
             propname = self.core.getAbrvIndx(refsabrv)[1]
 
-            if lidx == 0 or node.getWithLayer(propname)[1] == lidx:
+            if lidx == 0 and not isarray:
+                yield node, propname
+                continue
+
+            (valu, valulayr) = node.getWithLayer(propname)
+
+            if lidx == valulayr:
                 if not isarray:
-                    await asyncio.sleep(0)
                     yield node, propname
                     continue
 
-                valu = node.get(propname)
-
                 for _ in range(valu.count(pdef)):
-                    await asyncio.sleep(0)
                     yield node, propname
+                    await asyncio.sleep(0)
 
     async def hasNodeData(self, nid, name, strt=0, stop=None):
         '''
