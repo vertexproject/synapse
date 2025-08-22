@@ -15,8 +15,8 @@ Model Changes
 
 Features and Enhancements
 -------------------------
-- Added ``inits`` to the Storm package definition schema, which enables running Storm
-  queries for a particular package storage version.
+- Added ``inits`` to the Storm package definition schema, which enables
+  running Storm queries for a particular package storage version.
   (`#4406 <https://github.com/vertexproject/synapse/pull/4406>`_)
 - Added ``$lib.pkg.vars`` Storm API to manage persistent values for a Storm
   Package.
