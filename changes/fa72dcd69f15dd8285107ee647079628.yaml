@@ -1,5 +1,0 @@
----
-desc: Updated the allowed range for the ``pycryptodome`` dependency to ``pycryptodome>=3.11.0,<3.24.0``
-prs: []
-type: feat
-...
