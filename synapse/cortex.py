@@ -2890,9 +2890,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if onload is not None and validstorm:
             await self.getStormQuery(onload)
 
-        if inits is not None and validstorm:
-            for initdef in inits['versions']:
-                await self.getStormQuery(initdef['query'])
+        if inits is not None:
+            lastver = None
+            for initdef in inits.get('versions'):
+                curver = initdef.get('version')
+                if lastver is not None and not curver > lastver:
+                    raise s_exc.BadPkgDef(mesg='Init versions must be monotonically increasing.', version=curver)
+                lastver = curver
+
+                if validstorm:
+                    await self.getStormQuery(initdef.get('query'))
 
         for mdef in mods:
             mdef.setdefault('modconf', {})

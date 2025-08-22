@@ -219,7 +219,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
         for initdef in inits.get('versions'):
             curver = initdef.get('version')
             if lastver is not None and not curver > lastver:
-                raise s_exc.BadPkgDef(mesg='Versions must be monotonically increasing.', version=curver)
+                raise s_exc.BadPkgDef(mesg='Init versions must be monotonically increasing.', version=curver)
             lastver = curver
 
     wflowdir = s_common.genpath(protodir, 'workflows')

@@ -3155,6 +3155,18 @@ class StormTest(s_t_utils.SynTest):
 
                 pkg['inits']['versions'].pop(2)
 
+                # non-increasing init versions fail on load
+
+                pkg['inits']['versions'].append({
+                    'version': 0,
+                    'name': 'bad',
+                    'query': '$lib.print("")',
+                })
+
+                await self.asyncraises(s_exc.BadPkgDef, core.addStormPkg(pkg))
+
+                pkg['inits']['versions'].pop(2)
+
                 # only inaugural inits run on first load
 
                 await loadPkg(core, pkg)
