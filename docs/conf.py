@@ -25,10 +25,12 @@ import synapse
 # List of warning patterns to ignore
 WARNINGS_IGNORE = [
     r'Detected \d+ deprecated properties unlocked and not in use',
-    r'Sysctl values different than expected',
-    r'The form edge:refs is deprecated or using a deprecated type',
-    r'The form edge:has is deprecated or using a deprecated type',
-    r'The property media:news:author is deprecated or using a deprecated type', # storm_ref_automation Cron Example
+    'Sysctl values different than expected',
+    'Form edge:refs is deprecated',
+    'Form edge:has is deprecated',
+    'Property edge:has.created is deprecated',
+    'Property edge:refs.created is deprecated',
+    'Property media:news:author is deprecated', # storm_ref_automation Cron Example
 ]
 
 # List of warning patterns to convert to errors
