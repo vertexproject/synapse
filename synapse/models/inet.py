@@ -1019,7 +1019,7 @@ class Url(s_types.Str):
 
                 ipv6, norminfo = await self.iptype.norm(valu)
                 host = self.iptype.repr(ipv6)
-                subs['ip'] = (self.iptype.typehaash, ipv6, norminfo)
+                subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
 
                 if match:
                     host = f'[{host}]'

@@ -146,7 +146,6 @@ class InetModelTest(s_t_utils.SynTest):
             # Proto defaults to tcp
             subs = {'ip': ipsub, 'proto': tcpsub}
             virts = {'ip': ((4, 16909060), 26)}
-            self.maxDiff = None
             self.eq(await t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'subs': subs, 'virts': virts}))
 
             subs = {'ip': ipsub, 'proto': tcpsub, 'port': portsub}
@@ -485,7 +484,9 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(formname)
 
             fqdn = 'example.Vertex.link'
-            expected = ('example.vertex.link', {'subs': {'host': 'example', 'domain': 'vertex.link'}})
+            expected = ('example.vertex.link', {'subs': {
+                'host': (t.hosttype.typehash, 'example', {}),
+                'domain': (None, 'vertex.link', None)}})
             self.eq(await t.norm(fqdn), expected)
             await self.asyncraises(s_exc.BadTypeValu, t.norm('!@#$%'))
 
@@ -495,21 +496,27 @@ class InetModelTest(s_t_utils.SynTest):
             # Demonstrate Valid IDNA
             fqdn = 'tèst.èxamplè.link'
             ex_fqdn = 'xn--tst-6la.xn--xampl-3raf.link'
-            expected = (ex_fqdn, {'subs': {'domain': 'xn--xampl-3raf.link', 'host': 'xn--tst-6la'}})
+            expected = (ex_fqdn, {'subs': {
+                'domain': (None, 'xn--xampl-3raf.link', None),
+                'host': (t.hosttype.typehash, 'xn--tst-6la', {})}})
             self.eq(await t.norm(fqdn), expected)
             self.eq(t.repr(ex_fqdn), fqdn)  # Calling repr on IDNA encoded domain should result in the unicode
 
             # Use IDNA2008 if possible
             fqdn = "faß.de"
             ex_fqdn = 'xn--fa-hia.de'
-            expected = (ex_fqdn, {'subs': {'domain': 'de', 'host': 'xn--fa-hia'}})
+            expected = (ex_fqdn, {'subs': {
+                'domain': (None, 'de', None),
+                'host': (t.hosttype.typehash, 'xn--fa-hia', {})}})
             self.eq(await t.norm(fqdn), expected)
             self.eq(t.repr(ex_fqdn), fqdn)
 
             # Emojis are valid IDNA2003
             fqdn = '👁👄👁.fm'
             ex_fqdn = 'xn--mp8hai.fm'
-            expected = (ex_fqdn, {'subs': {'domain': 'fm', 'host': 'xn--mp8hai'}})
+            expected = (ex_fqdn, {'subs': {
+                'domain': (None, 'fm', None),
+                'host': (t.hosttype.typehash, 'xn--mp8hai', {})}})
             self.eq(await t.norm(fqdn), expected)
             self.eq(t.repr(ex_fqdn), fqdn)
 
@@ -521,7 +528,9 @@ class InetModelTest(s_t_utils.SynTest):
             # Unicode full stops are okay but get normalized
             fqdn = 'foo(．)bar[。]baz｡lol'
             ex_fqdn = 'foo.bar.baz.lol'
-            expected = (ex_fqdn, {'subs': {'domain': 'bar.baz.lol', 'host': 'foo'}})
+            expected = (ex_fqdn, {'subs': {
+                'domain': (None, 'bar.baz.lol', None),
+                'host': (t.hosttype.typehash, 'foo', {})}})
             self.eq(await t.norm(fqdn), expected)
 
             # Ellipsis shouldn't make it through
@@ -529,12 +538,16 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Demonstrate Invalid IDNA
             fqdn = 'xn--lskfjaslkdfjaslfj.link'
-            expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'link'}})
+            expected = (fqdn, {'subs': {
+                'host': (t.hosttype.typehash, fqdn.split('.')[0], {}),
+                'domain': (None, 'link', None)}})
             self.eq(await t.norm(fqdn), expected)
             self.eq(fqdn, t.repr(fqdn))  # UnicodeError raised and caught and fallback to norm
 
             fqdn = 'xn--cc.bartmp.l.google.com'
-            expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'bartmp.l.google.com'}})
+            expected = (fqdn, {'subs': {
+                'host': (t.hosttype.typehash, fqdn.split('.')[0], {}),
+                'domain': (None, 'bartmp.l.google.com', None)}})
             self.eq(await t.norm(fqdn), expected)
             self.eq(fqdn, t.repr(fqdn))
 
@@ -1178,14 +1191,30 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(tname)
 
             valu = ('1.2.3.4', '5.6.7.8')
-            expected = (((4, 16909060), (4, 84281096)), {'subs': {'min': (4, 16909060), 'max': (4, 84281096)}})
+            minsub = (t.subtype.typehash, (4, 16909060), {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'unicast', {}),
+                        'version': (t.subtype.verstype.typehash, 4, {})}})
+
+            maxsub = (t.subtype.typehash, (4, 84281096), {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'unicast', {}),
+                        'version': (t.subtype.verstype.typehash, 4, {})}})
+
+            expected = (((4, 16909060), (4, 84281096)), {'subs': {'min': minsub, 'max': maxsub}})
             self.eq(await t.norm(valu), expected)
 
             valu = '1.2.3.4-5.6.7.8'
             self.eq(await t.norm(valu), expected)
 
             valu = '1.2.3.0/24'
-            expected = (((4, 0x01020300), (4, 0x010203ff)), {'subs': {'min': (4, 0x01020300), 'max': (4, 0x010203ff)}})
+            minsub = (t.subtype.typehash, (4, 0x01020300), {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'unicast', {}),
+                        'version': (t.subtype.verstype.typehash, 4, {})}})
+
+            maxsub = (t.subtype.typehash, (4, 0x010203ff), {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'unicast', {}),
+                        'version': (t.subtype.verstype.typehash, 4, {})}})
+
+            expected = (((4, 0x01020300), (4, 0x010203ff)), {'subs': {'min': minsub, 'max': maxsub}})
             self.eq(await t.norm(valu), expected)
 
             valu = '5.6.7.8-1.2.3.4'
@@ -1201,7 +1230,17 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(tname)
 
             valu = ('0:0:0:0:0:0:0:0', '::Ff')
-            expected = (((6, 0), (6, 0xff)), {'subs': {'min': (6, 0), 'max': (6, 0xff)}})
+            minsub = (t.subtype.typehash, (6, 0), {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'private', {}),
+                        'scope': (t.subtype.scopetype.typehash, 'global', {}),
+                        'version': (t.subtype.verstype.typehash, 6, {})}})
+
+            maxsub = (t.subtype.typehash, (6, 255), {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'reserved', {}),
+                        'scope': (t.subtype.scopetype.typehash, 'global', {}),
+                        'version': (t.subtype.verstype.typehash, 6, {})}})
+
+            expected = (((6, 0), (6, 0xff)), {'subs': {'min': minsub, 'max': maxsub}})
             self.eq(await t.norm(valu), expected)
 
             valu = '0:0:0:0:0:0:0:0-::Ff'
@@ -1211,13 +1250,33 @@ class InetModelTest(s_t_utils.SynTest):
             minv = (6, 0x33000100000000000000000000000000)
             maxv = (6, 0x3300010000010000000000000000ffff)
             valu = ('3300:100::', '3300:100:1::ffff')
-            expected = ((minv, maxv), {'subs': {'min': minv, 'max': maxv}})
+            minsub = (t.subtype.typehash, minv, {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'unicast', {}),
+                        'scope': (t.subtype.scopetype.typehash, 'global', {}),
+                        'version': (t.subtype.verstype.typehash, 6, {})}})
+
+            maxsub = (t.subtype.typehash, maxv, {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'unicast', {}),
+                        'scope': (t.subtype.scopetype.typehash, 'global', {}),
+                        'version': (t.subtype.verstype.typehash, 6, {})}})
+
+            expected = ((minv, maxv), {'subs': {'min': minsub, 'max': maxsub}})
             self.eq(await t.norm(valu), expected)
 
             minv = (6, 0x20010db8000000000000000000000000)
             maxv = (6, 0x20010db8000000000000000007ffffff)
             valu = '2001:db8::/101'
-            expected = ((minv, maxv), {'subs': {'min': minv, 'max': maxv}})
+            minsub = (t.subtype.typehash, minv, {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'private', {}),
+                        'scope': (t.subtype.scopetype.typehash, 'global', {}),
+                        'version': (t.subtype.verstype.typehash, 6, {})}})
+
+            maxsub = (t.subtype.typehash, maxv, {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'private', {}),
+                        'scope': (t.subtype.scopetype.typehash, 'global', {}),
+                        'version': (t.subtype.verstype.typehash, 6, {})}})
+
+            expected = ((minv, maxv), {'subs': {'min': minsub, 'max': maxsub}})
             self.eq(await t.norm(valu), expected)
 
             valu = ('fe00::', 'fd00::')
@@ -1250,12 +1309,19 @@ class InetModelTest(s_t_utils.SynTest):
             # Type Tests ======================================================
             t = core.model.type(formname)
 
+            namesub = (t.metatype.typehash, 'foo bar', {})
+            emailsub = (t.emailtype.typehash, 'visi@vertex.link', {'subs': {
+                            'fqdn': (t.emailtype.fqdntype.typehash, 'vertex.link', {'subs': {
+                                'domain': (None, 'link', None),
+                                'host': (t.emailtype.fqdntype.hosttype.typehash, 'vertex', {})}}),
+                            'user': (t.emailtype.usertype.typehash, 'visi', {})}})
+
             self.eq(await t.norm('FooBar'), ('foobar', {'subs': {}}))
-            self.eq(await t.norm('visi@vertex.link'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
-            self.eq(await t.norm('foo bar<visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
-            self.eq(await t.norm('foo bar <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
-            self.eq(await t.norm('"foo bar "   <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
-            self.eq(await t.norm('<visi@vertex.link>'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
+            self.eq(await t.norm('visi@vertex.link'), ('visi@vertex.link', {'subs': {'email': emailsub}}))
+            self.eq(await t.norm('foo bar<visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': emailsub, 'name': namesub}}))
+            self.eq(await t.norm('foo bar <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': emailsub, 'name': namesub}}))
+            self.eq(await t.norm('"foo bar "   <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': emailsub, 'name': namesub}}))
+            self.eq(await t.norm('<visi@vertex.link>'), ('visi@vertex.link', {'subs': {'email': emailsub}}))
 
             valu = (await t.norm('bob\udcfesmith@woot.com'))[0]
             self.eq(valu, 'bob\udcfesmith@woot.com')
@@ -1369,12 +1435,14 @@ class InetModelTest(s_t_utils.SynTest):
                 url = 'http://www.googlesites.com/hehe\udcfestuff.asp'
                 valu = await t.norm(f'{proto}://www.googlesites.com/hehe\udcfestuff.asp')
                 expected = (url, {'subs': {
-                    'proto': 'http',
-                    'path': '/hehe\udcfestuff.asp',
-                    'port': 80,
-                    'params': '',
-                    'fqdn': 'www.googlesites.com',
-                    'base': url
+                    'proto': (t.lowstrtype.typehash, 'http', {}),
+                    'path': (t.strtype.typehash, '/hehe\udcfestuff.asp', {}),
+                    'port': (t.porttype.typehash, 80, {}),
+                    'params': (t.strtype.typehash, '', {}),
+                    'fqdn': (t.fqdntype.typehash, 'www.googlesites.com', {'subs': {
+                        'domain': (None, 'googlesites.com', None),
+                        'host': (t.fqdntype.hosttype.typehash, 'www', {})}}),
+                    'base': (t.strtype.typehash, url, {}),
                 }})
                 self.eq(valu, expected)
 
@@ -1382,48 +1450,59 @@ class InetModelTest(s_t_utils.SynTest):
                 url = f'https://dummyimage.com/600x400/000/fff.png&text=cat@bam.com'
                 valu = await t.norm(f'{proto}://dummyimage.com/600x400/000/fff.png&text=cat@bam.com')
                 expected = (url, {'subs': {
-                    'base': url,
-                    'proto': 'https',
-                    'path': '/600x400/000/fff.png&text=cat@bam.com',
-                    'port': 443,
-                    'params': '',
-                    'fqdn': 'dummyimage.com'
+                    'base': (t.strtype.typehash, url, {}),
+                    'proto': (t.lowstrtype.typehash, 'https', {}),
+                    'path': (t.strtype.typehash, '/600x400/000/fff.png&text=cat@bam.com', {}),
+                    'port': (t.porttype.typehash, 443, {}),
+                    'params': (t.strtype.typehash, '', {}),
+                    'fqdn': (t.fqdntype.typehash, 'dummyimage.com', {'subs': {
+                        'domain': (None, 'com', None),
+                        'host': (t.fqdntype.hosttype.typehash, 'dummyimage', {})}}),
                 }})
                 self.eq(valu, expected)
+
+            ipsub = (t.iptype.typehash, (4, 0), {'subs': {
+                        'type': (t.iptype.typetype.typehash, 'private', {}),
+                        'version': (t.iptype.verstype.typehash, 4, {})}})
 
             url = 'http://0.0.0.0/index.html?foo=bar'
             valu = await t.norm(url)
             expected = (url, {'subs': {
-                'proto': 'http',
-                'path': '/index.html',
-                'params': '?foo=bar',
-                'ip': (4, 0),
-                'port': 80,
-                'base': 'http://0.0.0.0/index.html'
+                'proto': (t.lowstrtype.typehash, 'http', {}),
+                'path': (t.strtype.typehash, '/index.html', {}),
+                'params': (t.strtype.typehash, '?foo=bar', {}),
+                'ip': ipsub,
+                'port': (t.porttype.typehash, 80, {}),
+                'base': (t.strtype.typehash, 'http://0.0.0.0/index.html', {}),
             }})
             self.eq(valu, expected)
 
             url = '  http://0.0.0.0/index.html?foo=bar  '
             valu = await t.norm(url)
             expected = (url.strip(), {'subs': {
-                'proto': 'http',
-                'path': '/index.html',
-                'params': '?foo=bar',
-                'ip': (4, 0),
-                'port': 80,
-                'base': 'http://0.0.0.0/index.html'
+                'proto': (t.lowstrtype.typehash, 'http', {}),
+                'path': (t.strtype.typehash, '/index.html', {}),
+                'params': (t.strtype.typehash, '?foo=bar', {}),
+                'ip': ipsub,
+                'port': (t.porttype.typehash, 80, {}),
+                'base': (t.strtype.typehash, 'http://0.0.0.0/index.html', {}),
             }})
             self.eq(valu, expected)
+
+            ipsub = (t.iptype.typehash, (6, 1), {'subs': {
+                        'type': (t.iptype.typetype.typehash, 'loopback', {}),
+                        'scope': (t.iptype.scopetype.typehash, 'link-local', {}),
+                        'version': (t.iptype.verstype.typehash, 6, {})}})
 
             unc = '\\\\0--1.ipv6-literal.net\\share\\path\\to\\filename.txt'
             url = 'smb://::1/share/path/to/filename.txt'
             valu = await t.norm(unc)
             expected = (url, {'subs': {
-                'base': url,
-                'proto': 'smb',
-                'params': '',
-                'path': '/share/path/to/filename.txt',
-                'ip': (6, 1),
+                'base': (t.strtype.typehash, url, {}),
+                'proto': (t.lowstrtype.typehash, 'smb', {}),
+                'params': (t.strtype.typehash, '', {}),
+                'path': (t.strtype.typehash, '/share/path/to/filename.txt', {}),
+                'ip': ipsub,
             }})
             self.eq(valu, expected)
 
@@ -1431,12 +1510,12 @@ class InetModelTest(s_t_utils.SynTest):
             url = 'smb://[::1]:1234/share/filename.txt'
             valu = await t.norm(unc)
             expected = (url, {'subs': {
-                'base': url,
-                'proto': 'smb',
-                'path': '/share/filename.txt',
-                'params': '',
-                'port': 1234,
-                'ip': (6, 1),
+                'base': (t.strtype.typehash, url, {}),
+                'proto': (t.lowstrtype.typehash, 'smb', {}),
+                'path': (t.strtype.typehash, '/share/filename.txt', {}),
+                'params': (t.strtype.typehash, '', {}),
+                'port': (t.porttype.typehash, 1234, {}),
+                'ip': ipsub,
             }})
             self.eq(valu, expected)
 
@@ -1444,12 +1523,14 @@ class InetModelTest(s_t_utils.SynTest):
             url = 'https://server:1234/share/path/to/filename.txt'
             valu = await t.norm(unc)
             expected = (url, {'subs': {
-                'base': url,
-                'proto': 'https',
-                'fqdn': 'server',
-                'params': '',
-                'port': 1234,
-                'path': '/share/path/to/filename.txt',
+                'base': (t.strtype.typehash, url, {}),
+                'proto': (t.lowstrtype.typehash, 'https', {}),
+                'fqdn': (t.fqdntype.typehash, 'server', {'subs': {
+                    'host': (t.fqdntype.hosttype.typehash, 'server', {}),
+                    'issuffix': (t.fqdntype.booltype.typehash, 1, {})}}),
+                'params': (t.strtype.typehash, '', {}),
+                'port': (t.porttype.typehash, 1234, {}),
+                'path': (t.strtype.typehash, '/share/path/to/filename.txt', {}),
             }})
             self.eq(valu, expected)
 
@@ -1562,138 +1643,156 @@ class InetModelTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadTypeValu, t.norm('file://'))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('file:'))
 
+            paramsub = (t.strtype.typehash, '', {})
+            protosub = (t.lowstrtype.typehash, 'file', {})
+
             url = 'file:///'
             expected = (url, {'subs': {
-                'base': url,
-                'path': '/',
-                'proto': 'file',
-                'params': '',
+                'base': (t.strtype.typehash, url, {}),
+                'path': (t.strtype.typehash, '/', {}),
+                'proto': protosub,
+                'params': paramsub,
             }})
             self.eq(await t.norm(url), expected)
 
             url = 'file:///home/foo/Documents/html/index.html'
             expected = (url, {'subs': {
-                'base': url,
-                'path': '/home/foo/Documents/html/index.html',
-                'proto': 'file',
-                'params': '',
+                'base': (t.strtype.typehash, url, {}),
+                'path': (t.strtype.typehash, '/home/foo/Documents/html/index.html', {}),
+                'proto': protosub,
+                'params': paramsub,
             }})
             self.eq(await t.norm(url), expected)
 
             url = 'file:///c:/path/to/my/file.jpg'
             expected = (url, {'subs': {
-                'base': url,
-                'path': 'c:/path/to/my/file.jpg',
-                'params': '',
-                'proto': 'file'
+                'base': (t.strtype.typehash, url, {}),
+                'path': (t.strtype.typehash, 'c:/path/to/my/file.jpg', {}),
+                'params': paramsub,
+                'proto': protosub,
             }})
             self.eq(await t.norm(url), expected)
 
+            lhostsub = {
+                'host': (t.fqdntype.hosttype.typehash, 'localhost', {}),
+                'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+            }
             url = 'file://localhost/c:/Users/BarUser/stuff/moar/stuff.txt'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'path': 'c:/Users/BarUser/stuff/moar/stuff.txt',
-                'params': '',
-                'fqdn': 'localhost',
-                'base': url,
+                'proto': protosub,
+                'path': (t.strtype.typehash, 'c:/Users/BarUser/stuff/moar/stuff.txt', {}),
+                'params': paramsub,
+                'fqdn': (t.fqdntype.typehash, 'localhost', {'subs': lhostsub}),
+                'base': (t.strtype.typehash, url, {}),
             }})
             self.eq(await t.norm(url), expected)
 
             url = 'file:///c:/Users/BarUser/stuff/moar/stuff.txt'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'path': 'c:/Users/BarUser/stuff/moar/stuff.txt',
-                'params': '',
-                'base': url,
+                'proto': protosub,
+                'path': (t.strtype.typehash, 'c:/Users/BarUser/stuff/moar/stuff.txt', {}),
+                'params': paramsub,
+                'base': (t.strtype.typehash, url, {}),
             }})
             self.eq(await t.norm(url), expected)
 
             url = 'file://localhost/home/visi/synapse/README.rst'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'path': '/home/visi/synapse/README.rst',
-                'params': '',
-                'fqdn': 'localhost',
-                'base': url,
+                'proto': protosub,
+                'path': (t.strtype.typehash, '/home/visi/synapse/README.rst', {}),
+                'params': paramsub,
+                'fqdn': (t.fqdntype.typehash, 'localhost', {'subs': lhostsub}),
+                'base': (t.strtype.typehash, url, {}),
             }})
             self.eq(await t.norm(url), expected)
 
             url = 'file:/C:/invisig0th/code/synapse/README.rst'
             expected = ('file:///C:/invisig0th/code/synapse/README.rst', {'subs': {
-                'proto': 'file',
-                'path': 'C:/invisig0th/code/synapse/README.rst',
-                'params': '',
-                'base': 'file:///C:/invisig0th/code/synapse/README.rst'
+                'proto': protosub,
+                'path': (t.strtype.typehash, 'C:/invisig0th/code/synapse/README.rst', {}),
+                'params': paramsub,
+                'base': (t.strtype.typehash, 'file:///C:/invisig0th/code/synapse/README.rst', {}),
             }})
             self.eq(await t.norm(url), expected)
 
             url = 'file://somehost/path/to/foo.txt'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'params': '',
-                'path': '/path/to/foo.txt',
-                'fqdn': 'somehost',
-                'base': url
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, '/path/to/foo.txt', {}),
+                'fqdn': (t.fqdntype.typehash, 'somehost', {'subs': {
+                    'host': (t.fqdntype.hosttype.typehash, 'somehost', {}),
+                    'issuffix': (t.fqdntype.booltype.typehash, 1, {})}}),
+                'base': (t.strtype.typehash, url, {}),
             }})
             self.eq(await t.norm(url), expected)
 
             url = 'file:/c:/foo/bar/baz/single/slash.txt'
             expected = ('file:///c:/foo/bar/baz/single/slash.txt', {'subs': {
-                'proto': 'file',
-                'params': '',
-                'path': 'c:/foo/bar/baz/single/slash.txt',
-                'base': 'file:///c:/foo/bar/baz/single/slash.txt',
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, 'c:/foo/bar/baz/single/slash.txt', {}),
+                'base': (t.strtype.typehash, 'file:///c:/foo/bar/baz/single/slash.txt', {}),
             }})
             self.eq(await t.norm(url), expected)
 
             url = 'file:c:/foo/bar/baz/txt'
             expected = ('file:///c:/foo/bar/baz/txt', {'subs': {
-                'proto': 'file',
-                'params': '',
-                'path': 'c:/foo/bar/baz/txt',
-                'base': 'file:///c:/foo/bar/baz/txt',
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, 'c:/foo/bar/baz/txt', {}),
+                'base': (t.strtype.typehash, 'file:///c:/foo/bar/baz/txt', {}),
             }})
             self.eq(await t.norm(url), expected)
 
             url = 'file:/home/visi/synapse/synapse/lib/'
             expected = ('file:///home/visi/synapse/synapse/lib/', {'subs': {
-                'proto': 'file',
-                'params': '',
-                'path': '/home/visi/synapse/synapse/lib/',
-                'base': 'file:///home/visi/synapse/synapse/lib/',
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, '/home/visi/synapse/synapse/lib/', {}),
+                'base': (t.strtype.typehash, 'file:///home/visi/synapse/synapse/lib/', {}),
             }})
             self.eq(await t.norm(url), expected)
 
             url = 'file://foo.vertex.link/home/bar/baz/biz.html'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'path': '/home/bar/baz/biz.html',
-                'params': '',
-                'fqdn': 'foo.vertex.link',
-                'base': 'file://foo.vertex.link/home/bar/baz/biz.html',
+                'proto': protosub,
+                'path': (t.strtype.typehash, '/home/bar/baz/biz.html', {}),
+                'params': paramsub,
+                'fqdn': (t.fqdntype.typehash, 'foo.vertex.link', {'subs': {
+                        'domain': (None, 'vertex.link', None),
+                        'host': (t.fqdntype.hosttype.typehash, 'foo', {})}}),
+                'base': (t.strtype.typehash, 'file://foo.vertex.link/home/bar/baz/biz.html', {}),
             }})
             self.eq(await t.norm(url), expected)
 
             url = 'file://visi@vertex.link@somehost.vertex.link/c:/invisig0th/code/synapse/'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'fqdn': 'somehost.vertex.link',
-                'base': 'file://visi@vertex.link@somehost.vertex.link/c:/invisig0th/code/synapse/',
-                'path': 'c:/invisig0th/code/synapse/',
-                'user': 'visi@vertex.link',
-                'params': '',
+                'proto': protosub,
+                'fqdn': (t.fqdntype.typehash, 'somehost.vertex.link', {'subs': {
+                        'domain': (None, 'vertex.link', None),
+                        'host': (t.fqdntype.hosttype.typehash, 'somehost', {})}}),
+                'base': (t.strtype.typehash, 'file://visi@vertex.link@somehost.vertex.link/c:/invisig0th/code/synapse/', {}),
+                'path': (t.strtype.typehash, 'c:/invisig0th/code/synapse/', {}),
+                'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+                'params': paramsub,
             }})
             self.eq(await t.norm(url), expected)
 
-            url = 'file://foo@bar.com:neato@password@7.7.7.7/c:/invisig0th/code/synapse/'
+            url = 'file://foo@bar.com:neato@burrito@7.7.7.7/c:/invisig0th/code/synapse/'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'base': 'file://foo@bar.com:neato@password@7.7.7.7/c:/invisig0th/code/synapse/',
-                'ip': (4, 117901063),
-                'path': 'c:/invisig0th/code/synapse/',
-                'user': 'foo@bar.com',
-                'passwd': 'neato@password',
-                'params': '',
+                'proto': protosub,
+                'base': (t.strtype.typehash, 'file://foo@bar.com:neato@burrito@7.7.7.7/c:/invisig0th/code/synapse/', {}),
+                'ip': (t.iptype.typehash, (4, 117901063), {'subs': {
+                    'type': (t.iptype.typetype.typehash, 'unicast', {}),
+                    'version': (t.iptype.verstype.typehash, 4, {})}}),
+                'path': (t.strtype.typehash, 'c:/invisig0th/code/synapse/', {}),
+                'user': (t.lowstrtype.typehash, 'foo@bar.com', {}),
+                'passwd': (t.passtype.typehash, 'neato@burrito', {'subs': {
+                    'md5': (t.passtype.md5.typehash, 'a8e174c5a70f75a78173b6f056e6391b', {}),
+                    'sha1': (t.passtype.sha1.typehash, '3d7b1484dd08034c00c4194b4b51625b55128982', {}),
+                    'sha256': (t.passtype.sha256.typehash, '4fb24561bf3fa8f5ed05e33ab4d883f0bfae7d61d5d58fe1aec9a347227c0dc3', {})}}),
+                'params': paramsub,
             }})
             self.eq(await t.norm(url), expected)
 
@@ -1703,45 +1802,52 @@ class InetModelTest(s_t_utils.SynTest):
             # Also an invalid URL, but doesn't cleanly fall out, because well, it could be a valid filename
             url = 'file:/foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/'
             expected = ('file:///foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/', {'subs': {
-                'proto': 'file',
-                'path': '/foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/',
-                'params': '',
-                'base': 'file:///foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/',
+                'proto': protosub,
+                'path': (t.strtype.typehash, '/foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/', {}),
+                'params': paramsub,
+                'base': (t.strtype.typehash, 'file:///foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/', {}),
             }})
             self.eq(await t.norm(url), expected)
 
             # https://datatracker.ietf.org/doc/html/rfc8089#appendix-E.2
             url = 'file://visi@vertex.link:password@somehost.vertex.link:9876/c:/invisig0th/code/synapse/'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'path': 'c:/invisig0th/code/synapse/',
-                'user': 'visi@vertex.link',
-                'passwd': 'password',
-                'fqdn': 'somehost.vertex.link',
-                'params': '',
-                'port': 9876,
-                'base': url,
+                'proto': protosub,
+                'path': (t.strtype.typehash, 'c:/invisig0th/code/synapse/', {}),
+                'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+                'passwd': (t.passtype.typehash, 'password', {'subs': {
+                    'md5': (t.passtype.md5.typehash, '5f4dcc3b5aa765d61d8327deb882cf99', {}),
+                    'sha1': (t.passtype.sha1.typehash, '5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8', {}),
+                    'sha256': (t.passtype.sha256.typehash, '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', {})}}),
+                'fqdn': (t.fqdntype.typehash, 'somehost.vertex.link', {'subs': {
+                        'domain': (None, 'vertex.link', None),
+                        'host': (t.fqdntype.hosttype.typehash, 'somehost', {})}}),
+                'params': paramsub,
+                'port': (t.porttype.typehash, 9876, {}),
+                'base': (t.strtype.typehash, url, {}),
             }})
             self.eq(await t.norm(url), expected)
 
             # https://datatracker.ietf.org/doc/html/rfc8089#appendix-E.2.2
             url = 'FILE:c|/synapse/synapse/lib/stormtypes.py'
             expected = ('file:///c|/synapse/synapse/lib/stormtypes.py', {'subs': {
-                'path': 'c|/synapse/synapse/lib/stormtypes.py',
-                'proto': 'file',
-                'params': '',
-                'base': 'file:///c|/synapse/synapse/lib/stormtypes.py',
+                'path': (t.strtype.typehash, 'c|/synapse/synapse/lib/stormtypes.py', {}),
+                'proto': protosub,
+                'params': paramsub,
+                'base': (t.strtype.typehash, 'file:///c|/synapse/synapse/lib/stormtypes.py', {}),
             }})
             self.eq(await t.norm(url), expected)
 
             # https://datatracker.ietf.org/doc/html/rfc8089#appendix-E.3.2
             url = 'file:////host.vertex.link/SharedDir/Unc/FilePath'
             expected = ('file:////host.vertex.link/SharedDir/Unc/FilePath', {'subs': {
-                'proto': 'file',
-                'params': '',
-                'path': '/SharedDir/Unc/FilePath',
-                'fqdn': 'host.vertex.link',
-                'base': 'file:////host.vertex.link/SharedDir/Unc/FilePath',
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, '/SharedDir/Unc/FilePath', {}),
+                'fqdn': (t.fqdntype.typehash, 'host.vertex.link', {'subs': {
+                        'domain': (None, 'vertex.link', None),
+                        'host': (t.fqdntype.hosttype.typehash, 'host', {})}}),
+                'base': (t.strtype.typehash, 'file:////host.vertex.link/SharedDir/Unc/FilePath', {}),
             }})
             self.eq(await t.norm(url), expected)
 
@@ -1749,11 +1855,13 @@ class InetModelTest(s_t_utils.SynTest):
             # supported because the RFC supports it
             url = 'file://///host.vertex.link/SharedDir/Firefox/Unc/File/Path'
             expected = ('file:////host.vertex.link/SharedDir/Firefox/Unc/File/Path', {'subs': {
-                'proto': 'file',
-                'params': '',
-                'base': 'file:////host.vertex.link/SharedDir/Firefox/Unc/File/Path',
-                'path': '/SharedDir/Firefox/Unc/File/Path',
-                'fqdn': 'host.vertex.link',
+                'proto': protosub,
+                'params': paramsub,
+                'base': (t.strtype.typehash, 'file:////host.vertex.link/SharedDir/Firefox/Unc/File/Path', {}),
+                'path': (t.strtype.typehash, '/SharedDir/Firefox/Unc/File/Path', {}),
+                'fqdn': (t.fqdntype.typehash, 'host.vertex.link', {'subs': {
+                        'domain': (None, 'vertex.link', None),
+                        'host': (t.fqdntype.hosttype.typehash, 'host', {})}}),
             }})
             self.eq(await t.norm(url), expected)
 
@@ -1764,42 +1872,53 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type('inet:url')
 
             host = 'Vertex.Link'
-            norm_host = (await core.model.type('inet:fqdn').norm(host))[0]
-            repr_host = core.model.type('inet:fqdn').repr(norm_host)
+            fqdntype = core.model.type('inet:fqdn')
+            norm_host = await fqdntype.norm(host)
+            repr_host = core.model.type('inet:fqdn').repr(norm_host[0])
 
-            self.eq(norm_host, 'vertex.link')
+            self.eq(norm_host[0], 'vertex.link')
             self.eq(repr_host, 'vertex.link')
 
-            await self._test_types_url_behavior(t, 'fqdn', host, norm_host, repr_host)
+            hostsub = (fqdntype.typehash, norm_host[0], norm_host[1])
+            await self._test_types_url_behavior(t, 'fqdn', host, hostsub, repr_host)
 
     async def test_url_ipv4(self):
         async with self.getTestCore() as core:
             t = core.model.type('inet:url')
 
             host = '192[.]168.1[.]1'
-            norm_host = (await core.model.type('inet:ip').norm(host))[0]
-            repr_host = core.model.type('inet:ip').repr(norm_host)
-            self.eq(norm_host, (4, 3232235777))
+            iptype = core.model.type('inet:ip')
+            norm_host = await iptype.norm(host)
+            repr_host = core.model.type('inet:ip').repr(norm_host[0])
+            self.eq(norm_host[0], (4, 3232235777))
             self.eq(repr_host, '192.168.1.1')
 
-            await self._test_types_url_behavior(t, 'ipv4', host, norm_host, repr_host)
+            hostsub = (iptype.typehash, norm_host[0], norm_host[1])
+            await self._test_types_url_behavior(t, 'ipv4', host, hostsub, repr_host)
 
     async def test_url_ipv6(self):
         async with self.getTestCore() as core:
             t = core.model.type('inet:url')
 
             host = '::1'
-            norm_host = (await core.model.type('inet:ip').norm(host))[0]
-            repr_host = core.model.type('inet:ip').repr(norm_host)
-            self.eq(norm_host, (6, 1))
+            iptype = core.model.type('inet:ip')
+            norm_host = await iptype.norm(host)
+            repr_host = core.model.type('inet:ip').repr(norm_host[0])
+            self.eq(norm_host[0], (6, 1))
             self.eq(repr_host, '::1')
 
-            await self._test_types_url_behavior(t, 'ipv6', host, norm_host, repr_host)
+            hostsub = (iptype.typehash, norm_host[0], norm_host[1])
+            await self._test_types_url_behavior(t, 'ipv6', host, hostsub, repr_host)
 
             # IPv6 Port Special Cases
             weird = await t.norm('http://::1:81/hehe')
-            self.eq(weird[1]['subs']['ip'], (6, 0x10081))
-            self.eq(weird[1]['subs']['port'], 80)
+            ipsubs = {
+                'type': (iptype.typetype.typehash, 'reserved', {}),
+                'scope': (iptype.scopetype.typehash, 'global', {}),
+                'version': (iptype.verstype.typehash, 6, {})
+            }
+            self.eq(weird[1]['subs']['ip'], (iptype.typehash, (6, 0x10081), {'subs': ipsubs}))
+            self.eq(weird[1]['subs']['port'], (core.model.type('inet:port').typehash, 80, {}))
 
             await self.asyncraises(s_exc.BadTypeValu, t.norm('http://0:0:0:0:0:0:0:0:81/'))
 
@@ -1819,20 +1938,29 @@ class InetModelTest(s_t_utils.SynTest):
         # URL with auth and port.
         url = f'https://user:password@{host_port}:1234/a/b/c/'
         expected = (f'https://user:password@{repr_host_port}:1234/a/b/c/', {'subs': {
-            'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 1234,
-            'base': f'https://user:password@{repr_host_port}:1234/a/b/c/',
-            'params': ''
+            'proto': (t.lowstrtype.typehash, 'https', {}),
+            'path': (t.strtype.typehash, '/a/b/c/', {}),
+            'user': (t.lowstrtype.typehash, 'user', {}),
+            'passwd': (t.passtype.typehash, 'password', {'subs': {
+                'md5': (t.passtype.md5.typehash, '5f4dcc3b5aa765d61d8327deb882cf99', {}),
+                'sha1': (t.passtype.sha1.typehash, '5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8', {}),
+                'sha256': (t.passtype.sha256.typehash, '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', {})}}),
+            htype: norm_host,
+            'port': (t.porttype.typehash, 1234, {}),
+            'base': (t.strtype.typehash, f'https://user:password@{repr_host_port}:1234/a/b/c/', {}),
+            'params': (t.strtype.typehash, '', {})
         }})
         self.eq(await t.norm(url), expected)
 
         # Userinfo user with @ in it
         url = f'lando://visi@vertex.link@{host_port}:40000/auth/gateway'
         expected = (f'lando://visi@vertex.link@{repr_host_port}:40000/auth/gateway', {'subs': {
-            'proto': 'lando', 'path': '/auth/gateway',
-            'user': 'visi@vertex.link',
-            'base': f'lando://visi@vertex.link@{repr_host_port}:40000/auth/gateway',
-            'port': 40000,
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'lando', {}),
+            'path': (t.strtype.typehash, '/auth/gateway', {}),
+            'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+            'base': (t.strtype.typehash, f'lando://visi@vertex.link@{repr_host_port}:40000/auth/gateway', {}),
+            'port': (t.porttype.typehash, 40000, {}),
+            'params': (t.strtype.typehash, '', {}),
             htype: norm_host,
         }})
         self.eq(await t.norm(url), expected)
@@ -1840,11 +1968,16 @@ class InetModelTest(s_t_utils.SynTest):
         # Userinfo password with @
         url = f'balthazar://root:foo@@@bar@{host_port}:1234/'
         expected = (f'balthazar://root:foo@@@bar@{repr_host_port}:1234/', {'subs': {
-            'proto': 'balthazar', 'path': '/',
-            'user': 'root', 'passwd': 'foo@@@bar',
-            'base': f'balthazar://root:foo@@@bar@{repr_host_port}:1234/',
-            'port': 1234,
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'balthazar', {}),
+            'path': (t.strtype.typehash, '/', {}),
+            'user': (t.lowstrtype.typehash, 'root', {}),
+            'passwd': (t.passtype.typehash, 'foo@@@bar', {'subs': {
+                'md5': (t.passtype.md5.typehash, '43947b88f0eb686bfc5c4237ffd36beb', {}),
+                'sha1': (t.passtype.sha1.typehash, 'd29614eb55f9aa29efd8f3105ed60b8881dc81dd', {}),
+                'sha256': (t.passtype.sha256.typehash, 'd5547965c7f16db873d22ddbcc333f002c94913330801d84b2ab899ca76fa101', {})}}),
+            'base': (t.strtype.typehash, f'balthazar://root:foo@@@bar@{repr_host_port}:1234/', {}),
+            'port': (t.porttype.typehash, 1234, {}),
+            'params': (t.strtype.typehash, '', {}),
             htype: norm_host,
         }})
         self.eq(await t.norm(url), expected)
@@ -1852,11 +1985,16 @@ class InetModelTest(s_t_utils.SynTest):
         # rfc3986 compliant Userinfo with @ properly encoded
         url = f'calrissian://visi%40vertex.link:surround%40@{host_port}:44343'
         expected = (f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343', {'subs': {
-            'proto': 'calrissian', 'path': '',
-            'user': 'visi@vertex.link', 'passwd': 'surround@',
-            'base': f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343',
-            'port': 44343,
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'calrissian', {}),
+            'path': (t.strtype.typehash, '', {}),
+            'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+            'passwd': (t.passtype.typehash, 'surround@', {'subs': {
+                'md5': (t.passtype.md5.typehash, '494346410c1c4a4b98feb1b1956a71ae', {}),
+                'sha1': (t.passtype.sha1.typehash, 'ba9b515889b5d7f1bb1d13f13409e1f7518f7c20', {}),
+                'sha256': (t.passtype.sha256.typehash, '5058c40473c5e4e2a174f8837d4295d19ca1542d2fb45017f54d89f80da6897d', {})}}),
+            'base': (t.strtype.typehash, f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343', {}),
+            'port': (t.porttype.typehash, 44343, {}),
+            'params': (t.strtype.typehash, '', {}),
             htype: norm_host,
         }})
         self.eq(await t.norm(url), expected)
@@ -1864,11 +2002,16 @@ class InetModelTest(s_t_utils.SynTest):
         # unencoded query params are handled nicely
         url = f'https://visi@vertex.link:neato@burrito@{host}/?q=@foobarbaz'
         expected = (f'https://visi@vertex.link:neato@burrito@{repr_host}/?q=@foobarbaz', {'subs': {
-            'proto': 'https', 'path': '/',
-            'user': 'visi@vertex.link', 'passwd': 'neato@burrito',
-            'base': f'https://visi@vertex.link:neato@burrito@{repr_host}/',
-            'port': 443,
-            'params': '?q=@foobarbaz',
+            'proto': (t.lowstrtype.typehash, 'https', {}),
+            'path': (t.strtype.typehash, '/', {}),
+            'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+            'passwd': (t.passtype.typehash, 'neato@burrito', {'subs': {
+                'md5': (t.passtype.md5.typehash, 'a8e174c5a70f75a78173b6f056e6391b', {}),
+                'sha1': (t.passtype.sha1.typehash, '3d7b1484dd08034c00c4194b4b51625b55128982', {}),
+                'sha256': (t.passtype.sha256.typehash, '4fb24561bf3fa8f5ed05e33ab4d883f0bfae7d61d5d58fe1aec9a347227c0dc3', {})}}),
+            'base': (t.strtype.typehash, f'https://visi@vertex.link:neato@burrito@{repr_host}/', {}),
+            'port': (t.porttype.typehash, 443, {}),
+            'params': (t.strtype.typehash, '?q=@foobarbaz', {}),
             htype: norm_host,
         }})
         self.eq(await t.norm(url), expected)
@@ -1877,9 +2020,17 @@ class InetModelTest(s_t_utils.SynTest):
         # Port should be in subs, but not normed URL.
         url = f'https://user:password@{host}/a/b/c/?foo=bar&baz=faz'
         expected = (f'https://user:password@{repr_host}/a/b/c/?foo=bar&baz=faz', {'subs': {
-            'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 443,
-            'base': f'https://user:password@{repr_host}/a/b/c/',
-            'params': '?foo=bar&baz=faz',
+            'proto': (t.lowstrtype.typehash, 'https', {}),
+            'path': (t.strtype.typehash, '/a/b/c/', {}),
+            'user': (t.lowstrtype.typehash, 'user', {}),
+            'passwd': (t.passtype.typehash, 'password', {'subs': {
+                'md5': (t.passtype.md5.typehash, '5f4dcc3b5aa765d61d8327deb882cf99', {}),
+                'sha1': (t.passtype.sha1.typehash, '5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8', {}),
+                'sha256': (t.passtype.sha256.typehash, '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', {})}}),
+            htype: norm_host,
+            'port': (t.porttype.typehash, 443, {}),
+            'base': (t.strtype.typehash, f'https://user:password@{repr_host}/a/b/c/', {}),
+            'params': (t.strtype.typehash, '?foo=bar&baz=faz', {})
         }})
         self.eq(await t.norm(url), expected)
 
@@ -1887,9 +2038,16 @@ class InetModelTest(s_t_utils.SynTest):
         # Port should not be in subs or normed URL.
         url = f'arbitrary://user:password@{host}/a/b/c/'
         expected = (f'arbitrary://user:password@{repr_host}/a/b/c/', {'subs': {
-            'proto': 'arbitrary', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host,
-            'base': f'arbitrary://user:password@{repr_host}/a/b/c/',
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'arbitrary', {}),
+            'path': (t.strtype.typehash, '/a/b/c/', {}),
+            'user': (t.lowstrtype.typehash, 'user', {}),
+            'passwd': (t.passtype.typehash, 'password', {'subs': {
+                'md5': (t.passtype.md5.typehash, '5f4dcc3b5aa765d61d8327deb882cf99', {}),
+                'sha1': (t.passtype.sha1.typehash, '5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8', {}),
+                'sha256': (t.passtype.sha256.typehash, '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', {})}}),
+            htype: norm_host,
+            'base': (t.strtype.typehash, f'arbitrary://user:password@{repr_host}/a/b/c/', {}),
+            'params': (t.strtype.typehash, '', {})
         }})
         self.eq(await t.norm(url), expected)
 
@@ -1897,9 +2055,13 @@ class InetModelTest(s_t_utils.SynTest):
         # User should still be in URL and subs.
         url = f'https://user@{host_port}:1234/a/b/c/'
         expected = (f'https://user@{repr_host_port}:1234/a/b/c/', {'subs': {
-            'proto': 'https', 'path': '/a/b/c/', 'user': 'user', htype: norm_host, 'port': 1234,
-            'base': f'https://user@{repr_host_port}:1234/a/b/c/',
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'https', {}),
+            'path': (t.strtype.typehash, '/a/b/c/', {}),
+            'user': (t.lowstrtype.typehash, 'user', {}),
+            htype: norm_host,
+            'port': (t.porttype.typehash, 1234, {}),
+            'base': (t.strtype.typehash, f'https://user@{repr_host_port}:1234/a/b/c/', {}),
+            'params': (t.strtype.typehash, '', {})
         }})
         self.eq(await t.norm(url), expected)
 
@@ -1907,27 +2069,35 @@ class InetModelTest(s_t_utils.SynTest):
         # User/Password should not be in URL or subs.
         url = f'https://{host_port}:1234/a/b/c/'
         expected = (f'https://{repr_host_port}:1234/a/b/c/', {'subs': {
-            'proto': 'https', 'path': '/a/b/c/', htype: norm_host, 'port': 1234,
-            'base': f'https://{repr_host_port}:1234/a/b/c/',
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'https', {}),
+            'path': (t.strtype.typehash, '/a/b/c/', {}),
+            htype: norm_host,
+            'port': (t.porttype.typehash, 1234, {}),
+            'base': (t.strtype.typehash, f'https://{repr_host_port}:1234/a/b/c/', {}),
+            'params': (t.strtype.typehash, '', {})
         }})
         self.eq(await t.norm(url), expected)
 
         # URL with no path.
         url = f'https://{host_port}:1234'
         expected = (f'https://{repr_host_port}:1234', {'subs': {
-            'proto': 'https', 'path': '', htype: norm_host, 'port': 1234,
-            'base': f'https://{repr_host_port}:1234',
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'https', {}),
+            'path': (t.strtype.typehash, '', {}),
+            htype: norm_host,
+            'port': (t.porttype.typehash, 1234, {}),
+            'base': (t.strtype.typehash, f'https://{repr_host_port}:1234', {}),
+            'params': (t.strtype.typehash, '', {})
         }})
         self.eq(await t.norm(url), expected)
 
         # URL with no path or port or default port.
         url = f'a://{host}'
         expected = (f'a://{repr_host}', {'subs': {
-            'proto': 'a', 'path': '', htype: norm_host,
-            'base': f'a://{repr_host}',
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'a', {}),
+            'path': (t.strtype.typehash, '', {}),
+            htype: norm_host,
+            'base': (t.strtype.typehash, f'a://{repr_host}', {}),
+            'params': (t.strtype.typehash, '', {})
         }})
         self.eq(await t.norm(url), expected)
 
