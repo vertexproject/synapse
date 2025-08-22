@@ -736,13 +736,20 @@ class Fqdn(s_types.Type):
             pass
 
         parts = valu.split('.', 1)
-        subs = {'host': (self.hosttype.typehash, parts[0], {})}
+        subs = pinfo = {'host': (self.hosttype.typehash, parts[0], {})}
 
-        if len(parts) == 2:
-            # TODO norm this all the way down?
-            subs['domain'] = (None, parts[1], None)
-        else:
-            subs['issuffix'] = (self.booltype.typehash, 1, {})
+        while len(parts) == 2:
+            nextfo = {}
+            domain = parts[1]
+            pinfo['domain'] = (self.typehash, domain, {'subs': nextfo})
+
+            parts = domain.split('.', 1)
+            nextfo['host'] = (self.hosttype.typehash, parts[0], {})
+
+            pinfo = nextfo
+            await asyncio.sleep(0)
+
+        pinfo['issuffix'] = (self.booltype.typehash, 1, {})
 
         return valu, {'subs': subs}
 

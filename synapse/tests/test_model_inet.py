@@ -375,9 +375,11 @@ class InetModelTest(s_t_utils.SynTest):
 
             email = 'UnitTest@Vertex.link'
             expected = ('unittest@vertex.link', {'subs': {
-                            'fqdn': (t.fqdntype.typehash, 'vertex.link', {
-                                'subs': {'domain': (None, 'link', None),
-                                         'host': (t.fqdntype.hosttype.typehash, 'vertex', {})}}),
+                            'fqdn': (t.fqdntype.typehash, 'vertex.link', {'subs': {
+                                'domain': (t.fqdntype.typehash, 'link', {'subs': {
+                                    'host': (t.fqdntype.hosttype.typehash, 'link', {}),
+                                    'issuffix': (t.fqdntype.booltype.typehash, 1, {})}}),
+                                'host': (t.fqdntype.hosttype.typehash, 'vertex', {})}}),
                             'user': (t.usertype.typehash, 'unittest', {})}})
             self.eq(await t.norm(email), expected)
 
@@ -486,7 +488,14 @@ class InetModelTest(s_t_utils.SynTest):
             fqdn = 'example.Vertex.link'
             expected = ('example.vertex.link', {'subs': {
                 'host': (t.hosttype.typehash, 'example', {}),
-                'domain': (None, 'vertex.link', None)}})
+                'domain': (t.typehash, 'vertex.link', {'subs': {
+                    'host': (t.hosttype.typehash, 'vertex', {}),
+                    'domain': (t.typehash, 'link', {'subs': {
+                        'host': (t.hosttype.typehash, 'link', {}),
+                        'issuffix': (t.booltype.typehash, 1, {}),
+                    }}),
+                }}),
+            }})
             self.eq(await t.norm(fqdn), expected)
             await self.asyncraises(s_exc.BadTypeValu, t.norm('!@#$%'))
 
@@ -497,7 +506,13 @@ class InetModelTest(s_t_utils.SynTest):
             fqdn = 'tèst.èxamplè.link'
             ex_fqdn = 'xn--tst-6la.xn--xampl-3raf.link'
             expected = (ex_fqdn, {'subs': {
-                'domain': (None, 'xn--xampl-3raf.link', None),
+                'domain': (t.typehash, 'xn--xampl-3raf.link', {'subs': {
+                    'host': (t.hosttype.typehash, 'xn--xampl-3raf', {}),
+                    'domain': (t.typehash, 'link', {'subs': {
+                        'host': (t.hosttype.typehash, 'link', {}),
+                        'issuffix': (t.booltype.typehash, 1, {}),
+                    }}),
+                }}),
                 'host': (t.hosttype.typehash, 'xn--tst-6la', {})}})
             self.eq(await t.norm(fqdn), expected)
             self.eq(t.repr(ex_fqdn), fqdn)  # Calling repr on IDNA encoded domain should result in the unicode
@@ -506,7 +521,10 @@ class InetModelTest(s_t_utils.SynTest):
             fqdn = "faß.de"
             ex_fqdn = 'xn--fa-hia.de'
             expected = (ex_fqdn, {'subs': {
-                'domain': (None, 'de', None),
+                'domain': (t.typehash, 'de', {'subs': {
+                    'host': (t.hosttype.typehash, 'de', {}),
+                    'issuffix': (t.booltype.typehash, 1, {}),
+                }}),
                 'host': (t.hosttype.typehash, 'xn--fa-hia', {})}})
             self.eq(await t.norm(fqdn), expected)
             self.eq(t.repr(ex_fqdn), fqdn)
@@ -515,7 +533,10 @@ class InetModelTest(s_t_utils.SynTest):
             fqdn = '👁👄👁.fm'
             ex_fqdn = 'xn--mp8hai.fm'
             expected = (ex_fqdn, {'subs': {
-                'domain': (None, 'fm', None),
+                'domain': (t.typehash, 'fm', {'subs': {
+                    'host': (t.hosttype.typehash, 'fm', {}),
+                    'issuffix': (t.booltype.typehash, 1, {}),
+                }}),
                 'host': (t.hosttype.typehash, 'xn--mp8hai', {})}})
             self.eq(await t.norm(fqdn), expected)
             self.eq(t.repr(ex_fqdn), fqdn)
@@ -529,7 +550,16 @@ class InetModelTest(s_t_utils.SynTest):
             fqdn = 'foo(．)bar[。]baz｡lol'
             ex_fqdn = 'foo.bar.baz.lol'
             expected = (ex_fqdn, {'subs': {
-                'domain': (None, 'bar.baz.lol', None),
+                'domain': (t.typehash, 'bar.baz.lol', {'subs': {
+                    'host': (t.hosttype.typehash, 'bar', {}),
+                    'domain': (t.typehash, 'baz.lol', {'subs': {
+                        'host': (t.hosttype.typehash, 'baz', {}),
+                        'domain': (t.typehash, 'lol', {'subs': {
+                            'host': (t.hosttype.typehash, 'lol', {}),
+                            'issuffix': (t.booltype.typehash, 1, {}),
+                        }}),
+                    }}),
+                }}),
                 'host': (t.hosttype.typehash, 'foo', {})}})
             self.eq(await t.norm(fqdn), expected)
 
@@ -540,14 +570,31 @@ class InetModelTest(s_t_utils.SynTest):
             fqdn = 'xn--lskfjaslkdfjaslfj.link'
             expected = (fqdn, {'subs': {
                 'host': (t.hosttype.typehash, fqdn.split('.')[0], {}),
-                'domain': (None, 'link', None)}})
+                'domain': (t.typehash, 'link', {'subs': {
+                    'host': (t.hosttype.typehash, 'link', {}),
+                    'issuffix': (t.booltype.typehash, 1, {}),
+                }}),
+            }})
             self.eq(await t.norm(fqdn), expected)
             self.eq(fqdn, t.repr(fqdn))  # UnicodeError raised and caught and fallback to norm
 
             fqdn = 'xn--cc.bartmp.l.google.com'
             expected = (fqdn, {'subs': {
                 'host': (t.hosttype.typehash, fqdn.split('.')[0], {}),
-                'domain': (None, 'bartmp.l.google.com', None)}})
+                'domain': (t.typehash, 'bartmp.l.google.com', {'subs': {
+                    'host': (t.hosttype.typehash, 'bartmp', {}),
+                    'domain': (t.typehash, 'l.google.com', {'subs': {
+                        'host': (t.hosttype.typehash, 'l', {}),
+                        'domain': (t.typehash, 'google.com', {'subs': {
+                            'host': (t.hosttype.typehash, 'google', {}),
+                            'domain': (t.typehash, 'com', {'subs': {
+                                'host': (t.hosttype.typehash, 'com', {}),
+                                'issuffix': (t.booltype.typehash, 1, {}),
+                            }}),
+                        }}),
+                    }}),
+                }}),
+            }})
             self.eq(await t.norm(fqdn), expected)
             self.eq(fqdn, t.repr(fqdn))
 
@@ -1312,8 +1359,12 @@ class InetModelTest(s_t_utils.SynTest):
             namesub = (t.metatype.typehash, 'foo bar', {})
             emailsub = (t.emailtype.typehash, 'visi@vertex.link', {'subs': {
                             'fqdn': (t.emailtype.fqdntype.typehash, 'vertex.link', {'subs': {
-                                'domain': (None, 'link', None),
-                                'host': (t.emailtype.fqdntype.hosttype.typehash, 'vertex', {})}}),
+                                'host': (t.emailtype.fqdntype.hosttype.typehash, 'vertex', {}),
+                                'domain': (t.emailtype.fqdntype.typehash, 'link', {'subs': {
+                                    'host': (t.emailtype.fqdntype.hosttype.typehash, 'link', {}),
+                                    'issuffix': (t.emailtype.fqdntype.booltype.typehash, 1, {}),
+                                }}),
+                            }}),
                             'user': (t.emailtype.usertype.typehash, 'visi', {})}})
 
             self.eq(await t.norm('FooBar'), ('foobar', {'subs': {}}))
@@ -1440,7 +1491,13 @@ class InetModelTest(s_t_utils.SynTest):
                     'port': (t.porttype.typehash, 80, {}),
                     'params': (t.strtype.typehash, '', {}),
                     'fqdn': (t.fqdntype.typehash, 'www.googlesites.com', {'subs': {
-                        'domain': (None, 'googlesites.com', None),
+                        'domain': (t.fqdntype.typehash, 'googlesites.com', {'subs': {
+                            'host': (t.fqdntype.hosttype.typehash, 'googlesites', {}),
+                            'domain': (t.fqdntype.typehash, 'com', {'subs': {
+                                'host': (t.fqdntype.hosttype.typehash, 'com', {}),
+                                'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                            }}),
+                        }}),
                         'host': (t.fqdntype.hosttype.typehash, 'www', {})}}),
                     'base': (t.strtype.typehash, url, {}),
                 }})
@@ -1456,7 +1513,10 @@ class InetModelTest(s_t_utils.SynTest):
                     'port': (t.porttype.typehash, 443, {}),
                     'params': (t.strtype.typehash, '', {}),
                     'fqdn': (t.fqdntype.typehash, 'dummyimage.com', {'subs': {
-                        'domain': (None, 'com', None),
+                        'domain': (t.fqdntype.typehash, 'com', {'subs': {
+                            'host': (t.fqdntype.hosttype.typehash, 'com', {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                        }}),
                         'host': (t.fqdntype.hosttype.typehash, 'dummyimage', {})}}),
                 }})
                 self.eq(valu, expected)
@@ -1760,8 +1820,14 @@ class InetModelTest(s_t_utils.SynTest):
                 'path': (t.strtype.typehash, '/home/bar/baz/biz.html', {}),
                 'params': paramsub,
                 'fqdn': (t.fqdntype.typehash, 'foo.vertex.link', {'subs': {
-                        'domain': (None, 'vertex.link', None),
-                        'host': (t.fqdntype.hosttype.typehash, 'foo', {})}}),
+                    'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
+                        'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
+                        'domain': (t.fqdntype.typehash, 'link', {'subs': {
+                            'host': (t.fqdntype.hosttype.typehash, 'link', {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                        }}),
+                    }}),
+                    'host': (t.fqdntype.hosttype.typehash, 'foo', {})}}),
                 'base': (t.strtype.typehash, 'file://foo.vertex.link/home/bar/baz/biz.html', {}),
             }})
             self.eq(await t.norm(url), expected)
@@ -1770,8 +1836,14 @@ class InetModelTest(s_t_utils.SynTest):
             expected = (url, {'subs': {
                 'proto': protosub,
                 'fqdn': (t.fqdntype.typehash, 'somehost.vertex.link', {'subs': {
-                        'domain': (None, 'vertex.link', None),
-                        'host': (t.fqdntype.hosttype.typehash, 'somehost', {})}}),
+                    'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
+                        'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
+                        'domain': (t.fqdntype.typehash, 'link', {'subs': {
+                            'host': (t.fqdntype.hosttype.typehash, 'link', {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                        }}),
+                    }}),
+                    'host': (t.fqdntype.hosttype.typehash, 'somehost', {})}}),
                 'base': (t.strtype.typehash, 'file://visi@vertex.link@somehost.vertex.link/c:/invisig0th/code/synapse/', {}),
                 'path': (t.strtype.typehash, 'c:/invisig0th/code/synapse/', {}),
                 'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
@@ -1820,8 +1892,14 @@ class InetModelTest(s_t_utils.SynTest):
                     'sha1': (t.passtype.sha1.typehash, '5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8', {}),
                     'sha256': (t.passtype.sha256.typehash, '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', {})}}),
                 'fqdn': (t.fqdntype.typehash, 'somehost.vertex.link', {'subs': {
-                        'domain': (None, 'vertex.link', None),
-                        'host': (t.fqdntype.hosttype.typehash, 'somehost', {})}}),
+                    'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
+                        'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
+                        'domain': (t.fqdntype.typehash, 'link', {'subs': {
+                            'host': (t.fqdntype.hosttype.typehash, 'link', {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                        }}),
+                    }}),
+                    'host': (t.fqdntype.hosttype.typehash, 'somehost', {})}}),
                 'params': paramsub,
                 'port': (t.porttype.typehash, 9876, {}),
                 'base': (t.strtype.typehash, url, {}),
@@ -1845,8 +1923,14 @@ class InetModelTest(s_t_utils.SynTest):
                 'params': paramsub,
                 'path': (t.strtype.typehash, '/SharedDir/Unc/FilePath', {}),
                 'fqdn': (t.fqdntype.typehash, 'host.vertex.link', {'subs': {
-                        'domain': (None, 'vertex.link', None),
-                        'host': (t.fqdntype.hosttype.typehash, 'host', {})}}),
+                    'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
+                        'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
+                        'domain': (t.fqdntype.typehash, 'link', {'subs': {
+                            'host': (t.fqdntype.hosttype.typehash, 'link', {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                        }}),
+                    }}),
+                    'host': (t.fqdntype.hosttype.typehash, 'host', {})}}),
                 'base': (t.strtype.typehash, 'file:////host.vertex.link/SharedDir/Unc/FilePath', {}),
             }})
             self.eq(await t.norm(url), expected)
@@ -1860,8 +1944,14 @@ class InetModelTest(s_t_utils.SynTest):
                 'base': (t.strtype.typehash, 'file:////host.vertex.link/SharedDir/Firefox/Unc/File/Path', {}),
                 'path': (t.strtype.typehash, '/SharedDir/Firefox/Unc/File/Path', {}),
                 'fqdn': (t.fqdntype.typehash, 'host.vertex.link', {'subs': {
-                        'domain': (None, 'vertex.link', None),
-                        'host': (t.fqdntype.hosttype.typehash, 'host', {})}}),
+                    'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
+                        'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
+                        'domain': (t.fqdntype.typehash, 'link', {'subs': {
+                            'host': (t.fqdntype.hosttype.typehash, 'link', {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                        }}),
+                    }}),
+                    'host': (t.fqdntype.hosttype.typehash, 'host', {})}}),
             }})
             self.eq(await t.norm(url), expected)
 
