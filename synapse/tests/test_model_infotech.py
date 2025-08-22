@@ -1402,7 +1402,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     self.notin('\\', valu)
 
                 # Norm cpe23 and check the cpe22 conversion
-                sub_23_v2_2 = info_23['subs']['v2_2']
+                sub_23_v2_2 = info_23['subs']['v2_2'][1]
 
                 norm_sub_23_v2_2, _ = await cpe22.norm(sub_23_v2_2)
                 self.eq(norm_sub_23_v2_2, sub_23_v2_2)
