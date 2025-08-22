@@ -30,7 +30,7 @@ modeldefs = (
                         'ex': 'cyberwarcon',
                         'doc': 'The base name of the {title} (for a recurring event).'}),
 
-                    ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                    ('names', ('array', {'type': 'meta:name'}), {
                         'doc': 'An array of alternate names for the {title}.'}),
                 ),
                 'doc': 'An interface which is inherited by all organized events.'}),
@@ -49,10 +49,10 @@ modeldefs = (
                     ('contact', ('entity:contact', {}), {
                         'doc': 'Contact information for the {title}.'}),
 
-                    ('sponsors', ('array', {'type': 'entity:actor', 'uniq': True, 'sorted': True}), {
+                    ('sponsors', ('array', {'type': 'entity:actor'}), {
                         'doc': 'The entities which sponsored the {title}.'}),
 
-                    ('organizers', ('array', {'type': 'entity:actor', 'uniq': True, 'sorted': True}), {
+                    ('organizers', ('array', {'type': 'entity:actor'}), {
                         'doc': 'An array of {title} organizers.'}),
                 ),
                 'doc': 'Properties which are common to events which are hosted or sponsored by organizations.'}),
@@ -313,7 +313,7 @@ modeldefs = (
                     'prevnames': ('posted', 'removed'),
                     'doc': 'The time period when the opening existed.'}),
 
-                ('postings', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                ('postings', ('array', {'type': 'inet:url'}), {
                     'doc': 'URLs where the opening is listed.'}),
 
                 ('contact', ('entity:contact', {}), {
@@ -383,7 +383,7 @@ modeldefs = (
                 ('recruiter', ('entity:contact', {}), {
                     'doc': 'The contact information of a recruiter who works on behalf of the organization.'}),
 
-                ('attachments', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
+                ('attachments', ('array', {'type': 'file:attachment'}), {
                     'doc': 'An array of additional files submitted by the candidate.'}),
 
                 # TODO: doc:questionare / responses
@@ -528,16 +528,16 @@ modeldefs = (
                 ('logo', ('file:bytes', {}), {
                     'doc': 'An image file representing the logo for the organization.'}),
 
-                ('industries', ('array', {'type': 'ou:industry', 'uniq': True, 'sorted': True}), {
+                ('industries', ('array', {'type': 'ou:industry'}), {
                     'doc': 'The industries associated with the org.'}),
 
-                ('subs', ('array', {'type': 'ou:org', 'uniq': True, 'sorted': True}), {
+                ('subs', ('array', {'type': 'ou:org'}), {
                     'doc': 'An set of sub-organizations.'}),
 
                 ('orgchart', ('ou:position', {}), {
                     'doc': 'The root node for an orgchart made up ou:position nodes.'}),
 
-                ('dns:mx', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
+                ('dns:mx', ('array', {'type': 'inet:fqdn'}), {
                     'doc': 'An array of MX domains used by email addresses issued by the org.'}),
 
                 ('tag', ('syn:tag', {}), {
@@ -607,7 +607,7 @@ modeldefs = (
                 ('title', ('entity:title', {}), {
                     'doc': 'The title of the position.'}),
 
-                ('reports', ('array', {'type': 'ou:position', 'uniq': True, 'sorted': True}), {
+                ('reports', ('array', {'type': 'ou:position'}), {
                     'doc': 'An array of positions which report to this position.'}),
             )),
 
@@ -617,13 +617,13 @@ modeldefs = (
                 ('type', ('ou:industry:type:taxonomy', {}), {
                     'doc': 'A taxonomy entry for the industry.'}),
 
-                ('sic', ('array', {'type': 'ou:sic', 'split': ',', 'uniq': True, 'sorted': True}), {
+                ('sic', ('array', {'type': 'ou:sic', 'split': ','}), {
                     'doc': 'An array of SIC codes that map to the industry.'}),
 
-                ('naics', ('array', {'type': 'ou:naics', 'split': ',', 'uniq': True, 'sorted': True}), {
+                ('naics', ('array', {'type': 'ou:naics', 'split': ','}), {
                     'doc': 'An array of NAICS codes that map to the industry.'}),
 
-                ('isic', ('array', {'type': 'ou:isic', 'split': ',', 'uniq': True, 'sorted': True}), {
+                ('isic', ('array', {'type': 'ou:isic', 'split': ','}), {
                     'doc': 'An array of ISIC codes that map to the industry.'}),
             )),
             ('ou:orgnet', {
@@ -640,7 +640,7 @@ modeldefs = (
             )),
             ('ou:preso', {}, (
 
-                ('presenters', ('array', {'type': 'entity:individual', 'uniq': True, 'sorted': True}), {
+                ('presenters', ('array', {'type': 'entity:individual'}), {
                     'doc': 'An array of individuals who gave the presentation.'}),
 
                 ('deck:url', ('inet:url', ()), {

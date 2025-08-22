@@ -183,7 +183,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('name'), 'opslan.lax.vertex.link')
             self.eq(nodes[0].get('net'), ((4, 167837696), (4, 167903231)))
             self.eq(nodes[0].get('type'), 'virtual.sdn.')
-            self.eq(nodes[0].get('dns:resolvers'), ('tcp://1.2.3.4:99', 'udp://1.2.3.4:53'))
+            self.eq(nodes[0].get('dns:resolvers'), ('udp://1.2.3.4:53', 'tcp://1.2.3.4:99'))
 
             nodes = await core.nodes('''[
                 it:sec:stix:indicator=*

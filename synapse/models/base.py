@@ -202,7 +202,7 @@ modeldefs = (
                         'alts': ('names',),
                         'doc': 'The primary name of the {title} according to the source.'}),
 
-                    ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
+                    ('names', ('array', {'type': 'meta:name'}), {
                         'doc': 'A list of alternate names for the {title} according to the source.'}),
 
                     ('desc', ('text', {}), {

@@ -368,7 +368,7 @@ modeldefs = (
                     'prevnames': ('soft:name',),
                     'doc': "The source's name for the tool."}),
 
-                ('software:names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                ('software:names', ('array', {'type': 'meta:name'}), {
                     'prevnames': ('soft:names',),
                     'doc': "The source's alternate names for the tool."}),
 
@@ -477,7 +477,7 @@ modeldefs = (
                 ('cvss:v3_1:score:environmental', ('float', {}), {
                     'doc': 'The CVSS v3.1 environmental score for the vulnerability.'}),
 
-                ('cwes', ('array', {'type': 'it:sec:cwe', 'uniq': True, 'sorted': True}), {
+                ('cwes', ('array', {'type': 'it:sec:cwe'}), {
                     'doc': 'MITRE CWE values that apply to the vulnerability.'}),
             )),
 
@@ -500,7 +500,7 @@ modeldefs = (
                 ('mitigated', ('bool', {}), {
                     'doc': 'Set to true if the vulnerable node has been mitigated.'}),
 
-                ('mitigations', ('array', {'type': 'risk:mitigation', 'sorted': True, 'uniq': True}), {
+                ('mitigations', ('array', {'type': 'risk:mitigation'}), {
                     'doc': 'The mitigations which were used to address the vulnerable node.'}),
             )),
 
@@ -691,7 +691,7 @@ modeldefs = (
                 ('public', ('bool', {}), {
                     'doc': 'Set to true if the leaked information was made publicly available.'}),
 
-                ('public:urls', ('array', {'type': 'inet:url', 'sorted': True, 'uniq': True}), {
+                ('public:urls', ('array', {'type': 'inet:url'}), {
                     'prevnames': ('public:url',),
                     'doc': 'The URL where the leaked information was made publicly available.'}),
 
@@ -770,7 +770,7 @@ modeldefs = (
                 ('paid:price', ('econ:price', {}), {
                     'doc': 'The total price paid by the target of the extortion.'}),
 
-                ('payments', ('array', {'type': 'econ:payment', 'sorted': True, 'uniq': True}), {
+                ('payments', ('array', {'type': 'econ:payment'}), {
                     'doc': 'Payments made from the target to the attacker.'}),
             )),
         ),

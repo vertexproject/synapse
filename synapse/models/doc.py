@@ -27,13 +27,13 @@ modeldefs = (
                     ('author', ('entity:actor', {}), {
                         'doc': 'The contact information of the primary author.'}),
 
-                    ('contributors', ('array', {'type': 'entity:actor', 'sorted': True, 'uniq': True}), {
+                    ('contributors', ('array', {'type': 'entity:actor'}), {
                         'doc': 'An array of contacts which contributed to the {title}.'}),
 
                     ('version', ('it:semver', {}), {
                         'doc': 'The version of the {title}.'}),
 
-                    ('supersedes', ('array', {'type': '$self', 'sorted': True, 'uniq': True}), {
+                    ('supersedes', ('array', {'type': '$self'}), {
                         'doc': 'An array of {title} versions which are superseded by this {title}.'}),
                 ),
             }),
@@ -192,16 +192,16 @@ modeldefs = (
                 ('summary', ('text', {}), {
                     'doc': 'The summary of qualifications from the resume.'}),
 
-                ('skills', ('array', {'type': 'ps:skill', 'sorted': True, 'uniq': True}), {
+                ('skills', ('array', {'type': 'ps:skill'}), {
                     'doc': 'The skills described in the resume.'}),
 
-                ('workhist', ('array', {'type': 'ps:workhist', 'sorted': True, 'uniq': True}), {
+                ('workhist', ('array', {'type': 'ps:workhist'}), {
                     'doc': 'Work history described in the resume.'}),
 
-                ('education', ('array', {'type': 'ps:education', 'sorted': True, 'uniq': True}), {
+                ('education', ('array', {'type': 'ps:education'}), {
                     'doc': 'Education experience described in the resume.'}),
 
-                ('achievements', ('array', {'type': 'ps:achievement', 'sorted': True, 'uniq': True}), {
+                ('achievements', ('array', {'type': 'ps:achievement'}), {
                     'doc': 'Achievements described in the resume.'}),
 
             )),
@@ -220,7 +220,7 @@ modeldefs = (
                 ('publisher:name', ('meta:name', {}), {
                     'doc': 'The name of the entity which published the report.'}),
 
-                ('topics', ('array', {'type': 'meta:topic', 'sorted': True, 'uniq': True}), {
+                ('topics', ('array', {'type': 'meta:topic'}), {
                     'doc': 'The topics discussed in the report.'}),
             )),
 
@@ -231,10 +231,10 @@ modeldefs = (
                     'prevnames': ('sponsor',),
                     'doc': 'The contract sponsor.'}),
 
-                ('parties', ('array', {'type': 'entity:actor', 'uniq': True, 'sorted': True}), {
+                ('parties', ('array', {'type': 'entity:actor'}), {
                     'doc': 'The entities bound by the contract.'}),
 
-                ('signers', ('array', {'type': 'entity:individual', 'uniq': True, 'sorted': True}), {
+                ('signers', ('array', {'type': 'entity:individual'}), {
                     'doc': 'The individuals who signed the contract.'}),
 
                 ('period', ('ival', {}), {

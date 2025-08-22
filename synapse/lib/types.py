@@ -509,8 +509,8 @@ class Array(Type):
 
     def postTypeInit(self):
 
-        self.isuniq = self.opts.get('uniq', False)
-        self.issorted = self.opts.get('sorted', False)
+        self.isuniq = self.opts.get('uniq', True)
+        self.issorted = self.opts.get('sorted', True)
         self.splitstr = self.opts.get('split', None)
 
         typename = self.opts.get('type')
