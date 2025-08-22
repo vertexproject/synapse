@@ -492,7 +492,7 @@ modeldefs = (
                 ('private:exponent', ('hex', {}), {
                     'doc': 'The private exponent of the RSA key.'}),
 
-                ('private:primes', ('array', {'type': 'crypto:key:rsa:prime', 'sorted': True, 'uniq': True}), {
+                ('private:primes', ('array', {'type': 'crypto:key:rsa:prime'}), {
                     'doc': 'The prime number and exponent combinations used to generate the RSA key.'}),
 
                 ('private:coefficient', ('hex', {}), {
@@ -645,31 +645,31 @@ modeldefs = (
                     'doc': 'The hexadecimal representation of the digital signature.',
                 }),
 
-                ('ext:sans', ('array', {'type': 'crypto:x509:san', 'uniq': True, 'sorted': True}), {
+                ('ext:sans', ('array', {'type': 'crypto:x509:san'}), {
                     'doc': 'The Subject Alternate Names (SANs) listed in the certificate.',
                 }),
 
-                ('ext:crls', ('array', {'type': 'crypto:x509:san', 'uniq': True, 'sorted': True}), {
+                ('ext:crls', ('array', {'type': 'crypto:x509:san'}), {
                     'doc': 'A list of Subject Alternate Names (SANs) for Distribution Points.',
                 }),
 
-                ('identities:fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
+                ('identities:fqdns', ('array', {'type': 'inet:fqdn'}), {
                     'doc': 'The fused list of FQDNs identified by the cert CN and SANs.',
                 }),
 
-                ('identities:emails', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
+                ('identities:emails', ('array', {'type': 'inet:email'}), {
                     'doc': 'The fused list of email addresses identified by the cert CN and SANs.',
                 }),
 
-                ('identities:ips', ('array', {'type': 'inet:ip', 'uniq': True, 'sorted': True}), {
+                ('identities:ips', ('array', {'type': 'inet:ip'}), {
                     'doc': 'The fused list of IP addresses identified by the cert CN and SANs.',
                     'prevnames': ('identities:ipv4s', 'identities:ipv6s')}),
 
-                ('identities:urls', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                ('identities:urls', ('array', {'type': 'inet:url'}), {
                     'doc': 'The fused list of URLs identified by the cert CN and SANs.',
                 }),
 
-                ('crl:urls', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                ('crl:urls', ('array', {'type': 'inet:url'}), {
                     'doc': 'The extracted URL values from the CRLs extension.',
                 }),
 

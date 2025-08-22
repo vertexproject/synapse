@@ -6614,7 +6614,9 @@ words\tword\twrd'''
             valu = '1.000000000000000000001'
 
             await core.addTagProp('huge', ('hugenum', {}), {})
-            await core.addFormProp('test:str', '_hugearray', ('array', {'type': 'hugenum'}), {})
+
+            tdef = ('array', {'type': 'hugenum', 'uniq': False, 'sorted': False})
+            await core.addFormProp('test:str', '_hugearray', tdef, {})
 
             nodes = await core.nodes(f'[econ:balance=* :amount=({valu})]')
             self.eq(nodes[0].get('amount'), valu)
