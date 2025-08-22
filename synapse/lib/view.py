@@ -1483,13 +1483,12 @@ class View(s_nexus.Pusher):  # type: ignore
 
             if lidx == valulayr:
                 if isinstance(valu[0], str):
-                    await asyncio.sleep(0)
                     yield node, propname
                     continue
 
                 for _ in range(valu.count(ndef)):
-                    await asyncio.sleep(0)
                     yield node, propname
+                    await asyncio.sleep(0)
 
     async def getNodePropRefs(self, pdef):
 
@@ -1518,13 +1517,12 @@ class View(s_nexus.Pusher):  # type: ignore
 
             if lidx == valulayr:
                 if isinstance(valu[0], str):
-                    await asyncio.sleep(0)
                     yield node, propname
                     continue
 
                 for _ in range(valu.count(pdef)):
-                    await asyncio.sleep(0)
                     yield node, propname
+                    await asyncio.sleep(0)
 
     async def hasNodeData(self, nid, name, strt=0, stop=None):
         '''
