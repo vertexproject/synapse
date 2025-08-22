@@ -3434,40 +3434,30 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 form = self.model.addForm(formname, {}, ())
             except Exception as e:
                 logger.warning(f'Extended form ({formname}) error: {e}')
-            else:
-                if form.type.deprecated:
-                    mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
-                           f' be removed in 3.0.0'
-                    logger.warning(mesg)
 
         for form, prop, tdef, info in self.extprops.values():
             try:
                 prop = self.model.addFormProp(form, prop, tdef, info)
             except Exception as e:
-                logger.warning(f'ext prop ({form}:{prop}) error: {e}')
-            else:
-                if prop.type.deprecated:
-                    mesg = f'The extended property {prop.full} is using a deprecated type {prop.type.name} which will' \
-                           f' be removed in 3.0.0'
-                    logger.warning(mesg)
+                logger.warning(f'Extended prop ({form}:{prop}) error: {e}')
 
         for prop, tdef, info in self.extunivs.values():
             try:
                 self.model.addUnivProp(prop, tdef, info)
             except Exception as e:
-                logger.warning(f'ext univ ({prop}) error: {e}')
+                logger.warning(f'Extended univ ({prop}) error: {e}')
 
         for prop, tdef, info in self.exttagprops.values():
             try:
                 self.model.addTagProp(prop, tdef, info)
             except Exception as e:
-                logger.warning(f'ext tag prop ({prop}) error: {e}')
+                logger.warning(f'Extended tag prop ({prop}) error: {e}')
 
         for edge, info in self.extedges.values():
             try:
                 self.model.addEdge(edge, info)
             except Exception as e:
-                logger.warning(f'ext edge ({edge}) error: {e}')
+                logger.warning(f'Extended edge ({edge}) error: {e}')
 
     async def getExtModel(self):
         '''
@@ -3830,10 +3820,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         _prop = self.model.addFormProp(form, prop, tdef, info)
-        if _prop.type.deprecated:
-            mesg = f'The extended property {_prop.full} is using a deprecated type {_prop.type.name} which will' \
-                   f' be removed in 3.0.0'
-            logger.warning(mesg)
 
         full = f'{form}:{prop}'
         self.extprops.set(full, (form, prop, tdef, info))
