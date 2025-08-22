@@ -356,6 +356,11 @@ class Type:
 
         tobj = self.__class__(self.modl, name, tifo, topt)
         tobj.subof = self.name
+
+        if self.deprecated and not tobj.deprecated:
+            tobj.deprecated = True
+            logger.warning('Type {name} extends deprecated type {self.name} and is not marked deprecated.')
+
         return tobj
 
     def clone(self, opts):
@@ -440,12 +445,6 @@ class Array(Type):
             mesg = 'Array type of array values is not (yet) supported.'
             raise s_exc.BadTypeDef(mesg)
 
-        if self.arraytype.deprecated:
-            if self.info.get('custom'):
-                mesg = f'The Array type {self.name} is based on a deprecated type {self.arraytype.name} type which ' \
-                       f'which will be removed in 3.0.0'
-                logger.warning(mesg)
-
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
@@ -496,6 +495,15 @@ class Array(Type):
         if self.splitstr:
             rval = self.splitstr.join(rval)
         return rval
+
+    def extend(self, name, opts, info):
+
+        tobj = Type.extend(self, name, opts, info)
+        if tobj.arraytype.deprecated and not self.deprecated:
+            tobj.deprecated = True
+            logger.warning(f'Array type {name} uses deprecated type {self.name} and is not marked deprecated.')
+
+        return tobj
 
 class Comp(Type):
 

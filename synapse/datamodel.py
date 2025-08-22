@@ -35,6 +35,8 @@ class TagProp:
         self.model = model
         self.locked = False
 
+        self.deprecated = info.get('deprecated', False)
+
         self.utf8 = name.encode()
         self.nenc = name.encode() + b'\x00'
 
@@ -43,6 +45,10 @@ class TagProp:
             raise s_exc.NoSuchType(name=tdef[0])
 
         self.type = self.base.clone(tdef[1])
+
+        if not self.deprecated and self.type.deprecated:
+            self.deprecated = True
+            logger.warning(f'Tag property {name} uses deprecated type {self.type.name} but is not deprecated.')
 
         if isinstance(self.type, s_types.Array):
             mesg = 'Tag props may not be array types (yet).'
@@ -129,10 +135,15 @@ class Prop:
 
         self.alts = None
         self.locked = False
+
         self.deprecated = self.info.get('deprecated', False)
 
         self.type = self.modl.getTypeClone(typedef)
         self.typehash = self.type.typehash
+
+        if not self.deprecated and self.type.deprecated:
+            self.deprecated = True
+            logger.warning(f'Property {name} uses deprecated type {self.type.name} but is not deprecated.')
 
         if self.type.isarray:
             self.arraytypehash = self.type.arraytype.typehash
@@ -141,9 +152,10 @@ class Prop:
             form.setProp(name, self)
             self.modl.propsbytype[self.type.name][self.full] = self
 
-        if self.deprecated or self.type.deprecated:
+        if self.deprecated:
+
             async def depfunc(node, oldv):
-                mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
+                mesg = f'Property {self.full} is deprecated and will be removed in 3.0.'
                 await node.snap.warnonce(mesg)
                 if __debug__:
                     sys.audit('synapse.datamodel.Prop.deprecated', mesg, self.full)
@@ -310,7 +322,7 @@ class Form:
 
         if self.deprecated:
             async def depfunc(node):
-                mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
+                mesg = f'Form {self.full} is deprecated and will be removed in 3.0.'
                 await node.snap.warnonce(mesg)
                 if __debug__:
                     sys.audit('synapse.datamodel.Form.deprecated', mesg, self.full)
@@ -943,17 +955,7 @@ class Model:
         if base is None:
             raise s_exc.NoSuchType(name=basename)
 
-        # if our parent type is deprecatred and we are not...
-        if base.deprecated and not typeinfo.get('deprecated'):
-            mesg = f'Type {typename} is not marked deprecated, but is based on deprecated type {basename}.'
-            logger.warning(mesg)
-
         newtype = base.extend(typename, typeopts, typeinfo)
-
-        if isinstance(newtype, s_types.Array):
-            if newtype.arraytype.info.get('deprecated') and not newtype.info.get('deprecated'):
-                mesg = f'Array type {typename} is based on the deprecated type {newtype.arraytype.name}.'
-                logger.warning(mesg)
 
         self.types[typename] = newtype
         self._modeldef['types'].append(newtype.getTypeDef())
@@ -1117,11 +1119,6 @@ class Model:
         base = '.' + name
         univ = Prop(self, None, base, tdef, info)
 
-        if univ.type.deprecated:
-            mesg = f'The universal property {univ.full} is using a deprecated type {univ.type.name} which will' \
-                   f' be removed in 3.0.0'
-            logger.warning(mesg)
-
         self.props[base] = univ
         self.univs[base] = univ
 
@@ -1149,13 +1146,6 @@ class Model:
     def _addFormProp(self, form, name, tdef, info):
 
         prop = Prop(self, form, name, tdef, info)
-
-        # index the array item types
-        if isinstance(prop.type, s_types.Array):
-            self.arraysbytype[prop.type.arraytype.name][prop.full] = prop
-            if prop.type.arraytype.info.get('deprecated') and not prop.info.get('deprecated'):
-                mesg = f'Property {prop.full} is based on the deprecated type {prop.type.arraytype.name}.'
-                logger.warning(mesg)
 
         self.props[prop.full] = prop
 
@@ -1201,7 +1191,7 @@ class Model:
             raise s_exc.NoSuchName(mesg=mesg)
 
         if iface.get('deprecated'):
-            mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 3.0.0'
+            mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 3.0'
             logger.warning(mesg)
 
         iface = self._prepFormIface(form, iface)
@@ -1273,8 +1263,7 @@ class Model:
         self.tagprops[name] = prop
 
         if prop.type.deprecated:
-            mesg = f'The tag property {prop.name} is using a deprecated type {prop.type.name} which will' \
-                   f' be removed in 3.0.0'
+            mesg = f'Tag property {prop.name} uses deprecated type {prop.type.name} but is not deprecated.'
             logger.warning(mesg)
 
         self.calcModelIden()
