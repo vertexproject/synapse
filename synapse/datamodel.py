@@ -1149,6 +1149,10 @@ class Model:
 
         prop = Prop(self, form, name, tdef, info)
 
+        # index the array item types
+        if isinstance(prop.type, s_types.Array):
+            self.arraysbytype[prop.type.arraytype.name][prop.full] = prop
+
         self.props[prop.full] = prop
 
         return prop
