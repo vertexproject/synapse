@@ -795,9 +795,9 @@ class ProtoNode(s_node.NodeBase):
 
         retn, valu, norminfo = await self._set(prop, valu, norminfo=norminfo)
 
-        propform = self.model.form(prop.type.name)
-        if propform is not None:
-            await self.editor.addNode(propform.name, valu, norminfo=norminfo)
+        if not norminfo.get('skipadd'):
+            if (propform := self.model.form(prop.type.name)) is not None:
+                await self.editor.addNode(propform.name, valu, norminfo=norminfo)
 
         propsubs = norminfo.get('subs')
         if propsubs is not None:
@@ -811,7 +811,7 @@ class ProtoNode(s_node.NodeBase):
                     await self.set(full, subvalu)
 
         propadds = norminfo.get('adds')
-        if propadds is not None:
+        if propadds:
             for addname, addvalu, addinfo in propadds:
                 await self.editor.addNode(addname, addvalu, norminfo=addinfo)
 
