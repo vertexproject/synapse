@@ -60,8 +60,8 @@ def qsplit(text):
 
     Raise BadDataValu if:
         - quotes are unclosed.
-        - quoted strings don't have a space before/after (not including beginning/end of line)
-        - double-quotes or backslashes are escaped outside of a quoted string
+        - quoted strings don't have a space before/after (not including beginning/end of line).
+        - double-quotes or backslashes are escaped outside of a quoted string.
     '''
     def on_error(exc):
         # Escaped double-quote or backslash not in quotes
