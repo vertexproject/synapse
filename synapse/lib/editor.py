@@ -810,7 +810,8 @@ class ProtoNode(s_node.NodeBase):
                         continue
                     await self.set(full, subvalu)
 
-        if (propadds := norminfo.get('adds')) is not None:
+        propadds = norminfo.get('adds')
+        if propadds:
             for addname, addvalu, addinfo in propadds:
                 await self.editor.addNode(addname, addvalu, norminfo=addinfo)
 
