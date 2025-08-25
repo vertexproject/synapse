@@ -3323,6 +3323,33 @@ class Layer(s_nexus.Pusher):
 
             yield nid, self.genStorNodeRef(nid), lkey[-1:] == FLAG_TOMB
 
+    async def setStorNodeProp(self, nid, prop, valu, meta):
+        newp = self.core.model.reqProp(prop)
+
+        newp_valu, info = await newp.type.norm(valu)
+        newp_name = newp.name
+        newp_stortype = newp.type.stortype
+        newp_formname = newp.form.name
+
+        set_edit = (EDIT_PROP_SET, (newp_name, newp_valu, newp_stortype, info.get('virts')))
+        nodeedits = [(nid, newp_formname, [set_edit])]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        return bool(changes[0][2])
+
+    async def delStorNodeProp(self, nid, prop, meta):
+        pprop = self.core.model.reqProp(prop)
+
+        oldp_name = pprop.name
+        oldp_formname = pprop.form.name
+        oldp_stortype = pprop.type.stortype
+
+        del_edit = (EDIT_PROP_DEL, (oldp_name,))
+        nodeedits = [(nid, oldp_formname, [del_edit])]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        return bool(changes[0][2])
+
     async def saveNodeEdits(self, edits, meta):
         '''
         Save node edits to the layer and return a tuple of (nexsoffs, changes).

@@ -2466,6 +2466,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :id=U2XK7PUVB
                     :user=visi
                     :email=visi@vertex.link
+                    :parent=*
                 )
             ]
             '''
@@ -2487,6 +2488,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(accounts[1].get('user'), 'visi')
             self.eq(accounts[1].get('email'), 'visi@vertex.link')
             blckacct, visiacct = accounts
+
+            self.len(1, await core.nodes('inet:service:account:email=visi@vertex.link :parent -> inet:service:account'))
 
             q = '''
             [ inet:service:group=(developers, group, vertex, slack)
