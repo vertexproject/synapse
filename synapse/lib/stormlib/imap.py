@@ -69,19 +69,18 @@ def qsplit(text):
             mesg = f'Invalid data: {exc.token.value} cannot be escaped.'
             raise s_exc.BadDataValu(mesg=mesg, data=text)
 
-        # Double quote at end of line
+        # Double quote (opening a quoted string) at end of line
         if exc.token.type == 'DBLQUOTE' and exc.column == len(text):
             mesg = 'Quoted strings must be preceded and followed by a space.'
             raise s_exc.BadDataValu(mesg=mesg, data=text)
 
+        # Unclosed quoted string
         if exc.token.type == '$END' and exc.column == len(text) and exc.expected == {'QUOTED_CHAR', 'DBLQUOTE'}:
             mesg = 'Unclosed quotes in text.'
             raise s_exc.BadDataValu(mesg=mesg, data=text)
 
         # Catch-all exception
-        # pragma: no cover
-        mesg = 'Unable to parse IMAP response data.'
-        raise s_exc.BadDataValu(mesg=mesg, data=text)
+        raise s_exc.BadDataValu(mesg='Unable to parse IMAP response data.', data=text) # pragma: no cover
 
     tree = LarkParser.parse(text, on_error=on_error)
     newtree = AstConverter(text).transform(tree)
