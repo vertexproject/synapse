@@ -174,18 +174,18 @@ class TelcoModelTest(s_t_utils.SynTest):
             t = core.model.type('tel:phone')
             norm, subs = await t.norm('123 456 7890')
             self.eq(norm, '1234567890')
-            self.eq(subs, {'subs': {'loc': 'us'}})
+            self.eq(subs, {'subs': {'loc': (t.loctype.typehash, 'us', {})}})
 
             norm, subs = await t.norm('123 456 \udcfe7890')
             self.eq(norm, '1234567890')
 
             norm, subs = await t.norm(1234567890)
             self.eq(norm, '1234567890')
-            self.eq(subs, {'subs': {'loc': 'us'}})
+            self.eq(subs, {'subs': {'loc': (t.loctype.typehash, 'us', {})}})
 
             norm, subs = await t.norm('+1911')
             self.eq(norm, '1911')
-            self.eq(subs, {'subs': {'loc': 'us'}})
+            self.eq(subs, {'subs': {'loc': (t.loctype.typehash, 'us', {})}})
 
             self.eq(t.repr('12345678901'), '+1 (234) 567-8901')
             self.eq(t.repr('9999999999'), '+9999999999')
