@@ -82,9 +82,9 @@ stormcmds = (
             ('--name', {'type': 'str', 'help': 'The new name for the user.'}),
             ('--email', {'type': 'str', 'help': 'The email address to set for the user.'}),
             ('--passwd', {'type': 'str', 'help': 'The new password for the user. This is best passed into the runtime as a variable.'}),
-            ('--admin', {'type': 'bool', 'help': 'True to make the user and admin, false to remove their remove their admin status.'}),
-            ('--gate', {'type': 'str', 'help': 'The auth gate iden to grant or revoke admin status on. Use in conjunction with `--admin <bool>`.'}),
-            ('--locked', {'type': 'bool', 'help': 'True to lock the user, false to unlock them.'}),
+            ('--admin', {'type': 'boolean', 'help': 'True to make the user and admin, false to remove their remove their admin status.'}),
+            ('--gate', {'type': 'str', 'help': 'The auth gate iden to grant or revoke admin status on. Use in conjunction with `--admin <boolean>`.'}),
+            ('--locked', {'type': 'boolean', 'help': 'True to lock the user, false to unlock them.'}),
         ),
         'storm': '''
             $user = $lib.auth.users.byname($cmdopts.username)
@@ -263,7 +263,7 @@ stormcmds = (
             ('name', {'type': 'str', 'help': 'The name of the user.'}),
             ('rule', {'type': 'str', 'help': 'The rule string.'}),
             ('--gate', {'type': 'str', 'help': 'The auth gate id to grant permission on.', 'default': None}),
-            ('--index', {'type': 'bool', 'action': 'store_true', 'default': False,
+            ('--index', {'type': 'boolean', 'action': 'store_true', 'default': False,
                 'help': 'Specify the rule as a 0 based index into the list of rules.'}),
         ),
         'storm': '''
@@ -335,7 +335,7 @@ stormcmds = (
             ('name', {'type': 'str', 'help': 'The name of the role.'}),
             ('rule', {'type': 'str', 'help': 'The rule string.'}),
             ('--gate', {'type': 'str', 'help': 'The auth gate id to remove the rule from.', 'default': None}),
-            ('--index', {'type': 'bool', 'action': 'store_true', 'default': False,
+            ('--index', {'type': 'boolean', 'action': 'store_true', 'default': False,
                 'help': 'Specify the rule as a 0 based index into the list of rules.'}),
         ),
         'storm': '''
@@ -1569,7 +1569,7 @@ class LibAuth(s_stormtypes.Lib):
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'The string to process.', },
                   ),
-                  'returns': {'type': 'list', 'desc': 'A tuple containing a bool and a list of permission parts.', }}},
+                  'returns': {'type': 'list', 'desc': 'A tuple containing a boolean and a list of permission parts.', }}},
         {'name': 'textFromRule', 'desc': 'Return a text string from a rule tuple.',
          'type': {'type': 'function', '_funcname': 'textFromRule',
                   'args': (

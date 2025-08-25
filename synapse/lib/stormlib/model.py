@@ -896,7 +896,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
         'type': {'type': 'function', '_funcname': '_riskHasVulnToVulnerable',
                  'args': (
                       {'name': 'n', 'type': 'node', 'desc': 'The risk:hasvuln node to migrate.'},
-                      {'name': 'nodata', 'type': 'bool', 'default': False,
+                      {'name': 'nodata', 'type': 'boolean', 'default': False,
                        'desc': 'Do not copy nodedata to the risk:vulnerable node.'},
                  ),
                  'returns': {'type': 'list', 'desc': 'A list of idens for the risk:vulnerable nodes.'}}},
@@ -912,7 +912,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
         'type': {'type': 'function', '_funcname': '_storm_query',
                  'args': (
                       {'name': 'n', 'type': 'node', 'desc': 'The inet:ssl:cert node to migrate.'},
-                      {'name': 'nodata', 'type': 'bool', 'default': False,
+                      {'name': 'nodata', 'type': 'boolean', 'default': False,
                        'desc': 'Do not copy nodedata to the inet:tls:servercert node.'},
                  ),
                  'returns': {'type': 'node', 'desc': 'The newly created inet:tls:servercert node.'}}},

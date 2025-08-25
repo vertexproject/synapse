@@ -49,9 +49,9 @@ class ImapLib(s_stormtypes.Lib):
                      'desc': 'The IMAP server port.'},
                     {'type': 'int', 'name': 'timeout', 'default': 30,
                      'desc': 'The time to wait for all commands on the server to execute.'},
-                    {'type': 'bool', 'name': 'ssl', 'default': True,
+                    {'type': 'boolean', 'name': 'ssl', 'default': True,
                      'desc': 'Use SSL to connect to the IMAP server.'},
-                    {'type': 'bool', 'name': 'ssl_verify', 'default': True,
+                    {'type': 'boolean', 'name': 'ssl_verify', 'default': True,
                      'desc': 'Perform SSL/TLS verification.'},
                 ),
                 'returns': {

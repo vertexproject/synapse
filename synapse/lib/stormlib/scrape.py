@@ -91,7 +91,7 @@ class LibScrape(s_stormtypes.Lib):
                        'desc': 'Regex flags to use (defaults to IGNORECASE).'},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
-                              'desc': ''}}}
+                              'desc': 'Yields the matches.'}}}
     )
     _storm_lib_path = ('scrape', )
 
