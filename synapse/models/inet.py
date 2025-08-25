@@ -3796,6 +3796,9 @@ class InetModule(s_module.CoreModule):
                         ('user', ('inet:user', {}), {
                             'doc': 'The current user name of the account.'}),
 
+                        ('parent', ('inet:service:account', {}), {
+                            'doc': 'A parent account which owns this account.'}),
+
                         ('email', ('inet:email', {}), {
                             'doc': 'The current email address associated with the account.'}),
 

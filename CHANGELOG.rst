@@ -6,6 +6,34 @@
 Synapse Changelog
 *****************
 
+v2.219.0 - 2025-08-22
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_219_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``inits`` to the Storm package definition schema, which enables
+  running Storm queries for a particular package storage version.
+  (`#4406 <https://github.com/vertexproject/synapse/pull/4406>`_)
+- Added ``$lib.pkg.vars`` Storm API to manage persistent values for a Storm
+  Package.
+  (`#4415 <https://github.com/vertexproject/synapse/pull/4415>`_)
+- Updated ``$lib.axon.put()`` to check for the existence of the bytes in the
+  Axon before uploading.
+  (`#4435 <https://github.com/vertexproject/synapse/pull/4435>`_)
+- Added new ``getStorNodesByProp``, ``setStorNodeProp``, and
+  ``delStorNodeProp`` methods to the Layer Storm library for working with
+  storage nodes.
+  (`#4438 <https://github.com/vertexproject/synapse/pull/4438>`_)
+- Removed exception logging for telepath when proxy methods are cancelled.
+  (`#4440 <https://github.com/vertexproject/synapse/pull/4440>`_)
+- Updated the allowed range for the ``pycryptodome`` dependency to
+  ``pycryptodome>=3.11.0,<3.24.0``
+  (`#4453 <https://github.com/vertexproject/synapse/pull/4453>`_)
+
 v2.218.1 - 2025-07-31
 =====================
 
