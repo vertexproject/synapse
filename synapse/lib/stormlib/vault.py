@@ -35,7 +35,7 @@ stormcmds = (
                         'help': 'This vault is a role-scoped vault, for the specified role name.'}),
             ('--unscoped', {'type': 'str',
                             'help': 'This vault is an unscoped vault, for the specified user name.'}),
-            ('--global', {'type': 'boolean', 'action': 'store_true', 'default': False,
+            ('--global', {'type': 'bool', 'action': 'store_true', 'default': False,
                           'help': 'This vault is a global-scoped vault.'}),
         ),
         'storm': '''
@@ -96,7 +96,7 @@ stormcmds = (
             ('name', {'type': 'str', 'help': 'The vault name or iden.'}),
             ('key', {'type': 'str', 'help': 'The key for the secret value.'}),
             ('--value', {'help': 'The secret value to store in the vault.'}),
-            ('--delete', {'type': 'boolean', 'action': 'store_true', 'default': False,
+            ('--delete', {'type': 'bool', 'action': 'store_true', 'default': False,
                           'help': 'Specify this flag to remove the secret from the vault.'}),
         ),
         'storm': '''
@@ -140,7 +140,7 @@ stormcmds = (
             ('name', {'type': 'str', 'help': 'The vault name or iden.'}),
             ('key', {'type': 'str', 'help': 'The key for the config value.'}),
             ('--value', {'help': 'The config value to store in the vault.'}),
-            ('--delete', {'type': 'boolean', 'action': 'store_true', 'default': False,
+            ('--delete', {'type': 'bool', 'action': 'store_true', 'default': False,
                           'help': 'Specify this flag to remove the config from the vault.'}),
         ),
         'storm': '''
@@ -200,7 +200,7 @@ stormcmds = (
         'cmdargs': (
             ('--name', {'type': 'str', 'help': 'Only list vaults with the specified name or iden.'}),
             ('--type', {'type': 'str', 'help': 'Only list vaults with the specified type.'}),
-            ('--showsecrets', {'type': 'boolean', 'action': 'store_true', 'default': False, 'help': 'Print vault secrets.'}),
+            ('--showsecrets', {'type': 'bool', 'action': 'store_true', 'default': False, 'help': 'Print vault secrets.'}),
         ),
         'storm': '''
             $lib.print("Available Vaults")
@@ -251,7 +251,7 @@ stormcmds = (
             ('--role', {'type': 'str',
                         'help': 'Specified when `user` is a role name.'}),
             ('--level', {'type': 'str', 'help': 'The permission level to grant.'}),
-            ('--revoke', {'type': 'boolean', 'action': 'store_true', 'default': False,
+            ('--revoke', {'type': 'bool', 'action': 'store_true', 'default': False,
                           'help': 'Specify this flag when revoking an existing permission.'}),
         ),
         'storm': '''
