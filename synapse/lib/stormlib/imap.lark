@@ -1,7 +1,8 @@
+UNQUOTED_CHAR: /(?!\r|\n|\\"|\\\\)./
 QUOTED_SPECIALS: "\"" | "\\"
-TEXT_CHAR: /(?!\r|\n|\\"|\\\\)./
-QUOTED_CHAR: TEXT_CHAR | "\\" QUOTED_SPECIALS
+QUOTED_CHAR: UNQUOTED_CHAR | "\\" QUOTED_SPECIALS
 
 quoted: "\"" QUOTED_CHAR* "\""
-unquoted: TEXT_CHAR+
-input: ((quoted | unquoted) " ")* (quoted | unquoted)
+unquoted: UNQUOTED_CHAR+
+_string: quoted | unquoted
+input: (_string " ")* _string
