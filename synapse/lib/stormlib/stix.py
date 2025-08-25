@@ -41,23 +41,23 @@ _DefaultConfig = {
 
     'forms': {
 
-        'ou:campaign': {
+        'entity:campaign': {
             'default': 'campaign',
             'stix': {
                 'campaign': {
                     'props': {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'description': '+:desc return(:desc)',
-                        'objective': '+:goal :goal -> ou:goal +:name return(:name)',
+                        'objective': '+:goal :goal -> entity:goal +:name return(:name)',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                     },
                     'rels': (
-                        ('attributed-to', 'threat-actor', ':org -> ou:org'),
-                        ('originates-from', 'location', ':org -> ou:org :hq -> geo:place'),
-                        ('targets', 'identity', '-> risk:attack :target:org -> ou:org'),
-                        ('targets', 'identity', '-> risk:attack :target:person -> ps:person'),
-                        ('targets', 'vulnerability', '-> risk:attack :used:vuln -> risk:vuln'),
+                        ('attributed-to', 'threat-actor', ':actor -> ou:org'),
+                        ('originates-from', 'location', ':actor -> ou:org -> geo:place'),
+                        ('targets', 'identity', '-> risk:attack -(targets)> ou:org'),
+                        ('targets', 'identity', '-> risk:attack -(targets)> ps:person'),
+                        ('targets', 'vulnerability', '-> risk:attack -(used)> risk:vuln'),
                     ),
                 },
             },
@@ -84,19 +84,20 @@ _DefaultConfig = {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
-                        'first_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.0))',
-                        'last_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.1))',
+# TODO: update this after modeling is updated
+#                        'first_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.0))',
+#                        'last_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.1))',
                         'goals': '''
                             init { $goals = () }
-                            -> ou:campaign:org -> ou:goal | uniq | +:name $goals.append(:name)
+                            -> entity:campaign:actor -> entity:goal | uniq | +:name $goals.append(:name)
                             fini { if $goals { return($goals) } }
                         ''',
                     },
                     'rels': (
                         ('attributed-to', 'identity', ''),
-                        ('located-at', 'location', ':hq -> geo:place'),
-                        ('targets', 'identity', '-> ou:campaign -> risk:attack :target:org -> ou:org'),
-                        ('targets', 'vulnerability', '-> ou:campaign -> risk:attack :used:vuln -> risk:vuln'),
+                        ('located-at', 'location', '-> geo:place'),
+                        ('targets', 'identity', '-> entity:campaign -> risk:attack -(targets)> ou:org'),
+                        ('targets', 'vulnerability', '-> entity:campaign -> risk:attack -(used)> risk:vuln'),
                         # ('impersonates', 'identity', ''),
                     ),
                 },
@@ -117,7 +118,7 @@ _DefaultConfig = {
             },
         },
 
-        'ps:contact': {
+        'entity:contact': {
             'default': 'identity',
             'stix': {
                 'identity': {
@@ -147,31 +148,29 @@ _DefaultConfig = {
             },
         },
 
-        'inet:ipv4': {
-            'default': 'ipv4-addr',
+        'inet:ip': {
+            'dynopts': ('ipv4-addr', 'ipv6-addr'),
+            'dyndefault': '''
+                if (:version=4) { return(ipv4-addr) }
+                elif (:version=6) { return(ipv6-addr) }
+            ''',
             'stix': {
                 'ipv4-addr': {
                     'props': {
-                        'value': 'return($node.repr())',
+                        'value': '+:version=4 return($node.repr())',
                     },
                     'rels': (
                         ('belongs-to', 'autonomous-system', '-> inet:asn'),
                     ),
-                }
-            },
-        },
-
-        'inet:ipv6': {
-            'default': 'ipv6-addr',
-            'stix': {
+                },
                 'ipv6-addr': {
                     'props': {
-                        'value': 'return($node.repr())',
+                        'value': '+:version=6 return($node.repr())',
                     },
                     'rels': (
                         ('belongs-to', 'autonomous-system', '-> inet:asn'),
                     ),
-                }
+                },
             },
         },
 
@@ -183,8 +182,8 @@ _DefaultConfig = {
                         'value': 'return($node.repr())',
                         'resolves_to_refs': '''
                             init { $refs = () }
-                            { -> inet:dns:a -> inet:ipv4 $refs.append($bundle.add($node)) }
-                            { -> inet:dns:aaaa -> inet:ipv6 $refs.append($bundle.add($node)) }
+                            { -> inet:dns:a -> inet:ip $refs.append($bundle.add($node)) }
+                            { -> inet:dns:aaaa -> inet:ip $refs.append($bundle.add($node)) }
                             { -> inet:dns:cname:fqdn :cname -> inet:fqdn $refs.append($bundle.add($node)) }
                             fini { if $refs { return($refs)} }
                          ''',
@@ -211,29 +210,29 @@ _DefaultConfig = {
                 'email-addr': {
                     'props': {
                         'value': 'return($node.repr())',
-                        'display_name': '-> ps:contact +:name return(:name)',
-                        'belongs_to_ref': '-> inet:web:acct return($bundle.add($node))',
+                        'display_name': '-> entity:contact +:name return(:name)',
+                        'belongs_to_ref': '-> inet:service:account return($bundle.add($node))',
                     },
                 }
             },
         },
 
-        'inet:web:acct': {
+        'inet:service:account': {
             'default': 'user-account',
             'stix': {
                 'user-account': {
                     'props': {
-                        'user_id': 'return(:user)',
+                        'user_id': 'return(:id)',
                         'account_login': 'return(:user)',
-                        'account_type': '''
-                            {+:site=twitter.com return(twitter)}
-                            {+:site=facebook.com return(facebook)}
+                        'account_type': '''-> inet:service:platform
+                            {+:name=twitter return(twitter)}
+                            {+:name=facebook return(facebook)}
                         ''',
-                        'credential': '+:passwd return(:passwd)',
-                        'display_name': '+:realname return(:realname)',
-                        'account_created': '+:signup return($lib.stix.export.timestamp(:signup))',
-                        'account_last_login': '+.seen $ival = .seen return($lib.stix.export.timestamp($ival.0))',
-                        'account_first_login': '+.seen $ival = .seen return($lib.stix.export.timestamp($ival.1))',
+                        'credential': '-> auth:creds return(:passwd)',
+                        'account_created': 'return($lib.stix.export.timestamp(:period.min))',
+# TODO: update this modeling?
+                        'account_last_login': 'return($lib.stix.export.timestamp(:period.max))',
+                        'account_first_login': 'return($lib.stix.export.timestamp(:period.min))',
                     },
                 }
             },
@@ -305,8 +304,9 @@ _DefaultConfig = {
                     'props': {
                         'name': '{+:title return(:title)} return($node.repr())',
                         'is_family': 'return($lib.true)',
-                        'first_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.0))',
-                        'last_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.1))',
+# TODO: update this after model update
+#                        'first_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.0))',
+#                        'last_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.1))',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'sample_refs': '''
@@ -343,7 +343,7 @@ _DefaultConfig = {
             },
         },
 
-        'it:prod:soft': {
+        'it:software': {
             'default': 'tool',
             'stix': {
                 'tool': {
@@ -351,20 +351,7 @@ _DefaultConfig = {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
-                    },
-                },
-            },
-        },
-
-        'it:prod:softver': {
-            'default': 'tool',
-            'stix': {
-                'tool': {
-                    'props': {
-                        'name': '-> it:prod:soft {+:name return(:name)} return($node.repr())',
-                        'created': 'return($lib.stix.export.timestamp(.created))',
-                        'modified': 'return($lib.stix.export.timestamp(.created))',
-                        'tool_version': '+:vers return(:vers)',
+                        'tool_version': '+:version return(:version)',
                     },
                     'rels': (
                         # TODO
@@ -401,7 +388,7 @@ _DefaultConfig = {
             }
         },
 
-        'ou:technique': {
+        'meta:technique': {
             'default': 'attack-pattern',
             'stix': {
                 'attack-pattern': {
@@ -428,7 +415,7 @@ _DefaultConfig = {
             },
         },
 
-        'media:news': {
+        'doc:report': {
             'default': 'report',
             'stix': {
                 'report': {
@@ -488,7 +475,7 @@ _DefaultConfig = {
 perm_maxsize = ('storm', 'lib', 'stix', 'export', 'maxsize')
 def _validateConfig(runt, config):
 
-    core = runt.snap.core
+    core = runt.view.core
 
     maxsize = config.get('maxsize', 10000)
 
@@ -526,21 +513,29 @@ def _validateConfig(runt, config):
 
         stixdef = formconf.get('default')
         if stixdef is None:
-            mesg = f'STIX Bundle config is missing default mapping for form {formname}.'
-            raise s_exc.NeedConfValu(mesg=mesg)
+            if (stixdyn := formconf.get('dyndefault')) is None:
+                mesg = f'STIX Bundle config is missing default mapping for form {formname}.'
+                raise s_exc.NeedConfValu(mesg=mesg)
 
-        if stixdef not in alltypes:
-            mesg = f'STIX Bundle default mapping ({stixdef}) for {formname} is not a STIX type.'
-            raise s_exc.BadConfValu(mesg=mesg)
+            stixdefs = formconf.get('dynopts')
+
+        else:
+            stixdefs = (stixdef,)
+
+        for stixdef in stixdefs:
+            if stixdef not in alltypes:
+                mesg = f'STIX Bundle default mapping ({stixdef}) for {formname} is not a STIX type.'
+                raise s_exc.BadConfValu(mesg=mesg)
 
         stixmaps = formconf.get('stix')
         if stixmaps is None:
             mesg = f'STIX Bundle config is missing STIX maps for form {formname}.'
             raise s_exc.NeedConfValu(mesg=mesg)
 
-        if stixmaps.get(stixdef) is None:
-            mesg = f'STIX Bundle config is missing STIX map for form {formname} default value {stixdef}.'
-            raise s_exc.BadConfValu(mesg=mesg)
+        for stixdef in stixdefs:
+            if stixmaps.get(stixdef) is None:
+                mesg = f'STIX Bundle config is missing STIX map for form {formname} default value {stixdef}.'
+                raise s_exc.BadConfValu(mesg=mesg)
 
         for stixtype, stixinfo in stixmaps.items():
 
@@ -676,7 +671,7 @@ class LibStix(s_stormtypes.Lib):
             ndef = synx.get('synapse_ndef')
             if not ndef:  # pragma: no cover
                 continue
-            node = await self.runt.snap.getNodeByNdef(ndef)
+            node = await self.runt.view.getNodeByNdef(ndef)
             if node:
                 yield node
 
@@ -693,10 +688,10 @@ stixingest = {
     'objects': {
         'intrusion-set': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(ou:name, $object.name)
+                ($ok, $name) = $lib.trycast(meta:name, $object.name)
                 if $ok {
 
-                    ou:name=$name -> ou:org
+                    meta:name=$name -> ou:org
                     { for $alias in $object.aliases { [ :names?+=$alias ] } }
                     return($node)
 
@@ -709,27 +704,24 @@ stixingest = {
         'identity': {
             'storm': '''
                 switch $object.identity_class {
-                    group: {[ ps:contact=(stix, identity, $object.id) :orgname?=$object.name ]}
-                    organization: {[ ps:contact=(stix, identity, $object.id) :orgname?=$object.name ]}
-                    individual: {[ ps:contact=(stix, identity, $object.id) :name?=$object.name ]}
+                    group: {[ entity:contact=(stix, identity, $object.id) :orgname?=$object.name ]}
+                    organization: {[ entity:contact=(stix, identity, $object.id) :orgname?=$object.name ]}
+                    individual: {[ entity:contact=(stix, identity, $object.id) :name?=$object.name ]}
                     system: {[ it:host=(stix, identity, $object.id) :name?=$object.name ]}
                 }
             ''',
         },
         'tool': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(it:prod:softname, $object.name)
-                if $ok {
-                    it:prod:softname=$name -> it:prod:soft
-                    return($node)
-                    [ it:prod:soft=* :name=$name ]
-                    return($node)
-                }
+                ($ok, $name) = $lib.trycast(meta:name, $object.name)
+                if (not $ok) { return() }
+                [ it:software=({"name": $object.name}) ]
+                return($node)
             ''',
         },
         'threat-actor': {
             'storm': '''
-                [ ps:contact=(stix, threat-actor, $object.id)
+                [ entity:contact=(stix, threat-actor, $object.id)
                     :name?=$object.name
                     :desc?=$object.description
                     :names?=$object.aliases
@@ -750,11 +742,11 @@ stixingest = {
         },
         'campaign': {
             'storm': '''
-                [ ou:campaign=(stix, campaign, $object.id)
+                [ entity:campaign=(stix, campaign, $object.id)
                     :name?=$object.name
                     :desc?=$object.description
-                    .seen?=$object.last_seen
-                    .seen?=$object.first_seen
+                    :period?=$object.last_seen
+                    :period?=$object.first_seen
                 ]
                 $node.data.set(stix:object, $object)
                 return($node)
@@ -762,13 +754,10 @@ stixingest = {
         },
         'malware': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(it:prod:softname, $object.name)
-                if $ok {
-                    it:prod:softname=$name -> it:prod:soft
-                    return($node)
-                    [ it:prod:soft=* :name=$name ]
-                    return($node)
-                }
+                ($ok, $name) = $lib.trycast(meta:name, $object.name)
+                if (not $ok) { return() }
+                [ it:software=({"name": $object.name}) ]
+                return($node)
             ''',
         },
         'indicator': {
@@ -800,9 +789,9 @@ stixingest = {
         },
         'report': {
             'storm': '''
-                [ media:news=(stix, report, $object.id)
+                [ doc:report=(stix, report, $object.id)
                     :title?=$object.name
-                    :summary?=$object.description
+                    :desc?=$object.description
                     :published?=$object.published
                 ]
                 $node.data.set(stix:object, $object)
@@ -821,7 +810,7 @@ stixingest = {
             $n2node.props.org = $n1node
         '''},
 
-        {'type': (None, 'uses', None), 'storm': 'yield $n1node [ +(uses)> { yield $n2node } ]'},
+        {'type': (None, 'uses', None), 'storm': 'yield $n1node [ +(used)> { yield $n2node } ]'},
         {'type': (None, 'indicates', None), 'storm': 'yield $n1node [ +(indicates)> { yield $n2node } ]'},
 
         # nothing to do... they are the same for us...
@@ -924,7 +913,7 @@ class LibStixImport(s_stormtypes.Lib):
 
         if bundlenode is not None:
             for node in nodesbyid.values():
-                await bundlenode.addEdge('refs', node.iden())
+                await bundlenode.addEdge('refs', node.nid)
                 await asyncio.sleep(0)
             yield bundlenode
 
@@ -947,7 +936,7 @@ class LibStixImport(s_stormtypes.Lib):
 
             objconf = config['objects'].get(objtype)
             if objconf is None:
-                await self.runt.snap.warnonce(f'STIX bundle ingest has no object definition for: {objtype}.')
+                await self.runt.warnonce(f'STIX bundle ingest has no object definition for: {objtype}.')
                 continue
 
             objstorm = objconf.get('storm')
@@ -961,7 +950,7 @@ class LibStixImport(s_stormtypes.Lib):
             except asyncio.CancelledError: # pragma: no cover
                 raise
             except Exception as e:
-                await self.runt.snap.warn(f'Error during STIX import callback for {objtype}: {e}')
+                await self.runt.warn(f'Error during STIX import callback for {objtype}: {e}')
 
         for rel in relationships:
 
@@ -1005,10 +994,10 @@ class LibStixImport(s_stormtypes.Lib):
                 except asyncio.CancelledError: # pragma: no cover
                     raise
                 except Exception as e:
-                    await self.runt.snap.warn(f'Error during STIX import callback for {reltype}: {e}')
+                    await self.runt.warn(f'Error during STIX import callback for {reltype}: {e}')
 
             if not foundone:
-                await self.runt.snap.warnonce(f'STIX bundle ingest has no relationship definition for: {reltype}.')
+                await self.runt.warnonce(f'STIX bundle ingest has no relationship definition for: {reltype}.')
 
         # attempt to resolve object_refs
         for obj in bundle.get('objects', ()):
@@ -1022,13 +1011,13 @@ class LibStixImport(s_stormtypes.Lib):
                 if refsnode is None:
                     continue
 
-                await node.addEdge('refs', refsnode.iden())
+                await node.addEdge('refs', refsnode.nid)
 
         return nodesbyid
 
     async def _callStorm(self, text, varz):
 
-        query = await self.runt.snap.core.getStormQuery(text)
+        query = await self.runt.view.core.getStormQuery(text)
         async with self.runt.getCmdRuntime(query, opts={'vars': varz}) as runt:
             try:
                 async for _ in runt.execute():
@@ -1084,25 +1073,25 @@ class LibStixExport(s_stormtypes.Lib):
                         },
                     },
 
-                For example, the default config includes the following entry to map ou:campaign nodes to stix campaigns::
+                For example, the default config includes the following entry to map entity:campaign nodes to stix campaigns::
 
                     { "forms": {
-                        "ou:campaign": {
+                        "entity:campaign": {
                             "default": "campaign",
                             "stix": {
                                 "campaign": {
                                     "props": {
                                         "name": "{+:name return(:name)} return($node.repr())",
                                         "description": "+:desc return(:desc)",
-                                        "objective": "+:goal :goal -> ou:goal +:name return(:name)",
+                                        "objective": "+:goal :goal -> entity:goal +:name return(:name)",
                                         "created": "return($lib.stix.export.timestamp(.created))",
                                         "modified": "return($lib.stix.export.timestamp(.created))",
                                     },
                                     "rels": (
                                         ("attributed-to", "threat-actor", ":org -> ou:org"),
-                                        ("originates-from", "location", ":org -> ou:org :hq -> geo:place"),
-                                        ("targets", "identity", "-> risk:attack :target:org -> ou:org"),
-                                        ("targets", "identity", "-> risk:attack :target:person -> ps:person"),
+                                        ("originates-from", "location", ":org -> ou:org -> geo:place"),
+                                        ("targets", "identity", "-> risk:attack -(targets)> ou:org"),
+                                        ("targets", "identity", "-> risk:attack -(targets)> ps:person"),
                                     ),
                                 },
                             },
@@ -1117,7 +1106,7 @@ class LibStixExport(s_stormtypes.Lib):
                             "domain-name": {
                                 ...
                                 "pivots": [
-                                    {"storm": "-> inet:dns:a -> inet:ipv4", "stixtype": "ipv4-addr"}
+                                    {"storm": "-> inet:dns:a -> inet:ip", "stixtype": "ipv4-addr"}
                                 ]
                             {
                         }
@@ -1137,11 +1126,11 @@ class LibStixExport(s_stormtypes.Lib):
         },
 
         {
-            'name': 'timestamp', 'desc': 'Format an epoch milliseconds timestamp for use in STIX output.',
+            'name': 'timestamp', 'desc': 'Format an epoch microseconds timestamp for use in STIX output.',
              'type': {
                 'type': 'function', '_funcname': 'timestamp',
                 'args': (
-                    {'type': 'time', 'name': 'tick', 'desc': 'The epoch milliseconds timestamp.'},
+                    {'type': 'time', 'name': 'tick', 'desc': 'The epoch microseconds timestamp.'},
                 ),
                 'returns': {'type': 'str', 'desc': 'A STIX formatted timestamp string.'},
             }
@@ -1185,7 +1174,7 @@ class LibStixExport(s_stormtypes.Lib):
         return StixBundle(self, self.runt, config)
 
     def timestamp(self, tick):
-        dt = datetime.datetime.fromtimestamp(tick / 1000.0, datetime.UTC)
+        dt = datetime.datetime.fromtimestamp(tick / 1000000.0, datetime.UTC)
         millis = int(dt.microsecond / 1000)
         return f'{dt.strftime("%Y-%m-%dT%H:%M:%S")}.{millis:03d}Z'
 
@@ -1268,11 +1257,6 @@ class StixBundle(s_stormtypes.Prim):
                   ),
                   'returns': {'type': 'str', 'desc': 'The stable STIX id of the added object.'}}},
 
-        {'name': 'pack', 'desc': 'Return the bundle as a STIX JSON object.',
-         'type': {'type': 'function', '_funcname': 'pack',
-                  'args': (),
-                  'returns': {'type': 'dict', }}},
-
         {'name': 'size', 'desc': 'Return the number of STIX objects currently in the bundle.',
          'type': {'type': 'function', '_funcname': 'size',
                   'args': (),
@@ -1292,13 +1276,20 @@ class StixBundle(s_stormtypes.Prim):
         self.synextension = config.get('synapse_extension', True)
         self.maxsize = config.get('maxsize', 10000)
 
-    async def value(self):
-        return self.pack()
+    def value(self):
+        objects = list(self.objs.values())
+        if self.synextension:
+            objects.insert(0, self._getSynapseExtensionDefinition())
+        bundle = {
+            'type': 'bundle',
+            'id': f'bundle--{uuid4()}',
+            'objects': objects
+        }
+        return bundle
 
     def getObjLocals(self):
         return {
             'add': self.add,
-            'pack': self.pack,
             'size': self.size,
         }
 
@@ -1323,7 +1314,10 @@ class StixBundle(s_stormtypes.Prim):
             return None
 
         if stixtype is None:
-            stixtype = formconf.get('default')
+            if (stixtype := formconf.get('default')) is None:
+                stixdyn = formconf.get('dyndefault')
+                if (stixtype := await self._callStorm(stixdyn, node)) is s_common.novalu:
+                    return None
 
         # cyber observables have UUIDv5 the rest have UUIDv4
         if stixtype in stix_observables:
@@ -1423,18 +1417,6 @@ class StixBundle(s_stormtypes.Prim):
         return ret
 
     @s_stormtypes.stormfunc(readonly=True)
-    def pack(self):
-        objects = list(self.objs.values())
-        if self.synextension:
-            objects.insert(0, self._getSynapseExtensionDefinition())
-        bundle = {
-            'type': 'bundle',
-            'id': f'bundle--{uuid4()}',
-            'objects': objects
-        }
-        return bundle
-
-    @s_stormtypes.stormfunc(readonly=True)
     def size(self):
         return len(self.objs)
 
@@ -1444,7 +1426,7 @@ class StixBundle(s_stormtypes.Prim):
         varz['bundle'] = self
 
         opts = {'vars': varz}
-        query = await self.runt.snap.core.getStormQuery(text)
+        query = await self.runt.view.core.getStormQuery(text)
         async with self.runt.getCmdRuntime(query, opts=opts) as runt:
 
             async def genr():

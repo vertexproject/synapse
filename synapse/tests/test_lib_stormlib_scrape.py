@@ -11,7 +11,7 @@ class StormScrapeTest(s_test.SynTest):
             'modules': [
                 {'name': 'scrapename',
                  'modconf': {'nameRegex': '(Name\\:\\s)(?<valu>[a-z0-9]+)\\s',
-                             'form': 'ps:name',
+                             'form': 'meta:name',
                              },
                  'interfaces': ['scrape'],
                  'storm': '''
@@ -99,7 +99,7 @@ class StormScrapeTest(s_test.SynTest):
             self.len(2, core.modsbyiface.get('scrape'))
 
             msgs = await core.stormlist(q, opts={'vars': {'text': text}})
-            self.stormIsInPrint('ps:name=alice', msgs)
+            self.stormIsInPrint('meta:name=alice', msgs)
             self.stormIsInPrint('inet:fqdn=foo.bar.com', msgs)
             self.stormIsInPrint('inet:url=https://1.2.3.4/alice.html', msgs)
             self.stormIsInPrint('inet:url=https://giggles.com/mallory.html', msgs)
@@ -114,18 +114,18 @@ class StormScrapeTest(s_test.SynTest):
             ndefs = await core.callStorm(cq, opts={'vars': {'text': text}})
             self.eq(ndefs, (('inet:url', 'http://1.2.3.4/billy.html'),
                             ('inet:url', 'https://1.2.3.4/alice.html'),
-                            ('inet:ipv4', 134678021),
-                            ('inet:ipv4', 16909060),
-                            ('inet:ipv4', 50331657),
-                            ('inet:ipv4', 134612741),
+                            ('inet:ip', (4, 134678021)),
+                            ('inet:ip', (4, 16909060)),
+                            ('inet:ip', (4, 50331657)),
+                            ('inet:ip', (4, 134612741)),
                             ('inet:fqdn', 'foo.bar.com'),
                             ('inet:fqdn', 'foo.boofle.com'),
                             ('inet:fqdn', 'newp.net'),
                             ('inet:fqdn', 'giggles.com'),
                             ('inet:fqdn', 'newpers.net'),
-                            ('ps:name', 'billy'),
-                            ('ps:name', 'alice'),
-                            ('ps:name', 'mallory'),
+                            ('meta:name', 'billy'),
+                            ('meta:name', 'alice'),
+                            ('meta:name', 'mallory'),
                             ('inet:url', 'https://giggles.com/mallory.html')))
 
         conf = {'storm:interface:scrape': False, }
@@ -138,26 +138,13 @@ class StormScrapeTest(s_test.SynTest):
             self.len(2, core.modsbyiface.get('scrape'))
 
             msgs = await core.stormlist(q, opts={'vars': {'text': text}})
-            self.stormNotInPrint('ps:name=alice', msgs)
+            self.stormNotInPrint('meta:name=alice', msgs)
             self.stormIsInPrint('inet:fqdn=foo.bar.com', msgs)
             self.stormIsInPrint('inet:url=https://1.2.3.4/alice.html', msgs)
 
     async def test_storm_lib_scrape(self):
 
         async with self.getTestCore() as core:
-
-            # Backwards compatibility $lib.scrape() adopters
-            text = 'foo.bar comes from 1.2.3.4 which also knows about woot.com and its bad ness!'
-            query = '''for ($form, $ndef) in $lib.scrape($text, $scrape_form, $refang)
-            { $lib.print('{f}={n}', f=$form, n=$ndef) }
-            '''
-            varz = {'text': text, 'scrape_form': None, 'refang': True}
-            msgs = await core.stormlist(query, opts={'vars': varz})
-            self.stormIsInWarn('$lib.scrape() is deprecated. Use $lib.scrape.ndefs().', msgs)
-            # self.stormIsInPrint('inet:ipv4=16909060', msgs)
-            self.stormIsInPrint('inet:ipv4=1.2.3.4', msgs)
-            self.stormIsInPrint('inet:fqdn=foo.bar', msgs)
-            self.stormIsInPrint('inet:fqdn=woot.com', msgs)
 
             # $lib.scrape.ndefs()
             text = 'foo.bar comes from 1.2.3.4 which also knows about woot.com and its bad ness!'
@@ -166,7 +153,7 @@ class StormScrapeTest(s_test.SynTest):
             '''
             varz = {'text': text}
             msgs = await core.stormlist(query, opts={'vars': varz})
-            self.stormIsInPrint('inet:ipv4=16909060', msgs)
+            self.stormIsInPrint('inet:ip=(4, 16909060)', msgs)
             self.stormIsInPrint('inet:fqdn=foo.bar', msgs)
             self.stormIsInPrint('inet:fqdn=woot.com', msgs)
 
@@ -177,7 +164,7 @@ class StormScrapeTest(s_test.SynTest):
             '''
             varz = {'text': text}
             result = await core.callStorm(query, opts={'vars': varz})
-            self.eq(result, {'inet:ipv4=16909060': 1, 'inet:fqdn=foo.bar': 1, 'inet:fqdn=woot.com': 1})
+            self.eq(result, {'inet:ip=(4, 16909060)': 1, 'inet:fqdn=foo.bar': 1, 'inet:fqdn=woot.com': 1})
 
             # $lib.scrape.context() - this is currently just wrapping s_scrape.contextscrape
             query = '''$list = () for $info in $lib.scrape.context($text)
@@ -192,11 +179,11 @@ class StormScrapeTest(s_test.SynTest):
                 ndefs.add((form, valu))
                 self.isinstance(info, dict)
                 self.isinstance(form, str)
-                self.isinstance(valu, (str, int))
+                self.isinstance(valu, (str, tuple))
                 self.isin('offset', info)
                 self.isin('match', info)
             self.eq(ndefs, {('inet:fqdn', 'woot.com'), ('inet:fqdn', 'foo.bar'),
-                            ('inet:ipv4', 16909060,)})
+                            ('inet:ip', (4, 16909060))})
 
             varz = {'text': text, 'unique': False}
             results = await core.callStorm(query, opts={'vars': varz})

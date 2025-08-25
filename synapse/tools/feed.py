@@ -7,17 +7,19 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
+import synapse.lib.coro as s_coro
 import synapse.lib.cmd as s_cmd
-import synapse.lib.cmdr as s_cmdr
 import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.encoding as s_encoding
 
+import synapse.tools.storm as s_t_storm
+
 logger = logging.getLogger(__name__)
 
-reqver = '>=0.2.0,<3.0.0'
+reqver = '>=3.0.0,<4.0.0'
 
 def getItems(*paths):
     items = []
@@ -43,38 +45,62 @@ def getItems(*paths):
             logger.warning('Unsupported file path: [%s]', path)
     return items
 
-async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=1000, offset=0, viewiden=None):
+async def ingest_items(core, items, outp, path, bname, viewiden=None, offset=None, chunksize=1000, is_synnode3=False, meta=None, debug=False):
+    tick = time.time()
+    outp.printf(f'Adding items from [{path}]')
+    foff = -1
 
-    items = getItems(*paths)
-    for path, item in items:
-
-        bname = os.path.basename(path)
-
-        tick = time.time()
-        outp.printf(f'Adding items from [{path}]')
-
-        foff = 0
-        for chunk in s_common.chunks(item, chunksize):
-
-            clen = len(chunk)
-            if offset and foff + clen < offset:
-                # We have not yet encountered a chunk which
-                # will include the offset size.
-                foff += clen
-                continue
-
-            await core.addFeedData(feedformat, chunk, viewiden=viewiden)
-
+    for chunk in s_common.chunks(items, chunksize):
+        clen = len(chunk)
+        if offset and foff + clen <= offset:
             foff += clen
-            outp.printf(f'Added [{clen}] items from [{bname}] - offset [{foff}]')
+            continue
+        if is_synnode3 and meta is not None:
+            chunk = (meta,) + chunk
+        await core.addFeedData(chunk, viewiden=viewiden, reqmeta=is_synnode3)
+        foff += clen
+        outp.printf(f'Added [{clen}] items from [{bname}] - offset [{foff}]')
+    tock = time.time()
+    outp.printf(f'Done consuming from [{bname}]')
+    outp.printf(f'Took [{tock - tick}] seconds.')
 
-        tock = time.time()
+async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0, viewiden=None, summary=False):
+    items = getItems(*paths)
+    if summary:
+        for path, _ in items:
+            if not (path.endswith('.mpk') or path.endswith('.nodes')):
+                outp.printf(f'Warning: --summary and --extend-model are only supported for .mpk/.nodes files. Aborting.')
+                return 1
 
-        outp.printf(f'Done consuming from [{bname}]')
-        outp.printf(f'Took [{tock - tick}] seconds.')
+    for path, item in items:
+        bname = os.path.basename(path)
+        is_synnode3 = path.endswith('.mpk') or path.endswith('.nodes')
 
-    if debug:
-        await s_cmdr.runItemCmdr(core, outp, True)
+        if is_synnode3:
+
+            genr = s_msgpack.iterfile(path)
+            meta = next(genr)
+
+            if not (isinstance(meta, dict) and meta.get('type') == 'meta'):
+                outp.printf(f'Warning: {path} is not a valid syn.nodes file!')
+                continue # Next file
+
+            if summary:
+                outp.printf(f"Summary for [{bname}]:")
+                outp.printf(f"  Creator: {meta.get('creatorname')}")
+                outp.printf(f"  Created: {meta.get('created')}")
+                outp.printf(f"  Forms: {meta.get('forms')}")
+                outp.printf(f"  Count: {meta.get('count')}")
+                continue  # Skip ingest
+
+            await ingest_items(core, genr, outp, path, bname, viewiden=viewiden, offset=offset, chunksize=chunksize, is_synnode3=True, meta=meta, debug=debug)
+            continue # Next file
+
+        # all other supported file types
+        await ingest_items(core, item, outp, path, bname, viewiden=viewiden, offset=offset, chunksize=chunksize, is_synnode3=False, meta=None, debug=debug)
+
+    if debug: # pragma: no cover
+        await s_t_storm.runItemStorm(core, outp=outp)
 
 async def main(argv, outp=s_output.stdout):
 
@@ -90,10 +116,11 @@ async def main(argv, outp=s_output.stdout):
                     f' to get to that location in the input file.')
 
     if opts.test:
-        async with s_cortex.getTempCortex(mods=opts.modules) as prox:
-            await addFeedData(prox, outp, opts.format, opts.debug,
+        async with s_cortex.getTempCortex() as prox:
+            await addFeedData(prox, outp, opts.debug,
                         chunksize=opts.chunksize,
                         offset=opts.offset,
+                        summary=opts.summary,
                         *opts.files)
 
     elif opts.cortex:
@@ -107,9 +134,11 @@ async def main(argv, outp=s_output.stdout):
                     outp.printf(f'Please use a version of Synapse which supports {valu}; '
                           f'current version is {s_version.verstring}.')
                     return 1
-                await addFeedData(core, outp, opts.format, opts.debug,
+                await addFeedData(core, outp, opts.debug,
                                   chunksize=opts.chunksize,
-                                  offset=opts.offset, viewiden=opts.view,
+                                  offset=opts.offset,
+                                  viewiden=opts.view,
+                                  summary=opts.summary,
                                   *opts.files)
 
     else:  # pragma: no cover
@@ -127,13 +156,10 @@ def getArgParser(outp):
                       help='Cortex to connect and add nodes too.')
     muxp.add_argument('--test', '-t', default=False, action='store_true',
                       help='Perform a local ingest against a temporary cortex.')
-
+    pars.add_argument('--summary', '-s', default=False, action='store_true',
+                      help='Show a summary of the data. Do not add any data.')
     pars.add_argument('--debug', '-d', default=False, action='store_true',
                       help='Drop to interactive prompt to inspect cortex after loading data.')
-    pars.add_argument('--format', '-f', type=str, action='store', default='syn.nodes',
-                      help='Feed format to use for the ingested data.')
-    pars.add_argument('--modules', '-m', type=str, action='append', default=[],
-                      help='Additional modules to load locally with a test Cortex.')
     pars.add_argument('--chunksize', type=int, action='store', default=1000,
                       help='Default chunksize for iterating over items.')
     pars.add_argument('--offset', type=int, action='store', default=0,
