@@ -4856,7 +4856,6 @@ class EditPropSet(Edit):
                 runt.confirmPropSet(prop)
 
             isarray = prop.type.isarray
-            norminfo = None
 
             try:
 
@@ -4876,7 +4875,7 @@ class EditPropSet(Edit):
                         exc = s_exc.StormRuntimeError(mesg=mesg)
                         raise self.kids[0].addExcInfo(exc)
 
-                    arry, virts = node.getWithVirts(name)
+                    arry = node.get(name)
                     if arry is None:
                         arry = ()
 
@@ -4887,13 +4886,7 @@ class EditPropSet(Edit):
                         valu = (valu,)
 
                     if isadd:
-                        newinfos = {}
-                        for v in valu:
-                            norm, info = await prop.type.arraytype.norm(v, view=runt.view)
-                            arry.append(norm)
-                            newinfos[norm] = info
-
-                        valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos=newinfos, view=runt.view)
+                        arry.extend(valu)
 
                     else:
                         assert issub
@@ -4904,17 +4897,9 @@ class EditPropSet(Edit):
                             try:
                                 arry.remove(norm)
                             except ValueError:
-                                continue
+                                pass
 
-                            if (virtnorm := info.get('virts')) is not None:
-                                for vname, (vval, vtyp) in virtnorm.items():
-                                    try:
-                                        virts[vname][0].remove(vval)
-                                    except ValueError:
-                                        continue
-
-                        valu = arry
-                        norminfo = {'virts': virts}
+                    valu = arry
 
                 if isinstance(prop.type, s_types.Ival):
                     oldv = node.get(name)
@@ -4926,7 +4911,7 @@ class EditPropSet(Edit):
                     await node.set(name, valu)
                 else:
                     async with runt.view.getNodeEditor(node, runt=runt) as protonode:
-                        await protonode.set(name, valu, norminfo=norminfo)
+                        await protonode.set(name, valu)
 
             except excignore:
                 pass
@@ -4982,63 +4967,36 @@ class EditPropSetMulti(Edit):
             atyp = prop.type.arraytype
             valu = await s_stormtypes.tostor(valu)
 
-            arry, virts = node.getWithVirts(name)
-            if arry is None:
+            if (arry := node.get(name)) is None:
                 arry = ()
 
             arry = list(arry)
 
             try:
-                if isadd:
-                    newinfos = {}
+                for item in valu:
+                    await asyncio.sleep(0)
 
-                    for item in valu:
-                        await asyncio.sleep(0)
+                    try:
+                        norm, info = await atyp.norm(item, view=runt.view)
+                    except excignore:
+                        continue
+                    except s_exc.BadTypeValu as e:
+                        raise rval.addExcInfo(e)
 
-                        try:
-                            norm, info = await atyp.norm(item, view=runt.view)
-                        except excignore:
-                            continue
-                        except s_exc.BadTypeValu as e:
-                            raise rval.addExcInfo(e)
-
+                    if isadd:
                         arry.append(norm)
-                        newinfos[norm] = info
-
-                    valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos=newinfos, view=runt.view)
-
-                else:
-                    for item in valu:
-                        await asyncio.sleep(0)
-
-                        try:
-                            norm, info = await atyp.norm(item, view=runt.view)
-                        except excignore:
-                            continue
-                        except s_exc.BadTypeValu as e:
-                            raise rval.addExcInfo(e)
-
+                    else:
                         try:
                             arry.remove(norm)
                         except ValueError:
-                            continue
-
-                        if (virtnorm := info.get('virts')) is not None:
-                            for vname, (vval, vtyp) in virtnorm.items():
-                                try:
-                                    virts[vname][0].remove(vval)
-                                except ValueError:
-                                    continue
-
-                    valu = arry
-                    norminfo = {'virts': virts}
+                            pass
 
             except TypeError:
                 styp = await s_stormtypes.totype(valu, basetypes=True)
                 mesg = f"'{styp}' object is not iterable: {s_common.trimText(repr(valu))}"
                 raise rval.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=styp)) from None
 
-            await node.set(name, arry, norminfo=norminfo)
+            await node.set(name, arry)
 
             yield node, path
             await asyncio.sleep(0)

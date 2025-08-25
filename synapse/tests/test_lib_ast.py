@@ -12,7 +12,6 @@ import synapse.lib.ast as s_ast
 import synapse.lib.view as s_view
 import synapse.lib.json as s_json
 import synapse.lib.time as s_time
-import synapse.lib.editor as s_editor
 
 import synapse.tests.utils as s_test
 
@@ -1343,93 +1342,41 @@ class AstTest(s_test.SynTest):
         '''
         async with self.getTestCore() as core:
 
-            origadd = s_editor.NodeEditor._addNode
-            adds = []
-            async def checkAdd(self, form, valu, norminfo=None):
-                adds.append((form.name, valu))
-                return await origadd(self, form, valu, norminfo=norminfo)
+            # test property assignment with subquery value
+            await core.nodes('[(ou:industry=* :name=foo)] [(ou:industry=* :name=bar)] [+#sqa]')
+            nodes = await core.nodes('[ ou:org=* :name=visiacme :industries={ou:industry#sqa}]')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
 
-            with mock.patch('synapse.lib.editor.NodeEditor._addNode', checkAdd):
+            nodes = await core.nodes('[entity:campaign=* :actor={[entity:contact=* :name=paperclip ]} ]')
+            self.len(1, nodes)
+            # Make sure we're not accidentally adding extra nodes
+            self.len(1, await core.nodes('entity:contact +:name=paperclip'))
 
-                # test property assignment with subquery value
-                await core.nodes('[(ou:industry=* :name=foo)] [(ou:industry=* :name=bar)] [+#sqa]')
+            nodes = await core.nodes('[ entity:contact=* :resolved={ou:org:name=visiacme}]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('resolved'))
 
-                adds = []
-                nodes = await core.nodes('[ ou:org=* :name=visiacme :industries={ou:industry#sqa}]')
-                self.len(1, nodes)
-                self.len(2, nodes[0].get('industries'))
+            nodes = await core.nodes('ou:org:name=visiacme')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
 
-                # There should be no adds for ou:industry nodes
-                self.len(2, adds)
-                self.eq(adds[0][0], 'ou:org')
-                self.eq(adds[1], ('meta:name', 'visiacme'))
+            nodes = await core.nodes('ou:org:name=visiacme [ :industries-={ou:industry:name=foo} ]')
+            self.len(1, nodes)
+            self.len(1, nodes[0].get('industries'))
 
-                adds.clear()
-                nodes = await core.nodes('[entity:campaign=* :actor={[entity:contact=* :name=paperclip ]} ]')
-                self.len(1, nodes)
+            nodes = await core.nodes('ou:org:name=visiacme [ :industries+={ou:industry:name=foo} ]')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
 
-                # entity:contact should only be added once
-                self.len(3, adds)
-                self.eq(adds[0][0], 'entity:campaign')
-                self.eq(adds[1][0], 'entity:contact')
-                self.eq(adds[2], ('meta:name', 'paperclip'))
+            await core.nodes('[ it:dev:str=a it:dev:str=b ]')
+            q = "ou:org:name=visiacme [ :motto={it:dev:str if ($node='b') {return(penetrode)}} ]"
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
 
-                # Make sure we're not accidentally adding extra nodes
-                self.len(1, await core.nodes('entity:contact +:name=paperclip'))
-
-                nodes = await core.nodes('[ entity:contact=* :resolved={ou:org:name=visiacme}]')
-                self.len(1, nodes)
-                self.nn(nodes[0].get('resolved'))
-
-                nodes = await core.nodes('ou:org:name=visiacme')
-                self.len(1, nodes)
-                self.len(2, nodes[0].get('industries'))
-
-                adds.clear()
-                nodes = await core.nodes('ou:org:name=visiacme [ :industries-={ou:industry:name=foo} ]')
-                self.len(1, nodes)
-                self.len(1, nodes[0].get('industries'))
-
-                # No nodes should should be added, everything already existed
-                self.len(0, adds)
-
-                adds.clear()
-                nodes = await core.nodes('ou:org:name=visiacme [ :industries+={ou:industry:name=foo} ]')
-                self.len(1, nodes)
-                self.len(2, nodes[0].get('industries'))
-
-                self.len(0, adds)
-
-                await core.nodes('[ it:dev:str=a it:dev:str=b ]')
-                q = "ou:org:name=visiacme [ :motto={it:dev:str if ($node='b') {return(penetrode)}} ]"
-                nodes = await core.nodes(q)
-                self.len(1, nodes)
-
-                adds.clear()
-                nodes = await core.nodes('[ test:arrayprop=(a,) :strs={return ((a,b,c,d))} ]')
-                self.len(1, nodes)
-                self.len(4, nodes[0].get('strs'))
-                self.len(5, adds)
-
-                adds.clear()
-                nodes = await core.nodes('test:arrayprop=(a,) [ :strs++={return ((e,f,g))} ]')
-                self.len(1, nodes)
-                self.len(7, nodes[0].get('strs'))
-
-                # Only new values should be added
-                self.len(3, adds)
-
-                adds.clear()
-                nodes = await core.nodes('test:arrayprop=(a,) [ :strs-=f ]')
-                self.len(1, nodes)
-                self.len(6, nodes[0].get('strs'))
-
-                nodes = await core.nodes('test:arrayprop=(a,) [ :strs--={return ((e,f,g))} ]')
-                self.len(1, nodes)
-                self.len(4, nodes[0].get('strs'))
-
-                # Subs never add nodes
-                self.len(0, adds)
+            nodes = await core.nodes('[ test:arrayprop=* :strs={return ((a,b,c,d))} ]')
+            self.len(1, nodes)
+            self.len(4, nodes[0].get('strs'))
 
             # Running the query again ensures that the ast hasattr memoizing works
             nodes = await core.nodes(q)
