@@ -1431,6 +1431,33 @@ class AstTest(s_test.SynTest):
                 # Subs never add nodes
                 self.len(0, adds)
 
+                adds.clear()
+                nodes = await core.nodes('''[ test:virtiface=(b,) :servers={[
+                    inet:server=1.2.3.4
+                    inet:server=2.3.4.5
+                    inet:server=3.4.5.6
+                    inet:server=4.5.6.7
+                ]}]''')
+
+                self.len(1, nodes)
+                self.len(9, adds)
+                valu, virts = nodes[0].getWithVirts('servers')
+                self.eq(virts['ip'][0], [(4, 16909060), (4, 33752069), (4, 50595078), (4, 67438087)])
+
+                adds.clear()
+                nodes = await core.nodes('test:virtiface=(b,) [ :servers -= { inet:server=2.3.4.5 } ]')
+                self.len(1, nodes)
+                self.len(0, adds)
+                valu, virts = nodes[0].getWithVirts('servers')
+                self.eq(virts['ip'][0], [(4, 16909060), (4, 50595078), (4, 67438087)])
+
+                adds.clear()
+                nodes = await core.nodes('test:virtiface=(b,) [ :servers --= { inet:server=4.5.6.7 inet:server=1.2.3.4 } ]')
+                self.len(1, nodes)
+                self.len(0, adds)
+                valu, virts = nodes[0].getWithVirts('servers')
+                self.eq(virts['ip'][0], [(4, 50595078)])
+
             # Running the query again ensures that the ast hasattr memoizing works
             nodes = await core.nodes(q)
             self.len(1, nodes)

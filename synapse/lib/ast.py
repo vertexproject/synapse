@@ -4910,7 +4910,7 @@ class EditPropSet(Edit):
                                 for vname, (vval, vtyp) in virtnorm.items():
                                     try:
                                         virts[vname][0].remove(vval)
-                                    except ValueError:
+                                    except ValueError:  # pragma: no cover
                                         continue
 
                         valu = arry
@@ -5027,7 +5027,7 @@ class EditPropSetMulti(Edit):
                             for vname, (vval, vtyp) in virtnorm.items():
                                 try:
                                     virts[vname][0].remove(vval)
-                                except ValueError:
+                                except ValueError:  # pragma: no cover
                                     continue
 
                     valu = arry
