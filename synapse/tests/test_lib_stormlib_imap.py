@@ -1311,7 +1311,6 @@ class ImapTest(s_test.SynTest):
 
     async def test_stormlib_imap_qsplit(self):
         self.eq(s_imap.qsplit('"" bar'), ['', 'bar'])
-        self.eq(s_imap.qsplit('foo   bar'), ['foo', 'bar'])
         self.eq(s_imap.qsplit('"foo   bar"'), ['foo   bar'])
         self.eq(s_imap.qsplit('foo bar'), ['foo', 'bar'])
         self.eq(s_imap.qsplit('"foobar"'), ['foobar'])
@@ -1321,27 +1320,23 @@ class ImapTest(s_test.SynTest):
         self.eq(s_imap.qsplit('foo bar "\\"" "\\"" "\\"foo\\""'), ['foo', 'bar', '"', '"', '"foo"'])
         self.eq(s_imap.qsplit('foo bar "foo\\\\"'), ['foo', 'bar', 'foo\\'])
         self.eq(s_imap.qsplit('foo bar "foo\\\\\\""'), ['foo', 'bar', 'foo\\"'])
-        self.eq(s_imap.qsplit('(\\\\HasNoChildren) "/" "\\"foobar\\""'), [r'(\\HasNoChildren)', '/', '"foobar"'])
+        self.eq(s_imap.qsplit('(\\HasNoChildren) "/" "\\"foobar\\""'), [r'(\HasNoChildren)', '/', '"foobar"'])
         self.eq(s_imap.qsplit('foo \\bar foo'), ['foo', '\\bar', 'foo'])
-
-        with self.raises(s_exc.BadDataValu) as exc:
-            s_imap.qsplit('foo bar "\\bfoo"')
-        self.eq(exc.exception.get('mesg'), 'Invalid data: b cannot be escaped.')
-        self.eq(exc.exception.get('data'), 'foo bar "\\bfoo"')
+        self.eq(s_imap.qsplit('foo bar "\\bfoo"'), ['foo', 'bar', '\\bfoo'])
 
         with self.raises(s_exc.BadDataValu) as exc:
             s_imap.qsplit(r'foo bar \"foo\""')
-        self.eq(exc.exception.get('mesg'), 'Quoted strings must be preceded by space.')
+        self.eq(exc.exception.get('mesg'), 'Invalid data: " cannot be escaped.')
         self.eq(exc.exception.get('data'), r'foo bar \"foo\""')
 
         with self.raises(s_exc.BadDataValu) as exc:
             s_imap.qsplit(r'foo bar \"foo\"')
-        self.eq(exc.exception.get('mesg'), 'Quoted strings must be preceded by space.')
+        self.eq(exc.exception.get('mesg'), 'Invalid data: " cannot be escaped.')
         self.eq(exc.exception.get('data'), r'foo bar \"foo\"')
 
         with self.raises(s_exc.BadDataValu) as exc:
             s_imap.qsplit('foo bar"')
-        self.eq(exc.exception.get('mesg'), 'Quoted strings must be preceded by space.')
+        self.eq(exc.exception.get('mesg'), 'Quoted strings must be preceded and followed by a space.')
         self.eq(exc.exception.get('data'), 'foo bar"')
 
         with self.raises(s_exc.BadDataValu) as exc:

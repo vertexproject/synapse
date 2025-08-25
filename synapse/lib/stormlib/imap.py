@@ -3,12 +3,15 @@ import asyncio
 import imaplib
 import logging
 
+import lark
 import regex
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.datfile as s_datfile
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -30,72 +33,59 @@ def quote(text, escape=True):
 
     return f'"{text}"'
 
+with s_datfile.openDatFile('synapse.lib.stormlib/imap.lark') as larkf:
+    _grammar = larkf.read().decode()
+
+LarkParser = lark.Lark(_grammar, regex=True, start='input',
+                       maybe_placeholders=False, propagate_positions=True, parser='lalr')
+
+class AstConverter(lark.Transformer):
+    def quoted(self, args):
+        def unescape(token):
+            if len(token) == 2 and token[0] == '\\':
+                return token[1]
+            return token
+
+        return ''.join(unescape(arg) for arg in args)
+
+    def unquoted(self, args):
+        return ''.join(args)
+
 def qsplit(text):
     '''
     Split on spaces.
     Preserve quoted strings.
-    Unescape backslack and double quotes.
+    Unescape backslash and double quotes.
     Unquote quoted strings.
 
-    Raise BadDataValu if quotes are unclosed.
+    Raise BadDataValu if:
+        - quotes are unclosed.
+        - quoted strings don't have a space before/after (not including beginning/end of line)
+        - double-quotes or backslashes are escaped outside of a quoted string
     '''
-    ret = []
-
-    token = []
-    inescape = False
-    inquotes = False
-
-    for char in text:
-        # Escapes only happen in quotes
-        if char == '\\' and not inescape and inquotes:
-            inescape = True
-            continue
-
-        if inescape:
-            if char not in ('"', '\\'):
-                mesg = f'Invalid data: {char} cannot be escaped.'
-                raise s_exc.BadDataValu(mesg=mesg, data=text)
-
-            token.append(char)
-            inescape = False
-            continue
-
-        # Found a space and we're not in a quoted token
-        if char == ' ' and not inquotes:
-            if not token:
-                continue
-
-            ret.append(''.join(token))
-            token = []
-            continue
-
-        if char != '"':
-            token.append(char)
-            continue
-
-        # From here on, current char is a double-quote
-
-        if token and not inquotes:
-            mesg = 'Quoted strings must be preceded by space.'
+    def on_error(exc):
+        # Escaped double-quote or backslash not in quotes
+        if exc.token_history and len(exc.token_history) == 1 and (tok := exc.token_history[0]).type == 'TEXT_CHAR' and tok.value == '\\':
+            mesg = f'Invalid data: {exc.token.value} cannot be escaped.'
             raise s_exc.BadDataValu(mesg=mesg, data=text)
 
-        # Handle empty string
-        if not token and inquotes:
-            ret.append('')
-            token = []
-            inquotes = False
-            continue
+        # Double quote at end of line
+        if exc.token.type == 'DBLQUOTE' and exc.column == len(text):
+            mesg = 'Quoted strings must be preceded and followed by a space.'
+            raise s_exc.BadDataValu(mesg=mesg, data=text)
 
-        inquotes = not inquotes
+        if exc.token.type == '$END' and exc.column == len(text) and exc.expected == {'QUOTED_CHAR', 'DBLQUOTE'}:
+            mesg = 'Unclosed quotes in text.'
+            raise s_exc.BadDataValu(mesg=mesg, data=text)
 
-    if inquotes:
-        mesg = 'Unclosed quotes in text.'
+        # Catch-all exception
+        # pragma: no cover
+        mesg = 'Unable to parse IMAP response data.'
         raise s_exc.BadDataValu(mesg=mesg, data=text)
 
-    if token:
-        ret.append(''.join(token))
-
-    return ret
+    tree = LarkParser.parse(text, on_error=on_error)
+    newtree = AstConverter(text).transform(tree)
+    return newtree.children
 
 imap_rgx = regex.compile(
     br'''
