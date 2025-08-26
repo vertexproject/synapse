@@ -1076,7 +1076,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                       {'name': 'size', 'type': 'int', 'default': None,
                        'desc': 'Only yield up to this many entries.'},
                   ),
-                  'returns': {'name': 'Yields', 'type': 'list',
+                  'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'A tuple of (offset, form, valu, sources) values for the specified node.', }}},
         {'name': 'printNode', 'desc': 'Print detailed queued node information.',
          'type': {'type': 'function', '_funcname': '_methPrintNode',

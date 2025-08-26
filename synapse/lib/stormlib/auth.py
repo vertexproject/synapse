@@ -708,7 +708,7 @@ class UserJson(s_stormtypes.Prim):
                   'args': (
                        {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.', 'default': None},
                    ),
-                   'returns': {'name': 'Yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
+                   'returns': {'name': 'yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
     )
 
     def __init__(self, runt, valu):
