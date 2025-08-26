@@ -41,12 +41,7 @@ LarkParser = lark.Lark(_grammar, regex=True, start='input',
 
 class AstConverter(lark.Transformer):
     def quoted(self, args):
-        def unescape(token):
-            if len(token) == 2 and token[0] == '\\':
-                return token[1]
-            return token
-
-        return ''.join(unescape(arg) for arg in args)
+        return ''.join(args)
 
     def unquoted(self, args):
         return ''.join(args)
@@ -69,13 +64,17 @@ def qsplit(text):
             mesg = f'Invalid data: {exc.token.value} cannot be escaped.'
             raise s_exc.BadDataValu(mesg=mesg, data=text) from None
 
+        if exc.token.type == 'UNQUOTED_CHAR' and exc.expected == {'QUOTED_SPECIALS'}:
+            mesg = f'Invalid data: {exc.token.value} cannot be escaped.'
+            raise s_exc.BadDataValu(mesg=mesg, data=text) from None
+
         # Double quote (opening a quoted string) at end of line
         if exc.token.type == 'DBLQUOTE' and exc.column == len(text):
             mesg = 'Quoted strings must be preceded and followed by a space.'
             raise s_exc.BadDataValu(mesg=mesg, data=text) from None
 
         # Unclosed quoted string
-        if exc.token.type == '$END' and exc.column == len(text) and exc.expected == {'QUOTED_CHAR', 'DBLQUOTE'}:
+        if exc.token.type == '$END' and exc.column == len(text) and exc.expected == {'QUOTED_CHAR', 'DBLQUOTE', 'BACKSLASH'}:
             mesg = 'Unclosed quotes in text.'
             raise s_exc.BadDataValu(mesg=mesg, data=text) from None
 
