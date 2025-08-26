@@ -88,6 +88,7 @@ include-package-data = true
     'data/attack-flow/**',
     'data/jsonschemas/**',
     'lib/storm.lark',
+    'lib/stormlib/imap.lark',
     'tests/files/**',
     'vendor/*/LICENSE'
 ]
