@@ -7,11 +7,11 @@ import lark
 import regex
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
-import synapse.lib.datfile as s_datfile
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -33,9 +33,7 @@ def quote(text, escape=True):
 
     return f'"{text}"'
 
-with s_datfile.openDatFile('synapse.lib.stormlib/imap.lark') as larkf:
-    _grammar = larkf.read().decode()
-
+_grammar = s_data.getLark('imap')
 LarkParser = lark.Lark(_grammar, regex=True, start='input',
                        maybe_placeholders=False, propagate_positions=True, parser='lalr')
 

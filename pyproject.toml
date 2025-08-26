@@ -85,10 +85,9 @@ include-package-data = true
 'synapse' = [
     'data/*.mpk',
     'data/certs/**',
+    'data/lark/*.lark',
     'data/attack-flow/**',
     'data/jsonschemas/**',
-    'lib/storm.lark',
-    'lib/stormlib/imap.lark',
     'tests/files/**',
     'vendor/*/LICENSE'
 ]
