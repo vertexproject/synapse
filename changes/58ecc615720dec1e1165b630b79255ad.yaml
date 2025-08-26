@@ -1,0 +1,5 @@
+---
+desc: Fixed Storm library documentation for certain ``boolean`` types and ``$lib.scrape.genMatches``.
+prs: []
+type: doc
+...
