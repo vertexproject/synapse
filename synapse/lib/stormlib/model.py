@@ -1067,7 +1067,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
         {'name': 'listNodes', 'desc': 'Yield queued nodes.',
          'type': {'type': 'function', '_funcname': '_methListNodes',
                   'args': (
-                      {'name': 'form', 'type': 'form', 'default': None,
+                      {'name': 'form', 'type': 'str', 'default': None,
                        'desc': 'Only yield entries matching the specified form.'},
                       {'name': 'source', 'type': 'str', 'default': None,
                        'desc': 'Only yield entries that were seen by the specified source.'},
@@ -1081,7 +1081,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
         {'name': 'printNode', 'desc': 'Print detailed queued node information.',
          'type': {'type': 'function', '_funcname': '_methPrintNode',
                   'args': (
-                      {'name': 'offset', 'type': 'into', 'desc': 'The offset of the queued node to print.'},
+                      {'name': 'offset', 'type': 'int', 'desc': 'The offset of the queued node to print.'},
                   ),
                   'returns': {'type': 'null'}}},
         {'name': 'repairNode', 'desc': 'Repair a queued node.',

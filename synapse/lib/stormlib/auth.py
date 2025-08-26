@@ -681,32 +681,32 @@ class UserJson(s_stormtypes.Prim):
         {'name': 'get', 'desc': 'Return a stored JSON object or object property for the user.',
          'type': {'type': 'function', '_funcname': 'get',
                    'args': (
-                        {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
-                        {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                        {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
+                        {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                     ),
                     'returns': {'type': 'prim', 'desc': 'The previously stored value or ``(null)``.'}}},
 
         {'name': 'set', 'desc': 'Set a JSON object or object property for the user.',
          'type': {'type': 'function', '_funcname': 'set',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path elements.'},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path elements.'},
                        {'name': 'valu', 'type': 'prim', 'desc': 'The value to set as the JSON object or object property.'},
-                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                       {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                    ),
                    'returns': {'type': 'boolean', 'desc': 'True if the set operation was successful.'}}},
 
         {'name': 'del', 'desc': 'Delete a stored JSON object or object property for the user.',
          'type': {'type': 'function', '_funcname': '_del',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
-                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
+                       {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                    ),
                    'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
 
         {'name': 'iter', 'desc': 'Yield (<path>, <valu>) tuples for the users JSON objects.',
          'type': {'type': 'function', '_funcname': 'iter',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.', 'default': None},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.', 'default': None},
                    ),
                    'returns': {'name': 'Yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
     )
@@ -1046,7 +1046,7 @@ class User(s_stormtypes.Prim):
                   'args': (
                       {'name': 'name', 'type': 'str',
                        'desc': 'The name of the API key.'},
-                      {'name': 'duration', 'type': 'integer', 'default': None,
+                      {'name': 'duration', 'type': 'int', 'default': None,
                        'desc': 'Duration of time for the API key to be valid, in milliseconds.'},
                   ),
                   'returns': {'type': 'list',

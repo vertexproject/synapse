@@ -1,7 +1,6 @@
 import os
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
@@ -21,10 +20,10 @@ class LibEnv(s_stormtypes.Lib):
             'type': 'function', '_funcname': '_libEnvGet',
             'args': (
                 {'name': 'name', 'type': 'str', 'desc': 'The name of the environment variable.', },
-                {'name': 'default', 'type': 'obj', 'default': None,
+                {'name': 'default', 'type': 'prim', 'default': None,
                     'desc': 'The value to return if the environment variable is not set.', },
             ),
-         'returns': {'type': 'str', 'desc': 'The environment variable string.'},
+            'returns': {'type': 'str', 'desc': 'The environment variable string.'},
          },
         },
     )
