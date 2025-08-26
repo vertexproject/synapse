@@ -20,6 +20,9 @@ CRLF = b'\r\n'
 CRLFLEN = len(CRLF)
 UNTAGGED = '*'
 
+TAGVAL_MIN = 4096
+TAGVAL_MAX = 65535
+
 def quote(text, escape=True):
     if text == '""':
         # Don't quote empty string
@@ -184,6 +187,7 @@ class IMAPBase(s_link.Link):
 
 class IMAPClient(IMAPBase):
     async def postAnit(self):
+        self._tagval = random.randint(TAGVAL_MIN, TAGVAL_MAX)
         self.readonly = False
         self.capabilities = []
 
@@ -269,7 +273,11 @@ class IMAPClient(IMAPBase):
         return resp
 
     def _genTag(self):
-        return imaplib.Int2AP(random.randint(4096, 65535)).decode()
+        self._tagval = (self._tagval + 1) % TAGVAL_MAX
+        if self._tagval == 0:
+            self._tagval = TAGVAL_MIN
+
+        return imaplib.Int2AP(self._tagval).decode()
 
     async def _command(self, tag, command, *args):
         if command.upper() not in imaplib.Commands:
