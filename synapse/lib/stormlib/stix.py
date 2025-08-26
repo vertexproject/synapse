@@ -645,7 +645,7 @@ class LibStix(s_stormtypes.Lib):
                 'args': (
                     {'type': 'dict', 'name': 'bundle', 'desc': 'The STIX bundle to lift nodes from.'},
                 ),
-                'returns': {'name': 'yields', 'type': 'node', 'desc': 'Yields nodes'}
+                'returns': {'name': 'yields', 'type': 'node', 'desc': 'Yields nodes.'}
             }
         },
     )
@@ -856,7 +856,7 @@ class LibStixImport(s_stormtypes.Lib):
                     {'type': 'dict', 'name': 'bundle', 'desc': 'The STIX bundle to ingest.'},
                     {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'An optional STIX ingest configuration.'},
                 ),
-                'returns': {'name': 'yields', 'type': 'node', 'desc': 'Yields nodes'}
+                'returns': {'name': 'yields', 'type': 'node', 'desc': 'Yields nodes.'}
             },
         },
     )
