@@ -1322,7 +1322,11 @@ class ImapTest(s_test.SynTest):
         self.eq(s_imap.qsplit('foo bar "foo\\\\\\""'), ['foo', 'bar', 'foo\\"'])
         self.eq(s_imap.qsplit('(\\HasNoChildren) "/" "\\"foobar\\""'), [r'(\HasNoChildren)', '/', '"foobar"'])
         self.eq(s_imap.qsplit('foo \\bar foo'), ['foo', '\\bar', 'foo'])
-        self.eq(s_imap.qsplit('foo bar "\\bfoo"'), ['foo', 'bar', '\\bfoo'])
+
+        with self.raises(s_exc.BadDataValu) as exc:
+            self.eq(s_imap.qsplit('foo bar "\\bfoo"'), ['foo', 'bar', '\\bfoo'])
+        self.eq(exc.exception.get('mesg'), 'Invalid data: b cannot be escaped.')
+        self.eq(exc.exception.get('data'), r'foo bar "\bfoo"')
 
         with self.raises(s_exc.BadDataValu) as exc:
             s_imap.qsplit(r'foo bar \"foo\""')
