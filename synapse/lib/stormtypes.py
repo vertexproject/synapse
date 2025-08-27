@@ -5088,7 +5088,7 @@ class Bytes(Prim):
             key = key.encode()
 
         if not isinstance(key, bytes):
-            raise s_exc.BadArg(mesg=f'$bytes.xor() key argument must be bytes or a str.')
+            raise s_exc.BadArg(mesg='$bytes.xor() key argument must be bytes or a str.')
 
         arry = bytearray(self.valu)
         keylen = len(key)
