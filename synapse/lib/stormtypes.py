@@ -7151,7 +7151,7 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'getStorNodesByProp',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The full property name to lift by.'},
-                      {'name': 'propvalu', 'type': 'obj', 'desc': 'The value for the property.', 'default': None},
+                      {'name': 'propvalu', 'type': 'prim', 'desc': 'The value for the property.', 'default': None},
                       {'name': 'propcmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.',
                        'default': '='},
                   ),
