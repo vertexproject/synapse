@@ -132,8 +132,11 @@ class IMAPBase(s_link.Link):
         # Append new bytes to existing bytes
         self._rxbuf += byts
 
-        # Iterate through buffer and parse out complete messages
-        while (offs := self._rxbuf.find(CRLF)) != -1:
+        # Iterate through buffer and parse out (up to 32) complete messages.
+        # NB: The 32 message maximum is an arbitrary number to keep this loop
+        # from running forever with an endless number of messages from the
+        # server.
+        while (offs := self._rxbuf.find(CRLF)) != -1 and len(ret) < 32:
 
             # Get the line out of the buffer
             line = self._rxbuf[:offs]
