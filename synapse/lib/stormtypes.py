@@ -4970,8 +4970,11 @@ class Bytes(Prim):
         {'name': 'xor', 'desc': '''
             Perform an exclusive "or" bitwise operation on the bytes and another set of bytes.
 
-            The key bytes provided as an argument will be repeated as needed until all bytes have been
-            xor'd.
+            Notes:
+                The key bytes provided as an argument will be repeated as needed until all bytes have been
+                xor'd.
+
+                If a string is provided as the key argument, it will be utf8 encoded before being xor'd.
 
             Examples:
                 Perform an xor operation on the bytes in $encoded using the bytes in $key::
