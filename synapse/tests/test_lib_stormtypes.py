@@ -1538,6 +1538,14 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.BadJsonText):
                 await core.callStorm(q, opts={'vars': {'buf': b'lol{newp,', 'encoding': None}})
 
+    async def test_storm_lib_bytes_xor(self):
+        async with self.getTestCore() as core:
+            encval = await core.callStorm("return(('foobar').encode().xor(asdf))")
+            self.eq(encval, b'\x07\x1c\x0b\x04\x00\x01')
+
+            decval = await core.callStorm("return($foo.xor(asdf).decode())", opts={'vars': {'foo': encval}})
+            self.eq(decval, 'foobar')
+
     async def test_storm_lib_list(self):
         async with self.getTestCore() as core:
             # Base List object behavior
