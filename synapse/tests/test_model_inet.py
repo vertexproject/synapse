@@ -2460,6 +2460,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :banner={[ file:bytes=({"name": "greencat.gif"}) ]}
                     :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
                     :app={[ inet:service:app=({"id": "a001"}) ]}
+                    :seen=(2022, 2023)
                 )
 
                 (inet:service:account=(visi, account, vertex, slack)
@@ -2476,6 +2477,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.nn(accounts[0].get('banner'))
             self.nn(accounts[0].get('tenant'))
             self.nn(accounts[0].get('app'))
+            self.eq(accounts[0].repr('seen'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
 
             self.eq(accounts[0].ndef, ('inet:service:account', s_common.guid(('blackout', 'account', 'vertex', 'slack'))))
             self.eq(accounts[0].get('id'), 'U7RN51U1J')

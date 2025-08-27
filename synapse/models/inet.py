@@ -1818,6 +1818,7 @@ modeldefs = (
                 'template': {'title': 'object'},
                 'interfaces': (
                     ('inet:service:base', {}),
+                    ('meta:observable', {}),
                 ),
                 'props': (
 
