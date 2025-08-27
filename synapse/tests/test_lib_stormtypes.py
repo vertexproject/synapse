@@ -1546,6 +1546,27 @@ class StormTypesTest(s_test.SynTest):
             decval = await core.callStorm("return($foo.xor(asdf).decode())", opts={'vars': {'foo': encval}})
             self.eq(decval, 'foobar')
 
+            encval = await core.callStorm("return(('foofoo').encode().xor(v))")
+            self.eq(encval, b'\x10\x19\x19\x10\x19\x19')
+
+            encval = await core.callStorm("$key=$lib.base64.decode('AA==') return(('foofoo').encode().xor($key))")
+            self.eq(encval, b'foofoo')
+
+            encval = await core.callStorm("$key=$lib.base64.decode('/w==') return(('foofoo').encode().xor($key))")
+            self.eq(encval, b'\x99\x90\x90\x99\x90\x90')
+
+            encval = await core.callStorm("$key=$lib.base64.decode('/w==') return(('foofoo').encode().xor($key).xor($key))")
+            self.eq(encval, b'foofoo')
+
+            encval = await core.callStorm("return(('v').encode().xor(foo))")
+            self.eq(encval, b'\x10')
+
+            encval = await core.callStorm("return(('').encode().xor(foo))")
+            self.eq(encval, b'')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm("return(('foobar').encode().xor(''))")
+
             with self.raises(s_exc.BadArg):
                 await core.callStorm("return(('foobar').encode().xor((123)))")
 

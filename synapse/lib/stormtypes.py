@@ -5090,6 +5090,9 @@ class Bytes(Prim):
         if not isinstance(key, bytes):
             raise s_exc.BadArg(mesg='$bytes.xor() key argument must be bytes or a str.')
 
+        if len(key) == 0:
+            raise s_exc.BadArg(mesg='$bytes.xor() key length must be greater than 0.')
+
         arry = bytearray(self.valu)
         keylen = len(key)
 
