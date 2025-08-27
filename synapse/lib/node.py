@@ -863,28 +863,31 @@ class Node(NodeBase):
             if (props := sode.get('props')) is None:
                 continue
 
-            if virts:
-                for name, valt in props.items():
-                    retn[name] = valu = valt[0]
-                    if (vprops := valt[2]) is not None:
-                        for vname, vval in vprops.items():
-                            retn[f'{name}.{vname}'] = vval[0]
-
-                    stortype = valt[1]
-
-                    if stortype & s_layer.STOR_FLAG_ARRAY:
-                        retn[f'{name}.size'] = len(valu)
-                        if (svirts := storvirts.get(stortype & 0x7fff)) is not None:
-                            for vname, getr in svirts.items():
-                                retn[f'{name}.{vname}'] = [getr(v) for v in valu]
-                    else:
-                        if (svirts := storvirts.get(stortype)) is not None:
-                            for vname, getr in svirts.items():
-                                retn[f'{name}.{vname}'] = getr(valu)
-
-            else:
-                for name, valt in props.items():
+            for name, valt in props.items():
+                if virts:
+                    retn[name] = valt
+                else:
                     retn[name] = valt[0]
+
+        if virts:
+            for name, valt in list(retn.items()):
+                retn[name] = valu = valt[0]
+
+                if (vprops := valt[2]) is not None:
+                    for vname, vval in vprops.items():
+                        retn[f'{name}.{vname}'] = vval[0]
+
+                stortype = valt[1]
+
+                if stortype & s_layer.STOR_FLAG_ARRAY:
+                    retn[f'{name}.size'] = len(valu)
+                    if (svirts := storvirts.get(stortype & 0x7fff)) is not None:
+                        for vname, getr in svirts.items():
+                            retn[f'{name}.{vname}'] = [getr(v) for v in valu]
+                else:
+                    if (svirts := storvirts.get(stortype)) is not None:
+                        for vname, getr in svirts.items():
+                            retn[f'{name}.{vname}'] = getr(valu)
 
         return retn
 

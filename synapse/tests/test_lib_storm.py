@@ -1486,6 +1486,18 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[3][1]['props']['seen.max'], 0x7ffffffffffffffe)
             self.eq(nodes[3][1]['props']['seen.duration'], 0xfffffffffffffffe)
 
+            opts['view'] = fork
+            msgs = await core.stormlist('test:str=baz [ -:seen ]', opts=opts)
+            nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
+
+            self.none(nodes[0][1]['props'].get('seen'))
+            self.none(nodes[0][1]['props'].get('seen.min'))
+            self.none(nodes[0][1]['props'].get('seen.max'))
+            self.none(nodes[0][1]['props'].get('seen.duration'))
+            self.eq(nodes[0][1]['props']['ndefs'], (('test:str', '1'), ('test:str', '2')))
+            self.eq(nodes[0][1]['props']['ndefs.size'], 2)
+            self.eq(nodes[0][1]['props']['ndefs.form'], ('test:str', 'test:str'))
+
     async def test_storm_diff_merge(self):
 
         async with self.getTestCore() as core:
