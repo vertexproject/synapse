@@ -2,8 +2,8 @@ import synapse.lib.module as s_module
 
 class GovUsModule(s_module.CoreModule):
 
-    def getModelDefs(self):
-        modl = {
+    def getModelDef(self):
+        return {
             'types': (
                 ('gov:us:ssn', ('int', {}), {'doc': 'A US Social Security Number (SSN).'}),
                 ('gov:us:zip', ('int', {}), {'doc': 'A US Postal Zip Code.'}),
@@ -28,5 +28,3 @@ class GovUsModule(s_module.CoreModule):
                 ('gov:us:zip', {}, []),
             ),
         }
-        name = 'gov:us'
-        return ((name, modl), )

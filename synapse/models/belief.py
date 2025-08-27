@@ -2,8 +2,8 @@ import synapse.lib.module as s_module
 
 class BeliefModule(s_module.CoreModule):
 
-    def getModelDefs(self):
-        return (('belief', {
+    def getModelDef(self):
+        return {
             'types': (
 
                 ('belief:system', ('guid', {}), {
@@ -73,4 +73,4 @@ class BeliefModule(s_module.CoreModule):
                 (('belief:subscriber', 'follows', 'belief:tenet'), {
                     'doc': 'The subscriber is assessed to generally adhere to the specific tenet.'}),
             ),
-        }),)
+        }

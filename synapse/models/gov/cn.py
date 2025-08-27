@@ -2,8 +2,8 @@ import synapse.lib.module as s_module
 
 class GovCnModule(s_module.CoreModule):
 
-    def getModelDefs(self):
-        modl = {
+    def getModelDef(self):
+        return {
             'types': (
                 ('gov:cn:icp',
                     ('int', {}),
@@ -24,5 +24,3 @@ class GovCnModule(s_module.CoreModule):
                 ('gov:cn:mucd', {}, ()),
             )
         }
-        name = 'gov:cn'
-        return ((name, modl), )

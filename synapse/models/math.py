@@ -2,8 +2,8 @@ import synapse.lib.module as s_module
 
 class MathModule(s_module.CoreModule):
 
-    def getModelDefs(self):
-        return (('math', {
+    def getModelDef(self):
+        return {
             'types': (
 
                 ('math:algorithm', ('guid', {}), {
@@ -47,4 +47,4 @@ class MathModule(s_module.CoreModule):
                         'doc': 'The time that the algorithm was authored.'}),
                 )),
             ),
-        }),)
+        }

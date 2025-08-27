@@ -196,8 +196,8 @@ class FileModule(s_module.CoreModule):
             return
         await node.snap.addNode('file:ismime', (node.ndef[1], name))
 
-    def getModelDefs(self):
-        modl = {
+    def getModelDef(self):
+        return {
             'ctors': (
 
                 ('file:bytes', 'synapse.models.files.FileBytes', {}, {
@@ -774,6 +774,3 @@ class FileModule(s_module.CoreModule):
             ),
 
         }
-
-        name = 'file'
-        return ((name, modl),)

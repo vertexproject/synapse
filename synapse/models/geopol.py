@@ -2,10 +2,9 @@ import synapse.lib.module as s_module
 
 class PolModule(s_module.CoreModule):
 
-    def getModelDefs(self):
-        return (
-            ('pol', {
-
+    def getModelDef(self):
+        return {
+                # TODO: leave this indented to prevent 3.x conflicts
                 'types': (
 
                     ('pol:country', ('guid', {}), {
@@ -209,6 +208,4 @@ class PolModule(s_module.CoreModule):
                             'doc': 'The time that the polling place closed.'}),
                     )),
                 ),
-
-            }),
-        )
+            }

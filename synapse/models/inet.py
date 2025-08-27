@@ -1196,11 +1196,10 @@ class InetModule(s_module.CoreModule):
 
                     todo.append(child.ndef[1])
 
-    def getModelDefs(self):
-        return (
+    def getModelDef(self):
+        return {
 
-            ('inet', {
-
+                # TODO: leave this indented to prevent 3.x conflicts
                 'ctors': (
 
                     ('inet:addr', 'synapse.models.inet.Addr', {}, {
@@ -4095,5 +4094,4 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The subscriber who owns the subscription.'}),
                     )),
                 ),
-            }),
-        )
+            }

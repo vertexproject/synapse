@@ -1042,15 +1042,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return self.slab.has(s_common.uhex(iden), db='model:defs')
 
     def getModelDef(self, iden):
-        byts = self.slab.get(s_common.uhex(iden), db='model:defs')
-        if byts is not None:
-            return s_msgpack.un(byts)
 
-    async def setModelDef(self, iden, mdef):
-        return await self._push('model:set', iden, mdef)
+        byts = self.slab.get(s_common.uhex(iden), db='model:defs')
+        if byts is None:
+            return
+
+        envl = s_msgpack.un(byts)
+        return envl.get('mdef')
+
+    async def setModelDef(self, mdef):
+        return await self._push('model:set', mdef)
 
     @s_nexus.Pusher.onPush('model:set')
-    async def _setModelDef(self, iden, mdef, fmt=1):
+    async def _setModelDef(self, mdef, fmt=1):
+
+        iden = s_common.guid(s_common.flatten(mdef))
 
         lkey = s_common.uhex(iden)
         envl = {
@@ -1064,28 +1070,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.cellinfo.set('model:iden', iden)
 
-        # only need to do this for non-incremental model edits
-        if iden != self.model.iden:
-            self.model = self._loadModelDef(iden)
-            assert iden == self.model.iden
+        self.model = self._loadModelDef(mdef)
+        assert iden == self.model.iden
 
         self.slab.put(lkey, s_msgpack.en(self.model.getModelDict()), db='model:dicts')
 
-    def _loadModelDef(self, iden):
-
-        skey = s_common.uhex(iden)
-        byts = self.slab.get(skey, db='model:defs')
-        if byts is None:
-            return None
-
-        envl = s_msgpack.un(byts)
+    def _loadModelDef(self, mdef):
         model = s_datamodel.Model(core=self)
-        model.addModelDefs([('all', envl['mdef'])])
-
+        model.addModelDef(mdef)
         return model
 
     async def _bumpModelSave(self):
-        await self._setModelDef(self.model.iden, self.model.getModelDef())
+        await self._setModelDef(self.model.getModelDef())
 
     async def _storCortexHiveMigration(self):
 
@@ -1634,11 +1630,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # if we have yet to save the model, lets do that...
         if self.isactive and not self.hasModelDef(self.model.iden):
-            await self.setModelDef(self.model.iden, self.model.getModelDef())
+            await self.setModelDef(self.model.getModelDef())
 
         iden = self.cellinfo.get('model:iden')
         if iden is not None and iden != self.model.iden:
-            self.model = self._loadModelDef(iden)
+            mdef = self.getModelDef(iden)
+            self.model = self._loadModelDef(mdef)
 
         if not self.safemode:
             self.addActiveCoro(self.agenda.runloop)
@@ -1818,6 +1815,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 continue
 
             prop = self.model.props.get(propname)
+            if prop is None: # pragma: no cover
+                logger.warning(f'Unknown property is deprecated: {propname}')
+                continue
 
             for layr in self.layers.values():
                 if not prop.isform and prop.isuniv:
@@ -6579,23 +6579,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         try:
             await s_coro.ornot(modu.preCoreModule)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
         except Exception:
             logger.exception(f'module preCoreModule failed: {ctor}')
             self.modules.pop(ctor, None)
             return
 
-        mdefs = modu.getModelDefs()
-        self.model.addDataModels(mdefs)
+        self.model.addModelDef(modu.getModelDef())
 
-        cmds = modu.getStormCmds()
-        [self.addStormCmd(c) for c in cmds]
+        # FIXME this whole function is one big nexus schism waiting to happen...
+        await self.setModelDef(self.model.getModelDef())
+
+        [self.addStormCmd(c) for c in modu.getStormCmds()]
 
         try:
             await s_coro.ornot(modu.initCoreModule)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
         except Exception:
             logger.exception(f'module initCoreModule failed: {ctor}')
             self.modules.pop(ctor, None)
@@ -6607,47 +6604,40 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _loadCoreMods(self):
 
-        mods = []
-        cmds = []
-        mdefs = []
-
         for ctor in list(s_modules.coremods):
-            await self._preLoadCoreModule(ctor, mods, cmds, mdefs)
+            await self._loadCoreModule(ctor)
 
         for ctor in self.conf.get('modules'):
-            await self._preLoadCoreModule(ctor, mods, cmds, mdefs)
+            await self._loadCoreModule(ctor)
 
-        self.model.addDataModels(mdefs)
-        [self.addStormCmd(c) for c in cmds]
+        mdef = collections.defaultdict(list)
 
-    async def _preLoadCoreModule(self, ctor, mods, cmds, mdefs):
+        for mod in self.modules.values():
+            mdef = self._fuseModelDef(mdef, mod.getModelDef())
 
-        conf = None
-        # allow module entry to be (ctor, conf) tuple
-        if isinstance(ctor, (list, tuple)):
-            ctor, conf = ctor
+        self.model.addModelDef(mdef)
+
+        for mod in self.modules.values():
+            [self.addStormCmd(c) for c in mod.getStormCmds()]
+
+    def _fuseModelDef(self, mdef, newdef):
+        for name, items in newdef.items():
+            mdef[name].extend(items)
+        return mdef
+
+    async def _loadCoreModule(self, ctor):
 
         if not ctor.startswith(('synapse.tests', 'synapse.models')):
             s_common.deprecated("'modules' Cortex config value", curv='2.206.0')
 
-        modu = self._loadCoreModule(ctor, conf=conf)
-        if modu is None:
-            return
+        if ctor in self.modules:
+            raise s_exc.ModAlreadyLoaded(mesg=f'{ctor} already loaded')
 
-        mods.append(modu)
+        modu = s_dyndeps.tryDynFunc(ctor, self)
 
-        try:
-            await s_coro.ornot(modu.preCoreModule)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-        except Exception:
-            logger.exception(f'module preCoreModule failed: {ctor}')
-            self.modules.pop(ctor, None)
-            return
+        self.modules[ctor] = modu
 
-        cmds.extend(modu.getStormCmds())
-        model_defs = modu.getModelDefs()
-        mdefs.extend(model_defs)
+        return modu
 
     async def _initCoreMods(self):
 
@@ -6655,24 +6645,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             try:
                 await s_coro.ornot(modu.initCoreModule)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
             except Exception:
                 logger.exception(f'module initCoreModule failed: {ctor}')
                 self.modules.pop(ctor, None)
-
-    def _loadCoreModule(self, ctor, conf=None):
-
-        if ctor in self.modules:
-            raise s_exc.ModAlreadyLoaded(mesg=f'{ctor} already loaded')
-        try:
-            modu = s_dyndeps.tryDynFunc(ctor, self, conf=conf)
-            self.modules[ctor] = modu
-            return modu
-
-        except Exception:
-            logger.exception('mod load fail: %s' % (ctor,))
-            return None
 
     async def getPropNorm(self, prop, valu, typeopts=None):
         '''

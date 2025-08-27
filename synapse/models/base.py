@@ -23,9 +23,96 @@ prioenums = (
 
 class BaseModule(s_module.CoreModule):
 
-    def getModelDefs(self):
+    def getModelDef(self):
 
-        return (('base', {
+        return {
+
+            'ctors': (
+
+                ('int', 'synapse.lib.types.Int', {}, {
+                    'doc': 'The base 64 bit signed integer type.'}),
+
+                ('float', 'synapse.lib.types.Float', {}, {
+                    'doc': 'The base floating point type.'}),
+
+                ('range', 'synapse.lib.types.Range', {'type': ('int', {})}, {
+                    'doc': 'A base range type.'}),
+
+                ('str', 'synapse.lib.types.Str', {}, {
+                    'doc': 'The base string type.'}),
+
+                ('hex', 'synapse.lib.types.Hex', {}, {
+                    'doc': 'The base hex type.'}),
+
+                ('bool', 'synapse.lib.types.Bool', {}, {
+                    'doc': 'The base boolean type.'}),
+
+                ('time', 'synapse.lib.types.Time', {}, {
+                    'doc': 'A date/time value.'}),
+
+                ('duration', 'synapse.lib.types.Duration', {}, {
+                    'doc': 'A duration value.'}),
+
+                ('ival', 'synapse.lib.types.Ival', {}, {
+                    'doc': 'A time window/interval.'}),
+
+                ('guid', 'synapse.lib.types.Guid', {}, {
+                    'doc': 'The base GUID type.'}),
+
+                ('syn:tag:part', 'synapse.lib.types.TagPart', {}, {
+                    'doc': 'A tag component string.'}),
+
+                ('syn:tag', 'synapse.lib.types.Tag', {}, {
+                    'doc': 'The base type for a synapse tag.'}),
+
+                ('comp', 'synapse.lib.types.Comp', {}, {
+                    'doc': 'The base type for compound node fields.'}),
+
+                ('loc', 'synapse.lib.types.Loc', {}, {
+                    'doc': 'The base geo political location type.'}),
+
+                ('ndef', 'synapse.lib.types.Ndef', {}, {
+                    'doc': 'The node definition type for a (form,valu) compound field.'}),
+
+                ('array', 'synapse.lib.types.Array', {'type': 'int'}, {
+                    'doc': 'A typed array which indexes each field.'}),
+
+                ('edge', 'synapse.lib.types.Edge', {}, {
+                    'deprecated': True,
+                    'doc': 'An digraph edge base type.'}),
+
+                ('timeedge', 'synapse.lib.types.TimeEdge', {}, {
+                    'deprecated': True,
+                    'doc': 'An digraph edge base type with a unique time.'}),
+
+                ('data', 'synapse.lib.types.Data', {}, {
+                    'doc': 'Arbitrary json compatible data.'}),
+
+                ('nodeprop', 'synapse.lib.types.NodeProp', {}, {
+                    'doc': 'The nodeprop type for a (prop,valu) compound field.'}),
+
+                ('hugenum', 'synapse.lib.types.HugeNum', {}, {
+                    'doc': 'A potentially huge/tiny number. [x] <= 730750818665451459101842 with a fractional precision of 24 decimal digits.'}),
+
+                ('taxon', 'synapse.lib.types.Taxon', {}, {
+                    'doc': 'A component of a hierarchical taxonomy.'}),
+
+                ('taxonomy', 'synapse.lib.types.Taxonomy', {}, {
+                    'doc': 'A hierarchical taxonomy.'}),
+
+                ('velocity', 'synapse.lib.types.Velocity', {}, {
+                    'doc': 'A velocity with base units in mm/sec.'}),
+            ),
+
+            'univs': (
+
+                ('seen', ('ival', {}), {
+                    'doc': 'The time interval for first/last observation of the node.'}),
+
+                ('created', ('time', {'ismin': True}), {
+                    'ro': True,
+                    'doc': 'The time the node was created in the cortex.'}),
+            ),
 
             'types': (
 
@@ -470,4 +557,4 @@ class BaseModule(s_module.CoreModule):
                 )),
 
             ),
-        }),)
+        }

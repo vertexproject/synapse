@@ -373,10 +373,11 @@ class LatLong(s_types.Type):
 
 class GeoModule(s_module.CoreModule):
 
-    def getModelDefs(self):
-        return (
-            ('geo', {
+    def getModelDef(self):
 
+        return {
+
+                # TODO: leave this indented to prevent 3.x conflicts
                 'ctors': (
                     ('geo:dist', 'synapse.models.geospace.Dist', {}, {
                         'doc': 'A geographic distance (base unit is mm).', 'ex': '10 km'
@@ -575,5 +576,4 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'The image file to use as the primary image of the place.'}),
                     )),
                 )
-            }),
-        )
+        }

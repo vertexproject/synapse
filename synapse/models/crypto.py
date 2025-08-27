@@ -17,8 +17,8 @@ x509vers = (
 
 class CryptoModule(s_module.CoreModule):
 
-    def getModelDefs(self):
-        modl = {
+    def getModelDef(self):
+        return {
 
             'types': (
 
@@ -572,5 +572,3 @@ class CryptoModule(s_module.CoreModule):
                 )),
             )
         }
-        name = 'crypto'
-        return ((name, modl),)

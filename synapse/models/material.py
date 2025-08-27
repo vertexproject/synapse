@@ -29,8 +29,9 @@ massunits = {
 
 class MatModule(s_module.CoreModule):
 
-    def getModelDefs(self):
-        modl = {
+    def getModelDef(self):
+
+        return {
 
             'interfaces': (
 
@@ -141,5 +142,3 @@ class MatModule(s_module.CoreModule):
                 )),
             ),
         }
-        name = 'mat'
-        return ((name, modl), )

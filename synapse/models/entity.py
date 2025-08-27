@@ -2,8 +2,8 @@ import synapse.lib.module as s_module
 
 class EntityModule(s_module.CoreModule):
 
-    def getModelDefs(self):
-        return (('entity', {
+    def getModelDef(self):
+        return {
 
             'types': (
                 ('entity:name', ('str', {'onespace': True, 'lower': True}), {
@@ -39,4 +39,4 @@ class EntityModule(s_module.CoreModule):
                         'doc': 'The target entity in the relationship.'}),
                 )),
             ),
-        }),)
+        }

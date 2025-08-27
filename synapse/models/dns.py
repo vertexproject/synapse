@@ -99,10 +99,9 @@ class DnsName(s_types.Str):
 
 class DnsModule(s_module.CoreModule):
 
-    def getModelDefs(self):
+    def getModelDef(self):
 
-        modl = {
-
+        return {
             'ctors': (
 
                 ('inet:dns:name', 'synapse.models.dns.DnsName', {}, {
@@ -358,5 +357,3 @@ class DnsModule(s_module.CoreModule):
             )
 
         }
-        name = 'inet:dns'
-        return ((name, modl), )

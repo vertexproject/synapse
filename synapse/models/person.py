@@ -1,8 +1,11 @@
 import synapse.lib.module as s_module
 
 class PsModule(s_module.CoreModule):
-    def getModelDefs(self):
-        modl = {
+
+    def getModelDef(self):
+
+        return {
+
             'types': (
                 ('edu:course', ('guid', {}), {
                     'doc': 'A course of study taught by an org.',
@@ -563,5 +566,3 @@ class PsModule(s_module.CoreModule):
                 )),
             )
         }
-        name = 'ps'
-        return ((name, modl), )

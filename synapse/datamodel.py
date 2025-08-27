@@ -513,6 +513,7 @@ class Model:
         self.bulkedit = False
 
         self.core = core
+        self.ctors = {}  # name: ()
         self.types = {}  # name: Type()
         self.forms = {}  # name: Form()
         self.props = {}  # (form,name): Prop() and full: Prop()
@@ -520,7 +521,6 @@ class Model:
         self.ifaces = {}  # name: <ifdef>
         self.tagprops = {}  # name: TagProp()
         self.formabbr = {}  # name: [Form(), ... ]
-        self.modeldefs = []
 
         self.univs = {}
         self.allunivs = collections.defaultdict(list)
@@ -535,108 +535,6 @@ class Model:
         self.formprefixcache = s_cache.LruDict(PREFIX_CACHE_SIZE)
 
         self._type_pends = collections.defaultdict(list)
-        self._modeldef = {
-            'ctors': [],
-            'types': [],
-            'forms': [],
-            'univs': [],
-            'edges': [],
-        }
-
-        self._loadBuiltInModel()
-
-    def _loadBuiltInModel(self):
-
-        mdef = ('builtin', {
-
-            'ctors': (
-
-                ('int', 'synapse.lib.types.Int', {}, {
-                    'doc': 'The base 64 bit signed integer type.'}),
-
-                ('float', 'synapse.lib.types.Float', {}, {
-                    'doc': 'The base floating point type.'}),
-
-                ('range', 'synapse.lib.types.Range', {'type': ('int', {})}, {
-                    'doc': 'A base range type.'}),
-
-                ('str', 'synapse.lib.types.Str', {}, {
-                    'doc': 'The base string type.'}),
-
-                ('hex', 'synapse.lib.types.Hex', {}, {
-                    'doc': 'The base hex type.'}),
-
-                ('bool', 'synapse.lib.types.Bool', {}, {
-                    'doc': 'The base boolean type.'}),
-
-                ('time', 'synapse.lib.types.Time', {}, {
-                    'doc': 'A date/time value.'}),
-
-                ('duration', 'synapse.lib.types.Duration', {}, {
-                    'doc': 'A duration value.'}),
-
-                ('ival', 'synapse.lib.types.Ival', {}, {
-                    'doc': 'A time window/interval.'}),
-
-                ('guid', 'synapse.lib.types.Guid', {}, {
-                    'doc': 'The base GUID type.'}),
-
-                ('syn:tag:part', 'synapse.lib.types.TagPart', {}, {
-                    'doc': 'A tag component string.'}),
-
-                ('syn:tag', 'synapse.lib.types.Tag', {}, {
-                    'doc': 'The base type for a synapse tag.'}),
-
-                ('comp', 'synapse.lib.types.Comp', {}, {
-                    'doc': 'The base type for compound node fields.'}),
-
-                ('loc', 'synapse.lib.types.Loc', {}, {
-                    'doc': 'The base geo political location type.'}),
-
-                ('ndef', 'synapse.lib.types.Ndef', {}, {
-                    'doc': 'The node definition type for a (form,valu) compound field.'}),
-
-                ('array', 'synapse.lib.types.Array', {'type': 'int'}, {
-                    'doc': 'A typed array which indexes each field.'}),
-
-                ('edge', 'synapse.lib.types.Edge', {}, {
-                    'deprecated': True,
-                    'doc': 'An digraph edge base type.'}),
-
-                ('timeedge', 'synapse.lib.types.TimeEdge', {}, {
-                    'deprecated': True,
-                    'doc': 'An digraph edge base type with a unique time.'}),
-
-                ('data', 'synapse.lib.types.Data', {}, {
-                    'doc': 'Arbitrary json compatible data.'}),
-
-                ('nodeprop', 'synapse.lib.types.NodeProp', {}, {
-                    'doc': 'The nodeprop type for a (prop,valu) compound field.'}),
-
-                ('hugenum', 'synapse.lib.types.HugeNum', {}, {
-                    'doc': 'A potentially huge/tiny number. [x] <= 730750818665451459101842 with a fractional precision of 24 decimal digits.'}),
-
-                ('taxon', 'synapse.lib.types.Taxon', {}, {
-                    'doc': 'A component of a hierarchical taxonomy.'}),
-
-                ('taxonomy', 'synapse.lib.types.Taxonomy', {}, {
-                    'doc': 'A hierarchical taxonomy.'}),
-
-                ('velocity', 'synapse.lib.types.Velocity', {}, {
-                    'doc': 'A velocity with base units in mm/sec.'}),
-            ),
-
-            'univs': (
-
-                ('seen', ('ival', {}), {
-                    'doc': 'The time interval for first/last observation of the node.'}),
-
-                ('created', ('time', {'ismin': True}), {
-                    'ro': True,
-                    'doc': 'The time the node was created in the cortex.'}),
-            ),
-        })
-        self.addDataModels((mdef,))
 
     def getPropsByType(self, name):
         props = self.propsbytype.get(name)
@@ -748,24 +646,22 @@ class Model:
 
         return base.clone(typedef[1])
 
-    def getModelDefs(self):
-        '''
-        Returns:
-            A list of one model definition compatible with addDataModels that represents the current data model
-        '''
-        return [('all', self.getModelDef())]
-
     def getModelDef(self):
 
-        mdef = self._modeldef.copy()
-
-        # dynamically generate form defs due to extended props
+        mdef = {}
+        mdef['ctors'] = list(self.ctors.values())
+        mdef['types'] = [t.getTypeDef() for t in self.types.values() if t.name not in self.ctors]
         mdef['forms'] = [f.getFormDef() for f in self.forms.values()]
-        # TODO: remove this in 3.0
-        mdef['univs'] = [u.getPropDef() for u in self.univs.values()]
+        mdef['edges'] = [e.pack() for e in self.edges.values()]
         mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops.values()]
         mdef['interfaces'] = list(self.ifaces.items())
-        mdef['edges'] = [e.pack() for e in self.edges.values()]
+
+        # TODO: remove this in 3.0
+        univs = []
+        for univ in self.univs.values():
+            name, typedef, info = univ.getPropDef()
+            univs.append((name.strip('.'), typedef, info))
+        mdef['univs'] = univs
 
         return mdef
 
@@ -806,8 +702,7 @@ class Model:
 
         if not oldbulk:
             self.bulkedit = False
-
-        self.calcModelIden()
+            self.calcModelIden()
 
     def calcModelIden(self):
 
@@ -817,10 +712,8 @@ class Model:
         self.iden = s_common.guid(s_common.flatten(self.getModelDef()))
         return self.iden
 
-    def addDataModels(self, mods):
+    def addModelDef(self, mdef):
         '''
-        Add a list of (name, mdef) tuples.
-
         A model definition (mdef) is structured as follows::
 
             {
@@ -851,57 +744,38 @@ class Model:
                     }),
                 )
             }
-
-        Args:
-            mods (list):  The list of tuples.
-
-        Returns:
-            None
-
         '''
-
-        self.modeldefs.extend(mods)
-
         with self.bulkEditModel():
 
             # load all the base type ctors in order...
-            for _, mdef in mods:
-
-                for name, ctor, opts, info in mdef.get('ctors', ()):
-                    item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts)
-                    self.types[name] = item
-                    self._modeldef['ctors'].append((name, ctor, opts, info))
+            for name, ctor, opts, info in mdef.get('ctors', ()):
+                item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts)
+                self.types[name] = item
+                self.ctors[name] = (name, ctor, opts, info)
 
             # load all the types in order...
-            for _, mdef in mods:
-                for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
-                    self.addType(typename, basename, typeopts, typeinfo)
+            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
+                self.addType(typename, basename, typeopts, typeinfo)
 
             # load all the interfaces...
-            for _, mdef in mods:
-                for name, info in mdef.get('interfaces', ()):
-                    self.addIface(name, info)
+            for name, info in mdef.get('interfaces', ()):
+                self.addIface(name, info)
 
             # Load all the universal properties
-            for _, mdef in mods:
-                for univname, typedef, univinfo in mdef.get('univs', ()):
-                    self.addUnivProp(univname, typedef, univinfo)
+            for univname, typedef, univinfo in mdef.get('univs', ()):
+                self.addUnivProp(univname, typedef, univinfo)
 
             # Load all the tagprops
-            for _, mdef in mods:
-                for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
-                    self.addTagProp(tpname, typedef, tpinfo)
+            for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
+                self.addTagProp(tpname, typedef, tpinfo)
 
             # now we can load all the forms...
-            for _, mdef in mods:
-
-                for formname, forminfo, propdefs in mdef.get('forms', ()):
-                    self.addForm(formname, forminfo, propdefs, checks=False)
+            for formname, forminfo, propdefs in mdef.get('forms', ()):
+                self.addForm(formname, forminfo, propdefs, checks=False)
 
             # now we can load edge definitions...
-            for _, mdef in mods:
-                for etype, einfo in mdef.get('edges', ()):
-                    self.addEdge(etype, einfo)
+            for etype, einfo in mdef.get('edges', ()):
+                self.addEdge(etype, einfo)
 
             # now we can check the forms display settings...
             for form in self.forms.values():
@@ -960,7 +834,6 @@ class Model:
         newtype = base.extend(typename, typeopts, typeinfo)
 
         self.types[typename] = newtype
-        self._modeldef['types'].append(newtype.getTypeDef())
 
         self.calcModelIden()
 

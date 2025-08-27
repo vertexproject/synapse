@@ -34,9 +34,9 @@ alertstatus = (
 
 class RiskModule(s_module.CoreModule):
 
-    def getModelDefs(self):
+    def getModelDef(self):
 
-        modl = {
+        return {
             'ctors': (
                 ('cvss:v2', 'synapse.models.risk.CvssV2', {}, {
                     'doc': 'A CVSS v2 vector string.', 'ex': '(AV:L/AC:L/Au:M/C:P/I:C/A:N)'
@@ -1215,5 +1215,3 @@ class RiskModule(s_module.CoreModule):
                 )),
             ),
         }
-        name = 'risk'
-        return ((name, modl), )

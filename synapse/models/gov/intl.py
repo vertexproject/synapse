@@ -2,8 +2,8 @@ import synapse.lib.module as s_module
 
 class GovIntlModule(s_module.CoreModule):
 
-    def getModelDefs(self):
-        modl = {
+    def getModelDef(self):
+        return {
             'types': (
                 ('iso:oid', ('str', {'regex': '^([0-2])((\\.0)|(\\.[1-9][0-9]*))*$'}), {
                     'doc': 'An ISO Object Identifier string.'}),
@@ -24,5 +24,3 @@ class GovIntlModule(s_module.CoreModule):
                 )),
             ),
         }
-        name = 'gov:intl'
-        return ((name, modl), )

@@ -28,11 +28,11 @@ class ProjectModule(s_module.CoreModule):
         rule = (True, ('project', 'admin'))
         await node.snap.user.addRule(rule, gateiden=gateiden)
 
-    def getModelDefs(self):
-        return (
+    def getModelDef(self):
 
-            ('proj', {
+        return {
 
+                # TODO: leave this indented to prevent 3.x conflicts
                 'interfaces': (
                     ('proj:task', {
 
@@ -248,5 +248,4 @@ class ProjectModule(s_module.CoreModule):
                             'ex': 'bug'}),
                     )),
                 ),
-            }),
-        )
+        }

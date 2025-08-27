@@ -2,8 +2,8 @@ import synapse.lib.module as s_module
 
 class PlanModule(s_module.CoreModule):
 
-    def getModelDefs(self):
-        return (('plan', {
+    def getModelDef(self):
+        return {
             'types': (
                 ('plan:system', ('guid', {}), {
                     'doc': 'A planning or behavioral analysis system that defines phases and procedures.'}),
@@ -163,4 +163,4 @@ class PlanModule(s_module.CoreModule):
                         'doc': 'The procedure which defines the link.'}),
                 )),
             ),
-        }),)
+        }
