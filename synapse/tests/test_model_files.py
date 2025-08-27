@@ -186,7 +186,7 @@ class FileTest(s_t_utils.SynTest):
             subs = info.get('subs')
 
             self.eq('foo.exe', norm)
-            self.eq('exe', subs.get('ext'))
+            self.eq((base.exttype.typehash, 'exe', {}), subs.get('ext'))
 
             await self.asyncraises(s_exc.BadTypeValu, base.norm('foo/bar.exe'))
             await self.asyncraises(s_exc.BadTypeValu, base.norm('/haha'))
@@ -197,8 +197,8 @@ class FileTest(s_t_utils.SynTest):
             norm, info = await path.norm('c:\\Windows\\System32\\calc.exe')
 
             self.eq(norm, 'c:/windows/system32/calc.exe')
-            self.eq(info['subs']['dir'], 'c:/windows/system32')
-            self.eq(info['subs']['base'], 'calc.exe')
+            self.eq(info['subs']['dir'][1], 'c:/windows/system32')
+            self.eq(info['subs']['base'][1], 'calc.exe')
 
             norm, info = await path.norm(r'/foo////bar/.././baz.json')
             self.eq(norm, '/foo/baz.json')
@@ -214,14 +214,14 @@ class FileTest(s_t_utils.SynTest):
             subs = info.get('subs')
             self.none(subs.get('ext'))
             self.none(subs.get('dir'))
-            self.eq(subs.get('base'), 'c:')
+            self.eq(subs.get('base')[1], 'c:')
 
             norm, info = await path.norm('/foo')
             self.eq(norm, '/foo')
             subs = info.get('subs')
             self.none(subs.get('ext'))
             self.none(subs.get('dir'))
-            self.eq(subs.get('base'), 'foo')
+            self.eq(subs.get('base')[1], 'foo')
 
             nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': '/foo/bar/baz.exe'}})
             self.len(1, nodes)
