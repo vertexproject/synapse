@@ -17,7 +17,7 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
         extensions = options.get('storm_extensions', 'storm')
         self.extensions = [e.strip() for e in extensions.split(',')]
 
-        grammar = s_data.getLar('storm')
+        grammar = s_data.getLark('storm')
         self.parser = lark.Lark(grammar, start='query', debug=True, regex=True,
                                 parser='lalr', keep_all_tokens=True, maybe_placeholders=False,
                                 propagate_positions=True)
