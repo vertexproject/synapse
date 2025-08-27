@@ -734,6 +734,19 @@ _reqValidPkgdefSchema = {
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'onload': {'type': 'string'},
+        'inits': {
+            'type': 'object',
+            'properties': {
+                'key': {'type': 'string'},
+                'versions': {
+                    'type': 'array',
+                    'items': {'$ref': '#/definitions/initdef'},
+                    'minItems': 1,
+                },
+            },
+            'additionalProperties': True,
+            'required': ['key', 'versions'],
+        },
         'author': {
             'type': 'object',
             'properties': {
@@ -806,6 +819,18 @@ _reqValidPkgdefSchema = {
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
+        },
+        'initdef': {
+            'type': 'object',
+            'properties': {
+                'desc': {'type': 'string'},
+                'inaugural': {'type': 'boolean', 'default': False},
+                'name': {'type': 'string'},
+                'query': {'type': 'string'},
+                'version': {'type': 'integer', 'minimum': 0},
+            },
+            'additionalProperties': False,
+            'required': ['name', 'query', 'version']
         },
         'apidef': {
             'type': 'object',

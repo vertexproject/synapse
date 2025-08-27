@@ -3338,6 +3338,33 @@ class Layer(s_nexus.Pusher):
             sode['nodedata'] = {name: s_msgpack.un(byts)}
             yield None, buid, sode
 
+    async def setStorNodeProp(self, buid, prop, valu, meta):
+        newp = self.core.model.reqProp(prop)
+
+        newp_valu = newp.type.norm(valu)[0]
+        newp_name = newp.name
+        newp_stortype = newp.type.stortype
+        newp_formname = newp.form.name
+
+        set_edit = (EDIT_PROP_SET, (newp_name, newp_valu, None, newp_stortype), ())
+        nodeedits = [(buid, newp_formname, [set_edit])]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        return bool(changes[0][2])
+
+    async def delStorNodeProp(self, buid, prop, meta):
+        pprop = self.core.model.reqProp(prop)
+
+        oldp_name = pprop.name
+        oldp_formname = pprop.form.name
+        oldp_stortype = pprop.type.stortype
+
+        del_edit = (EDIT_PROP_DEL, (oldp_name, None, oldp_stortype), ())
+        nodeedits = [(buid, oldp_formname, [del_edit])]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        return bool(changes[0][2])
+
     async def storNodeEdits(self, nodeedits, meta):
 
         saveoff, results = await self.saveNodeEdits(nodeedits, meta)
