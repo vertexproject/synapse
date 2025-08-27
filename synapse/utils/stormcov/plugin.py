@@ -6,9 +6,8 @@ import coverage
 
 from coverage.exceptions import NoSource
 
+import synapse.data as s_data
 import synapse.common as s_common
-
-import synapse.lib.datfile as s_datfile
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +17,7 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
         extensions = options.get('storm_extensions', 'storm')
         self.extensions = [e.strip() for e in extensions.split(',')]
 
-        with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
-            grammar = larkf.read().decode()
-
+        grammar = s_data.getLark('storm')
         self.parser = lark.Lark(grammar, start='query', debug=True, regex=True,
                                 parser='lalr', keep_all_tokens=True, maybe_placeholders=False,
                                 propagate_positions=True)
