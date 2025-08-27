@@ -4968,7 +4968,7 @@ class Bytes(Prim):
                   ),
                   'returns': {'type': 'list', 'desc': 'The unpacked primitive values.', }}},
         {'name': 'xor', 'desc': '''
-            Perform an exclusive "or" bitwise operation on the bytes and another set of bytes.
+            Perform an "exclusive or" bitwise operation on the bytes and another set of bytes.
 
             Notes:
                 The key bytes provided as an argument will be repeated as needed until all bytes have been
