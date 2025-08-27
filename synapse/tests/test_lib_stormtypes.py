@@ -1538,6 +1538,38 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.BadJsonText):
                 await core.callStorm(q, opts={'vars': {'buf': b'lol{newp,', 'encoding': None}})
 
+    async def test_storm_lib_bytes_xor(self):
+        async with self.getTestCore() as core:
+            encval = await core.callStorm("return(('foobar').encode().xor(asdf))")
+            self.eq(encval, b'\x07\x1c\x0b\x04\x00\x01')
+
+            decval = await core.callStorm("return($foo.xor(asdf).decode())", opts={'vars': {'foo': encval}})
+            self.eq(decval, 'foobar')
+
+            encval = await core.callStorm("return(('foofoo').encode().xor(v))")
+            self.eq(encval, b'\x10\x19\x19\x10\x19\x19')
+
+            encval = await core.callStorm("$key=$lib.base64.decode('AA==') return(('foofoo').encode().xor($key))")
+            self.eq(encval, b'foofoo')
+
+            encval = await core.callStorm("$key=$lib.base64.decode('/w==') return(('foofoo').encode().xor($key))")
+            self.eq(encval, b'\x99\x90\x90\x99\x90\x90')
+
+            encval = await core.callStorm("$key=$lib.base64.decode('/w==') return(('foofoo').encode().xor($key).xor($key))")
+            self.eq(encval, b'foofoo')
+
+            encval = await core.callStorm("return(('v').encode().xor(foo))")
+            self.eq(encval, b'\x10')
+
+            encval = await core.callStorm("return(('').encode().xor(foo))")
+            self.eq(encval, b'')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm("return(('foobar').encode().xor(''))")
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm("return(('foobar').encode().xor((123)))")
+
     async def test_storm_lib_list(self):
         async with self.getTestCore() as core:
             # Base List object behavior
