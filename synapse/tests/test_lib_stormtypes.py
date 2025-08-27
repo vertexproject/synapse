@@ -1546,6 +1546,9 @@ class StormTypesTest(s_test.SynTest):
             decval = await core.callStorm("return($foo.xor(asdf).decode())", opts={'vars': {'foo': encval}})
             self.eq(decval, 'foobar')
 
+            with self.raises(s_exc.BadArg):
+                await core.callStorm("return(('foobar').encode().xor((123)))")
+
     async def test_storm_lib_list(self):
         async with self.getTestCore() as core:
             # Base List object behavior
