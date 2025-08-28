@@ -1,0 +1,5 @@
+---
+desc: Fixed regression in JSON where serializing strings with control characters would cause an error.
+prs: []
+type: bug
+...
