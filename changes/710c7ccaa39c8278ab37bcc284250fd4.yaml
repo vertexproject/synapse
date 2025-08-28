@@ -1,0 +1,6 @@
+---
+desc: Fixed bug where JSON serialization would not fallback to the python standard
+  JSON library when encountering non-compliant JSON.
+prs: []
+type: bug
+...
