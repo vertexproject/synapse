@@ -2836,17 +2836,35 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             except Exception as e:
                 logger.warning(f'Extended type ({typename}) error: {e}')
 
+        formchildren = collections.defaultdict(list)
+
         for formname, basetype, typeopts, typeinfo in self.extforms.values():
-            try:
-                self.model.addType(formname, basetype, typeopts, typeinfo)
-                form = self.model.addForm(formname, {}, ())
-            except Exception as e:
-                logger.warning(f'Extended form ({formname}) error: {e}')
-            else:
-                if form.type.deprecated:
-                    mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
-                           f' be removed in 4.0.0'
-                    logger.warning(mesg)
+            if typeinfo is not None and (pform := typeinfo.get('parent')) is not None and pform.startswith('_'):
+                formchildren[pform].append((formname, basetype, typeopts, typeinfo))
+
+        def addForms(infos, children=False):
+            for formname, basetype, typeopts, typeinfo in infos:
+                try:
+                    if (pform := typeinfo.get('parent')) is not None:
+                        if not children and pform.startswith('_'):
+                            continue
+                        form = self.model.addForm(formname, typeinfo, ())
+                    else:
+                        self.model.addType(formname, basetype, typeopts, typeinfo)
+                        form = self.model.addForm(formname, {}, ())
+
+                    if (cinfos := formchildren.pop(formname, None)) is not None:
+                        addForms(cinfos, children=True)
+
+                except Exception as e:
+                    logger.warning(f'Extended form ({formname}) error: {e}')
+                else:
+                    if form.type.deprecated:
+                        mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
+                               f' be removed in 4.0.0'
+                        logger.warning(mesg)
+
+        addForms(self.extforms.values())
 
         for form, prop, tdef, info in self.extprops.values():
             try:
@@ -2985,8 +3003,24 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for typename, basetype, typeopts, typeinfo in amodl['types']:
             await self.addType(typename, basetype, typeopts, typeinfo)
 
+        formchildren = collections.defaultdict(list)
+
         for formname, basetype, typeopts, typeinfo in amodl['forms']:
-            await self.addForm(formname, basetype, typeopts, typeinfo)
+            if typeinfo is not None and (pform := typeinfo.get('parent')) is not None and pform.startswith('_'):
+                formchildren[pform].append((formname, basetype, typeopts, typeinfo))
+
+        async def addForms(infos, children=False):
+            for formname, basetype, typeopts, typeinfo in infos:
+                if (pform := typeinfo.get('parent')) is not None:
+                    if not children and pform.startswith('_'):
+                        continue
+
+                form = await self.addForm(formname, basetype, typeopts, typeinfo)
+
+                if (cinfos := formchildren.pop(formname, None)) is not None:
+                    await addForms(cinfos, children=True)
+
+        await addForms(amodl['forms'])
 
         for form, prop, tdef, info in amodl['props']:
             await self.addFormProp(form, prop, tdef, info)
@@ -3000,12 +3034,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return True
 
     async def addForm(self, formname, basetype, typeopts, typeinfo):
-        if not isinstance(typeopts, dict):
-            mesg = 'Form type options should be a dict.'
-            raise s_exc.BadArg(form=formname, mesg=mesg)
-
         if not isinstance(typeinfo, dict):
             mesg = 'Form type info should be a dict.'
+            raise s_exc.BadArg(form=formname, mesg=mesg)
+
+        if not (isinstance(typeopts, dict) or typeinfo.get('parent')):
+            mesg = 'Form type options should be a dict.'
             raise s_exc.BadArg(form=formname, mesg=mesg)
 
         if not formname.startswith('_'):
@@ -3037,7 +3071,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             ifaces.add('meta:taxonomy')
             typeinfo['interfaces'] = tuple(ifaces)
 
-        self.model.addType(formname, basetype, typeopts, typeinfo)
+        if typeinfo.get('parent') is None:
+            self.model.addType(formname, basetype, typeopts, typeinfo)
         self.model.addForm(formname, typeinfo, ())
 
         self.extforms.set(formname, (formname, basetype, typeopts, typeinfo))
@@ -3154,12 +3189,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if not prop.startswith('_') and not form.startswith('_'):
             mesg = 'Extended prop must begin with "_" or be added to an extended form.'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
-        _form = self.model.form(form)
-        if _form is None:
-            raise s_exc.NoSuchForm.init(form)
-        if _form.prop(prop):
-            raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
-                                     form=form, prop=prop)
+
+        for formname in self.model.getChildForms(form):
+            _form = self.model.form(formname)
+            if _form is None:
+                raise s_exc.NoSuchForm.init(formname)
+            if _form.prop(prop):
+                raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
+                                         form=formname, prop=prop)
         await self._push('model:prop:add', form, prop, tdef, info)
 
     @s_nexus.Pusher.onPush('model:prop:add')

@@ -2016,21 +2016,15 @@ class LiftProp(LiftOper):
 
         name = await tostr(await self.kids[0].compute(runt, path))
 
-        if (prop := runt.model.props.get(name)) is not None:
-            async for node in self.proplift(prop, runt, path):
-                yield node
-            return
-
-        proplist = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
-        props = [runt.model.props.get(propname) for propname in proplist]
-
-        relname = props[0].name
+        props = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
 
         if len(props) == 1 or props[0].isform:
             for prop in props:
                 async for node in self.proplift(prop, runt, path):
                     yield node
             return
+
+        relname = props[0].name
 
         def cmprkey(node):
             return node.get(relname)
@@ -2301,8 +2295,10 @@ class PivotOut(PivotOper):
                     yield pivo, path.fork(pivo, link)
                 continue
 
-            pivo = await runt.view.getNodeByNdef((form, valu))
-            if pivo is None:  # pragma: no cover
+            for formname in runt.model.getChildForms(form):
+                if (pivo := await runt.view.getNodeByNdef((formname, valu))) is not None:
+                    break
+            else:
                 continue
 
             # avoid self references
@@ -2533,18 +2529,28 @@ class FormPivot(PivotOper):
                         yield pivo, link
 
                 refs = node.form.getRefsOut()
+                destforms = runt.model.getChildForms(destform.name)
+
                 for refsname, refsform in refs.get('prop'):
 
-                    if refsform != destform.name:
+                    if refsform not in destforms:
                         continue
 
                     found = True
 
-                    refsvalu = node.get(refsname)
-                    if refsvalu is not None:
+                    if (refsvalu := node.get(refsname)) is None:
+                        continue
+
+                    if node.form.prop(refsname).isrunt:
                         link = {'type': 'prop', 'prop': refsname}
-                        async for pivo in runt.view.nodesByPropValu(refsform, '=', refsvalu, norm=False):
+                        async for pivo in runt.view.nodesByPropValu(refsform, '=', refsvalu):
                             yield pivo, link
+                        continue
+
+                    for formname in runt.model.getChildForms(destform.name):
+                        if (pivo := await runt.view.getNodeByNdef((formname, refsvalu))) is not None:
+                            yield pivo, {'type': 'prop', 'prop': refsname}
+                            break
 
                 for refsname, refsform in refs.get('array'):
 
@@ -2588,7 +2594,7 @@ class FormPivot(PivotOper):
                 # "reverse" property references...
                 for refsname, refsform in refs.get('prop'):
 
-                    if refsform != node.form.name:
+                    if refsform not in node.form.parents:
                         continue
 
                     found = True
@@ -2745,12 +2751,12 @@ class PropPivotOut(PivotOper):
                     warned = True
                 continue
 
-            ndef = (fname, valu)
-            pivo = await runt.view.getNodeByNdef(ndef)
             # A node explicitly deleted in the graph or missing from a underlying layer
             # could cause this lift to return None.
-            if pivo:
-                yield pivo, path.fork(pivo, link)
+            for formname in runt.model.getChildForms(fname):
+                if (pivo := await runt.view.getNodeByNdef((formname, valu))) is not None:
+                    yield pivo, path.fork(pivo, link)
+                    break
 
 class PropPivot(PivotOper):
     '''
@@ -4466,11 +4472,7 @@ class PivotTarget(Value):
             self.constval = [(prop, None) for prop in self.constprops]
 
     def getPropList(self, name, model):
-        if (prop := model.props.get(name)) is not None:
-            return (prop,)
-
-        proplist = model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
-        return [model.props.get(prop) for prop in proplist]
+        return model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
 
     async def compute(self, runt, path):
         if self.constval is not None:

@@ -413,3 +413,102 @@ class DataModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchName):
                 await core.callStorm('test:protocol return($node.protocol(newp, propname=otherval))')
+
+    async def test_datamodel_form_inheritance(self):
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+
+                await core.addTagProp('score', ('int', {}), {})
+
+                await core.nodes('[ test:inhstr=parent :name=p1]')
+                await core.nodes('[ test:inhstr2=foo :name=foo :child1=subv +#foo=2020 +#foo:score=10]')
+                await core.nodes('[ test:inhstr3=bar :name=bar :child1=subv :child2=specific]')
+
+                self.len(3, await core.nodes('test:inhstr'))
+                self.len(1, await core.nodes('test:inhstr:name=bar'))
+                self.len(2, await core.nodes('test:inhstr2:child1=subv'))
+                self.len(1, await core.nodes('test:inhstr3'))
+                self.len(1, await core.nodes('test:inhstr3:child2=specific'))
+                self.len(1, await core.nodes('test:inhstr#foo'))
+                self.len(1, await core.nodes('test:inhstr#foo@=2020'))
+                self.len(1, await core.nodes('test:inhstr#(foo).min>2019'))
+                self.len(1, await core.nodes('test:inhstr#foo:score'))
+                self.len(1, await core.nodes('test:inhstr#foo:score=10'))
+
+                await core.nodes('[ test:str=prop :inhstr=foo ]')
+                nodes = await core.nodes('test:str=prop -> *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
+
+                nodes = await core.nodes('test:str=prop :inhstr -> *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
+
+                nodes = await core.nodes('test:str=prop -> test:inhstr')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
+
+                nodes = await core.nodes('test:str=prop :inhstr -> test:inhstr')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
+
+                await core.nodes("$lib.model.ext.addForm(_test:inhstr5, None, None, ({'parent': 'test:inhstr2'}))")
+                await core.nodes("$lib.model.ext.addForm(_test:inhstr4, None, None, ({'parent': '_test:inhstr5'}))")
+                await core.nodes("$lib.model.ext.addFormProp(test:inhstr2, _xtra, ('str', ({})), ({'doc': 'inherited extprop'}))")
+
+                self.len(1, await core.nodes('[ _test:inhstr4=ext :name=bar :_xtra=here ]'))
+                self.len(1, await core.nodes('[ _test:inhstr5=ext2 :name=bar :_xtra=here ]'))
+
+                nodes = await core.nodes('test:inhstr:name=bar')
+                self.len(3, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr3', 'bar'))
+                self.eq(nodes[1].ndef, ('_test:inhstr4', 'ext'))
+                self.eq(nodes[2].ndef, ('_test:inhstr5', 'ext2'))
+
+                await core.nodes('[ test:str=extprop :inhstr=ext ]')
+                nodes = await core.nodes('test:str=extprop -> *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+
+                # Cannot add a prop to a parent form which already exists on a child
+                with self.raises(s_exc.DupPropName):
+                    await core.nodes("$lib.model.ext.addFormProp(test:inhstr, _xtra, ('str', ({})), ({}))")
+
+            # Verify extended model reloads correctly
+            async with self.getTestCore(dirn=dirn) as core:
+                nodes = await core.nodes('test:inhstr:name=bar')
+                self.len(3, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr3', 'bar'))
+                self.eq(nodes[1].ndef, ('_test:inhstr4', 'ext'))
+                self.eq(nodes[2].ndef, ('_test:inhstr5', 'ext2'))
+
+                nodes = await core.nodes('test:str=extprop -> *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+
+                # Lifting gets us all nodes with a value when multiple exist
+                await core.nodes('[ test:inhstr2=dup _test:inhstr4=dup ]')
+                nodes = await core.nodes('test:inhstr=dup')
+                self.len(2, nodes)
+
+                # Pivoting only goes to the most specific form with that value
+                await core.nodes('[ test:str=dup :inhstr=dup ]')
+                nodes = await core.nodes('test:str=dup -> *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'dup'))
+
+                # Attempting to add a less specific node when a more specific node exists will just
+                # lift the more specific node instead of creating a new node
+                nodes = await core.nodes('[ _test:inhstr5=dup ]')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'dup'))
+
+                mdef = await core.callStorm('return($lib.model.ext.getExtModel())')
+
+        async with self.getTestCore() as core:
+            opts = {'vars': {'mdef': mdef}}
+            self.true(await core.callStorm('return($lib.model.ext.addExtModel($mdef))', opts=opts))
+
+            self.len(1, await core.nodes('[ _test:inhstr4=ext :name=bar :_xtra=here ]'))
+            self.len(1, await core.nodes('test:inhstr:name=bar'))

@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 hexre = regex.compile('^[0-9a-z]+$')
 
 PREFIX_CACHE_SIZE = 1000
+CHILDFORM_CACHE_SIZE = 1000
+CHILDPROP_CACHE_SIZE = 1000
 
 class TagProp:
 
@@ -259,7 +261,11 @@ class Form:
         self.addperm = ('node', 'add', self.name)
         self.delperm = ('node', 'del', self.name)
 
-        self.type = modl.types.get(name)
+        if (typename := info.get('type')) is not None:
+            self.type = modl.types.get(typename)
+        else:
+            self.type = modl.types.get(name)
+
         if self.type is None:
             raise s_exc.NoSuchType(name=name)
 
@@ -275,6 +281,11 @@ class Form:
         self._full_ifaces = collections.defaultdict(int)
 
         self.refsout = None
+
+        self.parents = (name,)
+        while (pname := info.get('parent')) is not None:
+            self.parents += (pname,)
+            info = modl.form(pname).info
 
         self.locked = False
         self.deprecated = self.type.deprecated
@@ -511,6 +522,10 @@ class Model:
         self.edgesbyn1 = collections.defaultdict(set)
         self.edgesbyn2 = collections.defaultdict(set)
 
+        self.childforms = collections.defaultdict(list)
+        self.childformcache = s_cache.LruDict(CHILDFORM_CACHE_SIZE)
+        self.childpropcache = s_cache.LruDict(CHILDPROP_CACHE_SIZE)
+
         self.formprefixcache = s_cache.LruDict(PREFIX_CACHE_SIZE)
 
         self._type_pends = collections.defaultdict(list)
@@ -702,7 +717,7 @@ class Model:
 
     def reqPropList(self, name, extra=None):
         if (prop := self.prop(name)) is not None:
-            return (prop,)
+            return self.getChildProps(prop)
 
         if (props := self.ifaceprops.get(name)) is not None:
             return [self.props.get(prop) for prop in props]
@@ -750,7 +765,7 @@ class Model:
 
     def reqFormsByLook(self, name, extra=None):
         if (form := self.form(name)) is not None:
-            return (form.name,)
+            return self.getChildForms(form.name)
 
         if (forms := self.formsbyiface.get(name)) is not None:
             return forms
@@ -768,15 +783,56 @@ class Model:
 
         raise exc
 
-    def reqPropsByLook(self, name, extra=None):
-        if (forms := self.formsbyiface.get(name)) is not None:
+    def getChildForms(self, formname):
+        if (forms := self.childformcache.get(formname)) is not None:
             return forms
 
-        if (props := self.ifaceprops.get(name)) is not None:
+        if (kids := self.childforms.get(formname)) is None:
+            return (formname,)
+
+        childforms = ()
+        for kid in kids:
+            childforms += self.getChildForms(kid)
+
+        childforms += (formname,)
+        self.childformcache[formname] = childforms
+
+        return childforms
+
+    def getChildProps(self, prop):
+        if (props := self.childpropcache.get(prop.full)) is not None:
             return props
 
+        if (kids := self.childforms.get(prop.form.name)) is None:
+            return [prop]
+
+        suffix = ''
+        if not prop.isform:
+            suffix = f':{prop.name}'
+
+        childprops = []
+        for kid in kids:
+            childprop = self.props[f'{kid}{suffix}']
+            childprops += self.getChildProps(childprop)
+
+        childprops += [prop]
+        self.childpropcache[prop.full] = childprops
+
+        return childprops
+
+    def reqPropsByLook(self, name, extra=None):
+        if (prop := self.prop(name)) is not None:
+            return self.getChildProps(prop)
+
+        if (forms := self.formsbyiface.get(name)) is not None:
+            return [self.prop(name) for name in forms]
+
+        if (props := self.ifaceprops.get(name)) is not None:
+            return [self.prop(name) for name in props]
+
         if name.endswith('*'):
-            return self.reqFormsByPrefix(name[:-1], extra=extra)
+            forms = self.reqFormsByPrefix(name[:-1], extra=extra)
+            return [self.prop(name) for name in forms]
 
         mesg = None
         if (prevname := self.propprevnames.get(name)) is not None:
@@ -914,11 +970,27 @@ class Model:
             for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
                 self.addTagProp(tpname, typedef, tpinfo)
 
+        formchildren = collections.defaultdict(list)
+
+        for _, mdef in mods:
+            for formname, forminfo, propdefs in mdef.get('forms', ()):
+                if (pform := forminfo.get('parent')) is not None:
+                    formchildren[pform].append((formname, forminfo, propdefs))
+
+        def addForms(infos, children=False):
+            for formname, forminfo, propdefs in infos:
+                if (pform := forminfo.get('parent')) is not None:
+                    if not children:
+                        continue
+
+                self.addForm(formname, forminfo, propdefs, checks=False)
+
+                if (cinfos := formchildren.pop(formname, None)) is not None:
+                    addForms(cinfos, children=True)
+
         # now we can load all the forms...
         for _, mdef in mods:
-
-            for formname, forminfo, propdefs in mdef.get('forms', ()):
-                self.addForm(formname, forminfo, propdefs, checks=False)
+            addForms(mdef.get('forms', ()))
 
         # load form/prop hooks
         for _, mdef in mods:
@@ -1080,7 +1152,17 @@ class Model:
             mesg = f'Invalid form name {formname}'
             raise s_exc.BadFormDef(name=formname, mesg=mesg)
 
-        _type = self.types.get(formname)
+        if (pname := forminfo.get('parent')) is not None:
+            pform = self.reqForm(pname)
+            _type = pform.type
+            forminfo = pform.info | forminfo
+            forminfo['type'] = pform.type.name
+            propdefs = tuple((prop.name, prop.typedef, prop.info) for prop in pform.props.values()) + propdefs
+
+            self.childforms[pname].append(formname)
+        else:
+            _type = self.types.get(formname)
+
         if _type is None:
             raise s_exc.NoSuchType(name=formname)
 
@@ -1128,13 +1210,14 @@ class Model:
         if checks:
             self._checkFormDisplay(form)
 
+        self.childformcache.clear()
         self.formprefixcache.clear()
 
         return form
 
     def _checkFormDisplay(self, form):
 
-        formtype = self.types.get(form.full)
+        formtype = self.types.get(form.type.name)
 
         display = formtype.info.get('display')
         if display is None:
@@ -1198,6 +1281,7 @@ class Model:
         self.forms.pop(formname, None)
         self.props.pop(formname, None)
 
+        self.childformcache.clear()
         self.formprefixcache.clear()
 
     def addIface(self, name, info):
@@ -1255,18 +1339,22 @@ class Model:
             self.reqVirtTypes(virts)
             info['virts'] = virts
 
-        prop = Prop(self, form, name, tdef, info)
+        for formname in self.getChildForms(form.name):
+            form = self.form(formname)
+            prop = Prop(self, form, name, tdef, info)
 
-        # index the array item types
-        if isinstance(prop.type, s_types.Array):
-            self.arraysbytype[prop.type.arraytype.name][prop.full] = prop
+            # index the array item types
+            if isinstance(prop.type, s_types.Array):
+                self.arraysbytype[prop.type.arraytype.name][prop.full] = prop
 
-        self.props[prop.full] = prop
+            self.props[prop.full] = prop
 
-        if (prevnames := info.get('prevnames')) is not None:
-            for prevname in prevnames:
-                prevfull = f'{form.name}:{prevname}'
-                self.propprevnames[prevfull] = prop.full
+            if (prevnames := info.get('prevnames')) is not None:
+                for prevname in prevnames:
+                    prevfull = f'{form.name}:{prevname}'
+                    self.propprevnames[prevfull] = prop.full
+
+        self.childpropcache.clear()
 
         return prop
 
@@ -1458,6 +1546,8 @@ class Model:
         self.props.pop((form.name, prop.name), None)
 
         self.propsbytype[prop.type.name].pop(prop.full, None)
+
+        self.childpropcache.clear()
 
     def addBaseType(self, item):
         '''

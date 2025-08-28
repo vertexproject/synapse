@@ -57,7 +57,16 @@ class DocHelp:
     def __init__(self, ctors, types, forms, props):
         self.ctors = {c[0]: c[3].get('doc', 'BaseType has no doc string.') for c in ctors}
         self.types = {name: valu['info'].get('doc', self.ctors.get(name)) for name, valu in types.items()}
-        self.forms = {f[0]: f[1].get('doc', self.types.get(f[0], self.ctors.get(f[0]))) for f in forms}
+
+        forminfos = {f[0]: f[1] for f in forms}
+
+        self.forms = {}
+        for name, info, propdefs in forms:
+            doc = info.get('doc', self.types.get(name, self.ctors.get(name)))
+            while doc is None and (pname := info.get('parent')) is not None:
+                info = forminfos.get(pname)
+                doc = info.get('doc', self.types.get(pname, self.ctors.get(pname)))
+            self.forms[name] = doc
 
         self.props = {}
         for form, props in props.items():
