@@ -474,7 +474,7 @@ class StormtypesModelextTest(s_test.SynTest):
 
         vectors = (
             (
-                '$lib.model.ext.addForm(inet:fqdn, _foo:bar, (guid, ()), ())',
+                '$lib.model.ext.addForm(inet:fqdn, _foo:bar, (guid, ()), ({}))',
                 'Form type options should be a dict.'
             ),
             (
