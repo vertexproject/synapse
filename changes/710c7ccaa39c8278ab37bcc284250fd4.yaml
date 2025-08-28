@@ -1,6 +1,5 @@
 ---
-desc: Fixed bug where JSON serialization would not fallback to the python standard
-  JSON library when encountering non-compliant JSON.
+desc: Fixed regression in JSON where serializing strings with control characters would cause an error.
 prs: []
 type: bug
 ...
