@@ -210,7 +210,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
 
                     Add a new provider which uses a custom Storm callback to obtain the client_assertion data. These
                     callbacks are executed as the user who is performing the authorization_code workflow. The Storm
-                    callback must return data in a tuple of ``bool`` and a dictionary containing the assertion in the
+                    callback must return data in a tuple of ``boolean`` and a dictionary containing the assertion in the
                     key ``token``. Error messages should be in the key ``error``::
 
                         $iden = $lib.guid(callstormexample, provider, oauth)
@@ -335,7 +335,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
                 'args': (
                     {'name': 'iden', 'type': 'str', 'desc': 'The provider iden.'},
                 ),
-                'returns': {'type': 'list', 'desc': 'List of (<bool>, <token/mesg>) for status and data.'},
+                'returns': {'type': 'list', 'desc': 'List of (<boolean>, <token/mesg>) for status and data.'},
             },
         },
         {

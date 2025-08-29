@@ -422,7 +422,7 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
         {'name': 'norm', 'desc': 'Normalize a MITRE ATT&CK Flow diagram in JSON format.',
          'type': {'type': 'function', '_funcname': '_norm',
                   'args': (
-                      {'name': 'flow', 'type': 'data',
+                      {'name': 'flow', 'type': 'dict',
                        'desc': 'The MITRE ATT&CK Flow diagram in JSON format to normalize (flatten and sort).'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The normalized MITRE ATT&CK Flow diagram.', }
@@ -430,7 +430,7 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
         {'name': 'ingest', 'desc': 'Ingest a MITRE ATT&CK Flow diagram in JSON format.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'flow', 'type': 'data', 'desc': 'The JSON data to ingest.'},
+                      {'name': 'flow', 'type': 'any', 'desc': 'The JSON data to ingest.'},
                   ),
                   'returns': {'type': ['node', 'null'], 'desc': 'The it:mitre:attack:flow node representing the ingested attack flow diagram.'}}},
 

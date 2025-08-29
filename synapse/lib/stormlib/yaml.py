@@ -15,7 +15,7 @@ class LibYaml(s_stormtypes.Lib):
         {'name': 'save', 'desc': 'Encode data as a YAML string.',
          'type': {'type': 'function', '_funcname': 'save',
                   'args': (
-                      {'name': 'valu', 'type': 'object', 'desc': 'The object to encode.'},
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The object to encode.'},
                       {'name': 'sort_keys', 'type': 'boolean', 'desc': 'Sort object keys.', 'default': True},
                   ),
                   'returns': {'type': 'str', 'desc': 'A YAML string.'}}},

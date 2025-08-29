@@ -29,7 +29,7 @@ class HexLib(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': 'toint',
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The hex string to be converted.'},
-                      {'name': 'signed', 'type': 'bool', 'default': False,
+                      {'name': 'signed', 'type': 'boolean', 'default': False,
                        'desc': 'If true, convert to a signed integer.'},
                   ),
                   'returns': {'type': 'int', 'desc': 'The resulting integer.', }
@@ -39,7 +39,7 @@ class HexLib(s_stormtypes.Lib):
                   'args': (
                       {'name': 'valu', 'type': 'int', 'desc': 'The integer to be converted.'},
                       {'name': 'length', 'type': 'int', 'desc': 'The number of bytes to use to represent the integer.'},
-                      {'name': 'signed', 'type': 'bool', 'default': False,
+                      {'name': 'signed', 'type': 'boolean', 'default': False,
                        'desc': 'If true, convert as a signed value.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'The resulting hex string.', }

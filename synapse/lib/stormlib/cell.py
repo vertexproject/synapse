@@ -160,7 +160,7 @@ class CellLib(s_stormtypes.Lib):
          ''',
          'type': {'type': 'function', '_funcname': '_trimNexsLog',
                   'args': (
-                      {'name': 'consumers', 'type': 'array', 'default': None,
+                      {'name': 'consumers', 'type': 'list', 'default': None,
                        'desc': 'List of Telepath URLs for consumers of the Nexus log.'},
                       {'name': 'timeout', 'type': 'int', 'default': 30,
                        'desc': 'Time (in seconds) to wait for consumers to catch-up before culling.'}

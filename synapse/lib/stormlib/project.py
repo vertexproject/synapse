@@ -664,7 +664,7 @@ class ProjectSprints(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_addProjSprint',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name for the new ProjectSprint.'},
-                      {'name': 'period', 'type': 'ival', 'desc': 'The time interval the ProjectSprint runs for',
+                      {'name': 'period', 'type': 'list', 'desc': 'The time interval the ProjectSprint runs for',
                        'default': None},
                   ),
                   'returns': {'type': 'proj:sprint', 'desc': 'The newly created `proj:sprint` object', }}},

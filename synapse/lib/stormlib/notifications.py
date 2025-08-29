@@ -21,7 +21,7 @@ class NotifyLib(s_stormtypes.Lib):
                     {'name': 'size', 'type': 'int', 'desc': 'The max number of notifications to yield.', 'default': None},
                 ),
                 'returns': {
-                    'name': 'Yields', 'type': 'list',
+                    'name': 'yields', 'type': 'list',
                     'desc': 'Yields (useriden, time, mesgtype, msgdata) tuples.'},
             },
         },
