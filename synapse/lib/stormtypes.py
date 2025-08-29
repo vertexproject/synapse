@@ -4979,6 +4979,24 @@ class Bytes(Prim):
                       {'name': 'offset', 'type': 'int', 'desc': 'An offset to begin unpacking from.', 'default': 0},
                   ),
                   'returns': {'type': 'list', 'desc': 'The unpacked primitive values.', }}},
+        {'name': 'xor', 'desc': '''
+            Perform an "exclusive or" bitwise operation on the bytes and another set of bytes.
+
+            Notes:
+                The key bytes provided as an argument will be repeated as needed until all bytes have been
+                xor'd.
+
+                If a string is provided as the key argument, it will be utf8 encoded before being xor'd.
+
+            Examples:
+                Perform an xor operation on the bytes in $encoded using the bytes in $key::
+
+                    $decoded = $encoded.xor($key)''',
+         'type': {'type': 'function', '_funcname': '_methXor',
+                  'args': (
+                      {'name': 'key', 'type': ['str', 'bytes'], 'desc': 'The key bytes to perform the xor operation with.'},
+                  ),
+                  'returns': {'type': 'bytes', 'desc': "The xor'd bytes."}}},
     )
     _storm_typename = 'bytes'
     _ismutable = False
@@ -4989,6 +5007,7 @@ class Bytes(Prim):
 
     def getObjLocals(self):
         return {
+            'xor': self._methXor,
             'decode': self._methDecode,
             'bunzip': self._methBunzip,
             'gunzip': self._methGunzip,
@@ -5076,6 +5095,26 @@ class Bytes(Prim):
 
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(valu))}') from None
+
+    @stormfunc(readonly=True)
+    async def _methXor(self, key):
+        key = await toprim(key)
+        if isinstance(key, str):
+            key = key.encode()
+
+        if not isinstance(key, bytes):
+            raise s_exc.BadArg(mesg='$bytes.xor() key argument must be bytes or a str.')
+
+        if len(key) == 0:
+            raise s_exc.BadArg(mesg='$bytes.xor() key length must be greater than 0.')
+
+        arry = bytearray(self.valu)
+        keylen = len(key)
+
+        for i in range(len(arry)):
+            arry[i] ^= key[i % keylen]
+
+        return bytes(arry)
 
 @registry.registerType
 class Dict(Prim):

@@ -6,16 +6,16 @@ import lark  # type: ignore
 import regex  # type: ignore
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
-import synapse.lib.datfile as s_datfile
 
 # TL;DR:  *rules* are the internal nodes of an abstract syntax tree (AST), *terminals* are the leaves
 
-# Note: this file is coupled strongly to synapse/lib/storm.lark.  Any changes to that file will probably require
+# Note: this file is coupled strongly to synapse/data/lark/storm.lark.  Any changes to that file will probably require
 # changes here
 
 # For easier-to-understand syntax errors
@@ -475,9 +475,7 @@ class AstConverter(lark.Transformer):
         kids[0].reverseLift(astinfo)
         return kids[0]
 
-with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
-    _grammar = larkf.read().decode()
-
+_grammar = s_data.getLark('storm')
 LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu', 'search'],
                        maybe_placeholders=False, propagate_positions=True, parser='lalr')
 
