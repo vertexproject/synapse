@@ -11,8 +11,11 @@ contracttypes = (
 )
 
 class OuModule(s_module.CoreModule):
-    def getModelDefs(self):
-        modl = {
+
+    def getModelDef(self):
+
+        return {
+
             'types': (
                 ('ou:sic', ('str', {'regex': r'^[0-9]{4}$'}), {
                     'doc': 'The four digit Standard Industrial Classification Code.',
@@ -1428,6 +1431,3 @@ class OuModule(s_module.CoreModule):
                 )),
             )
         }
-
-        name = 'ou'
-        return ((name, modl),)

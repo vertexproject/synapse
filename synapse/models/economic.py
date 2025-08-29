@@ -2,9 +2,8 @@ import synapse.lib.module as s_module
 
 class EconModule(s_module.CoreModule):
 
-    def getModelDefs(self):
-        return (('econ', {
-
+    def getModelDef(self):
+        return {
             'types': (
 
                 ('econ:pay:cvv', ('str', {'regex': '^[0-9]{1,6}$'}), {
@@ -537,4 +536,4 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The account balance at the end of the statement period.'}),
                 )),
             ),
-        }),)
+        }

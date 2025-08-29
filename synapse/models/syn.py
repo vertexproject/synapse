@@ -184,9 +184,9 @@ class SynModule(s_module.CoreModule):
                 if propval is not None and (cmpr is None or filt(propval)):
                     yield sode
 
-    def getModelDefs(self):
+    def getModelDef(self):
 
-        return (('syn', {
+        return {
 
             'ctors': (
                 ('syn:user', 'synapse.models.syn.SynUser', {}, {
@@ -367,4 +367,4 @@ class SynModule(s_module.CoreModule):
                         'doc': 'The list of nodedata that may be added by the command.', 'uniq': True, 'sorted': True, 'ro': True}),
                 )),
             ),
-        }),)
+        }
