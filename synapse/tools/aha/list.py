@@ -17,7 +17,7 @@ async def main(argv, outp=s_output.stdout):
 
     pars = s_cmd.Parser(prog='synapse.tools.aha.enroll', outp=outp, description=descr)
     pars.add_argument('url', help='The telepath URL to connect to the AHA service.')
-    pars.add_argument('network', nargs='+', default=None, help='The AHA network name.')
+    pars.add_argument('network', nargs='?', default=None, help='The AHA network name.')
     opts = pars.parse_args(argv)
 
     async with s_telepath.withTeleEnv():
