@@ -223,6 +223,96 @@ A multiline secondary property.
 Bye!
 '''
 
+python_input00 = '''
+Python with environment variable.
+
+.. python-env:: SYN_LOG_LEVEL=DEBUG SYN_FOO=BAR
+.. python:: -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+.. python-env::
+.. python:: -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+'''
+
+python_output00 = '''
+Python with environment variable.
+
+::
+
+  python -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+
+  LEVEL DEBUG
+  FOO BAR
+
+
+::
+
+  python -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+
+  LEVEL None
+  FOO None
+
+
+'''
+
+python_input01 = '''
+Python hide query.
+
+.. python:: --hide-query -c "print('WOOT')"
+'''
+
+python_output01 = '''
+Python hide query.
+
+::
+
+  WOOT
+
+
+'''
+
+python_input02 = '''
+Python include stderr.
+
+.. python:: --hide-query \
+    -c "import sys; print('FOO00'); sys.stdout.flush(); print('BAR00', file=sys.stderr); print('BAZ00')"
+.. python:: --hide-query --include-stderr \
+    -c "import sys; print('FOO01'); sys.stdout.flush(); print('BAR01', file=sys.stderr); print('BAZ01')"
+'''
+
+python_output02 = '''
+Python include stderr.
+
+::
+
+  FOO00
+  BAZ00
+
+
+::
+
+  FOO01
+  BAR01
+  BAZ01
+
+
+'''
+
+python_text03 = '''--hide-query -c "import sys; print('WOOT'); sys.exit(1)"'''
+python_input03 = f'''
+Python non-zero exit.
+
+.. python:: {python_text03}
+'''
+
+python_output03 = '''
+Python non-zero exit.
+
+::
+
+  WOOT
+
+
+'''
+
 fail00 = '''
 
 .. storm-cortex:: default
@@ -341,6 +431,36 @@ class RStormLibTest(s_test.SynTest):
             text = await get_rst_text(path)
             text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
             self.eq(text_nocrt, multiline_storm_output)
+
+            # python and python-env
+            path = s_common.genpath(dirn, 'python00.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(python_input00.encode())
+            text = await get_rst_text(path)
+            self.eq(text, python_output00)
+
+            # python --hide-query
+            path = s_common.genpath(dirn, 'python01.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(python_input01.encode())
+            text = await get_rst_text(path)
+            self.eq(text, python_output01)
+
+            # python --include-stderr
+            path = s_common.genpath(dirn, 'python02.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(python_input02.encode())
+            text = await get_rst_text(path)
+            self.eq(text, python_output02)
+
+            # python non-zero exit
+            path = s_common.genpath(dirn, 'python03.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(python_input03.encode())
+            with self.getLoggerStream('synapse.lib.rstorm') as stream:
+                text = await get_rst_text(path)
+            stream.expect(f'Error when executing python directive: {python_text03} (rv: 1)')
+            self.eq(text, python_output03)
 
             # http
             path = s_common.genpath(dirn, 'http.rst')

@@ -1,8 +1,12 @@
 import os
+import sys
 import copy
+import shlex
 import pprint
 import logging
+import argparse
 import contextlib
+import subprocess
 import collections
 
 import vcr
@@ -25,7 +29,7 @@ import synapse.tools.storm as s_storm
 import synapse.tools.genpkg as s_genpkg
 
 
-re_directive = regex.compile(r'^\.\.\s(storm.*|[^:])::(?:\s(.*)$|$)')
+re_directive = regex.compile(r'^\.\.\s(python.*|storm.*|[^:])::(?:\s(.*)$|$)')
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +51,6 @@ class OutPutRst(s_output.OutPutStr):
             mesg = '\n'.join((parts[0], mesg0))
 
         return s_output.OutPutStr.printf(self, mesg, addnl)
-
 
 class StormOutput(s_cmds_cortex.StormCmd):
     '''
@@ -329,6 +332,8 @@ class StormRst(s_base.Base):
         self.core = None
 
         self.handlers = {
+            'python': self._handlePython,
+            'python-env': self._handlePythonEnv,
             'storm': self._handleStorm,
             'storm-cli': self._handleStormCli,
             'storm-pkg': self._handleStormPkg,
@@ -595,6 +600,58 @@ class StormRst(s_base.Base):
         if cb is None:
             raise s_exc.NoSuchCtor(mesg=f'Failed to get callback "{text}"', ctor=text)
         self.context['storm-vcr-callback'] = cb
+
+    async def _handlePython(self, text):
+        '''
+        Execute python with the supplied arguments.
+
+        If ``--include-stderr`` is included on the command line, then also capture stderr output.
+        '''
+        parser = argparse.ArgumentParser(add_help=False)
+        parser.add_argument('--include-stderr', action='store_true')
+        parser.add_argument('--hide-query', action='store_true')
+        opts, args = parser.parse_known_args(shlex.split(text))
+
+        args = [sys.executable] + args
+
+        env = self.context.get('python-env')
+
+        stderr = None
+        if opts.include_stderr:
+            stderr = subprocess.STDOUT
+
+        proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=stderr, env=env, text=True)
+        if proc.returncode != 0:
+            logger.info('Error when executing python directive: %s (rv: %d)', text, proc.returncode)
+
+        self._printf('::\n\n')
+
+        if not opts.hide_query:
+            self._printf(f'  python {text}\n\n')
+
+        for line in proc.stdout.splitlines():
+            self._printf(f'  {line}\n')
+
+        self._printf('\n\n')
+
+    async def _handlePythonEnv(self, text):
+        '''
+        Env to use in subsequent Python queries.
+
+        Args:
+            text (str): KEY=VALUE [KEY=VALUE ...]
+        '''
+        text = text.strip()
+        if not text:
+            return self.context.pop('python-env')
+
+        env = {}
+
+        for item in text.split(' '):
+            key, val = item.split('=')
+            env[key] = val
+
+        self.context['python-env'] = env
 
     async def _readline(self, line):
 

@@ -1,0 +1,15 @@
+.. highlight:: none
+
+.. _syn-tools-cellauth:
+
+cellauth
+========
+
+The Synapse ``cellauth`` tool can be used to manage permissions of users, roles, and objects in a remote cell.
+
+Syntax
+------
+
+``cellauth`` is executed using ``python -m synapse.tools.cellauth``. The command usage is as follows:
+
+.. python:: -m synapse.tools.cellauth -h

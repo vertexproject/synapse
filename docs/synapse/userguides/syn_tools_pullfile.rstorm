@@ -31,6 +31,13 @@ Where:
 
   - Multiple hashes can be specified, but each must be listed with its own ``-l`` option (i.e., ``-l HASH_0 -l HASH_1 ... -l HASH_n``).
 
+help
+++++
+
+The detailed help (``-h``) output for the ``pullfile`` tool is shown below.
+
+.. python:: -m synapse.tools.pullfile -h
+
 Example
 -------
 

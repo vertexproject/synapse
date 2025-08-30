@@ -1,0 +1,15 @@
+.. highlight:: none
+
+.. _syn-tools-livebackup:
+
+livebackup
+==========
+
+The Synapse ``livebackup`` tool can be used to manage generate a new backup of a running Synapse service.
+
+Syntax
+------
+
+``livebackup`` is executed using ``python -m synapse.tools.livebackup``. The command usage is as follows:
+
+.. python:: -m synapse.tools.livebackup -h
