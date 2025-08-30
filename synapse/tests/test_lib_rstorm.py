@@ -296,6 +296,23 @@ Python include stderr.
 
 '''
 
+python_text03 = '''--hide-query -c "import sys; print('WOOT'); sys.exit(1)"'''
+python_input03 = f'''
+Python non-zero exit.
+
+.. python:: {python_text03}
+'''
+
+python_output03 = '''
+Python non-zero exit.
+
+::
+
+  WOOT
+
+
+'''
+
 fail00 = '''
 
 .. storm-cortex:: default
@@ -435,6 +452,15 @@ class RStormLibTest(s_test.SynTest):
                 fd.write(python_input02.encode())
             text = await get_rst_text(path)
             self.eq(text, python_output02)
+
+            # python non-zero exit
+            path = s_common.genpath(dirn, 'python03.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(python_input03.encode())
+            with self.getLoggerStream('synapse.lib.rstorm') as stream:
+                text = await get_rst_text(path)
+            stream.expect(f'Error when executing python directive: {python_text03} (rv: 1)')
+            self.eq(text, python_output03)
 
             # http
             path = s_common.genpath(dirn, 'http.rst')
