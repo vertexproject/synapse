@@ -7,14 +7,21 @@ import synapse.lib.version as s_version
 
 reqver = '>=2.11.0,<3.0.0'
 
+descr = 'List AHA services.'
+
 async def main(argv, outp=s_output.stdout):
 
     if len(argv) not in (1, 2):
         outp.printf('usage: python -m synapse.tools.aha.list <url> [network name]')
         return 1
 
+    pars = s_cmd.Parser(prog='synapse.tools.aha.enroll', outp=outp, description=descr)
+    pars.add_argument('url', help='The telepath URL to connect to the AHA service.')
+    pars.add_argument('network', nargs='+', default=None, help='The AHA network name.')
+    opts = pars.parse_args(argv)
+
     async with s_telepath.withTeleEnv():
-        async with await s_telepath.openurl(argv[0]) as prox:
+        async with await s_telepath.openurl(opts.url) as prox:
             try:
                 s_version.reqVersion(prox._getSynVers(), reqver)
             except s_exc.BadVersion as e:  # pragma: no cover
@@ -23,13 +30,10 @@ async def main(argv, outp=s_output.stdout):
                 return 1
             classes = prox._getClasses()
             if 'synapse.lib.aha.AhaApi' not in classes:
-                outp.printf(f'Service at {argv[0]} is not an Aha server')
+                outp.printf(f'Service at {opts.url} is not an Aha server')
                 return 1
 
-            try:
-                network = argv[1]
-            except IndexError:
-                network = None
+            network = opts.network
 
             mesg = f"{'Service':<20s} {'network':<30s} {'leader':<6} {'online':<6} {'scheme':<6} {'host':<20} {'port':<5}  connection opts"
             outp.printf(mesg)

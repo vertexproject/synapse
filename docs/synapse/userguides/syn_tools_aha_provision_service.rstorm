@@ -1,0 +1,15 @@
+.. highlight:: none
+
+.. _syn-tools-aha_provision_service:
+
+aha.provision.service
+=====================
+
+The Synapse ``aha.provision.service`` tool can be used to prepare provisioning entries in the AHA server.
+
+Syntax
+------
+
+``aha.provision.service`` is executed using ``python -m synapse.tools.aha.provision.service``. The command usage is as follows:
+
+.. python:: -m synapse.tools.aha.provision.service -h

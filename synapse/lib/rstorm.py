@@ -44,7 +44,6 @@ class OutPutRst(s_output.OutPutStr):
 
     def printf(self, mesg, addnl=True):
 
-        mesg = f'{self.prefix}{mesg}'
         if '\n' in mesg:
             logger.debug(f'Newline found in [{mesg}]')
             parts = mesg.split('\n')
@@ -623,14 +622,17 @@ class StormRst(s_base.Base):
 
         proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=stderr, env=env, text=True)
         if proc.returncode != 0:
-            mesg = 'Error executing python directive.'
-            raise s_exc.FatalErr(mesg=mesg, text=text)
+            logger.info('Error when executing python directive: %s (rv: %d)', text, proc.returncode)
 
-        outp = OutPutRst()
+        self._printf('::\n\n')
+
         if not opts.hide_query:
-            outp.printf(f'python {text}\n')
-        outp.printf(proc.stdout)
-        self._printf(f'::\n\n{outp}\n\n')
+            self._printf(f'  python {text}\n\n')
+
+        for line in proc.stdout.splitlines():
+            self._printf(f'  {line}\n')
+
+        self._printf('\n\n')
 
     async def _handlePythonEnv(self, text):
         '''

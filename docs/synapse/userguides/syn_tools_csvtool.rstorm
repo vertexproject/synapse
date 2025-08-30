@@ -62,7 +62,7 @@ Where:
 help
 ++++
 
-The detailed help (``-h``) output for ``csvtool`` is shown below (lines are wrapped for readability).
+The detailed help (``-h``) output for ``csvtool`` is shown below.
 
 .. python:: -m synapse.tools.csvtool -h
 

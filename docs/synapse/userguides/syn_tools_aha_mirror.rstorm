@@ -1,0 +1,15 @@
+.. highlight:: none
+
+.. _syn-tools-aha_mirror:
+
+aha.mirror
+==========
+
+The Synapse ``aha.mirror`` tool can be used to query the AHA server for the service cluster status of mirrors.
+
+Syntax
+------
+
+``aha.mirror`` is executed using ``python -m synapse.tools.aha.mirror``. The command usage is as follows:
+
+.. python:: -m synapse.tools.aha.mirror -h

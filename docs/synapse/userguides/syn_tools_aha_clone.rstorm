@@ -1,0 +1,15 @@
+.. highlight:: none
+
+.. _syn-tools-aha_clone:
+
+aha.clone
+=========
+
+The Synapse ``aha.clone`` tool can be used to generate a new clone URL to deploy an AHA mirror.
+
+Syntax
+------
+
+``aha.clone`` is executed using ``python -m synapse.tools.aha.clone``. The command usage is as follows:
+
+.. python:: -m synapse.tools.aha.clone -h

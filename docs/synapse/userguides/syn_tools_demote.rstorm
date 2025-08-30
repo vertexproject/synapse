@@ -1,0 +1,15 @@
+.. highlight:: none
+
+.. _syn-tools-demote:
+
+demote
+======
+
+The Synapse ``demote`` tool can be used to automatically select a new leader and demote this service.
+
+Syntax
+------
+
+``demote`` is executed using ``python -m synapse.tools.demote``. The command usage is as follows:
+
+.. python:: -m synapse.tools.demote -h
