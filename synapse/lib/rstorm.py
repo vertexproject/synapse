@@ -639,17 +639,19 @@ class StormRst(s_base.Base):
         Env to use in subsequent Python queries.
 
         Args:
-            text (str): JSON dictionary, e.g. {"SYN_LOG_LEVEL": "DEBUG"} or null to remove
+            text (str): KEY=VALUE [KEY=VALUE ...]
         '''
-        item = s_json.loads(text)
-        if not isinstance(item, (dict, None)):
-            mesg = 'python-env values must be a json dictionary or null'
-            raise s_exc.BadDataValu(mesg=mesg, valu=text)
+        text = text.strip()
+        if not text:
+            return self.context.pop('python-env')
 
-        if item:
-            self.context['python-env'] = item
-        else:
-            self.context.pop('python-env', None)
+        env = {}
+
+        for item in text.split(' '):
+            key, val = item.split('=')
+            env[key] = val
+
+        self.context['python-env'] = env
 
     async def _readline(self, line):
 

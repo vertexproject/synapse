@@ -223,6 +223,79 @@ A multiline secondary property.
 Bye!
 '''
 
+python_input00 = '''
+Python with environment variable.
+
+.. python-env:: SYN_LOG_LEVEL=DEBUG SYN_FOO=BAR
+.. python:: -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+.. python-env::
+.. python:: -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+'''
+
+python_output00 = '''
+Python with environment variable.
+
+::
+
+  python -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+
+  LEVEL DEBUG
+  FOO BAR
+
+
+::
+
+  python -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+
+  LEVEL None
+  FOO None
+
+
+'''
+
+python_input01 = '''
+Python hide query.
+
+.. python:: --hide-query -c "print('WOOT')"
+'''
+
+python_output01 = '''
+Python hide query.
+
+::
+
+  WOOT
+
+
+'''
+
+python_input02 = '''
+Python include stderr.
+
+.. python:: --hide-query \
+    -c "import sys; print('FOO00'); sys.stdout.flush(); print('BAR00', file=sys.stderr); print('BAZ00')"
+.. python:: --hide-query --include-stderr \
+    -c "import sys; print('FOO01'); sys.stdout.flush(); print('BAR01', file=sys.stderr); print('BAZ01')"
+'''
+
+python_output02 = '''
+Python include stderr.
+
+::
+
+  FOO00
+  BAZ00
+
+
+::
+
+  FOO01
+  BAR01
+  BAZ01
+
+
+'''
+
 fail00 = '''
 
 .. storm-cortex:: default
@@ -341,6 +414,27 @@ class RStormLibTest(s_test.SynTest):
             text = await get_rst_text(path)
             text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
             self.eq(text_nocrt, multiline_storm_output)
+
+            # python and python-env
+            path = s_common.genpath(dirn, 'python00.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(python_input00.encode())
+            text = await get_rst_text(path)
+            self.eq(text, python_output00)
+
+            # python --hide-query
+            path = s_common.genpath(dirn, 'python01.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(python_input01.encode())
+            text = await get_rst_text(path)
+            self.eq(text, python_output01)
+
+            # python --include-stderr
+            path = s_common.genpath(dirn, 'python02.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(python_input02.encode())
+            text = await get_rst_text(path)
+            self.eq(text, python_output02)
 
             # http
             path = s_common.genpath(dirn, 'http.rst')
