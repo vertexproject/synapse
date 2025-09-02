@@ -1,5 +1,0 @@
----
-desc: Added an ``xor()`` method on Storm ``bytes`` objects.
-prs: []
-type: feat
-...

@@ -1,5 +1,0 @@
----
-desc: Fixed bug where the ``intersect`` command was not marked as readonly safe.
-prs: []
-type: bug
-...

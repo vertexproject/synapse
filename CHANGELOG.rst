@@ -6,6 +6,24 @@
 Synapse Changelog
 *****************
 
+v2.220.0 - 2025-09-02
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated the IMAP client backend code for ``$lib.inet.imap()``.
+  (`#4439 <https://github.com/vertexproject/synapse/pull/4439>`_)
+- Added an ``xor()`` method on Storm ``bytes`` objects.
+  (`#4459 <https://github.com/vertexproject/synapse/pull/4459>`_)
+
+Bugfixes
+--------
+- Fixed regression in JSON where serializing strings with control characters
+  would cause an error.
+  (`#4463 <https://github.com/vertexproject/synapse/pull/4463>`_)
+- Fixed bug where the ``intersect`` command was not marked as readonly safe.
+  (`#4465 <https://github.com/vertexproject/synapse/pull/4465>`_)
+
 v2.219.0 - 2025-08-22
 =====================
 
