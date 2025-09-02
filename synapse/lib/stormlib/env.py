@@ -21,7 +21,7 @@ class LibEnv(s_stormtypes.Lib):
             'args': (
                 {'name': 'name', 'type': 'str', 'desc': 'The name of the environment variable.', },
                 {'name': 'default', 'type': 'prim', 'default': None,
-                    'desc': 'The value to return if the environment variable is not set.', },
+                    'desc': 'The value to return if the environment variable is not set. Non-string values will be converted into their string forms.', },
             ),
             'returns': {'type': ['str', 'null'], 'desc': 'The environment variable string.'},
          },
