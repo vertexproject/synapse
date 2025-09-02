@@ -604,13 +604,11 @@ class StormRst(s_base.Base):
     async def _handleShell(self, text):
         '''
         Execute shell with the supplied arguments.
-
-        If ``--include-stderr`` is included on the command line, then also capture stderr output.
         '''
         parser = argparse.ArgumentParser(add_help=False)
-        parser.add_argument('--include-stderr', action='store_true')
-        parser.add_argument('--hide-query', action='store_true')
-        parser.add_argument('--fail-ok', action='store_true')
+        parser.add_argument('--include-stderr', action='store_true', help='Include stderr in output.')
+        parser.add_argument('--hide-query', action='store_true', help='Do not include the command in the output.')
+        parser.add_argument('--fail-ok', action='store_true', help='Non-zero return values are non-fatal.')
         opts, args = parser.parse_known_args(shlex.split(text))
 
         # Remove any command line arguments
