@@ -40,10 +40,10 @@ class LibEnv(s_stormtypes.Lib):
         self.runt.reqAdmin(mesg='$lib.env.get() requires admin privileges.')
 
         name = await s_stormtypes.tostr(name)
-        default = await s_stormtypes.tostr(default, noneok=True)
+        default = await s_stormtypes.toprim(default)
 
         if not name.startswith('SYN_STORM_ENV_'):
             mesg = f'Environment variable must start with SYN_STORM_ENV_ : {name}'
             raise s_exc.BadArg(mesg=mesg)
 
-        return os.getenv(name, default=default)
+        return os.getenv(name, default=await s_stormtypes.tostr(default, noneok=True))
