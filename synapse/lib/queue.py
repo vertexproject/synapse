@@ -118,14 +118,17 @@ class Window(s_base.Base):
     its maxsize, it will be fini()d.  On fini(), the Window will continue to
     yield results until empty and then return.
     '''
-    async def __anit__(self, maxsize=None):
+    async def __anit__(self, maxsize=None, clearonfini=False):
         await s_base.Base.__anit__(self)
         self.maxsize = maxsize
         self.event = asyncio.Event()
 
         self.linklist = collections.deque()
+        self.clearonfini = clearonfini
 
         async def fini():
+            if self.clearonfini:
+                self.linklist.clear()
             self.event.set()
 
         self.onfini(fini)
