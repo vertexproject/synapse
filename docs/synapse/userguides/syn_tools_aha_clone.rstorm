@@ -12,4 +12,4 @@ Syntax
 
 ``aha.clone`` is executed using ``python -m synapse.tools.aha.clone``. The command usage is as follows:
 
-.. python:: -m synapse.tools.aha.clone -h
+.. shell:: python3 -m synapse.tools.aha.clone -h

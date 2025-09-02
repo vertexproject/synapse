@@ -29,7 +29,7 @@ import synapse.tools.storm as s_storm
 import synapse.tools.genpkg as s_genpkg
 
 
-re_directive = regex.compile(r'^\.\.\s(python.*|storm.*|[^:])::(?:\s(.*)$|$)')
+re_directive = regex.compile(r'^\.\.\s(shell.*|storm.*|[^:])::(?:\s(.*)$|$)')
 
 logger = logging.getLogger(__name__)
 
@@ -332,8 +332,8 @@ class StormRst(s_base.Base):
         self.core = None
 
         self.handlers = {
-            'python': self._handlePython,
-            'python-env': self._handlePythonEnv,
+            'shell': self._handleShell,
+            'shell-env': self._handleShellEnv,
             'storm': self._handleStorm,
             'storm-cli': self._handleStormCli,
             'storm-pkg': self._handleStormPkg,
@@ -601,9 +601,9 @@ class StormRst(s_base.Base):
             raise s_exc.NoSuchCtor(mesg=f'Failed to get callback "{text}"', ctor=text)
         self.context['storm-vcr-callback'] = cb
 
-    async def _handlePython(self, text):
+    async def _handleShell(self, text):
         '''
-        Execute python with the supplied arguments.
+        Execute shell with the supplied arguments.
 
         If ``--include-stderr`` is included on the command line, then also capture stderr output.
         '''
@@ -612,9 +612,9 @@ class StormRst(s_base.Base):
         parser.add_argument('--hide-query', action='store_true')
         opts, args = parser.parse_known_args(shlex.split(text))
 
-        args = [sys.executable] + args
+        args = args
 
-        env = self.context.get('python-env')
+        env = self.context.get('shell-env')
 
         stderr = None
         if opts.include_stderr:
@@ -622,28 +622,28 @@ class StormRst(s_base.Base):
 
         proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=stderr, env=env, text=True)
         if proc.returncode != 0:
-            logger.info('Error when executing python directive: %s (rv: %d)', text, proc.returncode)
+            logger.info('Error when executing shell directive: %s (rv: %d)', text, proc.returncode)
 
         self._printf('::\n\n')
 
         if not opts.hide_query:
-            self._printf(f'  python {text}\n\n')
+            self._printf(f'  {text}\n\n')
 
         for line in proc.stdout.splitlines():
             self._printf(f'  {line}\n')
 
         self._printf('\n\n')
 
-    async def _handlePythonEnv(self, text):
+    async def _handleShellEnv(self, text):
         '''
-        Env to use in subsequent Python queries.
+        Env to use in subsequent shell queries.
 
         Args:
             text (str): KEY=VALUE [KEY=VALUE ...]
         '''
         text = text.strip()
         if not text:
-            return self.context.pop('python-env')
+            return self.context.pop('shell-env')
 
         env = {}
 
@@ -651,7 +651,7 @@ class StormRst(s_base.Base):
             key, val = item.split('=')
             env[key] = val
 
-        self.context['python-env'] = env
+        self.context['shell-env'] = env
 
     async def _readline(self, line):
 

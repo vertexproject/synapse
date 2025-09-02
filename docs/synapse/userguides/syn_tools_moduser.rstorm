@@ -12,4 +12,4 @@ Syntax
 
 ``moduser`` is executed using ``python -m synapse.tools.moduser``. The command usage is as follows:
 
-.. python:: -m synapse.tools.moduser -h
+.. shell:: python3 -m synapse.tools.moduser -h

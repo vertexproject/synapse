@@ -42,7 +42,7 @@ help
 
 The detailed help (``-h``) output for the ``pushfile`` tool is shown below.
 
-.. python:: -m synapse.tools.pushfile -h
+.. shell:: python3 -m synapse.tools.pushfile -h
 
 Example
 -------
