@@ -610,6 +610,7 @@ class StormRst(s_base.Base):
         parser = argparse.ArgumentParser(add_help=False)
         parser.add_argument('--include-stderr', action='store_true')
         parser.add_argument('--hide-query', action='store_true')
+        parser.add_argument('--fail-ok', action='store_true')
         opts, args = parser.parse_known_args(shlex.split(text))
 
         args = args
@@ -621,8 +622,9 @@ class StormRst(s_base.Base):
             stderr = subprocess.STDOUT
 
         proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=stderr, env=env, text=True)
-        if proc.returncode != 0:
-            logger.info('Error when executing shell directive: %s (rv: %d)', text, proc.returncode)
+        if proc.returncode != 0 and not opts.fail_ok:
+            mesg = f'Error when executing shell directive: {text} (rv: {proc.returncode})'
+            raise s_exc.SynErr(mesg=mesg)
 
         self._printf('::\n\n')
 

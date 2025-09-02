@@ -12,4 +12,4 @@ Syntax
 
 ``demote`` is executed using ``python -m synapse.tools.demote``. The command usage is as follows:
 
-.. shell:: python3 -m synapse.tools.demote -h
+.. shell:: --fail-ok python3 -m synapse.tools.demote -h

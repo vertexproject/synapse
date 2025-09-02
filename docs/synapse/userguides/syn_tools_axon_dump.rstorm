@@ -12,4 +12,4 @@ Syntax
 
 ``axon.dump`` is executed using ``python -m synapse.tools.axon.dump``. The command usage is as follows:
 
-.. shell:: python3 -m synapse.tools.axon.dump -h
+.. shell:: --fail-ok python3 -m synapse.tools.axon.dump -h

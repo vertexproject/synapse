@@ -12,4 +12,4 @@ Syntax
 
 ``livebackup`` is executed using ``python -m synapse.tools.livebackup``. The command usage is as follows:
 
-.. shell:: python3 -m synapse.tools.livebackup -h
+.. shell:: --fail-ok python3 -m synapse.tools.livebackup -h

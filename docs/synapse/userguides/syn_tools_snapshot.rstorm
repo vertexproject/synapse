@@ -13,4 +13,4 @@ Syntax
 
 ``snapshot`` is executed using ``python -m synapse.tools.snapshot``. The command usage is as follows:
 
-.. shell:: python3 -m synapse.tools.snapshot -h
+.. shell:: --fail-ok python3 -m synapse.tools.snapshot -h

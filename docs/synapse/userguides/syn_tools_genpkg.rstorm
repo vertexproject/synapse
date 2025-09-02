@@ -15,4 +15,4 @@ Syntax
 
 ``genpkg`` is executed using ``python -m synapse.tools.genpkg``. The command usage is as follows:
 
-.. shell:: python3 -m synapse.tools.genpkg -h
+.. shell:: --fail-ok python3 -m synapse.tools.genpkg -h

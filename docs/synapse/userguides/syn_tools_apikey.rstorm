@@ -12,4 +12,4 @@ Syntax
 
 ``apikey`` is executed using ``python -m synapse.tools.apikey``. The command usage is as follows:
 
-.. shell:: python3 -m synapse.tools.apikey -h
+.. shell:: --fail-ok python3 -m synapse.tools.apikey -h

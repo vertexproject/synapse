@@ -12,4 +12,4 @@ Syntax
 
 ``aha.provision.user`` is executed using ``python -m synapse.tools.aha.provision.user``. The command usage is as follows:
 
-.. shell:: python3 -m synapse.tools.aha.provision.user -h
+.. shell:: --fail-ok python3 -m synapse.tools.aha.provision.user -h
