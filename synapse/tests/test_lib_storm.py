@@ -732,7 +732,7 @@ class StormTest(s_t_utils.SynTest):
                 [(ou:org=* :names=(foo, baz))]
                 [(ou:org=* :names=(foo, hehe))]
             ''')
-            nodes = await core.nodes('ou:org | intersect { -> ou:name }')
+            nodes = await core.nodes('ou:org | intersect { -> ou:name }', opts={'readonly': True})
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'foo')
 
