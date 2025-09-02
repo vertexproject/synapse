@@ -23,7 +23,7 @@ class LibEnv(s_stormtypes.Lib):
                 {'name': 'default', 'type': 'prim', 'default': None,
                     'desc': 'The value to return if the environment variable is not set.', },
             ),
-            'returns': {'type': 'str', 'desc': 'The environment variable string.'},
+            'returns': {'type': ['str', 'null'], 'desc': 'The environment variable string.'},
          },
         },
     )
@@ -46,4 +46,4 @@ class LibEnv(s_stormtypes.Lib):
             mesg = f'Environment variable must start with SYN_STORM_ENV_ : {name}'
             raise s_exc.BadArg(mesg=mesg)
 
-        return os.getenv(name, default=default)
+        return os.getenv(name, default=await s_stormtypes.tostr(default, noneok=True))

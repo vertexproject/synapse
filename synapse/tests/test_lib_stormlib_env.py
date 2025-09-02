@@ -15,6 +15,9 @@ class StormLibEnvTest(s_test.SynTest):
 
                 self.none(await core.callStorm('return($lib.env.get(SYN_STORM_ENV_HEHE))'))
 
+                valu = await core.callStorm('return($lib.env.get(SYN_STORM_ENV_NOPE, default=({"foo": "bar"})))')
+                self.eq(valu, "{'foo': 'bar'}")
+
                 visi = await core.auth.addUser('visi')
 
                 with self.raises(s_exc.AuthDeny):

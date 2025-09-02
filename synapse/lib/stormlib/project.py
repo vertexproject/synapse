@@ -659,12 +659,12 @@ class ProjectSprints(s_stormtypes.Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name (or iden) of the ProjectSprint to get.'},
                   ),
-                  'returns': {'type': 'proj:sprint', 'desc': 'The `proj:sprint` object', }}},
+                  'returns': {'type': 'proj:sprint', 'desc': 'The `proj:sprint` object.', }}},
         {'name': 'add', 'desc': 'Add a sprint.',
          'type': {'type': 'function', '_funcname': '_addProjSprint',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name for the new ProjectSprint.'},
-                      {'name': 'period', 'type': 'list', 'desc': 'The time interval the ProjectSprint runs for',
+                      {'name': 'period', 'type': 'list', 'desc': 'The time interval the ProjectSprint runs for.',
                        'default': None},
                   ),
                   'returns': {'type': 'proj:sprint', 'desc': 'The newly created `proj:sprint` object', }}},
@@ -673,7 +673,7 @@ class ProjectSprints(s_stormtypes.Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Sprint to delete.'},
                   ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the ProjectSprint can be found and deleted, otherwise False', }}}
+                  'returns': {'type': 'boolean', 'desc': 'True if the ProjectSprint can be found and deleted, otherwise False.', }}}
     )
 
     _storm_typename = 'proj:sprints'
