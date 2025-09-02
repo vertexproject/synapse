@@ -303,7 +303,13 @@ Shell non-zero exit.
 .. shell:: {shell_text03}
 '''
 
-shell_output03 = '''
+shell_text04 = '''--hide-query --fail-ok python3 -c "import sys; print('WOOT'); sys.exit(1)"'''
+shell_input04 = f'''
+Shell non-zero exit.
+
+.. shell:: {shell_text04}
+'''
+shell_output04 = '''
 Shell non-zero exit.
 
 ::
@@ -457,10 +463,16 @@ class RStormLibTest(s_test.SynTest):
             path = s_common.genpath(dirn, 'shell03.rst')
             with s_common.genfile(path) as fd:
                 fd.write(shell_input03.encode())
-            with self.getLoggerStream('synapse.lib.rstorm') as stream:
-                text = await get_rst_text(path)
-            stream.expect(f'Error when executing shell directive: {shell_text03} (rv: 1)')
-            self.eq(text, shell_output03)
+            with self.raises(s_exc.SynErr) as exc:
+                await get_rst_text(path)
+            self.eq(exc.exception.get('mesg'), f'Error when executing shell directive: {shell_text03} (rv: 1)')
+
+            # shell non-zero exit --fail-ok
+            path = s_common.genpath(dirn, 'shell04.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(shell_input04.encode())
+            text = await get_rst_text(path)
+            self.eq(text, shell_output04)
 
             # http
             path = s_common.genpath(dirn, 'http.rst')

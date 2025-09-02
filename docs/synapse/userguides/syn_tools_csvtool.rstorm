@@ -64,7 +64,7 @@ help
 
 The detailed help (``-h``) output for ``csvtool`` is shown below.
 
-.. shell:: --fail-ok python3 -m synapse.tools.csvtool -h
+.. shell:: --fail-ok python -m synapse.tools.csvtool -h
 
 .. _csvtool-examples-ingest:
   

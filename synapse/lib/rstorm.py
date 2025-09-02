@@ -613,7 +613,12 @@ class StormRst(s_base.Base):
         parser.add_argument('--fail-ok', action='store_true')
         opts, args = parser.parse_known_args(shlex.split(text))
 
-        args = args
+        # Remove any command line arguments
+        query = text
+        query = query.replace('--include-stderr', '')
+        query = query.replace('--hide-query', '')
+        query = query.replace('--fail-ok', '')
+        query = query.strip()
 
         env = self.context.get('shell-env')
 
@@ -629,7 +634,7 @@ class StormRst(s_base.Base):
         self._printf('::\n\n')
 
         if not opts.hide_query:
-            self._printf(f'  {text}\n\n')
+            self._printf(f'  {query}\n\n')
 
         for line in proc.stdout.splitlines():
             self._printf(f'  {line}\n')

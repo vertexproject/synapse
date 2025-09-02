@@ -12,4 +12,4 @@ Syntax
 
 ``backup`` is executed using ``python -m synapse.tools.backup``. The command usage is as follows:
 
-.. shell:: --fail-ok python3 -m synapse.tools.backup -h
+.. shell:: --fail-ok python -m synapse.tools.backup -h

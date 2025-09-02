@@ -13,4 +13,4 @@ Syntax
 
 ``pkgs.gendocs`` is executed using ``python -m synapse.tools.pkgs.gendocs``. The command usage is as follows:
 
-.. shell:: --fail-ok python3 -m synapse.tools.pkgs.gendocs -h
+.. shell:: --fail-ok python -m synapse.tools.pkgs.gendocs -h
