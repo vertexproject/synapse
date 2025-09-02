@@ -19,7 +19,6 @@ Tools
     syn_tools_axon_load
     syn_tools_axon2axon
     syn_tools_backup
-    syn_tools_cellauth
     syn_tools_cortex_layer_dump
     syn_tools_cortex_layer_load
     syn_tools_csvtool
