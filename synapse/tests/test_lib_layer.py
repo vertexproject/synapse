@@ -2923,3 +2923,122 @@ class LayerTest(s_t_utils.SynTest):
 
                     evnts = [n[1][1] for n in await alist(core01.nexsroot.nexslog.iter(indx))]
                     self.eq(['view:del', 'layer:del', 'sync'], evnts)
+
+    async def test_layer_migrate_props_fork(self):
+
+        async with self.getTestCore() as core:
+
+            iden = (await core.addUser('lowuser')).get('iden')
+            lowuser = {'user': iden}
+
+            fork00 = await core.view.fork()
+            layr00 = core.getLayer(fork00['layers'][0]['iden'])
+
+            await core.nodes('''
+                for $prop in (_custom:risk:level, _custom:risk:severity) {
+                    $lib.model.ext.addFormProp(
+                        test:guid,
+                        $prop,
+                        (["int", {"enums": [[10, "low"], [20, "medium"], [30, "high"]]}]),
+                        ({"doc": "hey now"}),
+                    )
+                }
+
+            ''')
+            self.len(1, await core.nodes('syn:prop=test:guid:_custom:risk:level'))
+            self.len(1, await core.nodes('syn:prop=test:guid:_custom:risk:severity'))
+
+            await core.nodes('[ test:guid=* :name=test1 :_custom:risk:level=low ]', opts={'view': fork00['iden']})
+
+            await core.getView(fork00['iden']).delete()
+
+            with self.raises(s_exc.CantDelProp) as cm:
+                await core.callStorm('''
+                    $fullprop = "test:guid:_custom:risk:level"
+                    for $view in $lib.view.list(deporder=$lib.true) {
+                        view.exec $view.iden {
+                            yield $lib.layer.get().liftByProp($fullprop)
+                            $repr = $node.repr("_custom:risk:level")
+                            [ :severity=$repr -:_custom:risk:level ]
+                        }
+                    }
+                    $lib.model.ext.delFormProp("test:guid", "_custom:risk:level")
+                ''')
+            self.isin('Nodes still exist with prop: test:guid:_custom:risk:level', str(cm.exception))
+            self.len(1, await core.nodes('syn:prop=test:guid:_custom:risk:level'))
+
+            with self.raises(s_exc.NoSuchProp) as cm:
+                await core.callStorm('''
+                    $layer = $lib.layer.get()
+                    for $x in $layer.getStorNodesByProp("foo:bar:_custom:risk:level") {}
+                ''')
+            self.isin('No property named', str(cm.exception))
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm('''
+                    $fullprop = "test:guid:_custom:risk:level"
+                    for $layer in $lib.layer.list() {
+                        for ($nid, $sode) in $layer.getStorNodesByProp($fullprop) {
+                            $oldv = $sode.props."_custom:risk:level"
+                            $layer.setStorNodeProp($nid, "foo:bar:severity", $oldv.0)
+                        }
+                    }
+                ''')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('''
+                    $fullprop = "test:guid:_custom:risk:level"
+                    for $layer in $lib.layer.list() {
+                        for ($nid, $sode) in $layer.getStorNodesByProp($fullprop) {
+                            $layer.setStorNodeProp($nid, $fullprop, "newp")
+                        }
+                    }
+                ''')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm('''
+                    $fullprop = "test:guid:_custom:risk:level"
+                    for $layer in $lib.layer.list() {
+                        for ($nid, $sode) in $layer.getStorNodesByProp($fullprop) {
+                            $layer.delStorNodeProp($nid, "foo:bar:severity")
+                        }
+                    }
+                ''')
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.callStorm('''
+                    $nid = (1)
+                    $layer = $lib.layer.get()
+                    $layer.setStorNodeProp($nid, "foo:bar:severity", "newp")
+                ''', opts=lowuser)
+            self.isin('requires admin privileges', str(cm.exception))
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.callStorm('''
+                    $nid = (1)
+                    $layer = $lib.layer.get()
+                    $layer.delStorNodeProp($nid, "foo:bar:severity")
+                ''', opts=lowuser)
+            self.isin('requires admin privileges', str(cm.exception))
+
+            await core.callStorm('''
+                $fullprop = "test:guid:_custom:risk:level"
+                for $layer in $lib.layer.list() {
+                    if $layer.getPropCount($fullprop) {
+                        for ($nid, $sode) in $layer.getStorNodesByProp($fullprop, (10), "=") {
+                            $oldv = $sode.props."_custom:risk:level"
+                            $layer.setStorNodeProp($nid, "test:guid:_custom:risk:severity", $oldv.0)
+                            $layer.delStorNodeProp($nid, $fullprop)
+                        }
+                    }
+                }
+                $lib.model.ext.delFormProp("test:guid", "_custom:risk:level")
+            ''')
+            self.len(0, await core.nodes('syn:prop=test:guid:_custom:risk:level'))
+            self.len(0, await core.nodes('test:guid:_custom:risk:severity'))
+
+            view00 = (await core.addView(vdef={'layers': [layr00.iden]}))['iden']
+            nodes = await core.nodes('test:guid', opts={'view': view00})
+            self.len(1, nodes)
+            self.none(nodes[0].get('_custom:risk:level'))
+            self.eq(nodes[0].get('_custom:risk:severity'), 10)

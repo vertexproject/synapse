@@ -2365,7 +2365,7 @@ class StormPkgTest(SynTest):
                 pkgdef = s_genpkg.loadPkgProto(pkgproto, no_docs=True, readonly=True)
 
                 waiter = None
-                if pkgdef.get('onload') is not None:
+                if (pkgdef.get('onload') is not None or pkgdef.get('inits') is not None):
                     waiter = core.waiter(1, 'core:pkg:onload:complete')
 
                 await core.addStormPkg(pkgdef)

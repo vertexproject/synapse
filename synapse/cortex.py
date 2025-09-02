@@ -752,6 +752,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_lmdbslab.SafeKeyVal
+        self.stormpkgvars = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
@@ -2370,10 +2371,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
         onload = pkgdef.get('onload')
+        inits = pkgdef.get('inits')
         svciden = pkgdef.get('svciden')
 
         if onload is not None and validstorm:
             await self.getStormQuery(onload)
+
+        if inits is not None:
+            lastver = None
+            for initdef in inits.get('versions'):
+                curver = initdef.get('version')
+                if lastver is not None and not curver > lastver:
+                    raise s_exc.BadPkgDef(mesg='Init versions must be monotonically increasing.', version=curver)
+                lastver = curver
+
+                if validstorm:
+                    await self.getStormQuery(initdef.get('query'))
 
         for mdef in mods:
             mdef.setdefault('modconf', {})
@@ -2449,28 +2462,88 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def _runStormPkgOnload(self, pkgdef):
         name = pkgdef.get('name')
+        inits = pkgdef.get('inits')
         onload = pkgdef.get('onload')
+        pkgvers = pkgdef.get('version')
 
-        if onload is not None and self.isactive:
+        if (onload is not None or inits is not None) and self.isactive:
             async def _onload():
                 if self.safemode:
                     await self.fire('core:pkg:onload:skipped', pkg=name, reason='safemode')
                     return
 
                 await self.fire('core:pkg:onload:start', pkg=name)
-                try:
-                    async for mesg in self.storm(onload):
-                        if mesg[0] == 'print':
-                            logger.info(f'{name} onload output: {mesg[1].get("mesg")}')
-                        if mesg[0] == 'warn':
-                            logger.warning(f'{name} onload output: {mesg[1].get("mesg")}')
-                        if mesg[0] == 'err':
-                            logger.error(f'{name} onload output: {mesg[1]}')
-                        await asyncio.sleep(0)
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
-                except Exception as exc:  # pragma: no cover
-                    logger.warning(f'onload failed for package: {name}', exc_info=exc)
+
+                logextra = await self.getLogExtra(pkg=name, vers=pkgvers)
+
+                if inits is not None:
+                    varname = inits['key']
+                    curvers = await self.getStormPkgVar(name, varname, default=-1)
+                    inaugural = curvers == -1
+
+                    for initdef in inits['versions']:
+
+                        vers = initdef['version']
+                        vname = initdef['name']
+
+                        if vers <= curvers:
+                            continue
+
+                        if inaugural and not initdef.get('inaugural'):
+                            await self.setStormPkgVar(name, varname, vers)
+                            continue
+
+                        logextra['synapse']['initvers'] = vers
+
+                        logger.info(f'{name} starting init vers={vers}: {vname}', extra=logextra)
+
+                        ok = True
+
+                        try:
+                            async for mesg in self.storm(initdef['query']):
+                                match mesg[0]:
+                                    case 'print':
+                                        msg = f'{name} init vers={vers} output: {mesg[1].get("mesg")}'
+                                        logger.info(msg, extra=logextra)
+                                    case 'warn':
+                                        msg = f'{name} init vers={vers} output: {mesg[1].get("mesg")}'
+                                        logger.warning(msg, extra=logextra)
+                                    case 'err':
+                                        msg = f'{name} init vers={vers} output: {mesg[1]}'
+                                        logger.error(msg, extra=logextra)
+                                        ok = False
+                                await asyncio.sleep(0)
+                        except asyncio.CancelledError:  # pragma: no cover
+                            raise
+                        except Exception as exc:  # pragma: no cover
+                            msg = f'{name} init failed for vers={vers}: {vname}'
+                            logger.warning(msg, exc_info=exc, extra=logextra)
+                            ok = False
+
+                        if not ok:
+                            break
+
+                        curvers = vers
+                        await self.setStormPkgVar(name, varname, vers)
+                        logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
+
+                if onload is not None:
+                    try:
+                        async for mesg in self.storm(onload):
+                            if mesg[0] == 'print':
+                                logger.info(f'{name} onload output: {mesg[1].get("mesg")}', extra=logextra)
+                            if mesg[0] == 'warn':
+                                logger.warning(f'{name} onload output: {mesg[1].get("mesg")}', extra=logextra)
+                            if mesg[0] == 'err':
+                                logger.error(f'{name} onload output: {mesg[1]}', extra=logextra)
+                            await asyncio.sleep(0)
+                    except asyncio.CancelledError:  # pragma: no cover
+                        raise
+                    except Exception as exc:  # pragma: no cover
+                        logger.warning(f'onload failed for package: {name}', exc_info=exc, extra=logextra)
+
+                    logger.info(f'{name} finished onload', extra=logextra)
+
                 await self.fire('core:pkg:onload:complete', pkg=name)
 
             self.runActiveTask(_onload())
@@ -2704,6 +2777,32 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def itemsStormVar(self):
         for item in self.stormvars.items():
+            yield item
+
+    # Storm package vars APIs
+
+    def _getStormPkgVarKV(self, name):
+        if (pkgvars := self.stormpkgvars.get(name)) is None:
+            self.stormpkgvars[name] = pkgvars = self.cortexdata.getSubKeyVal(f'stormpkg:vars:{name}:')
+        return pkgvars
+
+    async def getStormPkgVar(self, name, key, default=None):
+        pkgvars = self._getStormPkgVarKV(name)
+        return pkgvars.get(key, defv=default)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:var:pop')
+    async def popStormPkgVar(self, name, key, default=None):
+        pkgvars = self._getStormPkgVarKV(name)
+        return pkgvars.pop(key, defv=default)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:var:set')
+    async def setStormPkgVar(self, name, key, valu):
+        pkgvars = self._getStormPkgVarKV(name)
+        return pkgvars.set(key, valu)
+
+    async def iterStormPkgVars(self, name):
+        pkgvars = self._getStormPkgVarKV(name)
+        for item in pkgvars.items():
             yield item
 
     async def _cortexHealth(self, health):
@@ -4823,6 +4922,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         csize = pdef.get('chunk:size')
         qsize = pdef.get('queue:size')
+        soffs = max(pdef.get('offs', 0), 0)
 
         async with await s_base.Base.anit() as base:
             queue = s_queue.Queue(maxsize=qsize)
@@ -4830,8 +4930,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async def fill():
 
                 try:
-                    filloffs = self.layeroffs.get(iden, -1)
-                    async for (offs, nodeedits) in layr0.syncNodeEdits(filloffs + 1, wait=True, compat=True):
+                    if (filloffs := self.layeroffs.get(iden, defv=None)) is not None:
+                        filloffs += 1
+                    else:
+                        filloffs = soffs
+
+                    async for (offs, nodeedits) in layr0.syncNodeEdits(filloffs, wait=True, compat=True):
                         await queue.put((offs, await self.remoteToLocalEdits(nodeedits)))
                     await queue.close()
 

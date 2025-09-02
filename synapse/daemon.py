@@ -141,7 +141,8 @@ async def t2call(link, meth, args, kwargs):
         return
 
     except (asyncio.CancelledError, Exception) as e:
-        logger.exception(f'error during task: {meth.__name__} {e}')
+        if not isinstance(e, asyncio.CancelledError):
+            logger.exception(f'error during task: {meth.__name__} {e}')
         if not link.isfini:
             retn = s_common.retnexc(e)
             await link.tx(('t2:fini', {'retn': retn}))
