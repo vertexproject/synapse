@@ -2479,7 +2479,7 @@ class PivotIn(PivotOper):
 
     async def getPivsIn(self, runt, node, path):
 
-        valu = node.ndef[1]
+        name, valu = node.ndef
 
         for formtype in node.form.formtypes:
             for prop in runt.model.getPropsByType(formtype):
