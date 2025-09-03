@@ -126,7 +126,7 @@ class LibModelExt(s_stormtypes.Lib):
 
     async def addForm(self, formname, basetype, typeopts, typeinfo):
         formname = await s_stormtypes.tostr(formname)
-        basetype = await s_stormtypes.tostr(basetype, noneok=True)
+        basetype = await s_stormtypes.tostr(basetype)
         typeopts = await s_stormtypes.toprim(typeopts)
         typeinfo = await s_stormtypes.toprim(typeinfo)
         s_stormtypes.confirm(('model', 'form', 'add', formname))

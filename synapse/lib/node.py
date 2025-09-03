@@ -1147,13 +1147,14 @@ class Node(NodeBase):
                     mesg = 'Nodes still have this tag.'
                     raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
 
-            async for refr in self.view.nodesByPropTypeValu(formname, formvalu):
+            for formtype in self.form.formtypes:
+                async for refr in self.view.nodesByPropTypeValu(formtype, formvalu):
 
-                if refr.nid == self.nid:
-                    continue
+                    if refr.nid == self.nid:
+                        continue
 
-                mesg = 'Other nodes still refer to this node.'
-                raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
+                    mesg = 'Other nodes still refer to this node.'
+                    raise s_exc.CantDelNode(mesg=mesg, form=self.form.name, iden=self.iden())
 
             async for edge in self.iterEdgesN2():
 

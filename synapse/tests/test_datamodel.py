@@ -453,8 +453,8 @@ class DataModelTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
 
-                await core.nodes("$lib.model.ext.addForm(_test:inhstr5, None, None, ({'parent': 'test:inhstr2'}))")
-                await core.nodes("$lib.model.ext.addForm(_test:inhstr4, None, None, ({'parent': '_test:inhstr5'}))")
+                await core.nodes("$lib.model.ext.addForm(_test:inhstr5, test:inhstr2, ({}), ({}))")
+                await core.nodes("$lib.model.ext.addForm(_test:inhstr4, _test:inhstr5, ({}), ({}))")
                 await core.nodes("$lib.model.ext.addFormProp(test:inhstr2, _xtra, ('str', ({})), ({'doc': 'inherited extprop'}))")
 
                 self.len(1, await core.nodes('[ _test:inhstr4=ext :name=bar :_xtra=here ]'))
@@ -462,14 +462,36 @@ class DataModelTest(s_t_utils.SynTest):
 
                 nodes = await core.nodes('test:inhstr:name=bar')
                 self.len(3, nodes)
-                self.eq(nodes[0].ndef, ('test:inhstr3', 'bar'))
-                self.eq(nodes[1].ndef, ('_test:inhstr4', 'ext'))
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+                self.eq(nodes[1].ndef, ('test:inhstr3', 'bar'))
                 self.eq(nodes[2].ndef, ('_test:inhstr5', 'ext2'))
+
+                nodes = await core.nodes('test:inhstr:name=bar +_test:inhstr5')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+                self.eq(nodes[1].ndef, ('_test:inhstr5', 'ext2'))
+
+                nodes = await core.nodes('test:inhstr:name=bar +_test:inhstr5:name=bar')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+                self.eq(nodes[1].ndef, ('_test:inhstr5', 'ext2'))
 
                 await core.nodes('[ test:str=extprop :inhstr=ext ]')
                 nodes = await core.nodes('test:str=extprop -> *')
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+
+                await core.nodes('[ test:str=extprop2 :inhstr=ext2 ]')
+                nodes = await core.nodes('test:str:inhstr::name=bar')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'extprop'))
+                self.eq(nodes[1].ndef, ('test:str', 'extprop2'))
+
+                # Pivot prop lifts can use props on child forms
+                nodes = await core.nodes('test:str:inhstr::_xtra=here')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'extprop'))
+                self.eq(nodes[1].ndef, ('test:str', 'extprop2'))
 
                 # Cannot add a prop to a parent form which already exists on a child
                 with self.raises(s_exc.DupPropName):
@@ -479,8 +501,8 @@ class DataModelTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
                 nodes = await core.nodes('test:inhstr:name=bar')
                 self.len(3, nodes)
-                self.eq(nodes[0].ndef, ('test:inhstr3', 'bar'))
-                self.eq(nodes[1].ndef, ('_test:inhstr4', 'ext'))
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+                self.eq(nodes[1].ndef, ('test:inhstr3', 'bar'))
                 self.eq(nodes[2].ndef, ('_test:inhstr5', 'ext2'))
 
                 nodes = await core.nodes('test:str=extprop -> *')
@@ -505,6 +527,29 @@ class DataModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].ndef, ('_test:inhstr4', 'dup'))
 
                 mdef = await core.callStorm('return($lib.model.ext.getExtModel())')
+
+                with self.raises(s_exc.CantDelNode):
+                    await core.nodes("_test:inhstr5=ext2 | delnode")
+
+                await core.nodes("test:str=extprop2 _test:inhstr5=ext2 | delnode")
+
+                # Can't delete a form with child forms
+                with self.raises(s_exc.CantDelForm):
+                    await core.nodes("$lib.model.ext.delForm(_test:inhstr5)")
+
+                # Can't delete a prop which is in use on child forms
+                with self.raises(s_exc.CantDelProp):
+                    await core.nodes("$lib.model.ext.delFormProp(test:inhstr2, _xtra)")
+
+                await core.nodes('test:inhstr2:_xtra [ -:_xtra ]')
+                await core.nodes("$lib.model.ext.delFormProp(test:inhstr2, _xtra)")
+
+                with self.raises(s_exc.NoSuchProp):
+                    await core.nodes('_test:inhstr4:_xtra')
+
+                await core.nodes("test:str _test:inhstr4 | delnode")
+                await core.nodes("$lib.model.ext.delForm(_test:inhstr4)")
+                await core.nodes("$lib.model.ext.delForm(_test:inhstr5)")
 
         async with self.getTestCore() as core:
             opts = {'vars': {'mdef': mdef}}

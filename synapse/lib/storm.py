@@ -2179,34 +2179,6 @@ class Runtime(s_base.Base):
                 await asyncio.sleep(0)
                 yield item
 
-    async def getOneNode(self, propname, valu, filt=None, cmpr='='):
-        '''
-        Return exactly 1 node by <prop> <cmpr> <valu>
-        '''
-        opts = {'vars': {'propname': propname, 'valu': valu}}
-
-        nodes = []
-        try:
-
-            async for node in self.view.nodesByPropValu(propname, cmpr, valu):
-
-                await asyncio.sleep(0)
-
-                if filt is not None and not await filt(node):
-                    continue
-
-                if len(nodes) == 1:
-                    mesg = f'Ambiguous value for single node lookup: {propname}{cmpr}{valu}'
-                    raise s_exc.StormRuntimeError(mesg=mesg)
-
-                nodes.append(node)
-
-            if len(nodes) == 1:
-                return nodes[0]
-
-        except s_exc.BadTypeValu:
-            return None
-
 class Parser:
 
     def __init__(self, prog=None, descr=None, root=None, model=None, cdef=None):

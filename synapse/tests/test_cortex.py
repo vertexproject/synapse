@@ -5000,7 +5000,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(node.ndef, ('inet:ip', (4, 0x01020304)))
 
             with self.raises(s_exc.NoSuchPivot):
-                nodes = await core.nodes('[ test:int=10 ] -> test:type')
+                nodes = await core.nodes('[ test:int=10 ] -> test:taxonomy')
 
             nodes = await core.nodes('[ test:str=woot :bar=(inet:fqdn, woot.com) ] -> inet:fqdn')
             self.eq(nodes[0].ndef, ('inet:fqdn', 'woot.com'))
@@ -6027,8 +6027,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core.addForm('_hehe:array', 'array', {'type': 'int'}, {})
 
-                await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})
-                self.len(1, await core.nodes('_hehe:haha [ :visi=lolz ]'))
+                await core.addFormProp('_hehe:haha', '_visi', ('str', {}), {})
+                self.len(1, await core.nodes('_hehe:haha [ :_visi=lolz ]'))
 
                 await core.addEdge(('inet:fqdn', '_goes', None), {})
                 await core._addEdge(('inet:fqdn', '_goes', None), {})
@@ -6058,7 +6058,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.nn(core.model.edge(('inet:fqdn', '_goes', None)))
 
                 self.len(1, await core.nodes('_hehe:haha=10'))
-                self.len(1, await core.nodes('_hehe:haha:visi=lolz'))
+                self.len(1, await core.nodes('_hehe:haha:_visi=lolz'))
 
                 prop = core.model.prop('inet:ip:_visi')
                 nodes = await core.nodes('[inet:ip=5.5.5.5 :_visi=100]')
@@ -6078,7 +6078,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.delFormProp('inet:ip', '_visi')
 
                 with self.raises(s_exc.CantDelProp):
-                    await core.delFormProp('_hehe:haha', 'visi')
+                    await core.delFormProp('_hehe:haha', '_visi')
 
                 with self.raises(s_exc.NoSuchForm):
                     await core.delForm('_hehe:newpnewp')
@@ -6097,9 +6097,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core._delEdge(('newp', 'newp', 'newp'))
 
-                prop = core.model.prop('_hehe:haha:visi')
-                await core.nodes('_hehe:haha [ -:visi ]')
-                await core.delFormProp('_hehe:haha', 'visi')
+                prop = core.model.prop('_hehe:haha:_visi')
+                await core.nodes('_hehe:haha [ -:_visi ]')
+                await core.delFormProp('_hehe:haha', '_visi')
 
                 await core.nodes('_hehe:haha | delnode')
                 await core.delForm('_hehe:haha')
@@ -6109,7 +6109,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(core.model.type('_hehe:haha'))
                 self.none(core.model.form('_hehe:array'))
                 self.none(core.model.type('_hehe:array'))
-                self.none(core.model.prop('_hehe:haha:visi'))
+                self.none(core.model.prop('_hehe:haha:_visi'))
                 self.none(core.model.prop('inet:ip._visi'))
                 self.none(core.model.form('inet:ip').prop('._visi'))
 

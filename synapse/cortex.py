@@ -2838,23 +2838,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         formchildren = collections.defaultdict(list)
 
-        for formname, basetype, typeopts, typeinfo in self.extforms.values():
-            if typeinfo is not None and (pform := typeinfo.get('parent')) is not None and pform.startswith('_'):
-                formchildren[pform].append((formname, basetype, typeopts, typeinfo))
-
-        def addForms(infos, children=False):
+        def addForms(infos):
             for formname, basetype, typeopts, typeinfo in infos:
                 try:
-                    if (pform := typeinfo.get('parent')) is not None:
-                        if not children and pform.startswith('_'):
-                            continue
-                        form = self.model.addForm(formname, typeinfo, ())
-                    else:
-                        self.model.addType(formname, basetype, typeopts, typeinfo)
-                        form = self.model.addForm(formname, {}, ())
+                    if self.model.type(basetype) is None:
+                        formchildren[basetype].append((formname, basetype, typeopts, typeinfo))
+                        continue
+
+                    self.model.addType(formname, basetype, typeopts, typeinfo)
+                    form = self.model.addForm(formname, {}, ())
 
                     if (cinfos := formchildren.pop(formname, None)) is not None:
-                        addForms(cinfos, children=True)
+                        addForms(cinfos)
 
                 except Exception as e:
                     logger.warning(f'Extended form ({formname}) error: {e}')
@@ -3005,20 +3000,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         formchildren = collections.defaultdict(list)
 
-        for formname, basetype, typeopts, typeinfo in amodl['forms']:
-            if typeinfo is not None and (pform := typeinfo.get('parent')) is not None and pform.startswith('_'):
-                formchildren[pform].append((formname, basetype, typeopts, typeinfo))
-
-        async def addForms(infos, children=False):
+        async def addForms(infos):
             for formname, basetype, typeopts, typeinfo in infos:
-                if (pform := typeinfo.get('parent')) is not None:
-                    if not children and pform.startswith('_'):
-                        continue
+                if self.model.type(basetype) is None:
+                    formchildren[basetype].append((formname, basetype, typeopts, typeinfo))
+                    continue
 
                 form = await self.addForm(formname, basetype, typeopts, typeinfo)
 
                 if (cinfos := formchildren.pop(formname, None)) is not None:
-                    await addForms(cinfos, children=True)
+                    await addForms(cinfos)
 
         await addForms(amodl['forms'])
 
@@ -3034,12 +3025,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return True
 
     async def addForm(self, formname, basetype, typeopts, typeinfo):
-        if not isinstance(typeinfo, dict):
-            mesg = 'Form type info should be a dict.'
+        if not isinstance(typeopts, dict):
+            mesg = 'Form type options should be a dict.'
             raise s_exc.BadArg(form=formname, mesg=mesg)
 
-        if not (isinstance(typeopts, dict) or typeinfo.get('parent')):
-            mesg = 'Form type options should be a dict.'
+        if not isinstance(typeinfo, dict):
+            mesg = 'Form type info should be a dict.'
             raise s_exc.BadArg(form=formname, mesg=mesg)
 
         if not formname.startswith('_'):
@@ -3071,8 +3062,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             ifaces.add('meta:taxonomy')
             typeinfo['interfaces'] = tuple(ifaces)
 
-        if typeinfo.get('parent') is None:
-            self.model.addType(formname, basetype, typeopts, typeinfo)
+        self.model.addType(formname, basetype, typeopts, typeinfo)
         self.model.addForm(formname, typeinfo, ())
 
         self.extforms.set(formname, (formname, basetype, typeopts, typeinfo))
@@ -3186,8 +3176,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = 'Form property definitions should be a dict.'
             raise s_exc.BadArg(form=form, mesg=mesg)
 
-        if not prop.startswith('_') and not form.startswith('_'):
-            mesg = 'Extended prop must begin with "_" or be added to an extended form.'
+        if not prop.startswith('_'):
+            mesg = 'Extended prop must begin with "_".'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
 
         for formname in self.model.getChildForms(form):
@@ -3229,24 +3219,25 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         self.reqExtProp(formname, propname)
 
-        fullname = f'{formname}:{propname}'
-        prop = self.model.prop(fullname)
+        for formname in self.model.getChildForms(formname):
+            fullname = f'{formname}:{propname}'
+            prop = self.model.prop(fullname)
 
-        await self.setPropLocked(fullname, True)
+            await self.setPropLocked(fullname, True)
 
-        for layr in list(self.layers.values()):
+            for layr in list(self.layers.values()):
 
-            genr = layr.iterPropRows(formname, propname)
+                genr = layr.iterPropRows(formname, propname)
 
-            async for rows in s_coro.chunks(genr):
-                nodeedits = []
-                for nid, valu in rows:
-                    nodeedits.append((s_common.int64un(nid), prop.form.name, (
-                        (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
-                    )))
+                async for rows in s_coro.chunks(genr):
+                    nodeedits = []
+                    for nid, valu in rows:
+                        nodeedits.append((s_common.int64un(nid), prop.form.name, (
+                            (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
+                        )))
 
-                await layr.saveNodeEdits(nodeedits, meta)
-                await asyncio.sleep(0)
+                    await layr.saveNodeEdits(nodeedits, meta)
+                    await asyncio.sleep(0)
 
     async def _delAllTagProp(self, propname, meta):
         '''
@@ -3305,10 +3296,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if pdef is None:
             return
 
-        for layr in self.layers.values():
-            async for item in layr.iterPropRows(form, prop):
-                mesg = f'Nodes still exist with prop: {form}:{prop} in layer {layr.iden}'
-                raise s_exc.CantDelProp(mesg=mesg)
+        for formname in self.model.getChildForms(form):
+            for layr in self.layers.values():
+                async for item in layr.iterPropRows(formname, prop):
+                    mesg = f'Nodes still exist with prop: {formname}:{prop} in layer {layr.iden}'
+                    raise s_exc.CantDelProp(mesg=mesg)
 
         self.model.delFormProp(form, prop)
         self.extprops.pop(full, None)

@@ -313,6 +313,8 @@ testmodel = (
             ('test:float', ('float', {}), {}),
             ('test:str', ('str', {}), {}),
             ('test:inhstr', ('str', {}), {}),
+            ('test:inhstr2', ('test:inhstr', {}), {}),
+            ('test:inhstr3', ('test:inhstr2', {}), {}),
             ('test:strregex', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {}),
             ('test:migr', ('str', {}), {}),
             ('test:auto', ('str', {}), {}),
@@ -475,11 +477,11 @@ testmodel = (
                 ('name', ('str', {}), {}),
             )),
 
-            ('test:inhstr2', {'parent': 'test:inhstr'}, (
+            ('test:inhstr2', {}, (
                 ('child1', ('str', {}), {}),
             )),
 
-            ('test:inhstr3', {'parent': 'test:inhstr2'}, (
+            ('test:inhstr3', {}, (
                 ('child2', ('str', {}), {}),
             )),
 
