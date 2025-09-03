@@ -148,6 +148,12 @@ class StormTest(s_t_utils.SynTest):
             orgn = nodes[0].ndef
             self.eq(orgn, nodes11[0].ndef)
 
+            self.len(1, await core.nodes('ou:org?=({"name": "the vertex project", "type": "lulz"})'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org=({"logo": "newp"})')
+            self.len(0, await core.nodes('ou:org?=({"logo": "newp"})'))
+
             q = '[ ps:contact=* :org={ ou:org=({"name": "the vertex project", "type": "lulz"}) } ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
