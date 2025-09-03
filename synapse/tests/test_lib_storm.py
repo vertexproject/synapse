@@ -414,12 +414,16 @@ class StormTest(s_t_utils.SynTest):
                 [(ou:org=* :names=(foo, baz))]
                 [(ou:org=* :names=(foo, hehe))]
             ''')
-            nodes = await core.nodes('ou:org | intersect { -> meta:name }')
+            nodes = await core.nodes('ou:org | intersect { -> meta:name }', opts={'readonly': True})
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'foo')
 
             msgs = await core.stormlist('ou:org $foo=$node.value() | intersect $foo')
             self.stormIsInErr('intersect arguments must be runtsafe', msgs)
+
+            with self.raises(s_exc.IsReadOnly) as exc:
+                await core.nodes('ou:org | intersect { [ou:org=*] }', opts={'readonly': True})
+            self.eq(exc.exception.get('mesg'), 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.')
 
     async def test_lib_storm_trycatch(self):
 
