@@ -108,6 +108,35 @@ class JsonTest(s_test.SynTest):
 
         self.eq(valu, s_json.loads(s_json.dumps(valu)))
 
+    async def test_lib_json_control_strings(self):
+        valus = [
+            'line1"line2',
+            'line1/line2',
+            'line1\\line2',
+            'line1\bline2',
+            'line1\fline2',
+            'line1\nline2',
+            'line1\rline2',
+            'line1\tline2',
+            'line1\u0009line2',
+            'line1\u1000line2',
+            'line1\u2000line2',
+            'line1\u3000line2',
+        ]
+
+        with self.getLoggerStream('synapse.lib.json') as stream:
+            async with self.getTestCore() as core:
+                for valu in valus:
+                    q = '$lib.print($valu) $lib.print($lib.json.save($valu))'
+                    msgs = await core.stormlist(q, opts={'vars': {'valu': valu}})
+                    self.stormHasNoWarnErr(msgs)
+
+                    self.eq(s_json.loads(s_json.dumps(valu)), valu)
+
+        stream.seek(0)
+        data = stream.read()
+        self.notin('fallback JSON', data)
+
     async def test_jsload(self):
         with self.getTestDir() as dirn:
             with s_common.genfile(dirn, 'jsload.json') as fp:

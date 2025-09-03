@@ -6332,6 +6332,7 @@ class IntersectCmd(Cmd):
         it:mitre:attack:group*in=(G0006, G0007) | intersect { -> it:mitre:attack:technique }
     '''
     name = 'intersect'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
