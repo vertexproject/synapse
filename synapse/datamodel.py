@@ -355,6 +355,8 @@ class Form:
                 'ndef': [],
                 'array': [],
                 'ndefarray': [],
+                'nodeprop': [],
+                'nodeproparray': [],
             }
 
             for name, prop in self.props.items():
@@ -364,12 +366,19 @@ class Form:
                         self.refsout['ndefarray'].append(name)
                         continue
 
+                    elif isinstance(prop.type.arraytype, s_types.NodeProp):
+                        self.refsout['nodeproparray'].append(name)
+                        continue
+
                     typename = prop.type.arraytype.name
                     if self.modl.forms.get(typename) is not None:
                         self.refsout['array'].append((name, typename))
 
                 elif isinstance(prop.type, s_types.Ndef):
                     self.refsout['ndef'].append(name)
+
+                elif isinstance(prop.type, s_types.NodeProp):
+                    self.refsout['nodeprop'].append(name)
 
                 elif self.modl.forms.get(prop.type.name) is not None:
                     if prop.type.name in self.type.pivs:
