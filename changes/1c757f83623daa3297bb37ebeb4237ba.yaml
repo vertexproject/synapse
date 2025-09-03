@@ -1,5 +1,0 @@
----
-desc: Updated the IMAP client backend code for ``$lib.inet.imap()``.
-prs: []
-type: feat
-...
