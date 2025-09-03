@@ -115,7 +115,7 @@ class MacroExecCmd(s_storm.Cmd):
 
         name = await s_stormtypes.tostr(self.opts.name)
 
-        mdef = runt.snap.core.reqStormMacro(name, user=runt.user)
+        mdef = runt.view.core.reqStormMacro(name, user=runt.user)
 
         query = await runt.getStormQuery(mdef['storm'])
 
@@ -183,7 +183,7 @@ class LibMacro(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _funcMacroList(self):
-        macros = await self.runt.snap.core.getStormMacros(user=self.runt.user)
+        macros = await self.runt.view.core.getStormMacros(user=self.runt.user)
         # backward compatible (name, mdef) tuples...
         return [(m['name'], m) for m in macros]
 
@@ -191,12 +191,12 @@ class LibMacro(s_stormtypes.Lib):
     async def _funcMacroGet(self, name):
         name = await s_stormtypes.tostr(name)
 
-        return self.runt.snap.core.getStormMacro(name, user=self.runt.user)
+        return self.runt.view.core.getStormMacro(name, user=self.runt.user)
 
     async def _funcMacroDel(self, name):
         name = await s_stormtypes.tostr(name)
 
-        return await self.runt.snap.core.delStormMacro(name, user=self.runt.user)
+        return await self.runt.view.core.delStormMacro(name, user=self.runt.user)
 
     async def _funcMacroSet(self, name, storm):
         name = await s_stormtypes.tostr(name)
@@ -204,12 +204,12 @@ class LibMacro(s_stormtypes.Lib):
 
         await self.runt.getStormQuery(storm)
 
-        if self.runt.snap.core.getStormMacro(name) is None:
+        if self.runt.view.core.getStormMacro(name) is None:
             mdef = {'name': name, 'storm': storm}
-            await self.runt.snap.core.addStormMacro(mdef, user=self.runt.user)
+            await self.runt.view.core.addStormMacro(mdef, user=self.runt.user)
         else:
             updates = {'storm': storm, 'updated': s_common.now()}
-            await self.runt.snap.core.modStormMacro(name, updates, user=self.runt.user)
+            await self.runt.view.core.modStormMacro(name, updates, user=self.runt.user)
 
     async def _funcMacroMod(self, name, info):
 
@@ -226,7 +226,7 @@ class LibMacro(s_stormtypes.Lib):
                 await self.runt.getStormQuery(valu)
 
         info['updated'] = s_common.now()
-        await self.runt.snap.core.modStormMacro(name, info, user=self.runt.user)
+        await self.runt.view.core.modStormMacro(name, info, user=self.runt.user)
 
     async def _funcMacroGrant(self, name, scope, iden, level):
         name = await s_stormtypes.tostr(name)
@@ -234,4 +234,4 @@ class LibMacro(s_stormtypes.Lib):
         iden = await s_stormtypes.tostr(iden)
         level = await s_stormtypes.toint(level, noneok=True)
 
-        await self.runt.snap.core.setStormMacroPerm(name, scope, iden, level, user=self.runt.user)
+        await self.runt.view.core.setStormMacroPerm(name, scope, iden, level, user=self.runt.user)

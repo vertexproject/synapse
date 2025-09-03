@@ -8,7 +8,6 @@ import regex
 
 import synapse.exc as s_exc
 import synapse.data as s_data
-import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
@@ -448,7 +447,7 @@ async def run_imap_coro(coro, timeout):
     Raises or returns data.
     '''
     try:
-        status, data = await s_common.wait_for(coro, timeout)
+        status, data = await asyncio.wait_for(coro, timeout)
     except asyncio.TimeoutError:
         raise s_exc.TimeOut(mesg='Timed out waiting for IMAP server response.') from None
 
@@ -499,7 +498,7 @@ class ImapLib(s_stormtypes.Lib):
     )
     _storm_lib_path = ('inet', 'imap', )
     _storm_lib_perms = (
-        {'perm': ('storm', 'inet', 'imap', 'connect'), 'gate': 'cortex',
+        {'perm': ('inet', 'imap', 'connect'), 'gate': 'cortex',
          'desc': 'Controls connecting to external servers via imap.'},
     )
 
@@ -510,7 +509,7 @@ class ImapLib(s_stormtypes.Lib):
 
     async def connect(self, host, port=imaplib.IMAP4_SSL_PORT, timeout=30, ssl=True, ssl_verify=True):
 
-        self.runt.confirm(('storm', 'inet', 'imap', 'connect'))
+        self.runt.confirm(('inet', 'imap', 'connect'))
 
         ssl = await s_stormtypes.tobool(ssl)
         host = await s_stormtypes.tostr(host)
@@ -520,22 +519,22 @@ class ImapLib(s_stormtypes.Lib):
 
         ctx = None
         if ssl:
-            ctx = self.runt.snap.core.getCachedSslCtx(opts=None, verify=ssl_verify)
+            ctx = self.runt.view.core.getCachedSslCtx(opts=None, verify=ssl_verify)
 
         coro = s_link.connect(host=host, port=port, ssl=ctx, linkcls=IMAPClient)
 
         try:
-            imap = await s_common.wait_for(coro, timeout)
+            imap = await asyncio.wait_for(coro, timeout)
         except asyncio.TimeoutError:
             raise s_exc.TimeOut(mesg='Timed out waiting for IMAP server hello.') from None
 
         async def fini():
             async def _logout():
-                await s_common.wait_for(imap.logout(), 5)
+                await asyncio.wait_for(imap.logout(), 5)
                 await imap.fini()
             s_coro.create_task(_logout())
 
-        self.runt.snap.onfini(fini)
+        self.runt.onfini(fini)
 
         return ImapServer(self.runt, imap, timeout)
 
@@ -779,8 +778,8 @@ class ImapServer(s_stormtypes.StormType):
         # to prevent retrieving a very large blob of data.
         uid = await s_stormtypes.toint(uid)
 
-        await self.runt.snap.core.getAxon()
-        axon = self.runt.snap.core.axon
+        await self.runt.view.core.getAxon()
+        axon = self.runt.view.core.axon
 
         coro = self.imap_cli.uid_fetch(str(uid), '(RFC822)')
         data = await run_imap_coro(coro, self.timeout)
@@ -794,8 +793,8 @@ class ImapServer(s_stormtypes.StormType):
         props['size'] = size
         props['mime'] = 'message/rfc822'
 
-        filenode = await self.runt.snap.addNode('file:bytes', props['sha256'], props=props)
-        return filenode
+        valu = {'sha256': props['sha256'], '$props': props}
+        return await self.runt.view.addNode('file:bytes', valu)
 
     async def delete(self, uid_set):
         uid_set = await s_stormtypes.tostr(uid_set)

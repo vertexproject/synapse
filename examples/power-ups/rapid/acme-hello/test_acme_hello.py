@@ -31,5 +31,5 @@ class AcmeHelloTest(s_test.StormPkgTest):
             self.stormHasNoWarnErr(msgs)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(2, nodes)
-            self.eq(('inet:dns:a', ('vertex.link', 0x01020304)), nodes[0][0])
-            self.eq(('inet:dns:a', ('vertex.link', 0x7b7b7b7b)), nodes[1][0])
+            self.eq(('inet:dns:a', ('vertex.link', (4, 0x01020304))), nodes[0][0])
+            self.eq(('inet:dns:a', ('vertex.link', (4, 0x7b7b7b7b))), nodes[1][0])

@@ -776,12 +776,12 @@ class OAuthTest(s_test.SynTest):
                     baseurl = f'https://127.0.0.1:{port}'
 
                     view = await core01.callStorm('return($lib.view.get().iden)')
-                    await core01.callStorm('$lib.globals.set(getassertion, valid)')
+                    await core01.callStorm('$lib.globals.getassertion = valid')
 
                     assert_q = '''
                     $url = `{$baseurl}/api/oauth/assertion`
-                    $valid = $lib.globals.get(getassertion)
-                    $raise = $lib.globals.get(raise, (false))
+                    $valid = $lib.globals.getassertion
+                    $raise = $lib.globals.raise
                     if $raise {
                         $lib.raise(BadAssertion, 'I am supposed to raise.')
                     }
@@ -887,7 +887,7 @@ class OAuthTest(s_test.SynTest):
                     self.eq(core00._oauth_sched_heap[0][0], clientconf['refresh_at'])
 
                     # Refresh again but raise an exception from callStorm
-                    await core00.callStorm('$lib.globals.set(raise, (true))')
+                    await core00.callStorm('$lib.globals.raise = (true)')
                     core00._oauth_sched_ran.clear()
                     self.true(await s_coro.event_wait(core00._oauth_sched_ran, timeout=15))
                     await core01.sync()
@@ -895,7 +895,7 @@ class OAuthTest(s_test.SynTest):
                     self.isin("Error executing callStorm: StormRaise: errname='BadAssertion'", clientconf.get('error'))
                     self.notin('access_token', clientconf)
                     self.notin('refresh_token', clientconf)
-                    await core00.callStorm('$lib.globals.pop(raise)')
+                    await core00.callStorm('$lib.globals.raise = $lib.undef')
                     self.true(await s_coro.event_wait(core00._oauth_sched_empty, timeout=5))
                     self.len(0, core00._oauth_sched_heap)
 
@@ -915,7 +915,7 @@ class OAuthTest(s_test.SynTest):
                     self.eq((False, 'Auth code has not been set'), ret)
 
                     # An invalid assertion when setting the token code will cause an error
-                    await core01.callStorm('$lib.globals.set(getassertion, newpnewp)')
+                    await core01.callStorm('$lib.globals.getassertion = newpnewp')
                     with self.raises(s_exc.SynErr) as cm:
                         await core01.nodes('''
                             $iden = $providerconf.iden
@@ -924,7 +924,7 @@ class OAuthTest(s_test.SynTest):
                     self.isin('Failed to get OAuth v2 token: invalid_request', cm.exception.get('mesg'))
 
                     # An assertion storm callback which fails to return a token as expected also produces an error
-                    await core01.callStorm('$lib.globals.set(getassertion, invalid)')
+                    await core01.callStorm('$lib.globals.getassertion = invalid')
 
                     with self.raises(s_exc.SynErr) as cm:
                         await core01.nodes('''
