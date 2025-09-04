@@ -100,7 +100,7 @@ class DataModelTest(s_t_utils.SynTest):
             }),
         )
 
-        with self.raises(s_exc.NoSuchName):
+        with self.raises(s_exc.NoSuchIface):
             modl.addDataModels(mods)
 
     async def test_datamodel_dynamics(self):
@@ -299,7 +299,7 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model.addEdge(('inet:ip', 10, 'inet:ip'), {})
 
             with self.raises(s_exc.BadArg):
-                core.model.addEdge(('meta:ruleish', 'matches', None), {})
+                core.model.addEdge(('test:interface', 'matches', None), {})
 
             core.model.addEdge(('inet:fqdn', 'zip', 'phys:object'), {})
             edges = core.model.edgesbyn2.get('transport:air:craft')
@@ -322,17 +322,17 @@ class DataModelTest(s_t_utils.SynTest):
             model = await core.getModelDict()
             self.isin('created', [m[0] for m in model['metas']])
             self.isin('updated', [m[0] for m in model['metas']])
-            self.isin(('meta:ruleish', 'matches', None), [e[0] for e in model['edges']])
+            self.isin(('test:interface', 'matches', None), [e[0] for e in model['edges']])
 
             model = (await core.getModelDefs())[0][1]
-            self.isin(('meta:ruleish', 'matches', None), [e[0] for e in model['edges']])
+            self.isin(('test:interface', 'matches', None), [e[0] for e in model['edges']])
 
-            self.nn(core.model.edge(('meta:ruleish', 'matches', None)))
+            self.nn(core.model.edge(('test:interface', 'matches', None)))
 
-            core.model.delEdge(('meta:ruleish', 'matches', None))
-            self.none(core.model.edge(('meta:ruleish', 'matches', None)))
+            core.model.delEdge(('test:interface', 'matches', None))
+            self.none(core.model.edge(('test:interface', 'matches', None)))
 
-            core.model.delEdge(('meta:ruleish', 'matches', None))
+            core.model.delEdge(('test:interface', 'matches', None))
 
     async def test_datamodel_locked_subs(self):
 

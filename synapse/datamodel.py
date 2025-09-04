@@ -208,7 +208,9 @@ class Prop:
         return info
 
     def getPropDef(self):
-        return (self.name, self.typedef, self.info)
+        info = self.info.copy()
+        info.pop('raw', None)
+        return (self.name, self.typedef, info)
 
     def getRuntPode(self):
 
@@ -1177,7 +1179,9 @@ class Model:
         if (pform := self.form(_type.subof)) is not None:
             self.childforms[pform.name].append(formname)
             forminfo = pform.info | forminfo
-            propdefs = tuple((prop.name, prop.typedef, prop.info) for prop in pform.props.values()) + propdefs
+
+            pprops = tuple((prop.name, prop.typedef, prop.info) for prop in pform.props.values() if not prop.ifaces)
+            propdefs = pprops + propdefs
 
         virts = []
 
@@ -1207,12 +1211,25 @@ class Model:
         if isinstance(form.type, s_types.Array):
             self.arraysbytype[form.type.arraytype.name][form.name] = form
 
+        template = {}
+        for ifname, ifinfo in form.type.info.get('interfaces', ()):
+            iface = self._reqIface(ifname)
+            self._prepIfaceTemplate(iface, ifinfo, template=template)
+
+        template.update(form.type.info.get('template', {}))
+        template['$self'] = form.full
+
         for propdef in propdefs:
 
             if len(propdef) != 3:
                 raise s_exc.BadPropDef(valu=propdef)
 
             propname, typedef, propinfo = propdef
+
+            rawinfo = propinfo.get('raw', propinfo)
+            propinfo = self._convertTemplate(rawinfo, form.name, template)
+            propinfo['raw'] = rawinfo
+
             self._addFormProp(form, propname, typedef, propinfo)
 
         # interfaces are listed in typeinfo for the form to
@@ -1409,6 +1426,30 @@ class Model:
 
         return template
 
+    def _convertTemplate(self, item, formname, template):
+
+        if isinstance(item, str):
+
+            if item == '$self':
+                return formname
+
+            item = s_common.format(item, **template)
+
+            # warn but do not blow up. there may be extended model elements
+            # with {}s which are not used for templates...
+            if item.find('{') != -1: # pragma: no cover
+                logger.warning(f'Missing template specifier in: {item} on {formname}')
+
+            return item
+
+        if isinstance(item, dict):
+            return {self._convertTemplate(k, formname, template): self._convertTemplate(v, formname, template) for (k, v) in item.items()}
+
+        if isinstance(item, (list, tuple)):
+            return tuple([self._convertTemplate(v, formname, template) for v in item])
+
+        return item
+
     def _prepFormIface(self, form, iface, ifinfo):
 
         prefix = iface.get('prefix')
@@ -1419,31 +1460,7 @@ class Model:
         template.update(form.type.info.get('template', {}))
         template['$self'] = form.full
 
-        def convert(item):
-
-            if isinstance(item, str):
-
-                if item == '$self':
-                    return form.name
-
-                item = s_common.format(item, **template)
-
-                # warn but do not blow up. there may be extended model elements
-                # with {}s which are not used for templates...
-                if item.find('{') != -1: # pragma: no cover
-                    logger.warning(f'Missing template specifier in: {item} on {form.name}')
-
-                return item
-
-            if isinstance(item, dict):
-                return {convert(k): convert(v) for (k, v) in item.items()}
-
-            if isinstance(item, (list, tuple)):
-                return tuple([convert(v) for v in item])
-
-            return item
-
-        iface = convert(iface)
+        iface = self._convertTemplate(iface, form.name, template)
 
         if prefix is not None:
 
@@ -1472,7 +1489,7 @@ class Model:
 
         if iface is None:
             mesg = f'Form {form.name} depends on non-existent interface: {name}'
-            raise s_exc.NoSuchName(mesg=mesg)
+            raise s_exc.NoSuchIface(mesg=mesg)
 
         if iface.get('deprecated'):
             mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 4.0.0'

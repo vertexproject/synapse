@@ -561,6 +561,10 @@ testmodel = (
                     'doc': 'Another value adjustable in a different way.'}),
             )),
         ),
+        'edges': (
+            (('test:interface', 'matches', None), {
+                'doc': 'The node matched on the target node.'}),
+        ),
     }),
 )
 
