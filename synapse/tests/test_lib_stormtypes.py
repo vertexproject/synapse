@@ -1767,6 +1767,66 @@ class StormTypesTest(s_test.SynTest):
             await visi.addRule((True, ('layer', 'read')), gateiden=layriden)
             await core.callStorm('return($lib.layer.get($layriden).getStorNode($iden))', opts=opts)
 
+    async def test_storm_layer_getstornodesbyprop(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ test:str=foobar :hehe=foobaz ]')
+            self.len(1, nodes)
+
+            buid = nodes[0].iden()
+            sode = {
+                'form': 'test:str',
+                'props': {
+                    '.created': (nodes[0].get('.created'), 21),
+                    'hehe': ('foobaz', 1)
+                },
+                'valu': ('foobar', 1),
+            }
+            expval = (buid, sode)
+
+            q = '''
+            $sodes = ([])
+            for ($buid, $sode) in $lib.layer.get().getStorNodesByProp(test:str:hehe) {
+                $sodes.append(($buid, $sode))
+            }
+            return($sodes)
+            '''
+            sodes = await core.callStorm(q)
+            self.len(1, sodes)
+            self.eq(sodes[0], expval)
+
+            q = '''
+            $sodes = ([])
+            for ($buid, $sode) in $lib.layer.get().getStorNodesByProp(test:str:hehe, propvalu=foobaz) {
+                $sodes.append(($buid, $sode))
+            }
+            return($sodes)
+            '''
+            sodes = await core.callStorm(q)
+            self.len(1, sodes)
+            self.eq(sodes[0], expval)
+
+            q = '''
+            $sodes = ([])
+            for ($buid, $sode) in $lib.layer.get().getStorNodesByProp(test:str) {
+                $sodes.append(($buid, $sode))
+            }
+            return($sodes)
+            '''
+            sodes = await core.callStorm(q)
+            self.len(1, sodes)
+            self.eq(sodes[0], expval)
+
+            q = '''
+            $sodes = ([])
+            for ($buid, $sode) in $lib.layer.get().getStorNodesByProp(test:str, propvalu=foobar) {
+                $sodes.append(($buid, $sode))
+            }
+            return($sodes)
+            '''
+            sodes = await core.callStorm(q)
+            self.len(1, sodes)
+            self.eq(sodes[0], expval)
+
     async def test_storm_lib_fire(self):
         async with self.getTestCore() as core:
             text = '$lib.fire(foo:bar, baz=faz)'

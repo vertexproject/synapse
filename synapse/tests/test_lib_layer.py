@@ -2332,7 +2332,7 @@ class LayerTest(s_t_utils.SynTest):
                     $layer = $lib.layer.get()
                     $layer.getStorNodesByProp("foo:bar:_custom:risk:level")
                 ''')
-            self.isin('No property named', str(cm.exception))
+            self.eq(cm.exception.get('mesg'), 'The property foo:bar:_custom:risk:level does not exist.')
 
             with self.raises(s_exc.NoSuchProp):
                 await core.callStorm('''

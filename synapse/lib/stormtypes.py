@@ -7454,8 +7454,7 @@ class Layer(Prim):
         async for _, buid, sode in layr.liftByTag(tagname, form=formname):
             yield await self.runt.snap._joinStorNode(buid, {iden: sode})
 
-    @stormfunc(readonly=True)
-    async def liftByProp(self, propname, propvalu=None, propcmpr='='):
+    async def _liftByProp(self, propname, propvalu=None, propcmpr='='):
 
         propname = await tostr(propname)
         propvalu = await toprim(propvalu)
@@ -7483,12 +7482,18 @@ class Layer(Prim):
 
         if propvalu is None:
             async for _, buid, sode in layr.liftByProp(liftform, liftprop):
-                yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+                yield buid, sode
             return
 
         norm, info = prop.type.norm(propvalu)
         cmprvals = prop.type.getStorCmprs(propcmpr, norm)
         async for _, buid, sode in layr.liftByPropValu(liftform, liftprop, cmprvals):
+            yield buid, sode
+
+    @stormfunc(readonly=True)
+    async def liftByProp(self, propname, propvalu=None, propcmpr='='):
+        iden = self.valu.get('iden')
+        async for buid, sode in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
             yield await self.runt.snap._joinStorNode(buid, {iden: sode})
 
     @stormfunc(readonly=True)
@@ -7814,24 +7819,21 @@ class Layer(Prim):
     @stormfunc(readonly=True)
     async def getStorNodesByProp(self, propname, propvalu=None, propcmpr='='):
         propname = await tostr(propname)
-        propvalu = await tostor(propvalu)
-        propcmpr = await tostr(propcmpr)
+        propvalu = await toprim(propvalu)
 
-        layriden = self.valu.get('iden')
-        await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
+        prop = self.runt.snap.core.model.prop(propname)
+        if prop is None:
+            mesg = f'The property {propname} does not exist.'
+            raise s_exc.NoSuchProp(mesg=mesg)
 
-        prop = self.runt.snap.core.model.reqProp(propname)
-
-        if propvalu is not None:
-            norm, info = prop.type.norm(propvalu)
-            cmprvals = prop.type.getStorCmprs(propcmpr, norm)
-            async for _, buid, sode in layr.liftByPropValu(prop.form.name, prop.name, cmprvals):
-                yield (s_common.ehex(buid), sode)
+        if prop.isform and propvalu is None:
+            # If this is a form with no propvalu, use getStorNodesByForm
+            async for buid, sode in self.getStorNodesByForm(propname):
+                yield s_common.ehex(buid), sode
             return
 
-        async for _, buid, sode in layr.liftByProp(prop.form.name, prop.name):
-            yield (s_common.ehex(buid), sode)
+        async for buid, sode in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
+            yield s_common.ehex(buid), sode
 
     @stormfunc(readonly=True)
     async def getEdges(self):
