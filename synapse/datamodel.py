@@ -1180,8 +1180,26 @@ class Model:
             self.childforms[pform.name].append(formname)
             forminfo = pform.info | forminfo
 
-            pprops = tuple((prop.name, prop.typedef, prop.info) for prop in pform.props.values() if not prop.ifaces)
-            propdefs = pprops + propdefs
+            pprops = []
+            ptypes = {}
+            for propdef in propdefs:
+                if len(propdef) != 3:
+                    raise s_exc.BadPropDef(valu=propdef)
+                ptypes[propdef[0]] = propdef[1]
+
+            for prop in pform.props.values():
+                if prop.ifaces:
+                    continue
+
+                if (newdef := ptypes.get(prop.name)) is not None:
+                    if newdef != prop.typedef:
+                        mesg = f'Form {formname} overrides inherited prop {prop.name} with a different typedef.'
+                        raise s_exc.BadPropDef(mesg=mesg, typedef=newdef)
+                    continue
+
+                pprops.append((prop.name, prop.typedef, prop.info))
+
+            propdefs = tuple(pprops) + propdefs
 
         virts = []
 

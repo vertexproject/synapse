@@ -572,3 +572,14 @@ class DataModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('[ _test:inhstr4=ext :name=bar :_xtra=here ]'))
             self.len(1, await core.nodes('test:inhstr:name=bar'))
+
+            # Coverage for bad propdefs
+            await core.addType('_test:newp', 'test:inhstr', {}, {})
+
+            with self.raises(s_exc.BadPropDef):
+                core.model.addForm('_test:newp', {}, ((1, 2),))
+
+            with self.raises(s_exc.BadPropDef):
+                core.model.addForm('_test:newp', {}, (('name', ('int', {}), {}),))
+
+            core.model.addForm('_test:newp', {}, (('name', ('str', {}), {}),))
