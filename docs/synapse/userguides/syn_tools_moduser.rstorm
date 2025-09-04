@@ -1,0 +1,15 @@
+.. highlight:: none
+
+.. _syn-tools-moduser:
+
+moduser
+=======
+
+The Synapse ``moduser`` tool can be used to add, modify, or list users of a Synapse service.
+
+Syntax
+------
+
+``moduser`` is executed using ``python -m synapse.tools.moduser``. The command usage is as follows:
+
+.. shell:: --fail-ok python -m synapse.tools.moduser -h

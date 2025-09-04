@@ -223,6 +223,102 @@ A multiline secondary property.
 Bye!
 '''
 
+shell_input00 = '''
+Shell with environment variable.
+
+.. shell-env:: SYN_LOG_LEVEL=DEBUG SYN_FOO=BAR
+.. shell:: python3 -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+.. shell-env::
+.. shell:: python3 -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+'''
+
+shell_output00 = '''
+Shell with environment variable.
+
+::
+
+  python3 -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+
+  LEVEL DEBUG
+  FOO BAR
+
+
+::
+
+  python3 -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+
+  LEVEL None
+  FOO None
+
+
+'''
+
+shell_input01 = '''
+Shell hide query.
+
+.. shell:: --hide-query python3 -c "print('WOOT')"
+'''
+
+shell_output01 = '''
+Shell hide query.
+
+::
+
+  WOOT
+
+
+'''
+
+shell_input02 = '''
+Shell include stderr.
+
+.. shell:: --hide-query \
+    python3 -c "import sys; print('FOO00'); sys.stdout.flush(); print('BAR00', file=sys.stderr); print('BAZ00')"
+.. shell:: --hide-query --include-stderr \
+    python3 -c "import sys; print('FOO01'); sys.stdout.flush(); print('BAR01', file=sys.stderr); print('BAZ01')"
+'''
+
+shell_output02 = '''
+Shell include stderr.
+
+::
+
+  FOO00
+  BAZ00
+
+
+::
+
+  FOO01
+  BAR01
+  BAZ01
+
+
+'''
+
+shell_text03 = '''--hide-query python3 -c "import sys; print('WOOT'); sys.exit(1)"'''
+shell_input03 = f'''
+Shell non-zero exit.
+
+.. shell:: {shell_text03}
+'''
+
+shell_text04 = '''--hide-query --fail-ok python3 -c "import sys; print('WOOT'); sys.exit(1)"'''
+shell_input04 = f'''
+Shell non-zero exit.
+
+.. shell:: {shell_text04}
+'''
+shell_output04 = '''
+Shell non-zero exit.
+
+::
+
+  WOOT
+
+
+'''
+
 fail00 = '''
 
 .. storm-cortex:: default
@@ -341,6 +437,42 @@ class RStormLibTest(s_test.SynTest):
             text = await get_rst_text(path)
             text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
             self.eq(text_nocrt, multiline_storm_output)
+
+            # shell and shell-env
+            path = s_common.genpath(dirn, 'shell00.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(shell_input00.encode())
+            text = await get_rst_text(path)
+            self.eq(text, shell_output00)
+
+            # shell --hide-query
+            path = s_common.genpath(dirn, 'shell01.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(shell_input01.encode())
+            text = await get_rst_text(path)
+            self.eq(text, shell_output01)
+
+            # shell --include-stderr
+            path = s_common.genpath(dirn, 'shell02.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(shell_input02.encode())
+            text = await get_rst_text(path)
+            self.eq(text, shell_output02)
+
+            # shell non-zero exit
+            path = s_common.genpath(dirn, 'shell03.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(shell_input03.encode())
+            with self.raises(s_exc.SynErr) as exc:
+                await get_rst_text(path)
+            self.eq(exc.exception.get('mesg'), f'Error when executing shell directive: {shell_text03} (rv: 1)')
+
+            # shell non-zero exit --fail-ok
+            path = s_common.genpath(dirn, 'shell04.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(shell_input04.encode())
+            text = await get_rst_text(path)
+            self.eq(text, shell_output04)
 
             # http
             path = s_common.genpath(dirn, 'http.rst')

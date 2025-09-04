@@ -110,6 +110,9 @@ commands:
             cd docs
             make html
 
+      - store_artifacts:
+          path: docs/_build
+
   test_steps_python:
     description: "Python test steps"
     steps:

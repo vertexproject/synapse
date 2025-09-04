@@ -1,0 +1,15 @@
+.. highlight:: none
+
+.. _syn-tools-backup:
+
+backup
+======
+
+The Synapse ``backup`` tool can be used to create an optimized backup of a Synapse directory.
+
+Syntax
+------
+
+``backup`` is executed using ``python -m synapse.tools.backup``. The command usage is as follows:
+
+.. shell:: --fail-ok python -m synapse.tools.backup -h
