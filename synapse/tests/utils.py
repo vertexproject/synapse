@@ -381,6 +381,7 @@ testmodel = (
                 ('strs', ('array', {'type': 'test:str', 'split': ',', 'uniq': False, 'sorted': False}), {}),
                 ('strsnosplit', ('array', {'type': 'test:str', 'uniq': False, 'sorted': False}), {}),
                 ('strregexs', ('array', {'type': 'test:strregex'}), {}),
+                ('children', ('array', {'type': 'test:arrayprop'}), {}),
             )),
             ('test:arrayform', {}, ()),
             ('test:arrayformtype', {}, ()),
