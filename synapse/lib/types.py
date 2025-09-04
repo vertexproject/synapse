@@ -439,6 +439,25 @@ class Type:
 
         tifo.update(info)
 
+        ifaces = {}
+        for iname, ifinfo in self.info.get('interfaces', ()):
+            ifaces[iname] = ifinfo
+
+        for iname, newinfo in info.get('interfaces', ()):
+            if (oldinfo := ifaces.get(iname)) is not None:
+                temp = {}
+                temp |= oldinfo.get('template', {})
+                temp |= newinfo.get('template', {})
+
+                ifaces[iname] = oldinfo | newinfo
+                if temp:
+                    ifaces[iname]['template'] = temp
+            else:
+                ifaces[iname] = newinfo
+
+        if ifaces:
+            tifo['interfaces'] = tuple(ifaces.items())
+
         bases = self.info.get('bases') + (self.name,)
         tifo['bases'] = bases
 

@@ -6063,8 +6063,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.DupEdgeType):
                     await core.addEdge(('inet:fqdn', '_goes', None), {})
 
-                await core.addType('_test:type', 'str', {}, {'interfaces': ['taxonomy']})
-                self.eq(['meta:taxonomy'], core.model.type('_test:type').info.get('interfaces'))
+                await core.addType('_test:type', 'str', {}, {'interfaces': [('meta:taxonomy', {})]})
+                self.eq([('meta:taxonomy', {})], core.model.type('_test:type').info.get('interfaces'))
 
                 with self.raises(s_exc.NoSuchType):
                     await core.addType('_test:newp', 'newp', {}, {})
