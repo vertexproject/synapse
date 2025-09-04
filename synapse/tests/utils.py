@@ -312,6 +312,9 @@ testmodel = (
             ('test:int', ('int', {}), {}),
             ('test:float', ('float', {}), {}),
             ('test:str', ('str', {}), {}),
+            ('test:inhstr', ('str', {}), {}),
+            ('test:inhstr2', ('test:inhstr', {}), {}),
+            ('test:inhstr3', ('test:inhstr2', {}), {}),
             ('test:strregex', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {}),
             ('test:migr', ('str', {}), {}),
             ('test:auto', ('str', {}), {}),
@@ -378,6 +381,7 @@ testmodel = (
                 ('strs', ('array', {'type': 'test:str', 'split': ',', 'uniq': False, 'sorted': False}), {}),
                 ('strsnosplit', ('array', {'type': 'test:str', 'uniq': False, 'sorted': False}), {}),
                 ('strregexs', ('array', {'type': 'test:strregex'}), {}),
+                ('children', ('array', {'type': 'test:arrayprop'}), {}),
             )),
             ('test:arrayform', {}, ()),
             ('test:arrayformtype', {}, ()),
@@ -468,6 +472,19 @@ testmodel = (
                 ('seen', ('ival', {}), {}),
                 ('pivvirt', ('test:virtiface', {}), {}),
                 ('gprop', ('test:guid', {}), {}),
+                ('inhstr', ('test:inhstr', {}), {}),
+            )),
+
+            ('test:inhstr', {}, (
+                ('name', ('str', {}), {}),
+            )),
+
+            ('test:inhstr2', {}, (
+                ('child1', ('str', {}), {}),
+            )),
+
+            ('test:inhstr3', {}, (
+                ('child2', ('str', {}), {}),
             )),
 
             ('test:strregex', {}, ()),
@@ -543,6 +560,10 @@ testmodel = (
                     },
                     'doc': 'Another value adjustable in a different way.'}),
             )),
+        ),
+        'edges': (
+            (('test:interface', 'matches', None), {
+                'doc': 'The node matched on the target node.'}),
         ),
     }),
 )
@@ -1386,9 +1407,18 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
             with self.mayTestDir(dirn) as dirn:
 
-                async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                    await core._addDataModels(testmodel)
-                    yield core
+                orig = s_cortex.Cortex._loadModels
+
+                async def _loadTestModel(self):
+                    await orig(self)
+
+                    if not hasattr(self, 'patched'):
+                        self.patched = True
+                        await self._addDataModels(testmodel)
+
+                with mock.patch('synapse.cortex.Cortex._loadModels', _loadTestModel):
+                    async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                        yield core
 
     @contextlib.asynccontextmanager
     async def getTestCoreAndProxy(self, conf=None, dirn=None):

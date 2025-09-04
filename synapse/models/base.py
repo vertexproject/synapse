@@ -107,7 +107,7 @@ modeldefs = (
 
             ('meta:rule', ('guid', {}), {
                 'interfaces': (
-                    ('meta:ruleish', {}),
+                    ('doc:authorable', {'template': {'title': 'rule', 'syntax': ''}}),
                 ),
                 'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
 
@@ -258,27 +258,6 @@ modeldefs = (
             ('meta:usable', {
                 'doc': 'An interface for forms which can be used by an actor.'}),
 
-            ('meta:ruleish', {
-                'doc': 'Properties which are common to rules used in evaluation systems.',
-                'interfaces': (
-                    ('doc:authorable', {'template': {'title': 'rule', 'syntax': ''}}),
-                ),
-                'props': (
-
-                    ('name', ('base:id', {}), {
-                        'doc': 'The rule name.'}),
-
-                    ('url', ('inet:url', {}), {
-                        'doc': 'A URL which documents the {title}.'}),
-
-                    ('enabled', ('bool', {}), {
-                        'doc': 'The enabled status of the {title}.'}),
-
-                    ('text', ('text', {}), {
-                        'display': {'syntax': '{syntax}'},
-                        'doc': 'The text of the {title}.'})
-                ),
-            }),
             ('meta:matchish', {
                 'doc': 'Properties which are common to matches based on rules.',
                 'template': {'rule': 'rule', 'rule:type': 'rule:type',
@@ -315,16 +294,16 @@ modeldefs = (
             (('meta:note', 'has', 'file:attachment'), {
                 'doc': 'The note includes the file attachment.'}),
 
-            (('meta:ruleset', 'has', 'meta:ruleish'), {
+            (('meta:ruleset', 'has', 'meta:rule'), {
                'doc': 'The ruleset includes the rule.'}),
 
-            (('meta:ruleish', 'matches', None), {
+            (('meta:rule', 'matches', None), {
                 'doc': 'The rule matched on the target node.'}),
 
-            (('meta:ruleish', 'detects', 'meta:usable'), {
+            (('meta:rule', 'detects', 'meta:usable'), {
                 'doc': 'The rule is designed to detect the target node.'}),
 
-            (('meta:ruleish', 'detects', 'meta:observable'), {
+            (('meta:rule', 'detects', 'meta:observable'), {
                 'doc': 'The rule is designed to detect the target node.'}),
 
             (('meta:usable', 'uses', 'meta:usable'), {
@@ -473,8 +452,21 @@ modeldefs = (
             ('meta:rule:type:taxonomy', {}, ()),
             ('meta:rule', {}, (
 
+                ('name', ('base:id', {}), {
+                    'doc': 'The rule name.'}),
+
                 ('type', ('meta:rule:type:taxonomy', {}), {
                     'doc': 'The rule type.'}),
+
+                ('url', ('inet:url', {}), {
+                    'doc': 'A URL which documents the {title}.'}),
+
+                ('enabled', ('bool', {}), {
+                    'doc': 'The enabled status of the {title}.'}),
+
+                ('text', ('text', {}), {
+                    'display': {'syntax': '{syntax}'},
+                    'doc': 'The text of the {title}.'})
             )),
 
             ('meta:aggregate:type:taxonomy', {}, ()),

@@ -836,6 +836,18 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:guid:size=2 :size -> test:arrayprop:ints')
             self.len(1, nodes)
 
+            fork = await core.view.fork()
+            forkiden = fork.get('iden')
+
+            await core.nodes('[ test:arrayprop=(othr,) ]')
+            await core.nodes('[ test:arrayprop=(self,) :children=((self,), (othr,)) ]', opts={'view': forkiden})
+            nodes = await core.nodes('test:arrayprop=(self,) -> *', opts={'view': forkiden})
+            self.len(1, nodes)
+
+            await core.nodes('test:arrayprop=(othr,) | delnode')
+            nodes = await core.nodes('test:arrayprop=(self,) -> *', opts={'view': forkiden})
+            self.len(0, nodes)
+
     async def test_ast_pivot_ndef(self):
 
         async with self.getTestCore() as core:
