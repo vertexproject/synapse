@@ -471,6 +471,11 @@ class DataModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
                 self.eq(nodes[1].ndef, ('_test:inhstr5', 'ext2'))
 
+                nodes = await core.nodes('test:inhstr:name=bar +_test:inhstr5:name')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+                self.eq(nodes[1].ndef, ('_test:inhstr5', 'ext2'))
+
                 nodes = await core.nodes('test:inhstr:name=bar +_test:inhstr5:name=bar')
                 self.len(2, nodes)
                 self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
@@ -496,6 +501,16 @@ class DataModelTest(s_t_utils.SynTest):
                 # Cannot add a prop to a parent form which already exists on a child
                 with self.raises(s_exc.DupPropName):
                     await core.nodes("$lib.model.ext.addFormProp(test:inhstr, _xtra, ('str', ({})), ({}))")
+
+                # Props on child forms of the target are checked during form -> form pivots
+                await core.nodes("$lib.model.ext.addFormProp(_test:inhstr5, _refs, ('test:int', ({})), ({}))")
+                await core.nodes('[ _test:inhstr5=refs :_refs=5 ]')
+                nodes = await core.nodes('test:int=5 -> test:inhstr2')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr5', 'refs'))
+
+                await core.nodes('_test:inhstr5=refs | delnode')
+                await core.nodes("$lib.model.ext.delFormProp(_test:inhstr5, _refs)")
 
             # Verify extended model reloads correctly
             async with self.getTestCore(dirn=dirn) as core:

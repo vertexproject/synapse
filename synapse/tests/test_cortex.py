@@ -2873,61 +2873,33 @@ class CortexTest(s_t_utils.SynTest):
                 await core.nodes('inet:ip +:asn::_pivo::notaprop')
 
             # FIXME: ndef pivprops
-            # await core.nodes('[ou:position=* :contact={[entity:contact=* :email=a@v.lk]}]')
-            # await core.nodes('[ou:position=* :contact={[entity:contact=* :email=b@v.lk]}]')
-            # await core.nodes('[ou:position=* :contact={[entity:contact=* :email=c@v.lk]}]')
-            # await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(a@v.lk, b@v.lk)]}]')
-            # await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(c@v.lk, d@v.lk)]}]')
-            # await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(a@v.lk, d@v.lk)]}]')
 
-            # nodes = await core.nodes('ou:position:contact::email::user=a')
-            # self.len(1, nodes)
-            # for node in nodes:
-            #     self.eq('ou:position', node.ndef[0])
+            await core.nodes('[test:str=1 :pivvirt={[test:virtiface=* :server=tcp://1.2.3.4]}]')
+            await core.nodes('[test:str=2 :pivvirt={[test:virtiface=* :server=udp://1.2.3.4]}]')
+            await core.nodes('[test:str=3 :pivvirt={[test:virtiface=* :server=gre://1.2.3.4]}]')
+            await core.nodes('[test:str=4 :pivvirt={[test:virtiface=* :servers=(tcp://1.2.3.4, tcp://2.3.4.5)]}]')
+            await core.nodes('[test:str=5 :pivvirt={[test:virtiface=* :servers=(udp://1.2.3.4, udp://2.3.4.5)]}]')
+            await core.nodes('[test:str=6 :pivvirt={[test:virtiface=* :servers=(tcp://1.2.3.4, udp://2.3.4.5)]}]')
 
-            # nodes = await core.nodes('ou:position:contact::email::user*in=(a, b)')
-            # self.len(2, nodes)
-            # for node in nodes:
-            #     self.eq('ou:position', node.ndef[0])
+            nodes = await core.nodes('test:str:pivvirt::server::proto=tcp')
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
 
-            # nodes = await core.nodes('ou:position:contact::emails*[=a@v.lk]')
-            # self.len(2, nodes)
-            # for node in nodes:
-            #     self.eq('ou:position', node.ndef[0])
+            nodes = await core.nodes('test:str:pivvirt::server::proto*in=(tcp, udp)')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
 
-            # nodes = await core.nodes('ou:position:contact::emails*[in=(a@v.lk, c@v.lk)]')
-            # self.len(3, nodes)
-            # for node in nodes:
-            #     self.eq('ou:position', node.ndef[0])
+            nodes = await core.nodes('test:str:pivvirt::servers*[=tcp://1.2.3.4]')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
 
-            await core.nodes('[entity:contribution=* :actor={[entity:contact=* :email=foo@vertex.link ]}]')
-            await core.nodes('[entity:contribution=* :actor={[entity:contact=* :email=bar@vertex.link ]}]')
-            await core.nodes('[entity:contribution=* :actor={[entity:contact=* :email=baz@vertex.link ]}]')
-            await core.nodes('[entity:contribution=* :actor={[entity:contact=* :email=faz@vertex.link ]}]')
-
-            await core.nodes('[entity:contribution=* :actor={[entity:contact=* :emails=(foo@vertex.link, bar@vertex.link) ]}]')
-            await core.nodes('[entity:contribution=* :actor={[entity:contact=* :emails=(baz@vertex.link, faz@vertex.link) ]}]')
-            await core.nodes('[entity:contribution=* :actor={[entity:contact=* :emails=(foo@vertex.link, faz@vertex.link) ]}]')
-
-            # nodes = await core.nodes('entity:contribution:actor::email::user=foo')
-            # self.len(1, nodes)
-            # for node in nodes:
-            #     self.eq('entity:contribution', node.ndef[0])
-
-            # nodes = await core.nodes('entity:contribution:actor::email::user*in=(foo, bar)')
-            # self.len(2, nodes)
-            # for node in nodes:
-            #     self.eq('entity:contribution', node.ndef[0])
-
-            # nodes = await core.nodes('entity:contribution:actor::emails*[=foo@vertex.link]')
-            # self.len(2, nodes)
-            # for node in nodes:
-            #     self.eq('entity:contribution', node.ndef[0])
-
-            # nodes = await core.nodes('entity:contribution:actor::emails*[in=(foo@vertex.link, baz@vertex.link)]')
-            # self.len(3, nodes)
-            # for node in nodes:
-            #     self.eq('entity:contribution', node.ndef[0])
+            nodes = await core.nodes('test:str:pivvirt::servers*[in=(tcp://1.2.3.4, udp://1.2.3.4)]')
+            self.len(3, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
 
             with self.raises(s_exc.NoSuchProp):
                 nodes = await core.nodes('entity:contact:email::newp=a')
@@ -6047,7 +6019,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # manually edit in borked entries
                 core.exttypes.set('_type:bork', ('_type:bork', None, None, None))
-                core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
+                core.extforms.set('_hehe:bork', ('_hehe:bork', 'int', None, None))
                 core.extedges.set(s_common.guid('newp'), ((None, '_does', 'newp'), {}))
 
             async with self.getTestCore(dirn=dirn) as core:

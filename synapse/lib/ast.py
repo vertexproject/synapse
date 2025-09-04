@@ -3344,7 +3344,7 @@ class HasAbsPropCond(Cond):
                 return cond
 
             async def cond(node, path):
-                if prop.name not in node.form.formtypes:
+                if prop.form.name not in node.form.formtypes:
                     return False
 
                 return node.has(prop.name, virts=vgetr)
@@ -3564,7 +3564,6 @@ class AbsVirtPropCond(Cond):
 
             return cond
 
-        # TODO: inheritance
         forms = set([prop.form.name for prop in props])
 
         async def cond(node, path):
