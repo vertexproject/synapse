@@ -7194,7 +7194,7 @@ class Layer(Prim):
                       {'name': 'propcmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.',
                        'default': '='},
                   ),
-                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of node iden, sode values.', }}},
         {'name': 'setStorNodeProp',
          'desc': 'Set a property on a node in this layer.',
          'type': {'type': 'function', '_funcname': 'setStorNodeProp',
