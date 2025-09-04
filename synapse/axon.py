@@ -813,11 +813,9 @@ class Axon(s_cell.Cell):
 
         path = s_common.gendir(self.dirn, 'axon_v2.lmdb')
         self.axonslab = await s_lmdbslab.Slab.anit(path)
-
-        await self._migrateAxonHistory()
-
-        self.sizes = self.axonslab.initdb('sizes')
         self.onfini(self.axonslab.fini)
+        await self._migrateAxonHistory()
+        self.sizes = self.axonslab.initdb('sizes')
 
         self.hashlocks = {}
 
