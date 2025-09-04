@@ -312,6 +312,18 @@ class StormTypesRegistry:
         locl = getattr(obj, funcname, None)
         assert locl is not None, f'bad _funcname=[{funcname}] for {obj} {info.get("name")}'
         args = rtype.get('args', ())
+        for idx, arg in enumerate(args):
+            argname = arg.get('name')
+            assert argname is not None, f'Argument at index {idx} has no name'
+            argtype = arg.get('type')
+            assert argtype is not None, f'The type for argument {argname} of function {funcname} is unknown'
+            if isinstance(argtype, (list, tuple)):
+                for atyp in argtype:
+                    if atyp not in self.known_types and atyp not in self.undefined_types:
+                        raise s_exc.NoSuchType(mesg=f'The argument type {atyp} for arg {argname} of function {obj.__name__}.{funcname} is unknown.', type=argtype)
+            else:
+                if argtype not in self.known_types and argtype not in self.undefined_types:
+                    raise s_exc.NoSuchType(mesg=f'The argument type {argtype} for arg {argname} of function {obj.__name__}.{funcname} is unknown.', type=argtype)
         callsig = getCallSig(locl)
         # Assert the callsigs match
         callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
@@ -1454,7 +1466,7 @@ class LibBase(Lib):
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to normalize.', },
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'A list of (<bool>, <prim>) for status and normalized value.', }}},
+                              'desc': 'A list of (<boolean>, <prim>) for status and normalized value.', }}},
         {'name': 'repr', 'desc': '''
             Attempt to convert a system mode value to a display mode string.
 
@@ -2159,7 +2171,7 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'str'],
                        'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
@@ -2182,7 +2194,7 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'str'],
                        'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
@@ -2212,7 +2224,7 @@ class LibAxon(Lib):
         ''',
          'type': {'type': 'function', '_funcname': 'del_',
                   'args': (
-                      {'name': 'sha256', 'type': 'hash:sha256',
+                      {'name': 'sha256', 'type': 'str',
                        'desc': 'The sha256 of the bytes to remove from the Axon.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the bytes were found and removed.'}}},
@@ -7178,7 +7190,7 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'getStorNodesByProp',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The full property name to lift by.'},
-                      {'name': 'propvalu', 'type': 'obj', 'desc': 'The value for the property.', 'default': None},
+                      {'name': 'propvalu', 'type': 'prim', 'desc': 'The value for the property.', 'default': None},
                       {'name': 'propcmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.',
                        'default': '='},
                   ),
@@ -7254,7 +7266,7 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'liftByProp',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The full property name to lift by.'},
-                      {'name': 'propvalu', 'type': 'obj', 'desc': 'The value for the property.', 'default': None},
+                      {'name': 'propvalu', 'type': 'any', 'desc': 'The value for the property.', 'default': None},
                       {'name': 'propcmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
@@ -9154,39 +9166,39 @@ class LibJsonStor(Lib):
         {'name': 'get', 'desc': 'Return a stored JSON object or object property.',
          'type': {'type': 'function', '_funcname': 'get',
                    'args': (
-                        {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
-                        {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                        {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
+                        {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                     ),
                     'returns': {'type': 'prim', 'desc': 'The previously stored value or ``(null)``.'}}},
 
         {'name': 'set', 'desc': 'Set a JSON object or object property.',
          'type': {'type': 'function', '_funcname': 'set',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path elements.'},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path elements.'},
                        {'name': 'valu', 'type': 'prim', 'desc': 'The value to set as the JSON object or object property.'},
-                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                       {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                    ),
                    'returns': {'type': 'boolean', 'desc': 'True if the set operation was successful.'}}},
 
         {'name': 'del', 'desc': 'Delete a stored JSON object or object.',
          'type': {'type': 'function', '_funcname': '_del',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
-                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
+                       {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                    ),
                    'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
 
         {'name': 'iter', 'desc': 'Yield (<path>, <valu>) tuples for the JSON objects.',
          'type': {'type': 'function', '_funcname': 'iter',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.', 'default': None},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.', 'default': None},
                    ),
                    'returns': {'name': 'Yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
         {'name': 'cacheget',
          'desc': 'Retrieve data stored with cacheset() if it was stored more recently than the asof argument.',
          'type': {'type': 'function', '_funcname': 'cacheget',
                   'args': (
-                      {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
+                      {'name': 'path', 'type': ['str', 'list'], 'desc': 'The base path to use for the cache key.', },
                       {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
                       {'name': 'asof', 'type': 'time', 'default': 'now', 'desc': 'The max cache age.'},
                       {'name': 'envl', 'type': 'boolean', 'default': False, 'desc': 'Return the full cache envelope.'},
@@ -9196,7 +9208,7 @@ class LibJsonStor(Lib):
          'desc': 'Set cache data with an envelope that tracks time for cacheget() use.',
          'type': {'type': 'function', '_funcname': 'cacheset',
                   'args': (
-                      {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
+                      {'name': 'path', 'type': ['str', 'list'], 'desc': 'The base path to use for the cache key.', },
                       {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
                       {'name': 'valu', 'type': 'prim', 'desc': 'The data to store.', },
                   ),
@@ -9205,7 +9217,7 @@ class LibJsonStor(Lib):
          'desc': 'Remove cached data set with cacheset.',
          'type': {'type': 'function', '_funcname': 'cachedel',
                   'args': (
-                      {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
+                      {'name': 'path', 'type': ['str', 'list'], 'desc': 'The base path to use for the cache key.', },
                       {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
@@ -9434,7 +9446,7 @@ class LibCron(Lib):
                       {'name': 'prefix', 'type': 'str',
                        'desc': 'A prefix to match in order to identify a cron job to modify. '
                                'Only a single matching prefix will be modified.', },
-                      {'name': 'query', 'type': ['str', 'query'],
+                      {'name': 'query', 'type': ['str', 'storm:query'],
                        'desc': 'The new Storm query for the Cron Job.', }
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was modified.'}}},
