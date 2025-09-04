@@ -1265,7 +1265,7 @@ class Model:
 
     def _checkFormDisplay(self, form):
 
-        formtype = self.types.get(form.type.name)
+        formtype = self.types.get(form.full)
 
         display = formtype.info.get('display')
         if display is None:
