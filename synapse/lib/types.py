@@ -2127,7 +2127,7 @@ class NodeProp(Type):
         self.storlifts |= {
             'prop=': self._storLiftProp
         }
-  
+
         self.proptype = self.modl.type('syn:prop')
         self.virts |= {
             'prop': (self.proptype, self._getProp),
