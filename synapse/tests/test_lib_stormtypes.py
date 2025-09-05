@@ -1852,6 +1852,12 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts={'user': lowuser.iden})
             self.stormIsInErr('setStorNodeProp() requires admin privileges.', msgs)
 
+            # readonly layer
+            layer = core.view.layers[0]
+            await layer.setLayerInfo('readonly', True)
+            msgs = await core.stormlist('test:str $lib.layer.get().setStorNodeProp($node.iden(), test:str:hehe, baz)')
+            self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
+
     async def test_storm_layer_delstornodeprop(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:str=foo :hehe=bar ]')
@@ -1885,6 +1891,12 @@ class StormTypesTest(s_test.SynTest):
             '''
             msgs = await core.stormlist(q, opts={'user': lowuser.iden})
             self.stormIsInErr('delStorNodeProp() requires admin privileges.', msgs)
+
+            # Readonly layer
+            layer = core.view.layers[0]
+            await layer.setLayerInfo('readonly', True)
+            msgs = await core.stormlist('test:str $lib.layer.get().delStorNodeProp($node.iden(), test:str:hehe)')
+            self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
 
     async def test_storm_lib_fire(self):
         async with self.getTestCore() as core:
