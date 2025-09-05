@@ -7312,7 +7312,7 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'hasEdge',
                   'args': (
                       {'name': 'nodeid1', 'type': 'str', 'desc': 'The hex string of the N1 node iden.'},
-                      {'name': 'verb', 'type': 'str', 'desc': 'An optional edge verb to filter by.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb.'},
                       {'name': 'nodeid2', 'type': 'str', 'desc': 'The hex string of the N2 node iden.'},
                   ),
                   'returns': {'type': 'boolean',
