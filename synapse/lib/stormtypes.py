@@ -7827,7 +7827,7 @@ class Layer(Prim):
             raise s_exc.NoSuchProp(mesg=mesg)
 
         if prop.isform and propvalu is None:
-            # If this is a form with no propvalu, use getStorNodesByForm
+            # If this is a form, use getStorNodesByForm
             async for buid, sode in self.getStorNodesByForm(propname):
                 yield s_common.ehex(buid), sode
             return
