@@ -1535,8 +1535,8 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm(q, opts={'vars': {'buf': buf, 'encoding': 'utf-32'}})
 
-            # with self.raises(s_exc.BadJsonText):
-            #     await core.callStorm(q, opts={'vars': {'buf': b'lol{newp,', 'encoding': None}})
+            with self.raises(s_exc.BadJsonText):
+                await core.callStorm(q, opts={'vars': {'buf': b'lol{newp,', 'encoding': None}})
 
     async def test_storm_lib_bytes_xor(self):
         async with self.getTestCore() as core:
