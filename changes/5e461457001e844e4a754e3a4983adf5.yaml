@@ -1,0 +1,6 @@
+---
+desc: Fixed a bug in the Storm Layer API ``getStorNodesByProp()`` where passing a
+  form name would not return anything.
+prs: []
+type: bug
+...
