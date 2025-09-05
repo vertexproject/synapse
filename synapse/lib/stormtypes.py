@@ -7826,11 +7826,9 @@ class Layer(Prim):
             mesg = f'The property {propname} does not exist.'
             raise s_exc.NoSuchProp(mesg=mesg)
 
-        if prop.isform and propvalu is None:
-            # If this is a form, use getStorNodesByForm
-            async for buid, sode in self.getStorNodesByForm(propname):
-                yield s_common.ehex(buid), sode
-            return
+        if prop.isform:
+            mesg = f'{propname} is a form, not a property.'
+            raise s_exc.BadArg(mesg=mesg, propname=propname)
 
         async for buid, sode in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
             yield s_common.ehex(buid), sode

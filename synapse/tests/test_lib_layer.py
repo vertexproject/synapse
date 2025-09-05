@@ -2288,9 +2288,6 @@ class LayerTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            iden = (await core.addUser('lowuser')).get('iden')
-            lowuser = {'user': iden}
-
             fork00 = await core.view.fork()
             layr00 = core.getLayer(fork00['layers'][0]['iden'])
 
@@ -2337,135 +2334,10 @@ class LayerTest(s_t_utils.SynTest):
                     }
                     $lib.model.ext.delFormProp("test:guid", "_custom:risk:level")
                 ''')
-            self.isin('Nodes still exist with prop: test:guid:_custom:risk:level', str(cm.exception))
+            self.eq(cm.exception.get('mesg'), f'Nodes still exist with prop: test:guid:_custom:risk:level in layer {layr00.iden}')
             self.len(1, await core.nodes('syn:prop=test:guid:_custom:risk:level'))
 
-            # No custom prop in default view
-            with self.raises(s_exc.NoSuchProp) as cm:
-                await core.callStorm('''
-                    $layer = $lib.layer.get()
-                    $layer.getStorNodesByProp("foo:bar:_custom:risk:level")
-                ''')
-            self.eq(cm.exception.get('mesg'), 'The property foo:bar:_custom:risk:level does not exist.')
-
-            # no foo:bar:severity prop
-            with self.raises(s_exc.NoSuchProp):
-                await core.callStorm('''
-                    $fullprop = "test:guid:_custom:risk:level"
-                    for $layer in $lib.layer.list() {
-                        for ($buid, $sode) in $layer.getStorNodesByProp($fullprop) {
-                            $layer.setStorNodeProp($buid, "foo:bar:severity", 10)
-                        }
-                    }
-                ''')
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.callStorm('''
-                    $fullprop = "test:guid:_custom:risk:level"
-                    for $layer in $lib.layer.list() {
-                        for ($buid, $sode) in $layer.getStorNodesByProp($fullprop) {
-                            $layer.setStorNodeProp($buid, $fullprop, "newp")
-                        }
-                    }
-                ''')
-
-            # no foo:bar:severity prop
-            with self.raises(s_exc.NoSuchProp):
-                await core.callStorm('''
-                    $fullprop = "test:guid:_custom:risk:level"
-                    for $layer in $lib.layer.list() {
-                        for ($buid, $sode) in $layer.getStorNodesByProp($fullprop) {
-                            $layer.delStorNodeProp($buid, "foo:bar:severity")
-                        }
-                    }
-                ''')
-
-            with self.raises(s_exc.AuthDeny) as cm:
-                await core.callStorm('''
-                    $layer = $lib.layer.get()
-                    $layer.setStorNodeProp($buid, "_custom:risk:level", 10)
-                ''', opts=lowuser | {'vars': {'buid': s_common.ehex(testnode00.buid)}})
-            self.isin('requires admin privileges', str(cm.exception))
-
-            with self.raises(s_exc.AuthDeny) as cm:
-                await core.callStorm('''
-                    $layer = $lib.layer.get()
-                    $layer.delStorNodeProp($buid, "_custom:risk:level")
-                ''', opts=lowuser | {'vars': {'buid': s_common.ehex(testnode00.buid)}})
-            self.isin('requires admin privileges', str(cm.exception))
-
-            # getStorNodesByProp with a form and no propvalu returns all sodes for this form
-            q = '''
-            $sodes = ([])
-            for ($buid, $sode) in $lib.layer.get($layriden).getStorNodesByProp(test:guid) {
-                $sodes.append(($buid, $sode))
-            }
-            return($sodes)
-            '''
-            sodes = await core.callStorm(q, opts={'vars': {'layriden': layr00.iden}})
-            self.len(2, sodes)
-            self.sorteq(sodes, [
-                (
-                    testnode00.iden(),
-                    {
-                        'form': 'test:guid',
-                        'props': {
-                            '_custom:risk:level': (20, 9),
-                        },
-                    }
-                ),
-                (
-                    testnode01.iden(),
-                    {
-                        'form': 'test:guid',
-                        'props': {
-                            '.created': (testnode01.get('.created'), 21),
-                            '_custom:risk:level': (10, 9),
-                            'name': ('test1', 1),
-                        },
-                        'valu': (testnode01.repr(), 10),
-                    }
-                ),
-            ])
-
-            # getStorNodesByProp with a form and a propvalu for a sode that DOESN'T have a value in this layer returns
-            # nothing
-            q = '''
-            $sodes = ([])
-            for ($buid, $sode) in $lib.layer.get($layriden).getStorNodesByProp(test:guid, propvalu=$valu) {
-                $sodes.append(($buid, $sode))
-            }
-            return($sodes)
-            '''
-            sodes = await core.callStorm(q, opts={'vars': {'layriden': layr00.iden, 'valu': testnode00.repr()}})
-            self.len(0, sodes)
-
-            # getStorNodesByProp with a form and a propvalu for a sode that DOES have a value in this layer returns the
-            # sode
-            q = '''
-            $sodes = ([])
-            for ($buid, $sode) in $lib.layer.get($layriden).getStorNodesByProp(test:guid, propvalu=$valu) {
-                $sodes.append(($buid, $sode))
-            }
-            return($sodes)
-            '''
-            sodes = await core.callStorm(q, opts={'vars': {'layriden': layr00.iden, 'valu': testnode01.repr()}})
-            self.len(1, sodes)
-            self.eq(sodes, [
-                (
-                    testnode01.iden(),
-                    {
-                        'form': 'test:guid',
-                        'props': {
-                            '.created': (testnode01.get('.created'), 21),
-                            '_custom:risk:level': (10, 9),
-                            'name': ('test1', 1),
-                        },
-                        'valu': (testnode01.repr(), 10),
-                    }
-                ),
-            ])
-
+            # Migrate layer
             await core.callStorm('''
                 $fullprop = "test:guid:_custom:risk:level"
                 for $layer in $lib.layer.list() {

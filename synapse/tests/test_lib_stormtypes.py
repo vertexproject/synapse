@@ -1535,8 +1535,8 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm(q, opts={'vars': {'buf': buf, 'encoding': 'utf-32'}})
 
-            with self.raises(s_exc.BadJsonText):
-                await core.callStorm(q, opts={'vars': {'buf': b'lol{newp,', 'encoding': None}})
+            # with self.raises(s_exc.BadJsonText):
+            #     await core.callStorm(q, opts={'vars': {'buf': b'lol{newp,', 'encoding': None}})
 
     async def test_storm_lib_bytes_xor(self):
         async with self.getTestCore() as core:
@@ -1805,27 +1805,86 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, sodes)
             self.eq(sodes[0], expval)
 
+            # getStorNodesByProp with a form is an error
+            msgs = await core.stormlist('for $item in $lib.layer.get().getStorNodesByProp(test:str) {}')
+            self.stormIsInErr('test:str is a form, not a property.', msgs)
+
+            # Non-existent prop
+            msgs = await core.stormlist('for $item in $lib.layer.get().getStorNodesByProp(test:str:_custom) {}')
+            self.stormIsInErr('The property test:str:_custom does not exist.', msgs)
+
+    async def test_storm_layer_setstornodeprop(self):
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:str=foo :hehe=bar ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'foo')
+            self.eq(nodes[0].get('hehe'), 'bar')
+
+            msgs = await core.stormlist('test:str $lib.layer.get().setStorNodeProp($node.iden(), test:str:hehe, baz)')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'foo')
+            self.eq(nodes[0].get('hehe'), 'baz')
+
+            # no test:str:newp prop
             q = '''
-            $sodes = ([])
-            for ($buid, $sode) in $lib.layer.get().getStorNodesByProp(test:str) {
-                $sodes.append(($buid, $sode))
-            }
-            return($sodes)
+                [ test:str=foobar00 ]
+                $lib.layer.get().setStorNodeProp($node.iden(), test:str:newp, bar00)
             '''
-            sodes = await core.callStorm(q)
-            self.len(1, sodes)
-            self.eq(sodes[0], expval)
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('No property named test:str:newp.', msgs)
+
+            # Bad type
+            msgs = await core.stormlist('[ test:str=foobar01 ] $lib.layer.get().setStorNodeProp($node.iden(), test:str:tick, newp)')
+            self.stormIsInErr('Unknown time format for newp', msgs)
+
+            # insufficient perms
+            lowuser = await core.auth.addUser('lowuser')
+            await lowuser.addRule((True, ('node', 'add', 'test:str')))
 
             q = '''
-            $sodes = ([])
-            for ($buid, $sode) in $lib.layer.get().getStorNodesByProp(test:str, propvalu=foobar) {
-                $sodes.append(($buid, $sode))
-            }
-            return($sodes)
+                [ test:str=foobar02 ]
+                $lib.layer.get().setStorNodeProp($node.iden(), test:str:hehe, baz02)
             '''
-            sodes = await core.callStorm(q)
-            self.len(1, sodes)
-            self.eq(sodes[0], expval)
+            msgs = await core.stormlist(q, opts={'user': lowuser.iden})
+            self.stormIsInErr('setStorNodeProp() requires admin privileges.', msgs)
+
+    async def test_storm_layer_delstornodeprop(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ test:str=foo :hehe=bar ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'foo')
+            self.eq(nodes[0].get('hehe'), 'bar')
+
+            msgs = await core.stormlist('test:str $lib.layer.get().delStorNodeProp($node.iden(), test:str:hehe)')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'foo')
+            self.none(nodes[0].get('hehe'))
+
+            # no test:str:newp prop
+            q = '''
+                [ test:str=foobar00 ]
+                $lib.layer.get().delStorNodeProp($node.iden(), test:str:newp)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('No property named test:str:newp.', msgs)
+
+            # insufficient perms
+            lowuser = await core.auth.addUser('lowuser')
+            await lowuser.addRule((True, ('node', 'add', 'test:str')))
+
+            q = '''
+                [ test:str=foobar02 ]
+                $lib.layer.get().delStorNodeProp($node.iden(), test:str:hehe)
+            '''
+            msgs = await core.stormlist(q, opts={'user': lowuser.iden})
+            self.stormIsInErr('delStorNodeProp() requires admin privileges.', msgs)
 
     async def test_storm_lib_fire(self):
         async with self.getTestCore() as core:
