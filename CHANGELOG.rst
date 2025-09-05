@@ -12,6 +12,87 @@ v3.0.0 - 2025-XX-YY
 Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
 changes.
 
+v2.220.0 - 2025-09-02
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated the IMAP client backend code for ``$lib.inet.imap()``.
+  (`#4439 <https://github.com/vertexproject/synapse/pull/4439>`_)
+- Added an ``xor()`` method on Storm ``bytes`` objects.
+  (`#4459 <https://github.com/vertexproject/synapse/pull/4459>`_)
+
+Bugfixes
+--------
+- Fixed regression in JSON where serializing strings with control characters
+  would cause an error.
+  (`#4463 <https://github.com/vertexproject/synapse/pull/4463>`_)
+- Fixed bug where the ``intersect`` command was not marked as readonly safe.
+  (`#4465 <https://github.com/vertexproject/synapse/pull/4465>`_)
+
+v2.219.0 - 2025-08-22
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_219_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``inits`` to the Storm package definition schema, which enables
+  running Storm queries for a particular package storage version.
+  (`#4406 <https://github.com/vertexproject/synapse/pull/4406>`_)
+- Added ``$lib.pkg.vars`` Storm API to manage persistent values for a Storm
+  Package.
+  (`#4415 <https://github.com/vertexproject/synapse/pull/4415>`_)
+- Updated ``$lib.axon.put()`` to check for the existence of the bytes in the
+  Axon before uploading.
+  (`#4435 <https://github.com/vertexproject/synapse/pull/4435>`_)
+- Added new ``getStorNodesByProp``, ``setStorNodeProp``, and
+  ``delStorNodeProp`` methods to the Layer Storm library for working with
+  storage nodes.
+  (`#4438 <https://github.com/vertexproject/synapse/pull/4438>`_)
+- Removed exception logging for telepath when proxy methods are cancelled.
+  (`#4440 <https://github.com/vertexproject/synapse/pull/4440>`_)
+- Updated the allowed range for the ``pycryptodome`` dependency to
+  ``pycryptodome>=3.11.0,<3.24.0``
+  (`#4453 <https://github.com/vertexproject/synapse/pull/4453>`_)
+
+v2.218.1 - 2025-07-31
+=====================
+
+Bugfixes
+--------
+- Fixed an issue where a default offset in a push/pull function caused fill to
+  advance farther ahead than required.
+  (`#4432 <https://github.com/vertexproject/synapse/pull/4432>`_)
+
+v2.218.0 - 2025-07-31
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated the ``runas`` and ``view.exec`` commands to output prints from
+  ``$lib.print()`` and warnings from ``$lib.warn()`` and ``$lib.exit()``.
+  (`#4425 <https://github.com/vertexproject/synapse/pull/4425>`_)
+- Updated the allowed range for the ``lmdb`` dependency to
+  ``lmdb>=1.7.0,<1.8.0``.
+  (`#4429 <https://github.com/vertexproject/synapse/pull/4429>`_)
+
+Bugfixes
+--------
+- Fixed the set and get of custom offsets for the layer ``addPull()`` and
+  ``addPush()`` methods.
+  (`#4418 <https://github.com/vertexproject/synapse/pull/4418>`_)
+- Added a patch for Python ``tarfile`` module to address CVE-2025-8194
+  exposure.
+  (`#4428 <https://github.com/vertexproject/synapse/pull/4428>`_)
+
+Improved documentation
+----------------------
+- Added documentation for the ``links`` option to the Storm runtime.
+  (`#4417 <https://github.com/vertexproject/synapse/pull/4417>`_)
+
 v2.217.0 - 2025-07-25
 =====================
 

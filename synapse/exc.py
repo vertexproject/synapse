@@ -217,6 +217,8 @@ class DupEdgeType(SynErr):
 
 class FileExists(SynErr): pass
 
+class ImapError(SynErr): pass
+
 class InconsistentStorage(SynErr):
     '''
     Stored persistent data is inconsistent

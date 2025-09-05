@@ -2137,14 +2137,47 @@ class Data(Type):
 
 class NodeProp(Type):
 
-    stortype = s_layer.STOR_TYPE_MSGP
+    stortype = s_layer.STOR_TYPE_NODEPROP
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 
+        self.storlifts |= {
+            'prop=': self._storLiftProp
+        }
+
         self.proptype = self.modl.type('syn:prop')
+        self.virts |= {
+            'prop': (self.proptype, self._getProp),
+        }
+
+    async def getStorCmprs(self, cmpr, valu, virts=None):
+        if virts:
+            cmpr = f'{virts[0]}{cmpr}'
+
+        if (func := self.storlifts.get(cmpr)) is None:
+            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
+
+        return await func(cmpr, valu)
+
+    async def _storLiftProp(self, cmpr, valu):
+        valu = valu.lower().strip()
+        if self.modl.prop(valu) is None:
+            raise s_exc.NoSuchProp.init(valu)
+
+        return (
+            (cmpr, valu, self.stortype),
+        )
+
+    def _getProp(self, valu):
+        valu = valu[0]
+        if isinstance(valu[0], str):
+            return valu[0]
+
+        return (v[0] for v in valu)
 
     async def _normPyStr(self, valu, view=None):
         valu = valu.split('=', 1)

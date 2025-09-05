@@ -2321,6 +2321,158 @@ class LayerTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('risk:vulnerable:node.newp=newp')
 
+            await core.nodes('risk:vulnerable [ -:node ]')
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
+            await core.nodes('[ test:str=foo :bar=(test:int, 1) ]', opts=viewopts2)
+            await core.nodes('[ test:str=foo :bar=(test:int, 1) ]')
+
+            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+            await core.nodes('[ test:str=foo :bar=(test:int, 2) ]', opts=viewopts2)
+            self.len(0, await core.nodes('test:int=1 <- *', opts=viewopts2))
+
+            await core.nodes('[ test:str=foo -:bar ]', opts=viewopts2)
+            self.len(0, await core.nodes('test:int=1 <- *', opts=viewopts2))
+
+            await core.nodes('[ test:str=bar :bar=(test:int, 1) ]')
+            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'bar'))
+
+            self.len(1, await core.nodes('it:dev:int=1 <- *', opts=viewopts2))
+
+            await core.nodes('test:str=ndefs [ :ndefs=((test:str, foo),) ]', opts=viewopts2)
+            self.len(0, await core.nodes('it:dev:int=1 <- *', opts=viewopts2))
+
+            await core.nodes('test:str=ndefs [ -:ndefs ]', opts=viewopts2)
+            self.len(0, await core.nodes('test:str=foo <- *', opts=viewopts2))
+
+            q = '''[ test:str=ndefs :ndefs=(
+                (test:str, foo),
+                (test:str, foo),
+                (test:str, bar),
+                (test:str, foo)
+            )]'''
+            await core.nodes(q, opts=viewopts2)
+
+            self.len(3, await core.nodes('test:str=foo <- *', opts=viewopts2))
+            self.len(4, await core.nodes('test:str=ndefs -> *', opts=viewopts2))
+            self.len(4, await core.nodes('test:str=ndefs :ndefs -> *', opts=viewopts2))
+
+    async def test_layer_nodeprop_indexes(self):
+
+        async with self.getTestCore() as core:
+
+            self.len(0, await core.nodes('test:str:baz.prop=test:int:type'))
+            self.len(0, await core.nodes('test:str:pdefs*[.prop=test:int:type]'))
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
+            await core.nodes('[ test:int=1 :type=one test:int=2 (test:str=hehe :hehe=cool) ]', opts=viewopts2)
+            await core.nodes('[ test:str=foo :baz=(test:int:type, one) ]', opts=viewopts2)
+            await core.nodes('[ test:str=bar :baz=(test:int:type, two) ]', opts=viewopts2)
+            await core.nodes('[ test:str=baz :baz=(test:str:hehe, newp) ]', opts=viewopts2)
+            await core.nodes('[ test:str=faz :pdefs=((test:int:type, one), (test:str:hehe, cool)) ]', opts=viewopts2)
+
+            await core.nodes('[ test:str=foo :baz=(test:int:type, one) ]')
+
+            nodes = await core.nodes('test:str:baz=(test:int:type, one)', opts=viewopts2)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'foo'))
+            self.eq(nodes[1].ndef, ('test:str', 'faz'))
+
+            nodes = await core.nodes('test:str=foo -> *', opts=viewopts2)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 1))
+
+            nodes = await core.nodes('test:str=foo :baz -> *', opts=viewopts2)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 1))
+
+            nodes = await core.nodes('test:str=faz -> *', opts=viewopts2)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 1))
+            self.eq(nodes[1].ndef, ('test:str', 'hehe'))
+
+            nodes = await core.nodes('test:str=faz :pdefs -> *', opts=viewopts2)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 1))
+            self.eq(nodes[1].ndef, ('test:str', 'hehe'))
+
+            nodes = await core.nodes('test:str:baz.prop=test:int:type', opts=viewopts2)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'bar'))
+            self.eq(nodes[1].ndef, ('test:str', 'foo'))
+
+            nodes = await core.nodes('test:str:pdefs*[.prop=test:int:type]', opts=viewopts2)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'faz'))
+
+            self.len(0, await core.nodes('test:str:baz=(test:str:somestr, newp)'))
+            self.len(0, await core.nodes('test:str:baz.prop=test:str:somestr'))
+
+            await core.nodes('[ test:str=foo :baz=(test:int:type, three) ]', opts=viewopts2)
+
+            self.len(0, await core.nodes('test:str:baz=(test:int:type, one)', opts=viewopts2))
+            nodes = await core.nodes('test:str:baz=(test:int:type, three)', opts=viewopts2)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'faz'))
+
+            await core.nodes('[ test:str=foo -:baz ]', opts=viewopts2)
+            self.len(0, await core.nodes('test:str:baz=(test:int:type, three)', opts=viewopts2))
+
+            await core.nodes('[ test:str=layr1 :baz=(test:int:type, one) ]')
+
+            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'faz'))
+            self.eq(nodes[1].ndef, ('test:str', 'layr1'))
+
+            await core.nodes('[ test:str=layr1 :baz=(test:int:type, three) ]')
+            await core.nodes('[ test:str=faz :pdefs=((test:str:hehe, cool),) ]', opts=viewopts2)
+            nodes = await core.nodes('test:str=faz :pdefs -> *', opts=viewopts2)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'hehe'))
+            self.len(0, await core.nodes('test:int=1 <- *', opts=viewopts2))
+
+            await core.nodes('[ test:str=faz -:pdefs]', opts=viewopts2)
+            self.len(0, await core.nodes('test:str:pdefs*[.prop=test:int:type]', opts=viewopts2))
+            self.len(0, await core.nodes('test:int=1 <- *', opts=viewopts2))
+
+            q = '''[ test:str=faz :pdefs=(
+                (test:int:type, one),
+                (test:int:type, one),
+                (test:str:hehe, cool),
+                (test:int:type, one))
+            ]'''
+            await core.nodes(q, opts=viewopts2)
+            await core.nodes('[ test:str=faz :pdefs=((test:int:type, one),) ]')
+
+            nodes = await core.nodes('test:int=1 <- *', opts=viewopts2)
+            self.len(3, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'faz'))
+            self.eq(nodes[1].ndef, ('test:str', 'faz'))
+            self.eq(nodes[2].ndef, ('test:str', 'faz'))
+
+            self.len(4, await core.nodes('test:str=faz -> *', opts=viewopts2))
+            self.len(4, await core.nodes('test:str=faz :pdefs -> *', opts=viewopts2))
+
     async def test_layer_virt_indexes(self):
 
         async with self.getTestCore() as core:
@@ -2771,3 +2923,122 @@ class LayerTest(s_t_utils.SynTest):
 
                     evnts = [n[1][1] for n in await alist(core01.nexsroot.nexslog.iter(indx))]
                     self.eq(['view:del', 'layer:del', 'sync'], evnts)
+
+    async def test_layer_migrate_props_fork(self):
+
+        async with self.getTestCore() as core:
+
+            iden = (await core.addUser('lowuser')).get('iden')
+            lowuser = {'user': iden}
+
+            fork00 = await core.view.fork()
+            layr00 = core.getLayer(fork00['layers'][0]['iden'])
+
+            await core.nodes('''
+                for $prop in (_custom:risk:level, _custom:risk:severity) {
+                    $lib.model.ext.addFormProp(
+                        test:guid,
+                        $prop,
+                        (["int", {"enums": [[10, "low"], [20, "medium"], [30, "high"]]}]),
+                        ({"doc": "hey now"}),
+                    )
+                }
+
+            ''')
+            self.len(1, await core.nodes('syn:prop=test:guid:_custom:risk:level'))
+            self.len(1, await core.nodes('syn:prop=test:guid:_custom:risk:severity'))
+
+            await core.nodes('[ test:guid=* :name=test1 :_custom:risk:level=low ]', opts={'view': fork00['iden']})
+
+            await core.getView(fork00['iden']).delete()
+
+            with self.raises(s_exc.CantDelProp) as cm:
+                await core.callStorm('''
+                    $fullprop = "test:guid:_custom:risk:level"
+                    for $view in $lib.view.list(deporder=$lib.true) {
+                        view.exec $view.iden {
+                            yield $lib.layer.get().liftByProp($fullprop)
+                            $repr = $node.repr("_custom:risk:level")
+                            [ :severity=$repr -:_custom:risk:level ]
+                        }
+                    }
+                    $lib.model.ext.delFormProp("test:guid", "_custom:risk:level")
+                ''')
+            self.isin('Nodes still exist with prop: test:guid:_custom:risk:level', str(cm.exception))
+            self.len(1, await core.nodes('syn:prop=test:guid:_custom:risk:level'))
+
+            with self.raises(s_exc.NoSuchProp) as cm:
+                await core.callStorm('''
+                    $layer = $lib.layer.get()
+                    for $x in $layer.getStorNodesByProp("foo:bar:_custom:risk:level") {}
+                ''')
+            self.isin('No property named', str(cm.exception))
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm('''
+                    $fullprop = "test:guid:_custom:risk:level"
+                    for $layer in $lib.layer.list() {
+                        for ($nid, $sode) in $layer.getStorNodesByProp($fullprop) {
+                            $oldv = $sode.props."_custom:risk:level"
+                            $layer.setStorNodeProp($nid, "foo:bar:severity", $oldv.0)
+                        }
+                    }
+                ''')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('''
+                    $fullprop = "test:guid:_custom:risk:level"
+                    for $layer in $lib.layer.list() {
+                        for ($nid, $sode) in $layer.getStorNodesByProp($fullprop) {
+                            $layer.setStorNodeProp($nid, $fullprop, "newp")
+                        }
+                    }
+                ''')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm('''
+                    $fullprop = "test:guid:_custom:risk:level"
+                    for $layer in $lib.layer.list() {
+                        for ($nid, $sode) in $layer.getStorNodesByProp($fullprop) {
+                            $layer.delStorNodeProp($nid, "foo:bar:severity")
+                        }
+                    }
+                ''')
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.callStorm('''
+                    $nid = (1)
+                    $layer = $lib.layer.get()
+                    $layer.setStorNodeProp($nid, "foo:bar:severity", "newp")
+                ''', opts=lowuser)
+            self.isin('requires admin privileges', str(cm.exception))
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.callStorm('''
+                    $nid = (1)
+                    $layer = $lib.layer.get()
+                    $layer.delStorNodeProp($nid, "foo:bar:severity")
+                ''', opts=lowuser)
+            self.isin('requires admin privileges', str(cm.exception))
+
+            await core.callStorm('''
+                $fullprop = "test:guid:_custom:risk:level"
+                for $layer in $lib.layer.list() {
+                    if $layer.getPropCount($fullprop) {
+                        for ($nid, $sode) in $layer.getStorNodesByProp($fullprop, (10), "=") {
+                            $oldv = $sode.props."_custom:risk:level"
+                            $layer.setStorNodeProp($nid, "test:guid:_custom:risk:severity", $oldv.0)
+                            $layer.delStorNodeProp($nid, $fullprop)
+                        }
+                    }
+                }
+                $lib.model.ext.delFormProp("test:guid", "_custom:risk:level")
+            ''')
+            self.len(0, await core.nodes('syn:prop=test:guid:_custom:risk:level'))
+            self.len(0, await core.nodes('test:guid:_custom:risk:severity'))
+
+            view00 = (await core.addView(vdef={'layers': [layr00.iden]}))['iden']
+            nodes = await core.nodes('test:guid', opts={'view': view00})
+            self.len(1, nodes)
+            self.none(nodes[0].get('_custom:risk:level'))
+            self.eq(nodes[0].get('_custom:risk:severity'), 10)
