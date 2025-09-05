@@ -3360,24 +3360,21 @@ class Layer(s_nexus.Pusher):
         formname = sode.get('form')
 
         edits = []
-        if (props := sode.get('props')):
-            for propname, propvalu in props.items():
+        for propname, propvalu in sode.get('props', {}).items():
+            edits.append(
+                (EDIT_PROP_DEL, (propname, *propvalu), ())
+            )
+
+        for tagname, tprops in sode.get('tagprops', {}).items():
+            for propname, (propvalu, stortype) in tprops.items():
                 edits.append(
-                    (EDIT_PROP_DEL, (propname, *propvalu), ())
+                    (EDIT_TAGPROP_DEL, (tagname, propname, propvalu, stortype), ())
                 )
 
-        if (tagprops := sode.get('tagprops')):
-            for tagname, tprops in tagprops.items():
-                for propname, (propvalu, stortype) in tprops.items():
-                    edits.append(
-                        (EDIT_TAGPROP_DEL, (tagname, propname, propvalu, stortype), ())
-                    )
-
-        if (tags := sode.get('tags')):
-            for tagname, tagvalu in tags.items():
-                edits.append(
-                    (EDIT_TAG_DEL, (tagname, tagvalu), ())
-                )
+        for tagname, tagvalu in sode.get('tags', {}).items():
+            edits.append(
+                (EDIT_TAG_DEL, (tagname, tagvalu), ())
+            )
 
         if (valu := sode.get('valu')):
             edits.append(
