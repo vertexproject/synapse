@@ -148,9 +148,9 @@ class TypesTest(s_t_utils.SynTest):
             await taxo.norm('foo.---.baz')
 
         norm, info = await taxo.norm('foo.bar.baz')
-        self.eq(2, info['subs']['depth'])
-        self.eq('baz', info['subs']['base'])
-        self.eq('foo.bar.', info['subs']['parent'])
+        self.eq(2, info['subs']['depth'][1])
+        self.eq('baz', info['subs']['base'][1])
+        self.eq('foo.bar.', info['subs']['parent'][1])
 
         self.true(await taxo.cmpr('foo', '~=', 'foo'))
         self.false(await taxo.cmpr('foo', '~=', 'foo.'))
@@ -1541,7 +1541,7 @@ class TypesTest(s_t_utils.SynTest):
             norm, info = await t.norm(('test:str', 'Foobar!'))
             self.eq(norm, ('test:str', 'Foobar!'))
             self.eq(info, {'adds': (('test:str', 'Foobar!', {}),),
-                           'subs': {'form': 'test:str'}})
+                           'subs': {'form': (t.formtype.typehash, 'test:str', {})}})
 
             rval = t.repr(('test:str', 'Foobar!'))
             self.eq(rval, ('test:str', 'Foobar!'))
@@ -1588,8 +1588,9 @@ class TypesTest(s_t_utils.SynTest):
     async def test_nodeprop(self):
         async with self.getTestCore() as core:
             t = core.model.type('nodeprop')
+            ptyp = core.model.type('syn:prop')
 
-            expected = (('test:str', 'This is a sTring'), {'subs': {'prop': 'test:str'}})
+            expected = (('test:str', 'This is a sTring'), {'subs': {'prop': (ptyp.typehash, 'test:str', {})}})
             self.eq(await t.norm('test:str=This is a sTring'), expected)
             self.eq(await t.norm(('test:str', 'This is a sTring')), expected)
 
@@ -1620,15 +1621,15 @@ class TypesTest(s_t_utils.SynTest):
 
         norm, info = await t.norm((0, 0))
         self.eq(norm, (0, 0))
-        self.eq(info['subs']['min'], 0)
-        self.eq(info['subs']['max'], 0)
+        self.eq(info['subs']['min'][1], 0)
+        self.eq(info['subs']['max'][1], 0)
 
         self.eq((10, 20), (await t.norm('10-20'))[0])
 
         norm, info = await t.norm((-10, 0xFF))
         self.eq(norm, (-10, 255))
-        self.eq(info['subs']['min'], -10)
-        self.eq(info['subs']['max'], 255)
+        self.eq(info['subs']['min'][1], -10)
+        self.eq(info['subs']['max'][1], 255)
 
         self.eq(t.repr((-10, 0xFF)), ('-10', '255'))
 
@@ -1733,7 +1734,8 @@ class TypesTest(s_t_utils.SynTest):
 
         strsubs = model.type('str').clone({'regex': r'(?P<first>[ab]+)(?P<last>[zx]+)'})
         norm, info = await strsubs.norm('aabbzxxxxxz')
-        self.eq(info.get('subs'), {'first': 'aabb', 'last': 'zxxxxxz'})
+        styp = model.type('str').typehash
+        self.eq(info.get('subs'), {'first': (styp, 'aabb', {}), 'last': (styp, 'zxxxxxz', {})})
 
         flt = model.type('str').clone({})
         self.eq('0.0', (await flt.norm(0.0))[0])
@@ -1771,12 +1773,12 @@ class TypesTest(s_t_utils.SynTest):
         tag, info = await tagtype.norm('foo')
         subs = info.get('subs')
         self.none(subs.get('up'))
-        self.eq('foo', subs.get('base'))
-        self.eq(0, subs.get('depth'))
+        self.eq('foo', subs.get('base')[1])
+        self.eq(0, subs.get('depth')[1])
 
         tag, info = await tagtype.norm('foo.bar')
         subs = info.get('subs')
-        self.eq('foo', subs.get('up'))
+        self.eq('foo', subs.get('up')[1])
 
         self.eq('r_y', (await tagtype.norm('@#R)(Y'))[0])
         self.eq('foo.bar', (await tagtype.norm('foo\udcfe.bar'))[0])
