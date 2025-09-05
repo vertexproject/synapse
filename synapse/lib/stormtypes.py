@@ -3,7 +3,6 @@ import bz2
 import copy
 import gzip
 import time
-
 import regex
 import types
 import base64
@@ -11,6 +10,7 @@ import pprint
 import struct
 import asyncio
 import decimal
+import hashlib
 import inspect
 import logging
 import binascii
@@ -721,6 +721,18 @@ class LibPkg(Lib):
                       {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'A dictionary listing dependencies and if they are met.', }}},
+        {'name': 'vars',
+         'desc': "Get a dictionary representing the package's persistent variables.",
+         'type': {'type': 'function', '_funcname': '_libPkgVars',
+                  'args': (
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'A Storm Package name to get vars for.', },
+                  ),
+                  'returns': {'type': 'pkg:vars', 'desc': 'A dictionary representing the package variables.', }}},
+    )
+    _storm_lib_perms = (
+        {'perm': ('power-ups', '<name>', 'admin'), 'gate': 'cortex',
+         'desc': 'Controls the ability to interact with the vars for a Storm Package by name.'},
     )
     _storm_lib_path = ('pkg',)
 
@@ -732,6 +744,7 @@ class LibPkg(Lib):
             'del': self._libPkgDel,
             'list': self._libPkgList,
             'deps': self._libPkgDeps,
+            'vars': self._libPkgVars,
         }
 
     async def _libPkgAdd(self, pkgdef, verify=False):
@@ -770,6 +783,11 @@ class LibPkg(Lib):
     async def _libPkgDeps(self, pkgdef):
         pkgdef = await toprim(pkgdef)
         return await self.runt.view.core.verifyStormPkgDeps(pkgdef)
+
+    async def _libPkgVars(self, name):
+        name = await tostr(name)
+        confirm(('power-ups', name, 'admin'))
+        return PkgVars(self.runt, name)
 
 @registry.registerLib
 class LibDmon(Lib):
@@ -2640,9 +2658,13 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'upload'))
 
-        await self.runt.view.core.getAxon()
-        size, sha256 = await self.runt.view.core.axon.put(byts)
+        sha256 = hashlib.sha256(byts).digest()
 
+        await self.runt.view.core.getAxon()
+        if await self.runt.view.core.axon.has(sha256):
+            return (len(byts), s_common.ehex(sha256))
+
+        size, sha256 = await self.runt.view.core.axon.put(byts)
         return (size, s_common.ehex(sha256))
 
     @stormfunc(readonly=True)
@@ -4781,6 +4803,24 @@ class Bytes(Prim):
                       {'name': 'offset', 'type': 'int', 'desc': 'An offset to begin unpacking from.', 'default': 0},
                   ),
                   'returns': {'type': 'list', 'desc': 'The unpacked primitive values.', }}},
+        {'name': 'xor', 'desc': '''
+            Perform an "exclusive or" bitwise operation on the bytes and another set of bytes.
+
+            Notes:
+                The key bytes provided as an argument will be repeated as needed until all bytes have been
+                xor'd.
+
+                If a string is provided as the key argument, it will be utf8 encoded before being xor'd.
+
+            Examples:
+                Perform an xor operation on the bytes in $encoded using the bytes in $key::
+
+                    $decoded = $encoded.xor($key)''',
+         'type': {'type': 'function', '_funcname': '_methXor',
+                  'args': (
+                      {'name': 'key', 'type': ['str', 'bytes'], 'desc': 'The key bytes to perform the xor operation with.'},
+                  ),
+                  'returns': {'type': 'bytes', 'desc': "The xor'd bytes."}}},
     )
     _storm_typename = 'bytes'
     _ismutable = False
@@ -4791,6 +4831,7 @@ class Bytes(Prim):
 
     def getObjLocals(self):
         return {
+            'xor': self._methXor,
             'decode': self._methDecode,
             'bunzip': self._methBunzip,
             'gunzip': self._methGunzip,
@@ -4880,6 +4921,26 @@ class Bytes(Prim):
 
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(valu))}') from None
+
+    @stormfunc(readonly=True)
+    async def _methXor(self, key):
+        key = await toprim(key)
+        if isinstance(key, str):
+            key = key.encode()
+
+        if not isinstance(key, bytes):
+            raise s_exc.BadArg(mesg='$bytes.xor() key argument must be bytes or a str.')
+
+        if len(key) == 0:
+            raise s_exc.BadArg(mesg='$bytes.xor() key length must be greater than 0.')
+
+        arry = bytearray(self.valu)
+        keylen = len(key)
+
+        for i in range(len(arry)):
+            arry[i] ^= key[i % keylen]
+
+        return bytes(arry)
 
 @registry.registerType
 class Dict(Prim):
@@ -5746,6 +5807,45 @@ class RuntVars(Prim):
         reprs = ["{}: {}".format(await torepr(k), await torepr(v)) async for (k, v) in self.iter()]
         rval = ', '.join(reprs)
         return f'{{{rval}}}'
+
+@registry.registerType
+class PkgVars(Prim):
+    '''
+    The Storm deref/setitem/iter convention on top of pkg vars information.
+    '''
+    _storm_typename = 'pkg:vars'
+    _ismutable = True
+
+    def __init__(self, runt, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+    def _reqPkgAdmin(self):
+        confirm(('power-ups', self.valu, 'admin'))
+
+    @stormfunc(readonly=True)
+    async def deref(self, name):
+        self._reqPkgAdmin()
+        name = await tostr(name)
+        return await self.runt.view.core.getStormPkgVar(self.valu, name)
+
+    async def setitem(self, name, valu):
+        self._reqPkgAdmin()
+        name = await tostr(name)
+
+        if valu is undef:
+            await self.runt.view.core.popStormPkgVar(self.valu, name)
+            return
+
+        valu = await toprim(valu)
+        await self.runt.view.core.setStormPkgVar(self.valu, name, valu)
+
+    @stormfunc(readonly=True)
+    async def iter(self):
+        self._reqPkgAdmin()
+        async for name, valu in self.runt.view.core.iterStormPkgVars(self.valu):
+            yield name, valu
+            await asyncio.sleep(0)
 
 @registry.registerType
 class Query(Prim):
@@ -6796,6 +6896,37 @@ class Layer(Prim):
                        'desc': 'The name of the form to get storage nodes for.'},
                    ),
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
+        {'name': 'getStorNodesByProp', 'desc': '''
+            Get nid, sode tuples representing the data stored in the layer for a given property.
+            Notes:
+                The storage nodes represent **only** the data stored in the layer
+                and may not represent whole nodes.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getStorNodesByProp',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The full property name to lift by.'},
+                      {'name': 'propvalu', 'type': 'obj', 'desc': 'The value for the property.', 'default': None},
+                      {'name': 'propcmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.',
+                       'default': '='},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of nid, sode values.', }}},
+        {'name': 'setStorNodeProp',
+         'desc': 'Set a property on a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'setStorNodeProp',
+                  'args': (
+                      {'name': 'nid', 'type': 'int', 'desc': 'The integer node id.'},
+                      {'name': 'prop', 'type': 'str', 'desc': 'The property name to set.'},
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value to set.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'delStorNodeProp',
+         'desc': 'Delete a property from a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delStorNodeProp',
+                  'args': (
+                      {'name': 'nid', 'type': 't', 'desc': 'The integer node id.'},
+                      {'name': 'prop', 'type': 'str', 'desc': 'The property name to delete.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
         {'name': 'getMirrorStatus', 'desc': '''
             Return a dictionary of the mirror synchronization status for the layer.
             ''',
@@ -7048,6 +7179,7 @@ class Layer(Prim):
             'getStorNodeByNid': self.getStorNodeByNid,
             'getStorNodes': self.getStorNodes,
             'getStorNodesByForm': self.getStorNodesByForm,
+            'getStorNodesByProp': self.getStorNodesByProp,
             'getEdgesByN1': self.getEdgesByN1,
             'getEdgesByN2': self.getEdgesByN2,
             'delTombstone': self.delTombstone,
@@ -7055,6 +7187,8 @@ class Layer(Prim):
             'getEdgeTombstones': self.getEdgeTombstones,
             'getNodeData': self.getNodeData,
             'getMirrorStatus': self.getMirrorStatus,
+            'setStorNodeProp': self.setStorNodeProp,
+            'delStorNodeProp': self.delStorNodeProp,
         }
 
     @stormfunc(readonly=True)
@@ -7137,6 +7271,25 @@ class Layer(Prim):
         iden = self.valu.get('iden')
         layr = self.runt.view.core.getLayer(iden)
         return await layr.getMirrorStatus()
+
+    async def setStorNodeProp(self, nid, prop, valu):
+        iden = self.valu.get('iden')
+        layr = self.runt.view.core.getLayer(iden)
+        nid = await toint(nid)
+        prop = await tostr(prop)
+        valu = await tostor(valu)
+        self.runt.reqAdmin(mesg='setStorNodeProp() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.setStorNodeProp(nid, prop, valu, meta=meta)
+
+    async def delStorNodeProp(self, nid, prop):
+        iden = self.valu.get('iden')
+        layr = self.runt.view.core.getLayer(iden)
+        nid = await toint(nid)
+        prop = await tostr(prop)
+        self.runt.reqAdmin(mesg='delStorNodeProp() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delStorNodeProp(nid, prop, meta=meta)
 
     async def _addPull(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
         url = await tostr(url)
@@ -7440,6 +7593,28 @@ class Layer(Prim):
             yield (s_common.ehex(self.runt.view.core.getBuidByNid(nid)), sode)
 
     @stormfunc(readonly=True)
+    async def getStorNodesByProp(self, propname, propvalu=None, propcmpr='='):
+        propname = await tostr(propname)
+        propvalu = await tostor(propvalu)
+        propcmpr = await tostr(propcmpr)
+
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
+
+        prop = self.runt.view.core.model.reqProp(propname)
+
+        if propvalu is not None:
+            norm, info = await prop.type.norm(propvalu)
+            cmprvals = await prop.type.getStorCmprs(propcmpr, norm)
+            async for _, nid, sref in layr.liftByPropValu(prop.form.name, prop.name, cmprvals):
+                yield (s_common.int64un(nid), copy.deepcopy(sref.sode))
+            return
+
+        async for _, nid, sref in layr.liftByProp(prop.form.name, prop.name):
+            yield (s_common.int64un(nid), copy.deepcopy(sref.sode))
+
+    @stormfunc(readonly=True)
     async def getEdges(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
@@ -7534,8 +7709,22 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def _methLayerGet(self, name, defv=None):
-        ldef = await self.value()
-        return ldef.get(name, defv)
+        match name:
+            case 'pushs':
+                pushs = copy.deepcopy(self.valu.get('pushs', {}))
+                for iden, pdef in pushs.items():
+                    pdef['offs'] = self.runt.view.core.layeroffs.get(iden, 0)
+                return pushs
+
+            case 'pulls':
+                pulls = copy.deepcopy(self.valu.get('pulls', {}))
+                for iden, pdef in pulls.items():
+                    pdef['offs'] = self.runt.view.core.layeroffs.get(iden, 0)
+                return pulls
+
+            case _:
+                ldef = await self.value()
+                return ldef.get(name, defv)
 
     async def _methLayerSet(self, name, valu):
         name = await tostr(name)

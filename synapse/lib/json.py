@@ -68,11 +68,13 @@ def _dumps(obj, sort_keys=False, indent=False, default=None, newline=False):
         mesg = 'Object of type bytes is not JSON serializable'
         raise s_exc.MustBeJsonSafe(mesg=mesg)
 
-    # Raw strings have to be double-quoted. This is because the default behavior for `yyjson.Document`
-    #  is to attempt to parse the string as a serialized JSON string into objects, so we escape string
-    # values so we can get the JSON encoded string as output.
     if isinstance(obj, str) and obj not in ('null', 'true', 'false'):
-        obj = f'''"{obj.replace('"', '\\"')}"'''
+        # Raw strings have to be double-quoted. This is because the default behavior for `yyjson.Document` is to attempt
+        # to parse the string as a serialized JSON string into objects. Instead of trying to manually escape the string,
+        # we wrap it in a list, serialize it, and then strip off the leading/trailing [] so we can get the JSON encoded
+        # string as output.
+        doc = yyjson.Document([obj], default=default, flags=rflags)
+        return doc.dumps(flags=wflags)[1:-1].encode()
 
     try:
         doc = yyjson.Document(obj, default=default, flags=rflags)

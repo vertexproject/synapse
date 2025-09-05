@@ -414,12 +414,16 @@ class StormTest(s_t_utils.SynTest):
                 [(ou:org=* :names=(foo, baz))]
                 [(ou:org=* :names=(foo, hehe))]
             ''')
-            nodes = await core.nodes('ou:org | intersect { -> meta:name }')
+            nodes = await core.nodes('ou:org | intersect { -> meta:name }', opts={'readonly': True})
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'foo')
 
             msgs = await core.stormlist('ou:org $foo=$node.value() | intersect $foo')
             self.stormIsInErr('intersect arguments must be runtsafe', msgs)
+
+            with self.raises(s_exc.IsReadOnly) as exc:
+                await core.nodes('ou:org | intersect { [ou:org=*] }', opts={'readonly': True})
+            self.eq(exc.exception.get('mesg'), 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.')
 
     async def test_lib_storm_trycatch(self):
 
@@ -1485,6 +1489,18 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[3][1]['props']['seen.min'], 1577836800000000)
             self.eq(nodes[3][1]['props']['seen.max'], 0x7ffffffffffffffe)
             self.eq(nodes[3][1]['props']['seen.duration'], 0xfffffffffffffffe)
+
+            opts['view'] = fork
+            msgs = await core.stormlist('test:str=baz [ -:seen ]', opts=opts)
+            nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
+
+            self.none(nodes[0][1]['props'].get('seen'))
+            self.none(nodes[0][1]['props'].get('seen.min'))
+            self.none(nodes[0][1]['props'].get('seen.max'))
+            self.none(nodes[0][1]['props'].get('seen.duration'))
+            self.eq(nodes[0][1]['props']['ndefs'], (('test:str', '1'), ('test:str', '2')))
+            self.eq(nodes[0][1]['props']['ndefs.size'], 2)
+            self.eq(nodes[0][1]['props']['ndefs.form'], ('test:str', 'test:str'))
 
     async def test_storm_diff_merge(self):
 
@@ -2813,6 +2829,185 @@ class StormTest(s_t_utils.SynTest):
                 await core01.waitfini()
 
             await core00.waitfini()
+
+    async def test_storm_pkg_inits(self):
+
+        async def loadPkg(core, pkg):
+            waiter = core.waiter(2, 'core:pkg:onload:start', 'core:pkg:onload:complete')
+
+            await core.addStormPkg(pkg)
+
+            events = await waiter.wait(timeout=10)
+            self.eq(events, [
+                ('core:pkg:onload:start', {'pkg': 'testload'}),
+                ('core:pkg:onload:complete', {'pkg': 'testload'}),
+            ])
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                pkg = {
+                    'name': 'testload',
+                    'version': '0.1.0',
+                    'inits': {
+                        'key': 'testload:version',
+                        'versions': [
+                            {
+                                'version': 0,
+                                'name': 'init00',
+                                'query': '$lib.globals.init00 = $lib.time.now()',
+                            },
+                            {
+                                'version': 1,
+                                'name': 'init01',
+                                'inaugural': True,
+                                'query': '$lib.globals.init01 = $lib.time.now()',
+                            },
+                        ]
+                    },
+                }
+
+                # bad init queries fail on load
+
+                pkg['inits']['versions'].append({
+                    'version': 2,
+                    'name': 'bad',
+                    'query': '...',
+                })
+
+                await self.asyncraises(s_exc.BadSyntax, core.addStormPkg(pkg))
+
+                pkg['inits']['versions'].pop(2)
+
+                # non-increasing init versions fail on load
+
+                pkg['inits']['versions'].append({
+                    'version': 0,
+                    'name': 'bad',
+                    'query': '$lib.print("")',
+                })
+
+                await self.asyncraises(s_exc.BadPkgDef, core.addStormPkg(pkg))
+
+                pkg['inits']['versions'].pop(2)
+
+                # only inaugural inits run on first load
+
+                await loadPkg(core, pkg)
+
+                self.eq(1, await core.getStormPkgVar('testload', 'testload:version'))
+                self.none(await core.getStormVar('init00'))
+                self.nn(init01 := await core.getStormVar('init01'))
+
+                # non-inaugural inits run on reload
+                # inits always run before onload
+
+                pkg['version'] = '0.2.0'
+                pkg['onload'] = '$lib.time.sleep((0.1)) $lib.globals.onload = $lib.time.now()'
+                pkg['inits']['versions'].append({
+                    'version': 2,
+                    'name': 'init02',
+                    'query': '$lib.globals.init02 = $lib.time.now()',
+                })
+
+                await loadPkg(core, pkg)
+
+                self.eq(2, await core.getStormPkgVar('testload', 'testload:version'))
+                self.none(await core.getStormVar('init00'))
+                self.eq(init01, await core.getStormVar('init01'))
+                self.nn(init02 := await core.getStormVar('init02'))
+                self.nn(onload := await core.getStormVar('onload'))
+                self.gt(onload, init02)
+
+                # inits run even if onload fails
+                # prior inits do not re-run
+
+                pkg['version'] = '0.3.0'
+                pkg['onload'] = '$lib.raise(SynErr, whoopsie)'
+                pkg['inits']['versions'].append({
+                    'version': 3,
+                    'name': 'init03',
+                    'inaugural': True,
+                    'query': '$lib.globals.init03 = $lib.time.now()',
+                })
+
+                await loadPkg(core, pkg)
+
+                self.eq(3, await core.getStormPkgVar('testload', 'testload:version'))
+                self.eq(init02, await core.getStormVar('init02'))
+                self.nn(await core.getStormVar('init03'))
+
+                # init failure stops progression
+
+                await core.setStormVar('dofail', True)
+
+                pkg['version'] = '0.4.0'
+                pkg['onload'] = '$lib.globals.onload = $lib.time.now() $lib.time.sleep((0.1))'
+                pkg['inits']['versions'].extend([
+                    {
+                        'version': 4,
+                        'name': 'init04',
+                        'query': '''
+                            if $lib.globals.dofail { $lib.raise(SynErr, newp) }
+                            $lib.globals.init04 = $lib.time.now()
+                        ''',
+                    },
+                    {
+                        'version': 6,
+                        'name': 'init06',
+                        'query': '$lib.globals.init06 = $lib.time.now()',
+                    },
+                ])
+
+                mesg = 'testload init vers=4 output: (\'SynErr\''
+                with self.getAsyncLoggerStream('synapse.cortex', mesg) as stream:
+                    await loadPkg(core, pkg)
+                    self.eq(3, await core.getStormPkgVar('testload', 'testload:version'))
+                    await stream.wait(timeout=10)
+
+                self.none(await core.getStormVar('init04'))
+                self.none(await core.getStormVar('init06'))
+
+                await core.setStormVar('dofail', False)
+
+            with self.getAsyncLoggerStream('synapse.cortex', 'testload finished onload') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    await stream.wait(timeout=10)
+
+                    # prior versions dont re-run, but a failed one does
+
+                    self.eq(6, await core.getStormPkgVar('testload', 'testload:version'))
+                    self.gt(await core.getStormVar('onload'), onload)
+                    self.eq(init02, await core.getStormVar('init02'))
+                    self.nn(await core.getStormVar('init04'))
+                    self.nn(await core.getStormVar('init06'))
+
+                    # coverage for prints and warns
+
+                    pkg['version'] = '0.5.0'
+                    pkg['inits']['versions'].append({
+                        'version': 7,
+                        'name': 'init07',
+                        'query': '$lib.print("doing a print")',
+                    })
+
+                    with self.getAsyncLoggerStream('synapse.cortex', 'doing a print') as stream:
+                        await loadPkg(core, pkg)
+                        await stream.wait(timeout=10)
+                        self.eq(7, await core.getStormPkgVar('testload', 'testload:version'))
+
+                    pkg['version'] = '0.6.0'
+                    pkg['inits']['versions'].append({
+                        'version': 8,
+                        'name': 'init08',
+                        'query': '$lib.warn("doing a warn")',
+                    })
+
+                    with self.getAsyncLoggerStream('synapse.cortex', 'doing a warn') as stream:
+                        await loadPkg(core, pkg)
+                        await stream.wait(timeout=10)
+                        self.eq(8, await core.getStormPkgVar('testload', 'testload:version'))
 
     async def test_storm_tree(self):
 
@@ -4523,16 +4718,19 @@ class StormTest(s_t_utils.SynTest):
                 view1, layr1 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
                 view2, layr2 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
                 view3, layr3 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
+                view4, layr4 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
 
                 opts = {'vars': {
                     'view0': view0,
                     'view1': view1,
                     'view2': view2,
                     'view3': view3,
+                    'view4': view4,
                     'layr0': layr0,
                     'layr1': layr1,
                     'layr2': layr2,
                     'layr3': layr3,
+                    'layr4': layr4,
                 }}
 
                 # lets get some auth denies...
@@ -4591,7 +4789,20 @@ class StormTest(s_t_utils.SynTest):
                 pushs = layrinfo.get('pushs')
                 self.len(1, pushs)
                 pdef = list(pushs.values())[0]
-                self.lt(10, pdef.get('offs', 0))
+                eoffs = pdef.get('offs', 0)
+                self.lt(10, eoffs)
+
+                # check offset reporting from list()
+                msgs = await core.stormlist('layer.push.list $layr0', opts=opts)
+                self.stormIsInPrint(f'{eoffs}', msgs)
+
+                # Pull from layr0 using a custom offset (skip first node)
+                await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr4}", offs={offs})', opts=opts)
+                await core.layers.get(layr4).waitEditOffs(offs, timeout=3)
+                self.len(2, await core.nodes('entity:contact', opts={'view': view4}))
+
+                # Clean up
+                self.none(await core.callStorm('$lib.layer.get($layr0).delPush($layr4)', opts=opts))
 
                 q = '$layer=$lib.layer.get($layr2) return ($layer)'
                 layrinfo = await core.callStorm(q, opts=opts)
@@ -4632,7 +4843,7 @@ class StormTest(s_t_utils.SynTest):
                         }
                     }
                 ''')
-                self.eq(actv - 2, len(core.activecoros))
+                self.eq(actv - 3, len(core.activecoros))
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
@@ -4702,7 +4913,7 @@ class StormTest(s_t_utils.SynTest):
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
-                self.eq(actv, len(core.activecoros))
+                self.eq(actv - 1, len(core.activecoros))
 
                 pushpulls = set()
                 for ldef in await core.getLayerDefs():
@@ -4727,7 +4938,7 @@ class StormTest(s_t_utils.SynTest):
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
-                self.eq(actv - 2, len(core.activecoros))
+                self.eq(actv - 3, len(core.activecoros))
 
                 with self.raises(s_exc.SchemaViolation):
                     await core.addLayrPush('newp', {})

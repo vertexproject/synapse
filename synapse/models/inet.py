@@ -1848,6 +1848,7 @@ modeldefs = (
                 'template': {'title': 'object'},
                 'interfaces': (
                     ('inet:service:base', {}),
+                    ('meta:observable', {}),
                 ),
                 'props': (
 
@@ -2886,6 +2887,9 @@ modeldefs = (
             ('inet:service:account', {}, (
                 ('tenant', ('inet:service:tenant', {}), {
                     'doc': 'The tenant which contains the account.'}),
+
+                ('parent', ('inet:service:account', {}), {
+                    'doc': 'A parent account which owns this account.'}),
             )),
 
             ('inet:service:relationship:type:taxonomy', {}, ()),

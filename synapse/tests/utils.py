@@ -449,6 +449,7 @@ testmodel = (
                 ('tick', ('test:time', {}), {}),
                 ('hehe', ('str', {}), {}),
                 ('ndefs', ('array', {'type': 'ndef', 'uniq': False, 'sorted': False}), {}),
+                ('pdefs', ('array', {'type': 'nodeprop', 'uniq': False, 'sorted': False}), {}),
                 ('cidr', ('inet:cidr', {}), {}),
                 ('somestr', ('test:str', {}), {}),
                 ('seen', ('ival', {}), {}),
@@ -2351,7 +2352,7 @@ class StormPkgTest(SynTest):
                 pkgdef = s_genpkg.loadPkgProto(pkgproto, no_docs=True, readonly=True)
 
                 waiter = None
-                if pkgdef.get('onload') is not None:
+                if (pkgdef.get('onload') is not None or pkgdef.get('inits') is not None):
                     waiter = core.waiter(1, 'core:pkg:onload:complete')
 
                 await core.addStormPkg(pkgdef)

@@ -1,9 +1,9 @@
 import lark  # type: ignore
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 
 import synapse.lib.parser as s_parser
-import synapse.lib.datfile as s_datfile
 import synapse.lib.grammar as s_grammar
 
 import synapse.tests.utils as s_t_utils
@@ -1494,9 +1494,7 @@ class GrammarTest(s_t_utils.SynTest):
         '''
         Validates that we have no grammar ambiguities
         '''
-        with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
-            grammar = larkf.read().decode()
-
+        grammar = s_data.getLark('storm')
         parser = lark.Lark(grammar, start='query', debug=True, regex=True, parser='lalr',
                            keep_all_tokens=True, maybe_placeholders=False,
                            propagate_positions=True)
