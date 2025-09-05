@@ -1886,11 +1886,13 @@ class StormTypesTest(s_test.SynTest):
                 'valu': ('foo', 1)
             })
 
-            msgs = await core.stormlist('test:str $lib.layer.get().delStorNode($iden)', opts=opts)
+            msgs = await core.stormlist('$lib.layer.get().delStorNode($iden)', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
             sode = await core.callStorm('return($lib.layer.get().getStorNode($iden))', opts=opts)
             self.eq(sode, {})
+
+            self.false(await core.callStorm('return($lib.layer.get().delStorNode($iden))', opts=opts))
 
             # insufficient perms
             lowuser = await core.auth.addUser('lowuser')
