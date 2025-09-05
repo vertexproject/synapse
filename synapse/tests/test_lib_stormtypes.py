@@ -1858,6 +1858,60 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('test:str $lib.layer.get().setStorNodeProp($node.iden(), test:str:hehe, baz)')
             self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
 
+    async def test_storm_layer_delstornode(self):
+        async with self.getTestCore() as core:
+            await core.addTagProp('score00', ('int', {}), {})
+            await core.addTagProp('score01', ('int', {}), {})
+            nodes = await core.nodes('[ test:str=foo :hehe=bar +#foo +#foo.bar=now +#foo.baz:score00=10 +#foo.baz:score01=20]')
+            self.len(1, nodes)
+            opts = {'vars': {'iden': nodes[0].iden()}}
+            created = nodes[0].get('.created')
+            foobar = nodes[0].get('#foo.bar')
+
+            sode = await core.callStorm('return($lib.layer.get().getStorNode($iden))', opts=opts)
+            self.eq(sode, {
+                'form': 'test:str',
+                'props': {'.created': (created, 21), 'hehe': ('bar', 1)},
+                'tagprops': {
+                    'foo.baz': {
+                        'score00': (10, 9),
+                        'score01': (20, 9)
+                    }
+                },
+                'tags': {
+                    'foo': (None, None),
+                    'foo.bar': foobar,
+                    'foo.baz': (None, None)
+                },
+                'valu': ('foo', 1)
+            })
+
+            msgs = await core.stormlist('test:str $lib.layer.get().delStorNode($iden)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            sode = await core.callStorm('return($lib.layer.get().getStorNode($iden))', opts=opts)
+            self.eq(sode, {})
+
+            # insufficient perms
+            lowuser = await core.auth.addUser('lowuser')
+            await lowuser.addRule((True, ('node', 'add', 'test:str')))
+
+            q = '''
+                [ test:str=foobar02 ]
+                $lib.layer.get().delStorNode($node.iden())
+            '''
+            msgs = await core.stormlist(q, opts={'user': lowuser.iden})
+            self.stormIsInErr('delStorNode() requires admin privileges.', msgs)
+
+            # Readonly layer
+            nodes = await core.nodes('[ test:str=foobar ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'foobar')
+            layer = core.view.layers[0]
+            await layer.setLayerInfo('readonly', True)
+            msgs = await core.stormlist('test:str $lib.layer.get().delStorNode($node.iden())')
+            self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
+
     async def test_storm_layer_delstornodeprop(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:str=foo :hehe=bar ]')
