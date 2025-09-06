@@ -1,0 +1,5 @@
+---
+desc: Added Storm Layer ``delStorNode()`` API to delete storage nodes in a layer.
+prs: []
+type: feat
+...

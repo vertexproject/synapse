@@ -7204,6 +7204,13 @@ class Layer(Prim):
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to set.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'delStorNode',
+         'desc': 'Delete a storage node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delStorNode',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
         {'name': 'delStorNodeProp',
          'desc': 'Delete a property from a node in this layer.',
          'type': {'type': 'function', '_funcname': 'delStorNodeProp',
@@ -7436,6 +7443,7 @@ class Layer(Prim):
             'getNodeData': self.getNodeData,
             'getMirrorStatus': self.getMirrorStatus,
             'setStorNodeProp': self.setStorNodeProp,
+            'delStorNode': self.delStorNode,
             'delStorNodeProp': self.delStorNodeProp,
         }
 
@@ -7524,6 +7532,14 @@ class Layer(Prim):
         self.runt.reqAdmin(mesg='setStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.setStorNodeProp(buid, prop, valu, meta=meta)
+
+    async def delStorNode(self, nodeid):
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        buid = s_common.uhex(await tostr(nodeid))
+        self.runt.reqAdmin(mesg='delStorNode() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delStorNode(buid, meta=meta)
 
     async def delStorNodeProp(self, nodeid, prop):
         iden = self.valu.get('iden')

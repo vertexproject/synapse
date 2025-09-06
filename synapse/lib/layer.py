@@ -3352,6 +3352,40 @@ class Layer(s_nexus.Pusher):
         _, changes = await self.saveNodeEdits(nodeedits, meta)
         return bool(changes[0][2])
 
+    async def delStorNode(self, buid, meta):
+        sode = self._getStorNode(buid)
+        if sode is None:
+            return False
+
+        formname = sode.get('form')
+
+        edits = []
+        for propname, propvalu in sode.get('props', {}).items():
+            edits.append(
+                (EDIT_PROP_DEL, (propname, *propvalu), ())
+            )
+
+        for tagname, tprops in sode.get('tagprops', {}).items():
+            for propname, propvalu in tprops.items():
+                edits.append(
+                    (EDIT_TAGPROP_DEL, (tagname, propname, *propvalu), ())
+                )
+
+        for tagname, tagvalu in sode.get('tags', {}).items():
+            edits.append(
+                (EDIT_TAG_DEL, (tagname, tagvalu), ())
+            )
+
+        if (valu := sode.get('valu')):
+            edits.append(
+                (EDIT_NODE_DEL, valu, ())
+            )
+
+        nodeedits = [(buid, formname, edits)]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        return bool(changes[0][2])
+
     async def delStorNodeProp(self, buid, prop, meta):
         pprop = self.core.model.reqProp(prop)
 
