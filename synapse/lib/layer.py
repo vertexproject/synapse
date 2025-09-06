@@ -3366,9 +3366,9 @@ class Layer(s_nexus.Pusher):
             )
 
         for tagname, tprops in sode.get('tagprops', {}).items():
-            for propname, (propvalu, stortype) in tprops.items():
+            for propname, propvalu in tprops.items():
                 edits.append(
-                    (EDIT_TAGPROP_DEL, (tagname, propname, propvalu, stortype), ())
+                    (EDIT_TAGPROP_DEL, (tagname, propname, *propvalu), ())
                 )
 
         for tagname, tagvalu in sode.get('tags', {}).items():
