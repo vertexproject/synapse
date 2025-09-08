@@ -1547,43 +1547,48 @@ class LiftOper(Oper):
         ptyp = props[0].type
 
         for piv in pivs:
-            if (virt := ptyp.virts.get(piv)) is not None:
+            if (virt := ptyp.virts.get(piv)) is not None and all(ptyp.typehash is p.type.typehash for p in plist):
                 ptyp = virt[0]
                 virts.append(piv)
                 continue
 
-            pivlifts.append((plist, virts))
+            pnames = tuple(p.full for p in plist)
+            ptypes = tuple(p.type.name for p in plist)
+            pivlifts.append((pnames, virts))
 
-            for formname in reversed(runt.model.getChildForms(ptyp.name)):
-                pivname = f'{formname}:{piv}'
-                if (pivprop := runt.model.prop(pivname)) is not None:
-                    break
-            else:
+            if virts:
+                ptypes = (ptyp.name,)
+
+            nextlist = []
+            for prop in ptypes:
+                for formname in runt.model.getChildForms(prop):
+                    if (pivprop := runt.model.prop(f'{formname}:{piv}')) is not None:
+                        nextlist.append(pivprop)
+
+            if not nextlist:
                 raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(f'{ptyp.name}:{piv}'))
 
-            plist = runt.model.getChildProps(pivprop)
             virts = []
+            plist = list(dict.fromkeys(nextlist))
+            ptyp = plist[0].type
 
-            ptyp = plist[-1].type
+        pnames = tuple(p.full for p in plist)
+        pivlifts.append((pnames, virts))
 
-        pivlifts.append((plist, virts))
-
-        return pivlifts, ptyp
+        return pivlifts
 
     async def pivlift(self, runt, pivlifts, genr):
 
         async def pivvals(props, virts, pivgenr):
             if len(props) == 1:
-                prop = props[0].full
                 async for node in pivgenr:
-                    async for pivo in runt.view.nodesByPropValu(prop, '=', node.ndef[1], reverse=self.reverse, virts=virts):
+                    async for pivo in runt.view.nodesByPropValu(props[0], '=', node.ndef[1], reverse=self.reverse, virts=virts):
                         yield pivo
                 return
 
-            names = [prop.full for prop in props]
             async for node in pivgenr:
                 valu = node.ndef[1]
-                for prop in names:
+                for prop in props:
                     async for pivo in runt.view.nodesByPropValu(prop, '=', valu, reverse=self.reverse, virts=virts):
                         yield pivo
 
@@ -1695,7 +1700,7 @@ class LiftByArray(LiftOper):
 
         try:
             if pivs is not None:
-                pivlifts, ptyp = self.getPivLifts(runt, props, pivs)
+                pivlifts = self.getPivLifts(runt, props, pivs)
                 (plift, virts) = pivlifts[-1]
 
                 if not virts:
@@ -1703,7 +1708,7 @@ class LiftByArray(LiftOper):
 
                 genrs = []
                 for prop in plift:
-                    genrs.append(runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virts=virts))
+                    genrs.append(runt.view.nodesByPropArray(prop, cmpr, valu, reverse=self.reverse, virts=virts))
 
                 def cmprkey(node):
                     return node.get(relname)
@@ -1760,14 +1765,14 @@ class LiftByArrayVirt(LiftOper):
 
         try:
             if pivs is not None:
-                pivlifts, ptyp = self.getPivLifts(runt, props, pivs)
+                pivlifts = self.getPivLifts(runt, props, pivs)
                 (plift, virts) = pivlifts[-1]
 
                 virts += vnames
 
                 genrs = []
                 for prop in plift:
-                    genrs.append(runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virts=virts))
+                    genrs.append(runt.view.nodesByPropArray(prop, cmpr, valu, reverse=self.reverse, virts=virts))
 
                 def cmprkey(node):
                     return node.get(relname)
@@ -2157,7 +2162,7 @@ class LiftPropBy(LiftOper):
 
         try:
             if pivs is not None:
-                pivlifts, ptyp = self.getPivLifts(runt, props, pivs)
+                pivlifts = self.getPivLifts(runt, props, pivs)
                 (plift, virts) = pivlifts[-1]
 
                 if not virts:
@@ -2165,7 +2170,7 @@ class LiftPropBy(LiftOper):
 
                 genrs = []
                 for prop in plift:
-                    genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=virts))
+                    genrs.append(runt.view.nodesByPropValu(prop, cmpr, valu, reverse=self.reverse, virts=virts))
 
                 def cmprkey(node):
                     return node.get(relname)
@@ -2216,14 +2221,14 @@ class LiftPropVirtBy(LiftOper):
 
         try:
             if pivs is not None:
-                pivlifts, ptyp = self.getPivLifts(runt, props, pivs)
+                pivlifts = self.getPivLifts(runt, props, pivs)
                 (plift, virts) = pivlifts[-1]
 
                 virts += vnames
 
                 genrs = []
                 for prop in plift:
-                    genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=virts))
+                    genrs.append(runt.view.nodesByPropValu(prop, cmpr, valu, reverse=self.reverse, virts=virts))
 
                 def cmprkey(node):
                     return node.get(relname)

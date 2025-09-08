@@ -498,6 +498,30 @@ class DataModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].ndef, ('test:str', 'extprop'))
                 self.eq(nodes[1].ndef, ('test:str', 'extprop2'))
 
+                await core.nodes("$lib.model.ext.addForm(_test:xtra, test:inhstr, ({}), ({}))")
+                await core.nodes("$lib.model.ext.addForm(_test:xtra2, test:inhstr, ({}), ({}))")
+                await core.nodes("$lib.model.ext.addFormProp(_test:xtra, _xtra, ('str', ({})), ({}))")
+                await core.nodes("$lib.model.ext.addFormProp(_test:xtra2, _xtra, ('int', ({})), ({}))")
+
+                await core.nodes('[ _test:xtra=xtra :_xtra=here ]')
+                await core.nodes('[ _test:xtra=xtra2 :_xtra=3 ]')
+                await core.nodes('[ test:str=extprop3 :inhstr=xtra ]')
+                await core.nodes('[ test:str=extprop4 :inhstr=xtra2 ]')
+
+                # Pivot prop lifts when child props have different types may need to use a tryoper
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes('test:str:inhstr::_xtra=here')
+
+                nodes = await core.nodes('test:str:inhstr::_xtra?=here')
+                self.len(3, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'extprop'))
+                self.eq(nodes[1].ndef, ('test:str', 'extprop2'))
+                self.eq(nodes[2].ndef, ('test:str', 'extprop3'))
+
+                nodes = await core.nodes('test:str:inhstr::_xtra?=3')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'extprop4'))
+
                 # Cannot add a prop to a parent form which already exists on a child
                 with self.raises(s_exc.DupPropName):
                     await core.nodes("$lib.model.ext.addFormProp(test:inhstr, _xtra, ('str', ({})), ({}))")
