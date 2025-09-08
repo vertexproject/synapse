@@ -2074,7 +2074,7 @@ class Ndef(Type):
 
     async def _normStormNode(self, valu, view=None):
         norm, norminfo = await self._normPyTuple(valu.ndef)
-        norminfo['skipadd'] = False
+        norminfo['skipadd'] = True
         norminfo.pop('adds', None)
         return norm, norminfo
 
