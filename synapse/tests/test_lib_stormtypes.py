@@ -5872,6 +5872,43 @@ class StormTypesTest(s_test.SynTest):
                 await s_stormtypes.tobuid(b'newp')
             self.eq(exc.exception.get('mesg'), "Invalid buid valu: b'newp'")
 
+    async def test_stormtypes_tobuidhex(self):
+        async with self.getTestCore() as core:
+
+            self.none(await s_stormtypes.tobuidhex(None, noneok=True))
+
+            buid = s_common.buid()
+            buidhex = buid.hex()
+            sode = (
+                buid,
+                {
+                    'ndef': ('it:dev:str', 'foobar'),
+                }
+            )
+
+            async with await core.snap() as snap:
+                node = s_node.Node(snap, sode)
+                snode = s_stormtypes.Node(node)
+
+                self.eq(await s_stormtypes.tobuidhex(node), buidhex)
+                self.eq(await s_stormtypes.tobuidhex(snode), buidhex)
+
+            self.eq(await s_stormtypes.tobuidhex(buid.hex()), buidhex)
+            self.eq(await s_stormtypes.tobuidhex(buid), buidhex)
+
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuidhex('newp')
+            self.eq(exc.exception.get('mesg'), 'Invalid buid string: newp')
+
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuidhex([])
+            self.eq(exc.exception.get('mesg'), 'Invalid buid string: []')
+
+            newp = b'newp'
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuidhex(newp)
+            self.eq(exc.exception.get('mesg'), f"Invalid buid string: {newp.hex()}")
+
     async def test_print_warn(self):
         async with self.getTestCore() as core:
             q = '$lib.print(hello)'
