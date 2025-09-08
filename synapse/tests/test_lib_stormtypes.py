@@ -1772,8 +1772,8 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[ test:str=foobar :hehe=foobaz ]')
             self.len(1, nodes)
 
-            buid = nodes[0].iden()
-            sode = {
+            buid00 = nodes[0].iden()
+            sode00 = {
                 'form': 'test:str',
                 'props': {
                     '.created': (nodes[0].get('.created'), 21),
@@ -1781,8 +1781,23 @@ class StormTypesTest(s_test.SynTest):
                 },
                 'valu': ('foobar', 1),
             }
-            expval = (buid, sode)
+            expval00 = (buid00, sode00)
 
+            nodes = await core.nodes('[ test:str=boobar :hehe=boobaz ]')
+            self.len(1, nodes)
+
+            buid01 = nodes[0].iden()
+            sode01 = {
+                'form': 'test:str',
+                'props': {
+                    '.created': (nodes[0].get('.created'), 21),
+                    'hehe': ('boobaz', 1)
+                },
+                'valu': ('boobar', 1),
+            }
+            expval01 = (buid01, sode01)
+
+            # just prop
             q = '''
             $sodes = ([])
             for ($buid, $sode) in $lib.layer.get().getStorNodesByProp(test:str:hehe) {
@@ -1791,9 +1806,10 @@ class StormTypesTest(s_test.SynTest):
             return($sodes)
             '''
             sodes = await core.callStorm(q)
-            self.len(1, sodes)
-            self.eq(sodes[0], expval)
+            self.len(2, sodes)
+            self.sorteq(sodes, (expval00, expval01))
 
+            # prop with propvalu
             q = '''
             $sodes = ([])
             for ($buid, $sode) in $lib.layer.get().getStorNodesByProp(test:str:hehe, propvalu=foobaz) {
@@ -1803,11 +1819,31 @@ class StormTypesTest(s_test.SynTest):
             '''
             sodes = await core.callStorm(q)
             self.len(1, sodes)
-            self.eq(sodes[0], expval)
+            self.eq(sodes[0], expval00)
 
-            # getStorNodesByProp with a form is an error
-            msgs = await core.stormlist('for $item in $lib.layer.get().getStorNodesByProp(test:str) {}')
-            self.stormIsInErr('test:str is a form, not a property.', msgs)
+            # just form
+            q = '''
+            $sodes = ([])
+            for ($buid, $sode) in $lib.layer.get().getStorNodesByProp(test:str) {
+                $sodes.append(($buid, $sode))
+            }
+            return($sodes)
+            '''
+            sodes = await core.callStorm(q)
+            self.len(2, sodes)
+            self.sorteq(sodes, (expval00, expval01))
+
+            # form with valu
+            q = '''
+            $sodes = ([])
+            for ($buid, $sode) in $lib.layer.get().getStorNodesByProp(test:str, propvalu=boobar) {
+                $sodes.append(($buid, $sode))
+            }
+            return($sodes)
+            '''
+            sodes = await core.callStorm(q)
+            self.len(1, sodes)
+            self.eq(sodes[0], expval01)
 
             # Non-existent prop
             msgs = await core.stormlist('for $item in $lib.layer.get().getStorNodesByProp(test:str:_custom) {}')
