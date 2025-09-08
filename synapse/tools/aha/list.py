@@ -11,10 +11,6 @@ descr = 'List AHA services.'
 
 async def main(argv, outp=s_output.stdout):
 
-    if len(argv) not in (1, 2):
-        outp.printf('usage: python -m synapse.tools.aha.list <url> [network name]')
-        return 1
-
     pars = s_cmd.Parser(prog='synapse.tools.aha.list', outp=outp, description=descr)
     pars.add_argument('url', help='The telepath URL to connect to the AHA service.')
     pars.add_argument('network', nargs='?', default=None, help='The AHA network name.')

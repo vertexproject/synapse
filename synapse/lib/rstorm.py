@@ -644,7 +644,8 @@ class StormRst(s_base.Base):
         Env to use in subsequent shell queries.
 
         Args:
-            text (str): KEY=VALUE [KEY=VALUE ...]
+            text (str): [KEY=VALUE ...]
+                Note: No arguments will reset the shell environment.
         '''
         text = text.strip()
         if not text:
