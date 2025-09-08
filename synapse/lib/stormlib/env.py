@@ -1,7 +1,6 @@
 import os
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
@@ -21,10 +20,10 @@ class LibEnv(s_stormtypes.Lib):
             'type': 'function', '_funcname': '_libEnvGet',
             'args': (
                 {'name': 'name', 'type': 'str', 'desc': 'The name of the environment variable.', },
-                {'name': 'default', 'type': 'obj', 'default': None,
-                    'desc': 'The value to return if the environment variable is not set.', },
+                {'name': 'default', 'type': 'prim', 'default': None,
+                    'desc': 'The value to return if the environment variable is not set. Non-string values will be converted into their string forms.', },
             ),
-         'returns': {'type': 'str', 'desc': 'The environment variable string.'},
+            'returns': {'type': ['str', 'null'], 'desc': 'The environment variable string.'},
          },
         },
     )
@@ -47,4 +46,4 @@ class LibEnv(s_stormtypes.Lib):
             mesg = f'Environment variable must start with SYN_STORM_ENV_ : {name}'
             raise s_exc.BadArg(mesg=mesg)
 
-        return os.getenv(name, default=default)
+        return os.getenv(name, default=await s_stormtypes.tostr(default, noneok=True))

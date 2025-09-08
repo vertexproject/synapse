@@ -1,4 +1,3 @@
-import os
 import synapse.exc as s_exc
 import synapse.tests.utils as s_test
 
@@ -14,6 +13,9 @@ class StormLibEnvTest(s_test.SynTest):
                 self.eq('hehe', await core.callStorm('return($lib.env.get(SYN_STORM_ENV_HEHE, default=hehe))'))
 
                 self.none(await core.callStorm('return($lib.env.get(SYN_STORM_ENV_HEHE))'))
+
+                valu = await core.callStorm('return($lib.env.get(SYN_STORM_ENV_NOPE, default=({"foo": "bar"})))')
+                self.eq(valu, "{'foo': 'bar'}")
 
                 visi = await core.auth.addUser('visi')
 

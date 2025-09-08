@@ -190,9 +190,9 @@ class StatTally(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': 'sorted',
                   'args': (
                       {'name': 'byname', 'desc': 'Sort by counter name instead of value.',
-                       'type': 'bool', 'default': False},
+                       'type': 'boolean', 'default': False},
                       {'name': 'reverse', 'desc': 'Sort in descending order instead of ascending order.',
-                       'type': 'bool', 'default': False},
+                       'type': 'boolean', 'default': False},
                   ),
                   'returns': {'type': 'list',
                               'desc': 'List of (counter, value) tuples in sorted order.'}}},
