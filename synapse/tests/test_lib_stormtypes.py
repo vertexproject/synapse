@@ -17,6 +17,7 @@ import synapse.axon as s_axon
 import synapse.common as s_common
 
 import synapse.lib.json as s_json
+import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.storm as s_storm
 import synapse.lib.hashset as s_hashset
@@ -5893,6 +5894,76 @@ class StormTypesTest(s_test.SynTest):
             self.eq({'foo': 'bar'}, await core.callStorm('$dict = ({}) $dict.foo = bar return($dict)'))
             q = '$tally = $lib.stats.tally() $tally.inc(foo) $tally.inc(foo) return($tally)'
             self.eq({'foo': 2}, await core.callStorm(q))
+
+    async def test_stormtypes_tobuid(self):
+        async with self.getTestCore() as core:
+
+            buid = s_common.buid()
+            sode = (
+                buid,
+                {
+                    'ndef': ('it:dev:str', 'foobar'),
+                }
+            )
+
+            async with await core.snap() as snap:
+                node = s_node.Node(snap, sode)
+                snode = s_stormtypes.Node(node)
+
+                self.eq(await s_stormtypes.tobuid(node), buid)
+                self.eq(await s_stormtypes.tobuid(snode), buid)
+
+            self.eq(await s_stormtypes.tobuid(buid.hex()), buid)
+            self.eq(await s_stormtypes.tobuid(buid), buid)
+
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuid('newp')
+            self.eq(exc.exception.get('mesg'), 'Invalid buid string: newp')
+
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuid([])
+            self.eq(exc.exception.get('mesg'), 'Invalid buid valu: ()')
+
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuid(b'newp')
+            self.eq(exc.exception.get('mesg'), "Invalid buid valu: b'newp'")
+
+    async def test_stormtypes_tobuidhex(self):
+        async with self.getTestCore() as core:
+
+            self.none(await s_stormtypes.tobuidhex(None, noneok=True))
+
+            buid = s_common.buid()
+            buidhex = buid.hex()
+            sode = (
+                buid,
+                {
+                    'ndef': ('it:dev:str', 'foobar'),
+                }
+            )
+
+            async with await core.snap() as snap:
+                node = s_node.Node(snap, sode)
+                snode = s_stormtypes.Node(node)
+
+                self.eq(await s_stormtypes.tobuidhex(node), buidhex)
+                self.eq(await s_stormtypes.tobuidhex(snode), buidhex)
+
+            self.eq(await s_stormtypes.tobuidhex(buid.hex()), buidhex)
+            self.eq(await s_stormtypes.tobuidhex(buid), buidhex)
+
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuidhex('newp')
+            self.eq(exc.exception.get('mesg'), 'Invalid buid string: newp')
+
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuidhex([])
+            self.eq(exc.exception.get('mesg'), 'Invalid buid string: []')
+
+            newp = b'newp'
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuidhex(newp)
+            self.eq(exc.exception.get('mesg'), f"Invalid buid string: {newp.hex()}")
 
     async def test_print_warn(self):
         async with self.getTestCore() as core:
