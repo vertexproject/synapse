@@ -7526,7 +7526,7 @@ class Layer(Prim):
     async def setStorNodeProp(self, nodeid, prop, valu):
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
-        buid = s_common.uhex(await tostr(nodeid))
+        buid = await tobuid(nodeid)
         prop = await tostr(prop)
         valu = await tostor(valu)
         self.runt.reqAdmin(mesg='setStorNodeProp() requires admin privileges.')
@@ -7544,7 +7544,7 @@ class Layer(Prim):
     async def delStorNodeProp(self, nodeid, prop):
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
-        buid = s_common.uhex(await tostr(nodeid))
+        buid = await tobuid(nodeid)
         prop = await tostr(prop)
         self.runt.reqAdmin(mesg='delStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
@@ -7805,11 +7805,11 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def getStorNode(self, nodeid):
-        nodeid = await tostr(nodeid)
+        nodeid = await tobuid(nodeid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        return await layr.getStorNode(s_common.uhex(nodeid))
+        return await layr.getStorNode(nodeid)
 
     @stormfunc(readonly=True)
     async def getStorNodes(self):
@@ -7842,9 +7842,10 @@ class Layer(Prim):
             mesg = f'The property {propname} does not exist.'
             raise s_exc.NoSuchProp(mesg=mesg)
 
-        if prop.isform:
-            mesg = f'{propname} is a form, not a property.'
-            raise s_exc.BadArg(mesg=mesg, propname=propname)
+        if prop.isform and propvalu is None:
+            async for buid, sode in self.getStorNodesByForm(propname):
+                yield s_common.ehex(buid), sode
+            return
 
         async for buid, sode in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
             yield s_common.ehex(buid), sode
@@ -7859,29 +7860,29 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def getEdgesByN1(self, nodeid):
-        nodeid = await tostr(nodeid)
+        nodeid = await tobuid(nodeid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN1(s_common.uhex(nodeid)):
+        async for item in layr.iterNodeEdgesN1(nodeid):
             yield item
 
     @stormfunc(readonly=True)
     async def getEdgesByN2(self, nodeid):
-        nodeid = await tostr(nodeid)
+        nodeid = await tobuid(nodeid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN2(s_common.uhex(nodeid)):
+        async for item in layr.iterNodeEdgesN2(nodeid):
             yield item
 
     @stormfunc(readonly=True)
     async def getNodeData(self, nodeid):
-        nodeid = await tostr(nodeid)
+        nodeid = await tobuid(nodeid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeData(s_common.uhex(nodeid)):
+        async for item in layr.iterNodeData(nodeid):
             yield item
 
     @stormfunc(readonly=True)
@@ -10316,6 +10317,29 @@ async def tobuidhex(valu, noneok=False):
     valu = await tostr(valu)
     if not s_common.isbuidhex(valu):
         mesg = f'Invalid buid string: {valu}'
+        raise s_exc.BadCast(mesg=mesg)
+
+    return valu
+
+async def tobuid(valu):
+
+    if isinstance(valu, Node):
+        return valu.valu.buid
+
+    if isinstance(valu, s_node.Node):
+        return valu.buid
+
+    valu = await toprim(valu)
+
+    if isinstance(valu, str):
+        if not s_common.isbuidhex(valu):
+            mesg = f'Invalid buid string: {valu}'
+            raise s_exc.BadCast(mesg=mesg)
+
+        return s_common.uhex(valu)
+
+    if not isinstance(valu, bytes):
+        mesg = f'Invalid buid valu: {valu}'
         raise s_exc.BadCast(mesg=mesg)
 
     return valu
