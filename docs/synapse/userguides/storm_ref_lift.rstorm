@@ -618,6 +618,7 @@ Storm supports a set of extended comparison operators (comparators) for speciali
 - `Lift by Set Membership (*in=)`_
 - `Lift by Proximity (*near=)`_
 - `Lift by (Arrays) (*[ ])`_
+- `Lift by Type (*type=)`_
 
 Just as with standard comparison operators, lifting by property value with extended comparison operators
 requires:
@@ -698,7 +699,7 @@ or *<pval>* starts with a given prefix (substring). The extended comparator ``^=
 
 **Syntax:**
 
-*<form>* [  **:** | **.** | **:_** *<prop>* ] **^=** *<prefix>*
+*<form>* [  **:** | **.** | **:_** *<prop>* ] **^=** *<prefix>*Lift by Type (*type=)
 
 *<interface>* **:** *<prop>* **^=** *<prefix>*
 
@@ -1067,6 +1068,56 @@ without needing to know the exact order or values of the array itself.
   ``ou:org:names=( "the vertex project", "the vertex project llc", vertex )``
 
 - See the :ref:`type-array` section of the :ref:`storm-ref-type-specific` document for additional details.
+
+Lift by Type (\*type=)
+++++++++++++++++++++++
+
+The type extended comparator (``*type=``) allows you to lift all forms that have any property (primary or
+secondary) with the specified :ref:`gloss-type` and value.
+
+**Syntax:**
+
+*<form>* ***type =** *<value>*
+
+**Examples:**
+
+*Lift all nodes with any property of type inet:ipv4 whose value is 8.8.8.8:*
+
+
+.. storm-pre:: [ (inet:ipv4=8.8.8.8) (inet:server=tcp://8.8.8.8:53) (inet:dns:rev=(8.8.8.8,google.dns) .seen=now) (inet:flow=* :time=now :dst=tcp://8.8.8.8:53) ]
+.. storm-pre:: inet:ipv4*type=8.8.8.8
+.. storm-pre:: inet:ipv4=8.8.8.8 <+- *
+
+::
+  
+  inet:ipv4*type=8.8.8.8
+
+**Usage notes:**
+
+- The ``*type`` operator lifts nodes with **any** property matching the specified type and value. In the example
+  above, the query will return ``inet:ipv4 = 8.8.8.8`` as well as any nodes with an ``inet:ipv4`` secondary
+  property whose value is ``8.8.8.8`` (for example, ``inet:dns:a`` nodes with ``:ipv4 = 8.8.8.8``, ``inet:server``
+  nodes with ``:ipv4 = 8.8.8.8`` etc.)
+- You can (loosely) think of lifting by ``*type`` as "show me any form where this value appears in **any**
+  property". (We say "loosely" because the type still matters - the example query above would **not** return
+  ``ou:asset:name = 8.8.8.8`` because the property ``:name`` has a type of ``str``.)
+- When lifting by ``*type=``, the type specified must **also** be a form (most types are forms). If you attempt
+  to lift by a type that is **not** also a form, Synapse will return an error.
+- Because the type specified must also be a form, lifting by type is equivalent to lifting a node and performing
+  a pivot in and join. For example, the query:
+  
+  ::
+    
+    inet:ipv4*type=8.8.8.8
+  
+  ...is equivalent to:
+  
+  ::
+    
+    inet:ipv4=8.8.8.8 <+- *
+  
+  In other words, lift the IPv4 ``8.8.8.8`` and use a wildcard :ref:`pivot-in` to pivot to any forms where
+  the IPv4 ``8.8.8.8`` is a secondary property value, while retaining the IPv4 in the results (e.g., :ref:`pivot-in-join`).
 
 
 .. _tag-lifts:
