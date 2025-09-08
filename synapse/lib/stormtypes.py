@@ -10298,6 +10298,9 @@ async def tobuidhex(valu, noneok=False):
     if isinstance(valu, s_node.Node):
         return valu.iden()
 
+    if isinstance(valu, bytes):
+        valu = s_common.ehex(valu)
+
     valu = await tostr(valu)
     if not s_common.isbuidhex(valu):
         mesg = f'Invalid buid string: {valu}'
@@ -10323,6 +10326,10 @@ async def tobuid(valu):
         return s_common.uhex(valu)
 
     if not isinstance(valu, bytes):
+        mesg = f'Invalid buid valu: {valu}'
+        raise s_exc.BadCast(mesg=mesg)
+
+    if len(valu) != 32:
         mesg = f'Invalid buid valu: {valu}'
         raise s_exc.BadCast(mesg=mesg)
 
