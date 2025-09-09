@@ -3353,6 +3353,9 @@ class Layer(s_nexus.Pusher):
         return bool(changes[0][2])
 
     async def delStorNode(self, buid, meta):
+        '''
+        Delete all node information in this layer.
+        '''
         sode = self._getStorNode(buid)
         if sode is None:
             return False
@@ -3395,6 +3398,37 @@ class Layer(s_nexus.Pusher):
 
         del_edit = (EDIT_PROP_DEL, (oldp_name, None, oldp_stortype), ())
         nodeedits = [(buid, oldp_formname, [del_edit])]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        return bool(changes[0][2])
+
+    async def delNodeData(self, buid, meta, name=None):
+        sode = self._getStorNode(buid)
+
+        edits = []
+        if name is None:
+            async for name, valu in self.iterNodeData(buid):
+                edits.append((EDIT_NODEDATA_DEL, (name, valu), ()))
+
+        else:
+            edits.append((EDIT_NODEDATA_DEL, (name, None), ()))
+
+        if not edits:
+            return False
+
+        nodeedits = [(buid, sode.get('form'), edits)]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        return bool(changes[0][2])
+
+    async def delNodeEdge(self, n1buid, verb, n2buid, meta):
+        sode = self._getStorNode(n1buid)
+
+        edits = [
+            (EDIT_EDGE_DEL, (verb, s_common.uhex(n2buid)), ())
+        ]
+
+        nodeedits = [(n1buid, sode.get('form'), edits)]
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
         return bool(changes[0][2])
