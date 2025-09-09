@@ -7227,9 +7227,9 @@ class Layer(Prim):
                       {'name': 'name', 'type': 'str', 'default': None, 'desc': 'The node data key to delete.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
-        {'name': 'delNodeEdge',
+        {'name': 'delEdge',
          'desc': 'Delete edges from a node in this layer.',
-         'type': {'type': 'function', '_funcname': 'delNodeEdges',
+         'type': {'type': 'function', '_funcname': 'delEdge',
                   'args': (
                       {'name': 'nodeid1', 'type': 'str', 'desc': 'The hex string of the N1 node iden.'},
                       {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to delete.'},
@@ -7463,7 +7463,7 @@ class Layer(Prim):
             'delStorNode': self.delStorNode,
             'delStorNodeProp': self.delStorNodeProp,
             'delNodeData': self.delNodeData,
-            'delNodeEdge': self.delNodeEdge,
+            'delEdge': self.delEdge,
         }
 
     @stormfunc(readonly=True)
@@ -7582,16 +7582,16 @@ class Layer(Prim):
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.delNodeData(buid, meta=meta, name=name)
 
-    async def delNodeEdge(self, nodeid1, verb, nodeid2):
+    async def delEdge(self, nodeid1, verb, nodeid2):
         n1buid = await tobuid(nodeid1)
         verb = await tostr(verb)
         n2buid = await tobuid(nodeid2)
 
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
-        self.runt.reqAdmin(mesg='delNodeEdge() requires admin privileges.')
+        self.runt.reqAdmin(mesg='delEdge() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
-        return await layr.delNodeEdge(n1buid, verb, n2buid, meta=meta)
+        return await layr.delEdge(n1buid, verb, n2buid, meta=meta)
 
     async def _addPull(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
         url = await tostr(url)

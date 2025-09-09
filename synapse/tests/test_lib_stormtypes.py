@@ -1899,7 +1899,23 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             await core.addTagProp('score00', ('int', {}), {})
             await core.addTagProp('score01', ('int', {}), {})
-            nodes = await core.nodes('[ test:str=foo :hehe=bar +#foo +#foo.bar=now +#foo.baz:score00=10 +#foo.baz:score01=20]')
+            q = '''
+                [ test:str=foo
+                    :hehe=bar
+                    +#foo
+                    +#foo.bar=now
+                    +#foo.baz:score00=10
+                    +#foo.baz:score01=20
+
+                    <(seen)+ {[ meta:source=* :name=seen]}
+                    +(refs)> {[ meta:source=* :name=refs]}
+                ]
+
+                $node.data.set(foo, foo)
+                $node.data.set(bar, bar)
+                $node.data.set(baz, baz)
+            '''
+            nodes = await core.nodes(q)
             self.len(1, nodes)
             opts = {'vars': {'iden': nodes[0].iden()}}
             created = nodes[0].get('.created')
@@ -1928,6 +1944,29 @@ class StormTypesTest(s_test.SynTest):
 
             sode = await core.callStorm('return($lib.layer.get().getStorNode($iden))', opts=opts)
             self.eq(sode, {})
+
+            q = '''
+                $data = ([])
+                for $item in $lib.layer.get().getNodeData($iden) {
+                    $data.append($item)
+                }
+                return($data)
+            '''
+            nodedata = await core.callStorm(q, opts=opts)
+            self.len(0, nodedata)
+
+            q = '''
+                $edges = ([])
+                for $edge in $lib.layer.get().getEdgesByN1($iden) {
+                    $edges.append($edge)
+                }
+                for $edge in $lib.layer.get().getEdgesByN2($iden) {
+                    $edges.append($edge)
+                }
+                return($edges)
+            '''
+            edges = await core.callStorm(q, opts=opts)
+            self.len(0, edges)
 
             self.false(await core.callStorm('return($lib.layer.get().delStorNode($iden))', opts=opts))
 
@@ -2081,7 +2120,7 @@ class StormTypesTest(s_test.SynTest):
             q = '''
                 $seen00 = { meta:source:name=delnodeedge00 }
                 test:str=foo
-                $lib.layer.get().delNodeEdge($seen00, seen, $node)
+                $lib.layer.get().delEdge($seen00, seen, $node)
             '''
             msgs = await core.stormlist(q)
             self.stormHasNoWarnErr(msgs)
@@ -2100,7 +2139,7 @@ class StormTypesTest(s_test.SynTest):
             q = '''
                 $refs = { it:dev:str=foobar }
                 test:str=bar
-                $lib.layer.get().delNodeEdge($node, refs, $refs)
+                $lib.layer.get().delEdge($node, refs, $refs)
             '''
             msgs = await core.stormlist(q)
             self.stormHasNoWarnErr(msgs)
@@ -2119,7 +2158,7 @@ class StormTypesTest(s_test.SynTest):
             q = '''
                 $refs = { it:dev:str=foobar }
                 test:str=baz
-                $lib.layer.get().delNodeEdge($node, refs, $refs)
+                $lib.layer.get().delEdge($node, refs, $refs)
             '''
             msgs = await core.stormlist(q)
             self.stormHasNoWarnErr(msgs)
@@ -2131,10 +2170,10 @@ class StormTypesTest(s_test.SynTest):
             q = '''
                 $seen = { meta:source:name=delnodeedge00 }
                 test:str=foo
-                $lib.layer.get().delNodeEdge($seen, seen, $node)
+                $lib.layer.get().delEdge($seen, seen, $node)
             '''
             msgs = await core.stormlist(q, opts={'user': lowuser.iden})
-            self.stormIsInErr('delNodeEdge() requires admin privileges.', msgs)
+            self.stormIsInErr('delEdge() requires admin privileges.', msgs)
 
             # Readonly layer
             layer = core.view.layers[0]
