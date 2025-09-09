@@ -1540,40 +1540,50 @@ class LiftOper(Oper):
         self.reverse = True
 
     def getPivLifts(self, runt, props, pivs):
-        plist = props
+        plist = [prop.full for prop in props]
         virts = []
         pivlifts = []
 
-        ptyp = props[0].type
+        ptyp = props[-1].type
 
         for piv in pivs:
-            if (virt := ptyp.virts.get(piv)) is not None and all(ptyp.typehash is p.type.typehash for p in plist):
+            if isinstance(ptyp, s_types.Ndef):
+                return
+
+            if (virt := ptyp.virts.get(piv)) is not None:
                 ptyp = virt[0]
                 virts.append(piv)
                 continue
 
-            pnames = tuple(p.full for p in plist)
-            ptypes = tuple(p.type.name for p in plist)
-            pivlifts.append((pnames, virts))
+            pivlifts.append((plist, virts))
 
-            if virts:
-                ptypes = (ptyp.name,)
+            if (pivprop := runt.model.prop(f'{ptyp.name}:{piv}')) is None:
+                found = False
+                todo = collections.deque([ptyp.name])
 
-            nextlist = []
-            for prop in ptypes:
-                for formname in runt.model.getChildForms(prop):
-                    if (pivprop := runt.model.prop(f'{formname}:{piv}')) is not None:
-                        nextlist.append(pivprop)
+                while todo:
+                    nextform = todo.popleft()
+                    for cform in runt.model.childforms.get(nextform, ()):
+                        if (pivprop := runt.model.prop(f'{cform}:{piv}')) is not None:
 
-            if not nextlist:
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(f'{ptyp.name}:{piv}'))
+                            # If we have an ndef prop or a prop is defined in multiple branches of the
+                            # inheritance tree, fallback to lift + filter due to potential mixed types
+                            if found:
+                                return
 
+                            found = True
+                        else:
+                            todo.append(cform)
+
+                if not found:
+                    raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(f'{ptyp.name}:{piv}'))
+
+            plist = [prop.full for prop in runt.model.getChildProps(pivprop)]
             virts = []
-            plist = list(dict.fromkeys(nextlist))
-            ptyp = plist[0].type
 
-        pnames = tuple(p.full for p in plist)
-        pivlifts.append((pnames, virts))
+            ptyp = pivprop.type
+
+        pivlifts.append((plist, virts))
 
         return pivlifts
 
@@ -1597,6 +1607,74 @@ class LiftOper(Oper):
 
         async for node in genr:
             yield node
+
+    async def pivfilter(self, runt, props, pivs, cmpr, valu, array=False):
+
+        cmprs = {}
+        genrs = []
+        relname = props[0].name
+        filtprop = pivs[-1]
+
+        for prop in props:
+            genrs.append(runt.view.nodesByProp(prop.full, reverse=self.reverse))
+
+        def cmprkey(node):
+            return node.get(relname)
+
+        async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
+            pivo = node
+
+            for piv in pivs[:-1]:
+                if (pvalu := pivo.get(piv)) is None:
+                    break
+
+                if (pprop := pivo.form.props.get(piv)) is None:
+                    break
+
+                if isinstance(pprop.type, s_types.Ndef):
+                    if (pivo := await runt.view.getNodeByNdef(pvalu)) is None:
+                        break
+                    continue
+
+                if (pform := runt.model.form(pprop.type.name)) is None:
+                    break
+
+                for formname in runt.model.getChildForms(pprop.type.name):
+                    if (pivo := await runt.view.getNodeByNdef((formname, pvalu))) is not None:
+                        break
+                else:
+                    break
+
+            else:
+                if (pvalu := pivo.get(filtprop)) is not None:
+                    pprop = pivo.form.props.get(filtprop)
+
+                    if array:
+                        if not pprop.type.isarray:
+                            continue
+
+                        ptyp = pprop.type.arraytype
+                    else:
+                        ptyp = pprop.type
+                        pvalu = (pvalu,)
+
+                    try:
+                        if (pcmpr := cmprs.get(ptyp.typehash, s_common.novalu)) is s_common.novalu:
+                            if (ctor := ptyp.getCmprCtor(cmpr)) is None:
+                                pcmpr = cmprs[ptyp.typehash] = None
+                            else:
+                                pcmpr = cmprs[ptyp.typehash] = await ctor(valu)
+
+                        if pcmpr is None:
+                            continue
+
+                        for item in pvalu:
+                            if await pcmpr(item):
+                                yield node
+                                break
+
+                    except s_exc.BadTypeValu:
+                        pass
 
     async def run(self, runt, genr):
 
@@ -1700,7 +1778,14 @@ class LiftByArray(LiftOper):
 
         try:
             if pivs is not None:
-                pivlifts = self.getPivLifts(runt, props, pivs)
+                if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
+
+                    pivs.insert(0, relname)
+
+                    async for node in self.pivfilter(runt, props, pivs, cmpr, valu, array=True):
+                        yield node
+                    return
+
                 (plift, virts) = pivlifts[-1]
 
                 if not virts:
@@ -1765,7 +1850,14 @@ class LiftByArrayVirt(LiftOper):
 
         try:
             if pivs is not None:
-                pivlifts = self.getPivLifts(runt, props, pivs)
+                if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
+
+                    pivs.insert(0, relname)
+
+                    async for node in self.pivfilter(runt, props, pivs, cmpr, valu, array=True):
+                        yield node
+                    return
+
                 (plift, virts) = pivlifts[-1]
 
                 virts += vnames
@@ -2131,11 +2223,16 @@ class LiftPropVirt(LiftProp):
                 yield node
             return
 
-        relname = props[0].name
-        vgetr = props[0].type.getVirtGetr(virts)
+        if len(virts) == 1 and virts[0] in runt.model.metatypes:
+            metaname = virts[0]
+            def cmprkey(node):
+                return node.getMeta(metaname)
+        else:
+            relname = props[0].name
+            vgetr = props[0].type.getVirtGetr(virts)
 
-        def cmprkey(node):
-            return node.get(relname, virts=vgetr)
+            def cmprkey(node):
+                return node.get(relname, virts=vgetr)
 
         genrs = []
         for prop in props:
@@ -2162,7 +2259,14 @@ class LiftPropBy(LiftOper):
 
         try:
             if pivs is not None:
-                pivlifts = self.getPivLifts(runt, props, pivs)
+                if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
+
+                    pivs.insert(0, relname)
+
+                    async for node in self.pivfilter(runt, props, pivs, cmpr, valu):
+                        yield node
+                    return
+
                 (plift, virts) = pivlifts[-1]
 
                 if not virts:
@@ -2221,7 +2325,14 @@ class LiftPropVirtBy(LiftOper):
 
         try:
             if pivs is not None:
-                pivlifts = self.getPivLifts(runt, props, pivs)
+                if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
+
+                    pivs.insert(0, relname)
+
+                    async for node in self.pivfilter(runt, props, pivs, cmpr, valu):
+                        yield node
+                    return
+
                 (plift, virts) = pivlifts[-1]
 
                 virts += vnames

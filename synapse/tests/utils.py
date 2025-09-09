@@ -312,6 +312,7 @@ testmodel = (
             ('test:int', ('int', {}), {}),
             ('test:float', ('float', {}), {}),
             ('test:str', ('str', {}), {}),
+            ('test:str2', ('test:str', {}), {}),
             ('test:inhstr', ('str', {}), {}),
             ('test:inhstr2', ('test:inhstr', {}), {}),
             ('test:inhstr3', ('test:inhstr2', {}), {}),
@@ -474,6 +475,8 @@ testmodel = (
                 ('gprop', ('test:guid', {}), {}),
                 ('inhstr', ('test:inhstr', {}), {}),
             )),
+
+            ('test:str2', {}, ()),
 
             ('test:inhstr', {}, (
                 ('name', ('str', {}), {}),

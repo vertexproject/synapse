@@ -3018,6 +3018,7 @@ class AstTest(s_test.SynTest):
                     self.len(7, nodes)
                     exp = [
                         ('valu', 'test:int:seen', '@=', '2020'),
+                        ('valu', 'test:str2:seen', '@=', '2020'),
                         ('valu', 'test:str:seen', '@=', '2020'),
                     ]
                     self.eq(calls, exp)
@@ -3036,7 +3037,10 @@ class AstTest(s_test.SynTest):
 
                     nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
                     self.len(1, nodes)
-                    self.eq(calls, [('valu', 'test:str:tick', 'range=', ['19701125', '20151212'])])
+                    self.eq(calls, [
+                        ('valu', 'test:str2:tick', 'range=', ['19701125', '20151212']),
+                        ('valu', 'test:str:tick', 'range=', ['19701125', '20151212'])
+                    ])
                     calls = []
 
                     # Lift by value will fail since stortype is MSGP
@@ -3045,6 +3049,7 @@ class AstTest(s_test.SynTest):
                     self.len(1, nodes)
 
                     exp = [
+                        ('valu', 'test:str2:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
                         ('valu', 'test:str:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
                         ('prop', 'test:str:bar'),
                     ]
