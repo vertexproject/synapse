@@ -3365,6 +3365,8 @@ class Layer(s_nexus.Pusher):
         formname = sode.get('form')
 
         edits = []
+        nodeedits = []
+
         for propname, propvalu in sode.get('props', {}).items():
             edits.append(
                 (EDIT_PROP_DEL, (propname, *propvalu), ())
@@ -3387,28 +3389,29 @@ class Layer(s_nexus.Pusher):
             )
             await asyncio.sleep(0)
 
-        async for item in self.iterNodeData(buid):
-            edits.append(
-                (EDIT_NODEDATA_DEL, item, ())
-            )
-            await asyncio.sleep(0)
-
+        # EDIT_NODE_DEL will delete all nodedata and edges if there is a valu in the sode
         if (valu := sode.get('valu')):
             edits.append(
                 (EDIT_NODE_DEL, valu, ())
             )
+        else:
+            async for item in self.iterNodeData(buid):
+                edits.append(
+                    (EDIT_NODEDATA_DEL, item, ())
+                )
+                await asyncio.sleep(0)
 
-        nodeedits = [(buid, formname, edits)]
+            n2edges = {}
+            n1iden = s_common.ehex(buid)
+            async for verb, n2iden in self.iterNodeEdgesN2(buid):
+                n2edges.setdefault(n2iden, []).append((verb, n1iden))
+                await asyncio.sleep(0)
 
-        n2edges = {}
-        n1iden = s_common.ehex(buid)
-        async for verb, n2iden in self.iterNodeEdgesN2(buid):
-            n2edges.setdefault(n2iden, []).append((verb, n1iden))
-            await asyncio.sleep(0)
+            for n2iden, edges in n2edges.items():
+                edits = [(EDIT_EDGE_DEL, edge, ()) for edge in edges]
+                nodeedits.append((s_common.uhex(n2iden), None, edits))
 
-        for n2iden, edges in n2edges.items():
-            edits = [(EDIT_EDGE_DEL, edge, ()) for edge in edges]
-            nodeedits.append((s_common.uhex(n2iden), None, edits))
+        nodeedits.append((buid, formname, edits))
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
         return bool(changes[0][2])
@@ -3431,6 +3434,8 @@ class Layer(s_nexus.Pusher):
         Delete nodedata from a node in this layer. If name is not specified, delete all nodedata.
         '''
         sode = self._getStorNode(buid)
+        if sode is None:
+            return False
 
         edits = []
         if name is None:
@@ -3438,7 +3443,7 @@ class Layer(s_nexus.Pusher):
                 edits.append((EDIT_NODEDATA_DEL, item, ()))
                 await asyncio.sleep(0)
 
-        else:
+        elif self.hasNodeData(buid, name):
             edits.append((EDIT_NODEDATA_DEL, (name, None), ()))
 
         if not edits:
@@ -3450,7 +3455,12 @@ class Layer(s_nexus.Pusher):
         return bool(changes[0][2])
 
     async def delEdge(self, n1buid, verb, n2buid, meta):
-        sode = await self.getStorNode(n1buid)
+        sode = await self._getStorNode(n1buid)
+        if sode is None:
+            return False
+
+        if not self.hasNodeEdge(n1buid, verb, n2buid):
+            return False
 
         edits = [
             (EDIT_EDGE_DEL, (verb, s_common.ehex(n2buid)), ())
