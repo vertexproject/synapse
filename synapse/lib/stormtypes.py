@@ -7224,13 +7224,16 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'delNodeData',
                   'args': (
                       {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'name', 'type': 'str', 'default': None, 'desc': 'The node data key to delete.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
-        {'name': 'delNodeEdges',
+        {'name': 'delNodeEdge',
          'desc': 'Delete edges from a node in this layer.',
          'type': {'type': 'function', '_funcname': 'delNodeEdges',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'nodeid1', 'type': 'str', 'desc': 'The hex string of the N1 node iden.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to delete.'},
+                      {'name': 'nodeid2', 'type': 'str', 'desc': 'The hex string of the N2 node iden.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
         {'name': 'getMirrorStatus', 'desc': '''
@@ -7540,45 +7543,49 @@ class Layer(Prim):
         return await layr.getMirrorStatus()
 
     async def setStorNodeProp(self, nodeid, prop, valu):
-        iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
         buid = await tobuid(nodeid)
         prop = await tostr(prop)
         valu = await tostor(valu)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
         self.runt.reqAdmin(mesg='setStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.setStorNodeProp(buid, prop, valu, meta=meta)
 
     async def delStorNode(self, nodeid):
+        buid = await tobuid(nodeid)
+
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
-        buid = await tobuid(nodeid)
         self.runt.reqAdmin(mesg='delStorNode() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.delStorNode(buid, meta=meta)
 
     async def delStorNodeProp(self, nodeid, prop):
-        iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
         buid = await tobuid(nodeid)
         prop = await tostr(prop)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
         self.runt.reqAdmin(mesg='delStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.delStorNodeProp(buid, prop, meta=meta)
 
     async def delNodeData(self, nodeid, name=None):
-        iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
         buid = await tobuid(nodeid)
         name = await tostr(name, noneok=True)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
         self.runt.reqAdmin(mesg='delNodeData() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.delNodeData(buid, meta=meta, name=name)
 
-    async def delNodeEdge(self, n1iden, verb, n2iden):
-        n1buid = await tobuid(n1iden)
+    async def delNodeEdge(self, nodeid1, verb, nodeid2):
+        n1buid = await tobuid(nodeid1)
         verb = await tostr(verb)
-        n2buid = await tobuid(n2iden)
+        n2buid = await tobuid(nodeid2)
 
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)

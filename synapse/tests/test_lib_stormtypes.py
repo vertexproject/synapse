@@ -2046,6 +2046,101 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('test:str=baz $lib.layer.get().delNodeData($node)')
             self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
 
+    async def test_storm_layer_delnodeedge(self):
+        async with self.getTestCore() as core:
+            q = '''
+                $seen00 = { [ meta:source=* :name=delnodeedge00 ] }
+                $seen01 = { [ meta:source=* :name=delnodeedge01 ] }
+                $refs = { [ it:dev:str=foobar ] }
+                $_ = { [test:str=foo <(seen)+ $seen00 <(seen)+ $seen01]}
+                $_ = { [test:str=bar <(seen)+ $seen00 +(refs)> $refs] }
+                $_ = { [test:str=baz] }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('meta:source:name=delnodeedge00')
+            self.len(1, nodes)
+            seen00 = nodes[0]
+
+            nodes = await core.nodes('meta:source:name=delnodeedge01')
+            self.len(1, nodes)
+            seen01 = nodes[0]
+
+            nodes = await core.nodes('it:dev:str=foobar')
+            self.len(1, nodes)
+            refs = nodes[0]
+
+            # Delete n2 edge
+            nodes = await core.nodes('test:str=foo')
+            self.len(1, nodes)
+            self.len(0, await s_test.alist(nodes[0].iterEdgesN1()))
+            self.sorteq(await s_test.alist(nodes[0].iterEdgesN2()), [('seen', seen00.iden()), ('seen', seen01.iden())])
+
+            q = '''
+                $seen00 = { meta:source:name=delnodeedge00 }
+                test:str=foo
+                $lib.layer.get().delNodeEdge($seen00, seen, $node)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str=foo')
+            self.len(1, nodes)
+            self.len(0, await s_test.alist(nodes[0].iterEdgesN1()))
+            self.eq(await s_test.alist(nodes[0].iterEdgesN2()), [('seen', seen01.iden())])
+
+            # Delete n1 edge
+            nodes = await core.nodes('test:str=bar')
+            self.len(1, nodes)
+            self.sorteq(await s_test.alist(nodes[0].iterEdgesN1()), [('refs', refs.iden())])
+            self.sorteq(await s_test.alist(nodes[0].iterEdgesN2()), [('seen', seen00.iden())])
+
+            q = '''
+                $refs = { it:dev:str=foobar }
+                test:str=bar
+                $lib.layer.get().delNodeEdge($node, refs, $refs)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str=bar')
+            self.len(1, nodes)
+            self.len(0, await s_test.alist(nodes[0].iterEdgesN1()))
+            self.eq(await s_test.alist(nodes[0].iterEdgesN2()), [('seen', seen00.iden())])
+
+            # No edits to make
+            nodes = await core.nodes('test:str=baz')
+            self.len(1, nodes)
+            self.len(0, await s_test.alist(nodes[0].iterEdgesN1()))
+            self.len(0, await s_test.alist(nodes[0].iterEdgesN2()))
+
+            q = '''
+                $refs = { it:dev:str=foobar }
+                test:str=baz
+                $lib.layer.get().delNodeEdge($node, refs, $refs)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            # insufficient perms
+            lowuser = await core.auth.addUser('lowuser')
+            await lowuser.addRule((True, ('node', 'add', 'test:str')))
+
+            q = '''
+                $seen = { meta:source:name=delnodeedge00 }
+                test:str=foo
+                $lib.layer.get().delNodeEdge($seen, seen, $node)
+            '''
+            msgs = await core.stormlist(q, opts={'user': lowuser.iden})
+            self.stormIsInErr('delNodeEdge() requires admin privileges.', msgs)
+
+            # Readonly layer
+            layer = core.view.layers[0]
+            await layer.setLayerInfo('readonly', True)
+            msgs = await core.stormlist(q)
+            self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
+
     async def test_storm_lib_fire(self):
         async with self.getTestCore() as core:
             text = '$lib.fire(foo:bar, baz=faz)'

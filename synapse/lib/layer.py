@@ -3409,6 +3409,7 @@ class Layer(s_nexus.Pusher):
         if name is None:
             async for name, valu in self.iterNodeData(buid):
                 edits.append((EDIT_NODEDATA_DEL, (name, valu), ()))
+                asyncio.sleep(0)
 
         else:
             edits.append((EDIT_NODEDATA_DEL, (name, None), ()))
@@ -3422,10 +3423,10 @@ class Layer(s_nexus.Pusher):
         return bool(changes[0][2])
 
     async def delNodeEdge(self, n1buid, verb, n2buid, meta):
-        sode = self._getStorNode(n1buid)
+        sode = await self.getStorNode(n1buid)
 
         edits = [
-            (EDIT_EDGE_DEL, (verb, s_common.uhex(n2buid)), ())
+            (EDIT_EDGE_DEL, (verb, s_common.ehex(n2buid)), ())
         ]
 
         nodeedits = [(n1buid, sode.get('form'), edits)]
