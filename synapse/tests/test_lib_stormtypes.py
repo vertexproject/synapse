@@ -5958,12 +5958,12 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.BadCast) as exc:
                 await s_stormtypes.tobuidhex([])
-            self.eq(exc.exception.get('mesg'), 'Invalid buid string: []')
+            self.eq(exc.exception.get('mesg'), 'Invalid buid valu: ()')
 
             newp = b'newp'
             with self.raises(s_exc.BadCast) as exc:
                 await s_stormtypes.tobuidhex(newp)
-            self.eq(exc.exception.get('mesg'), f"Invalid buid string: {newp.hex()}")
+            self.eq(exc.exception.get('mesg'), "Invalid buid valu: b'newp'")
 
     async def test_print_warn(self):
         async with self.getTestCore() as core:
