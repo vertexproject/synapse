@@ -7831,16 +7831,6 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def getStorNodesByProp(self, propname, propvalu=None, propcmpr='='):
-        propname = await tostr(propname)
-        propvalu = await toprim(propvalu)
-
-        prop = self.runt.snap.core.model.reqProp(propname)
-
-        if prop.isform and propvalu is None:
-            async for buid, sode in self.getStorNodesByForm(propname):
-                yield s_common.ehex(buid), sode
-            return
-
         async for buid, sode in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
             yield s_common.ehex(buid), sode
 
