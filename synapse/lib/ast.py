@@ -1608,7 +1608,7 @@ class LiftOper(Oper):
         async for node in genr:
             yield node
 
-    async def pivfilter(self, runt, props, pivs, cmpr, valu, array=False):
+    async def pivfilter(self, runt, props, pivs, cmpr, valu, array=False, virts=None):
 
         cmprs = {}
         genrs = []
@@ -1628,8 +1628,7 @@ class LiftOper(Oper):
                 if (pvalu := pivo.get(piv)) is None:
                     break
 
-                if (pprop := pivo.form.props.get(piv)) is None:
-                    break
+                pprop = pivo.form.props.get(piv)
 
                 if isinstance(pprop.type, s_types.Ndef):
                     if (pivo := await runt.view.getNodeByNdef(pvalu)) is None:
@@ -1646,9 +1645,8 @@ class LiftOper(Oper):
                     break
 
             else:
-                if (pvalu := pivo.get(filtprop)) is not None:
-                    pprop = pivo.form.props.get(filtprop)
 
+                if (pprop := pivo.form.props.get(filtprop)) is not None:
                     if array:
                         if not pprop.type.isarray:
                             continue
@@ -1656,7 +1654,15 @@ class LiftOper(Oper):
                         ptyp = pprop.type.arraytype
                     else:
                         ptyp = pprop.type
-                        pvalu = (pvalu,)
+
+                    if virts is not None:
+                        (ptyp, getr) = ptyp.getVirtInfo(virts)
+                        pvalu = pivo.get(filtprop, virts=getr)
+                    else:
+                        pvalu = pivo.get(filtprop)
+
+                    if pvalu is None:
+                        continue
 
                     try:
                         if (pcmpr := cmprs.get(ptyp.typehash, s_common.novalu)) is s_common.novalu:
@@ -1668,10 +1674,14 @@ class LiftOper(Oper):
                         if pcmpr is None:
                             continue
 
-                        for item in pvalu:
-                            if await pcmpr(item):
+                        if not array:
+                            if await pcmpr(pvalu):
                                 yield node
-                                break
+                        else:
+                            for item in pvalu:
+                                if await pcmpr(item):
+                                    yield node
+                                    break
 
                     except s_exc.BadTypeValu:
                         pass
@@ -1851,10 +1861,9 @@ class LiftByArrayVirt(LiftOper):
         try:
             if pivs is not None:
                 if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
-
                     pivs.insert(0, relname)
 
-                    async for node in self.pivfilter(runt, props, pivs, cmpr, valu, array=True):
+                    async for node in self.pivfilter(runt, props, pivs, cmpr, valu, array=True, virts=vnames):
                         yield node
                     return
 
@@ -2326,10 +2335,9 @@ class LiftPropVirtBy(LiftOper):
         try:
             if pivs is not None:
                 if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
-
                     pivs.insert(0, relname)
 
-                    async for node in self.pivfilter(runt, props, pivs, cmpr, valu):
+                    async for node in self.pivfilter(runt, props, pivs, cmpr, valu, virts=vnames):
                         yield node
                     return
 

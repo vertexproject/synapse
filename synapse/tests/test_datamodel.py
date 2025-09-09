@@ -530,6 +530,12 @@ class DataModelTest(s_t_utils.SynTest):
                 self.eq(nodes[2].ndef, ('test:str2', 'extprop5'))
                 self.eq(nodes[3].ndef, ('test:str', 'extprop3'))
 
+                await core.nodes('_test:xtra=xtra | delnode --force')
+                nodes = await core.nodes('test:str:inhstr::_xtra::hehe=foo')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'extprop'))
+                self.eq(nodes[1].ndef, ('test:str', 'extprop2'))
+
                 # Cannot add a prop to a parent form which already exists on a child
                 with self.raises(s_exc.DupPropName):
                     await core.nodes("$lib.model.ext.addFormProp(test:inhstr, _xtra, ('str', ({})), ({}))")

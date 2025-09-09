@@ -2972,6 +2972,35 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:exec:fetch:http:request::flow::client::ip::asn>6'))
             self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client::ip::asn*in=(5,6)'))
 
+            await core.nodes('[test:str=nvirt1 :bar={[test:guid=* :seen=2020]} ]')
+            await core.nodes('[test:str=nvirt2 :bar={[test:guid=* :seen=2021]} ]')
+            await core.nodes('[test:str=nvirt3 :bar={[test:guid=* :seen=2022]} ]')
+
+            nodes = await core.nodes('test:str:bar::seen.min>2020')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
+
+            await core.nodes('test:guid:seen.min>2021 | delnode')
+            self.len(1, await core.nodes('test:str:bar::seen.min>2020'))
+
+            await core.nodes('[test:str=avirt1 :bar={[test:virtiface=* :servers=(tcp://1.2.3.4, udp://2.3.4.5)]}]')
+            await core.nodes('[test:str=avirt2 :bar={[test:virtiface=* :servers=(udp://1.2.3.4, udp://2.3.4.5)]}]')
+            await core.nodes('[test:str=avirt3 :bar={[test:virtiface=* :servers=(tcp://4.5.6.7, udp://7.8.4.5)]}]')
+
+            nodes = await core.nodes('test:str:bar::servers*[.ip=1.2.3.4]')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
+
+            # When pivoting through mixed types, don't raise BadTypeValu for incompatible operations
+            # since they could be valid in some cases
+            self.len(0, await core.nodes('test:str:bar::seen*[=tcp]'))
+            self.len(0, await core.nodes('test:str:bar::seen>2020'))
+
+            await core.nodes('[test:str=newp :bar={[test:str=newp :hehe=newp]}]')
+            self.len(0, await core.nodes('test:str:bar::hehe::foo=baz'))
+
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed
