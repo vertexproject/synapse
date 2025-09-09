@@ -7821,10 +7821,7 @@ class Layer(Prim):
         propname = await tostr(propname)
         propvalu = await toprim(propvalu)
 
-        prop = self.runt.snap.core.model.prop(propname)
-        if prop is None:
-            mesg = f'The property {propname} does not exist.'
-            raise s_exc.NoSuchProp(mesg=mesg)
+        prop = self.runt.snap.core.model.reqProp(propname)
 
         if prop.isform and propvalu is None:
             async for buid, sode in self.getStorNodesByForm(propname):
