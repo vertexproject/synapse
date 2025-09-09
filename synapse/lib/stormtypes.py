@@ -10346,24 +10346,6 @@ async def torepr(valu, usestr=False):
         return str(valu)
     return repr(valu)
 
-async def tobuidhex(valu, noneok=False):
-
-    if noneok and valu is None:
-        return None
-
-    if isinstance(valu, Node):
-        return valu.valu.iden()
-
-    if isinstance(valu, s_node.Node):
-        return valu.iden()
-
-    valu = await tostr(valu)
-    if not s_common.isbuidhex(valu):
-        mesg = f'Invalid buid string: {valu}'
-        raise s_exc.BadCast(mesg=mesg)
-
-    return valu
-
 async def tobuid(valu):
 
     if isinstance(valu, Node):
@@ -10385,7 +10367,19 @@ async def tobuid(valu):
         mesg = f'Invalid buid valu: {valu}'
         raise s_exc.BadCast(mesg=mesg)
 
+    if len(valu) != 32:
+        mesg = f'Invalid buid valu: {valu}'
+        raise s_exc.BadCast(mesg=mesg)
+
     return valu
+
+async def tobuidhex(valu, noneok=False):
+
+    if noneok and valu is None:
+        return None
+
+    buid = await tobuid(valu)
+    return buid.hex()
 
 async def totype(valu, basetypes=False) -> str:
     '''
