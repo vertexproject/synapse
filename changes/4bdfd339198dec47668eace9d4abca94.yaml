@@ -1,0 +1,5 @@
+---
+desc: Added Storm Layer ``delEdge()`` API to delete edges in a layer.
+prs: []
+type: feat
+...
