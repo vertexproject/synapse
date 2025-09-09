@@ -461,6 +461,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                     :subject:cn="  Issuer.Link  "
                     :issuer:cert=$icert
                     :selfsigned=$lib.true
+                    :seen=(2022, 2023)
                 ]
             ''', opts={'vars': {'icert': icert}})
             self.eq(nodes[0].ndef, ('crypto:x509:cert', icert))
@@ -468,6 +469,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('subject:cn'), "Issuer.Link")
             self.eq(nodes[0].get('issuer:cert'), icert)
             self.eq(nodes[0].get('selfsigned'), True)
+            self.eq(('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'), nodes[0].repr('seen'))
 
             nodes = await core.nodes('''
                 [ crypto:x509:cert=$cert
