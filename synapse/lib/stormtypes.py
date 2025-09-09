@@ -7332,6 +7332,16 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes.', }}},
 
+        {'name': 'hasEdge', 'desc': 'Check if a light edge between two nodes exists in the layer.',
+         'type': {'type': 'function', '_funcname': 'hasEdge',
+                  'args': (
+                      {'name': 'nodeid1', 'type': 'str', 'desc': 'The hex string of the N1 node iden.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb.'},
+                      {'name': 'nodeid2', 'type': 'str', 'desc': 'The hex string of the N2 node iden.'},
+                  ),
+                  'returns': {'type': 'boolean',
+                              'desc': 'True if the edge exists in the layer, False if it does not.', }}},
+
         {'name': 'getEdges', 'desc': '''
             Yield (n1iden, verb, n2iden) tuples for any light edges in the layer.
 
@@ -7362,6 +7372,7 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'getEdgesByN1',
                   'args': (
                       {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'An optional edge verb to filter by.', 'default': None},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n2iden>) tuples', }}},
@@ -7379,6 +7390,7 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'getEdgesByN2',
                   'args': (
                       {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'An optional edge verb to filter by.', 'default': None},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
@@ -7441,6 +7453,7 @@ class Layer(Prim):
             'delPush': self._delPush,
             'addPull': self._addPull,
             'delPull': self._delPull,
+            'hasEdge': self.hasEdge,
             'getEdges': self.getEdges,
             'liftByTag': self.liftByTag,
             'liftByProp': self.liftByProp,
@@ -7891,6 +7904,16 @@ class Layer(Prim):
             yield s_common.ehex(buid), sode
 
     @stormfunc(readonly=True)
+    async def hasEdge(self, nodeid1, verb, nodeid2):
+        nodeid1 = await tostr(nodeid1)
+        verb = await tostr(verb)
+        nodeid2 = await tostr(nodeid2)
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        return await layr.hasNodeEdge(s_common.uhex(nodeid1), verb, s_common.uhex(nodeid2))
+
+    @stormfunc(readonly=True)
     async def getEdges(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
@@ -7899,21 +7922,23 @@ class Layer(Prim):
             yield item
 
     @stormfunc(readonly=True)
-    async def getEdgesByN1(self, nodeid):
+    async def getEdgesByN1(self, nodeid, verb=None):
         nodeid = await tobuid(nodeid)
+        verb = await tostr(verb, noneok=True)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN1(nodeid):
+        async for item in layr.iterNodeEdgesN1(s_common.uhex(nodeid), verb=verb):
             yield item
 
     @stormfunc(readonly=True)
-    async def getEdgesByN2(self, nodeid):
+    async def getEdgesByN2(self, nodeid, verb=None):
         nodeid = await tobuid(nodeid)
+        verb = await tostr(verb, noneok=True)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN2(nodeid):
+        async for item in layr.iterNodeEdgesN2(s_common.uhex(nodeid), verb=verb):
             yield item
 
     @stormfunc(readonly=True)

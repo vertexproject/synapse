@@ -885,13 +885,32 @@ class StormTypesTest(s_test.SynTest):
             self.eq(2, await core.callStorm('return($lib.len($lib.layer.get().getStorNodes()))', opts=opts))
 
             await core.nodes('[ media:news=c0dc5dc1f7c3d27b725ef3015422f8e2 +(refs)> { inet:ipv4=1.2.3.4 } ]')
+            expN1 = [('refs', '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f')]
+            expN2 = [('refs', 'ddf7f87c0164d760e8e1e5cd2cae2fee96868a3cf184f6dab9154e31ad689528')]
+
             edges = await core.callStorm('''
                 $edges = ([])
                 media:news=c0dc5dc1f7c3d27b725ef3015422f8e2
                 for $i in $lib.layer.get().getEdgesByN1($node.iden()) { $edges.append($i) }
                 fini { return($edges) }
             ''')
-            self.eq([('refs', '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f')], edges)
+            self.eq(expN1, edges)
+
+            edges = await core.callStorm('''
+                $edges = ([])
+                media:news=c0dc5dc1f7c3d27b725ef3015422f8e2
+                for $i in $lib.layer.get().getEdgesByN1($node.iden(), verb=refs) { $edges.append($i) }
+                fini { return($edges) }
+            ''')
+            self.eq(expN1, edges)
+
+            edges = await core.callStorm('''
+                $edges = ([])
+                media:news=c0dc5dc1f7c3d27b725ef3015422f8e2
+                for $i in $lib.layer.get().getEdgesByN1($node.iden(), verb=newp) { $edges.append($i) }
+                fini { return($edges) }
+            ''')
+            self.eq([], edges)
 
             edges = await core.callStorm('''
                 $edges = ([])
@@ -899,7 +918,37 @@ class StormTypesTest(s_test.SynTest):
                 for $i in $lib.layer.get().getEdgesByN2($node.iden()) { $edges.append($i) }
                 fini { return($edges) }
             ''')
-            self.eq([('refs', 'ddf7f87c0164d760e8e1e5cd2cae2fee96868a3cf184f6dab9154e31ad689528')], edges)
+            self.eq(expN2, edges)
+
+            edges = await core.callStorm('''
+                $edges = ([])
+                inet:ipv4=1.2.3.4
+                for $i in $lib.layer.get().getEdgesByN2($node.iden(), verb=refs) { $edges.append($i) }
+                fini { return($edges) }
+            ''')
+            self.eq(expN2, edges)
+
+            edges = await core.callStorm('''
+                $edges = ([])
+                inet:ipv4=1.2.3.4
+                for $i in $lib.layer.get().getEdgesByN2($node.iden(), verb=newp) { $edges.append($i) }
+                fini { return($edges) }
+            ''')
+            self.eq([], edges)
+
+            ret = await core.callStorm('''
+                $n1 = { media:news=c0dc5dc1f7c3d27b725ef3015422f8e2 return($node.iden()) }
+                $n2 = { inet:ipv4=1.2.3.4 return($node.iden()) }
+                return($lib.layer.get().hasEdge($n1, refs, $n2))
+            ''')
+            self.true(ret)
+
+            ret = await core.callStorm('''
+                $n1 = { media:news=c0dc5dc1f7c3d27b725ef3015422f8e2 return($node.iden()) }
+                $n2 = { inet:ipv4=1.2.3.4 return($node.iden()) }
+                return($lib.layer.get().hasEdge($n1, newp, $n2))
+            ''')
+            self.false(ret)
 
             edges = await core.callStorm('''
                 $edges = ([])
