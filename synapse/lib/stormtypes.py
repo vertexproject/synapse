@@ -10320,7 +10320,7 @@ async def tobuidhex(valu, noneok=False):
         return None
 
     buid = await tobuid(valu)
-    return s_common.uhex(buid)
+    return s_common.ehex(buid)
 
 async def totype(valu, basetypes=False) -> str:
     '''
