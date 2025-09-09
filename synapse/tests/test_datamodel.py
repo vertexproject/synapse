@@ -453,9 +453,9 @@ class DataModelTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
 
-                await core.nodes("$lib.model.ext.addForm(_test:inhstr5, test:inhstr2, ({}), ({}))")
+                await core.nodes("$lib.model.ext.addForm(_test:inhstr5, test:inhstr3, ({}), ({}))")
                 await core.nodes("$lib.model.ext.addForm(_test:inhstr4, _test:inhstr5, ({}), ({}))")
-                await core.nodes("$lib.model.ext.addFormProp(test:inhstr2, _xtra, ('test:str', ({})), ({'doc': 'inherited extprop'}))")
+                await core.nodes("$lib.model.ext.addFormProp(test:inhstr3, _xtra, ('test:str', ({})), ({'doc': 'inherited extprop'}))")
 
                 self.len(1, await core.nodes('[ _test:inhstr4=ext :name=bar :_xtra=here ]'))
                 self.len(1, await core.nodes('[ _test:inhstr5=ext2 :name=bar :_xtra=here ]'))
@@ -463,8 +463,8 @@ class DataModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('test:inhstr:name=bar')
                 self.len(3, nodes)
                 self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
-                self.eq(nodes[1].ndef, ('test:inhstr3', 'bar'))
-                self.eq(nodes[2].ndef, ('_test:inhstr5', 'ext2'))
+                self.eq(nodes[1].ndef, ('_test:inhstr5', 'ext2'))
+                self.eq(nodes[2].ndef, ('test:inhstr3', 'bar'))
 
                 nodes = await core.nodes('test:inhstr:name=bar +_test:inhstr5')
                 self.len(2, nodes)
@@ -498,6 +498,12 @@ class DataModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].ndef, ('test:str', 'extprop'))
                 self.eq(nodes[1].ndef, ('test:str', 'extprop2'))
 
+                await core.nodes('[test:str=here :hehe=foo]')
+                nodes = await core.nodes('test:str:inhstr::_xtra::hehe=foo')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'extprop'))
+                self.eq(nodes[1].ndef, ('test:str', 'extprop2'))
+
                 await core.nodes("$lib.model.ext.addForm(_test:xtra, test:inhstr, ({}), ({}))")
                 await core.nodes("$lib.model.ext.addForm(_test:xtra2, test:inhstr, ({}), ({}))")
                 await core.nodes("$lib.model.ext.addFormProp(_test:xtra, _xtra, ('test:str', ({})), ({}))")
@@ -520,8 +526,6 @@ class DataModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('test:str:inhstr::_xtra=3')
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:str', 'extprop4'))
-
-                await core.nodes('[test:str=here :hehe=foo]')
 
                 nodes = await core.nodes('test:str:inhstr::_xtra::hehe=foo')
                 self.len(4, nodes)
@@ -555,8 +559,8 @@ class DataModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('test:inhstr:name=bar')
                 self.len(3, nodes)
                 self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
-                self.eq(nodes[1].ndef, ('test:inhstr3', 'bar'))
-                self.eq(nodes[2].ndef, ('_test:inhstr5', 'ext2'))
+                self.eq(nodes[1].ndef, ('_test:inhstr5', 'ext2'))
+                self.eq(nodes[2].ndef, ('test:inhstr3', 'bar'))
 
                 nodes = await core.nodes('test:str=extprop -> *')
                 self.len(1, nodes)
@@ -592,10 +596,10 @@ class DataModelTest(s_t_utils.SynTest):
 
                 # Can't delete a prop which is in use on child forms
                 with self.raises(s_exc.CantDelProp):
-                    await core.nodes("$lib.model.ext.delFormProp(test:inhstr2, _xtra)")
+                    await core.nodes("$lib.model.ext.delFormProp(test:inhstr3, _xtra)")
 
-                await core.nodes('test:inhstr2:_xtra [ -:_xtra ]')
-                await core.nodes("$lib.model.ext.delFormProp(test:inhstr2, _xtra)")
+                await core.nodes('test:inhstr3:_xtra [ -:_xtra ]')
+                await core.nodes("$lib.model.ext.delFormProp(test:inhstr3, _xtra)")
 
                 with self.raises(s_exc.NoSuchProp):
                     await core.nodes('_test:inhstr4:_xtra')
