@@ -1501,13 +1501,9 @@ class Model:
 
     def _addFormIface(self, form, name, ifinfo, ifaceparents=None):
 
-        iface = self.ifaces.get(name)
+        iface = self._reqIface(name)
 
         form._full_ifaces[name] += 1
-
-        if iface is None:
-            mesg = f'Form {form.name} depends on non-existent interface: {name}'
-            raise s_exc.NoSuchIface(mesg=mesg)
 
         if iface.get('deprecated'):
             mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 4.0.0'
