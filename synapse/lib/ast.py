@@ -1645,7 +1645,6 @@ class LiftOper(Oper):
                     break
 
             else:
-
                 if (pprop := pivo.form.props.get(filtprop)) is not None:
                     if array:
                         if not pprop.type.isarray:
