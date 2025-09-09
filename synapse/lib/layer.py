@@ -3455,7 +3455,7 @@ class Layer(s_nexus.Pusher):
         return bool(changes[0][2])
 
     async def delEdge(self, n1buid, verb, n2buid, meta):
-        sode = await self._getStorNode(n1buid)
+        sode = self._getStorNode(n1buid)
         if sode is None:
             return False
 
