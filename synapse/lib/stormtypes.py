@@ -7859,7 +7859,7 @@ class Layer(Prim):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN1(s_common.uhex(nodeid), verb=verb):
+        async for item in layr.iterNodeEdgesN1(nodeid, verb=verb):
             yield item
 
     @stormfunc(readonly=True)
@@ -7869,7 +7869,7 @@ class Layer(Prim):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN2(s_common.uhex(nodeid), verb=verb):
+        async for item in layr.iterNodeEdgesN2(nodeid, verb=verb):
             yield item
 
     @stormfunc(readonly=True)
