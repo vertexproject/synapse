@@ -2290,6 +2290,7 @@ class LayerTest(s_t_utils.SynTest):
 
             fork00 = await core.view.fork()
             layr00 = core.getLayer(fork00['layers'][0]['iden'])
+            infork = {'view': fork00['iden']}
 
             await core.nodes('''
                 for $prop in (_custom:risk:level, _custom:risk:severity) {
@@ -2322,15 +2323,15 @@ class LayerTest(s_t_utils.SynTest):
                 $node.data.set(bar, bar)
                 $node.data.set(baz, baz)
             '''
-            msgs = await core.stormlist(q, opts={'view': fork00['iden']})
+            msgs = await core.stormlist(q, opts=infork)
             self.stormHasNoWarnErr(msgs)
 
-            nodes = await core.nodes('test:str=foobar', opts={'view': fork00['iden']})
+            nodes = await core.nodes('test:str=foobar', opts=infork)
             self.len(1, nodes)
             refs = nodes[0]
 
             # Full node in the fork layer
-            nodes = await core.nodes('[ test:guid=* :name=test1 :_custom:risk:level=low ]', opts={'view': fork00['iden']})
+            nodes = await core.nodes('[ test:guid=* :name=test1 :_custom:risk:level=low ]', opts=infork)
             self.len(1, nodes)
 
             await core.getView(fork00['iden']).delete()
@@ -2384,15 +2385,27 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('_custom:risk:severity'), testnode00.get('_custom:risk:level'))
 
             view00 = (await core.addView(vdef={'layers': [layr00.iden, core.view.layers[0].iden]}))['iden']
-            nodes = await core.nodes('test:guid:name=test1', opts={'view': view00})
+            inview = {'view': view00}
+
+            nodes = await core.nodes('test:guid:name=test1', opts=inview)
             self.len(1, nodes)
             self.none(nodes[0].get('_custom:risk:level'))
             self.eq(nodes[0].get('_custom:risk:severity'), 10)
 
-            nodes = await core.nodes('test:guid:name=test0', opts={'view': view00})
+            nodes = await core.nodes('test:guid:name=test0', opts=inview)
             self.len(1, nodes)
             self.none(nodes[0].get('_custom:risk:level'))
             self.eq(nodes[0].get('_custom:risk:severity'), 20)
             self.eq(await s_t_utils.alist(nodes[0].iterData()), [('baz', 'baz')])
             self.eq(await s_t_utils.alist(nodes[0].iterEdgesN1()), [('refs', refs.iden())])
+            self.len(0, await s_t_utils.alist(nodes[0].iterEdgesN2()))
+
+            msgs = await core.stormlist('test:guid:name=test0 $lib.layer.get().delStorNode($node)', opts=inview)
+
+            nodes = await core.nodes('test:guid:name=test0', opts=inview)
+            self.len(1, nodes)
+            self.none(nodes[0].get('_custom:risk:level'))
+            self.eq(nodes[0].get('_custom:risk:severity'), 30)
+            self.len(0, await s_t_utils.alist(nodes[0].iterData()))
+            self.len(0, await s_t_utils.alist(nodes[0].iterEdgesN1()))
             self.len(0, await s_t_utils.alist(nodes[0].iterEdgesN2()))

@@ -3446,7 +3446,7 @@ class Layer(s_nexus.Pusher):
         Delete nodedata from a node in this layer. If name is not specified, delete all nodedata.
         '''
         sode = self._getStorNode(buid)
-        if sode is None:
+        if sode is None: # pragma: no cover
             return False
 
         edits = []
@@ -3455,7 +3455,7 @@ class Layer(s_nexus.Pusher):
                 edits.append((EDIT_NODEDATA_DEL, item, ()))
                 await asyncio.sleep(0)
 
-        elif self.hasNodeData(buid, name):
+        elif await self.hasNodeData(buid, name):
             edits.append((EDIT_NODEDATA_DEL, (name, None), ()))
 
         if not edits:
@@ -3468,10 +3468,10 @@ class Layer(s_nexus.Pusher):
 
     async def delEdge(self, n1buid, verb, n2buid, meta):
         sode = self._getStorNode(n1buid)
-        if sode is None:
+        if sode is None: # pragma: no cover
             return False
 
-        if not self.hasNodeEdge(n1buid, verb, n2buid):
+        if not await self.hasNodeEdge(n1buid, verb, n2buid): # pragma: no cover
             return False
 
         edits = [
