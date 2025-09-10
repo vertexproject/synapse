@@ -1,0 +1,6 @@
+---
+desc: Added an optional ``verb`` argument to the ``getEdgesByN1`` and ``getEdgesByN2``
+  Storm Layer APIs.
+prs: []
+type: feat
+...
