@@ -3409,9 +3409,21 @@ class Layer(s_nexus.Pusher):
             n2edges.setdefault(n2iden, []).append((verb, n1iden))
             await asyncio.sleep(0)
 
+        n2forms = {}
+        @s_cache.memoize()
+        def getN2Form(n2iden):
+            buid = s_common.uhex(n2iden)
+            if (form := n2forms.get(buid)) is not None: # pragma: no cover
+                return form
+
+            n2sode = self._getStorNode(buid)
+            form = n2sode.get('form')
+            n2forms[buid] = form
+            return form
+
         for n2iden, edges in n2edges.items():
             edits = [(EDIT_EDGE_DEL, edge, ()) for edge in edges]
-            nodeedits.append((s_common.uhex(n2iden), None, edits))
+            nodeedits.append((s_common.uhex(n2iden), getN2Form(n2iden), edits))
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
         return bool(changes[0][2])
