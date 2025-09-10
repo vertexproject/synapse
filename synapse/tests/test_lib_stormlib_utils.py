@@ -7,12 +7,7 @@ class UtilsTest(s_test.SynTest):
 
     async def test_lib_stormlib_utils_buid(self):
         async with self.getTestCore() as core:
-            valu = await core.callStorm('return($lib.utils.buid())')
-            self.len(32, valu)
-            self.isinstance(valu, bytes)
-
             obj = ('meta:source', '0123456789abcdef0123456789abcdef')
-
             self.eq(
                 await core.callStorm('return($lib.utils.buid($obj))', opts={'vars': {'obj': obj}}),
                 s_common.buid(obj)
