@@ -10331,6 +10331,9 @@ async def tobuidhex(valu, noneok=False):
     if noneok and valu is None:
         return None
 
+    if isinstance(valu, str) and s_common.isbuidhex(valu):
+        return valu
+
     buid = await tobuid(valu)
     return s_common.ehex(buid)
 

@@ -5927,7 +5927,7 @@ class StormTypesTest(s_test.SynTest):
             self.none(await s_stormtypes.tobuidhex(None, noneok=True))
 
             buid = s_common.buid()
-            buidhex = buid.hex()
+            buidhex = s_common.ehex(buid)
             sode = (
                 buid,
                 {
@@ -5942,7 +5942,7 @@ class StormTypesTest(s_test.SynTest):
                 self.eq(await s_stormtypes.tobuidhex(node), buidhex)
                 self.eq(await s_stormtypes.tobuidhex(snode), buidhex)
 
-            self.eq(await s_stormtypes.tobuidhex(buid.hex()), buidhex)
+            self.eq(await s_stormtypes.tobuidhex(buidhex), buidhex)
             self.eq(await s_stormtypes.tobuidhex(buid), buidhex)
 
             with self.raises(s_exc.BadCast) as exc:
