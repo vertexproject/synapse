@@ -7204,12 +7204,36 @@ class Layer(Prim):
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to set.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'delStorNode',
+         'desc': 'Delete a storage node, node data, and associated edges from a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delStorNode',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
         {'name': 'delStorNodeProp',
          'desc': 'Delete a property from a node in this layer.',
          'type': {'type': 'function', '_funcname': 'delStorNodeProp',
                   'args': (
                       {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                       {'name': 'prop', 'type': 'str', 'desc': 'The property name to delete.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'delNodeData',
+         'desc': 'Delete node data from a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delNodeData',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'name', 'type': 'str', 'default': None, 'desc': 'The node data key to delete.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'delEdge',
+         'desc': 'Delete edges from a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delEdge',
+                  'args': (
+                      {'name': 'nodeid1', 'type': 'str', 'desc': 'The hex string of the N1 node iden.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to delete.'},
+                      {'name': 'nodeid2', 'type': 'str', 'desc': 'The hex string of the N2 node iden.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
         {'name': 'getMirrorStatus', 'desc': '''
@@ -7449,7 +7473,10 @@ class Layer(Prim):
             'getNodeData': self.getNodeData,
             'getMirrorStatus': self.getMirrorStatus,
             'setStorNodeProp': self.setStorNodeProp,
+            'delStorNode': self.delStorNode,
             'delStorNodeProp': self.delStorNodeProp,
+            'delNodeData': self.delNodeData,
+            'delEdge': self.delEdge,
         }
 
     @stormfunc(readonly=True)
@@ -7529,23 +7556,55 @@ class Layer(Prim):
         return await layr.getMirrorStatus()
 
     async def setStorNodeProp(self, nodeid, prop, valu):
-        iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
         buid = await tobuid(nodeid)
         prop = await tostr(prop)
         valu = await tostor(valu)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
         self.runt.reqAdmin(mesg='setStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.setStorNodeProp(buid, prop, valu, meta=meta)
 
-    async def delStorNodeProp(self, nodeid, prop):
+    async def delStorNode(self, nodeid):
+        buid = await tobuid(nodeid)
+
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
+        self.runt.reqAdmin(mesg='delStorNode() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delStorNode(buid, meta=meta)
+
+    async def delStorNodeProp(self, nodeid, prop):
         buid = await tobuid(nodeid)
         prop = await tostr(prop)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
         self.runt.reqAdmin(mesg='delStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.delStorNodeProp(buid, prop, meta=meta)
+
+    async def delNodeData(self, nodeid, name=None):
+        buid = await tobuid(nodeid)
+        name = await tostr(name, noneok=True)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        self.runt.reqAdmin(mesg='delNodeData() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delNodeData(buid, meta=meta, name=name)
+
+    async def delEdge(self, nodeid1, verb, nodeid2):
+        n1buid = await tobuid(nodeid1)
+        verb = await tostr(verb)
+        n2buid = await tobuid(nodeid2)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        self.runt.reqAdmin(mesg='delEdge() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delEdge(n1buid, verb, n2buid, meta=meta)
 
     async def _addPull(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
         url = await tostr(url)

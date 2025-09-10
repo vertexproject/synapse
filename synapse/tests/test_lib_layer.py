@@ -2290,6 +2290,7 @@ class LayerTest(s_t_utils.SynTest):
 
             fork00 = await core.view.fork()
             layr00 = core.getLayer(fork00['layers'][0]['iden'])
+            infork = {'view': fork00['iden']}
 
             await core.nodes('''
                 for $prop in (_custom:risk:level, _custom:risk:severity) {
@@ -2310,13 +2311,31 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, nodes)
             testnode00 = nodes[0]
 
+            # Make some edits in the fork layer
+            q = '''
+                test:guid
+                [
+                    :_custom:risk:level=medium
+                    <(seen)+ {[ meta:source=* ]}
+                    +(refs)> {[ test:str=foobar ]}
+                ]
+                $node.data.set(foo, foo)
+                $node.data.set(bar, bar)
+                $node.data.set(baz, baz)
+            '''
+            msgs = await core.stormlist(q, opts=infork)
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str=foobar', opts=infork)
+            self.len(1, nodes)
+            refs = nodes[0]
+
             # Edit a prop on the node in the default layer
-            await core.nodes('test:guid [ :_custom:risk:level=medium ]', opts={'view': fork00['iden']})
+            await core.nodes('test:guid [ :_custom:risk:level=medium ]', opts=infork)
 
             # Full node in the fork layer
-            nodes = await core.nodes('[ test:guid=* :name=test1 :_custom:risk:level=low ]', opts={'view': fork00['iden']})
+            nodes = await core.nodes('[ test:guid=* :name=test1 :_custom:risk:level=low ]', opts=infork)
             self.len(1, nodes)
-            testnode01 = nodes[0]
 
             await core.getView(fork00['iden']).delete()
 
@@ -2347,6 +2366,13 @@ class LayerTest(s_t_utils.SynTest):
                             $layer.setStorNodeProp($buid, "test:guid:_custom:risk:severity", $oldv.0)
                             $layer.delStorNodeProp($buid, $fullprop)
                         }
+
+                        $layer.delNodeData($buid, foo)
+                        $layer.delNodeData($buid, bar)
+
+                        for ($verb, $n2iden) in $layer.getEdgesByN2($buid) {
+                            $layer.delEdge($n2iden, $verb, $buid)
+                        }
                     }
                 }
                 $lib.model.ext.delFormProp("test:guid", "_custom:risk:level")
@@ -2361,9 +2387,37 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('name'), testnode00.get('name'))
             self.eq(nodes[0].get('_custom:risk:severity'), testnode00.get('_custom:risk:level'))
 
-            view00 = (await core.addView(vdef={'layers': [layr00.iden]}))['iden']
-            nodes = await core.nodes('test:guid', opts={'view': view00})
+            nodes = await core.nodes('syn:prop=test:guid:_custom:risk:level')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('test:guid:_custom:risk:severity')
             self.len(1, nodes)
-            self.eq(nodes[0].get('name'), testnode01.get('name'))
+            self.eq(nodes[0].iden(), testnode00.iden())
+            self.eq(nodes[0].get('name'), testnode00.get('name'))
+            self.eq(nodes[0].get('_custom:risk:severity'), testnode00.get('_custom:risk:level'))
+
+            view00 = (await core.addView(vdef={'layers': [layr00.iden, core.view.layers[0].iden]}))['iden']
+            inview = {'view': view00}
+
+            nodes = await core.nodes('test:guid:name=test1', opts=inview)
+            self.len(1, nodes)
             self.none(nodes[0].get('_custom:risk:level'))
             self.eq(nodes[0].get('_custom:risk:severity'), 10)
+
+            nodes = await core.nodes('test:guid:name=test0', opts=inview)
+            self.len(1, nodes)
+            self.none(nodes[0].get('_custom:risk:level'))
+            self.eq(nodes[0].get('_custom:risk:severity'), 20)
+            self.eq(await s_t_utils.alist(nodes[0].iterData()), [('baz', 'baz')])
+            self.eq(await s_t_utils.alist(nodes[0].iterEdgesN1()), [('refs', refs.iden())])
+            self.len(0, await s_t_utils.alist(nodes[0].iterEdgesN2()))
+
+            msgs = await core.stormlist('test:guid:name=test0 $lib.layer.get().delStorNode($node)', opts=inview)
+
+            nodes = await core.nodes('test:guid:name=test0', opts=inview)
+            self.len(1, nodes)
+            self.none(nodes[0].get('_custom:risk:level'))
+            self.eq(nodes[0].get('_custom:risk:severity'), 30)
+            self.len(0, await s_t_utils.alist(nodes[0].iterData()))
+            self.len(0, await s_t_utils.alist(nodes[0].iterEdgesN1()))
+            self.len(0, await s_t_utils.alist(nodes[0].iterEdgesN2()))
