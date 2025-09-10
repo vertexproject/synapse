@@ -2144,6 +2144,7 @@ class StormTypesTest(s_test.SynTest):
                 $_ = { [test:str=foo <(seen)+ $seen00 <(seen)+ $seen01]}
                 $_ = { [test:str=bar <(seen)+ $seen00 +(refs)> $refs] }
                 $_ = { [test:str=baz] }
+                $_ = { [test:str=woot <(seen)+ $seen00 +(refs)> $refs] }
             '''
             msgs = await core.stormlist(q)
             self.stormHasNoWarnErr(msgs)
@@ -2216,19 +2217,34 @@ class StormTypesTest(s_test.SynTest):
             lowuser = await core.auth.addUser('lowuser')
             await lowuser.addRule((True, ('node', 'add', 'test:str')))
 
+            nodes = await core.nodes('test:str=woot')
+            self.len(1, nodes)
+            self.len(1, await s_test.alist(nodes[0].iterEdgesN1()))
+            self.len(1, await s_test.alist(nodes[0].iterEdgesN2()))
+
             q = '''
                 $seen = { meta:source:name=delnodeedge00 }
-                test:str=foo
+                test:str=woot
                 $lib.layer.get().delEdge($seen, seen, $node)
             '''
             msgs = await core.stormlist(q, opts={'user': lowuser.iden})
             self.stormIsInErr('delEdge() requires admin privileges.', msgs)
+
+            nodes = await core.nodes('test:str=woot')
+            self.len(1, nodes)
+            self.len(1, await s_test.alist(nodes[0].iterEdgesN1()))
+            self.len(1, await s_test.alist(nodes[0].iterEdgesN2()))
 
             # Readonly layer
             layer = core.view.layers[0]
             await layer.setLayerInfo('readonly', True)
             msgs = await core.stormlist(q)
             self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
+
+            nodes = await core.nodes('test:str=woot')
+            self.len(1, nodes)
+            self.len(1, await s_test.alist(nodes[0].iterEdgesN1()))
+            self.len(1, await s_test.alist(nodes[0].iterEdgesN2()))
 
     async def test_storm_lib_fire(self):
         async with self.getTestCore() as core:
