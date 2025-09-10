@@ -192,6 +192,9 @@ modeldefs = (
                 'doc': 'A cryptographic algorithm name.'}),
 
             ('crypto:x509:cert', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'X.509 certificate'}}),
+                ),
                 'doc': 'A unique X.509 certificate.'}),
 
             ('crypto:x509:san', ('comp', {'fields': (('type', 'str'), ('value', 'str'))}), {
