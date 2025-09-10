@@ -86,6 +86,8 @@ class NodeTest(s_t_utils.SynTest):
             iden, info = nodes[0].pack()
             self.eq(info.get('n1verbs'), {'refs': {'test:int': 2}})
             self.eq(info.get('n2verbs'), {'refs': {'test:int': 2}})
+            self.eq(nodes[0].getEdgeCounts('refs'), {'refs': {'test:int': 2}})
+            self.eq(nodes[0].getEdgeCounts('refs', n2=True), {'refs': {'test:int': 2}})
 
             await core.nodes('test:str=subt [ -(refs)> {test:int} <(refs)- {test:int} ]')
 
