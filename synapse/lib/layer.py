@@ -3424,14 +3424,12 @@ class Layer(s_nexus.Pusher):
         changed = False
 
         async def batchEdits(size=1000):
-            nonlocal nodeedits
-
             if len(nodeedits) < size:
                 return changed
 
             _, changes = await self.saveNodeEdits(nodeedits, meta)
 
-            nodeedits = []
+            nodeedits.clear()
 
             if changed: # pragma: no cover
                 return changed
