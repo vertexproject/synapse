@@ -14,8 +14,7 @@ class LibUtils(s_stormtypes.Lib):
          ''',
          'type': {'type': 'function', '_funcname': '_buid',
                   'args': (
-                      {'name': 'valu', 'type': 'str',
-                       'default': None,
+                      {'name': 'valu', 'type': 'any',
                        'desc': 'The value to calculate the buid from.'},
                   ),
                   'returns': {'type': 'bytes', 'desc': 'The calculated buid.'},
@@ -45,7 +44,7 @@ class LibUtils(s_stormtypes.Lib):
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _buid(self, valu=None):
+    async def _buid(self, valu):
         valu = await s_stormtypes.toprim(valu)
         return s_common.buid(valu)
 
