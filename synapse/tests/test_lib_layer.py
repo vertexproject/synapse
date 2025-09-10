@@ -2330,6 +2330,9 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, nodes)
             refs = nodes[0]
 
+            # Edit a prop on the node in the default layer
+            await core.nodes('test:guid [ :_custom:risk:level=medium ]', opts=infork)
+
             # Full node in the fork layer
             nodes = await core.nodes('[ test:guid=* :name=test1 :_custom:risk:level=low ]', opts=infork)
             self.len(1, nodes)
@@ -2374,6 +2377,15 @@ class LayerTest(s_t_utils.SynTest):
                 }
                 $lib.model.ext.delFormProp("test:guid", "_custom:risk:level")
             ''')
+
+            nodes = await core.nodes('syn:prop=test:guid:_custom:risk:level')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('test:guid:_custom:risk:severity')
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), testnode00.iden())
+            self.eq(nodes[0].get('name'), testnode00.get('name'))
+            self.eq(nodes[0].get('_custom:risk:severity'), testnode00.get('_custom:risk:level'))
 
             nodes = await core.nodes('syn:prop=test:guid:_custom:risk:level')
             self.len(0, nodes)
