@@ -1,3 +1,5 @@
+import synapse.common as s_common
+
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
@@ -6,6 +8,18 @@ class LibUtils(s_stormtypes.Lib):
     A Storm library for working with utility functions.
     '''
     _storm_locals = (
+        {'name': 'buid',
+         'desc': '''
+            Calculate a buid from the provided valu.
+         ''',
+         'type': {'type': 'function', '_funcname': '_buid',
+                  'args': (
+                      {'name': 'valu', 'type': 'str',
+                       'default': None,
+                       'desc': 'The value to calculate the buid from.'},
+                  ),
+                  'returns': {'type': 'bytes', 'desc': 'The calculated buid.'},
+        }},
         {'name': 'todo',
          'desc': '''
             Create a todo tuple of (name, args, kwargs).
@@ -26,8 +40,14 @@ class LibUtils(s_stormtypes.Lib):
 
     def getObjLocals(self):
         return {
+            'buid': self._buid,
             'todo': self._todo,
         }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _buid(self, valu=None):
+        valu = await s_stormtypes.toprim(valu)
+        return s_common.buid(valu)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _todo(self, _todoname, *args, **kwargs):
