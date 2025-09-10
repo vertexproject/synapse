@@ -7895,13 +7895,13 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def hasEdge(self, nodeid1, verb, nodeid2):
-        nodeid1 = await tostr(nodeid1)
+        nodeid1 = await tobuid(nodeid1)
         verb = await tostr(verb)
-        nodeid2 = await tostr(nodeid2)
+        nodeid2 = await tobuid(nodeid2)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        return await layr.hasNodeEdge(s_common.uhex(nodeid1), verb, s_common.uhex(nodeid2))
+        return await layr.hasNodeEdge(nodeid1, verb, nodeid2)
 
     @stormfunc(readonly=True)
     async def getEdges(self):
