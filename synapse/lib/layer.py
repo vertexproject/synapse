@@ -3421,12 +3421,25 @@ class Layer(s_nexus.Pusher):
             n2forms[buid] = form
             return form
 
+        changed = False
+
+        async def batchEdits(size=1000):
+            if len(nodeedits) < size:
+                return changed
+
+            _, changes = await self.saveNodeEdits(nodeedits, meta)
+            if changed: # pragma: no cover
+                return changed
+
+            return bool(changes[0][2])
+
         for n2iden, edges in n2edges.items():
             edits = [(EDIT_EDGE_DEL, edge, ()) for edge in edges]
             nodeedits.append((s_common.uhex(n2iden), getN2Form(n2iden), edits))
 
-        _, changes = await self.saveNodeEdits(nodeedits, meta)
-        return bool(changes[0][2])
+            changed = await batchEdits()
+
+        return await batchEdits(size=1)
 
     async def delStorNodeProp(self, buid, prop, meta):
         pprop = self.core.model.reqProp(prop)
