@@ -1,5 +1,5 @@
 ---
-desc: Added ``$lib.utils.buid()`` to generate/calculate buids in Storm.
+desc: Added ``$lib.utils.buid()`` to calculate buids in Storm.
 prs: []
 type: feat
 ...
