@@ -10439,5 +10439,10 @@ async def totype(valu, basetypes=False) -> str:
 async def typeerr(name, reqt):
     if not isinstance(name, reqt):
         styp = await totype(name, basetypes=True)
-        mesg = f"Expected value of type '{reqt}', got '{styp}' with value {name}."
+
+        reqtname = str(reqt)
+        if (clsname := getattr(reqt, '__name__')):
+            reqtname = clsname
+
+        mesg = f"Expected value of type '{reqtname}', got '{styp}' with value {name}."
         return s_exc.StormRuntimeError(mesg=mesg, name=name, type=styp)
