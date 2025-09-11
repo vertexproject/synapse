@@ -619,7 +619,7 @@ class StormRst(s_base.Base):
         query = query.strip()
 
         env = dict(os.environ)
-        env.update(self.context.get('shell-env'))
+        env.update(self.context.get('shell-env', {}))
 
         stderr = None
         if opts.include_stderr:
