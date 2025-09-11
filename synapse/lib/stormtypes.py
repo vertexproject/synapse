@@ -1601,7 +1601,7 @@ class LibBase(Lib):
                         pass
                     case 'warn':
                         mesg = f'Module ({name}) permissions will not be elevated. Missing permission: {permtext}.'
-                        await self.runt.warn(mesg, log=False)
+                        await self.runt.warnonce(mesg, log=False)
                     case _:
                         mesg = f'Module ({name}) requires permission: {permtext}'
                         raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
