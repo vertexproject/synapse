@@ -1,5 +1,0 @@
----
-desc: Added ``$lib.utils.buid()`` to calculate buids in Storm.
-prs: []
-type: feat
-...
