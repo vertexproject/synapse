@@ -4874,6 +4874,31 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, links)
             self.eq({'type': 'runtime'}, links[0][1])
 
+    async def test_lift_varderef(self):
+        async with self.getTestCore() as core:
+
+            # Node adds
+            msgs = await core.stormlist('$form = inet:fqdn [ *$form=foobar.com ]')
+            self.stormHasNoWarnErr(msgs)
+
+            invals = [10, None, False, [], {}]
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('[ *$form=valu ]', opts=opts)
+                self.true(exc.exception.get('mesg').startswith("Expected value of type '<class 'str'>', got '"))
+
+            # Lifts
+            msgs = await core.stormlist('$form = inet:fqdn *$form')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form', opts=opts)
+                self.true(exc.exception.get('mesg').startswith("Expected value of type '<class 'str'>', got '"))
+
     async def test_storm_nested_root(self):
         async with self.getTestCore() as core:
             self.eq(20, await core.callStorm('''

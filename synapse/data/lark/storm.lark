@@ -238,10 +238,10 @@ liftreverse: _REVERSE "(" (liftformtag | liftpropby | liftprop | liftbyarray | l
 
 _DEREF.3:  /\*(?=\$)/
 
-liftformtag: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu) tagname [_cmpr _valu]
-liftpropby: ((PROPS | EMBEDPROPS | UNIVNAME) | _DEREF _varvalu) _cmpr _valu
-liftprop: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu)
-liftbyarray: ((PROPS | EMBEDPROPS | UNIVNAME) | _DEREF _varvalu) "*[" _safe_cmpr _valu "]"
+liftformtag: (PROPS | UNIVNAME | WILDPROPS | derefprops) tagname [_cmpr _valu]
+liftpropby: (PROPS | EMBEDPROPS | UNIVNAME | derefprops) _cmpr _valu
+liftprop: (PROPS | UNIVNAME | WILDPROPS | derefprops)
+liftbyarray: (PROPS | EMBEDPROPS | UNIVNAME | derefprops) "*[" _safe_cmpr _valu "]"
 lifttagtag: (_HASH | _HASHSPACE) tagname [_cmpr _valu]
 liftbytag: (tagname | tagnamewithspace) [_cmpr _valu]
 liftbytagprop: (tagprop | tagpropwithspace) [_cmpr _valu]
@@ -249,7 +249,7 @@ liftbyformtagprop: formtagprop [_cmpr _valu]
 
 tagprop: tagname _COLONNOSPACE (BASEPROP | _varvalu)
 tagpropwithspace: tagnamewithspace _COLONNOSPACE (BASEPROP | _varvalu) -> tagprop
-formtagprop: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu) tagname _COLONNOSPACE (BASEPROP | _varvalu)
+formtagprop: (PROPS | UNIVNAME | WILDPROPS | derefprops) tagname _COLONNOSPACE (BASEPROP | _varvalu)
 _COLONNOSPACE.2: /(?<!\s):/
 
 _funcarg: (VARTOKN [EQNOSPACE _valu])
@@ -484,7 +484,7 @@ EMBEDPROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+((\:\:|\:|\.)[a-z0-9_]+)*(?![:.a-z0
 UNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
 univprop:  UNIVNAME | "." _varvalu
 // A full property or a universal property
-formname: PROPS | _DEREF _varvalu
+formname: PROPS | derefprops
 // A relative property
 relprop: RELNAME | _COLONDOLLAR _varvaluatom
 
@@ -493,6 +493,9 @@ RELNAME: /(?<!\w):\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 
 // Similar to PROPS but does not require a colon
 BASEPROP: /[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
+
+// Derefed variable for prop names
+derefprops: _DEREF _varvalu
 
 // The entry point for a $(...) expression.  The initial dollar sign is now optional
 _dollarexprs: "$"? dollaroper

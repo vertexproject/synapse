@@ -4029,6 +4029,13 @@ class FormName(Value):
     async def compute(self, runt, path):
         return await self.kids[0].compute(runt, path)
 
+class DerefProps(Value):
+    async def compute(self, runt, path):
+        valu = await self.kids[0].compute(runt, path)
+        if (exc := await s_stormtypes.typeerr(valu, str)) is not None:
+            raise self.kids[0].addExcInfo(exc)
+        return valu
+
 class RelProp(PropName):
     pass
 
