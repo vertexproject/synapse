@@ -227,9 +227,9 @@ shell_input00 = '''
 Shell with environment variable.
 
 .. shell-env:: SYN_LOG_LEVEL=DEBUG SYN_FOO=BAR
-.. shell:: python -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+.. shell:: python3 -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
 .. shell-env::
-.. shell:: python -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+.. shell:: python3 -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
 '''
 
 shell_output00 = '''
@@ -237,7 +237,7 @@ Shell with environment variable.
 
 ::
 
-  python -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+  python3 -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
 
   LEVEL DEBUG
   FOO BAR
@@ -245,7 +245,7 @@ Shell with environment variable.
 
 ::
 
-  python -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+  python3 -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
 
   LEVEL None
   FOO None
@@ -256,7 +256,7 @@ Shell with environment variable.
 shell_input01 = '''
 Shell hide query.
 
-.. shell:: --hide-query python -c "print('WOOT')"
+.. shell:: --hide-query python3 -c "print('WOOT')"
 '''
 
 shell_output01 = '''
@@ -273,9 +273,9 @@ shell_input02 = '''
 Shell include stderr.
 
 .. shell:: --hide-query \
-    python -c "import sys; print('FOO00'); sys.stdout.flush(); print('BAR00', file=sys.stderr); print('BAZ00')"
+    python3 -c "import sys; print('FOO00'); sys.stdout.flush(); print('BAR00', file=sys.stderr); print('BAZ00')"
 .. shell:: --hide-query --include-stderr \
-    python -c "import sys; print('FOO01'); sys.stdout.flush(); print('BAR01', file=sys.stderr); print('BAZ01')"
+    python3 -c "import sys; print('FOO01'); sys.stdout.flush(); print('BAR01', file=sys.stderr); print('BAZ01')"
 '''
 
 shell_output02 = '''
@@ -296,14 +296,14 @@ Shell include stderr.
 
 '''
 
-shell_text03 = '''--hide-query python -c "import sys; print('WOOT'); sys.exit(1)"'''
+shell_text03 = '''--hide-query python3 -c "import sys; print('WOOT'); sys.exit(1)"'''
 shell_input03 = f'''
 Shell non-zero exit.
 
 .. shell:: {shell_text03}
 '''
 
-shell_text04 = '''--hide-query --fail-ok python -c "import sys; print('WOOT'); sys.exit(1)"'''
+shell_text04 = '''--hide-query --fail-ok python3 -c "import sys; print('WOOT'); sys.exit(1)"'''
 shell_input04 = f'''
 Shell non-zero exit.
 
