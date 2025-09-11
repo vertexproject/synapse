@@ -819,7 +819,6 @@ _reqValidPkgdefSchema = {
                 'asroot:ondeny:import': {
                     'type': 'string',
                     'enum': ['allow', 'warn', 'deny'],
-                    'default': 'deny',
                 },
             },
             'additionalProperties': True,
