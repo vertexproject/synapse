@@ -4832,6 +4832,7 @@ class Layer(s_nexus.Pusher):
         n2nid = s_common.int64en(n2nid)
 
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
+
         if not await self.layrslab.put(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb):
             return ()
 
