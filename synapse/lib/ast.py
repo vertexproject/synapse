@@ -1832,7 +1832,7 @@ class LiftProp(LiftOper):
 
         assert len(self.kids) == 1
 
-        name = await tostr(await self.kids[0].compute(runt, path))
+        name = await self.kids[0].compute(runt, path)
 
         prop = runt.model.props.get(name)
         if prop is not None:
