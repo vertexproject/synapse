@@ -729,6 +729,9 @@ class OuModule(s_module.CoreModule):
 
                     ('ext:id', ('str', {'strip': True}), {
                         'doc': 'An external identifier for the technique.'}),
+
+                    ('parent', ('ou:technique', {}), {
+                        'doc': 'The parent technique for the technique.'}),
                 )),
                 ('ou:technique:taxonomy', {}, ()),
                 ('ou:orgtype', {}, ()),
