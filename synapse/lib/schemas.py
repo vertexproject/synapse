@@ -816,6 +816,10 @@ _reqValidPkgdefSchema = {
                     'items': {'type': 'array',
                         'items': {'type': 'string'}},
                 },
+                'asroot:ondeny:import': {
+                    'type': 'string',
+                    'enum': ['allow', 'warn', 'deny'],
+                },
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
