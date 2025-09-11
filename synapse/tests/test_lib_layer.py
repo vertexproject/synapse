@@ -1547,6 +1547,14 @@ class LayerTest(s_t_utils.SynTest):
                 opts = {'vars': {'nid': b'\x01' * 8}}
                 await core.nodes('$lib.layer.get().delTombstone($nid, newp, newp)', opts=opts)
 
+            await core.nodes('[ test:str=foo +(refs)> {[ test:int=1 test:int=2 test:int=3 ]} ]')
+            nodes = await core.nodes('test:str=foo $n=$node -(refs)> * [ <(refs)- { yield $n } ]', opts=viewopts2)
+            for node in nodes:
+                self.eq(node.pack()[1]['n2verbs'], {})
+
+            self.len(3, await core.nodes('test:str=foo -(refs)> *'))
+            self.len(0, await core.nodes('test:str=foo -(refs)> *', opts=viewopts2))
+
     # async def test_layer_form_by_buid(self):
 
     #     async with self.getTestCore() as core:

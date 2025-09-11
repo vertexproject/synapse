@@ -4681,7 +4681,7 @@ class Layer(s_nexus.Pusher):
         name = edit[1][0]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
 
-        if not await self.dataslab.put(abrv + FLAG_TOMB, nid, db=self.dataname, overwrite=False):
+        if not await self.dataslab.put(abrv + FLAG_TOMB, nid, db=self.dataname, dupdata=False):
             return ()
 
         await self.dataslab.put(nid + abrv + FLAG_TOMB, s_msgpack.en(None), db=self.nodedata)
@@ -4832,8 +4832,7 @@ class Layer(s_nexus.Pusher):
         n2nid = s_common.int64en(n2nid)
 
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
-
-        if not await self.layrslab.put(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb, overwrite=False):
+        if not await self.layrslab.put(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb, dupdata=False):
             return ()
 
         n2sode = self._genStorNode(n2nid)
