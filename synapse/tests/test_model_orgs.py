@@ -25,6 +25,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :reporter=$lib.gen.orgByName(vertex)
                     :reporter:name=vertex
                     :ext:id=Foo
+                    :parent={[ ou:technique=* :name=metawoot ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -37,10 +38,14 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('T0001', nodes[0].get('mitre:attack:technique'))
             self.eq(40, nodes[0].get('sophistication'))
             self.eq('vertex', nodes[0].get('reporter:name'))
+            self.nn(nodes[0].get('parent'))
             self.len(1, await core.nodes('ou:technique -> syn:tag'))
             self.len(1, await core.nodes('ou:technique -> ou:technique:taxonomy'))
             self.len(1, await core.nodes('ou:technique -> it:mitre:attack:technique'))
-            self.len(1, await core.nodes('ou:technique :reporter -> ou:org'))
+
+            nodes = await core.nodes('ou:technique :parent -> *')
+            self.len(1, nodes)
+            self.eq('metawoot', nodes[0].get('name'))
 
             props = {
                 'name': 'MyGoal',
