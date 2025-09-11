@@ -4874,10 +4874,11 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, links)
             self.eq({'type': 'runtime'}, links[0][1])
 
-    async def test_lift_varderef(self):
+    async def test_storm_derefprops(self):
         async with self.getTestCore() as core:
+            await core.addTagProp('score', ('int', {}), {})
 
-            # Node adds
+            # editnodeadd
             msgs = await core.stormlist('$form = inet:fqdn [ *$form=foobar.com ]')
             self.stormHasNoWarnErr(msgs)
 
@@ -4889,7 +4890,7 @@ class StormTest(s_t_utils.SynTest):
                     await core.nodes('[ *$form=valu ]', opts=opts)
                 self.true(exc.exception.get('mesg').startswith("Expected value of type '<class 'str'>', got '"))
 
-            # Lifts
+            # liftprop
             msgs = await core.stormlist('$form = inet:fqdn *$form')
             self.stormHasNoWarnErr(msgs)
 
@@ -4897,6 +4898,46 @@ class StormTest(s_t_utils.SynTest):
                 opts = {'vars': {'form': inval}}
                 with self.raises(s_exc.StormRuntimeError) as exc:
                     await core.nodes('*$form', opts=opts)
+                self.true(exc.exception.get('mesg').startswith("Expected value of type '<class 'str'>', got '"))
+
+            # liftpropby
+            msgs = await core.stormlist('$form = inet:fqdn *$form=foobar.com')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form=newp', opts=opts)
+                self.true(exc.exception.get('mesg').startswith("Expected value of type '<class 'str'>', got '"))
+
+            # liftformtag
+            msgs = await core.stormlist('$form = inet:fqdn *$form#foo')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form#newp', opts=opts)
+                self.true(exc.exception.get('mesg').startswith("Expected value of type '<class 'str'>', got '"))
+
+            # liftbyarray
+            msgs = await core.stormlist('$form = test:arrayform *$form*[=(10)]')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form*[="newp"]', opts=opts)
+                self.true(exc.exception.get('mesg').startswith("Expected value of type '<class 'str'>', got '"))
+
+            # formtagprop
+            msgs = await core.stormlist('$form = inet:fqdn *$form#foo:score')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form#newp:score', opts=opts)
                 self.true(exc.exception.get('mesg').startswith("Expected value of type '<class 'str'>', got '"))
 
     async def test_storm_nested_root(self):

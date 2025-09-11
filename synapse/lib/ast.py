@@ -2,7 +2,6 @@ import types
 import asyncio
 import decimal
 import fnmatch
-import hashlib
 import logging
 import binascii
 import itertools
