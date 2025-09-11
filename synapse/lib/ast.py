@@ -4030,7 +4030,7 @@ class FormName(Value):
 
 class DerefProps(Value):
     async def compute(self, runt, path):
-        valu = await self.kids[0].compute(runt, path)
+        valu = await toprim(await self.kids[0].compute(runt, path))
         if (exc := await s_stormtypes.typeerr(valu, str)) is not None:
             raise self.kids[0].addExcInfo(exc)
         return valu

@@ -1,6 +1,5 @@
 import copy
 import asyncio
-import datetime
 import itertools
 import urllib.parse as u_parse
 import unittest.mock as mock
@@ -17,6 +16,7 @@ import synapse.lib.storm as s_storm
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -4941,6 +4941,11 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.StormRuntimeError) as exc:
                     await core.nodes('*$form#newp:score', opts=opts)
                 self.true(exc.exception.get('mesg').startswith(mesg))
+
+            # Check Storm Str types
+            name = s_stormtypes.Str('inet:fqdn')
+            msgs = await core.stormlist('*$form', opts={'vars': {'form': name}})
+            self.stormHasNoWarnErr(msgs)
 
     async def test_storm_nested_root(self):
         async with self.getTestCore() as core:
