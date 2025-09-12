@@ -7340,8 +7340,6 @@ class Layer(Prim):
         return await layr.getMirrorStatus()
 
     async def setStorNodeProp(self, nid, prop, valu):
-        iden = self.valu.get('iden')
-        layr = self.runt.view.core.getLayer(iden)
         nid = await tonidbyts(nid)
         prop = await tostr(prop)
         valu = await tostor(valu)
@@ -7353,8 +7351,6 @@ class Layer(Prim):
         return await layr.setStorNodeProp(nid, prop, valu, meta=meta)
 
     async def delStorNodeProp(self, nid, prop):
-        iden = self.valu.get('iden')
-        layr = self.runt.view.core.getLayer(iden)
         nid = await tonidbyts(nid)
         prop = await tostr(prop)
 
