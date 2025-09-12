@@ -836,6 +836,18 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:guid:size=2 :size -> test:arrayprop:ints')
             self.len(1, nodes)
 
+            fork = await core.view.fork()
+            forkiden = fork.get('iden')
+
+            await core.nodes('[ test:arrayprop=(othr,) ]')
+            await core.nodes('[ test:arrayprop=(self,) :children=((self,), (othr,)) ]', opts={'view': forkiden})
+            nodes = await core.nodes('test:arrayprop=(self,) -> *', opts={'view': forkiden})
+            self.len(1, nodes)
+
+            await core.nodes('test:arrayprop=(othr,) | delnode')
+            nodes = await core.nodes('test:arrayprop=(self,) -> *', opts={'view': forkiden})
+            self.len(0, nodes)
+
     async def test_ast_pivot_ndef(self):
 
         async with self.getTestCore() as core:
@@ -3006,6 +3018,7 @@ class AstTest(s_test.SynTest):
                     self.len(7, nodes)
                     exp = [
                         ('valu', 'test:int:seen', '@=', '2020'),
+                        ('valu', 'test:str2:seen', '@=', '2020'),
                         ('valu', 'test:str:seen', '@=', '2020'),
                     ]
                     self.eq(calls, exp)
@@ -3024,7 +3037,10 @@ class AstTest(s_test.SynTest):
 
                     nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
                     self.len(1, nodes)
-                    self.eq(calls, [('valu', 'test:str:tick', 'range=', ['19701125', '20151212'])])
+                    self.eq(calls, [
+                        ('valu', 'test:str2:tick', 'range=', ['19701125', '20151212']),
+                        ('valu', 'test:str:tick', 'range=', ['19701125', '20151212'])
+                    ])
                     calls = []
 
                     # Lift by value will fail since stortype is MSGP
@@ -3033,6 +3049,7 @@ class AstTest(s_test.SynTest):
                     self.len(1, nodes)
 
                     exp = [
+                        ('valu', 'test:str2:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
                         ('valu', 'test:str:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
                         ('prop', 'test:str:bar'),
                     ]
