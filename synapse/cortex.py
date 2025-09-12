@@ -624,7 +624,7 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(buid, valu)]
         '''
-        self.user.confirm(('layer', 'lift', layriden))
+        self.user.confirm(('layer', 'read', layriden))
         async for item in self.cell.iterFormRows(layriden, form, stortype=stortype, startvalu=startvalu):
             yield item
 
@@ -642,7 +642,7 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(buid, valu)]
         '''
-        self.user.confirm(('layer', 'lift', layriden))
+        self.user.confirm(('layer', 'read', layriden))
         async for item in self.cell.iterPropRows(layriden, form, prop, stortype=stortype, startvalu=startvalu):
             yield item
 
@@ -659,7 +659,7 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(buid, valu)]
         '''
-        self.user.confirm(('layer', 'lift', layriden))
+        self.user.confirm(('layer', 'read', layriden))
         async for item in self.cell.iterUnivRows(layriden, prop, stortype=stortype, startvalu=startvalu):
             yield item
 
@@ -680,7 +680,7 @@ class CoreApi(s_cell.CellApi):
             This yields (buid, (tagvalu, form)) instead of just buid, valu in order to allow resuming an interrupted
             call by feeding the last value retrieved into starttupl
         '''
-        self.user.confirm(('layer', 'lift', layriden))
+        self.user.confirm(('layer', 'read', layriden))
         async for item in self.cell.iterTagRows(layriden, tag, form=form, starttupl=starttupl):
             yield item
 
@@ -699,7 +699,7 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(buid, valu)]
         '''
-        self.user.confirm(('layer', 'lift', layriden))
+        self.user.confirm(('layer', 'read', layriden))
         async for item in self.cell.iterTagPropRows(layriden, tag, prop, form=form, stortype=stortype,
                                                     startvalu=startvalu):
             yield item
@@ -1366,6 +1366,32 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def _initCorePerms(self):
         self._cortex_permdefs.extend((
+            {'perm': ('axon', 'upload'), 'gate': 'cortex',
+             'desc': 'Controls the ability to upload a file to the Axon.'},
+            {'perm': ('axon', 'get'), 'gate': 'cortex',
+             'desc': 'Controls the ability to retrieve a file from the Axon.'},
+            {'perm': ('axon', 'has'), 'gate': 'cortex',
+             'desc': 'Controls the ability to check if the Axon contains a file.'},
+            {'perm': ('axon', 'del'), 'gate': 'cortex',
+             'desc': 'Controls the ability to remove a file from the Axon.'},
+
+            {'perm': ('layer', 'add'), 'gate': 'cortex',
+             'desc': 'Controls the ability to add Layers to the cortex.'},
+            {'perm': ('layer', 'del'), 'gate': 'cortex',
+             'desc': 'Controls the ability to remove Layers from the cortex.'},
+            {'perm': ('layer', 'edits', 'read'), 'gate': 'layer',
+             'desc': 'Controls the ability to retrieve node edits from the Layer.'},
+            {'perm': ('layer', 'read'), 'gate': 'layer',
+             'desc': 'Controls the ability to read/lift from a Layer.'},
+            {'perm': ('layer', 'read', '<iden>'), 'gate': 'cortex',
+             'desc': 'Controls the ability to ready/lift from a specific Layer.'},
+            {'perm': ('layer', 'set', '<name>'), 'gate': 'layer',
+             'desc': 'Controls the ability to configure properties of a Layer.'},
+            {'perm': ('layer', 'write'), 'gate': 'layer',
+             'desc': 'Controls the ability to write to a Layer.'},
+            {'perm': ('layer', 'write', '<iden>'), 'gate': 'cortex',
+             'desc': 'Controls the ability to write to a specific Layer.'},
+
             {'perm': ('model', 'form', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding extended model forms.'},
             {'perm': ('model', 'form', 'add', '<form>'), 'gate': 'cortex',
@@ -1519,15 +1545,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('view', 'set', '<setting>'), 'gate': 'view',
              'desc': 'Controls access to change view settings.',
              'ex': 'view.set.name'},
-
-            {'perm': ('axon', 'upload'), 'gate': 'cortex',
-             'desc': 'Controls the ability to upload a file to the Axon.'},
-            {'perm': ('axon', 'get'), 'gate': 'cortex',
-             'desc': 'Controls the ability to retrieve a file from the Axon.'},
-            {'perm': ('axon', 'has'), 'gate': 'cortex',
-             'desc': 'Controls the ability to check if the Axon contains a file.'},
-            {'perm': ('axon', 'del'), 'gate': 'cortex',
-             'desc': 'Controls the ability to remove a file from the Axon.'},
         ))
         for pdef in self._cortex_permdefs:
             s_schemas.reqValidPermDef(pdef)
