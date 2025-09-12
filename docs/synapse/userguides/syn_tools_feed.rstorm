@@ -43,7 +43,14 @@ Where:
 
   - Every file must be either json-serialized data, msgpack-serialized data, yaml-serialized data, or a 
     json lines file. The files do not have to all be of the same type.
-  
+
+help
+++++
+
+The detailed help (``-h``) output for the ``feed`` tool is shown below.
+
+.. shell:: --fail-ok python -m synapse.tools.feed -h
+
 Ingest Examples - Overview
 --------------------------
 

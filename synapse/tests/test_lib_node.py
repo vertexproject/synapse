@@ -76,6 +76,26 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(info.get('n1verbs'), {'refs': {'test:str': 1, 'test:int': 1}})
             self.eq(info.get('n2verbs'), {'refs': {'test:int': 2}})
 
+            # Tombstoned edges are subtracted from verb counts, but cannot go below 0
+            await core.nodes('''[ test:str=subt
+                +(refs)> {[ test:int=4 test:int=5 test:int=6 ]}
+                <(refs)+ {[ test:int=7 test:int=8 test:int=9 ]}
+            ]''')
+
+            nodes = await core.nodes('test:str=subt [ -(refs)> {test:int=4} <(refs)- {test:int=7} ]', opts=forkopts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {'refs': {'test:int': 2}})
+            self.eq(info.get('n2verbs'), {'refs': {'test:int': 2}})
+            self.eq(nodes[0].getEdgeCounts('refs'), {'refs': {'test:int': 2}})
+            self.eq(nodes[0].getEdgeCounts('refs', n2=True), {'refs': {'test:int': 2}})
+
+            await core.nodes('test:str=subt [ -(refs)> {test:int} <(refs)- {test:int} ]')
+
+            nodes = await core.nodes('test:str=subt', opts=forkopts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {})
+            self.eq(info.get('n2verbs'), {})
+
             fork2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)
             fork2opts = {'view': fork2}
 
