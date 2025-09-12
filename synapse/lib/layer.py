@@ -3246,13 +3246,13 @@ class Layer(s_nexus.Pusher):
         try:
             abrv = self.core.getIndxAbrv(INDX_NODEDATA, name)
         except s_exc.NoSuchAbrv:
-            return False
+            return
 
-        if not self.dataslab.hasdup(abrv + FLAG_NORM, nid, db=self.dataname):
-            if self.dataslab.hasdup(abrv + FLAG_TOMB, nid, db=self.dataname):
-                return False
-            return None
-        return True
+        if self.dataslab.hasdup(abrv + FLAG_NORM, nid, db=self.dataname):
+            return True
+
+        if self.dataslab.hasdup(abrv + FLAG_TOMB, nid, db=self.dataname):
+            return False
 
     async def liftTagProp(self, name):
 
@@ -3389,10 +3389,109 @@ class Layer(s_nexus.Pusher):
         newp_formname = newp.form.name
 
         set_edit = (EDIT_PROP_SET, (newp_name, newp_valu, newp_stortype, info.get('virts')))
-        nodeedits = [(nid, newp_formname, [set_edit])]
+        nodeedits = [(s_common.int64un(nid), newp_formname, [set_edit])]
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
-        return bool(changes[0][2])
+        return bool(changes)
+
+    async def delStorNode(self, nid, meta):
+        '''
+        Delete all node information in this layer.
+
+        Deletes props, tagprops, tags, n1edges, n2edges, nodedata, tombstones, and node valu.
+        '''
+        if (sode := self._getStorNode(nid)) is None:
+            return False
+
+        formname = sode.get('form')
+
+        edits = []
+        nodeedits = []
+        intnid = s_common.int64un(nid)
+
+        for propname in sode.get('props', {}).keys():
+            edits.append((EDIT_PROP_DEL, (propname,)))
+
+        for propname in sode.get('antiprops', {}).keys():
+            edits.append((EDIT_PROP_TOMB_DEL, (propname,)))
+
+        for tagname, tprops in sode.get('tagprops', {}).items():
+            for propname, propvalu in tprops.items():
+                edits.append((EDIT_TAGPROP_DEL, (tagname, propname)))
+
+        for tagname, tprops in sode.get('antitagprops', {}).items():
+            for propname in tprops.keys():
+                edits.append((EDIT_TAGPROP_TOMB_DEL, (tagname, propname)))
+
+        for tagname in sode.get('tags', {}).keys():
+            edits.append((EDIT_TAG_DEL, (tagname,)))
+
+        for tagname in sode.get('antitags', {}).keys():
+            edits.append((EDIT_TAG_TOMB_DEL, (tagname,)))
+
+        # EDIT_NODE_DEL will delete all nodedata and n1 edges if there is a valu in the sode
+        if (valu := sode.get('valu')):
+            edits.append((EDIT_NODE_DEL,))
+        else:
+            if (valu := sode.get('antivalu')):
+                edits.append((EDIT_NODE_TOMB_DEL,))
+
+            async for abrv, tomb in self.iterNodeDataKeys(nid):
+                name = self.core.getAbrvIndx(abrv)[0]
+                if tomb:
+                    edits.append((EDIT_NODEDATA_TOMB_DEL, (name,)))
+                else:
+                    edits.append((EDIT_NODEDATA_DEL, (name,)))
+                await asyncio.sleep(0)
+
+            async for abrv, n2nid, tomb in self.iterNodeEdgesN1(nid):
+                verb = self.core.getAbrvIndx(abrv)[0]
+                if tomb:
+                    edits.append((EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid))))
+                else:
+                    edits.append((EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
+                await asyncio.sleep(0)
+
+        nodeedits.append((intnid, formname, edits))
+
+        n2edges = {}
+        async for abrv, n2nid, tomb in self.iterNodeEdgesN2(nid):
+            n2edges.setdefault(n2nid, []).append((abrv, tomb))
+            await asyncio.sleep(0)
+
+        @s_cache.memoize()
+        def getN2Form(n2nid):
+            return self.core.getNidNdef(n2nid)[0]
+
+        changed = False
+
+        async def batchEdits(size=1000):
+            if len(nodeedits) < size:
+                return changed
+
+            _, changes = await self.saveNodeEdits(nodeedits, meta)
+
+            nodeedits.clear()
+
+            if changed: # pragma: no cover
+                return changed
+
+            return bool(changes)
+
+        for n2nid, edges in n2edges.items():
+            edits = []
+            for (abrv, tomb) in edges:
+                verb = self.core.getAbrvIndx(abrv)[0]
+                if tomb:
+                    edits.append((EDIT_EDGE_TOMB_DEL, (verb, intnid)))
+                else:
+                    edits.append((EDIT_EDGE_DEL, (verb, intnid)))
+
+            nodeedits.append((s_common.int64un(n2nid), getN2Form(n2nid), edits))
+
+            changed = await batchEdits()
+
+        return await batchEdits(size=1)
 
     async def delStorNodeProp(self, nid, prop, meta):
         pprop = self.core.model.reqProp(prop)
@@ -3402,10 +3501,59 @@ class Layer(s_nexus.Pusher):
         oldp_stortype = pprop.type.stortype
 
         del_edit = (EDIT_PROP_DEL, (oldp_name,))
-        nodeedits = [(nid, oldp_formname, [del_edit])]
+        nodeedits = [(s_common.int64un(nid), oldp_formname, [del_edit])]
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
-        return bool(changes[0][2])
+        return bool(changes)
+
+    async def delNodeData(self, nid, meta, name=None):
+        '''
+        Delete nodedata from a node in this layer. If name is not specified, delete all nodedata.
+        '''
+        if (sode := self._getStorNode(nid)) is None:
+            return False
+
+        edits = []
+        if name is None:
+            async for abrv, tomb in self.iterNodeDataKeys(nid):
+                name = self.core.getAbrvIndx(abrv)[0]
+                if tomb:
+                    edits.append((EDIT_NODEDATA_TOMB_DEL, (name,)))
+                else:
+                    edits.append((EDIT_NODEDATA_DEL, (name,)))
+                await asyncio.sleep(0)
+
+        elif (data := await self.hasNodeData(nid, name)) is not None:
+            if data:
+                edits.append((EDIT_NODEDATA_DEL, (name,)))
+            else:
+                edits.append((EDIT_NODEDATA_TOMB_DEL, (name,)))
+
+        if not edits:
+            return False
+
+        nodeedits = [(s_common.int64un(nid), sode.get('form'), edits)]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+
+        return bool(changes)
+
+    async def delEdge(self, n1nid, verb, n2nid, meta):
+        if (sode := self._getStorNode(n1nid)) is None:
+            return False
+
+        if (edge := await self.hasNodeEdge(n1nid, verb, n2nid)) is None:
+            return False
+
+        if edge:
+            edits = [(EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid)))]
+        else:
+            edits = [(EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid)))]
+
+        nodeedits = [(s_common.int64un(n1nid), sode.get('form'), edits)]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        return bool(changes)
 
     async def saveNodeEdits(self, edits, meta):
         '''

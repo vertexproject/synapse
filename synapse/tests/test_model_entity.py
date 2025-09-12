@@ -127,10 +127,11 @@ class EntityModelTest(s_t_utils.SynTest):
                     :sophistication=high
                     :reporter=$lib.gen.orgByName(vertex)
                     :reporter:name=vertex
+                    :parent={[ meta:technique=* :name=metawoot ]}
                 ]
             ''')
             self.len(1, nodes)
-            self.nn('reporter')
+            self.nn(nodes[0].get('reporter'))
             self.eq('woot', nodes[0].get('name'))
             self.eq('Hehe', nodes[0].get('desc'))
             self.eq('lol.woot.', nodes[0].get('type'))
@@ -138,9 +139,14 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq('Foo', nodes[0].get('id'))
             self.eq(40, nodes[0].get('sophistication'))
             self.eq('vertex', nodes[0].get('reporter:name'))
+            self.nn(nodes[0].get('parent'))
             self.len(1, await core.nodes('meta:technique -> syn:tag'))
             self.len(1, await core.nodes('meta:technique -> meta:technique:type:taxonomy'))
             self.len(1, await core.nodes('meta:technique :reporter -> ou:org'))
+
+            nodes = await core.nodes('meta:technique :parent -> *')
+            self.len(1, nodes)
+            self.eq('metawoot', nodes[0].get('name'))
 
             nodes = await core.nodes('''
                 [ entity:contribution=*

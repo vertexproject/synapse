@@ -65,68 +65,9 @@ Where:
 help
 ++++
 
-The detailed help (``-h``) output for ``csvtool`` is shown below (lines are wrapped for readability).
+The detailed help (``-h``) output for ``csvtool`` is shown below.
 
-::
-  
-  python -m synapse.tools.csvtool -h
-  
-  usage: synapse.tools.csvtool [-h] [--logfile LOGFILE] [--csv-header] [--cli] [--debug]
-    (--cortex CORTEX | --test) [--export] stormfile csvfiles [csvfiles ...]
-  
-  Command line tool for ingesting csv files into a cortex
-  
-  The storm file is run with the CSV rows specified in the variable "rows" so most storm files
-    will use a variable based for loop to create edit nodes.  For example:
-  
-  for ($fqdn, $ipv4, $tag) in $rows {
-      [ inet:dns:a=($fqdn, $ipv4) +#$tag ]
-  }
-  
-  More advanced uses may include switch cases to provide different logic based on a
-    column value.
-  
-  for ($type, $valu, $info) in $rows {
-      
-      switch $type {
-          fqdn: {
-              [ inet:fqdn=$valu ]
-          }
-          
-          "person name": {
-              [ ps:name=$valu ]
-          }
-          
-          *: {
-              // default case...
-          }
-      }
-      
-      switch $info {
-          "known malware": { [+#cno.mal] }
-      }
-  }
-  
-  positional arguments:
-  
-  stormfile             A STORM script describing how to create nodes
-                        from rows.
-  csvfiles              CSV files to load.
-  
-  optional arguments:
-  -h, --help            show this help message and exit
-  --logfile LOGFILE     Set a log file to get JSON lines from the
-                        server events.
-  --csv-header          Skip the first line from each CSV file.
-  --cli                 Drop into a cli session after loading data.
-  --debug               Enable verbose debug output.
-  --cortex CORTEX, -c CORTEX
-                        The telepath URL for the cortex ( or alias
-                        from ~/.syn/aliases ).
-  --test, -t            Perform a local CSV ingest against a temporary
-                        cortex.
-  --export              Export CSV data to file from storm using
-                        $lib.csv.emit(...) events.
+.. shell:: --fail-ok python -m synapse.tools.csvtool -h
 
 .. _csvtool-examples-ingest:
   

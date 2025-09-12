@@ -303,6 +303,18 @@ class StormTypesRegistry:
         locl = getattr(obj, funcname, None)
         assert locl is not None, f'bad _funcname=[{funcname}] for {obj} {info.get("name")}'
         args = rtype.get('args', ())
+        for idx, arg in enumerate(args):
+            argname = arg.get('name')
+            assert argname is not None, f'Argument at index {idx} has no name'
+            argtype = arg.get('type')
+            assert argtype is not None, f'The type for argument {argname} of function {funcname} is unknown'
+            if isinstance(argtype, (list, tuple)):
+                for atyp in argtype:
+                    if atyp not in self.known_types and atyp not in self.undefined_types:
+                        raise s_exc.NoSuchType(mesg=f'The argument type {atyp} for arg {argname} of function {obj.__name__}.{funcname} is unknown.', type=argtype)
+            else:
+                if argtype not in self.known_types and argtype not in self.undefined_types:
+                    raise s_exc.NoSuchType(mesg=f'The argument type {argtype} for arg {argname} of function {obj.__name__}.{funcname} is unknown.', type=argtype)
         callsig = getCallSig(locl)
         # Assert the callsigs match
         callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
@@ -1419,7 +1431,7 @@ class LibBase(Lib):
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to normalize.', },
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'A list of (<bool>, <prim>) for status and normalized value.', }}},
+                              'desc': 'A list of (<boolean>, <prim>) for status and normalized value.', }}},
         {'name': 'repr', 'desc': '''
             Attempt to convert a system mode value to a display mode string.
 
@@ -2071,7 +2083,7 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'str'],
                        'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
@@ -2094,7 +2106,7 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'str'],
                        'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
@@ -2124,7 +2136,7 @@ class LibAxon(Lib):
         ''',
          'type': {'type': 'function', '_funcname': 'del_',
                   'args': (
-                      {'name': 'sha256', 'type': 'crypto:hash:sha256',
+                      {'name': 'sha256', 'type': 'str',
                        'desc': 'The sha256 of the bytes to remove from the Axon.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the bytes were found and removed.'}}},
@@ -2726,7 +2738,7 @@ class LibLift(Lib):
          'type': {'type': 'function', '_funcname': '_byPropAlts',
                   'args': (
                       {'name': 'name', 'desc': 'The name of the property to lift by.', 'type': 'str'},
-                      {'name': 'valu', 'type': 'obj', 'desc': 'The value for the property.'},
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value for the property.'},
                       {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
@@ -2744,7 +2756,7 @@ class LibLift(Lib):
          'type': {'type': 'function', '_funcname': '_byPropRefs',
                   'args': (
                       {'name': 'props', 'desc': 'The name of the props to check for references.', 'type': ['str', 'list']},
-                      {'name': 'valu', 'type': 'obj', 'desc': 'The value for the property.', 'default': None},
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value for the property.', 'default': None},
                       {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
@@ -2754,7 +2766,7 @@ class LibLift(Lib):
          'type': {'type': 'function', '_funcname': '_byTypeValue',
                   'args': (
                       {'name': 'name', 'desc': 'The name of the type to lift.', 'type': 'str'},
-                      {'name': 'valu', 'type': 'obj', 'desc': 'The value for the type.'},
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value for the type.'},
                       {'name': 'cmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
@@ -6152,6 +6164,9 @@ class Node(Prim):
     Implements the Storm api for a node instance.
     '''
     _storm_locals = (
+        {'name': 'nid', 'desc': 'Get the node id of the Node.',
+         'type': {'type': 'function', '_funcname': '_methNodeForm',
+                  'returns': {'type': 'str', 'desc': 'The form of the Node.', }}},
         {'name': 'form', 'desc': 'Get the form of the Node.',
          'type': {'type': 'function', '_funcname': '_methNodeForm',
                   'returns': {'type': 'str', 'desc': 'The form of the Node.', }}},
@@ -6905,7 +6920,7 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'getStorNodesByProp',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The full property name to lift by.'},
-                      {'name': 'propvalu', 'type': 'obj', 'desc': 'The value for the property.', 'default': None},
+                      {'name': 'propvalu', 'type': 'prim', 'desc': 'The value for the property.', 'default': None},
                       {'name': 'propcmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.',
                        'default': '='},
                   ),
@@ -6914,17 +6929,41 @@ class Layer(Prim):
          'desc': 'Set a property on a node in this layer.',
          'type': {'type': 'function', '_funcname': 'setStorNodeProp',
                   'args': (
-                      {'name': 'nid', 'type': 'int', 'desc': 'The integer node id.'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id.'},
                       {'name': 'prop', 'type': 'str', 'desc': 'The property name to set.'},
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to set.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'delStorNode',
+         'desc': 'Delete a storage node, node data, and associated edges from a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delStorNode',
+                  'args': (
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
         {'name': 'delStorNodeProp',
          'desc': 'Delete a property from a node in this layer.',
          'type': {'type': 'function', '_funcname': 'delStorNodeProp',
                   'args': (
-                      {'name': 'nid', 'type': 't', 'desc': 'The integer node id.'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id.'},
                       {'name': 'prop', 'type': 'str', 'desc': 'The property name to delete.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'delNodeData',
+         'desc': 'Delete node data from a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delNodeData',
+                  'args': (
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id.'},
+                      {'name': 'name', 'type': 'str', 'default': None, 'desc': 'The node data key to delete.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'delEdge',
+         'desc': 'Delete edges from a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delEdge',
+                  'args': (
+                      {'name': 'n1nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The N1 node id.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to delete.'},
+                      {'name': 'n2nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The N2 node id.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
         {'name': 'getMirrorStatus', 'desc': '''
@@ -6954,19 +6993,11 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields messages describing any index inconsistencies.', }}},
         {'name': 'getStorNode', 'desc': '''
-            Retrieve the raw storage node for the specified node iden.
+            Retrieve the raw storage node for the specified node id.
             ''',
          'type': {'type': 'function', '_funcname': 'getStorNode',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The hex string of the node iden.'},
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'The storage node dictionary.', }}},
-        {'name': 'getStorNodeByNid', 'desc': '''
-            Retrieve the raw storage node for the specified node id.
-            ''',
-         'type': {'type': 'function', '_funcname': 'getStorNodeByNid',
-                  'args': (
-                      {'name': 'nid', 'type': 'int', 'desc': 'The integer node id'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id of the node.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The storage node dictionary.', }}},
         {'name': 'liftByProp', 'desc': '''
@@ -6989,7 +7020,7 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'liftByProp',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The full property name to lift by.'},
-                      {'name': 'propvalu', 'type': 'obj', 'desc': 'The value for the property.', 'default': None},
+                      {'name': 'propvalu', 'type': 'any', 'desc': 'The value for the property.', 'default': None},
                       {'name': 'propcmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
@@ -7031,14 +7062,28 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes.', }}},
 
+        {'name': 'hasEdge', 'desc': 'Check if a light edge between two nodes exists in the layer.',
+         'type': {'type': 'function', '_funcname': 'hasEdge',
+                  'args': (
+                      {'name': 'n1nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The N1 node id.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb.'},
+                      {'name': 'n2nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The N2 node id.'},
+                  ),
+                  'returns': {'type': 'boolean',
+                              'desc': 'True if the edge exists in the layer, False if it is a tombstone, or None if not present.'}}},
+
         {'name': 'getEdges', 'desc': '''
-            Yield (n1iden, verb, n2iden) tuples for any light edges in the layer.
+            Yield (n1iden, verb, n2iden, istombstone) tuples for any light edges in the layer.
 
             Example:
                 Iterate the light edges in ``$layer``::
 
-                    for ($n1iden, $verb, $n2iden) in $layer.getEdges() {
-                        $lib.print(`{$n1iden} -({$verb})> {$n2iden}`)
+                    for ($n1iden, $verb, $n2iden, $tomb) in $layer.getEdges() {
+                        if $tomb {
+                            $lib.print(`{$n1iden} -({$verb})> {$n2iden}`)
+                        } else {
+                            $lib.print(`{$n1iden} +({$verb})> {$n2iden}`)
+                        }
                     }
 
             ''',
@@ -7048,45 +7093,55 @@ class Layer(Prim):
                               'desc': 'Yields (<n1iden>, <verb>, <n2iden>) tuples', }}},
 
         {'name': 'getEdgesByN1', 'desc': '''
-            Yield (verb, n2iden) tuples for any light edges in the layer for the source node iden.
+            Yield (verb, n2nid, istombstone) tuples for any light edges in the layer for the source node id.
 
             Example:
                 Iterate the N1 edges for ``$node``::
 
-                    for ($verb, $n2iden) in $layer.getEdgesByN1($node.iden()) {
-                        $lib.print(`-({$verb})> {$n2iden}`)
+                    for ($verb, $n2nid, $tomb) in $layer.getEdgesByN1($node) {
+                        if $tomb {
+                            $lib.print(`-({$verb})> {$n2nid}`)
+                        } else {
+                            $lib.print(`+({$verb})> {$n2nid}`)
+                        }
                     }
 
             ''',
          'type': {'type': 'function', '_funcname': 'getEdgesByN1',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id of the node.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'An optional edge verb to filter by.', 'default': None},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
-                              'desc': 'Yields (<verb>, <n2iden>) tuples', }}},
+                              'desc': 'Yields (<verb>, <n2nid>, <istombstone>) tuples', }}},
 
         {'name': 'getEdgesByN2', 'desc': '''
-            Yield (verb, n1iden) tuples for any light edges in the layer for the target node iden.
+            Yield (verb, n1nid, istombstone) tuples for any light edges in the layer for the target node id.
 
             Example:
                 Iterate the N2 edges for ``$node``::
 
-                    for ($verb, $n1iden) in $layer.getEdgesByN2($node.iden()) {
-                        $lib.print(`-({$verb})> {$n1iden}`)
+                    for ($verb, $n1nid) in $layer.getEdgesByN2($node) {
+                        if $tomb {
+                            $lib.print(`-({$verb})> {$n1nid}`)
+                        } else {
+                            $lib.print(`+({$verb})> {$n1nid}`)
+                        }
                     }
             ''',
          'type': {'type': 'function', '_funcname': 'getEdgesByN2',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id of the node.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'An optional edge verb to filter by.', 'default': None},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
-                              'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
+                              'desc': 'Yields (<verb>, <n1nid>, <istombstone>) tuples', }}},
         {'name': 'getTombstones', 'desc': '''
-            Get (iden, tombtype, info) tuples representing tombstones stored in the layer.
+            Get (nid, tombtype, info) tuples representing tombstones stored in the layer.
             ''',
          'type': {'type': 'function', '_funcname': 'getTombstones',
                   'returns': {'name': 'Yields', 'type': 'list',
-                              'desc': 'Tuple of iden, tombstone type, and type specific info.'}}},
+                              'desc': 'Tuple of node id, tombstone type, and type specific info.'}}},
         {'name': 'getEdgeTombstones', 'desc': '''
             Get (n1nid, verb, n2nid) tuples representing edge tombstones stored in the layer.
             ''',
@@ -7101,28 +7156,32 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'delTombstone',
                   'args': (
-                      {'name': 'nid', 'type': 'str', 'desc': 'The node id of the node.'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id of the node.'},
                       {'name': 'tombtype', 'type': 'int', 'desc': 'The tombstone type.'},
                       {'name': 'tombinfo', 'type': 'list', 'desc': 'The tombstone info to delete.'},
                   ),
                   'returns': {'type': 'boolean',
                               'desc': 'True if the tombstone was deleted, False if not.'}}},
         {'name': 'getNodeData', 'desc': '''
-            Yield (name, valu) tuples for any node data in the layer for the target node iden.
+            Yield (name, valu, istombstone) tuples for any node data in the layer for the target node iden.
 
             Example:
                 Iterate the node data for ``$node``::
 
-                    for ($name, $valu) in $layer.getNodeData($node.iden()) {
-                        $lib.print(`{$name} = {$valu}`)
+                    for ($name, $valu, $tomb) in $layer.getNodeData($node.iden()) {
+                        if $tomb {
+                            $lib.print(`{$name} DELETED`)
+                        } else {
+                            $lib.print(`{$name} = {$valu}`)
+                        }
                     }
             ''',
          'type': {'type': 'function', '_funcname': 'getNodeData',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The node id of the node.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
-                              'desc': 'Yields (<name>, <valu>) tuples', }}},
+                              'desc': 'Yields (<name>, <valu>, <istombstone>>) tuples', }}},
     )
     _storm_typename = 'layer'
     _ismutable = False
@@ -7165,6 +7224,7 @@ class Layer(Prim):
             'delPush': self._delPush,
             'addPull': self._addPull,
             'delPull': self._delPull,
+            'hasEdge': self.hasEdge,
             'getEdges': self.getEdges,
             'liftByTag': self.liftByTag,
             'liftByProp': self.liftByProp,
@@ -7176,7 +7236,6 @@ class Layer(Prim):
             'getPropArrayCount': self._methGetPropArrayCount,
             'getFormCounts': self._methGetFormcount,
             'getStorNode': self.getStorNode,
-            'getStorNodeByNid': self.getStorNodeByNid,
             'getStorNodes': self.getStorNodes,
             'getStorNodesByForm': self.getStorNodesByForm,
             'getStorNodesByProp': self.getStorNodesByProp,
@@ -7188,7 +7247,10 @@ class Layer(Prim):
             'getNodeData': self.getNodeData,
             'getMirrorStatus': self.getMirrorStatus,
             'setStorNodeProp': self.setStorNodeProp,
+            'delStorNode': self.delStorNode,
             'delStorNodeProp': self.delStorNodeProp,
+            'delNodeData': self.delNodeData,
+            'delEdge': self.delEdge,
         }
 
     @stormfunc(readonly=True)
@@ -7206,8 +7268,7 @@ class Layer(Prim):
         async for _, nid, _ in layr.liftByTag(tagname, form=formname):
             yield await self.runt.view._joinStorNode(nid)
 
-    @stormfunc(readonly=True)
-    async def liftByProp(self, propname, propvalu=None, propcmpr='='):
+    async def _liftByProp(self, propname, propvalu=None, propcmpr='='):
 
         propname = await tostr(propname)
         propvalu = await tostor(propvalu)
@@ -7223,14 +7284,14 @@ class Layer(Prim):
             ptyp = self.runt.view.core.model.reqMetaType(name)
 
             if propvalu is None:
-                async for _, nid, _ in layr.liftByMeta(name):
-                    yield await self.runt.view._joinStorNode(nid)
+                async for _, nid, sref in layr.liftByMeta(name):
+                    yield nid, sref
                 return
 
             norm, info = await ptyp.norm(propvalu, view=False)
             cmprvals = await ptyp.getStorCmprs(propcmpr, norm)
-            async for _, nid, _ in layr.liftByMetaValu(name, cmprvals):
-                yield await self.runt.view._joinStorNode(nid)
+            async for _, nid, sref in layr.liftByMetaValu(name, cmprvals):
+                yield nid, sref
 
         else:
             prop = self.runt.view.core.model.reqProp(propname)
@@ -7243,14 +7304,20 @@ class Layer(Prim):
                 liftprop = prop.name
 
             if propvalu is None:
-                async for _, nid, _ in layr.liftByProp(liftform, liftprop):
-                    yield await self.runt.view._joinStorNode(nid)
+                async for _, nid, sref in layr.liftByProp(liftform, liftprop):
+                    yield nid, sref
                 return
 
             norm, info = await prop.type.norm(propvalu, view=False)
             cmprvals = await prop.type.getStorCmprs(propcmpr, norm)
-            async for _, nid, _ in layr.liftByPropValu(liftform, liftprop, cmprvals):
-                yield await self.runt.view._joinStorNode(nid)
+            async for _, nid, sref in layr.liftByPropValu(liftform, liftprop, cmprvals):
+                yield nid, sref
+
+    @stormfunc(readonly=True)
+    async def liftByProp(self, propname, propvalu=None, propcmpr='='):
+        iden = self.valu.get('iden')
+        async for nid, _ in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
+            yield await self.runt.view._joinStorNode(nid)
 
     @stormfunc(readonly=True)
     async def liftByNodeData(self, name):
@@ -7275,9 +7342,12 @@ class Layer(Prim):
     async def setStorNodeProp(self, nid, prop, valu):
         iden = self.valu.get('iden')
         layr = self.runt.view.core.getLayer(iden)
-        nid = await toint(nid)
+        nid = await tonidbyts(nid)
         prop = await tostr(prop)
         valu = await tostor(valu)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.view.core.getLayer(iden)
         self.runt.reqAdmin(mesg='setStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.setStorNodeProp(nid, prop, valu, meta=meta)
@@ -7285,11 +7355,44 @@ class Layer(Prim):
     async def delStorNodeProp(self, nid, prop):
         iden = self.valu.get('iden')
         layr = self.runt.view.core.getLayer(iden)
-        nid = await toint(nid)
+        nid = await tonidbyts(nid)
         prop = await tostr(prop)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.view.core.getLayer(iden)
         self.runt.reqAdmin(mesg='delStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.delStorNodeProp(nid, prop, meta=meta)
+
+    async def delStorNode(self, nid):
+        nid = await tonidbyts(nid)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.view.core.getLayer(iden)
+        self.runt.reqAdmin(mesg='delStorNode() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delStorNode(nid, meta=meta)
+
+    async def delNodeData(self, nid, name=None):
+        nid = await tonidbyts(nid)
+        name = await tostr(name, noneok=True)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.view.core.getLayer(iden)
+        self.runt.reqAdmin(mesg='delNodeData() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delNodeData(nid, meta=meta, name=name)
+
+    async def delEdge(self, n1nid, verb, n2nid):
+        n1nid = await tonidbyts(n1nid)
+        verb = await tostr(verb)
+        n2nid = await tonidbyts(n2nid)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.view.core.getLayer(iden)
+        self.runt.reqAdmin(mesg='delEdge() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delEdge(n1nid, verb, n2nid, meta=meta)
 
     async def _addPull(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
         url = await tostr(url)
@@ -7552,23 +7655,13 @@ class Layer(Prim):
             return meta.get('time')
 
     @stormfunc(readonly=True)
-    async def getStorNode(self, iden):
-        iden = await tostr(iden)
+    async def getStorNode(self, nid):
+        nid = await tonidbyts(nid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
 
-        nid = self.runt.view.core.getNidByBuid(s_common.uhex(iden))
         return layr.getStorNode(nid)
-
-    @stormfunc(readonly=True)
-    async def getStorNodeByNid(self, nid):
-        nid = await toint(nid)
-        layriden = self.valu.get('iden')
-        await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.view.core.getLayer(layriden)
-
-        return layr.getStorNode(s_common.int64en(nid))
 
     @stormfunc(readonly=True)
     async def getStorNodes(self):
@@ -7577,7 +7670,7 @@ class Layer(Prim):
         layr = self.runt.view.core.getLayer(layriden)
 
         async for nid, sode in layr.getStorNodes():
-            yield (s_common.ehex(self.runt.view.core.getBuidByNid(nid)), sode)
+            yield (s_common.int64un(nid), sode)
 
     @stormfunc(readonly=True)
     async def getStorNodesByForm(self, form):
@@ -7590,29 +7683,22 @@ class Layer(Prim):
         layr = self.runt.view.core.getLayer(layriden)
 
         async for nid, sode in layr.getStorNodesByForm(form):
-            yield (s_common.ehex(self.runt.view.core.getBuidByNid(nid)), sode)
+            yield (s_common.int64un(nid), sode)
 
     @stormfunc(readonly=True)
     async def getStorNodesByProp(self, propname, propvalu=None, propcmpr='='):
-        propname = await tostr(propname)
-        propvalu = await tostor(propvalu)
-        propcmpr = await tostr(propcmpr)
+        async for nid, sref in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
+            yield s_common.int64un(nid), copy.deepcopy(sref.sode)
 
+    @stormfunc(readonly=True)
+    async def hasEdge(self, n1nid, verb, n2nid):
+        n1nid = await tonidbyts(n1nid)
+        verb = await tostr(verb)
+        n2nid = await tonidbyts(n2nid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
-
-        prop = self.runt.view.core.model.reqProp(propname)
-
-        if propvalu is not None:
-            norm, info = await prop.type.norm(propvalu)
-            cmprvals = await prop.type.getStorCmprs(propcmpr, norm)
-            async for _, nid, sref in layr.liftByPropValu(prop.form.name, prop.name, cmprvals):
-                yield (s_common.int64un(nid), copy.deepcopy(sref.sode))
-            return
-
-        async for _, nid, sref in layr.liftByProp(prop.form.name, prop.name):
-            yield (s_common.int64un(nid), copy.deepcopy(sref.sode))
+        return await layr.hasNodeEdge(n1nid, verb, n2nid)
 
     @stormfunc(readonly=True)
     async def getEdges(self):
@@ -7620,58 +7706,39 @@ class Layer(Prim):
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
         async for n1nid, abrv, n2nid, tomb in layr.getEdges():
-            if tomb:
-                continue
-
-            n1buid = s_common.ehex(self.runt.view.core.getBuidByNid(n1nid))
             verb = self.runt.view.core.getAbrvIndx(abrv)[0]
-            n2buid = s_common.ehex(self.runt.view.core.getBuidByNid(n2nid))
-            yield (n1buid, verb, n2buid)
+            yield (s_common.int64un(n1nid), verb, s_common.int64un(n2nid), tomb)
 
     @stormfunc(readonly=True)
-    async def getEdgesByN1(self, iden):
-        iden = await tostr(iden)
+    async def getEdgesByN1(self, nid, verb=None):
+        nid = await tonidbyts(nid)
+        verb = await tostr(verb, noneok=True)
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
 
-        n1nid = self.runt.view.core.getNidByBuid(s_common.uhex(iden))
-        async for abrv, n2nid, tomb in layr.iterNodeEdgesN1(n1nid):
-            if tomb:
-                continue
-
+        async for abrv, n2nid, tomb in layr.iterNodeEdgesN1(nid, verb=verb):
             verb = self.runt.view.core.getAbrvIndx(abrv)[0]
-            yield (verb, s_common.ehex(self.runt.view.core.getBuidByNid(n2nid)))
+            yield (verb, s_common.int64un(n2nid), tomb)
 
     @stormfunc(readonly=True)
-    async def getEdgesByN2(self, iden):
-        iden = await tostr(iden)
+    async def getEdgesByN2(self, nid, verb=None):
+        nid = await tonidbyts(nid)
+        verb = await tostr(verb, noneok=True)
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
 
-        n2nid = self.runt.view.core.getNidByBuid(s_common.uhex(iden))
-        async for abrv, n1nid, tomb in layr.iterNodeEdgesN2(n2nid):
-            if tomb:
-                continue
-
+        async for abrv, n1nid, tomb in layr.iterNodeEdgesN2(nid, verb=verb):
             verb = self.runt.view.core.getAbrvIndx(abrv)[0]
-            yield (verb, s_common.ehex(self.runt.view.core.getBuidByNid(n1nid)))
+            yield (verb, s_common.int64un(n1nid), tomb)
 
     async def delTombstone(self, nid, tombtype, tombinfo):
-        nid = await toprim(nid)
+        nid = await tonidbyts(nid)
         tombtype = await toprim(tombtype)
         tombinfo = await toprim(tombinfo)
-
-        if not isinstance(nid, bytes):
-            mesg = f'delTombstone() got an invalid type for nid: {nid}'
-            raise s_exc.BadArg(mesg=mesg, nid=nid)
-
-        if len(nid) != 8:
-            mesg = f'delTombstone() got an invalid nid: {nid}'
-            raise s_exc.BadArg(mesg=mesg, nid=nid)
 
         return await self.runt.view.delTombstone(nid, tombtype, tombinfo, runt=self.runt)
 
@@ -7694,18 +7761,14 @@ class Layer(Prim):
             yield item
 
     @stormfunc(readonly=True)
-    async def getNodeData(self, iden):
-        iden = await tostr(iden)
+    async def getNodeData(self, nid):
+        nid = await tonidbyts(nid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
 
-        nid = self.runt.view.core.getNidByBuid(s_common.uhex(iden))
         async for abrv, valu, tomb in layr.iterNodeData(nid):
-            if tomb:
-                continue
-
-            yield self.runt.view.core.getAbrvIndx(abrv)[0], valu
+            yield self.runt.view.core.getAbrvIndx(abrv)[0], valu, tomb
 
     @stormfunc(readonly=True)
     async def _methLayerGet(self, name, defv=None):
@@ -8941,39 +9004,39 @@ class LibJsonStor(Lib):
         {'name': 'get', 'desc': 'Return a stored JSON object or object property.',
          'type': {'type': 'function', '_funcname': 'get',
                    'args': (
-                        {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
-                        {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                        {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
+                        {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                     ),
                     'returns': {'type': 'prim', 'desc': 'The previously stored value or ``(null)``.'}}},
 
         {'name': 'set', 'desc': 'Set a JSON object or object property.',
          'type': {'type': 'function', '_funcname': 'set',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path elements.'},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path elements.'},
                        {'name': 'valu', 'type': 'prim', 'desc': 'The value to set as the JSON object or object property.'},
-                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                       {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                    ),
                    'returns': {'type': 'boolean', 'desc': 'True if the set operation was successful.'}}},
 
         {'name': 'del', 'desc': 'Delete a stored JSON object or object.',
          'type': {'type': 'function', '_funcname': '_del',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
-                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
+                       {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                    ),
                    'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
 
         {'name': 'iter', 'desc': 'Yield (<path>, <valu>) tuples for the JSON objects.',
          'type': {'type': 'function', '_funcname': 'iter',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.', 'default': None},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.', 'default': None},
                    ),
                    'returns': {'name': 'Yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
         {'name': 'cacheget',
          'desc': 'Retrieve data stored with cacheset() if it was stored more recently than the asof argument.',
          'type': {'type': 'function', '_funcname': 'cacheget',
                   'args': (
-                      {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
+                      {'name': 'path', 'type': ['str', 'list'], 'desc': 'The base path to use for the cache key.', },
                       {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
                       {'name': 'asof', 'type': 'time', 'default': 'now', 'desc': 'The max cache age.'},
                       {'name': 'envl', 'type': 'boolean', 'default': False, 'desc': 'Return the full cache envelope.'},
@@ -8983,7 +9046,7 @@ class LibJsonStor(Lib):
          'desc': 'Set cache data with an envelope that tracks time for cacheget() use.',
          'type': {'type': 'function', '_funcname': 'cacheset',
                   'args': (
-                      {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
+                      {'name': 'path', 'type': ['str', 'list'], 'desc': 'The base path to use for the cache key.', },
                       {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
                       {'name': 'valu', 'type': 'prim', 'desc': 'The data to store.', },
                   ),
@@ -8992,7 +9055,7 @@ class LibJsonStor(Lib):
          'desc': 'Remove cached data set with cacheset.',
          'type': {'type': 'function', '_funcname': 'cachedel',
                   'args': (
-                      {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
+                      {'name': 'path', 'type': ['str', 'list'], 'desc': 'The base path to use for the cache key.', },
                       {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
@@ -10049,23 +10112,68 @@ async def torepr(valu, usestr=False):
         return str(valu)
     return repr(valu)
 
+async def tobuid(valu):
+
+    if isinstance(valu, Node):
+        return valu.valu.buid
+
+    if isinstance(valu, s_node.Node):
+        return valu.buid
+
+    valu = await toprim(valu)
+
+    if isinstance(valu, str):
+        if not s_common.isbuidhex(valu):
+            mesg = f'Invalid buid string: {valu}'
+            raise s_exc.BadCast(mesg=mesg)
+
+        return s_common.uhex(valu)
+
+    if not isinstance(valu, bytes):
+        mesg = f'Invalid buid valu: {valu}'
+        raise s_exc.BadCast(mesg=mesg)
+
+    if len(valu) != 32:
+        mesg = f'Invalid buid valu: {valu}'
+        raise s_exc.BadCast(mesg=mesg)
+
+    return valu
+
 async def tobuidhex(valu, noneok=False):
 
     if noneok and valu is None:
         return None
 
-    if isinstance(valu, Node):
-        return valu.valu.iden()
+    if isinstance(valu, str) and s_common.isbuidhex(valu):
+        return valu
 
-    if isinstance(valu, s_node.Node):
-        return valu.iden()
+    buid = await tobuid(valu)
+    return s_common.ehex(buid)
 
-    valu = await tostr(valu)
-    if not s_common.isbuidhex(valu):
-        mesg = f'Invalid buid string: {valu}'
-        raise s_exc.BadCast(mesg=mesg)
+async def tonidbyts(valu):
+    if isinstance(valu, int):
+        return s_common.int64en(valu)
 
-    return valu
+    if isinstance(valu, str):
+        try:
+            valu = s_common.uhex(valu)
+        except:
+            raise s_exc.BadArg(mesg=f'Invalid nid value: {s_common.trimText(repr(valu))}')
+
+    if isinstance(valu, bytes):
+        if len(valu) == 8:
+            return valu
+
+        if len(valu) == 32 and (nid := s_scope.get('runt').view.core.getNidByBuid(valu)) is not None:
+            return nid
+
+    elif isinstance(valu, Node):
+        return valu.valu.nid
+
+    elif isinstance(valu, s_node.Node):
+        return valu.nid
+
+    raise s_exc.BadArg(mesg=f'Invalid nid value: {s_common.trimText(repr(valu))}')
 
 async def totype(valu, basetypes=False) -> str:
     '''

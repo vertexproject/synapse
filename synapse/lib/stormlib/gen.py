@@ -135,7 +135,7 @@ class LibGen(s_stormtypes.Lib):
          'desc': 'Returns a file:bytes node by SHA256, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'sha256', 'type': ['str', 'crypto:hash:sha256'], 'desc': 'The SHA256 fingerprint for the file:bytes node.'},
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 fingerprint for the file:bytes node.'},
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
@@ -144,7 +144,7 @@ class LibGen(s_stormtypes.Lib):
          'desc': 'Returns a crypto:x509:cert node by SHA256, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'sha256', 'type': ['str', 'crypto:hash:sha256'], 'desc': 'The SHA256 fingerprint for the certificate.'},
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 fingerprint for the certificate.'},
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
@@ -154,7 +154,7 @@ class LibGen(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'server', 'type': ['str', 'inet:server'], 'desc': 'The server associated with the x509 certificate.'},
-                      {'name': 'sha256', 'type': ['str', 'crypto:hash:sha256'], 'desc': 'The SHA256 fingerprint for the certificate.'},
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 fingerprint for the certificate.'},
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
