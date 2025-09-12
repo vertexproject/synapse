@@ -226,10 +226,10 @@ Bye!
 shell_input00 = '''
 Shell with environment variable.
 
-.. shell-env:: SYN_LOG_LEVEL=DEBUG SYN_FOO=BAR
-.. shell:: python3 -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+.. shell-env:: SYN_HEHE_HAHA=BEEP SYN_FOO=BAR
+.. shell:: python3 -c "import os; print('HEHE_HAHA', os.environ.get('SYN_HEHE_HAHA')); print('FOO', os.environ.get('SYN_FOO'))"
 .. shell-env::
-.. shell:: python3 -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+.. shell:: python3 -c "import os; print('HEHE_HAHA', os.environ.get('SYN_HEHE_HAHA')); print('FOO', os.environ.get('SYN_FOO'))"
 '''
 
 shell_output00 = '''
@@ -237,17 +237,17 @@ Shell with environment variable.
 
 ::
 
-  python3 -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+  python3 -c "import os; print('HEHE_HAHA', os.environ.get('SYN_HEHE_HAHA')); print('FOO', os.environ.get('SYN_FOO'))"
 
-  LEVEL DEBUG
+  HEHE_HAHA BEEP
   FOO BAR
 
 
 ::
 
-  python3 -c "import os; print('LEVEL', os.environ.get('SYN_LOG_LEVEL')); print('FOO', os.environ.get('SYN_FOO'))"
+  python3 -c "import os; print('HEHE_HAHA', os.environ.get('SYN_HEHE_HAHA')); print('FOO', os.environ.get('SYN_FOO'))"
 
-  LEVEL None
+  HEHE_HAHA None
   FOO None
 
 
