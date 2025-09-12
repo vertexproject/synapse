@@ -618,7 +618,8 @@ class StormRst(s_base.Base):
         query = query.replace('--fail-ok', '')
         query = query.strip()
 
-        env = self.context.get('shell-env')
+        env = dict(os.environ)
+        env.update(self.context.get('shell-env', {}))
 
         stderr = None
         if opts.include_stderr:
