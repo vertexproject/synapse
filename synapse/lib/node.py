@@ -388,35 +388,42 @@ class Node(NodeBase):
     def getEdgeCounts(self, verb=None, n2=False):
 
         if n2:
-            key = 'n2verbs'
+            keys = (('n2verbs', 1), ('n2antiverbs', -1))
         else:
-            key = 'n1verbs'
+            keys = (('n1verbs', 1), ('n1antiverbs', -1))
 
         ecnts = {}
 
         for sode in self.sodes:
             if not n2 and sode.get('antivalu') is not None:
-                return ecnts
+                break
 
-            if (verbs := sode.get(key)) is None:
-                continue
+            for (key, inc) in keys:
+                if (verbs := sode.get(key)) is None:
+                    continue
 
-            if verb is not None:
-                if (forms := verbs.get(verb)) is not None:
-                    if (formcnts := ecnts.get(verb)) is None:
-                        ecnts[verb] = formcnts = {}
+                if verb is not None:
+                    if (forms := verbs.get(verb)) is not None:
+                        if (formcnts := ecnts.get(verb)) is None:
+                            ecnts[verb] = formcnts = {}
 
-                    for form, cnt in forms.items():
-                        formcnts[form] = formcnts.get(form, 0) + cnt
-            else:
-                for verb, forms in verbs.items():
-                    if (formcnts := ecnts.get(verb)) is None:
-                        ecnts[verb] = formcnts = {}
+                        for form, cnt in forms.items():
+                            formcnts[form] = formcnts.get(form, 0) + (cnt * inc)
+                else:
+                    for verb, forms in verbs.items():
+                        if (formcnts := ecnts.get(verb)) is None:
+                            ecnts[verb] = formcnts = {}
 
-                    for form, cnt in forms.items():
-                        formcnts[form] = formcnts.get(form, 0) + cnt
+                        for form, cnt in forms.items():
+                            formcnts[form] = formcnts.get(form, 0) + (cnt * inc)
 
-        return ecnts
+        retn = {}
+        for verb, formcnts in ecnts.items():
+            real = {form: cnt for form, cnt in formcnts.items() if cnt > 0}
+            if real:
+                retn[verb] = real
+
+        return retn
 
     async def getEmbeds(self, embeds):
         '''

@@ -493,6 +493,9 @@ modeldefs = (
 
                 ('tag', ('syn:tag', {}), {
                     'doc': 'The tag used to annotate nodes where the technique was employed.'}),
+
+                ('parent', ('meta:technique', {}), {
+                    'doc': 'The parent technique for the technique.'}),
             )),
 
             ('meta:technique:type:taxonomy', {}, ()),
