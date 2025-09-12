@@ -799,13 +799,15 @@ class ProtoNode(s_node.NodeBase):
         if propform is not None:
             await self.editor.addNode(propform.name, valu, norminfo=norminfo)
 
-        # TODO can we mandate any subs are returned pre-normalized?
         propsubs = norminfo.get('subs')
         if propsubs is not None:
-            for subname, subvalu in propsubs.items():
+            for subname, (subhash, subvalu, subinfo) in propsubs.items():
                 full = f'{prop.name}:{subname}'
                 subprop = self.form.props.get(full)
                 if subprop is not None and not subprop.locked:
+                    if subprop.typehash is subhash:
+                        await self.set(full, subvalu, norminfo=subinfo)
+                        continue
                     await self.set(full, subvalu)
 
         propadds = norminfo.get('adds')
@@ -851,11 +853,17 @@ class ProtoNode(s_node.NodeBase):
         if propform is not None:
             ops.append(self.editor.getAddNodeOps(propform.name, valu, norminfo=norminfo))
 
-        # TODO can we mandate any subs are returned pre-normalized?
         propsubs = norminfo.get('subs')
         if propsubs is not None:
-            for subname, subvalu in propsubs.items():
+            for subname, (subhash, subvalu, subinfo) in propsubs.items():
                 full = f'{prop.name}:{subname}'
+                if (subp := self.form.props.get(full)) is None:
+                    continue
+
+                if subp.type.typehash is subhash:
+                    ops.append(self.getSubSetOps(full, subvalu, norminfo=subinfo))
+                    continue
+
                 ops.append(self.getSubSetOps(full, subvalu))
 
         propadds = norminfo.get('adds')
@@ -991,8 +999,15 @@ class NodeEditor:
         ops = []
 
         if subs is not None:
-            for prop, valu in subs.items():
-                ops.append(protonode.getSubSetOps(prop, valu))
+            for prop, (subhash, subvalu, subinfo) in subs.items():
+                if (subp := form.props.get(prop)) is None:
+                    continue
+
+                if subp.type.typehash is subhash:
+                    ops.append(protonode.getSubSetOps(prop, subvalu, norminfo=subinfo))
+                    continue
+
+                ops.append(protonode.getSubSetOps(prop, subvalu))
 
         if adds is not None:
             for addname, addvalu, addinfo in adds:
@@ -1026,8 +1041,15 @@ class NodeEditor:
 
         subs = norminfo.get('subs')
         if subs is not None:
-            for prop, valu in subs.items():
-                ops.append(protonode.getSubSetOps(prop, valu))
+            for prop, (subhash, subvalu, subinfo) in subs.items():
+                if (subp := form.props.get(prop)) is None:
+                    continue
+
+                if subp.type.typehash is subhash:
+                    ops.append(protonode.getSubSetOps(prop, subvalu, norminfo=subinfo))
+                    continue
+
+                ops.append(protonode.getSubSetOps(prop, subvalu))
 
             while ops:
                 oset = ops.popleft()

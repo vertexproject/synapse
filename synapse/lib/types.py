@@ -690,7 +690,7 @@ class Comp(Type):
 
             norm, info = await _type.norm(valu[i], view=view)
 
-            subs[name] = norm
+            subs[name] = (_type.typehash, norm, info)
             norms.append(norm)
 
             for k, v in info.get('subs', {}).items():
@@ -834,7 +834,7 @@ class Guid(Type):
 
         if props:
             for name, (prop, norm, info) in props.items():
-                subinfo[name] = norm
+                subinfo[name] = (prop.type.typehash, norm, info)
                 if info:
                     ptyp = prop.type
                     if ptyp.isarray:
@@ -1998,9 +1998,9 @@ class Ndef(Type):
             'form=': self._storLiftForm
         }
 
-        self.formnametype = self.modl.type('str').clone({'lower': True, 'strip': True})
+        self.formtype = self.modl.type('syn:form')
         self.virts |= {
-            'form': (self.formnametype, self._getForm),
+            'form': (self.formtype, self._getForm),
         }
 
         self.formfilter = None
@@ -2082,7 +2082,7 @@ class Ndef(Type):
         norm = (form.name, formnorm)
 
         adds = ((form.name, formnorm, forminfo),)
-        subs = {'form': form.name}
+        subs = {'form': (self.formtype.typehash, form.name, {})}
 
         return norm, {'adds': adds, 'subs': subs}
 
@@ -2128,9 +2128,9 @@ class NodeProp(Type):
             'prop=': self._storLiftProp
         }
 
-        self.propnametype = self.modl.type('str').clone({'lower': True, 'strip': True})
+        self.proptype = self.modl.type('syn:prop')
         self.virts |= {
-            'prop': (self.propnametype, self._getProp),
+            'prop': (self.proptype, self._getProp),
         }
 
     async def getStorCmprs(self, cmpr, valu, virts=None):
@@ -2176,7 +2176,7 @@ class NodeProp(Type):
             raise s_exc.NoSuchProp(mesg=mesg, name=self.name, prop=propname)
 
         propnorm, info = await prop.type.norm(propvalu)
-        return (prop.full, propnorm), {'subs': {'prop': prop.full}}
+        return (prop.full, propnorm), {'subs': {'prop': (self.proptype.typehash, prop.full, {})}}
 
 class Range(Type):
 
@@ -2210,14 +2210,15 @@ class Range(Type):
             mesg = f'Must be a 2-tuple of type {self.subtype.name}: {s_common.trimText(repr(valu))}'
             raise s_exc.BadTypeValu(numitems=len(valu), name=self.name, mesg=mesg)
 
-        minv = (await self.subtype.norm(valu[0]))[0]
-        maxv = (await self.subtype.norm(valu[1]))[0]
+        minv, minfo = await self.subtype.norm(valu[0])
+        maxv, maxfo = await self.subtype.norm(valu[1])
 
         if minv > maxv:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='minval cannot be greater than maxval')
 
-        return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
+        typehash = self.subtype.typehash
+        return (minv, maxv), {'subs': {'min': (typehash, minv, minfo), 'max': (typehash, maxv, maxfo)}}
 
     def repr(self, norm):
         subx = self.subtype.repr(norm[0])
@@ -2254,6 +2255,8 @@ class Str(Type):
             '=': self._storLiftEq,
             '^=': self._storLiftPref,
         })
+
+        self.strtype = self.modl.type('str')
 
         self.regex = None
         restr = self.opts.get('regex')
@@ -2350,7 +2353,7 @@ class Str(Type):
 
             subs = match.groupdict()
             if subs:
-                info['subs'] = subs
+                info['subs'] = {k: (self.strtype.typehash, v, {}) for k, v in subs.items()}
 
         return norm, info
 
@@ -2382,6 +2385,7 @@ class Taxonomy(Str):
         self.setNormFunc(list, self._normPyList)
         self.setNormFunc(tuple, self._normPyList)
         self.taxon = self.modl.type('taxon')
+        self.inttype = self.modl.type('int')
 
     async def _ctorCmprPref(self, valu):
         norm = await self._normForLift(valu)
@@ -2399,16 +2403,27 @@ class Taxonomy(Str):
 
     async def _normPyList(self, valu, view=None):
 
-        toks = [(await self.taxon.norm(v))[0] for v in valu]
-        subs = {
-            'base': toks[-1],
-            'depth': len(toks) - 1,
-        }
-
-        if len(toks) > 1:
-            subs['parent'] = '.'.join(toks[:-1]) + '.'
+        toknorms = [await self.taxon.norm(v) for v in valu]
+        toks = [norm[0] for norm in toknorms]
 
         norm = '.'.join(toks) + '.'
+        subs = pinfo = {}
+
+        while toknorms:
+            pnorm, info = toknorms.pop(-1)
+            toks.pop(-1)
+
+            pinfo |= {
+                'base': (self.taxon.typehash, pnorm, info),
+                'depth': (self.inttype.typehash, len(toks), {}),
+            }
+
+            if toknorms:
+                nextfo = {}
+                pinfo['parent'] = (self.typehash, '.'.join(toks) + '.', {'subs': nextfo})
+                pinfo = nextfo
+                await asyncio.sleep(0)
+
         return norm, {'subs': subs}
 
     async def _normPyStr(self, text, view=None):
@@ -2425,17 +2440,12 @@ class Tag(Str):
         self.setNormFunc(list, self._normPyList)
         self.setNormFunc(tuple, self._normPyList)
         self.tagpart = self.modl.type('syn:tag:part')
+        self.inttype = self.modl.type('int')
 
     async def _normPyList(self, valu, view=None):
 
-        toks = [(await self.tagpart.norm(v))[0] for v in valu]
-        subs = {
-            'base': toks[-1],
-            'depth': len(toks) - 1,
-        }
-
-        if len(toks) > 1:
-            subs['up'] = '.'.join(toks[:-1])
+        toknorms = [await self.tagpart.norm(v) for v in valu]
+        toks = [norm[0] for norm in toknorms]
 
         norm = '.'.join(toks)
         if not s_grammar.tagre.fullmatch(norm):
@@ -2447,6 +2457,22 @@ class Tag(Str):
             (ok, mesg) = core.isTagValid(norm)
             if not ok:
                 raise s_exc.BadTypeValu(valu=norm, name=self.name, mesg=mesg)
+
+        subs = pinfo = {}
+
+        while toknorms:
+            pnorm, info = toknorms.pop(-1)
+
+            pinfo |= {
+                'base': (self.tagpart.typehash, pnorm, info),
+                'depth': (self.inttype.typehash, len(toknorms), {}),
+            }
+
+            if toknorms:
+                nextfo = {}
+                pinfo['up'] = (self.typehash, '.'.join([norm[0] for norm in toknorms]), {'subs': nextfo})
+                pinfo = nextfo
+                await asyncio.sleep(0)
 
         return norm, {'subs': subs, 'toks': toks}
 

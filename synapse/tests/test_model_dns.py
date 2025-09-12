@@ -9,49 +9,72 @@ class DnsModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             typ = core.model.type('inet:dns:name')
             # ipv4 - good and newp
+            iptype = core.model.type('inet:ip')
+            ipnorm, ipinfo = await iptype.norm('1.2.3.4')
+            ipsub = (iptype.typehash, (4, 0x01020304), ipinfo)
+
             norm, info = await typ.norm('4.3.2.1.in-addr.ARPA')
             self.eq(norm, '4.3.2.1.in-addr.arpa')
-            self.eq(info.get('subs'), {'ip': (4, 0x01020304)})
+            self.eq(info.get('subs'), {'ip': ipsub})
             norm, info = await typ.norm('newp.in-addr.ARPA')
             self.eq(norm, 'newp.in-addr.arpa')
             self.eq(info.get('subs'), {})
 
             # Ipv6 - good, newp, and ipv4 included
+            ipnorm, ipinfo = await iptype.norm('2001:db8::567:89ab')
+            ipsub = (iptype.typehash, (6, 0x20010db80000000000000000056789ab), ipinfo)
+
             ipv6 = 'b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.ARPA'
             norm, info = await typ.norm(ipv6)
             self.eq(norm, 'b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa')
-            self.eq(info.get('subs'), {'ip': (6, 0x20010db80000000000000000056789ab)})
+            self.eq(info.get('subs'), {'ip': ipsub})
 
             ipv6 = 'newp.2.ip6.arpa'
             norm, info = await typ.norm(ipv6)
             self.eq(norm, 'newp.2.ip6.arpa')
             self.eq(info.get('subs'), {})
 
+            ipnorm, ipinfo = await iptype.norm('::ffff:1.2.3.4')
+            ipsub = (iptype.typehash, (6, 0xffff01020304), ipinfo)
+
             ipv6 = '4.0.3.0.2.0.1.0.f.f.f.f.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa'
             norm, info = await typ.norm(ipv6)
             self.eq(norm, ipv6)
-            self.eq(info.get('subs'), {'ip': (6, 0xffff01020304)})
+            self.eq(info.get('subs'), {'ip': ipsub})
 
             # fqdn and a invalid fqdn
+            fqdntype = core.model.type('inet:fqdn')
+            fqdnnorm, fqdninfo = await fqdntype.norm('test.vertex.link')
+            fqdnsub = (fqdntype.typehash, 'test.vertex.link', fqdninfo)
+
             norm, info = await typ.norm('test.vertex.link')
             self.eq(norm, 'test.vertex.link')
-            self.eq(info.get('subs'), {'fqdn': 'test.vertex.link'})
+            self.eq(info.get('subs'), {'fqdn': fqdnsub})
+
+            ipnorm, ipinfo = await iptype.norm('1.2.3.4')
+            ipsub = (iptype.typehash, (4, 0x01020304), ipinfo)
 
             norm, info = await typ.norm('1.2.3.4')
             self.eq(norm, '1.2.3.4')
-            self.eq(info.get('subs'), {'ip': (4, 0x01020304)})
+            self.eq(info.get('subs'), {'ip': ipsub})
 
             norm, info = await typ.norm('134744072')  # 8.8.8.8 in integer form
             self.eq(norm, '134744072')
             self.eq(info.get('subs'), {})
 
+            ipnorm, ipinfo = await iptype.norm('::ffff:1.2.3.4')
+            ipsub = (iptype.typehash, (6, 0xffff01020304), ipinfo)
+
             norm, info = await typ.norm('::FFFF:1.2.3.4')
             self.eq(norm, '::ffff:1.2.3.4')
-            self.eq(info.get('subs'), {'ip': (6, 0xffff01020304)})
+            self.eq(info.get('subs'), {'ip': ipsub})
+
+            ipnorm, ipinfo = await iptype.norm('::1')
+            ipsub = (iptype.typehash, (6, 0x1), ipinfo)
 
             norm, info = await typ.norm('::1')
             self.eq(norm, '::1')
-            self.eq(info.get('subs'), {'ip': (6, 1)})
+            self.eq(info.get('subs'), {'ip': ipsub})
 
     async def test_model_dns_request(self):
 
