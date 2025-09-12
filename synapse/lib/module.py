@@ -1,4 +1,5 @@
 import os
+import collections
 
 import synapse.common as s_common
 
@@ -41,6 +42,14 @@ class CoreModule:
 
     def getModelDefs(self):
         return ()
+
+    def getModelDef(self):
+        s_common.deprecated('getModelDefs() ({self.__class__.__name}) has been superceeded by getModelDef()')
+        mdef = collections.defaultdict(list)
+        for _, olddef in self.getModelDefs():
+            for name, items in olddef.items():
+                mdef[name].extend(items)
+        return mdef
 
     def getConfPath(self):
         '''
@@ -105,24 +114,6 @@ class CoreModule:
         '''
         dirn = self.getModDir()
         return s_common.genpath(dirn, *paths)
-
-    async def preCoreModule(self):
-        '''
-        Module implementers may override this method to execute code
-        immediately after a module has been loaded.
-
-        Notes:
-            The ``initCoreModule`` function is preferred for overriding
-            instead of ``preCoreModule()``.
-
-            No Cortex layer/storage operations will function in preCoreModule.
-
-            Any exception raised within this method will halt additional
-            loading of the module.
-
-        Returns:
-            None
-        '''
 
     async def initCoreModule(self):
         '''

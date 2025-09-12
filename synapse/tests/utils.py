@@ -1423,7 +1423,7 @@ class SynTest(unittest.TestCase):
         mods = list(conf.get('modules', ()))
         conf['modules'] = mods
 
-        mods.insert(0, ('synapse.tests.utils.TestModule', {'key': 'valu'}))
+        mods.insert(0, 'synapse.tests.utils.TestModule')
 
         with self.withNexusReplay():
 

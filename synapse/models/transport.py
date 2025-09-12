@@ -1,8 +1,8 @@
 import synapse.lib.module as s_module
 
 class TransportModule(s_module.CoreModule):
-    def getModelDefs(self):
-        modl = {
+    def getModelDef(self):
+        return {
             'types': (
 
                 # TODO is transport:journey a thing?
@@ -600,4 +600,3 @@ class TransportModule(s_module.CoreModule):
                 ('transport:shipping:container', {}, ()),
             ),
         }
-        return (('transport', modl), )

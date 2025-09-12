@@ -2,9 +2,8 @@ import synapse.lib.module as s_module
 
 class AuthModule(s_module.CoreModule):
 
-    def getModelDefs(self):
-
-        modl = {
+    def getModelDef(self):
+        return {
             'types': (
                 ('auth:creds', ('guid', {}), {
                     'doc': 'A unique set of credentials used to access a resource.',
@@ -67,5 +66,3 @@ class AuthModule(s_module.CoreModule):
                 )),
             ),
         }
-        name = 'auth'
-        return ((name, modl), )

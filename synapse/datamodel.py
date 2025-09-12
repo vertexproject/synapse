@@ -4,6 +4,7 @@ An API to assist with the creation and enforcement of cortex data models.
 import sys
 import asyncio
 import logging
+import contextlib
 import collections
 
 import regex
@@ -34,6 +35,8 @@ class TagProp:
         self.model = model
         self.locked = False
 
+        self.deprecated = info.get('deprecated', False)
+
         self.utf8 = name.encode()
         self.nenc = name.encode() + b'\x00'
 
@@ -42,6 +45,10 @@ class TagProp:
             raise s_exc.NoSuchType(name=tdef[0])
 
         self.type = self.base.clone(tdef[1])
+
+        if not self.deprecated and self.type.deprecated:
+            self.deprecated = True
+            logger.warning(f'Tag property {name} uses deprecated type {self.type.name} but is not deprecated.')
 
         if isinstance(self.type, s_types.Array):
             mesg = 'Tag props may not be array types (yet).'
@@ -128,10 +135,17 @@ class Prop:
 
         self.alts = None
         self.locked = False
+
         self.deprecated = self.info.get('deprecated', False)
+        if not self.deprecated and form is not None and form.deprecated:
+            self.deprecated = True
 
         self.type = self.modl.getTypeClone(typedef)
         self.typehash = self.type.typehash
+
+        if not self.deprecated and self.type.deprecated:
+            self.deprecated = True
+            logger.warning(f'Property {self.full} uses deprecated type {self.type.name} but is not deprecated.')
 
         if self.type.isarray:
             self.arraytypehash = self.type.arraytype.typehash
@@ -140,9 +154,10 @@ class Prop:
             form.setProp(name, self)
             self.modl.propsbytype[self.type.name][self.full] = self
 
-        if self.deprecated or self.type.deprecated:
+        if self.deprecated:
+
             async def depfunc(node, oldv):
-                mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
+                mesg = f'Property {self.full} is deprecated and will be removed in 3.0.'
                 await node.snap.warnonce(mesg)
                 if __debug__:
                     sys.audit('synapse.datamodel.Prop.deprecated', mesg, self.full)
@@ -309,7 +324,7 @@ class Form:
 
         if self.deprecated:
             async def depfunc(node):
-                mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
+                mesg = f'Form {self.full} is deprecated and will be removed in 3.0.'
                 await node.snap.warnonce(mesg)
                 if __debug__:
                     sys.audit('synapse.datamodel.Form.deprecated', mesg, self.full)
@@ -494,7 +509,11 @@ class Model:
     '''
     def __init__(self, core=None):
 
+        self.iden = None
+        self.bulkedit = False
+
         self.core = core
+        self.ctors = {}  # name: ()
         self.types = {}  # name: Type()
         self.forms = {}  # name: Form()
         self.props = {}  # (form,name): Prop() and full: Prop()
@@ -502,7 +521,6 @@ class Model:
         self.ifaces = {}  # name: <ifdef>
         self.tagprops = {}  # name: TagProp()
         self.formabbr = {}  # name: [Form(), ... ]
-        self.modeldefs = []
 
         self.univs = {}
         self.allunivs = collections.defaultdict(list)
@@ -517,120 +535,6 @@ class Model:
         self.formprefixcache = s_cache.LruDict(PREFIX_CACHE_SIZE)
 
         self._type_pends = collections.defaultdict(list)
-        self._modeldef = {
-            'ctors': [],
-            'types': [],
-            'forms': [],
-            'univs': [],
-            'edges': [],
-        }
-
-        # add the primitive base types
-        info = {'doc': 'The base 64 bit signed integer type.'}
-        item = s_types.Int(self, 'int', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base floating point type.'}
-        item = s_types.Float(self, 'float', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A base range type.'}
-        item = s_types.Range(self, 'range', info, {'type': ('int', {})})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base string type.'}
-        item = s_types.Str(self, 'str', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base hex type.'}
-        item = s_types.Hex(self, 'hex', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base boolean type.'}
-        item = s_types.Bool(self, 'bool', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A date/time value.'}
-        item = s_types.Time(self, 'time', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A duration value.'}
-        item = s_types.Duration(self, 'duration', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A time window/interval.'}
-        item = s_types.Ival(self, 'ival', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base GUID type.'}
-        item = s_types.Guid(self, 'guid', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A tag component string.'}
-        item = s_types.TagPart(self, 'syn:tag:part', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base type for a synapse tag.'}
-        item = s_types.Tag(self, 'syn:tag', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base type for compound node fields.'}
-        item = s_types.Comp(self, 'comp', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The base geo political location type.'}
-        item = s_types.Loc(self, 'loc', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The node definition type for a (form,valu) compound field.'}
-        item = s_types.Ndef(self, 'ndef', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A typed array which indexes each field.'}
-        item = s_types.Array(self, 'array', info, {'type': 'int'})
-        self.addBaseType(item)
-
-        info = {'doc': 'An digraph edge base type.', 'deprecated': True}
-        item = s_types.Edge(self, 'edge', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'An digraph edge base type with a unique time.', 'deprecated': True}
-        item = s_types.TimeEdge(self, 'timeedge', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'Arbitrary json compatible data.'}
-        item = s_types.Data(self, 'data', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'The nodeprop type for a (prop,valu) compound field.'}
-        item = s_types.NodeProp(self, 'nodeprop', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A potentially huge/tiny number. [x] <= 730750818665451459101842 with a fractional '
-                       'precision of 24 decimal digits.'}
-        item = s_types.HugeNum(self, 'hugenum', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A component of a hierarchical taxonomy.'}
-        item = s_types.Taxon(self, 'taxon', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A hierarchical taxonomy.'}
-        item = s_types.Taxonomy(self, 'taxonomy', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'A velocity with base units in mm/sec.'}
-        item = s_types.Velocity(self, 'velocity', info, {})
-        self.addBaseType(item)
-
-        # add the base universal properties...
-        self.addUnivProp('seen', ('ival', {}), {
-            'doc': 'The time interval for first/last observation of the node.',
-        })
-        self.addUnivProp('created', ('time', {'ismin': True}), {
-            'ro': True,
-            'doc': 'The time the node was created in the cortex.',
-        })
 
     def getPropsByType(self, name):
         props = self.propsbytype.get(name)
@@ -742,19 +646,24 @@ class Model:
 
         return base.clone(typedef[1])
 
-    def getModelDefs(self):
-        '''
-        Returns:
-            A list of one model definition compatible with addDataModels that represents the current data model
-        '''
-        mdef = self._modeldef.copy()
-        # dynamically generate form defs due to extended props
+    def getModelDef(self):
+
+        mdef = {}
+        mdef['ctors'] = list(self.ctors.values())
+        mdef['types'] = [t.getTypeDef() for t in self.types.values() if t.name not in self.ctors]
         mdef['forms'] = [f.getFormDef() for f in self.forms.values()]
-        mdef['univs'] = [u.getPropDef() for u in self.univs.values()]
+        mdef['edges'] = [e.pack() for e in self.edges.values()]
         mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops.values()]
         mdef['interfaces'] = list(self.ifaces.items())
-        mdef['edges'] = [e.pack() for e in self.edges.values()]
-        return [('all', mdef)]
+
+        # TODO: remove this in 3.0
+        univs = []
+        for univ in self.univs.values():
+            name, typedef, info = univ.getPropDef()
+            univs.append((name.strip('.'), typedef, info))
+        mdef['univs'] = univs
+
+        return mdef
 
     def getModelDict(self):
         retn = {
@@ -783,10 +692,28 @@ class Model:
 
         return retn
 
-    def addDataModels(self, mods):
-        '''
-        Add a list of (name, mdef) tuples.
+    @contextlib.contextmanager
+    def bulkEditModel(self):
 
+        oldbulk = self.bulkedit
+        self.bulkedit = True
+
+        yield
+
+        if not oldbulk:
+            self.bulkedit = False
+            self.calcModelIden()
+
+    def calcModelIden(self):
+
+        if self.bulkedit:
+            return
+
+        self.iden = s_common.guid(s_common.flatten(self.getModelDef()))
+        return self.iden
+
+    def addModelDef(self, mdef):
+        '''
         A model definition (mdef) is structured as follows::
 
             {
@@ -817,62 +744,42 @@ class Model:
                     }),
                 )
             }
-
-        Args:
-            mods (list):  The list of tuples.
-
-        Returns:
-            None
-
         '''
+        with self.bulkEditModel():
 
-        self.modeldefs.extend(mods)
-
-        # load all the base type ctors in order...
-        for _, mdef in mods:
-
+            # load all the base type ctors in order...
             for name, ctor, opts, info in mdef.get('ctors', ()):
                 item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts)
                 self.types[name] = item
-                self._modeldef['ctors'].append((name, ctor, opts, info))
+                self.ctors[name] = (name, ctor, opts, info)
 
-        # load all the types in order...
-        for _, mdef in mods:
-            custom = mdef.get('custom', False)
+            # load all the types in order...
             for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
-                typeinfo['custom'] = custom
                 self.addType(typename, basename, typeopts, typeinfo)
 
-        # load all the interfaces...
-        for _, mdef in mods:
+            # load all the interfaces...
             for name, info in mdef.get('interfaces', ()):
                 self.addIface(name, info)
 
-        # Load all the universal properties
-        for _, mdef in mods:
+            # Load all the universal properties
             for univname, typedef, univinfo in mdef.get('univs', ()):
-                univinfo['custom'] = custom
                 self.addUnivProp(univname, typedef, univinfo)
 
-        # Load all the tagprops
-        for _, mdef in mods:
+            # Load all the tagprops
             for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
                 self.addTagProp(tpname, typedef, tpinfo)
 
-        # now we can load all the forms...
-        for _, mdef in mods:
-
+            # now we can load all the forms...
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 self.addForm(formname, forminfo, propdefs, checks=False)
 
-        # now we can load edge definitions...
-        for _, mdef in mods:
+            # now we can load edge definitions...
             for etype, einfo in mdef.get('edges', ()):
                 self.addEdge(etype, einfo)
 
-        # now we can check the forms display settings...
-        for form in self.forms.values():
-            self._checkFormDisplay(form)
+            # now we can check the forms display settings...
+            for form in self.forms.values():
+                self._checkFormDisplay(form)
 
     def addEdge(self, edgetype, edgeinfo):
 
@@ -898,6 +805,8 @@ class Model:
         self.edgesbyn1[n1form].add(edge)
         self.edgesbyn2[n2form].add(edge)
 
+        self.calcModelIden()
+
     def delEdge(self, edgetype):
         if self.edges.get(edgetype) is None:
             return
@@ -908,6 +817,8 @@ class Model:
         self.edgesbyn1[n1form].discard(edgetype)
         self.edgesbyn2[n2form].discard(edgetype)
 
+        self.calcModelIden()
+
     def _reqFormName(self, name):
         form = self.forms.get(name)
         if form is None:
@@ -915,19 +826,16 @@ class Model:
         return form
 
     def addType(self, typename, basename, typeopts, typeinfo):
+
         base = self.types.get(basename)
         if base is None:
             raise s_exc.NoSuchType(name=basename)
 
         newtype = base.extend(typename, typeopts, typeinfo)
 
-        if newtype.deprecated and typeinfo.get('custom'):
-            mesg = f'The type {typename} is based on a deprecated type {newtype.name} which ' \
-                   f'will be removed in 3.0.0.'
-            logger.warning(mesg)
-
         self.types[typename] = newtype
-        self._modeldef['types'].append(newtype.getTypeDef())
+
+        self.calcModelIden()
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
 
@@ -967,6 +875,8 @@ class Model:
             self._checkFormDisplay(form)
 
         self.formprefixcache.clear()
+
+        self.calcModelIden()
 
         return form
 
@@ -1033,9 +943,12 @@ class Model:
 
         self.formprefixcache.clear()
 
+        self.calcModelIden()
+
     def addIface(self, name, info):
         # TODO should we add some meta-props here for queries?
         self.ifaces[name] = info
+        self.calcModelIden()
 
     def delType(self, typename):
 
@@ -1060,6 +973,8 @@ class Model:
         self.propsbytype.pop(typename, None)
         self.arraysbytype.pop(typename, None)
 
+        self.calcModelIden()
+
     def _addFormUniv(self, form, name, tdef, info):
 
         univ = self.reqUniv(name)
@@ -1079,11 +994,6 @@ class Model:
         base = '.' + name
         univ = Prop(self, None, base, tdef, info)
 
-        if univ.type.deprecated:
-            mesg = f'The universal property {univ.full} is using a deprecated type {univ.type.name} which will' \
-                   f' be removed in 3.0.0'
-            logger.warning(mesg)
-
         self.props[base] = univ
         self.univs[base] = univ
 
@@ -1092,6 +1002,8 @@ class Model:
         for form in self.forms.values():
             prop = self._addFormUniv(form, base, tdef, info)
 
+        self.calcModelIden()
+
     def getAllUnivs(self, name):
         return list(self.allunivs.get(name, ()))
 
@@ -1099,7 +1011,12 @@ class Model:
         form = self.forms.get(formname)
         if form is None:
             raise s_exc.NoSuchForm.init(formname)
-        return self._addFormProp(form, propname, tdef, info)
+
+        prop = self._addFormProp(form, propname, tdef, info)
+
+        self.calcModelIden()
+
+        return prop
 
     def _addFormProp(self, form, name, tdef, info):
 
@@ -1110,6 +1027,7 @@ class Model:
             self.arraysbytype[prop.type.arraytype.name][prop.full] = prop
 
         self.props[prop.full] = prop
+
         return prop
 
     def _prepFormIface(self, form, iface):
@@ -1152,7 +1070,7 @@ class Model:
             raise s_exc.NoSuchName(mesg=mesg)
 
         if iface.get('deprecated'):
-            mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 3.0.0'
+            mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 3.0'
             logger.warning(mesg)
 
         iface = self._prepFormIface(form, iface)
@@ -1224,10 +1142,10 @@ class Model:
         self.tagprops[name] = prop
 
         if prop.type.deprecated:
-            mesg = f'The tag property {prop.name} is using a deprecated type {prop.type.name} which will' \
-                   f' be removed in 3.0.0'
+            mesg = f'Tag property {prop.name} uses deprecated type {prop.type.name} but is not deprecated.'
             logger.warning(mesg)
 
+        self.calcModelIden()
         return prop
 
     def getTagProp(self, name):
@@ -1253,6 +1171,8 @@ class Model:
 
         self.propsbytype[prop.type.name].pop(prop.full, None)
 
+        self.calcModelIden()
+
     def delUnivProp(self, propname):
 
         univname = '.' + propname
@@ -1267,13 +1187,7 @@ class Model:
         for form in self.forms.values():
             self.delFormProp(form.name, univname)
 
-    def addBaseType(self, item):
-        '''
-        Add a Type instance to the data model.
-        '''
-        ctor = '.'.join([item.__class__.__module__, item.__class__.__qualname__])
-        self._modeldef['ctors'].append(((item.name, ctor, dict(item.opts), dict(item.info))))
-        self.types[item.name] = item
+        self.calcModelIden()
 
     def type(self, name):
         '''
