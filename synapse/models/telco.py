@@ -12,13 +12,6 @@ logger = logging.getLogger(__name__)
 def digits(text):
     return ''.join([c for c in text if c.isdigit()])
 
-def chop_imei(imei):
-    valu = int(imei)
-    tac = int(imei[0:8])
-    snr = int(imei[8:14])
-    cd = int(imei[14:15])
-    return valu, {'subs': {'tac': tac, 'serial': snr, 'cd': cd}}
-
 class Phone(s_types.Str):
 
     def postTypeInit(self):
@@ -26,6 +19,8 @@ class Phone(s_types.Str):
         self.opts['globsuffix'] = True
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
+
+        self.loctype = self.modl.type('loc')
 
     async def _normPyStr(self, valu, view=None):
         digs = digits(valu)
@@ -40,7 +35,7 @@ class Phone(s_types.Str):
                                     mesg='Failed to get phone info') from None
         cc = info.get('cc')
         if cc is not None:
-            subs['loc'] = cc
+            subs['loc'] = (self.loctype.typehash, cc, {})
         # TODO prefix based validation?
         return digs, {'subs': subs}
 
@@ -87,6 +82,9 @@ class Imsi(s_types.Int):
     def postTypeInit(self):
         self.opts['size'] = 8
         self.opts['signed'] = False
+
+        self.mcctype = self.modl.type('tel:mob:mcc')
+
         return s_types.Int.postTypeInit(self)
 
     async def _normPyInt(self, valu, view=None):
@@ -98,7 +96,7 @@ class Imsi(s_types.Int):
 
         mcc = imsi[0:3]
         # TODO full imsi analysis tree
-        return valu, {'subs': {'mcc': mcc}}
+        return valu, {'subs': {'mcc': (self.mcctype.typehash, mcc, {})}}
 
 # TODO: support pre 2004 "old" imei format
 class Imei(s_types.Int):
@@ -106,7 +104,18 @@ class Imei(s_types.Int):
     def postTypeInit(self):
         self.opts['size'] = 8
         self.opts['signed'] = False
+
+        self.inttype = self.modl.type('int')
+        self.tactype = self.modl.type('tel:mob:tac')
+
         return s_types.Int.postTypeInit(self)
+
+    def chop_imei(self, imei):
+        valu = int(imei)
+        tac = int(imei[0:8])
+        snr = int(imei[8:14])
+        return valu, {'subs': {'tac': (self.tactype.typehash, tac, {}),
+                               'serial': (self.inttype.typehash, snr, {})}}
 
     async def _normPyInt(self, valu, view=None):
         imei = str(valu)
@@ -116,14 +125,14 @@ class Imei(s_types.Int):
         # lets add it for consistency...
         if ilen == 14:
             imei += imeicsum(imei)
-            return chop_imei(imei)
+            return self.chop_imei(imei)
 
         # if we *have* our check digit, lets check it
         elif ilen == 15:
             if imeicsum(imei) != imei[-1]:
                 raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                         mesg='invalid imei checksum byte')
-            return chop_imei(imei)
+            return self.chop_imei(imei)
 
         raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                 mesg='Failed to norm IMEI')

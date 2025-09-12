@@ -131,6 +131,10 @@ class IPAddr(s_types.Type):
 
         self.reqvers = self.opts.get('version')
 
+        self.typetype = self.modl.type('str')
+        self.verstype = self.modl.type('int').clone({'enums': ((4, '4'), (6, '6'))})
+        self.scopetype = self.typetype.clone({'enums': scopes_enum})
+
     async def _ctorCmprEq(self, valu):
 
         if isinstance(valu, str):
@@ -190,7 +194,7 @@ class IPAddr(s_types.Type):
             mesg = f'Invalid IP address version: got {vers} expected {self.reqvers}'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        subs = {'version': vers}
+        subs = {'version': (self.verstype.typehash, vers, {})}
 
         if vers == 4:
             try:
@@ -202,7 +206,7 @@ class IPAddr(s_types.Type):
         elif vers == 6:
             try:
                 ipaddr = ipaddress.IPv6Address(valu[1])
-                subs['scope'] = getAddrScope(ipaddr)
+                subs['scope'] = (self.scopetype.typehash, getAddrScope(ipaddr), {})
             except ValueError as e:
                 mesg = f'Invalid IP address tuple: {valu}'
                 raise s_exc.BadTypeValu(mesg=mesg)
@@ -211,7 +215,7 @@ class IPAddr(s_types.Type):
             mesg = f'Invalid IP address tuple: {valu}'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        subs['type'] = getAddrType(ipaddr)
+        subs['type'] = (self.typetype.typehash, getAddrType(ipaddr), {})
 
         return valu, {'subs': subs}
 
@@ -233,7 +237,8 @@ class IPAddr(s_types.Type):
                 byts = socket.inet_pton(socket.AF_INET6, valu)
                 addr = (6, int.from_bytes(byts, 'big'))
                 ipaddr = ipaddress.IPv6Address(addr[1])
-                subs |= {'version': 6, 'scope': getAddrScope(ipaddr)}
+                subs |= {'version': (self.verstype.typehash, 6, {}),
+                         'scope': (self.scopetype.typehash, getAddrScope(ipaddr), {})}
                 # v4 = v6.ipv4_mapped
             except OSError as e:
                 mesg = f'Invalid IP address: {text}'
@@ -254,9 +259,9 @@ class IPAddr(s_types.Type):
 
             addr = (4, int.from_bytes(byts, 'big'))
             ipaddr = ipaddress.IPv4Address(addr[1])
-            subs['version'] = 4
+            subs['version'] = (self.verstype.typehash, 4, {})
 
-        subs['type'] = getAddrType(ipaddr)
+        subs['type'] = (self.typetype.typehash, getAddrType(ipaddr), {})
 
         return addr, {'subs': subs}
 
@@ -376,7 +381,9 @@ class SockAddr(s_types.Str):
         self.setNormFunc(tuple, self._normPyTuple)
 
         self.iptype = self.modl.type('inet:ip')
+        self.hosttype = self.modl.type('it:host')
         self.porttype = self.modl.type('inet:port')
+        self.prototype = self.modl.type('str').clone({'lower': True})
 
         self.defport = self.opts.get('defport', None)
         self.defproto = self.opts.get('defproto', 'tcp')
@@ -439,7 +446,7 @@ class SockAddr(s_types.Str):
             mesg = f'inet:sockaddr protocol must be one of: {protostr}'
             raise s_exc.BadTypeValu(mesg=mesg, valu=orig, name=self.name)
 
-        subs['proto'] = proto
+        subs['proto'] = (self.prototype.typehash, proto, {})
 
         valu = valu.strip().strip('/')
 
@@ -448,10 +455,10 @@ class SockAddr(s_types.Str):
 
             valu, port, pstr = await self._normPort(valu)
             if port:
-                subs['port'] = port
+                subs['port'] = (self.porttype.typehash, port, {})
 
             host = s_common.guid(valu)
-            subs['host'] = host
+            subs['host'] = (self.hosttype.typehash, host, {})
 
             return f'host://{host}{pstr}', {'subs': subs}
 
@@ -461,20 +468,20 @@ class SockAddr(s_types.Str):
             if match:
                 ipv6, port = match.groups()
 
-                ipv6 = (await self.iptype.norm(ipv6))[0]
+                ipv6, norminfo = await self.iptype.norm(ipv6)
                 host = self.iptype.repr(ipv6)
-                subs['ip'] = ipv6
+                subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
                 virts['ip'] = (ipv6, self.iptype.stortype)
 
                 portstr = ''
                 if port is not None:
-                    port = (await self.porttype.norm(port))[0]
-                    subs['port'] = port
+                    port, norminfo = await self.porttype.norm(port)
+                    subs['port'] = (self.porttype.typehash, port, norminfo)
                     virts['port'] = (port, self.porttype.stortype)
                     portstr = f':{port}'
 
                 elif self.defport:
-                    subs['port'] = self.defport
+                    subs['port'] = (self.porttype.typehash, self.defport, {})
                     virts['port'] = (self.defport, self.porttype.stortype)
                     portstr = f':{self.defport}'
 
@@ -488,13 +495,13 @@ class SockAddr(s_types.Str):
             raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
 
         elif valu.count(':') >= 2:
-            ipv6 = (await self.iptype.norm(valu))[0]
+            ipv6, norminfo = await self.iptype.norm(valu)
             host = self.iptype.repr(ipv6)
-            subs['ip'] = ipv6
+            subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
             virts['ip'] = (ipv6, self.iptype.stortype)
 
             if self.defport:
-                subs['port'] = self.defport
+                subs['port'] = (self.porttype.typehash, self.defport, {})
                 virts['port'] = (self.defport, self.porttype.stortype)
                 return f'{proto}://[{host}]:{self.defport}', {'subs': subs, 'virts': virts}
 
@@ -503,16 +510,16 @@ class SockAddr(s_types.Str):
         # Otherwise treat as IPv4
         valu, port, pstr = await self._normPort(valu)
         if port:
-            subs['port'] = port
+            subs['port'] = (self.porttype.typehash, port, {})
             virts['port'] = (port, self.porttype.stortype)
 
         if port and proto in self.noports:
             mesg = f'Protocol {proto} does not allow specifying ports.'
             raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
 
-        ipv4 = (await self.iptype.norm(valu))[0]
+        ipv4, norminfo = await self.iptype.norm(valu)
         ipv4_repr = self.iptype.repr(ipv4)
-        subs['ip'] = ipv4
+        subs['ip'] = (self.iptype.typehash, ipv4, norminfo)
         virts['ip'] = (ipv4, self.iptype.stortype)
 
         return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
@@ -527,7 +534,7 @@ class SockAddr(s_types.Str):
         proto = self.defproto
 
         if self.defport:
-            subs['port'] = self.defport
+            subs['port'] = (self.porttype.typehash, self.defport, {})
             virts['port'] = (self.defport, self.porttype.stortype)
             if vers == 6:
                 return f'{proto}://[{ip_repr}]:{self.defport}', {'subs': subs, 'virts': virts}
@@ -543,6 +550,7 @@ class Cidr(s_types.Str):
         self.setNormFunc(str, self._normPyStr)
 
         self.iptype = self.modl.type('inet:ip')
+        self.inttype = self.modl.type('int')
 
         self.pivs |= {
             'inet:ip': ('range=', self.iptype.getCidrRange),
@@ -565,16 +573,16 @@ class Cidr(s_types.Str):
                                         mesg='Invalid CIDR Mask')
 
             mask = cidrmasks[mask_int]
-            network = ip_int & mask[0]
-            broadcast = network + mask[1] - 1
-            network_str = self.iptype.repr((4, network))
+            network, netinfo = await self.iptype.norm((4, ip_int & mask[0]))
+            broadcast, binfo = await self.iptype.norm((4, network[1] + mask[1] - 1))
+            network_str = self.iptype.repr(network)
 
             norm = f'{network_str}/{mask_int}'
             info = {
                 'subs': {
-                    'broadcast': (4, broadcast),
-                    'mask': mask_int,
-                    'network': (4, network),
+                    'broadcast': (self.iptype.typehash, broadcast, binfo),
+                    'mask': (self.inttype.typehash, mask_int, {}),
+                    'network': (self.iptype.typehash, network, netinfo),
                 }
             }
 
@@ -584,12 +592,15 @@ class Cidr(s_types.Str):
             except Exception as e:
                 raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
+            network, netinfo = await self.iptype.norm((6, int(netw.network_address)))
+            broadcast, binfo = await self.iptype.norm((6, int(netw.broadcast_address)))
+
             norm = str(netw)
             info = {
                 'subs': {
-                    'broadcast': (6, int(netw.broadcast_address)),
-                    'mask': netw.prefixlen,
-                    'network': (6, int(netw.network_address)),
+                    'broadcast': (self.iptype.typehash, broadcast, binfo),
+                    'mask': (self.inttype.typehash, netw.prefixlen, {}),
+                    'network': (self.iptype.typehash, network, netinfo),
                 }
             }
 
@@ -621,8 +632,8 @@ class Email(s_types.Str):
         norm = f'{usernorm}@{fqdnnorm}'
         info = {
             'subs': {
-                'fqdn': fqdnnorm,
-                'user': usernorm,
+                'fqdn': (self.fqdntype.typehash, fqdnnorm, fqdninfo),
+                'user': (self.usertype.typehash, usernorm, userinfo),
             }
         }
         return norm, info
@@ -636,6 +647,9 @@ class Fqdn(s_types.Type):
         self.storlifts.update({
             '=': self._storLiftEq,
         })
+
+        self.hosttype = self.modl.type('str').clone({'lower': True})
+        self.booltype = self.modl.type('bool')
 
     async def _storLiftEq(self, cmpr, valu):
 
@@ -722,12 +736,20 @@ class Fqdn(s_types.Type):
             pass
 
         parts = valu.split('.', 1)
-        subs = {'host': parts[0]}
+        subs = pinfo = {'host': (self.hosttype.typehash, parts[0], {})}
 
-        if len(parts) == 2:
-            subs['domain'] = parts[1]
-        else:
-            subs['issuffix'] = 1
+        while len(parts) == 2:
+            nextfo = {}
+            domain = parts[1]
+            pinfo['domain'] = (self.typehash, domain, {'subs': nextfo})
+
+            parts = domain.split('.', 1)
+            nextfo['host'] = (self.hosttype.typehash, parts[0], {})
+
+            pinfo = nextfo
+            await asyncio.sleep(0)
+
+        pinfo['issuffix'] = (self.booltype.typehash, 1, {})
 
         return valu, {'subs': subs}
 
@@ -742,6 +764,10 @@ class Fqdn(s_types.Type):
 
 class HttpCookie(s_types.Str):
 
+    def postTypeInit(self):
+        s_types.Str.postTypeInit(self)
+        self.strtype = self.modl.type('str')
+
     async def _normPyStr(self, text, view=None):
 
         text = text.strip()
@@ -749,10 +775,10 @@ class HttpCookie(s_types.Str):
 
         name = parts[0].split(';', 1)[0].strip()
         if len(parts) == 1:
-            return text, {'subs': {'name': name}}
+            return text, {'subs': {'name': (self.strtype.typehash, name, {})}}
 
         valu = parts[1].split(';', 1)[0].strip()
-        return text, {'subs': {'name': name, 'value': valu}}
+        return text, {'subs': {'name': (self.strtype.typehash, name, {}), 'value': (self.strtype.typehash, valu, {})}}
 
     async def getTypeVals(self, valu):
 
@@ -794,7 +820,7 @@ class IPRange(s_types.Range):
         if '-' in valu:
             return await super()._normPyStr(valu)
         cidrnorm = await self.cidrtype._normPyStr(valu)
-        tupl = cidrnorm[1]['subs']['network'], cidrnorm[1]['subs']['broadcast']
+        tupl = cidrnorm[1]['subs']['network'][1], cidrnorm[1]['subs']['broadcast'][1]
         return await self._normPyTuple(tupl)
 
     async def _normPyTuple(self, valu, view=None):
@@ -802,8 +828,8 @@ class IPRange(s_types.Range):
             raise s_exc.BadTypeValu(numitems=len(valu), name=self.name,
                                     mesg=f'Must be a 2-tuple of type {self.subtype.name}: {s_common.trimText(repr(valu))}')
 
-        minv = (await self.subtype.norm(valu[0]))[0]
-        maxv = (await self.subtype.norm(valu[1]))[0]
+        minv, minfo = await self.subtype.norm(valu[0])
+        maxv, maxfo = await self.subtype.norm(valu[1])
 
         if minv[0] != maxv[0]:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
@@ -813,7 +839,8 @@ class IPRange(s_types.Range):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='minval cannot be greater than maxval')
 
-        return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
+        return (minv, maxv), {'subs': {'min': (self.subtype.typehash, minv, minfo),
+                                       'max': (self.subtype.typehash, maxv, maxfo)}}
 
 class Rfc2822Addr(s_types.Str):
     '''
@@ -824,6 +851,7 @@ class Rfc2822Addr(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
+        self.metatype = self.modl.type('meta:name')
         self.emailtype = self.modl.type('inet:email')
 
     async def _normPyStr(self, valu, view=None):
@@ -847,14 +875,12 @@ class Rfc2822Addr(s_types.Str):
 
         subs = {}
         if name:
-            subs['name'] = name
+            subs['name'] = (self.metatype.typehash, name, {})
 
         try:
-            data = await self.emailtype.norm(addr)
-            if len(data) == 2:
-                mail = data[0]
+            mail, norminfo = await self.emailtype.norm(addr)
 
-            subs['email'] = mail
+            subs['email'] = (self.emailtype.typehash, mail, norminfo)
             if name:
                 valu = '%s <%s>' % (name, mail)
             else:
@@ -873,6 +899,9 @@ class Url(s_types.Str):
         self.iptype = self.modl.type('inet:ip')
         self.fqdntype = self.modl.type('inet:fqdn')
         self.porttype = self.modl.type('inet:port')
+        self.passtype = self.modl.type('auth:passwd')
+        self.strtype = self.modl.type('str')
+        self.lowstrtype = self.modl.type('str').clone({'lower': True})
 
     async def _ctorCmprEq(self, text):
         if text == '':
@@ -939,7 +968,7 @@ class Url(s_types.Str):
 
         proto = urlfangs.sub(lambda match: 'http' + match.group(0)[4:], proto)
 
-        subs['proto'] = proto
+        subs['proto'] = (self.lowstrtype.typehash, proto, {})
         # Query params first
         queryrem = ''
         if '?' in valu:
@@ -948,7 +977,7 @@ class Url(s_types.Str):
 
         # Resource Path
         parts = valu.split('/', 1)
-        subs['path'] = ''
+        subs['path'] = (self.strtype.typehash, '', {})
         if len(parts) == 2:
             valu, pathpart = parts
             if local:
@@ -964,24 +993,25 @@ class Url(s_types.Str):
                 # make the path sub before adding in the slash separator so we don't end up with "/c:/foo/bar"
                 # as part of the subs
                 # per the rfc, only do this for things that start with a drive letter
-                subs['path'] = pathpart
+                subs['path'] = (self.strtype.typehash, pathpart, {})
                 pathpart = f'/{pathpart}'
             else:
                 pathpart = f'/{pathpart}'
-                subs['path'] = pathpart
+                subs['path'] = (self.strtype.typehash, pathpart, {})
 
         if queryrem:
             parampart = f'?{queryrem}'
-        subs['params'] = parampart
+        subs['params'] = (self.strtype.typehash, parampart, {})
 
         # Optional User/Password
         parts = valu.rsplit('@', 1)
         if len(parts) == 2:
             authparts, valu = parts
             userpass = authparts.split(':', 1)
-            subs['user'] = urllib.parse.unquote(userpass[0])
+            subs['user'] = (self.lowstrtype.typehash, urllib.parse.unquote(userpass[0].lower()), {})
             if len(userpass) == 2:
-                subs['passwd'] = urllib.parse.unquote(userpass[1])
+                passnorm, passinfo = await self.passtype.norm(urllib.parse.unquote(userpass[1]))
+                subs['passwd'] = (self.passtype.typehash, passnorm, passinfo)
 
         # Host (FQDN, IPv4, or IPv6)
         host = None
@@ -994,9 +1024,9 @@ class Url(s_types.Str):
                 if match:
                     valu, port = match.groups()
 
-                ipv6 = (await self.iptype.norm(valu))[0]
+                ipv6, norminfo = await self.iptype.norm(valu)
                 host = self.iptype.repr(ipv6)
-                subs['ip'] = ipv6
+                subs['ip'] = (self.iptype.typehash, ipv6, norminfo)
 
                 if match:
                     host = f'[{host}]'
@@ -1014,17 +1044,17 @@ class Url(s_types.Str):
             # IPv4
             try:
                 # Norm and repr to handle fangs
-                ipv4 = (await self.iptype.norm(part))[0]
+                ipv4, norminfo = await self.iptype.norm(part)
                 host = self.iptype.repr(ipv4)
-                subs['ip'] = ipv4
+                subs['ip'] = (self.iptype.typehash, ipv4, norminfo)
             except Exception:
                 pass
 
             # FQDN
             if host is None:
                 try:
-                    host = (await self.fqdntype.norm(part))[0]
-                    subs['fqdn'] = host
+                    host, norminfo = await self.fqdntype.norm(part)
+                    subs['fqdn'] = (self.fqdntype.typehash, host, norminfo)
                 except Exception:
                     pass
 
@@ -1039,13 +1069,13 @@ class Url(s_types.Str):
 
         # Optional Port
         if port is not None:
-            port = (await self.porttype.norm(port))[0]
-            subs['port'] = port
+            port, norminfo = await self.porttype.norm(port)
+            subs['port'] = (self.porttype.typehash, port, norminfo)
         else:
             # Look up default port for protocol, but don't add it back into the url
             defport = s_l_iana.services.get(proto)
             if defport:
-                subs['port'] = (await self.porttype.norm(defport))[0]
+                subs['port'] = (self.porttype.typehash, *(await self.porttype.norm(defport)))
 
         # Set up Normed URL
         if isUNC:
@@ -1067,7 +1097,7 @@ class Url(s_types.Str):
                                     mesg='Missing address/url') from None
 
         base = f'{proto}://{hostparts}{pathpart}'
-        subs['base'] = base
+        subs['base'] = (self.strtype.typehash, base, {})
         norm = f'{base}{parampart}'
         return norm, {'subs': subs}
 

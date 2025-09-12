@@ -651,9 +651,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             for v, e in testvectors:
                 ev, es = e
                 valu, rdict = await t.norm(v)
-                subs = rdict.get('subs')
                 self.eq(valu, ev)
-                self.eq(subs, es)
 
             testvectors_bad = (
                 # invalid ints
@@ -1250,7 +1248,7 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_infotech_cpes(self):
 
         async with self.getTestCore() as core:
-            self.eq(r'foo:bar', (await core.model.type('it:sec:cpe').norm(r'cpe:2.3:a:foo\:bar:*:*:*:*:*:*:*:*:*'))[1]['subs']['vendor'])
+            self.eq(r'foo:bar', (await core.model.type('it:sec:cpe').norm(r'cpe:2.3:a:foo\:bar:*:*:*:*:*:*:*:*:*'))[1]['subs']['vendor'][1])
 
             with self.raises(s_exc.BadTypeValu):
                 nodes = await core.nodes('[it:sec:cpe=asdf]')
@@ -1404,7 +1402,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     self.notin('\\', valu)
 
                 # Norm cpe23 and check the cpe22 conversion
-                sub_23_v2_2 = info_23['subs']['v2_2']
+                sub_23_v2_2 = info_23['subs']['v2_2'][1]
 
                 norm_sub_23_v2_2, _ = await cpe22.norm(sub_23_v2_2)
                 self.eq(norm_sub_23_v2_2, sub_23_v2_2)

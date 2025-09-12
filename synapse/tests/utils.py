@@ -254,27 +254,16 @@ class ThreeType(s_types.Type):
     stortype = s_layer.STOR_TYPE_U8
 
     async def norm(self, valu, view=None):
-        return 3, {'subs': {'three': 3}}
+        typehash = self.modl.type('int').typehash
+        return 3, {'subs': {'three': (typehash, 3, {})}}
 
     def repr(self, valu):
         return '3'
-
-class TestSubType(s_types.Type):
-
-    stortype = s_layer.STOR_TYPE_U32
-
-    async def norm(self, valu, view=None):
-        valu = int(valu)
-        return valu, {'subs': {'isbig': valu >= 1000}}
-
-    def repr(self, norm):
-        return str(norm)
 
 testmodel = (
     ('test', {
 
         'ctors': (
-            ('test:sub', 'synapse.tests.utils.TestSubType', {}, {}),
             ('test:type', 'synapse.tests.utils.TestType', {}, {}),
             ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
         ),
@@ -446,8 +435,6 @@ testmodel = (
                 ('size', ('test:int', {}), {}),
                 ('seen', ('ival', {}), {}),
                 ('tick', ('test:time', {}), {}),
-                ('posneg', ('test:sub', {}), {}),
-                ('posneg:isbig', ('bool', {}), {}),
                 ('server', ('inet:server', {}), {}),
                 ('raw', ('data', {}), {}),
                 ('iden', ('guid', {}), {}),
