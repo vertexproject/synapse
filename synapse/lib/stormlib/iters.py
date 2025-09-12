@@ -19,7 +19,7 @@ class LibIters(s_stormtypes.Lib):
             'type': {
                 'type': 'function', '_funcname': 'enum',
                 'args': (
-                    {'type': 'iter', 'name': 'genr', 'desc': 'An iterable or generator.'},
+                    {'type': 'list', 'name': 'genr', 'desc': 'An iterable or generator.'},
                 ),
                 'returns': {'name': 'yields', 'type': 'list',
                             'desc': 'Yields (<indx>, <item>) tuples.'},
@@ -30,7 +30,7 @@ class LibIters(s_stormtypes.Lib):
             'type': {
                 'type': 'function', '_funcname': '_zip',
                 'args': (
-                    {'name': '*args', 'type': 'iter', 'desc': 'Iterables or generators.', },
+                    {'name': '*args', 'type': 'list', 'desc': 'Iterables or generators.', },
                 ),
                 'returns': {'name': 'yields', 'type': 'list',
                             'desc': 'Yields tuples with an item from each iterable or generator.'},

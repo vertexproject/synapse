@@ -1,0 +1,16 @@
+.. highlight:: none
+
+.. _syn-tools-pkgs_gendocs:
+
+pkgs.gendocs
+============
+
+The Synapse ``pkgs.gendocs`` tool can be used to build Storm package documents from RStorm into markdown. This tool
+requires pandoc to be available.
+
+Syntax
+------
+
+``pkgs.gendocs`` is executed using ``python -m synapse.tools.pkgs.gendocs``. The command usage is as follows:
+
+.. shell:: --fail-ok python -m synapse.tools.pkgs.gendocs -h

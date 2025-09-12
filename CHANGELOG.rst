@@ -12,6 +12,41 @@ v3.0.0 - 2025-XX-YY
 Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
 changes.
 
+v2.221.0 - 2025-09-11
+=====================
+
+Features and Enhancements
+-------------------------
+- Added the Storm Layer API ``hasEdge``.
+  (`#4470 <https://github.com/vertexproject/synapse/pull/4470>`_)
+- Added an optional ``verb`` argument to the ``getEdgesByN1`` and
+  ``getEdgesByN2`` Storm Layer APIs.
+  (`#4470 <https://github.com/vertexproject/synapse/pull/4470>`_)
+- Added Storm Layer ``delNodeData()`` API to delete node data in a layer.
+  (`#4471 <https://github.com/vertexproject/synapse/pull/4471>`_)
+- Added Storm Layer ``delStorNode()`` API to delete node information in a
+  layer.
+  (`#4471 <https://github.com/vertexproject/synapse/pull/4471>`_)
+- Added Storm Layer ``delEdge()`` API to delete edges in a layer.
+  (`#4471 <https://github.com/vertexproject/synapse/pull/4471>`_)
+- Added ``$lib.utils.buid()`` to calculate buids in Storm.
+  (`#4475 <https://github.com/vertexproject/synapse/pull/4475>`_)
+
+Bugfixes
+--------
+- Fixed an issue with ``$lib.env.get()`` where non-string values could be
+  returned when providing a default value. These are now coerced into strings.
+  (`#4457 <https://github.com/vertexproject/synapse/pull/4457>`_)
+- Fixed a bug in the Storm Layer API ``getStorNodesByProp()`` where passing a
+  form name would not return anything.
+  (`#4468 <https://github.com/vertexproject/synapse/pull/4468>`_)
+
+Improved documentation
+----------------------
+- Updated Storm library documentation to enforce the existence of all argument
+  types.
+  (`#4457 <https://github.com/vertexproject/synapse/pull/4457>`_)
+
 v2.220.0 - 2025-09-02
 =====================
 
