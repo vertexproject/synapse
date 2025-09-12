@@ -1595,8 +1595,16 @@ class LibBase(Lib):
 
             if not asroot:
                 permtext = ' or '.join(('.'.join(p) for p in rootperms))
-                mesg = f'Module ({name}) requires permission: {permtext}'
-                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+                match mdef.get('asroot:ondeny:import', 'deny'):
+                    case 'allow':
+                        pass
+                    case 'warn':
+                        mesg = f'Module ({name}) permissions will not be elevated. Missing permission: {permtext}.'
+                        await self.runt.warnonce(mesg, log=False)
+                    case _:
+                        mesg = f'Module ({name}) requires permission: {permtext}'
+                        raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         else:
             perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
@@ -7194,7 +7202,7 @@ class Layer(Prim):
                       {'name': 'propcmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.',
                        'default': '='},
                   ),
-                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of node iden, sode values.', }}},
         {'name': 'setStorNodeProp',
          'desc': 'Set a property on a node in this layer.',
          'type': {'type': 'function', '_funcname': 'setStorNodeProp',
@@ -7204,12 +7212,36 @@ class Layer(Prim):
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to set.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'delStorNode',
+         'desc': 'Delete a storage node, node data, and associated edges from a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delStorNode',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
         {'name': 'delStorNodeProp',
          'desc': 'Delete a property from a node in this layer.',
          'type': {'type': 'function', '_funcname': 'delStorNodeProp',
                   'args': (
                       {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                       {'name': 'prop', 'type': 'str', 'desc': 'The property name to delete.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'delNodeData',
+         'desc': 'Delete node data from a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delNodeData',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'name', 'type': 'str', 'default': None, 'desc': 'The node data key to delete.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'delEdge',
+         'desc': 'Delete edges from a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delEdge',
+                  'args': (
+                      {'name': 'nodeid1', 'type': 'str', 'desc': 'The hex string of the N1 node iden.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to delete.'},
+                      {'name': 'nodeid2', 'type': 'str', 'desc': 'The hex string of the N2 node iden.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
         {'name': 'getMirrorStatus', 'desc': '''
@@ -7449,7 +7481,10 @@ class Layer(Prim):
             'getNodeData': self.getNodeData,
             'getMirrorStatus': self.getMirrorStatus,
             'setStorNodeProp': self.setStorNodeProp,
+            'delStorNode': self.delStorNode,
             'delStorNodeProp': self.delStorNodeProp,
+            'delNodeData': self.delNodeData,
+            'delEdge': self.delEdge,
         }
 
     @stormfunc(readonly=True)
@@ -7467,8 +7502,7 @@ class Layer(Prim):
         async for _, buid, sode in layr.liftByTag(tagname, form=formname):
             yield await self.runt.snap._joinStorNode(buid, {iden: sode})
 
-    @stormfunc(readonly=True)
-    async def liftByProp(self, propname, propvalu=None, propcmpr='='):
+    async def _liftByProp(self, propname, propvalu=None, propcmpr='='):
 
         propname = await tostr(propname)
         propvalu = await toprim(propvalu)
@@ -7496,12 +7530,18 @@ class Layer(Prim):
 
         if propvalu is None:
             async for _, buid, sode in layr.liftByProp(liftform, liftprop):
-                yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+                yield buid, sode
             return
 
         norm, info = prop.type.norm(propvalu)
         cmprvals = prop.type.getStorCmprs(propcmpr, norm)
         async for _, buid, sode in layr.liftByPropValu(liftform, liftprop, cmprvals):
+            yield buid, sode
+
+    @stormfunc(readonly=True)
+    async def liftByProp(self, propname, propvalu=None, propcmpr='='):
+        iden = self.valu.get('iden')
+        async for buid, sode in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
             yield await self.runt.snap._joinStorNode(buid, {iden: sode})
 
     @stormfunc(readonly=True)
@@ -7524,23 +7564,55 @@ class Layer(Prim):
         return await layr.getMirrorStatus()
 
     async def setStorNodeProp(self, nodeid, prop, valu):
-        iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
-        buid = s_common.uhex(await tostr(nodeid))
+        buid = await tobuid(nodeid)
         prop = await tostr(prop)
         valu = await tostor(valu)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
         self.runt.reqAdmin(mesg='setStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.setStorNodeProp(buid, prop, valu, meta=meta)
 
-    async def delStorNodeProp(self, nodeid, prop):
+    async def delStorNode(self, nodeid):
+        buid = await tobuid(nodeid)
+
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
-        buid = s_common.uhex(await tostr(nodeid))
+        self.runt.reqAdmin(mesg='delStorNode() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delStorNode(buid, meta=meta)
+
+    async def delStorNodeProp(self, nodeid, prop):
+        buid = await tobuid(nodeid)
         prop = await tostr(prop)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
         self.runt.reqAdmin(mesg='delStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.delStorNodeProp(buid, prop, meta=meta)
+
+    async def delNodeData(self, nodeid, name=None):
+        buid = await tobuid(nodeid)
+        name = await tostr(name, noneok=True)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        self.runt.reqAdmin(mesg='delNodeData() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delNodeData(buid, meta=meta, name=name)
+
+    async def delEdge(self, nodeid1, verb, nodeid2):
+        n1buid = await tobuid(nodeid1)
+        verb = await tostr(verb)
+        n2buid = await tobuid(nodeid2)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        self.runt.reqAdmin(mesg='delEdge() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delEdge(n1buid, verb, n2buid, meta=meta)
 
     async def _addPull(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
         url = await tostr(url)
@@ -7797,11 +7869,11 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def getStorNode(self, nodeid):
-        nodeid = await tostr(nodeid)
+        nodeid = await tobuid(nodeid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        return await layr.getStorNode(s_common.uhex(nodeid))
+        return await layr.getStorNode(nodeid)
 
     @stormfunc(readonly=True)
     async def getStorNodes(self):
@@ -7826,35 +7898,18 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def getStorNodesByProp(self, propname, propvalu=None, propcmpr='='):
-        propname = await tostr(propname)
-        propvalu = await tostor(propvalu)
-        propcmpr = await tostr(propcmpr)
-
-        layriden = self.valu.get('iden')
-        await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
-
-        prop = self.runt.snap.core.model.reqProp(propname)
-
-        if propvalu is not None:
-            norm, info = prop.type.norm(propvalu)
-            cmprvals = prop.type.getStorCmprs(propcmpr, norm)
-            async for _, buid, sode in layr.liftByPropValu(prop.form.name, prop.name, cmprvals):
-                yield (s_common.ehex(buid), sode)
-            return
-
-        async for _, buid, sode in layr.liftByProp(prop.form.name, prop.name):
-            yield (s_common.ehex(buid), sode)
+        async for buid, sode in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
+            yield s_common.ehex(buid), sode
 
     @stormfunc(readonly=True)
     async def hasEdge(self, nodeid1, verb, nodeid2):
-        nodeid1 = await tostr(nodeid1)
+        nodeid1 = await tobuid(nodeid1)
         verb = await tostr(verb)
-        nodeid2 = await tostr(nodeid2)
+        nodeid2 = await tobuid(nodeid2)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        return await layr.hasNodeEdge(s_common.uhex(nodeid1), verb, s_common.uhex(nodeid2))
+        return await layr.hasNodeEdge(nodeid1, verb, nodeid2)
 
     @stormfunc(readonly=True)
     async def getEdges(self):
@@ -7866,31 +7921,31 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def getEdgesByN1(self, nodeid, verb=None):
-        nodeid = await tostr(nodeid)
+        nodeid = await tobuid(nodeid)
         verb = await tostr(verb, noneok=True)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN1(s_common.uhex(nodeid), verb=verb):
+        async for item in layr.iterNodeEdgesN1(nodeid, verb=verb):
             yield item
 
     @stormfunc(readonly=True)
     async def getEdgesByN2(self, nodeid, verb=None):
-        nodeid = await tostr(nodeid)
+        nodeid = await tobuid(nodeid)
         verb = await tostr(verb, noneok=True)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN2(s_common.uhex(nodeid), verb=verb):
+        async for item in layr.iterNodeEdgesN2(nodeid, verb=verb):
             yield item
 
     @stormfunc(readonly=True)
     async def getNodeData(self, nodeid):
-        nodeid = await tostr(nodeid)
+        nodeid = await tobuid(nodeid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeData(s_common.uhex(nodeid)):
+        async for item in layr.iterNodeData(nodeid):
             yield item
 
     @stormfunc(readonly=True)
@@ -10311,23 +10366,43 @@ async def torepr(valu, usestr=False):
         return str(valu)
     return repr(valu)
 
+async def tobuid(valu):
+
+    if isinstance(valu, Node):
+        return valu.valu.buid
+
+    if isinstance(valu, s_node.Node):
+        return valu.buid
+
+    valu = await toprim(valu)
+
+    if isinstance(valu, str):
+        if not s_common.isbuidhex(valu):
+            mesg = f'Invalid buid string: {valu}'
+            raise s_exc.BadCast(mesg=mesg)
+
+        return s_common.uhex(valu)
+
+    if not isinstance(valu, bytes):
+        mesg = f'Invalid buid valu: {valu}'
+        raise s_exc.BadCast(mesg=mesg)
+
+    if len(valu) != 32:
+        mesg = f'Invalid buid valu: {valu}'
+        raise s_exc.BadCast(mesg=mesg)
+
+    return valu
+
 async def tobuidhex(valu, noneok=False):
 
     if noneok and valu is None:
         return None
 
-    if isinstance(valu, Node):
-        return valu.valu.iden()
+    if isinstance(valu, str) and s_common.isbuidhex(valu):
+        return valu
 
-    if isinstance(valu, s_node.Node):
-        return valu.iden()
-
-    valu = await tostr(valu)
-    if not s_common.isbuidhex(valu):
-        mesg = f'Invalid buid string: {valu}'
-        raise s_exc.BadCast(mesg=mesg)
-
-    return valu
+    buid = await tobuid(valu)
+    return s_common.ehex(buid)
 
 async def totype(valu, basetypes=False) -> str:
     '''
@@ -10372,5 +10447,10 @@ async def totype(valu, basetypes=False) -> str:
 async def typeerr(name, reqt):
     if not isinstance(name, reqt):
         styp = await totype(name, basetypes=True)
-        mesg = f"Expected value of type '{reqt}', got '{styp}' with value {name}."
+
+        reqtname = str(reqt)
+        if (clsname := getattr(reqt, '__name__')):
+            reqtname = clsname
+
+        mesg = f"Expected value of type '{reqtname}', got '{styp}' with value {name}."
         return s_exc.StormRuntimeError(mesg=mesg, name=name, type=styp)

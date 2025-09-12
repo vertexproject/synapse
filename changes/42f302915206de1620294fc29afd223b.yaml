@@ -1,0 +1,6 @@
+---
+desc: Added ``asroot:ondeny:import`` to the Storm package module definition to allow
+  a user to import a module without elevated permissions.
+prs: []
+type: feat
+...
