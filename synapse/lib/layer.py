@@ -3350,7 +3350,7 @@ class Layer(s_nexus.Pusher):
         nodeedits = [(buid, newp_formname, [set_edit])]
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
-        return bool(changes[0][2])
+        return any(c[2] for c in changes)
 
     async def delStorNode(self, buid, meta):
         '''
@@ -3434,7 +3434,7 @@ class Layer(s_nexus.Pusher):
             if changed: # pragma: no cover
                 return changed
 
-            return bool(changes[0][2])
+            return any(c[2] for c in changes)
 
         for n2iden, edges in n2edges.items():
             edits = [(EDIT_EDGE_DEL, edge, ()) for edge in edges]
@@ -3455,7 +3455,7 @@ class Layer(s_nexus.Pusher):
         nodeedits = [(buid, oldp_formname, [del_edit])]
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
-        return bool(changes[0][2])
+        return any(c[2] for c in changes)
 
     async def delNodeData(self, buid, meta, name=None):
         '''
@@ -3480,7 +3480,7 @@ class Layer(s_nexus.Pusher):
         nodeedits = [(buid, sode.get('form'), edits)]
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
-        return bool(changes[0][2])
+        return any(c[2] for c in changes)
 
     async def delEdge(self, n1buid, verb, n2buid, meta):
         sode = self._getStorNode(n1buid)
@@ -3497,7 +3497,7 @@ class Layer(s_nexus.Pusher):
         nodeedits = [(n1buid, sode.get('form'), edits)]
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
-        return bool(changes[0][2])
+        return any(c[2] for c in changes)
 
     async def storNodeEdits(self, nodeedits, meta):
 
