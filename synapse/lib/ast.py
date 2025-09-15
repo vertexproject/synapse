@@ -4915,14 +4915,12 @@ class EditPropSet(Edit):
                     if expand:
                         valu = (valu,)
 
+                    newinfos = {}
                     if isadd:
-                        newinfos = {}
                         for v in valu:
                             norm, info = await prop.type.arraytype.norm(v, view=runt.view)
                             arry.append(norm)
                             newinfos[norm] = info
-
-                        valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos=newinfos, view=runt.view)
 
                     else:
                         assert issub
@@ -4935,7 +4933,7 @@ class EditPropSet(Edit):
                             except ValueError:
                                 continue
 
-                        valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos={}, view=runt.view)
+                    valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos=newinfos, view=runt.view)
 
                 if isinstance(prop.type, s_types.Ival):
                     oldv = node.get(name)
@@ -5010,9 +5008,8 @@ class EditPropSetMulti(Edit):
             arry = list(arry)
 
             try:
+                newinfos = {}
                 if isadd:
-                    newinfos = {}
-
                     for item in valu:
                         await asyncio.sleep(0)
 
@@ -5025,8 +5022,6 @@ class EditPropSetMulti(Edit):
 
                         arry.append(norm)
                         newinfos[norm] = info
-
-                    valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos=newinfos, view=runt.view)
 
                 else:
                     for item in valu:
@@ -5044,7 +5039,7 @@ class EditPropSetMulti(Edit):
                         except ValueError:
                             continue
 
-                    valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos={}, view=runt.view)
+                valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos=newinfos, view=runt.view)
 
             except TypeError:
                 styp = await s_stormtypes.totype(valu, basetypes=True)
