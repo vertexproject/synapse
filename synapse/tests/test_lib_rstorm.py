@@ -1,4 +1,5 @@
 import os
+import sys
 
 import vcr
 
@@ -6,6 +7,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.rstorm as s_rstorm
+import synapse.lib.dyndeps as s_dyndeps
 
 import synapse.tests.utils as s_test
 
@@ -776,3 +778,40 @@ class RStormLibTest(s_test.SynTest):
                 fd.write(fix_input_for_cli(fail02).encode())
             with self.raises(s_exc.StormRuntimeError):
                 await get_rst_text(path)
+
+    async def test_rstorm_python_path(self):
+        content='''#comment
+def foo():
+ return True
+'''
+        with self.getTestDir() as dirn:
+            with s_common.genfile(dirn, 'somefile.py') as fd:
+                fd.write(content.encode())
+            pythonpath_rst_in = f'''
+.. storm-python-path:: {dirn}
+hello world
+            '''
+            rst_path = s_common.genpath(dirn, 'test.rst')
+
+            with s_common.genfile(rst_path) as fd:
+                fd.write(pythonpath_rst_in.encode())
+
+            pythonpath_rst_out = await get_rst_text(rst_path)
+            self.notin('storm-python-path', pythonpath_rst_out)
+            self.isin('hello world', pythonpath_rst_out)
+
+            self.isin(dirn, sys.path)
+            func = s_dyndeps.getDynLocal('somefile.foo')
+            self.true(func())
+            self.none(sys.path.remove(dirn))
+
+            # Sad path
+            pythonpath_rst_in = f'''
+.. storm-python-path:: {dirn}/{s_common.guid()}
+hello world
+            '''
+            rst_path = s_common.genpath(dirn, 'test.rst')
+            with s_common.genfile(rst_path) as fd:
+                fd.write(pythonpath_rst_in.encode())
+            with self.raises(s_exc.NoSuchDir):
+                await get_rst_text(rst_path)
