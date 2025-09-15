@@ -7845,7 +7845,8 @@ class Layer(Prim):
 
         layr = self.runt.snap.core.reqLayer(self.valu.get('iden'))
 
-        self.runt.confirm(('layer', 'edits', 'read'), gateiden=layr.iden)
+        if not self.runt.allowed(('layer', 'edits', 'read'), gateiden=layr.iden):
+            self.runt.confirm(('layer', 'read'), gateiden=layr.iden)
 
         if reverse:
             wait = False
