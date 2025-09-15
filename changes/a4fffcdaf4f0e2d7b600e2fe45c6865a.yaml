@@ -1,6 +1,6 @@
 ---
 desc: Updated rstorm to add a ``storm-python-path`` directive to allow adding additional
-  paths to ``sys.path`` for documentation building.
+  Python paths to ``sys.path`` for documentation building.
 prs: []
 type: feat
 ...
