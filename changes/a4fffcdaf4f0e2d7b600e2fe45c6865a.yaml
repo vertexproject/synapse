@@ -1,0 +1,6 @@
+---
+desc: Updated rstorm to add a ``storm-python-path`` directive to allow adding additional
+  Python paths to ``sys.path`` when building rstorm documentation.
+prs: []
+type: feat
+...

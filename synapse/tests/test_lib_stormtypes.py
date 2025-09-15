@@ -2054,6 +2054,31 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].repr(), 'foo')
             self.none(nodes[0].get('hehe'))
 
+            async with self.getTestCore() as core2:
+                url = core.getLocalUrl('*/layer')
+
+                layers = set(core2.layers.keys())
+                q = f'layer.add --mirror {url}'
+                await core2.stormlist(q)
+
+                uplayr = list(set(core2.layers.keys()) - layers)[0]
+                vdef = {'layers': [uplayr]}
+
+                view00 = await core2.addView(vdef)
+                opts = {'view': view00.get('iden')}
+
+                nodes = await core.nodes('[ test:str=foo :hehe=bar ]')
+
+                layr = core2.getLayer(uplayr)
+                offs = await core.view.layers[0].getEditOffs()
+                self.true(await layr.waitEditOffs(offs, timeout=10))
+
+                q = 'test:str return($lib.layer.get().delStorNodeProp($node.iden(), test:str:hehe))'
+                self.true(await core2.callStorm(q, opts=opts))
+
+                # attempting to delete a second time should not blow up
+                self.false(await core2.callStorm(q, opts=opts))
+
             # no test:str:newp prop
             q = '''
                 [ test:str=foobar00 ]
