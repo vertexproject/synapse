@@ -4885,6 +4885,7 @@ class EditPropSet(Edit):
                 runt.confirmPropSet(prop)
 
             isarray = prop.type.isarray
+            norminfo = None
 
             try:
 
@@ -4914,8 +4915,12 @@ class EditPropSet(Edit):
                     if expand:
                         valu = (valu,)
 
+                    newinfos = {}
                     if isadd:
-                        arry.extend(valu)
+                        for v in valu:
+                            norm, info = await prop.type.arraytype.norm(v, view=runt.view)
+                            arry.append(norm)
+                            newinfos[norm] = info
 
                     else:
                         assert issub
@@ -4928,7 +4933,7 @@ class EditPropSet(Edit):
                             except ValueError:
                                 pass
 
-                    valu = arry
+                    valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos=newinfos, view=runt.view)
 
                 if isinstance(prop.type, s_types.Ival):
                     oldv = node.get(name)
@@ -4940,7 +4945,7 @@ class EditPropSet(Edit):
                     await node.set(name, valu)
                 else:
                     async with runt.view.getNodeEditor(node, runt=runt) as protonode:
-                        await protonode.set(name, valu)
+                        await protonode.set(name, valu, norminfo=norminfo)
 
             except excignore:
                 pass
@@ -5002,6 +5007,7 @@ class EditPropSetMulti(Edit):
             arry = list(arry)
 
             try:
+                newinfos = {}
                 for item in valu:
                     await asyncio.sleep(0)
 
@@ -5014,18 +5020,21 @@ class EditPropSetMulti(Edit):
 
                     if isadd:
                         arry.append(norm)
+                        newinfos[norm] = info
                     else:
                         try:
                             arry.remove(norm)
                         except ValueError:
                             pass
 
+                valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos=newinfos, view=runt.view)
+
             except TypeError:
                 styp = await s_stormtypes.totype(valu, basetypes=True)
                 mesg = f"'{styp}' object is not iterable: {s_common.trimText(repr(valu))}"
                 raise rval.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=styp)) from None
 
-            await node.set(name, arry)
+            await node.set(name, arry, norminfo=norminfo)
 
             yield node, path
             await asyncio.sleep(0)

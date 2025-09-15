@@ -234,7 +234,11 @@ class Type:
         return None
 
     async def _normStormNode(self, node, view=None):
-        return await self.norm(node.ndef[1], view=view)
+        norm, norminfo = await self.norm(node.ndef[1], view=view)
+        if node.form.type.name == self.name:
+            norminfo['skipadd'] = True
+            norminfo.pop('adds', None)
+        return norm, norminfo
 
     def pack(self):
         info = {
@@ -587,6 +591,9 @@ class Array(Type):
             (cmpr, (minx, maxx), s_layer.STOR_TYPE_ARRAY),
         )
 
+    async def normSkipAddExisting(self, valu, newinfos, view=None):
+        return await self._normPyTuple(valu, view=view, newinfos=newinfos)
+
     async def _normPyStr(self, text, view=None):
         if self.splitstr is None:
             mesg = f'{self.name} type has no split-char defined.'
@@ -594,7 +601,7 @@ class Array(Type):
         parts = [p.strip() for p in text.split(self.splitstr)]
         return await self._normPyTuple(parts, view=view)
 
-    async def _normPyTuple(self, valu, view=None):
+    async def _normPyTuple(self, valu, view=None, newinfos=None):
 
         adds = []
         norms = []
@@ -603,11 +610,21 @@ class Array(Type):
         form = self.modl.form(self.arraytype.name)
 
         for item in valu:
-            norm, info = await self.arraytype.norm(item, view=view)
-            adds.extend(info.get('adds', ()))
-            if form is not None:
-                adds.append((form.name, norm, info))
+            if newinfos is not None:
+                if (info := newinfos.get(item)) is not None:
+                    norm = item
+                else:
+                    norm, info = await self.arraytype.norm(item, view=view)
+                    info['skipadd'] = True
+            else:
+                norm, info = await self.arraytype.norm(item, view=view)
+
             norms.append(norm)
+
+            if not info.get('skipadd'):
+                adds.extend(info.get('adds', ()))
+                if form is not None:
+                    adds.append((form.name, norm, info))
 
             if (virt := info.get('virts')) is not None:
                 virts[norm] = virt
@@ -2020,12 +2037,19 @@ class Ndef(Type):
             def filtfunc(form):
 
                 if self.forms is not None and form.name in forms:
-                    return False
+                    return
 
                 if self.iface is not None and form.implements(self.iface):
-                    return False
+                    return
 
-                return True
+                mesg = f'Ndef of form {form.name} is not allowed as a value for {self.name} with form filter'
+                if self.forms is not None:
+                    mesg += f' forms={self.forms}'
+
+                if self.iface is not None:
+                    mesg += f' interface={self.iface}'
+
+                raise s_exc.BadTypeValu(valu=form.name, name=self.name, mesg=mesg, forms=self.forms, interface=self.iface)
 
             self.formfilter = filtfunc
 
@@ -2056,27 +2080,22 @@ class Ndef(Type):
         return (v[0] for v in valu)
 
     async def _normStormNode(self, valu, view=None):
-        return await self._normPyTuple(valu.ndef)
+        if self.formfilter is not None:
+            self.formfilter(valu.form)
 
-    async def _normPyTuple(self, valu, view=None):
+        return valu.ndef, {'skipadd': True, 'subs': {'form': (self.formtype.typehash, valu.ndef[0], {})}}
+
+    async def _normPyTuple(self, valu, view=None, skipadd=False):
         try:
             formname, formvalu = valu
         except Exception as e:
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e)) from None
 
-        form = self.modl.form(formname)
-        if form is None:
+        if (form := self.modl.form(formname)) is None:
             raise s_exc.NoSuchForm.init(formname)
 
-        if self.formfilter is not None and self.formfilter(form):
-            mesg = f'Ndef of form {formname} is not allowed as a value for {self.name} with form filter'
-            if self.forms is not None:
-                mesg += f' forms={self.forms}'
-
-            if self.iface is not None:
-                mesg += f' interface={self.iface}'
-
-            raise s_exc.BadTypeValu(valu=formname, name=self.name, mesg=mesg, forms=self.forms, interface=self.iface)
+        if self.formfilter is not None:
+            self.formfilter(form)
 
         formnorm, forminfo = await form.type.norm(formvalu)
         norm = (form.name, formnorm)
