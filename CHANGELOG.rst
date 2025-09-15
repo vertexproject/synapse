@@ -37,7 +37,7 @@ Bugfixes
 Notes
 -----
 - Updated the execution of rstorm shell directives to inherit the calling
-  processes environment variables.
+  process's environment variables.
   (`#4482 <https://github.com/vertexproject/synapse/pull/4482>`_)
 
 Improved documentation
