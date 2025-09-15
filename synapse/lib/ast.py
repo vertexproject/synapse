@@ -4905,7 +4905,7 @@ class EditPropSet(Edit):
                         exc = s_exc.StormRuntimeError(mesg=mesg)
                         raise self.kids[0].addExcInfo(exc)
 
-                    arry, virts = node.getWithVirts(name)
+                    arry = node.get(name)
                     if arry is None:
                         arry = ()
 
@@ -4935,15 +4935,7 @@ class EditPropSet(Edit):
                             except ValueError:
                                 continue
 
-                            if (virtnorm := info.get('virts')) is not None:
-                                for vname, (vval, vtyp) in virtnorm.items():
-                                    try:
-                                        virts[vname][0].remove(vval)
-                                    except ValueError:  # pragma: no cover
-                                        continue
-
-                        valu = arry
-                        norminfo = {'virts': virts}
+                        valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos={}, view=runt.view)
 
                 if isinstance(prop.type, s_types.Ival):
                     oldv = node.get(name)
@@ -5011,7 +5003,7 @@ class EditPropSetMulti(Edit):
             atyp = prop.type.arraytype
             valu = await s_stormtypes.tostor(valu)
 
-            arry, virts = node.getWithVirts(name)
+            arry = node.get(name)
             if arry is None:
                 arry = ()
 
@@ -5052,15 +5044,7 @@ class EditPropSetMulti(Edit):
                         except ValueError:
                             continue
 
-                        if (virtnorm := info.get('virts')) is not None:
-                            for vname, (vval, vtyp) in virtnorm.items():
-                                try:
-                                    virts[vname][0].remove(vval)
-                                except ValueError:  # pragma: no cover
-                                    continue
-
-                    valu = arry
-                    norminfo = {'virts': virts}
+                    valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos={}, view=runt.view)
 
             except TypeError:
                 styp = await s_stormtypes.totype(valu, basetypes=True)
