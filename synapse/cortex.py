@@ -1384,8 +1384,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls the ability to add Layers to the cortex.'},
             {'perm': ('layer', 'del'), 'gate': 'cortex',
              'desc': 'Controls the ability to remove Layers from the cortex.'},
-            {'perm': ('layer', 'edits', 'read'), 'gate': 'layer',
-             'desc': 'Controls the ability to retrieve node edits from the Layer.'},
             {'perm': ('layer', 'read'), 'gate': 'layer',
              'desc': 'Controls the ability to read/lift from a Layer.'},
             {'perm': ('layer', 'read', '<iden>'), 'gate': 'cortex',
