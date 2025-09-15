@@ -624,7 +624,8 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(buid, valu)]
         '''
-        self.user.confirm(('layer', 'read', layriden))
+        if not self.user.allowed(('layer', 'lift', layriden)):
+            self.user.confirm(('layer', 'read', layriden))
         async for item in self.cell.iterFormRows(layriden, form, stortype=stortype, startvalu=startvalu):
             yield item
 
@@ -642,7 +643,8 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(buid, valu)]
         '''
-        self.user.confirm(('layer', 'read', layriden))
+        if not self.user.allowed(('layer', 'lift', layriden)):
+            self.user.confirm(('layer', 'read', layriden))
         async for item in self.cell.iterPropRows(layriden, form, prop, stortype=stortype, startvalu=startvalu):
             yield item
 
@@ -659,7 +661,8 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(buid, valu)]
         '''
-        self.user.confirm(('layer', 'read', layriden))
+        if not self.user.allowed(('layer', 'lift', layriden)):
+            self.user.confirm(('layer', 'read', layriden))
         async for item in self.cell.iterUnivRows(layriden, prop, stortype=stortype, startvalu=startvalu):
             yield item
 
@@ -680,7 +683,8 @@ class CoreApi(s_cell.CellApi):
             This yields (buid, (tagvalu, form)) instead of just buid, valu in order to allow resuming an interrupted
             call by feeding the last value retrieved into starttupl
         '''
-        self.user.confirm(('layer', 'read', layriden))
+        if not self.user.allowed(('layer', 'lift', layriden)):
+            self.user.confirm(('layer', 'read', layriden))
         async for item in self.cell.iterTagRows(layriden, tag, form=form, starttupl=starttupl):
             yield item
 
@@ -699,7 +703,8 @@ class CoreApi(s_cell.CellApi):
         Returns:
             AsyncIterator[Tuple(buid, valu)]
         '''
-        self.user.confirm(('layer', 'read', layriden))
+        if not self.user.allowed(('layer', 'lift', layriden)):
+            self.user.confirm(('layer', 'read', layriden))
         async for item in self.cell.iterTagPropRows(layriden, tag, prop, form=form, stortype=stortype,
                                                     startvalu=startvalu):
             yield item
@@ -1384,7 +1389,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('layer', 'read'), 'gate': 'layer',
              'desc': 'Controls the ability to read/lift from a Layer.'},
             {'perm': ('layer', 'read', '<iden>'), 'gate': 'cortex',
-             'desc': 'Controls the ability to ready/lift from a specific Layer.'},
+             'desc': 'Controls the ability to read/lift from a specific Layer.'},
             {'perm': ('layer', 'set', '<name>'), 'gate': 'layer',
              'desc': 'Controls the ability to configure properties of a Layer.'},
             {'perm': ('layer', 'write'), 'gate': 'layer',

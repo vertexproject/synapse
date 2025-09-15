@@ -118,6 +118,7 @@ class LayerApi(s_cell.CellApi):
         await s_cell.CellApi.__anit__(self, core, link, user)
 
         self.layr = layr
+        self.liftperm = ('layer', 'lift', self.layr.iden)
         self.readperm = ('layer', 'read', self.layr.iden)
         self.writeperm = ('layer', 'write', self.layr.iden)
 
@@ -126,7 +127,8 @@ class LayerApi(s_cell.CellApi):
         Scan the full layer and yield artificial nodeedit sets.
         '''
 
-        await self._reqUserAllowed(self.readperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         async for item in self.layr.iterLayerNodeEdits():
             yield item
             await asyncio.sleep(0)
@@ -165,13 +167,15 @@ class LayerApi(s_cell.CellApi):
 
         Once caught up with storage, yield them in realtime.
         '''
-        await self._reqUserAllowed(self.readperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         async for item in self.layr.syncNodeEdits(offs, wait=wait, reverse=reverse):
             yield item
             await asyncio.sleep(0)
 
     async def syncNodeEdits2(self, offs, wait=True):
-        await self._reqUserAllowed(self.readperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         async for item in self.layr.syncNodeEdits2(offs, wait=wait):
             yield item
             await asyncio.sleep(0)
@@ -180,18 +184,21 @@ class LayerApi(s_cell.CellApi):
         '''
         Returns what will be the *next* nodeedit log index.
         '''
-        await self._reqUserAllowed(self.readperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         return await self.layr.getEditIndx()
 
     async def getEditSize(self):
         '''
         Return the total number of (edits, meta) pairs in the layer changelog.
         '''
-        await self._reqUserAllowed(self.readperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         return await self.layr.getEditSize()
 
     async def getIden(self):
-        await self._reqUserAllowed(self.readperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         return self.layr.iden
 
 BUID_CACHE_SIZE = 10000
