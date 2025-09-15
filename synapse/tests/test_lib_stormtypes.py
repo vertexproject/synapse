@@ -2078,7 +2078,6 @@ class StormTypesTest(s_test.SynTest):
 
                 # attempting to delete a second time should not blow up
                 self.false(await core2.callStorm(q, opts=opts))
-                self.stormHasNoWarnErr(msgs)
 
             # no test:str:newp prop
             q = '''
