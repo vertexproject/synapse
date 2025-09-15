@@ -1,6 +1,0 @@
----
-desc: Fixed a bug in the default ``Content-Type`` header used in the extended Storm
-  HTTP API.
-prs: []
-type: bug
-...
