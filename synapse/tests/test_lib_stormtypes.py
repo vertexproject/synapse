@@ -2073,11 +2073,11 @@ class StormTypesTest(s_test.SynTest):
                 offs = await core.view.layers[0].getEditOffs()
                 self.true(await layr.waitEditOffs(offs, timeout=10))
 
-                q = 'test:str $lib.layer.get().delStorNodeProp($node.iden(), test:str:hehe)'
-                msgs = await core2.stormlist(q, opts=opts)
+                q = 'test:str return($lib.layer.get().delStorNodeProp($node.iden(), test:str:hehe))'
+                self.true(await core2.callStorm(q, opts=opts))
 
                 # attempting to delete a second time should not blow up
-                msgs = await core2.stormlist(q, opts=opts)
+                self.false(await core2.callStorm(q, opts=opts))
                 self.stormHasNoWarnErr(msgs)
 
             # no test:str:newp prop
