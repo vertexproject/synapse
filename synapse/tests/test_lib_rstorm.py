@@ -7,7 +7,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.rstorm as s_rstorm
-import synapse.lib.dyndeps as s_dyndeps
 
 import synapse.tests.utils as s_test
 
