@@ -2037,12 +2037,19 @@ class Ndef(Type):
             def filtfunc(form):
 
                 if self.forms is not None and form.name in forms:
-                    return False
+                    return
 
                 if self.iface is not None and form.implements(self.iface):
-                    return False
+                    return
 
-                return True
+                mesg = f'Ndef of form {form.name} is not allowed as a value for {self.name} with form filter'
+                if self.forms is not None:
+                    mesg += f' forms={self.forms}'
+
+                if self.iface is not None:
+                    mesg += f' interface={self.iface}'
+
+                raise s_exc.BadTypeValu(valu=form.name, name=self.name, mesg=mesg, forms=self.forms, interface=self.iface)
 
             self.formfilter = filtfunc
 
@@ -2073,30 +2080,22 @@ class Ndef(Type):
         return (v[0] for v in valu)
 
     async def _normStormNode(self, valu, view=None):
-        norm, norminfo = await self._normPyTuple(valu.ndef)
-        norminfo['skipadd'] = True
-        norminfo.pop('adds', None)
-        return norm, norminfo
+        if self.formfilter is not None:
+            self.formfilter(valu.form)
 
-    async def _normPyTuple(self, valu, view=None):
+        return valu.ndef, {'skipadd': True, 'subs': {'form': (self.formtype.typehash, valu.ndef[0], {})}}
+
+    async def _normPyTuple(self, valu, view=None, skipadd=False):
         try:
             formname, formvalu = valu
         except Exception as e:
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e)) from None
 
-        form = self.modl.form(formname)
-        if form is None:
+        if (form := self.modl.form(formname)) is None:
             raise s_exc.NoSuchForm.init(formname)
 
-        if self.formfilter is not None and self.formfilter(form):
-            mesg = f'Ndef of form {formname} is not allowed as a value for {self.name} with form filter'
-            if self.forms is not None:
-                mesg += f' forms={self.forms}'
-
-            if self.iface is not None:
-                mesg += f' interface={self.iface}'
-
-            raise s_exc.BadTypeValu(valu=formname, name=self.name, mesg=mesg, forms=self.forms, interface=self.iface)
+        if self.formfilter is not None:
+            self.formfilter(form)
 
         formnorm, forminfo = await form.type.norm(formvalu)
         norm = (form.name, formnorm)
