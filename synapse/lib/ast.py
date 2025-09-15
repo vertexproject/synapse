@@ -4931,7 +4931,7 @@ class EditPropSet(Edit):
                             try:
                                 arry.remove(norm)
                             except ValueError:
-                                continue
+                                pass
 
                     valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos=newinfos, view=runt.view)
 
@@ -5001,8 +5001,7 @@ class EditPropSetMulti(Edit):
             atyp = prop.type.arraytype
             valu = await s_stormtypes.tostor(valu)
 
-            arry = node.get(name)
-            if arry is None:
+            if (arry := node.get(name)) is None:
                 arry = ()
 
             arry = list(arry)
@@ -5026,7 +5025,7 @@ class EditPropSetMulti(Edit):
                         try:
                             arry.remove(norm)
                         except ValueError:
-                            continue
+                            pass
 
                 valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos=newinfos, view=runt.view)
 
