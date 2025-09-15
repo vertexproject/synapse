@@ -5009,31 +5009,20 @@ class EditPropSetMulti(Edit):
 
             try:
                 newinfos = {}
-                if isadd:
-                    for item in valu:
-                        await asyncio.sleep(0)
+                for item in valu:
+                    await asyncio.sleep(0)
 
-                        try:
-                            norm, info = await atyp.norm(item, view=runt.view)
-                        except excignore:
-                            continue
-                        except s_exc.BadTypeValu as e:
-                            raise rval.addExcInfo(e)
+                    try:
+                        norm, info = await atyp.norm(item, view=runt.view)
+                    except excignore:
+                        continue
+                    except s_exc.BadTypeValu as e:
+                        raise rval.addExcInfo(e)
 
+                    if isadd:
                         arry.append(norm)
                         newinfos[norm] = info
-
-                else:
-                    for item in valu:
-                        await asyncio.sleep(0)
-
-                        try:
-                            norm, info = await atyp.norm(item, view=runt.view)
-                        except excignore:
-                            continue
-                        except s_exc.BadTypeValu as e:
-                            raise rval.addExcInfo(e)
-
+                    else:
                         try:
                             arry.remove(norm)
                         except ValueError:
