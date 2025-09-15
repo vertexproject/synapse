@@ -386,7 +386,10 @@ class StormRst(s_base.Base):
             raise s_exc.NoSuchDir(mesg=f'The path {text} is not a directory', path=text)
         if text not in sys.path:
             logger.debug(f'Inserting {text} into sys.path')
-            sys.path.append(text)
+            sys.path.insert(0, text)
+            def onfini():
+                sys.path.remove(text)
+            self.onfini(onfini)
 
     async def _handleStorm(self, text):
         '''
