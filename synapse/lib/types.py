@@ -235,7 +235,7 @@ class Type:
 
     async def _normStormNode(self, node, view=None):
         norm, norminfo = await self.norm(node.ndef[1], view=view)
-        if node.form.type.name == self.name:
+        if self.name in node.form.formtypes:
             norminfo['skipadd'] = True
             norminfo.pop('adds', None)
         return norm, norminfo
@@ -2055,7 +2055,7 @@ class Ndef(Type):
 
             def filtfunc(form):
 
-                if self.forms is not None and form.name in forms:
+                if self.forms is not None and any(f in forms for f in form.formtypes):
                     return
 
                 if self.iface is not None and form.implements(self.iface):
