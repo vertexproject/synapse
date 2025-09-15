@@ -780,7 +780,7 @@ class RStormLibTest(s_test.SynTest):
                 await get_rst_text(path)
 
     async def test_rstorm_python_path(self):
-        content='''#comment
+        content = '''#comment
 def foo():
  return True
 '''
