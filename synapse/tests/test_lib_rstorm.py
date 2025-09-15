@@ -1,4 +1,5 @@
 import os
+import sys
 
 import vcr
 
@@ -776,3 +777,50 @@ class RStormLibTest(s_test.SynTest):
                 fd.write(fix_input_for_cli(fail02).encode())
             with self.raises(s_exc.StormRuntimeError):
                 await get_rst_text(path)
+
+    async def test_rstorm_python_path(self):
+        content = '''#comment
+import synapse.lib.cell as s_cell
+import synapse.lib.stormsvc as s_stormsvc
+
+class SomeApi(s_stormsvc.StormSvc, s_cell.CellApi):
+    _storm_svc_name = 'someservice'
+    _storm_svc_vers = '0.1.0',
+    _storm_svc_pkgs = ()
+
+class SomeService(s_cell.Cell):
+    cellapi = SomeApi
+'''
+        with self.getTestDir() as dirn:
+            with s_common.genfile(dirn, 'somefile.py') as fd:
+                fd.write(content.encode())
+            pythonpath_rst_in = f'''
+.. storm-cortex:: default
+.. storm-python-path:: {dirn}
+.. storm-svc:: somefile.SomeService fooservice {{"https:port": 0}}
+.. storm:: service.list
+
+hello world
+            '''
+            rst_path = s_common.genpath(dirn, 'test.rst')
+
+            with s_common.genfile(rst_path) as fd:
+                fd.write(pythonpath_rst_in.encode())
+
+            pythonpath_rst_out = await get_rst_text(rst_path)
+            self.notin('storm-python-path', pythonpath_rst_out)
+            self.isin('(fooservice) (someservice @ 0.1.0)', pythonpath_rst_out)
+            self.isin('hello world', pythonpath_rst_out)
+            # Fini handler cleaned up the path manipulation
+            self.notin(dirn, sys.path)
+
+            # Sad path
+            pythonpath_rst_in = f'''
+.. storm-python-path:: {dirn}/{s_common.guid()}
+hello world
+            '''
+            rst_path = s_common.genpath(dirn, 'test.rst')
+            with s_common.genfile(rst_path) as fd:
+                fd.write(pythonpath_rst_in.encode())
+            with self.raises(s_exc.NoSuchDir):
+                await get_rst_text(rst_path)
