@@ -235,7 +235,7 @@ class Type:
 
     async def _normStormNode(self, node, view=None):
         norm, norminfo = await self.norm(node.ndef[1], view=view)
-        if node.form.type.typehash is self.typehash:
+        if node.form.type.name == self.name:
             norminfo['skipadd'] = True
             norminfo.pop('adds', None)
         return norm, norminfo
