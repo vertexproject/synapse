@@ -1043,6 +1043,10 @@ class AstTest(s_test.SynTest):
             self.len(4, await core.nodes('.created +it:host:activity'))
             self.len(3, await core.nodes('.created +it:host:activity:host'))
 
+            self.len(4, await core.nodes('it:host:activity.created'))
+            self.len(4, await core.nodes('it:host:activity.created>2000-01-01'))
+            self.len(0, await core.nodes('it:host:activity.created<2000-01-01'))
+
             self.len(4, await core.nodes('inet:dns*'))
             self.len(4, await core.nodes('inet:dns:*'))
             self.len(2, await core.nodes('inet:dns:a*'))
@@ -1097,13 +1101,13 @@ class AstTest(s_test.SynTest):
 
             await core.nodes('[ test:hasiface=foo :sandbox:file=* ]')
             self.len(1, await core.nodes('test:hasiface:sandbox:file'))
-            self.skip('FIXME interface props need tweak due to prefix updates?')
             self.len(1, await core.nodes('test:interface:sandbox:file'))
             self.len(1, await core.nodes('inet:proto:request:sandbox:file'))
-            self.len(1, await core.nodes('it:host:activity:sandbox:file'))
 
-            self.len(1, await core.nodes('[ it:exec:reg:get=* :host=(host,) ]'))
-            self.len(4, await core.nodes('it:host:activity:host=(host,)'))
+            self.len(1, await core.nodes('[ test:hasiface=* :sandbox:file=(host,) ]'))
+            self.len(1, await core.nodes('test:hasiface:sandbox:file=(host,)'))
+            self.len(1, await core.nodes('test:interface:sandbox:file=(host,)'))
+            self.len(1, await core.nodes('inet:proto:request:sandbox:file=(host,)'))
 
     async def test_ast_edge_walknjoin(self):
 

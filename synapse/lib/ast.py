@@ -2224,15 +2224,25 @@ class LiftPropVirt(LiftProp):
         name = await tostr(await self.kids[0].compute(runt, path))
         virts = await self.kids[1].compute(runt, path)
 
-        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+        props = runt.model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
 
-        if len(props) == 1:
-            async for node in runt.view.nodesByProp(props[0].full, reverse=self.reverse, virts=virts):
+        metaname = None
+        if props[0].isform and virts[0] in runt.model.metatypes:
+            metaname = virts[0]
+
+        genrs = []
+        for prop in props:
+            if metaname is not None:
+                genrs.append(runt.view.nodesByMeta(metaname, form=prop.full, reverse=self.reverse))
+            else:
+                genrs.append(runt.view.nodesByProp(prop.full, reverse=self.reverse, virts=virts))
+
+        if len(genrs) == 1:
+            async for node in genrs[0]:
                 yield node
             return
 
-        if len(virts) == 1 and virts[0] in runt.model.metatypes:
-            metaname = virts[0]
+        if metaname is not None:
             def cmprkey(node):
                 return node.getMeta(metaname)
         else:
@@ -2241,10 +2251,6 @@ class LiftPropVirt(LiftProp):
 
             def cmprkey(node):
                 return node.get(relname, virts=vgetr)
-
-        genrs = []
-        for prop in props:
-            genrs.append(runt.view.nodesByProp(prop.full, reverse=self.reverse, virts=virts))
 
         async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
             yield node
@@ -2328,7 +2334,7 @@ class LiftPropVirtBy(LiftOper):
             parts = name.split('::')
             name, pivs = parts[0], parts[1:]
 
-        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+        props = runt.model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
         relname = props[0].name
 
         try:
@@ -2357,19 +2363,29 @@ class LiftPropVirtBy(LiftOper):
                     yield node
                 return
 
+            metaname = None
+            if props[0].isform and vnames[0] in runt.model.metatypes:
+                metaname = vnames[0]
+
             genrs = []
             for prop in props:
-                genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=vnames))
+                if metaname is not None:
+                    genrs.append(runt.view.nodesByMetaValu(metaname, cmpr, valu, form=prop.full, reverse=self.reverse))
+                else:
+                    genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=vnames))
 
             if len(genrs) == 1:
                 async for node in genrs[0]:
                     yield node
                 return
 
-            vgetr = props[0].type.getVirtGetr(vnames)
-
-            def cmprkey(node):
-                return node.get(relname, virts=vgetr)
+            if metaname is not None:
+                def cmprkey(node):
+                    return node.getMeta(metaname)
+            else:
+                vgetr = props[0].type.getVirtGetr(vnames)
+                def cmprkey(node):
+                    return node.get(relname, virts=vgetr)
 
             async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
                 yield node
