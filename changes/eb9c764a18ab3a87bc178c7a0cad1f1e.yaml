@@ -1,0 +1,5 @@
+---
+desc: Removed an erroneous comment in the example Kubernetes podspec for the AHA service.
+prs: []
+type: bug
+...
