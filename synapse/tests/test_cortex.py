@@ -1338,7 +1338,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
                 self.eq(20, nodes[0].getTagProp('bar', 'score'))
 
-                #    remove one of the tag props and everything still works
+                # remove one of the tag props and everything still works
                 nodes = await core.nodes('[ test:int=10 -#bar:score ]')
                 self.len(1, nodes)
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
@@ -1346,7 +1346,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 await core.nodes('[ test:int=10 -#foo:score ]')
 
-                #    same, except for _changing_ the tagprop instead of removing
+                # same, except for _changing_ the tagprop instead of removing
                 await core.nodes('test:int=10 [ +#foo:score=20 +#bar:score=20 ]')
                 nodes = await core.nodes('test:int=10 [ +#bar:score=30 ]')
                 self.len(1, nodes)
@@ -1423,6 +1423,54 @@ class CortexTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.BadTypeValu):
                     await core.nodes("test:int $tag=(foo, bar) [ -#$tag:prop ]")
+
+                await core.addForm('_low:str', 'str', {'lower': True}, {})
+                await core.addTagProp('lowstr', ('_low:str', {}), {})
+                await core.addTagProp('refsnode', ('ndef', {}), {})
+                await core.addTagProp('refsprop', ('nodeprop', {}), {})
+
+                await core.nodes('''[
+                    test:str=foo
+                    +#foo:lowstr=fooBAR
+                    +#foo:refsnode={[ test:str=refd ]}
+                    +#foo:refsprop=(test:str:hehe, nprop)
+                    (test:str=bar :hehe=nprop)
+                ]''')
+
+                nodes = await core.nodes('_low:str=foobar <- *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+                nodes = await core.nodes('test:str=refd <- *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+                nodes = await core.nodes('test:str=bar <- *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+                await core.nodes('_low:str | delnode')
+
+                # Can't delete a type still in use by tagprops
+                with self.raises(s_exc.CantDelType):
+                    await core.delForm('_low:str')
+
+                await core.nodes('test:str=foo [ -#foo:lowstr ]')
+                await core.delTagProp('lowstr')
+                await core.delForm('_low:str')
+
+                await core.addTagProp('serv', ('inet:server', {}), {})
+
+                await core.nodes('[ test:str=bar +#bar:serv=1.2.3.4:80 ]')
+                await core.nodes('[ test:str=nop +#bar:serv=1.2.3.4:123 ]')
+                await core.nodes('[ test:int=1 +#bar:serv=1.2.3.4:80 ]')
+
+                self.len(2, await core.nodes('#bar:serv.port=80'))
+                self.len(2, await core.nodes('#bar:serv.port<100'))
+                self.len(1, await core.nodes('#bar:serv.port>100'))
+                self.len(1, await core.nodes('test:str#bar:serv.port=80'))
+                self.len(1, await core.nodes('test:str#bar:serv.port<100'))
+                self.len(1, await core.nodes('test:str#bar:serv.port>100'))
 
             # Ensure that the tagprops persist
             async with self.getTestCore(dirn=dirn) as core:

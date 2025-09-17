@@ -3979,7 +3979,7 @@ class MergeCmd(Cmd):
                     if tagfilter is not None and tagfilter(tag):
                         continue
 
-                    for prop, (valu, stortype) in tagdict.items():
+                    for prop, (valu, stortype, virts) in tagdict.items():
                         if not doapply:
                             valurepr = repr(valu)
                             await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
@@ -4440,7 +4440,7 @@ class MoveNodesCmd(Cmd):
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}:{name} = {valurepr}')
                     else:
                         stortype = node.form.prop(name).type.stortype
-                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, stortype, virtvals.get('name'))))
+                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, stortype, virtvals.get(name))))
                 else:
                     if destprops is not None and (destvalu := destprops.get(name)) is not None:
                         if not self.opts.apply:
@@ -4531,14 +4531,17 @@ class MoveNodesCmd(Cmd):
     async def _moveTagProps(self, node, sodes, meta, delnode):
 
         movevals = {}
+        virtvals = {}
         form = node.form.name
         nodeiden = node.iden()
 
         for layr, sode in sodes.items():
 
             for tag, tagdict in sode.get('tagprops', {}).items():
-                for prop, (valu, stortype) in tagdict.items():
+                for prop, (valu, stortype, virts) in tagdict.items():
+
                     name = (tag, prop)
+                    virtvals[name] = virts
 
                     if (oldv := movevals.get(name)) is not s_common.novalu:
                         if oldv is None:
@@ -4587,7 +4590,8 @@ class MoveNodesCmd(Cmd):
                         mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
                         await self.runt.printf(mesg)
                     else:
-                        self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, tptype.stortype)))
+                        edit = (tag, prop, valu, tptype.stortype, virtvals.get((tag, prop)))
+                        self.adds.append((s_layer.EDIT_TAGPROP_SET, edit))
 
                 else:
                     if destdict is not None and (destprops := destdict.get(tag)) is not None:

@@ -2083,6 +2083,10 @@ class Ndef(Type):
         if self.formfilter is not None:
             self.formfilter(valu.form)
 
+        if valu.form.locked:
+            formname = valu.form.name
+            raise s_exc.IsDeprLocked(mesg=f'Ndef of form {formname} is locked due to deprecation.', form=formname)
+
         return valu.ndef, {'skipadd': True, 'subs': {'form': (self.formtype.typehash, valu.ndef[0], {})}}
 
     async def _normPyTuple(self, valu, view=None, skipadd=False):
@@ -2093,6 +2097,9 @@ class Ndef(Type):
 
         if (form := self.modl.form(formname)) is None:
             raise s_exc.NoSuchForm.init(formname)
+
+        if form.locked:
+            raise s_exc.IsDeprLocked(mesg=f'Ndef of form {formname} is locked due to deprecation.', form=formname)
 
         if self.formfilter is not None:
             self.formfilter(form)

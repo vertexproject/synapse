@@ -1064,7 +1064,7 @@ class Node(NodeBase):
 
         return False
 
-    def getTagProp(self, tag, prop, defval=None):
+    def getTagProp(self, tag, prop, defval=None, virts=None):
         '''
         Return the value (or defval) of the given tag property.
         '''
@@ -1083,9 +1083,43 @@ class Node(NodeBase):
                 continue
 
             if (valt := propvals.get(prop)) is not None:
+                if virts:
+                    for virt in virts:
+                        valt = virt(valt)
+                    return valt
                 return valt[0]
 
         return defval
+
+    def getTagPropWithVirts(self, tag, prop, defval=None):
+        '''
+        Return a tag property with virtual property information from the Node.
+
+        Args:
+            tag (str): The name of the tag.
+            prop (str): The name of the property on the tag.
+
+        Returns:
+            (tuple): The tag property and virtual property information or (defv, None).
+        '''
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return defval, None
+
+            if (antitags := sode.get('antitagprops')) is not None:
+                if (antiprops := antitags.get(tag)) is not None and prop in antiprops:
+                    return defval, None
+
+            if (tagprops := sode.get('tagprops')) is None:
+                continue
+
+            if (propvals := tagprops.get(tag)) is None:
+                continue
+
+            if (valt := propvals.get(prop)) is not None:
+                return valt[0], valt[2]
+
+        return defval, None
 
     def getTagPropWithLayer(self, tag, prop, defval=None):
         '''

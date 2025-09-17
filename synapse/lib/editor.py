@@ -158,7 +158,7 @@ class ProtoNode(s_node.NodeBase):
 
         for (tag, name), valu in self.tagprops.items():
             prop = self.model.getTagProp(name)
-            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu, prop.type.stortype)))
+            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu[0], prop.type.stortype, valu[1])))
 
         for (tag, name) in self.tagpropdels:
             prop = self.model.getTagProp(name)
@@ -607,12 +607,26 @@ class ProtoNode(s_node.NodeBase):
 
         curv = self.tagprops.get((tag, name))
         if curv is not None:
-            return curv
+            return curv[0]
 
         if self.node is not None:
             return self.node.getTagProp(tag, name, defval=defv)
 
         return defv
+
+    def getTagPropWithVirts(self, tag, name, defv=None):
+
+        if (tag, name) in self.tagpropdels or (tag, name) in self.tagproptombs:
+            return defv, None
+
+        curv = self.tagprops.get((tag, name))
+        if curv is not None:
+            return curv, None
+
+        if self.node is not None:
+            return self.node.getTagPropWithVirts(tag, name, defval=defv)
+
+        return defv, None
 
     def getTagPropWithLayer(self, tag, name, defv=None):
 
@@ -621,7 +635,7 @@ class ProtoNode(s_node.NodeBase):
 
         curv = self.tagprops.get((tag, name))
         if curv is not None:
-            return curv, 0
+            return curv[0], 0
 
         if self.node is not None:
             return self.node.getTagPropWithLayer(tag, name, defval=defv)
@@ -655,14 +669,24 @@ class ProtoNode(s_node.NodeBase):
 
         norm, info = await prop.type.norm(valu, view=self.editor.view)
 
-        curv = self.getTagProp(tagnode.valu, name)
-        if curv == norm:
+        if (propform := self.model.form(prop.type.name)) is not None:
+            await self.editor.addNode(propform.name, norm, norminfo=info)
+
+        if (propadds := info.get('adds')) is not None:
+            for addname, addvalu, addinfo in propadds:
+                await self.editor.addNode(addname, addvalu, norminfo=addinfo)
+
+        virts = info.get('virts')
+        curv = self.getTagPropWithVirts(tagnode.valu, name)
+        if curv == (norm, virts):
             return False
+
+        curv = curv[0]
 
         if curv is not None and info.get('merge', True):
             norm = prop.type.merge(curv, norm)
 
-        self.tagprops[(tagnode.valu, name)] = norm
+        self.tagprops[(tagnode.valu, name)] = (norm, virts)
         self.tagpropdels.discard((tagnode.valu, name))
         self.tagproptombs.discard((tagnode.valu, name))
 
@@ -760,11 +784,6 @@ class ProtoNode(s_node.NodeBase):
                               'form': prop.form.name,
                               'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})
                 raise e
-
-        if isinstance(prop.type, s_types.Ndef):
-            ndefform = self.model.form(valu[0])
-            if ndefform.locked:
-                raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.', prop=prop.full)
 
         virts = norminfo.get('virts')
         curv = self.getWithVirts(prop.name)

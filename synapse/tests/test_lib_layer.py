@@ -292,9 +292,10 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, errors)
 
             errors = [e async for e in layr.verifyAllTagProps()]
-            self.len(2, errors)
+            self.len(3, errors)
             self.eq(errors[0][0], 'NoNodeForTagPropIndex')
             self.eq(errors[1][0], 'NoNodeForTagPropIndex')
+            self.eq(errors[2][0], 'NoNodeForTagPropIndex')
 
             nodes = await core.nodes('[ inet:ip=1.2.3.4 +#foo:score=5 ]')
             nid = nodes[0].nid
@@ -303,16 +304,18 @@ class LayerTest(s_t_utils.SynTest):
 
             scanconf = {'autofix': 'index'}
             errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
-            self.len(2, errors)
+            self.len(4, errors)
             self.eq(errors[0][0], 'SpurTagPropKeyForIndex')
             self.eq(errors[1][0], 'SpurTagPropKeyForIndex')
+            self.eq(errors[2][0], 'SpurTagPropKeyForIndex')
+            self.eq(errors[3][0], 'SpurTagPropKeyForIndex')
 
             errors = [e async for e in layr.verifyAllTagProps()]
             self.len(0, errors)
 
             sode = layr._getStorNode(nid)
             score = sode['tagprops']['foo']['score']
-            sode['tagprops']['foo']['score'] = (score[0], 8675309)
+            sode['tagprops']['foo']['score'] = (score[0], 8675309, None)
             layr.dirty[nid] = sode
 
             errors = [e async for e in core.getLayer().verify()]
@@ -743,7 +746,7 @@ class LayerTest(s_t_utils.SynTest):
             noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAG_DEL, ('newp',))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_SET, ('tp', 'score', 5, s_layer.STOR_TYPE_I64))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_SET, ('tp', 'score', 5, s_layer.STOR_TYPE_I64, None))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
             noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_DEL, ('newp', 'newp'))])]
@@ -839,7 +842,7 @@ class LayerTest(s_t_utils.SynTest):
                 events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
                 self.eq(events, [
                     (ipnid, 'inet:ip', s_layer.EDIT_TAGPROP_SET,
-                        ('mytag', 'score', 99, s_layer.STOR_TYPE_I64)),
+                        ('mytag', 'score', 99, s_layer.STOR_TYPE_I64, None)),
                     (ipnid, 'inet:ip', s_layer.EDIT_TAGPROP_DEL,
                         ('mytag', 'score')),
                 ])

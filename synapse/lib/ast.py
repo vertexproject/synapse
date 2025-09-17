@@ -1793,7 +1793,15 @@ class LiftTagProp(LiftOper):
 
         tag, prop = await self.kids[0].compute(runt, path)
 
-        if len(self.kids) == 3:
+        if len(self.kids) == 4:
+            virts = await self.kids[1].compute(runt, path)
+            cmpr = await self.kids[2].compute(runt, path)
+            valu = await s_stormtypes.tostor(await self.kids[3].compute(runt, path))
+
+            async for node in runt.view.nodesByTagPropValu(None, tag, prop, cmpr, valu, reverse=self.reverse, virts=virts):
+                yield node
+
+        elif len(self.kids) == 3:
 
             cmpr = await self.kids[1].compute(runt, path)
             valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
@@ -1801,14 +1809,13 @@ class LiftTagProp(LiftOper):
             async for node in runt.view.nodesByTagPropValu(None, tag, prop, cmpr, valu, reverse=self.reverse):
                 yield node
 
-            return
+        else:
+            virts = None
+            if len(self.kids) == 2:
+                virts = await self.kids[1].compute(runt, path)
 
-        virts = None
-        if len(self.kids) == 2:
-            virts = await self.kids[1].compute(runt, path)
-
-        async for node in runt.view.nodesByTagProp(None, tag, prop, reverse=self.reverse, virts=virts):
-            yield node
+            async for node in runt.view.nodesByTagProp(None, tag, prop, reverse=self.reverse, virts=virts):
+                yield node
 
 class LiftFormTagProp(LiftOper):
     '''
@@ -2457,13 +2464,19 @@ class PivotIn(PivotOper):
             async for pivo in runt.view.nodesByPropArray(prop.full, '=', valu, norm=norm):
                 yield pivo, path.fork(pivo, link)
 
-        async for pivo, prop in runt.view.getNdefRefs(node.ndef):
-            yield pivo, path.fork(pivo, {'type': 'prop', 'prop': prop, 'reverse': True})
+        for prop in runt.model.getTagPropsByType(name):
+            link = {'type': 'tagprop', 'prop': prop.name, 'reverse': True}
+            norm = node.form.typehash is not prop.type.typehash
+            async for pivo in runt.view.nodesByTagPropValu(None, None, prop.name, '=', valu, norm=norm):
+                yield pivo, path.fork(pivo, link)
+
+        async for pivo, info in runt.view.getNdefRefs(node.ndef):
+            yield pivo, path.fork(pivo, info)
 
         for prop, valu in node.getProps().items():
             pdef = (f'{name}:{prop}', valu)
-            async for pivo, prop in runt.view.getNodePropRefs(pdef):
-                yield pivo, path.fork(pivo, {'type': 'prop', 'prop': prop, 'reverse': True})
+            async for pivo, info in runt.view.getNodePropRefs(pdef):
+                yield pivo, path.fork(pivo, info)
 
 class N2WalkNPivo(PivotIn):
 
