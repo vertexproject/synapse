@@ -4885,7 +4885,7 @@ class Layer(s_nexus.Pusher):
             self.layrslab.delete(ftp_maxabrv + indx, nid, db=self.indxdb)
 
         if oldvirts is not None:
-            self.stortypes[oldt].delTagPropVirtIndxVals(nid, form, tag, t_abrv, prop, virts)
+            self.stortypes[oldt].delTagPropVirtIndxVals(nid, form, tag, t_abrv, prop, oldvirts)
 
         return ()
 
