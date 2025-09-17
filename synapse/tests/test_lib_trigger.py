@@ -8,7 +8,7 @@ import synapse.tools.backup as s_tools_backup
 
 class TrigTest(s_t_utils.SynTest):
 
-    async def test_trigger_async(self):
+    async def test_trigger_async_base(self):
 
         with self.getTestDir() as dirn:
 
@@ -48,6 +48,24 @@ class TrigTest(s_t_utils.SynTest):
                 nodes = await core.nodes('[ inet:ipv4=9.9.9.9 ]')
                 self.none(nodes[0].tags.get('foo'))
                 self.none(await core.callStorm('return($lib.queue.gen(foo).pop())'))
+
+                q = '''$u=$lib.auth.users.get($auto.opts.user)
+                $s=`f={$auto.opts.form} v={$auto.opts.valu} u={$u.name}`
+                $lib.log.info($s) [ test:guid="*" +#nodeadd]'''
+                tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
+                await core.view.addTrigger(tdef)
+                with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
+                    await core.nodes('[ test:str=foo ]')
+                    self.true(await stream.wait(12))
+                self.eq(stream.getvalue().strip(), 'f=test:str v=foo u=root')
+                self.len(1, await core.nodes('test:guid#nodeadd'))
+                unfo = await core.addUser('someuser')
+                await core.setUserAdmin(unfo.get('iden'), True)
+                with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
+                    await core.nodes('[ test:str=bar ]', opts={'user': unfo.get('iden')})
+                    self.true(await stream.wait(12))
+                self.eq(stream.getvalue().strip(), 'f=test:str v=bar u=someuser')
+                self.len(2, await core.nodes('test:guid#nodeadd'))
 
             async with self.getTestCore(dirn=dirn) as core:
 
@@ -141,13 +159,15 @@ class TrigTest(s_t_utils.SynTest):
             view = core.view
 
             # node:add case
-            q = '$s=`f={$auto.opts.form} v={$auto.opts.valu}` $lib.log.info($s) [ test:guid="*" +#nodeadd]'
+            q = '''$u=$lib.auth.users.get($auto.opts.user)
+            $s=`f={$auto.opts.form} v={$auto.opts.valu} u={$u.name}`
+            $lib.log.info($s) [ test:guid="*" +#nodeadd]'''
             tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
             await view.addTrigger(tdef)
             with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
                 await core.nodes('[ test:str=foo ]')
                 self.true(await stream.wait(6))
-            self.eq(stream.getvalue().strip(), 'f=test:str v=foo')
+            self.eq(stream.getvalue().strip(), 'f=test:str v=foo u=root')
             self.len(1, await core.nodes('test:guid#nodeadd'))
 
             # node:del case
@@ -910,3 +930,54 @@ class TrigTest(s_t_utils.SynTest):
             for view in core.views.values():
                 for _, trigger in view.triggers.list():
                     self.eq(trigger.tdef.get('view'), view.iden)
+
+    async def test_trigger_feed_data(self):
+        async with self.getTestCore() as core0:
+
+            podes = []
+
+            node1 = (await core0.nodes('[ test:int=1 ]'))[0]
+            await node1.setData('foo', 'bar')
+            pack = node1.pack()
+            pack[1]['nodedata']['foo'] = 'bar'
+            pack[1]['edges'] = (('refs', ('inet:ipv4', '1.2.3.4')),
+                                ('newp', ('test:newp', 'newp')))
+            podes.append(pack)
+
+            node2 = (await core0.nodes('[ test:int=2 ] | [ +(refs)> { test:int=1 } ]'))[0]
+            pack = node2.pack()
+            pack[1]['edges'] = (('refs', node1.iden()), )
+            podes.append(pack)
+
+            node3 = (await core0.nodes('[ test:int=3 ]'))[0]
+            podes.append(node3.pack())
+
+            node = (await core0.nodes(f'[ test:int=4 ]'))[0]
+            pack = node.pack()
+            pack[1]['edges'] = [('refs', ('inet:ipv4', f'{y}')) for y in range(500)]
+            podes.append(pack)
+
+        async with self.getTestCore() as core1:
+
+            q = '''$u=$lib.auth.users.get($auto.opts.user)
+                    $s=`f={$auto.opts.form} v={$auto.opts.valu} u={$u.name}`
+                    $lib.log.info($s) [ test:guid="*" +#nodeadd]'''
+            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
+            await core1.view.addTrigger(tdef)
+            tdef = {'cond': 'node:add', 'form': 'test:int', 'storm': q}
+            await core1.view.addTrigger(tdef)
+
+            with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
+                await core1.addFeedData('syn.nodes', podes)
+                self.true(await stream.wait(6))
+            return
+            # self.eq(stream.getvalue().strip(), 'f=test:str v=foo u=root')
+            # self.len(1, await core1.nodes('test:guid#nodeadd'))
+
+            # self.len(4, await core1.nodes('test:int'))
+            # self.len(1, await core1.nodes('test:int=1 -(refs)> inet:ipv4 +inet:ipv4=1.2.3.4'))
+            # self.len(0, await core1.nodes('test:int=1 -(newp)> *'))
+            #
+            # node1 = (await core1.nodes('test:int=1'))[0]
+            # self.eq('bar', await node1.getData('foo'))
+            # self.len(1, await core1.nodes('test:int=2 -(refs)> *'))

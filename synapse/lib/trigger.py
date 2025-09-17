@@ -9,6 +9,7 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.cache as s_cache
+import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.grammar as s_grammar
 
@@ -506,14 +507,27 @@ class Trigger:
         if not self.tdef.get('enabled'):
             return
 
+        useriden = None
+        if user := s_scope.get('user'):
+            useriden = user.iden
+
         if self.tdef.get('async'):
+            if useriden is not None:
+                if vars is None:
+                    vars = {}
+                else:
+                    vars = vars.copy()
+                autovars = vars.setdefault('auto', {})
+                optvars = autovars.setdefault('opts', {})
+                optvars.setdefault('user', user.iden)
+
             triginfo = {'buid': node.buid, 'trig': self.iden, 'vars': vars}
             await self.view.addTrigQueue(triginfo)
             return
 
-        return await self._execute(node, vars=vars)
+        return await self._execute(node, vars=vars, useriden=useriden)
 
-    async def _execute(self, node, vars=None):
+    async def _execute(self, node, vars=None, useriden=None):
 
         locked = self.user.info.get('locked')
         if locked:
@@ -536,6 +550,8 @@ class Trigger:
         optvars = autovars.setdefault('opts', {})
         optvars['form'] = node.ndef[0]
         optvars['valu'] = node.ndef[1]
+        if useriden is not None:
+            optvars['user'] = useriden
 
         opts = {'vars': vars, 'user': self.user.iden, 'view': self.view.iden}
 
