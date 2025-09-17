@@ -1426,13 +1426,14 @@ class CortexTest(s_t_utils.SynTest):
 
                 await core.addForm('_low:str', 'str', {'lower': True}, {})
                 await core.addTagProp('lowstr', ('_low:str', {}), {})
+                await core.addTagProp('normstr', ('_low:str', {'lower': False}), {})
                 await core.addTagProp('refsnode', ('ndef', {}), {})
                 await core.addTagProp('refsprop', ('nodeprop', {}), {})
 
                 await core.nodes('''[
                     test:str=foo
                     +#foo:lowstr=fooBAR
-                    +#foo:refsnode={[ test:str=refd ]}
+                    +#foo:refsnode=(test:str, refd)
                     +#foo:refsprop=(test:str:hehe, nprop)
                     (test:str=bar :hehe=nprop)
                 ]''')
@@ -1472,6 +1473,15 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(0, await core.nodes('test:str=refd <- *', opts=forkopts))
                 self.len(0, await core.nodes('test:str=bar <- *', opts=forkopts))
 
+                # Duplicate values in multiple layers of a view only return once
+                await core.nodes('[ test:str=foo +#foo:lowstr=dupstr ]', opts=forkopts)
+                await core.nodes('[ test:str=foo +#foo:lowstr=dupstr ]')
+                self.len(1, await core.nodes('_low:str=dupstr <- *', opts=forkopts))
+
+                # Renorming coverage for props with different typeopts
+                await core.nodes('[ test:str=foo +#foo:normstr=normstr ]')
+                self.len(1, await core.nodes('_low:str=normstr <- *', opts=forkopts))
+
                 await core.delViewWithLayer(vdef2.get('iden'))
                 await core.nodes('_low:str | delnode')
 
@@ -1479,8 +1489,9 @@ class CortexTest(s_t_utils.SynTest):
                 with self.raises(s_exc.CantDelType):
                     await core.delForm('_low:str')
 
-                await core.nodes('test:str=foo [ -#foo:lowstr ]')
+                await core.nodes('test:str=foo [ -#foo:lowstr -#foo:normstr]')
                 await core.delTagProp('lowstr')
+                await core.delTagProp('normstr')
                 await core.delForm('_low:str')
 
                 await core.addTagProp('serv', ('inet:server', {}), {})
@@ -1495,6 +1506,8 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('test:str#bar:serv.port=80'))
                 self.len(1, await core.nodes('test:str#bar:serv.port<100'))
                 self.len(1, await core.nodes('test:str#bar:serv.port>100'))
+
+                self.eq(80, await core.callStorm('test:str#bar:serv.port=80 return(#bar:serv.port)'))
 
             # Ensure that the tagprops persist
             async with self.getTestCore(dirn=dirn) as core:

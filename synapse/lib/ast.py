@@ -3927,14 +3927,12 @@ class TagPropValue(Value):
             mesg = f'No such tag property: {prop}'
             raise self.kids[0].addExcInfo(s_exc.NoSuchTagProp(name=prop, mesg=mesg))
 
-        valu = path.node.getTagProp(tag, prop)
-
+        vgetr = None
         if len(self.kids) > 1:
             virts = await self.kids[1].compute(runt, path)
-            for getr in tprop.type.getVirtGetr(virts):
-                valu = getr(valu)
+            vgetr = tprop.type.getVirtGetr(virts)
 
-        return valu
+        return path.node.getTagProp(tag, prop, virts=vgetr)
 
 class CallArgs(Value):
 

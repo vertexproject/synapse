@@ -1544,7 +1544,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         prop = self.core.model.reqTagProp(propname)
         if norm:
-            valu = await prop.type.norm(valu)
+            valu = (await prop.type.norm(valu))[0]
 
         cmprvals = (('=', valu, prop.type.stortype),)
 
@@ -3466,17 +3466,14 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def nodesByTagPropValu(self, form, tag, name, cmpr, valu, reverse=False, norm=True, virts=None):
+    async def nodesByTagPropValu(self, form, tag, name, cmpr, valu, reverse=False, virts=None):
 
         prop = self.core.model.reqTagProp(name)
 
-        if norm or virts is not None:
-            cmprvals = await prop.type.getStorCmprs(cmpr, valu, virts=virts)
-            # an empty return probably means ?= with invalid value
-            if not cmprvals:
-                return
-        else:
-            cmprvals = ((cmpr, valu, prop.type.stortype),)
+        cmprvals = await prop.type.getStorCmprs(cmpr, valu, virts=virts)
+        # an empty return probably means ?= with invalid value
+        if not cmprvals:
+            return
 
         async for nid, srefs in self.liftByTagPropValu(form, tag, name, cmprvals, reverse=reverse, virts=virts):
             node = await self._joinSodes(nid, srefs)

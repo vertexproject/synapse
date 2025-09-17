@@ -619,9 +619,8 @@ class ProtoNode(s_node.NodeBase):
         if (tag, name) in self.tagpropdels or (tag, name) in self.tagproptombs:
             return defv, None
 
-        curv = self.tagprops.get((tag, name))
-        if curv is not None:
-            return curv, None
+        if (curv := self.tagprops.get((tag, name))) is not None:
+            return curv
 
         if self.node is not None:
             return self.node.getTagPropWithVirts(tag, name, defval=defv)
@@ -669,12 +668,13 @@ class ProtoNode(s_node.NodeBase):
 
         norm, info = await prop.type.norm(valu, view=self.editor.view)
 
-        if (propform := self.model.form(prop.type.name)) is not None:
-            await self.editor.addNode(propform.name, norm, norminfo=info)
+        if not info.get('skipadd'):
+            if (propform := self.model.form(prop.type.name)) is not None:
+                await self.editor.addNode(propform.name, norm, norminfo=info)
 
-        if (propadds := info.get('adds')) is not None:
-            for addname, addvalu, addinfo in propadds:
-                await self.editor.addNode(addname, addvalu, norminfo=addinfo)
+            if (propadds := info.get('adds')) is not None:
+                for addname, addvalu, addinfo in propadds:
+                    await self.editor.addNode(addname, addvalu, norminfo=addinfo)
 
         virts = info.get('virts')
         curv = self.getTagPropWithVirts(tagnode.valu, name)
@@ -719,8 +719,7 @@ class ProtoNode(s_node.NodeBase):
         if name in self.propdels or name in self.proptombs:
             return defv
 
-        curv = self.props.get(name, s_common.novalu)
-        if curv is not s_common.novalu:
+        if (curv := self.props.get(name)) is not None:
             return curv[0]
 
         if self.node is not None:
@@ -734,7 +733,7 @@ class ProtoNode(s_node.NodeBase):
         if name in self.propdels or name in self.proptombs:
             return defv, None
 
-        if (curv := self.props.get(name, s_common.novalu)) is not s_common.novalu:
+        if (curv := self.props.get(name)) is not None:
             return curv
 
         if self.node is not None:
@@ -748,8 +747,7 @@ class ProtoNode(s_node.NodeBase):
         if name in self.propdels or name in self.proptombs:
             return defv, None
 
-        curv = self.props.get(name, s_common.novalu)
-        if curv is not s_common.novalu:
+        if (curv := self.props.get(name)) is not None:
             return curv[0], 0
 
         if self.node is not None:
