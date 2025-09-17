@@ -1449,6 +1449,30 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:str', 'foo'))
 
+                vdef2 = await core.view.fork()
+                forkopts = {'view': vdef2.get('iden')}
+                self.len(1, await core.nodes('_low:str=foobar <- *', opts=forkopts))
+                self.len(1, await core.nodes('test:str=refd <- *', opts=forkopts))
+                self.len(1, await core.nodes('test:str=bar <- *', opts=forkopts))
+
+                await core.nodes('[ test:str=foo +#foo:lowstr=otherval ]', opts=forkopts)
+                self.len(1, await core.nodes('_low:str=foobar <- *'))
+                self.len(0, await core.nodes('_low:str=foobar <- *', opts=forkopts))
+
+                await core.nodes('[ test:str=foo +#foo:refsnode={[ test:str=otherval ]} ]', opts=forkopts)
+                self.len(1, await core.nodes('test:str=refd <- *'))
+                self.len(0, await core.nodes('test:str=refd <- *', opts=forkopts))
+
+                await core.nodes('[ test:str=foo +#foo:refsprop=(test:str, otherprop) ]', opts=forkopts)
+                self.len(1, await core.nodes('test:str=bar <- *'))
+                self.len(0, await core.nodes('test:str=bar <- *', opts=forkopts))
+
+                await core.nodes('[ test:str=foo -#foo:lowstr -#foo:refsnode -#foo:refsprop]', opts=forkopts)
+                self.len(0, await core.nodes('_low:str=foobar <- *', opts=forkopts))
+                self.len(0, await core.nodes('test:str=refd <- *', opts=forkopts))
+                self.len(0, await core.nodes('test:str=bar <- *', opts=forkopts))
+
+                await core.delViewWithLayer(vdef2.get('iden'))
                 await core.nodes('_low:str | delnode')
 
                 # Can't delete a type still in use by tagprops

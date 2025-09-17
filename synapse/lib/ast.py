@@ -2465,18 +2465,17 @@ class PivotIn(PivotOper):
                 yield pivo, path.fork(pivo, link)
 
         for prop in runt.model.getTagPropsByType(name):
-            link = {'type': 'tagprop', 'prop': prop.name, 'reverse': True}
             norm = node.form.typehash is not prop.type.typehash
-            async for pivo in runt.view.nodesByTagPropValu(None, None, prop.name, '=', valu, norm=norm):
+            async for pivo, link in runt.view.getTagPropRefs(prop.name, valu, norm=norm):
                 yield pivo, path.fork(pivo, link)
 
-        async for pivo, info in runt.view.getNdefRefs(node.ndef):
-            yield pivo, path.fork(pivo, info)
+        async for pivo, link in runt.view.getNdefRefs(node.ndef):
+            yield pivo, path.fork(pivo, link)
 
         for prop, valu in node.getProps().items():
             pdef = (f'{name}:{prop}', valu)
-            async for pivo, info in runt.view.getNodePropRefs(pdef):
-                yield pivo, path.fork(pivo, info)
+            async for pivo, link in runt.view.getNodePropRefs(pdef):
+                yield pivo, path.fork(pivo, link)
 
 class N2WalkNPivo(PivotIn):
 
