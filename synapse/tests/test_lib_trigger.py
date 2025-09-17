@@ -940,8 +940,6 @@ class TrigTest(s_t_utils.SynTest):
             await node1.setData('foo', 'bar')
             pack = node1.pack()
             pack[1]['nodedata']['foo'] = 'bar'
-            pack[1]['edges'] = (('refs', ('inet:ipv4', '1.2.3.4')),
-                                ('newp', ('test:newp', 'newp')))
             podes.append(pack)
 
             node2 = (await core0.nodes('[ test:int=2 ] | [ +(refs)> { test:int=1 } ]'))[0]
@@ -954,7 +952,6 @@ class TrigTest(s_t_utils.SynTest):
 
             node = (await core0.nodes(f'[ test:int=4 ]'))[0]
             pack = node.pack()
-            pack[1]['edges'] = [('refs', ('inet:ipv4', f'{y}')) for y in range(500)]
             podes.append(pack)
 
         async with self.getTestCore() as core1:
@@ -970,14 +967,9 @@ class TrigTest(s_t_utils.SynTest):
             with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
                 await core1.addFeedData('syn.nodes', podes)
                 self.true(await stream.wait(6))
-            return
-            # self.eq(stream.getvalue().strip(), 'f=test:str v=foo u=root')
-            # self.len(1, await core1.nodes('test:guid#nodeadd'))
-
-            # self.len(4, await core1.nodes('test:int'))
-            # self.len(1, await core1.nodes('test:int=1 -(refs)> inet:ipv4 +inet:ipv4=1.2.3.4'))
-            # self.len(0, await core1.nodes('test:int=1 -(newp)> *'))
-            #
-            # node1 = (await core1.nodes('test:int=1'))[0]
-            # self.eq('bar', await node1.getData('foo'))
-            # self.len(1, await core1.nodes('test:int=2 -(refs)> *'))
+            valu = stream.getvalue().strip()
+            self.isin('f=test:int v=1 u=root', valu)
+            self.isin('f=test:int v=2 u=root', valu)
+            self.isin('f=test:int v=3 u=root', valu)
+            self.isin('f=test:int v=4 u=root', valu)
+            self.len(4, await core1.nodes('test:guid#nodeadd'))

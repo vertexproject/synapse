@@ -16,6 +16,7 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 
@@ -1695,8 +1696,8 @@ class Snap(s_base.Base):
             raise s_exc.NoSuchName(name=name)
 
         logger.info(f'User ({self.user.name}) adding feed data ({name}): {len(items)}')
-
-        await func(self, items)
+        with s_scope.enter({'user': self.user}):
+            await func(self, items)
 
     async def getTagNorm(self, tagname):
         return await self.tagnorms.aget(tagname)
