@@ -659,10 +659,7 @@ class ProtoNode(s_node.NodeBase):
         if tagnode is None:
             return False
 
-        prop = self.model.getTagProp(name)
-        if prop is None:
-            raise s_exc.NoSuchTagProp(mesg=f'Tagprop {name} does not exist in this Cortex.')
-
+        prop = self.model.reqTagProp(name)
         if prop.locked:
             raise s_exc.IsDeprLocked(mesg=f'Tagprop {name} is locked.', prop=name)
 
@@ -695,9 +692,7 @@ class ProtoNode(s_node.NodeBase):
 
     async def delTagProp(self, tag, name):
 
-        prop = self.model.getTagProp(name)
-        if prop is None:
-            raise s_exc.NoSuchTagProp(mesg=f'Tagprop {name} does not exist in this Cortex.', name=name)
+        prop = self.model.reqTagProp(name)
 
         (curv, layr) = self.getTagPropWithLayer(tag, name)
         if curv is None:
