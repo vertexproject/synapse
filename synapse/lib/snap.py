@@ -1701,6 +1701,7 @@ class Snap(s_base.Base):
             raise s_exc.NoSuchName(name=name)
 
         logger.info(f'User ({self.user.name}) adding feed data ({name}): {len(items)}')
+
         await func(self, items)
 
     async def getTagNorm(self, tagname):
