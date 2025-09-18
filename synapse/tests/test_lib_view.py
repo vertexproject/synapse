@@ -602,6 +602,10 @@ class ViewTest(s_t_utils.SynTest):
             async with core.getLocalProxy(share=f'*/view/{view}', user='user') as prox:
                 self.none(await prox.storNodeEdits(edits, None))
 
+            async with core.getLocalProxy(share=f'*/view/{view}', user='root') as prox:
+                with self.raises(s_exc.BadArg):
+                    await prox.saveNodeEdits(edits, {})
+
             self.len(1, await core.nodes('ou:org#foo', opts={'view': view}))
             self.len(1, await core.nodes('test:str=foo', opts={'view': view}))
 
