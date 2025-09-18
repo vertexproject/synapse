@@ -1482,6 +1482,12 @@ class CortexTest(s_t_utils.SynTest):
                 await core.nodes('[ test:str=foo +#foo:normstr=normstr ]')
                 self.len(1, await core.nodes('_low:str=normstr <- *', opts=forkopts))
 
+                await core.nodes('[ test:str=foo +#foo:refsnode={[ test:str=otherval ]} ]')
+                self.len(0, await core.nodes('test:str=refd <- *'))
+
+                await core.nodes('[ test:str=foo +#foo:refsprop=(test:str, otherprop) ]')
+                self.len(0, await core.nodes('test:str=bar <- *'))
+
                 await core.delViewWithLayer(vdef2.get('iden'))
                 await core.nodes('_low:str | delnode')
 
@@ -1507,7 +1513,32 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('test:str#bar:serv.port<100'))
                 self.len(1, await core.nodes('test:str#bar:serv.port>100'))
 
+                await core.nodes('test:str=nop [ +#bar:serv=1.2.3.4:99 ]')
+                self.len(0, await core.nodes('#bar:serv.port>100'))
+                self.len(0, await core.nodes('test:str#bar:serv.port>100'))
+
                 self.eq(80, await core.callStorm('test:str#bar:serv.port=80 return(#bar:serv.port)'))
+
+                self.len(3, await core.nodes('#bar:serv.port'))
+                await core.nodes('#bar:serv [ -#bar:serv ]')
+                self.len(0, await core.nodes('#bar:serv.port'))
+
+                indxby = s_layer.IndxByTagPropVirt(core.getLayer(), 'test:str', 'bar', 'serv', ['port'])
+                self.eq(str(indxby), 'IndxByTagPropVirt: test:str#bar:serv.port')
+
+                indxby = s_layer.IndxByTagPropVirt(core.getLayer(), None, 'bar', 'serv', ['port'])
+                self.eq(str(indxby), 'IndxByTagPropVirt: #bar:serv.port')
+
+                indxby = s_layer.IndxByTagPropVirt(core.getLayer(), None, None, 'serv', ['port'])
+                self.eq(str(indxby), 'IndxByTagPropVirt: #*:serv.port')
+
+                await core.addTagProp('time', ('time', {}), {})
+                prec = await core.callStorm('[ test:str=time +#foo:time=2020-01? ] return(#foo:time.precision)')
+                self.eq(s_time.PREC_MONTH, prec)
+                prec = await core.callStorm('test:str=time [ +#foo:time=2020? ] return(#foo:time.precision)')
+                self.eq(s_time.PREC_YEAR, prec)
+
+                await core.callStorm('test:str=time [ -#foo:time ]')
 
             # Ensure that the tagprops persist
             async with self.getTestCore(dirn=dirn) as core:

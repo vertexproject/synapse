@@ -556,7 +556,18 @@ class IndxByTagPropVirt(IndxBy):
         self.virts = virts
 
     def __repr__(self):
-        return f'IndxByTagPropVirt: {self.form}#{self.tag}:{self.prop}.{".".join(self.virts)}'
+        mesg = 'IndxByTagPropVirt: '
+        if self.form:
+            mesg += self.form
+
+        mesg += '#'
+        if self.tag:
+            mesg += self.tag
+        else:
+            mesg += '*'
+
+        mesg += f':{self.prop}.{".".join(self.virts)}'
+        return mesg
 
 class IndxByPropArray(IndxBy):
 
@@ -3369,11 +3380,13 @@ class Layer(s_nexus.Pusher):
 
     async def liftByTagProp(self, form, tag, prop, reverse=False, indx=None):
 
-        if indx is None:
-            indx = INDX_TAGPROP
-
         try:
-            abrv = self.core.getIndxAbrv(indx, form, tag, prop)
+            if indx is None:
+                abrv = self.core.getIndxAbrv(INDX_TAGPROP, form, tag, prop)
+            elif isinstance(indx, bytes):
+                abrv = self.core.getIndxAbrv(indx, form, tag, prop)
+            else:
+                abrv = self.core.getIndxAbrv(INDX_VIRTUAL_TAGPROP, form, tag, prop, indx)
         except s_exc.NoSuchAbrv:
             return
 
@@ -3412,9 +3425,6 @@ class Layer(s_nexus.Pusher):
                 yield indx, nid, self.genStorNodeRef(nid)
 
     async def liftByProp(self, form, prop, reverse=False, indx=None):
-
-        if indx is None:
-            indx = INDX_PROP
 
         try:
             if indx is None:
