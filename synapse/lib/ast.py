@@ -5034,7 +5034,7 @@ class EditPropSetMulti(Edit):
                 mesg = f"'{styp}' object is not iterable: {s_common.trimText(repr(valu))}"
                 raise rval.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=styp)) from None
 
-            await node.set(name, arry, norminfo=norminfo)
+            await node.set(name, valu, norminfo=norminfo)
 
             yield node, path
             await asyncio.sleep(0)
