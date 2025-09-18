@@ -131,37 +131,37 @@ class AhaTest(s_test.SynTest):
 
         with self.getTestDir() as dirn:
 
-            cryo0_dirn = s_common.gendir(dirn, 'cryo0')
+            axon0_dirn = s_common.gendir(dirn, 'axon0')
             async with self.getTestAha(dirn=dirn) as aha:
 
                 replaymult = 1
                 if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
                     replaymult = 2
 
-                purl = await aha.addAhaSvcProv('0.cryo')
+                purl = await aha.addAhaSvcProv('0.axon')
 
                 conf = {'aha:provision': purl}
-                async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
+                async with self.getTestAxon(dirn=axon0_dirn, conf=conf) as axon:
 
-                    await aha._waitAhaSvcOnline('0.cryo...', timeout=10)
+                    await aha._waitAhaSvcOnline('0.axon...', timeout=10)
 
-                    svc = await aha.getAhaSvc('0.cryo...')
+                    svc = await aha.getAhaSvc('0.axon...')
                     linkiden = svc.get('svcinfo', {}).get('online')
 
                     # Tear down the Aha cell.
                     await aha.__aexit__(None, None, None)
 
-            with self.getAsyncLoggerStream('synapse.lib.aha', f'Set [0.cryo.synapse] offline.') as stream:
+            with self.getAsyncLoggerStream('synapse.lib.aha', f'Set [0.axon.synapse] offline.') as stream:
 
                 async with self.getTestAha(dirn=dirn) as aha:
 
                     self.true(await asyncio.wait_for(stream.wait(), timeout=12))
-                    svc = await aha.getAhaSvc('0.cryo...')
+                    svc = await aha.getAhaSvc('0.axon...')
                     self.notin('online', svc.get('svcinfo'))
 
                     # Try setting something down a second time
-                    await aha.setAhaSvcDown('0.cryo...', linkiden)
-                    svc = await aha.getAhaSvc('0.cryo...')
+                    await aha.setAhaSvcDown('0.axon...', linkiden)
+                    svc = await aha.getAhaSvc('0.axon...')
                     self.notin('online', svc.get('svcinfo'))
 
     async def test_lib_aha_basics(self):
@@ -194,80 +194,76 @@ class AhaTest(s_test.SynTest):
 
         async with self.getTestAha() as aha:
 
-            cryo0_dirn = s_common.gendir(aha.dirn, 'cryo0')
+            axon0_dirn = s_common.gendir(aha.dirn, 'axon0')
 
             ahaurls = await aha.getAhaUrls()
 
-            conf = {'aha:provision': await aha.addAhaSvcProv('0.cryo')}
-            async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
+            conf = {'aha:provision': await aha.addAhaSvcProv('0.axon')}
+            async with self.getTestAxon(dirn=axon0_dirn, conf=conf) as axon:
 
-                await aha._waitAhaSvcOnline('0.cryo...', timeout=10)
+                await aha._waitAhaSvcOnline('0.axon...', timeout=10)
 
                 with self.raises(s_exc.NoSuchName):
                     await s_telepath.getAhaProxy({'host': 'hehe.haha'})
 
-                async with await s_telepath.openurl('aha://cryo...') as proxy:
+                async with await s_telepath.openurl('aha://axon...') as proxy:
                     self.nn(await proxy.getCellIden())
 
                 with self.raises(s_exc.BadArg):
-                    _proxy = await cryo.ahaclient.proxy(timeout=2)
-                    await _proxy.modAhaSvcInfo('cryo...', {'newp': 'newp'})
+                    _proxy = await axon.ahaclient.proxy(timeout=2)
+                    await _proxy.modAhaSvcInfo('axon...', {'newp': 'newp'})
 
-                async with await s_telepath.openurl('aha://0.cryo...') as proxy:
+                async with await s_telepath.openurl('aha://0.axon...') as proxy:
                     self.nn(await proxy.getCellIden())
 
                 # force a reconnect...
-                proxy = await cryo.ahaclient.proxy(timeout=2)
+                proxy = await axon.ahaclient.proxy(timeout=2)
                 async with aha.waiter(2 * replaymult, 'aha:svc:add'):
                     await proxy.fini()
 
-                async with await s_telepath.openurl('aha://cryo...') as proxy:
+                async with await s_telepath.openurl('aha://axon...') as proxy:
                     self.nn(await proxy.getCellIden())
 
                 # force the service into passive mode...
                 async with aha.waiter(3 * replaymult, 'aha:svc:down', 'aha:svc:add', timeout=6):
-                    await cryo.setCellActive(False)
+                    await axon.setCellActive(False)
 
                 with self.raises(s_exc.NoSuchName):
-                    async with await s_telepath.openurl('aha://cryo...') as proxy:
+                    async with await s_telepath.openurl('aha://axon...') as proxy:
                         pass
 
-                async with await s_telepath.openurl('aha://0.cryo...') as proxy:
+                async with await s_telepath.openurl('aha://0.axon...') as proxy:
                     self.nn(await proxy.getCellIden())
 
                 async with aha.waiter(1 * replaymult, 'aha:svc:add', timeout=6):
-                    await cryo.setCellActive(True)
+                    await axon.setCellActive(True)
 
-                await aha._waitAhaSvcOnline('cryo...', timeout=6)
-                async with await s_telepath.openurl('aha://cryo...') as proxy:
+                await aha._waitAhaSvcOnline('axon...', timeout=6)
+                async with await s_telepath.openurl('aha://axon...') as proxy:
                     self.nn(await proxy.getCellIden())
 
-            conf = {'aha:provision': await aha.addAhaSvcProv('0.cryo')}
-            async with self.getTestCryo(conf=conf) as cryo:
+            conf = {'aha:provision': await aha.addAhaSvcProv('0.axon')}
+            async with self.getTestAxon(conf=conf) as axon:
 
-                info = await cryo.getCellInfo()
+                info = await axon.getCellInfo()
 
-                self.eq(info['cell']['aha'], {'name': '0.cryo', 'leader': 'cryo', 'network': 'synapse'})
+                self.eq(info['cell']['aha'], {'name': '0.axon', 'leader': 'axon', 'network': 'synapse'})
 
-                await aha._waitAhaSvcOnline('cryo...', timeout=10)
-                await aha._waitAhaSvcOnline('0.cryo...', timeout=10)
+                await aha._waitAhaSvcOnline('axon...', timeout=10)
+                await aha._waitAhaSvcOnline('0.axon...', timeout=10)
 
-                async with await s_telepath.openurl('aha://cryo.synapse') as proxy:
+                async with await s_telepath.openurl('aha://axon.synapse') as proxy:
                     self.nn(await proxy.getCellIden())
 
-                async with await s_telepath.openurl('aha://0.cryo.synapse') as proxy:
+                async with await s_telepath.openurl('aha://0.axon.synapse') as proxy:
                     self.nn(await proxy.getCellIden())
-                    await proxy.puts('hehe', ('hehe', 'haha'))
-
-                async with await s_telepath.openurl('aha://0.cryo.synapse/*/hehe') as proxy:
-                    self.nn(await proxy.iden())
 
                 async with aha.getLocalProxy() as ahaproxy:
 
                     svcs = [x async for x in ahaproxy.getAhaSvcs()]
                     self.len(2, svcs)
                     names = [s['name'] for s in svcs]
-                    self.sorteq(('cryo.synapse', '0.cryo.synapse'), names)
+                    self.sorteq(('axon.synapse', '0.axon.synapse'), names)
 
                     self.nn(await ahaproxy.getCaCert())
 
@@ -286,7 +282,7 @@ class AhaTest(s_test.SynTest):
                     self.eq(info.get('status'), 'ok')
                     result = info.get('result')
                     self.len(2, result)
-                    self.eq({'0.cryo.synapse', 'cryo.synapse'},
+                    self.eq({'0.axon.synapse', 'axon.synapse'},
                             {svcinfo.get('name') for svcinfo in result})
 
                 async with sess.get(svcsurl) as resp:
@@ -295,7 +291,7 @@ class AhaTest(s_test.SynTest):
                     self.eq(info.get('status'), 'ok')
                     result = info.get('result')
                     self.len(2, result)
-                    self.eq({'0.cryo.synapse', 'cryo.synapse'},
+                    self.eq({'0.axon.synapse', 'axon.synapse'},
                             {svcinfo.get('name') for svcinfo in result})
 
                 # Sad path
@@ -314,10 +310,10 @@ class AhaTest(s_test.SynTest):
                     self.eq(info.get('code'), 'AuthDeny')
 
             async with aha.getLocalProxy() as ahaproxy:
-                await ahaproxy.delAhaSvc('cryo.synapse')
-                await ahaproxy.delAhaSvc('0.cryo.synapse')
-                self.none(await ahaproxy.getAhaSvc('cryo.synapse'))
-                self.none(await ahaproxy.getAhaSvc('0.cryo.synapse'))
+                await ahaproxy.delAhaSvc('axon.synapse')
+                await ahaproxy.delAhaSvc('0.axon.synapse')
+                self.none(await ahaproxy.getAhaSvc('axon.synapse'))
+                self.none(await ahaproxy.getAhaSvc('0.axon.synapse'))
                 self.len(0, [s async for s in ahaproxy.getAhaSvcs()])
 
             # test that services get updated aha server list
@@ -389,24 +385,24 @@ class AhaTest(s_test.SynTest):
 
         async with self.getTestAha() as aha:
 
-            conf = {'aha:provision': await aha.addAhaSvcProv('0.cryo')}
+            conf = {'aha:provision': await aha.addAhaSvcProv('0.axon')}
 
-            async with self.getTestCryo(conf=conf) as cryo:
+            async with self.getTestAxon(conf=conf) as axon:
 
-                await aha._waitAhaSvcOnline('0.cryo...', timeout=10)
+                await aha._waitAhaSvcOnline('0.axon...', timeout=10)
 
-                async with await s_telepath.openurl('aha://0.cryo...') as proxy:
+                async with await s_telepath.openurl('aha://0.axon...') as proxy:
                     self.nn(await proxy.getCellIden())
 
-                proxy = await cryo.ahaclient.proxy()
+                proxy = await axon.ahaclient.proxy()
 
                 # avoid race to notify client...
-                async with cryo.ahaclient.waiter(1, 'tele:client:linkloop', timeout=2):
+                async with axon.ahaclient.waiter(1, 'tele:client:linkloop', timeout=2):
                     await aha.fini()
                     self.true(await proxy.waitfini(timeout=10))
 
                 with self.raises(asyncio.TimeoutError):
-                    await cryo.ahaclient.proxy(timeout=0.1)
+                    await axon.ahaclient.proxy(timeout=0.1)
 
     async def test_lib_aha_onlink_fail(self):
 
@@ -419,21 +415,21 @@ class AhaTest(s_test.SynTest):
                     replaymult = 2
 
                 aha.testerr = True
-                conf = {'aha:provision': await aha.addAhaSvcProv('0.cryo')}
-                async with self.getTestCryo(conf=conf) as cryo:
+                conf = {'aha:provision': await aha.addAhaSvcProv('0.axon')}
+                async with self.getTestAxon(conf=conf) as axon:
 
-                    svc = await aha.getAhaSvc('0.cryo...')
+                    svc = await aha.getAhaSvc('0.axon...')
                     self.none(svc)
 
                     aha.testerr = False
-                    await aha._waitAhaSvcOnline('0.cryo...', timeout=10)
+                    await aha._waitAhaSvcOnline('0.axon...', timeout=10)
 
-                    svc = await aha.getAhaSvc('0.cryo...')
+                    svc = await aha.getAhaSvc('0.axon...')
 
                     self.nn(svc)
                     self.nn(svc.get('svcinfo', {}).get('online'))
 
-                    async with await s_telepath.openurl('aha://0.cryo...') as proxy:
+                    async with await s_telepath.openurl('aha://0.axon...') as proxy:
                         self.nn(await proxy.getCellIden())
 
     async def test_lib_aha_bootstrap(self):

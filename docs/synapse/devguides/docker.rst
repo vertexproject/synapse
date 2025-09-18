@@ -25,9 +25,6 @@ The images provided include the following:
     vertexproject/synapse-cortex
         This container starts the Cortex service.
 
-    vertexproject/synapse-cryotank
-        This container starts the Cryotank service.
-
     vertexproject/synapse-jsonstor
         This container starts the JSONStor service.
 
