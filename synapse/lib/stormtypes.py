@@ -1584,8 +1584,16 @@ class LibBase(Lib):
 
             if not asroot:
                 permtext = ' or '.join(('.'.join(p) for p in rootperms))
-                mesg = f'Module ({name}) requires permission: {permtext}'
-                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+                match mdef.get('asroot:ondeny:import', 'deny'):
+                    case 'allow':
+                        pass
+                    case 'warn':
+                        mesg = f'Module ({name}) permissions will not be elevated. Missing permission: {permtext}.'
+                        await self.runt.warnonce(mesg, log=False)
+                    case _:
+                        mesg = f'Module ({name}) requires permission: {permtext}'
+                        raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         else:
             perm = ('asroot', 'mod') + tuple(name.split('.'))
@@ -6966,12 +6974,6 @@ class Layer(Prim):
                       {'name': 'n2nid', 'type': ['int', 'str', 'bytes'], 'desc': 'The N2 node id.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
-        {'name': 'getMirrorStatus', 'desc': '''
-            Return a dictionary of the mirror synchronization status for the layer.
-            ''',
-         'type': {'type': 'function', '_funcname': 'getMirrorStatus',
-                  'returns': {'type': 'dict', 'desc': 'An info dictionary describing mirror sync status.', }}},
-
         {'name': 'verify', 'desc': '''
             Verify consistency between the node storage and indexes in the given layer.
 
@@ -7245,7 +7247,6 @@ class Layer(Prim):
             'getTombstones': self.getTombstones,
             'getEdgeTombstones': self.getEdgeTombstones,
             'getNodeData': self.getNodeData,
-            'getMirrorStatus': self.getMirrorStatus,
             'setStorNodeProp': self.setStorNodeProp,
             'delStorNode': self.delStorNode,
             'delStorNodeProp': self.delStorNodeProp,
@@ -7332,12 +7333,6 @@ class Layer(Prim):
         async for nid, _, tomb in layr.liftByDataName(name):
             if not tomb:
                 yield await self.runt.view._joinStorNode(nid)
-
-    @stormfunc(readonly=True)
-    async def getMirrorStatus(self):
-        iden = self.valu.get('iden')
-        layr = self.runt.view.core.getLayer(iden)
-        return await layr.getMirrorStatus()
 
     async def setStorNodeProp(self, nid, prop, valu):
         nid = await tonidbyts(nid)
@@ -7623,9 +7618,9 @@ class Layer(Prim):
         wait = await tobool(wait)
         reverse = await tobool(reverse)
 
-        layr = self.runt.view.core.reqLayer(self.valu.get('iden'))
-
-        self.runt.confirm(('layer', 'edits', 'read'), gateiden=layr.iden)
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
 
         if reverse:
             wait = False
@@ -7796,11 +7791,6 @@ class Layer(Prim):
 
         elif name == 'readonly':
             valu = await tobool(valu)
-
-        elif name in ('mirror', 'upstream'):
-            if (valu := await toprim(valu)) is not None:
-                mesg = 'Layer only supports setting "mirror" and "upstream" to null.'
-                raise s_exc.BadOptValu(mesg=mesg)
 
         else:
             mesg = f'Layer does not support setting: {name}'
@@ -10211,5 +10201,10 @@ async def totype(valu, basetypes=False) -> str:
 async def typeerr(name, reqt):
     if not isinstance(name, reqt):
         styp = await totype(name, basetypes=True)
-        mesg = f"Expected value of type '{reqt}', got '{styp}' with value {name}."
+
+        reqtname = str(reqt)
+        if (clsname := getattr(reqt, '__name__')):
+            reqtname = clsname
+
+        mesg = f"Expected value of type '{reqtname}', got '{styp}' with value {name}."
         return s_exc.StormRuntimeError(mesg=mesg, name=name, type=styp)
