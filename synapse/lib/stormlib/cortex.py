@@ -1016,7 +1016,7 @@ class HttpReq(s_stormtypes.StormType):
             if not isinstance(body, bytes):
                 body = await s_stormtypes.toprim(body)
                 body = s_json.dumps(body)
-                headers['Content-Type'] = 'application/json; charset=utf8"'
+                headers['Content-Type'] = 'application/json; charset=utf8'
                 headers['Content-Length'] = len(body)
 
         await self._methSendCode(code)

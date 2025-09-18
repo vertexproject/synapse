@@ -2,7 +2,6 @@ import types
 import asyncio
 import decimal
 import fnmatch
-import hashlib
 import logging
 import binascii
 import itertools
@@ -2014,7 +2013,7 @@ class LiftProp(LiftOper):
 
     async def lift(self, runt, path):
 
-        name = await tostr(await self.kids[0].compute(runt, path))
+        name = await self.kids[0].compute(runt, path)
 
         if (prop := runt.model.props.get(name)) is not None:
             async for node in self.proplift(prop, runt, path):
@@ -2102,7 +2101,7 @@ class LiftPropVirt(LiftProp):
 
     async def lift(self, runt, path):
 
-        name = await tostr(await self.kids[0].compute(runt, path))
+        name = await self.kids[0].compute(runt, path)
         virts = await self.kids[1].compute(runt, path)
 
         props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
@@ -4567,6 +4566,13 @@ class PivotTargetList(List):
             targets += await kid.compute(runt, path)
 
         return targets
+
+class DerefProps(Value):
+    async def compute(self, runt, path):
+        valu = await toprim(await self.kids[0].compute(runt, path))
+        if (exc := await s_stormtypes.typeerr(valu, str)) is not None:
+            raise self.kids[0].addExcInfo(exc)
+        return valu
 
 class RelProp(PropName):
     pass

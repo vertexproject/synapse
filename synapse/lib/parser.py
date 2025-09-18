@@ -662,6 +662,7 @@ ruleClassMap = {
     'condsetoper': s_ast.CondSetOper,
     'condtrysetoper': lambda astinfo, kids: s_ast.CondSetOper(astinfo, kids, errok=True),
     'condsubq': s_ast.SubqCond,
+    'derefprops': s_ast.DerefProps,
     'dollarexpr': s_ast.DollarExpr,
     'edgeaddn1': s_ast.EditEdgeAdd,
     'edgedeln1': s_ast.EditEdgeDel,
