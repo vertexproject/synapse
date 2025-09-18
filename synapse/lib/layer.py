@@ -119,7 +119,7 @@ class LayerApi(s_cell.CellApi):
         await s_cell.CellApi.__anit__(self, core, link, user)
 
         self.layr = layr
-        self.liftperm = ('layer', 'lift', self.layr.iden)
+        self.readperm = ('layer', 'read', self.layr.iden)
         self.writeperm = ('layer', 'write', self.layr.iden)
 
     async def iterLayerNodeEdits(self, *, meta=False):
@@ -127,7 +127,7 @@ class LayerApi(s_cell.CellApi):
         Scan the full layer and yield artificial nodeedit sets.
         '''
 
-        await self._reqUserAllowed(self.liftperm)
+        await self._reqUserAllowed(self.readperm)
         async for item in self.layr.iterLayerNodeEdits(meta=meta):
             yield item
             await asyncio.sleep(0)
@@ -166,13 +166,13 @@ class LayerApi(s_cell.CellApi):
 
         Once caught up with storage, yield them in realtime.
         '''
-        await self._reqUserAllowed(self.liftperm)
+        await self._reqUserAllowed(self.readperm)
         async for item in self.layr.syncNodeEdits(offs, wait=wait, reverse=reverse, compat=compat):
             yield item
             await asyncio.sleep(0)
 
     async def syncNodeEdits2(self, offs, *, wait=True, compat=False):
-        await self._reqUserAllowed(self.liftperm)
+        await self._reqUserAllowed(self.readperm)
         async for item in self.layr.syncNodeEdits2(offs, wait=wait, compat=compat):
             yield item
             await asyncio.sleep(0)
@@ -181,18 +181,18 @@ class LayerApi(s_cell.CellApi):
         '''
         Returns what will be the *next* nodeedit log index.
         '''
-        await self._reqUserAllowed(self.liftperm)
+        await self._reqUserAllowed(self.readperm)
         return await self.layr.getEditIndx()
 
     async def getEditSize(self):
         '''
         Return the total number of (edits, meta) pairs in the layer changelog.
         '''
-        await self._reqUserAllowed(self.liftperm)
+        await self._reqUserAllowed(self.readperm)
         return await self.layr.getEditSize()
 
     async def getIden(self):
-        await self._reqUserAllowed(self.liftperm)
+        await self._reqUserAllowed(self.readperm)
         return self.layr.iden
 
 NID_CACHE_SIZE = 10000
@@ -2815,10 +2815,6 @@ class Layer(s_nexus.Pusher):
         if name != 'readonly':
             self._reqNotReadOnly()
 
-        if name in ('mirror', 'upstream') and valu is not None:
-            mesg = 'Layer only supports setting "mirror" and "upstream" to None.'
-            raise s_exc.BadOptValu(mesg=mesg)
-
         return await self._push('layer:set', name, valu)
 
     @s_nexus.Pusher.onPush('layer:set')
@@ -2826,7 +2822,7 @@ class Layer(s_nexus.Pusher):
         '''
         Set a mutable layer property.
         '''
-        if name not in ('name', 'desc', 'logedits', 'readonly', 'mirror', 'upstream'):
+        if name not in ('name', 'desc', 'logedits', 'readonly'):
             mesg = f'{name} is not a valid layer info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
@@ -2837,13 +2833,6 @@ class Layer(s_nexus.Pusher):
         elif name == 'readonly':
             valu = bool(valu)
             self.readonly = valu
-
-        elif name == 'mirror' and valu is None:
-            await self._stopMirror()
-            self.ismirror = False
-
-        elif name == 'upstream' and valu is None:
-            self._stopUpstream()
 
         # TODO when we can set more props, we may need to parse values.
         if valu is None:

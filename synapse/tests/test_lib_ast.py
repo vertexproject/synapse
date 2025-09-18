@@ -505,6 +505,10 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:str=foo  [ :ndefs--={ test:str=baz test:str=faz } ]')
             self.eq(nodes[0].get('ndefs'), (('test:str', 'bar'),))
 
+            await core.nodes('[ test:int=5 :types=(a, b) ]')
+            nodes = await core.nodes('test:int=5 [ :types++=(d, c, d) ]')
+            self.eq(nodes[0].get('types'), ('a', 'b', 'c', 'd'))
+
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('test:arrayprop [ :newp++=(["newp", 5, 6]) ]')
 

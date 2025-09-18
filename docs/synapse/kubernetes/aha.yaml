@@ -69,7 +69,6 @@ spec:
           - name: SYN_AHA_DNS_NAME
             value: aha00.default.svc.cluster.local
           - name: SYN_AHA_AHA_NETWORK
-            # This is <namespace>.<cluster dns root> - it is used as Certificate Authority name
             value: dev.synapse
           - name: SYN_AHA_HTTPS_PORT
             value: null

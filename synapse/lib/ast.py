@@ -2,7 +2,6 @@ import types
 import asyncio
 import decimal
 import fnmatch
-import hashlib
 import logging
 import binascii
 import itertools
@@ -2139,7 +2138,7 @@ class LiftProp(LiftOper):
 
     async def lift(self, runt, path):
 
-        name = await tostr(await self.kids[0].compute(runt, path))
+        name = await self.kids[0].compute(runt, path)
 
         props = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
 
@@ -2221,7 +2220,7 @@ class LiftPropVirt(LiftProp):
 
     async def lift(self, runt, path):
 
-        name = await tostr(await self.kids[0].compute(runt, path))
+        name = await self.kids[0].compute(runt, path)
         virts = await self.kids[1].compute(runt, path)
 
         props = runt.model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
@@ -4761,6 +4760,13 @@ class PivotTargetList(List):
 
         return targets
 
+class DerefProps(Value):
+    async def compute(self, runt, path):
+        valu = await toprim(await self.kids[0].compute(runt, path))
+        if (exc := await s_stormtypes.typeerr(valu, str)) is not None:
+            raise self.kids[0].addExcInfo(exc)
+        return valu
+
 class RelProp(PropName):
     pass
 
@@ -5227,7 +5233,7 @@ class EditPropSetMulti(Edit):
                 mesg = f"'{styp}' object is not iterable: {s_common.trimText(repr(valu))}"
                 raise rval.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=styp)) from None
 
-            await node.set(name, arry, norminfo=norminfo)
+            await node.set(name, valu, norminfo=norminfo)
 
             yield node, path
             await asyncio.sleep(0)
