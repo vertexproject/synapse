@@ -1519,18 +1519,36 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.eq(80, await core.callStorm('test:str#bar:serv.port=80 return(#bar:serv.port)'))
 
+                layr = core.getLayer()
+                indxby = s_layer.IndxByTagPropVirt(layr, 'test:str', 'bar', 'serv', ['port'])
+                self.eq(str(indxby), 'IndxByTagPropVirt: test:str#bar:serv.port')
+
+                indxby = s_layer.IndxByTagPropVirt(layr, None, 'bar', 'serv', ['port'])
+                self.eq(str(indxby), 'IndxByTagPropVirt: #bar:serv.port')
+
+                indxby = s_layer.IndxByTagPropVirt(layr, None, None, 'serv', ['port'])
+                self.eq(str(indxby), 'IndxByTagPropVirt: #*:serv.port')
+
+                vals = []
+                rvals = []
+                servtype = core.model.type('inet:server')
+                norm = (await servtype.norm('1.2.3.4:80'))[0]
+                cmprvals = (('=', norm, servtype.stortype),)
+                async for item in layr.liftByTagPropValu(None, None, 'serv', cmprvals):
+                    vals.append(item[0])
+
+                async for item in layr.liftByTagPropValu(None, None, 'serv', cmprvals, reverse=True):
+                    rvals.append(item[0])
+
+                self.eq(vals, rvals[::-1])
+                self.len(2, vals)
+
                 self.len(3, await core.nodes('#bar:serv.port'))
                 await core.nodes('#bar:serv [ -#bar:serv ]')
                 self.len(0, await core.nodes('#bar:serv.port'))
 
-                indxby = s_layer.IndxByTagPropVirt(core.getLayer(), 'test:str', 'bar', 'serv', ['port'])
-                self.eq(str(indxby), 'IndxByTagPropVirt: test:str#bar:serv.port')
-
-                indxby = s_layer.IndxByTagPropVirt(core.getLayer(), None, 'bar', 'serv', ['port'])
-                self.eq(str(indxby), 'IndxByTagPropVirt: #bar:serv.port')
-
-                indxby = s_layer.IndxByTagPropVirt(core.getLayer(), None, None, 'serv', ['port'])
-                self.eq(str(indxby), 'IndxByTagPropVirt: #*:serv.port')
+                self.len(0, await alist(layr.liftByTagProp(None, None, 'serv', reverse=True)))
+                self.len(0, await alist(layr.liftByTagPropValu(None, None, 'serv', cmprvals)))
 
                 await core.addTagProp('time', ('time', {}), {})
                 prec = await core.callStorm('[ test:str=time +#foo:time=2020-01? ] return(#foo:time.precision)')
@@ -1545,6 +1563,11 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(s_time.PREC_DAY, prec)
                 prec = await core.callStorm('test:str=ival [ +#foo:ival.precision?=newp ] return(#foo:ival.precision)')
                 self.eq(s_time.PREC_DAY, prec)
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes('test:str=ival [ +#foo:ival.precision=newp ]')
+
+                await core.nodes('test:str=ival [ +#foo:ival.precision=year ]')
 
                 await core.nodes('test:str=time [ -#foo:time ]')
                 await core.nodes('test:str=ival [ -#foo:ival ]')

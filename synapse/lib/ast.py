@@ -3715,10 +3715,7 @@ class TagPropCond(Cond):
                 mesg = f'Wildcard tag names may not be used in conjunction with tagprop value comparison: {tag}'
                 raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=tag))
 
-            prop = runt.model.getTagProp(name)
-            if prop is None:
-                mesg = f'No such tag property: {name}'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchTagProp(name=name, mesg=mesg))
+            prop = runt.model.reqTagProp(name, extra=self.kids[0].addExcInfo)
 
             curv = node.getTagProp(tag, name)
             if curv is None:
@@ -3924,11 +3921,7 @@ class TagPropValue(Value):
     async def compute(self, runt, path):
         tag, prop = await self.kids[0].compute(runt, path)
 
-        tprop = runt.model.getTagProp(prop)
-        if tprop is None:
-            mesg = f'No such tag property: {prop}'
-            raise self.kids[0].addExcInfo(s_exc.NoSuchTagProp(name=prop, mesg=mesg))
-
+        tprop = runt.model.reqTagProp(prop, extra=self.kids[0].addExcInfo)
         vgetr = None
         if len(self.kids) > 1:
             virts = await self.kids[1].compute(runt, path)
