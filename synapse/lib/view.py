@@ -605,7 +605,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         if node is None:
                             continue
 
-                        await trig._execute(node, varz=varz)
+                        await trig._execute(node, vars=varz)
 
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
