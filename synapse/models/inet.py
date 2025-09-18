@@ -1644,7 +1644,9 @@ modeldefs = (
                 'doc': 'An emote or reaction by an account.'}),
 
             ('inet:service:access:action:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of service actions.'}),
 
             ('inet:service:access', ('guid', {}), {
