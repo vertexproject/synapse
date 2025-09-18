@@ -137,76 +137,78 @@ class Triggers:
         finally:
             RecursionDepth.reset(token)
 
-    async def runNodeAdd(self, node):
+    async def runNodeAdd(self, node, useriden):
+        varz = {'auto': {'opts': {'user': useriden}}} 
         with self._recursion_check():
-            [await trig.execute(node) for trig in self.nodeadd.get(node.form.name, ())]
+            [await trig.execute(node, varz=varz) for trig in self.nodeadd.get(node.form.name, ())]
 
-    async def runNodeDel(self, node):
+    async def runNodeDel(self, node, useriden):
+        varz = {'auto': {'opts': {'user': useriden}}}
         with self._recursion_check():
-            [await trig.execute(node) for trig in self.nodedel.get(node.form.name, ())]
+            [await trig.execute(node, varz=varz) for trig in self.nodedel.get(node.form.name, ())]
 
-    async def runPropSet(self, node, prop, oldv):
-        vars = {'propname': prop.name, 'propfull': prop.full,
-                'auto': {'opts': {'propname': prop.name, 'propfull': prop.full, }},
+    async def runPropSet(self, node, prop, oldv, useriden):
+        varz = {'propname': prop.name, 'propfull': prop.full,
+                'auto': {'opts': {'propname': prop.name, 'propfull': prop.full, 'user': useriden}},
                 }
         with self._recursion_check():
-            [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.full, ())]
+            [await trig.execute(node, varz=varz) for trig in self.propset.get(prop.full, ())]
             if prop.univ is not None:
-                [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.univ.full, ())]
+                [await trig.execute(node, varz=varz) for trig in self.propset.get(prop.univ.full, ())]
 
-    async def runTagAdd(self, node, tag):
+    async def runTagAdd(self, node, tag, useriden):
 
-        vars = {'tag': tag, 'auto': {'opts': {'tag': tag}}}
+        varz = {'tag': tag, 'auto': {'opts': {'tag': tag, 'user': useriden}}}
         with self._recursion_check():
 
             for trig in self.tagadd.get((node.form.name, tag), ()):
-                await trig.execute(node, vars=vars)
+                await trig.execute(node, varz=varz)
 
             for trig in self.tagadd.get((None, tag), ()):
-                await trig.execute(node, vars=vars)
+                await trig.execute(node, varz=varz)
 
             # check for form specific globs
             globs = self.tagaddglobs.get(node.form.name)
             if globs is not None:
                 for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars)
+                    await trig.execute(node, varz=varz)
 
             # check for form agnostic globs
             globs = self.tagaddglobs.get(None)
             if globs is not None:
                 for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars)
+                    await trig.execute(node, varz=varz)
 
-    async def runTagDel(self, node, tag):
+    async def runTagDel(self, node, tag, useriden):
 
-        vars = {'tag': tag,
-                'auto': {'opts': {'tag': tag}},
+        varz = {'tag': tag,
+                'auto': {'opts': {'tag': tag, 'user': useriden}},
                 }
         with self._recursion_check():
 
             for trig in self.tagdel.get((node.form.name, tag), ()):
-                await trig.execute(node, vars=vars)
+                await trig.execute(node, varz=varz)
 
             for trig in self.tagdel.get((None, tag), ()):
-                await trig.execute(node, vars=vars)
+                await trig.execute(node, varz=varz)
 
             # check for form specific globs
             globs = self.tagdelglobs.get(node.form.name)
             if globs is not None:
                 for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars)
+                    await trig.execute(node, varz=varz)
 
             # check for form agnostic globs
             globs = self.tagdelglobs.get(None)
             if globs is not None:
                 for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars)
+                    await trig.execute(node, varz=varz)
 
-    async def runEdgeAdd(self, n1, verb, n2):
+    async def runEdgeAdd(self, n1, verb, n2, useriden):
         n1form = n1.form.name if n1 else None
         n2form = n2.form.name if n2 else None
         n2iden = n2.iden() if n2 else None
-        varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden}}}
+        varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden, 'user': useriden}}}
         with self._recursion_check():
             cachekey = (n1form, verb, n2form)
             cached = self.edgeaddcache.get(cachekey)
@@ -250,13 +252,13 @@ class Triggers:
                 self.edgeaddcache[cachekey] = cached
 
             for trig in cached:
-                await trig.execute(n1, vars=varz)
+                await trig.execute(n1, varz=varz)
 
-    async def runEdgeDel(self, n1, verb, n2):
+    async def runEdgeDel(self, n1, verb, n2, useriden):
         n1form = n1.form.name if n1 else None
         n2form = n2.form.name if n2 else None
         n2iden = n2.iden() if n2 else None
-        varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden}}}
+        varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden, 'user': useriden}}}
         with self._recursion_check():
             cachekey = (n1form, verb, n2form)
             cached = self.edgedelcache.get(cachekey)
@@ -300,7 +302,7 @@ class Triggers:
                 self.edgedelcache[cachekey] = cached
 
             for trig in cached:
-                await trig.execute(n1, vars=varz)
+                await trig.execute(n1, varz=varz)
 
     async def load(self, tdef):
 
@@ -500,32 +502,21 @@ class Trigger:
     def get(self, name):
         return self.tdef.get(name)
 
-    async def execute(self, node, vars=None):
+    async def execute(self, node, varz=None):
         '''
         Actually execute the query
         '''
         if not self.tdef.get('enabled'):
             return
 
-        useriden = s_scope.get('useriden')
-
         if self.tdef.get('async'):
-            if useriden is not None:
-                if vars is None:
-                    vars = {}
-                else:
-                    vars = vars.copy()
-                autovars = vars.setdefault('auto', {})
-                optvars = autovars.setdefault('opts', {})
-                optvars.setdefault('user', useriden)
-
-            triginfo = {'buid': node.buid, 'trig': self.iden, 'vars': vars}
+            triginfo = {'buid': node.buid, 'trig': self.iden, 'vars': varz}
             await self.view.addTrigQueue(triginfo)
             return
 
-        return await self._execute(node, vars=vars, useriden=useriden)
+        return await self._execute(node, varz=varz)
 
-    async def _execute(self, node, vars=None, useriden=None):
+    async def _execute(self, node, varz=None):
 
         locked = self.user.info.get('locked')
         if locked:
@@ -538,20 +529,18 @@ class Trigger:
 
         query = await self.view.core.getStormQuery(storm)
 
-        if vars is None:
-            vars = {}
+        if varz is None:
+            varz = {}
         else:
-            vars = vars.copy()
+            varz = varz.copy()
 
-        autovars = vars.setdefault('auto', {})
+        autovars = varz.setdefault('auto', {})
         autovars.update({'iden': self.iden, 'type': 'trigger'})
         optvars = autovars.setdefault('opts', {})
         optvars['form'] = node.ndef[0]
         optvars['valu'] = node.ndef[1]
-        if useriden is not None:
-            optvars['user'] = useriden
 
-        opts = {'vars': vars, 'user': self.user.iden, 'view': self.view.iden}
+        opts = {'vars': varz, 'user': self.user.iden, 'view': self.view.iden}
 
         self.startcount += 1
 
