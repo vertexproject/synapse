@@ -138,7 +138,7 @@ class Triggers:
             RecursionDepth.reset(token)
 
     async def runNodeAdd(self, node, useriden):
-        varz = {'auto': {'opts': {'user': useriden}}} 
+        varz = {'auto': {'opts': {'user': useriden}}}
         with self._recursion_check():
             [await trig.execute(node, varz=varz) for trig in self.nodeadd.get(node.form.name, ())]
 
