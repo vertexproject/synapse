@@ -3908,6 +3908,7 @@ class TagProp(Value):
     async def compute(self, runt, path):
         tag = await self.kids[0].compute(runt, path)
         prop = await self.kids[1].compute(runt, path)
+        prop = await tostr(prop)
         return (tag, prop)
 
 class FormTagProp(Value):
@@ -3916,6 +3917,7 @@ class FormTagProp(Value):
         form = await self.kids[0].compute(runt, path)
         tag = await self.kids[1].compute(runt, path)
         prop = await self.kids[2].compute(runt, path)
+        prop = await tostr(prop)
         return (form, tag, prop)
 
 class TagPropValue(Value):
@@ -5500,7 +5502,7 @@ class EditTagDel(Edit):
 
 class EditTagPropSet(Edit):
     '''
-    [ #foo.bar:baz=10 ]
+    [ +#foo.bar:baz=10 ]
     '''
     async def run(self, runt, genr):
 
@@ -5530,6 +5532,41 @@ class EditTagPropSet(Edit):
 
             yield node, path
 
+            await asyncio.sleep(0)
+
+class EditTagPropVirtSet(Edit):
+    '''
+    [ +#foo.bar:baz.precision=day ]
+    '''
+    async def run(self, runt, genr):
+
+        self.reqNotReadOnly(runt)
+
+        oper = await self.kids[2].compute(runt, None)
+        excignore = (s_exc.BadTypeValu,) if oper == '?=' else ()
+
+        rval = self.kids[3]
+
+        async for node, path in genr:
+
+            tag, propname = await self.kids[0].compute(runt, path)
+
+            prop = runt.model.reqTagProp(propname, extra=self.kids[0].addExcInfo)
+            virts = await self.kids[1].compute(runt, path)
+
+            try:
+                oldv = node.getTagProp(tag, propname)
+                valu = await rval.compute(runt, path)
+                newv, norminfo = await prop.type.normVirt(virts[0], oldv, valu)
+
+                await node.setTagProp(tag, propname, newv, norminfo=norminfo)
+            except excignore:
+                pass
+
+            except s_exc.BadTypeValu as e:
+                raise rval.addExcInfo(e)
+
+            yield node, path
             await asyncio.sleep(0)
 
 class EditTagPropDel(Edit):

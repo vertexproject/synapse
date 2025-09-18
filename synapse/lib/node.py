@@ -1144,12 +1144,12 @@ class Node(NodeBase):
 
         return defval, None
 
-    async def setTagProp(self, tag, name, valu):
+    async def setTagProp(self, tag, name, valu, norminfo=None):
         '''
         Set the value of the given tag property.
         '''
         async with self.view.getNodeEditor(self) as editor:
-            await editor.setTagProp(tag, name, valu)
+            await editor.setTagProp(tag, name, valu, norminfo=norminfo)
 
     async def delTagProp(self, tag, name):
         async with self.view.getNodeEditor(self) as editor:

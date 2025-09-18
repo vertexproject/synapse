@@ -1538,7 +1538,16 @@ class CortexTest(s_t_utils.SynTest):
                 prec = await core.callStorm('test:str=time [ +#foo:time=2020? ] return(#foo:time.precision)')
                 self.eq(s_time.PREC_YEAR, prec)
 
-                await core.callStorm('test:str=time [ -#foo:time ]')
+                await core.addTagProp('ival', ('ival', {}), {})
+                prec = await core.callStorm('[ test:str=ival +#foo:ival=2020 ] return(#foo:ival.precision)')
+                self.eq(s_time.PREC_MICRO, prec)
+                prec = await core.callStorm('test:str=ival [ +#foo:ival.precision=day ] return(#foo:ival.precision)')
+                self.eq(s_time.PREC_DAY, prec)
+                prec = await core.callStorm('test:str=ival [ +#foo:ival.precision?=newp ] return(#foo:ival.precision)')
+                self.eq(s_time.PREC_DAY, prec)
+
+                await core.nodes('test:str=time [ -#foo:time ]')
+                await core.nodes('test:str=ival [ -#foo:ival ]')
 
             # Ensure that the tagprops persist
             async with self.getTestCore(dirn=dirn) as core:

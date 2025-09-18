@@ -747,13 +747,17 @@ class Model:
 
         raise exc
 
-    def reqTagProp(self, name):
+    def reqTagProp(self, name, extra=None):
         prop = self.getTagProp(name)
         if prop is not None:
             return prop
 
         mesg = f'No tag property named {name}.'
-        raise s_exc.NoSuchTagProp(mesg=mesg, name=name)
+        exc = s_exc.NoSuchTagProp(mesg=mesg, name=name)
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
 
     def reqFormsByPrefix(self, prefix, extra=None):
         forms = self.getFormsByPrefix(prefix)

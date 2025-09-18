@@ -683,6 +683,7 @@ ruleClassMap = {
     'edittagtryadd': lambda astinfo, kids: s_ast.EditTagAdd(astinfo, kids, istry=True),
     'edittagdel': lambda astinfo, kids: s_ast.EditTagDel(astinfo, kids[1:]),
     'edittagpropset': s_ast.EditTagPropSet,
+    'edittagpropvirtset': s_ast.EditTagPropVirtSet,
     'edittagpropdel': lambda astinfo, kids: s_ast.EditTagPropDel(astinfo, kids[1:]),
     'edittagvirtset': s_ast.EditTagVirtSet,
     'edittagvirttryset': lambda astinfo, kids: s_ast.EditTagVirtSet(astinfo, kids, istry=True),

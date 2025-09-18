@@ -653,7 +653,7 @@ class ProtoNode(s_node.NodeBase):
 
         return False
 
-    async def setTagProp(self, tag, name, valu):
+    async def setTagProp(self, tag, name, valu, norminfo=None):
 
         tagnode = await self.addTag(tag)
         if tagnode is None:
@@ -666,27 +666,28 @@ class ProtoNode(s_node.NodeBase):
         if prop.locked:
             raise s_exc.IsDeprLocked(mesg=f'Tagprop {name} is locked.', prop=name)
 
-        norm, info = await prop.type.norm(valu, view=self.editor.view)
+        if norminfo is None:
+            valu, norminfo = await prop.type.norm(valu, view=self.editor.view)
 
-        if not info.get('skipadd'):
+        if not norminfo.get('skipadd'):
             if (propform := self.model.form(prop.type.name)) is not None:
-                await self.editor.addNode(propform.name, norm, norminfo=info)
+                await self.editor.addNode(propform.name, valu, norminfo=norminfo)
 
-            if (propadds := info.get('adds')) is not None:
+            if (propadds := norminfo.get('adds')) is not None:
                 for addname, addvalu, addinfo in propadds:
                     await self.editor.addNode(addname, addvalu, norminfo=addinfo)
 
-        virts = info.get('virts')
+        virts = norminfo.get('virts')
         curv = self.getTagPropWithVirts(tagnode.valu, name)
-        if curv == (norm, virts):
+        if curv == (valu, virts):
             return False
 
         curv = curv[0]
 
-        if curv is not None and info.get('merge', True):
-            norm = prop.type.merge(curv, norm)
+        if curv is not None and norminfo.get('merge', True):
+            valu = prop.type.merge(curv, valu)
 
-        self.tagprops[(tagnode.valu, name)] = (norm, virts)
+        self.tagprops[(tagnode.valu, name)] = (valu, virts)
         self.tagpropdels.discard((tagnode.valu, name))
         self.tagproptombs.discard((tagnode.valu, name))
 
