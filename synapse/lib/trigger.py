@@ -507,9 +507,7 @@ class Trigger:
         if not self.tdef.get('enabled'):
             return
 
-        useriden = None
-        if user := s_scope.get('user'):
-            useriden = user.iden
+        useriden = s_scope.get('useriden')
 
         if self.tdef.get('async'):
             if useriden is not None:
@@ -519,7 +517,7 @@ class Trigger:
                     vars = vars.copy()
                 autovars = vars.setdefault('auto', {})
                 optvars = autovars.setdefault('opts', {})
-                optvars.setdefault('user', user.iden)
+                optvars.setdefault('user', useriden)
 
             triginfo = {'buid': node.buid, 'trig': self.iden, 'vars': vars}
             await self.view.addTrigQueue(triginfo)

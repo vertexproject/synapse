@@ -1302,6 +1302,9 @@ class Snap(s_base.Base):
 
     async def _applyNodeEdits(self, edits, meta, nodecache=None):
 
+        # NB This is a test...
+        self.view.core.auth.reqUser(meta.get('user'))
+
         if self.readonly:
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
@@ -1444,7 +1447,8 @@ class Snap(s_base.Base):
                     n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
                     callbacks.append((self.view.runEdgeDel, (node, verb, n2)))
 
-        [await func(*args) for (func, args) in callbacks]
+        with s_scope.enter({'useriden': meta['user']}):
+            [await func(*args) for (func, args) in callbacks]
 
         if actualedits:
             await self.fire('node:edits', edits=actualedits)
@@ -1696,8 +1700,7 @@ class Snap(s_base.Base):
             raise s_exc.NoSuchName(name=name)
 
         logger.info(f'User ({self.user.name}) adding feed data ({name}): {len(items)}')
-        with s_scope.enter({'user': self.user}):
-            await func(self, items)
+        await func(self, items)
 
     async def getTagNorm(self, tagname):
         return await self.tagnorms.aget(tagname)
