@@ -9,7 +9,6 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.cache as s_cache
-import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.grammar as s_grammar
 
