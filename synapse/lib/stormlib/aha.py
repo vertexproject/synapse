@@ -50,7 +50,7 @@ class AhaLib(s_stormtypes.Lib):
                               'desc': 'The AHA service information dictionary, or ``(null))``.', }}},
         {'name': 'list', 'desc': 'Enumerate all of the AHA services.',
          'type': {'type': 'function', '_funcname': '_methAhaList', 'args': (),
-                  'returns': {'name': 'Yields', 'type': 'list',
+                  'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'The AHA service dictionaries.', }}},
         {'name': 'callPeerApi', 'desc': '''Call an API on all peers (leader and mirrors) of an AHA service and yield the responses from each.
 
@@ -91,7 +91,7 @@ class AhaLib(s_stormtypes.Lib):
                         '''},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
-                             'desc': 'Yields the results of the API calls as tuples of (svcname, (ok, info)).', }}},
+                              'desc': 'Yields the results of the API calls as tuples of (svcname, (ok, info)).', }}},
         {'name': 'callPeerGenr', 'desc': '''Call a generator API on all peers (leader and mirrors) of an AHA service and yield the responses from each.
 
         Examples:
@@ -124,7 +124,7 @@ class AhaLib(s_stormtypes.Lib):
                        '''},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
-                             'desc': 'Yields the results of the API calls as tuples containing (svcname, (ok, info)).', }}}
+                              'desc': 'Yields the results of the API calls as tuples containing (svcname, (ok, info)).', }}}
 
     )
     _storm_lib_path = ('aha',)

@@ -1,9 +1,9 @@
 import lark  # type: ignore
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 
 import synapse.lib.parser as s_parser
-import synapse.lib.datfile as s_datfile
 import synapse.lib.grammar as s_grammar
 
 import synapse.tests.utils as s_t_utils
@@ -1267,7 +1267,7 @@ _ParseResults = [
     'Query: [EditTagPropDel: [TagProp: [TagName: [Const: baz, Const: faz], Const: lol]]]',
     'Query: [EditTagPropSet: [TagProp: [TagName: [Const: baz, Const: faz], Const: lol], Const: =, Const: 20]]',
     'Query: [LiftTagProp: [TagProp: [TagName: [Const: tag], Const: somegeoloctypebecauseihatelife], Const: near=, List: [VarValue: [Const: lat], VarValue: [Const: long]]]]',
-    'Query: [LiftPropBy: [VarValue: [Const: foo], Const: near=, Const: 20]]',
+    'Query: [LiftPropBy: [DerefProps: [VarValue: [Const: foo]], Const: near=, Const: 20]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, VarDeref: [VarDeref: [VarDeref: [VarDeref: [VarDeref: [VarValue: [Const: foo], Const: woot], Const: var], VarValue: [Const: bar]], Const: mar], VarValue: [Const: car]]]]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: space key]], Const: subkey]]]',
     'Query: [ForLoop: [Const: iterkey, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], SubQuery: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, VarDeref: [VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], VarValue: [Const: iterkey]]]]]]]',
@@ -1337,11 +1337,11 @@ _ParseResults = [
     'Query: [VarEvalOper: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: print], CallArgs: [DollarExpr: [FuncCall: [VarDeref: [DollarExpr: [RelPropValue: [Const: prop]], Const: upper], CallArgs: [], CallKwargs: []]]], CallKwargs: []]]]',
     'Query: [VarEvalOper: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: print], CallArgs: [VarDeref: [DollarExpr: [ExprDict: [Const: unicode, Const: 1]], DollarExpr: [RelPropValue: [Const: prop]]]], CallKwargs: []]]]',
     'Query: [VarEvalOper: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: print], CallArgs: [DollarExpr: [ExprNode: [VarDeref: [DollarExpr: [ExprDict: [Const: unicode, Const: 1]], DollarExpr: [RelPropValue: [Const: prop]]], Const: +, DollarExpr: [Const: 2]]]], CallKwargs: []]]]',
-    'Query: [LiftFormTag: [VarValue: [Const: form], TagName: [VarValue: [Const: tag]]]]',
-    'Query: [LiftFormTagProp: [FormTagProp: [VarValue: [Const: form], TagName: [VarValue: [Const: tag]], VarValue: [Const: prop]]]]',
+    'Query: [LiftFormTag: [DerefProps: [VarValue: [Const: form]], TagName: [VarValue: [Const: tag]]]]',
+    'Query: [LiftFormTagProp: [FormTagProp: [DerefProps: [VarValue: [Const: form]], TagName: [VarValue: [Const: tag]], VarValue: [Const: prop]]]]',
     'Query: [LiftProp: [Const: inet:ipv4]]',
     'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4]]',
-    'Query: [LiftPropBy: [VarValue: [Const: form], Const: =, VarValue: [Const: valu]]]',
+    'Query: [LiftPropBy: [DerefProps: [VarValue: [Const: form]], Const: =, VarValue: [Const: valu]]]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: foobar], FormPivot: [Const: inet:dns*], isjoin=False]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: foobar], FormPivot: [Const: inet:dns:*], isjoin=False]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: foobar], FormPivot: [List: [Const: meta:source, Const: inet:dns:a]], isjoin=False]',
@@ -1414,9 +1414,7 @@ class GrammarTest(s_t_utils.SynTest):
         '''
         Validates that we have no grammar ambiguities
         '''
-        with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
-            grammar = larkf.read().decode()
-
+        grammar = s_data.getLark('storm')
         parser = lark.Lark(grammar, start='query', debug=True, regex=True, parser='lalr',
                            keep_all_tokens=True, maybe_placeholders=False,
                            propagate_positions=True)

@@ -2,7 +2,6 @@ import types
 import asyncio
 import decimal
 import fnmatch
-import hashlib
 import logging
 import binascii
 import itertools
@@ -1833,7 +1832,7 @@ class LiftProp(LiftOper):
 
         assert len(self.kids) == 1
 
-        name = await tostr(await self.kids[0].compute(runt, path))
+        name = await self.kids[0].compute(runt, path)
 
         prop = runt.model.props.get(name)
         if prop is not None:
@@ -4028,6 +4027,13 @@ class FormName(Value):
 
     async def compute(self, runt, path):
         return await self.kids[0].compute(runt, path)
+
+class DerefProps(Value):
+    async def compute(self, runt, path):
+        valu = await toprim(await self.kids[0].compute(runt, path))
+        if (exc := await s_stormtypes.typeerr(valu, str)) is not None:
+            raise self.kids[0].addExcInfo(exc)
+        return valu
 
 class RelProp(PropName):
     pass

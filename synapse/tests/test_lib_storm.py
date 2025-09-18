@@ -1,6 +1,5 @@
 import copy
 import asyncio
-import datetime
 import itertools
 import urllib.parse as u_parse
 import unittest.mock as mock
@@ -17,6 +16,7 @@ import synapse.lib.storm as s_storm
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -147,6 +147,12 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             orgn = nodes[0].ndef
             self.eq(orgn, nodes11[0].ndef)
+
+            self.len(1, await core.nodes('ou:org?=({"name": "the vertex project", "type": "lulz"})'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org=({"logo": "newp"})')
+            self.len(0, await core.nodes('ou:org?=({"logo": "newp"})'))
 
             q = '[ ps:contact=* :org={ ou:org=({"name": "the vertex project", "type": "lulz"}) } ]'
             nodes = await core.nodes(q)
@@ -732,12 +738,16 @@ class StormTest(s_t_utils.SynTest):
                 [(ou:org=* :names=(foo, baz))]
                 [(ou:org=* :names=(foo, hehe))]
             ''')
-            nodes = await core.nodes('ou:org | intersect { -> ou:name }')
+            nodes = await core.nodes('ou:org | intersect { -> ou:name }', opts={'readonly': True})
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'foo')
 
             msgs = await core.stormlist('ou:org $foo=$node.value() | intersect $foo')
             self.stormIsInErr('intersect arguments must be runtsafe', msgs)
+
+            with self.raises(s_exc.IsReadOnly) as exc:
+                await core.nodes('ou:org | intersect { [ou:org=*] }', opts={'readonly': True})
+            self.eq(exc.exception.get('mesg'), 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.')
 
     async def test_lib_storm_trycatch(self):
 
@@ -4863,6 +4873,79 @@ class StormTest(s_t_utils.SynTest):
             links = nodes[2][1]['links']
             self.len(1, links)
             self.eq({'type': 'runtime'}, links[0][1])
+
+    async def test_storm_derefprops(self):
+        async with self.getTestCore() as core:
+            await core.addTagProp('score', ('int', {}), {})
+
+            mesg = "Expected value of type 'str', got '"
+
+            # editnodeadd
+            msgs = await core.stormlist('$form = inet:fqdn [ *$form=foobar.com ]')
+            self.stormHasNoWarnErr(msgs)
+
+            invals = [10, None, False, [], {}]
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('[ *$form=valu ]', opts=opts)
+                self.true(exc.exception.get('mesg').startswith(mesg))
+
+            # liftprop
+            msgs = await core.stormlist('$form = inet:fqdn *$form')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form', opts=opts)
+                self.true(exc.exception.get('mesg').startswith(mesg))
+
+            # liftpropby
+            msgs = await core.stormlist('$form = inet:fqdn *$form=foobar.com')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form=newp', opts=opts)
+                self.true(exc.exception.get('mesg').startswith(mesg))
+
+            # liftformtag
+            msgs = await core.stormlist('$form = inet:fqdn *$form#foo')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form#newp', opts=opts)
+                self.true(exc.exception.get('mesg').startswith(mesg))
+
+            # liftbyarray
+            msgs = await core.stormlist('$form = test:arrayform *$form*[=(10)]')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form*[="newp"]', opts=opts)
+                self.true(exc.exception.get('mesg').startswith(mesg))
+
+            # formtagprop
+            msgs = await core.stormlist('$form = inet:fqdn *$form#foo:score')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form#newp:score', opts=opts)
+                self.true(exc.exception.get('mesg').startswith(mesg))
+
+            # Check Storm Str types
+            name = s_stormtypes.Str('inet:fqdn')
+            msgs = await core.stormlist('*$form', opts={'vars': {'form': name}})
+            self.stormHasNoWarnErr(msgs)
 
     async def test_storm_nested_root(self):
         async with self.getTestCore() as core:

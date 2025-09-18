@@ -13,7 +13,7 @@ class EthereumLib(s_stormtypes.Lib):
                       {'name': 'addr', 'type': 'str', 'desc': 'The Ethereum address to be converted.'},
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'A list of (<bool>, <addr>) for status and checksummed address.', },
+                              'desc': 'A list of (<boolean>, <addr>) for status and checksummed address.', },
         }},
     )
 

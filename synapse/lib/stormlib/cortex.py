@@ -1029,7 +1029,7 @@ class HttpReq(s_stormtypes.StormType):
             if not isinstance(body, bytes):
                 body = await s_stormtypes.toprim(body)
                 body = s_json.dumps(body)
-                headers['Content-Type'] = 'application/json; charset=utf8"'
+                headers['Content-Type'] = 'application/json; charset=utf8'
                 headers['Content-Length'] = len(body)
 
         await self._methSendCode(code)
@@ -1083,13 +1083,13 @@ class CortexHttpApi(s_stormtypes.Lib):
         ''',
          'type': {'type': 'function', '_funcname': 'addHttpApi',
                   'args': (
-                      {'name': 'path', 'type': 'string',
+                      {'name': 'path', 'type': 'str',
                        'desc': 'The extended HTTP API path.'},
-                      {'name': 'name', 'type': 'string',
+                      {'name': 'name', 'type': 'str',
                        'desc': 'Friendly name for the Extended HTTP API.', 'default': ''},
-                      {'name': 'desc', 'type': 'string',
+                      {'name': 'desc', 'type': 'str',
                        'desc': 'Description for the Extended HTTP API.', 'default': ''},
-                      {'name': 'runas', 'type': 'string',
+                      {'name': 'runas', 'type': 'str',
                        'desc': 'Run the storm query as the API "owner" or as the authenticated "user".',
                        'default': 'owner'},
                       {'name': 'authenticated', 'type': 'boolean',
@@ -1103,14 +1103,14 @@ class CortexHttpApi(s_stormtypes.Lib):
         {'name': 'del', 'desc': 'Delete an Extended HTTP API endpoint.',
          'type': {'type': 'function', '_funcname': 'delHttpApi',
                   'args': (
-                      {'name': 'iden', 'type': 'string',
+                      {'name': 'iden', 'type': 'str',
                        'desc': 'The iden of the API to delete.'},
                   ),
                   'returns': {'type': 'null'}}},
         {'name': 'get', 'desc': 'Get an Extended ``http:api`` object.',
          'type': {'type': 'function', '_funcname': 'getHttpApi',
                   'args': (
-                      {'name': 'iden', 'type': 'string',
+                      {'name': 'iden', 'type': 'str',
                        'desc': 'The iden of the API to retrieve.'},
                   ),
                   'returns': {'type': 'http:api', 'desc': 'The ``http:api`` object.'}}},
@@ -1123,17 +1123,17 @@ class CortexHttpApi(s_stormtypes.Lib):
         ''',
          'type': {'type': 'function', '_funcname': 'getHttpApiByPath',
                   'args': (
-                      {'name': 'path', 'type': 'string',
+                      {'name': 'path', 'type': 'str',
                        'desc': 'Path to use to retrieve an object.'},
                   ),
                   'returns': {'type': ['http:api', 'null'], 'desc': 'The ``http:api`` object or ``(null)`` if there is no match.'}}},
         {'name': 'list', 'desc': 'Get all the Extended HTTP APIs on the Cortex',
          'type': {'type': 'function', '_funcname': 'listHttpApis', 'args': (),
-                 'returns': {'type': 'list', 'desc': 'A list of ``http:api`` objects'}}},
+                  'returns': {'type': 'list', 'desc': 'A list of ``http:api`` objects'}}},
         {'name': 'index', 'desc': 'Set the index for a given Extended HTTP API.',
          'type': {'type': 'function', '_funcname': 'setHttpApiIndx',
                   'args': (
-                      {'name': 'iden', 'type': 'string',
+                      {'name': 'iden', 'type': 'str',
                        'desc': 'The iden of the API to modify.'},
                       {'name': 'index', 'type': 'int', 'default': 0,
                        'desc': 'The new index of the API. Uses zero based indexing.'},

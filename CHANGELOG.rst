@@ -6,6 +6,99 @@
 Synapse Changelog
 *****************
 
+v2.222.0 - 2025-09-15
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_222_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``asroot:ondeny:import`` to the Storm package module definition to
+  allow a user to import a module without elevated permissions.
+  (`#4476 <https://github.com/vertexproject/synapse/pull/4476>`_)
+- Updated rstorm to add a ``storm-python-path`` directive to allow adding
+  additional Python paths to ``sys.path`` when building rstorm documentation.
+  (`#4486 <https://github.com/vertexproject/synapse/pull/4486>`_)
+
+Bugfixes
+--------
+- Fixed bug when using deref syntax (``*$form``) where a non-string value would
+  raise a Python exception in the Storm runtime.
+  (`#4481 <https://github.com/vertexproject/synapse/pull/4481>`_)
+- Fixed an issue where certain Layer storage node APIs could raise an exception
+  when used on mirrored layers.
+  (`#4485 <https://github.com/vertexproject/synapse/pull/4485>`_)
+- Fixed a bug in the default ``Content-Type`` header used in the extended Storm
+  HTTP API.
+  (`#4487 <https://github.com/vertexproject/synapse/pull/4487>`_)
+
+Notes
+-----
+- Updated the execution of rstorm shell directives to inherit the calling
+  process's environment variables.
+  (`#4482 <https://github.com/vertexproject/synapse/pull/4482>`_)
+
+Improved documentation
+----------------------
+- Updated Cortex Permissions documentation to include existing Layer
+  permissions.
+  (`#4483 <https://github.com/vertexproject/synapse/pull/4483>`_)
+
+v2.221.0 - 2025-09-11
+=====================
+
+Features and Enhancements
+-------------------------
+- Added the Storm Layer API ``hasEdge``.
+  (`#4470 <https://github.com/vertexproject/synapse/pull/4470>`_)
+- Added an optional ``verb`` argument to the ``getEdgesByN1`` and
+  ``getEdgesByN2`` Storm Layer APIs.
+  (`#4470 <https://github.com/vertexproject/synapse/pull/4470>`_)
+- Added Storm Layer ``delNodeData()`` API to delete node data in a layer.
+  (`#4471 <https://github.com/vertexproject/synapse/pull/4471>`_)
+- Added Storm Layer ``delStorNode()`` API to delete node information in a
+  layer.
+  (`#4471 <https://github.com/vertexproject/synapse/pull/4471>`_)
+- Added Storm Layer ``delEdge()`` API to delete edges in a layer.
+  (`#4471 <https://github.com/vertexproject/synapse/pull/4471>`_)
+- Added ``$lib.utils.buid()`` to calculate buids in Storm.
+  (`#4475 <https://github.com/vertexproject/synapse/pull/4475>`_)
+
+Bugfixes
+--------
+- Fixed an issue with ``$lib.env.get()`` where non-string values could be
+  returned when providing a default value. These are now coerced into strings.
+  (`#4457 <https://github.com/vertexproject/synapse/pull/4457>`_)
+- Fixed a bug in the Storm Layer API ``getStorNodesByProp()`` where passing a
+  form name would not return anything.
+  (`#4468 <https://github.com/vertexproject/synapse/pull/4468>`_)
+
+Improved documentation
+----------------------
+- Updated Storm library documentation to enforce the existence of all argument
+  types.
+  (`#4457 <https://github.com/vertexproject/synapse/pull/4457>`_)
+
+v2.220.0 - 2025-09-02
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated the IMAP client backend code for ``$lib.inet.imap()``.
+  (`#4439 <https://github.com/vertexproject/synapse/pull/4439>`_)
+- Added an ``xor()`` method on Storm ``bytes`` objects.
+  (`#4459 <https://github.com/vertexproject/synapse/pull/4459>`_)
+
+Bugfixes
+--------
+- Fixed regression in JSON where serializing strings with control characters
+  would cause an error.
+  (`#4463 <https://github.com/vertexproject/synapse/pull/4463>`_)
+- Fixed bug where the ``intersect`` command was not marked as readonly safe.
+  (`#4465 <https://github.com/vertexproject/synapse/pull/4465>`_)
+
 v2.219.0 - 2025-08-22
 =====================
 

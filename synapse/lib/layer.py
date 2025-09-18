@@ -119,6 +119,7 @@ class LayerApi(s_cell.CellApi):
 
         self.layr = layr
         self.liftperm = ('layer', 'lift', self.layr.iden)
+        self.readperm = ('layer', 'read', self.layr.iden)
         self.writeperm = ('layer', 'write', self.layr.iden)
 
     async def iterLayerNodeEdits(self):
@@ -126,7 +127,8 @@ class LayerApi(s_cell.CellApi):
         Scan the full layer and yield artificial nodeedit sets.
         '''
 
-        await self._reqUserAllowed(self.liftperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         async for item in self.layr.iterLayerNodeEdits():
             yield item
             await asyncio.sleep(0)
@@ -165,13 +167,15 @@ class LayerApi(s_cell.CellApi):
 
         Once caught up with storage, yield them in realtime.
         '''
-        await self._reqUserAllowed(self.liftperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         async for item in self.layr.syncNodeEdits(offs, wait=wait, reverse=reverse):
             yield item
             await asyncio.sleep(0)
 
     async def syncNodeEdits2(self, offs, wait=True):
-        await self._reqUserAllowed(self.liftperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         async for item in self.layr.syncNodeEdits2(offs, wait=wait):
             yield item
             await asyncio.sleep(0)
@@ -180,18 +184,21 @@ class LayerApi(s_cell.CellApi):
         '''
         Returns what will be the *next* nodeedit log index.
         '''
-        await self._reqUserAllowed(self.liftperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         return await self.layr.getEditIndx()
 
     async def getEditSize(self):
         '''
         Return the total number of (edits, meta) pairs in the layer changelog.
         '''
-        await self._reqUserAllowed(self.liftperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         return await self.layr.getEditSize()
 
     async def getIden(self):
-        await self._reqUserAllowed(self.liftperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         return self.layr.iden
 
 BUID_CACHE_SIZE = 10000
@@ -3350,7 +3357,99 @@ class Layer(s_nexus.Pusher):
         nodeedits = [(buid, newp_formname, [set_edit])]
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
-        return bool(changes[0][2])
+        return any(c[2] for c in changes)
+
+    async def delStorNode(self, buid, meta):
+        '''
+        Delete all node information in this layer.
+
+        Deletes props, tagprops, tags, n1edges, n2edges, nodedata, and node valu.
+        '''
+        sode = self._getStorNode(buid)
+        if sode is None:
+            return False
+
+        formname = sode.get('form')
+
+        edits = []
+        nodeedits = []
+
+        for propname, propvalu in sode.get('props', {}).items():
+            edits.append(
+                (EDIT_PROP_DEL, (propname, *propvalu), ())
+            )
+
+        for tagname, tprops in sode.get('tagprops', {}).items():
+            for propname, propvalu in tprops.items():
+                edits.append(
+                    (EDIT_TAGPROP_DEL, (tagname, propname, *propvalu), ())
+                )
+
+        for tagname, tagvalu in sode.get('tags', {}).items():
+            edits.append(
+                (EDIT_TAG_DEL, (tagname, tagvalu), ())
+            )
+
+        # EDIT_NODE_DEL will delete all nodedata and n1 edges if there is a valu in the sode
+        if (valu := sode.get('valu')):
+            edits.append(
+                (EDIT_NODE_DEL, valu, ())
+            )
+        else:
+            async for item in self.iterNodeData(buid):
+                edits.append(
+                    (EDIT_NODEDATA_DEL, item, ())
+                )
+                await asyncio.sleep(0)
+
+            async for edge in self.iterNodeEdgesN1(buid):
+                edits.append(
+                    (EDIT_EDGE_DEL, edge, ())
+                )
+                await asyncio.sleep(0)
+
+        nodeedits.append((buid, formname, edits))
+
+        n2edges = {}
+        n1iden = s_common.ehex(buid)
+        async for verb, n2iden in self.iterNodeEdgesN2(buid):
+            n2edges.setdefault(n2iden, []).append((verb, n1iden))
+            await asyncio.sleep(0)
+
+        n2forms = {}
+        @s_cache.memoize()
+        def getN2Form(n2iden):
+            buid = s_common.uhex(n2iden)
+            if (form := n2forms.get(buid)) is not None: # pragma: no cover
+                return form
+
+            n2sode = self._getStorNode(buid)
+            form = n2sode.get('form')
+            n2forms[buid] = form
+            return form
+
+        changed = False
+
+        async def batchEdits(size=1000):
+            if len(nodeedits) < size:
+                return changed
+
+            _, changes = await self.saveNodeEdits(nodeedits, meta)
+
+            nodeedits.clear()
+
+            if changed: # pragma: no cover
+                return changed
+
+            return any(c[2] for c in changes)
+
+        for n2iden, edges in n2edges.items():
+            edits = [(EDIT_EDGE_DEL, edge, ()) for edge in edges]
+            nodeedits.append((s_common.uhex(n2iden), getN2Form(n2iden), edits))
+
+            changed = await batchEdits()
+
+        return await batchEdits(size=1)
 
     async def delStorNodeProp(self, buid, prop, meta):
         pprop = self.core.model.reqProp(prop)
@@ -3363,7 +3462,49 @@ class Layer(s_nexus.Pusher):
         nodeedits = [(buid, oldp_formname, [del_edit])]
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
-        return bool(changes[0][2])
+        return any(c[2] for c in changes)
+
+    async def delNodeData(self, buid, meta, name=None):
+        '''
+        Delete nodedata from a node in this layer. If name is not specified, delete all nodedata.
+        '''
+        sode = self._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return False
+
+        edits = []
+        if name is None:
+            async for item in self.iterNodeData(buid):
+                edits.append((EDIT_NODEDATA_DEL, item, ()))
+                await asyncio.sleep(0)
+
+        elif await self.hasNodeData(buid, name):
+            edits.append((EDIT_NODEDATA_DEL, (name, None), ()))
+
+        if not edits:
+            return False
+
+        nodeedits = [(buid, sode.get('form'), edits)]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        return any(c[2] for c in changes)
+
+    async def delEdge(self, n1buid, verb, n2buid, meta):
+        sode = self._getStorNode(n1buid)
+        if sode is None: # pragma: no cover
+            return False
+
+        if not await self.hasNodeEdge(n1buid, verb, n2buid): # pragma: no cover
+            return False
+
+        edits = [
+            (EDIT_EDGE_DEL, (verb, s_common.ehex(n2buid)), ())
+        ]
+
+        nodeedits = [(n1buid, sode.get('form'), edits)]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        return any(c[2] for c in changes)
 
     async def storNodeEdits(self, nodeedits, meta):
 
