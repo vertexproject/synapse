@@ -1448,7 +1448,8 @@ class Snap(s_base.Base):
                     callbacks.append((self.view.runEdgeDel, (node, verb, n2)))
 
         with s_scope.enter({'useriden': meta['user']}):
-            [await func(*args) for (func, args) in callbacks]
+            for func, args in callbacks:
+                await func(*args)
 
         if actualedits:
             await self.fire('node:edits', edits=actualedits)
