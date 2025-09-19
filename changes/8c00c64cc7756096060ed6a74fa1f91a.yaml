@@ -1,5 +1,5 @@
 ---
-desc: Depcreated the ``synapse.cryotank.CryoTank`` Cell.
+desc: Deprecated the ``synapse.cryotank.CryoTank`` Cell.
 prs: []
 type: deprecation
 ...
