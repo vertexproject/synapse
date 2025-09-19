@@ -1,7 +1,7 @@
 import sys
 import pprint
-import argparse
 
+import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
@@ -58,4 +58,5 @@ async def main(argv, outp=s_output.stdout):
     return 0
 
 if __name__ == '__main__':  # pragma: no cover
+    s_common.deprecated('synapse.tools.cryo.cat', curv='2.223.0')
     s_cmd.exitmain(main)
