@@ -48,7 +48,6 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
-import synapse.cryotank as s_cryotank
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
@@ -1406,33 +1405,6 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             with self.getTestDir() as dirn:
                 async with await s_jsonstor.JsonStorCell.anit(dirn, conf) as jsonstor:
                     yield jsonstor
-
-    @contextlib.asynccontextmanager
-    async def getTestCryo(self, dirn=None, conf=None):
-        '''
-        Get a simple test Cryocell as an async context manager.
-
-        Returns:
-            s_cryotank.CryoCell: Test cryocell.
-        '''
-        conf = self.getCellConf(conf=conf)
-
-        with self.withNexusReplay():
-            with self.mayTestDir(dirn) as dirn:
-                async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
-                    yield cryo
-
-    @contextlib.asynccontextmanager
-    async def getTestCryoAndProxy(self, dirn=None):
-        '''
-        Get a test Cryocell and the Telepath Proxy to it.
-
-        Returns:
-            (s_cryotank: CryoCell, s_cryotank.CryoApi): The CryoCell and a Proxy representing a CryoApi object.
-        '''
-        async with self.getTestCryo(dirn=dirn) as cryo:
-            async with cryo.getLocalProxy() as prox:
-                yield cryo, prox
 
     @contextlib.asynccontextmanager
     async def getTestDmon(self):

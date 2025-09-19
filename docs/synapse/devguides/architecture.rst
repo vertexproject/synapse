@@ -9,7 +9,7 @@ Library Architecture
 ====================
 
 The Synapse library is broken out in a hierarchical fashion. The root of the library contains application level code,
-such as the implementations of the Cortex, Axon, Cryotank, as well as the Telepath client and server components.
+such as the implementations of the Cortex and Axon as well as the Telepath client and server components.
 There are also a set of common helper functions (common.py_) and exceptions (exc.py_). There are several submodules
 available as well:
 
@@ -88,7 +88,7 @@ The ``Cell`` (cell.py_) is a ``Base`` implementation which has several component
 Since the cell contains so much core management functionality, adding functionality to the Synapse ``Cell`` allows
 **all** applications using a Cell to be immediately extended to take advantage of that functionality without having to
 revisit multiple different implementations to update them.  For this reason, our core application components (the
-``Axon``, ``Cortex``, and ``CryoCell``) all implement the ``Cell`` class.  For example, if we add a new user management
+``Axon`` and ``Cortex``) all implement the ``Cell`` class.  For example, if we add a new user management
 capability, that is now available to all those applications, as well as any others ``Cell`` implementations.
 
 The application level components themselves have servers in the ``synapse.servers`` module, but there is also a generic
