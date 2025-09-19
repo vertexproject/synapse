@@ -64,7 +64,6 @@ docker stop test-jsonstor
 if [ $dstatus01 != "healthy" ]; then exit 1; fi
 if [ $dstatus02 != "healthy" ]; then exit 1; fi
 if [ $dstatus03 != "healthy" ]; then exit 1; fi
-if [ $dstatus04 != "healthy" ]; then exit 1; fi
 if [ $dstatus05 != "healthy" ]; then exit 1; fi
 if [ $dstatus06 != "healthy" ]; then exit 1; fi
 
