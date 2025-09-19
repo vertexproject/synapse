@@ -277,7 +277,7 @@ class AhaTest(s_test.SynTest):
 
                 async with await s_telepath.openurl('aha://0.cell.synapse/*/hehe/haha') as proxy:
                     self.eq(celliden, await proxy.getCellIden())
-                    self.eq(('hehe','haha'), await proxy.getTestPath())
+                    self.eq(('hehe', 'haha'), await proxy.getTestPath())
 
                 async with aha.getLocalProxy() as ahaproxy:
 
