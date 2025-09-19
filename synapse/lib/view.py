@@ -58,6 +58,9 @@ class ViewApi(s_cell.CellApi):
     @s_cell.adminapi()
     async def saveNodeEdits(self, edits, meta):
         meta['link:user'] = self.user.iden
+        user = meta.get('user', '')
+        if not s_common.isguid(user):
+            raise s_exc.BadArg(mesg=f'Meta argument requires user key to be a guid, got {user=}')
         async with await self.view.snap(user=self.user) as snap:
             return await snap.saveNodeEdits(edits, meta)
 
@@ -1584,57 +1587,57 @@ class View(s_nexus.Pusher):  # type: ignore
         layer = self.layers[0]
         await layer.confirmLayerEditPerms(user, layer.iden, delete=True)
 
-    async def runTagAdd(self, node, tag, valu):
+    async def runTagAdd(self, node, tag, valu, useriden):
 
         if self.core.migration or self.core.safemode:
             return
 
         # Run any trigger handlers
-        await self.triggers.runTagAdd(node, tag)
+        await self.triggers.runTagAdd(node, tag, useriden)
 
-    async def runTagDel(self, node, tag, valu):
-
-        if self.core.migration or self.core.safemode:
-            return
-
-        await self.triggers.runTagDel(node, tag)
-
-    async def runNodeAdd(self, node):
+    async def runTagDel(self, node, tag, valu, useriden):
 
         if self.core.migration or self.core.safemode:
             return
 
-        await self.triggers.runNodeAdd(node)
+        await self.triggers.runTagDel(node, tag, useriden)
 
-    async def runNodeDel(self, node):
+    async def runNodeAdd(self, node, useriden):
 
         if self.core.migration or self.core.safemode:
             return
 
-        await self.triggers.runNodeDel(node)
+        await self.triggers.runNodeAdd(node, useriden)
 
-    async def runPropSet(self, node, prop, oldv):
+    async def runNodeDel(self, node, useriden):
+
+        if self.core.migration or self.core.safemode:
+            return
+
+        await self.triggers.runNodeDel(node, useriden)
+
+    async def runPropSet(self, node, prop, oldv, useriden):
         '''
         Handle when a prop set trigger event fired
         '''
         if self.core.migration or self.core.safemode:
             return
 
-        await self.triggers.runPropSet(node, prop, oldv)
+        await self.triggers.runPropSet(node, prop, oldv, useriden)
 
-    async def runEdgeAdd(self, n1, edge, n2):
-
-        if self.core.migration or self.core.safemode:
-            return
-
-        await self.triggers.runEdgeAdd(n1, edge, n2)
-
-    async def runEdgeDel(self, n1, edge, n2):
+    async def runEdgeAdd(self, n1, edge, n2, useriden):
 
         if self.core.migration or self.core.safemode:
             return
 
-        await self.triggers.runEdgeDel(n1, edge, n2)
+        await self.triggers.runEdgeAdd(n1, edge, n2, useriden)
+
+    async def runEdgeDel(self, n1, edge, n2, useriden):
+
+        if self.core.migration or self.core.safemode:
+            return
+
+        await self.triggers.runEdgeDel(n1, edge, n2, useriden)
 
     async def addTrigger(self, tdef):
         '''
