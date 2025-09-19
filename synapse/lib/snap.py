@@ -907,7 +907,7 @@ class Snap(s_base.Base):
         await self.warn(mesg, log, **info)
 
     def _skipPropDeprWarn(self, name):
-        mesg = f'The property {name} is deprecated or using a deprecated type and will be removed in 3.0.0'
+        mesg = f'Property {name} is deprecated and will be removed in 3.0.'
         self._warnonce_keys.add(mesg)
 
     async def getNodeByBuid(self, buid):
