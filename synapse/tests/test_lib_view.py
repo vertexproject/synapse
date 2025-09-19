@@ -645,8 +645,9 @@ class ViewTest(s_t_utils.SynTest):
 
                 await core.setUserAdmin(user.iden, True)
 
-                with self.raises(s_exc.BadArg):
+                with self.raises(s_exc.BadArg) as cm:
                     await prox.saveNodeEdits(edits, {})
+                self.eq(cm.exception.get('mesg'), "Meta argument requires user key to be a guid, got user=''")
 
                 with self.getAsyncLoggerStream('synapse.storm.log', 'u=') as stream:
                     await prox.saveNodeEdits(edits, {'time': s_common.now(), 'user': guid})

@@ -58,6 +58,9 @@ class ViewApi(s_cell.CellApi):
     @s_cell.adminapi()
     async def saveNodeEdits(self, edits, meta):
         meta['link:user'] = self.user.iden
+        user = meta.get('user', '')
+        if not s_common.isguid(user):
+            raise s_exc.BadArg(mesg=f'Meta argument requires user key to be a guid, got {user=}')
         async with await self.view.snap(user=self.user) as snap:
             return await snap.saveNodeEdits(edits, meta)
 
