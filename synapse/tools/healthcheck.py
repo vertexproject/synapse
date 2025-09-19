@@ -40,7 +40,7 @@ async def main(argv, outp=s_output.stdout):
     try:
         async with s_telepath.withTeleEnv():
 
-            prox = await s_common.wait_for(s_telepath.openurl(url),
+            prox = await asyncio.wait_for(s_telepath.openurl(url),
                                            timeout=opts.timeout)
     except (s_exc.LinkErr, s_exc.NoSuchPath, socket.gaierror) as e:
         mesg = f'Unable to connect to cell @ {sanitized_url}.'
@@ -68,7 +68,7 @@ async def main(argv, outp=s_output.stdout):
         return 1
 
     try:
-        ret = await s_common.wait_for(prox.getHealthCheck(),
+        ret = await asyncio.wait_for(prox.getHealthCheck(),
                                       timeout=opts.timeout)
     except s_exc.SynErr as e:
         mesg = 'Synapse error encountered.'
