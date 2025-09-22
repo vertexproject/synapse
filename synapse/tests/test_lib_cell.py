@@ -1473,22 +1473,22 @@ class CellTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
 
-            async with self.getTestCryo(dirn=dirn) as cryo:
+            async with self.getTestCell(dirn=dirn) as cell:
 
-                cryo.certdir.genCaCert('localca')
-                cryo.certdir.genHostCert('localhost', signas='localca')
-                cryo.certdir.genUserCert('root@localhost', signas='localca')
-                cryo.certdir.genUserCert('newp@localhost', signas='localca')
+                cell.certdir.genCaCert('localca')
+                cell.certdir.genHostCert('localhost', signas='localca')
+                cell.certdir.genUserCert('root@localhost', signas='localca')
+                cell.certdir.genUserCert('newp@localhost', signas='localca')
 
-                root = await cryo.auth.addUser('root@localhost')
+                root = await cell.auth.addUser('root@localhost')
                 await root.setAdmin(True)
 
-            async with self.getTestCryo(dirn=dirn) as cryo:
+            async with self.getTestCell(dirn=dirn) as cell:
 
-                addr, port = await cryo.dmon.listen('ssl://0.0.0.0:0?hostname=localhost&ca=localca')
+                addr, port = await cell.dmon.listen('ssl://0.0.0.0:0?hostname=localhost&ca=localca')
 
                 async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=localhost') as proxy:
-                    self.eq(cryo.iden, await proxy.getCellIden())
+                    self.eq(cell.iden, await proxy.getCellIden())
 
                 with self.raises(s_exc.BadCertHost):
                     url = f'ssl://root@127.0.0.1:{port}?hostname=borked.localhost'
@@ -1502,12 +1502,12 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(cm.exception.get('username'), 'newp@localhost')
 
                 # add newp
-                unfo = await cryo.addUser('newp@localhost')
+                unfo = await cell.addUser('newp@localhost')
                 async with await s_telepath.openurl(f'ssl://newp@127.0.0.1:{port}?hostname=localhost') as proxy:
-                    self.eq(cryo.iden, await proxy.getCellIden())
+                    self.eq(cell.iden, await proxy.getCellIden())
 
                 # Lock newp
-                await cryo.setUserLocked(unfo.get('iden'), True)
+                await cell.setUserLocked(unfo.get('iden'), True)
                 with self.raises(s_exc.AuthDeny) as cm:
                     url = f'ssl://newp@127.0.0.1:{port}?hostname=localhost'
                     async with await s_telepath.openurl(url) as proxy:
