@@ -235,7 +235,7 @@ class Type:
 
     async def _normStormNode(self, node, view=None):
         norm, norminfo = await self.norm(node.ndef[1], view=view)
-        if node.form.type.name == self.name:
+        if self.name in node.form.formtypes:
             norminfo['skipadd'] = True
             norminfo.pop('adds', None)
         return norm, norminfo
@@ -442,6 +442,25 @@ class Type:
             info['virts'] = virts
 
         tifo.update(info)
+
+        ifaces = {}
+        for iname, ifinfo in self.info.get('interfaces', ()):
+            ifaces[iname] = ifinfo
+
+        for iname, newinfo in info.get('interfaces', ()):
+            if (oldinfo := ifaces.get(iname)) is not None:
+                temp = {}
+                temp |= oldinfo.get('template', {})
+                temp |= newinfo.get('template', {})
+
+                ifaces[iname] = oldinfo | newinfo
+                if temp:
+                    ifaces[iname]['template'] = temp
+            else:
+                ifaces[iname] = newinfo
+
+        if ifaces:
+            tifo['interfaces'] = tuple(ifaces.items())
 
         bases = self.info.get('bases') + (self.name,)
         tifo['bases'] = bases
@@ -2036,7 +2055,7 @@ class Ndef(Type):
 
             def filtfunc(form):
 
-                if self.forms is not None and form.name in forms:
+                if self.forms is not None and any(f in forms for f in form.formtypes):
                     return
 
                 if self.iface is not None and form.implements(self.iface):
