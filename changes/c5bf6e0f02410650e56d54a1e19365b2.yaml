@@ -1,0 +1,5 @@
+---
+desc: Updated pe:langid type to ``enums:strict=False`` with a value range of 0x00-0xFF.
+prs: []
+type: model
+...
