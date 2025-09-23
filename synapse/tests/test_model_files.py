@@ -103,6 +103,17 @@ class FileTest(s_t_utils.SynTest):
             self.eq(rnode.get('type'), 2)
             self.eq(rnode.repr('langid'), 'en-US')
             self.eq(rnode.repr('type'), 'RT_BITMAP')
+            # unknown langid
+            nodes = await core.nodes('[file:mime:pe:resource=$valu]',
+                                     opts={'vars': {'valu': (filea, 2, 0x1804, 'd' * 64)}})
+            self.len(1, nodes)
+            rnode = nodes[0]
+            self.eq(rnode.get('langid'), 0x1804)
+            self.eq(rnode.repr('langid'), '6148')
+            # invalid langid
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[file:mime:pe:resource=$valu]',
+                                     opts={'vars': {'valu': (filea, 2, 0xfffff, 'd' * 64)}})
             # pe section
             nodes = await core.nodes('[file:mime:pe:section=$valu]',
                                      opts={'vars': {'valu': (filea, 'foo', 'b' * 64)}})
