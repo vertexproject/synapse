@@ -6344,8 +6344,9 @@ class StormPkgQueue(StormType):
 
     async def _methPkgQueueGets(self, offs=0, wait=True, cull=False, size=None):
         self._reqPkgAdmin()
-        wait = await toint(wait)
         offs = await toint(offs)
+        wait = await tobool(wait)
+        cull = await tobool(cull)
         size = await toint(size, noneok=True)
 
         async for item in self.runt.snap.core.stormPkgQueueGets(self.pkgname, self.name, offs,
@@ -6360,7 +6361,8 @@ class StormPkgQueue(StormType):
     async def _methPkgQueueGet(self, offs=0, cull=True, wait=True):
         self._reqPkgAdmin()
         offs = await toint(offs)
-        wait = await toint(wait)
+        wait = await tobool(wait)
+        cull = await tobool(cull)
 
         return await self.runt.snap.core.stormPkgQueueGet(self.pkgname, self.name, offs, cull=cull, wait=wait)
 
