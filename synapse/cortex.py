@@ -3063,8 +3063,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if not ok:
                             break
 
-                        curvers = vers
-                        await self.setStormPkgVar(name, varname, vers)
+                        curvers = max(vers, await self.getStormPkgVar(name, varname, default=-1))
+                        await self.setStormPkgVar(name, varname, curvers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 if onload is not None:
