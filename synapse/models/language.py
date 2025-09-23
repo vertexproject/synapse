@@ -2,9 +2,9 @@ import synapse.lib.module as s_module
 
 class LangModule(s_module.CoreModule):
 
-    def getModelDefs(self):
+    def getModelDef(self):
 
-        modldef = ('lang', {
+        return {
 
             "types": (
 
@@ -96,9 +96,5 @@ class LangModule(s_module.CoreModule):
                     ('skill', ('ps:skill', {}), {
                         'doc': 'The skill used to annotate proficiency in the language.'}),
                 )),
-
             ),
-
-        })
-
-        return (modldef, )
+        }

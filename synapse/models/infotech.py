@@ -634,8 +634,8 @@ class ItModule(s_module.CoreModule):
         except Exception:
             logger.exception('Failed to brute force version string [%s]', prop)
 
-    def getModelDefs(self):
-        modl = {
+    def getModelDef(self):
+        return {
             'ctors': (
                 ('it:semver', 'synapse.models.infotech.SemVer', {}, {
                     'doc': 'Semantic Version type.',
@@ -3317,5 +3317,3 @@ class ItModule(s_module.CoreModule):
                 )),
             ),
         }
-        name = 'it'
-        return ((name, modl), )

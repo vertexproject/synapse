@@ -2,8 +2,8 @@ import synapse.lib.module as s_module
 
 class ScienceModule(s_module.CoreModule):
 
-    def getModelDefs(self):
-        return (('sci', {
+    def getModelDef(self):
+        return {
             'types': (
                 ('sci:hypothesis:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of hypothesis types.'}),
@@ -99,4 +99,4 @@ class ScienceModule(s_module.CoreModule):
                         'doc': 'Set to true if the evidence refutes the hypothesis or false if it supports the hypothesis.'}),
                 )),
             ),
-        }),)
+        }

@@ -130,8 +130,8 @@ class Imei(s_types.Int):
                                 mesg='Failed to norm IMEI')
 
 class TelcoModule(s_module.CoreModule):
-    def getModelDefs(self):
-        modl = {
+    def getModelDef(self):
+        return {
             'ctors': (
 
                 ('tel:mob:imei', 'synapse.models.telco.Imei', {}, {
@@ -420,5 +420,3 @@ class TelcoModule(s_module.CoreModule):
 
             )
         }
-        name = 'tel'
-        return ((name, modl),)

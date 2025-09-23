@@ -1,0 +1,5 @@
+---
+desc: Added ``$lib.model.load()`` to allow access to previously saved model versions from Storm.
+prs: []
+type: feat
+...
