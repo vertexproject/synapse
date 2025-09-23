@@ -750,10 +750,18 @@ class LibPkg(Lib):
                        'desc': 'A Storm Package name to get vars for.', },
                   ),
                   'returns': {'type': 'pkg:vars', 'desc': 'A dictionary representing the package variables.', }}},
+        {'name': 'queues',
+         'desc': "Access namespaced queues for a package.",
+         'type': {'type': 'function', '_funcname': '_libPkgQueues',
+                  'args': (
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'A Storm Package name to access queues for.', },
+                  ),
+                  'returns': {'type': 'pkg:queues', 'desc': 'An object for accessing the package queues.', }}},
     )
     _storm_lib_perms = (
         {'perm': ('power-ups', '<name>', 'admin'), 'gate': 'cortex',
-         'desc': 'Controls the ability to interact with the vars for a Storm Package by name.'},
+         'desc': 'Controls the ability to interact with the vars or queues for a Storm Package by name.'},
     )
     _storm_lib_path = ('pkg',)
 
@@ -766,6 +774,7 @@ class LibPkg(Lib):
             'list': self._libPkgList,
             'deps': self._libPkgDeps,
             'vars': self._libPkgVars,
+            'queues': self._libPkgQueues,
         }
 
     async def _libPkgAdd(self, pkgdef, verify=False):
@@ -809,6 +818,11 @@ class LibPkg(Lib):
         name = await tostr(name)
         confirm(('power-ups', name, 'admin'))
         return PkgVars(self.runt, name)
+
+    async def _libPkgQueues(self, name):
+        name = await tostr(name)
+        confirm(('power-ups', name, 'admin'))
+        return PkgQueues(self.runt, name)
 
 @registry.registerLib
 class LibDmon(Lib):
@@ -4069,7 +4083,7 @@ class Queue(StormType):
                   'returns': {'type': 'list',
                               'desc': 'A tuple of the offset and the item from the queue. If wait is false and '
                                       'the offset is not present, null is returned.', }}},
-        {'name': 'pop', 'desc': 'Pop a item from the Queue at a specific offset.',
+        {'name': 'pop', 'desc': 'Pop an item from the Queue at a specific offset.',
          'type': {'type': 'function', '_funcname': '_methQueuePop',
                   'args': (
                       {'name': 'offs', 'type': 'int', 'default': None,
@@ -6134,6 +6148,240 @@ class PkgVars(Prim):
         async for name, valu in self.runt.snap.core.iterStormPkgVars(self.valu):
             yield name, valu
             await asyncio.sleep(0)
+
+@registry.registerType
+class PkgQueues(Prim):
+    '''
+    A StormLib API instance for interacting with persistent Queues for a package in the Cortex.
+    '''
+    _storm_locals = (
+        {'name': 'add', 'desc': 'Add a Queue for the package with a given name.',
+         'type': {'type': 'function', '_funcname': '_methPkgQueueAdd',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to add.'},
+                  ),
+                  'returns': {'type': 'queue'}}},
+        {'name': 'gen', 'desc': 'Add or get a Storm Queue in a single operation.',
+         'type': {'type': 'function', '_funcname': '_methPkgQueueGen',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to add or get.'},
+                  ),
+                  'returns': {'type': 'queue'}}},
+        {'name': 'del', 'desc': 'Delete a given named Queue.',
+         'type': {'type': 'function', '_funcname': '_methPkgQueueDel',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to delete.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'get', 'desc': 'Get an existing Storm Queue object.',
+         'type': {'type': 'function', '_funcname': '_methPkgQueueGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to get.'},
+                  ),
+                  'returns': {'type': 'queue', 'desc': 'A ``queue`` object.'}}},
+        {'name': 'list', 'desc': 'Get a list of the Queues for the package in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methPkgQueueList',
+                  'returns': {'name': 'yields', 'type': 'dict', 'desc': 'Queue definitions for the package.'}}},
+    )
+    _storm_typename = 'pkg:queues'
+    _ismutable = False
+
+    def __init__(self, runt, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.runt = runt
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'add': self._methPkgQueueAdd,
+            'gen': self._methPkgQueueGen,
+            'del': self._methPkgQueueDel,
+            'get': self._methPkgQueueGet,
+            'list': self._methPkgQueueList,
+        }
+
+    def _reqPkgAdmin(self):
+        confirm(('power-ups', self.valu, 'admin'))
+
+    async def _methPkgQueueAdd(self, name):
+        self._reqPkgAdmin()
+        await self.runt.snap.core.addStormPkgQueue(self.valu, name)
+        return StormPkgQueue(self.runt, self.valu, name)
+
+    @stormfunc(readonly=True)
+    async def _methPkgQueueGet(self, name):
+        self._reqPkgAdmin()
+        await self.runt.snap.core.getStormPkgQueue(self.valu, name)
+        return StormPkgQueue(self.runt, self.valu, name)
+
+    async def _methPkgQueueGen(self, name):
+        try:
+            return await self._methPkgQueueGet(name)
+        except s_exc.NoSuchName:
+            return await self._methPkgQueueAdd(name)
+
+    async def _methPkgQueueDel(self, name):
+        self._reqPkgAdmin()
+        await self.runt.snap.core.delStormPkgQueue(self.valu, name)
+
+    @stormfunc(readonly=True)
+    async def _methPkgQueueList(self):
+        self._reqPkgAdmin()
+        async for pkginfo in self.runt.snap.core.listStormPkgQueues(pkgname=self.valu):
+            yield pkginfo
+
+@registry.registerType
+class StormPkgQueue(StormType):
+    '''
+    A StormLib API instance of a named channel for a package multiqueue.
+    '''
+    _storm_locals = (
+        {'name': 'name', 'desc': 'The name of the Queue.', 'type': 'str'},
+        {'name': 'pkgname', 'desc': 'The name of the package the Queue belongs to.', 'type': 'str'},
+        {'name': 'get', 'desc': 'Get a particular item from the Queue.',
+         'type': {'type': 'function', '_funcname': '_methPkgQueueGet',
+                  'args': (
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to retrieve an item from.', 'default': 0},
+                      {'name': 'cull', 'type': 'boolean', 'default': True,
+                       'desc': 'Culls items up to, but not including, the specified offset.'},
+                      {'name': 'wait', 'type': 'boolean', 'default': True,
+                       'desc': 'Wait for the offset to be available before returning the item.'},
+                  ),
+                  'returns': {'type': 'list',
+                              'desc': 'A tuple of the offset and the item from the queue. If wait is false and '
+                                      'the offset is not present, null is returned.'}}},
+        {'name': 'pop', 'desc': 'Pop an item from the Queue at a specific offset.',
+         'type': {'type': 'function', '_funcname': '_methPkgQueuePop',
+                  'args': (
+                      {'name': 'offs', 'type': 'int', 'default': None,
+                        'desc': 'Offset to pop the item from. If not specified, the first item in the queue will be'
+                                ' popped.', },
+                      {'name': 'wait', 'type': 'boolean', 'default': False,
+                        'desc': 'Wait for an item to be available to pop.'},
+                  ),
+                  'returns': {'type': 'list',
+                              'desc': 'The offset and item popped from the queue. If there is no item at the '
+                                      'offset or the  queue is empty and wait is false, it returns null.'}}},
+        {'name': 'put', 'desc': 'Put an item into the queue.',
+         'type': {'type': 'function', '_funcname': '_methPkgQueuePut',
+                  'args': (
+                      {'name': 'item', 'type': 'prim', 'desc': 'The item being put into the queue.'},
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The queue offset of the item.'}}},
+        {'name': 'puts', 'desc': 'Put multiple items into the Queue.',
+         'type': {'type': 'function', '_funcname': '_methPkgQueuePuts',
+                  'args': (
+                      {'name': 'items', 'type': 'list', 'desc': 'The items to put into the Queue.'},
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The queue offset of the first item.'}}},
+        {'name': 'gets', 'desc': 'Get multiple items from the Queue as a iterator.',
+         'type': {'type': 'function', '_funcname': '_methPkgQueueGets',
+                  'args': (
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to retrieve an items from.', 'default': 0},
+                      {'name': 'wait', 'type': 'boolean', 'default': True,
+                       'desc': 'Wait for the offset to be available before returning the item.'},
+                      {'name': 'cull', 'type': 'boolean', 'default': False,
+                       'desc': 'Culls items up to, but not including, the specified offset.'},
+                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of items to yield',
+                       'default': None},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Yields tuples of the offset and item.'}}},
+        {'name': 'cull', 'desc': 'Remove items from the queue up to, and including, the offset.',
+         'type': {'type': 'function', '_funcname': '_methPkgQueueCull',
+                  'args': (
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset which to cull records from the queue.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'size', 'desc': 'Get the number of items in the Queue.',
+         'type': {'type': 'function', '_funcname': '_methPkgQueueSize',
+                  'returns': {'type': 'int', 'desc': 'The number of items in the Queue.'}}},
+    )
+    _storm_typename = 'pkg:queue'
+    _ismutable = False
+
+    def __init__(self, runt, pkgname, name):
+
+        StormType.__init__(self)
+        self.runt = runt
+        self.name = name
+        self.pkgname = pkgname
+
+        self.locls.update(self.getObjLocals())
+        self.locls['name'] = self.name
+        self.locls['pkgname'] = self.pkgname
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.pkgname, self.name))
+
+    def __eq__(self, othr):
+        if not isinstance(othr, type(self)):
+            return False
+        return self.pkgname == othr.pkgname and self.name == othr.name
+
+    def getObjLocals(self):
+        return {
+            'get': self._methPkgQueueGet,
+            'pop': self._methPkgQueuePop,
+            'put': self._methPkgQueuePut,
+            'puts': self._methPkgQueuePuts,
+            'gets': self._methPkgQueueGets,
+            'cull': self._methPkgQueueCull,
+            'size': self._methPkgQueueSize,
+        }
+
+    def _reqPkgAdmin(self):
+        confirm(('power-ups', self.pkgname, 'admin'))
+
+    async def _methPkgQueueCull(self, offs):
+        self._reqPkgAdmin()
+        offs = await toint(offs)
+        await self.runt.snap.core.stormPkgQueueCull(self.pkgname, self.name, offs)
+
+    @stormfunc(readonly=True)
+    async def _methPkgQueueSize(self):
+        self._reqPkgAdmin()
+        return await self.runt.snap.core.stormPkgQueueSize(self.pkgname, self.name)
+
+    async def _methPkgQueueGets(self, offs=0, wait=True, cull=False, size=None):
+        self._reqPkgAdmin()
+        wait = await toint(wait)
+        offs = await toint(offs)
+        size = await toint(size, noneok=True)
+
+        async for item in self.runt.snap.core.stormPkgQueueGets(self.pkgname, self.name, offs,
+                                                                cull=cull, wait=wait, size=size):
+            yield item
+
+    async def _methPkgQueuePuts(self, items):
+        self._reqPkgAdmin()
+        items = await toprim(items)
+        return await self.runt.snap.core.stormPkgQueuePuts(self.pkgname, self.name, items)
+
+    async def _methPkgQueueGet(self, offs=0, cull=True, wait=True):
+        self._reqPkgAdmin()
+        offs = await toint(offs)
+        wait = await toint(wait)
+
+        return await self.runt.snap.core.stormPkgQueueGet(self.pkgname, self.name, offs, cull=cull, wait=wait)
+
+    async def _methPkgQueuePop(self, offs=None, wait=False):
+        self._reqPkgAdmin()
+        offs = await toint(offs, noneok=True)
+        wait = await tobool(wait)
+
+        core = self.runt.snap.core
+        if offs is None:
+            async for item in core.stormPkgQueueGets(self.pkgname, self.name, 0, wait=wait):
+                return await core.stormPkgQueuePop(self.pkgname, self.name, item[0])
+            return
+
+        return await core.stormPkgQueuePop(self.pkgname, self.name, offs)
+
+    async def _methPkgQueuePut(self, item):
+        return await self._methPkgQueuePuts((item,))
+
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.pkgname} - {self.name}'
 
 @registry.registerType
 class Query(Prim):
