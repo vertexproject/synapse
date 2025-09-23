@@ -8117,6 +8117,10 @@ words\tword\twrd'''
                 self.eq(1, await core.callStorm('$q = $lib.pkg.queues(pkg0).gen(other) $q.put(8) return($q.size())'))
                 self.eq(1, await core.callStorm('$q = $lib.pkg.queues(pkg1).gen(stuff) $q.put(9) return($q.size())'))
 
+                # Replay coverage
+                await core._addStormPkgQueue('pkg1', 'stuff', {})
+                await core._delStormPkgQueue('pkg1', 'newp')
+
                 q = '$qs = () for $q in $lib.pkg.queues(pkg0).list() { $qs.append($q) } return($qs)'
                 self.len(2, await core.callStorm(q))
 
@@ -8139,15 +8143,23 @@ words\tword\twrd'''
                 '''
                 self.eq(('6', '7', '10', '11'), await core.callStorm(q))
 
+                q = '''
+                $retn = ()
+                for ($_, $v) in $lib.pkg.queues(pkg0).get(stuff).gets(1, size=(2)) { $retn.append($v) }
+                return($retn)
+                '''
+                self.eq(('6', '7'), await core.callStorm(q))
+
                 self.eq((1, '6'), await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).get(1))'))
 
                 q = '''
                 $retn = ()
-                for ($_, $v) in $lib.pkg.queues(pkg0).get(stuff).gets(3, cull=(true), wait=(false)) { $retn.append($v) }
+                for ($_, $v) in $lib.pkg.queues(pkg0).get(stuff).gets(2, cull=(true), wait=(false)) { $retn.append($v) }
                 return($retn)
                 '''
-                self.eq(('10', '11'), await core.callStorm(q))
+                self.eq(('7', '10', '11'), await core.callStorm(q))
 
+                await core.callStorm('$lib.pkg.queues(pkg0).get(stuff).cull(2)')
                 self.eq((3, '10'), await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).pop())'))
 
                 q = 'return(`{$lib.pkg.queues(pkg0).get(stuff)}`)'
@@ -8161,6 +8173,15 @@ words\tword\twrd'''
 
                 q = 'return(($lib.pkg.queues(pkg0).get(stuff) = "newp"))'
                 self.false(await core.callStorm(q))
+
+                q = '$set = $lib.set() $p = $lib.pkg.queues(pkg0).get(stuff) $set.add($p) $set.add($p) return($set)'
+                self.len(1, await core.callStorm(q))
+
+                with self.raises(s_exc.DupName):
+                    await core.callStorm('$lib.pkg.queues(pkg1).add(stuff)')
+
+                with self.raises(s_exc.NoSuchName):
+                    await core.callStorm('$lib.pkg.queues(pkg1).del(newp)')
 
                 lowuser = await core.addUser('lowuser')
                 aslow = {'user': lowuser.get('iden')}
@@ -8176,3 +8197,6 @@ words\tword\twrd'''
 
             async with self.getTestCore(dirn=dirn) as core:
                 self.eq(1, await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).size())', opts=aslow))
+
+                self.eq((4, '11'), await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).pop(4))'))
+                self.none(await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).pop())'))
