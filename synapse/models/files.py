@@ -390,7 +390,7 @@ class FileModule(s_module.CoreModule):
                     'doc': 'The typecode for the resource.',
                 }),
 
-                ('pe:langid', ('int', {'enums': s_l_pe.getLangCodes()}), {
+                ('pe:langid', ('int', {'min': 0, 'max': 0xffff, 'enums': s_l_pe.getLangCodes(), 'enums:strict': False}), {
                     'doc': 'The PE language id.',
                 }),
 
