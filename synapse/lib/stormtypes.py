@@ -6205,12 +6205,16 @@ class PkgQueues(Prim):
 
     async def _methPkgQueueAdd(self, name):
         self._reqPkgAdmin()
+        name = await tostr(name)
+
         await self.runt.snap.core.addStormPkgQueue(self.valu, name)
         return StormPkgQueue(self.runt, self.valu, name)
 
     @stormfunc(readonly=True)
     async def _methPkgQueueGet(self, name):
         self._reqPkgAdmin()
+        name = await tostr(name)
+
         await self.runt.snap.core.getStormPkgQueue(self.valu, name)
         return StormPkgQueue(self.runt, self.valu, name)
 
@@ -6222,6 +6226,8 @@ class PkgQueues(Prim):
 
     async def _methPkgQueueDel(self, name):
         self._reqPkgAdmin()
+        name = await tostr(name)
+
         await self.runt.snap.core.delStormPkgQueue(self.valu, name)
 
     @stormfunc(readonly=True)
