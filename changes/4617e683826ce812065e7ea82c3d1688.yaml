@@ -2,7 +2,7 @@
 desc: Updated the ``Snap._applyNodeEdits()`` API to require a caller to provide the
   ``user`` value in the ``meta`` argument. One remote API endpoint, ``ViewApi.saveNodeEdits()``,
   previously allowed the ``meta`` argument to be provided without the ``user`` value.
-  This API now requires the ``user`` value provided as well.
+  This API now requires the ``user`` value is provided as well.
 prs: []
 type: note
 ...
