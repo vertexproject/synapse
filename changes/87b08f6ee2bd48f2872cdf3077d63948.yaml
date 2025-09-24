@@ -1,0 +1,6 @@
+---
+desc: Updated trigger ``$auto.opts`` to include ``user``, indicating the user that
+  caused the trigger to fire.
+prs: []
+type: feat
+...
