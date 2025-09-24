@@ -6160,13 +6160,13 @@ class PkgQueues(Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to add.'},
                   ),
-                  'returns': {'type': 'queue'}}},
+                  'returns': {'type': 'pkg:queue'}}},
         {'name': 'gen', 'desc': 'Add or get a Storm Queue in a single operation.',
          'type': {'type': 'function', '_funcname': '_methPkgQueueGen',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to add or get.'},
                   ),
-                  'returns': {'type': 'queue'}}},
+                  'returns': {'type': 'pkg:queue'}}},
         {'name': 'del', 'desc': 'Delete a given named Queue.',
          'type': {'type': 'function', '_funcname': '_methPkgQueueDel',
                   'args': (
@@ -6178,7 +6178,7 @@ class PkgQueues(Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to get.'},
                   ),
-                  'returns': {'type': 'queue', 'desc': 'A ``queue`` object.'}}},
+                  'returns': {'type': 'pkg:queue', 'desc': 'A ``pkg:queue`` object.'}}},
         {'name': 'list', 'desc': 'Get a list of the Queues for the package in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methPkgQueueList',
                   'returns': {'name': 'yields', 'type': 'dict', 'desc': 'Queue definitions for the package.'}}},
