@@ -6248,8 +6248,6 @@ class StormPkgQueue(StormType):
          'type': {'type': 'function', '_funcname': '_methPkgQueueGet',
                   'args': (
                       {'name': 'offs', 'type': 'int', 'desc': 'The offset to retrieve an item from.', 'default': 0},
-                      {'name': 'cull', 'type': 'boolean', 'default': True,
-                       'desc': 'Culls items up to, but not including, the specified offset.'},
                       {'name': 'wait', 'type': 'boolean', 'default': True,
                        'desc': 'Wait for the offset to be available before returning the item.'},
                   ),
@@ -6286,8 +6284,6 @@ class StormPkgQueue(StormType):
                       {'name': 'offs', 'type': 'int', 'desc': 'The offset to retrieve an items from.', 'default': 0},
                       {'name': 'wait', 'type': 'boolean', 'default': True,
                        'desc': 'Wait for the offset to be available before returning the item.'},
-                      {'name': 'cull', 'type': 'boolean', 'default': False,
-                       'desc': 'Culls items up to, but not including, the specified offset.'},
                       {'name': 'size', 'type': 'int', 'desc': 'The maximum number of items to yield',
                        'default': None},
                   ),
@@ -6348,15 +6344,13 @@ class StormPkgQueue(StormType):
         self._reqPkgAdmin()
         return await self.runt.snap.core.stormPkgQueueSize(self.pkgname, self.name)
 
-    async def _methPkgQueueGets(self, offs=0, wait=True, cull=False, size=None):
+    async def _methPkgQueueGets(self, offs=0, wait=True, size=None):
         self._reqPkgAdmin()
         offs = await toint(offs)
         wait = await tobool(wait)
-        cull = await tobool(cull)
         size = await toint(size, noneok=True)
 
-        async for item in self.runt.snap.core.stormPkgQueueGets(self.pkgname, self.name, offs,
-                                                                cull=cull, wait=wait, size=size):
+        async for item in self.runt.snap.core.stormPkgQueueGets(self.pkgname, self.name, offs, wait=wait, size=size):
             yield item
 
     async def _methPkgQueuePuts(self, items):
@@ -6364,13 +6358,11 @@ class StormPkgQueue(StormType):
         items = await toprim(items)
         return await self.runt.snap.core.stormPkgQueuePuts(self.pkgname, self.name, items)
 
-    async def _methPkgQueueGet(self, offs=0, cull=True, wait=True):
+    async def _methPkgQueueGet(self, offs=0, wait=True):
         self._reqPkgAdmin()
         offs = await toint(offs)
         wait = await tobool(wait)
-        cull = await tobool(cull)
-
-        return await self.runt.snap.core.stormPkgQueueGet(self.pkgname, self.name, offs, cull=cull, wait=wait)
+        return await self.runt.snap.core.stormPkgQueueGet(self.pkgname, self.name, offs, wait=wait)
 
     async def _methPkgQueuePop(self, offs=None, wait=False):
         self._reqPkgAdmin()

@@ -3395,18 +3395,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
         await self.stormpkgqueue.rem(guid)
 
-    async def stormPkgQueueGet(self, pkgname, name, offs=0, cull=True, wait=False):
-        if offs and cull:
-            await self.stormPkgQueueCull(pkgname, name, offs - 1)
-
+    async def stormPkgQueueGet(self, pkgname, name, offs=0, wait=False):
         guid = s_common.guid((pkgname, name))
         async for item in self.stormpkgqueue.gets(guid, offs, cull=False, wait=wait):
             return item
 
-    async def stormPkgQueueGets(self, pkgname, name, offs=0, cull=True, wait=False, size=None):
-        if offs and cull:
-            await self.stormPkgQueueCull(pkgname, name, offs - 1)
-
+    async def stormPkgQueueGets(self, pkgname, name, offs=0, wait=False, size=None):
         count = 0
         guid = s_common.guid((pkgname, name))
         async for item in self.stormpkgqueue.gets(guid, offs, cull=False, wait=wait):

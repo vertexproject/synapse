@@ -8154,7 +8154,7 @@ words\tword\twrd'''
 
                 q = '''
                 $retn = ()
-                for ($_, $v) in $lib.pkg.queues(pkg0).get(stuff).gets(2, cull=(true), wait=(false)) { $retn.append($v) }
+                for ($_, $v) in $lib.pkg.queues(pkg0).get(stuff).gets(2, wait=(false)) { $retn.append($v) }
                 return($retn)
                 '''
                 self.eq(('7', '10', '11'), await core.callStorm(q))
