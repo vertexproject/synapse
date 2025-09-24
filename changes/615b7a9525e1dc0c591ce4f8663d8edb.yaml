@@ -1,0 +1,5 @@
+---
+desc: Added ``$lib.pkg.queues`` Storm API to manage persistent queues for a Storm Package.
+prs: []
+type: feat
+...
