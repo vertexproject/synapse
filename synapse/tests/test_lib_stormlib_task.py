@@ -57,6 +57,11 @@ class TaskLibTest(s_test.SynTest):
                     msgs = await s_test.alist(prox01.storm('task.list'))
                     self.stormIsInPrint('4 tasks', msgs)
 
+                    # We can kill our own  task
+                    with self.raises(s_exc.SynErr):
+                        await prox01.callStorm(f'task.kill {iden1}')
+                        await task1
+
                     # No task matches
                     with self.raises(s_exc.StormRuntimeError) as exc:
                         await prox01.callStorm('task.kill newp')
@@ -80,10 +85,6 @@ class TaskLibTest(s_test.SynTest):
                     with self.raises(asyncio.CancelledError):
                         await prox01.callStorm(f'task.kill {iden0}')
                         await task0
-
-                    with self.raises(s_exc.SynErr):
-                        await prox01.callStorm(f'task.kill {iden1}')
-                        await task1
 
                     with self.raises(asyncio.CancelledError):
                         await prox01.callStorm(f'task.kill {iden2}')
