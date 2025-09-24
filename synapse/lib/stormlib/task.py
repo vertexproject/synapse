@@ -63,7 +63,7 @@ class LibTask(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_methTaskKill', 'args': (
                       {'name': 'prefix', 'type': 'str',
                        'desc': 'The prefix of the task to stop. '
-                               'Tasks will only be stopped if there is a single prefix match.'}),
+                               'Tasks will only be stopped if there is a single prefix match.'},),
                   'returns': {'type': 'boolean', 'desc': 'True if the task was cancelled, False otherwise.'}}},
     )
     _storm_lib_path = ('task',)
