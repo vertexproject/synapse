@@ -530,6 +530,9 @@ testmodel = (
                     'doc': 'Another value adjustable in a different way.'}),
             )),
         ),
+        'edges': (
+            ((None, 'test', None), {'doc': 'Test edge'}),
+        ),
     }),
 )
 
