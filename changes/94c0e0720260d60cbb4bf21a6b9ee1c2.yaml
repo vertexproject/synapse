@@ -1,6 +1,0 @@
----
-desc: Updated the execution of rstorm shell directives to inherit the calling processes
-  environment variables.
-prs: []
-type: note
-...

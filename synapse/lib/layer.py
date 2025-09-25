@@ -119,6 +119,7 @@ class LayerApi(s_cell.CellApi):
 
         self.layr = layr
         self.liftperm = ('layer', 'lift', self.layr.iden)
+        self.readperm = ('layer', 'read', self.layr.iden)
         self.writeperm = ('layer', 'write', self.layr.iden)
 
     async def iterLayerNodeEdits(self):
@@ -126,7 +127,8 @@ class LayerApi(s_cell.CellApi):
         Scan the full layer and yield artificial nodeedit sets.
         '''
 
-        await self._reqUserAllowed(self.liftperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         async for item in self.layr.iterLayerNodeEdits():
             yield item
             await asyncio.sleep(0)
@@ -165,13 +167,15 @@ class LayerApi(s_cell.CellApi):
 
         Once caught up with storage, yield them in realtime.
         '''
-        await self._reqUserAllowed(self.liftperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         async for item in self.layr.syncNodeEdits(offs, wait=wait, reverse=reverse):
             yield item
             await asyncio.sleep(0)
 
     async def syncNodeEdits2(self, offs, wait=True):
-        await self._reqUserAllowed(self.liftperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         async for item in self.layr.syncNodeEdits2(offs, wait=wait):
             yield item
             await asyncio.sleep(0)
@@ -180,18 +184,21 @@ class LayerApi(s_cell.CellApi):
         '''
         Returns what will be the *next* nodeedit log index.
         '''
-        await self._reqUserAllowed(self.liftperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         return await self.layr.getEditIndx()
 
     async def getEditSize(self):
         '''
         Return the total number of (edits, meta) pairs in the layer changelog.
         '''
-        await self._reqUserAllowed(self.liftperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         return await self.layr.getEditSize()
 
     async def getIden(self):
-        await self._reqUserAllowed(self.liftperm)
+        if not self.allowed(self.liftperm):
+            await self._reqUserAllowed(self.readperm)
         return self.layr.iden
 
 BUID_CACHE_SIZE = 10000
@@ -3350,7 +3357,7 @@ class Layer(s_nexus.Pusher):
         nodeedits = [(buid, newp_formname, [set_edit])]
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
-        return bool(changes[0][2])
+        return any(c[2] for c in changes)
 
     async def delStorNode(self, buid, meta):
         '''
@@ -3434,7 +3441,7 @@ class Layer(s_nexus.Pusher):
             if changed: # pragma: no cover
                 return changed
 
-            return bool(changes[0][2])
+            return any(c[2] for c in changes)
 
         for n2iden, edges in n2edges.items():
             edits = [(EDIT_EDGE_DEL, edge, ()) for edge in edges]
@@ -3455,7 +3462,7 @@ class Layer(s_nexus.Pusher):
         nodeedits = [(buid, oldp_formname, [del_edit])]
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
-        return bool(changes[0][2])
+        return any(c[2] for c in changes)
 
     async def delNodeData(self, buid, meta, name=None):
         '''
@@ -3480,7 +3487,7 @@ class Layer(s_nexus.Pusher):
         nodeedits = [(buid, sode.get('form'), edits)]
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
-        return bool(changes[0][2])
+        return any(c[2] for c in changes)
 
     async def delEdge(self, n1buid, verb, n2buid, meta):
         sode = self._getStorNode(n1buid)
@@ -3497,7 +3504,7 @@ class Layer(s_nexus.Pusher):
         nodeedits = [(n1buid, sode.get('form'), edits)]
 
         _, changes = await self.saveNodeEdits(nodeedits, meta)
-        return bool(changes[0][2])
+        return any(c[2] for c in changes)
 
     async def storNodeEdits(self, nodeedits, meta):
 

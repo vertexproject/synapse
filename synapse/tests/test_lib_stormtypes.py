@@ -2054,6 +2054,31 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].repr(), 'foo')
             self.none(nodes[0].get('hehe'))
 
+            async with self.getTestCore() as core2:
+                url = core.getLocalUrl('*/layer')
+
+                layers = set(core2.layers.keys())
+                q = f'layer.add --mirror {url}'
+                await core2.stormlist(q)
+
+                uplayr = list(set(core2.layers.keys()) - layers)[0]
+                vdef = {'layers': [uplayr]}
+
+                view00 = await core2.addView(vdef)
+                opts = {'view': view00.get('iden')}
+
+                nodes = await core.nodes('[ test:str=foo :hehe=bar ]')
+
+                layr = core2.getLayer(uplayr)
+                offs = await core.view.layers[0].getEditOffs()
+                self.true(await layr.waitEditOffs(offs, timeout=10))
+
+                q = 'test:str return($lib.layer.get().delStorNodeProp($node.iden(), test:str:hehe))'
+                self.true(await core2.callStorm(q, opts=opts))
+
+                # attempting to delete a second time should not blow up
+                self.false(await core2.callStorm(q, opts=opts))
+
             # no test:str:newp prop
             q = '''
                 [ test:str=foobar00 ]
@@ -8080,3 +8105,98 @@ words\tword\twrd'''
                     for $kv in $lib.pkg.vars(pkg1) { $kvs.append($kv) }
                     return($kvs)
                 '''))
+
+    async def test_storm_pkg_queues(self):
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                self.eq(1, await core.callStorm('$q = $lib.pkg.queues(pkg0).add(stuff) $q.put(5) return($q.size())'))
+                self.eq(2, await core.callStorm('$q = $lib.pkg.queues(pkg0).get(stuff) $q.put(6) return($q.size())'))
+                self.eq(3, await core.callStorm('$q = $lib.pkg.queues(pkg0).gen(stuff) $q.put(7) return($q.size())'))
+                self.eq(1, await core.callStorm('$q = $lib.pkg.queues(pkg0).gen(other) $q.put(8) return($q.size())'))
+                self.eq(1, await core.callStorm('$q = $lib.pkg.queues(pkg1).gen(stuff) $q.put(9) return($q.size())'))
+
+                # Replay coverage
+                await core._addStormPkgQueue('pkg1', 'stuff', {})
+                await core._delStormPkgQueue('pkg1', 'newp')
+
+                q = '$qs = () for $q in $lib.pkg.queues(pkg0).list() { $qs.append($q) } return($qs)'
+                self.len(2, await core.callStorm(q))
+
+                q = '$qs = () for $q in $lib.pkg.queues(pkg1).list() { $qs.append($q) } return($qs)'
+                self.len(1, await core.callStorm(q))
+
+                await core.callStorm('$q = $lib.pkg.queues(pkg0).del(other)')
+
+                q = '$qs = () for $q in $lib.pkg.queues(pkg0).list() { $qs.append($q) } return($qs)'
+                self.len(1, await core.callStorm(q))
+
+                await core.callStorm('$lib.pkg.queues(pkg0).get(stuff).puts((10, 11))')
+
+                self.eq((0, '5'), await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).get())'))
+
+                q = '''
+                $retn = ()
+                for ($_, $v) in $lib.pkg.queues(pkg0).get(stuff).gets(1, wait=(false)) { $retn.append($v) }
+                return($retn)
+                '''
+                self.eq(('6', '7', '10', '11'), await core.callStorm(q))
+
+                q = '''
+                $retn = ()
+                for ($_, $v) in $lib.pkg.queues(pkg0).get(stuff).gets(1, size=(2)) { $retn.append($v) }
+                return($retn)
+                '''
+                self.eq(('6', '7'), await core.callStorm(q))
+
+                self.eq((1, '6'), await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).get(1))'))
+
+                q = '''
+                $retn = ()
+                for ($_, $v) in $lib.pkg.queues(pkg0).get(stuff).gets(2, wait=(false)) { $retn.append($v) }
+                return($retn)
+                '''
+                self.eq(('7', '10', '11'), await core.callStorm(q))
+
+                await core.callStorm('$lib.pkg.queues(pkg0).get(stuff).cull(2)')
+                self.eq((3, '10'), await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).pop())'))
+
+                q = 'return(`{$lib.pkg.queues(pkg0).get(stuff)}`)'
+                self.eq('pkg:queue: pkg0 - stuff', await core.callStorm(q))
+
+                q = 'return(($lib.pkg.queues(pkg0).get(stuff) = $lib.pkg.queues(pkg0).get(stuff)))'
+                self.true(await core.callStorm(q))
+
+                q = 'return(($lib.pkg.queues(pkg0).get(stuff) = $lib.pkg.queues(pkg1).get(stuff)))'
+                self.false(await core.callStorm(q))
+
+                q = 'return(($lib.pkg.queues(pkg0).get(stuff) = "newp"))'
+                self.false(await core.callStorm(q))
+
+                q = '$set = $lib.set() $p = $lib.pkg.queues(pkg0).get(stuff) $set.add($p) $set.add($p) return($set)'
+                self.len(1, await core.callStorm(q))
+
+                with self.raises(s_exc.DupName):
+                    await core.callStorm('$lib.pkg.queues(pkg1).add(stuff)')
+
+                with self.raises(s_exc.NoSuchName):
+                    await core.callStorm('$lib.pkg.queues(pkg1).del(newp)')
+
+                lowuser = await core.addUser('lowuser')
+                aslow = {'user': lowuser.get('iden')}
+                await core.callStorm('auth.user.addrule lowuser "power-ups.pkg0.admin"')
+
+                self.eq(1, await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).size())', opts=aslow))
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('$lib.print($lib.pkg.queues(pkg1))', opts=aslow)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('$lib.pkg.queues(pkg1).get(stuff)', opts=aslow)
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.eq(1, await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).size())', opts=aslow))
+
+                self.eq((4, '11'), await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).pop(4))'))
+                self.none(await core.callStorm('return($lib.pkg.queues(pkg0).get(stuff).pop())'))

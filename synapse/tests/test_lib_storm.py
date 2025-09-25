@@ -3294,6 +3294,37 @@ class StormTest(s_t_utils.SynTest):
                         await stream.wait(timeout=10)
                         self.eq(8, await core.getStormPkgVar('testload', 'testload:version'))
 
+                    # init that advances the version
+
+                    pkg['version'] = '0.7.0'
+                    pkg['inits']['versions'].extend([
+                        {
+                            'version': 9,
+                            'name': 'init09',
+                            'query': '''
+                                $lib.globals.set(init09, $lib.time.now())
+                                $lib.pkg.vars(testload)."testload:version" = (10)
+                            ''',
+                        },
+                        {
+                            'version': 10,
+                            'name': 'init10',
+                            'query': '$lib.globals.set(init10, $lib.time.now())',
+                        },
+                        {
+                            'version': 11,
+                            'name': 'init11',
+                            'query': '$lib.globals.set(init11, $lib.time.now())',
+                        },
+                    ])
+
+                    await loadPkg(core, pkg)
+
+                    self.eq(11, await core.getStormPkgVar('testload', 'testload:version'))
+                    self.nn(await core.getStormVar('init09'))
+                    self.none(await core.getStormVar('init10'))
+                    self.nn(await core.getStormVar('init11'))
+
     async def test_storm_tree(self):
 
         async with self.getTestCore() as core:

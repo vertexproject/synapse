@@ -1,6 +1,0 @@
----
-desc: Fixed bug when using deref syntax (``*$form``) where a non-string value would
-  raise a Python exception in the Storm runtime.
-prs: []
-type: bug
-...

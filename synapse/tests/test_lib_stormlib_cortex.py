@@ -110,6 +110,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('method'), 'get')
+                self.eq(resp.headers.get('Content-Type'), 'application/json; charset=utf8')
 
                 resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath00')
                 self.eq(resp.status, http.HTTPStatus.CREATED)
