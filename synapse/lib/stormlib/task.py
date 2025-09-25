@@ -39,9 +39,9 @@ stormcmds = [
     },
     {
         'name': 'task.kill',
-        'descr': 'Kill a running task/query on a Cortex in the AHA pool.',
+        'descr': 'Kill a running task on a Cortex in the AHA pool.',
         'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid process iden is accepted.'}),
+            ('iden', {'help': 'Any prefix that matches exactly one valid task iden is accepted.'}),
         ),
         'storm': '''
             $kild = $lib.task.kill($cmdopts.iden)
