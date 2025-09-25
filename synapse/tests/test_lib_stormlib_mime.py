@@ -41,13 +41,30 @@ class StormlibMimeTest(s_test.SynTest):
             ret = await core.callStorm('return($lib.mime.html.totext($html))', opts=opts)
             self.eq('html5lib includes this\na title\nhello there\nother text', ret)
 
+            ret = await core.callStorm('return($lib.mime.html.totext($html, separator="|"))', opts=opts)
+            self.eq('html5lib includes this|a title|hello there|other text', ret)
+
             opts = {'vars': {'html': html01}}
             ret = await core.callStorm('return($lib.mime.html.totext($html))', opts=opts)
             self.eq('a bad tag\nanother bad tag\nmore text\nfor fun', ret)
 
+            ret = await core.callStorm('return($lib.mime.html.totext($html, separator=", "))', opts=opts)
+            self.eq('a bad tag, another bad tag, more text, for fun', ret)
+
+            ret = await core.callStorm('return($lib.mime.html.totext($html, separator=(null), strip=(false)))', opts=opts)
+            self.eq('\n  \n  \n  \n    a bad tag\n  \n  \n    \n        another bad tag\n    \n        more text\n    \n  \n\nfor fun\n', ret)
+
             opts = {'vars': {'html': '<div></div>'}}
             ret = await core.callStorm('return($lib.mime.html.totext($html))', opts=opts)
             self.eq('', ret)
+
+            opts = {'vars': {'html': '<div>    </div>'}}
+            ret = await core.callStorm('return($lib.mime.html.totext($html, strip=(false)))', opts=opts)
+            self.eq('    ', ret)
+
+            opts = {'vars': {'html': '<div> <p> foo </p> </div>'}}
+            ret = await core.callStorm('return($lib.mime.html.totext($html, separator=(null), strip=(false)))', opts=opts)
+            self.eq('  foo  ', ret)
 
             opts = {'vars': {'html': '...'}}
             ret = await core.callStorm('return($lib.mime.html.totext($html))', opts=opts)
