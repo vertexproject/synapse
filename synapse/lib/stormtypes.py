@@ -3970,22 +3970,22 @@ class LibQueue(Lib):
         {'name': 'add', 'desc': 'Add a Queue to the Cortex with a given name.',
          'type': {'type': 'function', '_funcname': '_methQueueAdd',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to add.', },
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to add.', },
                   ),
                   'returns': {'type': 'queue', }}},
-        {'name': 'gen', 'desc': 'Add or get a Storm Queue in a single operation.',
+        {'name': 'gen', 'desc': 'Add or get a Queue in a single operation.',
          'type': {'type': 'function', '_funcname': '_methQueueGen',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to add or get.', },
                   ),
                   'returns': {'type': 'queue', }}},
-        {'name': 'del', 'desc': 'Delete a given named Queue.',
+        {'name': 'del', 'desc': 'Delete a given Queue.',
          'type': {'type': 'function', '_funcname': '_methQueueDel',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to delete.', },
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to delete.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get an existing Storm Queue object.',
+        {'name': 'get', 'desc': 'Get an existing Queue.',
          'type': {'type': 'function', '_funcname': '_methQueueGet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to get.', },
@@ -3994,17 +3994,17 @@ class LibQueue(Lib):
         {'name': 'list', 'desc': 'Get a list of the Queues in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methQueueList',
                   'returns': {'type': 'list',
-                              'desc': 'A list of queue definitions the current user is allowed to interact with.', }}},
+                              'desc': 'A list of Queue definitions the current user is allowed to interact with.', }}},
     )
     _storm_lib_perms = (
         {'perm': ('queue', 'add'), 'gate': 'cortex',
-         'desc': 'Permits a user to create a named queue.'},
+         'desc': 'Permits a user to create a Queue.'},
         {'perm': ('queue', 'get'), 'gate': 'queue',
-         'desc': 'Permits a user to access a queue. This allows the user to read from the queue and remove items from it.'},
+         'desc': 'Permits a user to access a Queue. This allows the user to read from the Queue and remove items from it.'},
         {'perm': ('queue', 'put'), 'gate': 'queue',
-         'desc': 'Permits a user to put items into a queue.'},
+         'desc': 'Permits a user to put items into a Queue.'},
         {'perm': ('queue', 'del'), 'gate': 'queue',
-         'desc': 'Permits a user to delete a queue.'},
+         'desc': 'Permits a user to delete a Queue.'},
     )
     _storm_lib_path = ('queue',)
 
@@ -4067,7 +4067,7 @@ class LibQueue(Lib):
 @registry.registerType
 class Queue(StormType):
     '''
-    A StormLib API instance of a named channel in the Cortex multiqueue.
+    A StormLib API instance of a named channel in the Cortex MultiQueue.
     '''
     _storm_locals = (
         {'name': 'name', 'desc': 'The name of the Queue.', 'type': 'str', },
@@ -4081,48 +4081,48 @@ class Queue(StormType):
                        'desc': 'Wait for the offset to be available before returning the item.', },
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'A tuple of the offset and the item from the queue. If wait is false and '
+                              'desc': 'A tuple of the offset and the item from the Queue. If wait is false and '
                                       'the offset is not present, null is returned.', }}},
         {'name': 'pop', 'desc': 'Pop an item from the Queue at a specific offset.',
          'type': {'type': 'function', '_funcname': '_methQueuePop',
                   'args': (
                       {'name': 'offs', 'type': 'int', 'default': None,
-                        'desc': 'Offset to pop the item from. If not specified, the first item in the queue will be'
+                        'desc': 'Offset to pop the item from. If not specified, the first item in the Queue will be'
                                 ' popped.', },
                       {'name': 'wait', 'type': 'boolean', 'default': False,
                         'desc': 'Wait for an item to be available to pop.'},
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'The offset and item popped from the queue. If there is no item at the '
-                                      'offset or the  queue is empty and wait is false, it returns null.', }}},
-        {'name': 'put', 'desc': 'Put an item into the queue.',
+                              'desc': 'The offset and item popped from the Queue. If there is no item at the '
+                                      'offset or the Queue is empty and wait is false, it returns null.', }}},
+        {'name': 'put', 'desc': 'Put an item into the Queue.',
          'type': {'type': 'function', '_funcname': '_methQueuePut',
                   'args': (
-                      {'name': 'item', 'type': 'prim', 'desc': 'The item being put into the queue.', },
+                      {'name': 'item', 'type': 'prim', 'desc': 'The item being put into the Queue.', },
                   ),
-                  'returns': {'type': 'int', 'desc': 'The queue offset of the item.'}}},
+                  'returns': {'type': 'int', 'desc': 'The Queue offset of the item.'}}},
         {'name': 'puts', 'desc': 'Put multiple items into the Queue.',
          'type': {'type': 'function', '_funcname': '_methQueuePuts',
                   'args': (
                       {'name': 'items', 'type': 'list', 'desc': 'The items to put into the Queue.', },
                   ),
-                  'returns': {'type': 'int', 'desc': 'The queue offset of the first item.'}}},
+                  'returns': {'type': 'int', 'desc': 'The Queue offset of the first item.'}}},
         {'name': 'gets', 'desc': 'Get multiple items from the Queue as a iterator.',
          'type': {'type': 'function', '_funcname': '_methQueueGets',
                   'args': (
-                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to retrieve an items from.', 'default': 0, },
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to retrieve items from.', 'default': 0, },
                       {'name': 'wait', 'type': 'boolean', 'default': True,
                        'desc': 'Wait for the offset to be available before returning the item.', },
                       {'name': 'cull', 'type': 'boolean', 'default': False,
                        'desc': 'Culls items up to, but not including, the specified offset.', },
-                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of items to yield',
+                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of items to yield.',
                        'default': None, },
                   ),
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Yields tuples of the offset and item.', }}},
-        {'name': 'cull', 'desc': 'Remove items from the queue up to, and including, the offset.',
+        {'name': 'cull', 'desc': 'Remove items from the Queue up to, and including, the offset.',
          'type': {'type': 'function', '_funcname': '_methQueueCull',
                   'args': (
-                      {'name': 'offs', 'type': 'int', 'desc': 'The offset which to cull records from the queue.', },
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset which to cull records from the Queue.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'size', 'desc': 'Get the number of items in the Queue.',
@@ -6158,22 +6158,22 @@ class PkgQueues(Prim):
         {'name': 'add', 'desc': 'Add a Queue for the package with a given name.',
          'type': {'type': 'function', '_funcname': '_methPkgQueueAdd',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to add.'},
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to add.'},
                   ),
                   'returns': {'type': 'pkg:queue'}}},
-        {'name': 'gen', 'desc': 'Add or get a Storm Queue in a single operation.',
+        {'name': 'gen', 'desc': 'Add or get a Queue in a single operation.',
          'type': {'type': 'function', '_funcname': '_methPkgQueueGen',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to add or get.'},
                   ),
                   'returns': {'type': 'pkg:queue'}}},
-        {'name': 'del', 'desc': 'Delete a given named Queue.',
+        {'name': 'del', 'desc': 'Delete a given Queue.',
          'type': {'type': 'function', '_funcname': '_methPkgQueueDel',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to delete.'},
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to delete.'},
                   ),
                   'returns': {'type': 'null'}}},
-        {'name': 'get', 'desc': 'Get an existing Storm Queue object.',
+        {'name': 'get', 'desc': 'Get an existing Queue.',
          'type': {'type': 'function', '_funcname': '_methPkgQueueGet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to get.'},
@@ -6239,7 +6239,7 @@ class PkgQueues(Prim):
 @registry.registerType
 class StormPkgQueue(StormType):
     '''
-    A StormLib API instance of a named channel for a package multiqueue.
+    A StormLib API instance for a package Queue.
     '''
     _storm_locals = (
         {'name': 'name', 'desc': 'The name of the Queue.', 'type': 'str'},
@@ -6252,46 +6252,46 @@ class StormPkgQueue(StormType):
                        'desc': 'Wait for the offset to be available before returning the item.'},
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'A tuple of the offset and the item from the queue. If wait is false and '
+                              'desc': 'A tuple of the offset and the item from the Queue. If wait is false and '
                                       'the offset is not present, null is returned.'}}},
         {'name': 'pop', 'desc': 'Pop an item from the Queue at a specific offset.',
          'type': {'type': 'function', '_funcname': '_methPkgQueuePop',
                   'args': (
                       {'name': 'offs', 'type': 'int', 'default': None,
-                        'desc': 'Offset to pop the item from. If not specified, the first item in the queue will be'
+                        'desc': 'Offset to pop the item from. If not specified, the first item in the Queue will be'
                                 ' popped.', },
                       {'name': 'wait', 'type': 'boolean', 'default': False,
                         'desc': 'Wait for an item to be available to pop.'},
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'The offset and item popped from the queue. If there is no item at the '
-                                      'offset or the  queue is empty and wait is false, it returns null.'}}},
-        {'name': 'put', 'desc': 'Put an item into the queue.',
+                              'desc': 'The offset and item popped from the Queue. If there is no item at the '
+                                      'offset or the Queue is empty and wait is false, it returns null.'}}},
+        {'name': 'put', 'desc': 'Put an item into the Queue.',
          'type': {'type': 'function', '_funcname': '_methPkgQueuePut',
                   'args': (
-                      {'name': 'item', 'type': 'prim', 'desc': 'The item being put into the queue.'},
+                      {'name': 'item', 'type': 'prim', 'desc': 'The item being put into the Queue.'},
                   ),
-                  'returns': {'type': 'int', 'desc': 'The queue offset of the item.'}}},
+                  'returns': {'type': 'int', 'desc': 'The Queue offset of the item.'}}},
         {'name': 'puts', 'desc': 'Put multiple items into the Queue.',
          'type': {'type': 'function', '_funcname': '_methPkgQueuePuts',
                   'args': (
                       {'name': 'items', 'type': 'list', 'desc': 'The items to put into the Queue.'},
                   ),
-                  'returns': {'type': 'int', 'desc': 'The queue offset of the first item.'}}},
+                  'returns': {'type': 'int', 'desc': 'The Queue offset of the first item.'}}},
         {'name': 'gets', 'desc': 'Get multiple items from the Queue as a iterator.',
          'type': {'type': 'function', '_funcname': '_methPkgQueueGets',
                   'args': (
-                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to retrieve an items from.', 'default': 0},
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to retrieve items from.', 'default': 0},
                       {'name': 'wait', 'type': 'boolean', 'default': True,
                        'desc': 'Wait for the offset to be available before returning the item.'},
-                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of items to yield',
+                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of items to yield.',
                        'default': None},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Yields tuples of the offset and item.'}}},
-        {'name': 'cull', 'desc': 'Remove items from the queue up to, and including, the offset.',
+        {'name': 'cull', 'desc': 'Remove items from the Queue up to, and including, the offset.',
          'type': {'type': 'function', '_funcname': '_methPkgQueueCull',
                   'args': (
-                      {'name': 'offs', 'type': 'int', 'desc': 'The offset which to cull records from the queue.'},
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset which to cull records from the Queue.'},
                   ),
                   'returns': {'type': 'null'}}},
         {'name': 'size', 'desc': 'Get the number of items in the Queue.',
