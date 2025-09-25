@@ -89,6 +89,11 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(nodes[0].getEdgeCounts('refs'), {'refs': {'test:int': 2}})
             self.eq(nodes[0].getEdgeCounts('refs', n2=True), {'refs': {'test:int': 2}})
 
+            nodes = await core.nodes('test:str=subt [ <(test)+ {test:int=7} ]', opts=forkopts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n2verbs'), {'refs': {'test:int': 2}, 'test': {'test:int': 1}})
+
+            await core.nodes('test:str=subt [ <(test)- {test:int=7} ]', opts=forkopts)
             await core.nodes('test:str=subt [ -(refs)> {test:int} <(refs)- {test:int} ]')
 
             nodes = await core.nodes('test:str=subt', opts=forkopts)
