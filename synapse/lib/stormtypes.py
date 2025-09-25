@@ -6344,6 +6344,7 @@ class StormPkgQueue(StormType):
         self._reqPkgAdmin()
         return await self.runt.snap.core.stormPkgQueueSize(self.pkgname, self.name)
 
+    @stormfunc(readonly=True)
     async def _methPkgQueueGets(self, offs=0, wait=True, size=None):
         self._reqPkgAdmin()
         offs = await toint(offs)
@@ -6358,6 +6359,7 @@ class StormPkgQueue(StormType):
         items = await toprim(items)
         return await self.runt.snap.core.stormPkgQueuePuts(self.pkgname, self.name, items)
 
+    @stormfunc(readonly=True)
     async def _methPkgQueueGet(self, offs=0, wait=True):
         self._reqPkgAdmin()
         offs = await toint(offs)
