@@ -111,6 +111,9 @@ class StormlibModelTest(s_test.SynTest):
                 with self.raises(s_exc.IsDeprLocked):
                     await core.nodes('[test:deprprop=newp]')
 
+                with self.raises(s_exc.IsDeprLocked):
+                    await core.nodes('test:deprform [ :ndefprop={test:deprprop=baz} ]')
+
                 with self.getAsyncLoggerStream('synapse.lib.view',
                                                'Prop test:deprform:deprprop2 is locked due to deprecation') as stream:
                     data = (

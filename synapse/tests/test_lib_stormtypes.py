@@ -1903,8 +1903,8 @@ class StormTypesTest(s_test.SynTest):
                 'props': {'hehe': ('bar', 1, None)},
                 'tagprops': {
                     'foo.baz': {
-                        'score00': (10, 9),
-                        'score01': (20, 9)
+                        'score00': (10, 9, None),
+                        'score01': (20, 9, None)
                     }
                 },
                 'tags': {
@@ -2190,7 +2190,7 @@ class StormTypesTest(s_test.SynTest):
             q = 'inet:ip $lib.fire(msg:pack, sode=$node.getStorNodes())'
             gotn = [mesg async for mesg in core.storm(q) if mesg[0] == 'storm:fire']
             self.len(1, gotn)
-            self.eq(gotn[0][1]['data']['sode'][0]['tagprops'], {'foo': {'score': (9001, 9)}})
+            self.eq(gotn[0][1]['data']['sode'][0]['tagprops'], {'foo': {'score': (9001, 9, None)}})
             self.eq(gotn[0][1]['type'], 'msg:pack')
 
     async def test_storm_node_repr(self):
@@ -4166,7 +4166,7 @@ class StormTypesTest(s_test.SynTest):
                 gotn = [mesg[1] async for mesg in asvisi.storm(q) if mesg[0] == 'storm:fire']
                 fire = [mesg for mesg in gotn if mesg['data']['sode']['form'] == 'it:dev:str']
                 self.len(1, fire)
-                self.eq(fire[0]['data']['sode']['tagprops'], {'test': {'risk': (50, 9)}})
+                self.eq(fire[0]['data']['sode']['tagprops'], {'test': {'risk': (50, 9, None)}})
 
                 q = '''
                 $lib.print($lib.layer.get())
