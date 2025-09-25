@@ -1,3 +1,5 @@
+import synapse.lib.stormlib.mime as s_mime
+
 import synapse.tests.utils as s_test
 
 html00 = '''
@@ -34,6 +36,11 @@ for fun
 class StormlibMimeTest(s_test.SynTest):
 
     async def test_stormlib_mime_html(self):
+
+        # this is mostly for coverage because it looks like code coverage doesn't work for code executed under semafork()
+        self.eq('html5lib includes this\na title\nhello there\nother text', s_mime.htmlToText(html00))
+        self.eq('html5lib includes this|a title|hello there|other text', s_mime.htmlToText(html00, separator='|'))
+        self.eq('  foo  ', s_mime.htmlToText('<div> <p> foo </p> </div>', separator='', strip=False))
 
         async with self.getTestCore() as core:
 
