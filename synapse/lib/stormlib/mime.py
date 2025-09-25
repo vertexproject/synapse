@@ -19,7 +19,7 @@ class LibMimeHtml(s_stormtypes.Lib):
                       {'name': 'html', 'type': 'str', 'desc': 'The HTML text to be parsed.'},
                       {'name': 'separator', 'type': 'str', 'default': '\n',
                        'desc': 'The string used to join text.'},
-                      {'name': 'strip', 'type': 'bool', 'default': True,
+                      {'name': 'strip', 'type': 'boolean', 'default': True,
                        'desc': 'Strip whitespace from the beginning and end of tag text.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'The separator-joined inner HTML text.', }
