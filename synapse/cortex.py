@@ -2262,7 +2262,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(slab.fini)
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
-        self.stormpkgqueue = await slab.getMultiQueue('stormpkg:queue', nexsroot=self.nexsroot)
+        self.stormpkgqueue = await slab.getMultiQueue('storm:pkg:queue', nexsroot=self.nexsroot)
 
     async def _initStormGraphs(self):
         path = os.path.join(self.dirn, 'slabs', 'graphs.lmdb')
@@ -3362,9 +3362,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'created': s_common.now()
         }
 
-        await self._push('stormpkg:queue:add', pkgname, name, info)
+        await self._push('storm:pkg:queue:add', pkgname, name, info)
 
-    @s_nexus.Pusher.onPush('stormpkg:queue:add')
+    @s_nexus.Pusher.onPush('storm:pkg:queue:add')
     async def _addStormPkgQueue(self, pkgname, name, info):
         guid = s_common.guid((pkgname, name))
         if self.stormpkgqueue.exists(guid):
@@ -3386,9 +3386,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'No queue named {name} exists for package {pkgname}!'
             raise s_exc.NoSuchName(mesg=mesg)
 
-        await self._push('stormpkg:queue:del', pkgname, name)
+        await self._push('storm:pkg:queue:del', pkgname, name)
 
-    @s_nexus.Pusher.onPush('stormpkg:queue:del')
+    @s_nexus.Pusher.onPush('storm:pkg:queue:del')
     async def _delStormPkgQueue(self, pkgname, name):
         guid = s_common.guid((pkgname, name))
         if not self.stormpkgqueue.exists(guid):
@@ -3412,20 +3412,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 return
 
     async def stormPkgQueuePuts(self, pkgname, name, items):
-        return await self._push('stormpkg:queue:puts', pkgname, name, items)
+        return await self._push('storm:pkg:queue:puts', pkgname, name, items)
 
-    @s_nexus.Pusher.onPush('stormpkg:queue:puts', passitem=True)
+    @s_nexus.Pusher.onPush('storm:pkg:queue:puts', passitem=True)
     async def _stormPkgQueuePuts(self, pkgname, name, items, nexsitem):
         nexsoff, nexsmesg = nexsitem
         guid = s_common.guid((pkgname, name))
         return await self.stormpkgqueue.puts(guid, items, reqid=nexsoff)
 
-    @s_nexus.Pusher.onPushAuto('stormpkg:queue:cull')
+    @s_nexus.Pusher.onPushAuto('storm:pkg:queue:cull')
     async def stormPkgQueueCull(self, pkgname, name, offs):
         guid = s_common.guid((pkgname, name))
         await self.stormpkgqueue.cull(guid, offs)
 
-    @s_nexus.Pusher.onPushAuto('stormpkg:queue:pop')
+    @s_nexus.Pusher.onPushAuto('storm:pkg:queue:pop')
     async def stormPkgQueuePop(self, pkgname, name, offs):
         guid = s_common.guid((pkgname, name))
         return await self.stormpkgqueue.pop(guid, offs)
