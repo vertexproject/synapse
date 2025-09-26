@@ -61,6 +61,7 @@ import synapse.lib.stormlib.gen as s_stormlib_gen  # NOQA
 import synapse.lib.stormlib.gis as s_stormlib_gis  # NOQA
 import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
 import synapse.lib.stormlib.log as s_stormlib_log  # NOQA
+import synapse.lib.stormlib.pkg as s_stormlib_pkg  # NOQA
 import synapse.lib.stormlib.xml as s_stormlib_xml  # NOQA
 import synapse.lib.stormlib.auth as s_stormlib_auth  # NOQA
 import synapse.lib.stormlib.cell as s_stormlib_cell  # NOQA
@@ -4654,35 +4655,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_stormlib_cortex.StormPoolGetCmd)
         self.addStormCmd(s_stormlib_cortex.StormPoolSetCmd)
 
-        for cdef in s_stormsvc.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
+        cmdmods = [
+            s_storm,
+            s_stormsvc,
+            s_stormlib_aha,
+            s_stormlib_auth,
+            s_stormlib_cortex,
+            s_stormlib_gen,
+            s_stormlib_index,
+            s_stormlib_macro,
+            s_stormlib_model,
+            s_stormlib_pkg,
+            s_stormlib_vault,
+        ]
 
-        for cdef in s_storm.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_aha.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_gen.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_auth.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_macro.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_model.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_cortex.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_vault.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_index.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
+        for cmod in cmdmods:
+            for cdef in cmod.stormcmds:
+                await self._trySetStormCmd(cdef.get('name'), cdef)
 
     async def _initPureStormCmds(self):
         oldcmds = []
