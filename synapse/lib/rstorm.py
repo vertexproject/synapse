@@ -344,6 +344,7 @@ class StormRst(s_base.Base):
             'storm-cortex': self._handleStormCortex,
             'storm-envvar': self._handleStormEnvVar,
             'storm-expect': self._handleStormExpect,
+            'storm-python-path': self._handlePythonPath,
             'storm-multiline': self._handleStormMultiline,
             'storm-mock-http': self._handleStormMockHttp,
             'storm-vcr-opts': self._handleStormVcrOpts,
@@ -373,6 +374,22 @@ class StormRst(s_base.Base):
         if handler is None:
             raise s_exc.NoSuchName(mesg=f'The {directive} directive is not supported', directive=directive)
         return handler
+
+    async def _handlePythonPath(self, text):
+        '''
+        Add the text to sys.path.
+
+        Args:
+            text: The path to add.
+        '''
+        if not os.path.isdir(text):
+            raise s_exc.NoSuchDir(mesg=f'The path {text} is not a directory', path=text)
+        if text not in sys.path:
+            logger.debug(f'Inserting {text} into sys.path')
+            sys.path.insert(0, text)
+            def onfini():
+                sys.path.remove(text)
+            self.onfini(onfini)
 
     async def _handleStorm(self, text):
         '''

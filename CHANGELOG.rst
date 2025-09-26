@@ -6,6 +6,46 @@
 Synapse Changelog
 *****************
 
+v2.222.0 - 2025-09-15
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_222_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``asroot:ondeny:import`` to the Storm package module definition to
+  allow a user to import a module without elevated permissions.
+  (`#4476 <https://github.com/vertexproject/synapse/pull/4476>`_)
+- Updated rstorm to add a ``storm-python-path`` directive to allow adding
+  additional Python paths to ``sys.path`` when building rstorm documentation.
+  (`#4486 <https://github.com/vertexproject/synapse/pull/4486>`_)
+
+Bugfixes
+--------
+- Fixed bug when using deref syntax (``*$form``) where a non-string value would
+  raise a Python exception in the Storm runtime.
+  (`#4481 <https://github.com/vertexproject/synapse/pull/4481>`_)
+- Fixed an issue where certain Layer storage node APIs could raise an exception
+  when used on mirrored layers.
+  (`#4485 <https://github.com/vertexproject/synapse/pull/4485>`_)
+- Fixed a bug in the default ``Content-Type`` header used in the extended Storm
+  HTTP API.
+  (`#4487 <https://github.com/vertexproject/synapse/pull/4487>`_)
+
+Notes
+-----
+- Updated the execution of rstorm shell directives to inherit the calling
+  process's environment variables.
+  (`#4482 <https://github.com/vertexproject/synapse/pull/4482>`_)
+
+Improved documentation
+----------------------
+- Updated Cortex Permissions documentation to include existing Layer
+  permissions.
+  (`#4483 <https://github.com/vertexproject/synapse/pull/4483>`_)
+
 v2.221.0 - 2025-09-11
 =====================
 
