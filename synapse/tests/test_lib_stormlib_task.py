@@ -67,6 +67,10 @@ class TaskLibTest(s_test.SynTest):
                         await prox01.callStorm('task.kill newp')
                     self.isin('does not match any tasks', exc.exception.get('mesg'))
 
+                    with self.raises(s_exc.StormRuntimeError) as exc:
+                        await prox01.callStorm('task.kill ""')
+                    self.isin('empty task iden prefix', exc.exception.get('mesg'))
+
                     iden2 = 'c7fc6d4ced5759fe6fcc047b6bd3374b'
                     task2 = aha.schedCoro(core00.stormlist('$lib.print(root) $lib.time.sleep(5)', opts={'task': iden2}))
 

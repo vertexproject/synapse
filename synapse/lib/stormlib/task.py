@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 stormcmds = [
     {
         'name': 'task.list',
-        'descr': 'List running tasks in the Cortex AHA pool.',
+        'descr': 'List running tasks on the Cortex and any mirrors.',
         'cmdargs': (
             ('--verbose', {'default': False, 'action': 'store_true', 'help': 'Enable verbose output.'}),
         ),
@@ -39,7 +39,7 @@ stormcmds = [
     },
     {
         'name': 'task.kill',
-        'descr': 'Kill a running task on a Cortex in the AHA pool.',
+        'descr': 'Kill a running task on the Cortex or a mirror.',
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid task iden is accepted.'}),
         ),
@@ -53,13 +53,13 @@ stormcmds = [
 @s_stormtypes.registry.registerLib
 class LibTask(s_stormtypes.Lib):
     '''
-    A Storm Library for interacting with tasks in AHA pools.
+    A Storm Library for interacting with tasks on a Cortex and its mirrors.
     '''
     _storm_locals = (
-        {'name': 'list', 'desc': 'List tasks on Cortexes in the AHA pool the current user can access.',
+        {'name': 'list', 'desc': 'List tasks the current user can access on the Cortex and its mirrors.',
          'type': {'type': 'function', '_funcname': '_methTaskList', 'args': (),
                   'returns': {'name': 'yields', 'type': 'dict', 'desc': 'Task definitions.'}}},
-        {'name': 'kill', 'desc': 'Stop a running task on a Cortex in the AHA pool.',
+        {'name': 'kill', 'desc': 'Stop a running task on the Cortex or a mirror.',
          'type': {'type': 'function', '_funcname': '_methTaskKill', 'args': (
                       {'name': 'prefix', 'type': 'str',
                        'desc': 'The prefix of the task to stop. '
@@ -67,6 +67,12 @@ class LibTask(s_stormtypes.Lib):
                   'returns': {'type': 'boolean', 'desc': 'True if the task was cancelled, False otherwise.'}}},
     )
     _storm_lib_path = ('task',)
+    _storm_lib_perms = (
+        {'perm': ('task', 'get'), 'gate': 'cortex',
+         'desc': 'Permits a user to view tasks owned by other users.'},
+        {'perm': ('task', 'del'), 'gate': 'cortex',
+         'desc': 'Permits a user to kill tasks owned by other users.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -88,6 +94,9 @@ class LibTask(s_stormtypes.Lib):
         isallowed = self.runt.allowed(('task', 'del'))
 
         prefix = await s_stormtypes.tostr(prefix)
+        if not prefix:
+            mesg = 'An empty task iden prefix is not allowed.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
         iden = None
         async for task in self.runt.snap.core.getTasks():
