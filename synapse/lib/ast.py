@@ -4527,9 +4527,6 @@ class N1Walk(Oper):
 
     def buildfilter(self, runt, destforms, cmpr):
 
-        if not isinstance(destforms, (tuple, list)):
-            destforms = (destforms,)
-
         if '*' in destforms:
             if cmpr is not None:
                 mesg = 'Wild card walk operations do not support comparison.'
@@ -4613,6 +4610,11 @@ class N1Walk(Oper):
             if destfilt is None or not self.kids[1].isconst:
                 dest = await self.kids[1].compute(runt, path)
                 dest = await s_stormtypes.toprim(dest)
+
+                if not isinstance(dest, (tuple, list)):
+                    dest = (await s_stormtypes.tostr(dest),)
+                else:
+                    dest = [await s_stormtypes.tostr(form) for form in dest]
 
                 destfilt = self.buildfilter(runt, dest, cmpr)
 
