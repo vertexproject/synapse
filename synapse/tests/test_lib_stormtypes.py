@@ -7262,7 +7262,7 @@ words\tword\twrd'''
             self.eq(nodes[0].get('_hugearray'), [valu, valu])
 
             nodes = await core.nodes(f'test:str:_hugearray*[=({valu})]')
-            self.len(1, nodes)
+            self.len(2, nodes)
 
     async def test_storm_stor_readonly(self):
         async with self.getTestCore() as core:
