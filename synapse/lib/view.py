@@ -3426,7 +3426,9 @@ class View(s_nexus.Pusher):  # type: ignore
                 continue
 
             last = (indx, nid)
-            node = await self.getNodeByNid(nid)
+
+            if (node := await self.getNodeByNid(nid)) is None:
+                continue
 
             if prop.isform:
                 valu = node.valu(virts=vgetr)
