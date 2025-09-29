@@ -426,7 +426,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core00.nodes('test:str=foo', opts=view00opts))
 
                 layr = core01.getLayer(layr01iden)
-                await layr.storNodeEdits((), {})
+                await layr.storNodeEdits((), {'user': s_common.guid()})
 
     async def test_cortex_must_upgrade(self):
 
