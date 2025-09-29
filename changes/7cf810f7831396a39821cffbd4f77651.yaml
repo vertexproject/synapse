@@ -1,5 +1,5 @@
 ---
-desc: Added ``$lib.task`` Storm APIs for interacting with tasks on Cortexes in the AHA pool.
+desc: Added ``$lib.task`` Storm APIs for interacting with tasks on a Cortex and its mirrors.
 prs: []
 type: feat
 ...
