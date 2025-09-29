@@ -700,117 +700,6 @@ class Lib(StormType):
             yield item
 
 @registry.registerLib
-class LibPkg(Lib):
-    '''
-    A Storm Library for interacting with Storm Packages.
-    '''
-    _storm_locals = (
-        {'name': 'add', 'desc': 'Add a Storm Package to the Cortex.',
-         'type': {'type': 'function', '_funcname': '_libPkgAdd',
-                  'args': (
-                      {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
-                      {'name': 'verify', 'type': 'boolean', 'default': False,
-                       'desc': 'Verify storm package signature.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get a Storm Package from the Cortex.',
-         'type': {'type': 'function', '_funcname': '_libPkgGet',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'A Storm Package name.', },
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'The Storm package definition.', }}},
-        {'name': 'has', 'desc': 'Check if a Storm Package is available in the Cortex.',
-         'type': {'type': 'function', '_funcname': '_libPkgHas',
-                  'args': (
-                      {'name': 'name', 'type': 'str',
-                       'desc': 'A Storm Package name to check for the existence of.', },
-                  ),
-                  'returns': {'type': 'boolean',
-                              'desc': 'True if the package exists in the Cortex, False if it does not.', }}},
-        {'name': 'del', 'desc': 'Delete a Storm Package from the Cortex.',
-         'type': {'type': 'function', '_funcname': '_libPkgDel',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the package to delete.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'list', 'desc': 'Get a list of Storm Packages loaded in the Cortex.',
-         'type': {'type': 'function', '_funcname': '_libPkgList',
-                  'returns': {'type': 'list', 'desc': 'A list of Storm Package definitions.', }}},
-        {'name': 'deps', 'desc': 'Verify the dependencies for a Storm Package.',
-         'type': {'type': 'function', '_funcname': '_libPkgDeps',
-                  'args': (
-                      {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary listing dependencies and if they are met.', }}},
-        {'name': 'vars',
-         'desc': "Get a dictionary representing the package's persistent variables.",
-         'type': {'type': 'function', '_funcname': '_libPkgVars',
-                  'args': (
-                      {'name': 'name', 'type': 'str',
-                       'desc': 'A Storm Package name to get vars for.', },
-                  ),
-                  'returns': {'type': 'pkg:vars', 'desc': 'A dictionary representing the package variables.', }}},
-    )
-    _storm_lib_perms = (
-        {'perm': ('power-ups', '<name>', 'admin'), 'gate': 'cortex',
-         'desc': 'Controls the ability to interact with the vars for a Storm Package by name.'},
-    )
-    _storm_lib_path = ('pkg',)
-
-    def getObjLocals(self):
-        return {
-            'add': self._libPkgAdd,
-            'get': self._libPkgGet,
-            'has': self._libPkgHas,
-            'del': self._libPkgDel,
-            'list': self._libPkgList,
-            'deps': self._libPkgDeps,
-            'vars': self._libPkgVars,
-        }
-
-    async def _libPkgAdd(self, pkgdef, verify=False):
-        self.runt.confirm(('pkg', 'add'), None)
-        pkgdef = await toprim(pkgdef)
-        verify = await tobool(verify)
-        await self.runt.snap.core.addStormPkg(pkgdef, verify=verify)
-
-    @stormfunc(readonly=True)
-    async def _libPkgGet(self, name):
-        name = await tostr(name)
-        pkgdef = await self.runt.snap.core.getStormPkg(name)
-        if pkgdef is None:
-            return None
-
-        return Dict(pkgdef)
-
-    @stormfunc(readonly=True)
-    async def _libPkgHas(self, name):
-        name = await tostr(name)
-        pkgdef = await self.runt.snap.core.getStormPkg(name)
-        if pkgdef is None:
-            return False
-        return True
-
-    async def _libPkgDel(self, name):
-        self.runt.confirm(('pkg', 'del'), None)
-        await self.runt.snap.core.delStormPkg(name)
-
-    @stormfunc(readonly=True)
-    async def _libPkgList(self):
-        pkgs = await self.runt.snap.core.getStormPkgs()
-        return list(sorted(pkgs, key=lambda x: x.get('name')))
-
-    @stormfunc(readonly=True)
-    async def _libPkgDeps(self, pkgdef):
-        pkgdef = await toprim(pkgdef)
-        return await self.runt.snap.core.verifyStormPkgDeps(pkgdef)
-
-    async def _libPkgVars(self, name):
-        name = await tostr(name)
-        confirm(('power-ups', name, 'admin'))
-        return PkgVars(self.runt, name)
-
-@registry.registerLib
 class LibDmon(Lib):
     '''
     A Storm Library for interacting with StormDmons.
@@ -3956,22 +3845,22 @@ class LibQueue(Lib):
         {'name': 'add', 'desc': 'Add a Queue to the Cortex with a given name.',
          'type': {'type': 'function', '_funcname': '_methQueueAdd',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to add.', },
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to add.', },
                   ),
                   'returns': {'type': 'queue', }}},
-        {'name': 'gen', 'desc': 'Add or get a Storm Queue in a single operation.',
+        {'name': 'gen', 'desc': 'Add or get a Queue in a single operation.',
          'type': {'type': 'function', '_funcname': '_methQueueGen',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to add or get.', },
                   ),
                   'returns': {'type': 'queue', }}},
-        {'name': 'del', 'desc': 'Delete a given named Queue.',
+        {'name': 'del', 'desc': 'Delete a given Queue.',
          'type': {'type': 'function', '_funcname': '_methQueueDel',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to delete.', },
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to delete.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get an existing Storm Queue object.',
+        {'name': 'get', 'desc': 'Get an existing Queue.',
          'type': {'type': 'function', '_funcname': '_methQueueGet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to get.', },
@@ -3980,17 +3869,17 @@ class LibQueue(Lib):
         {'name': 'list', 'desc': 'Get a list of the Queues in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methQueueList',
                   'returns': {'type': 'list',
-                              'desc': 'A list of queue definitions the current user is allowed to interact with.', }}},
+                              'desc': 'A list of Queue definitions the current user is allowed to interact with.', }}},
     )
     _storm_lib_perms = (
         {'perm': ('queue', 'add'), 'gate': 'cortex',
-         'desc': 'Permits a user to create a named queue.'},
+         'desc': 'Permits a user to create a Queue.'},
         {'perm': ('queue', 'get'), 'gate': 'queue',
-         'desc': 'Permits a user to access a queue. This allows the user to read from the queue and remove items from it.'},
+         'desc': 'Permits a user to access a Queue. This allows the user to read from the Queue and remove items from it.'},
         {'perm': ('queue', 'put'), 'gate': 'queue',
-         'desc': 'Permits a user to put items into a queue.'},
+         'desc': 'Permits a user to put items into a Queue.'},
         {'perm': ('queue', 'del'), 'gate': 'queue',
-         'desc': 'Permits a user to delete a queue.'},
+         'desc': 'Permits a user to delete a Queue.'},
     )
     _storm_lib_path = ('queue',)
 
@@ -4053,7 +3942,7 @@ class LibQueue(Lib):
 @registry.registerType
 class Queue(StormType):
     '''
-    A StormLib API instance of a named channel in the Cortex multiqueue.
+    A StormLib API instance of a named channel in the Cortex MultiQueue.
     '''
     _storm_locals = (
         {'name': 'name', 'desc': 'The name of the Queue.', 'type': 'str', },
@@ -4067,48 +3956,48 @@ class Queue(StormType):
                        'desc': 'Wait for the offset to be available before returning the item.', },
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'A tuple of the offset and the item from the queue. If wait is false and '
+                              'desc': 'A tuple of the offset and the item from the Queue. If wait is false and '
                                       'the offset is not present, null is returned.', }}},
-        {'name': 'pop', 'desc': 'Pop a item from the Queue at a specific offset.',
+        {'name': 'pop', 'desc': 'Pop an item from the Queue at a specific offset.',
          'type': {'type': 'function', '_funcname': '_methQueuePop',
                   'args': (
                       {'name': 'offs', 'type': 'int', 'default': None,
-                        'desc': 'Offset to pop the item from. If not specified, the first item in the queue will be'
+                        'desc': 'Offset to pop the item from. If not specified, the first item in the Queue will be'
                                 ' popped.', },
                       {'name': 'wait', 'type': 'boolean', 'default': False,
                         'desc': 'Wait for an item to be available to pop.'},
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'The offset and item popped from the queue. If there is no item at the '
-                                      'offset or the  queue is empty and wait is false, it returns null.', }}},
-        {'name': 'put', 'desc': 'Put an item into the queue.',
+                              'desc': 'The offset and item popped from the Queue. If there is no item at the '
+                                      'offset or the Queue is empty and wait is false, it returns null.', }}},
+        {'name': 'put', 'desc': 'Put an item into the Queue.',
          'type': {'type': 'function', '_funcname': '_methQueuePut',
                   'args': (
-                      {'name': 'item', 'type': 'prim', 'desc': 'The item being put into the queue.', },
+                      {'name': 'item', 'type': 'prim', 'desc': 'The item being put into the Queue.', },
                   ),
-                  'returns': {'type': 'int', 'desc': 'The queue offset of the item.'}}},
+                  'returns': {'type': 'int', 'desc': 'The Queue offset of the item.'}}},
         {'name': 'puts', 'desc': 'Put multiple items into the Queue.',
          'type': {'type': 'function', '_funcname': '_methQueuePuts',
                   'args': (
                       {'name': 'items', 'type': 'list', 'desc': 'The items to put into the Queue.', },
                   ),
-                  'returns': {'type': 'int', 'desc': 'The queue offset of the first item.'}}},
+                  'returns': {'type': 'int', 'desc': 'The Queue offset of the first item.'}}},
         {'name': 'gets', 'desc': 'Get multiple items from the Queue as a iterator.',
          'type': {'type': 'function', '_funcname': '_methQueueGets',
                   'args': (
-                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to retrieve an items from.', 'default': 0, },
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to retrieve items from.', 'default': 0, },
                       {'name': 'wait', 'type': 'boolean', 'default': True,
                        'desc': 'Wait for the offset to be available before returning the item.', },
                       {'name': 'cull', 'type': 'boolean', 'default': False,
                        'desc': 'Culls items up to, but not including, the specified offset.', },
-                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of items to yield',
+                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of items to yield.',
                        'default': None, },
                   ),
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Yields tuples of the offset and item.', }}},
-        {'name': 'cull', 'desc': 'Remove items from the queue up to, and including, the offset.',
+        {'name': 'cull', 'desc': 'Remove items from the Queue up to, and including, the offset.',
          'type': {'type': 'function', '_funcname': '_methQueueCull',
                   'args': (
-                      {'name': 'offs', 'type': 'int', 'desc': 'The offset which to cull records from the queue.', },
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset which to cull records from the Queue.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'size', 'desc': 'Get the number of items in the Queue.',
@@ -6095,45 +5984,6 @@ class LibVars(Lib):
     @stormfunc(readonly=True)
     async def _libVarsType(self, valu):
         return await totype(valu)
-
-@registry.registerType
-class PkgVars(Prim):
-    '''
-    The Storm deref/setitem/iter convention on top of pkg vars information.
-    '''
-    _storm_typename = 'pkg:vars'
-    _ismutable = True
-
-    def __init__(self, runt, valu, path=None):
-        Prim.__init__(self, valu, path=path)
-        self.runt = runt
-
-    def _reqPkgAdmin(self):
-        confirm(('power-ups', self.valu, 'admin'))
-
-    @stormfunc(readonly=True)
-    async def deref(self, name):
-        self._reqPkgAdmin()
-        name = await tostr(name)
-        return await self.runt.snap.core.getStormPkgVar(self.valu, name)
-
-    async def setitem(self, name, valu):
-        self._reqPkgAdmin()
-        name = await tostr(name)
-
-        if valu is undef:
-            await self.runt.snap.core.popStormPkgVar(self.valu, name)
-            return
-
-        valu = await toprim(valu)
-        await self.runt.snap.core.setStormPkgVar(self.valu, name, valu)
-
-    @stormfunc(readonly=True)
-    async def iter(self):
-        self._reqPkgAdmin()
-        async for name, valu in self.runt.snap.core.iterStormPkgVars(self.valu):
-            yield name, valu
-            await asyncio.sleep(0)
 
 @registry.registerType
 class Query(Prim):
