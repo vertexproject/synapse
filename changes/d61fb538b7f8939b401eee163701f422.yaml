@@ -1,0 +1,6 @@
+---
+desc: Added the local and remote offsets to the error log message indicating that
+  a mirror is out of sync from the remote service.
+prs: []
+type: note
+...
