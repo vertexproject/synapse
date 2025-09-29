@@ -1810,7 +1810,7 @@ class LibUser(s_stormtypes.Lib):
                   'returns': {'type': 'boolean',
                               'desc': 'True if the user has the requested permission, false otherwise.', }}},
         {'name': 'vars', 'desc': "Get a dictionary representing the current user's persistent variables.",
-         'type': 'auth:user:vars', },
+         'type': 'user:vars:dict', },
         {'name': 'profile', 'desc': "Get a dictionary representing the current user's profile information.",
          'type': 'auth:user:profile', },
         {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'str'},
