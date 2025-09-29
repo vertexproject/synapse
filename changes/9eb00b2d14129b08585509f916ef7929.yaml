@@ -1,6 +1,5 @@
 ---
-desc: Added ``task.list`` and ``task.kill`` commands for listing and killing tasks on Cortexes
-  in the AHA pool.
+desc: Added ``task.list`` and ``task.kill`` commands for listing and killing tasks on a Cortex and its mirrors.
 prs: []
 type: feat
 ...
