@@ -5,8 +5,8 @@ Model elements related to sales / bizdev / procurement
 '''
 
 class BizModule(s_module.CoreModule):
-    def getModelDefs(self):
-        modl = {
+    def getModelDef(self):
+        return {
             'types': (
                 ('biz:rfp', ('guid', {}), {
                     'doc': 'An RFP (Request for Proposal) soliciting proposals.',
@@ -305,5 +305,3 @@ class BizModule(s_module.CoreModule):
                 )),
             ),
         }
-        name = 'biz'
-        return ((name, modl),)
