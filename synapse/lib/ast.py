@@ -4611,10 +4611,10 @@ class N1Walk(Oper):
                 dest = await self.kids[1].compute(runt, path)
                 dest = await s_stormtypes.toprim(dest)
 
-                if not isinstance(dest, (tuple, list)):
-                    dest = (await s_stormtypes.tostr(dest),)
-                else:
+                if isinstance(dest, (tuple, list)):
                     dest = [await s_stormtypes.tostr(form) for form in dest]
+                else:
+                    dest = (await s_stormtypes.tostr(dest),)
 
                 destfilt = self.buildfilter(runt, dest, cmpr)
 
