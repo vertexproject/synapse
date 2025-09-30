@@ -14,4 +14,4 @@ Updated Types
 
 ``pe:langid``
   The type has been modified to set ``enums:strict`` to ``False``. The type
-  now allows any integer in the range from `0` to `65535`.
+  now allows any integer in the range from ``0`` to ``65535``.
