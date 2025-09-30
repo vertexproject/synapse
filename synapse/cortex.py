@@ -73,6 +73,7 @@ import synapse.lib.stormlib.mime as s_stormlib_mime  # NOQA
 import synapse.lib.stormlib.pack as s_stormlib_pack  # NOQA
 import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
+import synapse.lib.stormlib.task as s_stormlib_task  # NOQA
 import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
 import synapse.lib.stormlib.basex as s_stormlib_basex  # NOQA
 import synapse.lib.stormlib.cache as s_stormlib_cache  # NOQA
@@ -4672,6 +4673,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for cmod in cmdmods:
             for cdef in cmod.stormcmds:
                 await self._trySetStormCmd(cdef.get('name'), cdef)
+
+        for cdef in s_stormlib_task.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
 
     async def _initPureStormCmds(self):
         oldcmds = []
