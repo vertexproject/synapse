@@ -553,6 +553,7 @@ testmodel = (
         'edges': (
             (('test:interface', 'matches', None), {
                 'doc': 'The node matched on the target node.'}),
+            ((None, 'test', None), {'doc': 'Test edge'}),
         ),
     }),
 )

@@ -91,6 +91,17 @@ class FileTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('sha256'), 'f' * 64)
             self.eq(nodes[0].get('file'), fileiden)
 
+            # unknown langid
+            nodes = await core.nodes('[file:mime:pe:resource=* :langid=0x1804]')
+            self.len(1, nodes)
+            rnode = nodes[0]
+            self.eq(rnode.get('langid'), 0x1804)
+            self.eq(rnode.repr('langid'), '6148')
+
+            # invalid langid
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[file:mime:pe:resource=* :langid=0xfffff]')
+
     async def test_model_filebytes_macho(self):
         async with self.getTestCore() as core:
 

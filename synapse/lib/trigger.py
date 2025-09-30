@@ -74,15 +74,17 @@ class Triggers:
         finally:
             RecursionDepth.reset(token)
 
-    async def runNodeAdd(self, node):
+    async def runNodeAdd(self, node, useriden):
+        vars = {'auto': {'opts': {'user': useriden}}}
         with self._recursion_check():
-            [await trig.execute(node) for trig in self.nodeadd.get(node.form.name, ())]
+            [await trig.execute(node, vars=vars) for trig in self.nodeadd.get(node.form.name, ())]
 
-    async def runNodeDel(self, node):
+    async def runNodeDel(self, node, useriden):
+        vars = {'auto': {'opts': {'user': useriden}}}
         with self._recursion_check():
-            [await trig.execute(node) for trig in self.nodedel.get(node.form.name, ())]
+            [await trig.execute(node, vars=vars) for trig in self.nodedel.get(node.form.name, ())]
 
-    async def runPropSet(self, node, prop):
+    async def runPropSet(self, node, prop, useriden):
         trigs = self.propset.get(prop.full, [])
         for iface in prop.ifaces:
             if (itrigs := self.propset.get(iface)) is not None:
@@ -91,14 +93,14 @@ class Triggers:
         if not trigs:
             return
 
-        vars = {'auto': {'opts': {'propname': prop.name, 'propfull': prop.full}}}
+        vars = {'auto': {'opts': {'propname': prop.name, 'propfull': prop.full, 'user': useriden}}}
         with self._recursion_check():
             for trig in trigs:
                 await trig.execute(node, vars=vars)
 
-    async def runTagAdd(self, node, tag):
+    async def runTagAdd(self, node, tag, useriden):
 
-        vars = {'auto': {'opts': {'tag': tag}}}
+        vars = {'auto': {'opts': {'tag': tag, 'user': useriden}}}
         with self._recursion_check():
 
             for trig in self.tagadd.get((node.form.name, tag), ()):
@@ -119,9 +121,9 @@ class Triggers:
                 for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars)
 
-    async def runTagDel(self, node, tag):
+    async def runTagDel(self, node, tag, useriden):
 
-        vars = {'auto': {'opts': {'tag': tag}}}
+        vars = {'auto': {'opts': {'tag': tag, 'user': useriden}}}
         with self._recursion_check():
 
             for trig in self.tagdel.get((node.form.name, tag), ()):
@@ -142,12 +144,12 @@ class Triggers:
                 for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars)
 
-    async def runEdgeAdd(self, n1, verb, n2ndef):
+    async def runEdgeAdd(self, n1, verb, n2ndef, useriden):
         n1form = n1.form.name if n1 else None
         n2form = n2ndef[0] if n2ndef else None
         n2iden = s_common.ehex(s_common.buid(n2ndef)) if n2ndef else None
 
-        varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden}}}
+        varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden, 'user': useriden}}}
         with self._recursion_check():
             cachekey = (n1form, verb, n2form)
             cached = self.edgeaddcache.get(cachekey)
@@ -193,12 +195,12 @@ class Triggers:
             for trig in cached:
                 await trig.execute(n1, vars=varz)
 
-    async def runEdgeDel(self, n1, verb, n2ndef):
+    async def runEdgeDel(self, n1, verb, n2ndef, useriden):
         n1form = n1.form.name if n1 else None
         n2form = n2ndef[0] if n2ndef else None
         n2iden = s_common.ehex(s_common.buid(n2ndef)) if n2ndef else None
 
-        varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden}}}
+        varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden, 'user': useriden}}}
         with self._recursion_check():
             cachekey = (n1form, verb, n2form)
             cached = self.edgedelcache.get(cachekey)

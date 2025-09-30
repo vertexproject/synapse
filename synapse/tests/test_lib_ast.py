@@ -3251,6 +3251,9 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 self.len(1, await core.nodes('inet:ip=1.2.3.4 <(seen)- *=woot'))
 
+            with self.raises(s_exc.NoSuchForm):
+                self.len(1, await core.nodes('$foo=(null) inet:ip=1.2.3.4 <(seen)- $foo'))
+
             self.len(1, await core.nodes('inet:ip=1.2.3.4 <(seen)- *'))
             self.len(1, await core.nodes('inet:ip=1.2.3.4 <(seen)- meta:source'))
             self.len(1, await core.nodes('inet:ip=1.2.3.4 <(seen)- meta:source:name'))

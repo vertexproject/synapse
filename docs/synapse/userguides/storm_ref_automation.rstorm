@@ -575,6 +575,11 @@ The ``$auto`` variable is a dictionary which contains the following keys:
         ``$auto.opts.tag``
             The tag which caused the trigger to fire. Only present on ``tag:add`` and ``tag:del`` triggers.
 
+        ``$auto.opts.user``
+            The iden of the user who caused the trigger to fire. Due to async triggers and potential remote API use
+            cases, trigger code that is using ``$auto.opts.user`` should be capable of handling the case where the
+            user indicated by this value is not present in the Cortex.
+
         ``$auto.opts.valu``
             The value of the triggering node.
 
