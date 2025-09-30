@@ -1792,7 +1792,15 @@ class LiftTagProp(LiftOper):
 
         tag, prop = await self.kids[0].compute(runt, path)
 
-        if len(self.kids) == 3:
+        if len(self.kids) == 4:
+            virts = await self.kids[1].compute(runt, path)
+            cmpr = await self.kids[2].compute(runt, path)
+            valu = await s_stormtypes.tostor(await self.kids[3].compute(runt, path))
+
+            async for node in runt.view.nodesByTagPropValu(None, tag, prop, cmpr, valu, reverse=self.reverse, virts=virts):
+                yield node
+
+        elif len(self.kids) == 3:
 
             cmpr = await self.kids[1].compute(runt, path)
             valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
@@ -1800,14 +1808,13 @@ class LiftTagProp(LiftOper):
             async for node in runt.view.nodesByTagPropValu(None, tag, prop, cmpr, valu, reverse=self.reverse):
                 yield node
 
-            return
+        else:
+            virts = None
+            if len(self.kids) == 2:
+                virts = await self.kids[1].compute(runt, path)
 
-        virts = None
-        if len(self.kids) == 2:
-            virts = await self.kids[1].compute(runt, path)
-
-        async for node in runt.view.nodesByTagProp(None, tag, prop, reverse=self.reverse, virts=virts):
-            yield node
+            async for node in runt.view.nodesByTagProp(None, tag, prop, reverse=self.reverse, virts=virts):
+                yield node
 
 class LiftFormTagProp(LiftOper):
     '''
@@ -2456,13 +2463,18 @@ class PivotIn(PivotOper):
             async for pivo in runt.view.nodesByPropArray(prop.full, '=', valu, norm=norm):
                 yield pivo, path.fork(pivo, link)
 
-        async for pivo, prop in runt.view.getNdefRefs(node.ndef):
-            yield pivo, path.fork(pivo, {'type': 'prop', 'prop': prop, 'reverse': True})
+        for prop in runt.model.getTagPropsByType(name):
+            norm = node.form.typehash is not prop.type.typehash
+            async for pivo, link in runt.view.getTagPropRefs(prop.name, valu, norm=norm):
+                yield pivo, path.fork(pivo, link)
+
+        async for pivo, link in runt.view.getNdefRefs(node.ndef):
+            yield pivo, path.fork(pivo, link)
 
         for prop, valu in node.getProps().items():
             pdef = (f'{name}:{prop}', valu)
-            async for pivo, prop in runt.view.getNodePropRefs(pdef):
-                yield pivo, path.fork(pivo, {'type': 'prop', 'prop': prop, 'reverse': True})
+            async for pivo, link in runt.view.getNodePropRefs(pdef):
+                yield pivo, path.fork(pivo, link)
 
 class N2WalkNPivo(PivotIn):
 
@@ -3702,10 +3714,7 @@ class TagPropCond(Cond):
                 mesg = f'Wildcard tag names may not be used in conjunction with tagprop value comparison: {tag}'
                 raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=tag))
 
-            prop = runt.model.getTagProp(name)
-            if prop is None:
-                mesg = f'No such tag property: {name}'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchTagProp(name=name, mesg=mesg))
+            prop = runt.model.reqTagProp(name, extra=self.kids[0].addExcInfo)
 
             curv = node.getTagProp(tag, name)
             if curv is None:
@@ -3895,6 +3904,7 @@ class TagProp(Value):
     async def compute(self, runt, path):
         tag = await self.kids[0].compute(runt, path)
         prop = await self.kids[1].compute(runt, path)
+        prop = await tostr(prop)
         return (tag, prop)
 
 class FormTagProp(Value):
@@ -3903,25 +3913,20 @@ class FormTagProp(Value):
         form = await self.kids[0].compute(runt, path)
         tag = await self.kids[1].compute(runt, path)
         prop = await self.kids[2].compute(runt, path)
+        prop = await tostr(prop)
         return (form, tag, prop)
 
 class TagPropValue(Value):
     async def compute(self, runt, path):
         tag, prop = await self.kids[0].compute(runt, path)
 
-        tprop = runt.model.getTagProp(prop)
-        if tprop is None:
-            mesg = f'No such tag property: {prop}'
-            raise self.kids[0].addExcInfo(s_exc.NoSuchTagProp(name=prop, mesg=mesg))
-
-        valu = path.node.getTagProp(tag, prop)
-
+        tprop = runt.model.reqTagProp(prop, extra=self.kids[0].addExcInfo)
+        vgetr = None
         if len(self.kids) > 1:
             virts = await self.kids[1].compute(runt, path)
-            for getr in tprop.type.getVirtGetr(virts):
-                valu = getr(valu)
+            vgetr = tprop.type.getVirtGetr(virts)
 
-        return valu
+        return path.node.getTagProp(tag, prop, virts=vgetr)
 
 class CallArgs(Value):
 
@@ -5498,7 +5503,7 @@ class EditTagDel(Edit):
 
 class EditTagPropSet(Edit):
     '''
-    [ #foo.bar:baz=10 ]
+    [ +#foo.bar:baz=10 ]
     '''
     async def run(self, runt, genr):
 
@@ -5528,6 +5533,41 @@ class EditTagPropSet(Edit):
 
             yield node, path
 
+            await asyncio.sleep(0)
+
+class EditTagPropVirtSet(Edit):
+    '''
+    [ +#foo.bar:baz.precision=day ]
+    '''
+    async def run(self, runt, genr):
+
+        self.reqNotReadOnly(runt)
+
+        oper = await self.kids[2].compute(runt, None)
+        excignore = (s_exc.BadTypeValu,) if oper == '?=' else ()
+
+        rval = self.kids[3]
+
+        async for node, path in genr:
+
+            tag, propname = await self.kids[0].compute(runt, path)
+
+            prop = runt.model.reqTagProp(propname, extra=self.kids[0].addExcInfo)
+            virts = await self.kids[1].compute(runt, path)
+
+            try:
+                oldv = node.getTagProp(tag, propname)
+                valu = await rval.compute(runt, path)
+                newv, norminfo = await prop.type.normVirt(virts[0], oldv, valu)
+
+                await node.setTagProp(tag, propname, newv, norminfo=norminfo)
+            except excignore:
+                pass
+
+            except s_exc.BadTypeValu as e:
+                raise rval.addExcInfo(e)
+
+            yield node, path
             await asyncio.sleep(0)
 
 class EditTagPropDel(Edit):
