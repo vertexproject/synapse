@@ -19,7 +19,7 @@ class TaskLibTest(s_test.SynTest):
             core01 = await aha.enter_context(self.getTestCore(conf=conf))
 
             iden0 = 'c7fc6d4ced5759fe6fcc047b6bd3374a'
-            task0 = aha.schedCoro(core01.stormlist('$lib.print(root) $lib.time.sleep(5)', opts={'task': iden0}))
+            task0 = aha.schedCoro(core01.stormlist('$lib.print(root) $lib.time.sleep(10)', opts={'task': iden0}))
 
             msgs = await core00.stormlist('task.list')
             self.stormIsInPrint('00.cortex.synapse', msgs)
@@ -39,7 +39,7 @@ class TaskLibTest(s_test.SynTest):
 
             async with core00.getLocalProxy(user='someuser') as prox00:
                 iden1 = s_common.guid()
-                task1 = aha.schedCoro(prox00.callStorm('$lib.print(on00) $lib.time.sleep(5)', opts={'task': iden1}))
+                task1 = aha.schedCoro(prox00.callStorm('$lib.print(on00) $lib.time.sleep(10)', opts={'task': iden1}))
 
                 async with core01.getLocalProxy(user='someuser') as prox01:
                     msgs = await s_test.alist(prox01.storm('task.list'))
@@ -72,7 +72,7 @@ class TaskLibTest(s_test.SynTest):
                     self.isin('empty task iden prefix', exc.exception.get('mesg'))
 
                     iden2 = 'c7fc6d4ced5759fe6fcc047b6bd3374b'
-                    task2 = aha.schedCoro(core00.stormlist('$lib.print(root) $lib.time.sleep(5)', opts={'task': iden2}))
+                    task2 = aha.schedCoro(core00.stormlist('$lib.print(root) $lib.time.sleep(10)', opts={'task': iden2}))
 
                     # Matches exist but we don't have perms to see them
                     with self.raises(s_exc.StormRuntimeError) as exc:
