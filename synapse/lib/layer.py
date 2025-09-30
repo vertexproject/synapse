@@ -557,6 +557,11 @@ class IndxByPropArray(IndxBy):
         if sode is None: # pragma: no cover
             return s_common.novalu
 
+        if self.prop is None:
+            if (valt := sode.get('valu')) is None:
+                return s_common.novalu
+            return valt[0]
+
         props = sode.get('props')
         if props is None:
             return s_common.novalu

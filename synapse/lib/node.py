@@ -674,7 +674,7 @@ class Node(NodeBase):
 
         return defv, None
 
-    def getWithLayer(self, name, defv=None):
+    def getWithLayer(self, name, defv=None, virts=None):
         '''
         Return a secondary property value from the Node with the index of the sode.
 
@@ -696,6 +696,10 @@ class Node(NodeBase):
                 continue
 
             if (valt := item.get(name)) is not None:
+                if virts:
+                    for virt in virts:
+                        valt = virt(valt)
+                    return valt, indx
                 return valt[0], indx
 
         return defv, None
