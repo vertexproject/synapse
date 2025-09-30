@@ -17,7 +17,7 @@ async def main(argv, outp=s_output.stdout):
 
     pars = s_cmd.Parser(prog='synapse.tools.promote', outp=outp, description=descr)
 
-    pars.add_argument('--svcurl', default='cell:///vertex/storage',
+    pars.add_argument('--url', default='cell:///vertex/storage',
                       help='The telepath URL of the Synapse service.')
 
     pars.add_argument('--failure', default=False, action='store_true',
@@ -27,11 +27,11 @@ async def main(argv, outp=s_output.stdout):
 
     async with s_telepath.withTeleEnv():
 
-        async with await s_telepath.openurl(opts.svcurl) as cell:
+        async with await s_telepath.openurl(opts.url) as cell:
 
             graceful = not opts.failure
 
-            outp.printf(f'Promoting to leader: {opts.svcurl}')
+            outp.printf(f'Promoting to leader: {opts.url}')
             try:
                 await cell.promote(graceful=graceful)
             except s_exc.BadState as e:
@@ -39,7 +39,7 @@ async def main(argv, outp=s_output.stdout):
                 outp.printf(mesg)
                 return 1
             except s_exc.SynErr as e:
-                outp.printf(f'Failed to promote service {s_urlhelp.sanitizeUrl(opts.svcurl)}: {e}')
+                outp.printf(f'Failed to promote service {s_urlhelp.sanitizeUrl(opts.url)}: {e}')
                 return 1
 
     return 0

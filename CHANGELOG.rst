@@ -6,6 +6,12 @@
 Synapse Changelog
 *****************
 
+v3.0.0 - 2025-XX-YY
+===================
+
+Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
+changes.
+
 v2.223.0 - 2025-09-30
 =====================
 
@@ -58,7 +64,6 @@ Deprecations
 ------------
 - Deprecated the ``synapse.cryotank.CryoTank`` Cell.
   (`#4494 <https://github.com/vertexproject/synapse/pull/4494>`_)
-
 
 v2.222.0 - 2025-09-15
 =====================
@@ -236,6 +241,7 @@ Improved documentation
 ----------------------
 - Added Storm library documentation for ``$lib.feed.fromAxon``.
   (`#4420 <https://github.com/vertexproject/synapse/pull/4420>`_)
+>>>>>>> master
 
 v2.216.0 - 2025-07-15
 =====================

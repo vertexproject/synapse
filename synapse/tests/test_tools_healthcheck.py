@@ -29,24 +29,15 @@ class HealthcheckTest(s_t_utils.SynTest):
             resp = s_json.loads(str(outp))
             self.isinstance(resp, dict)
 
-            mod = core.modules.get('synapse.tests.utils.TestModule')  # type: s_t_utils.TestModule
-            mod.healthy = False
-
-            outp.clear()
-            retn = await s_t_healthcheck.main(argv, outp)
-            self.eq(retn, 1)
-            resp = s_json.loads(str(outp))
-            self.isinstance(resp, dict)
-
             # Sad paths
 
             # timeout during check
             logger.info('Checking with a timeout')
             async def sleep(*args, **kwargs):
-                await asyncio.sleep(0.6)
+                await asyncio.sleep(2)
             core.addHealthFunc(sleep)
             outp.clear()
-            retn = await s_t_healthcheck.main(['-c', curl, '-t', '0.4'], outp)
+            retn = await s_t_healthcheck.main(['-c', curl, '-t', '1'], outp)
             self.eq(retn, 1)
             resp = s_json.loads(str(outp))
             self.eq(resp.get('components')[0].get('name'), 'error')
@@ -59,7 +50,7 @@ class HealthcheckTest(s_t_utils.SynTest):
             _, port = await core.dmon.listen('tcp://127.0.0.1:0')
             root = await core.auth.getUserByName('root')
             await root.setPasswd('secret')
-            retn = await s_t_healthcheck.main(['-c', f'tcp://root:newp@127.0.0.1:{port}/cortex', '-t', '0.4'], outp)
+            retn = await s_t_healthcheck.main(['-c', f'tcp://root:newp@127.0.0.1:{port}/cortex', '-t', '1'], outp)
             self.eq(retn, 1)
             resp = s_json.loads(str(outp))
             self.eq(resp.get('components')[0].get('name'), 'error')
@@ -71,7 +62,7 @@ class HealthcheckTest(s_t_utils.SynTest):
 
             logger.info('Checking without perms')
             outp.clear()
-            retn = await s_t_healthcheck.main(['-c', f'tcp://visi:secret@127.0.0.1:{port}/cortex', '-t', '0.4'], outp)
+            retn = await s_t_healthcheck.main(['-c', f'tcp://visi:secret@127.0.0.1:{port}/cortex', '-t', '1'], outp)
             self.eq(retn, 1)
             resp = s_json.loads(str(outp))
             self.eq(resp.get('components')[0].get('name'), 'error')
@@ -84,7 +75,7 @@ class HealthcheckTest(s_t_utils.SynTest):
             await core.fini()
             await asyncio.sleep(0)
             outp.clear()
-            retn = await s_t_healthcheck.main(['-c', curl, '-t', '0.4'], outp)
+            retn = await s_t_healthcheck.main(['-c', curl, '-t', '1'], outp)
             self.eq(retn, 1)
             resp = s_json.loads(str(outp))
             self.eq(resp.get('components')[0].get('name'), 'error')
