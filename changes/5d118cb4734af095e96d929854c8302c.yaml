@@ -1,6 +1,0 @@
----
-desc: Updated Storm package ``inits`` to set the current version to the maximum of
-  the step version and version variable to allow for skipping later steps.
-prs: []
-type: feat
-...
