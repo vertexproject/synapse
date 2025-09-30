@@ -220,7 +220,7 @@ command for a more detailed discussion of triggers and associated Storm commands
 Ingest Variables
 ~~~~~~~~~~~~~~~~
 
-Synapse's :ref:`syn-tools-csvtool` can be used to ingest (import) data into Synapse from a comma-separated
+Synapse's :ref:`syn-tools-cortex-csv` can be used to ingest (import) data into Synapse from a comma-separated
 value (CSV) file. Storm includes a built-in variable to facilitate bulk data ingest using CSV.
 
 .. _vars-ingest-rows:

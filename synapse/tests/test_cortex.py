@@ -28,8 +28,8 @@ import synapse.lib.version as s_version
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
-import synapse.tools.backup as s_tools_backup
-import synapse.tools.promote as s_tools_promote
+import synapse.tools.service.backup as s_tools_backup
+import synapse.tools.service.promote as s_tools_promote
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
