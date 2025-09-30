@@ -1,6 +1,0 @@
----
-desc: Fixed an issue where attempting to use a variable containing a null value as
-  a walk target would raise a Python exception.
-prs: []
-type: bug
-...

@@ -1,7 +1,0 @@
----
-desc: Updated ``$lib.mime.html.totext()`` to accept optional ``separator`` and ``strip``
-  arguments so the caller can specify the separator used to join the tag text and
-  whether to strip whitespace from the beginning and end of the tag text.
-prs: []
-type: feat
-...
