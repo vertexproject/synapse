@@ -410,9 +410,9 @@ class Node(NodeBase):
                         for form, cnt in forms.items():
                             formcnts[form] = formcnts.get(form, 0) + (cnt * inc)
                 else:
-                    for verb, forms in verbs.items():
-                        if (formcnts := ecnts.get(verb)) is None:
-                            ecnts[verb] = formcnts = {}
+                    for vkey, forms in verbs.items():
+                        if (formcnts := ecnts.get(vkey)) is None:
+                            ecnts[vkey] = formcnts = {}
 
                         for form, cnt in forms.items():
                             formcnts[form] = formcnts.get(form, 0) + (cnt * inc)
