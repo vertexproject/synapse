@@ -2939,17 +2939,30 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             except Exception as e:
                 logger.warning(f'Extended type ({typename}) error: {e}')
 
-        for formname, basetype, typeopts, typeinfo in self.extforms.values():
-            try:
-                self.model.addType(formname, basetype, typeopts, typeinfo)
-                form = self.model.addForm(formname, {}, ())
-            except Exception as e:
-                logger.warning(f'Extended form ({formname}) error: {e}')
-            else:
-                if form.type.deprecated:
-                    mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
-                           f' be removed in 4.0.0'
-                    logger.warning(mesg)
+        formchildren = collections.defaultdict(list)
+
+        def addForms(infos):
+            for formname, basetype, typeopts, typeinfo in infos:
+                try:
+                    if self.model.type(basetype) is None:
+                        formchildren[basetype].append((formname, basetype, typeopts, typeinfo))
+                        continue
+
+                    self.model.addType(formname, basetype, typeopts, typeinfo)
+                    form = self.model.addForm(formname, {}, ())
+
+                    if (cinfos := formchildren.pop(formname, None)) is not None:
+                        addForms(cinfos)
+
+                except Exception as e:
+                    logger.warning(f'Extended form ({formname}) error: {e}')
+                else:
+                    if form.type.deprecated:
+                        mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
+                               f' be removed in 4.0.0'
+                        logger.warning(mesg)
+
+        addForms(self.extforms.values())
 
         for form, prop, tdef, info in self.extprops.values():
             try:
@@ -3088,8 +3101,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for typename, basetype, typeopts, typeinfo in amodl['types']:
             await self.addType(typename, basetype, typeopts, typeinfo)
 
-        for formname, basetype, typeopts, typeinfo in amodl['forms']:
-            await self.addForm(formname, basetype, typeopts, typeinfo)
+        formchildren = collections.defaultdict(list)
+
+        async def addForms(infos):
+            for formname, basetype, typeopts, typeinfo in infos:
+                if self.model.type(basetype) is None:
+                    formchildren[basetype].append((formname, basetype, typeopts, typeinfo))
+                    continue
+
+                form = await self.addForm(formname, basetype, typeopts, typeinfo)
+
+                if (cinfos := formchildren.pop(formname, None)) is not None:
+                    await addForms(cinfos)
+
+        await addForms(amodl['forms'])
 
         for form, prop, tdef, info in amodl['props']:
             await self.addFormProp(form, prop, tdef, info)
@@ -3129,16 +3154,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _addForm(self, formname, basetype, typeopts, typeinfo):
         if self.model.form(formname) is not None:
             return
-
-        ifaces = typeinfo.get('interfaces')
-
-        if ifaces and 'taxonomy' in ifaces:
-            logger.warning(f'{formname} is using the deprecated taxonomy interface, updating to meta:taxonomy.')
-
-            ifaces = set(ifaces)
-            ifaces.remove('taxonomy')
-            ifaces.add('meta:taxonomy')
-            typeinfo['interfaces'] = tuple(ifaces)
 
         self.model.addType(formname, basetype, typeopts, typeinfo)
         self.model.addForm(formname, typeinfo, ())
@@ -3206,16 +3221,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.model.type(typename) is not None:
             return
 
-        ifaces = typeinfo.get('interfaces')
-
-        if ifaces and 'taxonomy' in ifaces:
-            logger.warning(f'{typename} is using the deprecated taxonomy interface, updating to meta:taxonomy.')
-
-            ifaces = set(ifaces)
-            ifaces.remove('taxonomy')
-            ifaces.add('meta:taxonomy')
-            typeinfo['interfaces'] = tuple(ifaces)
-
         self.model.addType(typename, basetype, typeopts, typeinfo)
 
         self.exttypes.set(typename, (typename, basetype, typeopts, typeinfo))
@@ -3254,15 +3259,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = 'Form property definitions should be a dict.'
             raise s_exc.BadArg(form=form, mesg=mesg)
 
-        if not prop.startswith('_') and not form.startswith('_'):
-            mesg = 'Extended prop must begin with "_" or be added to an extended form.'
+        if not prop.startswith('_'):
+            mesg = 'Extended prop must begin with "_".'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
-        _form = self.model.form(form)
-        if _form is None:
-            raise s_exc.NoSuchForm.init(form)
-        if _form.prop(prop):
-            raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
-                                     form=form, prop=prop)
+
+        for formname in self.model.getChildForms(form):
+            _form = self.model.form(formname)
+            if _form is None:
+                raise s_exc.NoSuchForm.init(formname)
+            if _form.prop(prop):
+                raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
+                                         form=formname, prop=prop)
         await self._push('model:prop:add', form, prop, tdef, info)
 
     @s_nexus.Pusher.onPush('model:prop:add')
@@ -3295,24 +3302,25 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         self.reqExtProp(formname, propname)
 
-        fullname = f'{formname}:{propname}'
-        prop = self.model.prop(fullname)
+        for formname in self.model.getChildForms(formname):
+            fullname = f'{formname}:{propname}'
+            prop = self.model.prop(fullname)
 
-        await self.setPropLocked(fullname, True)
+            await self.setPropLocked(fullname, True)
 
-        for layr in list(self.layers.values()):
+            for layr in list(self.layers.values()):
 
-            genr = layr.iterPropRows(formname, propname)
+                genr = layr.iterPropRows(formname, propname)
 
-            async for rows in s_coro.chunks(genr):
-                nodeedits = []
-                for nid, valu in rows:
-                    nodeedits.append((s_common.int64un(nid), prop.form.name, (
-                        (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
-                    )))
+                async for rows in s_coro.chunks(genr):
+                    nodeedits = []
+                    for nid, valu in rows:
+                        nodeedits.append((s_common.int64un(nid), prop.form.name, (
+                            (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
+                        )))
 
-                await layr.saveNodeEdits(nodeedits, meta)
-                await asyncio.sleep(0)
+                    await layr.saveNodeEdits(nodeedits, meta)
+                    await asyncio.sleep(0)
 
     async def _delAllTagProp(self, propname, meta):
         '''
@@ -3371,10 +3379,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if pdef is None:
             return
 
-        for layr in self.layers.values():
-            async for item in layr.iterPropRows(form, prop):
-                mesg = f'Nodes still exist with prop: {form}:{prop} in layer {layr.iden}'
-                raise s_exc.CantDelProp(mesg=mesg)
+        for formname in self.model.getChildForms(form):
+            for layr in self.layers.values():
+                async for item in layr.iterPropRows(formname, prop):
+                    mesg = f'Nodes still exist with prop: {formname}:{prop} in layer {layr.iden}'
+                    raise s_exc.CantDelProp(mesg=mesg)
 
         self.model.delFormProp(form, prop)
         self.extprops.pop(full, None)
