@@ -577,6 +577,60 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:org#foo', opts={'view': view}))
             self.len(0, await core.nodes('test:str=foo', opts={'view': view}))
 
+    async def test_lib_view_savenodeedits_telepath(self):
+
+        async with self.getTestCore() as core:
+
+            unfo = await core.getUserDefByName('root')
+            root = unfo.get('iden')
+
+            view = await core.callStorm('''
+                            $layr = $lib.layer.add().iden
+                            $view = $lib.view.add(($layr,))
+                            return($view.iden)
+                        ''')
+
+            await core.nodes('trigger.add node:add --form test:guid {$lib.log.info(`u={$auto.opts.user}`) [+#foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:del --form test:int {$lib.log.info(`u={$auto.opts.user}`) [test:str=foo]}', opts={'view': view})
+
+            await core.nodes('[ test:guid=* ]')
+            self.len(0, await core.nodes('test:guid', opts={'view': view}))
+
+            await core.nodes('[ test:int=0 ]')
+            self.len(0, await core.nodes('test:int', opts={'view': view}))
+
+            await core.nodes('test:int | delnode')
+
+            edits = await core.callStorm('''$nodeedits = ()
+                for ($offs, $edits) in $lib.layer.get().edits(wait=$lib.false) {
+                    $nodeedits.extend($edits)
+                }
+                return($nodeedits)''')
+
+            user = await core.auth.addUser('user')
+            await user.addRule((True, ('view', 'read')))
+            guid = s_common.guid()
+
+            async with core.getLocalProxy(share=f'*/view/{view}', user='user') as prox:
+                with self.raises(s_exc.AuthDeny):
+                    await prox.saveNodeEdits(edits, {})
+
+                await core.setUserAdmin(user.iden, True)
+
+                with self.raises(s_exc.BadArg) as cm:
+                    await prox.saveNodeEdits(edits, {})
+                self.eq(cm.exception.get('mesg'), "Meta argument requires user key to be a guid, got user=''")
+
+                with self.getAsyncLoggerStream('synapse.storm.log', 'u=') as stream:
+                    for edit in edits:
+                        await prox.saveNodeEdits((edits), {'time': s_common.now(), 'user': guid})
+                    self.true(await stream.wait(6))
+                valu = stream.getvalue().strip()
+                self.isin(f'u={guid}', valu)
+
+            self.len(1, await core.nodes('test:guid#foo', opts={'view': view}))
+            self.len(1, await core.nodes('test:str=foo', opts={'view': view}))
+
     async def test_lib_view_wipeLayer(self):
 
         async with self.getTestCore() as core:

@@ -354,7 +354,7 @@ modeldefs = (
             ('pe:resource:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
                 'doc': 'The typecode for the resource.'}),
 
-            ('pe:langid', ('int', {'enums': s_l_pe.getLangCodes()}), {
+            ('pe:langid', ('int', {'min': 0, 'max': 0xffff, 'enums': s_l_pe.getLangCodes(), 'enums:strict': False}), {
                 'doc': 'The PE language id.'}),
 
             ('file:mime:macho:loadcmd', ('guid', {}), {

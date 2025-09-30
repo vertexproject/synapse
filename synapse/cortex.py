@@ -59,6 +59,7 @@ import synapse.lib.stormlib.gen as s_stormlib_gen  # NOQA
 import synapse.lib.stormlib.gis as s_stormlib_gis  # NOQA
 import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
 import synapse.lib.stormlib.log as s_stormlib_log  # NOQA
+import synapse.lib.stormlib.pkg as s_stormlib_pkg  # NOQA
 import synapse.lib.stormlib.xml as s_stormlib_xml  # NOQA
 import synapse.lib.stormlib.auth as s_stormlib_auth  # NOQA
 import synapse.lib.stormlib.cell as s_stormlib_cell  # NOQA
@@ -1928,6 +1929,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(slab.fini)
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
+        self.stormpkgqueue = await slab.getMultiQueue('storm:pkg:queue', nexsroot=self.nexsroot)
 
     async def _initStormGraphs(self):
         # TODO we should probably just store this in the cell.slab to save a file handle :D
@@ -2538,8 +2540,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if not ok:
                             break
 
-                        curvers = vers
-                        await self.setStormPkgVar(name, varname, vers)
+                        curvers = max(vers, await self.getStormPkgVar(name, varname, default=-1))
+                        await self.setStormPkgVar(name, varname, curvers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 if onload is not None:
@@ -2819,6 +2821,91 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         pkgvars = self._getStormPkgVarKV(name)
         for item in pkgvars.items():
             yield item
+
+    async def addStormPkgQueue(self, pkgname, name):
+        guid = s_common.guid((pkgname, name))
+        if self.stormpkgqueue.exists(guid):
+            mesg = f'Queue named {name} already exists for package {pkgname}!'
+            raise s_exc.DupName(mesg=mesg)
+
+        info = {
+            'iden': guid,
+            'name': name,
+            'pkgname': pkgname,
+            'created': s_common.now()
+        }
+
+        await self._push('storm:pkg:queue:add', pkgname, name, info)
+
+    @s_nexus.Pusher.onPush('storm:pkg:queue:add')
+    async def _addStormPkgQueue(self, pkgname, name, info):
+        guid = s_common.guid((pkgname, name))
+        if self.stormpkgqueue.exists(guid):
+            return
+        await self.stormpkgqueue.add(guid, info)
+
+    async def listStormPkgQueues(self, pkgname=None):
+        for pkginfo in self.stormpkgqueue.list():
+            if pkgname is None or pkginfo.get('pkgname') == pkgname:
+                yield pkginfo
+
+    async def getStormPkgQueue(self, pkgname, name):
+        guid = s_common.guid((pkgname, name))
+        return self.stormpkgqueue.status(guid)
+
+    async def delStormPkgQueue(self, pkgname, name):
+        guid = s_common.guid((pkgname, name))
+        if not self.stormpkgqueue.exists(guid):
+            mesg = f'No queue named {name} exists for package {pkgname}!'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        await self._push('storm:pkg:queue:del', pkgname, name)
+
+    @s_nexus.Pusher.onPush('storm:pkg:queue:del')
+    async def _delStormPkgQueue(self, pkgname, name):
+        guid = s_common.guid((pkgname, name))
+        if not self.stormpkgqueue.exists(guid):
+            return
+        await self.stormpkgqueue.rem(guid)
+
+    async def stormPkgQueueGet(self, pkgname, name, offs=0, wait=False):
+        guid = s_common.guid((pkgname, name))
+        async for item in self.stormpkgqueue.gets(guid, offs, cull=False, wait=wait):
+            return item
+
+    async def stormPkgQueueGets(self, pkgname, name, offs=0, wait=False, size=None):
+        count = 0
+        guid = s_common.guid((pkgname, name))
+        async for item in self.stormpkgqueue.gets(guid, offs, cull=False, wait=wait):
+
+            yield item
+
+            count += 1
+            if size is not None and count >= size:
+                return
+
+    async def stormPkgQueuePuts(self, pkgname, name, items):
+        return await self._push('storm:pkg:queue:puts', pkgname, name, items)
+
+    @s_nexus.Pusher.onPush('storm:pkg:queue:puts', passitem=True)
+    async def _stormPkgQueuePuts(self, pkgname, name, items, nexsitem):
+        nexsoff, nexsmesg = nexsitem
+        guid = s_common.guid((pkgname, name))
+        return await self.stormpkgqueue.puts(guid, items, reqid=nexsoff)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:queue:cull')
+    async def stormPkgQueueCull(self, pkgname, name, offs):
+        guid = s_common.guid((pkgname, name))
+        await self.stormpkgqueue.cull(guid, offs)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:queue:pop')
+    async def stormPkgQueuePop(self, pkgname, name, offs):
+        guid = s_common.guid((pkgname, name))
+        return await self.stormpkgqueue.pop(guid, offs)
+
+    async def stormPkgQueueSize(self, pkgname, name):
+        guid = s_common.guid((pkgname, name))
+        return self.stormpkgqueue.size(guid)
 
     async def _cortexHealth(self, health):
         health.update('cortex', 'nominal')
@@ -3866,35 +3953,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_stormlib_cortex.StormPoolGetCmd)
         self.addStormCmd(s_stormlib_cortex.StormPoolSetCmd)
 
-        for cdef in s_stormsvc.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
+        cmdmods = [
+            s_storm,
+            s_stormsvc,
+            s_stormlib_aha,
+            s_stormlib_auth,
+            s_stormlib_cortex,
+            s_stormlib_gen,
+            s_stormlib_index,
+            s_stormlib_macro,
+            s_stormlib_model,
+            s_stormlib_pkg,
+            s_stormlib_vault,
+        ]
 
-        for cdef in s_storm.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_aha.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_gen.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_auth.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_macro.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_model.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_cortex.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_vault.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_index.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
+        for cmod in cmdmods:
+            for cdef in cmod.stormcmds:
+                await self._trySetStormCmd(cdef.get('name'), cdef)
 
     async def _initPureStormCmds(self):
         oldcmds = []
