@@ -12,6 +12,59 @@ v3.0.0 - 2025-XX-YY
 Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
 changes.
 
+v2.223.0 - 2025-09-30
+=====================
+
+Model Changes
+-------------
+- Updated ``pe:langid`` type to ``enums:strict=False`` with a value range of
+  0x0000-0xFFFF.
+  (`#4495 <https://github.com/vertexproject/synapse/pull/4495>`_)
+- See :ref:`userguide_model_v2_223_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated trigger ``$auto.opts`` to include ``user``, indicating the user that
+  caused the trigger to fire.
+  (`#4491 <https://github.com/vertexproject/synapse/pull/4491>`_)
+- Added ``$lib.pkg.queues`` Storm API to manage persistent queues for a Storm
+  Package.
+  (`#4496 <https://github.com/vertexproject/synapse/pull/4496>`_)
+- Updated Storm package ``inits`` to set the current version to the maximum of
+  the step version and version variable to allow for skipping later steps.
+  (`#4497 <https://github.com/vertexproject/synapse/pull/4497>`_)
+- Updated ``$lib.mime.html.totext()`` to accept optional ``separator`` and
+  ``strip`` arguments so the caller can specify the separator used to join the
+  tag text and whether to strip whitespace from the beginning and end of the
+  tag text.
+  (`#4502 <https://github.com/vertexproject/synapse/pull/4502>`_)
+- Added ``$lib.task`` Storm APIs for interacting with tasks on a Cortex and its
+  mirrors.
+  (`#4499 <https://github.com/vertexproject/synapse/pull/4499>`_)
+- Added ``task.list`` and ``task.kill`` commands for listing and killing tasks
+  on a Cortex and its mirrors.
+  (`#4499 <https://github.com/vertexproject/synapse/pull/4499>`_)
+
+Bugfixes
+--------
+- Removed an erroneous comment in the example Kubernetes podspec for the AHA
+  service.
+  (`#4489 <https://github.com/vertexproject/synapse/pull/4489>`_)
+- Fixed an issue where attempting to use a variable containing a null value as
+  a walk target would raise a Python exception.
+  (`#4506 <https://github.com/vertexproject/synapse/pull/4506>`_)
+
+Notes
+-----
+- Added the local and remote offsets to the error log message indicating that a
+  mirror is out of sync from the remote service.
+  (`#4498 <https://github.com/vertexproject/synapse/pull/4498>`_)
+
+Deprecations
+------------
+- Deprecated the ``synapse.cryotank.CryoTank`` Cell.
+  (`#4494 <https://github.com/vertexproject/synapse/pull/4494>`_)
+
 v2.222.0 - 2025-09-15
 =====================
 
