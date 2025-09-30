@@ -32,6 +32,12 @@ Features and Enhancements
   tag text and whether to strip whitespace from the beginning and end of the
   tag text.
   (`#4502 <https://github.com/vertexproject/synapse/pull/4502>`_)
+- Added ``$lib.task`` Storm APIs for interacting with tasks on a Cortex and its
+  mirrors.
+  (`#4499 <https://github.com/vertexproject/synapse/pull/4499>`_)
+- Added ``task.list`` and ``task.kill`` commands for listing and killing tasks
+  on a Cortex and its mirrors.
+  (`#4499 <https://github.com/vertexproject/synapse/pull/4499>`_)
 
 Bugfixes
 --------
