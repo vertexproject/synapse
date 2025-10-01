@@ -46,7 +46,7 @@ class Parser(argparse.ArgumentParser):
 async def wrapmain(func): # pragma: no cover
 
     try:
-        return await func(sys.argv[1:])
+        return await s_coro.ornot(func, sys.argv[1:])
 
     except s_exc.ParserExit:
         return 1
