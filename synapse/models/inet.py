@@ -3711,8 +3711,12 @@ class InetModule(s_module.CoreModule):
                         ('urls', ('array', {'type': 'inet:url', 'sorted': True, 'uniq': True}), {
                             'doc': 'An array of alternate URLs for the platform.'}),
 
+                        ('zone', ('inet:fqdn', {}), {
+                            'alts': ('zones',),
+                            'doc': 'The primary zone for the platform.'}),
+
                         ('zones', ('array', {'type': 'inet:fqdn', 'sorted': True, 'uniq': True}), {
-                            'doc': 'An array of zones for the platform.'}),
+                            'doc': 'An array of alternate zones for the platform.'}),
 
                         ('name', ('str', {'onespace': True, 'lower': True}), {
                             'ex': 'twitter',
