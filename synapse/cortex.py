@@ -464,6 +464,15 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getTypeNorm(name, valu, typeopts=typeopts)
 
+    async def addType(self, typename, basetype, typeopts, typeinfo):
+        '''
+        Add an extended type to the data model.
+
+        Extended types *must* begin with _
+        '''
+        self.user.confirm(('model', 'type', 'add', typename))
+        return await self.cell.addType(typename, basetype, typeopts, typeinfo)
+
     async def addForm(self, formname, basetype, typeopts, typeinfo):
         '''
         Add an extended form to the data model.
@@ -3662,6 +3671,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return True
 
+    @s_cell.from_leader
     async def addUnivProp(self, name, tdef, info):
         if not isinstance(tdef, tuple):
             mesg = 'Universal property type definitions should be a tuple.'
@@ -3675,6 +3685,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if not name.startswith('_'):
             mesg = 'ext univ name must start with "_"'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
+
+        typename = tdef[0]
+        if (basetype := self.model.type(typename)) is None:
+            mesg = f'Specified type {typename} does not exist.'
+            raise s_exc.NoSuchType(mesg=mesg, name=typename)
+
+        basetype.clone(tdef[1])
 
         base = '.' + name
         if base in self.model.props:
@@ -3697,6 +3714,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if univ:
             await self.feedBeholder('model:univ:add', univ.pack())
 
+    @s_cell.from_leader
     async def addForm(self, formname, basetype, typeopts, typeinfo):
         if not isinstance(typeopts, dict):
             mesg = 'Form type options should be a dict.'
@@ -3717,6 +3735,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.model.type(formname) is not None:
             mesg = f'Type already exists: {formname}'
             raise s_exc.DupTypeName.init(formname)
+
+        if (base := self.model.type(basetype)) is None:
+            mesg = f'Specified base type {basetype} does not exist.'
+            raise s_exc.NoSuchType(mesg=mesg, name=basetype)
+
+        base.clone(typeopts)
 
         return await self._push('model:form:add', formname, basetype, typeopts, typeinfo)
 
@@ -3772,6 +3796,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change', form=formname, act='del', type='form')
         await self.feedBeholder('model:form:del', {'form': formname})
 
+    @s_cell.from_leader
     async def addType(self, typename, basetype, typeopts, typeinfo):
         if not isinstance(typeopts, dict):
             mesg = 'Type options should be a dict.'
@@ -3840,6 +3865,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change', name=typename, act='del', type='type')
         await self.feedBeholder('model:type:del', {'type': typename})
 
+    @s_cell.from_leader
     async def addFormProp(self, form, prop, tdef, info):
         if not isinstance(tdef, tuple):
             mesg = 'Form property type definitions should be a tuple.'
@@ -3852,12 +3878,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if not prop.startswith('_') and not form.startswith('_'):
             mesg = 'Extended prop must begin with "_" or be added to an extended form.'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
+
         _form = self.model.form(form)
         if _form is None:
             raise s_exc.NoSuchForm.init(form)
+
         if _form.prop(prop):
             raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                      form=form, prop=prop)
+
+        typename = tdef[0]
+        if (basetype := self.model.type(typename)) is None:
+            mesg = f'Specified type {typename} does not exist.'
+            raise s_exc.NoSuchType(mesg=mesg, name=typename)
+
+        basetype.clone(tdef[1])
+
         await self._push('model:prop:add', form, prop, tdef, info)
 
     @s_nexus.Pusher.onPush('model:prop:add')
@@ -4039,6 +4075,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
         await self.feedBeholder('model:univ:del', {'prop': univname})
 
+    @s_cell.from_leader
     async def addTagProp(self, name, tdef, info):
         if not isinstance(tdef, tuple):
             mesg = 'Tag property type definitions should be a tuple.'
@@ -4050,6 +4087,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.exttagprops.get(name) is not None:
             raise s_exc.DupPropName(name=name)
+
+        typename = tdef[0]
+        if (basetype := self.model.type(typename)) is None:
+            mesg = f'Specified type {typename} does not exist.'
+            raise s_exc.NoSuchType(mesg=mesg, name=typename)
+
+        basetype.clone(tdef[1])
 
         return await self._push('model:tagprop:add', name, tdef, info)
 
@@ -4088,6 +4132,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:tagprop:change', name=name, act='del')
         await self.feedBeholder('model:tagprop:del', {'tagprop': name})
 
+    @s_cell.from_leader
     async def addEdge(self, edge, edgeinfo):
         if not isinstance(edgeinfo, dict):
             mesg = 'Edge info should be a dict.'
