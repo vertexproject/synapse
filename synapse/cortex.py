@@ -3686,12 +3686,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = 'ext univ name must start with "_"'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
 
-        typename = tdef[0]
-        if (basetype := self.model.type(typename)) is None:
-            mesg = f'Specified type {typename} does not exist.'
-            raise s_exc.NoSuchType(mesg=mesg, name=typename)
-
-        basetype.clone(tdef[1])
+        self.model.getTypeClone(tdef)
 
         base = '.' + name
         if base in self.model.props:
@@ -3736,11 +3731,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Type already exists: {formname}'
             raise s_exc.DupTypeName.init(formname)
 
-        if (base := self.model.type(basetype)) is None:
-            mesg = f'Specified base type {basetype} does not exist.'
-            raise s_exc.NoSuchType(mesg=mesg, name=basetype)
-
-        base.clone(typeopts)
+        self.model.getTypeClone((basetype, typeopts))
 
         return await self._push('model:form:add', formname, basetype, typeopts, typeinfo)
 
@@ -3878,21 +3869,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if not prop.startswith('_') and not form.startswith('_'):
             mesg = 'Extended prop must begin with "_" or be added to an extended form.'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
-
         _form = self.model.form(form)
         if _form is None:
             raise s_exc.NoSuchForm.init(form)
-
         if _form.prop(prop):
             raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                      form=form, prop=prop)
 
-        typename = tdef[0]
-        if (basetype := self.model.type(typename)) is None:
-            mesg = f'Specified type {typename} does not exist.'
-            raise s_exc.NoSuchType(mesg=mesg, name=typename)
-
-        basetype.clone(tdef[1])
+        self.model.getTypeClone(tdef)
 
         await self._push('model:prop:add', form, prop, tdef, info)
 
@@ -4088,12 +4072,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.exttagprops.get(name) is not None:
             raise s_exc.DupPropName(name=name)
 
-        typename = tdef[0]
-        if (basetype := self.model.type(typename)) is None:
-            mesg = f'Specified type {typename} does not exist.'
-            raise s_exc.NoSuchType(mesg=mesg, name=typename)
-
-        basetype.clone(tdef[1])
+        self.model.getTypeClone(tdef)
 
         return await self._push('model:tagprop:add', name, tdef, info)
 
