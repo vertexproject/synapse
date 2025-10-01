@@ -544,6 +544,13 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('model', 'tagprop', 'del'))
         return await self.cell.delTagProp(name)
 
+    async def addEdge(self, edge, edgeinfo):
+        '''
+        Add an extended edge definition to the data model.
+        '''
+        self.user.confirm(('model', 'edge', 'add'))
+        return await self.cell.addEdge(edge, edgeinfo)
+
     async def addStormPkg(self, pkgdef, verify=False):
         self.user.confirm(('pkg', 'add'))
         return await self.cell.addStormPkg(pkgdef, verify=verify)

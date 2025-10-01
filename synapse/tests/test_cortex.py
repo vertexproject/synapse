@@ -6693,6 +6693,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core01.sync()
             self.none(core01.model.tagprop('user'))
 
+            core01.model.addForm('_newmodel:type', {}, {})
+
+            with self.raises(s_exc.NoSuchForm):
+                await core01.addEdge(('_newmodel:type', '_foo', None), {})
+
+            await core01.sync()
+            self.none(core01.model.edge(('_newmodel:type', '_foo', None)))
+
     async def test_cortex_axon(self):
         async with self.getTestCore() as core:
             # By default, a cortex has a local Axon instance available
