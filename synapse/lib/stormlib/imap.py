@@ -531,11 +531,13 @@ class ImapLib(s_stormtypes.Lib):
 
         async def fini():
             async def _logout():
-                await s_common.wait_for(imap.logout(), 5)
-                await imap.fini()
+                if not imap.isfini:
+                    await s_common.wait_for(imap.logout(), 5)
+
             s_coro.create_task(_logout())
 
         self.runt.snap.onfini(fini)
+        self.runt.snap.onfini(imap)
 
         return ImapServer(self.runt, imap, timeout)
 

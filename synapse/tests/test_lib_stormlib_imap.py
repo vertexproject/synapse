@@ -445,6 +445,8 @@ class ImapTest(s_test.SynTest):
 
         while not link.isfini:
             mesg = await link.rx()
+            if mesg is None:
+                break
 
             # Receive commands from client
             command = mesg.get('command')
@@ -861,6 +863,8 @@ class ImapTest(s_test.SynTest):
                 (False, (b'Selected mailbox is read-only.',))
             )
 
+            await imap.fini()
+
     async def test_storm_imap_fetch(self):
 
         async with self.getTestCoreAndImapPort() as (core, port):
@@ -877,6 +881,8 @@ class ImapTest(s_test.SynTest):
 
             self.eq(ret, (True, (rfc822, header, b'(UID 1 RFC822 BODY[HEADER])')))
 
+            await imap.fini()
+
     async def test_storm_imap_logout(self):
 
         async with self.getTestCoreAndImapPort() as (core, port):
@@ -889,6 +895,7 @@ class ImapTest(s_test.SynTest):
                 await imap.logout(),
                 (True, (b'LOGOUT completed',))
             )
+            await imap.fini()
 
             # Non-OK logout response
             async def logout_no(self, mesg):
@@ -902,6 +909,7 @@ class ImapTest(s_test.SynTest):
                     await imap.logout(),
                     (False, (b'Cannot logout.',))
                 )
+                await imap.fini()
 
             # Logout without BYE response
             async def logout_nobye(self, mesg):
@@ -915,6 +923,7 @@ class ImapTest(s_test.SynTest):
                     await imap.logout(),
                     (False, (b'Server failed to send expected BYE response.',))
                 )
+                await imap.fini()
 
     async def test_storm_imap_errors(self):
 
@@ -936,6 +945,8 @@ class ImapTest(s_test.SynTest):
                 tag = imap._genTag()
                 await imap._command(tag, 'NEWP')
             self.eq(exc.exception.get('mesg'), 'Unsupported command: NEWP.')
+
+            await imap.fini()
 
     async def test_storm_imap_parseLine(self):
 
