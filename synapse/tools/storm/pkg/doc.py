@@ -150,7 +150,7 @@ async def buildPkgDocs(outp, pkgpath: str, rst_only: bool =False):
 
     logger.info(f'buildPkgDocs complete for {pkgpath}.')
 
-prog = 'synapse.tools.pkgs.gendocs'
+prog = 'synapse.tools.storm.pkg.doc'
 desc = 'A tool for building storm package docs from RStorm into markdown. This tool requires pandoc to be available.'
 
 async def main(argv, outp=s_output.stdout):
