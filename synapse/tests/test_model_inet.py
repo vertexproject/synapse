@@ -2991,10 +2991,17 @@ class InetModelTest(s_t_utils.SynTest):
 
             q = '''
             [ inet:service:platform=(slack,)
+                :id=foo
                 :url="https://slack.com"
                 :urls=(https://slacker.com,)
+                :zones=(slack.com, slacker.com)
                 :name=Slack
                 :names=("slack chat",)
+                :parent={[ inet:service:platform=({"name": "salesforce"}) ]}
+                :status=available
+                :period=(2022, 2023)
+                :creator={[ inet:service:account=({"id": "bar"}) ]}
+                :remover={[ inet:service:account=({"id": "baz"}) ]}
                 :provider={ ou:org:name=$provname }
                 :provider:name=$provname
             ]
@@ -3002,13 +3009,26 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:platform', s_common.guid(('slack',))))
+            self.eq('foo', nodes[0].get('id'))
             self.eq(nodes[0].get('url'), 'https://slack.com')
             self.eq(nodes[0].get('urls'), ('https://slacker.com',))
+            self.eq(nodes[0].get('zones'), ('slack.com', 'slacker.com'))
             self.eq(nodes[0].get('name'), 'slack')
             self.eq(nodes[0].get('names'), ('slack chat',))
+            self.eq(nodes[0].repr('status'), 'available')
+            self.eq(nodes[0].repr('period'), ('2022/01/01 00:00:00.000', '2023/01/01 00:00:00.000'))
             self.eq(nodes[0].get('provider'), provider.ndef[1])
             self.eq(nodes[0].get('provider:name'), provname.lower())
             platform = nodes[0]
+
+            nodes = await core.nodes('inet:service:platform=(slack,) :parent -> *')
+            self.eq(['salesforce'], [n.get('name') for n in nodes])
+
+            nodes = await core.nodes('inet:service:platform=(slack,) :creator -> *')
+            self.eq(['bar'], [n.get('id') for n in nodes])
+
+            nodes = await core.nodes('inet:service:platform=(slack,) :remover -> *')
+            self.eq(['baz'], [n.get('id') for n in nodes])
 
             nodes = await core.nodes('[ inet:service:platform=({"name": "slack chat"}) ]')
             self.eq(nodes[0].ndef, platform.ndef)
