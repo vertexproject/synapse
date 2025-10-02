@@ -1,6 +1,9 @@
 ---
-desc: 'Added the following time format strings:   - ``$lib.time.formats.iso8601``   -
-  ``$lib.time.formats.iso8601us``   - ``$lib.time.formats.rfc2822``   - ``$lib.time.formats.synapse``'
+desc: 'Added the following time format strings:
+  - ``$lib.time.formats.iso8601``
+  - ``$lib.time.formats.iso8601us``
+  - ``$lib.time.formats.rfc2822``
+  - ``$lib.time.formats.synapse``'
 prs: []
 type: feat
 ...
