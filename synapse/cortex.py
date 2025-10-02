@@ -548,7 +548,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Add an extended edge definition to the data model.
 
-        Extended edge definition must use a verb which begins with _
+        Extended edge definitions must use a verb which begins with _
         '''
         self.user.confirm(('model', 'edge', 'add'))
         return await self.cell.addEdge(edge, edgeinfo)
