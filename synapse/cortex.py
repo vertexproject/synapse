@@ -1458,6 +1458,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('model', 'univ', 'del'), 'gate': 'cortex',
              'desc': 'Controls access to deleting extended model universal properties and values.'},
 
+            {'perm': ('model', 'edge', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to adding extended model edges.'},
+            {'perm': ('model', 'edge', 'del'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting extended model edges.'},
+
             {'perm': ('node',), 'gate': 'layer',
              'desc': 'Controls all node edits in a layer.'},
             {'perm': ('node', 'add'), 'gate': 'layer',
