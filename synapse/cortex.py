@@ -468,7 +468,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Add an extended type to the data model.
 
-        Extended types *must* begin with _
+        Extended types must begin with _
         '''
         self.user.confirm(('model', 'type', 'add', typename))
         return await self.cell.addType(typename, basetype, typeopts, typeinfo)
@@ -547,6 +547,8 @@ class CoreApi(s_cell.CellApi):
     async def addEdge(self, edge, edgeinfo):
         '''
         Add an extended edge definition to the data model.
+
+        Extended edge definition must use a verb which begins with _
         '''
         self.user.confirm(('model', 'edge', 'add'))
         return await self.cell.addEdge(edge, edgeinfo)
