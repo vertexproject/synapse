@@ -531,8 +531,10 @@ class ImapLib(s_stormtypes.Lib):
 
         async def fini():
             async def _logout():
-                if not imap.isfini:
+                try:
                     await s_common.wait_for(imap.logout(), 5)
+                except s_exc.IsFini:
+                    pass
 
             s_coro.create_task(_logout())
 
