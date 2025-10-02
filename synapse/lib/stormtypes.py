@@ -2971,6 +2971,7 @@ class LibTime(Lib):
                     Tuesday 14, July 2020
 
                 Format a timestamp into a string using included format string::
+
                     storm> $now=$lib.time.now() $str=$lib.time.format($now, $lib.time.formats.iso8601) $lib.print($str)
 
                     2025-10-02T09:34:00Z''',
