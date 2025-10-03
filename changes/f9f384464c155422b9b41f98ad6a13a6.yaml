@@ -1,0 +1,5 @@
+---
+desc: Added the ``:updated`` property and ``about`` edge to ``risk:alert``.
+prs: []
+type: model
+...

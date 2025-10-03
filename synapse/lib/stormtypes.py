@@ -2968,7 +2968,13 @@ class LibTime(Lib):
 
                     storm> $now=$lib.time.now() $str=$lib.time.format($now, '%A %d, %B %Y') $lib.print($str)
 
-                    Tuesday 14, July 2020''',
+                    Tuesday 14, July 2020
+
+                Format a timestamp into a string using included format string::
+
+                    storm> $now=$lib.time.now() $str=$lib.time.format($now, $lib.time.formats.iso8601) $lib.print($str)
+
+                    2025-10-02T09:34:00Z''',
          'type': {'type': 'function', '_funcname': '_format',
                   'args': (
                       {'name': 'valu', 'type': 'int', 'desc': 'A timestamp in epoch milliseconds.', },
@@ -3103,6 +3109,10 @@ class LibTime(Lib):
                       {'name': 'timezone', 'desc': 'A timezone name. See python pytz docs for options.', 'type': 'str'},
                   ),
                   'returns': {'type': 'list', 'desc': 'An ($ok, $valu) tuple.', }}},
+        {'name': 'formats.iso8601', 'desc': 'ISO8601 time format string in UTC timezone (Z).', 'type': 'str'},
+        {'name': 'formats.iso8601us', 'desc': 'ISO8601 time format string (with microseconds) in UTC timezone (Z).', 'type': 'str'},
+        {'name': 'formats.rfc2822', 'desc': 'RFC 2822 time format string in UT timezone.', 'type': 'str'},
+        {'name': 'formats.synapse', 'desc': 'Synapse time format string.', 'type': 'str'},
     )
     _storm_lib_path = ('time',)
 
@@ -3127,6 +3137,13 @@ class LibTime(Lib):
             'dayofyear': self.dayofyear,
             'dayofmonth': self.dayofmonth,
             'monthofyear': self.monthofyear,
+
+            'formats': {
+                'iso8601': '%Y-%m-%dT%H:%M:%SZ',
+                'iso8601us': '%Y-%m-%dT%H:%M:%S.%fZ',
+                'rfc2822': '%d %b %Y %H:%M:%S UT',
+                'synapse': '%Y/%m/%d %H:%M:%S.%f',
+            },
         }
 
     @stormfunc(readonly=True)
