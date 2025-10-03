@@ -166,6 +166,9 @@ class ProjectModule(s_module.CoreModule):
                         ('created', ('time', {}), {
                             'doc': 'The time the comment was added.'}),
 
+                        ('ext:creator', ('ps:contact', {}), {
+                            'doc': 'The contact information of the creator from an external system.'}),
+
                         ('updated', ('time', {'ismax': True}), {
                             'doc': 'The last time the comment was updated.'}),
 
