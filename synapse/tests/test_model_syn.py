@@ -1,8 +1,9 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
-import synapse.datamodel as s_datamodel
 
+import synapse.lib.time as s_time
+import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tests.utils as s_t_utils
@@ -41,6 +42,21 @@ class TestService(s_stormsvc.StormSvc):
                         ],
                     },
                     'storm': '',
+                },
+                {
+                    'name': 'deprvers',
+                    'storm': '',
+                    'deprecated': {'eolvers': 'v3.0.0'},
+                },
+                {
+                    'name': 'deprdate',
+                    'storm': '',
+                    'deprecated': {'eoldate': '2099-01-01'},
+                },
+                {
+                    'name': 'deprmesg',
+                    'storm': '',
+                    'deprecated': {'eoldate': '2099-01-01', 'mesg': 'Please use ``ohhai``.'},
                 },
             )
         },
@@ -683,7 +699,7 @@ class SynModelTest(s_t_utils.SynTest):
 
                 # check that runt nodes for new commands are created
                 nodes = await core.nodes('syn:cmd +:package')
-                self.len(2, nodes)
+                self.len(5, nodes)
 
                 self.eq(nodes[0].ndef, ('syn:cmd', 'foobar'))
                 self.eq(nodes[0].get('doc'), 'foobar is a great service')
@@ -692,6 +708,7 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ipv4'), ('bar', 'inet:fqdn')))
                 self.eq(nodes[0].get('package'), 'foo')
                 self.eq(nodes[0].get('svciden'), iden)
+                self.none(nodes[0].get('deprecated'))
 
                 self.eq(nodes[1].ndef, ('syn:cmd', 'ohhai'))
                 self.eq(nodes[1].get('doc'), 'No description')
@@ -700,6 +717,25 @@ class SynModelTest(s_t_utils.SynTest):
                 self.none(nodes[1].get('nodedata'))
                 self.eq(nodes[1].get('package'), 'foo')
                 self.eq(nodes[1].get('svciden'), iden)
+                self.none(nodes[1].get('deprecated'))
+
+                self.eq(nodes[2].ndef, ('syn:cmd', 'deprvers'))
+                self.true(nodes[2].get('deprecated'))
+                self.eq(nodes[2].get('deprecated:version'), s_version.packVersion(3, 0, 0))
+                self.none(nodes[2].get('deprecated:date'))
+                self.none(nodes[2].get('deprecated:mesg'))
+
+                self.eq(nodes[3].ndef, ('syn:cmd', 'deprdate'))
+                self.true(nodes[3].get('deprecated'))
+                self.none(nodes[3].get('deprecated:version'))
+                self.eq(nodes[3].get('deprecated:date'), s_time.parse('2099-01-01'))
+                self.none(nodes[3].get('deprecated:mesg'))
+
+                self.eq(nodes[4].ndef, ('syn:cmd', 'deprmesg'))
+                self.true(nodes[4].get('deprecated'))
+                self.none(nodes[4].get('deprecated:version'))
+                self.eq(nodes[4].get('deprecated:date'), s_time.parse('2099-01-01'))
+                self.none(nodes[4].get('deprecated:mesg'))
 
                 # Pivot from cmds to their forms
                 nodes = await core.nodes('syn:cmd=foobar -> *')

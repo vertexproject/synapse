@@ -1,0 +1,5 @@
+---
+desc: Added ``deprecated`` keys to Storm commands and command args.
+prs: []
+type: feat
+...

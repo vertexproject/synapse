@@ -4627,6 +4627,60 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('$lib.bytes.hashset`` has been deprecated and will be removed in version v3.0.0', msgs)
             self.stormIsInPrint('Use the corresponding ``$lib.axon`` function.', msgs)
 
+    async def test_storm_cmd_deprecations(self):
+
+        async with self.getTestCore() as core:
+
+            deprpkg = {
+                'name': 'testdepr',
+                'version': '0.0.1',
+                'synapse_version': '>=2.8.0,<3.0.0',
+                'commands': (
+                    {
+                        'name': 'deprmesg',
+                        'descr': 'deprecated command',
+                        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'deprcmd is deprecated.'},
+                        'storm': '[ inet:ipv4=1.2.3.4 ]',
+                    },
+                    {
+                        'name': 'deprnomesg',
+                        'descr': 'deprecated command',
+                        'deprecated': {'eolvers': 'v3.0.0'},
+                        'storm': '[ inet:ipv4=1.2.3.4 ]',
+                    },
+                    {
+                        'name': 'deprargs',
+                        'descr': 'deprecated command',
+                        'storm': '[ inet:ipv4=1.2.3.4 ]',
+                        'cmdargs': (
+                            ('--start-time', {
+                                'type': 'time',
+                                'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use --period instead.'},
+                            }),
+                            ('--end-time', {
+                                'type': 'time',
+                                'deprecated': {'eolvers': 'v3.0.0'},
+                            }),
+                            ('--period', {
+                                'type': 'time',
+                            }),
+                        ),
+                    },
+                ),
+            }
+
+            self.none(await core.addStormPkg(deprpkg))
+
+            msgs = await core.stormlist('deprmesg -h')
+            self.stormIsInPrint('Deprecated: deprcmd is deprecated.', msgs)
+
+            msgs = await core.stormlist('deprnomesg -h')
+            self.stormIsInPrint('Deprecated: "deprnomesg" is deprecated in 2.x and will be removed in v3.0.0', msgs)
+
+            msgs = await core.stormlist('deprargs -h')
+            self.stormIsInPrint('  Deprecated: Use --period instead.', msgs)
+            self.stormIsInPrint('  Deprecated: "--end-time" is deprecated in 2.x and will be removed in v3.0.0', msgs)
+
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
 
