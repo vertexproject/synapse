@@ -3036,6 +3036,9 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:service:platform=({"url": "https://slacker.com"}) ]')
             self.eq(nodes[0].ndef, platform.ndef)
 
+            nodes = await core.nodes('[ inet:service:platform=({"zone": "slacker.com"}) ]')
+            self.eq(nodes[0].ndef, platform.ndef)
+
             q = '''
             [ inet:service:instance=(vertex, slack)
                 :id='T2XK1223Y'
