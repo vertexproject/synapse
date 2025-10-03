@@ -218,17 +218,6 @@ class IMAPClient(IMAPBase):
 
         return self
 
-    async def fini(self):
-        if self.isfini:
-            return
-
-        try:
-            await s_common.wait_for(self.logout(), 5)
-        except TimeoutError:
-            pass
-
-        await super().fini()
-
     def _parseLine(self, line):
         match = imap_rgx.match(line)
         if match is None:
@@ -540,7 +529,21 @@ class ImapLib(s_stormtypes.Lib):
         except TimeoutError:
             raise s_exc.TimeOut(mesg='Timed out waiting for IMAP server hello.') from None
 
-        self.runt.snap.onfini(imap)
+        async def fini():
+            async def imapfini():
+                if imap.isfini:
+                    return
+
+                try:
+                    await s_common.wait_for(imap.logout(), 5)
+                except TimeoutError:
+                    pass
+
+                await imap.fini()
+
+            self.runt.snap.core.schedCoro(imapfini())
+
+        self.runt.snap.onfini(fini)
 
         return ImapServer(self.runt, imap, timeout)
 
