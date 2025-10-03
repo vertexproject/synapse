@@ -4645,7 +4645,7 @@ class StormTest(s_t_utils.SynTest):
                     {
                         'name': 'deprnomesg',
                         'descr': 'deprecated command',
-                        'deprecated': {'eolvers': 'v3.0.0'},
+                        'deprecated': {'eoldate': '2099-01-01'},
                         'storm': '[ inet:ipv4=1.2.3.4 ]',
                     },
                     {
@@ -4682,7 +4682,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInWarn(deprmesg, msgs)
 
             # Deprecation message shows up in command help (with no message specified)
-            deprmesg = '"deprnomesg" is deprecated and will be removed in v3.0.0.'
+            deprmesg = '"deprnomesg" is deprecated and will be removed on 2099-01-01.'
             msgs = await core.stormlist('deprnomesg -h')
             self.stormIsInPrint(f'Deprecated: {deprmesg}', msgs)
             self.stormHasNoWarnErr(msgs)

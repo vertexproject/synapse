@@ -1123,7 +1123,7 @@ def deprmesg(name, depritem):
         return f'"{name}" is deprecated and will be removed in {eolvers}.'
 
     eoldate = depritem.get('eoldate')
-    return f'{name} is deprecated and will be removed on {eoldate}.'
+    return f'"{name}" is deprecated and will be removed on {eoldate}.'
 
 @s_cache.memoize(size=1024)
 def queryhash(text):
