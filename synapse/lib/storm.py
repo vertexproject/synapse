@@ -935,9 +935,7 @@ stormcmds = (
         'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``task.list`` instead.'},
         'descr': 'List running tasks in the cortex.',
         'cmdargs': (
-            ('--verbose', {'default': False, 'action': 'store_true', 'help': 'Enable verbose output.',
-                           'deprecated': {'eolvers': 'v3.0.0'},
-                           }),
+            ('--verbose', {'default': False, 'action': 'store_true', 'help': 'Enable verbose output.'}),
         ),
         'storm': '''
             $tasks = $lib.ps.list()
