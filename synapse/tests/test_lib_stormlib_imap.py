@@ -856,14 +856,14 @@ class ImapTest(s_test.SynTest):
                 self.stormIsInErr('Cannot process EXPUNGE command.', mesgs)
 
             imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+            core.onfini(imap)
+
             await imap.login('user01@vertex.link', 'spaces lol')
             await imap.select('INBOX')
             self.eq(
                 await imap.expunge(),
                 (False, (b'Selected mailbox is read-only.',))
             )
-
-            await imap.fini()
 
     async def test_storm_imap_fetch(self):
 
@@ -872,6 +872,8 @@ class ImapTest(s_test.SynTest):
 
             # Normal response
             imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+            core.onfini(imap)
+
             await imap.login(user, 'pass00')
             await imap.select('INBOX')
             ret = await imap.uid_fetch('1', '(RFC822 BODY[HEADER])')
@@ -881,8 +883,6 @@ class ImapTest(s_test.SynTest):
 
             self.eq(ret, (True, (rfc822, header, b'(UID 1 RFC822 BODY[HEADER])')))
 
-            await imap.fini()
-
     async def test_storm_imap_logout(self):
 
         async with self.getTestCoreAndImapPort() as (core, port):
@@ -890,12 +890,13 @@ class ImapTest(s_test.SynTest):
 
             # Normal response
             imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+            core.onfini(imap)
+
             await imap.login(user, 'pass00')
             self.eq(
                 await imap.logout(),
                 (True, (b'LOGOUT completed',))
             )
-            await imap.fini()
 
             # Non-OK logout response
             async def logout_no(self, mesg):
@@ -904,12 +905,13 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'logout', logout_no):
                 imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+                core.onfini(imap)
+
                 await imap.login(user, 'pass00')
                 self.eq(
                     await imap.logout(),
                     (False, (b'Cannot logout.',))
                 )
-                await imap.fini()
 
             # Logout without BYE response
             async def logout_nobye(self, mesg):
@@ -918,12 +920,13 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'logout', logout_nobye):
                 imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+                core.onfini(imap)
+
                 await imap.login(user, 'pass00')
                 self.eq(
                     await imap.logout(),
                     (False, (b'Server failed to send expected BYE response.',))
                 )
-                await imap.fini()
 
     async def test_storm_imap_errors(self):
 
@@ -941,12 +944,12 @@ class ImapTest(s_test.SynTest):
 
             # Check command validation
             imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+            core.onfini(imap)
+
             with self.raises(s_exc.ImapError) as exc:
                 tag = imap._genTag()
                 await imap._command(tag, 'NEWP')
             self.eq(exc.exception.get('mesg'), 'Unsupported command: NEWP.')
-
-            await imap.fini()
 
     async def test_storm_imap_parseLine(self):
 
