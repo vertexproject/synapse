@@ -735,7 +735,7 @@ class SynModelTest(s_t_utils.SynTest):
                 self.true(nodes[4].get('deprecated'))
                 self.none(nodes[4].get('deprecated:version'))
                 self.eq(nodes[4].get('deprecated:date'), s_time.parse('2099-01-01'))
-                self.none(nodes[4].get('deprecated:mesg'))
+                self.eq(nodes[4].get('deprecated:mesg'), 'Please use ``ohhai``.')
 
                 # Pivot from cmds to their forms
                 nodes = await core.nodes('syn:cmd=foobar -> *')

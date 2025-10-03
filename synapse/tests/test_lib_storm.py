@@ -4671,15 +4671,58 @@ class StormTest(s_t_utils.SynTest):
 
             self.none(await core.addStormPkg(deprpkg))
 
+            # Deprecation message shows up in command help
+            deprmesg = 'deprcmd is deprecated.'
             msgs = await core.stormlist('deprmesg -h')
-            self.stormIsInPrint('Deprecated: deprcmd is deprecated.', msgs)
+            self.stormIsInPrint(f'Deprecated: {deprmesg}', msgs)
+            self.stormHasNoWarnErr(msgs)
 
+            # Deprecation message shows up in command execution as warning
+            msgs = await core.stormlist('deprmesg')
+            self.stormIsInWarn(deprmesg, msgs)
+
+            # Deprecation message shows up in command help (with no message specified)
+            deprmesg = '"deprnomesg" is deprecated in 2.x and will be removed in v3.0.0'
             msgs = await core.stormlist('deprnomesg -h')
-            self.stormIsInPrint('Deprecated: "deprnomesg" is deprecated in 2.x and will be removed in v3.0.0', msgs)
+            self.stormIsInPrint(f'Deprecated: {deprmesg}', msgs)
+            self.stormHasNoWarnErr(msgs)
 
+            # Deprecation message shows up in command execution as warning (with no message specified)
+            msgs = await core.stormlist('deprnomesg')
+            self.stormIsInWarn(deprmesg, msgs)
+
+            # Deprecation message shows up in help for command args
             msgs = await core.stormlist('deprargs -h')
             self.stormIsInPrint('  Deprecated: Use --period instead.', msgs)
             self.stormIsInPrint('  Deprecated: "--end-time" is deprecated in 2.x and will be removed in v3.0.0', msgs)
+            self.stormHasNoWarnErr(msgs)
+
+            # Deprecation message doesn't show up in command execution when not using deprecated args
+            msgs = await core.stormlist('deprargs')
+            self.stormHasNoWarnErr(msgs)
+
+            # Deprecation message shows up in command execution as warning
+            msgs = await core.stormlist('deprargs --start-time now')
+            self.stormIsInWarn('Use --period instead.', msgs)
+            self.stormNotInWarn('"--end-time" is deprecated in 2.x and will be removed in v3.0.0', msgs)
+
+            msgs = await core.stormlist('deprargs --end-time now')
+            self.stormNotInWarn('Use --period instead.', msgs)
+            self.stormIsInWarn('"--end-time" is deprecated in 2.x and will be removed in v3.0.0', msgs)
+
+            msgs = await core.stormlist('deprargs --start-time now --end-time now')
+            self.stormIsInWarn('Use --period instead.', msgs)
+            self.stormIsInWarn('"--end-time" is deprecated in 2.x and will be removed in v3.0.0', msgs)
+
+            # Deprecation message only appears once per runtime
+            msgs = await core.stormlist('[ inet:ipv4=10.0.0.0/28 ] | deprmesg')
+            self.stormIsInWarn('deprcmd is deprecated.', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'warn'])
+
+            msgs = await core.stormlist('[ inet:ipv4=10.0.0.0/28 ] | deprargs --start-time now --end-time now')
+            self.stormIsInWarn('Use --period instead.', msgs)
+            self.stormIsInWarn('"--end-time" is deprecated in 2.x and will be removed in v3.0.0', msgs)
+            self.len(2, [m for m in msgs if m[0] == 'warn'])
 
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
