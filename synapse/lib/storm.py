@@ -1116,13 +1116,14 @@ stormcmds = (
 )
 
 def deprmesg(name, depritem):
-    if (mesg := depritem.get('mesg')) is None:
-        if (eolvers := depritem.get('eolvers')) is not None:
-            mesg = s_common.deprecated(name, eolv=eolvers)
-        else:
-            mesg = s_common.deprdate(name, depritem.get('eoldate'))
+    if (mesg := depritem.get('mesg')) is not None:
+        return f'"{name}" is deprecated: {mesg}'
 
-    return mesg
+    if (eolvers := depritem.get('eolvers')) is not None:
+        return f'"{name}" is deprecated and will be removed in {eolvers}.'
+
+    eoldate = depritem.get('eoldate')
+    return f'{name} is deprecated and will be removed on {eoldate}.'
 
 @s_cache.memoize(size=1024)
 def queryhash(text):
