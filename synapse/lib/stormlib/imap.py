@@ -537,7 +537,7 @@ class ImapLib(s_stormtypes.Lib):
                 try:
                     await s_common.wait_for(imap.logout(), 5)
                 except TimeoutError:
-                    pass
+                    pass # pragma: no cover
 
                 await imap.fini()
 
