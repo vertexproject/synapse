@@ -269,6 +269,9 @@ class RiskModule(s_module.CoreModule):
 
                 (('risk:outage', 'impacted', None), {
                     'doc': 'The outage event impacted the availability of the target node.'}),
+
+                (('risk:alert', 'about', None), {
+                    'doc': 'The alert is about the target node.'}),
             ),
             'forms': (
 
@@ -799,6 +802,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('detected', ('time', {}), {
                         'doc': 'The time the alerted condition was detected.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the alert was most recently modified.'}),
 
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The optional vulnerability that the alert indicates.'}),
