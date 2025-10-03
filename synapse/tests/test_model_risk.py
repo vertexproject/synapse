@@ -325,6 +325,15 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:alert :service:platform -> inet:service:platform'))
             self.len(1, await core.nodes('risk:alert :service:instance -> inet:service:instance'))
 
+            opts = {'vars': {'ndef': nodes[0].ndef[1]}}
+            nodes = await core.nodes('risk:alert=$ndef [ :updated=20251003 ]', opts=opts)
+            self.len(1, nodes)
+            self.eq(1759449600000, nodes[0].get('updated'))
+
+            self.len(1, await core.nodes('[ risk:alert=({"name": "bazfaz"}) +(about)> {[ file:bytes=* :name=alert.txt]} ]'))
+            self.len(1, fnode := await core.nodes('risk:alert=({"name": "bazfaz"}) -(about)> file:bytes'))
+            self.eq(fnode[0].get('name'), 'alert.txt')
+
             nodes = await core.nodes('''[
                     risk:compromise=*
                     :vector=*
