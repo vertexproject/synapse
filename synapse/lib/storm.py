@@ -2003,7 +2003,7 @@ class Parser:
 
             dest = argdef.get('dest')
 
-            if (deprecated := argdef.get('deprecated', {})):
+            if (deprecated := argdef.get('deprecated')) is not None:
                 self.deprs[item] = deprecated
 
             oact = argdef.get('action', 'store')
