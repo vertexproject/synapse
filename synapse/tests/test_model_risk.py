@@ -3,6 +3,7 @@ import logging
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.chop as s_chop
+import synapse.lib.time as s_time
 import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
@@ -328,7 +329,7 @@ class RiskModelTest(s_t_utils.SynTest):
             opts = {'vars': {'ndef': nodes[0].ndef[1]}}
             nodes = await core.nodes('risk:alert=$ndef [ :updated=20251003 ]', opts=opts)
             self.len(1, nodes)
-            self.eq(1759449600000, nodes[0].get('updated'))
+            self.eq(s_time.parse('20251003'), nodes[0].get('updated'))
 
             self.len(1, await core.nodes('[ risk:alert=({"name": "bazfaz"}) +(about)> {[ file:bytes=* :name=alert.txt]} ]'))
             self.len(1, fnode := await core.nodes('risk:alert=({"name": "bazfaz"}) -(about)> file:bytes'))
