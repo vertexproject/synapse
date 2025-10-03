@@ -5,7 +5,7 @@ import aiohttp
 import aiohttp.client_exceptions as a_exc
 
 import synapse.common as s_common
-import synapse.tools.backup as s_backup
+import synapse.tools.service.backup as s_backup
 
 import synapse.exc as s_exc
 import synapse.lib.coro as s_coro

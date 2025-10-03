@@ -439,7 +439,7 @@ have Cortex access using the Telepath API, we will need to add them to the Corte
 certificates for them. To add a new admin user to the Cortex, run the following command from **inside the
 Cortex container**::
 
-    python -m synapse.tools.moduser --add --admin true visi
+    python -m synapse.tools.service.moduser --add --admin true visi
 
 .. note::
 

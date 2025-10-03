@@ -58,7 +58,7 @@ import synapse.lib.thisplat as s_thisplat
 
 import synapse.lib.crypto.passwd as s_passwd
 
-import synapse.tools.backup as s_t_backup
+import synapse.tools.service.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 

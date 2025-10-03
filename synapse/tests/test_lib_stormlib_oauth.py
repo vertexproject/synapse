@@ -11,7 +11,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.oauth as s_oauth
 import synapse.lib.httpapi as s_httpapi
 import synapse.tests.utils as s_test
-import synapse.tools.backup as s_backup
+import synapse.tools.service.backup as s_backup
 
 logger = logging.getLogger(__name__)
 

@@ -1,0 +1,19 @@
+.. highlight:: none
+
+.. _syn-tools-utils-easycert:
+
+utils.easycert
+==============
+
+The Synapse ``utils.easycert`` tool can be used to manage CA, host, and user certificates.
+
+Syntax
+------
+
+``utils.easycert`` is executed using ``python -m synapse.tools.utils.easycert``. The command usage is as follows:
+
+.. shell:: --fail-ok python -m synapse.tools.utils.easycert -h
+
+.. note::
+
+  This tool was previously run using ``synapse.tools.easycert``. It can still be run with that name.

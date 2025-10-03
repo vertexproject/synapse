@@ -9,7 +9,7 @@ import synapse.common as s_common
 import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
 import synapse.tests.utils as s_t_utils
-import synapse.tools.genpkg as s_genpkg
+import synapse.tools.storm.pkg.gen as s_genpkg
 
 import cryptography.x509 as c_x509
 import cryptography.exceptions as c_exc

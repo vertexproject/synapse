@@ -25,8 +25,8 @@ import synapse.lib.stormhttp as s_stormhttp
 
 import synapse.cmds.cortex as s_cmds_cortex
 
-import synapse.tools.storm as s_storm
-import synapse.tools.genpkg as s_genpkg
+import synapse.tools.storm._cli as s_storm
+import synapse.tools.storm.pkg.gen as s_genpkg
 
 
 re_directive = regex.compile(r'^\.\.\s(shell.*|storm.*|[^:])::(?:\s(.*)$|$)')

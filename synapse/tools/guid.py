@@ -1,10 +1,11 @@
-import sys
-
 import synapse.common as s_common
-import synapse.lib.output as s_output
 
-def main(argv, outp=s_output.stdout):
-    outp.printf(s_common.guid())
+import synapse.lib.cmd as s_cmd
+
+from synapse.tools.utils.guid import main
+
+s_common.deprecated('synapse.tools.guid is deprecated. Please use synapse.tools.utils.guid instead.',
+                    curv='v2.224.0')
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(main(sys.argv[1:]))
+    s_cmd.exitmain(main)

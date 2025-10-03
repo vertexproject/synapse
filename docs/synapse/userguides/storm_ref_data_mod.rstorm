@@ -41,7 +41,7 @@ The ability to create or modify data on the fly gives users a powerful degree of
 
 .. TIP::
   
-  For adding data at scale, we recommend use of the Synapse :ref:`syn-tools-csvtool`, the Synapse :ref:`syn-tools-feed`
+  For adding data at scale, we recommend use of the Synapse :ref:`syn-tools-cortex-csv`, the Synapse :ref:`syn-tools-cortex-feed`
   utility, the Optic :ref:`gloss-ingest-tool`, or the programmatic ingest of data (e.g., using a :ref:`gloss-power-up`).)
 
 
