@@ -1,0 +1,5 @@
+---
+desc: Deprecated ``ps.kill`` command in favor of ``task.kill`` command.
+prs: []
+type: deprecation
+...
