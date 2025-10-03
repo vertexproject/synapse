@@ -365,6 +365,14 @@ class SynModule(s_module.CoreModule):
                     ('nodedata', ('array', {'type': 'syn:nodedata'}), {
                         'deprecated': True,
                         'doc': 'The list of nodedata that may be added by the command.', 'uniq': True, 'sorted': True, 'ro': True}),
+                    ('deprecated', ('bool', {}), {
+                        'doc': 'Set to true if this command is scheduled to be removed.'}),
+                    ('deprecated:version', ('it:semver', {}), {
+                        'doc': 'The Synapse version when this command will be removed.'}),
+                    ('deprecated:date', ('time', {}), {
+                        'doc': 'The date when this command will be removed.'}),
+                    ('deprecated:mesg', ('str', {}), {
+                        'doc': 'Optional description of this deprecation.'}),
                 )),
             ),
         }),)

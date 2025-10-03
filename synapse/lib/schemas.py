@@ -954,6 +954,7 @@ _reqValidPkgdefSchema = {
                     'items': {'type': 'array',
                         'items': {'type': 'string'}},
                 },
+                'deprecated': {'$ref': '#/definitions/deprecatedItem'},
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
@@ -980,6 +981,7 @@ _reqValidPkgdefSchema = {
                             'type': 'string',
                             'enum': s_msgpack.deepcopy(datamodel_basetypes),
                         },
+                        'deprecated': {'$ref': '#/definitions/deprecatedItem'},
                     },
                 }
             ],

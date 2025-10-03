@@ -2591,6 +2591,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ctor.pkgname = cdef.get('pkgname')
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
         ctor.forms = cdef.get('forms', {})
+        ctor.deprecated = cdef.get('deprecated', {})
 
         def getStorNode(form):
             ndef = (form.name, form.type.norm(cdef.get('name'))[0])
@@ -2618,6 +2619,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
+
+            if ctor.deprecated:
+                props['deprecated'] = True
+
+                if (eolvers := ctor.deprecated.get('eolvers')) is not None:
+                    props['deprecated:version'] = eolvers
+
+                if (eoldate := ctor.deprecated.get('eoldate')) is not None:
+                    props['deprecated:date'] = eoldate
+
+                if (mesg := ctor.deprecated.get('mesg')) is not None:
+                    props['deprecated:mesg'] = mesg
 
             pnorms = {}
             for prop, valu in props.items():
@@ -4705,15 +4718,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             s_stormlib_macro,
             s_stormlib_model,
             s_stormlib_pkg,
+            s_stormlib_task,
             s_stormlib_vault,
         ]
 
         for cmod in cmdmods:
             for cdef in cmod.stormcmds:
                 await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_task.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
 
     async def _initPureStormCmds(self):
         oldcmds = []
