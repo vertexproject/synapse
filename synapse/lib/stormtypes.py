@@ -1910,6 +1910,7 @@ class LibPs(Lib):
          'type': {'type': 'function', '_funcname': '_list',
                   'returns': {'type': 'list', 'desc': 'A list of task definitions.', }}},
     )
+    _storm_lib_deprecation = {'eolvers': 'v3.0.0', 'mesg': 'Use the corresponding ``$lib.task`` function.'}
     _storm_lib_path = ('ps',)
 
     def getObjLocals(self):
@@ -5342,7 +5343,6 @@ class List(Prim):
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Boolean indicating if the item was removed from the list.'}}},
     )
-    _storm_lib_deprecation = {'eolvers': 'v3.0.0', 'mesg': 'Use the corresponding ``$lib.task`` function.'}
     _storm_typename = 'list'
     _ismutable = True
 
