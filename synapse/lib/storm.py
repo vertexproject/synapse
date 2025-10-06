@@ -932,6 +932,7 @@ stormcmds = (
     },
     {
         'name': 'ps.list',
+        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``task.list`` instead.'},
         'descr': 'List running tasks in the cortex.',
         'cmdargs': (
             ('--verbose', {'default': False, 'action': 'store_true', 'help': 'Enable verbose output.'}),
@@ -958,6 +959,7 @@ stormcmds = (
     },
     {
         'name': 'ps.kill',
+        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``task.kill`` instead.'},
         'descr': 'Kill a running task/query within the cortex.',
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid process iden is accepted.'}),
@@ -1110,6 +1112,16 @@ stormcmds = (
         ''',
     },
 )
+
+def deprmesg(name, depritem):
+    if (mesg := depritem.get('mesg')) is not None:
+        return f'"{name}" is deprecated: {mesg}'
+
+    if (eolvers := depritem.get('eolvers')) is not None:
+        return f'"{name}" is deprecated and will be removed in {eolvers}.'
+
+    eoldate = depritem.get('eoldate')
+    return f'"{name}" is deprecated and will be removed on {eoldate}.'
 
 @s_cache.memoize(size=1024)
 def queryhash(text):
@@ -1906,6 +1918,7 @@ class Parser:
         self.root = root
         self.exited = False
         self.mesgs = []
+        self.deprs = {}
 
         self.optargs = {}
         self.posargs = []
@@ -1931,7 +1944,7 @@ class Parser:
 
         choices = opts.get('choices')
         if choices is not None and opts.get('action') in ('store_true', 'store_false'):
-            mesg = f'Argument choices are not supported when action is store_true or store_false'
+            mesg = 'Argument choices are not supported when action is store_true or store_false'
             raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
 
         dest = self._get_dest(names)
@@ -1987,6 +2000,9 @@ class Parser:
                 continue
 
             dest = argdef.get('dest')
+
+            if (deprecated := argdef.get('deprecated')) is not None:
+                self.deprs[item] = deprecated
 
             oact = argdef.get('action', 'store')
             if oact == 'store_true':
@@ -2177,6 +2193,12 @@ class Parser:
 
         self._printf(f'Usage: {self.prog} [options] {posargs}')
 
+        if self.cdef is not None and (deprecated := self.cdef.get('deprecated')) is not None:
+            dmsg = deprmesg(self.prog, deprecated)
+            self._printf('')
+            self._printf(f'Deprecated: {dmsg}')
+            self._printf('')
+
         if self.cdef is not None and (endpoints := self.cdef.get('endpoints')):
             self._printf('')
             self._printf('Endpoints:')
@@ -2285,6 +2307,10 @@ class Parser:
         first = helplst[0][min_space:]
         wrap_first = self._wrap_text(first, wrap_w)
         self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
+
+        if (deprecated := argdef.get('deprecated')) is not None:
+            mesg = deprmesg(names[0], deprecated)
+            self._printf(f'{"":<{base_w-2}}  Deprecated: {mesg}')
 
         for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
         for ln in helplst[1:]:
@@ -2400,6 +2426,10 @@ class Cmd:
             self.opts = self.pars.parse_args(self.argv)
         except s_exc.BadSyntax:  # pragma: no cover
             pass
+
+        for item, depr in self.pars.deprs.items():
+            mesg = deprmesg(item, depr)
+            await self.runt.snap.warnonce(mesg)
 
         for line in self.pars.mesgs:
             await self.runt.snap.printf(line)
@@ -2521,6 +2551,10 @@ class PureCmd(Cmd):
                 'cmdconf': self.cdef.get('cmdconf', {}),
             }
         }
+
+        if (deprecated := self.cdef.get('deprecated')) is not None:
+            mesg = deprmesg(name, deprecated)
+            await self.runt.warnonce(mesg)
 
         if self.runtsafe:
             data = {'pathvars': {}}
