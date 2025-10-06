@@ -1,6 +1,6 @@
 ---
-desc: 'Added the following properties to ``inet:service:platform``: ``:id``, ``:zones``,
-  ``:parent``, ``:status``, ``:period``, ``:creator``, ``:remover``.'
+desc: 'Added the following properties to ``inet:service:platform``: ``:id``, ``:zone``,
+  ``:zones``, ``:parent``, ``:status``, ``:period``, ``:creator``, ``:remover``.'
 prs: []
 type: model
 ...
