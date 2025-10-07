@@ -144,7 +144,7 @@ def flatten(item):
         item: The python primitive object to normalize.
 
     Notes:
-        Only None, bool, int, bytes, strings, lists, tuples and dictionaries are acceptable input.
+        Only None, bool, int, bytes, strings, floats, lists, tuples and dictionaries are acceptable input.
         List objects will be converted to tuples.
         Dictionary objects must have keys which can be sorted.
 
@@ -155,7 +155,7 @@ def flatten(item):
     if item is None:
         return None
 
-    if isinstance(item, (str, int, bytes)):
+    if isinstance(item, (str, int, bytes, float)):
         return item
 
     if isinstance(item, (tuple, list)):
