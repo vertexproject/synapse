@@ -1200,14 +1200,13 @@ async def _onSetFqdnZone(node):
 async def _onSetWhoisText(node):
 
     text = node.get('text')
-    fqdn = node.get('fqdn')
-    asof = node.get('asof')
+    if (fqdn := node.get('fqdn')) is None:
+        return
 
     for form, valu in s_scrape.scrape(text):
 
         if form == 'inet:email':
-
-            whomail = await node.view.addNode('inet:whois:email', (fqdn, valu))
+            await node.view.addNode('inet:whois:email', (fqdn, valu))
 
 modeldefs = (
     ('inet', {
