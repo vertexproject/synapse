@@ -62,7 +62,7 @@ class SampleNexus2(SampleNexus, SampleMixin):
 
 class NexusTest(s_t_utils.SynTest):
 
-    async def test_nexus(self):
+    async def test_nexus_base(self):
 
         with self.getTestDir() as dirn:
             dir1 = s_common.genpath(dirn, 'nexus1')
@@ -117,10 +117,14 @@ class NexusTest(s_t_utils.SynTest):
                     async def listen():
                         async for item in nexus1.getNexusChanges(nexsindx, wait=True):
                             break
+                        return item
 
                     task = nexus1.schedCoro(listen())
                     self.eq('foo', await nexus1.doathing(eventdict))
-                    await task
+                    offs, item  = await asyncio.wait_for(task, timeout=12)
+                    self.eq(offs, nexsindx)
+                    self.eq(item[1], 'thing:doathing')
+
 
     async def test_nexus_modroot(self):
 
