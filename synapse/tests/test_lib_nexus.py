@@ -121,10 +121,9 @@ class NexusTest(s_t_utils.SynTest):
 
                     task = nexus1.schedCoro(listen())
                     self.eq('foo', await nexus1.doathing(eventdict))
-                    offs, item  = await asyncio.wait_for(task, timeout=12)
+                    offs, item = await asyncio.wait_for(task, timeout=12)
                     self.eq(offs, nexsindx)
                     self.eq(item[1], 'thing:doathing')
-
 
     async def test_nexus_modroot(self):
 
