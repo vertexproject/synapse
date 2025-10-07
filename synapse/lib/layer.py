@@ -127,7 +127,7 @@ class LayerApi(s_cell.CellApi):
         Scan the full layer and yield artificial nodeedit sets.
         '''
 
-        if not self.allowed(self.liftperm):
+        if not await self.allowed(self.liftperm):
             await self._reqUserAllowed(self.readperm)
         async for item in self.layr.iterLayerNodeEdits():
             yield item
@@ -167,14 +167,14 @@ class LayerApi(s_cell.CellApi):
 
         Once caught up with storage, yield them in realtime.
         '''
-        if not self.allowed(self.liftperm):
+        if not await self.allowed(self.liftperm):
             await self._reqUserAllowed(self.readperm)
         async for item in self.layr.syncNodeEdits(offs, wait=wait, reverse=reverse):
             yield item
             await asyncio.sleep(0)
 
     async def syncNodeEdits2(self, offs, wait=True):
-        if not self.allowed(self.liftperm):
+        if not await self.allowed(self.liftperm):
             await self._reqUserAllowed(self.readperm)
         async for item in self.layr.syncNodeEdits2(offs, wait=wait):
             yield item
@@ -184,7 +184,7 @@ class LayerApi(s_cell.CellApi):
         '''
         Returns what will be the *next* nodeedit log index.
         '''
-        if not self.allowed(self.liftperm):
+        if not await self.allowed(self.liftperm):
             await self._reqUserAllowed(self.readperm)
         return await self.layr.getEditIndx()
 
@@ -192,12 +192,12 @@ class LayerApi(s_cell.CellApi):
         '''
         Return the total number of (edits, meta) pairs in the layer changelog.
         '''
-        if not self.allowed(self.liftperm):
+        if not await self.allowed(self.liftperm):
             await self._reqUserAllowed(self.readperm)
         return await self.layr.getEditSize()
 
     async def getIden(self):
-        if not self.allowed(self.liftperm):
+        if not await self.allowed(self.liftperm):
             await self._reqUserAllowed(self.readperm)
         return self.layr.iden
 

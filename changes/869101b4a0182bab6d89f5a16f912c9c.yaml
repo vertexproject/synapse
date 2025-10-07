@@ -1,0 +1,6 @@
+---
+desc: Fixed bug in telepath Layer APIs where permissions checks were skipped because
+  of missing awaits.
+prs: []
+type: bug
+...
