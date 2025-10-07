@@ -2314,6 +2314,16 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:whois:email', ('woot.com', 'pennywise@vertex.link')))
 
+            with self.getLoggerStream('synapse.datamodel') as stream:
+                nodes = await core.nodes('[ inet:whois:record=* :text="Contact: pennywise@vertex.link" ]')
+                self.len(1, nodes)
+                self.eq(nodes[0].get('text'), 'contact: pennywise@vertex.link')
+                self.none(nodes[0].get('fqdn'))
+
+            stream.seek(0)
+            data = stream.read()
+            self.notin('onset() error for inet:whois:record:text', data)
+
     async def test_whois_iprecord(self):
         async with self.getTestCore() as core:
             contact = s_common.guid()
