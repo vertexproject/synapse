@@ -88,6 +88,6 @@ Light Edges
 ***********
 
 ``about``
-    When used with a ``risk:alert`` node, the edge indicates The alert is about
+    When used with a ``risk:alert`` node, the edge indicates the alert is about
     the target node.
 
