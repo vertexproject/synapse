@@ -22,9 +22,9 @@ Model Changes
 
 Features and Enhancements
 -------------------------
-- Added the following time format strings: - ``$lib.time.formats.iso8601`` -
-  ``$lib.time.formats.iso8601us`` - ``$lib.time.formats.rfc2822`` -
-  ``$lib.time.formats.synapse``
+- Added the following time format strings: ``$lib.time.formats.iso8601``,
+  ``$lib.time.formats.iso8601us``, ``$lib.time.formats.rfc2822``, and
+  ``$lib.time.formats.synapse``.
   (`#4513 <https://github.com/vertexproject/synapse/pull/4513>`_)
 - Added support for deprecating Storm commands and command args in the command
   definitions.
@@ -49,7 +49,7 @@ Notes
 
 Deprecations
 ------------
-- Deprecated ``$lib.ps``.
+- Deprecated ``$lib.ps`` in favor of the ``$lib.task`` library.
   (`#4515 <https://github.com/vertexproject/synapse/pull/4515>`_)
 - Deprecated ``ps.kill`` command in favor of ``task.kill`` command.
   (`#4515 <https://github.com/vertexproject/synapse/pull/4515>`_)
