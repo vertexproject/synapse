@@ -1,6 +1,0 @@
----
-desc: Fixed a bug in the Storm IMAP library where IMAP clients may fail to properly
-  close network resources.
-prs: []
-type: bug
-...

@@ -1,5 +1,0 @@
----
-desc: Deprecated ``ps.list`` command in favor of ``task.list`` command.
-prs: []
-type: deprecation
-...
