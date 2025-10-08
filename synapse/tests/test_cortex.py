@@ -1338,7 +1338,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
                 self.eq(20, nodes[0].getTagProp('bar', 'score'))
 
-                #    remove one of the tag props and everything still works
+                # remove one of the tag props and everything still works
                 nodes = await core.nodes('[ test:int=10 -#bar:score ]')
                 self.len(1, nodes)
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
@@ -1346,7 +1346,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 await core.nodes('[ test:int=10 -#foo:score ]')
 
-                #    same, except for _changing_ the tagprop instead of removing
+                # same, except for _changing_ the tagprop instead of removing
                 await core.nodes('test:int=10 [ +#foo:score=20 +#bar:score=20 ]')
                 nodes = await core.nodes('test:int=10 [ +#bar:score=30 ]')
                 self.len(1, nodes)
@@ -1423,6 +1423,154 @@ class CortexTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.BadTypeValu):
                     await core.nodes("test:int $tag=(foo, bar) [ -#$tag:prop ]")
+
+                await core.addForm('_low:str', 'str', {'lower': True}, {})
+                await core.addTagProp('lowstr', ('_low:str', {}), {})
+                await core.addTagProp('normstr', ('_low:str', {'lower': False}), {})
+                await core.addTagProp('refsnode', ('ndef', {}), {})
+                await core.addTagProp('refsprop', ('nodeprop', {}), {})
+
+                await core.nodes('''[
+                    test:str=foo
+                    +#foo:lowstr=fooBAR
+                    +#foo:refsnode=(test:str, refd)
+                    +#foo:refsprop=(test:str:hehe, nprop)
+                    (test:str=bar :hehe=nprop)
+                ]''')
+
+                nodes = await core.nodes('_low:str=foobar <- *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+                nodes = await core.nodes('test:str=refd <- *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+                nodes = await core.nodes('test:str=bar <- *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+                vdef2 = await core.view.fork()
+                forkopts = {'view': vdef2.get('iden')}
+                self.len(1, await core.nodes('_low:str=foobar <- *', opts=forkopts))
+                self.len(1, await core.nodes('test:str=refd <- *', opts=forkopts))
+                self.len(1, await core.nodes('test:str=bar <- *', opts=forkopts))
+
+                await core.nodes('[ test:str=foo +#foo:lowstr=otherval ]', opts=forkopts)
+                self.len(1, await core.nodes('_low:str=foobar <- *'))
+                self.len(0, await core.nodes('_low:str=foobar <- *', opts=forkopts))
+
+                await core.nodes('[ test:str=foo +#foo:refsnode={[ test:str=otherval ]} ]', opts=forkopts)
+                self.len(1, await core.nodes('test:str=refd <- *'))
+                self.len(0, await core.nodes('test:str=refd <- *', opts=forkopts))
+
+                await core.nodes('[ test:str=foo +#foo:refsprop=(test:str, otherprop) ]', opts=forkopts)
+                self.len(1, await core.nodes('test:str=bar <- *'))
+                self.len(0, await core.nodes('test:str=bar <- *', opts=forkopts))
+
+                await core.nodes('[ test:str=foo -#foo:lowstr -#foo:refsnode -#foo:refsprop]', opts=forkopts)
+                self.len(0, await core.nodes('_low:str=foobar <- *', opts=forkopts))
+                self.len(0, await core.nodes('test:str=refd <- *', opts=forkopts))
+                self.len(0, await core.nodes('test:str=bar <- *', opts=forkopts))
+
+                # Duplicate values in multiple layers of a view only return once
+                await core.nodes('[ test:str=foo +#foo:lowstr=dupstr ]', opts=forkopts)
+                await core.nodes('[ test:str=foo +#foo:lowstr=dupstr ]')
+                self.len(1, await core.nodes('_low:str=dupstr <- *', opts=forkopts))
+
+                # Renorming coverage for props with different typeopts
+                await core.nodes('[ test:str=foo +#foo:normstr=normstr ]')
+                self.len(1, await core.nodes('_low:str=normstr <- *', opts=forkopts))
+
+                await core.nodes('[ test:str=foo +#foo:refsnode={[ test:str=otherval ]} ]')
+                self.len(0, await core.nodes('test:str=refd <- *'))
+
+                await core.nodes('[ test:str=foo +#foo:refsprop=(test:str, otherprop) ]')
+                self.len(0, await core.nodes('test:str=bar <- *'))
+
+                await core.delViewWithLayer(vdef2.get('iden'))
+                await core.nodes('_low:str | delnode')
+
+                # Can't delete a type still in use by tagprops
+                with self.raises(s_exc.CantDelType):
+                    await core.delForm('_low:str')
+
+                await core.nodes('test:str=foo [ -#foo:lowstr -#foo:normstr]')
+                await core.delTagProp('lowstr')
+                await core.delTagProp('normstr')
+                await core.delForm('_low:str')
+
+                await core.addTagProp('serv', ('inet:server', {}), {})
+
+                await core.nodes('[ test:str=bar +#bar:serv=1.2.3.4:80 ]')
+                await core.nodes('[ test:str=nop +#bar:serv=1.2.3.4:123 ]')
+                await core.nodes('[ test:int=1 +#bar:serv=1.2.3.4:80 ]')
+
+                self.len(2, await core.nodes('#bar:serv.port=80'))
+                self.len(2, await core.nodes('#bar:serv.port<100'))
+                self.len(1, await core.nodes('#bar:serv.port>100'))
+                self.len(1, await core.nodes('test:str#bar:serv.port=80'))
+                self.len(1, await core.nodes('test:str#bar:serv.port<100'))
+                self.len(1, await core.nodes('test:str#bar:serv.port>100'))
+
+                await core.nodes('test:str=nop [ +#bar:serv=1.2.3.4:99 ]')
+                self.len(0, await core.nodes('#bar:serv.port>100'))
+                self.len(0, await core.nodes('test:str#bar:serv.port>100'))
+
+                self.eq(80, await core.callStorm('test:str#bar:serv.port=80 return(#bar:serv.port)'))
+
+                layr = core.getLayer()
+                indxby = s_layer.IndxByTagPropVirt(layr, 'test:str', 'bar', 'serv', ['port'])
+                self.eq(str(indxby), 'IndxByTagPropVirt: test:str#bar:serv.port')
+
+                indxby = s_layer.IndxByTagPropVirt(layr, None, 'bar', 'serv', ['port'])
+                self.eq(str(indxby), 'IndxByTagPropVirt: #bar:serv.port')
+
+                indxby = s_layer.IndxByTagPropVirt(layr, None, None, 'serv', ['port'])
+                self.eq(str(indxby), 'IndxByTagPropVirt: #*:serv.port')
+
+                vals = []
+                rvals = []
+                servtype = core.model.type('inet:server')
+                norm = (await servtype.norm('1.2.3.4:80'))[0]
+                cmprvals = (('=', norm, servtype.stortype),)
+                async for item in layr.liftByTagPropValu(None, None, 'serv', cmprvals):
+                    vals.append(item[0])
+
+                async for item in layr.liftByTagPropValu(None, None, 'serv', cmprvals, reverse=True):
+                    rvals.append(item[0])
+
+                self.eq(vals, rvals[::-1])
+                self.len(2, vals)
+
+                self.len(3, await core.nodes('#bar:serv.port'))
+                await core.nodes('#bar:serv [ -#bar:serv ]')
+                self.len(0, await core.nodes('#bar:serv.port'))
+
+                self.len(0, await alist(layr.liftByTagProp(None, None, 'serv', reverse=True)))
+                self.len(0, await alist(layr.liftByTagPropValu(None, None, 'serv', cmprvals)))
+
+                await core.addTagProp('time', ('time', {}), {})
+                prec = await core.callStorm('[ test:str=time +#foo:time=2020-01? ] return(#foo:time.precision)')
+                self.eq(s_time.PREC_MONTH, prec)
+                prec = await core.callStorm('test:str=time [ +#foo:time=2020? ] return(#foo:time.precision)')
+                self.eq(s_time.PREC_YEAR, prec)
+
+                await core.addTagProp('ival', ('ival', {}), {})
+                prec = await core.callStorm('[ test:str=ival +#foo:ival=2020 ] return(#foo:ival.precision)')
+                self.eq(s_time.PREC_MICRO, prec)
+                prec = await core.callStorm('test:str=ival [ +#foo:ival.precision=day ] return(#foo:ival.precision)')
+                self.eq(s_time.PREC_DAY, prec)
+                prec = await core.callStorm('test:str=ival [ +#foo:ival.precision?=newp ] return(#foo:ival.precision)')
+                self.eq(s_time.PREC_DAY, prec)
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes('test:str=ival [ +#foo:ival.precision=newp ]')
+
+                await core.nodes('test:str=ival [ +#foo:ival.precision=year ]')
+
+                await core.nodes('test:str=time [ -#foo:time ]')
+                await core.nodes('test:str=ival [ -#foo:ival ]')
 
             # Ensure that the tagprops persist
             async with self.getTestCore(dirn=dirn) as core:
@@ -6226,6 +6374,51 @@ class CortexBasicTest(s_t_utils.SynTest):
                         await prox.addFormProp('test:str', '_blah:blah^blah', ('int', {}), {})
                     with self.raises(s_exc.BadPropDef):
                         await prox.addTagProp('_blah:blah^blah', ('int', {}), {})
+
+        # Mirrors on newer model versions should not be able to add extended model elements
+        # based on model elements the leader doesn't have
+        async with self.getTestAha() as aha:
+
+            conf = {'aha:provision': await aha.addAhaSvcProv('00.cortex')}
+            core00 = await aha.enter_context(self.getTestCore(conf=conf))
+
+            conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex', {'mirror': 'cortex'})}
+            core01 = await aha.enter_context(self.getTestCore(conf=conf))
+
+            # Add a type directly to the mirror's model to simulate different model version
+            core01.model.addType('_newmodel:type', 'str', {}, {})
+
+            with self.raises(s_exc.NoSuchType):
+                await core01.addType('_test:type', '_newmodel:type', {}, {})
+
+            await core01.sync()
+            self.none(core01.model.type('_test:type'))
+
+            with self.raises(s_exc.NoSuchType):
+                await core01.addForm('_hehe:haha', '_newmodel:type', {}, {})
+
+            await core01.sync()
+            self.none(core01.model.form('_hehe:haha'))
+
+            with self.raises(s_exc.NoSuchType):
+                await core01.addFormProp('inet:asn', '_newer', ('_newmodel:type', {}), {})
+
+            await core01.sync()
+            self.none(core01.model.prop('inet:asn:_newer'))
+
+            with self.raises(s_exc.NoSuchType):
+                await core01.addTagProp('user', ('_newmodel:type', {}), {})
+
+            await core01.sync()
+            self.none(core01.model.tagprop('user'))
+
+            core01.model.addForm('_newmodel:type', {}, {})
+
+            with self.raises(s_exc.NoSuchForm):
+                await core01.addEdge(('_newmodel:type', '_foo', None), {})
+
+            await core01.sync()
+            self.none(core01.model.edge(('_newmodel:type', '_foo', None)))
 
     async def test_cortex_axon(self):
         async with self.getTestCore() as core:

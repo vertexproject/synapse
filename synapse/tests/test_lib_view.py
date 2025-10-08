@@ -1295,6 +1295,11 @@ class ViewTest(s_t_utils.SynTest):
 
                 self.true(news.hasTagProp('foo', 'test'))
 
+                await news.delTagProp('foo', 'test')
+                await news.setTagProp('foo', 'test', 'baz')
+                await news.setTagProp('foo', 'test', 'bar')
+                self.true(news.hasTagProp('foo', 'test'))
+
                 with self.raises(s_exc.NoSuchProp):
                     await news.pop('newp')
 

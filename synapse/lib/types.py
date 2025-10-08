@@ -2039,6 +2039,10 @@ class Ndef(Type):
             'form': (self.formtype, self._getForm),
         }
 
+        self.virtindx |= {
+            'form': None,
+        }
+
         self.formfilter = None
 
         self.forms = self.opts.get('forms')
@@ -2096,11 +2100,15 @@ class Ndef(Type):
         if isinstance(valu[0], str):
             return valu[0]
 
-        return (v[0] for v in valu)
+        return tuple(v[0] for v in valu)
 
     async def _normStormNode(self, valu, view=None):
         if self.formfilter is not None:
             self.formfilter(valu.form)
+
+        if valu.form.locked:
+            formname = valu.form.name
+            raise s_exc.IsDeprLocked(mesg=f'Ndef of form {formname} is locked due to deprecation.', form=formname)
 
         return valu.ndef, {'skipadd': True, 'subs': {'form': (self.formtype.typehash, valu.ndef[0], {})}}
 
@@ -2112,6 +2120,9 @@ class Ndef(Type):
 
         if (form := self.modl.form(formname)) is None:
             raise s_exc.NoSuchForm.init(formname)
+
+        if form.locked:
+            raise s_exc.IsDeprLocked(mesg=f'Ndef of form {formname} is locked due to deprecation.', form=formname)
 
         if self.formfilter is not None:
             self.formfilter(form)
@@ -2171,6 +2182,10 @@ class NodeProp(Type):
             'prop': (self.proptype, self._getProp),
         }
 
+        self.virtindx |= {
+            'prop': None,
+        }
+
     async def getStorCmprs(self, cmpr, valu, virts=None):
         if virts:
             cmpr = f'{virts[0]}{cmpr}'
@@ -2195,7 +2210,7 @@ class NodeProp(Type):
         if isinstance(valu[0], str):
             return valu[0]
 
-        return (v[0] for v in valu)
+        return tuple(v[0] for v in valu)
 
     async def _normPyStr(self, valu, view=None):
         valu = valu.split('=', 1)

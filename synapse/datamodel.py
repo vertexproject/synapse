@@ -50,6 +50,8 @@ class TagProp:
             mesg = 'Tag props may not be array types (yet).'
             raise s_exc.BadPropDef(mesg=mesg)
 
+        model.tagpropsbytype[self.type.name][name] = self
+
     def pack(self):
         return {
             'name': self.name,
@@ -524,6 +526,8 @@ class Model:
 
         self.propsbytype = collections.defaultdict(dict)  # name: Prop()
         self.arraysbytype = collections.defaultdict(dict)
+        self.tagpropsbytype = collections.defaultdict(dict)
+
         self.ifaceprops = collections.defaultdict(list)
         self.formsbyiface = collections.defaultdict(list)
         self.edgesbyn1 = collections.defaultdict(set)
@@ -689,6 +693,11 @@ class Model:
             return ()
         return list(props.values())
 
+    def getTagPropsByType(self, name):
+        if (props := self.tagpropsbytype.get(name)) is None:
+            return ()
+        return list(props.values())
+
     def getProps(self):
         return [pobj for pname, pobj in self.props.items()
                 if not (isinstance(pname, tuple))]
@@ -752,13 +761,17 @@ class Model:
 
         raise exc
 
-    def reqTagProp(self, name):
+    def reqTagProp(self, name, extra=None):
         prop = self.getTagProp(name)
         if prop is not None:
             return prop
 
         mesg = f'No tag property named {name}.'
-        raise s_exc.NoSuchTagProp(mesg=mesg, name=name)
+        exc = s_exc.NoSuchTagProp(mesg=mesg, name=name)
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
 
     def reqFormsByPrefix(self, prefix, extra=None):
         forms = self.getFormsByPrefix(prefix)
@@ -864,7 +877,7 @@ class Model:
 
         base = self.types.get(typedef[0])
         if base is None:
-            raise s_exc.NoSuchType(name=typedef[0])
+            raise s_exc.NoSuchType.init(typedef[0])
 
         return base.clone(typedef[1])
 
@@ -1354,14 +1367,13 @@ class Model:
         assert name not in self.ifaces, f'{name} interface already present in model'
         self.ifaces[name] = info
 
-    def delType(self, typename):
-
-        _type = self.types.get(typename)
-        if _type is None:
-            return
-
+    def reqTypeNotInUse(self, typename):
         if self.propsbytype.get(typename):
             mesg = f'Cannot delete type {typename} as it is still in use by properties.'
+            raise s_exc.CantDelType(mesg=mesg, name=typename)
+
+        if self.tagpropsbytype.get(typename):
+            mesg = f'Cannot delete type {typename} as it is still in use by tag properties.'
             raise s_exc.CantDelType(mesg=mesg, name=typename)
 
         for _type in self.types.values():
@@ -1373,9 +1385,18 @@ class Model:
                 mesg = f'Cannot delete type {typename} as it is still in use by array types.'
                 raise s_exc.CantDelType(mesg=mesg, name=typename)
 
+    def delType(self, typename):
+
+        _type = self.types.get(typename)
+        if _type is None:
+            return
+
+        self.reqTypeNotInUse(typename)
+
         self.types.pop(typename, None)
         self.propsbytype.pop(typename, None)
         self.arraysbytype.pop(typename, None)
+        self.tagpropsbytype.pop(typename, None)
 
     def addFormProp(self, formname, propname, tdef, info):
         form = self.forms.get(formname)
@@ -1569,7 +1590,9 @@ class Model:
             self._delFormIface(form, subname, subinfo, ifaceparents=ifaceparents)
 
     def delTagProp(self, name):
-        return self.tagprops.pop(name)
+        if (prop := self.tagprops.pop(name, None)) is not None:
+            self.tagpropsbytype[prop.type.name].pop(name, None)
+        return prop
 
     def addTagProp(self, name, tdef, info):
         if name in self.tagprops:

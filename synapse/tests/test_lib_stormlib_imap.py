@@ -445,6 +445,8 @@ class ImapTest(s_test.SynTest):
 
         while not link.isfini:
             mesg = await link.rx()
+            if mesg is None:
+                break
 
             # Receive commands from client
             command = mesg.get('command')
@@ -854,6 +856,8 @@ class ImapTest(s_test.SynTest):
                 self.stormIsInErr('Cannot process EXPUNGE command.', mesgs)
 
             imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+            core.onfini(imap)
+
             await imap.login('user01@vertex.link', 'spaces lol')
             await imap.select('INBOX')
             self.eq(
@@ -868,6 +872,8 @@ class ImapTest(s_test.SynTest):
 
             # Normal response
             imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+            core.onfini(imap)
+
             await imap.login(user, 'pass00')
             await imap.select('INBOX')
             ret = await imap.uid_fetch('1', '(RFC822 BODY[HEADER])')
@@ -884,6 +890,8 @@ class ImapTest(s_test.SynTest):
 
             # Normal response
             imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+            core.onfini(imap)
+
             await imap.login(user, 'pass00')
             self.eq(
                 await imap.logout(),
@@ -897,6 +905,8 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'logout', logout_no):
                 imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+                core.onfini(imap)
+
                 await imap.login(user, 'pass00')
                 self.eq(
                     await imap.logout(),
@@ -910,6 +920,8 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'logout', logout_nobye):
                 imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+                core.onfini(imap)
+
                 await imap.login(user, 'pass00')
                 self.eq(
                     await imap.logout(),
@@ -932,6 +944,8 @@ class ImapTest(s_test.SynTest):
 
             # Check command validation
             imap = await s_link.connect('127.0.0.1', port, linkcls=s_imap.IMAPClient)
+            core.onfini(imap)
+
             with self.raises(s_exc.ImapError) as exc:
                 tag = imap._genTag()
                 await imap._command(tag, 'NEWP')

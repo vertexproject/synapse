@@ -12,6 +12,56 @@ v3.0.0 - 2025-XX-YY
 Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
 changes.
 
+v2.224.0 - 2025-10-07
+=====================
+
+Model Changes
+-------------
+- Added the following properties to ``inet:service:platform``: ``:id``,
+  ``:zone``, ``:zones``, ``:parent``, ``:status``, ``:period``, ``:creator``,
+  ``:remover``.
+  (`#4508 <https://github.com/vertexproject/synapse/pull/4508>`_)
+  (`#4511 <https://github.com/vertexproject/synapse/pull/4511>`_)
+- Added the ``:updated`` property and ``about`` edge to ``risk:alert``.
+  (`#4516 <https://github.com/vertexproject/synapse/pull/4516>`_)
+- See :ref:`userguide_model_v2_224_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added the following time format strings: ``$lib.time.formats.iso8601``,
+  ``$lib.time.formats.iso8601us``, ``$lib.time.formats.rfc2822``, and
+  ``$lib.time.formats.synapse``.
+  (`#4513 <https://github.com/vertexproject/synapse/pull/4513>`_)
+- Added support for deprecating Storm commands and command args in the command
+  definitions.
+  (`#4515 <https://github.com/vertexproject/synapse/pull/4515>`_)
+
+Bugfixes
+--------
+- Fixed an issue where adding extended model elements to a mirror on a newer
+  version than the leader could fail on the leader.
+  (`#4510 <https://github.com/vertexproject/synapse/pull/4510>`_)
+- Fixed a bug in the Storm IMAP library where IMAP clients may fail to properly
+  close network resources.
+  (`#4512 <https://github.com/vertexproject/synapse/pull/4512>`_)
+- Fixed bug in telepath Layer APIs where permissions checks were skipped
+  because of missing awaits.
+  (`#4521 <https://github.com/vertexproject/synapse/pull/4521>`_)
+
+Notes
+-----
+- Updated ``synapse.common.flatten`` to allow float values.
+  (`#4520 <https://github.com/vertexproject/synapse/pull/4520>`_)
+
+Deprecations
+------------
+- Deprecated ``$lib.ps`` in favor of the ``$lib.task`` library.
+  (`#4515 <https://github.com/vertexproject/synapse/pull/4515>`_)
+- Deprecated ``ps.kill`` command in favor of ``task.kill`` command.
+  (`#4515 <https://github.com/vertexproject/synapse/pull/4515>`_)
+- Deprecated ``ps.list`` command in favor of ``task.list`` command.
+  (`#4515 <https://github.com/vertexproject/synapse/pull/4515>`_)
+
 v2.223.0 - 2025-09-30
 =====================
 

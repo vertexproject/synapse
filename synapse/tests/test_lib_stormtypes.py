@@ -1903,8 +1903,8 @@ class StormTypesTest(s_test.SynTest):
                 'props': {'hehe': ('bar', 1, None)},
                 'tagprops': {
                     'foo.baz': {
-                        'score00': (10, 9),
-                        'score01': (20, 9)
+                        'score00': (10, 9, None),
+                        'score01': (20, 9, None)
                     }
                 },
                 'tags': {
@@ -2190,7 +2190,7 @@ class StormTypesTest(s_test.SynTest):
             q = 'inet:ip $lib.fire(msg:pack, sode=$node.getStorNodes())'
             gotn = [mesg async for mesg in core.storm(q) if mesg[0] == 'storm:fire']
             self.len(1, gotn)
-            self.eq(gotn[0][1]['data']['sode'][0]['tagprops'], {'foo': {'score': (9001, 9)}})
+            self.eq(gotn[0][1]['data']['sode'][0]['tagprops'], {'foo': {'score': (9001, 9, None)}})
             self.eq(gotn[0][1]['type'], 'msg:pack')
 
     async def test_storm_node_repr(self):
@@ -3181,6 +3181,18 @@ class StormTypesTest(s_test.SynTest):
             self.false(mesgs[0])
             self.isin('Ambiguous time', mesgs[1]['errinfo']['mesg'])
 
+            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.iso8601))')
+            self.eq(valu, '2025-10-02T00:00:00Z')
+
+            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.iso8601us))')
+            self.eq(valu, '2025-10-02T00:00:00.000000Z')
+
+            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.rfc2822))')
+            self.eq(valu, '02 Oct 2025 00:00:00 UT')
+
+            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.synapse))')
+            self.eq(valu, '2025/10/02 00:00:00.000000')
+
     async def test_storm_lib_time_ticker(self):
 
         async with self.getTestCore() as core:
@@ -4166,7 +4178,7 @@ class StormTypesTest(s_test.SynTest):
                 gotn = [mesg[1] async for mesg in asvisi.storm(q) if mesg[0] == 'storm:fire']
                 fire = [mesg for mesg in gotn if mesg['data']['sode']['form'] == 'it:dev:str']
                 self.len(1, fire)
-                self.eq(fire[0]['data']['sode']['tagprops'], {'test': {'risk': (50, 9)}})
+                self.eq(fire[0]['data']['sode']['tagprops'], {'test': {'risk': (50, 9, None)}})
 
                 q = '''
                 $lib.print($lib.layer.get())
@@ -7262,7 +7274,7 @@ words\tword\twrd'''
             self.eq(nodes[0].get('_hugearray'), [valu, valu])
 
             nodes = await core.nodes(f'test:str:_hugearray*[=({valu})]')
-            self.len(1, nodes)
+            self.len(2, nodes)
 
     async def test_storm_stor_readonly(self):
         async with self.getTestCore() as core:

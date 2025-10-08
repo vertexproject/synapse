@@ -978,6 +978,7 @@ stormcmds = (
     },
     {
         'name': 'ps.list',
+        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``task.list`` instead.'},
         'descr': 'List running tasks in the cortex.',
         'cmdargs': (
             ('--verbose', {'default': False, 'action': 'store_true', 'help': 'Enable verbose output.'}),
@@ -1004,6 +1005,7 @@ stormcmds = (
     },
     {
         'name': 'ps.kill',
+        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``task.kill`` instead.'},
         'descr': 'Kill a running task/query within the cortex.',
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid process iden is accepted.'}),
@@ -1156,6 +1158,16 @@ stormcmds = (
         ''',
     },
 )
+
+def deprmesg(name, depritem):
+    if (mesg := depritem.get('mesg')) is not None:
+        return f'"{name}" is deprecated: {mesg}'
+
+    if (eolvers := depritem.get('eolvers')) is not None:
+        return f'"{name}" is deprecated and will be removed in {eolvers}.'
+
+    eoldate = depritem.get('eoldate')
+    return f'"{name}" is deprecated and will be removed on {eoldate}.'
 
 @s_cache.memoize(size=1024)
 def queryhash(text):
@@ -2007,6 +2019,7 @@ class Parser:
         self.root = root
         self.exited = False
         self.mesgs = []
+        self.deprs = {}
 
         self.optargs = {}
         self.posargs = []
@@ -2032,7 +2045,7 @@ class Parser:
 
         choices = opts.get('choices')
         if choices is not None and opts.get('action') in ('store_true', 'store_false'):
-            mesg = f'Argument choices are not supported when action is store_true or store_false'
+            mesg = 'Argument choices are not supported when action is store_true or store_false'
             raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
 
         dest = self._get_dest(names)
@@ -2088,6 +2101,9 @@ class Parser:
                 continue
 
             dest = argdef.get('dest')
+
+            if (deprecated := argdef.get('deprecated')) is not None:
+                self.deprs[item] = deprecated
 
             oact = argdef.get('action', 'store')
             if oact == 'store_true':
@@ -2278,6 +2294,12 @@ class Parser:
 
         self._printf(f'Usage: {self.prog} [options] {posargs}')
 
+        if self.cdef is not None and (deprecated := self.cdef.get('deprecated')) is not None:
+            dmsg = deprmesg(self.prog, deprecated)
+            self._printf('')
+            self._printf(f'Deprecated: {dmsg}')
+            self._printf('')
+
         if self.cdef is not None and (endpoints := self.cdef.get('endpoints')):
             self._printf('')
             self._printf('Endpoints:')
@@ -2387,6 +2409,10 @@ class Parser:
         wrap_first = self._wrap_text(first, wrap_w)
         self._printf(f'{base:<{base_w - 2}}: {wrap_first[0]}')
 
+        if (deprecated := argdef.get('deprecated')) is not None:
+            mesg = deprmesg(names[0], deprecated)
+            self._printf(f'{"":<{base_w - 2}}  Deprecated: {mesg}')
+
         for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
         for ln in helplst[1:]:
             lead_s = len(ln) - len(ln.lstrip())
@@ -2476,6 +2502,10 @@ class Cmd:
             self.opts = await self.pars.parse_args(self.argv)
         except s_exc.BadSyntax:  # pragma: no cover
             pass
+
+        for item, depr in self.pars.deprs.items():
+            mesg = deprmesg(item, depr)
+            await self.runt.warnonce(mesg)
 
         for line in self.pars.mesgs:
             await self.runt.printf(line)
@@ -2578,6 +2608,10 @@ class PureCmd(Cmd):
                 'cmdconf': self.cdef.get('cmdconf', {}),
             }
         }
+
+        if (deprecated := self.cdef.get('deprecated')) is not None:
+            mesg = deprmesg(name, deprecated)
+            await self.runt.warnonce(mesg)
 
         if self.runtsafe:
             data = {'pathvars': {}}
@@ -3759,7 +3793,7 @@ class MergeCmd(Cmd):
                     if tagfilter is not None and tagfilter(tag):
                         continue
 
-                    for prop, (valu, stortype) in tagdict.items():
+                    for prop, (valu, stortype, virts) in tagdict.items():
                         if not doapply:
                             valurepr = repr(valu)
                             await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
@@ -4220,7 +4254,7 @@ class MoveNodesCmd(Cmd):
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}:{name} = {valurepr}')
                     else:
                         stortype = node.form.prop(name).type.stortype
-                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, stortype, virtvals.get('name'))))
+                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, stortype, virtvals.get(name))))
                 else:
                     if destprops is not None and (destvalu := destprops.get(name)) is not None:
                         if not self.opts.apply:
@@ -4311,14 +4345,17 @@ class MoveNodesCmd(Cmd):
     async def _moveTagProps(self, node, sodes, meta, delnode):
 
         movevals = {}
+        virtvals = {}
         form = node.form.name
         nodeiden = node.iden()
 
         for layr, sode in sodes.items():
 
             for tag, tagdict in sode.get('tagprops', {}).items():
-                for prop, (valu, stortype) in tagdict.items():
+                for prop, (valu, stortype, virts) in tagdict.items():
+
                     name = (tag, prop)
+                    virtvals[name] = virts
 
                     if (oldv := movevals.get(name)) is not s_common.novalu:
                         if oldv is None:
@@ -4367,7 +4404,8 @@ class MoveNodesCmd(Cmd):
                         mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
                         await self.runt.printf(mesg)
                     else:
-                        self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, tptype.stortype)))
+                        edit = (tag, prop, valu, tptype.stortype, virtvals.get((tag, prop)))
+                        self.adds.append((s_layer.EDIT_TAGPROP_SET, edit))
 
                 else:
                     if destdict is not None and (destprops := destdict.get(tag)) is not None:
