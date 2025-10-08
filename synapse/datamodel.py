@@ -810,7 +810,9 @@ class Model:
 
         if (kids := self.childforms.get(formname)) is None:
             if depth == 0:
-                return (formname,)
+                childforms = [formname]
+                self.childformcache[formname] = childforms
+                return childforms
             return [(depth, formname)]
 
         childforms = [(depth, formname)]
@@ -830,7 +832,9 @@ class Model:
 
         if (kids := self.childforms.get(prop.form.name)) is None:
             if depth == 0:
-                return [prop]
+                childprops = [prop]
+                self.childpropcache[prop.full] = childprops
+                return childprops
             return [(depth, prop)]
 
         suffix = ''
