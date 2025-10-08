@@ -247,6 +247,18 @@ modeldefs = (
 
                 ('svciden', ('guid', {'strip': True}), {
                     'doc': 'Storm service iden which provided the package.'}),
+
+                ('deprecated', ('bool', {}), {
+                    'doc': 'Set to true if this command is scheduled to be removed.'}),
+
+                ('deprecated:version', ('it:semver', {}), {
+                    'doc': 'The Synapse version when this command will be removed.'}),
+
+                ('deprecated:date', ('time', {}), {
+                    'doc': 'The date when this command will be removed.'}),
+
+                ('deprecated:mesg', ('str', {}), {
+                    'doc': 'Optional description of this deprecation.'}),
             )),
             ('syn:deleted', {'runt': True}, (
                 ('nid', ('int', {}), {

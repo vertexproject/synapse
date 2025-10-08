@@ -21,6 +21,7 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
+import synapse.lib.time as s_time
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
@@ -402,6 +403,15 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getTypeNorm(name, valu, typeopts=typeopts)
 
+    async def addType(self, typename, basetype, typeopts, typeinfo):
+        '''
+        Add an extended type to the data model.
+
+        Extended types must begin with _
+        '''
+        self.user.confirm(('model', 'type', 'add', typename))
+        return await self.cell.addType(typename, basetype, typeopts, typeinfo)
+
     async def addForm(self, formname, basetype, typeopts, typeinfo):
         '''
         Add an extended form to the data model.
@@ -453,6 +463,15 @@ class CoreApi(s_cell.CellApi):
         '''
         self.user.confirm(('model', 'tagprop', 'del'))
         return await self.cell.delTagProp(name)
+
+    async def addEdge(self, edge, edgeinfo):
+        '''
+        Add an extended edge definition to the data model.
+
+        Extended edge definitions must use a verb which begins with _
+        '''
+        self.user.confirm(('model', 'edge', 'add'))
+        return await self.cell.addEdge(edge, edgeinfo)
 
     async def addStormPkg(self, pkgdef, *, verify=False):
         self.user.confirm(('pkg', 'add'))
@@ -1131,6 +1150,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to adding extended model tag properties and values.'},
             {'perm': ('model', 'tagprop', 'del'), 'gate': 'cortex',
              'desc': 'Controls access to deleting extended model tag properties and values.'},
+
+            {'perm': ('model', 'edge', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to adding extended model edges.'},
+            {'perm': ('model', 'edge', 'del'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting extended model edges.'},
 
             {'perm': ('node',), 'gate': 'layer',
              'desc': 'Controls all node edits in a layer.'},
@@ -2081,6 +2105,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ctor.pkgname = cdef.get('pkgname')
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
         ctor.forms = cdef.get('forms', {})
+        ctor.deprecated = cdef.get('deprecated', {})
 
         def getRuntPode():
             ndef = ('syn:cmd', cdef.get('name'))
@@ -2095,6 +2120,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
+
+            if ctor.deprecated:
+                props['deprecated'] = True
+
+                if (eolvers := ctor.deprecated.get('eolvers')) is not None:
+                    if (info := s_version.parseSemver(eolvers.strip())) is None:
+                        info = s_version.parseVersionParts(eolvers)
+
+                    if info is not None:
+                        eolvers = s_version.packVersion(info.get('major'), info.get('minor', 0), info.get('patch', 0))
+                        props['deprecated:version'] = eolvers
+
+                if (eoldate := ctor.deprecated.get('eoldate')) is not None:
+                    props['deprecated:date'] = s_time.parse(eoldate)
+
+                if (mesg := ctor.deprecated.get('mesg')) is not None:
+                    props['deprecated:mesg'] = mesg
 
             return (ndef, {
                 'iden': s_common.ehex(s_common.buid(ndef)),
@@ -3102,6 +3144,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return True
 
+    @s_cell.from_leader
     async def addForm(self, formname, basetype, typeopts, typeinfo):
         if not isinstance(typeopts, dict):
             mesg = 'Form type options should be a dict.'
@@ -3122,6 +3165,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.model.type(formname) is not None:
             mesg = f'Type already exists: {formname}'
             raise s_exc.DupTypeName.init(formname)
+
+        self.model.getTypeClone((basetype, typeopts))
 
         return await self._push('model:form:add', formname, basetype, typeopts, typeinfo)
 
@@ -3177,6 +3222,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change', form=formname, act='del', type='form')
         await self.feedBeholder('model:form:del', {'form': formname})
 
+    @s_cell.from_leader
     async def addType(self, typename, basetype, typeopts, typeinfo):
         if not isinstance(typeopts, dict):
             mesg = 'Type options should be a dict.'
@@ -3245,6 +3291,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change', name=typename, act='del', type='type')
         await self.feedBeholder('model:type:del', {'type': typename})
 
+    @s_cell.from_leader
     async def addFormProp(self, form, prop, tdef, info):
         if not isinstance(tdef, tuple):
             mesg = 'Form property type definitions should be a tuple.'
@@ -3263,6 +3310,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if _form.prop(prop):
             raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                      form=form, prop=prop)
+
+        self.model.getTypeClone(tdef)
+
         await self._push('model:prop:add', form, prop, tdef, info)
 
     @s_nexus.Pusher.onPush('model:prop:add')
@@ -3384,6 +3434,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.feedBeholder('model:prop:del', {'form': form, 'prop': prop})
 
+    @s_cell.from_leader
     async def addTagProp(self, name, tdef, info):
         if not isinstance(tdef, tuple):
             mesg = 'Tag property type definitions should be a tuple.'
@@ -3395,6 +3446,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.exttagprops.get(name) is not None:
             raise s_exc.DupPropName(name=name)
+
+        self.model.getTypeClone(tdef)
 
         return await self._push('model:tagprop:add', name, tdef, info)
 
@@ -3433,6 +3486,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:tagprop:change', name=name, act='del')
         await self.feedBeholder('model:tagprop:del', {'tagprop': name})
 
+    @s_cell.from_leader
     async def addEdge(self, edge, edgeinfo):
         if not isinstance(edgeinfo, dict):
             mesg = 'Edge info should be a dict.'
@@ -3965,15 +4019,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             s_stormlib_macro,
             s_stormlib_model,
             s_stormlib_pkg,
+            s_stormlib_task,
             s_stormlib_vault,
         ]
 
         for cmod in cmdmods:
             for cdef in cmod.stormcmds:
                 await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_task.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
 
     async def _initPureStormCmds(self):
         oldcmds = []

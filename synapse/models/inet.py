@@ -2797,6 +2797,9 @@ modeldefs = (
             )),
             ('inet:service:platform', {}, (
 
+                ('id', ('str', {'strip': True}), {
+                    'doc': 'An ID which identifies the platform.'}),
+
                 ('url', ('inet:url', {}), {
                     'ex': 'https://twitter.com',
                     'alts': ('urls',),
@@ -2804,6 +2807,13 @@ modeldefs = (
 
                 ('urls', ('array', {'type': 'inet:url'}), {
                     'doc': 'An array of alternate URLs for the platform.'}),
+
+                ('zone', ('inet:fqdn', {}), {
+                    'alts': ('zones',),
+                    'doc': 'The primary zone for the platform.'}),
+
+                ('zones', ('array', {'type': 'inet:fqdn'}), {
+                    'doc': 'An array of alternate zones for the platform.'}),
 
                 ('name', ('str', {'onespace': True, 'lower': True}), {
                     'ex': 'twitter',
@@ -2816,6 +2826,21 @@ modeldefs = (
 
                 ('desc', ('text', {}), {
                     'doc': 'A description of the service platform.'}),
+
+                ('parent', ('inet:service:platform', {}), {
+                    'doc': 'A parent platform which owns this platform.'}),
+
+                ('status', ('inet:service:object:status', {}), {
+                    'doc': 'The status of the platform.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The period when the platform existed.'}),
+
+                ('creator', ('inet:service:account', {}), {
+                    'doc': 'The service account which created the platform.'}),
+
+                ('remover', ('inet:service:account', {}), {
+                    'doc': 'The service account which removed or decommissioned the platform.'}),
 
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which operates the platform.'}),
