@@ -4741,9 +4741,18 @@ class StormTest(s_t_utils.SynTest):
             await core.addStormPkg(pkgdef)
 
             msgs = await core.stormlist('getcmdconf')
+            self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('VALU: 0.', msgs)
 
+            msgs = await core.stormlist('[ inet:ipv4=10.0.0.0/28 ] | getcmdconf')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('VALU: 0.', msgs)
+            self.stormIsInPrint('VALU: 1.', msgs)
+            self.stormIsInPrint('VALU: 15.', msgs)
+            self.stormNotInPrint('VALU: 16.', msgs)
+
             msgs = await core.stormlist('getcmdconf')
+            self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('VALU: 0.', msgs)
 
     async def test_liftby_edge(self):
