@@ -943,10 +943,13 @@ async def format(opts: s_cmd.argparse.Namespace,
                     for i, chunk in enumerate(desc_lines):
                         if i == 0:
                             if not chunk.startswith('- '):
-                                raise s_exc.SynErr(mesg='desc line 0 must start with "- "', desc=s_common.trimText(text, 80))
+                                raise s_exc.SynErr(mesg='desc line 0 must start with "- "', desc=s_common.trimText(chunk, 80))
                         else:
                             if chunk and not chunk.startswith(' '):
-                                raise s_exc.SynErr(mesg=f'desc line {i} must start with "  "', desc=s_common.trimText(text, 80))
+                                raise s_exc.SynErr(mesg=f'desc line {i} must start with "  "', desc=s_common.trimText(chunk, 80))
+                        if len(chunk) >= opts.width:
+                            raise s_exc.SynErr(mesg=f'desc line {i} is too long, {len(chunk)} > {opts.width}',
+                                               desc=s_common.trimText(chunk, 80))
                         text = f'{text}\n{chunk}'
                 else:
                     for i, chunk in enumerate(desc_lines):
