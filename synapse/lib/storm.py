@@ -2548,7 +2548,7 @@ class PureCmd(Cmd):
         opts = {
             'vars': {
                 'cmdopts': cmdopts,
-                'cmdconf': self.cdef.get('cmdconf', {}),
+                'cmdconf': self.cdef.get('cmdconf', {}).copy(),
             }
         }
 

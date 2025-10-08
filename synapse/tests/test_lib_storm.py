@@ -4724,6 +4724,28 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInWarn('"--end-time" is deprecated and will be removed in v3.0.0.', msgs)
             self.len(2, [m for m in msgs if m[0] == 'warn'])
 
+    async def test_storm_cmd_cmdconf(self):
+        pkgdef = {
+            'name': 'testpkg',
+            'version': '1.0.0',
+            'commands': [
+                {
+                    'name': 'getcmdconf',
+                    'cmdconf': {'valu': 0},
+                    'storm': '$lib.print(`VALU: {$cmdconf.valu}.`) $cmdconf.valu = ($cmdconf.valu + 1)',
+                },
+            ],
+        }
+
+        async with self.getTestCore() as core:
+            await core.addStormPkg(pkgdef)
+
+            msgs = await core.stormlist('getcmdconf')
+            self.stormIsInPrint('VALU: 0.', msgs)
+
+            msgs = await core.stormlist('getcmdconf')
+            self.stormIsInPrint('VALU: 0.', msgs)
+
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
 
