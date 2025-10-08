@@ -939,14 +939,24 @@ async def format(opts: s_cmd.argparse.Namespace,
                 if desc is None and data.get('type') == 'skip':
                     continue
                 desc_lines = desc.splitlines()
-                for i, chunk in enumerate(desc_lines):
-                    if i == 0:
-                        for line in textwrap.wrap(chunk, initial_indent='- ', subsequent_indent='  ', width=opts.width):
-                            text = f'{text}\n{line}'
-                    else:
-                        text = text + '\n'
-                        for line in textwrap.wrap(chunk, initial_indent='  ', subsequent_indent='  ', width=opts.width):
-                            text = f'{text}\n{line}'
+                if data.get('desc:literal'):
+                    for i, chunk in enumerate(desc_lines):
+                        if i == 0:
+                            if not chunk.startswith('- '):
+                                raise s_exc.SynErr(mesg='desc line 0 must start with "- "', desc=s_common.trimText(text, 80))
+                        else:
+                            if chunk and not chunk.startswith(' '):
+                                raise s_exc.SynErr(mesg=f'desc line {i} must start with "  "', desc=s_common.trimText(text, 80))
+                        text = f'{text}\n{chunk}'
+                else:
+                    for i, chunk in enumerate(desc_lines):
+                        if i == 0:
+                            for line in textwrap.wrap(chunk, initial_indent='- ', subsequent_indent='  ', width=opts.width):
+                                text = f'{text}\n{line}'
+                        else:
+                            text = text + '\n'
+                            for line in textwrap.wrap(chunk, initial_indent='  ', subsequent_indent='  ', width=opts.width):
+                                text = f'{text}\n{line}'
 
                 if not opts.hide_prs:
                     for pr in data.get('prs'):
