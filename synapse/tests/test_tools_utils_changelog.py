@@ -35,7 +35,7 @@ type: feat
 ...
 '''
 
-changelog_format_output='''CHANGELOG ENTRY:
+changelog_format_output = '''CHANGELOG ENTRY:
 
 
 v0.1.22 - 2025-10-03
@@ -309,7 +309,7 @@ Deprecated Properties
     async def test_changelog_gen_format(self):
         with self.getTestDir() as dirn:
             outp = self.getTestOutp()
-            argv = ['gen', '--cdir', dirn, '--type', 'feat',  '--pr', '1234', 'I am a feature.']
+            argv = ['gen', '--cdir', dirn, '--type', 'feat', '--pr', '1234', 'I am a feature.']
             self.eq(0, await s_t_changelog.main(argv, outp))
 
             outp = self.getTestOutp()
