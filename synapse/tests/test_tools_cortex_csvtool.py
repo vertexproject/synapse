@@ -107,6 +107,15 @@ class CsvToolTest(s_t_utils.SynTest):
             self.eq(0, await s_csvtool.main(argv, outp=outp))
             outp.expect("('err', ('BadSyntax")
 
+            q = '| |'  # raises a err
+            with s_common.genfile(stormpath) as fd:
+                fd.truncate()
+                fd.write(q.encode())
+            argv = ['--cortex', url, stormpath, csvpath]
+            outp = self.getTestOutp()
+            self.eq(0, await s_csvtool.main(argv, outp=outp))
+            outp.expect("('err', ('BadSyntax")
+
     async def test_csvtool_missingvals(self):
 
         async with self.getTestCore() as core:
