@@ -3061,3 +3061,47 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, await s_t_utils.alist(nodes[0].iterData()))
             self.len(0, await s_t_utils.alist(nodes[0].iterEdgesN1()))
             self.len(0, await s_t_utils.alist(nodes[0].iterEdgesN2()))
+
+    async def test_layer_nonuniq_arrays(self):
+
+        async with self.getTestCore() as core:
+
+            # Non-uniq arrays should yield nodes for each instance of a matching value
+            self.len(1, await core.nodes('[ test:arrayprop=* :strs=(foo, bar, baz, foobar, foobar) ]'))
+            self.len(2, await core.nodes('test:arrayprop:strs*[=foobar]'))
+            self.len(3, await core.nodes('test:arrayprop:strs*[~=foo]'))
+
+            self.len(1, await core.nodes('[ test:arrayformtype=(foo, bar, baz, foobar, foobar) ]'))
+            self.len(2, await core.nodes('test:arrayformtype*[=foobar]'))
+            self.len(3, await core.nodes('test:arrayformtype*[~=foo]'))
+
+            self.len(1, await core.nodes('[test:str=virts :ndefs={[test:str=foo1 test:int=3 test:str=foo1]}]'))
+            self.len(2, await core.nodes('test:str:ndefs*[.form=test:str]'))
+
+            self.len(1, await core.nodes('[ test:arraysrv=(1.2.3.4:80, 3.4.5.6:80, 1.2.3.4:80, 1.2.3.4:90)]'))
+            self.len(3, await core.nodes('test:arraysrv*[.port=80]'))
+            self.len(1, await core.nodes('test:arraysrv*[.port=90]'))
+            self.len(3, await core.nodes('test:arraysrv*[.ip=1.2.3.4]'))
+            self.len(1, await core.nodes('test:arraysrv*[.ip=3.4.5.6]'))
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            viewopts2 = {'view': viewiden2}
+
+            await core.nodes('[ test:arrayprop=(foo,) :ints=(1, 2, 3, 3) ]', opts=viewopts2)
+            await core.nodes('[ test:arrayprop=(foo,) :ints=(1, 2, 3, 3) ]')
+
+            self.len(2, await core.nodes('test:arrayprop:ints*[=3]', opts=viewopts2))
+            self.len(3, await core.nodes('test:arrayprop:ints*[>1]', opts=viewopts2))
+
+            # Bad data test coverage
+            nodes = await core.nodes('test:str=virts')
+            sode = nodes[0].sodes[0]
+            sode['props']['ndefs'] = ((('test:int', 3),), *sode['props']['ndefs'][1:])
+            self.len(0, await core.nodes('test:str:ndefs*[.form=test:str]'))
+            self.len(1, await core.nodes('test:str:ndefs*[.form=test:int]'))
+
+            nodes = await core.nodes('[ test:arrayformtype=(foo, bar, baz, foobar, foobar) ]')
+            sode = nodes[0].sodes[0]
+            sode['valu'] = None
+            self.len(0, await core.nodes('test:arrayformtype*[=foobar]'))
+            self.len(0, await core.nodes('test:arrayformtype*[~=foo]'))

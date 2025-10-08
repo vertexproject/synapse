@@ -814,7 +814,7 @@ class Model:
 
         base = self.types.get(typedef[0])
         if base is None:
-            raise s_exc.NoSuchType(name=typedef[0])
+            raise s_exc.NoSuchType.init(typedef[0])
 
         return base.clone(typedef[1])
 

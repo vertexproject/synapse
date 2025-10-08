@@ -525,14 +525,22 @@ class ImapLib(s_stormtypes.Lib):
 
         try:
             imap = await asyncio.wait_for(coro, timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise s_exc.TimeOut(mesg='Timed out waiting for IMAP server hello.') from None
 
         async def fini():
-            async def _logout():
-                await asyncio.wait_for(imap.logout(), 5)
+            async def imapfini():
+                if imap.isfini:
+                    return
+
+                try:
+                    await asyncio.wait_for(imap.logout(), 5)
+                except TimeoutError:
+                    pass # pragma: no cover
+
                 await imap.fini()
-            s_coro.create_task(_logout())
+
+            self.runt.snap.core.schedCoro(imapfini())
 
         self.runt.onfini(fini)
 

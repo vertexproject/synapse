@@ -306,6 +306,9 @@ modeldefs = (
             (('risk:outage', 'impacted', None), {
                 'doc': 'The outage event impacted the availability of the target node.'}),
 
+            (('risk:alert', 'about', None), {
+                'doc': 'The alert is about the target node.'}),
+
             (('meta:observable', 'resembles', 'meta:observable'), {
                 'doc': 'The source node resembles the target node.'}),
         ),
@@ -548,6 +551,9 @@ modeldefs = (
 
                 ('detected', ('time', {}), {
                     'doc': 'The time the alerted condition was detected.'}),
+
+                ('updated', ('time', {}), {
+                    'doc': 'The time the alert was most recently modified.'}),
 
                 ('vuln', ('risk:vuln', {}), {
                     'doc': 'The optional vulnerability that the alert indicates.'}),
