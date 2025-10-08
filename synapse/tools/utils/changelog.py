@@ -484,7 +484,7 @@ async def gen(opts: s_cmd.argparse.Namespace,
 
     outp.printf(f'Saved changelog entry to {fp=}')
 
-    if opts.add:
+    if opts.add:  # pragma: no cover
         if opts.verbose:
             outp.printf('Adding file to git staging')
         argv = ['git', 'add', fp]
@@ -838,7 +838,7 @@ async def format(opts: s_cmd.argparse.Namespace,
         data.setdefault('prs', [])
         prs = data.get('prs')
 
-        if opts.prs_from_git:
+        if opts.prs_from_git:  # pragma: no cover
 
             argv = ['git', 'log', '--pretty=oneline', fp]
             ret = subprocess.run(argv, capture_output=True)
@@ -971,7 +971,7 @@ async def format(opts: s_cmd.argparse.Namespace,
                     text = text + f'\n- See :ref:`{model_rst_ref}` for more detailed model changes.'
             text = text + '\n'
 
-    if opts.rm:
+    if opts.rm:  # pragma: no cover
         if opts.verbose:
             outp.printf('Staging file removals in git')
         for fp in files_processed:
