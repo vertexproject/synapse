@@ -2,6 +2,7 @@ import io
 import os
 import sys
 import json
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -18,7 +19,7 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
             self.skip('pandoc is not available')
         super().setUp()
 
-    async def test_pkg_builddocs(self):
+    async def test_storm_pkg_doc_base(self):
 
         with self.getTestDir(mirror='testpkg_build_docs') as dirn:
             testpkgfp = os.path.join(dirn, 'testpkg.yaml')
@@ -98,3 +99,11 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
                 outp.expect('ERR: Error running filter')
             finally:
                 s_t_gendocs.PANDOC_FILTER = oldv
+
+            # Pandoc is missing
+            def nopandoc(*args, **kwargs):
+                return 1
+
+            with mock.patch('os.system', new=nopandoc):
+                argv = [testpkgfp, ]
+                self.eq(1, await s_t_gendocs.main(argv))
