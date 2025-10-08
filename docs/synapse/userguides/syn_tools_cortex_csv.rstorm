@@ -5,7 +5,7 @@
 cortex.csv
 ==========
 
-The Synapse ``corte`` command can be used to ingest structured data from a comma-separated values (CSV) file to create nodes in a Cortex. ``cortex.csv`` is useful for bulk-loading CSV-formatted data without the need to develop custom ingest code. (For other data formats such as JSON, yaml, or msgpack, see :ref:`syn-tools-cortex-feed`.)
+The Synapse ``cortex.csv`` command can be used to ingest structured data from a comma-separated values (CSV) file to create nodes in a Cortex. ``cortex.csv`` is useful for bulk-loading CSV-formatted data without the need to develop custom ingest code. (For other data formats such as JSON, yaml, or msgpack, see :ref:`syn-tools-cortex-feed`.)
 
 The ``--export`` option can be used to export a set of data from a Cortex into a CSV file.
 
