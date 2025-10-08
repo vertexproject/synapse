@@ -4764,7 +4764,7 @@ class StormTest(s_t_utils.SynTest):
                 [msg[1].get('mesg') for msg in msgs]
             )
 
-            msgs = await core.stormlist('[ inet:ipv4=10.0.0.0/28 ] | getcmdconf')
+            msgs = await core.stormlist('for $i in $lib.range(16) {[test:int=$i]} | getcmdconf')
             self.stormHasNoWarnErr(msgs)
 
             self.stormIsInPrint('VALU: 0.', msgs)
