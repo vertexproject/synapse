@@ -26,6 +26,11 @@ class RStormToolTest(s_test.SynTest):
 
             self.eq(text, s_test_rstorm.rst_out)
 
+            outp = self.getTestOutp()
+            await s_rstorm.main((path,), outp=outp)
+            text = ''.join(outp.mesgs)
+            self.eq(text, s_test_rstorm.rst_out)
+
             # debug output
             path = s_common.genpath(dirn, 'test2.rst')
             with s_common.genfile(path) as fd:
