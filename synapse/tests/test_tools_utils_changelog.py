@@ -10,7 +10,7 @@ import synapse.tools.utils.changelog as s_t_changelog
 multiline_feature = '''---
 desc: |
   - This is a pre-formatted RST block as YAML literal scalar.
-  
+
     It has stuff in it already formatted all nice like.
 
     +-------------------+---------------------------+
@@ -23,11 +23,11 @@ desc: |
 
     Thees are more lines. The can have things like RST string literals in
     them ``like this``. You can even do a literable block!
-    
+
     ::
-    
+
       wow
-      
+
     So this is a example.
 desc:literal: true
 prs: []
@@ -66,11 +66,11 @@ Features and Enhancements
 
   Thees are more lines. The can have things like RST string literals in
   them ``like this``. You can even do a literable block!
-  
+
   ::
-  
+
     wow
-    
+
   So this is a example.
 - I am a earlier feature.
   (`#1230 <https://github.com/vertexproject/synapse/pull/1230>`_)
