@@ -1319,11 +1319,6 @@ class Model:
         if form is None:
             return
 
-        if len(childforms := self.getChildForms(formname)) > 1:
-            names = ', '.join(childforms[:-1])
-            mesg = f'Form has child forms: {names}'
-            raise s_exc.CantDelForm(mesg=mesg)
-
         ifaceprops = set()
         for iface in form.ifaces.values():
             for prop in iface.get('props', ()):
