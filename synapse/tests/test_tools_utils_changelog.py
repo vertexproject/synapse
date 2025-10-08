@@ -1,10 +1,104 @@
+import os
+import gzip
+
+import synapse.common as s_common
+
 import synapse.tests.utils as s_test_utils
 
 import synapse.tools.utils.changelog as s_t_changelog
 
+multiline_feature = '''---
+desc: |
+  - This is a pre-formatted RST block as YAML literal scalar.
+  
+    It has stuff in it already formatted all nice like.
+
+    +-------------------+---------------------------+
+    | Beep              | Boop                      |
+    +===================+===========================+
+    | hahaha            | lasers                    |
+    +-------------------+---------------------------+
+    | wowow             | stufff                    |
+    +-------------------+---------------------------+
+
+    Thees are more lines. The can have things like RST string literals in
+    them ``like this``. You can even do a literable block!
+    
+    ::
+    
+      wow
+      
+    So this is a example.
+desc:literal: true
+prs: []
+type: feat
+...
+'''
+
+changelog_format_output='''CHANGELOG ENTRY:
+
+
+v0.1.22 - 2025-10-03
+====================
+
+Automatic Migrations
+--------------------
+- Migrated the widget storage to use acme lasers.
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added lasers to the sci model.
+
+Features and Enhancements
+-------------------------
+- This is a pre-formatted RST block as YAML literal scalar.
+
+  It has stuff in it already formatted all nice like.
+
+  +-------------------+---------------------------+
+  | Beep              | Boop                      |
+  +===================+===========================+
+  | hahaha            | lasers                    |
+  +-------------------+---------------------------+
+  | wowow             | stufff                    |
+  +-------------------+---------------------------+
+
+  Thees are more lines. The can have things like RST string literals in
+  them ``like this``. You can even do a literable block!
+  
+  ::
+  
+    wow
+    
+  So this is a example.
+- I am a earlier feature.
+  (`#1230 <https://github.com/vertexproject/synapse/pull/1230>`_)
+- I am a feature.
+  (`#1234 <https://github.com/vertexproject/synapse/pull/1234>`_)
+
+Bugfixes
+--------
+- I am a bug which has quite a large amoutn of text in it. The amount of text
+  will span acrossmultiple lines after being formatted by the changelog tool.
+
+Notes
+-----
+- I am a fancy note.
+
+Improved documentation
+----------------------
+- Documented the lasers.
+
+Deprecations
+------------
+- For widget maker has been deprecated in favor of the new acme corp laser
+  cannons.
+'''
+
 class ChangelogToolTest(s_test_utils.SynTest):
 
-    async def test_model_diff(self):
+    async def test_changelog_model_diff(self):
         outp = self.getTestOutp()
         old_fp = self.getTestFilePath('changelog', 'model_2.176.0_16ee721a6b7221344eaf946c3ab4602dda546b1a.yaml.gz')
         new_fp = self.getTestFilePath('changelog', 'model_2.176.0_2a25c58bbd344716cd7cbc3f4304d8925b0f4ef2.yaml.gz')
@@ -194,3 +288,70 @@ Deprecated Properties
   ``target:attrs``
     The attributes of the target file according to the LNK header.
 ''', text)
+
+    async def test_changelog_model_save(self):
+        with self.getTestDir() as dirn:
+            outp = self.getTestOutp()
+            argv = ['model', '--cdir', dirn, '--save',]
+            self.eq(0, await s_t_changelog.main(argv, outp))
+            modelrefs_dirn = s_common.genpath(dirn, 'modelrefs')
+
+            files = os.listdir(modelrefs_dirn)
+            self.len(1, files)
+            with s_common.genfile(modelrefs_dirn, files[0]) as fd:
+                buf = fd.read()
+            buf = gzip.decompress(buf)
+            data = s_common.yamlloads(buf)
+            self.isin('commit', data)
+            self.isin('model', data)
+            self.isin('version', data)
+
+    async def test_changelog_gen_format(self):
+        with self.getTestDir() as dirn:
+            outp = self.getTestOutp()
+            argv = ['gen', '--cdir', dirn, '--type', 'feat',  '--pr', '1234', 'I am a feature.']
+            self.eq(0, await s_t_changelog.main(argv, outp))
+
+            outp = self.getTestOutp()
+            argv = ['gen', '--cdir', dirn, '--type', 'feat', '--pr', '1230', 'I am a earlier feature.']
+            self.eq(0, await s_t_changelog.main(argv, outp))
+
+            outp.clear()
+            desc = '''I am a bug which has quite a large amoutn of text in it. The amount of text will span across'''\
+                '''multiple lines after being formatted by the changelog tool.'''
+            argv = ['gen', '--cdir', dirn, '--type', 'bug', desc]
+            self.eq(0, await s_t_changelog.main(argv, outp))
+
+            outp.clear()
+            desc = 'I am a fancy note.'
+            argv = ['gen', '--cdir', dirn, '--type', 'note', desc]
+            self.eq(0, await s_t_changelog.main(argv, outp))
+
+            outp.clear()
+            desc = 'For widget maker has been deprecated in favor of the new acme corp laser cannons.'
+            argv = ['gen', '--cdir', dirn, '--type', 'deprecation', desc,]
+            self.eq(0, await s_t_changelog.main(argv, outp))
+
+            outp.clear()
+            desc = 'Documented the lasers.'
+            argv = ['gen', '--cdir', dirn, '--type', 'doc', desc]
+            self.eq(0, await s_t_changelog.main(argv, outp))
+
+            outp.clear()
+            desc = 'Migrated the widget storage to use acme lasers.'
+            argv = ['gen', '--cdir', dirn, '--type', 'migration', desc]
+            self.eq(0, await s_t_changelog.main(argv, outp))
+
+            outp.clear()
+            desc = 'Added lasers to the sci model.'
+            argv = ['gen', '--cdir', dirn, '--type', 'model', desc]
+            self.eq(0, await s_t_changelog.main(argv, outp))
+
+            with s_common.genfile(dirn, f'{s_common.guid()}.yaml') as fd:
+                fd.write(multiline_feature.encode())
+
+            outp.clear()
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03']
+            self.eq(0, await s_t_changelog.main(argv, outp))
+
+            self.eq(str(outp).strip(), changelog_format_output.strip())
