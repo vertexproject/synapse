@@ -563,6 +563,25 @@ jobs:
     steps:
       - test_steps_python
 
+  python314:
+    resource_class: xlarge
+    docker:
+      - image: cimg/python:3.14
+        environment:
+          PYVERS: 3.13
+          RUN_SYNTAX: 1
+          SYN_VENDOR_TEST: 1
+          CODECOV_FLAG: linux
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_FILE: test-reports/<< pipeline.git.revision >>/.coverage
+          COVERAGE_ARGS: --cov synapse --cov-append
+          COVERAGE_CORE: sysmon
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python
+
   doctests:
     docker:
       - image: cimg/python:3.13
@@ -679,6 +698,13 @@ workflows:
               only:
                 - master
                 - synapse-3xx
+
+      - python314:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
 
       - python_package_smoketest:
           filters:
