@@ -3312,13 +3312,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = 'Extended prop must begin with "_".'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
 
-        for formname in self.model.getChildForms(form):
-            _form = self.model.form(formname)
+        for cform in self.model.getChildForms(form):
+            _form = self.model.form(cform)
             if _form is None:
-                raise s_exc.NoSuchForm.init(formname)
+                raise s_exc.NoSuchForm.init(cform)
             if _form.prop(prop):
                 raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
-                                         form=formname, prop=prop)
+                                         form=cform, prop=prop)
 
         self.model.getTypeClone(tdef)
 

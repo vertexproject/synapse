@@ -1197,7 +1197,8 @@ class Model:
             ptypes = {}
             for propdef in propdefs:
                 if len(propdef) != 3:
-                    raise s_exc.BadPropDef(valu=propdef)
+                    mesg = f'Invalid propdef tuple length: {len(propdef)}, expected 3'
+                    raise s_exc.BadPropDef(mesg=mesg, valu=propdef)
                 ptypes[propdef[0]] = propdef[1]
 
             for prop in pform.props.values():
@@ -1207,7 +1208,7 @@ class Model:
                 if (newdef := ptypes.get(prop.name)) is not None:
                     if newdef != prop.typedef:
                         mesg = f'Form {formname} overrides inherited prop {prop.name} with a different typedef.'
-                        raise s_exc.BadPropDef(mesg=mesg, typedef=newdef)
+                        raise s_exc.BadPropDef(mesg=mesg, typedef=newdef, form=formname, prop=prop.name)
                     continue
 
                 pprops.append((prop.name, prop.typedef, prop.info))
@@ -1253,7 +1254,8 @@ class Model:
         for propdef in propdefs:
 
             if len(propdef) != 3:
-                raise s_exc.BadPropDef(valu=propdef)
+                mesg = f'Invalid propdef tuple length: {len(propdef)}, expected 3'
+                raise s_exc.BadPropDef(mesg=mesg, valu=propdef)
 
             propname, typedef, propinfo = propdef
 

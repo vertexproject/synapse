@@ -591,7 +591,7 @@ class DataModelTest(s_t_utils.SynTest):
                 await core.nodes("test:str=extprop2 _test:inhstr5=ext2 | delnode")
 
                 # Can't delete a form with child forms
-                with self.raises(s_exc.CantDelForm):
+                with self.raises(s_exc.CantDelType):
                     await core.nodes("$lib.model.ext.delForm(_test:inhstr5)")
 
                 # Can't delete a prop which is in use on child forms
