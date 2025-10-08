@@ -3455,7 +3455,7 @@ class PropValue(Value):
             if isinstance(valu, (dict, list, tuple)):
                 # these get special cased because changing them affects the node
                 # while it's in the pipeline but the modification doesn't get stored
-                valu = s_msgpack.deepcopy(valu)
+                valu = s_msgpack.deepcopy(valu, use_list=True)
             return prop, valu
 
         # handle implicit pivot properties
@@ -3482,7 +3482,7 @@ class PropValue(Value):
                 if isinstance(valu, (dict, list, tuple)):
                     # these get special cased because changing them affects the node
                     # while it's in the pipeline but the modification doesn't get stored
-                    valu = s_msgpack.deepcopy(valu)
+                    valu = s_msgpack.deepcopy(valu, use_list=True)
                 return prop, valu
 
             form = runt.model.forms.get(prop.type.name)
