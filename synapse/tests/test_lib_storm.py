@@ -4731,8 +4731,18 @@ class StormTest(s_t_utils.SynTest):
             'commands': [
                 {
                     'name': 'getcmdconf',
-                    'cmdconf': {'valu': 0},
-                    'storm': '$lib.print(`VALU: {$cmdconf.valu}.`) $cmdconf.valu = ($cmdconf.valu + 1)',
+                    'cmdconf': {
+                        'valu': 0,
+                        'sub': {
+                            'valu': 0,
+                        },
+                    },
+                    'storm': '''
+                        $lib.print(`VALU: {$cmdconf.valu}.`)
+                        $lib.print(`SUBVALU: {$cmdconf.sub.valu}.`)
+                        $cmdconf.valu = ($cmdconf.valu + 1)
+                        $cmdconf.sub.valu = ($cmdconf.sub.valu + 1)
+                    ''',
                 },
             ],
         }
@@ -4743,24 +4753,34 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('getcmdconf')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('VALU: 0.', msgs)
+            self.stormIsInPrint('SUBVALU: 0.', msgs)
 
             msgs = await core.stormlist('getcmdconf | getcmdconf')
             self.stormHasNoWarnErr(msgs)
             msgs = [k for k in msgs if k[0] == 'print']
-            self.len(2, msgs)
-            for msg in msgs:
-                self.eq(msg[1].get('mesg'), 'VALU: 0.')
+            self.len(4, msgs)
+            self.sorteq(
+                ['VALU: 0.', 'VALU: 0.', 'SUBVALU: 0.', 'SUBVALU: 0.'],
+                [msg[1].get('mesg') for msg in msgs]
+            )
 
             msgs = await core.stormlist('[ inet:ipv4=10.0.0.0/28 ] | getcmdconf')
             self.stormHasNoWarnErr(msgs)
+
             self.stormIsInPrint('VALU: 0.', msgs)
             self.stormIsInPrint('VALU: 1.', msgs)
             self.stormIsInPrint('VALU: 15.', msgs)
             self.stormNotInPrint('VALU: 16.', msgs)
 
+            self.stormIsInPrint('SUBVALU: 0.', msgs)
+            self.stormIsInPrint('SUBVALU: 1.', msgs)
+            self.stormIsInPrint('SUBVALU: 15.', msgs)
+            self.stormNotInPrint('SUBVALU: 16.', msgs)
+
             msgs = await core.stormlist('getcmdconf')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('VALU: 0.', msgs)
+            self.stormIsInPrint('SUBVALU: 0.', msgs)
 
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
