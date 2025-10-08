@@ -6,6 +6,110 @@
 Synapse Changelog
 *****************
 
+v2.224.0 - 2025-10-07
+=====================
+
+Model Changes
+-------------
+- Added the following properties to ``inet:service:platform``: ``:id``,
+  ``:zone``, ``:zones``, ``:parent``, ``:status``, ``:period``, ``:creator``,
+  ``:remover``.
+  (`#4508 <https://github.com/vertexproject/synapse/pull/4508>`_)
+  (`#4511 <https://github.com/vertexproject/synapse/pull/4511>`_)
+- Added the ``:updated`` property and ``about`` edge to ``risk:alert``.
+  (`#4516 <https://github.com/vertexproject/synapse/pull/4516>`_)
+- See :ref:`userguide_model_v2_224_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added the following time format strings: ``$lib.time.formats.iso8601``,
+  ``$lib.time.formats.iso8601us``, ``$lib.time.formats.rfc2822``, and
+  ``$lib.time.formats.synapse``.
+  (`#4513 <https://github.com/vertexproject/synapse/pull/4513>`_)
+- Added support for deprecating Storm commands and command args in the command
+  definitions.
+  (`#4515 <https://github.com/vertexproject/synapse/pull/4515>`_)
+
+Bugfixes
+--------
+- Fixed an issue where adding extended model elements to a mirror on a newer
+  version than the leader could fail on the leader.
+  (`#4510 <https://github.com/vertexproject/synapse/pull/4510>`_)
+- Fixed a bug in the Storm IMAP library where IMAP clients may fail to properly
+  close network resources.
+  (`#4512 <https://github.com/vertexproject/synapse/pull/4512>`_)
+- Fixed bug in telepath Layer APIs where permissions checks were skipped
+  because of missing awaits.
+  (`#4521 <https://github.com/vertexproject/synapse/pull/4521>`_)
+
+Notes
+-----
+- Updated ``synapse.common.flatten`` to allow float values.
+  (`#4520 <https://github.com/vertexproject/synapse/pull/4520>`_)
+
+Deprecations
+------------
+- Deprecated ``$lib.ps`` in favor of the ``$lib.task`` library.
+  (`#4515 <https://github.com/vertexproject/synapse/pull/4515>`_)
+- Deprecated ``ps.kill`` command in favor of ``task.kill`` command.
+  (`#4515 <https://github.com/vertexproject/synapse/pull/4515>`_)
+- Deprecated ``ps.list`` command in favor of ``task.list`` command.
+  (`#4515 <https://github.com/vertexproject/synapse/pull/4515>`_)
+
+v2.223.0 - 2025-09-30
+=====================
+
+Model Changes
+-------------
+- Updated ``pe:langid`` type to ``enums:strict=False`` with a value range of
+  0x0000-0xFFFF.
+  (`#4495 <https://github.com/vertexproject/synapse/pull/4495>`_)
+- See :ref:`userguide_model_v2_223_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated trigger ``$auto.opts`` to include ``user``, indicating the user that
+  caused the trigger to fire.
+  (`#4491 <https://github.com/vertexproject/synapse/pull/4491>`_)
+- Added ``$lib.pkg.queues`` Storm API to manage persistent queues for a Storm
+  Package.
+  (`#4496 <https://github.com/vertexproject/synapse/pull/4496>`_)
+- Updated Storm package ``inits`` to set the current version to the maximum of
+  the step version and version variable to allow for skipping later steps.
+  (`#4497 <https://github.com/vertexproject/synapse/pull/4497>`_)
+- Updated ``$lib.mime.html.totext()`` to accept optional ``separator`` and
+  ``strip`` arguments so the caller can specify the separator used to join the
+  tag text and whether to strip whitespace from the beginning and end of the
+  tag text.
+  (`#4502 <https://github.com/vertexproject/synapse/pull/4502>`_)
+- Added ``$lib.task`` Storm APIs for interacting with tasks on a Cortex and its
+  mirrors.
+  (`#4499 <https://github.com/vertexproject/synapse/pull/4499>`_)
+- Added ``task.list`` and ``task.kill`` commands for listing and killing tasks
+  on a Cortex and its mirrors.
+  (`#4499 <https://github.com/vertexproject/synapse/pull/4499>`_)
+
+Bugfixes
+--------
+- Removed an erroneous comment in the example Kubernetes podspec for the AHA
+  service.
+  (`#4489 <https://github.com/vertexproject/synapse/pull/4489>`_)
+- Fixed an issue where attempting to use a variable containing a null value as
+  a walk target would raise a Python exception.
+  (`#4506 <https://github.com/vertexproject/synapse/pull/4506>`_)
+
+Notes
+-----
+- Added the local and remote offsets to the error log message indicating that a
+  mirror is out of sync from the remote service.
+  (`#4498 <https://github.com/vertexproject/synapse/pull/4498>`_)
+
+Deprecations
+------------
+- Deprecated the ``synapse.cryotank.CryoTank`` Cell.
+  (`#4494 <https://github.com/vertexproject/synapse/pull/4494>`_)
+
+
 v2.222.0 - 2025-09-15
 =====================
 

@@ -1220,33 +1220,6 @@ class StormTest(s_t_utils.SynTest):
             ''')
             self.eq(email, 'visi@vertex.link')
 
-            pkg0 = {'name': 'hehe', 'version': '1.2.3'}
-            await core.addStormPkg(pkg0)
-            self.eq('1.2.3', await core.callStorm('return($lib.pkg.get(hehe).version)'))
-
-            self.eq(None, await core.callStorm('return($lib.pkg.get(nopkg))'))
-
-            pkg1 = {'name': 'haha', 'version': '1.2.3'}
-            await core.addStormPkg(pkg1)
-            msgs = await core.stormlist('pkg.list')
-            self.stormIsInPrint('haha', msgs)
-            self.stormIsInPrint('hehe', msgs)
-
-            self.true(await core.callStorm('return($lib.pkg.has(haha))'))
-
-            await core.delStormPkg('haha')
-            self.none(await core.callStorm('return($lib.pkg.get(haha))'))
-            self.false(await core.callStorm('return($lib.pkg.has(haha))'))
-
-            msgs = await core.stormlist('pkg.list --verbose')
-            self.stormIsInPrint('not available', msgs)
-
-            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000}}
-            await core.addStormPkg(pkg2)
-            self.eq('4.5.6', await core.callStorm('return($lib.pkg.get(hoho).version)'))
-            msgs = await core.stormlist('pkg.list --verbose')
-            self.stormIsInPrint('2024-11-19 12:00:00', msgs)
-
             # test for $lib.queue.gen()
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
             # and again to test *not* creating it...
@@ -1574,161 +1547,6 @@ class StormTest(s_t_utils.SynTest):
                 self.stormIsInWarn('nodes.import got HTTP error code', msgs)
                 nodes = [x for x in msgs if x[0] == 'node']
                 self.len(0, nodes)
-
-            pkgdef = {
-                'name': 'foobar',
-                'version': '1.2.3',
-            }
-
-            await core.addStormPkg(pkgdef)
-
-            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
-            self.eq({
-                'requires': (),
-                'conflicts': (),
-            }, deps)
-
-            pkgdef = {
-                'name': 'bazfaz',
-                'version': '2.2.2',
-                'depends': {
-                    'conflicts': (
-                        {'name': 'foobar'},
-                    ),
-                }
-            }
-
-            with self.raises(s_exc.StormPkgConflicts):
-                await core.addStormPkg(pkgdef)
-
-            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
-            self.eq({
-                'requires': (),
-                'conflicts': (
-                    {'name': 'foobar', 'version': None, 'desc': None, 'ok': False, 'actual': '1.2.3'},
-                )
-            }, deps)
-
-            pkgdef = {
-                'name': 'bazfaz',
-                'version': '2.2.2',
-                'depends': {
-                    'conflicts': (
-                        {'name': 'foobar', 'version': '>=1.0.0', 'desc': 'foo'},
-                    ),
-                }
-            }
-
-            with self.raises(s_exc.StormPkgConflicts):
-                await core.addStormPkg(pkgdef)
-
-            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
-            self.eq({
-                'requires': (),
-                'conflicts': (
-                    {'name': 'foobar', 'version': '>=1.0.0', 'desc': 'foo', 'ok': False, 'actual': '1.2.3'},
-                )
-            }, deps)
-
-            pkgdef = {
-                'name': 'bazfaz',
-                'version': '2.2.2',
-                'depends': {
-                    'requires': (
-                        {'name': 'foobar', 'version': '>=2.0.0,<3.0.0'},
-                    ),
-                }
-            }
-
-            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz requirement') as stream:
-                await core.addStormPkg(pkgdef)
-                self.true(await stream.wait(timeout=1))
-
-            pkgdef = {
-                'name': 'bazfaz',
-                'version': '2.2.2',
-                'depends': {
-                    'requires': (
-                        {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'optional': True},
-                    ),
-                }
-            }
-
-            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz optional requirement') as stream:
-                await core.addStormPkg(pkgdef)
-                self.true(await stream.wait(timeout=1))
-
-            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
-            self.eq({
-                'requires': (
-                    {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'desc': None,
-                     'ok': False, 'actual': '1.2.3', 'optional': True},
-                ),
-                'conflicts': ()
-            }, deps)
-
-            pkgdef = {
-                'name': 'lolzlolz',
-                'version': '1.2.3',
-            }
-
-            await core.addStormPkg(pkgdef)
-
-            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
-            self.eq({
-                'requires': (),
-                'conflicts': (),
-            }, deps)
-
-            pkgdef = {
-                'name': 'bazfaz',
-                'version': '2.2.2',
-                'depends': {
-                    'requires': (
-                        {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0', 'desc': 'lol'},
-                    ),
-                    'conflicts': (
-                        {'name': 'foobar', 'version': '>=3.0.0'},
-                    ),
-                }
-            }
-
-            await core.addStormPkg(pkgdef)
-
-            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
-            self.eq({
-                'requires': (
-                    {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0', 'desc': 'lol', 'ok': True, 'actual': '1.2.3'},
-                ),
-                'conflicts': (
-                    {'name': 'foobar', 'version': '>=3.0.0', 'desc': None, 'ok': True, 'actual': '1.2.3'},
-                )
-            }, deps)
-
-            pkgdef = {
-                'name': 'zoinkszoinks',
-                'version': '2.2.2',
-                'depends': {
-                    'requires': (
-                        {'name': 'newpnewp', 'version': '1.2.3'},
-                    ),
-                    'conflicts': (
-                        {'name': 'newpnewp'},
-                    ),
-                }
-            }
-
-            await core.addStormPkg(pkgdef)
-
-            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
-            self.eq({
-                'requires': (
-                    {'name': 'newpnewp', 'version': '1.2.3', 'desc': None, 'ok': False, 'actual': None},
-                ),
-                'conflicts': (
-                    {'name': 'newpnewp', 'version': None, 'desc': None, 'ok': True, 'actual': None},
-                )
-            }, deps)
 
             # force old-cron behavior which lacks a view
             await core.nodes('cron.add --hourly 03 { inet:ipv4 }')
@@ -2979,72 +2797,6 @@ class StormTest(s_t_utils.SynTest):
             '''))
             with self.raises(s_exc.NoSuchVar):
                 await core.callStorm('$foo = 10 $foo = $lib.undef return($foo)')
-
-    async def test_storm_pkg_load(self):
-        cont = s_common.guid()
-        pkg = {
-            'name': 'testload',
-            'version': '0.3.0',
-            'modules': (
-                {
-                    'name': 'testload',
-                    'storm': 'function x() { return((0)) }',
-                },
-            ),
-            'onload': f'[ ps:contact={cont} ] $lib.print(teststring) $lib.warn(testwarn, key=valu) return($path.vars.newp)'
-        }
-        class PkgHandler(s_httpapi.Handler):
-
-            async def get(self, name):
-                assert self.request.headers.get('X-Synapse-Version') == s_version.verstring
-
-                if name == 'notok':
-                    self.sendRestErr('FooBar', 'baz faz')
-                    return
-
-                self.sendRestRetn(pkg)
-
-        class PkgHandlerRaw(s_httpapi.Handler):
-            async def get(self, name):
-                assert self.request.headers.get('X-Synapse-Version') == s_version.verstring
-
-                self.set_header('Content-Type', 'application/json')
-                return self.write(pkg)
-
-        async with self.getTestCore() as core:
-            core.addHttpApi('/api/v1/pkgtest/(.*)', PkgHandler, {'cell': core})
-            core.addHttpApi('/api/v1/pkgtestraw/(.*)', PkgHandlerRaw, {'cell': core})
-            port = (await core.addHttpsPort(0, host='127.0.0.1'))[1]
-
-            msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/newp/newp')
-            self.stormIsInWarn('pkg.load got HTTP code: 404', msgs)
-
-            msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/notok')
-            self.stormIsInWarn('pkg.load got JSON error: FooBar', msgs)
-
-            # onload will on fire once. all other pkg.load events will effectively bounce
-            # because the pkg hasn't changed so no loading occurs
-            waiter = core.waiter(1, 'core:pkg:onload:complete')
-
-            with self.getAsyncLoggerStream('synapse.cortex') as stream:
-                msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
-                self.stormIsInPrint('testload @0.3.0', msgs)
-
-                msgs = await core.stormlist(f'pkg.load --ssl-noverify --raw https://127.0.0.1:{port}/api/v1/pkgtestraw/yep')
-                self.stormIsInPrint('testload @0.3.0', msgs)
-
-            stream.seek(0)
-            buf = stream.read()
-            self.isin("testload onload output: teststring", buf)
-            self.isin("testload onload output: testwarn", buf)
-            self.isin("No var with name: newp", buf)
-            self.len(1, await core.nodes(f'ps:contact={cont}'))
-
-            evnts = await waiter.wait(timeout=4)
-            exp = [
-                ('core:pkg:onload:complete', {'pkg': 'testload'})
-            ]
-            self.eq(exp, evnts)
 
     async def test_storm_pkg_onload_active(self):
         pkg = {
@@ -4874,6 +4626,103 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('$lib.bytes.upload`` has been deprecated and will be removed in version v3.0.0', msgs)
             self.stormIsInPrint('$lib.bytes.hashset`` has been deprecated and will be removed in version v3.0.0', msgs)
             self.stormIsInPrint('Use the corresponding ``$lib.axon`` function.', msgs)
+
+    async def test_storm_cmd_deprecations(self):
+
+        async with self.getTestCore() as core:
+
+            deprpkg = {
+                'name': 'testdepr',
+                'version': '0.0.1',
+                'synapse_version': '>=2.8.0,<3.0.0',
+                'commands': (
+                    {
+                        'name': 'deprmesg',
+                        'descr': 'deprecated command',
+                        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Please use something else.'},
+                        'storm': '[ inet:ipv4=1.2.3.4 ]',
+                    },
+                    {
+                        'name': 'deprnomesg',
+                        'descr': 'deprecated command',
+                        'deprecated': {'eoldate': '2099-01-01'},
+                        'storm': '[ inet:ipv4=1.2.3.4 ]',
+                    },
+                    {
+                        'name': 'deprargs',
+                        'descr': 'deprecated command',
+                        'storm': '[ inet:ipv4=1.2.3.4 ]',
+                        'cmdargs': (
+                            ('--start-time', {
+                                'type': 'time',
+                                'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use --period instead.'},
+                            }),
+                            ('--end-time', {
+                                'type': 'time',
+                                'deprecated': {'eolvers': 'v3.0.0'},
+                            }),
+                            ('--period', {
+                                'type': 'time',
+                            }),
+                        ),
+                    },
+                ),
+            }
+
+            self.none(await core.addStormPkg(deprpkg))
+
+            # Deprecation message shows up in command help
+            deprmesg = '"deprmesg" is deprecated: Please use something else.'
+            msgs = await core.stormlist('deprmesg -h')
+            self.stormIsInPrint(f'Deprecated: {deprmesg}', msgs)
+            self.stormHasNoWarnErr(msgs)
+
+            # Deprecation message shows up in command execution as warning
+            msgs = await core.stormlist('deprmesg')
+            self.stormIsInWarn(deprmesg, msgs)
+
+            # Deprecation message shows up in command help (with no message specified)
+            deprmesg = '"deprnomesg" is deprecated and will be removed on 2099-01-01.'
+            msgs = await core.stormlist('deprnomesg -h')
+            self.stormIsInPrint(f'Deprecated: {deprmesg}', msgs)
+            self.stormHasNoWarnErr(msgs)
+
+            # Deprecation message shows up in command execution as warning (with no message specified)
+            msgs = await core.stormlist('deprnomesg')
+            self.stormIsInWarn(deprmesg, msgs)
+
+            # Deprecation message shows up in help for command args
+            msgs = await core.stormlist('deprargs -h')
+            self.stormIsInPrint('  Deprecated: "--start-time" is deprecated: Use --period instead.', msgs)
+            self.stormIsInPrint('  Deprecated: "--end-time" is deprecated and will be removed in v3.0.0.', msgs)
+            self.stormHasNoWarnErr(msgs)
+
+            # Deprecation message doesn't show up in command execution when not using deprecated args
+            msgs = await core.stormlist('deprargs')
+            self.stormHasNoWarnErr(msgs)
+
+            # Deprecation message shows up in command execution as warning
+            msgs = await core.stormlist('deprargs --start-time now')
+            self.stormIsInWarn('"--start-time" is deprecated: Use --period instead.', msgs)
+            self.stormNotInWarn('"--end-time" is deprecated and will be removed in v3.0.0.', msgs)
+
+            msgs = await core.stormlist('deprargs --end-time now')
+            self.stormNotInWarn('"--start-time" is deprecated: Use --period instead.', msgs)
+            self.stormIsInWarn('"--end-time" is deprecated and will be removed in v3.0.0.', msgs)
+
+            msgs = await core.stormlist('deprargs --start-time now --end-time now')
+            self.stormIsInWarn('"--start-time" is deprecated: Use --period instead.', msgs)
+            self.stormIsInWarn('"--end-time" is deprecated and will be removed in v3.0.0.', msgs)
+
+            # Deprecation message only appears once per runtime
+            msgs = await core.stormlist('[ inet:ipv4=10.0.0.0/28 ] | deprmesg')
+            self.stormIsInWarn('"deprmesg" is deprecated: Please use something else.', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'warn'])
+
+            msgs = await core.stormlist('[ inet:ipv4=10.0.0.0/28 ] | deprargs --start-time now --end-time now')
+            self.stormIsInWarn('"--start-time" is deprecated: Use --period instead.', msgs)
+            self.stormIsInWarn('"--end-time" is deprecated and will be removed in v3.0.0.', msgs)
+            self.len(2, [m for m in msgs if m[0] == 'warn'])
 
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:

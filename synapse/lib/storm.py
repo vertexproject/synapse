@@ -440,196 +440,6 @@ stormcmds = (
         ''',
     },
     {
-        'name': 'pkg.list',
-        'descr': 'List the storm packages loaded in the cortex.',
-        'cmdargs': (
-            ('--verbose', {'default': False, 'action': 'store_true',
-                'help': 'Display build time for each package.'}),
-        ),
-        'storm': '''
-            init {
-                $conf = ({
-                    "columns": [
-                        {"name": "name", "width": 40},
-                        {"name": "vers", "width": 10},
-                    ],
-                    "separators": {
-                        "row:outline": false,
-                        "column:outline": false,
-                        "header:row": "#",
-                        "data:row": "",
-                        "column": "",
-                    },
-                })
-                if $cmdopts.verbose {
-                    $conf.columns.append(({"name": "time", "width": 20}))
-                }
-                $printer = $lib.tabular.printer($conf)
-            }
-
-            $pkgs = $lib.pkg.list()
-
-            if $($pkgs.size() > 0) {
-                $lib.print('Loaded storm packages:')
-                $lib.print($printer.header())
-                for $pkg in $pkgs {
-                    $row = (
-                        $pkg.name, $pkg.version,
-                    )
-                    if $cmdopts.verbose {
-                        try {
-                            $row.append($lib.time.format($pkg.build.time, '%Y-%m-%d %H:%M:%S'))
-                        } catch StormRuntimeError as _ {
-                            $row.append('not available')
-                        }
-                    }
-                    $lib.print($printer.row($row))
-                }
-            } else {
-                $lib.print('No storm packages installed.')
-            }
-        '''
-    },
-    {
-        'name': 'pkg.perms.list',
-        'descr': 'List any permissions declared by the package.',
-        'cmdargs': (
-            ('name', {'help': 'The name (or name prefix) of the package.', 'type': 'str'}),
-        ),
-        'storm': '''
-            $pdef = $lib.null
-            for $pkg in $lib.pkg.list() {
-                if $pkg.name.startswith($cmdopts.name) {
-                    $pdef = $pkg
-                    break
-                }
-            }
-
-            if (not $pdef) {
-                $lib.warn(`Package ({$cmdopts.name}) not found!`)
-            } else {
-                if $pdef.perms {
-                    $lib.print(`Package ({$cmdopts.name}) defines the following permissions:`)
-                    for $permdef in $pdef.perms {
-                        $defv = $permdef.default
-                        if ( $defv = $lib.null ) {
-                            $defv = $lib.false
-                        }
-                        $text = `{('.').join($permdef.perm).ljust(32)} : {$permdef.desc} ( default: {$defv} )`
-                        $lib.print($text)
-                    }
-                } else {
-                    $lib.print(`Package ({$cmdopts.name}) contains no permissions definitions.`)
-                }
-            }
-        '''
-    },
-    {
-        'name': 'pkg.del',
-        'descr': 'Remove a storm package from the cortex.',
-        'cmdargs': (
-            ('name', {'help': 'The name (or name prefix) of the package to remove.'}),
-        ),
-        'storm': '''
-
-            $pkgs = $lib.set()
-
-            for $pkg in $lib.pkg.list() {
-                if $pkg.name.startswith($cmdopts.name) {
-                    $pkgs.add($pkg.name)
-                }
-            }
-
-            if $($pkgs.size() = 0) {
-
-                $lib.print('No package names match "{name}". Aborting.', name=$cmdopts.name)
-
-            } elif $($pkgs.size() = 1) {
-
-                $name = $pkgs.list().index(0)
-                $lib.print('Removing package: {name}', name=$name)
-                $lib.pkg.del($name)
-
-            } else {
-
-                $lib.print('Multiple package names match "{name}". Aborting.', name=$cmdopts.name)
-
-            }
-        '''
-    },
-    {
-        'name': 'pkg.docs',
-        'descr': 'Display documentation included in a storm package.',
-        'cmdargs': (
-            ('name', {'help': 'The name (or name prefix) of the package.'}),
-        ),
-        'storm': '''
-            $pdef = $lib.null
-            for $pkg in $lib.pkg.list() {
-                if $pkg.name.startswith($cmdopts.name) {
-                    $pdef = $pkg
-                    break
-                }
-            }
-
-            if (not $pdef) {
-                $lib.warn("Package ({name}) not found!", name=$cmdopts.name)
-            } else {
-                if $pdef.docs {
-                    for $doc in $pdef.docs {
-                        $lib.print($doc.content)
-                    }
-                } else {
-                    $lib.print("Package ({name}) contains no documentation.", name=$cmdopts.name)
-                }
-            }
-        '''
-    },
-    {
-        'name': 'pkg.load',
-        'descr': 'Load a storm package from an HTTP URL.',
-        'cmdargs': (
-            ('url', {'help': 'The HTTP URL to load the package from.'}),
-            ('--raw', {'default': False, 'action': 'store_true',
-                'help': 'Response JSON is a raw package definition without an envelope.'}),
-            ('--verify', {'default': False, 'action': 'store_true',
-                'help': 'Enforce code signature verification on the storm package.'}),
-            ('--ssl-noverify', {'default': False, 'action': 'store_true',
-                'help': 'Specify to disable SSL verification of the server.'}),
-        ),
-        'storm': '''
-            init {
-                $ssl = $lib.true
-                if $cmdopts.ssl_noverify { $ssl = $lib.false }
-
-                $headers = ({'X-Synapse-Version': ('.').join($lib.version.synapse())})
-
-                $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl, headers=$headers)
-
-                if ($resp.code != 200) {
-                    $lib.warn("pkg.load got HTTP code: {code} for URL: {url}", code=$resp.code, url=$cmdopts.url)
-                    $lib.exit()
-                }
-
-                $reply = $resp.json()
-                if $cmdopts.raw {
-                    $pkg = $reply
-                } else {
-                    if ($reply.status != "ok") {
-                        $lib.warn("pkg.load got JSON error: {code} for URL: {url}", code=$reply.code, url=$cmdopts.url)
-                        $lib.exit()
-                    }
-
-                    $pkg = $reply.result
-                }
-
-                $pkd = $lib.pkg.add($pkg, verify=$cmdopts.verify)
-
-                $lib.print("Loaded Package: {name} @{version}", name=$pkg.name, version=$pkg.version)
-            }
-        ''',
-    },
-    {
         'name': 'version',
         'descr': 'Show version metadata relating to Synapse.',
         'storm': '''
@@ -1122,6 +932,7 @@ stormcmds = (
     },
     {
         'name': 'ps.list',
+        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``task.list`` instead.'},
         'descr': 'List running tasks in the cortex.',
         'cmdargs': (
             ('--verbose', {'default': False, 'action': 'store_true', 'help': 'Enable verbose output.'}),
@@ -1148,6 +959,7 @@ stormcmds = (
     },
     {
         'name': 'ps.kill',
+        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``task.kill`` instead.'},
         'descr': 'Kill a running task/query within the cortex.',
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid process iden is accepted.'}),
@@ -1300,6 +1112,16 @@ stormcmds = (
         ''',
     },
 )
+
+def deprmesg(name, depritem):
+    if (mesg := depritem.get('mesg')) is not None:
+        return f'"{name}" is deprecated: {mesg}'
+
+    if (eolvers := depritem.get('eolvers')) is not None:
+        return f'"{name}" is deprecated and will be removed in {eolvers}.'
+
+    eoldate = depritem.get('eoldate')
+    return f'"{name}" is deprecated and will be removed on {eoldate}.'
 
 @s_cache.memoize(size=1024)
 def queryhash(text):
@@ -2096,6 +1918,7 @@ class Parser:
         self.root = root
         self.exited = False
         self.mesgs = []
+        self.deprs = {}
 
         self.optargs = {}
         self.posargs = []
@@ -2121,7 +1944,7 @@ class Parser:
 
         choices = opts.get('choices')
         if choices is not None and opts.get('action') in ('store_true', 'store_false'):
-            mesg = f'Argument choices are not supported when action is store_true or store_false'
+            mesg = 'Argument choices are not supported when action is store_true or store_false'
             raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
 
         dest = self._get_dest(names)
@@ -2177,6 +2000,9 @@ class Parser:
                 continue
 
             dest = argdef.get('dest')
+
+            if (deprecated := argdef.get('deprecated')) is not None:
+                self.deprs[item] = deprecated
 
             oact = argdef.get('action', 'store')
             if oact == 'store_true':
@@ -2367,6 +2193,12 @@ class Parser:
 
         self._printf(f'Usage: {self.prog} [options] {posargs}')
 
+        if self.cdef is not None and (deprecated := self.cdef.get('deprecated')) is not None:
+            dmsg = deprmesg(self.prog, deprecated)
+            self._printf('')
+            self._printf(f'Deprecated: {dmsg}')
+            self._printf('')
+
         if self.cdef is not None and (endpoints := self.cdef.get('endpoints')):
             self._printf('')
             self._printf('Endpoints:')
@@ -2475,6 +2307,10 @@ class Parser:
         first = helplst[0][min_space:]
         wrap_first = self._wrap_text(first, wrap_w)
         self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
+
+        if (deprecated := argdef.get('deprecated')) is not None:
+            mesg = deprmesg(names[0], deprecated)
+            self._printf(f'{"":<{base_w-2}}  Deprecated: {mesg}')
 
         for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
         for ln in helplst[1:]:
@@ -2590,6 +2426,10 @@ class Cmd:
             self.opts = self.pars.parse_args(self.argv)
         except s_exc.BadSyntax:  # pragma: no cover
             pass
+
+        for item, depr in self.pars.deprs.items():
+            mesg = deprmesg(item, depr)
+            await self.runt.snap.warnonce(mesg)
 
         for line in self.pars.mesgs:
             await self.runt.snap.printf(line)
@@ -2711,6 +2551,10 @@ class PureCmd(Cmd):
                 'cmdconf': self.cdef.get('cmdconf', {}),
             }
         }
+
+        if (deprecated := self.cdef.get('deprecated')) is not None:
+            mesg = deprmesg(name, deprecated)
+            await self.runt.warnonce(mesg)
 
         if self.runtsafe:
             data = {'pathvars': {}}

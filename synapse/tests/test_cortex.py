@@ -426,7 +426,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core00.nodes('test:str=foo', opts=view00opts))
 
                 layr = core01.getLayer(layr01iden)
-                await layr.storNodeEdits((), {})
+                await layr.storNodeEdits((), {'user': s_common.guid()})
 
     async def test_cortex_must_upgrade(self):
 
@@ -6649,6 +6649,57 @@ class CortexBasicTest(s_t_utils.SynTest):
                         await prox.addUnivProp('_blah:blah^blah', ('int', {}), {})
                     with self.raises(s_exc.BadPropDef):
                         await prox.addTagProp('_blah:blah^blah', ('int', {}), {})
+
+        # Mirrors on newer model versions should not be able to add extended model elements
+        # based on model elements the leader doesn't have
+        async with self.getTestAha() as aha:
+
+            conf = {'aha:provision': await aha.addAhaSvcProv('00.cortex')}
+            core00 = await aha.enter_context(self.getTestCore(conf=conf))
+
+            conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex', {'mirror': 'cortex'})}
+            core01 = await aha.enter_context(self.getTestCore(conf=conf))
+
+            # Add a type directly to the mirror's model to simulate different model version
+            core01.model.addType('_newmodel:type', 'str', {}, {})
+
+            with self.raises(s_exc.NoSuchType):
+                await core01.addType('_test:type', '_newmodel:type', {}, {})
+
+            await core01.sync()
+            self.none(core01.model.type('_test:type'))
+
+            with self.raises(s_exc.NoSuchType):
+                await core01.addUnivProp('_woot', ('_newmodel:type', {}), {})
+
+            await core01.sync()
+            self.none(core01.model.prop('._woot'))
+
+            with self.raises(s_exc.NoSuchType):
+                await core01.addForm('_hehe:haha', '_newmodel:type', {}, {})
+
+            await core01.sync()
+            self.none(core01.model.form('_hehe:haha'))
+
+            with self.raises(s_exc.NoSuchType):
+                await core01.addFormProp('inet:asn', '_newer', ('_newmodel:type', {}), {})
+
+            await core01.sync()
+            self.none(core01.model.prop('inet:asn:_newer'))
+
+            with self.raises(s_exc.NoSuchType):
+                await core01.addTagProp('user', ('_newmodel:type', {}), {})
+
+            await core01.sync()
+            self.none(core01.model.tagprop('user'))
+
+            core01.model.addForm('_newmodel:type', {}, {})
+
+            with self.raises(s_exc.NoSuchForm):
+                await core01.addEdge(('_newmodel:type', '_foo', None), {})
+
+            await core01.sync()
+            self.none(core01.model.edge(('_newmodel:type', '_foo', None)))
 
     async def test_cortex_axon(self):
         async with self.getTestCore() as core:

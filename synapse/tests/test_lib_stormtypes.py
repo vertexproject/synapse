@@ -3297,6 +3297,18 @@ class StormTypesTest(s_test.SynTest):
             self.false(mesgs[0])
             self.isin('Ambiguous time', mesgs[1]['errinfo']['mesg'])
 
+            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.iso8601))')
+            self.eq(valu, '2025-10-02T00:00:00Z')
+
+            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.iso8601us))')
+            self.eq(valu, '2025-10-02T00:00:00.000000Z')
+
+            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.rfc2822))')
+            self.eq(valu, '02 Oct 2025 00:00:00 UT')
+
+            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.synapse))')
+            self.eq(valu, '2025/10/02 00:00:00.000000')
+
     async def test_storm_lib_time_ticker(self):
 
         async with self.getTestCore() as core:
@@ -8005,103 +8017,3 @@ words\tword\twrd'''
 
             q = 'return($lib.axon.unpack($sha256, fmt=">Q", offs=24))'
             await self.asyncraises(s_exc.BadDataValu, core.callStorm(q, opts=opts))
-
-    async def test_storm_pkg_vars(self):
-        with self.getTestDir() as dirn:
-
-            async with self.getTestCore(dirn=dirn) as core:
-
-                lowuser = await core.addUser('lowuser')
-                aslow = {'user': lowuser.get('iden')}
-                await core.callStorm('auth.user.addrule lowuser node')
-
-                # basic crud
-
-                self.none(await core.callStorm('return($lib.pkg.vars(pkg0).bar)'))
-                self.none(await core.callStorm('$varz=$lib.pkg.vars(pkg0) $varz.baz=$lib.undef return($varz.baz)'))
-                self.eq([], await core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
-                    return($kvs)
-                '''))
-
-                await core.callStorm('$lib.pkg.vars(pkg0).bar = cat')
-                await core.callStorm('$lib.pkg.vars(pkg0).baz = dog')
-
-                await core.callStorm('$lib.pkg.vars(pkg1).bar = emu')
-                await core.callStorm('$lib.pkg.vars(pkg1).baz = groot')
-
-                self.eq('cat', await core.callStorm('return($lib.pkg.vars(pkg0).bar)'))
-                self.eq('dog', await core.callStorm('return($lib.pkg.vars(pkg0).baz)'))
-                self.eq('emu', await core.callStorm('return($lib.pkg.vars(pkg1).bar)'))
-                self.eq('groot', await core.callStorm('return($lib.pkg.vars(pkg1).baz)'))
-
-                self.sorteq([('bar', 'cat'), ('baz', 'dog')], await core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
-                    return($kvs)
-                '''))
-                self.sorteq([('bar', 'emu'), ('baz', 'groot')], await core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg1) { $kvs.append($kv) }
-                    return($kvs)
-                '''))
-
-                await core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef')
-                self.none(await core.callStorm('return($lib.pkg.vars(pkg0).baz)'))
-
-                # perms
-
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.print($lib.pkg.vars(pkg0))', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('return($lib.pkg.vars(pkg0).baz)', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.pkg.vars(pkg0).baz = cool', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
-                    return($kvs)
-                ''', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('''
-                    [ test:str=foo ]
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
-                    fini { return($kvs) }
-                ''', opts=aslow))
-
-                await core.callStorm('auth.user.addrule lowuser "power-ups.pkg0.admin"')
-
-                self.stormHasNoWarnErr(await core.nodes('$lib.print($lib.pkg.vars(pkg0))', opts=aslow))
-                await core.callStorm('$lib.pkg.vars(pkg0).baz = cool', opts=aslow)
-                self.eq('cool', await core.callStorm('return($lib.pkg.vars(pkg0).baz)', opts=aslow))
-                await core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef', opts=aslow)
-                self.eq([('bar', 'cat')], await core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
-                    return($kvs)
-                ''', opts=aslow))
-                self.eq([('bar', 'cat')], await core.callStorm('''
-                    [ test:str=foo ]
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
-                    fini { return($kvs) }
-                ''', opts=aslow))
-
-            async with self.getTestCore(dirn=dirn) as core:
-
-                # data persists
-
-                self.eq('cat', await core.callStorm('return($lib.pkg.vars(pkg0).bar)'))
-                self.none(await core.callStorm('return($lib.pkg.vars(pkg0).baz)'))
-                self.eq('emu', await core.callStorm('return($lib.pkg.vars(pkg1).bar)'))
-                self.eq('groot', await core.callStorm('return($lib.pkg.vars(pkg1).baz)'))
-
-                self.sorteq([('bar', 'cat')], await core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
-                    return($kvs)
-                '''))
-                self.sorteq([('bar', 'emu'), ('baz', 'groot')], await core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg1) { $kvs.append($kv) }
-                    return($kvs)
-                '''))

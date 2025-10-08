@@ -61,6 +61,7 @@ import synapse.lib.stormlib.gen as s_stormlib_gen  # NOQA
 import synapse.lib.stormlib.gis as s_stormlib_gis  # NOQA
 import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
 import synapse.lib.stormlib.log as s_stormlib_log  # NOQA
+import synapse.lib.stormlib.pkg as s_stormlib_pkg  # NOQA
 import synapse.lib.stormlib.xml as s_stormlib_xml  # NOQA
 import synapse.lib.stormlib.auth as s_stormlib_auth  # NOQA
 import synapse.lib.stormlib.cell as s_stormlib_cell  # NOQA
@@ -72,6 +73,7 @@ import synapse.lib.stormlib.mime as s_stormlib_mime  # NOQA
 import synapse.lib.stormlib.pack as s_stormlib_pack  # NOQA
 import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
+import synapse.lib.stormlib.task as s_stormlib_task  # NOQA
 import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
 import synapse.lib.stormlib.basex as s_stormlib_basex  # NOQA
 import synapse.lib.stormlib.cache as s_stormlib_cache  # NOQA
@@ -462,6 +464,15 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getTypeNorm(name, valu, typeopts=typeopts)
 
+    async def addType(self, typename, basetype, typeopts, typeinfo):
+        '''
+        Add an extended type to the data model.
+
+        Extended types must begin with _
+        '''
+        self.user.confirm(('model', 'type', 'add', typename))
+        return await self.cell.addType(typename, basetype, typeopts, typeinfo)
+
     async def addForm(self, formname, basetype, typeopts, typeinfo):
         '''
         Add an extended form to the data model.
@@ -532,6 +543,15 @@ class CoreApi(s_cell.CellApi):
         '''
         self.user.confirm(('model', 'tagprop', 'del'))
         return await self.cell.delTagProp(name)
+
+    async def addEdge(self, edge, edgeinfo):
+        '''
+        Add an extended edge definition to the data model.
+
+        Extended edge definitions must use a verb which begins with _
+        '''
+        self.user.confirm(('model', 'edge', 'add'))
+        return await self.cell.addEdge(edge, edgeinfo)
 
     async def addStormPkg(self, pkgdef, verify=False):
         self.user.confirm(('pkg', 'add'))
@@ -1438,6 +1458,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('model', 'univ', 'del'), 'gate': 'cortex',
              'desc': 'Controls access to deleting extended model universal properties and values.'},
 
+            {'perm': ('model', 'edge', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to adding extended model edges.'},
+            {'perm': ('model', 'edge', 'del'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting extended model edges.'},
+
             {'perm': ('node',), 'gate': 'layer',
              'desc': 'Controls all node edits in a layer.'},
             {'perm': ('node', 'add'), 'gate': 'layer',
@@ -2262,6 +2287,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(slab.fini)
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
+        self.stormpkgqueue = await slab.getMultiQueue('storm:pkg:queue', nexsroot=self.nexsroot)
 
     async def _initStormGraphs(self):
         path = os.path.join(self.dirn, 'slabs', 'graphs.lmdb')
@@ -2565,6 +2591,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ctor.pkgname = cdef.get('pkgname')
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
         ctor.forms = cdef.get('forms', {})
+        ctor.deprecated = cdef.get('deprecated', {})
 
         def getStorNode(form):
             ndef = (form.name, form.type.norm(cdef.get('name'))[0])
@@ -2592,6 +2619,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
+
+            if ctor.deprecated:
+                props['deprecated'] = True
+
+                if (eolvers := ctor.deprecated.get('eolvers')) is not None:
+                    props['deprecated:version'] = eolvers
+
+                if (eoldate := ctor.deprecated.get('eoldate')) is not None:
+                    props['deprecated:date'] = eoldate
+
+                if (mesg := ctor.deprecated.get('mesg')) is not None:
+                    props['deprecated:mesg'] = mesg
 
             pnorms = {}
             for prop, valu in props.items():
@@ -3348,6 +3387,91 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for item in pkgvars.items():
             yield item
 
+    async def addStormPkgQueue(self, pkgname, name):
+        guid = s_common.guid((pkgname, name))
+        if self.stormpkgqueue.exists(guid):
+            mesg = f'Queue named {name} already exists for package {pkgname}!'
+            raise s_exc.DupName(mesg=mesg)
+
+        info = {
+            'iden': guid,
+            'name': name,
+            'pkgname': pkgname,
+            'created': s_common.now()
+        }
+
+        await self._push('storm:pkg:queue:add', pkgname, name, info)
+
+    @s_nexus.Pusher.onPush('storm:pkg:queue:add')
+    async def _addStormPkgQueue(self, pkgname, name, info):
+        guid = s_common.guid((pkgname, name))
+        if self.stormpkgqueue.exists(guid):
+            return
+        await self.stormpkgqueue.add(guid, info)
+
+    async def listStormPkgQueues(self, pkgname=None):
+        for pkginfo in self.stormpkgqueue.list():
+            if pkgname is None or pkginfo['meta'].get('pkgname') == pkgname:
+                yield pkginfo
+
+    async def getStormPkgQueue(self, pkgname, name):
+        guid = s_common.guid((pkgname, name))
+        return self.stormpkgqueue.status(guid)
+
+    async def delStormPkgQueue(self, pkgname, name):
+        guid = s_common.guid((pkgname, name))
+        if not self.stormpkgqueue.exists(guid):
+            mesg = f'No queue named {name} exists for package {pkgname}!'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        await self._push('storm:pkg:queue:del', pkgname, name)
+
+    @s_nexus.Pusher.onPush('storm:pkg:queue:del')
+    async def _delStormPkgQueue(self, pkgname, name):
+        guid = s_common.guid((pkgname, name))
+        if not self.stormpkgqueue.exists(guid):
+            return
+        await self.stormpkgqueue.rem(guid)
+
+    async def stormPkgQueueGet(self, pkgname, name, offs=0, wait=False):
+        guid = s_common.guid((pkgname, name))
+        async for item in self.stormpkgqueue.gets(guid, offs, cull=False, wait=wait):
+            return item
+
+    async def stormPkgQueueGets(self, pkgname, name, offs=0, wait=False, size=None):
+        count = 0
+        guid = s_common.guid((pkgname, name))
+        async for item in self.stormpkgqueue.gets(guid, offs, cull=False, wait=wait):
+
+            yield item
+
+            count += 1
+            if size is not None and count >= size:
+                return
+
+    async def stormPkgQueuePuts(self, pkgname, name, items):
+        return await self._push('storm:pkg:queue:puts', pkgname, name, items)
+
+    @s_nexus.Pusher.onPush('storm:pkg:queue:puts', passitem=True)
+    async def _stormPkgQueuePuts(self, pkgname, name, items, nexsitem):
+        nexsoff, nexsmesg = nexsitem
+        guid = s_common.guid((pkgname, name))
+        return await self.stormpkgqueue.puts(guid, items, reqid=nexsoff)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:queue:cull')
+    async def stormPkgQueueCull(self, pkgname, name, offs):
+        guid = s_common.guid((pkgname, name))
+        await self.stormpkgqueue.cull(guid, offs)
+
+    @s_nexus.Pusher.onPushAuto('storm:pkg:queue:pop')
+    async def stormPkgQueuePop(self, pkgname, name, offs):
+        guid = s_common.guid((pkgname, name))
+        return await self.stormpkgqueue.pop(guid, offs)
+
+    async def stormPkgQueueSize(self, pkgname, name):
+        guid = s_common.guid((pkgname, name))
+        return self.stormpkgqueue.size(guid)
+
     async def _cortexHealth(self, health):
         health.update('cortex', 'nominal')
 
@@ -3574,6 +3698,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return True
 
+    @s_cell.from_leader
     async def addUnivProp(self, name, tdef, info):
         if not isinstance(tdef, tuple):
             mesg = 'Universal property type definitions should be a tuple.'
@@ -3587,6 +3712,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if not name.startswith('_'):
             mesg = 'ext univ name must start with "_"'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
+
+        self.model.getTypeClone(tdef)
 
         base = '.' + name
         if base in self.model.props:
@@ -3609,6 +3736,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if univ:
             await self.feedBeholder('model:univ:add', univ.pack())
 
+    @s_cell.from_leader
     async def addForm(self, formname, basetype, typeopts, typeinfo):
         if not isinstance(typeopts, dict):
             mesg = 'Form type options should be a dict.'
@@ -3629,6 +3757,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.model.type(formname) is not None:
             mesg = f'Type already exists: {formname}'
             raise s_exc.DupTypeName.init(formname)
+
+        self.model.getTypeClone((basetype, typeopts))
 
         return await self._push('model:form:add', formname, basetype, typeopts, typeinfo)
 
@@ -3684,6 +3814,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change', form=formname, act='del', type='form')
         await self.feedBeholder('model:form:del', {'form': formname})
 
+    @s_cell.from_leader
     async def addType(self, typename, basetype, typeopts, typeinfo):
         if not isinstance(typeopts, dict):
             mesg = 'Type options should be a dict.'
@@ -3752,6 +3883,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change', name=typename, act='del', type='type')
         await self.feedBeholder('model:type:del', {'type': typename})
 
+    @s_cell.from_leader
     async def addFormProp(self, form, prop, tdef, info):
         if not isinstance(tdef, tuple):
             mesg = 'Form property type definitions should be a tuple.'
@@ -3770,6 +3902,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if _form.prop(prop):
             raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                      form=form, prop=prop)
+
+        self.model.getTypeClone(tdef)
+
         await self._push('model:prop:add', form, prop, tdef, info)
 
     @s_nexus.Pusher.onPush('model:prop:add')
@@ -3951,6 +4086,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
         await self.feedBeholder('model:univ:del', {'prop': univname})
 
+    @s_cell.from_leader
     async def addTagProp(self, name, tdef, info):
         if not isinstance(tdef, tuple):
             mesg = 'Tag property type definitions should be a tuple.'
@@ -3962,6 +4098,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.exttagprops.get(name) is not None:
             raise s_exc.DupPropName(name=name)
+
+        self.model.getTypeClone(tdef)
 
         return await self._push('model:tagprop:add', name, tdef, info)
 
@@ -4000,6 +4138,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:tagprop:change', name=name, act='del')
         await self.feedBeholder('model:tagprop:del', {'tagprop': name})
 
+    @s_cell.from_leader
     async def addEdge(self, edge, edgeinfo):
         if not isinstance(edgeinfo, dict):
             mesg = 'Edge info should be a dict.'
@@ -4568,35 +4707,24 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_stormlib_cortex.StormPoolGetCmd)
         self.addStormCmd(s_stormlib_cortex.StormPoolSetCmd)
 
-        for cdef in s_stormsvc.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
+        cmdmods = [
+            s_storm,
+            s_stormsvc,
+            s_stormlib_aha,
+            s_stormlib_auth,
+            s_stormlib_cortex,
+            s_stormlib_gen,
+            s_stormlib_index,
+            s_stormlib_macro,
+            s_stormlib_model,
+            s_stormlib_pkg,
+            s_stormlib_task,
+            s_stormlib_vault,
+        ]
 
-        for cdef in s_storm.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_aha.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_gen.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_auth.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_macro.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_model.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_cortex.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_vault.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
-
-        for cdef in s_stormlib_index.stormcmds:
-            await self._trySetStormCmd(cdef.get('name'), cdef)
+        for cmod in cmdmods:
+            for cdef in cmod.stormcmds:
+                await self._trySetStormCmd(cdef.get('name'), cdef)
 
     async def _initPureStormCmds(self):
         oldcmds = []
