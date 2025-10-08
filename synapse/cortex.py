@@ -3215,6 +3215,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 mesg = f'Nodes still exist with form: {formname} in layer {layr.iden}'
                 raise s_exc.CantDelForm(mesg=mesg)
 
+        self.model.reqTypeNotInUse(formname)
+
         self.model.delForm(formname)
         self.model.delType(formname)
 

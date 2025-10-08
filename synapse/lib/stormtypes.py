@@ -7436,10 +7436,7 @@ class Layer(Prim):
         propname = await tostr(propname)
         form = await tostr(form, noneok=True)
 
-        prop = self.runt.view.core.model.getTagProp(propname)
-        if prop is None:
-            mesg = f'No tag property named {propname}'
-            raise s_exc.NoSuchTagProp(name=propname, mesg=mesg)
+        prop = self.runt.view.core.model.reqTagProp(propname)
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
