@@ -420,10 +420,13 @@ class DataModelTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
 
                 await core.addTagProp('score', ('int', {}), {})
+                await core.addTagProp('inhstr', ('test:inhstr2', {}), {})
 
                 await core.nodes('[ test:inhstr=parent :name=p1]')
                 await core.nodes('[ test:inhstr2=foo :name=foo :child1=subv +#foo=2020 +#foo:score=10]')
                 await core.nodes('[ test:inhstr3=bar :name=bar :child1=subv :child2=specific]')
+
+                await core.nodes('[ test:str=tagprop +#bar:inhstr=bar ]')
 
                 self.len(3, await core.nodes('test:inhstr'))
                 self.len(1, await core.nodes('test:inhstr:name=bar'))
@@ -452,6 +455,10 @@ class DataModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('test:str=prop :inhstr -> test:inhstr')
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
+
+                nodes = await core.nodes('test:inhstr3 <- *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'tagprop'))
 
                 await core.nodes("$lib.model.ext.addForm(_test:inhstr5, test:inhstr3, ({}), ({}))")
                 await core.nodes("$lib.model.ext.addForm(_test:inhstr4, _test:inhstr5, ({}), ({}))")

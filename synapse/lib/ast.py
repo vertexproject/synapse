@@ -2640,10 +2640,11 @@ class PivotIn(PivotOper):
                 async for pivo in runt.view.nodesByPropArray(prop.full, '=', valu, norm=norm):
                     yield pivo, path.fork(pivo, link)
 
-        for prop in runt.model.getTagPropsByType(name):
-            norm = node.form.typehash is not prop.type.typehash
-            async for pivo, link in runt.view.getTagPropRefs(prop.name, valu, norm=norm):
-                yield pivo, path.fork(pivo, link)
+        for formtype in node.form.formtypes:
+            for prop in runt.model.getTagPropsByType(formtype):
+                norm = node.form.typehash is not prop.type.typehash
+                async for pivo, link in runt.view.getTagPropRefs(prop.name, valu, norm=norm):
+                    yield pivo, path.fork(pivo, link)
 
         async for pivo, link in runt.view.getNdefRefs(node.ndef):
             yield pivo, path.fork(pivo, link)
