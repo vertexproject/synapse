@@ -106,7 +106,7 @@ class SlabSeqn:
             return indx, packitem
 
         indx = self.indx
-        retn = self.slab.put(s_common.int64en(indx), packitem, append=True, db=self.db)
+        self.slab.put(s_common.int64en(indx), packitem, append=True, db=self.db)
 
         self.indx += 1
         self.size += 1
