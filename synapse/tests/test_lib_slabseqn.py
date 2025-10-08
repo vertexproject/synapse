@@ -175,7 +175,7 @@ class SlabSeqn(s_t_utils.SynTest):
                 res = await asyncio.wait_for(genr.__anext__(), timeout=1)
                 self.eq((1, 'bar'), res)
 
-    async def test_slabseqn_retnpack(self):
+    async def test_slab_seqn_retnpack(self):
 
         with self.getTestDir() as dirn:
             async with await s_lmdbslab.Slab.anit(dirn, map_size=10_0000) as slab:
@@ -203,4 +203,3 @@ class SlabSeqn(s_t_utils.SynTest):
                     (12, 'foo8'),
                 ]
                 self.eq(valus, evals)
-
