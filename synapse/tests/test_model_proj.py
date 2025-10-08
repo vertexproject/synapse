@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.tests.utils as s_test
 
 class ProjModelTest(s_test.SynTest):
@@ -256,13 +257,14 @@ class ProjModelTest(s_test.SynTest):
             self.eq('highest', nodes[0].repr('priority'))
             self.eq(proj, nodes[0].get('project'))
 
-            nodes = await core.nodes('proj:comment')
+            nodes = await core.nodes('proj:comment [ :ext:creator={[ps:contact=(visi,) :name=visi ]} ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('created'))
             self.nn(nodes[0].get('updated'))
             self.eq(tick, nodes[0].get('ticket'))
             self.eq('hithere', nodes[0].get('text'))
             self.eq(visi.iden, nodes[0].get('creator'))
+            self.eq(s_common.guid(('visi',)), nodes[0].get('ext:creator'))
 
             self.eq('foo', await core.callStorm('return($lib.projects.get($proj).name)', opts=opts))
             self.eq('bar', await core.callStorm('return($lib.projects.get($proj).epics.get($epic).name)', opts=opts))
