@@ -28,9 +28,10 @@ class Type:
     _opt_defs = ()
     stortype: int = None  # type: ignore
 
-    # a fast-access way to determine if the type is an array
+    # a fast-access way to determine if the type is an array/data
     # ( due to hot-loop needs in the storm runtime )
     isarray = False
+    isdata = False
 
     def __init__(self, modl, name, info, opts):
         '''
@@ -1622,6 +1623,8 @@ class TimeEdge(Edge):
         return (n1repr, n2repr, trepr)
 
 class Data(Type):
+
+    isdata = True
 
     stortype = s_layer.STOR_TYPE_MSGP
 
