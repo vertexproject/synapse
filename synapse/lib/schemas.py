@@ -948,6 +948,13 @@ _reqValidPkgdefSchema = {
                     'type': ['array', 'null'],
                     'items': {'$ref': '#/definitions/cmdinput'},
                 },
+                'cmdconf': {
+                    'type': 'object',
+                    'properties': {
+                        'svciden': {'type': 'string', 'pattern': s_config.re_iden},
+                    },
+                    'additionalProperties': True,
+                },
                 'storm': {'type': 'string'},
                 'forms': {'$ref': '#/definitions/cmdformhints'},
                 'perms': {'type': 'array',
