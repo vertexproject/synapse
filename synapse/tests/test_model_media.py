@@ -22,6 +22,7 @@ class MediaModelTest(s_t_utils.SynTest):
                 'file': file0,
                 'title': 'Synapse is awesome! ',
                 'summary': 'I forget ',
+                'body': 'It is Awesome ',
                 'published': 0,
                 'updated': 0,
                 'org': 'verteX',
@@ -34,7 +35,7 @@ class MediaModelTest(s_t_utils.SynTest):
 
             q = '''[(media:news=$valu
                     :url=$p.url :file=$p.file :title=$p.title
-                    :summary=$p.summary :published=$p.published :updated=$p.updated
+                    :summary=$p.summary :body=$p.body :published=$p.published :updated=$p.updated
                     :org=$p.org :authors=$p.authors
                     :publisher=$p.publisher :publisher:name=$p."publisher:name"
                     :rss:feed=$p."rss:feed" :topics=$p.topics
@@ -49,6 +50,8 @@ class MediaModelTest(s_t_utils.SynTest):
             self.eq(node.get('url:fqdn'), 'vertex.link')
             self.eq(node.get('file'), 'sha256:' + file0)
             self.eq(node.get('title'), 'synapse is awesome! ')
+            self.eq(node.get('summary'), 'I forget ')
+            self.eq(node.get('body'), 'It is Awesome ')
             self.eq(node.get('published'), 0)
             self.eq(node.get('updated'), 0)
             self.eq(node.get('publisher'), publisher)
