@@ -3822,7 +3822,7 @@ class InetModule(s_module.CoreModule):
                             'alts': ('users',),
                             'doc': 'The current user name of the account.'}),
 
-                        ('users', ('array', {'type': 'inet:user'}), {
+                        ('users', ('array', {'type': 'inet:user', 'sorted': True, 'uniq': True}), {
                             'doc': 'An array of alternate user names for this account.'}),
 
                         ('parent', ('inet:service:account', {}), {
