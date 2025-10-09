@@ -436,7 +436,15 @@ class NexsRoot(s_base.Base):
 
     async def iter(self, offs: int, tellready=False, wait=True) -> AsyncIterator[Any]:
         '''
-        Returns an iterator of change entries in the log
+        Returns an iterator of change entries in the log.
+
+        Notes:
+            If this method is being called in the context of a Telepath call,
+            it will directly send messages to the scope "link" object when it
+            has caught up to the realtime change window; instead of yielding
+            them as a generator. This is an optimization to avoid duplication
+            of msgpack'ing the same object over and over again as the number
+            of mirrors increases.
         '''
         if not self.donexslog:
             return
