@@ -9127,24 +9127,29 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             q = '''
                 test:guid=(d0,)
-                $l=:data
-                $l.list.rem(listval0)
-                $l.str = foo
-                $l.int = ($l.int + 1)
-                $l.dict.foo = bar
-                $l.tuple.append(tupleval2)
-                return($l)
+                $d=:data
+                $d.list.rem(listval0)
+                $d.str = foo
+                $d.int = ($d.int + 1)
+                $d.dict.foo = bar
+                $d.tuple.append(tupleval2)
+                return($d)
             '''
             valu = await core.callStorm(q)
             self.eq(valu, {
-                'str': 'foo',
-                'int': 2,
-                'dict': {'dictkey': 'dictval', 'foo': 'bar'},
-                'list': ('listval1',),
-                'tuple': ('tupleval0', 'tupleval1', 'tupleval2'),
+                    'str': 'foo',
+                    'int': 2,
+                    'dict': {'dictkey': 'dictval', 'foo': 'bar'},
+                    'list': ('listval1',),
+                    'tuple': ('tupleval0', 'tupleval1', 'tupleval2'),
             })
 
             # modifying the property value shouldn't update the node
-            nodes = await core.nodes('test:guid=(d0,) $l=:data $l.dict = $lib.undef')
+            q = '''
+                test:guid=(d0,)
+                $d=:data
+                $d.dict = $lib.undef
+            '''
+            nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].get('data')['dict'], {'dictkey': 'dictval'})
