@@ -884,6 +884,8 @@ class HttpReflector(s_httpapi.Handler):
         return dict(d)
 
     async def get(self):
+        self.set_header('Giant', 'x' * 64_000)
+
         resp = {}
         params = self._decode_params()
         if params:
@@ -906,6 +908,8 @@ class HttpReflector(s_httpapi.Handler):
         self.sendRestRetn(resp)
 
     async def post(self):
+        self.set_header('Giant', 'x' * 64_000)
+
         resp = {}
         params = self._decode_params()
         if params:
@@ -919,6 +923,8 @@ class HttpReflector(s_httpapi.Handler):
         self.sendRestRetn(resp)
 
     async def head(self):
+        self.set_header('Giant', 'x' * 64_000)
+
         params = self._decode_params()
         redirect = params.get('redirect')
         self.add_header('Head', '1')

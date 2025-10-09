@@ -12,9 +12,13 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.json as s_json
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.stormtypes as s_stormtypes
+
+MAX_LINE_SIZE = s_const.kibibyte * 64
+MAX_FIELD_SIZE = s_const.kibibyte * 64
 
 @s_stormtypes.registry.registerType
 class WebSocket(s_base.Base, s_stormtypes.StormType):
@@ -400,7 +404,12 @@ class LibHttp(s_stormtypes.Lib):
         proxy = await s_stormtypes.toprim(proxy)
         ssl_opts = await s_stormtypes.toprim(ssl_opts)
 
-        kwargs = {'allow_redirects': allow_redirects}
+        kwargs = {
+            'max_line_size': MAX_LINE_SIZE,
+            'max_field_size': MAX_FIELD_SIZE,
+            'allow_redirects': allow_redirects,
+        }
+
         if params:
             kwargs['params'] = s_stormtypes.strifyHttpArg(params, multi=True)
 
