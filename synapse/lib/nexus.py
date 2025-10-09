@@ -405,11 +405,7 @@ class NexsRoot(s_base.Base):
             saveindx, packitem = await self.nexslog.addWithPackRetn(item, indx=indx)
 
             if self._linkmirrors:
-                # Since msgpack is a streaming unpacker, we place a tuple into the
-                # window here instead of the full bytes object we were going to send.
-                # This allows us to avoid the allocation of a second bytes object
-                # which doubles the amount of memory required to hold packitem
-                tupl = (saveindx, (YIELD_PREFIX, s_msgpack.en(saveindx), packitem))
+                tupl = (saveindx, YIELD_PREFIX + s_msgpack.en(saveindx) + packitem)
                 for wind in tuple(self._linkmirrors):
                     await wind.put(tupl)
 
@@ -490,9 +486,8 @@ class NexsRoot(s_base.Base):
                         if offs < maxoffs:
                             continue
                         sync = False
-                    # Unpack the tuple that was pushed into the window and send each chunk separately.
-                    for obj in item:
-                        await link.send(obj)
+
+                    await link.send(item)
 
     @contextlib.asynccontextmanager
     async def getMirrorWindow(self):
