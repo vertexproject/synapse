@@ -9104,6 +9104,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(valu[0])
             self.sorteq(valu[1], ['foo', 'bar'])
 
+            # modifying the property value shouldn't update the node
+            nodes = await core.nodes('test:arrayprop=(ap0,) $l=:strs $l.rem(baz)')
+            self.len(1, nodes)
+            self.sorteq(nodes[0].get('strs'), ['foo', 'bar', 'baz'])
+
             data = {
                 'str': 'strval',
                 'int': 1,
@@ -9138,3 +9143,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'list': ('listval1',),
                 'tuple': ('tupleval0', 'tupleval1', 'tupleval2'),
             })
+
+            # modifying the property value shouldn't update the node
+            nodes = await core.nodes('test:guid=(d0,) $l=:data $l.dict = $lib.undef')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('data')['dict'], {'dictkey': 'dictval'})
