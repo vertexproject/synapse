@@ -98,7 +98,7 @@ Deprecations
 
 class ChangelogToolTest(s_test_utils.SynTest):
 
-    async def test_changelog_model_diff(self):
+    async def test_changelog_model_diff_class(self):
         outp = self.getTestOutp()
         old_fp = self.getTestFilePath('changelog', 'model_2.176.0_16ee721a6b7221344eaf946c3ab4602dda546b1a.yaml.gz')
         new_fp = self.getTestFilePath('changelog', 'model_2.176.0_2a25c58bbd344716cd7cbc3f4304d8925b0f4ef2.yaml.gz')
@@ -288,6 +288,32 @@ Deprecated Properties
   ``target:attrs``
     The attributes of the target file according to the LNK header.
 ''', text)
+
+    async def test_changelog_model_diff_tool(self):
+        # diff the stored test asset model vs the current runtime model :fingers_crossed:
+        with self.getTestDir() as dirn:
+            cdir = s_common.gendir(s_common.genpath(dirn, 'changes'))
+            outp = self.getTestOutp()
+            argv = ['gen', '--cdir', cdir, '--verbose', '--type', 'feat', 'I am a mighty feature!']
+            self.eq(0, await s_t_changelog.main(argv, outp))
+
+            modl_dirn = s_common.gendir(s_common.genpath(dirn, 'model'))
+            old_fp = self.getTestFilePath('changelog', 'model_2.176.0_16ee721a6b7221344eaf946c3ab4602dda546b1a.yaml.gz')
+
+            argv = ['format', '--cdir', cdir, '--version', 'v0.1.2', '--date', '2025-10-03',
+                    '--model-doc-dir', modl_dirn, '--model-ref', old_fp,
+                    '--model-doc-no-git', '--verbose',
+                    ]
+            self.eq(0, await s_t_changelog.main(argv, outp))
+            # We have many assertions we may run over outp where using outp.expect()
+            # not not be the most efficient
+            outp_str = str(outp)
+            # model diff data
+            self.isin('Not adding model changes to git.', outp_str)
+            # Changelog data
+            self.isin('v0.1.2 - 2025-10-03', outp_str)
+            self.isin('- See :ref:`userguide_model_v0_1_2` for more detailed model changes.', outp_str)
+            self.isin('- I am a mighty feature!', outp_str)
 
     async def test_changelog_model_save(self):
         with self.getTestDir() as dirn:

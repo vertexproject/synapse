@@ -918,14 +918,17 @@ async def format(opts: s_cmd.argparse.Namespace,
                     fd.truncate(0)
                     fd.write(model_text.encode())
                 outp.printf(f'Wrote model changes to {fp}')
-                if opts.verbose:
-                    outp.printf(f'Adding file to git.')
-                argv = ['git', 'add', fp]
-                ret = subprocess.run(argv, capture_output=True)
-                if opts.verbose:
-                    outp.printf(f'stddout={ret.stdout}')
-                    outp.printf(f'stderr={ret.stderr}')
-                ret.check_returncode()
+                if opts.model_doc_git:  # pragma: no cover
+                    if opts.verbose:
+                        outp.printf(f'Adding file to git.')
+                    argv = ['git', 'add', fp]
+                    ret = subprocess.run(argv, capture_output=True)
+                    if opts.verbose:
+                        outp.printf(f'stddout={ret.stdout}')
+                        outp.printf(f'stderr={ret.stderr}')
+                    ret.check_returncode()
+                else:
+                    outp.printf('Not adding model changes to git.')
         else:
             outp.printf(f'No model changes detected.')
 
@@ -1092,6 +1095,8 @@ def getArgParser(outp: s_output.OutPut):
                              help='Optional model file to use as a reference as the current model.')
     format_pars.add_argument('--model-doc-dir', default=None, action='store',
                              help='Directory to write the model changes too.')
+    format_pars.add_argument('--model-doc-no-git', default=True, dest='model_doc_git',
+                             action='store_false', help='Do not add the model doc output to git.')
 
     model_pars = subpars.add_parser('model', help='Helper for working with the Cortex data model.')
     model_pars.set_defaults(func=model)
