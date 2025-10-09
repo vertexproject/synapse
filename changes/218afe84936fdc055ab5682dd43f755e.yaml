@@ -1,0 +1,6 @@
+---
+desc: Improved performance when distributing changes to mirrors which are caught up
+  to the leader.
+prs: []
+type: feat
+...
