@@ -21,8 +21,8 @@ desc: |
     | wowow             | stufff                    |
     +-------------------+---------------------------+
 
-    Thees are more lines. The can have things like RST string literals in
-    them ``like this``. You can even do a literable block!
+    These are more lines. They can have things like RST string literals in
+    them ``like this``. You can even do a literal block!
 
     ::
 
@@ -79,8 +79,8 @@ Features and Enhancements
 
 Bugfixes
 --------
-- I am a bug which has quite a large amoutn of text in it. The amount of text
-  will span acrossmultiple lines after being formatted by the changelog tool.
+- I am a bug which has quite a large amount of text in it. The amount of text
+  will span across multiple lines after being formatted by the changelog tool.
 
 Notes
 -----

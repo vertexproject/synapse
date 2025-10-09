@@ -4,7 +4,7 @@ desc: |
     purpose specific modules. The following is a list of all the tools
     that were moved, with the old and new names available:
 
-    +-------------------+-----------=========-------+
+    +-------------------+---------------------------+
     | Old Tool          | New Tool                  |
     +===================+===========================+
     | axon2axon         | axon.copy                 |
