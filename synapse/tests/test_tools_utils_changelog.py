@@ -416,7 +416,6 @@ Deprecated Properties
             self.eq(1, await s_t_changelog.main(argv, outp))
             outp.expect('No files passed validation')
 
-
             with s_common.genfile(fp) as fd:
                 fd.truncate(0)
                 fd.write('''desc:literal: true
