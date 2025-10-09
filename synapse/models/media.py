@@ -35,6 +35,10 @@ class MediaModule(s_module.CoreModule):
                     'disp': {'hint': 'text'},
                     'doc': 'A brief summary of the news item.'}),
 
+                ('body', ('str', {}), {
+                    'disp': {'hint': 'text', 'syntax': 'markdown'},
+                    'doc': 'The body of the news item.'}),
+
                 ('publisher', ('ou:org', {}), {
                     'doc': 'The organization which published the news.'}),
 

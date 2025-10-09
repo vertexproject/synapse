@@ -601,6 +601,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 risk:mitigation=*
                     :vuln=*
                     :name="  FooBar  "
+                    :id="  IDa123  "
                     :type=foo.bar
                     :desc=BazFaz
                     :hardware=*
@@ -613,6 +614,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('BazFaz', nodes[0].props['desc'])
             self.eq('vertex', nodes[0].get('reporter:name'))
             self.eq('foo.bar.', nodes[0].get('type'))
+            self.eq('IDa123', nodes[0].get('id'))
             self.nn(nodes[0].get('reporter'))
             self.len(1, await core.nodes('risk:mitigation -> risk:vuln'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:softver'))

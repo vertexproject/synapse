@@ -420,6 +420,9 @@ class RiskModule(s_module.CoreModule):
                     ('type', ('risk:mitigation:type:taxonomy', {}), {
                         'doc': 'A taxonomy type entry for the mitigation.'}),
 
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'An identifier for the mitigation.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the mitigation approach for the vulnerability.'}),
