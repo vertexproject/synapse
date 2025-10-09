@@ -9096,9 +9096,45 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_prop_copy(self):
         async with self.getTestCore() as core:
-            q = '[ps:person=(p0,) :name=foo :names=(foo, bar, baz)]'
+            q = '[test:arrayprop=(ap0,) :strs=(foo, bar, baz)]'
             self.len(1, await core.nodes(q))
-            q = 'ps:person=(p0,) $l=:names $r=$l.rem(baz) return(($r, $l))'
+
+            q = 'test:arrayprop=(ap0,) $l=:strs $r=$l.rem(baz) return(($r, $l))'
             valu = await core.callStorm(q)
             self.true(valu[0])
             self.sorteq(valu[1], ['foo', 'bar'])
+
+            data = {
+                'str': 'strval',
+                'int': 1,
+                'dict': {'dictkey': 'dictval'},
+                'list': ['listval0', 'listval1'],
+                'tuple': ['tupleval0', 'tupleval1'],
+            }
+
+            opts = {
+                'vars': {
+                    'data': data,
+                }
+            }
+            q = '[ test:guid=(d0,) :data=$data ]'
+            self.len(1, await core.nodes(q, opts=opts))
+
+            q = '''
+                test:guid=(d0,)
+                $l=:data
+                $l.list.rem(listval0)
+                $l.str = foo
+                $l.int = ($l.int + 1)
+                $l.dict.foo = bar
+                $l.tuple.append(tupleval2)
+                return($l)
+            '''
+            valu = await core.callStorm(q)
+            self.eq(valu, {
+                'str': 'foo',
+                'int': 2,
+                'dict': {'dictkey': 'dictval', 'foo': 'bar'},
+                'list': ('listval1',),
+                'tuple': ('tupleval0', 'tupleval1', 'tupleval2'),
+            })

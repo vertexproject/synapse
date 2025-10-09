@@ -3495,8 +3495,15 @@ class PropValue(Value):
 
     async def compute(self, runt, path):
         prop, valu = await self.getPropAndValu(runt, path)
-        if prop.type.isarray:
-            valu = list(valu)
+
+        isarray = False
+        isdata = False
+
+        if prop and not (isarray := prop.type.isarray and not isinstance(valu, list)):
+            isdata = prop.type.name == 'data' or prop.type.subof == 'data'
+
+        if isarray or isdata:
+            valu = await s_stormtypes.toprim(valu, use_list=True)
         return valu
 
 class RelPropValue(PropValue):
