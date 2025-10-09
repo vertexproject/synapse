@@ -238,58 +238,6 @@ class Link(s_base.Base):
 
                 raise
 
-    async def sendChunks(self, chunks):
-        '''
-        Send the contents of a bytes iterable while holding the _txlock.
-
-        Notes:
-            This is optimized for sending multiple chunks at once which
-            are smaller than MAXWRITE.
-
-        Args:
-            chunks: a bytes iterator.
-        '''
-        async with self._txlock:
-            size_in_buf = 0  # track total size so we know when we need to split and chunk an iterable
-            try:
-                for byts in chunks:
-                    blen = len(byts)
-                    if blen <= (MAXWRITE - size_in_buf):
-                        # We can one shot write byts, increase size_in_buf,
-                        # then check if we are at MAXWRITE, then drain.
-                        self.writer.write(byts)
-                        size_in_buf += blen
-                        if size_in_buf >= MAXWRITE:
-                            await self.writer.drain()
-                            size_in_buf = 0
-                            continue
-                    else:
-                        chunk = byts[0:MAXWRITE - size_in_buf]
-                        offs = len(chunk)
-                        self.writer.write(chunk)
-                        await self.writer.drain()
-                        size_in_buf = 0  # We
-                        # Write the remaining chunks and drain each chunk.
-                        # This does mean the byts in the next chunk will be
-                        # going through the fast path
-                        while offs < blen:
-                            self.writer.write(byts[offs:offs + MAXWRITE])
-                            offs += MAXWRITE
-                            await self.writer.drain()
-
-                # We still have bytes remaining to drain
-                if size_in_buf:
-                    await self.writer.drain()
-
-            except (asyncio.CancelledError, Exception) as e:
-
-                await self.fini()
-
-                einfo = s_common.retnexc(e)
-                logger.debug('link.tx connection trouble %s', einfo)
-
-                raise
-
     async def tx(self, mesg):
         '''
         Async transmit routine which will wait for writer drain().

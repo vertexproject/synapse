@@ -78,42 +78,6 @@ class LinkTest(s_test.SynTest):
         # We can still get the info after we've closed the socket / fini'd the link.
         self.eq(info, link.getAddrInfo())
 
-    async def test_link_sendchunks(self):
-        async def onlink(link):
-            self.eq(b'thatsreallyneat', await link.recvsize(15))
-            self.eq(b'andthensomemore', await link.recv(15))
-            await link.send(b'vert')
-            await link.fini()
-
-        serv = await s_link.listen('127.0.0.1', 0, onlink)
-        host, port = serv.sockets[0].getsockname()
-
-        link = await s_link.connect(host, port)
-
-        chunks = (b'that', b's', b're', b'a', b'll', b'y', b'ne', b'atand', b'thensomemore')
-        with mock.patch('synapse.lib.link.MAXWRITE', 5):
-            await link.sendChunks(chunks)
-
-        self.eq(b'vert', await link.recvsize(4))
-        self.none(await link.recvsize(1))
-        await link.fini()
-        serv.close()
-
-        # Sad path case in sendChunks
-        async def onlink(link):
-            self.eq(b'hello', await link.recvsize(5))
-            await link.send(b'vert')  # send is really a no-nop
-            await link.fini()
-
-        serv = await s_link.listen('127.0.0.1', 0, onlink)
-        host, port = serv.sockets[0].getsockname()
-
-        link = await s_link.connect(host, port)
-        chunks = (b'hello', 'world')  # mixed types, str is not allowed
-        with self.raises(TypeError):
-            await link.sendChunks(chunks)
-        serv.close()
-
     async def test_link_tx_sadpath(self):
 
         evt = asyncio.Event()

@@ -490,7 +490,9 @@ class NexsRoot(s_base.Base):
                         if offs < maxoffs:
                             continue
                         sync = False
-                    await link.sendChunks(item)
+                    # Unpack the tuple that was pushed into the window and send each chunk separately.
+                    for obj in item:
+                        await link.send(obj)
 
     @contextlib.asynccontextmanager
     async def getMirrorWindow(self):
