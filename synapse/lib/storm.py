@@ -2545,10 +2545,14 @@ class PureCmd(Cmd):
 
         cmdopts = s_stormtypes.CmdOpts(self)
 
+        cmdconf = self.cdef.get('cmdconf', {})
+        if cmdconf:
+            cmdconf = s_msgpack.deepcopy(cmdconf, use_list=True)
+
         opts = {
             'vars': {
                 'cmdopts': cmdopts,
-                'cmdconf': self.cdef.get('cmdconf', {}),
+                'cmdconf': cmdconf,
             }
         }
 
