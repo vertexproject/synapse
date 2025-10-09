@@ -3068,6 +3068,7 @@ class InetModelTest(s_t_utils.SynTest):
                 (inet:service:account=(blackout, account, vertex, slack)
                     :id=U7RN51U1J
                     :user=blackout
+                    :users=(blackoutalt,)
                     :url=https://vertex.link/users/blackout
                     :email=blackout@vertex.link
                     :profile={ gen.ps.contact.email vertex.employee blackout@vertex.link }
@@ -3099,6 +3100,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(accounts[0].ndef, ('inet:service:account', s_common.guid(('blackout', 'account', 'vertex', 'slack'))))
             self.eq(accounts[0].get('id'), 'U7RN51U1J')
             self.eq(accounts[0].get('user'), 'blackout')
+            self.eq(accounts[0].get('users'), ('blackoutalt',))
             self.eq(accounts[0].get('url'), 'https://vertex.link/users/blackout')
             self.eq(accounts[0].get('email'), 'blackout@vertex.link')
             self.eq(accounts[0].get('profile'), blckprof.ndef[1])
@@ -3111,6 +3113,10 @@ class InetModelTest(s_t_utils.SynTest):
             blckacct, visiacct = accounts
 
             self.len(1, await core.nodes('inet:service:account:email=visi@vertex.link :parent -> inet:service:account'))
+
+            nodes = await core.nodes('[ inet:service:account=({"user": "blackoutalt"}) ]')
+            self.len(1, nodes)
+            self.eq(accounts[0].ndef, nodes[0].ndef)
 
             q = '''
             [ inet:service:group=(developers, group, vertex, slack)

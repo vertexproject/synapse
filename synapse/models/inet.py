@@ -3819,7 +3819,11 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:account', {}, (
 
                         ('user', ('inet:user', {}), {
+                            'alts': ('users',),
                             'doc': 'The current user name of the account.'}),
+
+                        ('users', ('array', {'type': 'inet:user'}), {
+                            'doc': 'An array of alternate user names for this account.'}),
 
                         ('parent', ('inet:service:account', {}), {
                             'doc': 'A parent account which owns this account.'}),
