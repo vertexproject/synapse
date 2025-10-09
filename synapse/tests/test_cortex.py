@@ -9093,3 +9093,12 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getRegrCore('2.213.0-queue-authgates') as core:
             self.nn(await core.getAuthGate('queue:stillhere'))
             self.none(await core.getAuthGate('queue:authtest'))
+
+    async def test_cortex_prop_copy(self):
+        async with self.getTestCore() as core:
+            q = '[ps:person=(p0,) :name=foo :names=(foo, bar, baz)]'
+            self.len(1, await core.nodes(q))
+            q = 'ps:person=(p0,) $l=:names $r=$l.rem(baz) return(($r, $l))'
+            valu = await core.callStorm(q)
+            self.true(valu[0])
+            self.sorteq(valu[1], ['foo', 'bar'])
