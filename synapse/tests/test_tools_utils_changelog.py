@@ -315,7 +315,7 @@ Deprecated Properties
             self.isin('- See :ref:`userguide_model_v0_1_2` for more detailed model changes.', outp_str)
             self.isin('- I am a mighty feature!', outp_str)
 
-    async def test_changelog_model_save(self):
+    async def test_changelog_model_save_compare(self):
         with self.getTestDir() as dirn:
             outp = self.getTestOutp()
             argv = ['model', '--cdir', dirn, '--save',]
@@ -324,13 +324,27 @@ Deprecated Properties
 
             files = os.listdir(modelrefs_dirn)
             self.len(1, files)
-            with s_common.genfile(modelrefs_dirn, files[0]) as fd:
+
+            model_fp = s_common.genpath(modelrefs_dirn, files[0])
+
+            with s_common.genfile(model_fp) as fd:
                 buf = fd.read()
             buf = gzip.decompress(buf)
             data = s_common.yamlloads(buf)
             self.isin('commit', data)
             self.isin('model', data)
             self.isin('version', data)
+
+            # Test compare vs self - no changes
+            outp.clear()
+            argv = ['model', '-c', model_fp, '--verbose']
+            self.eq(0, await s_t_changelog.main(argv, outp))
+            outp.expect("'edges': {}")
+            outp.expect("'forms': {}")
+            outp.expect("'interfaces': {}")
+            outp.expect("'tagprops': {}")
+            outp.expect("'types': {}")
+            outp.expect("'univs': {}")
 
     async def test_changelog_gen_format(self):
         with self.getTestDir() as dirn:
@@ -381,3 +395,61 @@ Deprecated Properties
             self.eq(0, await s_t_changelog.main(argv, outp))
 
             self.eq(str(outp).strip(), changelog_format_output.strip())
+
+        # Sad path tests
+        with self.getTestDir() as dirn:
+            outp = self.getTestOutp()
+
+            fp = s_common.genpath(dirn, s_common.guid())
+            with s_common.genfile(fp) as fd:
+                fd.write('hello world'.encode())
+
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03']
+            self.eq(1, await s_t_changelog.main(argv, outp))
+            outp.expect('Error running')
+
+            with s_common.genfile(fp) as fd:
+                fd.truncate(0)
+                fd.write(s_common.buid())
+            outp.clear()
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03']
+            self.eq(1, await s_t_changelog.main(argv, outp))
+            outp.expect('No files passed validation')
+
+
+            with s_common.genfile(fp) as fd:
+                fd.truncate(0)
+                fd.write('''desc:literal: true
+desc: |
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+type: feat
+'''.encode())
+            outp.clear()
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03']
+            self.eq(1, await s_t_changelog.main(argv, outp))
+            outp.expect('desc line 0 must start with "- "')
+
+            with s_common.genfile(fp) as fd:
+                fd.truncate(0)
+                fd.write('''desc:literal: true
+desc: |
+    - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxx
+type: feat
+            '''.encode())
+            outp.clear()
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03']
+            self.eq(1, await s_t_changelog.main(argv, outp))
+            outp.expect('desc line 1 must start with "  "')
+
+            with s_common.genfile(fp) as fd:
+                fd.truncate(0)
+                fd.write('''desc:literal: true
+desc: |
+    - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+type: feat
+            '''.encode())
+            outp.clear()
+            argv = ['format', '--cdir', dirn, '--version', 'v0.1.22', '--date', '2025-10-03']
+            self.eq(1, await s_t_changelog.main(argv, outp))
+            outp.expect('desc line 0 is too long, 79 > 79')

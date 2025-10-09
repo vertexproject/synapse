@@ -279,7 +279,7 @@ class ModelDiffer:
 
         new_faces = curfaces - oldfaces
         del_faces = oldfaces - curfaces  # This should generally not happen...
-        assert len(del_faces) == 0, 'An interface was removed from the data model!'
+        assert len(del_faces) == 0, f'An interface was removed from the data model!: {del_faces}'
 
         if new_faces:
             nv = {}
@@ -872,7 +872,7 @@ async def format(opts: s_cmd.argparse.Namespace,
         entries[data.get('type')].append(data)
 
     if not entries:
-        outp.printf(f'No files passed validation from {opts.dir}')
+        outp.printf(f'No files passed validation from {opts.cdir}')
         return 1
 
     date = opts.date
