@@ -64,8 +64,8 @@ Features and Enhancements
   | wowow             | stufff                    |
   +-------------------+---------------------------+
 
-  Thees are more lines. The can have things like RST string literals in
-  them ``like this``. You can even do a literable block!
+  These are more lines. They can have things like RST string literals in
+  them ``like this``. You can even do a literal block!
 
   ::
 
