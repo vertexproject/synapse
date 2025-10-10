@@ -3635,7 +3635,6 @@ class FuncCall(Value):
             except TypeError as e:
                 mesg = str(e)
                 if (funcpath := getattr(func, '_storm_funcpath', None)) is not None:
-                    breakpoint()
                     mesg = f"{funcpath}(){mesg.split(')', 1)[1]}"
 
                 raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
