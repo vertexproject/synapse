@@ -15,7 +15,7 @@ class SlabSeqn(s_t_utils.SynTest):
     def chk_size(self, seqn):
         self.eq(seqn.stat()['entries'], seqn.size)
 
-    async def test_slab_seqn(self):
+    async def test_slab_seqn_base(self):
 
         with self.getTestDir() as dirn:
 
@@ -174,3 +174,32 @@ class SlabSeqn(s_t_utils.SynTest):
 
                 res = await asyncio.wait_for(genr.__anext__(), timeout=1)
                 self.eq((1, 'bar'), res)
+
+    async def test_slab_seqn_retnpack(self):
+
+        with self.getTestDir() as dirn:
+            async with await s_lmdbslab.Slab.anit(dirn, map_size=10_0000) as slab:
+
+                seqn = s_slabseqn.SlabSeqn(slab, 'seqn:test')
+
+                self.eq((0, b'\xa4foo1'), seqn.addWithPackRetn('foo1'))
+                self.eq((1, b'\xa4foo2'), seqn.addWithPackRetn('foo2'))
+                self.eq((0, b'\xa4foo3'), seqn.addWithPackRetn('foo3', indx=0))
+
+                seqn.addWithPackRetn('foo4', indx=10)
+                seqn.addWithPackRetn('foo5')
+                seqn.addWithPackRetn('foo6', indx=7)
+                seqn.addWithPackRetn('foo7', indx=7)
+
+                self.eq((12, b'\xa4foo8'), seqn.addWithPackRetn('foo8'))
+
+                valus = [valu for valu in seqn.iter(0)]
+                evals = [
+                    (0, 'foo3',),
+                    (1, 'foo2'),
+                    (7, 'foo7'),
+                    (10, 'foo4'),
+                    (11, 'foo5'),
+                    (12, 'foo8'),
+                ]
+                self.eq(valus, evals)
