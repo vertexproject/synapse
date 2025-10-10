@@ -1,0 +1,5 @@
+---
+desc: Added ``risk:mitigation:id`` to capture the identifier for a mitigation.
+prs: []
+type: model
+...
