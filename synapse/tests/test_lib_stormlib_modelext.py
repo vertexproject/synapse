@@ -28,7 +28,7 @@ class StormtypesModelextTest(s_test.SynTest):
                 $forminfo = ({"doc": "A test type form doc."})
                 $lib.model.ext.addType(_test:type, str, $typeopts, $typeinfo)
                 $lib.model.ext.addForm(_test:typeform, _test:type, ({}), $forminfo)
-                $lib.model.ext.addForm(_test:typearry, array, ({"type": "_test:type"}), $forminfo)
+                $lib.model.ext.addType(_test:typearry, array, ({"type": "_test:type"}), $forminfo)
             ''')
 
             q = '[ _visi:int=10 :tick=20210101 +#lol:score=99 <(_copies)+ {[ inet:user=visi ]} ]'
@@ -99,12 +99,12 @@ class StormtypesModelextTest(s_test.SynTest):
                 await core.callStorm('$lib.model.ext.delType(_test:type)')
             self.isin('still in use by array types', cm.exception.get('mesg'))
 
-            await core.callStorm('$lib.model.ext.delForm(_test:typearry)')
+            await core.callStorm('$lib.model.ext.delType(_test:typearry)')
             await core.callStorm('$lib.model.ext.delType(_test:type)')
 
             self.none(core.model.type('_test:type'))
             self.none(core.model.form('_test:typeform'))
-            self.none(core.model.form('_test:typearry'))
+            self.none(core.model.type('_test:typearry'))
             self.none(core.model.form('_visi:int'))
             self.none(core.model.prop('_visi:int:tick'))
             self.none(core.model.prop('test:int:_tick'))

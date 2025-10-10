@@ -313,10 +313,6 @@ testmodel = (
             ('test:hugenum', ('hugenum', {}), {}),
 
             ('test:arrayprop', ('guid', {}), {}),
-            ('test:arrayform', ('array', {'type': 'int'}), {}),
-            ('test:arrayformtype', ('array', {'type': 'test:str', 'uniq': False}), {}),
-            ('test:arrayvirtform', ('array', {'type': 'time'}), {}),
-            ('test:arraysrv', ('array', {'type': 'inet:server', 'uniq': False}), {}),
 
             ('test:comp', ('comp', {'fields': (
                 ('hehe', 'test:int'),
@@ -368,10 +364,6 @@ testmodel = (
                 ('strsnosplit', ('array', {'type': 'test:str', 'uniq': False, 'sorted': False}), {}),
                 ('strregexs', ('array', {'type': 'test:strregex'}), {}),
             )),
-            ('test:arrayform', {}, ()),
-            ('test:arrayformtype', {}, ()),
-            ('test:arrayvirtform', {}, ()),
-            ('test:arraysrv', {}, ()),
             ('test:taxonomy', {}, ()),
             ('test:type10', {}, (
 
