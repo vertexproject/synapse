@@ -833,6 +833,8 @@ class HttpReflector(s_httpapi.Handler):
         self.sendRestRetn(resp)
 
     async def post(self):
+        self.set_header('Giant', 'x' * 64_000)
+
         resp = {}
         params = self._decode_params()
         if params:
