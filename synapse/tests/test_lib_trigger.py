@@ -4,7 +4,7 @@ import synapse.common as s_common
 
 import synapse.telepath as s_telepath
 import synapse.tests.utils as s_t_utils
-import synapse.tools.backup as s_tools_backup
+import synapse.tools.service.backup as s_tools_backup
 
 class TrigTest(s_t_utils.SynTest):
 
