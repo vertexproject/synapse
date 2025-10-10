@@ -386,6 +386,74 @@ data from cells. This results in cleaner diffs for .ipynb files over time.
       [some-branch f254f5bf] Demo commit
        1 file changed, 3 insertions(+), 2 deletions(-)
 
+Building `docker` Images
+------------------------
+
+Two scripts in `./docker` directory are used to build Synapse images.
+
+* `./docker/builld_all.sh` will build all Synapse images.
+
+* `./docker/build_image.sh` can be used to build individual components.
+
+These scripts are used in project's CI system, but can be invoked manually.
+
+#. Building all images.
+
+   ::
+
+       # build all images and with :dev_build tag
+       ./docker/build_all.sh
+
+       # build all images with a custom tag
+       ./docker/build_all.sh custom_tag
+
+#. Building individual components. The `synapse` image (used primarily for tests) cannot be
+   build using this command.
+
+   ::
+
+       # build Cortex image with :dev_build tag
+       ./docker/build_image.sh cortex
+
+       # build Jsonstor image with a :v4.0a tag
+       ./docker/build_image.sh jsonstor v4.0a
+
+#. Environment variables for local development.
+
+   One can set a few environment variables to tune local builds. Setting these flags
+   can improve local build time, but will likely to produce inconsistent results, so
+   these should not be used in production.
+
+   * `SYN_BUILD_BASE_IMAGE`. When building locally, a developer can override the
+     base image used in Synapse builds via
+     ::
+
+         SYN_BASE_IMAGE="my_awesome_synapse_image" ./docker/build_all.sh
+         SYN_BASE_IMAGE="vertexproject/vtx-base-image:py311" ./docker/build_image.sh cortex
+
+   * `SYN_BUILD_PULL`. By default the scripts will always pull the newest base
+     image from the registry. This way, once a new base image is updated in
+     the registry, the release process will ensure the new base is used.
+     When building locally, a developer might want to try a custom base image
+     without uploading it first, and this behaviour will lead to a failure.
+     The developer can disable image pulling by
+     ::
+
+         SYN_BUILD_PULL=0 ./docker/build_all.sh
+         SYN_BUILD_PULL=0 ./docker/build_image.sh axon dev_cached_base
+
+   * `SYN_BUILD_USE_CACHE`. By default the script will disable cache during builds
+     for stable CI behaviour. When building locally, a developer might speed things up
+     by allowing docker to cache intermediate stages
+     ::
+
+         SYN_BUILD_USE_CACHE=1 ./docker/build_all.sh
+
+   * `SYN_BUILD_PLATFORM`. Target images platform. To build locally on post-M1 Mac's
+     with new `docker`/`colima`/`podman`, the following might be required:
+     ::
+
+         SYN_BUILD_PLATFORM="linux/amd64" ./docker/build_all.sh
 
 Contribution Process
 --------------------
