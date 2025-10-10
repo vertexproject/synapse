@@ -92,6 +92,7 @@ modeldefs = (
                         'doc': 'An array of alternate telephone numbers for the {title}.'}),
 
                     ('user', ('inet:user', {}), {
+                        'alts': ('users',),
                         'doc': 'The primary user name for the {title}.'}),
 
                     ('users', ('array', {'type': 'inet:user'}), {

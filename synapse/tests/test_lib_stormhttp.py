@@ -47,6 +47,11 @@ class HttpBadJson(s_httpapi.Handler):
     async def get(self):
         self.write(b'{"foo": "bar\x80"}')
 
+class HttpGiantHeader(s_httpapi.Handler):
+    async def get(self):
+        self.set_header('Giant', 'x' * 64_000)
+        self.write('test')
+
 class StormHttpTest(s_test.SynTest):
 
     async def test_storm_http_get(self):
@@ -60,6 +65,7 @@ class StormHttpTest(s_test.SynTest):
             core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
             core.addHttpApi('/api/v0/notjson', HttpNotJson, {'cell': core})
             core.addHttpApi('/api/v0/badjson', HttpBadJson, {'cell': core})
+            core.addHttpApi('/api/v0/giantheader', HttpGiantHeader, {'cell': core})
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
             status_url = f'https://127.0.0.1:{port}/api/v1/status'
             opts = {'vars': {'url': url, 'port': port, 'status_url': status_url}}
@@ -272,6 +278,16 @@ class StormHttpTest(s_test.SynTest):
             resp = await core.callStorm(q, opts=opts)
             self.isinstance(resp, tuple)
             self.len(0, resp)
+
+            gianturl = f'https://root:root@127.0.0.1:{port}/api/v0/giantheader'
+            giantopts = {'vars': {'url': gianturl}}
+            q = '''
+            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            return ( $resp )
+            '''
+            resp = await core.callStorm(q, opts=giantopts)
+            self.eq(resp['body'], b'test')
+            self.len(64_000, resp['headers'].get('Giant'))
 
     async def test_storm_http_inject_ca(self):
 
