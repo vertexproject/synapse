@@ -6033,3 +6033,47 @@ class StormTest(s_t_utils.SynTest):
             ''')
 
             self.eq(['foo', 'bar'], await core.callStorm('return($lib.queue.gen(hoho).get().1)'))
+
+    async def test_storm_globals(self):
+
+        async with self.getTestCore() as core:
+            valu = await core.callStorm('return($lib.globals.get(newp))')
+            self.none(valu)
+
+            valu = await core.callStorm('return($lib.globals.set(testlist, (foo, bar, baz)))')
+            self.eq(valu, ['foo', 'bar', 'baz'])
+
+            valu = await core.callStorm('return($lib.globals.set(testdict, ({"foo": "bar"})))')
+            self.eq(valu, {'foo': 'bar'})
+
+            # Can mutate list values?
+            valu = await core.callStorm('$tl = $lib.globals.get(testlist) $tl.rem(bar) return($tl)')
+            self.eq(valu, ['foo', 'baz'])
+
+            # List mutations don't persist
+            valu = await core.callStorm('return($lib.globals.get(testlist))')
+            self.eq(valu, ['foo', 'bar', 'baz'])
+
+            # Can mutate dict values?
+            valu = await core.callStorm('$td = $lib.globals.get(testdict) $td.bar=foo return($td)')
+            self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
+
+            # Dict mutations don't persist
+            valu = await core.callStorm('return($lib.globals.get(testdict))')
+            self.eq(valu, {'foo': 'bar'})
+
+            # Global list returns mutable objects
+            q = '''
+                $ret = ({})
+                for ($key, $val) in $lib.globals.list() {
+                    if ($key = cortex:runtime:stormfixes) { continue }
+                    $ret.$key = $val
+                }
+
+                $ret."cortex:runtime:stormfixes" = $lib.undef
+                $ret.testdict.boo = bar
+                $ret.testlist.append(moo)
+                return($ret)
+            '''
+            valu = await core.callStorm(q)
+            breakpoint()

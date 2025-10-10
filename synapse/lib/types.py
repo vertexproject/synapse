@@ -28,10 +28,11 @@ class Type:
     _opt_defs = ()
     stortype: int = None  # type: ignore
 
-    # a fast-access way to determine if the type is an array/data
+    # a fast-access way to determine if the type is an array
     # ( due to hot-loop needs in the storm runtime )
     isarray = False
-    isdata = False
+
+    ismutable = False
 
     def __init__(self, modl, name, info, opts):
         '''
@@ -416,6 +417,7 @@ class Bool(Type):
 class Array(Type):
 
     isarray = True
+    ismutable = True
 
     def postTypeInit(self):
 
@@ -1624,7 +1626,7 @@ class TimeEdge(Edge):
 
 class Data(Type):
 
-    isdata = True
+    ismutable = True
 
     stortype = s_layer.STOR_TYPE_MSGP
 
