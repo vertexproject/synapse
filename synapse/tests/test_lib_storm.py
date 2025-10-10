@@ -6098,3 +6098,33 @@ class StormTest(s_t_utils.SynTest):
             self.eq(valu[1], {
                 'testdict': {'foo': 'bar'},
             })
+
+    async def test_storm_global_perms(self):
+
+        async with self.getTestCore() as core:
+            user = await core.auth.addUser('blackout')
+            await user.addRule((False, ('globals',)))
+            asuser = {'user': user.iden}
+
+            await core.callStorm('$lib.globals.set(foo, bar)')
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.callStorm('$lib.globals.get(foo)', opts=asuser)
+            self.eq(exc.exception.get('mesg'), f"User 'blackout' ({user.iden}) must have permission globals.get.foo")
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.callStorm('$lib.globals.pop(foo)', opts=asuser)
+            self.eq(exc.exception.get('mesg'), f"User 'blackout' ({user.iden}) must have permission globals.pop.foo")
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.callStorm('$lib.globals.set(foo, baz)', opts=asuser)
+            self.eq(exc.exception.get('mesg'), f"User 'blackout' ({user.iden}) must have permission globals.set.foo")
+
+            q = '''
+                $ret = ({})
+                for ($key, $val) in $lib.globals.list() {
+                    $ret.$key = $val
+                }
+                return($ret)
+            '''
+            self.len(0, await core.callStorm(q, opts=asuser))

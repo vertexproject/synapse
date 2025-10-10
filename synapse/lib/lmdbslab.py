@@ -212,7 +212,7 @@ class SafeKeyVal:
             raise s_exc.BadArg(mesg, prefix=self.prefix, name=name[:1024])
         return _name
 
-    def get(self, name, defv=None, use_list=False):
+    def get(self, name, defv=None):
         '''
         Get the value for a key.
 
@@ -223,7 +223,7 @@ class SafeKeyVal:
 
         if (byts := self.slab.get(name, db=self.valudb)) is None:
             return defv
-        return s_msgpack.un(byts, use_list=use_list)
+        return s_msgpack.un(byts)
 
     def set(self, name, valu):
 
@@ -232,12 +232,12 @@ class SafeKeyVal:
         self.slab.put(name, s_msgpack.en(valu), db=self.valudb)
         return valu
 
-    def pop(self, name, defv=None, use_list=False):
+    def pop(self, name, defv=None):
 
         name = self.reqValidName(name)
 
         if (byts := self.slab.pop(name, db=self.valudb)) is not None:
-            return s_msgpack.un(byts, use_list=use_list)
+            return s_msgpack.un(byts)
         return defv
 
     def delete(self, name):
@@ -262,7 +262,7 @@ class SafeKeyVal:
             self.slab.delete(lkey, db=self.valudb)
             await asyncio.sleep(0)
 
-    def items(self, pref='', use_list=False):
+    def items(self, pref=''):
 
         pref = self.reqValidName(pref)
 
@@ -273,11 +273,11 @@ class SafeKeyVal:
 
         if self.prefix:
             for lkey, byts in genr:
-                yield lkey[self.preflen:].decode('utf8'), s_msgpack.un(byts, use_list=use_list)
+                yield lkey[self.preflen:].decode('utf8'), s_msgpack.un(byts)
             return
 
         for lkey, byts in genr:
-            yield lkey.decode('utf8'), s_msgpack.un(byts, use_list=use_list)
+            yield lkey.decode('utf8'), s_msgpack.un(byts)
 
     def keys(self, pref=''):
 
@@ -296,7 +296,7 @@ class SafeKeyVal:
         for lkey in genr:
             yield lkey.decode('utf8')
 
-    def values(self, pref='', use_list=False):
+    def values(self, pref=''):
 
         pref = self.reqValidName(pref)
 
@@ -306,7 +306,7 @@ class SafeKeyVal:
             genr = self.slab.scanByPref(pref, db=self.valudb)
 
         for lkey, byts in genr:
-            yield s_msgpack.un(byts, use_list=use_list)
+            yield s_msgpack.un(byts)
 
 class SlabAbrv:
     '''
