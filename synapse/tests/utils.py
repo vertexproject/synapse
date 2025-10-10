@@ -76,7 +76,7 @@ import synapse.lib.thishost as s_thishost
 import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.tools.genpkg as s_genpkg
+import synapse.tools.storm.pkg.gen as s_genpkg
 
 logger = logging.getLogger(__name__)
 

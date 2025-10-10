@@ -13,7 +13,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 
-import synapse.tools.backup as s_tools_backup
+import synapse.tools.service.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 
