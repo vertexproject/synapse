@@ -276,7 +276,7 @@ modeldefs = (
             (('risk:mitigation', 'addresses', 'risk:vuln'), {
                 'doc': 'The mitigation addresses the vulnerability.'}),
 
-            (('risk:mitigation', 'uses', 'meta:ruleish'), {
+            (('risk:mitigation', 'uses', 'meta:rule'), {
                 'doc': 'The mitigation uses the rule.'}),
 
             (('risk:mitigation', 'uses', 'it:software'), {

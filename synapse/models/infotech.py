@@ -967,11 +967,11 @@ modeldefs = (
                 ),
                 'doc': 'An instance of a host deleting a registry key.', }),
 
-            ('it:app:yara:rule', ('guid', {}), {
+            ('it:app:yara:rule', ('meta:rule', {}), {
 
                 'interfaces': (
-                    ('meta:ruleish', {'template': {
-                        'document': 'YARA rule', 'syntax': 'yara'}}),
+                    ('doc:authorable', {'template': {
+                        'title': 'YARA rule', 'syntax': 'yara'}}),
                 ),
                 'doc': 'A YARA rule unique identifier.'}),
 
@@ -993,9 +993,9 @@ modeldefs = (
             ('it:sec:stix:indicator', ('guid', {}), {
                 'doc': 'A STIX indicator pattern.'}),
 
-            ('it:app:snort:rule', ('guid', {}), {
+            ('it:app:snort:rule', ('meta:rule', {}), {
                 'interfaces': (
-                    ('meta:ruleish', {'template': {'document': 'snort rule'}}),
+                    ('doc:authorable', {'template': {'title': 'snort rule'}}),
                 ),
                 'doc': 'A snort rule.'}),
 
