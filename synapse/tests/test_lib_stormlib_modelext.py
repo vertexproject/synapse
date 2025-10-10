@@ -63,6 +63,10 @@ class StormtypesModelextTest(s_test.SynTest):
                 q = '''$lib.model.ext.addEdge(inet:user, _copies, *, ({}))'''
                 await core.callStorm(q)
 
+            with self.raises(s_exc.BadFormDef):
+                q = '$lib.model.ext.addForm(_test:formarry, array, ({"type": "_test:type"}), ({}))'
+                await core.callStorm(q)
+
             self.nn(core.model.edge(('inet:user', '_copies', None)))
 
             with self.raises(s_exc.CantDelEdge):
