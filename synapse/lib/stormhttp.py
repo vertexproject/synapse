@@ -17,9 +17,6 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.stormtypes as s_stormtypes
 
-MAX_LINE_SIZE = s_const.kibibyte * 64
-MAX_FIELD_SIZE = s_const.kibibyte * 64
-
 @s_stormtypes.registry.registerType
 class WebSocket(s_base.Base, s_stormtypes.StormType):
     '''
@@ -405,8 +402,8 @@ class LibHttp(s_stormtypes.Lib):
         ssl_opts = await s_stormtypes.toprim(ssl_opts)
 
         kwargs = {
-            'max_line_size': MAX_LINE_SIZE,
-            'max_field_size': MAX_FIELD_SIZE,
+            'max_line_size': s_const.MAX_LINE_SIZE,
+            'max_field_size': s_const.MAX_FIELD_SIZE,
             'allow_redirects': allow_redirects,
         }
 

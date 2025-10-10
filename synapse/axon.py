@@ -27,7 +27,6 @@ import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
-import synapse.lib.stormhttp as s_stormhttp
 
 logger = logging.getLogger(__name__)
 
@@ -1653,8 +1652,8 @@ class Axon(s_cell.Cell):
                                    content_transfer_encoding=field.get('content_transfer_encoding'))
 
                 async with sess.request(method, url, headers=headers, params=params, data=data, ssl=ssl,
-                                        max_line_size=s_stormhttp.MAX_LINE_SIZE,
-                                        max_field_size=s_stormhttp.MAX_FIELD_SIZE) as resp:
+                                        max_line_size=s_const.MAX_LINE_SIZE,
+                                        max_field_size=s_const.MAX_FIELD_SIZE) as resp:
                     info = {
                         'ok': True,
                         'url': str(resp.url),
@@ -1702,8 +1701,8 @@ class Axon(s_cell.Cell):
                 await self._reqHas(sha256)
                 async with sess.request(method, url, headers=headers, params=params, ssl=ssl,
                                         data=self.get(sha256),
-                                        max_line_size=s_stormhttp.MAX_LINE_SIZE,
-                                        max_field_size=s_stormhttp.MAX_FIELD_SIZE) as resp:
+                                        max_line_size=s_const.MAX_LINE_SIZE,
+                                        max_field_size=s_const.MAX_FIELD_SIZE) as resp:
 
                     info = {
                         'ok': True,
@@ -1832,8 +1831,8 @@ class Axon(s_cell.Cell):
 
             try:
                 async with sess.request(method, url, headers=headers, params=params, json=json, data=body, ssl=ssl,
-                                        max_line_size=s_stormhttp.MAX_LINE_SIZE,
-                                        max_field_size=s_stormhttp.MAX_FIELD_SIZE) as resp:
+                                        max_line_size=s_const.MAX_LINE_SIZE,
+                                        max_field_size=s_const.MAX_FIELD_SIZE) as resp:
 
                     info = self._flatten_clientresponse(resp)
 
