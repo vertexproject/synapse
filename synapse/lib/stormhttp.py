@@ -12,6 +12,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.json as s_json
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.stormtypes as s_stormtypes
@@ -400,7 +401,12 @@ class LibHttp(s_stormtypes.Lib):
         proxy = await s_stormtypes.toprim(proxy)
         ssl_opts = await s_stormtypes.toprim(ssl_opts)
 
-        kwargs = {'allow_redirects': allow_redirects}
+        kwargs = {
+            'max_line_size': s_const.MAX_LINE_SIZE,
+            'max_field_size': s_const.MAX_FIELD_SIZE,
+            'allow_redirects': allow_redirects,
+        }
+
         if params:
             kwargs['params'] = s_stormtypes.strifyHttpArg(params, multi=True)
 

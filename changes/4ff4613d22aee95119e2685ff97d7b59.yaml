@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where the maximum size allowed for headers in HTTP client responses
+  was insufficient for some use cases.
+prs: []
+type: bug
+...
