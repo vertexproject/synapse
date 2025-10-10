@@ -34,6 +34,10 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadFormDef):
                 core.model.addForm('woot:two', {}, ())
 
+            core.model.addType('woot:array', 'array', {'type': 'str'}, {})
+            with self.raises(s_exc.BadFormDef):
+                core.model.addForm('woot:array', {}, ())
+
             with self.raises(s_exc.NoSuchForm):
                 core.model.reqForm('newp:newp')
 

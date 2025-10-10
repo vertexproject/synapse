@@ -2215,13 +2215,12 @@ class TypesTest(s_t_utils.SynTest):
                 ('test:witharray', ('guid', {}), {}),
             ),
             'forms': (
-                ('test:array', {}, (
-                )),
                 ('test:arraycomp', {}, (
                     ('ips', ('test:array', {}), {}),
                     ('int', ('test:int', {}), {}),
                 )),
                 ('test:witharray', {}, (
+                    ('ips', ('test:array', {}), {}),
                     ('fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True, 'split': ','}), {}),
                 )),
             ),
@@ -2236,20 +2235,22 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeDef):
                 await core.addFormProp('test:int', '_hehe', ('array', {'type': 'newp'}), {})
 
-            nodes = await core.nodes('[ test:array=(1.2.3.4, 5.6.7.8) ]')
+            nodes = await core.nodes('[ test:witharray=* :ips=(1.2.3.4, 5.6.7.8) ]')
             self.len(1, nodes)
 
             # create a long array (fails pre-020)
             arr = ','.join([f'[4, {i}]' for i in range(300)])
-            nodes = await core.nodes(f'[ test:array=([{arr}]) ]')
+            nodes = await core.nodes(f'[ test:witharray=* :ips=([{arr}]) ]')
             self.len(1, nodes)
 
-            nodes = await core.nodes('test:array*[=1.2.3.4]')
+            nodes = await core.nodes('test:witharray:ips*[=1.2.3.4]')
             self.len(1, nodes)
 
-            nodes = await core.nodes('test:array*[=1.2.3.4] | delnode')
-            nodes = await core.nodes('test:array*[=1.2.3.4]')
+            nodes = await core.nodes('test:witharray:ips*[=1.2.3.4] | delnode')
+            nodes = await core.nodes('test:witharray:ips*[=1.2.3.4]')
             self.len(0, nodes)
+
+            nodes = await core.nodes('test:witharray | delnode')
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ test:arraycomp=("1.2.3.4, 5.6.7.8", 10) ]')
