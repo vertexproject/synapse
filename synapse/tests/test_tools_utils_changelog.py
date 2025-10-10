@@ -357,8 +357,8 @@ Deprecated Properties
             self.eq(0, await s_t_changelog.main(argv, outp))
 
             outp.clear()
-            desc = '''I am a bug which has quite a large amoutn of text in it. The amount of text will span across'''\
-                '''multiple lines after being formatted by the changelog tool.'''
+            desc = '''I am a bug which has quite a large amount of text in it. The amount of text will span across'''\
+                ''' multiple lines after being formatted by the changelog tool.'''
             argv = ['gen', '--cdir', dirn, '--type', 'bug', desc]
             self.eq(0, await s_t_changelog.main(argv, outp))
 
