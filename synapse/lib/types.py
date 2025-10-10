@@ -32,6 +32,8 @@ class Type:
     # ( due to hot-loop needs in the storm runtime )
     isarray = False
 
+    ismutable = False
+
     def __init__(self, modl, name, info, opts):
         '''
         Construct a new Type object.
@@ -415,6 +417,7 @@ class Bool(Type):
 class Array(Type):
 
     isarray = True
+    ismutable = True
 
     def postTypeInit(self):
 
@@ -1622,6 +1625,8 @@ class TimeEdge(Edge):
         return (n1repr, n2repr, trepr)
 
 class Data(Type):
+
+    ismutable = True
 
     stortype = s_layer.STOR_TYPE_MSGP
 

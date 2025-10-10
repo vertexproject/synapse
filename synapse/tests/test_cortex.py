@@ -9093,3 +9093,63 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getRegrCore('2.213.0-queue-authgates') as core:
             self.nn(await core.getAuthGate('queue:stillhere'))
             self.none(await core.getAuthGate('queue:authtest'))
+
+    async def test_cortex_prop_copy(self):
+        async with self.getTestCore() as core:
+            q = '[test:arrayprop=(ap0,) :strs=(foo, bar, baz)]'
+            self.len(1, await core.nodes(q))
+
+            q = 'test:arrayprop=(ap0,) $l=:strs $r=$l.rem(baz) return(($r, $l))'
+            valu = await core.callStorm(q)
+            self.true(valu[0])
+            self.sorteq(valu[1], ['foo', 'bar'])
+
+            # modifying the property value shouldn't update the node
+            nodes = await core.nodes('test:arrayprop=(ap0,) $l=:strs $l.rem(baz)')
+            self.len(1, nodes)
+            self.sorteq(nodes[0].get('strs'), ['foo', 'bar', 'baz'])
+
+            data = {
+                'str': 'strval',
+                'int': 1,
+                'dict': {'dictkey': 'dictval'},
+                'list': ['listval0', 'listval1'],
+                'tuple': ['tupleval0', 'tupleval1'],
+            }
+
+            opts = {
+                'vars': {
+                    'data': data,
+                }
+            }
+            q = '[ test:guid=(d0,) :data=$data ]'
+            self.len(1, await core.nodes(q, opts=opts))
+
+            q = '''
+                test:guid=(d0,)
+                $d=:data
+                $d.list.rem(listval0)
+                $d.str = foo
+                $d.int = ($d.int + 1)
+                $d.dict.foo = bar
+                $d.tuple.append(tupleval2)
+                return($d)
+            '''
+            valu = await core.callStorm(q)
+            self.eq(valu, {
+                    'str': 'foo',
+                    'int': 2,
+                    'dict': {'dictkey': 'dictval', 'foo': 'bar'},
+                    'list': ('listval1',),
+                    'tuple': ('tupleval0', 'tupleval1', 'tupleval2'),
+            })
+
+            # modifying the property value shouldn't update the node
+            q = '''
+                test:guid=(d0,)
+                $d=:data
+                $d.dict = $lib.undef
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('data')['dict'], {'dictkey': 'dictval'})
