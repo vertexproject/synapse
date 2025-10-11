@@ -95,11 +95,11 @@ the **Storm Package** YAML file to locate their contents::
 Building / Loading
 ------------------
 
-To build and load **Storm Packages**, use the ``genpkg`` tool included within Synapse. For
+To build and load **Storm Packages**, use the ``storm.pkg.gen`` tool included within Synapse. For
 this example, we will assume you have deployed your Synapse environment according to the
 `Deployment Guide`_::
 
-    python -m synapse.tools.genpkg acme-hello.yaml --push aha://cortex...
+    python -m synapse.tools.storm.pkg.gen acme-hello.yaml --push aha://cortex...
 
 .. note::
 
