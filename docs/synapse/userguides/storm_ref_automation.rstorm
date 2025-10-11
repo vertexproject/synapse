@@ -229,7 +229,7 @@ Configuration and Management
 - **Execution.** Cron jobs must be assigned to a specific **view** where they execute. By default, this is the
   view where the cron job is created. If the view that a cron job runs in is deleted, the cron job **remains**
   (within the Cortex) but is effectively orphaned until it is assigned to a new view (i.e., using the
-  :ref:`stormlibs-lib-cron-move` library) or deleted if no longer needed.
+  :ref:`stormlibs-lib-cron-mod` library) or deleted if no longer needed.
  
 - **Permissions.** Cron jobs execute with the privileges of a designated user (by default, the user who creates the
   cron job). We strongly encourage the use of least privilege; the cron job's account should have the permissions
@@ -327,13 +327,13 @@ new cron jobs. See the help for each command for options and additional details.
 **One-time (non-recurring) cron job example**
 
 You want to use a one-time cron job that runs during off hours to perform some data cleanup. Specifically, you
-want a job that will lift all existing ``media:news`` nodes and remove (delete) the deprecated ``:author`` property
+want a job that will lift all existing ``doc:report`` nodes and remove (delete) the ``:publisher:name`` property
 at 0200 UTC.
 
-.. storm-pre:: [ (media:news=* :author='ron the cat' :title='my article') (media:news=* :title='your article') ]
-.. storm-pre:: media:news:author [ -:author ]
+.. storm-pre:: [ (doc:report=* :publisher:name='ron the cat' :title='my article') (doc:report=* :title='your article') ]
+.. storm-pre:: doc:report:publisher:name [ -:publisher:name ]
 
-.. storm-cli:: cron.at --hour 2 { media:news:author [ -:author ] }
+.. storm-cli:: cron.at --hour 2 { doc:report:publisher:name [ -:publisher:name ] }
 
 We can view the details of this cron job using the ``cron.list`` command:
 
@@ -450,7 +450,7 @@ Configuration and Management
   the trigger.)
   
   Similarly, triggers do not operate "retroactively" on existing data. If you write a new trigger to fire when
-  the tag ``my.tag`` is applied to a ``hash:md5`` node, the trigger will have no effect on existing ``hash:md5``
+  the tag ``my.tag`` is applied to a ``crypto:hash:md5`` node, the trigger will have no effect on existing ``crypto:hash:md5``
   nodes that already have the tag.
 
 - **Permissions.** Triggers execute with the privileges of a designated user (by default, the user who creates
@@ -494,9 +494,9 @@ As such, triggers are most appropriate for automating tasks that should occur ri
 or importance). Example use cases for triggers include:
 
 - **Performing enrichment.** There may be circumstances where you **always** want to retrieve additional information
-  about an object (node) within Synapse. For example, whenever a unicast IPv4 (``inet:ipv4`` node) is added to Synapse,
+  about an object (node) within Synapse. For example, whenever a unicast IP (``inet:ip`` node) is added to Synapse,
   you want to automatically look up Autonomous System (AS), geolocation, and network whois data. You can use a
-  trigger to enrich the ``inet:ipv4`` using the appropriate `Power-Ups`_ as soon as the IPv4 is created (e.g.,
+  trigger to enrich the ``inet:ip`` using the appropriate `Power-Ups`_ as soon as the IP is created (e.g.,
   by firing on a ``node:add`` event).
   
   Similarly, when a node is assessed to be malicious (e.g., associated with a threat cluster or malware
@@ -505,9 +505,9 @@ or importance). Example use cases for triggers include:
   extensive "enrichment" query (or macro).
 
 - **Encoding analytical logic.** You can use Storm to encode your analysis logic, such as the criteria or decision
-  process used to apply a tag. As a simplified example, assume you have identified an IPv4 address as a DNS sinkhole.
-  You assess that any FQDN resolving to the IPv4 is highly likely to be a sinkholed domain. When a DNS A node
-  (``inet:dns:a``) is created where the associated IPv4 (``:ipv4`` property) is the IP of the sinkhole
+  process used to apply a tag. As a simplified example, assume you have identified an IP address as a DNS sinkhole.
+  You assess that any FQDN resolving to the IP is highly likely to be a sinkholed domain. When a DNS A node
+  (``inet:dns:a``) is created where the associated IP (``:ip`` property) is the IP of the sinkhole
   (a ``prop:set`` event), a trigger can automatically tag the associated FQDN as sinkholed. If you want
   an analyst to confirm the assessment (vs. applying it in a fully automated fashion), you can apply a
   "review" tag instead. Alternatively, if additional criteria would better support your assessment (e.g., if
@@ -520,7 +520,7 @@ or importance). Example use cases for triggers include:
 - **Automating repetitive tasks.** Any process that analysts identify as repetitive may benefit from automation.
   Analysts may identify cases where, when they perform a specific action in Synapse, they always perform several
   additional actions. For example, when an analyst tags a particular node (such as a ``file:bytes`` node), they always
-  want to apply the same tag to a set of "related" nodes (such as the ``hash:md5``, ``hash:sha1``, etc. that
+  want to apply the same tag to a set of "related" nodes (such as the ``crypto:hash:md5``, ``crypto:hash:sha1``, etc. that
   represent the file's hashes). Similarly, if a ``file:bytes`` node queries a "known bad" FQDN (via an ``inet:dns:request`` node),
   analysts also want to apply the tag from the FQDN to both the DNS request and the file. Using a trigger (on a ``tag:add``
   event) saves manual work by the analyst and ensures the additional tags are applied consistently.
@@ -650,7 +650,9 @@ is set as the ``:email`` property of an ``inet:whois:contact`` node and tag the 
 (``#cno.infra.dns.sink.holed``). Because the trigger is a simple one, you want it to run inline (i.e., you do
 not need the ``--async`` option).
 
-.. storm-cli:: trigger.add prop:set --name 'Tag sinkholed FQDNs based on known sinkholer email' --prop inet:whois:contact:email --query { +{ :email-> inet:email +#cno.infra.dns.sink.hole } -> inet:whois:rec -> inet:fqdn [ +#cno.infra.dns.sink.holed ] }
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: trigger.add prop:set --name 'Tag sinkholed FQDNs based on known sinkholer email' --prop inet:whois:contact:email { +{ :email-> inet:email +#cno.infra.dns.sink.hole } -> inet:whois:rec -> inet:fqdn [ +#cno.infra.dns.sink.holed ] }
 
 .. TIP::
   
@@ -677,10 +679,10 @@ The output of ``trigger.list`` includes the following columns:
 
 **node:add example**
 
-Whenever an IPv4 node is added to Synapse, you want to immediately retrieve the associated Autonomous System (AS),
+Whenever an IP node is added to Synapse, you want to immediately retrieve the associated Autonomous System (AS),
 geolocation, and DNS PTR data using various Storm commands.
 
-.. storm-cli:: trigger.add node:add --name 'Basic IPv4 enrichment' --form inet:ipv4 --query { maxmind | nettools.dns }
+.. storm-cli:: trigger.add node:add --name 'Basic IP enrichment' --form inet:ip { maxmind | nettools.dns }
 
 
 .. TIP::
@@ -700,10 +702,10 @@ email message (``file:bytes`` node) or email metadata nodes (such as ``inet:emai
 or ``inet:email:message:link``).
 
 If the object "used" in the attack has an associated TTP tag (such as ``#cno.ttp.phish.attach`` to represent a malicious
-attachment used in a phishing attack), you want to pivot to the technique (``ou:technique``) represented by the tag (e.g., 
+attachment used in a phishing attack), you want to pivot to the technique (``meta:technique``) represented by the tag (e.g., 
 "Spear phishing attachment"), and create another ``uses`` edge to show the attack uses the specified technique.
 
-.. storm-cli:: trigger.add edge:add --name 'Link technique with attack'--verb uses --form risk:attack --query { $attack=$node { -(uses)> * +$auto.opts.n2iden -> # -> ou:technique:tag [ <(uses)+ { yield $attack } ] } }
+.. storm-cli:: trigger.add edge:add --name 'Link technique with attack'--verb uses --form risk:attack { $attack=$node { -(uses)> * +$auto.opts.n2iden -> # -> meta:technique:tag [ <(uses)+ { yield $attack } ] } }
 
 .. TIP::
   
@@ -732,7 +734,7 @@ The Storm for this trigger is broken down below (with comments) for clarity:
      -> #
      
      // Pivot to any techniques associated with any tags
-     -> ou:technique:tag
+     -> meta:technique:tag
      
      // Create a 'uses' edge between the technique(s) and the risk:attack node
      [ <(uses)+ { yield $attack } ]
@@ -745,7 +747,7 @@ When you associate a file with a malware family, you record that assessment on t
 a tag (e.g., ``#cno.mal.redtree`` to represent the 'redtree' malware family). When you tag the file, you want
 to automatically copy the tag to the file's MD5, SHA1, SHA256, and SHA512 hashes for situational awareness.
 
-.. storm-cli:: trigger.add tag:add --name 'Push malware tags from file to hashes' --form file:bytes --tag cno.mal.** --query { tee { :md5 -> hash:md5 } { :sha1 -> hash:sha1 } { :sha256 -> hash:sha256 } { :sha512 -> hash:sha512 } | [ +#$auto.opts.tag ] }
+.. storm-cli:: trigger.add tag:add --name 'Push malware tags from file to hashes' --form file:bytes --tag cno.mal.** { tee { :md5 -> crypto:hash:md5 } { :sha1 -> crypto:hash:sha1 } { :sha256 -> crypto:hash:sha256 } { :sha512 -> crypto:hash:sha512 } | [ +#$auto.opts.tag ] }
 
 .. TIP::
   
@@ -761,7 +763,7 @@ to automatically copy the tag to the file's MD5, SHA1, SHA256, and SHA512 hashes
 Similar to the example above, when your assessment changes and you want to **remove** a tag from a file
 (``file:bytes`` node), you want to automatically remove that same tag from the file's associated hashes.
 
-.. storm-cli:: trigger.add tag:add --name 'Untag hashes when untagging a file' --form file:bytes --tag cno.mal.** --query { tee { :md5 -> hash:md5 } { :sha1 -> hash:sha1 } { :sha256 -> hash:sha256 } { :sha512 -> hash:sha512 } | [ -#$auto.opts.tag ] }
+.. storm-cli:: trigger.add tag:add --name 'Untag hashes when untagging a file' --form file:bytes --tag cno.mal.** { tee { :md5 -> crypto:hash:md5 } { :sha1 -> crypto:hash:sha1 } { :sha256 -> crypto:hash:sha256 } { :sha512 -> crypto:hash:sha512 } | [ -#$auto.opts.tag ] }
 
 .. TIP::
   
@@ -905,18 +907,18 @@ The examples below show creating macros using the ``macro.set`` command.
 
 **Self-contained macro - example**
 
-You have a set of IPv4 addresses that you have identified as sinkholes (tagged ``#cno.infra.dns.sink.hole``).
-By analyzing associated DNS and domain whois data, you have tagged several FQDNs resolving to the IPv4s
-as sinkholed domains (``#cno.infra.dns.sink.holed``). You want to periodically check the sinkhole IPv4s for
+You have a set of IP addresses that you have identified as sinkholes (tagged ``#cno.infra.dns.sink.hole``).
+By analyzing associated DNS and domain whois data, you have tagged several FQDNs resolving to the IPs
+as sinkholed domains (``#cno.infra.dns.sink.holed``). You want to periodically check the sinkhole IPs for
 newly sinkholed FQDNs. To do this, you create a macro called ``sinkhole.check`` that will:
 
-- query a passive DNS data source to check for new FQDNs resolving to the various sinkhole IPv4s;
+- query a passive DNS data source to check for new FQDNs resolving to the various sinkhole IPs;
 - perform a live DNS A lookup on the FQDNs to double-check against the passive DNS results;
 - retrieve the domains' current whois records; and
 - tag the FQDNs for review, including a timestamp so the reviewer knows when the FQDN was added to the set
   of domains for review.
 
-.. storm-cli:: macro.set sinkhole.check { $now=$lib.time.now() inet:ipv4#cno.infra.dns.sink.hole | alienvault.otx.pdns --yield | -> inet:fqdn :zone -> inet:fqdn -#cno.infra.dns.sink.holed | uniq | nettools.dns | nettools.whois | [ +#int.review.sinkhole=$now ] }
+.. storm-cli:: macro.set sinkhole.check { $now=$lib.time.now() inet:ip#cno.infra.dns.sink.hole | alienvault.otx.pdns --yield | -> inet:fqdn :zone -> inet:fqdn -#cno.infra.dns.sink.holed | uniq | nettools.dns | nettools.whois | [ +#int.review.sinkhole=$now ] }
 
 The Storm for this macro is broken down below (with comments) for clarity. (You can include comments within
 a macro; Synapse will ignore comment lines during execution.)
@@ -926,8 +928,8 @@ a macro; Synapse will ignore comment lines during execution.)
   // Get the current time (in UTC) to use for the tag timestamp
   $now=$lib.time.now()
   
-  // Lift IPv4 nodes tagged as sinkholes
-  inet:ipv4#cno.infra.dns.sink.hole
+  // Lift IP nodes tagged as sinkholes
+  inet:ip#cno.infra.dns.sink.hole
   
   // Obtain PDNS information from AlienVault and yield the resulting inet:dns:a nodes
   alienvault.otx.pdns --yield |
@@ -980,7 +982,7 @@ Instead of requiring the analyst to remember and run multiple individual Storm c
 to create a macro called ``enrich`` that can take a variety of different nodes as input, and automatically run
 the appropriate Storm commands to call the data sources that can enrich the input node(s).
 
-.. storm-pre:: macro.set enrich { +(hash:md5 or hash:sha1 or hash:sha256 or inet:fqdn or inet:ipv4) switch $node.form() { ("hash:md5", "hash:sha1"): { { | virustotal.file.enrich | virustotal.file.behavior } }  "hash:sha256": { { | virustotal.file.enrich | virustotal.file.behavior | alienvault.otx.files } }  "inet:fqdn": { { +:iszone=1 +:issuffix=0 { | nettools.dns --type A AAAA CNAME MX NS SOA TXT | nettools.whois | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } }  { +:iszone=0 +:issuffix=0 { | nettools.dns --type A AAAA CNAME | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } } }  "inet:ipv4": { +:type=unicast  { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns } }  *: { } } }
+.. storm-pre:: macro.set enrich { +(crypto:hash:md5 or crypto:hash:sha1 or crypto:hash:sha256 or inet:fqdn or inet:ip) switch $node.form() { ("crypto:hash:md5", "crypto:hash:sha1"): { { | virustotal.file.enrich | virustotal.file.behavior } }  "crypto:hash:sha256": { { | virustotal.file.enrich | virustotal.file.behavior | alienvault.otx.files } }  "inet:fqdn": { { +:iszone=1 +:issuffix=0 { | nettools.dns --type A AAAA CNAME MX NS SOA TXT | nettools.whois | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } }  { +:iszone=0 +:issuffix=0 { | nettools.dns --type A AAAA CNAME | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } } }  "inet:ip": { +:type=unicast  { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns } }  *: { } } }
 
 Once again, we create the macro with the ``macro.set`` command. Because of the length of the associated Storm,
 the full ``<storm_query>`` is provided below for readability.
@@ -994,16 +996,16 @@ The content of the macro (the ``<storm_query>``, with comments):
 ::
   
   // Filter inbound nodes to supported forms only
-  +(hash:md5 or hash:sha1 or hash:sha256 or inet:fqdn or inet:ipv4)
+  +(crypto:hash:md5 or crypto:hash:sha1 or crypto:hash:sha256 or inet:fqdn or inet:ip)
   
   // Switch statement to handle different forms
   switch $node.form() {
     
-    ("hash:md5","hash:sha1"): {
+    ("crypto:hash:md5","crypto:hash:sha1"): {
         { | virustotal.file.enrich | virustotal.file.behavior }
     }
     
-    "hash:sha256": {
+    "crypto:hash:sha256": {
         { | virustotal.file.enrich | virustotal.file.behavior | alienvault.otx.files }
     }
     
@@ -1022,7 +1024,7 @@ The content of the macro (the ``<storm_query>``, with comments):
         }
     }
     
-    "inet:ipv4": {
+    "inet:ip": {
         
         +:type=unicast
         { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns }

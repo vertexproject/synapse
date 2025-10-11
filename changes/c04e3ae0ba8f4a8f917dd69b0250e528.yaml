@@ -1,5 +1,0 @@
----
-desc: Added ``media:news:body`` to capture the body of a news item.
-prs: []
-type: model
-...

@@ -1,6 +1,0 @@
----
-desc: Improved performance by reducing overhead on leader when distributing changes to mirrors which are caught up
-  with the leader.
-prs: []
-type: feat
-...

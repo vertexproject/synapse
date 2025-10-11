@@ -26,68 +26,6 @@ Conditions = set((
 
 RecursionDepth = contextvars.ContextVar('RecursionDepth', default=0)
 
-# TODO: standardize locations for form/prop/tags regex
-
-tagrestr = r'((\w+|\*|\*\*)\.)*(\w+|\*|\*\*)'  # tag with optional single or double * as segment
-_tagre, _formre, _propre = (f'^{re}$' for re in (tagrestr, s_grammar.formrestr, s_grammar.proporunivrestr))
-
-TrigSchema = {
-    'type': 'object',
-    'properties': {
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'user': {'type': 'string', 'pattern': s_config.re_iden},
-        'view': {'type': 'string', 'pattern': s_config.re_iden},
-        'form': {'type': 'string', 'pattern': _formre},
-        'n2form': {'type': 'string', 'pattern': _formre},
-        'tag': {'type': 'string', 'pattern': _tagre},
-        'prop': {'type': 'string', 'pattern': _propre},
-        'verb': {'type': 'string', },
-        'name': {'type': 'string', },
-        'doc': {'type': 'string', },
-        'cond': {'enum': ['node:add', 'node:del', 'tag:add', 'tag:del', 'prop:set', 'edge:add', 'edge:del']},
-        'storm': {'type': 'string'},
-        'async': {'type': 'boolean'},
-        'enabled': {'type': 'boolean'},
-        'created': {'type': 'integer', 'minimum': 0},
-    },
-    'additionalProperties': True,
-    'required': ['iden', 'user', 'storm', 'enabled'],
-    'allOf': [
-        {
-            'if': {'properties': {'cond': {'const': 'node:add'}}},
-            'then': {'required': ['form']},
-        },
-        {
-            'if': {'properties': {'cond': {'const': 'node:del'}}},
-            'then': {'required': ['form']},
-        },
-        {
-            'if': {'properties': {'cond': {'const': 'tag:add'}}},
-            'then': {'required': ['tag']},
-        },
-        {
-            'if': {'properties': {'cond': {'const': 'tag:del'}}},
-            'then': {'required': ['tag']},
-        },
-        {
-            'if': {'properties': {'cond': {'const': 'prop:set'}}},
-            'then': {'required': ['prop']},
-        },
-        {
-            'if': {'properties': {'cond': {'const': 'edge:add'}}},
-            'then': {'required': ['verb']},
-        },
-        {
-            'if': {'properties': {'cond': {'const': 'edge:del'}}},
-            'then': {'required': ['verb']},
-        },
-    ],
-}
-TrigSchemaValidator = s_config.getJsValidator(TrigSchema)
-
-def reqValidTdef(conf):
-    TrigSchemaValidator(conf)
-
 class Triggers:
     '''
     Manages "triggers", conditions where changes in data result in new storm queries being executed.
@@ -146,18 +84,23 @@ class Triggers:
         with self._recursion_check():
             [await trig.execute(node, vars=vars) for trig in self.nodedel.get(node.form.name, ())]
 
-    async def runPropSet(self, node, prop, oldv, useriden):
-        vars = {'propname': prop.name, 'propfull': prop.full,
-                'auto': {'opts': {'propname': prop.name, 'propfull': prop.full, 'user': useriden}},
-                }
+    async def runPropSet(self, node, prop, useriden):
+        trigs = self.propset.get(prop.full, [])
+        for iface in prop.ifaces:
+            if (itrigs := self.propset.get(iface)) is not None:
+                trigs.extend(itrigs)
+
+        if not trigs:
+            return
+
+        vars = {'auto': {'opts': {'propname': prop.name, 'propfull': prop.full, 'user': useriden}}}
         with self._recursion_check():
-            [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.full, ())]
-            if prop.univ is not None:
-                [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.univ.full, ())]
+            for trig in trigs:
+                await trig.execute(node, vars=vars)
 
     async def runTagAdd(self, node, tag, useriden):
 
-        vars = {'tag': tag, 'auto': {'opts': {'tag': tag, 'user': useriden}}}
+        vars = {'auto': {'opts': {'tag': tag, 'user': useriden}}}
         with self._recursion_check():
 
             for trig in self.tagadd.get((node.form.name, tag), ()):
@@ -180,9 +123,7 @@ class Triggers:
 
     async def runTagDel(self, node, tag, useriden):
 
-        vars = {'tag': tag,
-                'auto': {'opts': {'tag': tag, 'user': useriden}},
-                }
+        vars = {'auto': {'opts': {'tag': tag, 'user': useriden}}}
         with self._recursion_check():
 
             for trig in self.tagdel.get((node.form.name, tag), ()):
@@ -203,10 +144,11 @@ class Triggers:
                 for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars)
 
-    async def runEdgeAdd(self, n1, verb, n2, useriden):
+    async def runEdgeAdd(self, n1, verb, n2ndef, useriden):
         n1form = n1.form.name if n1 else None
-        n2form = n2.form.name if n2 else None
-        n2iden = n2.iden() if n2 else None
+        n2form = n2ndef[0] if n2ndef else None
+        n2iden = s_common.ehex(s_common.buid(n2ndef)) if n2ndef else None
+
         varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden, 'user': useriden}}}
         with self._recursion_check():
             cachekey = (n1form, verb, n2form)
@@ -230,7 +172,7 @@ class Triggers:
                         for _, trig in globs.get(verb):
                             cached.append(trig)
 
-                if n2:
+                if n2ndef:
                     for trig in self.edgeadd.get((None, verb, n2form), ()):
                         cached.append(trig)
 
@@ -239,7 +181,7 @@ class Triggers:
                         for _, trig in globs.get(verb):
                             cached.append(trig)
 
-                if n1 and n2:
+                if n1 and n2ndef:
                     for trig in self.edgeadd.get((n1form, verb, n2form), ()):
                         cached.append(trig)
 
@@ -253,10 +195,11 @@ class Triggers:
             for trig in cached:
                 await trig.execute(n1, vars=varz)
 
-    async def runEdgeDel(self, n1, verb, n2, useriden):
+    async def runEdgeDel(self, n1, verb, n2ndef, useriden):
         n1form = n1.form.name if n1 else None
-        n2form = n2.form.name if n2 else None
-        n2iden = n2.iden() if n2 else None
+        n2form = n2ndef[0] if n2ndef else None
+        n2iden = s_common.ehex(s_common.buid(n2ndef)) if n2ndef else None
+
         varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden, 'user': useriden}}}
         with self._recursion_check():
             cachekey = (n1form, verb, n2form)
@@ -280,7 +223,7 @@ class Triggers:
                         for _, trig in globs.get(verb):
                             cached.append(trig)
 
-                if n2:
+                if n2ndef:
                     for trig in self.edgedel.get((None, verb, n2form), ()):
                         cached.append(trig)
 
@@ -289,7 +232,7 @@ class Triggers:
                         for _, trig in globs.get(verb):
                             cached.append(trig)
 
-                if n1 and n2:
+                if n1 and n2ndef:
                     for trig in self.edgedel.get((n1form, verb, n2form), ()):
                         cached.append(trig)
 
@@ -509,7 +452,7 @@ class Trigger:
             return
 
         if self.tdef.get('async'):
-            triginfo = {'buid': node.buid, 'trig': self.iden, 'vars': vars}
+            triginfo = {'nid': node.nid, 'trig': self.iden, 'vars': vars}
             await self.view.addTrigQueue(triginfo)
             return
 
@@ -568,50 +511,8 @@ class Trigger:
         if triguser is not None:
             tdef['username'] = triguser.name
 
+        creator = tdef.get('creator')
+        if (user := self.view.core.auth.user(creator)) is not None:
+            tdef['creatorname'] = user.name
+
         return tdef
-
-    def getStorNode(self, form):
-        ndef = (form.name, form.type.norm(self.iden)[0])
-        buid = s_common.buid(ndef)
-
-        props = {
-            'doc': self.tdef.get('doc', ''),
-            'name': self.tdef.get('name', ''),
-            'vers': self.tdef.get('ver', 1),
-            'cond': self.tdef.get('cond'),
-            'storm': self.tdef.get('storm'),
-            'enabled': self.tdef.get('enabled'),
-            'user': self.tdef.get('user'),
-            '.created': self.tdef.get('created')
-        }
-
-        tag = self.tdef.get('tag')
-        if tag is not None:
-            props['tag'] = tag
-
-        formprop = self.tdef.get('form')
-        if formprop is not None:
-            props['form'] = formprop
-
-        prop = self.tdef.get('prop')
-        if prop is not None:
-            props['prop'] = prop
-
-        verb = self.tdef.get('verb')
-        if verb is not None:
-            props['verb'] = verb
-
-        n2form = self.tdef.get('n2form')
-        if n2form is not None:
-            props['n2form'] = n2form
-
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms,
-        })
