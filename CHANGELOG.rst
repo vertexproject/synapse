@@ -6,6 +6,96 @@
 Synapse Changelog
 *****************
 
+v2.225.0 - 2025-10-13
+=====================
+
+Model Changes
+-------------
+- Added ``media:news:body`` to capture the body of a news item.
+  (`#4525 <https://github.com/vertexproject/synapse/pull/4525>`_)
+- Added ``risk:mitigation:id`` to capture the identifier for a mitigation.
+  (`#4526 <https://github.com/vertexproject/synapse/pull/4526>`_)
+- Added ``inet:service:account:users`` to capture alternate user names.
+  (`#4528 <https://github.com/vertexproject/synapse/pull/4528>`_)
+- See :ref:`userguide_model_v2_225_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Improved performance by reducing overhead on leader when distributing changes
+  to mirrors which are caught up with the leader.
+  (`#4342 <https://github.com/vertexproject/synapse/pull/4342>`_)
+- Moved several tools hosted under the ``synapse.tools`` namespace into
+  purpose specific modules. The following is a list of all the tools
+  that were moved, with the old and new names available:
+
+  +-------------------+---------------------------+
+  | Old Tool          | New Tool                  |
+  +===================+===========================+
+  | axon2axon         | axon.copy                 |
+  +-------------------+---------------------------+
+  | pullfile          | axon.get                  |
+  +-------------------+---------------------------+
+  | pushfile          | axon.put                  |
+  +-------------------+---------------------------+
+  | csvtool           | cortex.csv                |
+  +-------------------+---------------------------+
+  | feed              | cortex.feed               |
+  +-------------------+---------------------------+
+  | apikey            | service.apikey            |
+  +-------------------+---------------------------+
+  | backup            | service.backup            |
+  +-------------------+---------------------------+
+  | demote            | service.demote            |
+  +-------------------+---------------------------+
+  | healthcheck       | service.healthcheck       |
+  +-------------------+---------------------------+
+  | livebackup        | service.livebackup        |
+  +-------------------+---------------------------+
+  | modrole           | service.modrole           |
+  +-------------------+---------------------------+
+  | moduser           | service.moduser           |
+  +-------------------+---------------------------+
+  | promote           | service.promote           |
+  +-------------------+---------------------------+
+  | reload            | service.reload            |
+  +-------------------+---------------------------+
+  | shutdown          | service.shutdown          |
+  +-------------------+---------------------------+
+  | genpkg            | storm.pkg.gen             |
+  +-------------------+---------------------------+
+  | pkg.gendoc        | storm.pkg.doc             |
+  +-------------------+---------------------------+
+  | autodoc           | utils.autodoc             |
+  +-------------------+---------------------------+
+  | changelog         | utils.changelog           |
+  +-------------------+---------------------------+
+  | easycert          | utils.easycert            |
+  +-------------------+---------------------------+
+  | guid              | utils.guid                |
+  +-------------------+---------------------------+
+  | json2mpk          | utils.json2mpk            |
+  +-------------------+---------------------------+
+  | rstorm            | utils.rstorm              |
+  +-------------------+---------------------------+
+
+  These changes were made in a backwards compatible manner. The tools can
+  still be invoked with their previous names. For example,
+  ``synapse.tools.promote`` can still be be used to invoke the
+  ``synapse.tools.service.promote`` tool.
+
+  The old locations for these tools are considered deprecated.
+  (`#4514 <https://github.com/vertexproject/synapse/pull/4514>`_)
+  (`#4533 <https://github.com/vertexproject/synapse/pull/4533>`_)
+
+Bugfixes
+--------
+- Fixed bug with Storm command cmdconf dictionaries being mutable across
+  invocations.
+  (`#4524 <https://github.com/vertexproject/synapse/pull/4524>`_)
+- Fixed an issue where the maximum size allowed for headers in HTTP client
+  responses was insufficient for some use cases.
+  (`#4529 <https://github.com/vertexproject/synapse/pull/4529>`_)
+
 v2.224.0 - 2025-10-07
 =====================
 
