@@ -21,7 +21,7 @@ import synapse.lib.stormtypes as s_stormtypes
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
-import synapse.tools.backup as s_tools_backup
+import synapse.tools.service.backup as s_tools_backup
 
 class StormTest(s_t_utils.SynTest):
 

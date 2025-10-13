@@ -1,0 +1,19 @@
+.. highlight:: none
+
+.. _syn-tools-service-apikey:
+
+service.apikey
+==============
+
+The Synapse ``service.apikey`` tool can be used to add, list, or delete user API keys from a Synapse service.
+
+Syntax
+------
+
+``apikey`` is executed using ``python -m synapse.tools.service.apikey``. The command usage is as follows:
+
+.. shell:: --fail-ok python -m synapse.tools.service.apikey -h
+
+.. note::
+
+  This tool was previously run using ``synapse.tools.apikey``. It can still be run with that name.

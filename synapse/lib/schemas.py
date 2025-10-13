@@ -410,7 +410,6 @@ _changelogTypes = {'migration': 'Automatic Migrations',
                    'note': 'Notes',
                    'doc': 'Improved documentation',
                    'deprecation': 'Deprecations'}
-
 _changelogSchema = {
     'type': 'object',
     'properties': {
@@ -421,6 +420,10 @@ _changelogSchema = {
         'desc': {
             'type': 'string',
             'minLength': 1,
+        },
+        'desc:literal': {
+            'type': 'boolean',
+            'default': False,
         },
         'prs': {
             'type': 'array',
