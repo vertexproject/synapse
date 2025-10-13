@@ -204,16 +204,16 @@ class StormHttpTest(s_test.SynTest):
             badopts = {'vars': {'url': badurl}}
             q = '''
             $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
-            return ( $resp.json() )
+            return ( $resp.json(strict=(true)) )
             '''
             with self.raises(s_exc.StormRuntimeError) as cm:
                 resp = await core.callStorm(q, opts=badopts)
 
             q = '''
             $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
-            return ( $resp.json(encoding=utf8, errors=ignore) )
+            return ( $resp.json(encoding=utf8) )
             '''
-            self.eq({"foo": "bar"}, await core.callStorm(q, opts=badopts))
+            self.eq({"foo": "bar�"}, await core.callStorm(q, opts=badopts))
 
             retn = await core.callStorm('return($lib.inet.http.codereason(404))')
             self.eq(retn, 'Not Found')
@@ -636,20 +636,9 @@ class StormHttpTest(s_test.SynTest):
             self.ne(-1, resp['mesg'].find('connect to proxy 127.0.0.1:1'))
 
             msgs = await core.stormlist('$resp=$lib.axon.wget("http://vertex.link", proxy=(null)) $lib.print($resp.mesg)')
-            self.stormIsInWarn('HTTP proxy argument to $lib.null is deprecated', msgs)
-            self.stormIsInPrint('connect to proxy 127.0.0.1:1', msgs)
+            self.stormIsInErr('HTTP proxy argument must be a string or bool.', msgs)
 
             await self.asyncraises(s_exc.BadArg, core.nodes('$lib.axon.wget("http://vertex.link", proxy=(1.1))'))
-
-            # todo: setting the synapse version can be removed once proxy=true support is released
-            try:
-                oldv = core.axoninfo['synapse']['version']
-                core.axoninfo['synapse']['version'] = (oldv[0], oldv[1] + 1, oldv[2])
-                resp = await core.callStorm('return($lib.axon.wget("http://vertex.link", proxy=(null)))')
-                self.false(resp.get('ok'))
-                self.ne(-1, resp['mesg'].find('connect to proxy 127.0.0.1:1'))
-            finally:
-                core.axoninfo['synapse']['version'] = oldv
 
             size, sha256 = await core.axon.put(b'asdf')
             opts = {'vars': {'sha256': s_common.ehex(sha256)}}
@@ -663,26 +652,25 @@ class StormHttpTest(s_test.SynTest):
             self.isin("connect to proxy 127.0.0.1:1", errinfo.get('mesg'))
 
             msgs = await core.stormlist('$resp=$lib.inet.http.get("http://vertex.link", proxy=(null)) $lib.print($resp.err)')
-            self.stormIsInWarn('HTTP proxy argument to $lib.null is deprecated', msgs)
-            self.stormIsInPrint('connect to proxy 127.0.0.1:1', msgs)
+            self.stormIsInErr('HTTP proxy argument must be a string or bool.', msgs)
 
             await self.asyncraises(s_exc.BadArg, core.nodes('$lib.inet.http.get("http://vertex.link", proxy=(1.1))'))
 
         async with self.getTestCore() as core:
 
             visi = await core.auth.addUser('visi')
-            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
-            await visi.addRule((True, ('storm', 'lib', 'axon', 'wput')))
+            await visi.addRule((True, ('axon', 'get')))
+            await visi.addRule((True, ('axon', 'upload')))
 
             errmsg = f'User {visi.name!r} ({visi.iden}) must have permission {{perm}}'
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.inet.http.get(http://vertex.link, proxy=$lib.false)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.inet.http.get(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             resp = await core.callStorm('return($lib.inet.http.get(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
             self.isin("connect to proxy 127.0.0.1:1", resp['err'][1].get('mesg'))
@@ -690,15 +678,15 @@ class StormHttpTest(s_test.SynTest):
             # test $lib.axon proxy API
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.axon.wget(http://vertex.link, proxy=$lib.false)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.axon.wget(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.axon.wput(asdf, http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             resp = await core.callStorm('return($lib.axon.wget(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
             self.false(resp.get('ok'))
@@ -734,8 +722,8 @@ class StormHttpTest(s_test.SynTest):
 
             visi = await core.auth.addUser('visi')
 
-            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
-            await visi.addRule((True, ('storm', 'lib', 'axon', 'wput')))
+            await visi.addRule((True, ('axon', 'get')))
+            await visi.addRule((True, ('axon', 'upload')))
 
             _, sha256 = await core.axon.put(b'asdf')
             sha256 = s_common.ehex(sha256)
@@ -759,7 +747,7 @@ class StormHttpTest(s_test.SynTest):
                     await core.callStorm(q3, opts=opts)
 
             # Add permissions to use a proxy
-            await visi.addRule((True, ('storm', 'lib', 'inet', 'http', 'proxy')))
+            await visi.addRule((True, ('inet', 'http', 'proxy')))
 
             opts = {'vars': {'proxy': 'socks5://user:pass@127.0.0.1:1'}, 'user': visi.iden}
 
@@ -843,15 +831,14 @@ class StormHttpTest(s_test.SynTest):
 
             opts = {'vars': {'port': port, 'proxy': None}}
             mesgs = await core.stormlist(query, opts=opts)
-            self.stormIsInWarn('proxy argument to $lib.null is deprecated', mesgs)
-            self.true(mesgs[-2][0] == 'err' and mesgs[-2][1][1]['mesg'] == "(True, ['echo', 'lololol'])")
+            self.stormIsInErr('HTTP proxy argument must be a string or bool.', mesgs)
 
             visi = await core.auth.addUser('visi')
 
             opts = {'user': visi.iden, 'vars': {'port': port, 'proxy': False}}
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.callStorm(query, opts=opts)
-            self.eq(cm.exception.get('mesg'), f'User {visi.name!r} ({visi.iden}) must have permission storm.lib.inet.http.proxy')
+            self.eq(cm.exception.get('mesg'), f'User {visi.name!r} ({visi.iden}) must have permission inet.http.proxy')
 
             await visi.setAdmin(True)
 
@@ -915,7 +902,7 @@ class StormHttpTest(s_test.SynTest):
 
                 q = 'return($lib.inet.http.get($url, ssl_verify=$verify, ssl_opts=$sslopts))'
 
-                size, sha256 = await core.callStorm('return($lib.bytes.put($lib.base64.decode(Zm9v)))')
+                size, sha256 = await core.callStorm('return($lib.axon.put($lib.base64.decode(Zm9v)))')
                 opts['vars']['sha256'] = sha256
 
                 # mtls required
@@ -1044,7 +1031,7 @@ class StormHttpTest(s_test.SynTest):
 
                 q = 'return($lib.inet.http.get($url, ssl_verify=$verify, ssl_opts=$sslopts))'
 
-                size, sha256 = await core.callStorm('return($lib.bytes.put($lib.base64.decode(Zm9v)))')
+                size, sha256 = await core.callStorm('return($lib.axon.put($lib.base64.decode(Zm9v)))')
                 opts['vars']['sha256'] = sha256
 
                 ## no cert provided

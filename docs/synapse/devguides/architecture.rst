@@ -9,12 +9,9 @@ Library Architecture
 ====================
 
 The Synapse library is broken out in a hierarchical fashion. The root of the library contains application level code,
-such as the implementations of the Cortex, Axon, Cryotank, as well as the Telepath client and server components.
+such as the implementations of the Cortex and Axon as well as the Telepath client and server components.
 There are also a set of common helper functions (common.py_) and exceptions (exc.py_). There are several submodules
 available as well:
-
-synapse.cmds
-  Command implementations for the Cmdr CLI tool
 
 synapse.data
   Data files stored in the library.
@@ -78,9 +75,8 @@ The ``Cell`` (cell.py_) is a ``Base`` implementation which has several component
 - It is a ``Base``, so it benefits from all the components a ``Base`` has.
 - It contains support for configuration directives at start time, so a cell can have well defined configuration
   options availble to it.
-- It has persistent storage available via two different mechanisms, a LMDB slab for arbitrary data that is local to the
-  cell, and a ``Hive`` for key-value data storage that can be remotely read and written.
-- It handles user authentication and authorization via user data stored in the ``Hive``.
+- It has persistent storage available via a LMDB slab for arbitrary data that is local to the cell.
+- It handles user authentication and authorization via user data stored in the slab.
 - The ``Cell`` is Telepath aware, and will start his own ``Daemon`` that allows remote access.  By default, the ``Cell``
   has a PF Unix socket available for access, so local telepath access is trivial.
 - Since the ``Cell`` is Telepath aware, there is a base ``CellApi`` that implements his RPC routines.  ``Cell``
@@ -92,7 +88,7 @@ The ``Cell`` (cell.py_) is a ``Base`` implementation which has several component
 Since the cell contains so much core management functionality, adding functionality to the Synapse ``Cell`` allows
 **all** applications using a Cell to be immediately extended to take advantage of that functionality without having to
 revisit multiple different implementations to update them.  For this reason, our core application components (the
-``Axon``, ``Cortex``, and ``CryoCell``) all implement the ``Cell`` class.  For example, if we add a new user management
+``Axon`` and ``Cortex``) all implement the ``Cell`` class.  For example, if we add a new user management
 capability, that is now available to all those applications, as well as any others ``Cell`` implementations.
 
 The application level components themselves have servers in the ``synapse.servers`` module, but there is also a generic
