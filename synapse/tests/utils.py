@@ -72,7 +72,7 @@ import synapse.lib.thishost as s_thishost
 import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.tools.genpkg as s_genpkg
+import synapse.tools.storm.pkg.gen as s_genpkg
 
 logger = logging.getLogger(__name__)
 
@@ -855,6 +855,8 @@ class HttpReflector(s_httpapi.Handler):
         self.sendRestRetn(resp)
 
     async def post(self):
+        self.set_header('Giant', 'x' * 64_000)
+
         resp = {}
         params = self._decode_params()
         if params:

@@ -10,7 +10,7 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.tests.utils as s_t_utils
 
-import synapse.tools.backup as s_tools_backup
+import synapse.tools.service.backup as s_tools_backup
 
 import synapse.lib.agenda as s_agenda
 from synapse.lib.agenda import TimeUnit as s_tu

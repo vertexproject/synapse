@@ -410,7 +410,6 @@ _changelogTypes = {'migration': 'Automatic Migrations',
                    'note': 'Notes',
                    'doc': 'Improved documentation',
                    'deprecation': 'Deprecations'}
-
 _changelogSchema = {
     'type': 'object',
     'properties': {
@@ -421,6 +420,10 @@ _changelogSchema = {
         'desc': {
             'type': 'string',
             'minLength': 1,
+        },
+        'desc:literal': {
+            'type': 'boolean',
+            'default': False,
         },
         'prs': {
             'type': 'array',
@@ -963,6 +966,13 @@ _reqValidPkgdefSchema = {
                 'cmdinputs': {
                     'type': ['array', 'null'],
                     'items': {'$ref': '#/definitions/cmdinput'},
+                },
+                'cmdconf': {
+                    'type': 'object',
+                    'properties': {
+                        'svciden': {'type': 'string', 'pattern': s_config.re_iden},
+                    },
+                    'additionalProperties': True,
                 },
                 'storm': {'type': 'string'},
                 'forms': {'$ref': '#/definitions/cmdformhints'},

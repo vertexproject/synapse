@@ -1664,8 +1664,9 @@ class Axon(s_cell.Cell):
                                    filename=field.get('filename'),
                                    content_transfer_encoding=field.get('content_transfer_encoding'))
 
-                async with sess.request(method, url, headers=headers, params=params,
-                                        data=data, ssl=ssl) as resp:
+                async with sess.request(method, url, headers=headers, params=params, data=data, ssl=ssl,
+                                        max_line_size=s_const.MAX_LINE_SIZE,
+                                        max_field_size=s_const.MAX_FIELD_SIZE) as resp:
                     info = {
                         'ok': True,
                         'url': str(resp.url),
@@ -1711,8 +1712,10 @@ class Axon(s_cell.Cell):
         async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
             try:
                 await self._reqHas(sha256)
-                async with sess.request(method, url, headers=headers, params=params,
-                                        data=self.get(sha256), ssl=ssl) as resp:
+                async with sess.request(method, url, headers=headers, params=params, ssl=ssl,
+                                        data=self.get(sha256),
+                                        max_line_size=s_const.MAX_LINE_SIZE,
+                                        max_field_size=s_const.MAX_FIELD_SIZE) as resp:
 
                     info = {
                         'ok': True,
@@ -1839,7 +1842,9 @@ class Axon(s_cell.Cell):
         async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
 
             try:
-                async with sess.request(method, url, headers=headers, params=params, json=json, data=body, ssl=ssl) as resp:
+                async with sess.request(method, url, headers=headers, params=params, json=json, data=body, ssl=ssl,
+                                        max_line_size=s_const.MAX_LINE_SIZE,
+                                        max_field_size=s_const.MAX_FIELD_SIZE) as resp:
 
                     info = self._flatten_clientresponse(resp)
 
