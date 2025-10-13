@@ -3004,12 +3004,14 @@ class InetModelTest(s_t_utils.SynTest):
                 :remover={[ inet:service:account=({"id": "baz"}) ]}
                 :provider={ ou:org:name=$provname }
                 :provider:name=$provname
+                :type=foo.bar
             ]
             '''
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:platform', s_common.guid(('slack',))))
             self.eq('foo', nodes[0].get('id'))
+            self.eq('foo.bar.', nodes[0].get('type'))
             self.eq(nodes[0].get('url'), 'https://slack.com')
             self.eq(nodes[0].get('urls'), ('https://slacker.com',))
             self.eq(nodes[0].get('zones'), ('slack.com', 'slacker.com'))
@@ -3038,6 +3040,9 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ inet:service:platform=({"zone": "slacker.com"}) ]')
             self.eq(nodes[0].ndef, platform.ndef)
+
+            nodes = await core.nodes('inet:service:platform:type:taxonomy')
+            self.sorteq(['foo.', 'foo.bar.'], [n.ndef[1] for n in nodes])
 
             q = '''
             [ inet:service:instance=(vertex, slack)
