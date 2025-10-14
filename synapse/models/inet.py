@@ -1550,6 +1550,10 @@ class InetModule(s_module.CoreModule):
                     ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
                         'doc': 'A JARM hash sample taken from a server.'}),
 
+                    ('inet:service:platform:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A service platform type taxonomy.'}),
+
                     ('inet:service:platform', ('guid', {}), {
                         'doc': 'A network platform which provides services.'}),
 
@@ -3698,6 +3702,8 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The x509 certificate sent by the client.'})
                     )),
+
+                    ('inet:service:platform:type:taxonomy', {}, ()),
                     ('inet:service:platform', {}, (
 
                         ('id', ('str', {'strip': True}), {
@@ -3731,6 +3737,9 @@ class InetModule(s_module.CoreModule):
                         ('desc', ('str', {}), {
                             'disp': {'hint': 'text'},
                             'doc': 'A description of the service platform.'}),
+
+                        ('type', ('inet:service:platform:type:taxonomy', {}), {
+                            'doc': 'The type of service platform.'}),
 
                         ('parent', ('inet:service:platform', {}), {
                             'doc': 'A parent platform which owns this platform.'}),
