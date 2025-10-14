@@ -4780,15 +4780,12 @@ class StormTest(s_t_utils.SynTest):
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
 
-                await core.nodes('[ entity:contact=* ]', opts={'view': view0})
-
-                # wait for first write so we can get the correct offset
-                await core.layers.get(layr2).waitEditOffs(0, timeout=3)
-                offs = await core.layers.get(layr2).getEditOffs()
+                offs = await core.getNexsIndx()
 
                 await core.nodes('[ entity:contact=* ]', opts={'view': view0})
                 await core.nodes('[ entity:contact=* ]', opts={'view': view0})
-                await core.layers.get(layr2).waitEditOffs(offs + 10, timeout=3)
+                await core.nodes('[ entity:contact=* ]', opts={'view': view0})
+                await core.waitNexsOffs(offs + 14, timeout=3)
 
                 self.len(3, await core.nodes('entity:contact', opts={'view': view1}))
                 self.len(3, await core.nodes('entity:contact', opts={'view': view2}))
@@ -4807,8 +4804,10 @@ class StormTest(s_t_utils.SynTest):
                 self.stormIsInPrint(f'{eoffs}', msgs)
 
                 # Pull from layr0 using a custom offset (skip first node)
-                await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr4}", offs={offs})', opts=opts)
-                await core.layers.get(layr4).waitEditOffs(offs, timeout=3)
+                strt = offs + 2
+                q = f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr4}", offs={strt})'
+                await core.callStorm(q, opts=opts)
+                await core.waitNexsOffs(offs + 19, timeout=3)
                 self.len(2, await core.nodes('entity:contact', opts={'view': view4}))
 
                 # Clean up
@@ -4830,11 +4829,11 @@ class StormTest(s_t_utils.SynTest):
 
                 await asyncio.sleep(0)
 
-                offs = await core.layers.get(layr2).getEditOffs()
+                offs = await core.getNexsIndx()
                 await core.nodes('[ entity:contact=* ]', opts={'view': view0})
                 await core.nodes('[ entity:contact=* ]', opts={'view': view0})
                 await core.nodes('[ entity:contact=* ]', opts={'view': view0})
-                await core.layers.get(layr2).waitEditOffs(offs + 6, timeout=3)
+                await core.waitNexsOffs(offs + 14, timeout=30)
 
                 # confirm we dont replay and get the old one back...
                 self.len(3, await core.nodes('entity:contact', opts={'view': view2}))
@@ -4984,7 +4983,7 @@ class StormTest(s_t_utils.SynTest):
                         pass
 
                 class LayrBork:
-                    async def syncNodeEdits(self, offs, wait=True, compat=False):
+                    async def syncNodeEdits(self, offs, compat=False):
                         if False: yield None
                         raise s_exc.SynErr()
 
@@ -4995,13 +4994,7 @@ class StormTest(s_t_utils.SynTest):
                     'queue:size': 1000,
                 }
                 # this should fire the reader and exit cleanly when he explodes
-                await core._pushBulkEdits(LayrBork(), LayrBork(), fake)
-
-                # a quick/ghetto test for coverage...
-                layr = core.getView().layers[0]
-                layr.logedits = False
-                with self.raises(s_exc.BadArg):
-                    await layr.waitEditOffs(200)
+                await core._pushBulkEdits(LayrBork(), LayrBork(), fake, False)
 
                 await core.addUserRule(visi.iden, (True, ('layer', 'add')))
                 l1 = await core.callStorm('$layer=$lib.layer.add() return ($layer) ', opts={'user': visi.iden})
@@ -5220,12 +5213,20 @@ class StormTest(s_t_utils.SynTest):
 
             await core.nodes('runas visi { [ inet:fqdn=bar.com ] }')
 
-            items = await alist(core.syncLayersEvents({}, wait=False))
+            items = []
+            async for offs, item in core.getNexusChanges(0, wait=False):
+                if item[1] == 'edits':
+                    items.append(item[2])
+
             self.len(2, [item for item in items if item[-1]['user'] == visi.iden])
 
             await core.nodes(f'runas {visi.iden} {{ [ inet:fqdn=baz.com ] }}')
 
-            items = await alist(core.syncLayersEvents({}, wait=False))
+            items = []
+            async for offs, item in core.getNexusChanges(0, wait=False):
+                if item[1] == 'edits':
+                    items.append(item[2])
+
             self.len(4, [item for item in items if item[-1]['user'] == visi.iden])
 
             q = 'inet:fqdn $n=$node runas visi { yield $n [ +#atag ] }'

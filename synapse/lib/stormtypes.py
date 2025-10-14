@@ -6644,26 +6644,6 @@ class Layer(Prim):
         {'name': 'repr', 'desc': 'Get a string representation of the Layer.',
          'type': {'type': 'function', '_funcname': '_methLayerRepr',
                   'returns': {'type': 'str', 'desc': 'A string that can be printed, representing a Layer.', }}},
-        {'name': 'edits', 'desc': '''
-            Yield (offs, nodeedits) tuples from the given offset.
-
-            Notes:
-                Specifying reverse=(true) disables the wait behavior.
-         ''',
-         'type': {'type': 'function', '_funcname': '_methLayerEdits',
-                  'args': (
-                      {'name': 'offs', 'type': 'int', 'desc': 'Offset to start getting nodeedits from the layer at.',
-                       'default': 0, },
-                      {'name': 'wait', 'type': 'boolean', 'default': True,
-                       'desc': 'If true, wait for new edits, '
-                               'otherwise exit the generator when there are no more edits.', },
-                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of nodeedits to yield.',
-                       'default': None, },
-                      {'name': 'reverse', 'type': 'boolean', 'desc': 'Yield the edits in reverse order.',
-                       'default': False, },
-                  ),
-                  'returns': {'name': 'Yields', 'type': 'list',
-                              'desc': 'Yields offset, nodeedit tuples from a given offset.', }}},
         {'name': 'edited', 'desc': 'Return the last time the layer was edited or null if no edits are present.',
          'type': {'type': 'function', '_funcname': '_methLayerEdited',
                   'returns': {'type': 'time', 'desc': 'The last time the layer was edited.', }}},
@@ -7087,7 +7067,6 @@ class Layer(Prim):
             'set': self._methLayerSet,
             'get': self._methLayerGet,
             'repr': self._methLayerRepr,
-            'edits': self._methLayerEdits,
             'edited': self._methLayerEdited,
             'verify': self.verify,
             'addPush': self._addPush,
@@ -7481,34 +7460,11 @@ class Layer(Prim):
             yield valu
 
     @stormfunc(readonly=True)
-    async def _methLayerEdits(self, offs=0, wait=True, size=None, reverse=False):
-        offs = await toint(offs)
-        wait = await tobool(wait)
-        reverse = await tobool(reverse)
-
-        layriden = self.valu.get('iden')
-        await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.view.core.getLayer(layriden)
-
-        if reverse:
-            wait = False
-            if offs == 0:
-                offs = 0xffffffffffffffff
-
-        count = 0
-        async for item in layr.syncNodeEdits(offs, wait=wait, reverse=reverse):
-
-            yield item
-
-            count += 1
-            if size is not None and size == count:
-                break
-
-    @stormfunc(readonly=True)
     async def _methLayerEdited(self):
         layr = self.runt.view.core.reqLayer(self.valu.get('iden'))
-        async for offs, edits, meta in layr.syncNodeEdits2(0xffffffffffffffff, wait=False, reverse=True):
-            return meta.get('time')
+        indx = layr.getEditIndx()
+        if indx != -1:
+            return indx
 
     @stormfunc(readonly=True)
     async def getStorNode(self, nid):
@@ -7653,9 +7609,6 @@ class Layer(Prim):
                 valu = None
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
-
-        elif name == 'logedits':
-            valu = await tobool(valu)
 
         elif name == 'readonly':
             valu = await tobool(valu)
@@ -8433,7 +8386,7 @@ class View(Prim):
             'merge': view.getMergeRequest(),
             'merging': view.merging,
             'votes': [vote async for vote in view.getMergeVotes()],
-            'offset': await view.wlyr.getEditIndx(),
+            'offset': view.wlyr.getEditIndx(),
         }
         return retn
 
