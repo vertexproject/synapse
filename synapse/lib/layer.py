@@ -2847,6 +2847,8 @@ class Layer(s_nexus.Pusher):
         if self.fresh:
             self.editindx.set('edit:indx', -1)
 
+        self.lastindx = self.editindx.get('edit:indx')
+
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
 
@@ -3738,10 +3740,12 @@ class Layer(s_nexus.Pusher):
 
         if nexsitem is not None:
             nexsoffs = nexsitem[0]
-            self.editindx.set('edit:indx', nexsoffs)
-            if self.windows:
-                for wind in tuple(self.windows):
-                    await wind.put((nexsoffs, nodeedits, meta))
+            if nexsoffs > self.lastindx:
+                self.lastindx = nexsoffs
+                self.editindx.set('edit:indx', nexsoffs)
+                if self.windows:
+                    for wind in tuple(self.windows):
+                        await wind.put((nexsoffs, nodeedits, meta))
 
         await asyncio.sleep(0)
         return nodeedits
@@ -5976,7 +5980,7 @@ class Layer(s_nexus.Pusher):
         '''
         Return the offset of the last edit entry for this layer. Returns -1 if the layer is empty.
         '''
-        return self.editindx.get('edit:indx')
+        return self.lastindx
 
     async def delete(self):
         '''

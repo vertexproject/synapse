@@ -682,13 +682,8 @@ class LayerTest(s_t_utils.SynTest):
             nodelist0 = [node.pack() for node in nodelist0]
 
             editlist = []
-
-            nexsoffs = (await core0.getNexsIndx()) - 1
-            layr = core0.getLayer()
-            async for offs, nodeedits in layr.syncNodeEdits(0, compat=True):
+            async for offs, nodeedits in core0.getLayer().syncNodeEdits(0, wait=False, compat=True):
                 editlist.append(nodeedits)
-                if offs == nexsoffs:
-                    break
 
             self.nn(await core0.callStorm('return($lib.layer.get().edited())'))
 
@@ -716,8 +711,9 @@ class LayerTest(s_t_utils.SynTest):
 
                     self.eq(nodelist0, nodelist1)
 
+                    self.len(4, await alist(layrprox.syncNodeEdits(0, wait=False)))
+
                 layr = core1.view.layers[0]
-                self.eq(offs + 4, layr.getEditIndx())
 
             await core0.addTagProp('score', ('int', {}), {})
 

@@ -7462,8 +7462,8 @@ class Layer(Prim):
     @stormfunc(readonly=True)
     async def _methLayerEdited(self):
         layr = self.runt.view.core.reqLayer(self.valu.get('iden'))
-        indx = layr.getEditIndx()
-        if indx != -1:
+
+        if (indx := layr.getEditIndx()) != -1:
             return indx
 
     @stormfunc(readonly=True)

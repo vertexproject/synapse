@@ -72,7 +72,6 @@ _LayerPushPullSchema = {
     'type': 'object',
     'properties': {
         'url': {'type': 'string'},
-        'layr:': {'type': 'string', 'pattern': s_config.re_iden},
         'time': {'type': 'number'},
         'soffs': {'type': 'number', 'minval': 0},
         'offs': {'type': 'number'},
