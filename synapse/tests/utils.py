@@ -442,6 +442,7 @@ testmodel = {
             ('name', ('test:str', {}), {}),
             ('tick', ('test:time', {}), {}),
             ('data', ('data', {}), {}),
+            ('comp', ('test:comp', {}), {}),
             ('posneg', ('test:sub', {}), {}),
             ('posneg:isbig', ('bool', {}), {}),
         )),

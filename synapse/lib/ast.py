@@ -3488,10 +3488,8 @@ class PropValue(Value):
     async def compute(self, runt, path):
         prop, valu = await self.getPropAndValu(runt, path)
 
-        if prop and prop.type.ismutable:
-            # these get special cased because changing them affects the node
-            # while it's in the pipeline but the modification doesn't get stored
-            valu = s_msgpack.deepcopy(valu, use_list=True)
+        if prop:
+            valu = prop.type.tostorm(valu)
 
         return valu
 

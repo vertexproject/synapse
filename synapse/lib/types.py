@@ -371,6 +371,17 @@ class Type:
         topt.update(opts)
         return self.__class__(self.modl, self.name, self.info, topt)
 
+    def tostorm(self, valu):
+        '''
+        Allows type-specific modifications to values to make them safe for use in the runtime.
+
+        Args:
+            valu (any): The valu to update.
+        '''
+        if self.ismutable:
+            return s_msgpack.deepcopy(valu, use_list=True)
+        return valu
+
     def __eq__(self, othr):
         if self.name != othr.name:
             return False
@@ -1648,6 +1659,7 @@ class Data(Type):
 
 class NodeProp(Type):
 
+    ismutable = True
     stortype = s_layer.STOR_TYPE_MSGP
 
     def postTypeInit(self):
