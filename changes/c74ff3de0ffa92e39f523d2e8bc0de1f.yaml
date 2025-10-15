@@ -1,5 +1,0 @@
----
-desc: Fixed bug with Storm command cmdconf dictionaries being mutable across invocations.
-prs: []
-type: bug
-...

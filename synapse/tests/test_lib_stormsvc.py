@@ -9,7 +9,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.share as s_share
 import synapse.lib.stormsvc as s_stormsvc
 
-import synapse.tools.backup as s_tools_backup
+import synapse.tools.service.backup as s_tools_backup
 
 old_pkg = {
     'name': 'old',

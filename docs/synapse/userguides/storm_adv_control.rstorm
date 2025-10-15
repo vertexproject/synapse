@@ -437,7 +437,7 @@ A **for loop** will iterate over a set of objects, performing the specified Stor
       <storm>
   }
 
-**Note:** The user documentation for the Synapse :ref:`syn-tools-csvtool` and the Optic `Ingest Tool`_
+**Note:** The user documentation for the Synapse :ref:`syn-tools-cortex-csv` and the Optic `Ingest Tool`_
 include additional examples of using for loops.
 
 **Example:**
