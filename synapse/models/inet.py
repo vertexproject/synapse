@@ -1557,10 +1557,16 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:platform', ('guid', {}), {
                         'doc': 'A network platform which provides services.'}),
 
+                    ('inet:service:agent', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'agent'},
+                        'doc': 'An agent or software integration which is part of the service architecture.'}),
+
                     ('inet:service:app', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
                         'template': {'service:base': 'application'},
-                        'doc': 'An application which is part of a service architecture.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:agent for autonomous agents.'}),
 
                     ('inet:service:instance', ('guid', {}), {
                         'doc': 'An instance of the platform such as Slack or Discord instances.'}),
@@ -1799,7 +1805,8 @@ class InetModule(s_module.CoreModule):
                                 'doc': 'The service account which removed or decommissioned the {service:base}.'}),
 
                             ('app', ('inet:service:app', {}), {
-                                'doc': 'The app which contains the {service:base}.'}),
+                                'deprecated': True,
+                                'doc': 'Deprecated. Objects are no longer scoped to an application or agent.'}),
                         ),
                     }),
 
@@ -1820,7 +1827,11 @@ class InetModule(s_module.CoreModule):
                         'props': (
 
                             ('app', ('inet:service:app', {}), {
-                                'doc': 'The app which handled the action.'}),
+                                'deprecated': True,
+                                'doc': 'Deprecated. Please use :agent / inet:service:agent.'}),
+
+                            ('agent', ('inet:service:agent', {}), {
+                                'doc': 'The service agent which performed the action potentially on behalf of an account.'}),
 
                             ('time', ('time', {}), {
                                 'doc': 'The time that the account initiated the action.'}),
@@ -1855,8 +1866,12 @@ class InetModule(s_module.CoreModule):
                             ('client:host', ('it:host', {}), {
                                 'doc': 'The client host which initiated the action.'}),
 
+                            ('client:software', ('it:prod:softver', {}), {
+                                'doc': 'The client software used to initiate the action.'}),
+
                             ('client:app', ('inet:service:app', {}), {
-                                'doc': 'The client service app which initiated the action.'}),
+                                'deprecated': True,
+                                'doc': 'Deprecated. Please use :client:software.'}),
 
                             ('server', ('inet:server', {}), {
                                 'doc': 'The network address of the server which handled the action.'}),
@@ -3761,6 +3776,9 @@ class InetModule(s_module.CoreModule):
 
                         ('provider:name', ('ou:name', {}), {
                             'doc': 'The name of the organization which operates the platform.'}),
+
+                        ('software', ('it:prod:softver', {}), {
+                            'doc': 'The latest known software version that the platform is running.'}),
                     )),
 
                     ('inet:service:instance', {}, (
@@ -3800,7 +3818,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The tenant which contains the instance.'}),
 
                         ('app', ('inet:service:app', {}), {
-                            'doc': 'The app which contains the instance.'}),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instances are no longer scoped to applications.'}),
                     )),
 
                     ('inet:service:app', {}, (
@@ -3823,6 +3842,24 @@ class InetModule(s_module.CoreModule):
 
                         ('provider:name', ('ou:name', {}), {
                             'doc': 'The name of the organization which provides the application.'}),
+                    )),
+
+                    ('inet:service:agent', {}, (
+
+                        ('name', ('str', {'lower': True, 'onespace': True}), {
+                            'doc': 'The name of the service agent instance.'}),
+
+                        ('names', ('array', {'type': 'str',
+                                             'typeopts': {'onespace': True, 'lower': True},
+                                             'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of alternate names for the service agent instance.'}),
+
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A description of the deployed service agent instance.'}),
+
+                        ('software', ('it:prod:softver', {}), {
+                            'doc': 'The latest known software version running on the service agent instnace.'}),
                     )),
 
                     ('inet:service:account', {}, (
@@ -3919,6 +3956,9 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:service:login', {}, (
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL of the login endpoint used for this login attempt.'}),
 
                         ('method', ('inet:service:login:method:taxonomy', {}), {
                             'doc': 'The type of authentication used for the login. For example "password" or "multifactor.sms".'}),
