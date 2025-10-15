@@ -273,13 +273,13 @@ class AhaToolsTest(s_t_utils.SynTest):
 
             async def mockCellInfo():
                 return {
-                    'cell': {'ready': True, 'nexsindx': 10, 'uplink': None},
+                    'cell': {'ready': True, 'nexsindx': 10, 'active': True},
                     'synapse': {'verstring': s_version.verstring},
                 }
 
             async def mockOutOfSyncCellInfo():
                 return {
-                    'cell': {'ready': True, 'nexsindx': 5, 'uplink': cell00.iden},
+                    'cell': {'ready': True, 'nexsindx': 5, 'active': False},
                     'synapse': {'verstring': s_version.verstring},
                 }
 
