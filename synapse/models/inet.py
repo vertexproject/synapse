@@ -1560,7 +1560,7 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:agent', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
                         'template': {'service:base': 'agent'},
-                        'doc': 'An agent or software integration which is part of the service architecture.'}),
+                        'doc': 'An instance of a deployed agent or software integration which is part of the service architecture.'}),
 
                     ('inet:service:app', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
