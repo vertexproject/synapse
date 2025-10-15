@@ -32,14 +32,16 @@ def check_changelogs(dirn):
         print(f'Checking {fp}')
         with open(fp, 'rb') as fd:
             bytz = fd.read()
-        # Do we have multi-line scalers?
-        if re.findall(r'[a-z0-9]\:\s+\|\s*\n', bytz.decode('utf8'), flags=re.IGNORECASE):
-            raise ValueError(f'multiline scaler detected in {fp}')
         # Just asserting we are valid yaml to start with.
         data = yaml.load(bytz, yaml.SafeLoader)
         # And validate the schema.
         if s_schemas is not None:
             s_schemas._reqChangelogSchema(data)
+        # Do we have multi-line scalars?
+        if re.findall(r'[a-z0-9]\:\s+\|\s*\n', bytz.decode('utf8'), flags=re.IGNORECASE):
+            if data.get('desc:literal') is not True:
+                raise ValueError(f'multiline scalar detected in {fp} without desc:literal set to true')
+
     print('Validated changelog entries.')
 
 def main():
