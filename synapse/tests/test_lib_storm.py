@@ -1095,6 +1095,9 @@ class StormTest(s_t_utils.SynTest):
 
             await visi.addRule((True, ('storm', 'asroot', 'cmd', 'asroot', 'yep')))
 
+            msgs = await core.stormlist('asroot.yep', opts=opts)
+            self.stormIsInWarn('Command (asroot.yep) requires asroot permission which is deprecated', msgs)
+
             nodes = await core.nodes('asroot.yep', opts=opts)
             self.len(1, nodes)
             self.eq('false', nodes[0].ndef[1])
@@ -1183,6 +1186,9 @@ class StormTest(s_t_utils.SynTest):
 
             await visi.addRule((True, ('storm', 'asroot', 'mod', 'foo')))
             self.len(1, await core.nodes('yield $lib.import(foo.baz).lol()', opts=opts))
+
+            msgs = await core.stormlist('$lib.import(foo.bar)')
+            self.stormIsInWarn('Module (foo.bar) requires asroot permission but does not specify any asroot:perms', msgs)
 
             # coverage for dyncall/dyniter with asroot...
             await core.nodes('$lib.import(foo.bar).dyncall()', opts=opts)

@@ -2521,9 +2521,15 @@ class PureCmd(Cmd):
         perm = ('storm', 'asroot', 'cmd') + tuple(name.split('.'))
 
         asroot = runt.allowed(perm)
-        if self.asroot and not asroot:
-            mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
-            raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
+        if self.asroot:
+            mesg = f'Command ({name}) requires asroot permission which is deprecated and will be removed in v3.0.0. ' \
+                    'Functionality which requires elevated permissions should be implemented in Storm modules and use ' \
+                    'asroot:perms to specify the required permissions.'
+            await runt.warnonce(mesg, log=False)
+
+            if not asroot:
+                mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
+                raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
 
         # if a command requires perms, check em!
         # ( used to create more intuitive perm boundaries )
