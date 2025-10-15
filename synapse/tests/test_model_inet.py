@@ -3575,12 +3575,16 @@ class InetModelTest(s_t_utils.SynTest):
                     :desc="Foo Bar"
                     :software={[ it:prod:softver=(hehe, haha) ]}
                     :platform={inet:service:platform | limit 1}
+
+                    // ensure we got the interface...
+                    :creator={ inet:service:account | limit 1 }
                 ]
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'woot')
             self.eq(nodes[0].get('names'), ('bar', 'foo'))
             self.eq(nodes[0].get('desc'), 'Foo Bar')
+            self.nn(nodes[0].get('creator'))
             self.nn(nodes[0].get('platform'))
 
             self.len(1, await core.nodes('inet:service:action | limit 1 | [ :agent={ inet:service:agent } ]'))
