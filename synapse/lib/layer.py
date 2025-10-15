@@ -5919,8 +5919,8 @@ class Layer(s_nexus.Pusher):
 
         layriden = self.iden
 
-        async def getNexusEdits():
-            async for nexsoffs, item in self.core.getNexusChanges(offs, wait=False):
+        async def getNexusEdits(strt):
+            async for nexsoffs, item in self.core.getNexusChanges(strt, wait=False):
                 if item[0] != layriden or item[1] != 'edits':
                     continue
 
@@ -5933,7 +5933,9 @@ class Layer(s_nexus.Pusher):
                 else:
                     yield (nexsoffs, edits)
 
-        async for item in getNexusEdits():
+        lastoffs = -1
+        async for item in getNexusEdits(offs):
+            lastoffs = item[0]
             yield item
 
         if not wait:
@@ -5943,15 +5945,15 @@ class Layer(s_nexus.Pusher):
 
             # Ensure we are caught up after grabbing a window
             sync = True
+            maxoffs = max(offs, lastoffs + 1)
 
-            nexsoffs = -1
-            async for item in getNexusEdits():
-                nexsoffs = item[0]
+            async for item in getNexusEdits(maxoffs):
+                maxoffs = item[0]
                 yield item
 
             async for editoffs, edits, meta in wind:
                 if sync:
-                    if editoffs < nexsoffs:
+                    if editoffs <= maxoffs:
                         continue
                     sync = False
 

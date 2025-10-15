@@ -1,6 +1,7 @@
 import os
 import math
 import asyncio
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -714,6 +715,28 @@ class LayerTest(s_t_utils.SynTest):
                     self.len(4, await alist(layrprox.syncNodeEdits(0, wait=False)))
 
                 layr = core1.view.layers[0]
+
+            # Force an edit to be added while constructing a Window
+            orig = s_layer.Layer.getNodeEditWindow
+
+            @contextlib.asynccontextmanager
+            async def slowwindow(self):
+                await core0.nodes('[ test:str=bar ]')
+                async with orig(self) as wind:
+                    await core0.nodes('[ test:str=baz ]')
+                    yield wind
+
+            metaedits = []
+            with mock.patch('synapse.lib.layer.Layer.getNodeEditWindow', slowwindow):
+                async for offs, nodeedits, meta in core0.getLayer().syncNodeEdits(0, wait=True, compat=True, withmeta=True):
+                    metaedits.append(nodeedits)
+                    self.eq(core0.auth.rootuser.iden, meta.get('user'))
+                    if len(metaedits) == len(editlist) + 2:
+                        await core0.nodes('[ test:str=faz ]')
+                    elif len(metaedits) == len(editlist) + 3:
+                        break
+
+            self.eq(editlist, metaedits[:4])
 
             await core0.addTagProp('score', ('int', {}), {})
 
