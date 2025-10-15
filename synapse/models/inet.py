@@ -3847,6 +3847,7 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:agent', {}, (
 
                         ('name', ('str', {'lower': True, 'onespace': True}), {
+                            'alts': ('names',),
                             'doc': 'The name of the service agent instance.'}),
 
                         ('names', ('array', {'type': 'str',
