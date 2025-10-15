@@ -4833,7 +4833,7 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes('[ entity:contact=* ]', opts={'view': view0})
                 await core.nodes('[ entity:contact=* ]', opts={'view': view0})
                 await core.nodes('[ entity:contact=* ]', opts={'view': view0})
-                await core.waitNexsOffs(offs + 14, timeout=30)
+                await core.waitNexsOffs(offs + 14, timeout=3)
 
                 # confirm we dont replay and get the old one back...
                 self.len(3, await core.nodes('entity:contact', opts={'view': view2}))
@@ -4894,6 +4894,8 @@ class StormTest(s_t_utils.SynTest):
                 msgs = await core.stormlist('layer.pull.list $layr2', opts=opts)
                 self.stormIsInPrint('No pulls configured', msgs)
 
+                offs = await core.getNexsIndx()
+
                 # Add slow pushers
                 q = f'''$url="tcp://root:secret@127.0.0.1:{port}/*/layer/{layr3}"
                 $pdef = $lib.layer.get($layr0).addPush($url, queue_size=10, chunk_size=1)
@@ -4909,6 +4911,8 @@ class StormTest(s_t_utils.SynTest):
 
                 pulls = await core.callStorm('return($lib.layer.get($layr3).get(pulls))', opts=opts)
                 self.isin(slowpull, pulls)
+
+                await core.waitNexsOffs(offs + 12, timeout=3)
 
                 self.none(await core.callStorm(f'return($lib.layer.get($layr0).delPush({slowpush}))', opts=opts))
                 self.none(await core.callStorm(f'return($lib.layer.get($layr3).delPull({slowpull}))', opts=opts))
