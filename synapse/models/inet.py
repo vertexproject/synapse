@@ -3859,7 +3859,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'A description of the deployed service agent instance.'}),
 
                         ('software', ('it:prod:softver', {}), {
-                            'doc': 'The latest known software version running on the service agent instnace.'}),
+                            'doc': 'The latest known software version running on the service agent instance.'}),
                     )),
 
                     ('inet:service:account', {}, (
