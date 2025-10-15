@@ -726,17 +726,31 @@ class LayerTest(s_t_utils.SynTest):
                     await core0.nodes('[ test:str=baz ]')
                     yield wind
 
-            metaedits = []
             with mock.patch('synapse.lib.layer.Layer.getNodeEditWindow', slowwindow):
-                async for offs, nodeedits, meta in core0.getLayer().syncNodeEdits(0, wait=True, compat=True, withmeta=True):
-                    metaedits.append(nodeedits)
-                    self.eq(core0.auth.rootuser.iden, meta.get('user'))
-                    if len(metaedits) == len(editlist) + 2:
-                        await core0.nodes('[ test:str=faz ]')
-                    elif len(metaedits) == len(editlist) + 3:
-                        break
+                genr = core0.getLayer().syncNodeEdits(0, wait=True, compat=True, withmeta=True)
+                for edit in editlist:
+                    offs, nodeedits, meta = await anext(genr)
 
-            self.eq(editlist, metaedits[:4])
+                    self.eq(edit, nodeedits)
+                    self.eq(core0.auth.rootuser.iden, meta.get('user'))
+
+                offs, nodeedits, meta = await anext(genr)
+                self.eq(6, offs)
+                self.eq(['test:str', 'bar'], nodeedits[0][:2])
+
+                offs, nodeedits, meta = await anext(genr)
+                self.eq(7, offs)
+                self.eq(['test:str', 'baz'], nodeedits[0][:2])
+
+                # Once we've caught back up to the end of the nexus log, we shouldn't get a duplicate from the window
+                task = core0.schedCoro(anext(genr))
+                await core0.nodes('[ test:str=faz ]')
+
+                offs, nodeedits, meta = await task
+                self.eq(8, offs)
+                self.eq(['test:str', 'faz'], nodeedits[0][:2])
+
+                await genr.aclose()
 
             await core0.addTagProp('score', ('int', {}), {})
 
