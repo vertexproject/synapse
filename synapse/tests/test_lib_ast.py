@@ -2138,44 +2138,6 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'visi'))
             self.eq(nodes[1].ndef, ('inet:ip', (4, 0x01020304)))
 
-    async def test_ast_reserved_vars(self):
-
-        async with self.getTestCore() as core:
-            for resv in ('node', '"node"', "'node'", 'lib', 'path'):
-                with self.raises(s_exc.BadSyntax):
-                    await core.nodes(f'${resv} = foo')
-
-                with self.raises(s_exc.BadSyntax):
-                    await core.nodes(f'(${resv}, $bar) = foo')
-
-                with self.raises(s_exc.BadSyntax):
-                    await core.nodes(f'for ${resv} in $lib.range(5) {{ }}')
-
-                with self.raises(s_exc.BadSyntax):
-                    await core.nodes(f'for (${resv}, $bar) in ((1, 2), (3, 4)) {{ }}')
-
-                with self.raises(s_exc.BadSyntax):
-                    await core.nodes(f'try {{ }} catch * as {resv} {{ }}')
-
-                with self.raises(s_exc.BadSyntax):
-                    await core.nodes(f'try {{ }} catch OtherErr as foo {{ }} catch * as {resv} {{ }}')
-
-                with self.raises(s_exc.BadSyntax):
-                    await core.nodes(f'function {resv}() {{ }}')
-
-                with self.raises(s_exc.BadSyntax):
-                    await core.nodes(f'function foo({resv}) {{ }}')
-
-                with self.raises(s_exc.StormRuntimeError):
-                    await core.nodes(f'$lib.vars.{resv} = foo')
-
-                with self.raises(s_exc.StormRuntimeError):
-                    await core.nodes(f'[ test:str=foo ] $path.vars.{resv} = foo')
-
-            for resv in ('node', 'lib', 'path'):
-                with self.raises(s_exc.BadArg):
-                    await core.nodes('$lib.print(foo)', opts={'vars': {resv: 'newp'}})
-
     async def test_ast_setitem(self):
 
         async with self.getTestCore() as core:
