@@ -325,6 +325,18 @@ class AstConverter(lark.Transformer):
         return s_ast.List(astinfo, kids=newkids)
 
     @lark.v_args(meta=True)
+    def stormfunc(self, meta, kids):
+        kids = self._convert_children(kids)
+        astinfo = self.metaToAstInfo(meta)
+
+        varname = kids[0].value()
+        if varname in ('lib', 'node', 'path'):
+            mesg = f'Assignment to reserved variable ${varname} is not allowed.'
+            self.raiseBadSyntax(mesg, kids[0].astinfo)
+
+        return s_ast.Function(astinfo, kids)
+
+    @lark.v_args(meta=True)
     def funcargs(self, meta, kids):
         '''
         A list of function parameters (as part of a function definition)
@@ -344,6 +356,10 @@ class AstConverter(lark.Transformer):
 
             if kid.valu in kwnames:
                 mesg = f'Duplicate parameter "{kid.valu}" in function definition'
+                self.raiseBadSyntax(mesg, kid.astinfo)
+
+            if kid.valu in ('lib', 'node', 'path'):
+                mesg = f'Assignment to reserved variable ${kid.valu} is not allowed.'
                 self.raiseBadSyntax(mesg, kid.astinfo)
 
             kwnames.add(kid.valu)
@@ -454,7 +470,7 @@ class AstConverter(lark.Transformer):
         deflen = len(defcase)
         if deflen > 1:
             mesg = f'Switch statements cannot have more than one default case. Found {deflen}.'
-            raise self.raiseBadSyntax(mesg, astinfo)
+            self.raiseBadSyntax(mesg, astinfo)
 
         return s_ast.SwitchCase(astinfo, kids)
 
@@ -464,6 +480,59 @@ class AstConverter(lark.Transformer):
         astinfo = self.metaToAstInfo(meta)
         kids[0].reverseLift(astinfo)
         return kids[0]
+
+    @lark.v_args(meta=True)
+    def setvar(self, meta, kids):
+        kids = self._convert_children(kids)
+        varname = kids[0].value()
+        astinfo = self.metaToAstInfo(meta)
+
+        if varname in ('lib', 'node', 'path'):
+            mesg = f'Assignment to reserved variable ${varname} is not allowed.'
+            self.raiseBadSyntax(mesg, kids[0].astinfo)
+
+        return s_ast.SetVarOper(astinfo, kids)
+
+    @lark.v_args(meta=True)
+    def opervarlist(self, meta, kids):
+        kids = self._convert_children(kids)
+        astinfo = self.metaToAstInfo(meta)
+
+        for varname in kids[0].value():
+            if varname in ('lib', 'node', 'path'):
+                mesg = f'Assignment to reserved variable ${varname} is not allowed.'
+                self.raiseBadSyntax(mesg, kids[0].astinfo)
+
+        return s_ast.VarListSetOper(astinfo, kids)
+
+    @lark.v_args(meta=True)
+    def forloop(self, meta, kids):
+        kids = self._convert_children(kids)
+        astinfo = self.metaToAstInfo(meta)
+
+        varnames = kids[0].value()
+        if not isinstance(varnames, list):
+            varnames = (varnames,)
+
+        for varname in varnames:
+            if varname in ('lib', 'node', 'path'):
+                mesg = f'Assignment to reserved variable ${varname} is not allowed.'
+                self.raiseBadSyntax(mesg, kids[0].astinfo)
+
+        return s_ast.ForLoop(astinfo, kids)
+
+    @lark.v_args(meta=True)
+    def trycatch(self, meta, kids):
+        kids = self._convert_children(kids)
+        astinfo = self.metaToAstInfo(meta)
+
+        for catchblock in kids[1:]:
+            varname = catchblock.kids[1].value()
+            if varname in ('lib', 'node', 'path'):
+                mesg = f'Assignment to reserved variable ${varname} is not allowed.'
+                self.raiseBadSyntax(mesg, catchblock.kids[1].astinfo)
+
+        return s_ast.TryCatch(astinfo, kids)
 
 _grammar = s_data.getLark('storm')
 LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdargs', 'evalvalu', 'search'],
@@ -618,6 +687,7 @@ def parseEval(text):
     return Parser(text).eval()
 
 async def _forkedParseQuery(args):
+    return parseQuery(args[0], mode=args[1])
     return await s_coro._parserforked(parseQuery, args[0], mode=args[1])
 
 async def _forkedParseEval(text):
@@ -699,7 +769,6 @@ ruleClassMap = {
     'filtoper': s_ast.FiltOper,
     'filtopermust': lambda astinfo, kids: s_ast.FiltOper(astinfo, [s_ast.Const(astinfo, '+')] + kids),
     'filtopernot': lambda astinfo, kids: s_ast.FiltOper(astinfo, [s_ast.Const(astinfo, '-')] + kids),
-    'forloop': s_ast.ForLoop,
     'formatstring': s_ast.FormatString,
     'formjoin_formpivot': lambda astinfo, kids: s_ast.FormPivot(astinfo, kids, isjoin=True),
     'formjoin_pivotout': lambda astinfo, _: s_ast.PivotOut(astinfo, isjoin=True),
@@ -750,7 +819,6 @@ ruleClassMap = {
     'operrelprop_joinout': lambda astinfo, kids: s_ast.PropPivotOut(astinfo, kids, isjoin=True),
     'operrelprop_pivot': s_ast.PropPivot,
     'operrelprop_pivotout': s_ast.PropPivotOut,
-    'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
     'query': s_ast.Query,
     'pivottarg': s_ast.PivotTarget,
@@ -763,10 +831,8 @@ ruleClassMap = {
     'relpropvalue': s_ast.RelPropValue,
     'search': s_ast.Search,
     'setitem': lambda astinfo, kids: s_ast.SetItemOper(astinfo, [kids[0], kids[1], kids[3]]),
-    'setvar': s_ast.SetVarOper,
     'stop': s_ast.Stop,
     'stormcmd': lambda astinfo, kids: s_ast.CmdOper(astinfo, kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(astinfo, tuple()))),
-    'stormfunc': s_ast.Function,
     'tagcond': s_ast.TagCond,
     'tagname': s_ast.TagName,
     'tagmatch': s_ast.TagMatch,
@@ -777,7 +843,6 @@ ruleClassMap = {
     'tagvalucond': s_ast.TagValuCond,
     'tagvirtcond': s_ast.TagVirtCond,
     'tagpropcond': s_ast.TagPropCond,
-    'trycatch': s_ast.TryCatch,
     'valulist': s_ast.List,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,

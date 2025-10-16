@@ -4713,15 +4713,15 @@ class StormTypesTest(s_test.SynTest):
 
             # return none since the node is made in a different view
             await visi.addRule((True, ('node', 'prop', 'set', 'inet:fqdn:issuffix')), gateiden=layr)
-            query = '$node=$lib.view.get($fork).addNode(inet:fqdn, vertex.link, props=({"issuffix": true})) ' \
-                    'return ( $node )'
+            query = '$n=$lib.view.get($fork).addNode(inet:fqdn, vertex.link, props=({"issuffix": true})) ' \
+                    'return ( $n )'
             node = await core.callStorm(query, opts=opts)
             self.none(node)
 
             # return the node from the current view
             opts = {'user': visi.iden, 'view': fork}
-            query = '$node=$lib.view.get().addNode(inet:fqdn, vertex.link, props=({"issuffix": true})) ' \
-                    'return ( $node )'
+            query = '$n=$lib.view.get().addNode(inet:fqdn, vertex.link, props=({"issuffix": true})) ' \
+                    'return ( $n )'
             node = await core.callStorm(query, opts=opts)
             self.eq(node, 'vertex.link')  # prim version of the storm:node
 
