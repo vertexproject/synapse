@@ -3055,8 +3055,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 logextra = await self.getLogExtra(pkg=name, vers=pkgvers)
 
                 if inits is not None:
-                    varname = inits['key']
-                    curvers = await self.getStormPkgVar(name, varname, default=-1)
+
+                    if (key := inits.get('key')) is not None:
+                        s_common.deprecated('storm package inits.key', eolv='3.0.0')
+                        if key != 'version' and (valu := await self.popStormPkgVar(name, key)) is not None:
+                            await self.setStormPkgVar(name, 'version', valu)
+
+                    curvers = await self.getStormPkgVar(name, 'version', default=-1)
                     inaugural = curvers == -1
 
                     for initdef in inits['versions']:
@@ -3068,7 +3073,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             continue
 
                         if inaugural and not initdef.get('inaugural'):
-                            await self.setStormPkgVar(name, varname, vers)
+                            await self.setStormPkgVar(name, 'version', vers)
                             continue
 
                         logextra['synapse']['initvers'] = vers
@@ -3101,8 +3106,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if not ok:
                             break
 
-                        curvers = max(vers, await self.getStormPkgVar(name, varname, default=-1))
-                        await self.setStormPkgVar(name, varname, curvers)
+                        curvers = max(vers, await self.getStormPkgVar(name, 'version', default=-1))
+                        await self.setStormPkgVar(name, 'version', curvers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 if onload is not None:
