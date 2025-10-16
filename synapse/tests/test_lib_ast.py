@@ -2175,6 +2175,7 @@ class AstTest(s_test.SynTest):
     async def test_ast_setitem(self):
 
         async with self.getTestCore() as core:
+
             q = '''
                 $x = asdf
                 $y = ({})
