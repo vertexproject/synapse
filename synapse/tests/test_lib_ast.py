@@ -2172,6 +2172,10 @@ class AstTest(s_test.SynTest):
                 with self.raises(s_exc.StormRuntimeError):
                     await core.nodes(f'[ test:str=foo ] $path.vars.{resv} = foo')
 
+            for resv in ('node', 'lib', 'path'):
+                with self.raises(s_exc.BadArg):
+                    await core.nodes('$lib.print(foo)', opts={'vars': {resv: 'newp'}})
+
     async def test_ast_setitem(self):
 
         async with self.getTestCore() as core:

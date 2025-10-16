@@ -5379,6 +5379,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     mesg = f"Storm var names must be strings (got {valu} of type {type(valu)})"
                     raise s_exc.BadArg(mesg=mesg)
 
+                if valu in ('lib', 'node', 'path'):
+                    raise s_exc.BadArg(mesg=f'Storm var name {valu} is reserved.')
+
         opts.setdefault('user', self.auth.rootuser.iden)
         return opts
 

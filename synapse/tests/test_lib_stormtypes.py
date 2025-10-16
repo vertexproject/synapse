@@ -153,7 +153,7 @@ class StormTypesTest(s_test.SynTest):
                 'asof': asof,
                 'data': {'bam': 1},
                 'key': 'baz',
-            }, await core.callStorm('return($lib.jsonstor.get($path))', opts={'vars': ret}))
+            }, await core.callStorm('return($lib.jsonstor.get($pth))', opts={'vars': {'pth': ret['path']}}))
 
             await asyncio.sleep(0.1)
 
