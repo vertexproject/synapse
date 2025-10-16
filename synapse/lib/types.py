@@ -371,7 +371,7 @@ class Type:
         topt.update(opts)
         return self.__class__(self.modl, self.name, self.info, topt)
 
-    def tostorm(self, valu):
+    async def tostorm(self, valu):
         '''
         Allows type-specific modifications to values to make them safe for use in the runtime.
 
@@ -547,6 +547,9 @@ class Comp(Type):
         for i, (name, _) in enumerate(fields):
 
             _type = self.tcache[name]
+
+            if _type.ismutable:
+                self.ismutable = True
 
             norm, info = _type.norm(valu[i])
 

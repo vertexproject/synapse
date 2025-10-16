@@ -3489,7 +3489,7 @@ class PropValue(Value):
         prop, valu = await self.getPropAndValu(runt, path)
 
         if prop:
-            valu = prop.type.tostorm(valu)
+            valu = await prop.type.tostorm(valu)
 
         return valu
 

@@ -9122,7 +9122,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                     'data': data,
                 }
             }
-            q = '[ test:guid=(d0,) :data=$data :comp=(1, foo)]'
+            q = '''
+                [ test:guid=(d0,)
+                    :data=$data
+                    :comp=(1, foo)
+                    :mutcomp=(foo, (1, 2, 3))
+                ]
+            '''
             self.len(1, await core.nodes(q, opts=opts))
 
             q = '''
@@ -9153,6 +9159,22 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].get('data')['dict'], {'dictkey': 'dictval'})
+
+            q = '''
+                test:guid=(d0,)
+                $c=:comp
+                $c.rem((1))
+                $m=:mutcomp
+                $m.1.rem((3))
+                return(($c, :comp, $m, :mutcomp))
+            '''
+            valu = await core.callStorm(q)
+            self.eq(valu, (
+                (1, 'foo'),
+                (1, 'foo'),
+                ('foo', (1, 2)),
+                ('foo', (1, 2, 3)),
+            ))
 
             # Nodeprops could have mutable types in them so make sure modifying
             # them doesn't cause modifications ot the node
