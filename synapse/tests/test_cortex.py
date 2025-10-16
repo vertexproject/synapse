@@ -9177,7 +9177,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             ))
 
             # Nodeprops could have mutable types in them so make sure modifying
-            # them doesn't cause modifications ot the node
+            # them doesn't cause modifications to the node
             q = '''
                 $data = { test:guid=(d0,) return(:data) }
                 [ test:str=foobar :baz=(test:guid:data, $data) ]
