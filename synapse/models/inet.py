@@ -3742,7 +3742,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The type of service platform.'}),
 
                         ('family', ('str', {'onespace': True, 'lower': True}), {
-                            'doc': 'The family the service platform belongs to.'}),
+                            'doc': 'A family designation for use with instanced platforms such as Slack, Discord, or Mastodon.'}),
 
                         ('parent', ('inet:service:platform', {}), {
                             'doc': 'A parent platform which owns this platform.'}),
