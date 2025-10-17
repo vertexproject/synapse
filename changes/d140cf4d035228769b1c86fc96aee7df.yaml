@@ -1,0 +1,7 @@
+---
+desc: Added ``inet:service:platform:family`` to capture the family a platform belongs
+  to.
+desc:literal: false
+prs: []
+type: model
+...

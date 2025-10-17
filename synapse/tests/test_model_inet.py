@@ -2999,6 +2999,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :names=("slack chat",)
                 :parent={[ inet:service:platform=({"name": "salesforce"}) ]}
                 :status=available
+                :family="  FooFam  "
                 :period=(2022, 2023)
                 :creator={[ inet:service:account=({"id": "bar"}) ]}
                 :remover={[ inet:service:account=({"id": "baz"}) ]}
@@ -3012,6 +3013,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('inet:service:platform', s_common.guid(('slack',))))
             self.eq('foo', nodes[0].get('id'))
             self.eq('foo.bar.', nodes[0].get('type'))
+            self.eq('foofam', nodes[0].get('family'))
             self.eq(nodes[0].get('url'), 'https://slack.com')
             self.eq(nodes[0].get('urls'), ('https://slacker.com',))
             self.eq(nodes[0].get('zones'), ('slack.com', 'slacker.com'))
