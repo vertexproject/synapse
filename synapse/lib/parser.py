@@ -327,13 +327,13 @@ class AstConverter(lark.Transformer):
     @lark.v_args(meta=True)
     def stormfunc(self, meta, kids):
         kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
 
         varname = kids[0].value()
         if varname in ('lib', 'node', 'path'):
             mesg = f'Assignment to reserved variable ${varname} is not allowed.'
             self.raiseBadSyntax(mesg, kids[0].astinfo)
 
+        astinfo = self.metaToAstInfo(meta)
         return s_ast.Function(astinfo, kids)
 
     @lark.v_args(meta=True)
@@ -484,31 +484,30 @@ class AstConverter(lark.Transformer):
     @lark.v_args(meta=True)
     def setvar(self, meta, kids):
         kids = self._convert_children(kids)
-        varname = kids[0].value()
-        astinfo = self.metaToAstInfo(meta)
 
+        varname = kids[0].value()
         if varname in ('lib', 'node', 'path'):
             mesg = f'Assignment to reserved variable ${varname} is not allowed.'
             self.raiseBadSyntax(mesg, kids[0].astinfo)
 
+        astinfo = self.metaToAstInfo(meta)
         return s_ast.SetVarOper(astinfo, kids)
 
     @lark.v_args(meta=True)
     def opervarlist(self, meta, kids):
         kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
 
         for varname in kids[0].value():
             if varname in ('lib', 'node', 'path'):
                 mesg = f'Assignment to reserved variable ${varname} is not allowed.'
                 self.raiseBadSyntax(mesg, kids[0].astinfo)
 
+        astinfo = self.metaToAstInfo(meta)
         return s_ast.VarListSetOper(astinfo, kids)
 
     @lark.v_args(meta=True)
     def forloop(self, meta, kids):
         kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
 
         varnames = kids[0].value()
         if not isinstance(varnames, list):
@@ -519,12 +518,12 @@ class AstConverter(lark.Transformer):
                 mesg = f'Assignment to reserved variable ${varname} is not allowed.'
                 self.raiseBadSyntax(mesg, kids[0].astinfo)
 
+        astinfo = self.metaToAstInfo(meta)
         return s_ast.ForLoop(astinfo, kids)
 
     @lark.v_args(meta=True)
     def trycatch(self, meta, kids):
         kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
 
         for catchblock in kids[1:]:
             varname = catchblock.kids[1].value()
@@ -532,6 +531,7 @@ class AstConverter(lark.Transformer):
                 mesg = f'Assignment to reserved variable ${varname} is not allowed.'
                 self.raiseBadSyntax(mesg, catchblock.kids[1].astinfo)
 
+        astinfo = self.metaToAstInfo(meta)
         return s_ast.TryCatch(astinfo, kids)
 
 _grammar = s_data.getLark('storm')
