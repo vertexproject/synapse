@@ -2052,10 +2052,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             return cullat
 
-    @s_nexus.Pusher.onPushAuto('nexslog:setindex')
-    async def setNexsIndx(self, indx):
-        return await self.nexsroot.setindex(indx)
-
     def getMyUrl(self, user='root'):
         host = self.conf.req('aha:name')
         network = self.conf.req('aha:network')

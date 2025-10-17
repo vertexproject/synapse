@@ -407,20 +407,6 @@ class NexsRoot(s_base.Base):
     async def waitOffs(self, offs, timeout=None):
         return await self.nexslog.waitForOffset(offs, timeout)
 
-    async def setindex(self, indx):
-
-        nexsindx = await self.index()
-        if indx < nexsindx:
-            logger.error(f'setindex ({indx}) is less than current index ({nexsindx})')
-            return False
-
-        if self.donexslog:
-            self.nexslog.setIndex(indx)
-        else:
-            self.nexshot.set('nexs:indx', indx)
-
-        return True
-
     async def _eat(self, item, indx=None):
 
         if self.donexslog:

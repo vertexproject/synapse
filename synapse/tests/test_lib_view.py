@@ -500,34 +500,43 @@ class ViewTest(s_t_utils.SynTest):
                 $view = $lib.view.add(($layr,))
                 return($view.iden)
             ''')
+            layr = core.getView().wlyr
 
             await core.nodes('trigger.add node:add --form ou:org {[+#foo]}', opts={'view': view})
 
             nodes = await core.nodes('[ ou:org=* ]')
             self.len(0, await core.nodes('ou:org', opts={'view': view}))
 
+            nodeedits = []
+            async for offs, edits in layr.syncNodeEdits(0, wait=False):
+                nodeedits.append(edits)
+
             await core.stormlist('''
                 $view = $lib.view.get($viewiden)
-                for ($offs, $edits) in $lib.layer.get().edits(wait=$lib.false) {
+                for $edits in $nodeedits {
                     $view.addNodeEdits($edits)
                 }
-            ''', opts={'vars': {'viewiden': view}})
+            ''', opts={'vars': {'viewiden': view, 'nodeedits': nodeedits}})
 
             self.len(1, await core.nodes('ou:org +#foo', opts={'view': view}))
 
             # test node:del triggers
             await core.nodes('trigger.add node:del --form ou:org {[test:str=foo]}', opts={'view': view})
 
-            nextoffs = await core.getView(iden=view).layers[0].getEditIndx()
+            nextoffs = core.getView(iden=view).layers[0].getEditIndx() + 1
 
             await core.nodes('ou:org | delnode')
 
+            nodeedits = []
+            async for offs, edits in layr.syncNodeEdits(nextoffs, wait=False):
+                nodeedits.append(edits)
+
             await core.stormlist('''
                 $view = $lib.view.get($viewiden)
-                for ($offs, $edits) in $lib.layer.get().edits(offs=$offs, wait=$lib.false) {
+                for $edits in $nodeedits {
                     $view.addNodeEdits($edits)
                 }
-            ''', opts={'vars': {'viewiden': view, 'offs': nextoffs}})
+            ''', opts={'vars': {'viewiden': view, 'nodeedits': nodeedits}})
 
             self.len(0, await core.nodes('ou:org +#foo', opts={'view': view}))
 
@@ -554,25 +563,20 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.nodes('inet:ip=([4, 0]) | delnode')
 
-            edits = await core.callStorm('''
-                $nodeedits = ()
-                for ($offs, $edits) in $lib.layer.get().edits(wait=$lib.false) {
-                    $nodeedits.extend($edits)
-                }
-                return($nodeedits)
-            ''')
+            nodeedits = []
+            async for offs, edits in core.getView().wlyr.syncNodeEdits(0, wait=False):
+                nodeedits.extend(edits)
 
             user = await core.auth.addUser('user')
             await user.addRule((True, ('view', 'read')))
 
             async with core.getLocalProxy(share=f'*/view/{view}', user='user') as prox:
-                self.eq(0, await prox.getEditSize())
-                await self.asyncraises(s_exc.AuthDeny, prox.storNodeEdits(edits, None))
+                await self.asyncraises(s_exc.AuthDeny, prox.storNodeEdits(nodeedits, None))
 
             await user.addRule((True, ('node',)))
 
             async with core.getLocalProxy(share=f'*/view/{view}', user='user') as prox:
-                self.none(await prox.storNodeEdits(edits, None))
+                self.none(await prox.storNodeEdits(nodeedits, None))
 
             self.len(1, await core.nodes('ou:org#foo', opts={'view': view}))
             self.len(0, await core.nodes('test:str=foo', opts={'view': view}))
@@ -601,11 +605,9 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.nodes('test:int | delnode')
 
-            edits = await core.callStorm('''$nodeedits = ()
-                for ($offs, $edits) in $lib.layer.get().edits(wait=$lib.false) {
-                    $nodeedits.extend($edits)
-                }
-                return($nodeedits)''')
+            nodeedits = []
+            async for offs, edits in core.getView().wlyr.syncNodeEdits(0, wait=False):
+                nodeedits.append(edits)
 
             user = await core.auth.addUser('user')
             await user.addRule((True, ('view', 'read')))
@@ -613,17 +615,16 @@ class ViewTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy(share=f'*/view/{view}', user='user') as prox:
                 with self.raises(s_exc.AuthDeny):
-                    await prox.saveNodeEdits(edits, {})
+                    await prox.saveNodeEdits(nodeedits, {})
 
                 await core.setUserAdmin(user.iden, True)
 
                 with self.raises(s_exc.BadArg) as cm:
-                    await prox.saveNodeEdits(edits, {})
+                    await prox.saveNodeEdits(nodeedits, {})
                 self.eq(cm.exception.get('mesg'), "Meta argument requires user key to be a guid, got user=''")
-
                 with self.getAsyncLoggerStream('synapse.storm.log', 'u=') as stream:
-                    for edit in edits:
-                        await prox.saveNodeEdits((edits), {'time': s_common.now(), 'user': guid})
+                    for edit in nodeedits:
+                        await prox.saveNodeEdits(edit, {'time': s_common.now(), 'user': guid})
                     self.true(await stream.wait(6))
                 valu = stream.getvalue().strip()
                 self.isin(f'u={guid}', valu)
@@ -666,7 +667,7 @@ class ViewTest(s_t_utils.SynTest):
 
             nodecnt = await core.count('.created')
 
-            offs = await layr.getEditOffs()
+            offs = layr.getEditIndx()
 
             # must have perms for each edit
 
@@ -684,7 +685,11 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.nodes('$lib.view.get().wipeLayer()', opts=opts)
 
-            self.len(nodecnt, layr.nodeeditlog.iter(offs + 1)) # one del nodeedit for each node
+            ecnt = 0
+            async for nexsoffs, edits in layr.syncNodeEdits(offs + 1, wait=False):
+                ecnt += 1
+
+            self.eq(nodecnt, ecnt) # one del nodeedit for each node
 
             self.len(0, await core.nodes('.created'))
 
@@ -718,7 +723,7 @@ class ViewTest(s_t_utils.SynTest):
             # can wipe through layer push/pull
 
             self.len(1, await core.nodes('test:str=chicken'))
-            baseoffs = await layr.getEditOffs()
+            baseoffs = layr.getEditIndx()
 
             async def waitPushOffs(core_, iden_, offs_):
                 while True:
@@ -745,7 +750,7 @@ class ViewTest(s_t_utils.SynTest):
 
                 await asyncio.wait_for(waitPushOffs(core2, puller_iden, baseoffs), timeout=5)
                 self.len(1, await core2.nodes('test:str=chicken', opts={'view': puller_view}))
-                puller_offs = await core2.getLayer(iden=puller_layr).getEditOffs()
+                puller_offs = core2.getLayer(iden=puller_layr).getEditIndx()
 
                 pushee_view, pushee_layr = await core2.callStorm('''
                     $lyr = $lib.layer.add()
@@ -763,16 +768,15 @@ class ViewTest(s_t_utils.SynTest):
 
                 await asyncio.wait_for(waitPushOffs(core, pushee_iden, baseoffs), timeout=5)
                 self.len(1, await core2.nodes('test:str=chicken', opts={'view': pushee_view}))
-                pushee_offs = await core2.getLayer(iden=pushee_layr).getEditOffs()
+                pushee_offs = core2.getLayer(iden=pushee_layr).getEditIndx()
 
+                nexsoffs = await core.getNexsIndx()
                 await core.nodes('$lib.view.get().wipeLayer()')
 
                 self.len(0, await core.nodes('test:str=chicken'))
 
-                self.true(await core2.getLayer(iden=puller_layr).waitEditOffs(puller_offs + 1, timeout=2))
+                await core.waitNexsOffs(nexsoffs + 2, timeout=5)
                 self.len(0, await core2.nodes('test:str=chicken', opts={'view': puller_view}))
-
-                self.true(await core2.getLayer(iden=pushee_layr).waitEditOffs(pushee_offs + 1, timeout=2))
                 self.len(0, await core2.nodes('test:str=chicken', opts={'view': pushee_view}))
 
     async def test_lib_view_merge_perms(self):

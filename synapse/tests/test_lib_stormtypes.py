@@ -5348,10 +5348,8 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr("Unexpected token '}' at line 1, column 10", mesgs)
 
                 ##################
-                layr = core.getLayer()
-
                 # TODO - this is not a good way to test this since nodeedit log offsets map to nexus log offsets
-                nextlayroffs = await layr.getEditOffs() + 8
+                nexteditoffs = await core.getNexsIndx() + 6
 
                 # Start simple: add a cron job that creates a node every minute
                 q = "cron.add --minute +1 {[meta:note='*' :type=m1]}"
@@ -5395,7 +5393,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint(':type=m1', mesgs)
 
                 # Make sure it ran
-                await layr.waitEditOffs(nextlayroffs, timeout=5)
+                await core.waitNexsOffs(nexteditoffs, timeout=5)
                 self.eq(1, await prox.count('meta:note:type=m1'))
 
                 q = "cron.mod $guid --storm { [meta:note='*' :type=m2] }"
@@ -5407,9 +5405,9 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr('does not match', mesgs)
 
                 # Make sure the old one didn't run and the new query ran
-                nextlayroffs = await layr.getEditOffs() + 6
+                nexteditoffs = await core.getNexsIndx() + 4
                 unixtime += 60
-                await layr.waitEditOffs(nextlayroffs, timeout=5)
+                await core.waitNexsOffs(nexteditoffs, timeout=5)
                 self.eq(1, await prox.count('meta:note:type=m1'))
                 self.eq(1, await prox.count('meta:note:type=m2'))
 
@@ -6143,28 +6141,6 @@ class StormTypesTest(s_test.SynTest):
         self.none(await s_stormtypes.toint(None, noneok=True))
         self.none(await s_stormtypes.tobool(None, noneok=True))
         self.none(await s_stormtypes.tonumber(None, noneok=True))
-
-    async def test_stormtypes_layer_edits(self):
-
-        async with self.getTestCore() as core:
-
-            await core.nodes('[inet:ip=1.2.3.4]')
-
-            # TODO: should we asciify the buid here so it is json compatible?
-            q = '''$list = ()
-            for ($offs, $edit) in $lib.layer.get().edits(wait=$lib.false) {
-                $list.append($edit)
-            }
-            return($list)'''
-            nodeedits = await core.callStorm(q)
-
-            retn = []
-            for edits in nodeedits:
-                for edit in edits:
-                    if edit[1] == 'inet:ip':
-                        retn.append(edit)
-
-            self.len(1, retn)
 
     async def test_stormtypes_layer_counts(self):
         async with self.getTestCore() as core:

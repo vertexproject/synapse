@@ -3480,7 +3480,7 @@ class AstTest(s_test.SynTest):
 
             await core.nodes('for $x in $lib.range(1010) {[ it:dev:str=$x ]}')
 
-            strtoffs = await core.getView().layers[0].getEditIndx()
+            strtoffs = core.getView().layers[0].getEditIndx()
 
             q = '''
             [ inet:ip=1.2.3.4
@@ -3491,7 +3491,7 @@ class AstTest(s_test.SynTest):
             self.len(1005, await core.nodes('inet:ip=1.2.3.4 -(refs)> *'))
 
             # node creation + 2 batches of edits
-            nextoffs = await core.getView().layers[0].getEditIndx()
+            nextoffs = core.getView().layers[0].getEditIndx()
             self.eq(strtoffs + 3, nextoffs)
 
             q = '''
@@ -3502,7 +3502,7 @@ class AstTest(s_test.SynTest):
             self.len(0, await core.nodes('inet:ip=1.2.3.4 -(refs)> *'))
 
             # 2 batches of edits
-            self.eq(nextoffs + 2, await core.getView().layers[0].getEditIndx())
+            self.eq(nextoffs + 2, core.getView().layers[0].getEditIndx())
 
             nodes = await core.nodes('syn:prop limit 1')
             await self.asyncraises(s_exc.IsRuntForm, nodes[0].delEdge('foo', 'bar'))
