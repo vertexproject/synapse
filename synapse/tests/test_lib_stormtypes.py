@@ -3168,6 +3168,12 @@ class StormTypesTest(s_test.SynTest):
             valu = await core.callStorm('return($lib.globals.get(newp))')
             self.none(valu)
 
+            valu = await core.callStorm('return($lib.globals.get(newp, ({})))')
+            self.eq(valu, {})
+
+            valu = await core.callStorm('return($lib.globals.pop(newp, ({})))')
+            self.eq(valu, {})
+
             valu = await core.callStorm('return($lib.globals.set(testlist, (foo, bar, baz)))')
             self.eq(valu, ['foo', 'bar', 'baz'])
 
