@@ -47,7 +47,7 @@ class TagProp:
         self.type = self.base.clone(tdef[1])
 
         if isinstance(self.type, s_types.Array):
-            mesg = 'Tag props may not be array types (yet).'
+            mesg = 'Tag props may not be array types.'
             raise s_exc.BadPropDef(mesg=mesg)
 
         model.tagpropsbytype[self.type.name][name] = self
@@ -272,7 +272,8 @@ class Form:
         self.typehash = self.type.typehash
 
         if self.type.isarray:
-            self.arraytypehash = self.type.arraytype.typehash
+            mesg = 'Forms may not be array types.'
+            raise s_exc.BadFormDef(mesg=mesg, form=self.name)
 
         self.form = self
 
@@ -1244,9 +1245,6 @@ class Model:
             for prevname in prevnames:
                 self.formprevnames[prevname] = formname
 
-        if isinstance(form.type, s_types.Array):
-            self.arraysbytype[form.type.arraytype.name][form.name] = form
-
         template = {}
         for ifname, ifinfo in form.type.info.get('interfaces', ()):
             iface = self._reqIface(ifname)
@@ -1344,9 +1342,6 @@ class Model:
             propnames = ', '.join(prop.name for prop in formprops)
             mesg = f'Form has extended properties: {propnames}'
             raise s_exc.CantDelForm(mesg=mesg)
-
-        if isinstance(form.type, s_types.Array):
-            self.arraysbytype[form.type.arraytype.name].pop(form.name, None)
 
         for ifname, ifinfo in form.type.info.get('interfaces', ()):
             self._delFormIface(form, ifname, ifinfo)

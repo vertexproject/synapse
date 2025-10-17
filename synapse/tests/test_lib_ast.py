@@ -1960,28 +1960,6 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('arg1 is 445', msgs)
             self.stormIsInPrint('retn is 445', msgs)
 
-            # make sure we can't override the base lib object
-            q = '''
-            function wat(arg1) {
-                $lib.print($arg1)
-                $lib.print("We should have inherited the one true lib")
-                return ("Hi :)")
-            }
-            function override() {
-                $lib = "The new lib"
-                $retn = $wat($lib)
-                return ($retn)
-            }
-
-            $lib.print($override())
-            $lib.print("NO OVERRIDES FOR YOU")
-            '''
-            msgs = await core.stormlist(q)
-            self.stormIsInPrint('The new lib', msgs)
-            self.stormIsInPrint('We should have inherited the one true lib', msgs)
-            self.stormIsInPrint('Hi :)', msgs)
-            self.stormIsInPrint('NO OVERRIDES FOR YOU', msgs)
-
             # yields across an import boundary
             q = '''
             $test = $lib.import(yieldsforever)
@@ -2175,18 +2153,6 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[ inet:ip=1.2.3.4 +#visi ] | foocmd')
             self.eq(nodes[0].ndef, ('test:str', 'visi'))
             self.eq(nodes[1].ndef, ('inet:ip', (4, 0x01020304)))
-
-            msgs = await core.stormlist('''
-                function lolol() {
-                    $lib = "pure lulz"
-                    $lolol = "don't do this"
-                    return ($lolol)
-                }
-                $neato = 0
-                $myvar = $lolol()
-                $lib.print($myvar)
-            ''')
-            self.stormIsInPrint("don't do this", msgs)
 
     async def test_ast_setitem(self):
 
@@ -4355,8 +4321,6 @@ class AstTest(s_test.SynTest):
             ostr = (await core.nodes('test:str=foo [ :bar=(test:ro, "ackbar") :ndefs=((test:int, 176), )]'))[0]
             pstr = (await core.nodes('test:str=bar [ :ndefs=((test:guid, $guid), (test:auto, "auto"), (test:ro, "ackbar"))]', opts=opts))[0]
             rstr = (await core.nodes('test:ro=ackbar', opts=opts))[0]
-            (await core.nodes('[test:arrayform=(1234, 176)]'))[0]
-            (await core.nodes('[test:arrayform=(3245, 678)]'))[0]
 
             await core.nodes('test:int=176 [ <(refs)+ { test:guid } ]')
             await core.nodes('test:int=176 [ <(_someedge)+ { test:guid } ]')
@@ -4508,14 +4472,6 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('test:arrayprop :ints -> test:int', opts=opts)
             _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
             _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'}, nidx=1)
-
-            # PropPivot dst array primary prop
-            msgs = await core.stormlist('test:guid :size -> test:arrayform', opts=opts)
-            _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'size'})
-
-            # PropPivot oops all arrays
-            msgs = await core.stormlist('test:arrayprop :ints -> test:arrayform', opts=opts)
-            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
 
             # PropPivot src ndef array
             msgs = await core.stormlist('test:str=foobar :ndefs -> test:guid', opts=opts)

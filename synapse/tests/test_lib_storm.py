@@ -4539,16 +4539,6 @@ class StormTest(s_t_utils.SynTest):
                     await core.nodes('*$form#newp', opts=opts)
                 self.true(exc.exception.get('mesg').startswith(mesg))
 
-            # liftbyarray
-            msgs = await core.stormlist('$form = test:arrayform *$form*[=(10)]')
-            self.stormHasNoWarnErr(msgs)
-
-            for inval in invals:
-                opts = {'vars': {'form': inval}}
-                with self.raises(s_exc.StormRuntimeError) as exc:
-                    await core.nodes('*$form*[="newp"]', opts=opts)
-                self.true(exc.exception.get('mesg').startswith(mesg))
-
             # formtagprop
             msgs = await core.stormlist('$form = inet:fqdn *$form#foo:score')
             self.stormHasNoWarnErr(msgs)
