@@ -20,7 +20,6 @@ commands:
         # A couple examples of the command
         inet:ipv4 | foocmd
         inet:ipv4 | limit 1 | foocmd --yield
-    asroot: true
     cmdargs:
       - - --debug
         - default: false
