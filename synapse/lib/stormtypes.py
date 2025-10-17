@@ -5826,14 +5826,18 @@ class LibGlobals(Lib):
         self._reqStr(name)
 
         confirm(('globals', 'get', name))
-        valu = await self.runt.snap.core.getStormVar(name, default=default)
+        valu = await self.runt.snap.core.getStormVar(name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
         return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _methPop(self, name, default=None):
         self._reqStr(name)
 
         confirm(('globals', 'pop', name))
-        valu = await self.runt.snap.core.popStormVar(name, default=default)
+        valu = await self.runt.snap.core.popStormVar(name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
         return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _methSet(self, name, valu):

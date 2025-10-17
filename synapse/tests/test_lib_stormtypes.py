@@ -3168,6 +3168,26 @@ class StormTypesTest(s_test.SynTest):
             valu = await core.callStorm('return($lib.globals.get(newp))')
             self.none(valu)
 
+            # Default values are copied
+            q = '''
+                $def = ({})
+                $valu = $lib.globals.get(newp, $def)
+                $valu.foo = bar
+                return(($def, $valu))
+            '''
+            valu = await core.callStorm(q)
+            self.eq(valu, ({'foo': 'bar'}, {'foo': 'bar'}))
+
+            # Default values are copied
+            q = '''
+                $def = ({})
+                $valu = $lib.globals.pop(newp, $def)
+                $valu.foo = bar
+                return(($def, $valu))
+            '''
+            valu = await core.callStorm(q)
+            self.eq(valu, ({'foo': 'bar'}, {'foo': 'bar'}))
+
             valu = await core.callStorm('return($lib.globals.set(testlist, (foo, bar, baz)))')
             self.eq(valu, ['foo', 'bar', 'baz'])
 
