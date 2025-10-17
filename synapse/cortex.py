@@ -3044,7 +3044,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         onload = pkgdef.get('onload')
         pkgvers = pkgdef.get('version')
 
-        if (onload is not None or inits is not None) and self.isactive:
+        if self.isactive:
             async def _onload():
                 if self.safemode:
                     await self.fire('core:pkg:onload:skipped', pkg=name, reason='safemode')
@@ -3054,8 +3054,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 logextra = await self.getLogExtra(pkg=name, vers=pkgvers)
 
-                if inits is not None:
+                if inits is None:
+                    await self.setStormPkgVar(name, 'version', -1)
 
+                else:
                     if (key := inits.get('key')) is not None:
                         s_common.deprecated('storm package inits.key', eolv='3.0.0')
                         if key != 'version' and (valu := await self.popStormPkgVar(name, key)) is not None:

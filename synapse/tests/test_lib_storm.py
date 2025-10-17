@@ -2880,6 +2880,16 @@ class StormTest(s_t_utils.SynTest):
                 ('core:pkg:onload:complete', {'pkg': 'testload'}),
             ])
 
+        async with self.getTestCore() as core:
+            pkg = {
+                'name': 'testload',
+                'version': '0.1.0',
+            }
+
+            await loadPkg(core, pkg)
+
+            self.eq(-1, await core.getStormPkgVar('testload', 'version'))
+
         with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
