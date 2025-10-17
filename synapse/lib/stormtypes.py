@@ -5717,6 +5717,9 @@ class RuntVars(Prim):
         name = await tostr(name)
         runt = s_scope.get('runt')
 
+        if name in ('lib', 'node', 'path'):
+            raise s_exc.StormRuntimeError(mesg=f'Assignment to reserved variable ${name} is not allowed.')
+
         if valu is undef:
             await runt.popVar(name)
             return
@@ -6469,6 +6472,9 @@ class PathVars(Prim):
     async def setitem(self, name, valu):
         name = await tostr(name)
         runt = s_scope.get('runt')
+
+        if name in ('lib', 'node', 'path'):
+            raise s_exc.StormRuntimeError(mesg=f'Assignment to reserved variable ${name} is not allowed.')
 
         if valu is undef:
             await self.path.popVar(name)

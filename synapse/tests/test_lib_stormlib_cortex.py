@@ -510,13 +510,13 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint(f'3     | {iden3}', msgs)
 
             q = '''
-            $ret = $lib.null $api = $lib.cortex.httpapi.getByPath($path)
+            $ret = $lib.null $api = $lib.cortex.httpapi.getByPath($pth)
             if $api { $ret = $api.iden}
             return ( $ret )
             '''
-            self.eq(iden0, await core.callStorm(q, opts={'vars': {'path': 'hehe/haha'}}))
-            self.eq(iden0, await core.callStorm(q, opts={'vars': {'path': 'hehe/ohmy'}}))
-            self.none(await core.callStorm(q, opts={'vars': {'path': 'newpnewpnewp'}}))
+            self.eq(iden0, await core.callStorm(q, opts={'vars': {'pth': 'hehe/haha'}}))
+            self.eq(iden0, await core.callStorm(q, opts={'vars': {'pth': 'hehe/ohmy'}}))
+            self.none(await core.callStorm(q, opts={'vars': {'pth': 'newpnewpnewp'}}))
 
             # Order matters. The hehe/haha path occurs after the wildcard.
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
@@ -539,8 +539,8 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             msgs = await core.stormlist('cortex.httpapi.index $iden 1', opts={'vars': {'iden': iden0}})
             self.stormIsInPrint(f'Set HTTP API {iden0} to index 1', msgs)
 
-            self.eq(iden1, await core.callStorm(q, opts={'vars': {'path': 'hehe/haha'}}))
-            self.eq(iden0, await core.callStorm(q, opts={'vars': {'path': 'hehe/ohmy'}}))
+            self.eq(iden1, await core.callStorm(q, opts={'vars': {'pth': 'hehe/haha'}}))
+            self.eq(iden0, await core.callStorm(q, opts={'vars': {'pth': 'hehe/ohmy'}}))
 
             msgs = await core.stormlist('cortex.httpapi.list')
             self.stormIsInPrint(f'0     | {iden1}', msgs)

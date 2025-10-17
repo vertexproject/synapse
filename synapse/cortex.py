@@ -3125,7 +3125,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Type already exists: {formname}'
             raise s_exc.DupTypeName.init(formname)
 
-        self.model.getTypeClone((basetype, typeopts))
+        formtype = self.model.getTypeClone((basetype, typeopts))
+
+        if formtype.isarray:
+            mesg = 'Forms may not be array types.'
+            raise s_exc.BadFormDef(mesg=mesg, form=formname)
 
         return await self._push('model:form:add', formname, basetype, typeopts, typeinfo)
 
@@ -5100,6 +5104,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 if not isinstance(valu, str):
                     mesg = f"Storm var names must be strings (got {valu} of type {type(valu)})"
                     raise s_exc.BadArg(mesg=mesg)
+
+                if valu in ('lib', 'node', 'path'):
+                    raise s_exc.BadArg(mesg=f'Storm var name {valu} is reserved.')
 
         opts.setdefault('user', self.auth.rootuser.iden)
         return opts

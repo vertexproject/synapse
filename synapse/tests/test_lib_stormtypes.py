@@ -153,7 +153,7 @@ class StormTypesTest(s_test.SynTest):
                 'asof': asof,
                 'data': {'bam': 1},
                 'key': 'baz',
-            }, await core.callStorm('return($lib.jsonstor.get($path))', opts={'vars': ret}))
+            }, await core.callStorm('return($lib.jsonstor.get($pth))', opts={'vars': {'pth': ret['path']}}))
 
             await asyncio.sleep(0.1)
 
@@ -4713,15 +4713,15 @@ class StormTypesTest(s_test.SynTest):
 
             # return none since the node is made in a different view
             await visi.addRule((True, ('node', 'prop', 'set', 'inet:fqdn:issuffix')), gateiden=layr)
-            query = '$node=$lib.view.get($fork).addNode(inet:fqdn, vertex.link, props=({"issuffix": true})) ' \
-                    'return ( $node )'
+            query = '$n=$lib.view.get($fork).addNode(inet:fqdn, vertex.link, props=({"issuffix": true})) ' \
+                    'return ( $n )'
             node = await core.callStorm(query, opts=opts)
             self.none(node)
 
             # return the node from the current view
             opts = {'user': visi.iden, 'view': fork}
-            query = '$node=$lib.view.get().addNode(inet:fqdn, vertex.link, props=({"issuffix": true})) ' \
-                    'return ( $node )'
+            query = '$n=$lib.view.get().addNode(inet:fqdn, vertex.link, props=({"issuffix": true})) ' \
+                    'return ( $n )'
             node = await core.callStorm(query, opts=opts)
             self.eq(node, 'vertex.link')  # prim version of the storm:node
 
@@ -6172,8 +6172,6 @@ class StormTypesTest(s_test.SynTest):
 
                 +#foo:score=2
 
-                test:arrayform=(1,2,3)
-                test:arrayform=(2,3,4)
                 (test:hasiface=1 :size=3 :names=(foo, bar))
                 (test:hasiface2=2 :size=3 :names=(foo, baz))
                 (test:hasiface2=3 :size=4 :names=(foo, faz))
@@ -6216,12 +6214,6 @@ class StormTypesTest(s_test.SynTest):
 
             q = 'return($lib.layer.get().getPropArrayCount(test:interface:names, valu=foo))'
             self.eq(3, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropArrayCount(test:arrayform))'
-            self.eq(6, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropArrayCount(test:arrayform, valu=2))'
-            self.eq(2, await core.callStorm(q))
 
             q = 'return($lib.layer.get().getPropArrayCount(ou:org:emails))'
             self.eq(0, await core.callStorm(q))
@@ -7320,9 +7312,6 @@ words\tword\twrd'''
 
                 +#foo:score=2
 
-                test:arrayform=(1,2,3)
-                test:arrayform=(2,3,4)
-
                 (test:hasiface=1 :size=1 :names=(foo, one))
                 (test:hasiface2=2 :size=2 :names=(foo, two))
             ]'''
@@ -7340,8 +7329,6 @@ words\tword\twrd'''
 
                 +#foo:score=2
 
-                test:arrayform=(3,4,5)
-                test:arrayform=(4,5,6)
                 (test:hasiface=3 :size=2 :names=(foo, bar))
                 (test:hasiface2=4 :size=4 :names=(foo, baz))
             ]'''
@@ -7384,9 +7371,6 @@ words\tword\twrd'''
 
             q = 'return($lib.view.get().getPropArrayCount(ou:org:names, valu=foo))'
             self.eq(4, await core.callStorm(q, opts=forkopts))
-
-            q = 'return($lib.view.get().getPropArrayCount(test:arrayform, valu=3))'
-            self.eq(3, await core.callStorm(q, opts=forkopts))
 
             q = 'return($lib.view.get().getPropArrayCount(test:interface:names))'
             self.eq(8, await core.callStorm(q, opts=forkopts))

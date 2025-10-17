@@ -1814,6 +1814,13 @@ class GrammarTest(s_t_utils.SynTest):
         errinfo = cm.exception.errinfo
         self.true(errinfo.get('mesg').startswith("Unexpected token '(' at line 1, column 17"))
 
+        query = 'switch $x { *: {} *:{} }'
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        errinfo = cm.exception.errinfo
+        self.true(errinfo.get('mesg').startswith("Switch statements cannot have more than one default case."))
+
     async def test_quotes(self):
 
         # Test vectors
@@ -1863,6 +1870,37 @@ class GrammarTest(s_t_utils.SynTest):
                 nodes = await core.nodes(query)
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef[1], valu)
+
+    async def test_reserved_vars(self):
+
+        for resv in ('node', '"node"', "'node'", 'lib', 'path'):
+            queries = [
+                f'${resv} = foo',
+                f'(${resv}, $bar) = foo',
+                f'for ${resv} in $lib.range(5) {{ }}',
+                f'for (${resv}, $bar) in ((1, 2), (3, 4)) {{ }}',
+                f'try {{ }} catch * as {resv} {{ }}',
+                f'try {{ }} catch OtherErr as foo {{ }} catch * as {resv} {{ }}',
+                f'function {resv}() {{ }}',
+                f'function foo({resv}) {{ }}',
+            ]
+
+            for query in queries:
+                parser = s_parser.Parser(query)
+                with self.raises(s_exc.BadSyntax):
+                    parser.query()
+
+        async with self.getTestCore() as core:
+            for resv in ('node', '"node"', "'node'", 'lib', 'path'):
+                with self.raises(s_exc.StormRuntimeError):
+                    await core.nodes(f'$lib.vars.{resv} = foo')
+
+                with self.raises(s_exc.StormRuntimeError):
+                    await core.nodes(f'[ test:str=foo ] $path.vars.{resv} = foo')
+
+            for resv in ('node', 'lib', 'path'):
+                with self.raises(s_exc.BadArg):
+                    await core.nodes('$lib.print(foo)', opts={'vars': {resv: 'newp'}})
 
     def test_isre_funcs(self):
 

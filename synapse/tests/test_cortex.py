@@ -6161,8 +6161,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.DupFormName):
                     await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.', 'deprecated': True})
 
-                await core.addForm('_hehe:array', 'array', {'type': 'int'}, {})
-
                 await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})
                 self.len(1, await core.nodes('_hehe:haha [ :visi=lolz ]'))
 
@@ -6239,12 +6237,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core.nodes('_hehe:haha | delnode')
                 await core.delForm('_hehe:haha')
-                await core.delForm('_hehe:array')
 
                 self.none(core.model.form('_hehe:haha'))
                 self.none(core.model.type('_hehe:haha'))
-                self.none(core.model.form('_hehe:array'))
-                self.none(core.model.type('_hehe:array'))
                 self.none(core.model.prop('_hehe:haha:visi'))
                 self.none(core.model.prop('inet:ip._visi'))
                 self.none(core.model.form('inet:ip').prop('._visi'))
@@ -6262,10 +6257,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core.nodes('inet:ip=1.2.3.4 [ -#foo.bar:added ]', opts=opts)
                 await core.delTagProp('added')
-
-                await core.addForm('_hehe:array', 'array', {'type': 'int'}, {})
-                await core.nodes('[ _hehe:array=(1,2,3) ]')
-                self.len(1, await core.nodes('_hehe:array=(1,2,3)'))
 
                 # test the remote APIs
                 async with core.getLocalProxy() as prox:

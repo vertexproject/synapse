@@ -1194,17 +1194,6 @@ class ViewTest(s_t_utils.SynTest):
                 self.lt(scor, last)
                 last = scor
 
-            await view0.nodes('[ test:arrayform=(3,5,6)]')
-            await view0.nodes('[ test:arrayform=(1,2,3)]')
-            await view1.nodes('[ test:arrayform=(2,3,4)]')
-            await view0.nodes('[ test:arrayform=(3,4,5)]')
-
-            nodes = await view1.nodes('test:arrayform*[=3]')
-            self.len(4, nodes)
-
-            nodes = await view1.nodes('test:arrayform*[=2]')
-            self.len(2, nodes)
-
             nodes = await view1.nodes('yield $lib.lift.byNodeData(woot)')
             self.len(4, nodes)
 
@@ -1615,38 +1604,6 @@ class ViewTest(s_t_utils.SynTest):
             self.eq([3, 4, 5], [n.valu() for n in nodes])
             for node in nodes:
                 self.eq('test:int', node.form.name)
-
-            await core.nodes(f'''[
-                test:int=12 :type=baz
-                test:arrayformtype=(bar, bar, bararray)
-                test:arrayformtype=(foo, fooarray, {long1}, {long2})
-            ]''')
-
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((test:arrayformtype, test:int:type), valu=ba, cmpr="^=")', opts=forkopts)
-            self.len(5, nodes)
-            self.eq(['bar', 'bararray', long1, long2, 'baz'], [n.valu() for n in nodes])
-            for node in nodes:
-                self.eq('test:str', node.form.name)
-
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((test:arrayformtype, test:int:type), valu="^ba", cmpr="~=")', opts=forkopts)
-            self.len(5, nodes)
-            self.eq(['bar', 'bararray', long1, long2, 'baz'], [n.valu() for n in nodes])
-            for node in nodes:
-                self.eq('test:str', node.form.name)
-
-            # Delete a sode from the layer while index values are still present for coverage
-            nodes = await core.nodes('test:arrayformtype*[=foo]')
-            await view00.wlyr._saveDirtySodes()
-            nid = nodes[0].nid
-            view00.wlyr.nidcache.pop(nid)
-            view00.wlyr.weakcache.pop(nid)
-            view00.wlyr.layrslab.delete(nid, db=view00.wlyr.bynid)
-
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((test:arrayformtype, test:int:type), valu="^ba", cmpr="~=")', opts=forkopts)
-            self.len(3, nodes)
-            self.eq(['bar', 'bararray', 'baz'], [n.valu() for n in nodes])
-            for node in nodes:
-                self.eq('test:str', node.form.name)
 
     async def test_view_edge_counts(self):
 
