@@ -740,7 +740,6 @@ _reqValidPkgdefSchema = {
         'inits': {
             'type': 'object',
             'properties': {
-                'key': {'type': 'string'},
                 'versions': {
                     'type': 'array',
                     'items': {'$ref': '#/definitions/initdef'},
@@ -748,7 +747,7 @@ _reqValidPkgdefSchema = {
                 },
             },
             'additionalProperties': True,
-            'required': ['key', 'versions'],
+            'required': ['versions'],
         },
         'author': {
             'type': 'object',

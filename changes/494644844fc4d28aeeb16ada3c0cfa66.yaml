@@ -1,0 +1,7 @@
+---
+desc: Updated Storm package ``inits`` dictionary to no longer accept a ``key`` for
+  the version variable.
+desc:literal: false
+prs: []
+type: feat
+...
