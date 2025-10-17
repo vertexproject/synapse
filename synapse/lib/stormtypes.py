@@ -5761,7 +5761,7 @@ class LibGlobals(Lib):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the variable.', },
                       {'name': 'default', 'type': 'prim', 'default': None,
-                       'desc': 'Default value to return if the variable is not set.', },
+                       'desc': 'Default value to return if the variable is not set. This value will be copied before being returned.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The variable value.', }}},
         {'name': 'pop', 'desc': 'Delete a variable value from the Cortex.',
@@ -5769,7 +5769,7 @@ class LibGlobals(Lib):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the variable.', },
                       {'name': 'default', 'type': 'prim', 'default': None,
-                       'desc': 'Default value to return if the variable is not set.', },
+                       'desc': 'Default value to return if the variable is not set. This value will be copied before being returned.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The variable value.', }}},
         {'name': 'set', 'desc': 'Set a variable value in the Cortex.',
