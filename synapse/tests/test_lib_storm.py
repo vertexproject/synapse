@@ -2941,6 +2941,8 @@ class StormTest(s_t_utils.SynTest):
 
                 # only inaugural inits run on first load
 
+                await core.setStormPkgVar('testload', 'testload:version', 0)
+
                 await loadPkg(core, pkg)
 
                 self.none(await core.getStormPkgVar('testload', 'testload:version'))
