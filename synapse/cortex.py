@@ -1538,11 +1538,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to deleting storm packages.'},
 
             {'perm': ('storm', 'asroot', 'cmd', '<cmdname>'), 'gate': 'cortex',
-            'desc': 'Deprecated. Controls running storm commands requiring root privileges.',
-             'ex': 'storm.asroot.cmd.movetag'},
+            'desc': 'Deprecated. Please use Storm modules to implement functionality requiring root privileges.'},
             {'perm': ('storm', 'asroot', 'mod', '<modname>'), 'gate': 'cortex',
-            'desc': 'Deprecated. Controls importing modules requiring root privileges.',
-             'ex': 'storm.asroot.cmd.synapse-misp.privsep'},
+            'desc': 'Deprecated. Storm modules should use the asroot:perms key to specify the permissions they require.'},
 
             {'perm': ('storm', 'graph', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm graph.',
