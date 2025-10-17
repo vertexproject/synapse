@@ -3200,6 +3200,7 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [ inet:service:login=*
                 :method=password
+                :url=https://vertex.link/api/v1/login
                 :session=$blcksess
                 :server=tcp://10.10.10.4:443
                 :client=tcp://192.168.0.10:12345
@@ -3209,6 +3210,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('method'), 'password.')
+            self.eq(nodes[0].get('url'), 'https://vertex.link/api/v1/login')
 
             server = await core.nodes('inet:server=tcp://10.10.10.4:443')
             self.len(1, server)
@@ -3567,6 +3569,28 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:service:subscription -> inet:service:subscription:level:taxonomy'))
             self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:bank:account'))
             self.len(1, await core.nodes('inet:service:subscription :subscriber -> inet:service:tenant'))
+
+            nodes = await core.nodes('''
+                [ inet:service:agent=*
+                    :name=woot
+                    :names=(foo, bar)
+                    :desc="Foo Bar"
+                    :software={[ it:prod:softver=(hehe, haha) ]}
+                    :platform={inet:service:platform | limit 1}
+
+                    // ensure we got the interface...
+                    :creator={ inet:service:account | limit 1 }
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'woot')
+            self.eq(nodes[0].get('names'), ('bar', 'foo'))
+            self.eq(nodes[0].get('desc'), 'Foo Bar')
+            self.nn(nodes[0].get('creator'))
+            self.nn(nodes[0].get('platform'))
+
+            self.len(1, await core.nodes('inet:service:action | limit 1 | [ :agent={ inet:service:agent } ]'))
+            self.len(1, await core.nodes('inet:service:platform | limit 1 | [ :software={[ it:prod:softver=(hehe, haha) ]} ]'))
 
     async def test_model_inet_tls_ja4(self):
 
