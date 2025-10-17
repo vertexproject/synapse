@@ -3741,6 +3741,9 @@ class InetModule(s_module.CoreModule):
                         ('type', ('inet:service:platform:type:taxonomy', {}), {
                             'doc': 'The type of service platform.'}),
 
+                        ('family', ('str', {'onespace': True, 'lower': True}), {
+                            'doc': 'A family designation for use with instanced platforms such as Slack, Discord, or Mastodon.'}),
+
                         ('parent', ('inet:service:platform', {}), {
                             'doc': 'A parent platform which owns this platform.'}),
 
