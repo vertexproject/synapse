@@ -9093,3 +9093,116 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getRegrCore('2.213.0-queue-authgates') as core:
             self.nn(await core.getAuthGate('queue:stillhere'))
             self.none(await core.getAuthGate('queue:authtest'))
+
+    async def test_cortex_prop_copy(self):
+        async with self.getTestCore() as core:
+            q = '[test:arrayprop=(ap0,) :strs=(foo, bar, baz)]'
+            self.len(1, await core.nodes(q))
+
+            q = 'test:arrayprop=(ap0,) $l=:strs $r=$l.rem(baz) return(($r, $l))'
+            valu = await core.callStorm(q)
+            self.true(valu[0])
+            self.sorteq(valu[1], ['foo', 'bar'])
+
+            # modifying the property value shouldn't update the node
+            nodes = await core.nodes('test:arrayprop=(ap0,) $l=:strs $l.rem(baz)')
+            self.len(1, nodes)
+            self.sorteq(nodes[0].get('strs'), ['foo', 'bar', 'baz'])
+
+            data = {
+                'str': 'strval',
+                'int': 1,
+                'dict': {'dictkey': 'dictval'},
+                'list': ('listval0', 'listval1'),
+                'tuple': ('tupleval0', 'tupleval1'),
+            }
+
+            opts = {
+                'vars': {
+                    'data': data,
+                }
+            }
+            q = '''
+                [ test:guid=(d0,)
+                    :data=$data
+                    :comp=(1, foo)
+                    :mutcomp=(foo, (1, 2, 3))
+                ]
+            '''
+            self.len(1, await core.nodes(q, opts=opts))
+
+            q = '''
+                test:guid=(d0,)
+                $d=:data
+                $d.list.rem(listval0)
+                $d.str = foo
+                $d.int = ($d.int + 1)
+                $d.dict.foo = bar
+                $d.tuple.append(tupleval2)
+                return($d)
+            '''
+            valu = await core.callStorm(q)
+            self.eq(valu, {
+                    'str': 'foo',
+                    'int': 2,
+                    'dict': {'dictkey': 'dictval', 'foo': 'bar'},
+                    'list': ('listval1',),
+                    'tuple': ('tupleval0', 'tupleval1', 'tupleval2'),
+            })
+
+            # modifying the property value shouldn't update the node
+            q = '''
+                test:guid=(d0,)
+                $d=:data
+                $d.dict = $lib.undef
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('data')['dict'], {'dictkey': 'dictval'})
+
+            q = '''
+                test:guid=(d0,)
+                $c=:comp
+                $c.rem((1))
+                $m=:mutcomp
+                $m.1.rem((3))
+                return(($c, :comp, $m, :mutcomp))
+            '''
+            valu = await core.callStorm(q)
+            self.eq(valu, (
+                (1, 'foo'),
+                (1, 'foo'),
+                ('foo', (1, 2)),
+                ('foo', (1, 2, 3)),
+            ))
+
+            # Nodeprops could have mutable types in them so make sure modifying
+            # them doesn't cause modifications to the node
+            q = '''
+                $data = { test:guid=(d0,) return(:data) }
+                [ test:str=foobar :baz=(test:guid:data, $data) ]
+                ($prop, $valu) = :baz
+                $valu.list.rem(listval0)
+                return((:baz, $valu))
+            '''
+            valu = await core.callStorm(q)
+
+            exp = {
+                'str': 'strval',
+                'int': 1,
+                'dict': {'dictkey': 'dictval'},
+                'list': ('listval1',),
+                'tuple': ('tupleval0', 'tupleval1'),
+            }
+
+            self.eq(valu, (('test:guid:data', data), exp))
+
+            # Make sure $node.props aren't modifiable either
+            nodes = await core.nodes('test:str=foobar $node.props.baz.1.list.rem(listval0)')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('baz'), ('test:guid:data', data))
+
+            # Dereferencing mutable types from $node.props should
+            # return mutable instances without mutating the original prop valu
+            valu = await core.callStorm('test:str=foobar ($prop, $valu) = :baz $valu.list.rem(listval0) return((:baz, $valu))')
+            self.eq(valu, (('test:guid:data', data), exp))

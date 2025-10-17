@@ -32,6 +32,8 @@ class Type:
     # ( due to hot-loop needs in the storm runtime )
     isarray = False
 
+    ismutable = False
+
     def __init__(self, modl, name, info, opts):
         '''
         Construct a new Type object.
@@ -369,6 +371,17 @@ class Type:
         topt.update(opts)
         return self.__class__(self.modl, self.name, self.info, topt)
 
+    async def tostorm(self, valu):
+        '''
+        Allows type-specific modifications to values to make them safe for use in the runtime.
+
+        Args:
+            valu (any): The valu to update.
+        '''
+        if self.ismutable:
+            return s_msgpack.deepcopy(valu, use_list=True)
+        return valu
+
     def __eq__(self, othr):
         if self.name != othr.name:
             return False
@@ -415,6 +428,7 @@ class Bool(Type):
 class Array(Type):
 
     isarray = True
+    ismutable = True
 
     def postTypeInit(self):
 
@@ -533,6 +547,9 @@ class Comp(Type):
         for i, (name, _) in enumerate(fields):
 
             _type = self.tcache[name]
+
+            if _type.ismutable:
+                self.ismutable = True
 
             norm, info = _type.norm(valu[i])
 
@@ -1623,6 +1640,8 @@ class TimeEdge(Edge):
 
 class Data(Type):
 
+    ismutable = True
+
     stortype = s_layer.STOR_TYPE_MSGP
 
     def postTypeInit(self):
@@ -1643,6 +1662,7 @@ class Data(Type):
 
 class NodeProp(Type):
 
+    ismutable = True
     stortype = s_layer.STOR_TYPE_MSGP
 
     def postTypeInit(self):
