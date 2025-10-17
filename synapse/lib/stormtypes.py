@@ -5761,7 +5761,7 @@ class LibGlobals(Lib):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the variable.', },
                       {'name': 'default', 'type': 'prim', 'default': None,
-                       'desc': 'Default value to return if the variable is not set. This value will be copied before being returned.', },
+                       'desc': 'Default value to return if the variable is not set.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The variable value.', }}},
         {'name': 'pop', 'desc': 'Delete a variable value from the Cortex.',
@@ -5769,7 +5769,7 @@ class LibGlobals(Lib):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the variable.', },
                       {'name': 'default', 'type': 'prim', 'default': None,
-                       'desc': 'Default value to return if the variable is not set. This value will be copied before being returned.', },
+                       'desc': 'Default value to return if the variable is not set.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The variable value.', }}},
         {'name': 'set', 'desc': 'Set a variable value in the Cortex.',
@@ -5826,16 +5826,18 @@ class LibGlobals(Lib):
         self._reqStr(name)
 
         confirm(('globals', 'get', name))
-        default = await toprim(default)
-        valu = await self.runt.snap.core.getStormVar(name, default=default)
+        valu = await self.runt.snap.core.getStormVar(name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
         return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _methPop(self, name, default=None):
         self._reqStr(name)
 
         confirm(('globals', 'pop', name))
-        default = await toprim(default)
-        valu = await self.runt.snap.core.popStormVar(name, default=default)
+        valu = await self.runt.snap.core.popStormVar(name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
         return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _methSet(self, name, valu):

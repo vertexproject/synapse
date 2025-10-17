@@ -3176,7 +3176,7 @@ class StormTypesTest(s_test.SynTest):
                 return(($def, $valu))
             '''
             valu = await core.callStorm(q)
-            self.eq(valu, ({}, {'foo': 'bar'}))
+            self.eq(valu, ({'foo': 'bar'}, {'foo': 'bar'}))
 
             # Default values are copied
             q = '''
@@ -3186,7 +3186,7 @@ class StormTypesTest(s_test.SynTest):
                 return(($def, $valu))
             '''
             valu = await core.callStorm(q)
-            self.eq(valu, ({}, {'foo': 'bar'}))
+            self.eq(valu, ({'foo': 'bar'}, {'foo': 'bar'}))
 
             valu = await core.callStorm('return($lib.globals.set(testlist, (foo, bar, baz)))')
             self.eq(valu, ['foo', 'bar', 'baz'])

@@ -4,6 +4,7 @@ import msgpack
 import msgpack.fallback as m_fallback
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,8 @@ def _ext_un(code, byts):
         return int.from_bytes(byts, 'big')
     elif code == 1:
         return int.from_bytes(byts, 'big', signed=True)
+    elif code == 2:
+        return s_common.novalu
     else:  # pragma: no cover
         mesg = f'Invalid msgpack ext code: {code} ({repr(byts)[:20]})'
         raise s_exc.SynErr(mesg=mesg)
@@ -24,6 +27,8 @@ def _ext_en(item):
         if item < -0x8000000000000000:
             size = (item.bit_length() // 8) + 1
             return msgpack.ExtType(1, item.to_bytes(size, 'big', signed=True))
+    elif item is s_common.novalu:
+        return msgpack.ExtType(2, b'')
     return item
 
 _packer_kwargs = {
