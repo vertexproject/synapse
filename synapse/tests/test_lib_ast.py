@@ -4300,8 +4300,6 @@ class AstTest(s_test.SynTest):
             ostr = (await core.nodes('test:str=foo [ :bar=(test:ro, "ackbar") :ndefs=((test:int, 176), )]'))[0]
             pstr = (await core.nodes('test:str=bar [ :ndefs=((test:guid, $guid), (test:auto, "auto"), (test:ro, "ackbar"))]', opts=opts))[0]
             rstr = (await core.nodes('test:ro=ackbar', opts=opts))[0]
-            (await core.nodes('[test:arrayform=(1234, 176)]'))[0]
-            (await core.nodes('[test:arrayform=(3245, 678)]'))[0]
 
             await core.nodes('test:int=176 [ <(refs)+ { test:guid } ]')
             await core.nodes('test:int=176 [ <(_someedge)+ { test:guid } ]')
@@ -4453,14 +4451,6 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('test:arrayprop :ints -> test:int', opts=opts)
             _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
             _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'}, nidx=1)
-
-            # PropPivot dst array primary prop
-            msgs = await core.stormlist('test:guid :size -> test:arrayform', opts=opts)
-            _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'size'})
-
-            # PropPivot oops all arrays
-            msgs = await core.stormlist('test:arrayprop :ints -> test:arrayform', opts=opts)
-            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
 
             # PropPivot src ndef array
             msgs = await core.stormlist('test:str=foobar :ndefs -> test:guid', opts=opts)

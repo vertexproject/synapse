@@ -3166,7 +3166,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Type already exists: {formname}'
             raise s_exc.DupTypeName.init(formname)
 
-        self.model.getTypeClone((basetype, typeopts))
+        formtype = self.model.getTypeClone((basetype, typeopts))
+
+        if formtype.isarray:
+            mesg = 'Forms may not be array types.'
+            raise s_exc.BadFormDef(mesg=mesg, form=formname)
 
         return await self._push('model:form:add', formname, basetype, typeopts, typeinfo)
 

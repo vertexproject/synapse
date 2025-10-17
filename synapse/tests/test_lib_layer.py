@@ -212,32 +212,6 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[1][0], 'NoNodeForPropArrayIndex')
             self.eq(errors[2][0], 'NoNodeForPropArrayIndex')
 
-            q = "$lib.model.ext.addForm('_test:array', array, ({'type': 'int'}), ({}))"
-            await core.nodes(q)
-            nodes = await core.nodes('[ _test:array=(1, 2, 3) ]')
-            nid = nodes[0].nid
-            core.getLayer()._testDelFormValuStor(nid, '_test:array')
-
-            scanconf = {'include': [('_test:array', None)]}
-            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
-            self.len(4, errors)
-            self.eq(errors[0][0], 'NoValuForPropIndex')
-            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
-            self.eq(errors[2][0], 'NoValuForPropArrayIndex')
-            self.eq(errors[3][0], 'NoValuForPropArrayIndex')
-
-            scanconf = {'include': [('_test:array', None)], 'autofix': 'index'}
-            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
-            self.len(4, errors)
-            self.eq(errors[0][0], 'NoValuForPropIndex')
-            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
-            self.eq(errors[2][0], 'NoValuForPropArrayIndex')
-            self.eq(errors[3][0], 'NoValuForPropArrayIndex')
-
-            scanconf = {'include': [('_test:array', None)]}
-            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
-            self.len(0, errors)
-
         # test autofix for tagindex verify
         async with self.getTestCore() as core:
 
@@ -2748,23 +2722,6 @@ class LayerTest(s_t_utils.SynTest):
             indxby = s_layer.IndxByVirtArray(layr, 'test:virtiface', 'servers', ['ip'])
             self.eq(str(indxby), 'IndxByVirtArray: test:virtiface:servers.ip')
 
-            self.len(0, await core.nodes('test:arrayform.size=2'))
-
-            await core.nodes('[ test:arrayform=([1, 2]) test:arrayform=([2, 3]) test:arrayform=([4, 5, 6]) ]')
-
-            self.len(1, await core.nodes('test:arrayform=([1, 2])'))
-            self.len(1, await core.nodes('reverse(test:arrayform=([1, 2]))'))
-
-            nodes = await core.nodes('test:arrayform.size=2')
-            self.len(2, nodes)
-            self.eq(nodes[::-1], await core.nodes('reverse(test:arrayform.size=2)'))
-
-            self.len(2, await core.nodes('test:arrayform.size*range=(1, 2)'))
-
-            nodes = await core.nodes('test:arrayform.size*range=(2, 3)')
-            self.len(3, nodes)
-            self.eq(nodes[::-1], await core.nodes('reverse(test:arrayform.size*range=(2, 3))'))
-
             indxby = s_layer.IndxByProp(layr, 'test:guid', 'server')
             self.eq(str(indxby), 'IndxByProp: test:guid:server')
 
@@ -2777,28 +2734,11 @@ class LayerTest(s_t_utils.SynTest):
             indxby = s_layer.IndxByPropArrayKeys(layr, 'test:virtiface', 'servers')
             self.eq(str(indxby), 'IndxByPropArrayKeys: test:virtiface:servers')
 
-            indxby = s_layer.IndxByFormArrayValu(layr, 'test:arrayform')
-            self.eq(str(indxby), 'IndxByFormArrayValu: test:arrayform')
-
-            indxby = s_layer.IndxByFormArraySize(layr, 'test:arrayform')
-            self.eq(str(indxby), 'IndxByFormArraySize: test:arrayform')
-
             indxby = s_layer.IndxByPropArrayValu(layr, 'test:virtiface', 'servers')
             self.eq(str(indxby), 'IndxByPropArrayValu: test:virtiface:servers')
 
             indxby = s_layer.IndxByPropArraySize(layr, 'test:virtiface', 'servers')
             self.eq(str(indxby), 'IndxByPropArraySize: test:virtiface:servers')
-
-            with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('test:arrayform.newp*range=(2, 3)')
-
-            with self.raises(s_exc.NoSuchCmpr):
-                await core.nodes('test:arrayform.size*newp=(2, 3)')
-
-            self.len(1, await core.nodes('[ test:arrayvirtform=(2021?, 2022?) ]'))
-            self.len(1, await core.nodes('test:arrayvirtform'))
-            await core.nodes('test:arrayvirtform=(2021, 2022) | delnode')
-            self.len(0, await core.nodes('test:arrayvirtform'))
 
     async def test_layer_readahead(self):
 
@@ -3071,18 +3011,8 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:arrayprop:strs*[=foobar]'))
             self.len(3, await core.nodes('test:arrayprop:strs*[~=foo]'))
 
-            self.len(1, await core.nodes('[ test:arrayformtype=(foo, bar, baz, foobar, foobar) ]'))
-            self.len(2, await core.nodes('test:arrayformtype*[=foobar]'))
-            self.len(3, await core.nodes('test:arrayformtype*[~=foo]'))
-
             self.len(1, await core.nodes('[test:str=virts :ndefs={[test:str=foo1 test:int=3 test:str=foo1]}]'))
             self.len(2, await core.nodes('test:str:ndefs*[.form=test:str]'))
-
-            self.len(1, await core.nodes('[ test:arraysrv=(1.2.3.4:80, 3.4.5.6:80, 1.2.3.4:80, 1.2.3.4:90)]'))
-            self.len(3, await core.nodes('test:arraysrv*[.port=80]'))
-            self.len(1, await core.nodes('test:arraysrv*[.port=90]'))
-            self.len(3, await core.nodes('test:arraysrv*[.ip=1.2.3.4]'))
-            self.len(1, await core.nodes('test:arraysrv*[.ip=3.4.5.6]'))
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
             viewopts2 = {'view': viewiden2}
@@ -3099,9 +3029,3 @@ class LayerTest(s_t_utils.SynTest):
             sode['props']['ndefs'] = ((('test:int', 3),), *sode['props']['ndefs'][1:])
             self.len(0, await core.nodes('test:str:ndefs*[.form=test:str]'))
             self.len(1, await core.nodes('test:str:ndefs*[.form=test:int]'))
-
-            nodes = await core.nodes('[ test:arrayformtype=(foo, bar, baz, foobar, foobar) ]')
-            sode = nodes[0].sodes[0]
-            sode['valu'] = None
-            self.len(0, await core.nodes('test:arrayformtype*[=foobar]'))
-            self.len(0, await core.nodes('test:arrayformtype*[~=foo]'))

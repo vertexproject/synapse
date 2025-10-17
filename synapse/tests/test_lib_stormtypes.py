@@ -6196,8 +6196,6 @@ class StormTypesTest(s_test.SynTest):
 
                 +#foo:score=2
 
-                test:arrayform=(1,2,3)
-                test:arrayform=(2,3,4)
                 (test:hasiface=1 :size=3 :names=(foo, bar))
                 (test:hasiface2=2 :size=3 :names=(foo, baz))
                 (test:hasiface2=3 :size=4 :names=(foo, faz))
@@ -6240,12 +6238,6 @@ class StormTypesTest(s_test.SynTest):
 
             q = 'return($lib.layer.get().getPropArrayCount(test:interface:names, valu=foo))'
             self.eq(3, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropArrayCount(test:arrayform))'
-            self.eq(6, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropArrayCount(test:arrayform, valu=2))'
-            self.eq(2, await core.callStorm(q))
 
             q = 'return($lib.layer.get().getPropArrayCount(ou:org:emails))'
             self.eq(0, await core.callStorm(q))
@@ -7344,9 +7336,6 @@ words\tword\twrd'''
 
                 +#foo:score=2
 
-                test:arrayform=(1,2,3)
-                test:arrayform=(2,3,4)
-
                 (test:hasiface=1 :size=1 :names=(foo, one))
                 (test:hasiface2=2 :size=2 :names=(foo, two))
             ]'''
@@ -7364,8 +7353,6 @@ words\tword\twrd'''
 
                 +#foo:score=2
 
-                test:arrayform=(3,4,5)
-                test:arrayform=(4,5,6)
                 (test:hasiface=3 :size=2 :names=(foo, bar))
                 (test:hasiface2=4 :size=4 :names=(foo, baz))
             ]'''
@@ -7408,9 +7395,6 @@ words\tword\twrd'''
 
             q = 'return($lib.view.get().getPropArrayCount(ou:org:names, valu=foo))'
             self.eq(4, await core.callStorm(q, opts=forkopts))
-
-            q = 'return($lib.view.get().getPropArrayCount(test:arrayform, valu=3))'
-            self.eq(3, await core.callStorm(q, opts=forkopts))
 
             q = 'return($lib.view.get().getPropArrayCount(test:interface:names))'
             self.eq(8, await core.callStorm(q, opts=forkopts))
