@@ -1,0 +1,7 @@
+---
+desc: Add ``vm.dirty_bytes`` and ``vm.dirty_background_bytes`` to the ``getSystemInfo()``
+  APIs.
+desc:literal: false
+prs: []
+type: feat
+...

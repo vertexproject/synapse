@@ -112,7 +112,9 @@ def getSysctls():
         ('vm.dirty_expire_centisecs', '/proc/sys/vm/dirty_expire_centisecs', int),
         ('vm.dirty_writeback_centisecs', '/proc/sys/vm/dirty_writeback_centisecs', int),
         ('vm.dirty_background_ratio', '/proc/sys/vm/dirty_background_ratio', int),
+        ('vm.dirty_background_bytes', '/proc/sys/vm/dirty_background_bytes', int),
         ('vm.dirty_ratio', '/proc/sys/vm/dirty_ratio', int),
+        ('vm.dirty_bytes', '/proc/sys/vm/dirty_bytes', int),
     )
     ret = {}
     for key, fp, func in _sysctls:
@@ -125,7 +127,7 @@ def getSysctls():
                     logger.exception(f'Error normalizing sysctl:  {key} @ {fp}, valu={valu}')
                     ret[key] = None
         else:  # pragma: no cover
-            logger.warning(f'Missing sysctl: {key} @ {fp}')
+            logger.debug(f'Missing sysctl: {key} @ {fp}')
             ret[key] = None
     return ret
 
