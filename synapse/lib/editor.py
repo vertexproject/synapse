@@ -994,18 +994,25 @@ class NodeEditor:
 
         norm, norminfo = retn
 
-        ndef = (form.name, norm)
         subs = norminfo.get('subs')
         adds = norminfo.get('adds')
 
-        protonode = self.protonodes.get(ndef)
-        if protonode is None:
+        for name in self.view.core.model.getChildForms(formname):
+            ndef = (name, norm)
+            if (protonode := self.protonodes.get(ndef)) is not None:
+                break
+
             buid = s_common.buid(ndef)
-            node = await self.view.getNodeByBuid(buid)
+            if (node := await self.view.getNodeByBuid(buid)) is not None:
+                if not (adds or subs):
+                    return ()
 
-            if node is not None and not (adds or subs):
-                return ()
+                protonode = ProtoNode(self, buid, form, norm, node, norminfo)
+                self.protonodes[ndef] = protonode
+                break
 
+        else:
+            ndef = (form.name, norm)
             protonode = ProtoNode(self, buid, form, norm, node, norminfo)
             self.protonodes[ndef] = protonode
 
@@ -1038,16 +1045,20 @@ class NodeEditor:
 
     async def _initProtoNode(self, form, norm, norminfo):
 
-        ndef = (form.name, norm)
+        for name in self.view.core.model.getChildForms(form.name):
+            ndef = (name, norm)
+            if (protonode := self.protonodes.get(ndef)) is not None:
+                break
 
-        protonode = self.protonodes.get(ndef)
-
-        if protonode is None:
             buid = s_common.buid(ndef)
-            node = await self.view.getNodeByBuid(buid, tombs=True)
+            if (node := await self.view.getNodeByBuid(buid, tombs=True)) is not None:
+                protonode = ProtoNode(self, buid, form, norm, node, norminfo)
+                self.protonodes[ndef] = protonode
+                break
 
+        else:
+            ndef = (form.name, norm)
             protonode = ProtoNode(self, buid, form, norm, node, norminfo)
-
             self.protonodes[ndef] = protonode
 
         ops = collections.deque()
