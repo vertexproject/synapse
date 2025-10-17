@@ -5826,6 +5826,7 @@ class LibGlobals(Lib):
         self._reqStr(name)
 
         confirm(('globals', 'get', name))
+        default = await toprim(default)
         valu = await self.runt.snap.core.getStormVar(name, default=default)
         return s_msgpack.deepcopy(valu, use_list=True)
 
@@ -5833,6 +5834,7 @@ class LibGlobals(Lib):
         self._reqStr(name)
 
         confirm(('globals', 'pop', name))
+        default = await toprim(default)
         valu = await self.runt.snap.core.popStormVar(name, default=default)
         return s_msgpack.deepcopy(valu, use_list=True)
 
