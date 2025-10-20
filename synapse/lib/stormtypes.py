@@ -1503,7 +1503,7 @@ class LibBase(Lib):
                 mesg = f'Module ({name}) requires asroot permission but does not specify any asroot:perms. ' \
                         'storm.asroot.mod.<modname> style permissons are deprecated and will be removed in v3.0.0.'
 
-                s_common.deprecated(mesg, curv='2.226.0')
+                s_common.deprecated('Storm module asroot key', curv='2.226.0', eolv='3.0.0')
                 await self.runt.warnonce(mesg, log=False)
 
                 if not asroot:

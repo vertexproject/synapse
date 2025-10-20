@@ -2526,7 +2526,7 @@ class PureCmd(Cmd):
                     'Functionality which requires elevated permissions should be implemented in Storm modules and use ' \
                     'asroot:perms to specify the required permissions.'
 
-            s_common.deprecated(mesg, curv='2.226.0')
+            s_common.deprecated('Storm command asroot key', curv='2.226.0', eolv='3.0.0')
             await runt.warnonce(mesg, log=False)
 
             if not asroot:
