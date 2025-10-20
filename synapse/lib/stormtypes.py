@@ -5824,37 +5824,34 @@ class LibGlobals(Lib):
     @stormfunc(readonly=True)
     async def _methGet(self, name, default=None):
         self._reqStr(name)
-
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('globals', 'get', name), None),)
-        todo = s_common.todo('getStormVar', name, default=default)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        confirm(('globals', 'get', name))
+        valu = await self.runt.snap.core.getStormVar(name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _methPop(self, name, default=None):
         self._reqStr(name)
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('globals', 'pop', name), None),)
-        todo = s_common.todo('popStormVar', name, default=default)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        confirm(('globals', 'pop', name))
+        valu = await self.runt.snap.core.popStormVar(name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
         valu = await toprim(valu)
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('globals', 'set', name), None),)
-        todo = s_common.todo('setStormVar', name, valu)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        confirm(('globals', 'set', name))
+        return await self.runt.snap.core.setStormVar(name, valu)
 
     @stormfunc(readonly=True)
     async def _methList(self):
         ret = []
 
-        todo = ('itemsStormVar', (), {})
-
-        async for key, valu in self.runt.dyniter('cortex', todo):
+        async for key, valu in self.runt.snap.core.itemsStormVar():
             if allowed(('globals', 'get', key)):
                 ret.append((key, valu))
-        return ret
+        return s_msgpack.deepcopy(ret, use_list=True)
 
 @registry.registerType
 class StormHiveDict(Prim):
