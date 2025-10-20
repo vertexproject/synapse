@@ -3,5 +3,5 @@ desc: Deprecated the ``key`` field in the Storm package ``inits`` dictionary. Th
   installed packages. If the key was previously set to ``version`` it will be migrated to ``storage:version``.
 desc:literal: false
 prs: []
-type: feat
+type: bug
 ...
