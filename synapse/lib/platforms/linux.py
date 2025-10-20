@@ -112,7 +112,9 @@ def getSysctls():
         ('vm.dirty_expire_centisecs', '/proc/sys/vm/dirty_expire_centisecs', int),
         ('vm.dirty_writeback_centisecs', '/proc/sys/vm/dirty_writeback_centisecs', int),
         ('vm.dirty_background_ratio', '/proc/sys/vm/dirty_background_ratio', int),
+        ('vm.dirty_background_bytes', '/proc/sys/vm/dirty_background_bytes', int),
         ('vm.dirty_ratio', '/proc/sys/vm/dirty_ratio', int),
+        ('vm.dirty_bytes', '/proc/sys/vm/dirty_bytes', int),
     )
     ret = {}
     for key, fp, func in _sysctls:
