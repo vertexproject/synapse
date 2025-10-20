@@ -127,7 +127,7 @@ def getSysctls():
                     logger.exception(f'Error normalizing sysctl:  {key} @ {fp}, valu={valu}')
                     ret[key] = None
         else:  # pragma: no cover
-            logger.debug(f'Missing sysctl: {key} @ {fp}')
+            logger.warning(f'Missing sysctl: {key} @ {fp}')
             ret[key] = None
     return ret
 
