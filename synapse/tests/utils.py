@@ -341,6 +341,10 @@ testmodel = {
             ('foo', 'test:int'),
             ('bar', ('str', {'lower': True}),),
         )}), {'doc': 'A complex comp type.'}),
+        ('test:mutcomp', ('comp', {'fields': (
+            ('str', 'str'),
+            ('list', 'array'))
+        }), {'doc': 'A mutable comp type.'}),
         ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
         ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
         ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
@@ -420,6 +424,11 @@ testmodel = {
             ('bar', ('str', {'lower': 1}), {'ro': True})
         )),
 
+        ('test:mutcomp', {}, (
+            ('str', ('str', {}), {'ro': True}),
+            ('list', ('array', {'type': 'int'}), {'ro': True}),
+        )),
+
         ('test:int', {}, (
             ('loc', ('loc', {}), {}),
             ('int2', ('int', {}), {}),
@@ -441,6 +450,9 @@ testmodel = {
             ('size', ('test:int', {}), {}),
             ('name', ('test:str', {}), {}),
             ('tick', ('test:time', {}), {}),
+            ('data', ('data', {}), {}),
+            ('comp', ('test:comp', {}), {}),
+            ('mutcomp', ('test:mutcomp', {}), {}),
             ('posneg', ('test:sub', {}), {}),
             ('posneg:isbig', ('bool', {}), {}),
         )),
