@@ -660,7 +660,9 @@ class LayerTest(s_t_utils.SynTest):
             async for offs, nodeedits in core0.getLayer().syncNodeEdits(0, wait=False, compat=True):
                 editlist.append(nodeedits)
 
-            self.nn(await core0.callStorm('return($lib.layer.get().edited())'))
+            etime = await core0.callStorm('return($lib.layer.get().edited())')
+            self.nn(etime)
+            self.gt(etime, s_time.parse('2020-01-01'))
 
             async with self.getTestCore() as core1:
 
