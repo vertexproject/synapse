@@ -1,0 +1,8 @@
+---
+desc: Fixed a bug where trying to modify array, data, and some comp type node properties
+  would fail or cause unexpected behavior because assigning the property to a variable
+  would not make a mutable copy of the value.
+desc:literal: false
+prs: []
+type: bug
+...
