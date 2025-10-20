@@ -1,6 +1,6 @@
 ---
-desc: Updated Storm package ``inits`` dictionary to no longer accept a ``key`` for
-  the version variable.
+desc: Deprecated the ``key`` field in the Storm package ``inits`` dictionary. The version key is now automatically set to ``storage:version`` to properly identify newly
+  installed packages. If the key was previously set to ``version`` it will be migrated to ``storage:version``.
 desc:literal: false
 prs: []
 type: feat

@@ -3065,8 +3065,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if key != verskey and (valu := await self.popStormPkgVar(name, key)) is not None:
                             await self.setStormPkgVar(name, verskey, valu)
 
-                    curvers = await self.getStormPkgVar(name, verskey, default=-1)
-                    inaugural = curvers == -1
+                    inaugural = False
+                    curvers = await self.getStormPkgVar(name, verskey)
+                    if curvers is None:
+                        inaugural = True
+                        curvers = -1
 
                     for initdef in inits['versions']:
 
