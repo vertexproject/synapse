@@ -96,7 +96,22 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, nodes)
             rnode = nodes[0]
             self.eq(rnode.get('langid'), 0x1804)
-            self.eq(rnode.repr('langid'), '6148')
+
+            q = '''
+            [ file:mime:pe:export=*
+                :file=$file
+                :name=WootWoot
+                :rva=0x20202020
+            ]
+            '''
+            opts = {'vars': {'file': fileiden}}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('rva'), 0x20202020)
+            self.eq(nodes[0].get('file'), fileiden)
+            self.eq(nodes[0].get('name'), 'WootWoot')
+
+            self.len(1, await core.nodes('file:mime:pe:export -> it:dev:str'))
 
             # invalid langid
             with self.raises(s_exc.BadTypeValu):
