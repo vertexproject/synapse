@@ -1,0 +1,7 @@
+---
+desc: Fixed a bug where assigning array, data, or some comp type node properties
+  to a variable would not make a mutable copy of the value.
+desc:literal: false
+prs: []
+type: bug
+...
