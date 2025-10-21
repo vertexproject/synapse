@@ -803,6 +803,9 @@ class ItModule(s_module.CoreModule):
                 ('it:dev:repo:diff', ('guid', {}), {
                     'doc': 'A diff of a file being applied in a single commit.',
                 }),
+                ('it:dev:repo:entry', ('guid', {}), {
+                    'doc': 'A file included in a repository.',
+                }),
                 ('it:dev:repo:issue:label', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
                     'template': {'service:base': 'repository issue label'},
@@ -1119,6 +1122,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'The YARA rule is intended for use in detecting the target node.'}),
                 (('it:dev:repo', 'has', 'inet:url'), {
                     'doc': 'The repo has content hosted at the URL.'}),
+                (('it:dev:repo:commit', 'has', 'it:dev:repo:entry'), {
+                    'doc': 'The file entry is present in the commit version of the repository.'}),
             ),
             'forms': (
                 ('it:hostname', {}, ()),
@@ -2001,6 +2006,17 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The URL where the diff is hosted.'}),
                 )),
 
+                ('it:dev:repo:entry', {}, (
+
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repository which contains the file.'}),
+
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file which the repository contains.'}),
+
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path to the file in the repository.'}),
+                )),
                 ('it:dev:repo:issue', {}, (
 
                     ('repo', ('it:dev:repo', {}), {
