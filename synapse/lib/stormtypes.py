@@ -1499,9 +1499,16 @@ class LibBase(Lib):
             perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
             asroot = self.runt.allowed(perm)
 
-            if mdef.get('asroot', False) and not asroot:
-                mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
-                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+            if mdef.get('asroot', False):
+                mesg = f'Module ({name}) requires asroot permission but does not specify any asroot:perms. ' \
+                        'storm.asroot.mod.<modname> style permissons are deprecated and will be removed in v3.0.0.'
+
+                s_common.deprecated('Storm module asroot key', curv='2.226.0', eolv='3.0.0')
+                await self.runt.warnonce(mesg, log=False)
+
+                if not asroot:
+                    mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
+                    raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
         modr.asroot = asroot
