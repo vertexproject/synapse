@@ -1324,3 +1324,32 @@ class AgendaTest(s_t_utils.SynTest):
 
                 self.none(await core00.getAuthGate(guid))
                 self.none(await core01.getAuthGate(guid))
+
+                # Add a job with iden mismatch for coverage
+                cdef = {'creator': core00.auth.rootuser.iden,
+                        'storm': '#happyholidays',
+                        'reqs': (xmas,)}
+                guid = s_common.guid()
+                cdef['iden'] = guid
+
+                await core00.addCronJob(cdef)
+                await core01.sync()
+
+                apptdef = core01.agenda.apptdefs.get(guid)
+                apptdef['iden'] = s_common.guid()
+
+                core00.agenda.apptdefs.set(guid, apptdef)
+                core01.agenda.apptdefs.set(guid, apptdef)
+
+                with self.getAsyncLoggerStream('synapse.lib.agenda', 'Removing invalid appointment') as stream:
+                    await core00.fini()
+                    core00 = await aha.enter_context(self.getTestCore(dirn=dirn00))
+
+                    await core01.fini()
+                    core01 = await aha.enter_context(self.getTestCore(dirn=dirn01))
+                    self.true(await stream.wait(timeout=12))
+
+                await core01.sync()
+
+                self.none(core00.agenda.apptdefs.get(guid))
+                self.none(core01.agenda.apptdefs.get(guid))
