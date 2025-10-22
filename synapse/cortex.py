@@ -3358,15 +3358,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         self.reqExtProp(formname, propname)
 
-        for formname in self.model.getChildForms(formname):
-            fullname = f'{formname}:{propname}'
+        for cform in self.model.getChildForms(formname):
+            fullname = f'{cform}:{propname}'
             prop = self.model.prop(fullname)
 
             await self.setPropLocked(fullname, True)
 
             for layr in list(self.layers.values()):
 
-                genr = layr.iterPropRows(formname, propname)
+                genr = layr.iterPropRows(cform, propname)
 
                 async for rows in s_coro.chunks(genr):
                     nodeedits = []
