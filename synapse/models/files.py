@@ -504,7 +504,7 @@ modeldefs = (
 
             ('file:mime:pe:export', {}, (
 
-                ('name', ('str', {}), {
+                ('name', ('it:dev:str', {}), {
                     'doc': 'The name of the export in the file.'}),
 
                 ('rva', ('int', {}), {

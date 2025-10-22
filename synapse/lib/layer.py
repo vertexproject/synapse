@@ -101,7 +101,6 @@ reqValidLdef = s_config.getJsValidator({
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'integer', 'minimum': 0},
         'growsize': {'type': 'integer'},
-        'logedits': {'type': 'boolean', 'default': True},
         'name': {'type': 'string'},
         'readonly': {'type': 'boolean', 'default': False},
     },
@@ -133,14 +132,14 @@ class LayerApi(s_cell.CellApi):
             await asyncio.sleep(0)
 
     @s_cell.adminapi()
-    async def saveNodeEdits(self, edits, meta):
+    async def saveNodeEdits(self, edits, meta, compat=False):
         '''
         Save node edits to the layer and return a tuple of (nexsoffs, changes).
 
         Note: nexsoffs will be None if there are no changes.
         '''
         meta['link:user'] = self.user.iden
-        return await self.layr.saveNodeEdits(edits, meta)
+        return await self.layr.saveNodeEdits(edits, meta, compat=compat)
 
     async def storNodeEdits(self, nodeedits, *, meta=None):
 
@@ -160,36 +159,24 @@ class LayerApi(s_cell.CellApi):
 
         await self.layr.storNodeEditsNoLift(nodeedits, meta)
 
-    async def syncNodeEdits(self, offs, *, wait=True, reverse=False, compat=False):
+    async def syncNodeEdits(self, offs, *, wait=True, compat=False, withmeta=False):
         '''
-        Yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
+        Yield (offs, nodeedits) tuples from the nexus log starting from the given offset.
 
         Once caught up with storage, yield them in realtime.
         '''
         await self._reqUserAllowed(self.readperm)
-        async for item in self.layr.syncNodeEdits(offs, wait=wait, reverse=reverse, compat=compat):
-            yield item
-            await asyncio.sleep(0)
 
-    async def syncNodeEdits2(self, offs, *, wait=True, compat=False):
-        await self._reqUserAllowed(self.readperm)
-        async for item in self.layr.syncNodeEdits2(offs, wait=wait, compat=compat):
+        async for item in self.layr.syncNodeEdits(offs, wait=wait, compat=compat, withmeta=withmeta):
             yield item
             await asyncio.sleep(0)
 
     async def getEditIndx(self):
         '''
-        Returns what will be the *next* nodeedit log index.
+        Return the offset of the last edit entry for this layer. Returns -1 if the layer is empty.
         '''
         await self._reqUserAllowed(self.readperm)
-        return await self.layr.getEditIndx()
-
-    async def getEditSize(self):
-        '''
-        Return the total number of (edits, meta) pairs in the layer changelog.
-        '''
-        await self._reqUserAllowed(self.readperm)
-        return await self.layr.getEditSize()
+        return self.layr.getEditIndx()
 
     async def getIden(self):
         await self._reqUserAllowed(self.readperm)
@@ -268,7 +255,7 @@ EDIT_EDGE_TOMB_DEL = 23      # (<etyp>, (<verb>, <destnodeiden>))
 
 EDIT_META_SET = 24           # (<etyp>, (<prop>, <valu>, <type>))
 
-EDIT_PROGRESS = 100   # (used by syncIndexEvents) (<etyp>, ())
+EDIT_PROGRESS = 100   # (used by syncNodeEdits) (<etyp>, ())
 
 INDX_PROP = b'\x00\x00'
 INDX_TAGPROP = b'\x00\x01'
@@ -2103,8 +2090,6 @@ class Layer(s_nexus.Pusher):
     '''
     The base class for a cortex layer.
     '''
-    nodeeditctor = s_slabseqn.SlabSeqn
-
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
@@ -2124,7 +2109,6 @@ class Layer(s_nexus.Pusher):
         self.readonly = False
 
         self.growsize = self.layrinfo.get('growsize')
-        self.logedits = self.layrinfo.get('logedits')
 
         # slim hooks to avoid async/fire
         self.nodeAddHook = None
@@ -2262,9 +2246,6 @@ class Layer(s_nexus.Pusher):
         if self.readonly and not self.core.migration:
             mesg = f'Layer {self.iden} is read only!'
             raise s_exc.IsReadOnly(mesg=mesg)
-
-    async def getEditSize(self):
-        return self.nodeeditlog.size
 
     async def verifyNidTag(self, nid, formname, tagname, tagvalu):
         abrv = self.core.getIndxAbrv(INDX_TAG, None, tagname)
@@ -2691,7 +2672,6 @@ class Layer(s_nexus.Pusher):
 
     async def pack(self):
         ret = deepcopy(self.layrinfo)
-        ret['offset'] = await self.getEditIndx()
         ret['totalsize'] = await self.getLayerSize()
         return ret
 
@@ -2795,13 +2775,15 @@ class Layer(s_nexus.Pusher):
         self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
         self.dataslab = await s_lmdbslab.Slab.anit(nodedatapath, **otherslabopts)
 
+        self.editindx = await self.layrslab.getHotCount('edit:indx')
+
+        if self.fresh:
+            self.editindx.set('edit:indx', -1)
+
+        self.lastindx = self.editindx.get('edit:indx')
+
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
-
-        nodeeditpath = s_common.genpath(self.dirn, 'nodeedits.lmdb')
-        self.nodeeditslab = await s_lmdbslab.Slab.anit(nodeeditpath, **otherslabopts)
-
-        self.offsets = await self.layrslab.getHotCount('offsets')
 
         self.bynid = self.layrslab.initdb('bynid')
 
@@ -2819,8 +2801,6 @@ class Layer(s_nexus.Pusher):
         self.nodedata = self.dataslab.initdb('nodedata')
         self.dataname = self.dataslab.initdb('dataname', dupsort=True, dupfixed=True)
 
-        self.nodeeditlog = self.nodeeditctor(self.nodeeditslab, 'nodeedits')
-
     async def _initLayerStorage(self):
 
         slabopts = {
@@ -2837,11 +2817,9 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.addResizeCallback(self.core.checkFreeSpace)
         self.dataslab.addResizeCallback(self.core.checkFreeSpace)
-        self.nodeeditslab.addResizeCallback(self.core.checkFreeSpace)
 
         self.onfini(self.layrslab)
         self.onfini(self.dataslab)
-        self.onfini(self.nodeeditslab)
 
         self.layrslab.on('commit', self._onLayrSlabCommit)
 
@@ -2868,15 +2846,11 @@ class Layer(s_nexus.Pusher):
         '''
         Set a mutable layer property.
         '''
-        if name not in ('name', 'desc', 'logedits', 'readonly'):
+        if name not in ('name', 'desc', 'readonly'):
             mesg = f'{name} is not a valid layer info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
-        if name == 'logedits':
-            valu = bool(valu)
-            self.logedits = valu
-
-        elif name == 'readonly':
+        if name == 'readonly':
             valu = bool(valu)
             self.readonly = valu
 
@@ -2894,8 +2868,6 @@ class Layer(s_nexus.Pusher):
     async def stat(self):
         ret = {**self.layrslab.statinfo(),
                }
-        if self.logedits:
-            ret['nodeeditlog_indx'] = (self.nodeeditlog.index(), 0, 0)
         return ret
 
     async def _onLayrFini(self):
@@ -3588,7 +3560,7 @@ class Layer(s_nexus.Pusher):
         _, changes = await self.saveNodeEdits(nodeedits, meta)
         return bool(changes)
 
-    async def saveNodeEdits(self, edits, meta):
+    async def saveNodeEdits(self, edits, meta, compat=False):
         '''
         Save node edits to the layer and return a tuple of (nexsoffs, changes).
 
@@ -3599,6 +3571,9 @@ class Layer(s_nexus.Pusher):
         if self.isdeleted:
             mesg = f'Layer {self.iden} has been deleted!'
             raise s_exc.NoSuchLayer(mesg=mesg)
+
+        if compat:
+            edits = await self.core.remoteToLocalEdits(edits)
 
         if not self.core.isactive:
             proxy = await self.core.nexsroot.getIssueProxy()
@@ -3695,11 +3670,14 @@ class Layer(s_nexus.Pusher):
         if kvpairs:
             await self.layrslab.putmulti(kvpairs, db=self.indxdb)
 
-        if self.logedits and nexsitem is not None:
-            nexsindx = nexsitem[0]
-            if nexsindx >= self.nodeeditlog.index():
-                offs = self.nodeeditlog.add(None, indx=nexsindx)
-                [(await wind.put((offs, nodeedits, meta))) for wind in tuple(self.windows)]
+        if nexsitem is not None:
+            nexsoffs = nexsitem[0]
+            if nexsoffs > self.lastindx:
+                self.lastindx = nexsoffs
+                self.editindx.set('edit:indx', nexsoffs)
+                if self.windows:
+                    for wind in tuple(self.windows):
+                        await wind.put((nexsoffs, nodeedits, meta))
 
         await asyncio.sleep(0)
         return nodeedits
@@ -5835,109 +5813,58 @@ class Layer(s_nexus.Pusher):
             return deepcopy(sode)
         return collections.defaultdict(dict)
 
-    async def syncNodeEdits2(self, offs, wait=True, reverse=False, compat=False):
-        '''
-        Once caught up with storage, yield them in realtime.
+    async def syncNodeEdits(self, offs, wait=True, compat=False, withmeta=False):
 
-        Returns:
-            Tuple of offset(int), nodeedits, meta(dict)
-        '''
-        if not self.logedits:
+        layriden = self.iden
+
+        async def getNexusEdits(strt):
+            async for nexsoffs, item in self.core.getNexusChanges(strt, wait=False):
+                if item[0] != layriden or item[1] != 'edits':
+                    continue
+
+                edits = item[2][0]
+                if compat:
+                    edits = await self.core.localToRemoteEdits(edits)
+
+                if withmeta:
+                    yield (nexsoffs, edits, item[2][1])
+                else:
+                    yield (nexsoffs, edits)
+
+        lastoffs = -1
+        async for item in getNexusEdits(offs):
+            lastoffs = item[0]
+            yield item
+
+        if not wait:
             return
 
-        if not compat:
-            for offi, _ in self.nodeeditlog.iter(offs, reverse=reverse):
-                nexsitem = await self.core.nexsroot.nexslog.get(offi)
-                yield (offi, *nexsitem[2])
+        async with self.getNodeEditWindow() as wind:
 
-            if wait:
-                async with self.getNodeEditWindow() as wind:
-                    async for item in wind:
-                        yield item
-            return
+            # Ensure we are caught up after grabbing a window
+            sync = True
+            maxoffs = max(offs, lastoffs + 1)
 
-        for offi, _ in self.nodeeditlog.iter(offs, reverse=reverse):
-            nexsitem = await self.core.nexsroot.nexslog.get(offi)
-            (nodeedits, meta) = nexsitem[2]
+            async for item in getNexusEdits(maxoffs):
+                maxoffs = item[0]
+                yield item
 
-            realnodeedits = self.core.localToRemoteEdits(nodeedits)
-            if realnodeedits:
-                yield (offi, realnodeedits, meta)
+            async for editoffs, edits, meta in wind:
+                if sync:
+                    if editoffs <= maxoffs:
+                        continue
+                    sync = False
 
-        if wait:
-            async with self.getNodeEditWindow() as wind:
-                async for (offi, nodeedits, meta) in wind:
-                    realnodeedits = self.core.localToRemoteEdits(nodeedits)
-                    if realnodeedits:
-                        yield (offi, realnodeedits, meta)
+                if compat:
+                    edits = await self.core.localToRemoteEdits(edits)
 
-    async def syncNodeEdits(self, offs, wait=True, reverse=False, compat=False):
-        '''
-        Identical to syncNodeEdits2, but doesn't yield meta
-        '''
-        async for offi, nodeedits, _meta in self.syncNodeEdits2(offs, wait=wait, reverse=reverse, compat=compat):
-            yield (offi, nodeedits)
-
-    async def syncIndexEvents(self, offs, matchdef, wait=True):
-        '''
-        Yield (offs, (nid, form, ETYPE, VALS)) tuples from the nodeedit log starting from the given offset.
-        Only edits that match the filter in matchdef will be yielded.
-
-        Notes:
-
-            ETYPE is a constant EDIT_* above. VALS is a tuple whose format depends on ETYPE, outlined in the comment
-            next to the constant.
-
-            Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, ())) message is emitted.
-
-            The matchdef dict may contain the following keys:  forms, props, tags, tagprops.  The value must be a
-            sequence of strings.  Each key/val combination is treated as an "or", so each key and value yields more events.
-            forms: EDIT_NODE_ADD and EDIT_NODE_DEL events.  Matches events for nodes with forms in the value list.
-            props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop format.
-            tags:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
-            tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be just the prop or tag:prop.
-
-            Will not yield any values if this layer was not created with logedits enabled
-
-        Args:
-            offs(int): starting nexus/editlog offset
-            matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded
-            wait(bool):  whether to pend and stream value until this layer is fini'd
-        '''
-
-        formm = set(matchdef.get('forms', ()))
-        propm = set(matchdef.get('props', ()))
-        tagm = set(matchdef.get('tags', ()))
-        tagpropm = set(matchdef.get('tagprops', ()))
-        count = 0
-
-        ntypes = (EDIT_NODE_ADD, EDIT_NODE_DEL, EDIT_NODE_TOMB, EDIT_NODE_TOMB_DEL)
-        ptypes = (EDIT_PROP_SET, EDIT_PROP_DEL, EDIT_PROP_TOMB, EDIT_PROP_TOMB_DEL)
-        ttypes = (EDIT_TAG_SET, EDIT_TAG_DEL, EDIT_TAG_TOMB, EDIT_TAG_TOMB_DEL)
-        tptypes = (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL,
-                   EDIT_TAGPROP_TOMB, EDIT_TAGPROP_TOMB_DEL)
-
-        async for curoff, editses in self.syncNodeEdits(offs, wait=wait):
-            for nid, form, edit in editses:
-                for etyp, vals in edit:
-                    if ((form in formm and etyp in ntypes)
-                            or (etyp in ptypes and (vals[0] in propm or f'{form}:{vals[0]}' in propm))
-                            or (etyp in ttypes and vals[0] in tagm)
-                            or (etyp in tptypes and (vals[1] in tagpropm or f'{vals[0]}:{vals[1]}' in tagpropm))):
-
-                        yield (curoff, (nid, form, etyp, vals))
-
-            await asyncio.sleep(0)
-
-            count += 1
-            if count % 1000 == 0:
-                yield (curoff, (None, None, EDIT_PROGRESS, ()))
+                if withmeta:
+                    yield (editoffs, edits, meta)
+                else:
+                    yield (editoffs, edits)
 
     @contextlib.asynccontextmanager
     async def getNodeEditWindow(self):
-        if not self.logedits:
-            raise s_exc.BadConfValu(mesg='Layer logging must be enabled for getting nodeedits')
-
         async with await s_queue.Window.anit(maxsize=WINDOW_MAXSIZE) as wind:
 
             async def fini():
@@ -5949,37 +5876,11 @@ class Layer(s_nexus.Pusher):
 
             yield wind
 
-    async def getEditIndx(self):
+    def getEditIndx(self):
         '''
-        Returns what will be the *next* (i.e. 1 past the last) nodeedit log index.
+        Return the offset of the last edit entry for this layer. Returns -1 if the layer is empty.
         '''
-        if not self.logedits:
-            return 0
-
-        return self.nodeeditlog.index()
-
-    async def getEditOffs(self):
-        '''
-        Return the offset of the last *recorded* log entry.  Returns -1 if nodeedit log is disabled or empty.
-        '''
-        if not self.logedits:
-            return -1
-
-        last = self.nodeeditlog.last()
-        if last is not None:
-            return last[0]
-
-        return -1
-
-    async def waitEditOffs(self, offs, timeout=None):
-        '''
-        Wait for the node edit log to write an entry at/past the given offset.
-        '''
-        if not self.logedits:
-            mesg = 'Layer.waitEditOffs() does not work with logedits disabled.'
-            raise s_exc.BadArg(mesg=mesg)
-
-        return await self.nodeeditlog.waitForOffset(offs, timeout=timeout)
+        return self.lastindx
 
     async def delete(self):
         '''

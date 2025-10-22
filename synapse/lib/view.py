@@ -51,13 +51,6 @@ class ViewApi(s_cell.CellApi):
 
         return await self.view.storNodeEdits(edits, meta)
 
-    async def syncNodeEdits2(self, offs, *, wait=True, compat=False):
-        await self._reqUserAllowed(('view', 'read'))
-        # present a layer compatible API to remote callers
-        async for item in self.view.wlyr.syncNodeEdits2(offs, wait=wait, compat=compat):
-            yield item
-            await asyncio.sleep(0)
-
     @s_cell.adminapi()
     async def saveNodeEdits(self, edits, meta):
         await self.view.reqValid()
@@ -66,10 +59,6 @@ class ViewApi(s_cell.CellApi):
         if not s_common.isguid(user):
             raise s_exc.BadArg(mesg=f'Meta argument requires user key to be a guid, got {user=}')
         return await self.view.saveNodeEdits(edits, meta)
-
-    async def getEditSize(self):
-        await self._reqUserAllowed(('view', 'read'))
-        return await self.view.wlyr.getEditSize()
 
     async def getCellIden(self):
         return self.view.iden
@@ -626,7 +615,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def setMergeVote(self, vote):
         self.reqParentQuorum()
         vote['created'] = s_common.now()
-        vote['offset'] = await self.wlyr.getEditIndx()
+        vote['offset'] = self.wlyr.getEditIndx()
         return await self._push('merge:vote:set', vote)
 
     def reqValidVoter(self, useriden):
@@ -858,7 +847,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def isMergeReady(self):
         # count the current votes and potentially trigger a merge
 
-        offset = await self.wlyr.getEditIndx()
+        offset = self.wlyr.getEditIndx()
 
         quorum = self.reqParentQuorum()
 
@@ -2132,7 +2121,6 @@ class View(s_nexus.Pusher):  # type: ignore
             'iden': layriden,
             'created': ctime,
             'creator': useriden,
-            'logedits': self.core.conf.get('layers:logedits'),
             'readonly': False
         }
 
