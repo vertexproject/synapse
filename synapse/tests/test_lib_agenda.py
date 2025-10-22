@@ -294,8 +294,8 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq((7, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 # Cancel the Wednesday/Friday appt
-                self.true(await agenda.delete(guid))
-                self.false(await agenda.delete('1234'))
+                await agenda.delete(guid)
+                await self.asyncraises(s_exc.NoSuchIden, agenda.delete('1234'))
 
                 # Then Dec 25
                 unixtime = datetime.datetime(year=2018, month=12, day=25, hour=10, minute=16, tzinfo=tz.utc).timestamp()
