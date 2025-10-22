@@ -6927,13 +6927,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be deleted
         '''
         await self._killCronTask(iden)
+
+        deleted = False
         try:
             await self.agenda.delete(iden)
+            deleted = True
         except s_exc.NoSuchIden:
-            return
+            pass
 
-        await self.feedBeholder('cron:del', {'iden': iden}, gates=[iden])
-        await self.auth.delAuthGate(iden)
+        try:
+            await self.auth.delAuthGate(iden)
+        except s_exc.NoSuchAuthGate:
+            pass
+
+        if deleted:
+            await self.feedBeholder('cron:del', {'iden': iden}, gates=[iden])
 
     @s_nexus.Pusher.onPushAuto('cron:mod')
     async def updateCronJob(self, iden, query):
