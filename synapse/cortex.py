@@ -6924,24 +6924,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Delete a cron job
 
         Args:
-            iden (bytes):  The iden of the cron job to be deleted
+            iden (str):  The iden of the cron job to be deleted
         '''
         await self._killCronTask(iden)
 
-        deleted = False
-        try:
-            await self.agenda.delete(iden)
-            deleted = True
-        except s_exc.NoSuchIden:
-            pass
-
-        try:
-            await self.auth.delAuthGate(iden)
-        except s_exc.NoSuchAuthGate:
-            pass
-
-        if deleted:
+        if await self.agenda.delete(iden):
             await self.feedBeholder('cron:del', {'iden': iden}, gates=[iden])
+            await self.auth.delAuthGate(iden)
 
     @s_nexus.Pusher.onPushAuto('cron:mod')
     async def updateCronJob(self, iden, query):
@@ -6949,7 +6938,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Change an existing cron job's query
 
         Args:
-            iden (bytes):  The iden of the cron job to be changed
+            iden (str):  The iden of the cron job to be changed
         '''
         await self.agenda.mod(iden, query)
         await self.feedBeholder('cron:edit:query', {'iden': iden, 'query': query}, gates=[iden])
@@ -6960,7 +6949,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Enable a cron job
 
         Args:
-            iden (bytes):  The iden of the cron job to be changed
+            iden (str):  The iden of the cron job to be changed
         '''
         await self.agenda.enable(iden)
         await self.feedBeholder('cron:enable', {'iden': iden}, gates=[iden])
@@ -6972,7 +6961,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Enable a cron job
 
         Args:
-            iden (bytes):  The iden of the cron job to be changed
+            iden (str):  The iden of the cron job to be changed
         '''
         await self.agenda.disable(iden)
         await self._killCronTask(iden)

@@ -699,15 +699,14 @@ class Agenda(s_base.Base):
         '''
         Delete an appointment
         '''
-        self.apptdefs.delete(iden)
+        if not self.apptdefs.delete(iden):
+            return False
 
-        appt = self.appts.get(iden)
-        if appt is None:
-            mesg = f'No cron job with iden: {iden}'
-            raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
+        if (appt := self.appts.get(iden)) is not None:
+            self._delete_appt_from_heap(appt)
+            del self.appts[iden]
 
-        self._delete_appt_from_heap(appt)
-        del self.appts[iden]
+        return True
 
     def _delete_appt_from_heap(self, appt):
         try:
