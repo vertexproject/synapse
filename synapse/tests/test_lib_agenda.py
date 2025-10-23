@@ -1284,6 +1284,8 @@ class AgendaTest(s_t_utils.SynTest):
                 self.len(1, cron00)
                 self.eq(cron00, cron01)
 
+                await core00.delCronJob(cron00[0]['iden'])
+
                 # Add a job that is past due that will be deleted on startup
                 xmas = {'dayofmonth': 25, 'month': 12, 'year': 2099}
                 cdef = {'creator': core00.auth.rootuser.iden,
@@ -1353,3 +1355,20 @@ class AgendaTest(s_t_utils.SynTest):
 
                 self.none(core00.agenda.apptdefs.get(guid))
                 self.none(core01.agenda.apptdefs.get(guid))
+
+                await core00.nodes("cron.at --now ${ while((true)) { $lib.log.error('I AM A ERROR') $lib.time.sleep(6) }  }")
+                await core01.sync()
+
+                await core01.promote(graceful=True)
+                await core00.sync()
+
+                cron00 = await core00.listCronJobs()
+                cron01 = await core01.listCronJobs()
+
+                self.len(1, cron00)
+                self.false(cron00[0].get('isrunning'))
+                self.eq(cron00[0].get('lasterrs')[0], 'aborted')
+                self.eq(cron00, cron01)
+
+                self.len(0, core00.agenda.apptheap)
+                self.len(0, core01.agenda.apptheap)
