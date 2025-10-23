@@ -1356,7 +1356,10 @@ class AgendaTest(s_t_utils.SynTest):
                 self.none(core00.agenda.apptdefs.get(guid))
                 self.none(core01.agenda.apptdefs.get(guid))
 
-                await core00.nodes("cron.at --now ${ while((true)) { $lib.log.error('I AM A ERROR') $lib.time.sleep(6) }  }")
+                with self.getAsyncLoggerStream('synapse.storm.log', 'I AM A ERROR') as stream:
+                    q = "cron.at --now ${ while((true)) { $lib.log.error('I AM A ERROR') $lib.time.sleep(6) }  }"
+                    await core00.nodes(q)
+                    self.true(await stream.wait(timeout=12))
                 await core01.sync()
 
                 await core01.promote(graceful=True)
