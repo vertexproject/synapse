@@ -1,6 +1,0 @@
----
-desc: Deprecated ``storm.asroot.mod.<modname>`` style permissions in favor of ``asroot:perms`` for Storm modules.
-desc:literal: false
-prs: []
-type: deprecation
-...

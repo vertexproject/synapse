@@ -1,6 +1,0 @@
----
-desc: Added ``inet:service:platform:type`` taxonomy property to track platform types.
-desc:literal: false
-prs: []
-type: model
-...

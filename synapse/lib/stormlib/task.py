@@ -84,7 +84,7 @@ class LibTask(s_stormtypes.Lib):
         useriden = self.runt.user.iden
         isallowed = self.runt.allowed(('task', 'get'))
 
-        async for task in self.runt.snap.core.getTasks():
+        async for task in self.runt.view.core.getTasks():
             if isallowed or task['user'] == useriden:
                 yield task
 
@@ -98,7 +98,7 @@ class LibTask(s_stormtypes.Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
         iden = None
-        async for task in self.runt.snap.core.getTasks():
+        async for task in self.runt.view.core.getTasks():
             taskiden = task['iden']
             if (isallowed or task['user'] == useriden) and taskiden.startswith(prefix):
                 if iden is None:
@@ -111,4 +111,4 @@ class LibTask(s_stormtypes.Lib):
             mesg = 'Provided iden does not match any tasks.'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-        return await self.runt.snap.core.killTask(iden)
+        return await self.runt.view.core.killTask(iden)

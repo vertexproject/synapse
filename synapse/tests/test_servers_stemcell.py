@@ -6,7 +6,6 @@ import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.cortex as s_cortex
-import synapse.cryotank as s_cryotank
 
 import synapse.lib.aha as s_aha
 import synapse.lib.cell as s_cell
@@ -52,9 +51,9 @@ class StemCellTest(s_test.SynTest):
             os.unlink(cellyaml)
             self.false(os.path.isfile(cellyaml))
 
-            with self.setTstEnvars(SYN_STEM_CELL_CTOR='synapse.cells.cryotank'):
+            with self.setTstEnvars(SYN_STEM_CELL_CTOR='synapse.cells.axon'):
                 cell = s_stemcell.getStemCell(dirn)
-                self.true(cell is s_cryotank.CryoCell)
+                self.true(cell is s_axon.Axon)
 
             # Sad paths
             with self.setTstEnvars(SYN_STEM_CELL_CTOR='synapse.lib.newp.Newp'):
