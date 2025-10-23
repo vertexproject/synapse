@@ -1,0 +1,6 @@
+---
+desc: Added an ``about`` light edge from ``it:log:event`` to any form.
+desc:literal: false
+prs: []
+type: model
+...

@@ -176,6 +176,9 @@ class BaseModule(s_module.CoreModule):
                 ((None, 'refs', None), {
                     'doc': 'The source node contains a reference to the target node.'}),
 
+                ((None, 'linked', None), {
+                    'doc': 'The source node is linked to the target node.'}),
+
                 (('meta:source', 'seen', None), {
                     'doc': 'The meta:source observed the target node.'}),
 

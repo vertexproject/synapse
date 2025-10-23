@@ -1119,6 +1119,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'The YARA rule is intended for use in detecting the target node.'}),
                 (('it:dev:repo', 'has', 'inet:url'), {
                     'doc': 'The repo has content hosted at the URL.'}),
+                (('it:log:event', 'about', None), {
+                    'doc': 'The it:log:event is about the target node.'}),
             ),
             'forms': (
                 ('it:hostname', {}, ()),
