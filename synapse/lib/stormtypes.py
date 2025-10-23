@@ -1484,14 +1484,6 @@ class LibBase(Lib):
                         mesg = f'Module ({name}) requires permission: {permtext}'
                         raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        else:
-            perm = ('asroot', 'mod') + tuple(name.split('.'))
-            asroot = self.runt.allowed(perm)
-
-            if mdef.get('asroot', False) and not asroot:
-                mesg = f'Module ({name}) elevates privileges.  You need perm: asroot.mod.{name}'
-                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
         modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
         modr.asroot = asroot
 

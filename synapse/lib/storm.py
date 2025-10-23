@@ -2492,7 +2492,6 @@ class Cmd:
     name = 'cmd'
     pkgname = ''
     svciden = ''
-    asroot = False
     readonly = False
 
     def __init__(self, runt, runtsafe):
@@ -2579,7 +2578,6 @@ class PureCmd(Cmd):
     def __init__(self, cdef, runt, runtsafe):
         self.cdef = cdef
         Cmd.__init__(self, runt, runtsafe)
-        self.asroot = cdef.get('asroot', False)
 
     def getDescr(self):
         return self.cdef.get('descr', 'no documentation provided')
@@ -2603,12 +2601,6 @@ class PureCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         name = self.getName()
-        perm = ('asroot', 'cmd') + tuple(name.split('.'))
-
-        asroot = runt.allowed(perm)
-        if self.asroot and not asroot:
-            mesg = f'Command ({name}) elevates privileges.  You need perm: asroot.cmd.{name}'
-            raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
 
         # if a command requires perms, check em!
         # ( used to create more intuitive perm boundaries )
@@ -2654,15 +2646,12 @@ class PureCmd(Cmd):
                     yield xnode, xpath
 
             async with runt.getCmdRuntime(query, opts=opts) as subr:
-                subr.asroot = asroot
                 async for node, path in subr.execute(genr=genx()):
                     path.finiframe()
                     path.vars.update(data['pathvars'])
                     yield node, path
         else:
             async with runt.getCmdRuntime(query, opts=opts) as subr:
-                subr.asroot = asroot
-
                 async for node, path in genr:
                     pathvars = path.vars.copy()
                     async def genx():

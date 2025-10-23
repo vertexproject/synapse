@@ -1503,16 +1503,22 @@ modeldefs = (
                 ),
                 'doc': 'A JARM hash sample taken from a server.'}),
 
+            ('inet:service:platform:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A service platform type taxonomy.'}),
+
             ('inet:service:platform', ('guid', {}), {
                 'doc': 'A network platform which provides services.'}),
 
-            ('inet:service:app', ('guid', {}), {
-                'template': {'title': 'service application'},
+            ('inet:service:agent', ('guid', {}), {
                 'interfaces': (
-                    ('meta:usable', {}),
                     ('inet:service:object', {}),
                 ),
-                'doc': 'An application which is part of a service architecture.'}),
+                'template': {'service:base': 'agent'},
+                'doc': 'An instance of a deployed agent or software integration which is part of the service architecture.',
+                'prevnames': ('inet:service:app',)}),
 
             ('inet:service:instance', ('guid', {}), {
                 'doc': 'An instance of the platform such as Slack or Discord instances.'}),
@@ -1865,9 +1871,6 @@ modeldefs = (
 
                     ('remover', ('inet:service:account', {}), {
                         'doc': 'The service account which removed or decommissioned the {title}.'}),
-
-                    ('app', ('inet:service:app', {}), {
-                        'doc': 'The app which contains the {title}.'}),
                 ),
             }),
 
@@ -1893,8 +1896,9 @@ modeldefs = (
                 ),
                 'props': (
 
-                    ('app', ('inet:service:app', {}), {
-                        'doc': 'The app which handled the action.'}),
+                    ('agent', ('inet:service:agent', {}), {
+                        'doc': 'The service agent which performed the action potentially on behalf of an account.',
+                        'prevnames': ('app',)}),
 
                     ('time', ('time', {}), {
                         'doc': 'The time that the account initiated the action.'}),
@@ -1926,8 +1930,9 @@ modeldefs = (
                     ('client', ('inet:client', {}), {
                         'doc': 'The network address of the client which initiated the action.'}),
 
-                    ('client:app', ('inet:service:app', {}), {
-                        'doc': 'The client service app which initiated the action.'}),
+                    ('client:software', ('it:software', {}), {
+                        'doc': 'The client software used to initiate the action.',
+                        'prevnames': ('client:app',)}),
 
                     ('client:host', ('it:host', {}), {
                         'doc': 'The client host which initiated the action.'}),
@@ -2795,6 +2800,8 @@ modeldefs = (
                     'ro': True,
                     'doc': 'The x509 certificate sent by the client.'})
             )),
+
+            ('inet:service:platform:type:taxonomy', {}, ()),
             ('inet:service:platform', {}, (
 
                 ('id', ('str', {'strip': True}), {
@@ -2827,6 +2834,12 @@ modeldefs = (
                 ('desc', ('text', {}), {
                     'doc': 'A description of the service platform.'}),
 
+                ('type', ('inet:service:platform:type:taxonomy', {}), {
+                    'doc': 'The type of service platform.'}),
+
+                ('family', ('str', {'onespace': True, 'lower': True}), {
+                    'doc': 'A family designation for use with instanced platforms such as Slack, Discord, or Mastodon.'}),
+
                 ('parent', ('inet:service:platform', {}), {
                     'doc': 'A parent platform which owns this platform.'}),
 
@@ -2847,6 +2860,9 @@ modeldefs = (
 
                 ('provider:name', ('meta:name', {}), {
                     'doc': 'The name of the organization which operates the platform.'}),
+
+                ('software', ('it:software', {}), {
+                    'doc': 'The latest known software version that the platform is running.'}),
             )),
 
             ('inet:service:instance', {}, (
@@ -2883,29 +2899,23 @@ modeldefs = (
 
                 ('tenant', ('inet:service:tenant', {}), {
                     'doc': 'The tenant which contains the instance.'}),
-
-                ('app', ('inet:service:app', {}), {
-                    'doc': 'The app which contains the instance.'}),
             )),
 
-            ('inet:service:app', {}, (
+            ('inet:service:agent', {}, (
 
                 ('name', ('str', {'lower': True, 'onespace': True}), {
                     'alts': ('names',),
-                    'doc': 'The name of the platform specific application.'}),
+                    'doc': 'The name of the service agent instance.'}),
 
-                ('names', ('array', {'type': 'str',
-                                     'typeopts': {'onespace': True, 'lower': True}}), {
-                    'doc': 'An array of alternate names for the application.'}),
+                ('names', ('array', {'type': 'str', 'typeopts': {'onespace': True, 'lower': True}}), {
+                    'doc': 'An array of alternate names for the service agent instance.'}),
 
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the platform specific application.'}),
+                ('desc', ('str', {}), {
+                    'disp': {'hint': 'text'},
+                    'doc': 'A description of the deployed service agent instance.'}),
 
-                ('provider', ('ou:org', {}), {
-                    'doc': 'The organization which provides the application.'}),
-
-                ('provider:name', ('meta:name', {}), {
-                    'doc': 'The name of the organization which provides the application.'}),
+                ('software', ('it:software', {}), {
+                    'doc': 'The latest known software version running on the service agent instance.'}),
             )),
 
             ('inet:service:account', {}, (
@@ -2992,6 +3002,9 @@ modeldefs = (
 
             ('inet:service:login:method:taxonomy', {}, ()),
             ('inet:service:login', {}, (
+
+                ('url', ('inet:url', {}), {
+                    'doc': 'The URL of the login endpoint used for this login attempt.'}),
 
                 ('method', ('inet:service:login:method:taxonomy', {}), {
                     'doc': 'The type of authentication used for the login. For example "password" or "multifactor.sms".'}),
