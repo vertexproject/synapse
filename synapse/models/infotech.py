@@ -1124,6 +1124,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'The repo has content hosted at the URL.'}),
                 (('it:dev:repo:commit', 'has', 'it:dev:repo:entry'), {
                     'doc': 'The file entry is present in the commit version of the repository.'}),
+                (('it:log:event', 'about', None), {
+                    'doc': 'The it:log:event is about the target node.'}),
             ),
             'forms': (
                 ('it:hostname', {}, ()),
