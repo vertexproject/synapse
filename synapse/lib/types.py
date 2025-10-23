@@ -53,6 +53,7 @@ class Type:
         self.subof = None  # This references the name that a type was extended from.
 
         self.info.setdefault('bases', ('base',))
+        self.types = (self.name,) + self.info['bases'][::-1]
 
         self.opts = dict(self._opt_defs)
         self.opts.update(opts)

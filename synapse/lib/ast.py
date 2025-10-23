@@ -2725,18 +2725,18 @@ class FormPivot(PivotOper):
 
                 found = False   # have we found a ref/pivot?
 
-                if (tpiv := node.form.type.pivs.get(destform.type.name)) is not None:
+                if (pivs := node.form.type.pivs):
+                    for pform in prop.formtypes:
+                        if (tpiv := pivs.get(pform)) is not None:
+                            found = True
+                            cmpr, func = tpiv
+                            valu = node.ndef[1]
+                            if func is not None:
+                                valu = await func(valu)
 
-                    found = True
-                    cmpr, func = tpiv
-                    valu = node.ndef[1]
-                    if func is not None:
-                        valu = await func(valu)
-
-                    link = {'type': 'type'}
-                    for fname in runt.model.getChildForms(destform.type.name):
-                        async for pivo in runt.view.nodesByPropValu(fname, cmpr, valu, norm=False):
-                            yield pivo, link
+                            link = {'type': 'type'}
+                            async for pivo in runt.view.nodesByPropValu(prop.full, cmpr, valu, norm=False):
+                                yield pivo, link
 
                 refs = node.form.getRefsOut()
 
@@ -2995,21 +2995,17 @@ class PropPivot(PivotOper):
             if virts is not None:
                 ptyp = ptyp.getVirtType(virts)
 
-            if (tpiv := srctype.pivs.get(ptyp.name)) is not None:
-                cmpr, func = tpiv
-                pivvalu = valu
-                if func is not None:
-                    pivvalu = await func(pivvalu)
+            if srctype.pivs:
+                for tname in ptyp.types:
+                    if (tpiv := srctype.pivs.get(tname)) is not None:
+                        cmpr, func = tpiv
+                        pivvalu = valu
+                        if func is not None:
+                            pivvalu = await func(pivvalu)
 
-                if prop.isform:
-                    for fname in runt.model.getChildForms(prop.full):
-                        async for pivo in runt.view.nodesByPropValu(fname, cmpr, pivvalu, norm=False, virts=virts):
+                        async for pivo in runt.view.nodesByPropValu(prop.full, cmpr, pivvalu, norm=False, virts=virts):
                             yield pivo, link
-
-                else:
-                    async for pivo in runt.view.nodesByPropValu(prop.full, cmpr, pivvalu, norm=False, virts=virts):
-                        yield pivo, link
-                return
+                        return
 
             # pivoting from an array prop to a non-array prop needs an extra loop
             if srctype.isarray and not prop.type.isarray:
