@@ -841,6 +841,18 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:guid:size=2 :size -> test:arrayprop:ints')
             self.len(1, nodes)
 
+            fork = await core.view.fork()
+            forkiden = fork.get('iden')
+
+            await core.nodes('[ test:arrayprop=(othr,) ]')
+            await core.nodes('[ test:arrayprop=(self,) :children=((self,), (othr,)) ]', opts={'view': forkiden})
+            nodes = await core.nodes('test:arrayprop=(self,) -> *', opts={'view': forkiden})
+            self.len(1, nodes)
+
+            await core.nodes('test:arrayprop=(othr,) | delnode')
+            nodes = await core.nodes('test:arrayprop=(self,) -> *', opts={'view': forkiden})
+            self.len(0, nodes)
+
     async def test_ast_pivot_ndef(self):
 
         async with self.getTestCore() as core:
@@ -1035,6 +1047,10 @@ class AstTest(s_test.SynTest):
             self.len(4, await core.nodes('.created +it:host:activity'))
             self.len(3, await core.nodes('.created +it:host:activity:host'))
 
+            self.len(4, await core.nodes('it:host:activity.created'))
+            self.len(4, await core.nodes('it:host:activity.created>2000-01-01'))
+            self.len(0, await core.nodes('it:host:activity.created<2000-01-01'))
+
             self.len(4, await core.nodes('inet:dns*'))
             self.len(4, await core.nodes('inet:dns:*'))
             self.len(2, await core.nodes('inet:dns:a*'))
@@ -1089,13 +1105,13 @@ class AstTest(s_test.SynTest):
 
             await core.nodes('[ test:hasiface=foo :sandbox:file=* ]')
             self.len(1, await core.nodes('test:hasiface:sandbox:file'))
-            self.skip('FIXME interface props need tweak due to prefix updates?')
             self.len(1, await core.nodes('test:interface:sandbox:file'))
             self.len(1, await core.nodes('inet:proto:request:sandbox:file'))
-            self.len(1, await core.nodes('it:host:activity:sandbox:file'))
 
-            self.len(1, await core.nodes('[ it:exec:reg:get=* :host=(host,) ]'))
-            self.len(4, await core.nodes('it:host:activity:host=(host,)'))
+            self.len(1, await core.nodes('[ test:hasiface=* :sandbox:file=(host,) ]'))
+            self.len(1, await core.nodes('test:hasiface:sandbox:file=(host,)'))
+            self.len(1, await core.nodes('test:interface:sandbox:file=(host,)'))
+            self.len(1, await core.nodes('inet:proto:request:sandbox:file=(host,)'))
 
     async def test_ast_edge_walknjoin(self):
 
@@ -3056,6 +3072,7 @@ class AstTest(s_test.SynTest):
                     self.len(7, nodes)
                     exp = [
                         ('valu', 'test:int:seen', '@=', '2020'),
+                        ('valu', 'test:str2:seen', '@=', '2020'),
                         ('valu', 'test:str:seen', '@=', '2020'),
                     ]
                     self.eq(calls, exp)
@@ -3074,7 +3091,10 @@ class AstTest(s_test.SynTest):
 
                     nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
                     self.len(1, nodes)
-                    self.eq(calls, [('valu', 'test:str:tick', 'range=', ['19701125', '20151212'])])
+                    self.eq(calls, [
+                        ('valu', 'test:str2:tick', 'range=', ['19701125', '20151212']),
+                        ('valu', 'test:str:tick', 'range=', ['19701125', '20151212'])
+                    ])
                     calls = []
 
                     # Lift by value will fail since stortype is MSGP
@@ -3083,6 +3103,7 @@ class AstTest(s_test.SynTest):
                     self.len(1, nodes)
 
                     exp = [
+                        ('valu', 'test:str2:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
                         ('valu', 'test:str:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
                         ('prop', 'test:str:bar'),
                     ]

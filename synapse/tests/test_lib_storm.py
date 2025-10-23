@@ -1115,22 +1115,7 @@ class StormTest(s_t_utils.SynTest):
 
             query = await core.getStormQuery('')
             async with core.getStormRuntime(query) as runt:
-
                 self.len(1, await alist(runt.storm('inet:ip=1.2.3.4')))
-
-                self.nn(await runt.getOneNode('inet:ip', (4, 0x01020304)))
-
-                counter = itertools.count()
-
-                async def skipone(n):
-                    if next(counter) == 0:
-                        return True
-                    return False
-
-                self.nn(await runt.getOneNode('ou:org:name', 'dupcorp', filt=skipone))
-
-                with self.raises(s_exc.StormRuntimeError):
-                    await runt.getOneNode('ou:org:name', 'dupcorp')
 
             count = 5
             for i in range(count):

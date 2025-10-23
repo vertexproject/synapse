@@ -3284,15 +3284,15 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def nodesByMeta(self, name, reverse=False):
-        async for nid, srefs in self.liftByMeta(name, reverse=reverse):
+    async def nodesByMeta(self, name, form=None, reverse=False):
+        async for nid, srefs in self.liftByMeta(name, form=form, reverse=reverse):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def liftByMeta(self, name, reverse=False):
+    async def liftByMeta(self, name, form=None, reverse=False):
         if len(self.layers) == 1:
-            async for _, nid, sref in self.wlyr.liftByMeta(name, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByMeta(name, form=form, reverse=reverse):
                 yield nid, [sref]
             return
 
@@ -3302,25 +3302,25 @@ class View(s_nexus.Pusher):  # type: ignore
 
             return meta.get(name) is not None
 
-        genrs = [layr.liftByMeta(name, reverse=reverse) for layr in self.layers]
+        genrs = [layr.liftByMeta(name, form=form, reverse=reverse) for layr in self.layers]
         async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
             yield item
 
-    async def nodesByMetaValu(self, name, cmpr, valu, reverse=False):
+    async def nodesByMetaValu(self, name, cmpr, valu, form=None, reverse=False):
 
         mtyp = self.core.model.reqMetaType(name)
 
         if not (cmprvals := await mtyp.getStorCmprs(cmpr, valu)):
             return
 
-        async for nid, srefs in self.liftByMetaValu(name, cmprvals, reverse=reverse):
+        async for nid, srefs in self.liftByMetaValu(name, cmprvals, form=form, reverse=reverse):
             if (node := await self._joinSodes(nid, srefs)) is not None:
                 yield node
 
-    async def liftByMetaValu(self, name, cmprvals, reverse=False):
+    async def liftByMetaValu(self, name, cmprvals, form=None, reverse=False):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.wlyr.liftByMetaValu(name, cmprvals, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByMetaValu(name, cmprvals, form=form, reverse=reverse):
                 yield nid, [sref]
             return
 
@@ -3331,7 +3331,7 @@ class View(s_nexus.Pusher):  # type: ignore
             return meta.get(name) is not None
 
         for cval in cmprvals:
-            genrs = [layr.liftByMetaValu(name, (cval,), reverse=reverse) for layr in self.layers]
+            genrs = [layr.liftByMetaValu(name, (cval,), form=form, reverse=reverse) for layr in self.layers]
             async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
                 yield item
 

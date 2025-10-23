@@ -3305,9 +3305,12 @@ class Layer(s_nexus.Pusher):
             async for indx, nid in self.stortypes[kind].indxByTagProp(form, tag, prop, cmpr, valu, reverse=reverse, virts=virts):
                 yield indx, nid, self.genStorNodeRef(nid)
 
-    async def liftByMeta(self, name, reverse=False):
+    async def liftByMeta(self, name, form=None, reverse=False):
 
-        abrv = self.core.getIndxAbrv(INDX_VIRTUAL, None, None, name)
+        try:
+            abrv = self.core.getIndxAbrv(INDX_VIRTUAL, form, None, name)
+        except s_exc.NoSuchAbrv:
+            return
 
         if reverse:
             scan = self.layrslab.scanByPrefBack
@@ -3318,9 +3321,9 @@ class Layer(s_nexus.Pusher):
             sref = self.genStorNodeRef(nid)
             yield lval, nid, sref
 
-    async def liftByMetaValu(self, name, cmprvals, reverse=False):
+    async def liftByMetaValu(self, name, cmprvals, form=None, reverse=False):
         for cmpr, valu, kind in cmprvals:
-            async for indx, nid in self.stortypes[kind].indxByProp(None, None, cmpr, valu, reverse=reverse, virts=(name,)):
+            async for indx, nid in self.stortypes[kind].indxByProp(form, None, cmpr, valu, reverse=reverse, virts=(name,)):
                 yield indx, nid, self.genStorNodeRef(nid)
 
     async def liftByProp(self, form, prop, reverse=False, indx=None):

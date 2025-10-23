@@ -3020,33 +3020,32 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('inet:ip +:asn::_pivo::notaprop')
 
-            # FIXME: ndef pivprops
-            # await core.nodes('[ou:position=* :contact={[entity:contact=* :email=a@v.lk]}]')
-            # await core.nodes('[ou:position=* :contact={[entity:contact=* :email=b@v.lk]}]')
-            # await core.nodes('[ou:position=* :contact={[entity:contact=* :email=c@v.lk]}]')
-            # await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(a@v.lk, b@v.lk)]}]')
-            # await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(c@v.lk, d@v.lk)]}]')
-            # await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(a@v.lk, d@v.lk)]}]')
+            await core.nodes('[ou:position=* :contact={[entity:contact=* :email=a@v.lk]}]')
+            await core.nodes('[ou:position=* :contact={[entity:contact=* :email=b@v.lk]}]')
+            await core.nodes('[ou:position=* :contact={[entity:contact=* :email=c@v.lk]}]')
+            await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(a@v.lk, b@v.lk)]}]')
+            await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(c@v.lk, d@v.lk)]}]')
+            await core.nodes('[ou:position=* :contact={[entity:contact=* :emails=(a@v.lk, d@v.lk)]}]')
 
-            # nodes = await core.nodes('ou:position:contact::email::user=a')
-            # self.len(1, nodes)
-            # for node in nodes:
-            #     self.eq('ou:position', node.ndef[0])
+            nodes = await core.nodes('ou:position:contact::email::user=a')
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq('ou:position', node.ndef[0])
 
-            # nodes = await core.nodes('ou:position:contact::email::user*in=(a, b)')
-            # self.len(2, nodes)
-            # for node in nodes:
-            #     self.eq('ou:position', node.ndef[0])
+            nodes = await core.nodes('ou:position:contact::email::user*in=(a, b)')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('ou:position', node.ndef[0])
 
-            # nodes = await core.nodes('ou:position:contact::emails*[=a@v.lk]')
-            # self.len(2, nodes)
-            # for node in nodes:
-            #     self.eq('ou:position', node.ndef[0])
+            nodes = await core.nodes('ou:position:contact::emails*[=a@v.lk]')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('ou:position', node.ndef[0])
 
-            # nodes = await core.nodes('ou:position:contact::emails*[in=(a@v.lk, c@v.lk)]')
-            # self.len(3, nodes)
-            # for node in nodes:
-            #     self.eq('ou:position', node.ndef[0])
+            nodes = await core.nodes('ou:position:contact::emails*[in=(a@v.lk, c@v.lk)]')
+            self.len(3, nodes)
+            for node in nodes:
+                self.eq('ou:position', node.ndef[0])
 
             await core.nodes('[entity:contribution=* :actor={[entity:contact=* :email=foo@vertex.link ]}]')
             await core.nodes('[entity:contribution=* :actor={[entity:contact=* :email=bar@vertex.link ]}]')
@@ -3057,25 +3056,52 @@ class CortexTest(s_t_utils.SynTest):
             await core.nodes('[entity:contribution=* :actor={[entity:contact=* :emails=(baz@vertex.link, faz@vertex.link) ]}]')
             await core.nodes('[entity:contribution=* :actor={[entity:contact=* :emails=(foo@vertex.link, faz@vertex.link) ]}]')
 
-            # nodes = await core.nodes('entity:contribution:actor::email::user=foo')
-            # self.len(1, nodes)
-            # for node in nodes:
-            #     self.eq('entity:contribution', node.ndef[0])
+            nodes = await core.nodes('entity:contribution:actor::email::user=foo')
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq('entity:contribution', node.ndef[0])
 
-            # nodes = await core.nodes('entity:contribution:actor::email::user*in=(foo, bar)')
-            # self.len(2, nodes)
-            # for node in nodes:
-            #     self.eq('entity:contribution', node.ndef[0])
+            nodes = await core.nodes('entity:contribution:actor::email::user*in=(foo, bar)')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('entity:contribution', node.ndef[0])
 
-            # nodes = await core.nodes('entity:contribution:actor::emails*[=foo@vertex.link]')
-            # self.len(2, nodes)
-            # for node in nodes:
-            #     self.eq('entity:contribution', node.ndef[0])
+            nodes = await core.nodes('entity:contribution:actor::emails*[=foo@vertex.link]')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('entity:contribution', node.ndef[0])
 
-            # nodes = await core.nodes('entity:contribution:actor::emails*[in=(foo@vertex.link, baz@vertex.link)]')
-            # self.len(3, nodes)
-            # for node in nodes:
-            #     self.eq('entity:contribution', node.ndef[0])
+            nodes = await core.nodes('entity:contribution:actor::emails*[in=(foo@vertex.link, baz@vertex.link)]')
+            self.len(3, nodes)
+            for node in nodes:
+                self.eq('entity:contribution', node.ndef[0])
+
+            await core.nodes('[test:str=1 :pivvirt={[test:virtiface=* :server=tcp://1.2.3.4]}]')
+            await core.nodes('[test:str=2 :pivvirt={[test:virtiface=* :server=udp://1.2.3.4]}]')
+            await core.nodes('[test:str=3 :pivvirt={[test:virtiface=* :server=gre://1.2.3.4]}]')
+            await core.nodes('[test:str=4 :pivvirt={[test:virtiface=* :servers=(tcp://1.2.3.4, tcp://2.3.4.5)]}]')
+            await core.nodes('[test:str=5 :pivvirt={[test:virtiface=* :servers=(udp://1.2.3.4, udp://2.3.4.5)]}]')
+            await core.nodes('[test:str=6 :pivvirt={[test:virtiface=* :servers=(tcp://1.2.3.4, udp://2.3.4.5)]}]')
+
+            nodes = await core.nodes('test:str:pivvirt::server::proto=tcp')
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
+
+            nodes = await core.nodes('test:str:pivvirt::server::proto*in=(tcp, udp)')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
+
+            nodes = await core.nodes('test:str:pivvirt::servers*[=tcp://1.2.3.4]')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
+
+            nodes = await core.nodes('test:str:pivvirt::servers*[in=(tcp://1.2.3.4, udp://1.2.3.4)]')
+            self.len(3, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
 
             with self.raises(s_exc.NoSuchProp):
                 nodes = await core.nodes('entity:contact:email::newp=a')
@@ -3093,6 +3119,35 @@ class CortexTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('it:exec:fetch:http:request::flow::client::ip::asn>6'))
             self.len(2, await core.nodes('it:exec:fetch:http:request::flow::client::ip::asn*in=(5,6)'))
+
+            await core.nodes('[test:str=nvirt1 :bar={[test:guid=* :seen=2020]} ]')
+            await core.nodes('[test:str=nvirt2 :bar={[test:guid=* :seen=2021]} ]')
+            await core.nodes('[test:str=nvirt3 :bar={[test:guid=* :seen=2022]} ]')
+
+            nodes = await core.nodes('test:str:bar::seen.min>2020')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
+
+            await core.nodes('test:guid:seen.min>2021 | delnode')
+            self.len(1, await core.nodes('test:str:bar::seen.min>2020'))
+
+            await core.nodes('[test:str=avirt1 :bar={[test:virtiface=* :servers=(tcp://1.2.3.4, udp://2.3.4.5)]}]')
+            await core.nodes('[test:str=avirt2 :bar={[test:virtiface=* :servers=(udp://1.2.3.4, udp://2.3.4.5)]}]')
+            await core.nodes('[test:str=avirt3 :bar={[test:virtiface=* :servers=(tcp://4.5.6.7, udp://7.8.4.5)]}]')
+
+            nodes = await core.nodes('test:str:bar::servers*[.ip=1.2.3.4]')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
+
+            # When pivoting through mixed types, don't raise BadTypeValu for incompatible operations
+            # since they could be valid in some cases
+            self.len(0, await core.nodes('test:str:bar::seen*[=tcp]'))
+            self.len(0, await core.nodes('test:str:bar::seen>2020'))
+
+            await core.nodes('[test:str=newp :bar={[test:str=newp :hehe=newp]}]')
+            self.len(0, await core.nodes('test:str:bar::hehe::foo=baz'))
 
 class CortexBasicTest(s_t_utils.SynTest):
     '''
@@ -5130,7 +5185,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(node.ndef, ('inet:ip', (4, 0x01020304)))
 
             with self.raises(s_exc.NoSuchPivot):
-                nodes = await core.nodes('[ test:int=10 ] -> test:type')
+                nodes = await core.nodes('[ test:int=10 ] -> test:taxonomy')
 
             nodes = await core.nodes('[ test:str=woot :bar=(inet:fqdn, woot.com) ] -> inet:fqdn')
             self.eq(nodes[0].ndef, ('inet:fqdn', 'woot.com'))
@@ -6161,8 +6216,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.DupFormName):
                     await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.', 'deprecated': True})
 
-                await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})
-                self.len(1, await core.nodes('_hehe:haha [ :visi=lolz ]'))
+                await core.addFormProp('_hehe:haha', '_visi', ('str', {}), {})
+                self.len(1, await core.nodes('_hehe:haha [ :_visi=lolz ]'))
 
                 await core.addEdge(('inet:fqdn', '_goes', None), {})
                 await core._addEdge(('inet:fqdn', '_goes', None), {})
@@ -6170,8 +6225,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.DupEdgeType):
                     await core.addEdge(('inet:fqdn', '_goes', None), {})
 
-                await core.addType('_test:type', 'str', {}, {'interfaces': ['taxonomy']})
-                self.eq(['meta:taxonomy'], core.model.type('_test:type').info.get('interfaces'))
+                await core.addType('_test:type', 'str', {}, {'interfaces': [('meta:taxonomy', {})]})
+                self.eq([('meta:taxonomy', {})], core.model.type('_test:type').info.get('interfaces'))
 
                 with self.raises(s_exc.NoSuchType):
                     await core.addType('_test:newp', 'newp', {}, {})
@@ -6181,7 +6236,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # manually edit in borked entries
                 core.exttypes.set('_type:bork', ('_type:bork', None, None, None))
-                core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
+                core.extforms.set('_hehe:bork', ('_hehe:bork', 'int', None, None))
                 core.extedges.set(s_common.guid('newp'), ((None, '_does', 'newp'), {}))
 
             async with self.getTestCore(dirn=dirn) as core:
@@ -6192,7 +6247,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.nn(core.model.edge(('inet:fqdn', '_goes', None)))
 
                 self.len(1, await core.nodes('_hehe:haha=10'))
-                self.len(1, await core.nodes('_hehe:haha:visi=lolz'))
+                self.len(1, await core.nodes('_hehe:haha:_visi=lolz'))
 
                 prop = core.model.prop('inet:ip:_visi')
                 nodes = await core.nodes('[inet:ip=5.5.5.5 :_visi=100]')
@@ -6212,7 +6267,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.delFormProp('inet:ip', '_visi')
 
                 with self.raises(s_exc.CantDelProp):
-                    await core.delFormProp('_hehe:haha', 'visi')
+                    await core.delFormProp('_hehe:haha', '_visi')
 
                 with self.raises(s_exc.NoSuchForm):
                     await core.delForm('_hehe:newpnewp')
@@ -6231,16 +6286,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core._delEdge(('newp', 'newp', 'newp'))
 
-                prop = core.model.prop('_hehe:haha:visi')
-                await core.nodes('_hehe:haha [ -:visi ]')
-                await core.delFormProp('_hehe:haha', 'visi')
+                prop = core.model.prop('_hehe:haha:_visi')
+                await core.nodes('_hehe:haha [ -:_visi ]')
+                await core.delFormProp('_hehe:haha', '_visi')
 
                 await core.nodes('_hehe:haha | delnode')
                 await core.delForm('_hehe:haha')
 
                 self.none(core.model.form('_hehe:haha'))
                 self.none(core.model.type('_hehe:haha'))
-                self.none(core.model.prop('_hehe:haha:visi'))
+                self.none(core.model.prop('_hehe:haha:_visi'))
                 self.none(core.model.prop('inet:ip._visi'))
                 self.none(core.model.form('inet:ip').prop('._visi'))
 
