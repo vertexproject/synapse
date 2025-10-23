@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where invalid cron jobs were not removed correctly.
+desc:literal: false
+prs: []
+type: bug
+...

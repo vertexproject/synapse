@@ -6924,7 +6924,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Delete a cron job
 
         Args:
-            iden (bytes):  The iden of the cron job to be deleted
+            iden (str):  The iden of the cron job to be deleted
         '''
         await self._killCronTask(iden)
         try:
@@ -6941,7 +6941,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Change an existing cron job's query
 
         Args:
-            iden (bytes):  The iden of the cron job to be changed
+            iden (str):  The iden of the cron job to be changed
         '''
         await self.agenda.mod(iden, query)
         await self.feedBeholder('cron:edit:query', {'iden': iden, 'query': query}, gates=[iden])
@@ -6952,7 +6952,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Enable a cron job
 
         Args:
-            iden (bytes):  The iden of the cron job to be changed
+            iden (str):  The iden of the cron job to be changed
         '''
         await self.agenda.enable(iden)
         await self.feedBeholder('cron:enable', {'iden': iden}, gates=[iden])
@@ -6964,7 +6964,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Enable a cron job
 
         Args:
-            iden (bytes):  The iden of the cron job to be changed
+            iden (str):  The iden of the cron job to be changed
         '''
         await self.agenda.disable(iden)
         await self._killCronTask(iden)
