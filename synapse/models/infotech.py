@@ -1129,6 +1129,9 @@ modeldefs = (
             (('it:dev:repo', 'has', 'inet:url'), {
                 'doc': 'The repo has content hosted at the URL.'}),
 
+            (('it:log:event', 'about', None), {
+                'doc': 'The it:log:event is about the target node.'}),
+
             (('it:software', 'uses', 'it:software'), {
                 'doc': 'The source software uses the target software.'}),
 

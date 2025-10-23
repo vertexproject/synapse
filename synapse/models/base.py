@@ -279,6 +279,9 @@ modeldefs = (
             }),
         ),
         'edges': (
+            ((None, 'linked', None), {
+                'doc': 'The source node is linked to the target node.'}),
+
             ((None, 'refs', None), {
                 'doc': 'The source node contains a reference to the target node.'}),
 
