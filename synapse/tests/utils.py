@@ -428,6 +428,7 @@ testmodel = (
                 ('size', ('test:int', {}), {}),
                 ('seen', ('ival', {}), {}),
                 ('tick', ('test:time', {}), {}),
+                ('comp', ('test:comp', {}), {}),
                 ('server', ('inet:server', {}), {}),
                 ('raw', ('data', {}), {}),
                 ('iden', ('guid', {}), {}),

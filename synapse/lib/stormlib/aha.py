@@ -737,10 +737,10 @@ The ready column indicates that a service has entered into the realtime change w
                     $info = $cell_infos.$svcname
                     $cell_info = $info.cell
                     $status.nexs_indx = $cell_info.nexsindx
-                    if ($cell_info.uplink) {
-                        $status.role = 'follower'
-                    } else {
+                    if ($cell_info.active) {
                         $status.role = 'leader'
+                    } else {
+                        $status.role = 'follower'
                     }
                     $status.version = $info.cell.verstring
                     $status.synapse_version = $info.synapse.verstring

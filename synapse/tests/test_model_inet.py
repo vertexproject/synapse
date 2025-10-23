@@ -2707,17 +2707,21 @@ class InetModelTest(s_t_utils.SynTest):
                 :desc=' Slack is a team communication platform.\n\n Be less busy.'
                 :parent={[ inet:service:platform=({"name": "salesforce"}) ]}
                 :status=available
+                :family="  FooFam  "
                 :period=(2022, 2023)
                 :creator={[ inet:service:account=({"id": "bar"}) ]}
                 :remover={[ inet:service:account=({"id": "baz"}) ]}
                 :provider={ ou:org:name=$provname }
                 :provider:name=$provname
+                :type=foo.bar
             ]
             '''
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:platform', s_common.guid(('slack',))))
             self.eq('foo', nodes[0].get('id'))
+            self.eq('foo.bar.', nodes[0].get('type'))
+            self.eq('foofam', nodes[0].get('family'))
             self.eq(nodes[0].get('url'), 'https://slack.com')
             self.eq(nodes[0].get('urls'), ('https://slacker.com',))
             self.eq(nodes[0].get('zones'), ('slack.com', 'slacker.com'))
@@ -2748,6 +2752,9 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:service:platform=({"zone": "slacker.com"}) ]')
             self.eq(nodes[0].ndef, platform.ndef)
 
+            nodes = await core.nodes('inet:service:platform:type:taxonomy')
+            self.sorteq(['foo.', 'foo.bar.'], [n.ndef[1] for n in nodes])
+
             q = '''
             [ inet:service:instance=(vertex, slack)
                 :id='T2XK1223Y'
@@ -2755,22 +2762,17 @@ class InetModelTest(s_t_utils.SynTest):
                 :url="https://v.vtx.lk/slack"
                 :name="Synapse users slack"
                 :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
-                :app={[ inet:service:app=({"id": "app00"}) ]}
             ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.nn(nodes[0].get('tenant'))
-            self.nn(nodes[0].get('app'))
             self.eq(nodes[0].ndef, ('inet:service:instance', s_common.guid(('vertex', 'slack'))))
             self.eq(nodes[0].get('id'), 'T2XK1223Y')
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('url'), 'https://v.vtx.lk/slack')
             self.eq(nodes[0].get('name'), 'synapse users slack')
             platinst = nodes[0]
-            app00 = nodes[0].get('app')
-
-            self.len(1, await core.nodes('inet:service:instance:id=T2XK1223Y -> inet:service:app [ :provider=* :provider:name=vertex ] :provider -> ou:org'))
 
             q = '''
             [
@@ -2782,7 +2784,6 @@ class InetModelTest(s_t_utils.SynTest):
                     :email=blackout@vertex.link
                     :banner={[ file:bytes=({"name": "greencat.gif"}) ]}
                     :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
-                    :app={[ inet:service:app=({"id": "a001"}) ]}
                     :seen=(2022, 2023)
                 )
 
@@ -2799,7 +2800,6 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.nn(accounts[0].get('banner'))
             self.nn(accounts[0].get('tenant'))
-            self.nn(accounts[0].get('app'))
             self.eq(accounts[0].repr('seen'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
 
             self.eq(accounts[0].ndef, ('inet:service:account', s_common.guid(('blackout', 'account', 'vertex', 'slack'))))
@@ -2890,6 +2890,7 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [ inet:service:login=*
                 :method=password
+                :url=https://vertex.link/api/v1/login
                 :session=$blcksess
                 :server=tcp://10.10.10.4:443
                 :client=tcp://192.168.0.10:12345
@@ -2901,6 +2902,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('method'), 'password.')
             self.eq(nodes[0].get('creds'), (('auth:passwd', 'cool'),))
+            self.eq(nodes[0].get('url'), 'https://vertex.link/api/v1/login')
 
             server = await core.nodes('inet:server=tcp://10.10.10.4:443')
             self.len(1, server)
@@ -2934,7 +2936,6 @@ class InetModelTest(s_t_utils.SynTest):
                 :platform=$platiden
                 :instance=$instiden
                 :topic=' My Topic   '
-                :app={ inet:service:app:id=app00 }
             ]
             '''
             opts = {'vars': {
@@ -2945,7 +2946,6 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:channel', s_common.guid(('general', 'channel', 'vertex', 'slack'))))
-            self.eq(nodes[0].get('app'), app00)
             self.eq(nodes[0].get('name'), 'general')
             self.eq(nodes[0].get('topic'), 'my topic')
             self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
@@ -3160,8 +3160,6 @@ class InetModelTest(s_t_utils.SynTest):
                 :resource=$rsrciden
                 :success=$lib.true
                 :time=(1715856900000000)
-                :app={[ inet:service:app=({"name": "slack web"}) ]}
-                :client:app={[ inet:service:app=({"name": "slack web"}) :desc="The slack web application"]}
             ]
             '''
             opts = {'vars': {
@@ -3180,7 +3178,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('resource'), resource.ndef[1])
             self.true(nodes[0].get('success'))
             self.eq(nodes[0].get('time'), 1715856900000000)
-            self.eq(nodes[0].get('app'), nodes[0].get('client:app'))
 
             q = '''
             [ inet:service:message=(visi, says, relax)
@@ -3258,6 +3255,28 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:service:subscription -> inet:service:subscription:level:taxonomy'))
             self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:pay:card'))
             self.len(1, await core.nodes('inet:service:subscription :subscriber -> inet:service:tenant'))
+
+            nodes = await core.nodes('''
+                [ inet:service:agent=*
+                    :name=woot
+                    :names=(foo, bar)
+                    :desc="Foo Bar"
+                    :software={[ it:software=(hehe, haha) ]}
+                    :platform={inet:service:platform | limit 1}
+
+                    // ensure we got the interface...
+                    :creator={ inet:service:account | limit 1 }
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'woot')
+            self.eq(nodes[0].get('names'), ('bar', 'foo'))
+            self.eq(nodes[0].get('desc'), 'Foo Bar')
+            self.nn(nodes[0].get('creator'))
+            self.nn(nodes[0].get('platform'))
+
+            self.len(1, await core.nodes('inet:service:action | limit 1 | [ :agent={ inet:service:agent } ]'))
+            self.len(1, await core.nodes('inet:service:platform | limit 1 | [ :software={[ it:software=(hehe, haha) ]} ]'))
 
     async def test_ipv4_fallback(self):
 

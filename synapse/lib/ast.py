@@ -4024,15 +4024,15 @@ class PropValue(Value):
         if (valu := node.get(realprop, virts=getr)) is None:
             return None, None, None
 
-        if isinstance(valu, (dict, list, tuple)):
-            # these get special cased because changing them affects the node
-            # while it's in the pipeline but the modification doesn't get stored
-            valu = s_msgpack.deepcopy(valu)
-
         return ptyp, valu, fullname
 
     async def compute(self, runt, path):
-        return (await self.getTypeValuProp(runt, path))[1]
+        ptyp, valu, fullname = await self.getTypeValuProp(runt, path)
+
+        if ptyp:
+            valu = await ptyp.tostorm(valu)
+
+        return valu
 
 class RelPropValue(PropValue):
     pass
@@ -4057,15 +4057,15 @@ class VirtPropValue(PropValue):
         if (valu := node.valu(virts=getr)) is None:
             return ptyp, None
 
-        if isinstance(valu, (dict, list, tuple)):
-            # these get special cased because changing them affects the node
-            # while it's in the pipeline but the modification doesn't get stored
-            valu = s_msgpack.deepcopy(valu)
-
         return ptyp, valu
 
     async def compute(self, runt, path):
-        return (await self.getTypeValu(runt, path))[1]
+        ptyp, valu = await self.getTypeValu(runt, path)
+
+        if ptyp:
+            valu = await ptyp.tostorm(valu)
+
+        return valu
 
 class TagValue(Value):
 
