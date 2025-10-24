@@ -38,11 +38,6 @@ Bugfixes
   ``synapse.tools.aha.mirror`` CLI tool could incorrectly list followers as
   additional leaders.
   (`#4530 <https://github.com/vertexproject/synapse/pull/4530>`_)
-- Deprecated the ``key`` field in the Storm package ``inits`` dictionary. The
-  version key is now automatically set to ``storage:version`` to properly
-  identify newly installed packages. If the key was previously set to
-  ``version`` it will be migrated to ``storage:version``.
-  (`#4541 <https://github.com/vertexproject/synapse/pull/4541>`_)
 - Fixed an issue where invalid cron jobs were not removed correctly.
   (`#4548 <https://github.com/vertexproject/synapse/pull/4548>`_)
 - Fixed an issue where ``cron.at`` jobs could cause an error in the scheduler
