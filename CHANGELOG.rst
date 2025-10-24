@@ -6,6 +6,62 @@
 Synapse Changelog
 *****************
 
+v2.226.0 - 2025-10-24
+=====================
+
+Model Changes
+-------------
+- Added ``inet:service:platform:type`` taxonomy property to track platform
+  types.
+  (`#4535 <https://github.com/vertexproject/synapse/pull/4535>`_)
+- Added ``inet:service:platform:family`` to capture the family a platform
+  belongs to.
+  (`#4540 <https://github.com/vertexproject/synapse/pull/4540>`_)
+- Added an ``about`` light edge from ``it:log:event`` to any form.
+  (`#4549 <https://github.com/vertexproject/synapse/pull/4549>`_)
+- Added a ``linked`` light edge between any two forms.
+  (`#4549 <https://github.com/vertexproject/synapse/pull/4549>`_)
+- See :ref:`userguide_model_v2_226_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``vm.dirty_bytes`` and ``vm.dirty_background_bytes`` sysctl values to
+  the ``getSystemInfo()`` APIs.
+  (`#4545 <https://github.com/vertexproject/synapse/pull/4545>`_)
+
+Bugfixes
+--------
+- Fixed a bug where assigning array, data, or some comp type node properties to
+  a variable would not make a mutable copy of the value.
+  (`#4527 <https://github.com/vertexproject/synapse/pull/4527>`_)
+- Fixed an issue where the ``aha.svc.mirror`` Storm command and
+  ``synapse.tools.aha.mirror`` CLI tool could incorrectly list followers as
+  additional leaders.
+  (`#4530 <https://github.com/vertexproject/synapse/pull/4530>`_)
+- Deprecated the ``key`` field in the Storm package ``inits`` dictionary. The
+  version key is now automatically set to ``storage:version`` to properly
+  identify newly installed packages. If the key was previously set to
+  ``version`` it will be migrated to ``storage:version``.
+  (`#4541 <https://github.com/vertexproject/synapse/pull/4541>`_)
+- Fixed an issue where invalid cron jobs were not removed correctly.
+  (`#4548 <https://github.com/vertexproject/synapse/pull/4548>`_)
+- Fixed an issue where ``cron.at`` jobs could cause an error in the scheduler
+  loop on a mirror that was promoted after the job had run.
+  (`#4548 <https://github.com/vertexproject/synapse/pull/4548>`_)
+- Fixed an issue where ``cron.at`` jobs would only partially update their state
+  on mirrors after running, causing them to be removed from the mirror upon
+  restart.
+  (`#4548 <https://github.com/vertexproject/synapse/pull/4548>`_)
+
+Deprecations
+------------
+- Deprecated ``asroot`` option on Storm commands. Functionality requiring
+  elevated permissions should be in Storm modules.
+  (`#4538 <https://github.com/vertexproject/synapse/pull/4538>`_)
+- Deprecated ``storm.asroot.mod.<modname>`` style permissions in favor of
+  ``asroot:perms`` for Storm modules.
+  (`#4538 <https://github.com/vertexproject/synapse/pull/4538>`_)
+
 v2.225.0 - 2025-10-13
 =====================
 
