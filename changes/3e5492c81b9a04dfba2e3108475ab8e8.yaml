@@ -1,7 +1,0 @@
----
-desc: Added ``vm.dirty_bytes`` and ``vm.dirty_background_bytes`` sysctl values to the ``getSystemInfo()``
-  APIs.
-desc:literal: false
-prs: []
-type: feat
-...

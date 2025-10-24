@@ -1,7 +1,0 @@
----
-desc: Fixed an issue where ``cron.at`` jobs would only partially update their state on
-  mirrors after running, causing them to be removed from the mirror upon restart.
-desc:literal: false
-prs: []
-type: bug
-...

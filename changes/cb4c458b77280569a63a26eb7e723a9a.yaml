@@ -1,6 +1,0 @@
----
-desc: Deprecated ``asroot`` option on Storm commands. Functionality requiring elevated permissions should be in Storm modules.
-desc:literal: false
-prs: []
-type: deprecation
-...
