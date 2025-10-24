@@ -1461,7 +1461,7 @@ class LibBase(Lib):
 
         query = await self.runt.getStormQuery(text)
 
-        asroot = False
+        asroot = self.runt.asroot
 
         rootperms = mdef.get('asroot:perms')
         if rootperms is not None:
