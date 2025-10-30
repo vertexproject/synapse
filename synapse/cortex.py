@@ -3055,7 +3055,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 verskey = 'storage:version'
 
                 if inits is None:
-                    await self.setStormPkgVar(name, verskey, -1)
+                    if await self.getStormPkgVar(name, verskey) is None:
+                        await self.setStormPkgVar(name, verskey, -1)
 
                 else:
                     if (key := inits.get('key')) is not None:
