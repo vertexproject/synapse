@@ -228,7 +228,7 @@ class Migrator(s_base.Base):
     def arrayproptoedge(self, valu, opts, edits=None):
         destform = opts['destform']
         for aval in valu:
-            proptoedge(aval, opts, edits=edits)
+            self.proptoedge(aval, opts, edits=edits)
         return s_common.novalu, None
 
     def langtrans(self, sode, edits):
