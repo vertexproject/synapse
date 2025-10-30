@@ -56,9 +56,17 @@ class BossTest(s_test.SynTest):
                 iden = s_common.guid()
 
                 async def double_promote():
-                    await boss.promote(f'double', root, taskiden=iden)
-                    await boss.promote(f'double', root, taskiden=iden + iden)
+                    await boss.promote('double', root, taskiden=iden)
+                    await boss.promote('double', root, taskiden=iden + iden)
 
                 coro = boss.schedCoro(double_promote())
                 self.true(await stream.wait(timeout=6))
                 await coro
+
+            async with boss.shutdown_lock:
+                with self.raises(s_exc.ShuttingDown):
+                    boss.reqNotShut()
+
+            boss.is_shutdown = True
+            with self.raises(s_exc.ShuttingDown):
+                boss.reqNotShut()

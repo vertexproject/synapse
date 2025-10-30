@@ -2,16 +2,26 @@ modeldefs = (
     ('plan', {
         'types': (
             ('plan:system', ('guid', {}), {
+                'interfaces': (
+                    ('doc:authorable', {'template': {'title': 'planning system'}}),
+                ),
                 'doc': 'A planning or behavioral analysis system that defines phases and procedures.'}),
 
             ('plan:phase', ('guid', {}), {
                 'doc': 'A phase within a planning system which may be used to group steps within a procedure.'}),
 
             ('plan:procedure', ('guid', {}), {
+                'interfaces': (
+                    ('doc:document', {'template': {
+                        'document': 'procedure',
+                        'title': 'procedure'}}),
+                ),
                 'doc': 'A procedure consisting of steps.'}),
 
             ('plan:procedure:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of procedure types.'}),
 
             ('plan:procedure:variable', ('guid', {}), {
@@ -25,22 +35,21 @@ modeldefs = (
         ),
 
         'edges': (
-            (('plan:procedure:step', 'uses', None), {
+            (('plan:procedure:step', 'uses', 'meta:usable'), {
                 'doc': 'The step in the procedure makes use of the target node.'}),
         ),
 
         'forms': (
             ('plan:system', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('meta:name', {}), {
                     'ex': 'mitre att&ck flow',
                     'doc': 'The name of the planning system.'}),
 
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A summary of the purpose and use case for the planning system.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the planning system.'}),
 
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:actor', {}), {
                     'doc': 'The contact of the person or organization which authored the system.'}),
 
                 ('created', ('time', {}), {
@@ -56,13 +65,13 @@ modeldefs = (
                     'doc': 'The primary URL which documents the planning system.'}),
             )),
             ('plan:phase', {}, (
+
                 ('title', ('str', {}), {
                     'ex': 'Reconnaissance Phase',
                     'doc': 'The title of the phase.'}),
 
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A summary of the definition of the phase.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the definition of the phase.'}),
 
                 ('index', ('int', {}), {
                     'doc': 'The index of this phase within the phases of the system.'}),
@@ -76,33 +85,13 @@ modeldefs = (
             ('plan:procedure:type:taxonomy', {}, ()),
             ('plan:procedure', {}, (
 
-                ('title', ('str', {}), {
-                    'ex': 'Network Reconnaissance Procedure',
-                    'doc': 'The name of the procedure.'}),
-
-                ('summary', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A summary of the purpose and use cases for the procedure.'}),
-
-                ('author', ('ps:contact', {}), {
-                    'doc': 'The contact of the person or organization which authored the procedure.'}),
-
-                ('created', ('time', {}), {
-                    'doc': 'The time the procedure was created.'}),
-
-                ('updated', ('time', {}), {
-                    'doc': 'The time the procedure was last updated.'}),
-
-                ('version', ('it:semver', {}), {
-                    'doc': 'The version of the procedure.'}),
-
                 ('system', ('plan:system', {}), {
                     'doc': 'The planning system which defines this procedure.'}),
 
                 ('type', ('plan:procedure:type:taxonomy', {}), {
                     'doc': 'A type classification for the procedure.'}),
 
-                ('inputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
+                ('inputs', ('array', {'type': 'plan:procedure:variable'}), {
                     'doc': 'An array of inputs required to execute the procedure.'}),
 
                 ('firststep', ('plan:procedure:step', {}), {
@@ -110,7 +99,7 @@ modeldefs = (
             )),
             ('plan:procedure:variable', {}, (
 
-                ('name', ('str', {}), {
+                ('name', ('str', {'strip': True}), {
                     'doc': 'The name of the variable.'}),
 
                 ('type', ('str', {}), {
@@ -134,16 +123,13 @@ modeldefs = (
                     'ex': 'Scan the IPv4 address range for open ports',
                     'doc': 'The title of the step.'}),
 
-                ('summary', ('str', {}), {
-                    'doc': 'A summary of the tasks executed within the step.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the tasks executed within the step.'}),
 
-                ('outputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
+                ('outputs', ('array', {'type': 'plan:procedure:variable'}), {
                     'doc': 'An array of variables defined in this step.'}),
 
-                ('techniques', ('array', {'type': 'ou:technique', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of techniques used when executing this step.'}),
-
-                ('links', ('array', {'type': 'plan:procedure:link', 'uniq': True}), {
+                ('links', ('array', {'type': 'plan:procedure:link', 'sorted': False}), {
                     'doc': 'An array of links to subsequent steps.'}),
 
             )),

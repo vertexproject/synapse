@@ -11,44 +11,13 @@ class AuthModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            cred = s_common.guid()
-            nodes = await core.nodes(f'''
-                [ auth:creds={cred}
-                    :email=visi@vertex.link
-                    :user=lolz
-                    :phone=12028675309
-                    :passwd=secret
-                    :passwdhash="*"
-                    :website=https://www.vertex.link
-                    :host="*"
-                    :wifi:ssid=vertexproject
-                    :service:account=(vertex.link,visi)
-                ]
-            ''')
-
+            nodes = await core.nodes('[auth:passwd=2Cool4u]')
             self.len(1, nodes)
-            self.nn(nodes[0].get('host'))
-            self.nn(nodes[0].get('passwdhash'))
+            node = nodes[0]
+            self.eq(node.ndef, ('auth:passwd', '2Cool4u'))
+            self.eq(node.get('md5'), '91112d75297841c12ca655baafc05104')
+            self.eq(node.get('sha1'), '2984ab44774294be9f7a369bbd73b52021bf0bb4')
+            self.eq(node.get('sha256'), '62c7174a99ff0afd4c828fc779d2572abc2438415e3ca9769033d4a36479b14f')
 
-            self.eq('lolz', nodes[0].get('user'))
-            self.eq('12028675309', nodes[0].get('phone'))
-            self.eq('secret', nodes[0].get('passwd'))
-            self.eq('visi@vertex.link', nodes[0].get('email'))
-            self.eq('https://www.vertex.link', nodes[0].get('website'))
-            self.eq('vertexproject', nodes[0].get('wifi:ssid'))
-            self.eq('2fedc962f30629e870fb8ef7ff9f8d5a', nodes[0].get('service:account'))
-
-            accs = s_common.guid()
-            nodes = await core.nodes(f'''
-                [ auth:access={accs}
-                    :person="*"
-                    :creds={cred}
-                    :time=20200202
-                    :success=true
-                ]
-            ''')
-            self.nn(nodes[0].get('creds'))
-            self.nn(nodes[0].get('person'))
-
-            self.eq(True, nodes[0].get('success'))
-            self.eq(1580601600000, nodes[0].get('time'))
+            nodes = await core.nodes('[ auth:passwd=" Woot " ]')
+            self.eq(nodes[0].ndef, ('auth:passwd', ' Woot '))

@@ -376,7 +376,7 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
         {'name': 'norm', 'desc': 'Normalize a MITRE ATT&CK Flow diagram in JSON format.',
          'type': {'type': 'function', '_funcname': '_norm',
                   'args': (
-                      {'name': 'flow', 'type': 'data',
+                      {'name': 'flow', 'type': 'dict',
                        'desc': 'The MITRE ATT&CK Flow diagram in JSON format to normalize (flatten and sort).'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The normalized MITRE ATT&CK Flow diagram.', }
@@ -384,7 +384,7 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
         {'name': 'ingest', 'desc': 'Ingest a MITRE ATT&CK Flow diagram in JSON format.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'flow', 'type': 'data', 'desc': 'The JSON data to ingest.'},
+                      {'name': 'flow', 'type': 'any', 'desc': 'The JSON data to ingest.'},
                   ),
                   'returns': {'type': ['node', 'null'], 'desc': 'The it:mitre:attack:flow node representing the ingested attack flow diagram.'}}},
 
@@ -414,9 +414,9 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
             $attack_flow = $objs_bytype."attack-flow".0
             $created_by = $objs_byid.($attack_flow.created_by_ref)
 
-            ($ok, $name) = $lib.trycast(ps:name, $created_by.name)
+            ($ok, $name) = $lib.trycast(meta:name, $created_by.name)
             if (not $ok) {
-                $lib.warn(`Error casting contact name to ou:name: {$created_by.name}`)
+                $lib.warn(`Error casting contact name to meta:name: {$created_by.name}`)
                 return()
             }
 
@@ -432,7 +432,7 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
                 :created ?= $attack_flow.created
                 :updated ?= $attack_flow.modified
                 :author:user ?= $lib.user.iden
-                :author:contact = {[ ps:contact = (attack-flow, $name, $contact_information)
+                :author:contact = {[ entity:contact = (attack-flow, $name, $contact_information)
                                         :name = $name
                                         :email = $contact_information
                                     ]}
@@ -502,7 +502,7 @@ class CvssLib(s_stormtypes.Lib):
                        'desc': f'''
                             A valid version string or None to autodetect the
                             version from the vector string. Accepted values
-                            are: { ', '.join(s_cvss.versions) }, None.''',
+                            are: {', '.join(s_cvss.versions)}, None.''',
                        'default': None}
                   ),
                   'returns': {'type': 'dict',

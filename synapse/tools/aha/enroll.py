@@ -1,11 +1,9 @@
 import os
-import sys
-import asyncio
-import argparse
 
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
@@ -21,9 +19,7 @@ Examples:
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.aha.enroll', description=descr,
-                        formatter_class=argparse.RawDescriptionHelpFormatter)
-
+    pars = s_cmd.Parser(prog='synapse.tools.aha.enroll', outp=outp, description=descr)
     pars.add_argument('onceurl', help='The one-time use AHA user enrollment URL.')
     opts = pars.parse_args(argv)
 
@@ -97,7 +93,11 @@ async def main(argv, outp=s_output.stdout):
                     teleyaml['aha:servers'] = servers
                     s_common.yamlsave(teleyaml, yamlpath)
 
+            # cleanup CSR
+            certdir.delUserCsr(username)
+
     return 0
 
+
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(main(sys.argv[1:])))
+    s_cmd.exitmain(main)

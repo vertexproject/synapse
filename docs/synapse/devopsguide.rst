@@ -42,7 +42,7 @@ HTTPS Certificates
 
 Synapse services that expose HTTPS APIs will automatically generate a self-signed certificate and key if they are not found
 at ``sslcert.pem`` and ``sslkey.pem`` in the service storage directory. At any time, you can replace these self-signed
-files with a certificate and key generated using :ref:`syn-tools-easycert` or generated and signed by an external CA.
+files with a certificate and key generated using :ref:`syn-tools-utils-easycert` or generated and signed by an external CA.
 
 Common Devops Tasks
 ===================
@@ -56,8 +56,8 @@ Generating a Backup
     If you are a Synapse Enterprise customer you should deploy the Synapse-Backup_ Advanced Power-Up.
 
 It is strongly recommended that users schedule regular backups of all services deployed within their Synapse
-ecosystem. Each service must be backed up using either the **live** backup tool ``synapse.tools.livebackup`` or
-the offline backup tool ``synapse.tools.backup``.
+ecosystem. Each service must be backed up using either the **live** backup tool ``synapse.tools.service.livebackup`` or
+the offline backup tool ``synapse.tools.service.backup``.
 
 For a production deployment similar to the one described in the :ref:`deploymentguide` you can easily run
 the backup tool by executing a shell **inside** the docker container.  For example, if we were generating
@@ -68,7 +68,7 @@ a backup of the Cortex we would::
 
 And from the shell executed within the container::
 
-    python -m synapse.tools.livebackup
+    python -m synapse.tools.service.livebackup
 
 This will generate a backup in a time stamp directory similar to::
 
@@ -85,7 +85,7 @@ At this point it is safe to use standard tools like ``mv``, ``tar``, and ``scp``
 
 .. note::
 
-    It is important that you use ``synapse.tools.livebackup`` to ensure a transactionally consistant backup.
+    It is important that you use ``synapse.tools.service.livebackup`` to ensure a transactionally consistant backup.
 
 .. note::
 
@@ -101,7 +101,7 @@ At this point it is safe to use standard tools like ``mv``, ``tar``, and ``scp``
 
 It is also worth noting that the newly created backup is a defragmented / optimized copy of the databases.
 We recommend occasionally scheduling a maintenance window to create a "cold backup" using the offline
-``synapse.tools.backup`` command with the service offline and deploy the backup copy when bringing the service
+``synapse.tools.service.backup`` command with the service offline and deploy the backup copy when bringing the service
 back online.  Regularly performing this "restore from cold backup" procedure can dramatically improve performance
 and resource utilization.
 
@@ -135,21 +135,21 @@ Promoting a Mirror
     as well as use TLS client-certificates for service authentication.
 
 To gracefully promote a mirror which was deployed in a similar fashion to the one described in :ref:`deploymentguide`
-you can use the built-in promote tool ``synapse.tools.promote``. Begin by executing a shell within the mirror container::
+you can use the built-in promote tool ``synapse.tools.service.promote``. Begin by executing a shell within the mirror container::
 
     cd /srv/syn/01.cortex
     docker compose exec 01.cortex /bin/bash
 
 And from the shell executed within the container::
 
-    python -m synapse.tools.promote
+    python -m synapse.tools.service.promote
 
 Once completed, the previous leader will now be configured as a follower of the newly promoted leader.
 
 .. note::
 
     If you are promoting the follower due to a catastrophic failure of the previous leader, you may use the
-    command ``synapse.tools.promote --failure`` to force promotion despite not being able to carry out a graceful
+    command ``synapse.tools.service.promote --failure`` to force promotion despite not being able to carry out a graceful
     handoff. It is **critical that you not bring the previous leader back online** once this has been done. To regain
     redundancy, deploy a new mirror using the AHA provisioning process described in the :ref:`deploymentguide`.
 
@@ -247,7 +247,7 @@ Low Downtime Updates
 For services that are deployed in a mirror configuration, service upgrades can be performed with minimal downtime.
 
 #. Update the service mirrors.
-#. Use the Synapse ``synapse.tools.promote`` tool to promote a service as a mirror. This will start any data migrations
+#. Use the Synapse ``synapse.tools.service.promote`` tool to promote a service as a mirror. This will start any data migrations
    which need to happen. Cortex data model migrations will be checked and executed as well.
 #. Update the old service leader.
 
@@ -262,7 +262,7 @@ Then we would promote the mirror to being a leader. This promotion will also sta
 be performed::
 
     cd /srv/syn/01.cortex
-    docker compose exec 01.cortex python -m synapse.tools.promote
+    docker compose exec 01.cortex python -m synapse.tools.service.promote
 
 After the promotion is completed, the previous leader can be updated. Since it is now mirroring ``01.cortex``, it will
 start to replicate any changes from the leader once it comes online, including any data migrations that are being
@@ -509,7 +509,7 @@ Managing users and service accounts in the Synapse ecosystem is most easily acco
 executed from **within** the service ``docker`` container. In this example we add the user ``visi``
 as an admin user to the Cortex by running the following command from **within the Cortex container**::
 
-    python -m synapse.tools.moduser --add --admin visi
+    python -m synapse.tools.service.moduser --add --admin visi
 
 If the deployment is using AHA and TLS client certificates and the user will be connecting via the Telepath API using the
 :ref:`syn-tools-storm` CLI tool, will also need to provision a user TLS certificate for them. This can be done using
@@ -813,7 +813,7 @@ If the Cortex is mirrored, a list of Telepath URLs of all mirrors must be provid
 This ensures that all mirrors have rotated their Nexus logs before the cull operation is executed.
 
 .. warning::
-    If this list is ommitted, or incorrect, the mirrors may become de-synchronized
+    If this list is omitted, or incorrect, the mirrors may become de-synchronized
     which will require a re-deployment from a backup of the upstream.
 
 The Telepath URLs can be provided to the Storm API as follows::
@@ -1102,6 +1102,110 @@ additonal CA files.
     is similar to the Cortex, but uses the ``SYN_AXON_TLS_CA_DIR`` environment
     variable.
 
+Axon Blob Export and Import
+---------------------------
+
+For situations where an organization needs to synchronize Axon blobs between two Axons
+that do not connect directly to each other, due to network segmentation as an example,
+there are command line tools available to export blobs from a source Axon and then import
+those blobs into a different Axon. For Axons that can communicate directly, the
+``axon2axon`` tool should be used for live synchronization.
+
+- ``synapse.tools.axon.dump``: Export blobs from a specified Axon into one or more tar.gz archive files.
+- ``synapse.tools.axon.load``: Import blobs from one or more tar.gz archive files into a specified Axon.
+
+In these situations, an export is created using
+``synapse.tools.axon.dump``. The output of this tool is one or more tar.gz
+archive files that can then be manually copied over to the destination Axon
+environment. Once the files have been copied, the ``synapse.tools.axon.load``
+tool can be used to import them into the destination Axon.
+
+.. note::
+
+   The ``synapse.tools.axon.dump`` export tool creates a state tracking YAML
+   file for recording the next expected offset from the Axon that was exported.
+   The state tracking file allows the export tool to create incremental exports
+   from the time of the last execution without requiring the offset to be
+   separately tracked. By default, the state tracking file is saved in the output
+   directory with name ``<celliden>.yaml``.
+
+Export blobs from an Axon
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Exporting blobs from an Axon can be done with the
+``synapse.tools.axon.dump`` command::
+
+    python -m synapse.tools.axon.dump --url <axonurl> <outputdir>
+
+When running the export tool from within the Axon container, the ``--url``
+option does not need to be provided as it will default to the local service.
+
+Import blobs into an Axon
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Importing blobs into an Axon can be done with the
+``synapse.tools.axon.load`` command::
+
+    python -m synapse.tools.axon.load <axonurl> <archive1.tar.gz> [<archive2.tar.gz> ...]
+
+The import tool will automatically process the provided tar.gz archive files,
+so there is no need to import them one at a time or specify them in a particular order.
+
+Copying node edits between Cortexes
+-----------------------------------
+
+For situations where an organization may want to synchronize node edits between
+two unconnected (no direct network connection) Cortexes, there are command line
+tools available to export nodes edits from a layer on the source Cortex and then
+import those same edits into a layer on a different Cortex.
+
+- ``synapse.tools.cortex.layer.dump``: Export node edits from a specified layer on a
+  Cortex.
+- ``synapse.tools.cortex.layer.load``: Import node edits to a specified layer on a
+  Cortex.
+
+In these situations, an export would be created using
+``synapse.tools.cortex.layer.dump``. The output of this tool is one or more export
+files that can then be manually copied over to the destination Cortex
+environment. Once the files have been copied, the ``synapse.tools.cortex.layer.load``
+tool can be used to import them into the destination Cortex.
+
+.. note::
+
+   The ``synapse.tools.cortex.layer.dump`` export tool creates a state tracking YAML
+   file for recording the next expected offset from the layer that was exported.
+   The state tracking files allows the export tool to create incremental exports
+   from the time of the last execution without requiring the offset to be
+   separately tracked.
+
+   The filename for the state tracking file is automatically saved in the output
+   directory and follows the name ``<celliden>.<layriden>.yaml`` but an
+   alternate path can be specified using the ``--statefile`` command line
+   option.
+
+Export node edits from a Cortex
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Exporting node edits from a layer can be done with the
+``synapse.tools.cortex.layer.dump`` command::
+
+    python -m synapse.tools.cortex.layer.dump --url <cortexurl> <layriden> <outdir>
+
+When running the export tool from within the Cortex container, the ``--url``
+option does not need to be provided as it will default to the local service.
+
+Import node edits into a Cortex
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Importing node edits into a layer can be done with the
+``synapse.tools.cortex.layer.load`` command::
+
+    python -m synapse.tools.cortex.layer.load <layriden> <nodeedits file(s)...>
+
+The import tool will automatically order the node edit files based on starting
+offset so there is no need to import them one at a time or specify them in a
+particular order.
+
 Synapse Services
 ================
 
@@ -1206,7 +1310,7 @@ A typical Axon deployment does not require any additional configuration. For the
 For example, to allow the user ``visi`` to upload, download, and confirm files you would execute the following command
 from **inside the Axon container**::
 
-    python -m synapse.tools.moduser --add visi --allow axon
+    python -m synapse.tools.service.moduser --add visi --allow axon
 
 .. _devops-svc-jsonstorcell:
 
@@ -1764,7 +1868,7 @@ set. The end result can be then rendered in a web browser::
     $api.methods.get = ${
         $duration = $lib.model.type(duration).repr($lib.cell.uptime().uptime)
         $mesg = `The Cortex has been up for {$duration}`
-        $html = $lib.str.format($template, mesg=$mesg)
+        $html = $template.format(mesg=$mesg)
         $buf = $html.encode()
         $headers = ({
             "Content-Type": "text/html",
@@ -2200,7 +2304,7 @@ First add a user to the Cortex:
 
 ::
 
-    $ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.moduser --add --admin true visi
+    $ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.service.moduser --add --admin true visi
     Adding user: visi
     ...setting admin: true
 
@@ -2364,7 +2468,7 @@ be done via ``kubectl exec``, setting the password for the user on the Cortex:
 
 ::
 
-    $ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.moduser --passwd secretPassword visi
+    $ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.service.moduser --passwd secretPassword visi
     Modifying user: visi
     ...setting passwd: secretPassword
 

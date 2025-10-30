@@ -4,18 +4,18 @@ This contains the core test helper code used in Synapse.
 This gives the opportunity for third-party users of Synapse to test their
 code using some of the same helpers used to test Synapse.
 
-The core class, synapse.tests.utils.SynTest is a subclass of unittest.TestCase,
-with several wrapper functions to allow for easier calls to assert* functions,
-with less typing.  There are also Synapse specific helpers, to load Cortexes and
-whole both multi-component environments into memory.
+The core class, synapse.tests.utils.SynTest is a subclass of
+unittest.IsolatedAsyncioTestCase, with several wrapper functions to allow for
+easier calls to assert* functions, with less typing. There are also Synapse
+specific helpers, to load Cortexes and whole multi-component environments.
 
-Since SynTest is built from unittest.TestCase, the use of SynTest is
-compatible with the unittest, nose and pytest frameworks.  This does not lock
-users into a particular test framework; while at the same time allowing base
-use to be invoked via the built-in Unittest library, with one important exception:
-due to an unfortunate design approach, you cannot use the unittest module command
-line to run a *single* async unit test.  pytest works fine though.
-
+Since SynTest is built from unittest.IsolatedAsyncioTestCase, the use of
+SynTest is compatible with the unittest and pytest frameworks.  This does not
+lock users into a particular test framework; while at the same time allowing
+base use to be invoked via the built-in Unittest library. Customizations made
+using the various setup and teardown helpers available on
+``IsolatedAsyncioTestCase`` should first review our docstrings for any methods
+we have overridden.
 '''
 import io
 import os
@@ -48,7 +48,6 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
-import synapse.cryotank as s_cryotank
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
@@ -73,7 +72,7 @@ import synapse.lib.thishost as s_thishost
 import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.tools.genpkg as s_genpkg
+import synapse.tools.storm.pkg.gen as s_genpkg
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +80,16 @@ logging.getLogger('vcr').setLevel(logging.ERROR)
 
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
+
+_SYN_ASYNCIO_DEBUG = False
+# Check if DEBUG mode was set https://docs.python.org/3/library/asyncio-dev.html#debug-mode
+if (s_common.envbool('PYTHONASYNCIODEBUG') or s_common.envbool('PYTHONDEVMODE') or sys.flags.dev_mode):  # pragma: no cover
+    _SYN_ASYNCIO_DEBUG = True
+
+# Number of times to sleep when tearing down tests with active bg tasks, in order to
+# allow background tasks to tear down cleanly.
+_SYNDEV_TASK_BG_ITER = int(os.getenv('SYNDEV_BG_TASK_ITER', 12))
+assert _SYNDEV_TASK_BG_ITER >= 0, f'SYNDEV_BG_TASK_ITER must be >=0, got {_SYNDEV_TASK_BG_ITER}'
 
 async def alist(coro):
     return [x async for x in coro]
@@ -236,58 +245,24 @@ class TestType(s_types.Type):
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         return valu.lower(), {}
 
 class ThreeType(s_types.Type):
 
     stortype = s_layer.STOR_TYPE_U8
 
-    def norm(self, valu):
-        return 3, {'subs': {'three': 3}}
+    async def norm(self, valu, view=None):
+        typehash = self.modl.type('int').typehash
+        return 3, {'subs': {'three': (typehash, 3, {})}}
 
     def repr(self, valu):
         return '3'
-
-class TestSubType(s_types.Type):
-
-    stortype = s_layer.STOR_TYPE_U32
-
-    def norm(self, valu):
-        valu = int(valu)
-        return valu, {'subs': {'isbig': valu >= 1000}}
-
-    def repr(self, norm):
-        return str(norm)
-
-class TestRunt:
-
-    def __init__(self, name, **kwargs):
-        self.name = name
-        self.props = kwargs
-        self.props.setdefault('.created', s_common.now())
-
-    def getStorNode(self, form):
-
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
-
-        pnorms = {}
-        for prop, valu in self.props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms,
-        })
 
 testmodel = (
     ('test', {
 
         'ctors': (
-            ('test:sub', 'synapse.tests.utils.TestSubType', {}, {}),
             ('test:type', 'synapse.tests.utils.TestType', {}, {}),
             ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
         ),
@@ -299,7 +274,9 @@ testmodel = (
                     ('seen', ('ival', {}), {}),
                     ('names', ('array', {'type': 'str'}), {}),
                 ),
-                'interfaces': ('inet:proto:request',)
+                'interfaces': (
+                    ('inet:proto:request', {}),
+                ),
             }),
             ('test:virtarray', {
                 'doc': 'test interface',
@@ -323,16 +300,23 @@ testmodel = (
             ('test:int', ('int', {}), {}),
             ('test:float', ('float', {}), {}),
             ('test:str', ('str', {}), {}),
+            ('test:str2', ('test:str', {}), {}),
+            ('test:inhstr', ('str', {}), {}),
+            ('test:inhstr2', ('test:inhstr', {}), {}),
+            ('test:inhstr3', ('test:inhstr2', {}), {}),
             ('test:strregex', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {}),
             ('test:migr', ('str', {}), {}),
             ('test:auto', ('str', {}), {}),
             ('test:guid', ('guid', {}), {}),
             ('test:data', ('data', {}), {}),
-            ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
+            ('test:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                )
+            }),
             ('test:hugenum', ('hugenum', {}), {}),
 
             ('test:arrayprop', ('guid', {}), {}),
-            ('test:arrayform', ('array', {'type': 'int'}), {}),
 
             ('test:comp', ('comp', {'fields': (
                 ('hehe', 'test:int'),
@@ -364,39 +348,26 @@ testmodel = (
             ('test:cycle1', ('str', {}), {}),
 
             ('test:ndef', ('ndef', {}), {}),
-            ('test:ndef:formfilter1', ('ndef', {
-                'forms': ('inet:ip',)
-            }), {}),
-            ('test:ndef:formfilter2', ('ndef', {
-                'interfaces': ('meta:taxonomy',)
-            }), {}),
-            ('test:ndef:formfilter3', ('ndef', {
-                'forms': ('inet:ip',),
-                'interfaces': ('file:mime:msoffice',)
-            }), {}),
+            ('test:ndef:formfilter1', ('ndef', {'forms': ('inet:ip',)}), {}),
+            ('test:ndef:formfilter2', ('ndef', {'interface': 'meta:taxonomy'}), {}),
 
-            ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
-            ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
-            ('test:virtiface', ('guid', {}), {'interfaces': ('test:virtarray',)}),
-            ('test:virtiface2', ('guid', {}), {'interfaces': ('test:virtarray',)}),
+            ('test:hasiface', ('str', {}), {'interfaces': (('test:interface', {}),)}),
+            ('test:hasiface2', ('str', {}), {'interfaces': (('test:interface', {}),)}),
+            ('test:virtiface', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
+            ('test:virtiface2', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
+
+            ('test:enums:int', ('int', {'enums': ((1, 'fooz'), (2, 'barz'), (3, 'bazz'))}), {}),
+            ('test:enums:str', ('str', {'enums': 'testx,foox,barx,bazx'}), {}),
+            ('test:protocol', ('int', {}), {}),
         ),
-
-        'univs': (
-            ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
-            ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
-            ('virtuniv', ('inet:server', {}), {'doc': 'A test universal prop with virtual props.'}),
-            ('virtunivarray', ('array', {'type': 'inet:server'}), {'doc': 'A test universal array prop with virtual props.'}),
-        ),
-
         'forms': (
 
             ('test:arrayprop', {}, (
-                ('ints', ('array', {'type': 'test:int'}), {}),
-                ('strs', ('array', {'type': 'test:str', 'split': ','}), {}),
-                ('strsnosplit', ('array', {'type': 'test:str'}), {}),
-                ('strregexs', ('array', {'type': 'test:strregex', 'uniq': True, 'sorted': True}), {}),
-            )),
-            ('test:arrayform', {}, (
+                ('ints', ('array', {'type': 'test:int', 'uniq': False, 'sorted': False}), {}),
+                ('strs', ('array', {'type': 'test:str', 'split': ',', 'uniq': False, 'sorted': False}), {}),
+                ('strsnosplit', ('array', {'type': 'test:str', 'uniq': False, 'sorted': False}), {}),
+                ('strregexs', ('array', {'type': 'test:strregex'}), {}),
+                ('children', ('array', {'type': 'test:arrayprop'}), {}),
             )),
             ('test:taxonomy', {}, ()),
             ('test:type10', {}, (
@@ -421,6 +392,7 @@ testmodel = (
             ('test:comp', {}, (
                 ('hehe', ('test:int', {}), {'ro': True}),
                 ('haha', ('test:lower', {}), {'ro': True}),
+                ('seen', ('ival', {}), {}),
             )),
 
             ('test:compcomp', {}, (
@@ -441,6 +413,9 @@ testmodel = (
             ('test:int', {}, (
                 ('loc', ('loc', {}), {}),
                 ('int2', ('int', {}), {}),
+                ('seen', ('ival', {}), {}),
+                ('type', ('test:str', {}), {'alts': ('types',)}),
+                ('types', ('array', {'type': 'test:str'}), {}),
             )),
 
             ('test:float', {}, (
@@ -449,10 +424,14 @@ testmodel = (
             )),
 
             ('test:guid', {}, (
+                ('name', ('test:str', {}), {}),
                 ('size', ('test:int', {}), {}),
+                ('seen', ('ival', {}), {}),
                 ('tick', ('test:time', {}), {}),
-                ('posneg', ('test:sub', {}), {}),
-                ('posneg:isbig', ('bool', {}), {}),
+                ('comp', ('test:comp', {}), {}),
+                ('server', ('inet:server', {}), {}),
+                ('raw', ('data', {}), {}),
+                ('iden', ('guid', {}), {}),
             )),
 
             ('test:data', {}, (
@@ -468,9 +447,28 @@ testmodel = (
                 ('baz', ('nodeprop', {}), {}),
                 ('tick', ('test:time', {}), {}),
                 ('hehe', ('str', {}), {}),
-                ('ndefs', ('array', {'type': 'ndef'}), {}),
+                ('ndefs', ('array', {'type': 'ndef', 'uniq': False, 'sorted': False}), {}),
+                ('pdefs', ('array', {'type': 'nodeprop', 'uniq': False, 'sorted': False}), {}),
                 ('cidr', ('inet:cidr', {}), {}),
                 ('somestr', ('test:str', {}), {}),
+                ('seen', ('ival', {}), {}),
+                ('pivvirt', ('test:virtiface', {}), {}),
+                ('gprop', ('test:guid', {}), {}),
+                ('inhstr', ('test:inhstr', {}), {}),
+            )),
+
+            ('test:str2', {}, ()),
+
+            ('test:inhstr', {}, (
+                ('name', ('str', {}), {}),
+            )),
+
+            ('test:inhstr2', {}, (
+                ('child1', ('str', {}), {}),
+            )),
+
+            ('test:inhstr3', {}, (
+                ('child2', ('str', {}), {}),
             )),
 
             ('test:strregex', {}, ()),
@@ -490,10 +488,12 @@ testmodel = (
             ('test:zeropad', {}, ()),
             ('test:ival', {}, (
                 ('interval', ('ival', {}), {}),
+                ('daymax', ('ival', {'precision': 'day', 'maxfill': True}), {}),
             )),
 
             ('test:pivtarg', {}, (
                 ('name', ('str', {}), {}),
+                ('seen', ('ival', {}), {}),
             )),
 
             ('test:pivcomp', {}, (
@@ -502,6 +502,7 @@ testmodel = (
                 ('tick', ('time', {}), {}),
                 ('size', ('test:int', {}), {}),
                 ('width', ('test:int', {}), {}),
+                ('seen', ('ival', {}), {}),
             )),
 
             ('test:haspivcomp', {}, (
@@ -521,6 +522,33 @@ testmodel = (
             ('test:hasiface2', {}, ()),
             ('test:virtiface', {}, ()),
             ('test:virtiface2', {}, ()),
+
+            ('test:enums:int', {}, ()),
+            ('test:enums:str', {}, ()),
+
+            ('test:protocol', {
+                'protocols': {
+                    'test:adjustable': {'vars': {
+                        'time': {'type': 'prop', 'name': 'time'},
+                        'currency': {'type': 'prop', 'name': 'currency'}}},
+                },
+                'doc': 'An adjustable form value.',
+              }, (
+                ('time', ('time', {}), {}),
+                ('currency', ('str', {}), {}),
+                ('otherval', ('int', {}), {
+                    'protocols': {
+                        'another:adjustable': {'vars': {
+                            'time': {'type': 'prop', 'name': 'time'},
+                            'currency': {'type': 'prop', 'name': 'currency'}}},
+                    },
+                    'doc': 'Another value adjustable in a different way.'}),
+            )),
+        ),
+        'edges': (
+            (('test:interface', 'matches', None), {
+                'doc': 'The node matched on the target node.'}),
+            ((None, 'test', None), {'doc': 'Test edge'}),
         ),
     }),
 )
@@ -529,6 +557,14 @@ deprmodel = (
     ('depr', {
         'ctors': (
             ('test:dep:str', 'synapse.lib.types.Str', {'strip': True}, {'deprecated': True}),
+        ),
+        'interfaces': (
+            ('test:deprinterface', {
+                'doc': 'test interface',
+                'props': (
+                    ('pdep', ('str', {}), {'deprecated': True}),
+                ),
+            }),
         ),
         'types': (
             ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
@@ -540,6 +576,7 @@ deprmodel = (
             ('test:deprndef', ('ndef', {}), {}),
             ('test:deprform2', ('test:str', {}), {'deprecated': True}),
             ('test:deprsub', ('str', {}), {}),
+            ('test:depriface', ('str', {}), {'interfaces': (('test:deprinterface', {}),)}),
             ('test:range', ('range', {}), {}),
             ('test:deprsub2', ('comp', {'fields': (
                 ('name', 'test:str'),
@@ -574,11 +611,10 @@ deprmodel = (
             ('test:dep:str', {}, (
                 ('beep', ('test:dep:str', {}), {}),
             )),
+            ('test:depriface', {}, (
+                ('beep', ('test:dep:str', {}), {}),
+            )),
         ),
-        'univs': (
-            ('udep', ('test:dep:easy', {}), {}),
-            ('pdep', ('test:str', {}), {'deprecated': True})
-        )
     }),
 )
 
@@ -696,14 +732,9 @@ class CmdGenerator:
 
         return retn
 
-class StreamEvent(io.StringIO, threading.Event):
-    '''
-    A combination of a io.StringIO object and a threading.Event object.
-    '''
+class _StreamIOMixin(io.StringIO):
     def __init__(self, *args, **kwargs):
         io.StringIO.__init__(self, *args, **kwargs)
-        threading.Event.__init__(self)
-        self.mesg = ''
 
     def setMesg(self, mesg):
         '''
@@ -717,6 +748,9 @@ class StreamEvent(io.StringIO, threading.Event):
         '''
         self.mesg = mesg
         self.clear()
+
+    def __str__(self):
+        return self.getvalue()
 
     def write(self, s):
         io.StringIO.write(self, s)
@@ -727,41 +761,58 @@ class StreamEvent(io.StringIO, threading.Event):
         '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
         return jsonlines(self.getvalue())
 
-class AsyncStreamEvent(io.StringIO, asyncio.Event):
+    def expect(self, substr: str):
+        '''
+        Check if a string is present in the messages captured by StreamEvent.
+
+        Args:
+            substr (str): String to check for the existence of.
+        '''
+        valu = self.getvalue()
+        if valu.find(substr) == -1:
+            mesg = '%s.expect(%s) not in %s' % (self.__class__.__name__, substr, valu)
+            raise s_exc.SynErr(mesg=mesg)
+
+class StreamEvent(_StreamIOMixin, threading.Event):
+    '''
+    A combination of a io.StringIO object and a threading.Event object.
+    '''
+    def __init__(self, *args, **kwargs):
+        _StreamIOMixin.__init__(self, *args, **kwargs)
+        threading.Event.__init__(self)
+        self.mesg = ''
+
+    def __repr__(self):
+        cls = self.__class__
+        status = 'set' if self._flag else 'unset'
+        if valu := str(self):
+            valu = s_common.trimText(valu).strip()
+            status = f'{status}, valu: {valu}'
+        return f"<{cls.__module__}.{cls.__qualname__} at {id(self):#x}: {status}>"
+
+class AsyncStreamEvent(_StreamIOMixin, asyncio.Event):
     '''
     A combination of a io.StringIO object and an asyncio.Event object.
     '''
     def __init__(self, *args, **kwargs):
-        io.StringIO.__init__(self, *args, **kwargs)
+        _StreamIOMixin.__init__(self, *args, **kwargs)
         asyncio.Event.__init__(self)
         self.mesg = ''
 
-    def setMesg(self, mesg):
-        '''
-        Clear the internal event and set a new message that is used to set the event.
-
-        Args:
-            mesg (str): The string to monitor for.
-
-        Returns:
-            None
-        '''
-        self.mesg = mesg
-        self.clear()
-
-    def write(self, s):
-        io.StringIO.write(self, s)
-        if self.mesg and self.mesg in s:
-            self.set()
+    def __repr__(self):
+        cls = self.__class__
+        status = 'set' if self._value else 'unset'
+        if self._waiters:
+            status = f'{status}, waiters:{len(self._waiters)}'
+        if valu := str(self):
+            valu = s_common.trimText(valu).strip()
+            status = f'{status}, valu: {valu}'
+        return f"<{cls.__module__}.{cls.__qualname__} at {id(self):#x}: {status}>"
 
     async def wait(self, timeout=None):
         if timeout is None:
             return await asyncio.Event.wait(self)
         return await s_coro.event_wait(self, timeout=timeout)
-
-    def jsonlines(self) -> typing.List[dict]:
-        '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
-        return jsonlines(self.getvalue())
 
 class HttpReflector(s_httpapi.Handler):
     '''Test handler which reflects get/post data back to the caller'''
@@ -772,7 +823,7 @@ class HttpReflector(s_httpapi.Handler):
             for k, items in self.request.arguments.items():
                 for v in items:
                     d[k].append(v.decode())
-        return d
+        return dict(d)
 
     async def get(self):
         resp = {}
@@ -797,6 +848,8 @@ class HttpReflector(s_httpapi.Handler):
         self.sendRestRetn(resp)
 
     async def post(self):
+        self.set_header('Giant', 'x' * 64_000)
+
         resp = {}
         params = self._decode_params()
         if params:
@@ -895,6 +948,10 @@ test_schema = {
                 'description': 'Foo String',
                 'type': 'string',
             },
+            'key:multi': {
+                'description': 'String or integer',
+                'type': ['string', 'integer'],
+            }
         },
         'type': 'object',
     }
@@ -924,26 +981,60 @@ class ReloadCell(s_cell.Cell):
 
         self.addReloadableSystem('badreload', func)
 
-class SynTest(unittest.TestCase):
+class SynTest(unittest.IsolatedAsyncioTestCase):
     '''
-    Wrap all async test methods with s_glob.sync.
+    Synapse test base class.
 
-    Note:
-        This precludes running a single unit test via path using the unittest module.
+    This is a subclass of unittest.IsolatedAsyncioTestCase.
+
+    For performance reasons, the ioloop used to execute tests is not run in debug mode
+    by default. A test runner or implementor can use regular Python asyncio environment
+    variables or command line switches to enable asyncio debug mode.
     '''
-    def __init__(self, *args, **kwargs):
-        unittest.TestCase.__init__(self, *args, **kwargs)
+    def _setupAsyncioRunner(self):
+        assert self._asyncioRunner is None, 'asyncio runner is already initialized'
+        runner = asyncio.Runner(debug=_SYN_ASYNCIO_DEBUG, loop_factory=self.loop_factory)
+        self._asyncioRunner = runner
 
-        def synchelp(f):
-            def wrap(*args, **kwargs):
-                return s_glob.sync(f(*args, **kwargs))
-            return wrap
+    async def _syn_task_check(self):
+        '''
+        Log warnings for unfinished synapse background tasks & unclosed asyncio tasks.
+        These messages likely indicate unclosed resources from test methods.
+        '''
+        # We may have bg_tasks that are tearing down. If so, give them a few cycles to run before checking
+        # and reporting on them. The most common task here would be Telepath.Proxy._finiAllLinks.
+        if s_coro.bgtasks:
+            for _ in range(_SYNDEV_TASK_BG_ITER):
+                await asyncio.sleep(0)
+        all_tasks = asyncio.all_tasks()
+        for task in s_coro.bgtasks:
+            logger.warning(f'Unfinished Synapse background task, this may indicate unclosed resources: {task}')
+            if task in all_tasks:
+                all_tasks.remove(task)
+        for task in all_tasks:
+            if getattr(task.get_coro(), '__name__', '') == '_syn_task_check':
+                continue
+            logger.warning(f'Unfinished asyncio task, this may indicate unclosed resources: {task}')
 
-        for s in dir(self):
-            attr = getattr(self, s, None)
-            # If s is an instance method and starts with 'test_', synchelp wrap it
-            if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
-                setattr(self, s, synchelp(attr))
+    def setUp(self):
+        '''
+        Test setup method. This is called prior to asyncSetUp.
+
+        This registers a cleanup handler to clear any cached data about IOLoop references.
+        This registers an async cleanup handler to warn about unfinished asyncio tasks.
+
+        Implementors who define their own ``setUp`` method should also call this first via ``super()``.
+
+        Examples:
+
+            Setup a custom synchronous resource::
+
+                def teardown():
+                    super().setUp()
+                    self.my_sync_resource = Foo()
+        '''
+        self.addAsyncCleanup(self._syn_task_check)
+        self.addCleanup(s_glob._clearGlobals)
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
@@ -1303,9 +1394,18 @@ class SynTest(unittest.TestCase):
 
             with self.mayTestDir(dirn) as dirn:
 
-                async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                    await core._addDataModels(testmodel)
-                    yield core
+                orig = s_cortex.Cortex._loadModels
+
+                async def _loadTestModel(self):
+                    await orig(self)
+
+                    if not hasattr(self, 'patched'):
+                        self.patched = True
+                        await self._addDataModels(testmodel)
+
+                with mock.patch('synapse.cortex.Cortex._loadModels', _loadTestModel):
+                    async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                        yield core
 
     @contextlib.asynccontextmanager
     async def getTestCoreAndProxy(self, conf=None, dirn=None):
@@ -1336,33 +1436,6 @@ class SynTest(unittest.TestCase):
             with self.getTestDir() as dirn:
                 async with await s_jsonstor.JsonStorCell.anit(dirn, conf) as jsonstor:
                     yield jsonstor
-
-    @contextlib.asynccontextmanager
-    async def getTestCryo(self, dirn=None, conf=None):
-        '''
-        Get a simple test Cryocell as an async context manager.
-
-        Returns:
-            s_cryotank.CryoCell: Test cryocell.
-        '''
-        conf = self.getCellConf(conf=conf)
-
-        with self.withNexusReplay():
-            with self.mayTestDir(dirn) as dirn:
-                async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
-                    yield cryo
-
-    @contextlib.asynccontextmanager
-    async def getTestCryoAndProxy(self, dirn=None):
-        '''
-        Get a test Cryocell and the Telepath Proxy to it.
-
-        Returns:
-            (s_cryotank: CryoCell, s_cryotank.CryoApi): The CryoCell and a Proxy representing a CryoApi object.
-        '''
-        async with self.getTestCryo(dirn=dirn) as cryo:
-            async with cryo.getLocalProxy() as prox:
-                yield cryo, prox
 
     @contextlib.asynccontextmanager
     async def getTestDmon(self):
@@ -1505,11 +1578,10 @@ class SynTest(unittest.TestCase):
         conf = self.getCellConf(conf=conf)
         conf['aha:provision'] = onetime
 
-        waiter = aha.waiter(1, f'aha:svcadd:{svcfull}')
         with self.mayTestDir(dirn) as dirn:
             s_common.yamlsave(conf, dirn, 'cell.yaml')
             async with await ctor.anit(dirn) as svc:
-                self.true(await waiter.wait(timeout=12))
+                await aha._waitAhaSvcOnline(f'{svcname}...', timeout=10)
                 yield svc
 
     async def addSvcToCore(self, svc, core, svcname='svc'):
@@ -2087,7 +2159,6 @@ class SynTest(unittest.TestCase):
         Assert that the length of an object is equal to X
         '''
         gtyps = (
-            s_coro.GenrHelp,
             s_telepath.Genr,
             s_telepath.GenrIter,
             types.GeneratorType)
@@ -2284,7 +2355,7 @@ class StormPkgTest(SynTest):
                 pkgdef = s_genpkg.loadPkgProto(pkgproto, no_docs=True, readonly=True)
 
                 waiter = None
-                if pkgdef.get('onload') is not None:
+                if (pkgdef.get('onload') is not None or pkgdef.get('inits') is not None):
                     waiter = core.waiter(1, 'core:pkg:onload:complete')
 
                 await core.addStormPkg(pkgdef)

@@ -108,7 +108,7 @@ stormcmds = [
         if $perms {
             $lib.print('The following user permissions are required to run this HTTP API endpoint:')
             for $pdef in $perms {
-                $perm = $lib.str.join(".", $pdef.perm)
+                $perm = ('.').join($pdef.perm)
                 $lib.print($perm)
                 $lib.print(`    default: {$pdef.default}`)
             }
@@ -1016,7 +1016,7 @@ class HttpReq(s_stormtypes.StormType):
             if not isinstance(body, bytes):
                 body = await s_stormtypes.toprim(body)
                 body = s_json.dumps(body)
-                headers['Content-Type'] = 'application/json; charset=utf8"'
+                headers['Content-Type'] = 'application/json; charset=utf8'
                 headers['Content-Length'] = len(body)
 
         await self._methSendCode(code)
@@ -1070,13 +1070,13 @@ class CortexHttpApi(s_stormtypes.Lib):
         ''',
          'type': {'type': 'function', '_funcname': 'addHttpApi',
                   'args': (
-                      {'name': 'path', 'type': 'string',
+                      {'name': 'path', 'type': 'str',
                        'desc': 'The extended HTTP API path.'},
-                      {'name': 'name', 'type': 'string',
+                      {'name': 'name', 'type': 'str',
                        'desc': 'Friendly name for the Extended HTTP API.', 'default': ''},
-                      {'name': 'desc', 'type': 'string',
+                      {'name': 'desc', 'type': 'str',
                        'desc': 'Description for the Extended HTTP API.', 'default': ''},
-                      {'name': 'runas', 'type': 'string',
+                      {'name': 'runas', 'type': 'str',
                        'desc': 'Run the storm query as the API "owner" or as the authenticated "user".',
                        'default': 'owner'},
                       {'name': 'authenticated', 'type': 'boolean',
@@ -1090,14 +1090,14 @@ class CortexHttpApi(s_stormtypes.Lib):
         {'name': 'del', 'desc': 'Delete an Extended HTTP API endpoint.',
          'type': {'type': 'function', '_funcname': 'delHttpApi',
                   'args': (
-                      {'name': 'iden', 'type': 'string',
+                      {'name': 'iden', 'type': 'str',
                        'desc': 'The iden of the API to delete.'},
                   ),
                   'returns': {'type': 'null'}}},
         {'name': 'get', 'desc': 'Get an Extended ``http:api`` object.',
          'type': {'type': 'function', '_funcname': 'getHttpApi',
                   'args': (
-                      {'name': 'iden', 'type': 'string',
+                      {'name': 'iden', 'type': 'str',
                        'desc': 'The iden of the API to retrieve.'},
                   ),
                   'returns': {'type': 'http:api', 'desc': 'The ``http:api`` object.'}}},
@@ -1110,17 +1110,17 @@ class CortexHttpApi(s_stormtypes.Lib):
         ''',
          'type': {'type': 'function', '_funcname': 'getHttpApiByPath',
                   'args': (
-                      {'name': 'path', 'type': 'string',
+                      {'name': 'path', 'type': 'str',
                        'desc': 'Path to use to retrieve an object.'},
                   ),
                   'returns': {'type': ['http:api', 'null'], 'desc': 'The ``http:api`` object or ``(null)`` if there is no match.'}}},
         {'name': 'list', 'desc': 'Get all the Extended HTTP APIs on the Cortex',
          'type': {'type': 'function', '_funcname': 'listHttpApis', 'args': (),
-                 'returns': {'type': 'list', 'desc': 'A list of ``http:api`` objects'}}},
+                  'returns': {'type': 'list', 'desc': 'A list of ``http:api`` objects'}}},
         {'name': 'index', 'desc': 'Set the index for a given Extended HTTP API.',
          'type': {'type': 'function', '_funcname': 'setHttpApiIndx',
                   'args': (
-                      {'name': 'iden', 'type': 'string',
+                      {'name': 'iden', 'type': 'str',
                        'desc': 'The iden of the API to modify.'},
                       {'name': 'index', 'type': 'int', 'default': 0,
                        'desc': 'The new index of the API. Uses zero based indexing.'},
@@ -1333,6 +1333,18 @@ class CortexApi(s_stormtypes.Lib):
                       {'name': 'nid', 'type': 'int', 'desc': 'The node id of the node.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'The node in the current View if it exists.'}}},
+        {'name': 'getNdefByNid', 'desc': 'Get the ndef tuple for a node by its node id in this Cortex.',
+         'type': {'type': 'function', '_funcname': 'getNdefByNid',
+                  'args': (
+                      {'name': 'nid', 'type': 'int', 'desc': 'The node id of the node.'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The ndef of the node or None if the node id is not found.'}}},
+        {'name': 'getNdefByIden', 'desc': 'Get the ndef tuple for a node by its iden.',
+         'type': {'type': 'function', '_funcname': 'getNdefByIden',
+                  'args': (
+                      {'name': 'iden', 'type': 'int', 'desc': 'The iden of the node.'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The ndef of the node or None if the node id is not found.'}}},
     )
 
     _storm_lib_path = ('cortex',)
@@ -1342,6 +1354,8 @@ class CortexApi(s_stormtypes.Lib):
             'getIdenByNid': self.getIdenByNid,
             'getNidByIden': self.getNidByIden,
             'getNodeByNid': self.getNodeByNid,
+            'getNdefByNid': self.getNdefByNid,
+            'getNdefByIden': self.getNdefByIden,
         }
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -1350,7 +1364,6 @@ class CortexApi(s_stormtypes.Lib):
         buid = self.runt.view.core.getBuidByNid(s_common.int64en(nid))
         if buid is not None:
             return s_common.ehex(buid)
-        return None
 
     @s_stormtypes.stormfunc(readonly=True)
     async def getNidByIden(self, iden):
@@ -1358,9 +1371,20 @@ class CortexApi(s_stormtypes.Lib):
         nid = self.runt.view.core.getNidByBuid(s_common.uhex(buid))
         if nid is not None:
             return s_common.int64un(nid)
-        return None
 
     @s_stormtypes.stormfunc(readonly=True)
     async def getNodeByNid(self, nid):
         nid = await s_stormtypes.toint(nid)
         return await self.runt.view.getNodeByNid(s_common.int64en(nid))
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def getNdefByNid(self, nid):
+        nid = await s_stormtypes.toint(nid)
+        return self.runt.view.core.getNidNdef(s_common.int64en(nid))
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def getNdefByIden(self, iden):
+        buid = await s_stormtypes.tobuidhex(iden)
+        nid = self.runt.view.core.getNidByBuid(s_common.uhex(buid))
+        if nid is not None:
+            return self.runt.view.core.getNidNdef(nid)

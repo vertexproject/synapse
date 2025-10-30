@@ -8,6 +8,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 
 MAX_SPOOL_SIZE = 10000
+DEFAULT_MAPSIZE = s_const.mebibyte * 32
 
 class Spooled(s_base.Base):
     '''
@@ -48,7 +49,7 @@ class Spooled(s_base.Base):
 
         slabpath = tempfile.mkdtemp(dir=dirn, prefix='spooled_', suffix='.lmdb')
 
-        self.slab = await s_lmdbslab.Slab.anit(slabpath, map_size=s_const.mebibyte * 32)
+        self.slab = await s_lmdbslab.Slab.anit(slabpath, map_size=DEFAULT_MAPSIZE)
         if self.cell is not None:
             self.slab.addResizeCallback(self.cell.checkFreeSpace)
 
@@ -110,7 +111,7 @@ class Set(Spooled):
     async def add(self, valu):
 
         if self.fallback:
-            if self.slab.put(s_msgpack.en(valu), b'\x01', overwrite=False):
+            if await self.slab.put(s_msgpack.en(valu), b'\x01', overwrite=False):
                 self.len += 1
             return
 
@@ -118,7 +119,7 @@ class Set(Spooled):
 
         if len(self.realset) >= self.size:
             await self._initFallBack()
-            [self.slab.put(s_msgpack.en(valu), b'\x01') for valu in self.realset]
+            [await self.slab.put(s_msgpack.en(valu), b'\x01') for valu in self.realset]
             self.len = len(self.realset)
             self.realset.clear()
 
@@ -162,7 +163,7 @@ class Dict(Spooled):
 
         if len(self.realdict) >= self.size:
             await self._initFallBack()
-            [self.slab.put(s_msgpack.en(k), s_msgpack.en(v)) for (k, v) in self.realdict.items()]
+            [await self.slab.put(s_msgpack.en(k), s_msgpack.en(v)) for (k, v) in self.realdict.items()]
             self.len = len(self.realdict)
             self.realdict.clear()
 

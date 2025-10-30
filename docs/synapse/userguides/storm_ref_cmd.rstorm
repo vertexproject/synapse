@@ -1010,9 +1010,9 @@ property set). Users can set additional property values as they see fit.
 
 - `gen.geo.place`_
 - `gen.it.av.scan.result`_
-- `gen.it.prod.soft`_
+- `gen.it.software`_
 - `gen.lang.language`_
-- `gen.ou.campaign`_
+- `gen.entity.campaign`_
 - `gen.ou.id.number`_
 - `gen.ou.id.type`_
 - `gen.ou.industry`_
@@ -1065,17 +1065,17 @@ for additional deconfliction.
 .. storm-cli:: gen.it.av.scan.result --help
 
 
-.. _storm-gen-it-prod-soft:
+.. _storm-gen-it-software:
 
-gen.it.prod.soft
-++++++++++++++++
+gen.it.software
++++++++++++++++
 
-The ``gen.it.prod.soft`` command locates (lifts) or creates an ``it:prod:soft`` node based on
-the software name (``it:prod:soft:name`` and / or ``it:prod:soft:names``).
+The ``gen.it.software`` command locates (lifts) or creates an ``it:software`` node based on
+the software name (``it:software:name`` and / or ``it:software:names``).
 
 **Syntax:**
 
-.. storm-cli:: gen.it.prod.soft --help
+.. storm-cli:: gen.it.software --help
 
 
 .. _storm-gen-lang-language:
@@ -1093,16 +1093,16 @@ the language name (``lang:language:name`` and / or ``lang:language:names``).
 
 .. _storm-gen-ou-campaign:
 
-gen.ou.campaign
+gen.entity.campaign
 +++++++++++++++
 
-The ``gen.ou.campaign`` command locates (lifts) or creates an ``ou:campaign`` node based on the
-campaign name (``ou:campaign:name`` and / or ``ou:campaign:names``) and the name of the reporting
-organization (``ou:campaign:reporter:name``).
+The ``gen.entity.campaign`` command locates (lifts) or creates an ``entity:campaign`` node based on the
+campaign name (``entity:campaign:name`` and / or ``entity:campaign:names``) and the name of the reporting
+organization (``entity:campaign:reporter:name``).
 
 **Syntax:**
 
-.. storm-cli:: gen.ou.campaign --help
+.. storm-cli:: gen.entity.campaign --help
 
 
 .. _storm-gen-ou-id-number:
@@ -1169,7 +1169,9 @@ The ``gen.ou.org.hq`` command locates (lifts) the primary ``ps:contact`` node fo
 
 **Syntax:**
 
-.. storm-cli:: gen.ou.org.hq --help
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: gen.ou.org.hq --help
 
 
 .. _storm-gen-pol-country:
@@ -1618,16 +1620,18 @@ secondary property, tag interval, or variable.
 
 **Examples:**
 
-- Return the DNS A record for woot.com with the most recent ``.seen`` value:
+- Return the DNS A record for woot.com with the most recent ``:seen`` value:
 
-.. storm-pre:: [(inet:dns:a=(woot.com,107.21.53.159) .seen=(2014/08/13,2014/08/14)) (inet:dns:a=(woot.com,75.101.146.4) .seen=(2013/09/21,2013/09/22))] 
-.. storm-cli:: inet:dns:a:fqdn=woot.com | max .seen
+.. storm-pre:: [(inet:dns:a=(woot.com,107.21.53.159) :seen=(2014/08/13,2014/08/14)) (inet:dns:a=(woot.com,75.101.146.4) :seen=(2013/09/21,2013/09/22))] 
+.. storm-cli:: inet:dns:a:fqdn=woot.com | max :seen
 
 
 - Return the most recent WHOIS record for domain woot.com:
 
-.. storm-pre:: [inet:whois:rec=(woot.com,2018/05/22) :text="domain name: woot.com"]
-.. storm-cli:: inet:whois:rec:fqdn=woot.com | max :asof
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [inet:whois:rec=(woot.com,2018/05/22) :text="domain name: woot.com"]
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com | max :asof
 
 
 .. _storm-merge:
@@ -1662,14 +1666,16 @@ secondary property, tag interval, or variable.
 
 **Examples:**
 
-- Return the DNS A record for woot.com with the oldest ``.seen`` value:
+- Return the DNS A record for woot.com with the oldest ``:seen`` value:
 
-.. storm-cli:: inet:dns:a:fqdn=woot.com | min .seen
+.. storm-cli:: inet:dns:a:fqdn=woot.com | min :seen
 
 
 - Return the oldest WHOIS record for domain woot.com:
 
-.. storm-cli:: inet:whois:rec:fqdn=woot.com | min :asof
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com | min :asof
 
 
 .. _storm-model:
@@ -2160,7 +2166,9 @@ can be used to return the scraped nodes rather than the input nodes.
 - Scrape the text of WHOIS records for the domain ``woot.com`` and create nodes for common forms found
   in the text:
 
-.. storm-cli:: inet:whois:rec:fqdn=woot.com | scrape :text
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: inet:whois:rec:fqdn=woot.com | scrape :text
 
 
 **Usage Notes:**
@@ -2168,7 +2176,7 @@ can be used to return the scraped nodes rather than the input nodes.
 - If no properties to scrape are specified, ``scrape`` will attempt to scrape **all** properties of the
   inbound nodes by default.
 - ``scrape`` will only scrape node **properties**; it will not scrape files (this includes files that may
-  be referenced by properties, such as ``media:news:file``). In other words, ``scrape`` cannot be used to
+  be referenced by properties, such as ``doc:report:file``). In other words, ``scrape`` cannot be used to
   parse indicators from a file such as a PDF.
 - ``scrape`` extracts the following forms / indicators (note that this list may change as the command is
   updated):
@@ -2412,8 +2420,6 @@ Storm includes ``trigger.*`` commands that allow you to create automated event-d
 - `trigger.add`_
 - `trigger.list`_
 - `trigger.mod`_
-- `trigger.disable`_
-- `trigger.enable`_
 - `trigger.del`_
 
 Help for individual ``trigger.*`` commands can be displayed using:
@@ -2471,38 +2477,6 @@ the trigger can be uniquely identified), which can be obtained using ``trigger.l
 .. storm-cli:: trigger.mod --help
 
 
-.. _storm-trigger-disable:
-
-trigger.disable
-+++++++++++++++
-
-The ``trigger.disable`` command disables a trigger and prevents it from firing without removing it from
-the Cortex. To disable a trigger, you must provide the first portion of the trigger's iden (i.e., enough
-of the iden that the trigger can be uniquely identified), which can be obtained using ``trigger.list``.
-
-**Syntax:**
-
-.. storm-cli:: trigger.disable --help
-
-
-.. _storm-trigger-enable:
-
-trigger.enable
-++++++++++++++
-
-The ``trigger.enable`` command enables a disabled trigger. To enable a trigger, you must provide the
-first portion of the trigger's iden (i.e., enough of the iden that the trigger can be uniquely identified),
-which can be obtained using ``trigger.list``.
-
-.. NOTE::
-
-  Triggers are enabled by default upon creation.
-
-**Syntax:**
-
-.. storm-cli:: trigger.enable --help
-
-
 .. _storm-trigger-del:
 
 trigger.del
@@ -2550,19 +2524,19 @@ specified value or combination of values.
 - Lift a set of network flow (``inet:flow``) nodes and unique (de-duplicate) them based on the source IP address:
 TODO: update to use *addr virtual prop
 
-.. storm-pre:: [ ( inet:flow=* :src=tcp://1.1.1.1 :dst=tcp://2.2.2.2 ) ( inet:flow=* :src=tcp://11.11.11.11 :dst=tcp://3.3.3.3 ) ( inet:flow=* :src=tcp://1.1.1.1 :dst=tcp://4.4.4.4 ) ( inet:flow=* :src=tcp://1.1.1.1 :dst=tcp://4.4.4.4 ) ( inet:flow=* :src=tcp://121.121.121.121 :dst=tcp://2.2.2.2 ) ]
-.. storm-pre:: inet:flow | uniq :src
+.. storm-pre:: [ ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://2.2.2.2 ) ( inet:flow=* :client=tcp://11.11.11.11 :server=tcp://3.3.3.3 ) ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://4.4.4.4 ) ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://4.4.4.4 ) ( inet:flow=* :client=tcp://121.121.121.121 :server=tcp://2.2.2.2 ) ]
+.. storm-pre:: inet:flow | uniq :client
 ::
   
-  inet:flow | uniq :src
+  inet:flow | uniq :client
 
 
 - Lift a set of network flow (``inet:flow``) nodes and de-duplicate them based on each unique combination of source and destination IP addresses:
 
-.. storm-pre:: inet:flow | uniq (:src, :dst)
+.. storm-pre:: inet:flow | uniq (:client, :server)
 ::
   
-  inet:flow | uniq (:src, :dst)
+  inet:flow | uniq (:client, :server)
 
 - Nodes can be uniqued based on variables. Alert (``risk:alert``) nodes can be categorized in various ways. This
   includes ``:priority`` and ``:severity`` properties, both of which use a set of fixed text values (e.g., "low" vs.

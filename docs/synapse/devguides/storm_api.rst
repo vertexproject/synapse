@@ -64,11 +64,11 @@ task
     The task identifier (which can be used for task cancellation).
 
 tick
-    The epoch time the query execution started (in milliseconds). This value is computed from the host time and may
+    The epoch time the query execution started (in microseconds). This value is computed from the host time and may
     be affected by any changes in the host clock.
 
 abstick
-    The relative time that the query execution started (in milliseconds). This value is computed from a monotonic
+    The relative time that the query execution started (in microseconds). This value is computed from a monotonic
     clock and can be used as a reference time.
 
 text
@@ -219,15 +219,15 @@ any sort of rollup of messages.
 It includes the following keys:
 
 tock
-    The epoch time the query execution finished (in milliseconds). This value is computed from adding the ``took``
+    The epoch time the query execution finished (in microseconds). This value is computed from adding the ``took``
     value to the ``tick`` value from the ``init`` message.
 
 took
-    The amount of time it took for the query to execute (in milliseconds). This value is computed from the ``abstick``
+    The amount of time it took for the query to execute (in microseconds). This value is computed from the ``abstick``
     and ``abstock`` values.
 
 abstock
-    The relative time that the query execution finished at (in milliseconds). This value is computed from a monotonic
+    The relative time that the query execution finished at (in microseconds). This value is computed from a monotonic
     clock and should always be equal to or greater than the ``abstick`` value from the ``init`` message.
 
 count
@@ -235,7 +235,7 @@ count
 
 Example::
 
-    ('fini', {'count': 1, 'tock': 1539221715240, 'took': 36381})
+    ('fini', {'count': 1, 'tock': 1539221715240000, 'took': 36381000})
 
 .. note::
 
@@ -480,6 +480,32 @@ Example:
     .. code:: python3
 
         opts = {'limit': 100}
+
+links
+-----
+
+If this is set to True, the packed nodes will each contain a ``links`` key, which contains an ordered list of node iden and path information tuples that were used in the
+pivot or edge walk operations to get to the node.
+
+Example:
+
+.. code:: python3
+
+   opts = {'links': True}
+
+   # A Storm node message with a node links property added to it, from the query media:news -> file:bytes -(refs)> *
+   ('node',
+    (('it:dev:str', 'foobar'),
+     {'iden': 'ee45b493c07663b3106d1423ad7f67317682779145fe2bebdeb05aa56f277346',
+      'links': [('b0fb12b120e1077f1ee47eced0460626a8fc597e044984d17fe16d55d9e5bdbb',
+                 {'prop': 'file', 'type': 'prop'}),
+                ('7c4aaec3db11fcea2114a930b76f15df8bdd9f34d9d37e6794d79b97613782f6',
+                 {'type': 'edge', 'verb': 'refs'})],
+      'nodedata': {},
+      'path': {},
+      'props': {'.created': 1753300994528, 'norm': 'foobar'},
+      'tagprops': {},
+      'tags': {}}))
 
 mode
 ----

@@ -9,7 +9,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.share as s_share
 import synapse.lib.stormsvc as s_stormsvc
 
-import synapse.tools.backup as s_tools_backup
+import synapse.tools.service.backup as s_tools_backup
 
 old_pkg = {
     'name': 'old',
@@ -165,7 +165,7 @@ class RealService(s_stormsvc.StormSvc):
             'storm': '$lib.queue.add(vertex)',
         },
         'del': {
-            'storm': '$que=$lib.queue.get(vertex) $que.put(done)',
+            'storm': '$que=$lib.queue.byname(vertex) $que.put(done)',
         },
     }
 
@@ -338,6 +338,9 @@ class StormvarServiceCell(s_cell.Cell):
                     'type': 'string',
                 },
                 'bar': {
+                    'type': 'string',
+                },
+                'name': {
                     'type': 'string',
                 },
             },
@@ -616,7 +619,7 @@ class StormSvcTest(s_test.SynTest):
                     await core.nodes('function subr(svc) { $other=$svc return() } $t=$subr($lib.service.get(prim))')
                     self.eq(refs, prim._syn_refs)
 
-                    nodes = await core.nodes('[ ps:name=$lib.service.get(prim).lower() ]')
+                    nodes = await core.nodes('[ meta:name=$lib.service.get(prim).lower() ]')
                     self.len(1, nodes)
                     self.eq(nodes[0].ndef[1], 'asdf')
 
@@ -733,7 +736,7 @@ class StormSvcTest(s_test.SynTest):
                     self.none(core.getStormCmd('ohhai'))
 
                     # ensure del event ran
-                    q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
+                    q = 'for ($o, $m) in $lib.queue.byname(vertex).gets(wait=10) {return (($o, $m))}'
                     retn = await core.callStorm(q)
                     self.eq(retn, (0, 'done'))
 
@@ -764,7 +767,7 @@ class StormSvcTest(s_test.SynTest):
                     }
                     with patchcore(core, 'setStormSvcEvents', badSetStormSvcEvents):
                         svci = await core.addStormSvc(sdef)
-                        self.true(await core.waitStormSvc('dead', timeout=6))
+                        self.true(await core.waitStormSvc('dead', timeout=12))
                         await core.delStormSvc(svci.get('iden'))
 
                     self.len(1, badiden)
@@ -776,7 +779,7 @@ class StormSvcTest(s_test.SynTest):
 
                     with patchcore(core, '_runStormSvcAdd', badRunStormSvcAdd):
                         svci = await core.addStormSvc(sdef)
-                        self.true(await core.waitStormSvc('dead', timeout=6))
+                        self.true(await core.waitStormSvc('dead', timeout=12))
                         await core.delStormSvc(svci.get('iden'))
                     self.len(1, badiden)
                     self.eq(svci.get('iden'), badiden[0])
@@ -1040,12 +1043,12 @@ class StormSvcTest(s_test.SynTest):
 
                         # Make sure it got removed from both
                         self.none(core00.getStormCmd('ohhai'))
-                        q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
+                        q = 'for ($o, $m) in $lib.queue.byname(vertex).gets(wait=10) {return (($o, $m))}'
                         retn = await core00.callStorm(q)
                         self.eq(retn, (0, 'done'))
 
                         self.none(core01.getStormCmd('ohhai'))
-                        q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
+                        q = 'for ($o, $m) in $lib.queue.byname(vertex).gets(wait=10) {return (($o, $m))}'
                         retn = await core01.callStorm(q)
                         self.eq(retn, (0, 'done'))
 

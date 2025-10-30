@@ -41,7 +41,7 @@ The ability to create or modify data on the fly gives users a powerful degree of
 
 .. TIP::
   
-  For adding data at scale, we recommend use of the Synapse :ref:`syn-tools-csvtool`, the Synapse :ref:`syn-tools-feed`
+  For adding data at scale, we recommend use of the Synapse :ref:`syn-tools-cortex-csv`, the Synapse :ref:`syn-tools-cortex-feed`
   utility, the Optic :ref:`gloss-ingest-tool`, or the programmatic ingest of data (e.g., using a :ref:`gloss-power-up`).)
 
 
@@ -190,19 +190,19 @@ conditions are met.
 The ``*unset=`` operator will only set a property when it does not already have a value to prevent overwriting
 existing data. For example:
 
-``inet:ipv4 = 1.2.3.4 [ :asn *unset= 12345 ]``
+``inet:ip = 1.2.3.4 [ :asn *unset= 12345 ]``
 
-will only set the ``:asn`` property on the ``inet:ipv4`` node if it is not already set. The conditional edit operators
+will only set the ``:asn`` property on the ``inet:ip`` node if it is not already set. The conditional edit operators
 can also be combined with the "try" operator ( ``*unset?=`` ) to prevent failures due to bad data:
 
-``inet:ipv4 = 1.2.3.4 [ :asn *unset?= invalid ]``
+``inet:ip = 1.2.3.4 [ :asn *unset?= invalid ]``
 
 Variable values may also be used to control the conditional edit behavior, and allow two more values in addition to
 ``unset``; ``always`` and ``never``. For example:
 
-``$asn = 'always' $loc = 'never' inet:ipv4 = 1.2.4.5 [ :loc *$loc= us :asn *$asn?= 12345 ]``
+``$asn = 'always' $loc = 'never' inet:ip = 1.2.4.5 [ :place:loc *$loc= us :asn *$asn?= 12345 ]``
 
-will never set the ``:loc`` property and will always attempt to set the ``:asn`` property. This behavior is useful
+will never set the ``:place:loc`` property and will always attempt to set the ``:asn`` property. This behavior is useful
 when creating Storm ingest functions where fine tuned control over specific property edit behavior is needed. Rather
 than creating variations of the same ingest function with different combinations of property set behavior, one function
 can use a dictionary of configuration options to control the edit behavior used during each execution.
@@ -297,10 +297,10 @@ Operation to add the specified node(s) to a Cortex.
 *Create multiple nodes in a single edit operation:*
 
 
-.. storm-pre:: [ inet:fqdn=woot.com inet:ip=12.34.56.78 hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
+.. storm-pre:: [ inet:fqdn=woot.com inet:ip=12.34.56.78 crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
 ::
 
-    [ inet:fqdn=woot.com inet:ip=12.34.56.78 hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
+    [ inet:fqdn=woot.com inet:ip=12.34.56.78 crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
 
 
 **Usage Notes:**
@@ -344,19 +344,10 @@ The same syntax is used to apply a new property or modify an existing property.
 *Add (or modify) a secondary property:*
 
 
-.. storm-pre:: [ inet:ip=127.0.0.1 ] [ :loc=us.oh.wilmington ]
+.. storm-pre:: [ inet:ip=127.0.0.1 ] [ :place:loc=us.oh.wilmington ]
 ::
 
-    <inet:ip> [ :loc=us.oh.wilmington ]
-
-
-*Add (or modify) a universal property:*
-
-
-.. storm-pre:: inet:dns:a [ .seen=("2017/08/01 01:23", "2017/08/01 04:56") ]
-::
-
-    <inet:dns:a> [ .seen=("2017/08/01 01:23", "2017/08/01 04:56") ]
+    <inet:ip> [ :place:loc=us.oh.wilmington ]
 
 
 **Usage Notes:**
@@ -364,8 +355,8 @@ The same syntax is used to apply a new property or modify an existing property.
 - Specifying a property will set the *<prop> = <pval>* if it does not exist, or modify (overwrite) the *<prop> = <pval>*
   if it already exists. **There is no prompt to confirm overwriting of an existing property.**
 - Storm will return an error if the inbound set of nodes contains any forms for which *<prop>* is not a valid property.
-  For example, attempting to set a ``:loc`` property when the inbound nodes contain both domains and IP addresses will
-  return an error as ``:loc`` is not a valid secondary property for a domain (``inet:fqdn``).
+  For example, attempting to set a ``:place:loc`` property when the inbound nodes contain both domains and IP addresses will
+  return an error as ``:place:loc`` is not a valid secondary property for a domain (``inet:fqdn``).
 - Properties to be set or modified **must** be specified by their relative property name. For example, for the form ``foo:bar`` with
   the property ``baz`` (i.e., ``foo:bar:baz``) the relative property name is specified as ``:baz``.
 
@@ -397,16 +388,15 @@ a more "human friendly" method.
 *Use a subquery to assign an organization's (ou:org) guid as the secondary property of a ps:contact node:*
 
 .. storm-pre:: [ ou:org=0fa690c06970d2d2ae74e43a18f46c2a :url=https://www.justice.gov/ :name="U.S. Department of Justice" ]
-.. storm-pre:: [ ps:contact=d41d8cd98f00b204e9800998ecf8427e :orgname="U.S. Department of Justice" :address="950 Pennsylvania Avenue NW, Washington, DC, 20530-0001" :phone="+1 202-514-2000" :loc="us.dc.washington" ]
-.. storm-cli:: ps:contact:orgname="U.S. Department of Justice" [ :org={ ou:org:name="U.S. Department of Justice" } ]
+.. storm-pre:: [ entity:contact=d41d8cd98f00b204e9800998ecf8427e :org:name="U.S. Department of Justice" :place:address="950 Pennsylvania Avenue NW, Washington, DC, 20530-0001" :phone="+1 202-514-2000" :place:loc="us.dc.washington" ]
+.. storm-cli:: entity:contact:org:name="U.S. Department of Justice" [ :org={ ou:org:name="U.S. Department of Justice" } ]
 
 In the example above, the subquery ``ou:org:name="U.S. Department of Justice"`` is used to lift the organization node with
-that ``:name`` property value and assign the ``ou:org`` node's guid value to the ``:org`` property of the ``ps:contact`` node.
+that ``:name`` property value and assign the ``ou:org`` node's guid value to the ``:org`` property of the ``entity:contact`` node.
 
 *Use a subquery to assign one or more industries (ou:industry) to an organization (ou:org):*
 
-.. storm-pre:: [ ou:org=2848b564bf1e68563e3fea4ce27299f3 :name=apple :names=(apple, "apple, inc.") :phone="+1 408-996-1010" :loc=us.ca.cupertino]
-.. storm-pre:: [ps:contact="*" :orgname="Apple" :address="1 Apple Park Way, Cupertino, CA 95014" :phone="+1 202-514-2000" :loc="us.ca.cupertino"]
+.. storm-pre:: [ ou:org=2848b564bf1e68563e3fea4ce27299f3 :name=apple :names=(apple, "apple, inc.") :phone="+1 408-996-1010" :place:loc=us.ca.cupertino]
 .. storm-pre:: [ ou:industry="*" :name="Computers and Electronics" ]
 .. storm-pre:: [ ou:industry="*" :name="Telecommunications" ]
 .. storm-cli:: ou:org:name=apple [ :industries+={ ou:industry:name="computers and electronics" ou:industry:name="telecommunications" } ]
@@ -448,22 +438,22 @@ Operation to delete (fully remove) one or more properties from the specified nod
 
 **Examples:**
 
-*Delete the :loc property from an inet:ip node:*
+*Delete the :place:loc property from an inet:ip node:*
 
 
-.. storm-pre:: inet:ip=127.0.0.1 [ -:loc ]
+.. storm-pre:: inet:ip=127.0.0.1 [ -:place:loc ]
 ::
 
-    <inet:ip> [ -:loc ]
+    <inet:ip> [ -:place:loc ]
 
 
-*Delete multiple properties from a media:news node:*
+*Delete multiple properties from a doc:report node:*
 
 
-.. storm-pre:: media:news [ -:author -:summary ]
+.. storm-pre:: doc:report [ -:author -:desc ]
 ::
 
-    <media:news> [ -:author -:summary ]
+    <doc:report> [ -:author -:desc ]
 
 
 **Usage Notes:**
@@ -505,30 +495,32 @@ See :ref:`data-light-edge` for details on light edges.
 
 **Examples:**
 
-*Link the specified FQDN and IP to the media:news node referenced by the Storm expression using a "refs" light edge:*
+*Link the specified FQDN and IP to the doc:report node referenced by the Storm expression using a "refs" light edge:*
 
 
-.. storm-pre:: inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { media:news=a3759709982377809f28fc0555a38193 } ]
+.. storm-pre:: inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { doc:report=a3759709982377809f28fc0555a38193 } ]
 .. storm-pre:: [inet:fqdn=newsonet.net inet:fqdn=staycools.net inet:fqdn=hugesoft.org inet:fqdn=purpledaily.com +#rep.mandiant.apt1]
 ::
 
-    inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { media:news=a3759709982377809f28fc0555a38193 } ]
+    inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { doc:report=a3759709982377809f28fc0555a38193 } ]
 
 
-*Link the specified media:news node to the set of indicators tagged APT1 (#rep.mandiant.apt1) using a "refs" (references) light edge:*
+*Link the specified doc:report node to the set of indicators tagged APT1 (#rep.mandiant.apt1) using a "refs" (references) light edge:*
 
 
-.. storm-pre:: media:news=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
+.. storm-pre:: doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
 ::
 
-    media:news=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
+    doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
 
 
 *Link the inet:whois:iprec netblock registration (whois) record to any IP address within the specified netblock range (as referenced by the Storm expression) that already exists in Synapse using an "ipwhois" light edge:*
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( inet:whois:iprec=6aa3294c11baddd193a545c6f29207d5 :name=OVH-CUST-3399212 :net:min=198.50.240.220 :net:max=198.50.240.223 ) ]
+    .. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ip=198.50.240.220-198.50.240.223 } ]
 
-.. storm-pre:: [ ( inet:whois:iprec=6aa3294c11baddd193a545c6f29207d5 :name=OVH-CUST-3399212 :net:min=198.50.240.220 :net:max=198.50.240.223 ) ]
-.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ip=198.50.240.220-198.50.240.223 } ]
 ::
 
     inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ip=198.50.240.220-198.50.240.223 } ]
@@ -536,20 +528,21 @@ See :ref:`data-light-edge` for details on light edges.
 
 *Link the inet:whois:iprec netblock registration (whois) record to every IP in the specified netblock range (as referenced by the Storm expression) using an "ipwhois" light edge, creating the IPs if they do not exist:*
 
-
-.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ip=198.50.240.220-198.50.240.223 ] } ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ip=198.50.240.220-198.50.240.223 ] } ]
 ::
 
     inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ip=198.50.240.220-198.50.240.223 ] } ]
 
 
-*Link the specified media:news node to a node contained in a variable using a  "refs" light edge:*
+*Link the specified doc:report node to a node contained in a variable using a  "refs" light edge:*
 
 
-.. storm-pre:: $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
+.. storm-pre:: $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
 ::
 
-    $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
+    $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
 
 
 **Usage Notes:**
@@ -601,31 +594,33 @@ See :ref:`data-light-edge` for details on light edges.
 
 **Examples:**
 
-*Delete the "refs" light edge linking the MD5 hash of the empty file to the specified media:news node:*
+*Delete the "refs" light edge linking the MD5 hash of the empty file to the specified doc:report node:*
 
 
-.. storm-pre:: hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { media:news=a3759709982377809f28fc0555a38193 } ]
+.. storm-pre:: crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report=a3759709982377809f28fc0555a38193 } ]
 ::
 
-    hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { media:news=a3759709982377809f28fc0555a38193 } ]
+    crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report=a3759709982377809f28fc0555a38193 } ]
 
 
 *Delete the "ipwhois" light edge linking IP 1.2.3.4 to the specified netblock registration (whois) record:*
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ip=1.2.3.4 } ]
 
-.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ip=1.2.3.4 } ]
 ::
 
     inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ip=1.2.3.4 } ]
 
 
-*Delete the "refs" light edge linking the specified media:news and a node contained in a variable:*
+*Delete the "refs" light edge linking the specified doc:report and a node contained in a variable:*
 
 
-.. storm-pre:: $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
+.. storm-pre:: $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
 ::
 
-    $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
+    $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
 
 
 **Usage Notes:**
@@ -875,10 +870,10 @@ Simple Examples
 *Create a node and add secondary properties:*
 
 
-.. storm-pre:: [ inet:ip=94.75.194.194 :loc=nl :asn=60781 ]
+.. storm-pre:: [ inet:ip=94.75.194.194 :place:loc=nl :asn=60781 ]
 ::
 
-    [ inet:ip=94.75.194.194 :loc=nl :asn=60781 ]
+    [ inet:ip=94.75.194.194 :place:loc=nl :asn=60781 ]
 
 
 *Create a node and add a tag:*

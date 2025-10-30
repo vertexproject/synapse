@@ -47,6 +47,11 @@ class HttpBadJson(s_httpapi.Handler):
     async def get(self):
         self.write(b'{"foo": "bar\x80"}')
 
+class HttpGiantHeader(s_httpapi.Handler):
+    async def get(self):
+        self.set_header('Giant', 'x' * 64_000)
+        self.write('test')
+
 class StormHttpTest(s_test.SynTest):
 
     async def test_storm_http_get(self):
@@ -60,6 +65,7 @@ class StormHttpTest(s_test.SynTest):
             core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
             core.addHttpApi('/api/v0/notjson', HttpNotJson, {'cell': core})
             core.addHttpApi('/api/v0/badjson', HttpBadJson, {'cell': core})
+            core.addHttpApi('/api/v0/giantheader', HttpGiantHeader, {'cell': core})
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
             status_url = f'https://127.0.0.1:{port}/api/v1/status'
             opts = {'vars': {'url': url, 'port': port, 'status_url': status_url}}
@@ -198,16 +204,16 @@ class StormHttpTest(s_test.SynTest):
             badopts = {'vars': {'url': badurl}}
             q = '''
             $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
-            return ( $resp.json() )
+            return ( $resp.json(strict=(true)) )
             '''
             with self.raises(s_exc.StormRuntimeError) as cm:
                 resp = await core.callStorm(q, opts=badopts)
 
             q = '''
             $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
-            return ( $resp.json(encoding=utf8, errors=ignore) )
+            return ( $resp.json(encoding=utf8) )
             '''
-            self.eq({"foo": "bar"}, await core.callStorm(q, opts=badopts))
+            self.eq({"foo": "bar�"}, await core.callStorm(q, opts=badopts))
 
             retn = await core.callStorm('return($lib.inet.http.codereason(404))')
             self.eq(retn, 'Not Found')
@@ -272,6 +278,16 @@ class StormHttpTest(s_test.SynTest):
             resp = await core.callStorm(q, opts=opts)
             self.isinstance(resp, tuple)
             self.len(0, resp)
+
+            gianturl = f'https://root:root@127.0.0.1:{port}/api/v0/giantheader'
+            giantopts = {'vars': {'url': gianturl}}
+            q = '''
+            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            return ( $resp )
+            '''
+            resp = await core.callStorm(q, opts=giantopts)
+            self.eq(resp['body'], b'test')
+            self.len(64_000, resp['headers'].get('Giant'))
 
     async def test_storm_http_inject_ca(self):
 
@@ -473,6 +489,19 @@ class StormHttpTest(s_test.SynTest):
             data = resp.get('result')
             self.eq(data.get('params'), {'foo': ['bar', 'baz'], 'key': ["('valu',)"]})
 
+            # headers are safe to serialize
+            q = '''
+            $headers = ({'Foo': 'Bar'})
+            $resp = $lib.inet.http.request(GET, $url, headers=$headers, ssl_verify=$lib.false)
+            return ( ($lib.json.save($resp.headers), $lib.json.save($resp.request_headers)) )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            (headers, req_headers) = resp
+            headers = s_json.loads(headers)
+            self.eq(headers.get('Content-Type'), 'application/json; charset=UTF-8')
+            req_headers = s_json.loads(req_headers)
+            self.eq(req_headers.get('Foo'), 'Bar')
+
     async def test_storm_http_post(self):
 
         async with self.getTestCore() as core:
@@ -481,7 +510,7 @@ class StormHttpTest(s_test.SynTest):
             await root.setPasswd('root')
 
             adduser = '''
-                $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/auth/adduser", port=$port)
+                $url = `https://root:root@127.0.0.1:{$port}/api/v1/auth/adduser`
                 $user = ({"name": $name, "passwd": $passwd})
                 $post = $lib.inet.http.post($url, json=$user, ssl_verify=$(0)).json().result.name
                 $lib.print($post)
@@ -493,8 +522,8 @@ class StormHttpTest(s_test.SynTest):
             self.assertIn('foo', [u.name for u in core.auth.users()])
 
             adduser = '''
-                $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/auth/adduser", port=$port)
-                $user = $lib.str.format('{"name": "{name}", "passwd": "{passwd}"}', name=$name, passwd=$passwd)
+                $url = `https://root:root@127.0.0.1:{$port}/api/v1/auth/adduser`
+                $user = $lib.json.save( ({"name": $name, "passwd": $passwd}) )
                 $header = ({"Content-Type": "application/json"})
                 $post = $lib.inet.http.post($url, headers=$header, body=$user,  ssl_verify=$(0)).json().result.name
                 [ test:str=$post ]
@@ -573,7 +602,7 @@ class StormHttpTest(s_test.SynTest):
             root = await core.auth.getUserByName('root')
             await root.setPasswd('root')
             text = '''
-            $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/storm", port=$port)
+            $url = `https://root:root@127.0.0.1:{$port}/api/v1/storm`
             $stormq = "($size, $sha2) = $lib.axon.put($lib.base64.decode('dmVydGV4')) [ test:str = $sha2 ] [ test:int = $size ]"
             $json = ({"query": $stormq})
             $bytez = $lib.inet.http.post($url, json=$json, ssl_verify=$(0))
@@ -589,7 +618,7 @@ class StormHttpTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:int', 6))
 
             text = '''
-            $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/storm", port=$port)
+            $url = `https://root:root@127.0.0.1:{$port}/api/v1/storm`
             $json = ({"query": "test:str"})
             $body = $json
             $resp=$lib.inet.http.post($url, json=$json, body=$body, ssl_verify=$(0))
@@ -618,9 +647,9 @@ class StormHttpTest(s_test.SynTest):
             self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
 
             q = '$resp=$lib.inet.http.get("http://vertex.link") return(($resp.code, $resp.err))'
-            code, (errname, _) = await core.callStorm(q)
+            code, (errname, errinfo) = await core.callStorm(q)
             self.eq(code, -1)
-            self.eq('ProxyConnectionError', errname)
+            self.isin("connect to proxy 127.0.0.1:1", errinfo.get('mesg'))
 
             msgs = await core.stormlist('$resp=$lib.inet.http.get("http://vertex.link", proxy=(null)) $lib.print($resp.err)')
             self.stormIsInErr('HTTP proxy argument must be a string or bool.', msgs)
@@ -644,7 +673,7 @@ class StormHttpTest(s_test.SynTest):
             self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             resp = await core.callStorm('return($lib.inet.http.get(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
-            self.eq('ProxyConnectionError', resp['err'][0])
+            self.isin("connect to proxy 127.0.0.1:1", resp['err'][1].get('mesg'))
 
             # test $lib.axon proxy API
             asvisi = {'user': visi.iden}
@@ -723,13 +752,13 @@ class StormHttpTest(s_test.SynTest):
             opts = {'vars': {'proxy': 'socks5://user:pass@127.0.0.1:1'}, 'user': visi.iden}
 
             resp = await core.callStorm(q1, opts=opts)
-            self.eq('ProxyConnectionError', resp['err'][0])
+            self.isin("connect to proxy 127.0.0.1:1", resp['err'][1].get('mesg'))
 
             resp = await core.callStorm(q2, opts=opts)
-            self.eq('ProxyConnectionError', resp['err'][0])
+            self.isin("connect to proxy 127.0.0.1:1", resp['err'][1].get('mesg'))
 
             resp = await core.callStorm(q3, opts=opts)
-            self.eq('ProxyConnectionError', resp['err'][0])
+            self.isin("connect to proxy 127.0.0.1:1", resp['err'][1].get('mesg'))
 
             opts = {'vars': {'proxy': False}, 'user': visi.iden}
 
@@ -755,7 +784,7 @@ class StormHttpTest(s_test.SynTest):
             mesg = await core.callStorm('''
                 $params = ( { "param1": "somevalu" } )
                 $hdr = ( { "key": $lib.false } )
-                $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
+                $url = `https://127.0.0.1:{$port}/test/ws`
 
                 ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
                 if (not $ok) { $lib.exit($sock) }
@@ -771,7 +800,7 @@ class StormHttpTest(s_test.SynTest):
 
             mesg = await core.callStorm('''
                 $hdr = ( { "key": $lib.false } )
-                $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
+                $url = `https://127.0.0.1:{$port}/test/ws`
 
                 ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr, ssl_verify=$lib.false)
                 if (not $ok) { $lib.exit($sock) }
@@ -785,7 +814,7 @@ class StormHttpTest(s_test.SynTest):
             self.none(mesg.get('params'))
 
             query = '''
-            $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
+            $url = `https://127.0.0.1:{$port}/test/ws`
 
             ($ok, $sock) = $lib.inet.http.connect($url, proxy=$proxy, ssl_verify=$lib.false)
             if (not $ok) { $lib.exit($sock) }

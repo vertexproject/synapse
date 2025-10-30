@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 from unittest import mock
 
 import synapse.exc as s_exc
@@ -61,7 +62,7 @@ class SampleNexus2(SampleNexus, SampleMixin):
 
 class NexusTest(s_t_utils.SynTest):
 
-    async def test_nexus(self):
+    async def test_nexus_base(self):
 
         with self.getTestDir() as dirn:
             dir1 = s_common.genpath(dirn, 'nexus1')
@@ -110,6 +111,19 @@ class NexusTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     self.isin('while replaying log', stream.read())
+
+                    nexsindx = nexus1.nexsroot.nexslog.index()
+
+                    async def listen():
+                        async for item in nexus1.getNexusChanges(nexsindx, wait=True):
+                            break
+                        return item
+
+                    task = nexus1.schedCoro(listen())
+                    self.eq('foo', await nexus1.doathing(eventdict))
+                    offs, item = await asyncio.wait_for(task, timeout=12)
+                    self.eq(offs, nexsindx)
+                    self.eq(item[1], 'thing:doathing')
 
     async def test_nexus_modroot(self):
 
@@ -208,7 +222,7 @@ class NexusTest(s_t_utils.SynTest):
                     for x in range(3):
                         vdef = {'layers': (deflayr,), 'name': f'someview{x}'}
                         with self.raises(TimeoutError):
-                            await s_common.wait_for(core.addView(vdef), 0.1)
+                            await asyncio.wait_for(core.addView(vdef), 0.1)
 
                 await core.nexsroot.waitOffs(strt + 3, timeout=2)
 
@@ -336,19 +350,40 @@ class NexusTest(s_t_utils.SynTest):
         evnt = asyncio.Event()
 
         async with self.getTestCore() as core:
-            orig = core._nexshands['view:delwithlayer'][0]
-
-            async def holdlock(self, viewiden, layriden, nexsitem, newparent=None):
-                evnt.set()
-                await asyncio.sleep(1)
-                await orig(self, viewiden, layriden, nexsitem, newparent=newparent)
-
-            core._nexshands['view:delwithlayer'] = (holdlock, True)
-
             forkiden = await core.callStorm('return($lib.view.get().fork().iden)')
 
-            core.schedCoro(core.delViewWithLayer(forkiden))
-            await asyncio.wait_for(evnt.wait(), timeout=10)
+            # Remove the nexus handler for the fork's write layer to simulate a view delete/edit race
+            layriden = core.getView(forkiden).layers[0].iden
+            layr = core.nexsroot._nexskids.pop(layriden)
 
-            with self.raises(s_exc.NoSuchLayer):
+            with self.raises(s_exc.NoSuchIden):
                 await core.nodes('[ it:dev:str=foo ]', opts={'view': forkiden})
+
+            core.nexsroot._nexskids[layriden] = layr
+
+    async def test_nexus_iter(self):
+        async with self.getTestCell(conf={'nexslog:en': True}) as cell:
+            await cell.sync()
+
+            # Force nexus events to be added while constructing a Window
+            orig = s_nexus.NexsRoot.getMirrorWindow
+
+            @contextlib.asynccontextmanager
+            async def slowwindow(self):
+                await cell.sync()
+                async with orig(self) as wind:
+                    await cell.sync()
+                    yield wind
+
+            items = []
+            with mock.patch('synapse.lib.nexus.NexsRoot.getMirrorWindow', slowwindow):
+                async with cell.getLocalProxy() as prox:
+                    async for indx, item in prox.getNexusChanges(0):
+                        items.append(indx)
+                        if indx == 2:
+                            await cell.sync()
+                        elif indx == 3:
+                            break
+
+            # We didn't miss or duplicate items added during window construction
+            self.eq([0, 1, 2, 3], items)

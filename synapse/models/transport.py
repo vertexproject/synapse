@@ -14,7 +14,9 @@ modeldefs = (
                 'doc': 'A trip such as a flight or train ride.'}),
 
             ('transport:stop', ('guid', {}), {
-                'interfaces': ('transport:schedule',),
+                'interfaces': (
+                    ('transport:schedule', {}),
+                ),
                 'doc': 'A stop made by a vehicle on a trip.'}),
 
             ('transport:container', ('ndef', {'interface': 'transport:container'}), {
@@ -27,19 +29,25 @@ modeldefs = (
                 'doc': 'An occupant of a vehicle on a trip.'}),
 
             ('transport:occupant:role:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A taxonomy of transportation occupant roles.'}),
 
             ('transport:direction', ('hugenum', {'modulo': 360}), {
                 'doc': 'A direction measured in degrees with 0.0 being true North.'}),
 
             ('transport:land:vehicle:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A type taxonomy for land vehicles.'}),
 
             ('transport:land:vehicle', ('guid', {}), {
-                'interfaces': ('transport:vehicle',),
-                'template': {'phys:object': 'vehicle'},
+                'template': {'title': 'vehicle'},
+                'interfaces': (
+                    ('transport:vehicle', {}),
+                ),
                 'doc': 'An individual land based vehicle.'}),
 
             ('transport:land:registration', ('guid', {}), {
@@ -49,25 +57,33 @@ modeldefs = (
                 'doc': 'A license to operate a land vehicle issued to a contact.'}),
 
             ('transport:air:craft:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of aircraft types.'}),
 
             ('transport:land:drive', ('guid', {}), {
-                'interfaces': ('transport:trip',),
-                'template': {
-                    'trip': 'drive',
-                    'gate': 'docking bay',
-                    'place': 'place',
-                    'vehicle': 'vehicle'},
+                'interfaces': (
+                    ('transport:trip', {
+                        'template': {
+                            'trip': 'drive',
+                            'gate': 'docking bay',
+                            'place': 'place',
+                            'vehicle': 'vehicle'}}),
+                ),
                 'doc': 'A drive taken by a land vehicle.'}),
 
             ('transport:air:craft', ('guid', {}), {
-                'interfaces': ('transport:vehicle',),
-                'template': {'phys:object': 'aircraft'},
+                'template': {'title': 'aircraft'},
+                'interfaces': (
+                    ('transport:vehicle', {}),
+                ),
                 'doc': 'An individual aircraft.'}),
 
             ('transport:air:tailnum:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of aircraft registration number types.'}),
 
             ('transport:air:tailnum', ('str', {'lower': True, 'strip': True, 'regex': '^[a-z0-9-]{2,}$'}), {
@@ -79,27 +95,36 @@ modeldefs = (
                 'ex': 'ua2437'}),
 
             ('transport:air:telem', ('guid', {}), {
+                'interfaces': (
+                    ('geo:locatable', {'template': {'title': 'telemetry sample'}}),
+                ),
                 'doc': 'A telemetry sample from an aircraft in transit.'}),
 
             ('transport:air:flight', ('guid', {}), {
-                'interfaces': ('transport:trip',),
-                'template': {
-                    'trip': 'flight',
-                    'point': 'gate',
-                    'place': 'airport',
-                    'vehicle': 'aircraft'},
+                'interfaces': (
+                    ('transport:trip', {
+                        'template': {
+                            'trip': 'flight',
+                            'point': 'gate',
+                            'place': 'airport',
+                            'vehicle': 'aircraft'}}),
+                ),
                 'doc': 'An individual instance of a flight.'}),
 
             ('transport:air:port', ('str', {'lower': True}), {
                 'doc': 'An IATA assigned airport code.'}),
 
             ('transport:sea:vessel:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of sea vessel types.'}),
 
             ('transport:sea:vessel', ('guid', {}), {
-                'interfaces': ('transport:vehicle',),
-                'template': {'phys:object': 'vessel'},
+                'template': {'title': 'vessel'},
+                'interfaces': (
+                    ('transport:vehicle', {}),
+                ),
                 'doc': 'An individual sea vessel.'}),
 
             ('transport:sea:mmsi', ('str', {'regex': '[0-9]{9}'}), {
@@ -109,82 +134,98 @@ modeldefs = (
                 'doc': 'An International Maritime Organization registration number.'}),
 
             ('transport:sea:telem', ('guid', {}), {
+                'interfaces': (
+                    ('geo:locatable', {'template': {'title': 'telemetry sample'}}),
+                ),
                 'doc': 'A telemetry sample from a vessel in transit.'}),
 
             ('transport:rail:train', ('guid', {}), {
-                'interfaces': ('transport:trip',),
-                'template': {
-                    'point': 'gate',
-                    'place': 'station',
-                    'trip': 'train trip',
-                    'vehicle': 'train'},
+                'interfaces': (
+                    ('transport:trip', {
+                        'template': {
+                            'point': 'gate',
+                            'place': 'station',
+                            'trip': 'train trip',
+                            'vehicle': 'train'}}),
+                ),
                 'doc': 'An individual instance of a consist of train cars running a route.'}),
 
             ('transport:rail:car:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'ex': 'engine.diesel',
                 'doc': 'A hierarchical taxonomy of rail car types.'}),
 
             ('transport:rail:car', ('guid', {}), {
-                'interfaces': ('transport:container',),
-                'template': {'phys:object': 'train car'},
+                'template': {'title': 'train car'},
+                'interfaces': (
+                    ('transport:container', {}),
+                ),
                 'doc': 'An individual train car.'}),
 
             ('transport:rail:consist', ('guid', {}), {
-                'interfaces': ('transport:vehicle',),
-                'template': {'phys:object': 'train'},
+                'template': {'title': 'train'},
+                'interfaces': (
+                    ('transport:vehicle', {}),
+                ),
                 'doc': 'A group of rail cars and locomotives connected together.'}),
 
             ('transport:shipping:container', ('guid', {}), {
-                'interfaces': ('transport:container',),
-                'template': {'phys:object': 'shipping container'},
+                'template': {'title': 'shipping container'},
+                'interfaces': (
+                    ('transport:container', {}),
+                ),
                 'doc': 'An individual shipping container.'}),
 
         ),
         'interfaces': (
 
             ('transport:container', {
-                'interfaces': ('phys:object',),
+                'interfaces': (
+                    ('phys:object', {}),
+                ),
                 'doc': 'Properties common to a container used to transport cargo or people.',
                 'props': (
 
                     ('built', ('time', {}), {
-                        'doc': 'The date when the {phys:object} was built.'}),
+                        'doc': 'The date when the {title} was built.'}),
 
-                    ('manufacturer', ('ou:org', {}), {
-                        'doc': 'The organization which manufactured the {phys:object}.'}),
+                    ('manufacturer', ('entity:actor', {}), {
+                        'doc': 'The organization which manufactured the {title}.'}),
 
-                    ('manufacturer:name', ('ou:name', {}), {
-                        'doc': 'The name of the organization which manufactured the {phys:object}.'}),
+                    ('manufacturer:name', ('meta:name', {}), {
+                        'doc': 'The name of the organization which manufactured the {title}.'}),
 
-                    ('model', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The model of the {phys:object}.'}),
+                    ('model', ('base:name', {}), {
+                        'doc': 'The model of the {title}.'}),
 
-                    ('serial', ('str', {'strip': True}), {
-                        'doc': 'The manufacturer assigned serial number of the {phys:object}.'}),
+                    ('serial', ('base:id', {}), {
+                        'doc': 'The manufacturer assigned serial number of the {title}.'}),
 
                     ('max:occupants', ('int', {'min': 0}), {
-                        'doc': 'The maximum number of occupants the {phys:object} can hold.'}),
+                        'doc': 'The maximum number of occupants the {title} can hold.'}),
 
                     ('max:cargo:mass', ('mass', {}), {
-                        'doc': 'The maximum mass the {phys:object} can carry as cargo.'}),
+                        'doc': 'The maximum mass the {title} can carry as cargo.'}),
 
                     ('max:cargo:volume', ('geo:dist', {}), {
-                        'doc': 'The maximum volume the {phys:object} can carry as cargo.'}),
+                        'doc': 'The maximum volume the {title} can carry as cargo.'}),
 
-                    # TODO deprecate for entity:ownership?
-                    ('owner', ('ps:contact', {}), {
-                        'doc': 'The contact information of the owner of the {phys:object}.'}),
+                    # FIXME ownership interface?
+                    ('owner', ('entity:actor', {}), {
+                        'doc': 'The contact information of the owner of the {title}.'}),
                 ),
             }),
             # most containers are vehicles, but some are not...
             ('transport:vehicle', {
-                'interfaces': ('transport:container',),
-                'templates': {'phys:object': 'vehicle'},
+                'interfaces': (
+                    ('transport:container', {}),
+                ),
                 'doc': 'Properties common to a vehicle.',
                 'props': (
-                    ('operator', ('ps:contact', {}), {
-                        'doc': 'The contact information of the operator of the {phys:object}.'}),
+                    ('operator', ('entity:actor', {}), {
+                        'doc': 'The contact information of the operator of the {title}.'}),
                 ),
             }),
 
@@ -245,8 +286,9 @@ modeldefs = (
             ('transport:trip', {
                 # train, flight, drive, launch...
                 'doc': 'Properties common to a specific trip taken by a vehicle.',
-                'interfaces': ('transport:schedule',),
-
+                'interfaces': (
+                    ('transport:schedule', {}),
+                ),
                 'props': (
 
                     ('status', ('str', {'enums': 'scheduled,cancelled,in-progress,completed,aborted,failed,unknown'}), {
@@ -261,7 +303,7 @@ modeldefs = (
                     ('cargo:volume', ('geo:dist', {}), {
                         'doc': 'The cargo volume carried by the {vehicle} on this {trip}.'}),
 
-                    ('operator', ('ps:contact', {}), {
+                    ('operator', ('entity:actor', {}), {
                         'doc': 'The contact information of the operator of the {trip}.'}),
 
                     ('vehicle', ('transport:vehicle', {}), {
@@ -282,36 +324,50 @@ modeldefs = (
             ('transport:land:drive', {}, ()),
 
             ('transport:land:license', {}, (
-                ('id', ('str', {'strip': True}), {
+
+                ('id', ('meta:id', {}), {
                     'doc': 'The license ID.'}),
+
                 # TODO type ( drivers license, commercial trucking, etc? )
-                ('contact', ('ps:contact', {}), {
+                ('contact', ('entity:actor', {}), {
                     'doc': 'The contact info of the licensee.'}),
+
                 ('issued', ('time', {}), {
                     'doc': 'The time the license was issued.'}),
+
                 ('expires', ('time', {}), {
                     'doc': 'The time the license expires.'}),
+
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The org which issued the license.'}),
-                ('issuer:name', ('ou:name', {}), {
+
+                ('issuer:name', ('meta:name', {}), {
                     'doc': 'The name of the org which issued the license.'}),
             )),
             ('transport:land:registration', {}, (
-                ('id', ('str', {'strip': True}), {
+
+                ('id', ('meta:id', {}), {
                     'doc': 'The vehicle registration ID or license plate.'}),
-                ('contact', ('ps:contact', {}), {
+
+                ('contact', ('entity:actor', {}), {
                     'doc': 'The contact info of the registrant.'}),
+
                 ('license', ('transport:land:license', {}), {
                     'doc': 'The license used to register the vehicle.'}),
+
                 ('issued', ('time', {}), {
                     'doc': 'The time the vehicle registration was issued.'}),
+
                 ('expires', ('time', {}), {
                     'doc': 'The time the vehicle registration expires.'}),
+
                 ('vehicle', ('transport:land:vehicle', {}), {
                     'doc': 'The vehicle being registered.'}),
+
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The org which issued the registration.'}),
-                ('issuer:name', ('ou:name', {}), {
+
+                ('issuer:name', ('meta:name', {}), {
                     'doc': 'The name of the org which issued the registration.'}),
             )),
 
@@ -341,26 +397,34 @@ modeldefs = (
                     'doc': 'The type of aircraft.'}),
             )),
             ('transport:air:port', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the airport.'}),
+
                 ('place', ('geo:place', {}), {
                     'doc': 'The place where the IATA airport code is assigned.'}),
             )),
             ('transport:air:tailnum:type:taxonomy', {}, ()),
             ('transport:air:tailnum', {}, (
+
                 ('loc', ('loc', {}), {
                     'doc': 'The geopolitical location that the tailnumber is allocated to.'}),
+
                 ('type', ('transport:air:tailnum:type:taxonomy', {}), {
                     'doc': 'A type which may be specific to the country prefix.'}),
             )),
             ('transport:air:flightnum', {}, (
+
                 ('carrier', ('ou:org', {}), {
                     'doc': 'The org which operates the given flight number.'}),
+
                 ('to:port', ('transport:air:port', {}), {
                     'doc': 'The most recently registered destination for the flight number.'}),
+
                 ('from:port', ('transport:air:port', {}), {
                     'doc': 'The most recently registered origin for the flight number.'}),
-                ('stops', ('array', {'type': 'transport:air:port'}), {
+
+                ('stops', ('array', {'type': 'transport:air:port', 'uniq': False, 'sorted': False}), {
                     'doc': 'An ordered list of aiport codes for the flight segments.'}),
             )),
             ('transport:air:flight', {}, (
@@ -372,30 +436,25 @@ modeldefs = (
                     'doc': 'The tail/registration number at the time the aircraft flew this flight.'}),
             )),
             ('transport:air:telem', {}, (
+
                 ('flight', ('transport:air:flight', {}), {
                     'doc': 'The flight being measured.'}),
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The lat/lon of the aircraft at the time.'}),
-                ('loc', ('loc', {}), {
-                    'doc': 'The location of the aircraft at the time.'}),
-                ('place', ('geo:place', {}), {
-                    'doc': 'The place that the lat/lon geocodes to.'}),
-                ('accuracy', ('geo:dist', {}), {
-                    'doc': 'The horizontal accuracy of the latlong sample.'}),
+
                 ('course', ('transport:direction', {}), {
                     'doc': 'The direction, in degrees from true North, that the aircraft is traveling.'}),
+
                 ('heading', ('transport:direction', {}), {
                     'doc': 'The direction, in degrees from true North, that the nose of the aircraft is pointed.'}),
+
                 ('speed', ('velocity', {}), {
                     'doc': 'The ground speed of the aircraft at the time.'}),
+
                 ('airspeed', ('velocity', {}), {
                     'doc': 'The air speed of the aircraft at the time.'}),
+
                 ('verticalspeed', ('velocity', {'relative': True}), {
                     'doc': 'The relative vertical speed of the aircraft at the time.'}),
-                ('altitude', ('geo:altitude', {}), {
-                    'doc': 'The altitude of the aircraft at the time.'}),
-                ('altitude:accuracy', ('geo:dist', {}), {
-                    'doc': 'The vertical accuracy of the altitude measurement.'}),
+
                 ('time', ('time', {}), {
                     'doc': 'The time the telemetry sample was taken.'})
             )),
@@ -409,62 +468,62 @@ modeldefs = (
                 ('type', ('transport:sea:vessel:type:taxonomy', {}), {
                     'doc': 'The type of vessel.'}),
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the vessel.'}),
 
-                ('beam', ('geo:dist', {}), {
-                    'doc': 'The official overall vessel beam.'}),
-
-                ('flag', ('iso:3166:cc', {}), {
+                ('flag', ('iso:3166:alpha2', {}), {
                     'doc': 'The country the vessel is flagged to.'}),
 
                 ('mmsi', ('transport:sea:mmsi', {}), {
                     'doc': 'The Maritime Mobile Service Identifier assigned to the vessel.'}),
 
-                ('operator', ('ps:contact', {}), {
+                ('operator', ('entity:actor', {}), {
                     'doc': 'The contact information of the operator.'}),
                 # TODO tonnage / gross tonnage?
             )),
+
             ('transport:sea:telem', {}, (
+
                 ('vessel', ('transport:sea:vessel', {}), {
                     'doc': 'The vessel being measured.'}),
+
                 ('time', ('time', {}), {
                     'doc': 'The time the telemetry was sampled.'}),
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The lat/lon of the vessel at the time.'}),
-                ('loc', ('loc', {}), {
-                    'doc': 'The location of the vessel at the time.'}),
-                ('place', ('geo:place', {}), {
-                    'doc': 'The place that the lat/lon geocodes to.'}),
-                ('accuracy', ('geo:dist', {}), {
-                    'doc': 'The horizontal accuracy of the latlong sample.'}),
+
                 ('course', ('transport:direction', {}), {
                     'doc': 'The direction, in degrees from true North, that the vessel is traveling.'}),
+
                 ('heading', ('transport:direction', {}), {
                     'doc': 'The direction, in degrees from true North, that the bow of the vessel is pointed.'}),
+
                 ('speed', ('velocity', {}), {
                     'doc': 'The speed of the vessel at the time.'}),
+
                 ('draft', ('geo:dist', {}), {
                     'doc': 'The keel depth at the time.'}),
+
                 ('airdraft', ('geo:dist', {}), {
                     'doc': 'The maximum height of the ship from the waterline.'}),
+
                 ('destination', ('geo:place', {}), {
                     'doc': 'The fully resolved destination that the vessel has declared.'}),
-                ('destination:name', ('geo:name', {}), {
+
+                ('destination:name', ('meta:name', {}), {
                     'doc': 'The name of the destination that the vessel has declared.'}),
+
                 ('destination:eta', ('time', {}), {
                     'doc': 'The estimated time of arrival that the vessel has declared.'}),
             )),
 
             ('transport:rail:consist', {}, (
 
-                ('cars', ('array', {'type': 'transport:rail:car', 'uniq': True}), {
+                ('cars', ('array', {'type': 'transport:rail:car', 'sorted': False}), {
                     'doc': 'The rail cars, including locomotives, which compose the consist.'}),
             )),
 
             ('transport:rail:train', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The ID assigned to the train.'}),
             )),
 
@@ -480,7 +539,7 @@ modeldefs = (
                 ('role', ('transport:occupant:role:taxonomy', {}), {
                     'doc': 'The role of the occupant such as captain, crew, passenger.'}),
 
-                ('contact', ('ps:contact', {}), {
+                ('contact', ('entity:individual', {}), {
                     'doc': 'Contact information of the occupant.'}),
 
                 ('trip', ('transport:trip', {}), {
@@ -492,17 +551,15 @@ modeldefs = (
                 ('seat', ('str', {'strip': True}), {
                     'doc': 'The seat which the occupant sat in. Likely in a vehicle specific format.'}),
 
-                ('boarded', ('time', {}), {
-                    'doc': 'The time when the occupant boarded the vehicle.'}),
+                ('period', ('ival', {}), {
+                    'prevnames': ('boarded', 'disembarked'),
+                    'doc': 'The period when the occupant was aboard the vehicle.'}),
 
                 ('boarded:place', ('geo:place', {}), {
                     'doc': 'The place where the occupant boarded the vehicle.'}),
 
                 ('boarded:point', ('transport:point', {}), {
                     'doc': 'The boarding point such as an airport gate or train platform.'}),
-
-                ('disembarked', ('time', {}), {
-                    'doc': 'The time when the occupant disembarked from the vehicle.'}),
 
                 ('disembarked:place', ('geo:place', {}), {
                     'doc': 'The place where the occupant disembarked the vehicle.'}),
@@ -525,17 +582,15 @@ modeldefs = (
                 ('container', ('transport:container', {}), {
                     'doc': 'The container in which the cargo was shipped.'}),
 
-                ('loaded', ('time', {}), {
-                    'doc': 'The time when the cargo was loaded.'}),
+                ('period', ('ival', {}), {
+                    'prevnames': ('loaded', 'unloaded'),
+                    'doc': 'The period when the cargo was loaded in the vehicle.'}),
 
                 ('loaded:place', ('geo:place', {}), {
                     'doc': 'The place where the cargo was loaded.'}),
 
                 ('loaded:point', ('transport:point', {}), {
                     'doc': 'The point where the cargo was loaded such as an airport gate or train platform.'}),
-
-                ('unloaded', ('time', {}), {
-                    'doc': 'The time when the cargo was unloaded.'}),
 
                 ('unloaded:place', ('geo:place', {}), {
                     'doc': 'The place where the cargo was unloaded.'}),

@@ -1,4 +1,3 @@
-import os
 import synapse.exc as s_exc
 import synapse.tests.utils as s_test
 
@@ -19,6 +18,9 @@ class StormLibEnvTest(s_test.SynTest):
                 msgs = await core.stormlist('$lib.print($lib.env)')
                 self.stormIsInPrint("{'SYN_STORM_ENV_WOOT': 'woot'}", msgs)
 
+                self.true(await core.callStorm("return(('SYN_STORM_ENV_WOOT' in $lib.env))"))
+                self.false(await core.callStorm("return(('SYN_STORM_ENV_NEWP' in $lib.env))"))
+
                 visi = await core.auth.addUser('visi')
 
                 opts = {'user': visi.iden}
@@ -30,3 +32,6 @@ class StormLibEnvTest(s_test.SynTest):
 
                 with self.raises(s_exc.BadArg):
                     await core.callStorm('return($lib.env.USER)')
+
+                with self.raises(s_exc.BadArg):
+                    await core.callStorm("return(('USER' in $lib.env))")

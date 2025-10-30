@@ -6,16 +6,16 @@ import lark  # type: ignore
 import regex  # type: ignore
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
-import synapse.lib.datfile as s_datfile
 
 # TL;DR:  *rules* are the internal nodes of an abstract syntax tree (AST), *terminals* are the leaves
 
-# Note: this file is coupled strongly to synapse/lib/storm.lark.  Any changes to that file will probably require
+# Note: this file is coupled strongly to synapse/data/lark/storm.lark.  Any changes to that file will probably require
 # changes here
 
 # For easier-to-understand syntax errors
@@ -27,8 +27,7 @@ terminalEnglishMap = {
     'BASEPROP': 'base property name',
     'BOOL': 'boolean',
     'BREAK': 'break',
-    'BYNAME': 'named comparison operator name',
-    'BYNAMECMPR': 'named comparison operator cmpr',
+    'BYNAME': 'named comparison operator',
     'CATCH': 'catch',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
@@ -45,7 +44,6 @@ terminalEnglishMap = {
     'CPPCOMMENT': 'c++ comment',
     'DEFAULTCASE': 'default case',
     'DOLLAR': '$',
-    'DOT': '.',
     'DOUBLEQUOTEDSTRING': 'double-quoted string',
     'ELIF': 'elif',
     'EMBEDPROPS': 'absolute property name with embed properties',
@@ -76,19 +74,20 @@ terminalEnglishMap = {
     'MODSET': '+= or -=',
     'MODSETMULTI': '++= or --=',
     'NONQUOTEWORD': 'unquoted value',
+    'NOTIN': 'not in',
     'NOTOP': 'not',
     'NULL': 'null',
     'NUMBER': 'number',
     'OCTNUMBER': 'number',
     'OR': 'or',
     'PROPS': 'absolute property name',
+    'QMARK': '?',
     'RBRACE': '}',
     'RELNAME': 'relative property name',
     'EXPRRELNAME': 'relative property name',
     'RPAR': ')',
     'RSQB': ']',
     'RSQBNOSPACE': ']',
-    'SETTAGOPER': '?',
     'SINGLEQUOTEDSTRING': 'single-quoted string',
     'SWITCH': 'switch',
     'TAGSEGNOVAR': 'non-variable tag segment',
@@ -97,9 +96,7 @@ terminalEnglishMap = {
     'TRYSET': '?=',
     'TRYMODSET': '?+= or ?-=',
     'TRYMODSETMULTI': '?++= or ?--=',
-    'UNIVNAME': 'universal property',
     'UNSET': 'unset',
-    'EXPRUNIVNAME': 'universal property',
     'VARTOKN': 'variable',
     'EXPRVARTOKN': 'variable',
     'VIRTNAME': 'virtual prop name',
@@ -111,10 +108,13 @@ terminalEnglishMap = {
     'WILDTAGSEGNOVAR': 'tag segment potentially with asterisks',
     'YIELD': 'yield',
     '_ARRAYCONDSTART': '*[',
-    '_BYVIRT': '*',
+    '_BACKTICK': '`',
     '_COLONDOLLAR': ':$',
     '_COLONNOSPACE': ':',
+    '_COLONPAREN': ':(',
     '_DEREF': '*',
+    '_DOTSPACE': '.',
+    '_DOTNOSPACE': '.',
     '_EDGEADDN1INIT': '+(',
     '_EDGEADDN2FINI': ')+',
     '_EDGEN1FINI': ')>',
@@ -125,6 +125,7 @@ terminalEnglishMap = {
     '_EDGEN2JOININIT': '<+(',
     '_ELSE': 'else',
     '_EMBEDQUERYSTART': '${',
+    '_EXPRBACKTICK': '`',
     '_EXPRCOLONNOSPACE': ':',
     '_EMIT': 'emit',
     '_EMPTY': 'empty',
@@ -324,6 +325,18 @@ class AstConverter(lark.Transformer):
         return s_ast.List(astinfo, kids=newkids)
 
     @lark.v_args(meta=True)
+    def stormfunc(self, meta, kids):
+        kids = self._convert_children(kids)
+
+        varname = kids[0].value()
+        if varname in ('lib', 'node', 'path'):
+            mesg = f'Assignment to reserved variable ${varname} is not allowed.'
+            self.raiseBadSyntax(mesg, kids[0].astinfo)
+
+        astinfo = self.metaToAstInfo(meta)
+        return s_ast.Function(astinfo, kids)
+
+    @lark.v_args(meta=True)
     def funcargs(self, meta, kids):
         '''
         A list of function parameters (as part of a function definition)
@@ -343,6 +356,10 @@ class AstConverter(lark.Transformer):
 
             if kid.valu in kwnames:
                 mesg = f'Duplicate parameter "{kid.valu}" in function definition'
+                self.raiseBadSyntax(mesg, kid.astinfo)
+
+            if kid.valu in ('lib', 'node', 'path'):
+                mesg = f'Assignment to reserved variable ${kid.valu} is not allowed.'
                 self.raiseBadSyntax(mesg, kid.astinfo)
 
             kwnames.add(kid.valu)
@@ -453,7 +470,7 @@ class AstConverter(lark.Transformer):
         deflen = len(defcase)
         if deflen > 1:
             mesg = f'Switch statements cannot have more than one default case. Found {deflen}.'
-            raise self.raiseBadSyntax(mesg, astinfo)
+            self.raiseBadSyntax(mesg, astinfo)
 
         return s_ast.SwitchCase(astinfo, kids)
 
@@ -465,15 +482,59 @@ class AstConverter(lark.Transformer):
         return kids[0]
 
     @lark.v_args(meta=True)
-    def byname(self, meta, kids):
+    def setvar(self, meta, kids):
         kids = self._convert_children(kids)
+
+        varname = kids[0].value()
+        if varname in ('lib', 'node', 'path'):
+            mesg = f'Assignment to reserved variable ${varname} is not allowed.'
+            self.raiseBadSyntax(mesg, kids[0].astinfo)
+
         astinfo = self.metaToAstInfo(meta)
-        names = [kid.valu for kid in kids[:-1]]
-        return s_ast.ByNameCmpr(astinfo, (names, kids[-1].valu), kids)
+        return s_ast.SetVarOper(astinfo, kids)
 
-with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
-    _grammar = larkf.read().decode()
+    @lark.v_args(meta=True)
+    def opervarlist(self, meta, kids):
+        kids = self._convert_children(kids)
 
+        for varname in kids[0].value():
+            if varname in ('lib', 'node', 'path'):
+                mesg = f'Assignment to reserved variable ${varname} is not allowed.'
+                self.raiseBadSyntax(mesg, kids[0].astinfo)
+
+        astinfo = self.metaToAstInfo(meta)
+        return s_ast.VarListSetOper(astinfo, kids)
+
+    @lark.v_args(meta=True)
+    def forloop(self, meta, kids):
+        kids = self._convert_children(kids)
+
+        varnames = kids[0].value()
+        if not isinstance(varnames, list):
+            varnames = (varnames,)
+
+        for varname in varnames:
+            if varname in ('lib', 'node', 'path'):
+                mesg = f'Assignment to reserved variable ${varname} is not allowed.'
+                self.raiseBadSyntax(mesg, kids[0].astinfo)
+
+        astinfo = self.metaToAstInfo(meta)
+        return s_ast.ForLoop(astinfo, kids)
+
+    @lark.v_args(meta=True)
+    def trycatch(self, meta, kids):
+        kids = self._convert_children(kids)
+
+        for catchblock in kids[1:]:
+            varname = catchblock.kids[1].value()
+            if varname in ('lib', 'node', 'path'):
+                mesg = f'Assignment to reserved variable ${varname} is not allowed.'
+                self.raiseBadSyntax(mesg, catchblock.kids[1].astinfo)
+
+        astinfo = self.metaToAstInfo(meta)
+        return s_ast.TryCatch(astinfo, kids)
+
+_grammar = s_data.getLark('storm')
 LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdargs', 'evalvalu', 'search'],
                        maybe_placeholders=False, propagate_positions=True, parser='lalr')
 
@@ -645,11 +706,13 @@ terminalClassMap = {
     'DOUBLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, unescape(x)),  # drop quotes and handle escape characters
     'FORMATTEXT': lambda astinfo, x: s_ast.Const(astinfo, format_unescape(x)),  # handle escape characters
     'TRIPLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, x[3:-3]), # drop the triple 's
+    'METANAME': lambda astinfo, x: s_ast.Const(astinfo, x[1:]),
     'NUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'HEXNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'OCTNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'BOOL': lambda astinfo, x: s_ast.Bool(astinfo, x == 'true'),
     'NULL': lambda astinfo, x: s_ast.Const(astinfo, None),
+    'NOTIN': lambda astinfo, x: s_ast.Const(astinfo, 'not in'),
     'SINGLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, x[1:-1]),  # drop quotes
     'NONQUOTEWORD': massage_vartokn,
     'VARTOKN': massage_vartokn,
@@ -659,15 +722,16 @@ terminalClassMap = {
 # For AstConverter, one-to-one replacements from lark to synapse AST
 ruleClassMap = {
     'abspropcond': s_ast.AbsPropCond,
+    'absvirtpropcond': s_ast.AbsVirtPropCond,
     'argvquery': s_ast.ArgvQuery,
     'arraycond': s_ast.ArrayCond,
     'andexpr': s_ast.AndCond,
     'baresubquery': s_ast.SubQuery,
     'catchblock': s_ast.CatchBlock,
-    'cmpr': lambda astinfo, kids: s_ast.Cmpr(astinfo, kids[0].valu),
     'condsetoper': s_ast.CondSetOper,
     'condtrysetoper': lambda astinfo, kids: s_ast.CondSetOper(astinfo, kids, errok=True),
     'condsubq': s_ast.SubqCond,
+    'derefprops': s_ast.DerefProps,
     'dollarexpr': s_ast.DollarExpr,
     'edgeaddn1': s_ast.EditEdgeAdd,
     'edgedeln1': s_ast.EditEdgeDel,
@@ -683,13 +747,16 @@ ruleClassMap = {
     'editpropdel': lambda astinfo, kids: s_ast.EditPropDel(astinfo, kids[1:]),
     'editpropset': s_ast.EditPropSet,
     'editcondpropset': s_ast.EditCondPropSet,
+    'editvirtpropset': s_ast.EditVirtPropSet,
     'editpropsetmulti': s_ast.EditPropSetMulti,
     'edittagadd': s_ast.EditTagAdd,
+    'edittagtryadd': lambda astinfo, kids: s_ast.EditTagAdd(astinfo, kids, istry=True),
     'edittagdel': lambda astinfo, kids: s_ast.EditTagDel(astinfo, kids[1:]),
     'edittagpropset': s_ast.EditTagPropSet,
+    'edittagpropvirtset': s_ast.EditTagPropVirtSet,
     'edittagpropdel': lambda astinfo, kids: s_ast.EditTagPropDel(astinfo, kids[1:]),
-    'editunivdel': lambda astinfo, kids: s_ast.EditUnivDel(astinfo, kids[1:]),
-    'editunivset': s_ast.EditPropSet,
+    'edittagvirtset': s_ast.EditTagVirtSet,
+    'edittagvirttryset': lambda astinfo, kids: s_ast.EditTagVirtSet(astinfo, kids, istry=True),
     'expror': s_ast.ExprOrNode,
     'exprand': s_ast.ExprAndNode,
     'exprnot': s_ast.UnaryExprNode,
@@ -701,7 +768,6 @@ ruleClassMap = {
     'filtoper': s_ast.FiltOper,
     'filtopermust': lambda astinfo, kids: s_ast.FiltOper(astinfo, [s_ast.Const(astinfo, '+')] + kids),
     'filtopernot': lambda astinfo, kids: s_ast.FiltOper(astinfo, [s_ast.Const(astinfo, '-')] + kids),
-    'forloop': s_ast.ForLoop,
     'formatstring': s_ast.FormatString,
     'formjoin_formpivot': lambda astinfo, kids: s_ast.FormPivot(astinfo, kids, isjoin=True),
     'formjoin_pivotout': lambda astinfo, _: s_ast.PivotOut(astinfo, isjoin=True),
@@ -715,15 +781,26 @@ ruleClassMap = {
     'hasabspropcond': s_ast.HasAbsPropCond,
     'hasrelpropcond': s_ast.HasRelPropCond,
     'hastagpropcond': s_ast.HasTagPropCond,
+    'hasvirtpropcond': s_ast.HasVirtPropCond,
     'ifstmt': s_ast.IfStmt,
     'ifclause': s_ast.IfClause,
     'kwarg': lambda astinfo, kids: s_ast.CallKwarg(astinfo, kids=tuple(kids)),
     'liftbytag': s_ast.LiftTag,
+    'liftbytagvalu': s_ast.LiftTagValu,
+    'liftbytagvirt': s_ast.LiftTagVirt,
+    'liftbytagvirtvalu': s_ast.LiftTagVirtValu,
     'liftformtag': s_ast.LiftFormTag,
+    'liftformtagvalu': s_ast.LiftFormTagValu,
+    'liftformtagvirt': s_ast.LiftFormTagVirt,
+    'liftformtagvirtvalu': s_ast.LiftFormTagVirtValu,
+    'liftmeta': s_ast.LiftMeta,
     'liftprop': s_ast.LiftProp,
     'liftpropby': s_ast.LiftPropBy,
+    'liftpropvirt': s_ast.LiftPropVirt,
+    'liftpropvirtby': s_ast.LiftPropVirtBy,
     'lifttagtag': s_ast.LiftTagTag,
     'liftbyarray': s_ast.LiftByArray,
+    'liftbyarrayvirt': s_ast.LiftByArrayVirt,
     'liftbytagprop': s_ast.LiftTagProp,
     'liftbyformtagprop': s_ast.LiftFormTagProp,
     'looklist': s_ast.LookList,
@@ -741,10 +818,10 @@ ruleClassMap = {
     'operrelprop_joinout': lambda astinfo, kids: s_ast.PropPivotOut(astinfo, kids, isjoin=True),
     'operrelprop_pivot': s_ast.PropPivot,
     'operrelprop_pivotout': s_ast.PropPivotOut,
-    'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
     'query': s_ast.Query,
     'pivottarg': s_ast.PivotTarget,
+    'pivottargvirt': s_ast.PivotTargetVirt,
     'pivottarglist': s_ast.PivotTargetList,
     'rawpivot': s_ast.RawPivot,
     'return': s_ast.Return,
@@ -753,24 +830,24 @@ ruleClassMap = {
     'relpropvalue': s_ast.RelPropValue,
     'search': s_ast.Search,
     'setitem': lambda astinfo, kids: s_ast.SetItemOper(astinfo, [kids[0], kids[1], kids[3]]),
-    'setvar': s_ast.SetVarOper,
     'stop': s_ast.Stop,
     'stormcmd': lambda astinfo, kids: s_ast.CmdOper(astinfo, kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(astinfo, tuple()))),
-    'stormfunc': s_ast.Function,
     'tagcond': s_ast.TagCond,
     'tagname': s_ast.TagName,
     'tagmatch': s_ast.TagMatch,
     'tagprop': s_ast.TagProp,
     'tagvalu': s_ast.TagValue,
+    'tagvirtvalu': s_ast.TagVirtValue,
     'tagpropvalu': s_ast.TagPropValue,
     'tagvalucond': s_ast.TagValuCond,
+    'tagvirtcond': s_ast.TagVirtCond,
     'tagpropcond': s_ast.TagPropCond,
-    'trycatch': s_ast.TryCatch,
-    'univprop': s_ast.UnivProp,
     'valulist': s_ast.List,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
-    'virtprop': s_ast.VirtProp,
+    'virtpropcond': s_ast.VirtPropCond,
+    'virtprops': s_ast.VirtProps,
+    'virtpropvalue': s_ast.VirtPropValue,
     'whileloop': s_ast.WhileLoop,
     'wordtokn': lambda astinfo, kids: s_ast.Const(astinfo, ''.join([str(k.valu) for k in kids]))
 }

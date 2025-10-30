@@ -4,17 +4,17 @@ import synapse.common as s_common
 
 import synapse.telepath as s_telepath
 import synapse.tests.utils as s_t_utils
-import synapse.tools.backup as s_tools_backup
+import synapse.tools.service.backup as s_tools_backup
 
 class TrigTest(s_t_utils.SynTest):
 
-    async def test_trigger_async(self):
+    async def test_trigger_async_base(self):
 
         with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
 
-                await core.stormlist('trigger.add node:add --async --form inet:ip --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
+                await core.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
 
                 await core.callStorm('[ inet:ip=1.2.3.4 ]')
 
@@ -26,13 +26,13 @@ class TrigTest(s_t_utils.SynTest):
                 self.nn(nodes[0].get('#foo'))
 
                 # test dynamically updating the trigger async to off
-                await core.stormlist('$lib.view.get().triggers.0.set(async, $lib.false)')
+                await core.stormlist('$lib.view.get().triggers.0.async = (false)')
                 nodes = await core.nodes('[ inet:ip=5.5.5.5 ]')
                 self.nn(nodes[0].get('#foo'))
                 self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
 
                 # reset the trigger to async...
-                await core.stormlist('$lib.view.get().triggers.0.set(async, $lib.true)')
+                await core.stormlist('$lib.view.get().triggers.0.async = (true)')
 
                 # kill off the async consumer and queue up some requests
                 # to test persistance and proper resuming...
@@ -48,6 +48,24 @@ class TrigTest(s_t_utils.SynTest):
                 self.none(nodes[0].get('#foo'))
                 self.none(await core.callStorm('return($lib.queue.gen(foo).pop())'))
 
+                q = '''$u=$lib.auth.users.get($auto.opts.user)
+                $s=`f={$auto.opts.form} v={$auto.opts.valu} u={$u.name}`
+                $lib.log.info($s) [ test:guid="*" +#nodeadd]'''
+                tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
+                await core.view.addTrigger(tdef)
+                with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
+                    await core.nodes('[ test:str=foo ]')
+                    self.true(await stream.wait(12))
+                self.eq(stream.getvalue().strip(), 'f=test:str v=foo u=root')
+                self.len(1, await core.nodes('test:guid#nodeadd'))
+                unfo = await core.addUser('someuser')
+                await core.setUserAdmin(unfo.get('iden'), True)
+                with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
+                    await core.nodes('[ test:str=bar ]', opts={'user': unfo.get('iden')})
+                    self.true(await stream.wait(12))
+                self.eq(stream.getvalue().strip(), 'f=test:str v=bar u=someuser')
+                self.len(2, await core.nodes('test:guid#nodeadd'))
+
             async with self.getTestCore(dirn=dirn) as core:
 
                 self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
@@ -62,7 +80,7 @@ class TrigTest(s_t_utils.SynTest):
                 await view.finiTrigTask()
 
                 opts = {'view': viewiden}
-                await core.stormlist('trigger.add node:add --async --form inet:ip --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }', opts=opts)
+                await core.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden()) }', opts=opts)
                 nodes = await core.nodes('[ inet:ip=123.123.123.123 ]', opts=opts)
 
                 with self.raises(s_exc.CantMergeView):
@@ -81,7 +99,7 @@ class TrigTest(s_t_utils.SynTest):
             path01 = s_common.gendir(dirn, 'core01')
 
             async with self.getTestCore(dirn=path00) as core00:
-                await core00.stormlist('trigger.add node:add --async --form inet:ip --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
+                await core00.stormlist('trigger.add node:add --async --form inet:ip { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
 
                 await core00.view.finiTrigTask()
                 await core00.nodes('[ inet:ip=1.2.3.4 ]')
@@ -118,20 +136,20 @@ class TrigTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=fdir) as core:
                 iden = s_common.guid()
-                tdef = {'cond': 'node:add', 'form': 'inet:ip', 'storm': '[inet:user=1] | testcmd'}
+                tdef = {'cond': 'node:add', 'form': 'inet:ip', 'storm': '[test:int=1] | testcmd'}
                 await core.view.addTrigger(tdef)
 
                 triggers = await core.view.listTriggers()
-                self.eq(triggers[0][1].tdef['storm'], '[inet:user=1] | testcmd')
+                self.eq(triggers[0][1].tdef['storm'], '[test:int=1] | testcmd')
 
                 iden = triggers[0][0]
-                await core.view.setTriggerInfo(iden, 'storm', '[inet:user=2 .test:univ=4] | testcmd')
+                await core.view.setTriggerInfo(iden, {'storm': '[test:int=2 :name=4] | testcmd'})
                 triggers = await core.view.listTriggers()
-                self.eq(triggers[0][1].tdef['storm'], '[inet:user=2 .test:univ=4] | testcmd')
+                self.eq(triggers[0][1].tdef['storm'], '[test:int=2 :name=4] | testcmd')
 
                 # Sad cases
-                await self.asyncraises(s_exc.BadSyntax, core.view.setTriggerInfo(iden, 'storm', ' | | badstorm '))
-                await self.asyncraises(s_exc.NoSuchIden, core.view.setTriggerInfo('deadb33f', 'storm', 'inet:user'))
+                await self.asyncraises(s_exc.BadSyntax, core.view.setTriggerInfo(iden, {'storm': ' | | badstorm '}))
+                await self.asyncraises(s_exc.NoSuchIden, core.view.setTriggerInfo('deadb33f', {'storm': 'test:innt'}))
 
     async def test_trigger_basics(self):
 
@@ -140,14 +158,15 @@ class TrigTest(s_t_utils.SynTest):
             view = core.view
 
             # node:add case
-            q = '''$s=$lib.str.format("f={f} v={v}", f=$auto.opts.form, v=$auto.opts.valu) $lib.log.info($s)
-                    [ test:guid="*" +#nodeadd]'''
+            q = '''$u=$lib.auth.users.get($auto.opts.user)
+            $s=`f={$auto.opts.form} v={$auto.opts.valu} u={$u.name}`
+            $lib.log.info($s) [ test:guid="*" +#nodeadd]'''
             tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
             await view.addTrigger(tdef)
             with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
                 await core.nodes('[ test:str=foo ]')
                 self.true(await stream.wait(6))
-            self.eq(stream.getvalue().strip(), 'f=test:str v=foo')
+            self.eq(stream.getvalue().strip(), 'f=test:str v=foo u=root')
             self.len(1, await core.nodes('test:guid#nodeadd'))
 
             # node:del case
@@ -205,7 +224,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:int=5'))
 
             # Prop set
-            q = '''$s=$lib.str.format("pf={f} pn={n}", f=$auto.opts.propfull, n=$auto.opts.propname) $lib.log.info($s)
+            q = '''$s=`pf={$auto.opts.propfull} pn={$auto.opts.propname}` $lib.log.info($s)
             [ test:guid="*" +#propset ]'''
             tdef = {'cond': 'prop:set',
                     'storm': q,
@@ -224,18 +243,6 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('[ test:type10=1 :intprop=25 ]')
             self.len(0, await core.nodes('test:int=6'))
 
-            # Prop set univ
-            tdef = {'cond': 'prop:set', 'storm': '[ test:guid="*" +#propsetuniv ]', 'prop': '.test:univ'}
-            await view.addTrigger(tdef)
-            await core.nodes('[ test:type10=1 .test:univ=1 ]')
-            self.len(1, await core.nodes('test:guid#propsetuniv'))
-
-            # Prop set form specific univ
-            tdef = {'cond': 'prop:set', 'storm': '[ test:guid="*" +#propsetuniv2 ]', 'prop': 'test:str.test:univ'}
-            await view.addTrigger(tdef)
-            await core.nodes('[ test:str=beep .test:univ=1 ]')
-            self.len(1, await core.nodes('test:guid#propsetuniv2'))
-
             # Add trigger with iden
             iden = s_common.guid()
             tdef0 = {'cond': 'node:add', 'storm': '[ +#withiden ]', 'form': 'test:int', 'iden': iden}
@@ -245,7 +252,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:int#withiden'))
 
             # iden embedded in vars
-            q = '+test:str~=log $s=$lib.str.format("test {t} {i}", t=$auto.type, i=$auto.iden) $lib.log.info($s, ({"iden": $auto.iden}))'
+            q = '+test:str~=log $s=`test {$auto.type} {$auto.iden}` $lib.log.info($s, ({"iden": $auto.iden}))'
             tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
             await view.addTrigger(tdef)
             with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'test trigger') as stream:
@@ -305,13 +312,13 @@ class TrigTest(s_t_utils.SynTest):
             trigger = await view.getTrigger(trigiden)
             self.eq(trigger.get('view'), view.iden)
             with self.raises(s_exc.BadArg) as exc:
-                await view.setTriggerInfo(trigiden, 'view', viewiden)
-            self.eq(exc.exception.get('mesg'), 'Invalid key name provided: view')
+                await view.setTriggerInfo(trigiden, {'view': viewiden})
+            self.eq(exc.exception.get('mesg'), f'Invalid key name provided: view')
             await view.delTrigger(trigiden)
 
             # Trigger list
             triglist = await view.listTriggers()
-            self.len(12, triglist)
+            self.len(10, triglist)
 
             # Delete not a trigger
             await self.asyncraises(s_exc.NoSuchIden, view.delTrigger('foo'))
@@ -331,7 +338,7 @@ class TrigTest(s_t_utils.SynTest):
 
             iden = [iden for iden, r in triglist if r.tdef['cond'] == 'tag:add' and r.tdef.get('form') == 'test:str'][0]
 
-            await view.setTriggerInfo(iden, 'storm', '[ test:int=42 ]')
+            await view.setTriggerInfo(iden, {'storm': '[ test:int=42 ]'})
             await core.nodes('[ test:str=foo4 +#bartag ]')
             self.len(1, await core.nodes('test:int=42'))
 
@@ -367,13 +374,13 @@ class TrigTest(s_t_utils.SynTest):
             # additional NoSuchIden failures
             await self.asyncraises(s_exc.NoSuchIden, view.getTrigger('newp'))
             await self.asyncraises(s_exc.NoSuchIden, view.delTrigger('newp'))
-            await self.asyncraises(s_exc.NoSuchIden, view.setTriggerInfo('newp', 'enabled', True))
+            await self.asyncraises(s_exc.NoSuchIden, view.setTriggerInfo('newp', {'enabled': True}))
 
             # mop up some coverage
-            msgs = await core.stormlist('trigger.add tag:del --form inet:ip --tag zoinks --query { [+#bar] }')
+            msgs = await core.stormlist('trigger.add tag:del --form inet:ip --tag zoinks { [+#bar] }')
             self.stormHasNoWarnErr(msgs)
 
-            msgs = await core.stormlist('trigger.add tag:del --tag zoinks.* --query { [+#faz] }')
+            msgs = await core.stormlist('trigger.add tag:del --tag zoinks.* { [+#faz] }')
             self.stormHasNoWarnErr(msgs)
 
             nodes = await core.nodes('[ inet:ip=1.2.3.4 +#zoinks.foo -#zoinks ]')
@@ -417,11 +424,11 @@ class TrigTest(s_t_utils.SynTest):
 
             root = await core.auth.getUserByName('root')
 
-            tdef = {'iden': '1', 'user': root.iden, 'cond': 'tag:add', 'storm': '$lib.queue.get(foo).put(count0)',
+            tdef = {'iden': '1', 'user': root.iden, 'cond': 'tag:add', 'storm': '$lib.queue.byname(foo).put(count0)',
                     'tag': 'foo.*.bar', 'enabled': True}
             trig1 = await core.view.triggers.load(tdef)
 
-            tdef = {'iden': '2', 'user': root.iden, 'cond': 'tag:del', 'storm': '$lib.queue.get(foo).put(count1)',
+            tdef = {'iden': '2', 'user': root.iden, 'cond': 'tag:del', 'storm': '$lib.queue.byname(foo).put(count1)',
                     'tag': 'baz.*.faz', 'form': 'test:guid', 'enabled': True}
             trig2 = await core.view.triggers.load(tdef)
 
@@ -429,7 +436,7 @@ class TrigTest(s_t_utils.SynTest):
 
             async def popNextFoo():
                 return await core.callStorm('''
-                    return ($lib.queue.get(foo).pop().index(1))
+                    return ($lib.queue.byname(foo).pop().index(1))
                 ''')
 
             await core.nodes('[ test:guid="*" +#foo.asdf.bar ]')
@@ -451,7 +458,7 @@ class TrigTest(s_t_utils.SynTest):
 
             await core.nodes('#baz.asdf.faz [ -#baz.asdf.faz ]')
 
-            self.eq(0, await core.callStorm('return ($lib.queue.get(foo).size())'))
+            self.eq(0, await core.callStorm('return ($lib.queue.byname(foo).size())'))
 
     async def test_trigger_running_perms(self):
         async with self.getTestCore() as core:
@@ -517,11 +524,11 @@ class TrigTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.AuthDeny):
                     opts = {'vars': {'iden': trigiden}}
-                    await proxy.callStorm('$lib.trigger.get($iden).set(enabled, $(0))', opts=opts)
+                    await proxy.callStorm('$lib.trigger.get($iden).enabled = (false)', opts=opts)
 
                 await newb.addRule((True, ('trigger', 'set')))
                 opts = {'vars': {'iden': trigiden}}
-                await proxy.callStorm('$lib.trigger.get($iden).set(enabled, $(0))', opts=opts)
+                await proxy.callStorm('$lib.trigger.get($iden).enabled = (false)', opts=opts)
 
                 await newb.addRule((True, ('trigger', 'del')))
                 await proxy.callStorm('$lib.trigger.del($iden)', opts={'vars': {'iden': trigiden}})
@@ -554,7 +561,7 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('foo'))
 
             opts = {'vars': {'iden': trig.get('iden'), 'derp': derp.iden}}
-            await core.callStorm('$lib.trigger.get($iden).set(user, $derp)', opts=opts | inview)
+            await core.callStorm('$lib.trigger.get($iden).user = $derp', opts=opts | inview)
 
             nodes = await core.nodes('[ inet:ip=8.8.8.8 ]')
             self.len(1, nodes)
@@ -597,9 +604,9 @@ class TrigTest(s_t_utils.SynTest):
 
             opts = {'view': view}
 
-            await core.nodes('trigger.add edge:add --verb refs --form test:int --query { [ +#burrito ] }', opts=opts)   # n1 + edge
-            await core.nodes('trigger.add edge:add --verb refs --n2form test:int --query { [ +#ping ]}', opts=opts)  # edge + n2
-            await core.nodes('trigger.add edge:add --verb refs --form test:int --n2form test:int --query { [ +#pong ]}', opts=opts)  # n1 + verb + n2
+            await core.nodes('trigger.add edge:add --verb refs --form test:int { [ +#burrito ] }', opts=opts)   # n1 + edge
+            await core.nodes('trigger.add edge:add --verb refs --n2form test:int { [ +#ping ]}', opts=opts)  # edge + n2
+            await core.nodes('trigger.add edge:add --verb refs --form test:int --n2form test:int { [ +#pong ]}', opts=opts)  # n1 + verb + n2
 
             await core.nodes('[ test:str=foo <(refs)+ { [ test:str=bar ] } ]', opts=opts)  # fire the verb-only trigger
             await core.nodes('[ test:int=123 +(refs)> { [ test:str=biz ] } ]', opts=opts)  # fire the n1 trigger and the verb trigger
@@ -653,7 +660,7 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(node[0].getTag('pong'))
 
             # invalidate the cache
-            await core.nodes('trigger.add edge:add --verb refs --form test:int --n2form test:int --query { [ +#invalid ]}', opts=opts)  # n1 + verb + n2
+            await core.nodes('trigger.add edge:add --verb refs --form test:int --n2form test:int { [ +#invalid ]}', opts=opts)  # n1 + verb + n2
 
             node = await core.nodes('[test:int=2468 <(refs)+ { [test:int=1357] }]', opts=opts)
             self.none(node[0].getTag('invalid'))
@@ -685,10 +692,10 @@ class TrigTest(s_t_utils.SynTest):
             self.len(0, await core.callStorm('return($lib.trigger.list())', opts=opts))
 
             # edge:del triggers
-            await core.nodes('trigger.add edge:del --verb refs  --query { [ +#cookies ] | spin | iden $auto.opts.n2iden | [ +#milk ] }', opts=opts)  # only edge
-            await core.nodes('trigger.add edge:del --verb refs --form test:int --query { [ +#cupcake ] }', opts=opts) # n1 form + edge
-            await core.nodes('trigger.add edge:del --verb refs --n2form test:int --query { [ +#icecream ] }', opts=opts) # edge + n2 form
-            await core.nodes('trigger.add edge:del --verb refs --form test:int --n2form test:int --query { [ +#croissant ] }', opts=opts) # n1 form + verb + n2 form
+            await core.nodes('trigger.add edge:del --verb refs  { [ +#cookies ] | spin | iden $auto.opts.n2iden | [ +#milk ] }', opts=opts)  # only edge
+            await core.nodes('trigger.add edge:del --verb refs --form test:int { [ +#cupcake ] }', opts=opts) # n1 form + edge
+            await core.nodes('trigger.add edge:del --verb refs --n2form test:int { [ +#icecream ] }', opts=opts) # edge + n2 form
+            await core.nodes('trigger.add edge:del --verb refs --form test:int --n2form test:int { [ +#croissant ] }', opts=opts) # n1 form + verb + n2 form
 
             await core.nodes('test:str=foo [ <(refs)- { test:str=bar }]', opts=opts)  # fire the verb-only trigger
             await core.nodes('test:int=123 | edges.del *', opts=opts)  # fire the n1 trigger and verb trigger
@@ -731,7 +738,7 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(node[0].getTag('croissant'))
             self.nn(node[0].getTag('cupcake'))
 
-            await core.nodes('trigger.add edge:del --verb refs --form test:int --n2form test:int --query { [ +#scone ] }', opts=opts) # n1 form + verb + n2 form
+            await core.nodes('trigger.add edge:del --verb refs --form test:int --n2form test:int { [ +#scone ] }', opts=opts) # n1 form + verb + n2 form
             node = await core.nodes('test:int=1357 | [ -(refs)> { test:int=2468 } ]', opts=opts)
             self.nn(node[0].getTag('scone'))
 
@@ -782,10 +789,10 @@ class TrigTest(s_t_utils.SynTest):
 
             await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
 
-            await core.nodes('trigger.add edge:add --verb _foo* --query { [ +#foo ] | spin | iden $auto.opts.n2iden | [+#other] }')
-            await core.nodes('trigger.add edge:add --verb _see* --form test:int --query { [ +#n1 ] }')
-            await core.nodes('trigger.add edge:add --verb _r* --n2form test:int --query { [ +#n2 ] }')
-            await core.nodes('trigger.add edge:add --verb _no** --form test:int --n2form test:str --query { [ +#both ] }')
+            await core.nodes('trigger.add edge:add --verb _foo* { [ +#foo ] | spin | iden $auto.opts.n2iden | [+#other] }')
+            await core.nodes('trigger.add edge:add --verb _see* --form test:int { [ +#n1 ] }')
+            await core.nodes('trigger.add edge:add --verb _r* --n2form test:int { [ +#n2 ] }')
+            await core.nodes('trigger.add edge:add --verb _no** --form test:int --n2form test:str { [ +#both ] }')
 
             async with core.enterMigrationMode():
                 nodes = await core.nodes('[test:int=123 +(_foo:beep:boop)> { [test:str=neato] }]')
@@ -824,7 +831,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].getTag('both'))
 
-            await core.nodes('trigger.add edge:add --verb _not* --form test:int --n2form test:str --query { [ +#cache.destroy ] }')
+            await core.nodes('trigger.add edge:add --verb _not* --form test:int --n2form test:str { [ +#cache.destroy ] }')
 
             nodes = await core.nodes('[test:int=135 +(_note)> { [ test:str=koolaidman ] } ]')
             self.len(1, nodes)
@@ -842,10 +849,10 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.none(nodes[0].getTag('foo'))
 
-            await core.nodes('trigger.add edge:del --verb _foo* --query { [ +#del.none ] | spin | iden $auto.opts.n2iden | [+#del.other] }')
-            await core.nodes('trigger.add edge:del --verb _see* --form test:int --query { [ +#del.one ] }')
-            await core.nodes('trigger.add edge:del --verb _r* --n2form test:int --query { [ +#del.two ] }')
-            await core.nodes('trigger.add edge:del --verb _no** --form test:int --n2form test:str --query { [ +#del.all ] }')
+            await core.nodes('trigger.add edge:del --verb _foo* { [ +#del.none ] | spin | iden $auto.opts.n2iden | [+#del.other] }')
+            await core.nodes('trigger.add edge:del --verb _see* --form test:int { [ +#del.one ] }')
+            await core.nodes('trigger.add edge:del --verb _r* --n2form test:int { [ +#del.two ] }')
+            await core.nodes('trigger.add edge:del --verb _no** --form test:int --n2form test:str { [ +#del.all ] }')
 
             async with core.enterMigrationMode():
                 nodes = await core.nodes('test:int=123 | [ -(_foo:beep:boop)> { test:str=neato } ]')
@@ -876,7 +883,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].getTag('del.all'))
 
-            await core.nodes('trigger.add edge:del --verb _no** --form test:int --n2form test:str --query { [ +#cleanup ] }')
+            await core.nodes('trigger.add edge:del --verb _no** --form test:int --n2form test:str { [ +#cleanup ] }')
 
             nodes = await core.nodes('test:int=12345 | [ -(_note)> { test:str=scrambledeggs } ]')
             self.len(1, nodes)
@@ -885,8 +892,8 @@ class TrigTest(s_t_utils.SynTest):
 
             view = await core.callStorm('return ($lib.view.get().fork().iden)')
             opts = {'view': view}
-            await core.nodes('trigger.add edge:del --verb _no** --form test:str --query { [ +#coffee ] }', opts=opts)
-            await core.nodes('trigger.add edge:del --verb _no** --form test:str --n2form test:str --query { [ +#oeis.a000668 ] }', opts=opts)
+            await core.nodes('trigger.add edge:del --verb _no** --form test:str { [ +#coffee ] }', opts=opts)
+            await core.nodes('trigger.add edge:del --verb _no** --form test:str --n2form test:str { [ +#oeis.a000668 ] }', opts=opts)
 
             await core.nodes('[test:str=mersenne test:str=prime]')
             await core.nodes('test:str=mersenne [ +(_notes)> { test:str=prime } ]', opts=opts)
@@ -899,3 +906,83 @@ class TrigTest(s_t_utils.SynTest):
 
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }')
             self.len(0, await core.callStorm('return($lib.trigger.list())'))
+
+    async def test_trigger_no_edits(self):
+
+        async with self.getTestCore() as core:
+
+            tdef = {'cond': 'node:add', 'storm': '[ test:int=1 ]', 'form': 'test:str'}
+            opts = {'vars': {'tdef': tdef}}
+            q = 'return ($lib.trigger.add($tdef))'
+            node = await core.callStorm(q, opts=opts)
+            opts = {'vars': {'iden': node.get('iden')}}
+            ret = await core.callStorm('return($lib.trigger.mod($iden, ({})))', opts=opts)
+            self.eq(ret, node.get('iden'))
+
+    async def test_trigger_interface(self):
+
+        async with self.getTestCore() as core:
+
+            tdef = {'cond': 'prop:set', 'storm': '[ test:int=1 ]', 'prop': 'test:interface:size'}
+            opts = {'vars': {'tdef': tdef}}
+            q = 'return ($lib.trigger.add($tdef))'
+            node = await core.callStorm(q, opts=opts)
+
+            tdef = {'cond': 'prop:set', 'storm': '[ test:int=2 ]', 'prop': 'inet:proto:request:client'}
+            opts = {'vars': {'tdef': tdef}}
+            node = await core.callStorm(q, opts=opts)
+
+            self.len(0, await core.nodes('test:int'))
+
+            await core.nodes('[ test:hasiface=iface1 :size=10 ]')
+            nodes = await core.nodes('test:int')
+            self.len(1, nodes)
+            self.eq(1, nodes[0].valu())
+
+            await core.nodes('[ test:hasiface=iface2 :client=1.2.3.4 ]')
+            nodes = await core.nodes('test:int')
+            self.len(2, nodes)
+            self.eq(2, nodes[1].valu())
+
+    async def test_trigger_feed_data(self):
+        async with self.getTestCore() as core0:
+
+            podes = [{'type': 'meta', 'vers': 1, 'forms': {}, 'count': 0, 'synapse_ver': '3.0.0'}]
+
+            node1 = (await core0.nodes('[ test:int=1 ]'))[0]
+            await node1.setData('foo', 'bar')
+            pack = node1.pack()
+            pack[1]['nodedata'] = {'foo': 'bar'}
+            podes.append(pack)
+
+            node2 = (await core0.nodes('[ test:int=2 ] | [ +(refs)> { test:int=1 } ]'))[0]
+            pack = node2.pack()
+            pack[1]['edges'] = (('refs', node1.iden()), )
+            podes.append(pack)
+
+            node3 = (await core0.nodes('[ test:int=3 ]'))[0]
+            podes.append(node3.pack())
+
+            node = (await core0.nodes(f'[ test:int=4 ]'))[0]
+            pack = node.pack()
+            podes.append(pack)
+
+        async with self.getTestCore() as core1:
+
+            q = '''$u=$lib.auth.users.get($auto.opts.user)
+                    $s=`f={$auto.opts.form} v={$auto.opts.valu} u={$u.name}`
+                    $lib.log.info($s) [ test:guid="*" +#nodeadd]'''
+            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
+            await core1.view.addTrigger(tdef)
+            tdef = {'cond': 'node:add', 'form': 'test:int', 'storm': q}
+            await core1.view.addTrigger(tdef)
+
+            with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
+                await core1.addFeedData(podes)
+                self.true(await stream.wait(6))
+            valu = stream.getvalue().strip()
+            self.isin('f=test:int v=1 u=root', valu)
+            self.isin('f=test:int v=2 u=root', valu)
+            self.isin('f=test:int v=3 u=root', valu)
+            self.isin('f=test:int v=4 u=root', valu)
+            self.len(4, await core1.nodes('test:guid#nodeadd'))

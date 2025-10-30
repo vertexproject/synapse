@@ -1,6 +1,4 @@
-import os
 import re
-import sys
 import base64
 import pprint
 import argparse
@@ -10,6 +8,7 @@ import synapse.exc as s_exc
 import synapse.data as s_data
 import synapse.common as s_common
 
+import synapse.lib.cmd as s_cmd
 import synapse.lib.json as s_json
 import synapse.lib.output as s_outp
 import synapse.lib.certdir as s_certdir
@@ -109,7 +108,7 @@ def checkCosignSignature(outp, pubk_byts, image_to_verify):
         outp.printf(pprint.pformat(blob))
         return True
 
-def main(argv, outp=s_outp.stdout):  # pragma: no cover
+async def main(argv, outp=s_outp.stdout):  # pragma: no cover
     pars = getArgParser()
     opts = pars.parse_args(argv)
 
@@ -152,4 +151,4 @@ def getArgParser():  # pragma: no cover
     return pars
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(main(sys.argv[1:]))
+    s_cmd.exitmain(main)

@@ -95,7 +95,7 @@ class MultiSlabSeqn(s_base.Base):
     @staticmethod
     def _setFirstIndx(slab, indx) -> bool:
         db = slab.initdb('info')
-        return slab.put(b'firstindx', s_common.int64en(indx), db=db)
+        return slab._put(b'firstindx', s_common.int64en(indx), db=db)
 
     async def _discoverRanges(self):
         '''
@@ -353,8 +353,43 @@ class MultiSlabSeqn(s_base.Base):
         else:
             indx = self.indx
 
-        assert self.tailseqn
         retn = self.tailseqn.add(item, indx=indx)
+
+        if advances:
+            self.indx += 1
+
+            self._wake_waiters()
+
+        return retn
+
+    async def addWithPackRetn(self, item, indx=None):
+        '''
+        Add a single item to the sequence, returning the offset and packed item.
+        '''
+        advances = True
+
+        if indx is not None:
+            if indx < self.firstindx:
+                raise s_exc.BadIndxValu(mesg=f'indx lower than first index in sequence {self.firstindx}')
+
+            if indx < self._ranges[-1]:
+                ridx = self._getRangeIndx(indx)
+                assert ridx is not None
+
+                async with self._getSeqn(ridx) as seqn:
+                    retn = seqn.addWithPackRetn(item, indx=indx)
+
+                return retn
+
+            if indx >= self.indx:
+                self.indx = indx
+            else:
+                advances = False
+        else:
+            indx = self.indx
+
+        assert self.tailseqn
+        retn = self.tailseqn.addWithPackRetn(item, indx=indx)
 
         if advances:
             self.indx += 1

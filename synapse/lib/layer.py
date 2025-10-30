@@ -101,7 +101,6 @@ reqValidLdef = s_config.getJsValidator({
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'integer', 'minimum': 0},
         'growsize': {'type': 'integer'},
-        'logedits': {'type': 'boolean', 'default': True},
         'name': {'type': 'string'},
         'readonly': {'type': 'boolean', 'default': False},
     },
@@ -119,28 +118,28 @@ class LayerApi(s_cell.CellApi):
         await s_cell.CellApi.__anit__(self, core, link, user)
 
         self.layr = layr
-        self.liftperm = ('layer', 'lift', self.layr.iden)
+        self.readperm = ('layer', 'read', self.layr.iden)
         self.writeperm = ('layer', 'write', self.layr.iden)
 
-    async def iterLayerNodeEdits(self):
+    async def iterLayerNodeEdits(self, *, meta=False):
         '''
         Scan the full layer and yield artificial nodeedit sets.
         '''
 
-        await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.iterLayerNodeEdits():
+        await self._reqUserAllowed(self.readperm)
+        async for item in self.layr.iterLayerNodeEdits(meta=meta):
             yield item
             await asyncio.sleep(0)
 
     @s_cell.adminapi()
-    async def saveNodeEdits(self, edits, meta):
+    async def saveNodeEdits(self, edits, meta, compat=False):
         '''
         Save node edits to the layer and return a tuple of (nexsoffs, changes).
 
         Note: nexsoffs will be None if there are no changes.
         '''
         meta['link:user'] = self.user.iden
-        return await self.layr.saveNodeEdits(edits, meta)
+        return await self.layr.saveNodeEdits(edits, meta, compat=compat)
 
     async def storNodeEdits(self, nodeedits, *, meta=None):
 
@@ -160,39 +159,27 @@ class LayerApi(s_cell.CellApi):
 
         await self.layr.storNodeEditsNoLift(nodeedits, meta)
 
-    async def syncNodeEdits(self, offs, *, wait=True, reverse=False, compat=False):
+    async def syncNodeEdits(self, offs, *, wait=True, compat=False, withmeta=False):
         '''
-        Yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
+        Yield (offs, nodeedits) tuples from the nexus log starting from the given offset.
 
         Once caught up with storage, yield them in realtime.
         '''
-        await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.syncNodeEdits(offs, wait=wait, reverse=reverse, compat=compat):
-            yield item
-            await asyncio.sleep(0)
+        await self._reqUserAllowed(self.readperm)
 
-    async def syncNodeEdits2(self, offs, *, wait=True, compat=False):
-        await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.syncNodeEdits2(offs, wait=wait, compat=compat):
+        async for item in self.layr.syncNodeEdits(offs, wait=wait, compat=compat, withmeta=withmeta):
             yield item
             await asyncio.sleep(0)
 
     async def getEditIndx(self):
         '''
-        Returns what will be the *next* nodeedit log index.
+        Return the offset of the last edit entry for this layer. Returns -1 if the layer is empty.
         '''
-        await self._reqUserAllowed(self.liftperm)
-        return await self.layr.getEditIndx()
-
-    async def getEditSize(self):
-        '''
-        Return the total number of (edits, meta) pairs in the layer changelog.
-        '''
-        await self._reqUserAllowed(self.liftperm)
-        return await self.layr.getEditSize()
+        await self._reqUserAllowed(self.readperm)
+        return self.layr.getEditIndx()
 
     async def getIden(self):
-        await self._reqUserAllowed(self.liftperm)
+        await self._reqUserAllowed(self.readperm)
         return self.layr.iden
 
 NID_CACHE_SIZE = 10000
@@ -234,20 +221,22 @@ STOR_TYPE_IPADDR = 26
 
 STOR_TYPE_ARRAY = 27
 
+STOR_TYPE_NODEPROP = 28
+
 STOR_FLAG_ARRAY = 0x8000
 
 # Edit types (etyp)
 
-EDIT_NODE_ADD = 0      # (<etyp>, (<valu>, <type>))
-EDIT_NODE_DEL = 1      # (<etyp>, (<oldv>, <type>))
-EDIT_PROP_SET = 2      # (<etyp>, (<prop>, <valu>, <oldv>, <type>))
-EDIT_PROP_DEL = 3      # (<etyp>, (<prop>, <oldv>, <type>))
-EDIT_TAG_SET = 4       # (<etyp>, (<tag>, <valu>, <oldv>))
-EDIT_TAG_DEL = 5       # (<etyp>, (<tag>, <oldv>))
-EDIT_TAGPROP_SET = 6   # (<etyp>, (<tag>, <prop>, <valu>, <oldv>, <type>))
-EDIT_TAGPROP_DEL = 7   # (<etyp>, (<tag>, <prop>, <oldv>, <type>))
-EDIT_NODEDATA_SET = 8  # (<etyp>, (<name>, <valu>, <oldv>))
-EDIT_NODEDATA_DEL = 9  # (<etyp>, (<name>, <oldv>))
+EDIT_NODE_ADD = 0      # (<etyp>, (<valu>, <type>, <virts>))
+EDIT_NODE_DEL = 1      # (<etyp>, ())
+EDIT_PROP_SET = 2      # (<etyp>, (<prop>, <valu>, <type>, <virts>))
+EDIT_PROP_DEL = 3      # (<etyp>, (<prop>,))
+EDIT_TAG_SET = 4       # (<etyp>, (<tag>, <valu>))
+EDIT_TAG_DEL = 5       # (<etyp>, (<tag>,))
+EDIT_TAGPROP_SET = 6   # (<etyp>, (<tag>, <prop>, <valu>, <type>, <virts>))
+EDIT_TAGPROP_DEL = 7   # (<etyp>, (<tag>, <prop>))
+EDIT_NODEDATA_SET = 8  # (<etyp>, (<name>, <valu>))
+EDIT_NODEDATA_DEL = 9  # (<etyp>, (<name>,))
 EDIT_EDGE_ADD = 10     # (<etyp>, (<verb>, <destnodeiden>))
 EDIT_EDGE_DEL = 11     # (<etyp>, (<verb>, <destnodeiden>))
 
@@ -264,7 +253,9 @@ EDIT_NODEDATA_TOMB_DEL = 21  # (<etyp>, (<name>))
 EDIT_EDGE_TOMB = 22          # (<etyp>, (<verb>, <destnodeiden>))
 EDIT_EDGE_TOMB_DEL = 23      # (<etyp>, (<verb>, <destnodeiden>))
 
-EDIT_PROGRESS = 100   # (used by syncIndexEvents) (<etyp>, ())
+EDIT_META_SET = 24           # (<etyp>, (<prop>, <valu>, <type>))
+
+EDIT_PROGRESS = 100   # (used by syncNodeEdits) (<etyp>, ())
 
 INDX_PROP = b'\x00\x00'
 INDX_TAGPROP = b'\x00\x01'
@@ -293,6 +284,9 @@ INDX_FORM = b'\x00\x0f'
 
 INDX_VIRTUAL = b'\x00\x10'
 INDX_VIRTUAL_ARRAY = b'\x00\x11'
+INDX_VIRTUAL_TAGPROP = b'\x00\x12'
+
+INDX_NODEPROP = b'\x00\x13'
 
 FLAG_TOMB = b'\x00'
 FLAG_NORM = b'\x01'
@@ -373,39 +367,6 @@ class IndxByForm(IndxBy):
 
         return s_common.novalu
 
-class IndxByFormArrayValu(IndxByForm):
-
-    def __repr__(self):
-        return f'IndxByFormArrayValu: {self.form}'
-
-    def keyNidsByDups(self, indx, reverse=False):
-        indxvalu = len(indx).to_bytes(4, 'big') + s_common.buid(indx)
-        if reverse:
-            yield from self.layr.layrslab.scanByDupsBack(self.abrv + indxvalu, db=self.db)
-        else:
-            yield from self.layr.layrslab.scanByDups(self.abrv + indxvalu, db=self.db)
-
-class IndxByFormArraySize(IndxByForm):
-
-    def __repr__(self):
-        return f'IndxByFormArraySize: {self.form}'
-
-    def keyNidsByRange(self, minindx, maxindx, reverse=False):
-
-        strt = self.abrv + minindx + (b'\x00' * 16)
-        stop = self.abrv + maxindx + (b'\xff' * 16)
-        if reverse:
-            yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
-        else:
-            yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
-
-    def keyNidsByDups(self, indx, reverse=False):
-        indx = indx.to_bytes(4, 'big')
-        if reverse:
-            yield from self.layr.layrslab.scanByPrefBack(self.abrv + indx, db=self.db)
-        else:
-            yield from self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db)
-
 class IndxByProp(IndxBy):
 
     def __init__(self, layr, form, prop):
@@ -419,12 +380,11 @@ class IndxByProp(IndxBy):
         self.prop = prop
 
     def getStorType(self):
-
-        if self.form is not None:
-            form = self.layr.core.model.form(self.form)
-            typeindx = form.props.get(self.prop).type.stortype
+        form = self.layr.core.model.form(self.form)
+        if self.prop is None:
+            typeindx = form.type.stortype
         else:
-            typeindx = self.layr.core.model.prop(self.prop).type.stortype
+            typeindx = form.props.get(self.prop).type.stortype
 
         return self.layr.stortypes[typeindx]
 
@@ -436,9 +396,69 @@ class IndxByProp(IndxBy):
         return s_common.novalu
 
     def __repr__(self):
-        if self.form:
-            return f'IndxByProp: {self.form}:{self.prop}'
-        return f'IndxByProp: {self.prop}'
+        return f'IndxByProp: {self.form}:{self.prop}'
+
+class IndxByPropKeys(IndxByProp):
+    '''
+    IndxBy sub-class for retrieving unique property values.
+    '''
+    def keyNidsByDups(self, indx, reverse=False):
+        lkey = self.abrv + indx
+        if self.layr.layrslab.has(lkey, db=self.db):
+            yield lkey, None
+
+    def keyNidsByPref(self, indx=b'', reverse=False):
+        for lkey in self.layr.layrslab.scanKeysByPref(self.abrv + indx, db=self.db, nodup=True):
+            yield lkey, None
+
+    def keyNidsByRange(self, minindx, maxindx, reverse=False):
+        for lkey in self.layr.layrslab.scanKeysByRange(self.abrv + minindx, lmax=self.abrv + maxindx, db=self.db, nodup=True):
+            yield lkey, None
+
+    def getNodeValu(self, nid, indx=None):
+
+        if indx is None:  # pragma: no cover
+            return s_common.novalu
+
+        if (valu := self.indxToValu(indx)) is not s_common.novalu:
+            return valu
+
+        if (nid := self.layr.layrslab.get(self.abrv + indx, db=self.db)) is None:  # pragma: no cover
+            return s_common.novalu
+
+        if (sode := self.layr._getStorNode(nid)) is not None:
+            if self.prop is None:
+                valt = sode.get('valu')
+            else:
+                valt = sode['props'].get(self.prop)
+
+            if valt is not None:
+                return valt[0]
+
+        return s_common.novalu
+
+    def __repr__(self):
+        return f'IndxByPropKeys: {self.form}:{self.prop}'
+
+class IndxByPropArrayKeys(IndxByPropKeys):
+    '''
+    IndxBy sub-class for retrieving unique property array values.
+    '''
+    def __init__(self, layr, form, prop):
+        abrv = layr.core.getIndxAbrv(INDX_ARRAY, form, prop)
+        IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
+
+        self.form = form
+        self.prop = prop
+
+    def getStorType(self):
+        form = self.layr.core.model.form(self.form)
+        typeindx = form.props.get(self.prop).type.arraytype.stortype
+
+        return self.layr.stortypes[typeindx]
+
+    def __repr__(self):
+        return f'IndxByPropArrayKeys: {self.form}:{self.prop}'
 
 class IndxByVirt(IndxBy):
 
@@ -454,9 +474,7 @@ class IndxByVirt(IndxBy):
         self.virts = virts
 
     def __repr__(self):
-        if self.form:
-            return f'IndxByVirt: {self.form}:{self.prop}*{"*".join(self.virts)}'
-        return f'IndxByVirt: {self.prop}*{"*".join(self.virts)}'
+        return f'IndxByVirt: {self.form}:{self.prop}.{".".join(self.virts)}'
 
 class IndxByVirtArray(IndxBy):
 
@@ -472,9 +490,35 @@ class IndxByVirtArray(IndxBy):
         self.virts = virts
 
     def __repr__(self):
+        return f'IndxByVirtArray: {self.form}:{self.prop}.{".".join(self.virts)}'
+
+class IndxByTagPropVirt(IndxBy):
+
+    def __init__(self, layr, form, tag, prop, virts):
+        '''
+        Note:  may raise s_exc.NoSuchAbrv
+        '''
+        abrv = layr.core.getIndxAbrv(INDX_VIRTUAL_TAGPROP, form, tag, prop, *virts)
+        IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
+
+        self.form = form
+        self.tag = tag
+        self.prop = prop
+        self.virts = virts
+
+    def __repr__(self):
+        mesg = 'IndxByTagPropVirt: '
         if self.form:
-            return f'IndxByVirtArray: {self.form}:{self.prop}*{"*".join(self.virts)}'
-        return f'IndxByVirtArray: {self.prop}*{"*".join(self.virts)}'
+            mesg += self.form
+
+        mesg += '#'
+        if self.tag:
+            mesg += self.tag
+        else:
+            mesg += '*'
+
+        mesg += f':{self.prop}.{".".join(self.virts)}'
+        return mesg
 
 class IndxByPropArray(IndxBy):
 
@@ -504,16 +548,12 @@ class IndxByPropArray(IndxBy):
         return valt[0]
 
     def __repr__(self):
-        if self.form:
-            return f'IndxByPropArray: {self.form}:{self.prop}'
-        return f'IndxByPropArray: {self.prop}'
+        return f'IndxByPropArray: {self.form}:{self.prop}'
 
 class IndxByPropArrayValu(IndxByProp):
 
     def __repr__(self):
-        if self.form:
-            return f'IndxByPropArrayValu: {self.form}:{self.prop}'
-        return f'IndxByPropArrayValu: {self.prop}'
+        return f'IndxByPropArrayValu: {self.form}:{self.prop}'
 
     def keyNidsByDups(self, indx, reverse=False):
         indxvalu = len(indx).to_bytes(4, 'big') + s_common.buid(indx)
@@ -525,9 +565,7 @@ class IndxByPropArrayValu(IndxByProp):
 class IndxByPropArraySize(IndxByProp):
 
     def __repr__(self):
-        if self.form:
-            return f'IndxByPropArraySize: {self.form}:{self.prop}'
-        return f'IndxByPropArraySize: {self.prop}'
+        return f'IndxByPropArraySize: {self.form}:{self.prop}'
 
     def keyNidsByRange(self, minindx, maxindx, reverse=False):
 
@@ -641,6 +679,16 @@ class IndxByTagProp(IndxBy):
     def getStorType(self):
         typeindx = self.layr.core.model.getTagProp(self.prop).type.stortype
         return self.layr.stortypes[typeindx]
+
+    def keyNidsByDups(self, indx, reverse=False):
+        if self.tag is not None:
+            yield from IndxBy.keyNidsByDups(self, indx, reverse=reverse)
+            return
+
+        if reverse:
+            yield from self.layr.layrslab.scanByPrefBack(self.abrv + indx, db=self.db)
+        else:
+            yield from self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db)
 
     def getSodeValu(self, sode):
 
@@ -756,9 +804,12 @@ class StorType:
         async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
             yield item
 
-    async def indxByTagProp(self, form, tag, prop, cmpr, valu, reverse=False):
+    async def indxByTagProp(self, form, tag, prop, cmpr, valu, reverse=False, virts=None):
         try:
-            indxby = IndxByTagProp(self.layr, form, tag, prop)
+            if virts:
+                indxby = IndxByTagPropVirt(self.layr, form, tag, prop, virts)
+            else:
+                indxby = IndxByTagProp(self.layr, form, tag, prop)
 
         except s_exc.NoSuchAbrv:
             return
@@ -772,6 +823,100 @@ class StorType:
     def decodeIndx(self, valu):  # pragma: no cover
         return s_common.novalu
 
+    def getVirtIndxVals(self, nid, form, prop, virts):
+
+        layr = self.layr
+        kvpairs = []
+
+        for name, (valu, vtyp) in virts.items():
+
+            abrv = layr.core.setIndxAbrv(INDX_VIRTUAL, form, prop, name)
+
+            if vtyp & STOR_FLAG_ARRAY:
+
+                arryabrv = layr.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, name)
+
+                for indx in layr.getStorIndx(vtyp, valu):
+                    kvpairs.append((arryabrv + indx, nid))
+                    layr.indxcounts.inc(arryabrv)
+
+                for indx in layr.getStorIndx(STOR_TYPE_MSGP, valu):
+                    kvpairs.append((abrv + indx, nid))
+                    layr.indxcounts.inc(abrv)
+
+            else:
+                for indx in layr.getStorIndx(vtyp, valu):
+                    kvpairs.append((abrv + indx, nid))
+                    layr.indxcounts.inc(abrv)
+
+        return kvpairs
+
+    def delVirtIndxVals(self, nid, form, prop, virts):
+
+        layr = self.layr
+
+        for name, (valu, vtyp) in virts.items():
+
+            abrv = layr.core.setIndxAbrv(INDX_VIRTUAL, form, prop, name)
+
+            if vtyp & STOR_FLAG_ARRAY:
+
+                arryabrv = layr.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, name)
+
+                for indx in layr.getStorIndx(vtyp, valu):
+                    layr.layrslab.delete(arryabrv + indx, nid, db=layr.indxdb)
+                    layr.indxcounts.inc(arryabrv, -1)
+
+                for indx in layr.getStorIndx(STOR_TYPE_MSGP, valu):
+                    layr.layrslab.delete(abrv + indx, nid, db=layr.indxdb)
+                    layr.indxcounts.inc(abrv, -1)
+
+            else:
+                for indx in layr.getStorIndx(vtyp, valu):
+                    layr.layrslab.delete(abrv + indx, nid, db=layr.indxdb)
+                    layr.indxcounts.inc(abrv, -1)
+
+    def getTagPropVirtIndxVals(self, nid, form, tag, tagabrv, prop, virts):
+
+        layr = self.layr
+        kvpairs = []
+
+        for name, (valu, vtyp) in virts.items():
+
+            p_abrv = layr.core.setIndxAbrv(INDX_VIRTUAL_TAGPROP, None, None, prop, name)
+            tp_abrv = layr.core.setIndxAbrv(INDX_VIRTUAL_TAGPROP, None, tag, prop, name)
+            ftp_abrv = layr.core.setIndxAbrv(INDX_VIRTUAL_TAGPROP, form, tag, prop, name)
+
+            for indx in layr.getStorIndx(vtyp, valu):
+                kvpairs.append((p_abrv + indx + tagabrv, nid))
+                kvpairs.append((tp_abrv + indx, nid))
+                kvpairs.append((ftp_abrv + indx, nid))
+
+                layr.indxcounts.inc(p_abrv)
+                layr.indxcounts.inc(tp_abrv)
+                layr.indxcounts.inc(ftp_abrv)
+
+        return kvpairs
+
+    def delTagPropVirtIndxVals(self, nid, form, tag, tagabrv, prop, virts):
+
+        layr = self.layr
+
+        for name, (valu, vtyp) in virts.items():
+
+            p_abrv = layr.core.setIndxAbrv(INDX_VIRTUAL_TAGPROP, None, None, prop, name)
+            tp_abrv = layr.core.setIndxAbrv(INDX_VIRTUAL_TAGPROP, None, tag, prop, name)
+            ftp_abrv = layr.core.setIndxAbrv(INDX_VIRTUAL_TAGPROP, form, tag, prop, name)
+
+            for indx in layr.getStorIndx(vtyp, valu):
+                layr.layrslab.delete(p_abrv + indx + tagabrv, nid, db=layr.indxdb)
+                layr.layrslab.delete(tp_abrv + indx, nid, db=layr.indxdb)
+                layr.layrslab.delete(ftp_abrv + indx, nid, db=layr.indxdb)
+
+                layr.indxcounts.inc(p_abrv, -1)
+                layr.indxcounts.inc(tp_abrv, -1)
+                layr.indxcounts.inc(ftp_abrv, -1)
+
     async def _liftRegx(self, liftby, valu, reverse=False):
 
         regx = regex.compile(valu, flags=regex.I)
@@ -784,19 +929,17 @@ class StorType:
             await asyncio.sleep(0)
 
             indx = lkey[abrvlen:]
-            storvalu = self.decodeIndx(indx)
 
-            if storvalu == s_common.novalu:
+            if (storvalu := liftby.getNodeValu(nid, indx=indx)) is s_common.novalu:
+                continue
 
-                storvalu = liftby.getNodeValu(nid)
-
-                if isarray:
-                    for sval in storvalu:
-                        if self.indx(sval)[0] == indx:
-                            storvalu = sval
-                            break
-                    else:
-                        continue
+            if isarray:
+                for sval in storvalu:
+                    if self.indx(sval)[0] == indx:
+                        storvalu = sval
+                        break
+                else:
+                    continue
 
             def regexin(regx, storvalu):
                 if isinstance(storvalu, str):
@@ -841,7 +984,7 @@ class StorTypeUtf8(StorType):
 
     def _getIndxByts(self, valu):
 
-        indx = valu.encode('utf8', 'surrogatepass')
+        indx = valu.encode('utf8')
         # cut down an index value to 256 bytes...
         if len(indx) <= 256:
             return indx
@@ -856,7 +999,7 @@ class StorTypeUtf8(StorType):
     def decodeIndx(self, bytz):
         if len(bytz) >= 256:
             return s_common.novalu
-        return bytz.decode('utf8', 'surrogatepass')
+        return bytz.decode('utf8')
 
 class StorTypeHier(StorType):
 
@@ -910,7 +1053,7 @@ class StorTypeFqdn(StorTypeUtf8):
     def decodeIndx(self, bytz):
         if len(bytz) >= 256:
             return s_common.novalu
-        return bytz.decode('utf8', 'surrogatepass')[::-1]
+        return bytz.decode('utf8')[::-1]
 
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_UTF8)
@@ -1331,11 +1474,25 @@ class StorTypeTime(StorTypeInt):
     def __init__(self, layr):
         StorTypeInt.__init__(self, layr, STOR_TYPE_TIME, 8, True)
         self.futsize = 0x7fffffffffffffff
-        self.futbyts = (self.futsize + self.offset).to_bytes(8, 'big')
-        self.maxbyts = (self.futsize + self.offset - 1).to_bytes(8, 'big')
+        self.unksize = 0x7ffffffffffffffe
+        self.unkbyts = (self.futsize + self.offset).to_bytes(8, 'big')
+        self.futbyts = (self.unksize + self.offset).to_bytes(8, 'big')
+        self.maxbyts = (self.unksize + self.offset - 1).to_bytes(8, 'big')
         self.lifters.update({
             '@=': self._liftAtIval,
         })
+
+    def getVirtIndxVals(self, nid, form, prop, virts):
+        return ()
+
+    def delVirtIndxVals(self, nid, form, prop, virts):
+        return
+
+    def getTagPropVirtIndxVals(self, nid, form, tag, tagabrv, prop, virts):
+        return ()
+
+    def delTagPropVirtIndxVals(self, nid, form, tag, tagabrv, prop, virts):
+        return
 
     async def _liftAtIval(self, liftby, valu, reverse=False):
         minindx = self.getIntIndx(valu[0])
@@ -1348,15 +1505,27 @@ class StorTypeIval(StorType):
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_IVAL)
         self.timetype = StorTypeTime(layr)
-        self.maxdura = (2 ** (8 * 8) - 1).to_bytes(8, 'big')
+
+        self.unkdura = 0xffffffffffffffff
+        self.futdura = 0xfffffffffffffffe
+        self.maxdura = 0xfffffffffffffffd
+        self.unkdurabyts = self.unkdura.to_bytes(8, 'big')
+        self.futdurabyts = self.futdura.to_bytes(8, 'big')
+        self.maxdurabyts = self.maxdura.to_bytes(8, 'big')
+
         self.lifters.update({
             '=': self._liftIvalEq,
             '@=': self._liftIvalAt,
             'min@=': self._liftIvalPartAt,
             'max@=': self._liftIvalPartAt,
+            'duration=': self._liftIvalDurationEq,
+            'duration<': self._liftIvalDurationLt,
+            'duration>': self._liftIvalDurationGt,
+            'duration<=': self._liftIvalDurationLe,
+            'duration>=': self._liftIvalDurationGe,
         })
 
-        for part in ('min', 'max', 'duration'):
+        for part in ('min', 'max'):
             self.lifters.update({
                 f'{part}=': self._liftIvalPartEq,
                 f'{part}<': self._liftIvalPartLt,
@@ -1393,6 +1562,17 @@ class StorTypeIval(StorType):
             self.propindx[f'duration{cmpr}'] = IndxByPropIvalDuration
             self.tagpropindx[f'duration{cmpr}'] = IndxByTagPropIvalDuration
 
+    async def indxByForm(self, form, cmpr, valu, reverse=False, virts=None):
+        try:
+            indxtype = self.propindx.get(cmpr, IndxByProp)
+            indxby = indxtype(self.layr, form, None)
+
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
+            yield item
+
     async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virts=None):
         try:
             indxtype = self.propindx.get(cmpr, IndxByProp)
@@ -1404,7 +1584,7 @@ class StorTypeIval(StorType):
         async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
             yield item
 
-    async def indxByTagProp(self, form, tag, prop, cmpr, valu, reverse=False):
+    async def indxByTagProp(self, form, tag, prop, cmpr, valu, reverse=False, virts=None):
         try:
             indxtype = self.tagpropindx.get(cmpr, IndxByTagProp)
             indxby = indxtype(self.layr, form, tag, prop)
@@ -1479,11 +1659,117 @@ class StorTypeIval(StorType):
         for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
             yield item
 
+    async def _liftIvalDurationEq(self, liftby, valu, reverse=False):
+        norm, futstart = valu
+        duraindx = norm.to_bytes(8, 'big')
+
+        if futstart is not None:
+            futindx = self.futdurabyts + (self.unkdura - (futstart + self.timetype.offset)).to_bytes(8, 'big')
+            if reverse:
+                indxs = (futindx, duraindx)
+            else:
+                indxs = (duraindx, futindx)
+        else:
+            indxs = (duraindx,)
+
+        for indx in indxs:
+            for item in liftby.keyNidsByPref(indx, reverse=reverse):
+                yield item
+
+    async def _liftIvalDurationGt(self, liftby, valu, reverse=False):
+        norm, futstart = valu
+        if futstart is None:
+            return
+
+        async for item in self._liftIvalDurationGe(liftby, (norm + 1, futstart - 1), reverse=reverse):
+            yield item
+
+    async def _liftIvalDurationGe(self, liftby, valu, reverse=False):
+        norm, futstart = valu
+
+        if futstart is not None:
+            duraindx = (norm.to_bytes(8, 'big'), self.maxdurabyts)
+
+            strtindx = (self.unkdura - (futstart + self.timetype.offset)).to_bytes(8, 'big')
+            futindx = (self.futdurabyts + strtindx, self.futdurabyts + self.unkdurabyts)
+            if reverse:
+                indxs = (futindx, duraindx)
+            else:
+                indxs = (duraindx, futindx)
+        else:
+            # If we got a >= ? or *, we're just going to get values = because > doesn't make sense.
+            byts = norm.to_bytes(8, 'big')
+            indxs = ((byts, byts),)
+
+        for (pkeymin, pkeymax) in indxs:
+            for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+                yield item
+
+    async def _liftIvalDurationLt(self, liftby, valu, reverse=False):
+        norm, futstart = valu
+        if futstart is None:
+            return
+
+        async for item in self._liftIvalDurationLe(liftby, (norm - 1, futstart + 1), reverse=reverse):
+            yield item
+
+    async def _liftIvalDurationLe(self, liftby, valu, reverse=False):
+        norm, futstart = valu
+
+        if futstart is not None:
+            duraindx = (self.timetype.zerobyts, norm.to_bytes(8, 'big'))
+
+            strtindx = (self.unkdura - (futstart + self.timetype.offset)).to_bytes(8, 'big')
+            futindx = (self.futdurabyts + self.timetype.zerobyts, self.futdurabyts + strtindx)
+            if reverse:
+                indxs = (futindx, duraindx)
+            else:
+                indxs = (duraindx, futindx)
+        else:
+            # If we got a <= ? or *, we're just going to get values = because < doesn't make sense.
+            byts = norm.to_bytes(8, 'big')
+            indxs = ((byts, byts),)
+
+        for (pkeymin, pkeymax) in indxs:
+            for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+                yield item
+
     def indx(self, valu):
         return (self.timetype.getIntIndx(valu[0]) + self.timetype.getIntIndx(valu[1]),)
 
     def decodeIndx(self, bytz):
-        return (self.timetype.decodeIndx(bytz[:8]), self.timetype.decodeIndx(bytz[8:]))
+        minv = self.timetype.decodeIndx(bytz[:8])
+        maxv = self.timetype.decodeIndx(bytz[8:16])
+
+        if maxv == self.timetype.futsize:
+            return (minv, maxv, self.futdura)
+
+        elif minv == self.timetype.unksize or maxv == self.timetype.unksize:
+            return (minv, maxv, self.unkdura)
+
+        return (minv, maxv, maxv - minv)
+
+    def getDurationIndx(self, valu):
+
+        if (dura := valu[2]) == self.unkdura:
+            return self.unkdurabyts
+
+        elif dura != self.futdura:
+            return dura.to_bytes(8, 'big')
+
+        return self.futdurabyts + (self.unkdura - (valu[0] + self.timetype.offset)).to_bytes(8, 'big')
+
+    def getVirtIndxVals(self, nid, form, prop, virts):
+        return ()
+
+    def delVirtIndxVals(self, nid, form, prop, virts):
+        return
+
+    def getTagPropVirtIndxVals(self, nid, form, tag, tagabrv, prop, virts):
+        return ()
+
+    def delTagPropVirtIndxVals(self, nid, form, tag, tagabrv, prop, virts):
+        return
 
 class StorTypeMsgp(StorType):
 
@@ -1516,27 +1802,9 @@ class StorTypeArray(StorType):
             'range=': self.sizetype._liftIntRange,
         })
 
-        self.formindx = {
-            'size': IndxByFormArraySize
-        }
-
         self.propindx = {
             'size': IndxByPropArraySize
         }
-
-    async def indxByForm(self, form, cmpr, valu, reverse=False, virts=None):
-        try:
-            indxtype = IndxByFormArrayValu
-            if virts:
-                indxtype = self.formindx.get(virts[0], IndxByFormArrayValu)
-
-            indxby = indxtype(self.layr, form)
-
-        except s_exc.NoSuchAbrv:
-            return
-
-        async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
-            yield item
 
     async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virts=None):
         try:
@@ -1761,6 +2029,55 @@ class StorTypeIPAddr(StorType):
         mesg = 'Invalid STOR_TYPE_IPADDR: {valu}'
         raise s_exc.BadTypeValu(mesg=mesg)
 
+class StorTypeNodeProp(StorType):
+
+    def __init__(self, layr):
+        StorType.__init__(self, layr, STOR_TYPE_NODEPROP)
+        self.lifters |= {
+            '=': self._liftNodePropEq,
+            'prop=': self._liftNodePropNameEq,
+        }
+
+    def indx(self, valu):
+        propabrv = self.layr.core.setIndxAbrv(INDX_NODEPROP, valu[0])
+        return (propabrv + s_common.buid(valu),)
+
+    async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virts=None):
+        try:
+            indxby = IndxByProp(self.layr, form, prop)
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
+            yield item
+
+    async def indxByPropArray(self, form, prop, cmpr, valu, reverse=False, virts=None):
+        try:
+            indxby = IndxByPropArray(self.layr, form, prop)
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
+            yield item
+
+    async def _liftNodePropEq(self, liftby, valu, reverse=False):
+        try:
+            propabrv = self.layr.core.getIndxAbrv(INDX_NODEPROP, valu[0])
+        except s_exc.NoSuchAbrv:
+            return
+
+        for item in liftby.keyNidsByDups(propabrv + s_common.buid(valu), reverse=reverse):
+            yield item
+
+    async def _liftNodePropNameEq(self, liftby, valu, reverse=False):
+        try:
+            propabrv = self.layr.core.getIndxAbrv(INDX_NODEPROP, valu)
+        except s_exc.NoSuchAbrv:
+            return
+
+        for item in liftby.keyNidsByPref(propabrv, reverse=reverse):
+            yield item
+
 class SodeEnvl:
     def __init__(self, layriden, sode):
         self.layriden = layriden
@@ -1773,8 +2090,6 @@ class Layer(s_nexus.Pusher):
     '''
     The base class for a cortex layer.
     '''
-    nodeeditctor = s_slabseqn.SlabSeqn
-
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
@@ -1794,7 +2109,6 @@ class Layer(s_nexus.Pusher):
         self.readonly = False
 
         self.growsize = self.layrinfo.get('growsize')
-        self.logedits = self.layrinfo.get('logedits')
 
         # slim hooks to avoid async/fire
         self.nodeAddHook = None
@@ -1846,9 +2160,16 @@ class Layer(s_nexus.Pusher):
             StorTypeIPAddr(self),
 
             StorTypeArray(self),
+
+            StorTypeNodeProp(self),
         ]
 
-        self.ivaltimetype = self.stortypes[STOR_TYPE_IVAL].timetype
+        self.timetype = self.stortypes[STOR_TYPE_TIME]
+        self.ivaltype = self.stortypes[STOR_TYPE_IVAL]
+        self.ivaltimetype = self.ivaltype.timetype
+
+        self.createdabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'created')
+        self.updatedabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'updated')
 
         await self._initLayerStorage()
 
@@ -1877,6 +2198,7 @@ class Layer(s_nexus.Pusher):
             self._editNodeDataTombDel,
             self._editNodeEdgeTomb,
             self._editNodeEdgeTombDel,
+            self._editMetaSet,
         ]
 
         self.resolvers = [
@@ -1904,6 +2226,7 @@ class Layer(s_nexus.Pusher):
             self._calcNodeDataTombDel,
             self._calcNodeEdgeTomb,
             self._calcNodeEdgeTombDel,
+            self._calcMetaSet,
         ]
 
         self.canrev = True
@@ -1923,9 +2246,6 @@ class Layer(s_nexus.Pusher):
         if self.readonly and not self.core.migration:
             mesg = f'Layer {self.iden} is read only!'
             raise s_exc.IsReadOnly(mesg=mesg)
-
-    async def getEditSize(self):
-        return self.nodeeditlog.size
 
     async def verifyNidTag(self, nid, formname, tagname, tagvalu):
         abrv = self.core.getIndxAbrv(INDX_TAG, None, tagname)
@@ -1969,32 +2289,36 @@ class Layer(s_nexus.Pusher):
         modlprop = self.core.model.prop(f'{form}:{prop}')
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
         for indx in self.stortypes[modlprop.type.stortype].indx(valu):
-            self.layrslab.put(abrv + indx, nid, db=self.indxdb)
+            self.layrslab._put(abrv + indx, nid, db=self.indxdb)
             self.indxcounts.inc(abrv)
 
     def _testAddPropArrayIndx(self, nid, form, prop, valu):
         modlprop = self.core.model.prop(f'{form}:{prop}')
         abrv = self.core.setIndxAbrv(INDX_ARRAY, form, prop)
         for indx in self.getStorIndx(modlprop.type.stortype, valu):
-            self.layrslab.put(abrv + indx, nid, db=self.indxdb)
+            self.layrslab._put(abrv + indx, nid, db=self.indxdb)
             self.indxcounts.inc(abrv)
 
     def _testAddTagIndx(self, nid, form, tag):
         tagabrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
         tagformabrv = self.core.setIndxAbrv(INDX_TAG, form, tag)
-        self.layrslab.put(tagabrv, nid, db=self.indxdb)
-        self.layrslab.put(tagformabrv, nid, db=self.indxdb)
+        self.layrslab._put(tagabrv, nid, db=self.indxdb)
+        self.layrslab._put(tagformabrv, nid, db=self.indxdb)
         self.indxcounts.inc(tagabrv)
         self.indxcounts.inc(tagformabrv)
 
     def _testAddTagPropIndx(self, nid, form, tag, prop, valu):
+        tabrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
+        pabrv = self.core.setIndxAbrv(INDX_TAGPROP, None, None, prop)
         tpabrv = self.core.setIndxAbrv(INDX_TAGPROP, None, tag, prop)
         ftpabrv = self.core.setIndxAbrv(INDX_TAGPROP, form, tag, prop)
 
         tagprop = self.core.model.tagprop(prop)
         for indx in self.stortypes[tagprop.type.stortype].indx(valu):
-            self.layrslab.put(tpabrv + indx, nid, db=self.indxdb)
-            self.layrslab.put(ftpabrv + indx, nid, db=self.indxdb)
+            self.layrslab._put(pabrv + indx + tabrv, nid, db=self.indxdb)
+            self.layrslab._put(tpabrv + indx, nid, db=self.indxdb)
+            self.layrslab._put(ftpabrv + indx, nid, db=self.indxdb)
+            self.indxcounts.inc(pabrv)
             self.indxcounts.inc(tpabrv)
             self.indxcounts.inc(ftpabrv)
 
@@ -2120,7 +2444,7 @@ class Layer(s_nexus.Pusher):
             if autofix == 'node':
                 sode = self._genStorNode(nid)
                 sode.setdefault('form', form)
-                sode['tags'][tag] = (None, None)
+                sode['tags'][tag] = (None, None, None)
                 self.dirty[nid] = sode
             elif autofix == 'index':
                 self.layrslab.delete(lkey, nid, db=self.indxdb)
@@ -2221,27 +2545,19 @@ class Layer(s_nexus.Pusher):
                                                    'prop': prop, 'indx': indx})
                 continue
 
-            if prop is not None:
-                props = sode.get('props')
-                if props is None:
-                    await tryfix(lkey, nid)
-                    yield ('NoValuForPropArrayIndex', {'nid': s_common.ehex(nid), 'form': form,
-                                                       'prop': prop, 'indx': indx})
-                    continue
+            props = sode.get('props')
+            if props is None:
+                await tryfix(lkey, nid)
+                yield ('NoValuForPropArrayIndex', {'nid': s_common.ehex(nid), 'form': form,
+                                                   'prop': prop, 'indx': indx})
+                continue
 
-                valu = props.get(prop)
-                if valu is None:
-                    await tryfix(lkey, nid)
-                    yield ('NoValuForPropArrayIndex', {'nid': s_common.ehex(nid),
-                                                       'form': form, 'prop': prop, 'indx': indx})
-                    continue
-            else:
-                valu = sode.get('valu')
-                if valu is None:
-                    await tryfix(lkey, nid)
-                    yield ('NoValuForPropArrayIndex', {'nid': s_common.ehex(nid),
-                                                       'form': form, 'prop': prop, 'indx': indx})
-                    continue
+            valu = props.get(prop)
+            if valu is None:
+                await tryfix(lkey, nid)
+                yield ('NoValuForPropArrayIndex', {'nid': s_common.ehex(nid),
+                                                   'form': form, 'prop': prop, 'indx': indx})
+                continue
 
             propvalu, stortype, _ = valu
 
@@ -2262,6 +2578,11 @@ class Layer(s_nexus.Pusher):
     async def verifyByTagProp(self, form, tag, prop, autofix=None):
 
         abrv = self.core.getIndxAbrv(INDX_TAGPROP, form, tag, prop)
+        abrvlen = len(abrv)
+
+        indxtag = False
+        if tag is None:
+            indxtag = True
 
         async def tryfix(lkey, nid):
             if autofix == 'index':
@@ -2271,7 +2592,11 @@ class Layer(s_nexus.Pusher):
 
             await asyncio.sleep(0)
 
-            indx = lkey[len(abrv):]
+            if indxtag:
+                indx = lkey[abrvlen:-abrvlen]
+                tag = self.core.getAbrvIndx(lkey[-abrvlen:])[1]
+            else:
+                indx = lkey[abrvlen:]
 
             sode = self._getStorNode(nid)
             if not sode:
@@ -2300,7 +2625,7 @@ class Layer(s_nexus.Pusher):
                                                  'tag': tag, 'prop': prop, 'indx': indx})
                 continue
 
-            propvalu, stortype = valu
+            propvalu, stortype, virts = valu
 
             if stortype & STOR_FLAG_ARRAY: # pragma: no cover
                 # TODO: These aren't possible yet
@@ -2347,7 +2672,6 @@ class Layer(s_nexus.Pusher):
 
     async def pack(self):
         ret = deepcopy(self.layrinfo)
-        ret['offset'] = await self.getEditIndx()
         ret['totalsize'] = await self.getLayerSize()
         return ret
 
@@ -2370,31 +2694,31 @@ class Layer(s_nexus.Pusher):
                 if tomb:
                     edits.append((EDIT_NODEDATA_TOMB_DEL, (prop,)))
                 else:
-                    edits.append((EDIT_NODEDATA_DEL, (prop, valu)))
+                    edits.append((EDIT_NODEDATA_DEL, (prop,)))
 
             for tag, propdict in sode.get('tagprops', {}).items():
-                for prop, (valu, stortype) in propdict.items():
-                    edits.append((EDIT_TAGPROP_DEL, (tag, prop, valu, stortype)))
+                for prop, (valu, stortype, virts) in propdict.items():
+                    edits.append((EDIT_TAGPROP_DEL, (tag, prop)))
 
             for tag, propdict in sode.get('antitagprops', {}).items():
                 for prop  in propdict.keys():
                     edits.append((EDIT_TAGPROP_TOMB_DEL, (tag, prop)))
 
             for tag, tagv in sode.get('tags', {}).items():
-                edits.append((EDIT_TAG_DEL, (tag, tagv)))
+                edits.append((EDIT_TAG_DEL, (tag,)))
 
             for tag in sode.get('antitags', {}).keys():
                 edits.append((EDIT_TAG_TOMB_DEL, (tag,)))
 
             for prop, (valu, stortype, virts) in sode.get('props', {}).items():
-                edits.append((EDIT_PROP_DEL, (prop, valu, stortype)))
+                edits.append((EDIT_PROP_DEL, (prop,)))
 
             for prop in sode.get('antiprops', {}).keys():
                 edits.append((EDIT_PROP_TOMB_DEL, (prop,)))
 
             valu = sode.get('valu')
             if valu is not None:
-                edits.append((EDIT_NODE_DEL, valu[:2]))
+                edits.append((EDIT_NODE_DEL, ()))
             elif sode.get('antivalu') is not None:
                 edits.append((EDIT_NODE_TOMB_DEL, ()))
 
@@ -2451,19 +2775,23 @@ class Layer(s_nexus.Pusher):
         self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
         self.dataslab = await s_lmdbslab.Slab.anit(nodedatapath, **otherslabopts)
 
+        self.editindx = await self.layrslab.getHotCount('edit:indx')
+
+        if self.fresh:
+            self.editindx.set('edit:indx', -1)
+
+        self.lastindx = self.editindx.get('edit:indx')
+
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
-
-        nodeeditpath = s_common.genpath(self.dirn, 'nodeedits.lmdb')
-        self.nodeeditslab = await s_lmdbslab.Slab.anit(nodeeditpath, **otherslabopts)
-
-        self.offsets = await self.layrslab.getHotCount('offsets')
 
         self.bynid = self.layrslab.initdb('bynid')
 
         self.indxdb = self.layrslab.initdb('indx', dupsort=True, dupfixed=True)
 
         self.ndefabrv = self.core.setIndxAbrv(INDX_NDEF)
+        self.nodepropabrv = self.core.setIndxAbrv(INDX_NODEPROP)
+
         self.edgen1abrv = self.core.setIndxAbrv(INDX_EDGE_N1)
         self.edgen2abrv = self.core.setIndxAbrv(INDX_EDGE_N2)
         self.edgen1n2abrv = self.core.setIndxAbrv(INDX_EDGE_N1N2)
@@ -2472,8 +2800,6 @@ class Layer(s_nexus.Pusher):
 
         self.nodedata = self.dataslab.initdb('nodedata')
         self.dataname = self.dataslab.initdb('dataname', dupsort=True, dupfixed=True)
-
-        self.nodeeditlog = self.nodeeditctor(self.nodeeditslab, 'nodeedits')
 
     async def _initLayerStorage(self):
 
@@ -2491,11 +2817,9 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.addResizeCallback(self.core.checkFreeSpace)
         self.dataslab.addResizeCallback(self.core.checkFreeSpace)
-        self.nodeeditslab.addResizeCallback(self.core.checkFreeSpace)
 
         self.onfini(self.layrslab)
         self.onfini(self.dataslab)
-        self.onfini(self.nodeeditslab)
 
         self.layrslab.on('commit', self._onLayrSlabCommit)
 
@@ -2514,6 +2838,7 @@ class Layer(s_nexus.Pusher):
     async def setLayerInfo(self, name, valu):
         if name != 'readonly':
             self._reqNotReadOnly()
+
         return await self._push('layer:set', name, valu)
 
     @s_nexus.Pusher.onPush('layer:set')
@@ -2521,14 +2846,11 @@ class Layer(s_nexus.Pusher):
         '''
         Set a mutable layer property.
         '''
-        if name not in ('name', 'desc', 'logedits', 'readonly'):
+        if name not in ('name', 'desc', 'readonly'):
             mesg = f'{name} is not a valid layer info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
-        if name == 'logedits':
-            valu = bool(valu)
-            self.logedits = valu
-        elif name == 'readonly':
+        if name == 'readonly':
             valu = bool(valu)
             self.readonly = valu
 
@@ -2546,8 +2868,6 @@ class Layer(s_nexus.Pusher):
     async def stat(self):
         ret = {**self.layrslab.statinfo(),
                }
-        if self.logedits:
-            ret['nodeeditlog_indx'] = (self.nodeeditlog.index(), 0, 0)
         return ret
 
     async def _onLayrFini(self):
@@ -2674,7 +2994,7 @@ class Layer(s_nexus.Pusher):
 
         return self.indxcounts.get(abrv, 0)
 
-    async def getPropCount(self, formname, propname=None):
+    def getPropCount(self, formname, propname=None):
         '''
         Return the number of property rows in the layer for the given form/prop.
         '''
@@ -2700,7 +3020,7 @@ class Layer(s_nexus.Pusher):
 
         return count
 
-    async def getPropArrayCount(self, formname, propname=None):
+    def getPropArrayCount(self, formname, propname=None):
         '''
         Return the number of invidiual value rows in the layer for the given array form/prop.
         '''
@@ -2755,10 +3075,10 @@ class Layer(s_nexus.Pusher):
             vabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
 
             if n1form is not None:
-                n1abrv = self.core.setIndxAbrv(INDX_FORM, n1form)
+                n1abrv = self.core.getIndxAbrv(INDX_FORM, n1form)
 
             if n2form is not None:
-                n2abrv = self.core.setIndxAbrv(INDX_FORM, n2form)
+                n2abrv = self.core.getIndxAbrv(INDX_FORM, n2form)
 
         except s_exc.NoSuchAbrv:
             return 0
@@ -2805,9 +3125,59 @@ class Layer(s_nexus.Pusher):
                     if valt is not None:
                         yield indx, valt[0]
 
-    async def iterPropIndxNids(self, formname, propname, indx):
+    async def iterPropValuesWithCmpr(self, form, prop, cmprvals, array=False):
+
         try:
-            abrv = self.core.getIndxAbrv(INDX_PROP, formname, propname)
+            if array:
+                indxby = IndxByPropArrayKeys(self, form, prop)
+            else:
+                indxby = IndxByPropKeys(self, form, prop)
+        except s_exc.NoSuchAbrv:
+            return
+
+        abrvlen = indxby.abrvlen
+
+        for cmpr, valu, kind in cmprvals:
+
+            styp = self.stortypes[kind]
+
+            if (func := styp.lifters.get(cmpr)) is None:
+                raise s_exc.NoSuchCmpr(cmpr=cmpr)
+
+            async for lkey, _ in func(indxby, valu):
+
+                indx = lkey[abrvlen:]
+                pval = styp.decodeIndx(indx)
+                if pval is not s_common.novalu:
+                    yield indx, pval
+                    continue
+
+                nid = self.layrslab.get(lkey, db=self.indxdb)
+                if nid is None or (sode := self._getStorNode(nid)) is None:  # pragma: no cover
+                    continue
+
+                if prop is None:
+                    valt = sode.get('valu')
+                else:
+                    valt = sode['props'].get(prop)
+
+                if valt is not None:
+                    if array:
+                        for aval in valt[0]:
+                            if styp.indx(aval)[0] == indx:
+                                yield indx, aval
+                                break
+                    else:
+                        yield indx, valt[0]
+
+    async def iterPropIndxNids(self, formname, propname, indx, array=False):
+
+        ityp = INDX_PROP
+        if array:
+            ityp = INDX_ARRAY
+
+        try:
+            abrv = self.core.getIndxAbrv(ityp, formname, propname)
         except s_exc.NoSuchAbrv:
             return
 
@@ -2824,12 +3194,12 @@ class Layer(s_nexus.Pusher):
 
             if reverse:
                 scan = self.layrslab.scanByRangeBack
-                pkeymin = self.ivaltimetype.fullbyts
-                pkeymax = self.ivaltimetype.getIntIndx(0)
+                pkeymin = self.ivaltimetype.fullbyts * 2
+                pkeymax = self.ivaltimetype.zerobyts
             else:
                 scan = self.layrslab.scanByRange
-                pkeymin = self.ivaltimetype.getIntIndx(0)
-                pkeymax = self.ivaltimetype.fullbyts
+                pkeymin = self.ivaltimetype.zerobyts
+                pkeymax = self.ivaltimetype.fullbyts * 2
 
             for lkey, nid in scan(abrv + pkeymin, abrv + pkeymax, db=self.indxdb):
                 yield lkey, nid, self.genStorNodeRef(nid)
@@ -2883,13 +3253,13 @@ class Layer(s_nexus.Pusher):
         try:
             abrv = self.core.getIndxAbrv(INDX_NODEDATA, name)
         except s_exc.NoSuchAbrv:
-            return False
+            return
 
-        if not self.dataslab.hasdup(abrv + FLAG_NORM, nid, db=self.dataname):
-            if self.dataslab.hasdup(abrv + FLAG_TOMB, nid, db=self.dataname):
-                return False
-            return None
-        return True
+        if self.dataslab.hasdup(abrv + FLAG_NORM, nid, db=self.dataname):
+            return True
+
+        if self.dataslab.hasdup(abrv + FLAG_TOMB, nid, db=self.dataname):
+            return False
 
     async def liftTagProp(self, name):
 
@@ -2909,11 +3279,13 @@ class Layer(s_nexus.Pusher):
 
     async def liftByTagProp(self, form, tag, prop, reverse=False, indx=None):
 
-        if indx is None:
-            indx = INDX_TAGPROP
-
         try:
-            abrv = self.core.getIndxAbrv(indx, form, tag, prop)
+            if indx is None:
+                abrv = self.core.getIndxAbrv(INDX_TAGPROP, form, tag, prop)
+            elif isinstance(indx, bytes):
+                abrv = self.core.getIndxAbrv(indx, form, tag, prop)
+            else:
+                abrv = self.core.getIndxAbrv(INDX_VIRTUAL_TAGPROP, form, tag, prop, indx)
         except s_exc.NoSuchAbrv:
             return
 
@@ -2925,18 +3297,36 @@ class Layer(s_nexus.Pusher):
         for lval, nid in scan(abrv, db=self.indxdb):
             yield lval, nid, self.genStorNodeRef(nid)
 
-    async def liftByTagPropValu(self, form, tag, prop, cmprvals, reverse=False):
+    async def liftByTagPropValu(self, form, tag, prop, cmprvals, reverse=False, virts=None):
         '''
-        Note:  form may be None
+        Note: form and tag may be None
         '''
         for cmpr, valu, kind in cmprvals:
-            async for indx, nid in self.stortypes[kind].indxByTagProp(form, tag, prop, cmpr, valu, reverse=reverse):
+            async for indx, nid in self.stortypes[kind].indxByTagProp(form, tag, prop, cmpr, valu, reverse=reverse, virts=virts):
+                yield indx, nid, self.genStorNodeRef(nid)
+
+    async def liftByMeta(self, name, form=None, reverse=False):
+
+        try:
+            abrv = self.core.getIndxAbrv(INDX_VIRTUAL, form, None, name)
+        except s_exc.NoSuchAbrv:
+            return
+
+        if reverse:
+            scan = self.layrslab.scanByPrefBack
+        else:
+            scan = self.layrslab.scanByPref
+
+        for lval, nid in scan(abrv, db=self.indxdb):
+            sref = self.genStorNodeRef(nid)
+            yield lval, nid, sref
+
+    async def liftByMetaValu(self, name, cmprvals, form=None, reverse=False):
+        for cmpr, valu, kind in cmprvals:
+            async for indx, nid in self.stortypes[kind].indxByProp(form, None, cmpr, valu, reverse=reverse, virts=(name,)):
                 yield indx, nid, self.genStorNodeRef(nid)
 
     async def liftByProp(self, form, prop, reverse=False, indx=None):
-
-        if indx is None:
-            indx = INDX_PROP
 
         try:
             if indx is None:
@@ -2961,10 +3351,6 @@ class Layer(s_nexus.Pusher):
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
     async def liftByFormValu(self, form, cmprvals, reverse=False, virts=None):
         for cmpr, valu, kind in cmprvals:
-
-            if kind & 0x8000:
-                kind = STOR_TYPE_ARRAY
-
             async for indx, nid in self.stortypes[kind].indxByForm(form, cmpr, valu, reverse=reverse, virts=virts):
                 yield indx, nid, self.genStorNodeRef(nid)
 
@@ -2999,7 +3385,182 @@ class Layer(s_nexus.Pusher):
 
             yield nid, self.genStorNodeRef(nid), lkey[-1:] == FLAG_TOMB
 
-    async def saveNodeEdits(self, edits, meta):
+    async def setStorNodeProp(self, nid, prop, valu, meta):
+        newp = self.core.model.reqProp(prop)
+
+        newp_valu, info = await newp.type.norm(valu)
+        newp_name = newp.name
+        newp_stortype = newp.type.stortype
+        newp_formname = newp.form.name
+
+        set_edit = (EDIT_PROP_SET, (newp_name, newp_valu, newp_stortype, info.get('virts')))
+        nodeedits = [(s_common.int64un(nid), newp_formname, [set_edit])]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        return bool(changes)
+
+    async def delStorNode(self, nid, meta):
+        '''
+        Delete all node information in this layer.
+
+        Deletes props, tagprops, tags, n1edges, n2edges, nodedata, tombstones, and node valu.
+        '''
+        if (sode := self._getStorNode(nid)) is None:
+            return False
+
+        formname = sode.get('form')
+
+        edits = []
+        nodeedits = []
+        intnid = s_common.int64un(nid)
+
+        for propname in sode.get('props', {}).keys():
+            edits.append((EDIT_PROP_DEL, (propname,)))
+
+        for propname in sode.get('antiprops', {}).keys():
+            edits.append((EDIT_PROP_TOMB_DEL, (propname,)))
+
+        for tagname, tprops in sode.get('tagprops', {}).items():
+            for propname, propvalu in tprops.items():
+                edits.append((EDIT_TAGPROP_DEL, (tagname, propname)))
+
+        for tagname, tprops in sode.get('antitagprops', {}).items():
+            for propname in tprops.keys():
+                edits.append((EDIT_TAGPROP_TOMB_DEL, (tagname, propname)))
+
+        for tagname in sode.get('tags', {}).keys():
+            edits.append((EDIT_TAG_DEL, (tagname,)))
+
+        for tagname in sode.get('antitags', {}).keys():
+            edits.append((EDIT_TAG_TOMB_DEL, (tagname,)))
+
+        # EDIT_NODE_DEL will delete all nodedata and n1 edges if there is a valu in the sode
+        if (valu := sode.get('valu')):
+            edits.append((EDIT_NODE_DEL,))
+        else:
+            if (valu := sode.get('antivalu')):
+                edits.append((EDIT_NODE_TOMB_DEL,))
+
+            async for abrv, tomb in self.iterNodeDataKeys(nid):
+                name = self.core.getAbrvIndx(abrv)[0]
+                if tomb:
+                    edits.append((EDIT_NODEDATA_TOMB_DEL, (name,)))
+                else:
+                    edits.append((EDIT_NODEDATA_DEL, (name,)))
+                await asyncio.sleep(0)
+
+            async for abrv, n2nid, tomb in self.iterNodeEdgesN1(nid):
+                verb = self.core.getAbrvIndx(abrv)[0]
+                if tomb:
+                    edits.append((EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid))))
+                else:
+                    edits.append((EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
+                await asyncio.sleep(0)
+
+        nodeedits.append((intnid, formname, edits))
+
+        n2edges = {}
+        async for abrv, n2nid, tomb in self.iterNodeEdgesN2(nid):
+            n2edges.setdefault(n2nid, []).append((abrv, tomb))
+            await asyncio.sleep(0)
+
+        @s_cache.memoize()
+        def getN2Form(n2nid):
+            return self.core.getNidNdef(n2nid)[0]
+
+        changed = False
+
+        async def batchEdits(size=1000):
+            if len(nodeedits) < size:
+                return changed
+
+            _, changes = await self.saveNodeEdits(nodeedits, meta)
+
+            nodeedits.clear()
+
+            if changed: # pragma: no cover
+                return changed
+
+            return bool(changes)
+
+        for n2nid, edges in n2edges.items():
+            edits = []
+            for (abrv, tomb) in edges:
+                verb = self.core.getAbrvIndx(abrv)[0]
+                if tomb:
+                    edits.append((EDIT_EDGE_TOMB_DEL, (verb, intnid)))
+                else:
+                    edits.append((EDIT_EDGE_DEL, (verb, intnid)))
+
+            nodeedits.append((s_common.int64un(n2nid), getN2Form(n2nid), edits))
+
+            changed = await batchEdits()
+
+        return await batchEdits(size=1)
+
+    async def delStorNodeProp(self, nid, prop, meta):
+        pprop = self.core.model.reqProp(prop)
+
+        oldp_name = pprop.name
+        oldp_formname = pprop.form.name
+        oldp_stortype = pprop.type.stortype
+
+        del_edit = (EDIT_PROP_DEL, (oldp_name,))
+        nodeedits = [(s_common.int64un(nid), oldp_formname, [del_edit])]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        return bool(changes)
+
+    async def delNodeData(self, nid, meta, name=None):
+        '''
+        Delete nodedata from a node in this layer. If name is not specified, delete all nodedata.
+        '''
+        if (sode := self._getStorNode(nid)) is None:
+            return False
+
+        edits = []
+        if name is None:
+            async for abrv, tomb in self.iterNodeDataKeys(nid):
+                name = self.core.getAbrvIndx(abrv)[0]
+                if tomb:
+                    edits.append((EDIT_NODEDATA_TOMB_DEL, (name,)))
+                else:
+                    edits.append((EDIT_NODEDATA_DEL, (name,)))
+                await asyncio.sleep(0)
+
+        elif (data := await self.hasNodeData(nid, name)) is not None:
+            if data:
+                edits.append((EDIT_NODEDATA_DEL, (name,)))
+            else:
+                edits.append((EDIT_NODEDATA_TOMB_DEL, (name,)))
+
+        if not edits:
+            return False
+
+        nodeedits = [(s_common.int64un(nid), sode.get('form'), edits)]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+
+        return bool(changes)
+
+    async def delEdge(self, n1nid, verb, n2nid, meta):
+        if (sode := self._getStorNode(n1nid)) is None:
+            return False
+
+        if (edge := await self.hasNodeEdge(n1nid, verb, n2nid)) is None:
+            return False
+
+        if edge:
+            edits = [(EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid)))]
+        else:
+            edits = [(EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid)))]
+
+        nodeedits = [(s_common.int64un(n1nid), sode.get('form'), edits)]
+
+        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        return bool(changes)
+
+    async def saveNodeEdits(self, edits, meta, compat=False):
         '''
         Save node edits to the layer and return a tuple of (nexsoffs, changes).
 
@@ -3010,6 +3571,9 @@ class Layer(s_nexus.Pusher):
         if self.isdeleted:
             mesg = f'Layer {self.iden} has been deleted!'
             raise s_exc.NoSuchLayer(mesg=mesg)
+
+        if compat:
+            edits = await self.core.remoteToLocalEdits(edits)
 
         if not self.core.isactive:
             proxy = await self.core.nexsroot.getIssueProxy()
@@ -3029,8 +3593,8 @@ class Layer(s_nexus.Pusher):
 
     async def calcEdits(self, nodeedits, meta):
 
-        if (tick := meta.get('time')) is None:
-            tick = s_common.now()
+        if meta.get('time') is None:
+            meta['time'] = s_common.now()
 
         realedits = []
         for (nid, form, edits) in nodeedits:
@@ -3045,35 +3609,17 @@ class Layer(s_nexus.Pusher):
             else:
                 nid = s_common.int64en(nid)
 
-            newsode = False
-
             sode = self._getStorNode(nid)
-            if sode is None:
-                newsode = {'.created': tick}
-
-            elif sode.get('valu') is None:
-                if (props := sode.get('props')) is not None and (ctime := props.get('.created')) is not None:
-                    oldv = ctime[0]
-                    newsode = {'oldv': oldv, '.created': min(oldv, tick)}
-                else:
-                    newsode = {'.created': tick}
-
             changes = []
             for edit in edits:
 
-                delt = await self.resolvers[edit[0]](nid, edit, sode, newsode)
+                delt = await self.resolvers[edit[0]](nid, edit, sode)
                 if delt is not None:
-                    changes.extend(delt)
+                    changes.append(delt)
 
                 await asyncio.sleep(0)
 
             if changes:
-                if newsode and newsode.get('valu'):
-                    oldv = newsode.get('oldv')
-                    ctime = newsode.get('.created')
-                    if oldv != ctime:
-                        changes.append((EDIT_PROP_SET, ('.created', ctime, oldv, STOR_TYPE_MINTIME, None)))
-
                 realedits.append((s_common.int64un(nid), form, changes))
 
         await asyncio.sleep(0)
@@ -3091,26 +3637,47 @@ class Layer(s_nexus.Pusher):
             None
         '''
         kvpairs = []
+
+        utime = meta['time']
+        ubyts = self.timetype.getIntIndx(utime)
+
         for (nid, form, edits) in nodeedits:
 
             nid = s_common.int64en(nid)
             sode = self._genStorNode(nid)
 
             for edit in edits:
-                kvpairs.extend(await self.editors[edit[0]](nid, form, edit, sode))
+                kvpairs.extend(await self.editors[edit[0]](nid, form, edit, sode, meta))
 
                 if len(kvpairs) > 20:
                     await self.layrslab.putmulti(kvpairs, db=self.indxdb)
                     kvpairs.clear()
                     await asyncio.sleep(0)
 
+            if nid in self.dirty:
+                metaabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, None, 'updated')
+
+                if (last := sode['meta'].get('updated')) is not None:
+                    oldbyts = self.timetype.getIntIndx(last[0])
+                    self.layrslab.delete(metaabrv + oldbyts, nid, db=self.indxdb)
+                    self.layrslab.delete(self.updatedabrv + oldbyts, nid, db=self.indxdb)
+
+                kvpairs.append((metaabrv + ubyts, nid))
+                kvpairs.append((self.updatedabrv + ubyts, nid))
+
+                sode['meta']['updated'] = (utime, STOR_TYPE_TIME)
+
         if kvpairs:
             await self.layrslab.putmulti(kvpairs, db=self.indxdb)
 
-        if self.logedits and nexsitem is not None:
-            nexsindx = nexsitem[0] if nexsitem is not None else None
-            offs = self.nodeeditlog.add(None, indx=nexsindx)
-            [(await wind.put((offs, nodeedits, meta))) for wind in tuple(self.windows)]
+        if nexsitem is not None:
+            nexsoffs = nexsitem[0]
+            if nexsoffs > self.lastindx:
+                self.lastindx = nexsoffs
+                self.editindx.set('edit:indx', nexsoffs)
+                if self.windows:
+                    for wind in tuple(self.windows):
+                        await wind.put((nexsoffs, nodeedits, meta))
 
         await asyncio.sleep(0)
         return nodeedits
@@ -3138,11 +3705,19 @@ class Layer(s_nexus.Pusher):
             return False
 
         # no more refs in this layer.  time to pop it...
+        form = sode.get('form')
         try:
-            abrv = self.core.getIndxAbrv(INDX_FORM, sode.get('form'))
+            abrv = self.core.getIndxAbrv(INDX_FORM, form)
             self.layrslab.delete(abrv, val=nid, db=self.indxdb)
         except s_exc.NoSuchAbrv:
             pass
+
+        if (last := sode['meta'].get('updated')) is not None:
+            ubyts = self.timetype.getIntIndx(last[0])
+
+            metaabrv = self.core.getIndxAbrv(INDX_VIRTUAL, form, None, 'updated')
+            self.layrslab.delete(metaabrv + ubyts, nid, db=self.indxdb)
+            self.layrslab.delete(self.updatedabrv + ubyts, nid, db=self.indxdb)
 
         self.dirty.pop(nid, None)
         self.nidcache.pop(nid, None)
@@ -3163,214 +3738,150 @@ class Layer(s_nexus.Pusher):
         self._reqNotReadOnly()
         await self._push('edits', nodeedits, meta)
 
-    async def _calcNodeAdd(self, nid, edit, sode, newsode):
+    async def _calcNodeAdd(self, nid, edit, sode):
 
-        if not newsode:
+        if sode is not None and sode.get('valu') is not None:
             return
 
-        newsode['valu'] = True
+        return edit
 
-        return (
-            (EDIT_NODE_ADD, edit[1]),
-        )
-
-    async def _calcNodeDel(self, nid, edit, sode, newsode):
+    async def _calcNodeDel(self, nid, edit, sode):
 
         if sode is None or (oldv := sode.get('valu')) is None:
             return
 
-        return (
-            (EDIT_NODE_DEL, oldv[:2]),
-        )
+        return edit
 
-    async def _calcNodeTomb(self, nid, edit, sode, newsode):
+    async def _calcNodeTomb(self, nid, edit, sode):
 
         if sode is not None and sode.get('antivalu') is not None:
             return
 
-        return (
-            (EDIT_NODE_TOMB, ()),
-        )
+        return edit
 
-    async def _calcNodeTombDel(self, nid, edit, sode, newsode):
+    async def _calcNodeTombDel(self, nid, edit, sode):
 
         if sode is None or sode.get('antivalu') is None:
             return
 
-        return (
-            (EDIT_NODE_TOMB_DEL, ()),
-        )
+        return edit
 
-    async def _calcPropSet(self, nid, edit, sode, newsode):
+    async def _calcMetaSet(self, nid, edit, sode):
 
-        prop, valu, _, stortype, virts = edit[1]
+        name, valu, stortype = edit[1]
 
-        if newsode and prop == '.created':
-            newsode['.created'] = min(valu, newsode['.created'])
-            return
+        if sode is not None and (meta := sode.get('meta')) is not None:
 
-        if sode is None or (props := sode.get('props')) is None:
-            oldv = None
-
-        else:
-            oldv, oldt, _ = props.get(prop, (None, None, None))
+            oldv, oldt = meta.get(name, (None, None))
 
             if valu == oldv:
                 return
 
             if oldv is not None:
-                # merge intervals and min times
-                if stortype == STOR_TYPE_IVAL:
-                    allv = oldv + valu
-                    valu = (min(allv), max(allv))
+                if stortype == STOR_TYPE_MINTIME:
+                    if valu >= oldv:
+                        return
 
-                elif stortype == STOR_TYPE_MINTIME:
-                    valu = min(valu, oldv)
+        return edit
 
-                elif stortype == STOR_TYPE_MAXTIME:
-                    valu = max(valu, oldv)
+    async def _calcPropSet(self, nid, edit, sode):
 
-                if valu == oldv and stortype == oldt:
-                    return
+        prop, valu, stortype, virts = edit[1]
 
-        return (
-            (EDIT_PROP_SET, (prop, valu, oldv, stortype, virts)),
-        )
+        if sode is not None and (props := sode.get('props')) is not None:
 
-    async def _calcPropDel(self, nid, edit, sode, newsode):
+            oldv, _, oldvirts = props.get(prop, (None, None, None))
+
+            if valu == oldv and virts == oldvirts:
+                return
+
+        return edit
+
+    async def _calcPropDel(self, nid, edit, sode):
 
         if sode is None or (props := sode.get('props')) is None:
             return
 
-        prop = edit[1][0]
-        if (valt := props.get(prop)) is None:
+        if (valt := props.get(edit[1][0])) is None:
             return
 
-        return (
-            (EDIT_PROP_DEL, (prop, *valt[:2])),
-        )
+        return edit
 
-    async def _calcPropTomb(self, nid, edit, sode, newsode):
-
-        prop = edit[1][0]
+    async def _calcPropTomb(self, nid, edit, sode):
 
         if sode is not None:
             antiprops = sode.get('antiprops')
-            if antiprops is not None and antiprops.get(prop) is not None:
+            if antiprops is not None and antiprops.get(edit[1][0]) is not None:
                 return
 
-        return (
-            (EDIT_PROP_TOMB, (prop,)),
-        )
+        return edit
 
-    async def _calcPropTombDel(self, nid, edit, sode, newsode):
+    async def _calcPropTombDel(self, nid, edit, sode):
 
         if sode is None:
             return
         else:
-            prop = edit[1][0]
             antiprops = sode.get('antiprops')
-            if antiprops is None or antiprops.get(prop) is None:
+            if antiprops is None or antiprops.get(edit[1][0]) is None:
                 return
 
-        return (
-            (EDIT_PROP_TOMB_DEL, (prop,)),
-        )
+        return edit
 
-    async def _calcTagSet(self, nid, edit, sode, newsode):
+    async def _calcTagSet(self, nid, edit, sode):
 
-        tag, valu, _ = edit[1]
-
-        if sode is None or (tags := sode.get('tags')) is None:
-            oldv = None
-
-        elif (oldv := tags.get(tag)) is not None:
-
-            if oldv != (None, None) and valu != (None, None):
-                allv = oldv + valu
-                valu = (min(allv), max(allv))
-
-            if oldv == valu:
+        if sode is not None and (tags := sode.get('tags')) is not None:
+            tag, valu = edit[1]
+            if (oldv := tags.get(tag)) is not None and oldv == valu:
                 return
 
-        return (
-            (EDIT_TAG_SET, (tag, valu, oldv)),
-        )
+        return edit
 
-    async def _calcTagDel(self, nid, edit, sode, newsode):
+    async def _calcTagDel(self, nid, edit, sode):
 
         if sode is None or (tags := sode.get('tags')) is None:
             return
 
-        tag = edit[1][0]
-        if (oldv := tags.get(tag)) is None:
+        if tags.get(edit[1][0]) is None:
             return
 
-        return (
-            (EDIT_TAG_DEL, (tag, oldv)),
-        )
+        return edit
 
-    async def _calcTagTomb(self, nid, edit, sode, newsode):
-
-        tag = edit[1][0]
+    async def _calcTagTomb(self, nid, edit, sode):
 
         if sode is not None:
             antitags = sode.get('antitags')
-            if antitags is not None and antitags.get(tag) is not None:
+            if antitags is not None and antitags.get(edit[1][0]) is not None:
                 return
 
-        return (
-            (EDIT_TAG_TOMB, (tag,)),
-        )
+        return edit
 
-    async def _calcTagTombDel(self, nid, edit, sode, newsode):
+    async def _calcTagTombDel(self, nid, edit, sode):
 
         if sode is None:
             return
         else:
-            tag = edit[1][0]
             antitags = sode.get('antitags')
-            if antitags is None or antitags.get(tag) is None:
+            if antitags is None or antitags.get(edit[1][0]) is None:
                 return
 
-        return (
-            (EDIT_TAG_TOMB_DEL, (tag,)),
-        )
+        return edit
 
-    async def _calcTagPropSet(self, nid, edit, sode, newsode):
-
-        tag, prop, valu, _, stortype = edit[1]
-        oldv = None
+    async def _calcTagPropSet(self, nid, edit, sode):
 
         if sode is not None and (tagprops := sode.get('tagprops')) is not None:
+            tag, prop, valu, stortype, virts = edit[1]
             if (tp_dict := tagprops.get(tag)) is not None:
-                if (valt := tp_dict.get(prop)) is not None:
+                if tp_dict.get(prop) == (valu, stortype, virts):
+                    return
 
-                    oldv, oldt = valt
+        return edit
 
-                    if stortype == STOR_TYPE_IVAL:
-                        allv = oldv + valu
-                        valu = (min(allv), max(allv))
-
-                    elif stortype == STOR_TYPE_MINTIME:
-                        valu = min(valu, oldv)
-
-                    elif stortype == STOR_TYPE_MAXTIME:
-                        valu = max(valu, oldv)
-
-                    if valu == oldv and stortype == oldt:
-                        return
-
-        return (
-            (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype)),
-        )
-
-    async def _calcTagPropDel(self, nid, edit, sode, newsode):
+    async def _calcTagPropDel(self, nid, edit, sode):
 
         if sode is None or (tagprops := sode.get('tagprops')) is None:
             return
 
-        tag, prop, _, _ = edit[1]
+        tag, prop = edit[1]
 
         if (tp_dict := tagprops.get(tag)) is None:
             return
@@ -3378,86 +3889,68 @@ class Layer(s_nexus.Pusher):
         if (oldv := tp_dict.get(prop)) is None:
             return
 
-        return (
-            (EDIT_TAGPROP_DEL, (tag, prop, *oldv)),
-        )
+        return edit
 
-    async def _calcTagPropTomb(self, nid, edit, sode, newsode):
-
-        tag, prop = edit[1]
+    async def _calcTagPropTomb(self, nid, edit, sode):
 
         if sode is not None:
             if (antitags := sode.get('antitagprops')) is not None:
+                tag, prop = edit[1]
                 if (antiprops := antitags.get(tag)) is not None and prop in antiprops:
                     return
 
-        return (
-            (EDIT_TAGPROP_TOMB, (tag, prop)),
-        )
+        return edit
 
-    async def _calcTagPropTombDel(self, nid, edit, sode, newsode):
+    async def _calcTagPropTombDel(self, nid, edit, sode):
 
         if sode is None:
             return
         else:
-            tag, prop = edit[1]
             if (antitags := sode.get('antitagprops')) is None:
                 return
 
+            tag, prop = edit[1]
             if (antiprops := antitags.get(tag)) is None or prop not in antiprops:
                 return
 
-        return (
-            (EDIT_TAGPROP_TOMB_DEL, (tag, prop)),
-        )
+        return edit
 
-    async def _calcNodeDataSet(self, nid, edit, sode, newsode):
-
-        name, valu, _ = edit[1]
+    async def _calcNodeDataSet(self, nid, edit, sode):
 
         if sode is None:
-            return (
-                (EDIT_NODEDATA_SET, (name, valu, None)),
-            )
-
-        try:
-            abrv = self.core.getIndxAbrv(INDX_NODEDATA, name)
-        except s_exc.NoSuchAbrv:
-            return (
-                (EDIT_NODEDATA_SET, (name, valu, None)),
-            )
-
-        oldv = None
-        byts = s_msgpack.en(valu)
-
-        if (oldb := self.dataslab.get(nid + abrv + FLAG_NORM, db=self.nodedata)) is not None:
-            if oldb == byts:
-                return
-            oldv = s_msgpack.un(oldb)
-
-        return (
-            (EDIT_NODEDATA_SET, (name, valu, oldv)),
-        )
-
-    async def _calcNodeDataDel(self, nid, edit, sode, newsode):
-
-        if sode is None:
-            return
+            return edit
 
         name, valu = edit[1]
         try:
             abrv = self.core.getIndxAbrv(INDX_NODEDATA, name)
         except s_exc.NoSuchAbrv:
+            return edit
+
+        byts = s_msgpack.en(valu)
+
+        if (oldb := self.dataslab.get(nid + abrv + FLAG_NORM, db=self.nodedata)) is not None:
+            if oldb == byts:
+                return
+
+        return edit
+
+    async def _calcNodeDataDel(self, nid, edit, sode):
+
+        if sode is None:
             return
 
-        if (oldb := self.dataslab.get(nid + abrv + FLAG_NORM, db=self.nodedata)) is None:
+        name = edit[1][0]
+        try:
+            abrv = self.core.getIndxAbrv(INDX_NODEDATA, name)
+        except s_exc.NoSuchAbrv:
             return
 
-        return (
-            (EDIT_NODEDATA_DEL, (name, s_msgpack.un(oldb))),
-        )
+        if not self.dataslab.has(nid + abrv + FLAG_NORM, db=self.nodedata):
+            return
 
-    async def _calcNodeDataTomb(self, nid, edit, sode, newsode):
+        return edit
+
+    async def _calcNodeDataTomb(self, nid, edit, sode):
 
         name = edit[1][0]
 
@@ -3469,11 +3962,9 @@ class Layer(s_nexus.Pusher):
         if self.dataslab.has(nid + abrv + FLAG_TOMB, db=self.nodedata):
             return
 
-        return (
-            (EDIT_NODEDATA_TOMB, (name,)),
-        )
+        return edit
 
-    async def _calcNodeDataTombDel(self, nid, edit, sode, newsode):
+    async def _calcNodeDataTombDel(self, nid, edit, sode):
 
         name = edit[1][0]
 
@@ -3485,29 +3976,23 @@ class Layer(s_nexus.Pusher):
         if not self.dataslab.has(nid + abrv + FLAG_TOMB, db=self.nodedata):
             return
 
-        return (
-            (EDIT_NODEDATA_TOMB_DEL, (name,)),
-        )
+        return edit
 
-    async def _calcNodeEdgeAdd(self, nid, edit, sode, newsode):
+    async def _calcNodeEdgeAdd(self, nid, edit, sode):
 
         verb, n2nid = edit[1]
 
         try:
             vabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
         except s_exc.NoSuchAbrv:
-            return (
-                (EDIT_EDGE_ADD, (verb, n2nid)),
-            )
+            return edit
 
         if sode is not None and self.layrslab.hasdup(self.edgen1n2abrv + nid + s_common.int64en(n2nid) + FLAG_NORM, vabrv, db=self.indxdb):
             return
 
-        return (
-            (EDIT_EDGE_ADD, (verb, n2nid)),
-        )
+        return edit
 
-    async def _calcNodeEdgeDel(self, nid, edit, sode, newsode):
+    async def _calcNodeEdgeDel(self, nid, edit, sode):
 
         if sode is None:
             return
@@ -3522,11 +4007,9 @@ class Layer(s_nexus.Pusher):
         if not self.layrslab.hasdup(self.edgen1n2abrv + nid + s_common.int64en(n2nid) + FLAG_NORM, vabrv, db=self.indxdb):
             return
 
-        return (
-            (EDIT_EDGE_DEL, (verb, n2nid)),
-        )
+        return edit
 
-    async def _calcNodeEdgeTomb(self, nid, edit, sode, newsode):
+    async def _calcNodeEdgeTomb(self, nid, edit, sode):
 
         verb, n2nid = edit[1]
 
@@ -3538,11 +4021,9 @@ class Layer(s_nexus.Pusher):
         if sode is not None and self.layrslab.hasdup(self.edgen1n2abrv + nid + s_common.int64en(n2nid) + FLAG_TOMB, vabrv, db=self.indxdb):
             return
 
-        return (
-            (EDIT_EDGE_TOMB, (verb, n2nid)),
-        )
+        return edit
 
-    async def _calcNodeEdgeTombDel(self, nid, edit, sode, newsode):
+    async def _calcNodeEdgeTombDel(self, nid, edit, sode):
 
         verb, n2nid = edit[1]
 
@@ -3554,11 +4035,9 @@ class Layer(s_nexus.Pusher):
         if sode is None or not self.layrslab.hasdup(self.edgen1n2abrv + nid + s_common.int64en(n2nid) + FLAG_TOMB, vabrv, db=self.indxdb):
             return
 
-        return (
-            (EDIT_EDGE_TOMB_DEL, (verb, n2nid)),
-        )
+        return edit
 
-    async def _editNodeAdd(self, nid, form, edit, sode):
+    async def _editNodeAdd(self, nid, form, edit, sode, meta):
 
         if sode.get('valu') is not None:
             return ()
@@ -3577,43 +4056,30 @@ class Layer(s_nexus.Pusher):
             formabrv = self.core.setIndxAbrv(INDX_FORM, form)
             kvpairs.append((formabrv, nid))
 
+        ctime = meta['time']
+        sode['meta']['created'] = (ctime, STOR_TYPE_MINTIME)
+        cbyts = self.timetype.getIntIndx(ctime)
+
+        metaabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, None, 'created')
+        kvpairs.append((metaabrv + cbyts, nid))
+        kvpairs.append((self.createdabrv + cbyts, nid))
+
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
 
-        if stortype & STOR_FLAG_ARRAY:
+        for indx in self.getStorIndx(stortype, valu):
+            kvpairs.append((abrv + indx, nid))
+            self.indxcounts.inc(abrv)
 
-            arryabrv = self.core.setIndxAbrv(INDX_ARRAY, form, None)
+        if stortype == STOR_TYPE_IVAL:
+            dura = self.ivaltype.getDurationIndx(valu)
+            duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, None)
+            kvpairs.append((duraabrv + dura, nid))
 
-            for indx in self.getStorIndx(stortype, valu):
-                kvpairs.append((arryabrv + indx, nid))
-                self.indxcounts.inc(arryabrv)
-                await asyncio.sleep(0)
-
-            for indx in self.getStorIndx(STOR_TYPE_ARRAY, valu):
-                kvpairs.append((abrv + indx, nid))
-                self.indxcounts.inc(abrv)
-
-        else:
-
-            for indx in self.getStorIndx(stortype, valu):
-                kvpairs.append((abrv + indx, nid))
-                self.indxcounts.inc(abrv)
-
-            if stortype == STOR_TYPE_IVAL:
-                if valu[1] == self.ivaltimetype.futsize:
-                    dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-                else:
-                    dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
-
-                duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, None)
-                kvpairs.append((duraabrv + dura, nid))
-                self.indxcounts.inc(duraabrv)
-
-                indx = indx[8:]
-                maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, None)
-                kvpairs.append((maxabrv + indx, nid))
+            maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, None)
+            kvpairs.append((maxabrv + indx[8:], nid))
 
         if virts is not None:
-            kvpairs.extend(self.getVirtIndxVals(nid, form, None, virts))
+            kvpairs.extend(self.stortypes[stortype].getVirtIndxVals(nid, form, None, virts))
 
         if sode.pop('antivalu', None) is not None:
             self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
@@ -3623,50 +4089,66 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editNodeDel(self, nid, form, edit, sode):
+    async def _editMetaSet(self, nid, form, edit, sode, meta):
+
+        name, valu, stortype = edit[1]
+
+        oldv, oldt = sode['meta'].get(name, (None, None))
+
+        if valu == oldv:
+            return ()
+
+        kvpairs = []
+
+        metaabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, None, name)
+        univabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, name)
+
+        if oldv is not None:
+            for oldi in self.getStorIndx(oldt, oldv):
+                self.layrslab.delete(metaabrv + oldi, nid, db=self.indxdb)
+                self.layrslab.delete(univabrv + oldi, nid, db=self.indxdb)
+
+        sode['meta'][name] = (valu, stortype)
+        self.dirty[nid] = sode
+
+        for indx in self.getStorIndx(stortype, valu):
+            kvpairs.append((metaabrv + indx, nid))
+            kvpairs.append((univabrv + indx, nid))
+
+        return kvpairs
+
+    async def _editNodeDel(self, nid, form, edit, sode, meta):
 
         if (valt := sode.pop('valu', None)) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         (valu, stortype, virts) = valt
 
+        ctime = sode['meta']['created'][0]
+        cbyts = self.timetype.getIntIndx(ctime)
+
+        metaabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, None, 'created')
+        self.layrslab.delete(metaabrv + cbyts, nid, db=self.indxdb)
+        self.layrslab.delete(self.createdabrv + cbyts, nid, db=self.indxdb)
+
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
 
-        if stortype & STOR_FLAG_ARRAY:
+        for indx in self.getStorIndx(stortype, valu):
+            self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
+            self.indxcounts.inc(abrv, -1)
 
-            arryabrv = self.core.setIndxAbrv(INDX_ARRAY, form, None)
+        if stortype == STOR_TYPE_IVAL:
+            dura = self.ivaltype.getDurationIndx(valu)
+            duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, None)
+            self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
 
-            for indx in self.getStorIndx(stortype, valu):
-                self.layrslab.delete(arryabrv + indx, nid, db=self.indxdb)
-                self.indxcounts.inc(arryabrv, -1)
-                await asyncio.sleep(0)
-
-            for indx in self.getStorIndx(STOR_TYPE_ARRAY, valu):
-                self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
-                self.indxcounts.inc(abrv, -1)
-
-        else:
-
-            for indx in self.getStorIndx(stortype, valu):
-                self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
-                self.indxcounts.inc(abrv, -1)
-
-            if stortype == STOR_TYPE_IVAL:
-                if valu[1] == self.ivaltimetype.futsize:
-                    dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-                else:
-                    dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
-
-                duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, None)
-                self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
-                self.indxcounts.inc(duraabrv, -1)
-
-                indx = indx[8:]
-                maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, None)
-                self.layrslab.delete(maxabrv + indx, nid, db=self.indxdb)
+            indx = indx[8:]
+            maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, None)
+            self.layrslab.delete(maxabrv + indx, nid, db=self.indxdb)
 
         if virts is not None:
-            self.delVirtIndxVals(nid, form, None, virts)
+            self.stortypes[stortype].delVirtIndxVals(nid, form, None, virts)
 
         if self.nodeDelHook is not None:
             self.nodeDelHook()
@@ -3679,7 +4161,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editNodeTomb(self, nid, form, edit, sode):
+    async def _editNodeTomb(self, nid, form, edit, sode, meta):
 
         if sode.get('antivalu') is not None:
             return ()
@@ -3702,9 +4184,10 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editNodeTombDel(self, nid, form, edit, sode):
+    async def _editNodeTombDel(self, nid, form, edit, sode, meta):
 
         if sode.pop('antivalu', None) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
@@ -3716,20 +4199,19 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editPropSet(self, nid, form, edit, sode):
+    async def _editPropSet(self, nid, form, edit, sode, meta):
 
-        prop, valu, oldv, stortype, virts = edit[1]
+        prop, valu, stortype, virts = edit[1]
 
         oldv, oldt, oldvirts = sode['props'].get(prop, (None, None, None))
 
         if valu == oldv:
+            if virts != oldvirts:
+                sode['props'][prop] = (valu, stortype, virts)
+                self.dirty[nid] = sode
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
-        univabrv = None
-
-        if prop[0] == '.':  # '.' to detect universal props (as quickly as possible)
-            univabrv = self.core.setIndxAbrv(INDX_PROP, None, prop)
 
         if oldv is not None:
 
@@ -3740,17 +4222,14 @@ class Layer(s_nexus.Pusher):
                 arryabrv = self.core.setIndxAbrv(INDX_ARRAY, form, prop)
                 self.indxcounts.inc(arryabrv, len(oldv) * -1)
 
-                if univabrv is not None:
-                    univarryabrv = self.core.setIndxAbrv(INDX_ARRAY, None, prop)
-                    self.indxcounts.inc(univarryabrv, len(oldv) * -1)
-
                 for oldi in self.getStorIndx(oldt, oldv):
                     self.layrslab.delete(arryabrv + oldi, nid, db=self.indxdb)
-                    if univabrv is not None:
-                        self.layrslab.delete(univarryabrv + oldi, nid, db=self.indxdb)
 
                     if realtype == STOR_TYPE_NDEF:
-                        self.layrslab.delete(self.ndefabrv + oldi[8:], nid + abrv, db=self.indxdb)
+                        self.layrslab.delete(self.ndefabrv + oldi[8:] + abrv, nid, db=self.indxdb)
+
+                    elif realtype == STOR_TYPE_NODEPROP:
+                        self.layrslab.delete(self.nodepropabrv + oldi[8:] + abrv, nid, db=self.indxdb)
 
                     await asyncio.sleep(0)
 
@@ -3758,51 +4237,31 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
                     self.indxcounts.inc(abrv, -1)
 
-                    if univabrv is not None:
-                        self.layrslab.delete(univabrv + indx, nid, db=self.indxdb)
-                        self.indxcounts.inc(univabrv, -1)
-
             else:
+
+                realtype = oldt
 
                 for oldi in self.getStorIndx(oldt, oldv):
                     self.layrslab.delete(abrv + oldi, nid, db=self.indxdb)
                     self.indxcounts.inc(abrv, -1)
 
-                    if univabrv is not None:
-                        self.layrslab.delete(univabrv + oldi, nid, db=self.indxdb)
-                        self.indxcounts.inc(univabrv, -1)
+                if oldt == STOR_TYPE_NDEF:
+                    self.layrslab.delete(self.ndefabrv + oldi[8:] + abrv, nid, db=self.indxdb)
 
-                    if oldt == STOR_TYPE_NDEF:
-                        self.layrslab.delete(self.ndefabrv + oldi[8:], nid + abrv, db=self.indxdb)
+                elif oldt == STOR_TYPE_NODEPROP:
+                    self.layrslab.delete(self.nodepropabrv + oldi[8:] + abrv, nid, db=self.indxdb)
 
-                if oldt == STOR_TYPE_IVAL:
-                    if oldv[1] == self.ivaltimetype.futsize:
-                        dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-                    else:
-                        dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
-
+                elif oldt == STOR_TYPE_IVAL:
+                    dura = self.ivaltype.getDurationIndx(oldv)
                     duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                     self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
-                    self.indxcounts.inc(duraabrv, -1)
-
-                    if univabrv is not None:
-                        univduraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, prop)
-                        self.layrslab.delete(univduraabrv + dura, nid, db=self.indxdb)
-                        self.indxcounts.inc(univduraabrv, -1)
 
                     if not oldv[1] == valu[1]:
-                        oldi = oldi[8:]
                         maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, prop)
+                        self.layrslab.delete(maxabrv + oldi[8:], nid, db=self.indxdb)
 
-                        self.layrslab.delete(maxabrv + oldi, nid, db=self.indxdb)
-                        if univabrv is not None:
-                            univmaxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, prop)
-                            self.layrslab.delete(univmaxabrv + oldi, nid, db=self.indxdb)
-
-        if oldvirts is not None:
-            self.delVirtIndxVals(nid, form, prop, oldvirts)
-            if univabrv is not None:
-                self.delVirtIndxVals(nid, None, prop, oldvirts)
+            if oldvirts is not None:
+                self.stortypes[realtype].delVirtIndxVals(nid, form, prop, oldvirts)
 
         if (antiprops := sode.get('antiprops')) is not None:
             tomb = antiprops.pop(prop, None)
@@ -3824,85 +4283,62 @@ class Layer(s_nexus.Pusher):
             realtype = stortype & 0x7fff
 
             arryabrv = self.core.setIndxAbrv(INDX_ARRAY, form, prop)
-            if univabrv is not None:
-                univarryabrv = self.core.setIndxAbrv(INDX_ARRAY, None, prop)
 
             for indx in self.getStorIndx(stortype, valu):
                 kvpairs.append((arryabrv + indx, nid))
                 self.indxcounts.inc(arryabrv)
-                if univabrv is not None:
-                    kvpairs.append((univarryabrv + indx, nid))
-                    self.indxcounts.inc(univarryabrv)
 
                 if realtype == STOR_TYPE_NDEF:
-                    kvpairs.append((self.ndefabrv + indx[8:], nid + abrv))
+                    kvpairs.append((self.ndefabrv + indx[8:] + abrv, nid))
+
+                elif realtype == STOR_TYPE_NODEPROP:
+                    kvpairs.append((self.nodepropabrv + indx[8:] + abrv, nid))
 
                 await asyncio.sleep(0)
 
             for indx in self.getStorIndx(STOR_TYPE_ARRAY, valu):
                 kvpairs.append((abrv + indx, nid))
                 self.indxcounts.inc(abrv)
-                if univabrv is not None:
-                    kvpairs.append((univabrv + indx, nid))
-                    self.indxcounts.inc(univabrv)
 
         else:
+            realtype = stortype
 
             for indx in self.getStorIndx(stortype, valu):
                 kvpairs.append((abrv + indx, nid))
                 self.indxcounts.inc(abrv)
-                if univabrv is not None:
-                    kvpairs.append((univabrv + indx, nid))
-                    self.indxcounts.inc(univabrv)
 
-                if stortype == STOR_TYPE_NDEF:
-                    kvpairs.append((self.ndefabrv + indx[8:], nid + abrv))
+            if stortype == STOR_TYPE_NDEF:
+                kvpairs.append((self.ndefabrv + indx[8:] + abrv, nid))
 
-            if stortype == STOR_TYPE_IVAL:
-                if valu[1] == self.ivaltimetype.futsize:
-                    dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-                else:
-                    dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
+            elif stortype == STOR_TYPE_NODEPROP:
+                kvpairs.append((self.nodepropabrv + indx[8:] + abrv, nid))
 
+            elif stortype == STOR_TYPE_IVAL:
+                dura = self.ivaltype.getDurationIndx(valu)
                 duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                 kvpairs.append((duraabrv + dura, nid))
-                self.indxcounts.inc(duraabrv)
-
-                if univabrv is not None:
-                    univduraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, prop)
-                    kvpairs.append((univduraabrv + dura, nid))
-                    self.indxcounts.inc(univduraabrv)
 
                 if oldv is None or oldv[1] != valu[1]:
-                    indx = indx[8:]
                     maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, prop)
-                    kvpairs.append((maxabrv + indx, nid))
-
-                    if univabrv is not None:
-                        univmaxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, prop)
-                        kvpairs.append((univmaxabrv + indx, nid))
+                    kvpairs.append((maxabrv + indx[8:], nid))
 
         if virts is not None:
-            kvpairs.extend(self.getVirtIndxVals(nid, form, prop, virts))
-            if univabrv is not None:
-                kvpairs.extend(self.getVirtIndxVals(nid, None, prop, virts))
+            if (virtkeys := self.stortypes[realtype].getVirtIndxVals(nid, form, prop, virts)):
+                kvpairs.extend(virtkeys)
 
         return kvpairs
 
-    async def _editPropDel(self, nid, form, edit, sode):
+    async def _editPropDel(self, nid, form, edit, sode, meta):
 
         prop = edit[1][0]
 
         if (valt := sode['props'].pop(prop, None)) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         valu, stortype, virts = valt
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
-        univabrv = None
-
-        if prop[0] == '.':  # '.' to detect universal props (as quickly as possible)
-            univabrv = self.core.setIndxAbrv(INDX_PROP, None, prop)
 
         if stortype & STOR_FLAG_ARRAY:
 
@@ -3910,73 +4346,54 @@ class Layer(s_nexus.Pusher):
 
             arryabrv = self.core.setIndxAbrv(INDX_ARRAY, form, prop)
             self.indxcounts.inc(arryabrv, len(valu) * -1)
-            if univabrv is not None:
-                univarryabrv = self.core.setIndxAbrv(INDX_ARRAY, None, prop)
-                self.indxcounts.inc(univarryabrv, len(valu) * -1)
 
             for aval in valu:
                 for indx in self.getStorIndx(realtype, aval):
                     self.layrslab.delete(arryabrv + indx, nid, db=self.indxdb)
-                    if univabrv is not None:
-                        self.layrslab.delete(univarryabrv + indx, nid, db=self.indxdb)
 
                     if realtype == STOR_TYPE_NDEF:
-                        self.layrslab.delete(self.ndefabrv + indx[8:], nid + abrv, db=self.indxdb)
+                        self.layrslab.delete(self.ndefabrv + indx[8:] + abrv, nid, db=self.indxdb)
+
+                    elif realtype == STOR_TYPE_NODEPROP:
+                        self.layrslab.delete(self.nodepropabrv + indx[8:] + abrv, nid, db=self.indxdb)
 
                 await asyncio.sleep(0)
 
             for indx in self.getStorIndx(STOR_TYPE_ARRAY, valu):
                 self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
                 self.indxcounts.inc(abrv, -1)
-                if univabrv is not None:
-                    self.layrslab.delete(univabrv + indx, nid, db=self.indxdb)
-                    self.indxcounts.inc(univabrv, -1)
 
         else:
+
+            realtype = stortype
 
             for indx in self.getStorIndx(stortype, valu):
                 self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
                 self.indxcounts.inc(abrv, -1)
-                if univabrv is not None:
-                    self.layrslab.delete(univabrv + indx, nid, db=self.indxdb)
-                    self.indxcounts.inc(univabrv, -1)
 
-                if stortype == STOR_TYPE_NDEF:
-                    self.layrslab.delete(self.ndefabrv + indx[8:], nid + abrv, db=self.indxdb)
+            if stortype == STOR_TYPE_NDEF:
+                self.layrslab.delete(self.ndefabrv + indx[8:] + abrv, nid, db=self.indxdb)
 
-            if stortype == STOR_TYPE_IVAL:
-                if valu[1] == self.ivaltimetype.futsize:
-                    dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-                else:
-                    dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
+            elif stortype == STOR_TYPE_NODEPROP:
+                self.layrslab.delete(self.nodepropabrv + indx[8:] + abrv, nid, db=self.indxdb)
 
-                indx = indx[8:]
-
+            elif stortype == STOR_TYPE_IVAL:
                 maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, prop)
+                self.layrslab.delete(maxabrv + indx[8:], nid, db=self.indxdb)
+
+                dura = self.ivaltype.getDurationIndx(valu)
                 duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
-
-                self.layrslab.delete(maxabrv + indx, nid, db=self.indxdb)
                 self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
-                self.indxcounts.inc(duraabrv, -1)
-
-                if univabrv is not None:
-                    univmaxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, prop)
-                    univduraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, prop)
-                    self.layrslab.delete(univmaxabrv + indx, nid, db=self.indxdb)
-                    self.layrslab.delete(univduraabrv + dura, nid, db=self.indxdb)
-                    self.indxcounts.inc(univduraabrv, -1)
 
         if virts is not None:
-            self.delVirtIndxVals(nid, form, prop, virts)
-            if univabrv is not None:
-                self.delVirtIndxVals(nid, None, prop, virts)
+            self.stortypes[realtype].delVirtIndxVals(nid, form, prop, virts)
 
         if not self.mayDelNid(nid, sode):
             self.dirty[nid] = sode
 
         return ()
 
-    async def _editPropTomb(self, nid, form, edit, sode):
+    async def _editPropTomb(self, nid, form, edit, sode, meta):
 
         prop = edit[1][0]
 
@@ -3997,11 +4414,12 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editPropTombDel(self, nid, form, edit, sode):
+    async def _editPropTombDel(self, nid, form, edit, sode, meta):
 
         prop = edit[1][0]
 
         if (antiprops := sode.get('antiprops')) is None or antiprops.pop(prop, None) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
@@ -4013,9 +4431,9 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editTagSet(self, nid, form, edit, sode):
+    async def _editTagSet(self, nid, form, edit, sode, meta):
 
-        tag, valu, _ = edit[1]
+        tag, valu = edit[1]
 
         oldv = sode['tags'].get(tag)
         if valu == oldv:
@@ -4030,22 +4448,16 @@ class Layer(s_nexus.Pusher):
 
         else:
 
-            if oldv == (None, None):
+            if oldv == (None, None, None):
                 self.layrslab.delete(abrv, nid, db=self.indxdb)
                 self.layrslab.delete(formabrv, nid, db=self.indxdb)
             else:
-                if oldv[1] == self.ivaltimetype.futsize:
-                    dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-                else:
-                    dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
-
+                dura = self.ivaltype.getDurationIndx(oldv)
                 duraabrv = self.core.setIndxAbrv(INDX_TAG_DURATION, None, tag)
                 duraformabrv = self.core.setIndxAbrv(INDX_TAG_DURATION, form, tag)
 
                 self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
                 self.layrslab.delete(duraformabrv + dura, nid, db=self.indxdb)
-                self.indxcounts.inc(duraabrv, -1)
-                self.indxcounts.inc(duraformabrv, -1)
 
                 minindx = self.ivaltimetype.getIntIndx(oldv[0])
                 maxindx = self.ivaltimetype.getIntIndx(oldv[1])
@@ -4075,22 +4487,16 @@ class Layer(s_nexus.Pusher):
             formabrv = self.core.setIndxAbrv(INDX_FORM, form)
             kvpairs.append((formabrv, nid))
 
-        if valu == (None, None):
+        if valu == (None, None, None):
             kvpairs.append((abrv, nid))
             kvpairs.append((formabrv, nid))
         else:
-            if valu[1] == self.ivaltimetype.futsize:
-                dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-            else:
-                dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
-
+            dura = self.ivaltype.getDurationIndx(valu)
             duraabrv = self.core.setIndxAbrv(INDX_TAG_DURATION, None, tag)
             duraformabrv = self.core.setIndxAbrv(INDX_TAG_DURATION, form, tag)
 
             kvpairs.append((duraabrv + dura, nid))
             kvpairs.append((duraformabrv + dura, nid))
-            self.indxcounts.inc(duraabrv)
-            self.indxcounts.inc(duraformabrv)
 
             minindx = self.ivaltimetype.getIntIndx(valu[0])
             maxindx = self.ivaltimetype.getIntIndx(valu[1])
@@ -4107,11 +4513,12 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editTagDel(self, nid, form, edit, sode):
+    async def _editTagDel(self, nid, form, edit, sode, meta):
 
         tag = edit[1][0]
 
         if (oldv := sode['tags'].pop(tag, None)) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
@@ -4120,22 +4527,16 @@ class Layer(s_nexus.Pusher):
         self.indxcounts.inc(abrv, -1)
         self.indxcounts.inc(formabrv, -1)
 
-        if oldv == (None, None):
+        if oldv == (None, None, None):
             self.layrslab.delete(abrv, nid, db=self.indxdb)
             self.layrslab.delete(formabrv, nid, db=self.indxdb)
         else:
-            if oldv[1] == self.ivaltimetype.futsize:
-                dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-            else:
-                dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
-
+            dura = self.ivaltype.getDurationIndx(oldv)
             duraabrv = self.core.setIndxAbrv(INDX_TAG_DURATION, None, tag)
             duraformabrv = self.core.setIndxAbrv(INDX_TAG_DURATION, form, tag)
 
             self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
             self.layrslab.delete(duraformabrv + dura, nid, db=self.indxdb)
-            self.indxcounts.inc(duraabrv, -1)
-            self.indxcounts.inc(duraformabrv, -1)
 
             minindx = self.ivaltimetype.getIntIndx(oldv[0])
             maxindx = self.ivaltimetype.getIntIndx(oldv[1])
@@ -4154,7 +4555,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editTagTomb(self, nid, form, edit, sode):
+    async def _editTagTomb(self, nid, form, edit, sode, meta):
 
         tag = edit[1][0]
 
@@ -4175,11 +4576,12 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editTagTombDel(self, nid, form, edit, sode):
+    async def _editTagTombDel(self, nid, form, edit, sode, meta):
 
         tag = edit[1][0]
 
         if (antitags := sode.get('antitags')) is None or antitags.pop(tag, None) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
@@ -4191,49 +4593,65 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editTagPropSet(self, nid, form, edit, sode):
+    async def _editTagPropSet(self, nid, form, edit, sode, meta):
 
-        tag, prop, valu, oldv, stortype = edit[1]
+        tag, prop, valu, stortype, virts = edit[1]
 
+        t_abrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
+        p_abrv = self.core.setIndxAbrv(INDX_TAGPROP, None, None, prop)
         tp_abrv = self.core.setIndxAbrv(INDX_TAGPROP, None, tag, prop)
         ftp_abrv = self.core.setIndxAbrv(INDX_TAGPROP, form, tag, prop)
+
+        oldv = None
 
         if (tp_dict := sode['tagprops'].get(tag)) is not None:
             if (oldv := tp_dict.get(prop)) is not None:
 
-                if (valu, stortype) == oldv:
+                (oldv, oldt, oldvirts) = oldv
+
+                if (valu, stortype) == (oldv, oldt):
+                    if virts != oldvirts:
+                        sode['tagprops'][tag][prop] = (valu, stortype, virts)
+                        self.dirty[nid] = sode
                     return ()
 
-                (oldv, oldt) = oldv
-
                 for oldi in self.getStorIndx(oldt, oldv):
+                    self.layrslab.delete(p_abrv + oldi + t_abrv, nid, db=self.indxdb)
                     self.layrslab.delete(tp_abrv + oldi, nid, db=self.indxdb)
                     self.layrslab.delete(ftp_abrv + oldi, nid, db=self.indxdb)
+
+                    self.indxcounts.inc(p_abrv, -1)
                     self.indxcounts.inc(tp_abrv, -1)
                     self.indxcounts.inc(ftp_abrv, -1)
 
-                if oldt == STOR_TYPE_IVAL:
-                    if oldv[1] == self.ivaltimetype.futsize:
-                        dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-                    else:
-                        dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
+                if oldt == STOR_TYPE_NDEF:
+                    self.layrslab.delete(self.ndefabrv + oldi[8:] + ftp_abrv, nid, db=self.indxdb)
 
-                    duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, tag, prop)
-                    duraformabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, tag, prop)
+                elif oldt == STOR_TYPE_NODEPROP:
+                    self.layrslab.delete(self.nodepropabrv + oldi[8:] + ftp_abrv, nid, db=self.indxdb)
 
-                    self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
-                    self.layrslab.delete(duraformabrv + dura, nid, db=self.indxdb)
-                    self.indxcounts.inc(duraabrv, -1)
-                    self.indxcounts.inc(duraformabrv, -1)
+                elif oldt == STOR_TYPE_IVAL:
+                    dura = self.ivaltype.getDurationIndx(oldv)
+                    p_duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, None, prop)
+                    tp_duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, tag, prop)
+                    ftp_duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, tag, prop)
+
+                    self.layrslab.delete(p_duraabrv + dura + t_abrv, nid, db=self.indxdb)
+                    self.layrslab.delete(tp_duraabrv + dura, nid, db=self.indxdb)
+                    self.layrslab.delete(ftp_duraabrv + dura, nid, db=self.indxdb)
 
                     if not oldv[1] == valu[1]:
                         oldi = oldi[8:]
-                        maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, tag, prop)
-                        maxformabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, tag, prop)
+                        p_maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, None, prop)
+                        tp_maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, tag, prop)
+                        ftp_maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, tag, prop)
 
-                        self.layrslab.delete(maxabrv + oldi, nid, db=self.indxdb)
-                        self.layrslab.delete(maxformabrv + oldi, nid, db=self.indxdb)
+                        self.layrslab.delete(p_maxabrv + oldi + t_abrv, nid, db=self.indxdb)
+                        self.layrslab.delete(tp_maxabrv + oldi, nid, db=self.indxdb)
+                        self.layrslab.delete(ftp_maxabrv + oldi, nid, db=self.indxdb)
 
+                if oldvirts is not None:
+                    self.stortypes[oldt].delTagPropVirtIndxVals(nid, form, tag, t_abrv, prop, oldvirts)
         else:
             sode['tagprops'][tag] = {}
 
@@ -4241,12 +4659,12 @@ class Layer(s_nexus.Pusher):
             if (antiprops := antitags.get(tag)) is not None:
                 tomb = antiprops.pop(prop, None)
                 if tomb is not None:
-                    self.layrslab.delete(INDX_TOMB + tp_abrv, nid, db=self.indxdb)
+                    self.layrslab.delete(INDX_TOMB + ftp_abrv, nid, db=self.indxdb)
 
                     if len(antiprops) == 0:
                         antitags.pop(tag)
 
-        sode['tagprops'][tag][prop] = (valu, stortype)
+        sode['tagprops'][tag][prop] = (valu, stortype, virts)
         self.dirty[nid] = sode
 
         kvpairs = []
@@ -4257,44 +4675,55 @@ class Layer(s_nexus.Pusher):
             kvpairs.append((formabrv, nid))
 
         for indx in self.getStorIndx(stortype, valu):
+            kvpairs.append((p_abrv + indx + t_abrv, nid))
             kvpairs.append((tp_abrv + indx, nid))
             kvpairs.append((ftp_abrv + indx, nid))
+
+            self.indxcounts.inc(p_abrv)
             self.indxcounts.inc(tp_abrv)
             self.indxcounts.inc(ftp_abrv)
 
-        if stortype == STOR_TYPE_IVAL:
-            if valu[1] == self.ivaltimetype.futsize:
-                dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-            else:
-                dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
+        if stortype == STOR_TYPE_NDEF:
+            kvpairs.append((self.ndefabrv + indx[8:] + ftp_abrv, nid))
 
-            duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, tag, prop)
-            duraformabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, tag, prop)
-            kvpairs.append((duraabrv + dura, nid))
-            kvpairs.append((duraformabrv + dura, nid))
-            self.indxcounts.inc(duraabrv)
-            self.indxcounts.inc(duraformabrv)
+        elif stortype == STOR_TYPE_NODEPROP:
+            kvpairs.append((self.nodepropabrv + indx[8:] + ftp_abrv, nid))
+
+        elif stortype == STOR_TYPE_IVAL:
+            dura = self.ivaltype.getDurationIndx(valu)
+            p_duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, None, prop)
+            tp_duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, tag, prop)
+            ftp_duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, tag, prop)
+
+            kvpairs.append((p_duraabrv + dura + t_abrv, nid))
+            kvpairs.append((tp_duraabrv + dura, nid))
+            kvpairs.append((ftp_duraabrv + dura, nid))
 
             if oldv is None or oldv[1] != valu[1]:
                 indx = indx[8:]
-                maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, tag, prop)
-                maxformabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, tag, prop)
-                kvpairs.append((maxabrv + indx, nid))
-                kvpairs.append((maxformabrv + indx, nid))
+                p_maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, None, prop)
+                tp_maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, tag, prop)
+                ftp_maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, tag, prop)
+
+                kvpairs.append((p_maxabrv + indx + t_abrv, nid))
+                kvpairs.append((tp_maxabrv + indx, nid))
+                kvpairs.append((ftp_maxabrv + indx, nid))
+
+        if virts is not None:
+            if (virtkeys := self.stortypes[stortype].getTagPropVirtIndxVals(nid, form, tag, t_abrv, prop, virts)):
+                kvpairs.extend(virtkeys)
 
         return kvpairs
 
-    async def _editTagPropDel(self, nid, form, edit, sode):
+    async def _editTagPropDel(self, nid, form, edit, sode, meta):
 
-        tag, prop, _, _ = edit[1]
+        tag, prop = edit[1]
 
-        if (tp_dict := sode['tagprops'].get(tag)) is None:
+        if (tp_dict := sode['tagprops'].get(tag)) is None or (oldv := tp_dict.pop(prop, None)) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
-        if (oldv := tp_dict.pop(prop, None)) is None:
-            return ()
-
-        (oldv, oldt) = oldv
+        (oldv, oldt, oldvirts) = oldv
 
         if len(tp_dict) == 0:
             sode['tagprops'].pop(tag)
@@ -4302,37 +4731,45 @@ class Layer(s_nexus.Pusher):
         if not self.mayDelNid(nid, sode):
             self.dirty[nid] = sode
 
+        t_abrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
+        p_abrv = self.core.setIndxAbrv(INDX_TAGPROP, None, None, prop)
         tp_abrv = self.core.setIndxAbrv(INDX_TAGPROP, None, tag, prop)
         ftp_abrv = self.core.setIndxAbrv(INDX_TAGPROP, form, tag, prop)
 
         for oldi in self.getStorIndx(oldt, oldv):
+            self.layrslab.delete(p_abrv + oldi + t_abrv, nid, db=self.indxdb)
             self.layrslab.delete(tp_abrv + oldi, nid, db=self.indxdb)
             self.layrslab.delete(ftp_abrv + oldi, nid, db=self.indxdb)
+
+            self.indxcounts.inc(p_abrv, -1)
             self.indxcounts.inc(tp_abrv, -1)
             self.indxcounts.inc(ftp_abrv, -1)
 
         if oldt == STOR_TYPE_IVAL:
-            if oldv[1] == self.ivaltimetype.futsize:
-                dura = self.stortypes[STOR_TYPE_IVAL].maxdura
-            else:
-                dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
+            dura = self.ivaltype.getDurationIndx(oldv)
+            p_duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, None, prop)
+            tp_duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, tag, prop)
+            ftp_duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, tag, prop)
 
-            duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, None, tag, prop)
-            duraformabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, tag, prop)
-            self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
-            self.layrslab.delete(duraformabrv + dura, nid, db=self.indxdb)
-            self.indxcounts.inc(duraabrv, -1)
-            self.indxcounts.inc(duraformabrv, -1)
+            self.layrslab.delete(p_duraabrv + dura + t_abrv, nid, db=self.indxdb)
+            self.layrslab.delete(tp_duraabrv + dura, nid, db=self.indxdb)
+            self.layrslab.delete(ftp_duraabrv + dura, nid, db=self.indxdb)
 
             indx = oldi[8:]
-            maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, tag, prop)
-            maxformabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, tag, prop)
-            self.layrslab.delete(maxabrv + indx, nid, db=self.indxdb)
-            self.layrslab.delete(maxformabrv + indx, nid, db=self.indxdb)
+            p_maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, None, prop)
+            tp_maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, tag, prop)
+            ftp_maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, tag, prop)
+
+            self.layrslab.delete(p_maxabrv + indx + t_abrv, nid, db=self.indxdb)
+            self.layrslab.delete(tp_maxabrv + indx, nid, db=self.indxdb)
+            self.layrslab.delete(ftp_maxabrv + indx, nid, db=self.indxdb)
+
+        if oldvirts is not None:
+            self.stortypes[oldt].delTagPropVirtIndxVals(nid, form, tag, t_abrv, prop, oldvirts)
 
         return ()
 
-    async def _editTagPropTomb(self, nid, form, edit, sode):
+    async def _editTagPropTomb(self, nid, form, edit, sode, meta):
 
         tag, prop = edit[1]
 
@@ -4340,7 +4777,7 @@ class Layer(s_nexus.Pusher):
             if (antiprops := antitags.get(tag)) is not None and prop in antiprops:
                 return ()
 
-        abrv = self.core.setIndxAbrv(INDX_TAGPROP, None, tag, prop)
+        abrv = self.core.setIndxAbrv(INDX_TAGPROP, form, tag, prop)
 
         kvpairs = [(INDX_TOMB + abrv, nid)]
 
@@ -4357,20 +4794,22 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editTagPropTombDel(self, nid, form, edit, sode):
+    async def _editTagPropTombDel(self, nid, form, edit, sode, meta):
 
         tag, prop = edit[1]
 
         if (antitags := sode.get('antitagprops')) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         if (antiprops := antitags.get(tag)) is None or antiprops.pop(prop, None) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         if len(antiprops) == 0:
             antitags.pop(tag)
 
-        abrv = self.core.setIndxAbrv(INDX_TAGPROP, None, tag, prop)
+        abrv = self.core.setIndxAbrv(INDX_TAGPROP, form, tag, prop)
 
         self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
 
@@ -4379,17 +4818,19 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editNodeDataSet(self, nid, form, edit, sode):
+    async def _editNodeDataSet(self, nid, form, edit, sode, meta):
 
-        name, valu, oldv = edit[1]
+        name, valu = edit[1]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
 
-        self.dataslab.put(nid + abrv + FLAG_NORM, s_msgpack.en(valu), db=self.nodedata)
-        self.dataslab.put(abrv + FLAG_NORM, nid, db=self.dataname)
+        await self.dataslab.put(nid + abrv + FLAG_NORM, s_msgpack.en(valu), db=self.nodedata)
+        await self.dataslab.put(abrv + FLAG_NORM, nid, db=self.dataname)
 
-        if oldv is None and self.dataslab.delete(abrv + FLAG_TOMB, nid, db=self.dataname):
+        if self.dataslab.delete(abrv + FLAG_TOMB, nid, db=self.dataname):
             self.dataslab.delete(nid + abrv + FLAG_TOMB, db=self.nodedata)
             self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
+
+        self.dirty[nid] = sode
 
         if sode.get('form') is None:
             sode['form'] = form
@@ -4398,26 +4839,28 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editNodeDataDel(self, nid, form, edit, sode):
-
-        name, valu = edit[1]
-        abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
-
-        if self.dataslab.delete(nid + abrv + FLAG_NORM, db=self.nodedata):
-            self.dataslab.delete(abrv + FLAG_NORM, nid, db=self.dataname)
-            self.mayDelNid(nid, sode)
-
-        return ()
-
-    async def _editNodeDataTomb(self, nid, form, edit, sode):
+    async def _editNodeDataDel(self, nid, form, edit, sode, meta):
 
         name = edit[1][0]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
 
-        if not self.dataslab.put(abrv + FLAG_TOMB, nid, db=self.dataname, overwrite=False):
+        if self.dataslab.delete(nid + abrv + FLAG_NORM, db=self.nodedata):
+            self.dataslab.delete(abrv + FLAG_NORM, nid, db=self.dataname)
+
+        if not self.mayDelNid(nid, sode):
+            self.dirty[nid] = sode
+
+        return ()
+
+    async def _editNodeDataTomb(self, nid, form, edit, sode, meta):
+
+        name = edit[1][0]
+        abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
+
+        if not await self.dataslab.put(abrv + FLAG_TOMB, nid, db=self.dataname):
             return ()
 
-        self.dataslab.put(nid + abrv + FLAG_TOMB, s_msgpack.en(None), db=self.nodedata)
+        await self.dataslab.put(nid + abrv + FLAG_TOMB, s_msgpack.en(None), db=self.nodedata)
         self.dirty[nid] = sode
 
         kvpairs = [(INDX_TOMB + abrv, nid)]
@@ -4429,12 +4872,13 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editNodeDataTombDel(self, nid, form, edit, sode):
+    async def _editNodeDataTombDel(self, nid, form, edit, sode, meta):
 
         name = edit[1][0]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
 
         if not self.dataslab.delete(abrv + FLAG_TOMB, nid, db=self.dataname):
+            self.mayDelNid(nid, sode)
             return ()
 
         self.dataslab.delete(nid + abrv + FLAG_TOMB, db=self.nodedata)
@@ -4445,7 +4889,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editNodeEdgeAdd(self, nid, form, edit, sode):
+    async def _editNodeEdgeAdd(self, nid, form, edit, sode, meta):
 
         verb, n2nid = edit[1]
         n2nid = s_common.int64en(n2nid)
@@ -4456,10 +4900,6 @@ class Layer(s_nexus.Pusher):
             return ()
 
         n2sode = self._genStorNode(n2nid)
-
-        # we are creating a new edge for this layer.
-        sode['n1verbs'][verb] = sode['n1verbs'].get(verb, 0) + 1
-        n2sode['n2verbs'][verb] = n2sode['n2verbs'].get(verb, 0) + 1
 
         if self.layrslab.delete(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb):
             self.layrslab.delete(vabrv + nid + FLAG_TOMB, n2nid, db=self.indxdb)
@@ -4494,12 +4934,21 @@ class Layer(s_nexus.Pusher):
         else:
             n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
 
+        if (n1cnts := sode['n1verbs'].get(verb)) is None:
+            n1cnts = sode['n1verbs'][verb] = {}
+
+        if (n2cnts := n2sode['n2verbs'].get(verb)) is None:
+            n2cnts = n2sode['n2verbs'][verb] = {}
+
+        n1cnts[n2form] = n1cnts.get(n2form, 0) + 1
+        n2cnts[form] = n2cnts.get(form, 0) + 1
+
         self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, 1)
         self.indxcounts.inc(INDX_EDGE_N1N2 + formabrv + vabrv + n2formabrv, 1)
 
         return kvpairs
 
-    async def _editNodeEdgeDel(self, nid, form, edit, sode):
+    async def _editNodeEdgeDel(self, nid, form, edit, sode, meta):
 
         verb, n2nid = edit[1]
         n2nid = s_common.int64en(n2nid)
@@ -4507,59 +4956,63 @@ class Layer(s_nexus.Pusher):
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
         if not self.layrslab.delete(vabrv + nid + FLAG_NORM, n2nid, db=self.indxdb):
+            self.mayDelNid(nid, sode)
             return ()
 
         self.layrslab.delete(self.edgen1abrv + nid + vabrv + FLAG_NORM, n2nid, db=self.indxdb)
         self.layrslab.delete(self.edgen2abrv + n2nid + vabrv + FLAG_NORM, nid, db=self.indxdb)
         self.layrslab.delete(self.edgen1n2abrv + nid + n2nid + FLAG_NORM, vabrv, db=self.indxdb)
 
-        newvalu = sode['n1verbs'].get(verb, 0) - 1
-        if newvalu == 0:
-            sode['n1verbs'].pop(verb)
-            if not self.mayDelNid(nid, sode):
-                self.dirty[nid] = sode
-        else:
-            sode['n1verbs'][verb] = newvalu
-            self.dirty[nid] = sode
-
         n2sode = self._genStorNode(n2nid)
-        newvalu = n2sode['n2verbs'].get(verb, 0) - 1
-        if newvalu == 0:
-            n2sode['n2verbs'].pop(verb)
-            if not self.mayDelNid(n2nid, n2sode):
-                self.dirty[n2nid] = n2sode
-        else:
-            n2sode['n2verbs'][verb] = newvalu
-            self.dirty[n2nid] = n2sode
-
-        formabrv = self.core.setIndxAbrv(INDX_FORM, form)
-
-        self.indxcounts.inc(vabrv, -1)
-        self.indxcounts.inc(INDX_EDGE_N1 + formabrv + vabrv, -1)
-
         if (n2form := n2sode.get('form')) is None:
             n2form = self.core.getNidNdef(n2nid)[0]
 
+        n1cnts = sode['n1verbs'][verb]
+        n2cnts = n2sode['n2verbs'][verb]
+
+        newvalu = n1cnts.get(n2form, 0) - 1
+        if newvalu == 0:
+            n1cnts.pop(n2form)
+            if not n1cnts:
+                sode['n1verbs'].pop(verb)
+                if not self.mayDelNid(nid, sode):
+                    self.dirty[nid] = sode
+        else:
+            n1cnts[n2form] = newvalu
+            self.dirty[nid] = sode
+
+        newvalu = n2cnts.get(form, 0) - 1
+        if newvalu == 0:
+            n2cnts.pop(form)
+            if not n2cnts:
+                n2sode['n2verbs'].pop(verb)
+                if not self.mayDelNid(n2nid, n2sode):
+                    self.dirty[n2nid] = n2sode
+        else:
+            n2cnts[form] = newvalu
+            self.dirty[n2nid] = n2sode
+
+        formabrv = self.core.setIndxAbrv(INDX_FORM, form)
         n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
+
+        self.indxcounts.inc(vabrv, -1)
+        self.indxcounts.inc(INDX_EDGE_N1 + formabrv + vabrv, -1)
         self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, -1)
         self.indxcounts.inc(INDX_EDGE_N1N2 + formabrv + vabrv + n2formabrv, -1)
 
         return ()
 
-    async def _editNodeEdgeTomb(self, nid, form, edit, sode):
+    async def _editNodeEdgeTomb(self, nid, form, edit, sode, meta):
 
         verb, n2nid = edit[1]
         n2nid = s_common.int64en(n2nid)
 
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
-        if not self.layrslab.put(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb, overwrite=False):
+        if not await self.layrslab.put(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb):
             return ()
 
         n2sode = self._genStorNode(n2nid)
-
-        sode['n1antiverbs'][verb] = sode['n1antiverbs'].get(verb, 0) + 1
-        n2sode['n2antiverbs'][verb] = n2sode['n2antiverbs'].get(verb, 0) + 1
 
         self.dirty[nid] = sode
         self.dirty[n2nid] = n2sode
@@ -4570,6 +5023,8 @@ class Layer(s_nexus.Pusher):
             (self.edgen2abrv + n2nid + vabrv + FLAG_TOMB, nid),
             (self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv)
         ]
+
+        self.indxcounts.inc(INDX_TOMB + vabrv)
 
         if sode.get('form') is None:
             sode['form'] = form
@@ -4582,9 +5037,18 @@ class Layer(s_nexus.Pusher):
             n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
             kvpairs.append((n2formabrv, n2nid))
 
+        if (n1cnts := sode['n1antiverbs'].get(verb)) is None:
+            n1cnts = sode['n1antiverbs'][verb] = {}
+
+        if (n2cnts := n2sode['n2antiverbs'].get(verb)) is None:
+            n2cnts = n2sode['n2antiverbs'][verb] = {}
+
+        n1cnts[n2form] = n1cnts.get(n2form, 0) + 1
+        n2cnts[form] = n2cnts.get(form, 0) + 1
+
         return kvpairs
 
-    async def _editNodeEdgeTombDel(self, nid, form, edit, sode):
+    async def _editNodeEdgeTombDel(self, nid, form, edit, sode, meta):
 
         verb, n2nid = edit[1]
         n2nid = s_common.int64en(n2nid)
@@ -4592,6 +5056,7 @@ class Layer(s_nexus.Pusher):
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
         if not self.layrslab.delete(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb):
+            self.mayDelNid(nid, sode)
             return ()
 
         self.layrslab.delete(vabrv + nid + FLAG_TOMB, n2nid, db=self.indxdb)
@@ -4600,25 +5065,35 @@ class Layer(s_nexus.Pusher):
         self.layrslab.delete(self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv, db=self.indxdb)
 
         n2sode = self._genStorNode(n2nid)
+        if (n2form := n2sode.get('form')) is None:
+            n2form = self.core.getNidNdef(n2nid)[0]
 
-        newvalu = sode['n1antiverbs'].get(verb, 0) - 1
+        n1cnts = sode['n1antiverbs'][verb]
+        n2cnts = n2sode['n2antiverbs'][verb]
+
+        newvalu = n1cnts.get(n2form, 0) - 1
         if newvalu == 0:
-            sode['n1antiverbs'].pop(verb)
-            if not self.mayDelNid(nid, sode):
-                self.dirty[nid] = sode
+            n1cnts.pop(n2form)
+            if not n1cnts:
+                sode['n1antiverbs'].pop(verb)
+                if not self.mayDelNid(nid, sode):
+                    self.dirty[nid] = sode
         else:
-            sode['n1antiverbs'][verb] = newvalu
+            n1cnts[n2form] = newvalu
             self.dirty[nid] = sode
 
-        n2sode = self._genStorNode(n2nid)
-        newvalu = n2sode['n2antiverbs'].get(verb, 0) - 1
+        newvalu = n2cnts.get(form, 0) - 1
         if newvalu == 0:
-            n2sode['n2antiverbs'].pop(verb)
-            if not self.mayDelNid(n2nid, n2sode):
-                self.dirty[n2nid] = n2sode
+            n2cnts.pop(form)
+            if not n2cnts:
+                n2sode['n2antiverbs'].pop(verb)
+                if not self.mayDelNid(n2nid, n2sode):
+                    self.dirty[n2nid] = n2sode
         else:
-            n2sode['n2antiverbs'][verb] = newvalu
+            n2cnts[form] = newvalu
             self.dirty[n2nid] = n2sode
+
+        self.indxcounts.inc(INDX_TOMB + vabrv, -1)
 
         return ()
 
@@ -4666,23 +5141,29 @@ class Layer(s_nexus.Pusher):
 
             if tomb == FLAG_TOMB:
                 self.layrslab.delete(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb)
-                newvalu = n2sode['n2antiverbs'].get(verb, 0) - 1
+                n2cnts = n2sode['n2antiverbs'][verb]
+                newvalu = n2cnts.get(form, 0) - 1
                 if newvalu == 0:
-                    n2sode['n2antiverbs'].pop(verb)
-                    if not self.mayDelNid(n2nid, n2sode):
-                        self.dirty[n2nid] = n2sode
+                    n2cnts.pop(form)
+                    if not n2cnts:
+                        n2sode['n2antiverbs'].pop(verb)
+                        if not self.mayDelNid(n2nid, n2sode):
+                            self.dirty[n2nid] = n2sode
                 else:
-                    n2sode['n2antiverbs'][verb] = newvalu
+                    n2cnts[form] = newvalu
                     self.dirty[n2nid] = n2sode
 
             else:
-                newvalu = n2sode['n2verbs'].get(verb, 0) - 1
+                n2cnts = n2sode['n2verbs'][verb]
+                newvalu = n2cnts.get(form, 0) - 1
                 if newvalu == 0:
-                    n2sode['n2verbs'].pop(verb)
-                    if not self.mayDelNid(n2nid, n2sode):
-                        self.dirty[n2nid] = n2sode
+                    n2cnts.pop(form)
+                    if not n2cnts:
+                        n2sode['n2verbs'].pop(verb)
+                        if not self.mayDelNid(n2nid, n2sode):
+                            self.dirty[n2nid] = n2sode
                 else:
-                    n2sode['n2verbs'][verb] = newvalu
+                    n2cnts[form] = newvalu
                     self.dirty[n2nid] = n2sode
 
             self.indxcounts.inc(vabrv, -1)
@@ -4706,56 +5187,6 @@ class Layer(s_nexus.Pusher):
             return retn
 
         return self.stortypes[stortype].indx(valu)
-
-    def getVirtIndxVals(self, nid, form, prop, virts):
-
-        kvpairs = []
-
-        for name, (valu, vtyp) in virts.items():
-
-            abrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, prop, name)
-
-            if vtyp & STOR_FLAG_ARRAY:
-
-                arryabrv = self.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, name)
-
-                for indx in self.getStorIndx(vtyp, valu):
-                    kvpairs.append((arryabrv + indx, nid))
-                    self.indxcounts.inc(arryabrv)
-
-                for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
-                    kvpairs.append((abrv + indx, nid))
-                    self.indxcounts.inc(abrv)
-
-            else:
-                for indx in self.getStorIndx(vtyp, valu):
-                    kvpairs.append((abrv + indx, nid))
-                    self.indxcounts.inc(abrv)
-
-        return kvpairs
-
-    def delVirtIndxVals(self, nid, form, prop, virts):
-
-        for name, (valu, vtyp) in virts.items():
-
-            abrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, prop, name)
-
-            if vtyp & STOR_FLAG_ARRAY:
-
-                arryabrv = self.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, name)
-
-                for indx in self.getStorIndx(vtyp, valu):
-                    self.layrslab.delete(arryabrv + indx, nid, db=self.indxdb)
-                    self.indxcounts.inc(arryabrv, -1)
-
-                for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
-                    self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
-                    self.indxcounts.inc(abrv, -1)
-
-            else:
-                for indx in self.getStorIndx(vtyp, valu):
-                    self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
-                    self.indxcounts.inc(abrv, -1)
 
     async def iterNodeEdgesN1(self, nid, verb=None):
 
@@ -4814,8 +5245,12 @@ class Layer(s_nexus.Pusher):
             return False
 
     async def getNdefRefs(self, buid):
-        for _, byts in self.layrslab.scanByDups(self.ndefabrv + buid, db=self.indxdb):
-            yield byts[:8], byts[8:]
+        for lkey, refsnid in self.layrslab.scanByPref(self.ndefabrv + buid, db=self.indxdb):
+            yield refsnid, lkey[40:]
+
+    async def getNodePropRefs(self, buid):
+        for lkey, refsnid in self.layrslab.scanByPref(self.nodepropabrv + buid, db=self.indxdb):
+            yield refsnid, lkey[40:]
 
     async def iterFormRows(self, form, stortype=None, startvalu=None):
         '''
@@ -4860,27 +5295,6 @@ class Layer(s_nexus.Pusher):
         async for item in self._iterRows(indxby, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def iterUnivRows(self, prop, stortype=None, startvalu=None):
-        '''
-        Yields nid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalu.
-
-        Args:
-            prop (str):  A universal property name.
-            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
-            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
-
-        Returns:
-            AsyncIterator[Tuple(nid, valu)]
-        '''
-        try:
-            indxby = IndxByProp(self, None, prop)
-
-        except s_exc.NoSuchAbrv:
-            return
-
-        async for item in self._iterRows(indxby, stortype=stortype, startvalu=startvalu):
-            yield item
-
     async def iterTagRows(self, tag, form=None, starttupl=None):
         '''
         Yields (nid, valu) values that match a tag and optional form.
@@ -4888,7 +5302,7 @@ class Layer(s_nexus.Pusher):
         Args:
             tag (str): the tag to match
             form (Optional[str]):  if present, only yields nids of nodes that match the form.
-            starttupl (Optional[Tuple[nid, Tuple[int, int] | Tuple[None, None]]]): if present, (re)starts the stream of values there.
+            starttupl (Optional[Tuple[nid, Tuple[int, int, int] | Tuple[None, None, None]]]): if present, (re)starts the stream of values there.
 
         Yields:
             (nid, valu)
@@ -4901,14 +5315,14 @@ class Layer(s_nexus.Pusher):
         abrvlen = len(abrv)
         ivallen = self.ivaltimetype.size
 
-        nonetupl = (None, None)
+        nonetupl = (None, None, None)
         startkey = None
         startvalu = None
 
         if starttupl is not None:
             (nid, valu) = starttupl
             startvalu = nid
-            if valu != (None, None):
+            if valu != (None, None, None):
                 minindx = self.ivaltimetype.getIntIndx(valu[0])
                 maxindx = self.ivaltimetype.getIntIndx(valu[1])
                 startkey = minindx + maxindx
@@ -4920,9 +5334,7 @@ class Layer(s_nexus.Pusher):
                 yield nid, nonetupl
                 continue
 
-            minvalu = self.ivaltimetype.decodeIndx(lkey[abrvlen:-ivallen])
-            maxvalu = self.ivaltimetype.decodeIndx(lkey[-ivallen:])
-            yield nid, (minvalu, maxvalu)
+            yield nid, self.ivaltype.decodeIndx(lkey[abrvlen:])
 
     async def iterTagPropRows(self, tag, prop, form=None, stortype=None, startvalu=None):
         '''
@@ -5013,9 +5425,37 @@ class Layer(s_nexus.Pusher):
             yield abrv, lkey[-1:] == FLAG_TOMB
 
     async def iterPropTombstones(self, form, prop):
-        abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
+        try:
+            abrv = self.core.getIndxAbrv(INDX_PROP, form, prop)
+        except s_exc.NoSuchAbrv:
+            return
+
         for _, nid in self.layrslab.scanByPref(INDX_TOMB + abrv, db=self.indxdb):
             yield nid
+
+    async def iterEdgeTombstones(self, verb=None):
+        if verb is not None:
+            try:
+                abrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
+            except s_exc.NoSuchAbrv:
+                return
+
+            for lkey in self.layrslab.scanKeysByPref(INDX_TOMB + abrv, db=self.indxdb):
+                n1nid = s_common.int64un(lkey[10:18])
+                for _, n2nid in self.layrslab.scanByDups(lkey, db=self.indxdb):
+                    yield (n1nid, verb, s_common.int64un(n2nid))
+            return
+
+        for byts, abrv in self.core.indxabrv.iterByPref(INDX_EDGE_VERB):
+            if self.indxcounts.get(INDX_TOMB + abrv) == 0:
+                continue
+
+            verb = s_msgpack.un(byts[2:])[0]
+
+            for lkey in self.layrslab.scanKeysByPref(INDX_TOMB + abrv, db=self.indxdb):
+                n1nid = s_common.int64un(lkey[10:18])
+                for _, n2nid in self.layrslab.scanByDups(lkey, db=self.indxdb):
+                    yield (n1nid, verb, s_common.int64un(n2nid))
 
     async def iterTombstones(self):
 
@@ -5027,12 +5467,12 @@ class Layer(s_nexus.Pusher):
             if tombtype == INDX_EDGE_VERB:
                 n1nid = lkey[10:18]
 
-                for _, n2nid in self.layrslab.scanByPref(lkey, db=self.indxdb):
+                for _, n2nid in self.layrslab.scanByDups(lkey, db=self.indxdb):
                     yield (n1nid, tombtype, (tombinfo[0], n2nid))
 
             else:
 
-                for _, nid in self.layrslab.scanByPref(lkey, db=self.indxdb):
+                for _, nid in self.layrslab.scanByDups(lkey, db=self.indxdb):
                     yield (nid, tombtype, tombinfo)
 
     async def confirmLayerEditPerms(self, user, gateiden, delete=False):
@@ -5243,7 +5683,7 @@ class Layer(s_nexus.Pusher):
                                 perm = perm_tags + key
                                 user.confirm(perm, gateiden=gateiden)
 
-    async def iterLayerNodeEdits(self):
+    async def iterLayerNodeEdits(self, meta=False):
         '''
         Scan the full layer and yield artificial sets of nodeedits.
         '''
@@ -5257,7 +5697,8 @@ class Layer(s_nexus.Pusher):
             form = ndef[0]
 
             edits = []
-            nodeedit = (s_common.int64un(nid), form, edits)
+            intnid = s_common.int64un(nid)
+            nodeedit = (intnid, form, edits)
 
             valt = sode.get('valu')
             if valt is not None:
@@ -5268,21 +5709,26 @@ class Layer(s_nexus.Pusher):
                 yield nodeedit
                 continue
 
+            if meta and (mval := sode.get('meta')) is not None:
+                if (cval := mval.get('created')) is not None:
+                    (valu, stortype) = cval
+                    edits.append((EDIT_META_SET, ('created', valu, stortype)))
+
             for prop, (valu, stortype, virts) in sode.get('props', {}).items():
-                edits.append((EDIT_PROP_SET, (prop, valu, None, stortype, virts)))
+                edits.append((EDIT_PROP_SET, (prop, valu, stortype, virts)))
 
             for prop in sode.get('antiprops', {}).keys():
                 edits.append((EDIT_PROP_TOMB, (prop,)))
 
             for tag, tagv in sode.get('tags', {}).items():
-                edits.append((EDIT_TAG_SET, (tag, tagv, None)))
+                edits.append((EDIT_TAG_SET, (tag, tagv)))
 
             for tag in sode.get('antitags', {}).keys():
                 edits.append((EDIT_TAG_TOMB, (tag,)))
 
             for tag, propdict in sode.get('tagprops', {}).items():
-                for prop, (valu, stortype) in propdict.items():
-                    edits.append((EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype)))
+                for prop, (valu, stortype, virts) in propdict.items():
+                    edits.append((EDIT_TAGPROP_SET, (tag, prop, valu, stortype, virts)))
 
             for tag, propdict in sode.get('antitagprops', {}).items():
                 for prop in propdict.keys():
@@ -5293,7 +5739,7 @@ class Layer(s_nexus.Pusher):
                 if tomb:
                     edits.append((EDIT_NODEDATA_TOMB, (prop,)))
                 else:
-                    edits.append((EDIT_NODEDATA_SET, (prop, valu, None)))
+                    edits.append((EDIT_NODEDATA_SET, (prop, valu)))
 
             async for abrv, n2nid, tomb in self.iterNodeEdgesN1(nid):
                 verb = self.core.getAbrvIndx(abrv)[0]
@@ -5301,6 +5747,11 @@ class Layer(s_nexus.Pusher):
                     edits.append((EDIT_EDGE_TOMB, (verb, s_common.int64un(n2nid))))
                 else:
                     edits.append((EDIT_EDGE_ADD, (verb, s_common.int64un(n2nid))))
+
+                if len(edits) >= 100:
+                    yield nodeedit
+                    edits = []
+                    nodeedit = (intnid, form, edits)
 
             yield nodeedit
 
@@ -5362,109 +5813,58 @@ class Layer(s_nexus.Pusher):
             return deepcopy(sode)
         return collections.defaultdict(dict)
 
-    async def syncNodeEdits2(self, offs, wait=True, reverse=False, compat=False):
-        '''
-        Once caught up with storage, yield them in realtime.
+    async def syncNodeEdits(self, offs, wait=True, compat=False, withmeta=False):
 
-        Returns:
-            Tuple of offset(int), nodeedits, meta(dict)
-        '''
-        if not self.logedits:
+        layriden = self.iden
+
+        async def getNexusEdits(strt):
+            async for nexsoffs, item in self.core.getNexusChanges(strt, wait=False):
+                if item[0] != layriden or item[1] != 'edits':
+                    continue
+
+                edits = item[2][0]
+                if compat:
+                    edits = await self.core.localToRemoteEdits(edits)
+
+                if withmeta:
+                    yield (nexsoffs, edits, item[2][1])
+                else:
+                    yield (nexsoffs, edits)
+
+        lastoffs = -1
+        async for item in getNexusEdits(offs):
+            lastoffs = item[0]
+            yield item
+
+        if not wait:
             return
 
-        if not compat:
-            for offi, _ in self.nodeeditlog.iter(offs, reverse=reverse):
-                nexsitem = await self.core.nexsroot.nexslog.get(offi)
-                yield (offi, *nexsitem[2])
+        async with self.getNodeEditWindow() as wind:
 
-            if wait:
-                async with self.getNodeEditWindow() as wind:
-                    async for item in wind:
-                        yield item
-            return
+            # Ensure we are caught up after grabbing a window
+            sync = True
+            maxoffs = max(offs, lastoffs + 1)
 
-        for offi, _ in self.nodeeditlog.iter(offs, reverse=reverse):
-            nexsitem = await self.core.nexsroot.nexslog.get(offi)
-            (nodeedits, meta) = nexsitem[2]
+            async for item in getNexusEdits(maxoffs):
+                maxoffs = item[0]
+                yield item
 
-            realnodeedits = self.core.localToRemoteEdits(nodeedits)
-            if realnodeedits:
-                yield (offi, realnodeedits, meta)
+            async for editoffs, edits, meta in wind:
+                if sync:
+                    if editoffs <= maxoffs:
+                        continue
+                    sync = False
 
-        if wait:
-            async with self.getNodeEditWindow() as wind:
-                async for (offi, nodeedits, meta) in wind:
-                    realnodeedits = self.core.localToRemoteEdits(nodeedits)
-                    if realnodeedits:
-                        yield (offi, realnodeedits, meta)
+                if compat:
+                    edits = await self.core.localToRemoteEdits(edits)
 
-    async def syncNodeEdits(self, offs, wait=True, reverse=False, compat=False):
-        '''
-        Identical to syncNodeEdits2, but doesn't yield meta
-        '''
-        async for offi, nodeedits, _meta in self.syncNodeEdits2(offs, wait=wait, reverse=reverse, compat=compat):
-            yield (offi, nodeedits)
-
-    async def syncIndexEvents(self, offs, matchdef, wait=True):
-        '''
-        Yield (offs, (nid, form, ETYPE, VALS)) tuples from the nodeedit log starting from the given offset.
-        Only edits that match the filter in matchdef will be yielded.
-
-        Notes:
-
-            ETYPE is a constant EDIT_* above. VALS is a tuple whose format depends on ETYPE, outlined in the comment
-            next to the constant.
-
-            Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, ())) message is emitted.
-
-            The matchdef dict may contain the following keys:  forms, props, tags, tagprops.  The value must be a
-            sequence of strings.  Each key/val combination is treated as an "or", so each key and value yields more events.
-            forms: EDIT_NODE_ADD and EDIT_NODE_DEL events.  Matches events for nodes with forms in the value list.
-            props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop or .universal form
-            tags:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
-            tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be just the prop or tag:prop.
-
-            Will not yield any values if this layer was not created with logedits enabled
-
-        Args:
-            offs(int): starting nexus/editlog offset
-            matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded
-            wait(bool):  whether to pend and stream value until this layer is fini'd
-        '''
-
-        formm = set(matchdef.get('forms', ()))
-        propm = set(matchdef.get('props', ()))
-        tagm = set(matchdef.get('tags', ()))
-        tagpropm = set(matchdef.get('tagprops', ()))
-        count = 0
-
-        ntypes = (EDIT_NODE_ADD, EDIT_NODE_DEL, EDIT_NODE_TOMB, EDIT_NODE_TOMB_DEL)
-        ptypes = (EDIT_PROP_SET, EDIT_PROP_DEL, EDIT_PROP_TOMB, EDIT_PROP_TOMB_DEL)
-        ttypes = (EDIT_TAG_SET, EDIT_TAG_DEL, EDIT_TAG_TOMB, EDIT_TAG_TOMB_DEL)
-        tptypes = (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL,
-                   EDIT_TAGPROP_TOMB, EDIT_TAGPROP_TOMB_DEL)
-
-        async for curoff, editses in self.syncNodeEdits(offs, wait=wait):
-            for nid, form, edit in editses:
-                for etyp, vals in edit:
-                    if ((form in formm and etyp in ntypes)
-                            or (etyp in ptypes and (vals[0] in propm or f'{form}:{vals[0]}' in propm))
-                            or (etyp in ttypes and vals[0] in tagm)
-                            or (etyp in tptypes and (vals[1] in tagpropm or f'{vals[0]}:{vals[1]}' in tagpropm))):
-
-                        yield (curoff, (nid, form, etyp, vals))
-
-            await asyncio.sleep(0)
-
-            count += 1
-            if count % 1000 == 0:
-                yield (curoff, (None, None, EDIT_PROGRESS, ()))
+                if withmeta:
+                    yield (editoffs, edits, meta)
+                else:
+                    yield (editoffs, edits)
 
     @contextlib.asynccontextmanager
     async def getNodeEditWindow(self):
-        if not self.logedits:
-            raise s_exc.BadConfValu(mesg='Layer logging must be enabled for getting nodeedits')
-
         async with await s_queue.Window.anit(maxsize=WINDOW_MAXSIZE) as wind:
 
             async def fini():
@@ -5476,37 +5876,11 @@ class Layer(s_nexus.Pusher):
 
             yield wind
 
-    async def getEditIndx(self):
+    def getEditIndx(self):
         '''
-        Returns what will be the *next* (i.e. 1 past the last) nodeedit log index.
+        Return the offset of the last edit entry for this layer. Returns -1 if the layer is empty.
         '''
-        if not self.logedits:
-            return 0
-
-        return self.nodeeditlog.index()
-
-    async def getEditOffs(self):
-        '''
-        Return the offset of the last *recorded* log entry.  Returns -1 if nodeedit log is disabled or empty.
-        '''
-        if not self.logedits:
-            return -1
-
-        last = self.nodeeditlog.last()
-        if last is not None:
-            return last[0]
-
-        return -1
-
-    async def waitEditOffs(self, offs, timeout=None):
-        '''
-        Wait for the node edit log to write an entry at/past the given offset.
-        '''
-        if not self.logedits:
-            mesg = 'Layer.waitEditOffs() does not work with logedits disabled.'
-            raise s_exc.BadArg(mesg=mesg)
-
-        return await self.nodeeditlog.waitForOffset(offs, timeout=timeout)
+        return self.lastindx
 
     async def delete(self):
         '''

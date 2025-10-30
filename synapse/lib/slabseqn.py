@@ -65,7 +65,7 @@ class SlabSeqn:
         '''
         if indx is not None:
             if indx >= self.indx:
-                self.slab.put(s_common.int64en(indx), s_msgpack.en(item), append=True, db=self.db)
+                self.slab._put(s_common.int64en(indx), s_msgpack.en(item), append=True, db=self.db)
                 self.indx = indx + 1
                 self.size += 1
                 self._wake_waiters()
@@ -77,7 +77,7 @@ class SlabSeqn:
             return indx
 
         indx = self.indx
-        retn = self.slab.put(s_common.int64en(indx), s_msgpack.en(item), append=True, db=self.db)
+        retn = self.slab._put(s_common.int64en(indx), s_msgpack.en(item), append=True, db=self.db)
         assert retn, "Not adding the largest index"
 
         self.indx += 1
@@ -86,6 +86,34 @@ class SlabSeqn:
         self._wake_waiters()
 
         return indx
+
+    def addWithPackRetn(self, item, indx=None):
+        '''
+        Add a single item to the sequence, returning the offset and packed item.
+        '''
+        packitem = s_msgpack.en(item)
+        if indx is not None:
+            if indx >= self.indx:
+                self.slab._put(s_common.int64en(indx), packitem, append=True, db=self.db)
+                self.indx = indx + 1
+                self.size += 1
+                self._wake_waiters()
+                return indx, packitem
+
+            oldv = self.slab.replace(s_common.int64en(indx), packitem, db=self.db)
+            if oldv is None:
+                self.size += 1
+            return indx, packitem
+
+        indx = self.indx
+        self.slab._put(s_common.int64en(indx), packitem, append=True, db=self.db)
+
+        self.indx += 1
+        self.size += 1
+
+        self._wake_waiters()
+
+        return indx, packitem
 
     def first(self):
 

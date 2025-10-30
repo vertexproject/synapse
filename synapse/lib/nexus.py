@@ -12,6 +12,9 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
+import synapse.lib.scope as s_scope
+import synapse.lib.queue as s_queue
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +22,9 @@ leaderversion = 'Leader is a higher version than we are.'
 
 # As a mirror follower, amount of time before giving up on a write request
 FOLLOWER_WRITE_WAIT_S = 30.0
+
+WINDOW_MAXSIZE = 10_000
+YIELD_PREFIX = b'\x92\xa8t2:yield\x81\xa4retn\x92\xc3\x92'
 
 class RegMethType(type):
     '''
@@ -99,6 +105,8 @@ class NexsRoot(s_base.Base):
         self._mirready = asyncio.Event()  # for testing
 
         self._mirrors: List[ChangeDist] = []
+        self._linkmirrors: List[s_queue.Window] = []
+
         self._nexskids: Dict[str, 'Pusher'] = {}
 
         # Used to match pending follower write requests with the responses arriving on the log
@@ -134,6 +142,11 @@ class NexsRoot(s_base.Base):
         self.nexslog.setIndex(maxindx)
 
         async def fini():
+            for wind in self._linkmirrors:
+                await wind.fini()
+
+            for dist in self._mirrors:
+                await dist.fini()
 
             for futu in self._futures.values():  # pragma: no cover
                 futu.cancel()
@@ -260,9 +273,6 @@ class NexsRoot(s_base.Base):
         try:
             await self._apply(*indxitem)
 
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-
         except Exception:
             logger.exception(f'Exception while replaying log: {s_common.trimText(repr(indxitem))}')
 
@@ -332,7 +342,7 @@ class NexsRoot(s_base.Base):
         with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
             meta['resp'] = iden
             await client.issue(nexsiden, event, args, kwargs, meta=meta)
-            return await s_common.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
+            return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
     async def getIssueProxy(self):
 
@@ -397,25 +407,19 @@ class NexsRoot(s_base.Base):
     async def waitOffs(self, offs, timeout=None):
         return await self.nexslog.waitForOffset(offs, timeout)
 
-    async def setindex(self, indx):
-
-        nexsindx = await self.index()
-        if indx < nexsindx:
-            logger.error(f'setindex ({indx}) is less than current index ({nexsindx})')
-            return False
-
-        if self.donexslog:
-            self.nexslog.setIndex(indx)
-        else:
-            self.nexshot.set('nexs:indx', indx)
-
-        return True
-
     async def _eat(self, item, indx=None):
 
         if self.donexslog:
-            saveindx = await self.nexslog.add(item, indx=indx)
-            [dist.update() for dist in tuple(self._mirrors)]
+            saveindx, packitem = await self.nexslog.addWithPackRetn(item, indx=indx)
+
+            if self._linkmirrors:
+                tupl = (saveindx, YIELD_PREFIX + s_msgpack.en(saveindx) + packitem)
+                for wind in tuple(self._linkmirrors):
+                    await wind.put(tupl)
+
+            if self._mirrors:
+                for dist in tuple(self._mirrors):
+                    dist.update()
 
         else:
             saveindx = self.nexshot.get('nexs:indx')
@@ -440,7 +444,15 @@ class NexsRoot(s_base.Base):
 
     async def iter(self, offs: int, tellready=False, wait=True) -> AsyncIterator[Any]:
         '''
-        Returns an iterator of change entries in the log
+        Returns an iterator of change entries in the log.
+
+        Notes:
+            If this method is being called in the context of a Telepath call,
+            it will directly send messages to the scope "link" object when it
+            has caught up to the realtime change window; instead of yielding
+            them as a generator. This is an optimization to avoid duplication
+            of msgpack'ing the same object over and over again as the number
+            of mirrors increases.
         '''
         if not self.donexslog:
             return
@@ -462,11 +474,41 @@ class NexsRoot(s_base.Base):
         if not wait:
             return
 
-        async with self.getChangeDist(maxoffs) as dist:
-            async for item in dist:
-                if self.isfini:
-                    raise s_exc.IsFini()
-                yield item
+        if (link := s_scope.get('link')) is None:
+            async with self.getChangeDist(maxoffs) as dist:
+                async for item in dist:
+                    yield item
+
+        else:
+            async with self.getMirrorWindow() as wind:
+
+                # Ensure we are caught up after grabbing a window
+                sync = True
+
+                async for item in self.nexslog.iter(maxoffs):
+                    maxoffs = item[0] + 1
+                    yield item
+
+                async for offs, item in wind:
+                    if sync:
+                        if offs < maxoffs:
+                            continue
+                        sync = False
+
+                    await link.send(item)
+
+    @contextlib.asynccontextmanager
+    async def getMirrorWindow(self):
+        async with await s_queue.Window.anit(maxsize=WINDOW_MAXSIZE, clearonfini=True) as wind:
+
+            async def fini():
+                self._linkmirrors.remove(wind)
+
+            wind.onfini(fini)
+
+            self._linkmirrors.append(wind)
+
+            yield wind
 
     @contextlib.asynccontextmanager
     async def getChangeDist(self, offs: int) -> AsyncIterator[ChangeDist]:
@@ -531,6 +573,7 @@ class NexsRoot(s_base.Base):
 
     async def runMirrorLoop(self, proxy):
 
+        cellinfo = None
         try:
             cellinfo = await proxy.getCellInfo()
             features = cellinfo.get('features', {})
@@ -560,6 +603,11 @@ class NexsRoot(s_base.Base):
             await proxy.fini()
 
         while not proxy.isfini:
+
+            if cellinfo:
+                ahaname = cellinfo.get('cell').get('aha', {}).get('name')
+                if ahaname:
+                    logger.info(f'Mirror communicating with aha service {ahaname}')
 
             try:
 
@@ -591,7 +639,7 @@ class NexsRoot(s_base.Base):
 
                     offs, args = item
                     if offs != self.nexslog.index():
-                        logger.error('Local Nexus offset is out of sync from remote cell! Aborting mirror sync')
+                        logger.error(f'Local Nexus offset is out of sync from remote cell! Aborting mirror sync. Local offs={self.nexslog.index()}, Remote {offs=}')
                         await self.fini()
                         return
 
@@ -637,9 +685,6 @@ class NexsRoot(s_base.Base):
             ahavers = ahainfo['synapse']['version']
             if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
                 await proxy.modAhaSvcInfo(self.cell.ahasvcname, {'ready': status})
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
 
         except Exception as e: # pragma: no cover
             logger.exception(f'Error trying to set aha ready: {status}')

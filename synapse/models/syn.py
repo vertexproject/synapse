@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class SynUser(s_types.Guid):
 
-    def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
 
         core = self.modl.core
         if core is not None:
@@ -27,7 +27,7 @@ class SynUser(s_types.Guid):
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         try:
-            return s_types.Guid._normPyStr(self, text)
+            return await s_types.Guid._normPyStr(self, text)
         except s_exc.BadTypeValu:
             mesg = f'No user named {text} and value is not a guid.'
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
@@ -44,7 +44,7 @@ class SynUser(s_types.Guid):
 
 class SynRole(s_types.Guid):
 
-    def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
 
         core = self.modl.core
         if core is not None:
@@ -63,7 +63,7 @@ class SynRole(s_types.Guid):
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         try:
-            return s_types.Guid._normPyStr(self, text)
+            return await s_types.Guid._normPyStr(self, text)
         except s_exc.BadTypeValu:
             mesg = f'No role named {text} and value is not a guid.'
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
@@ -181,10 +181,8 @@ modeldefs = (
                 ('isnow', ('syn:tag', {}), {
                     'doc': 'Set to an updated tag if the tag has been renamed.'}),
 
-                ('doc', ('str', {}), {
-                    'doc': 'A short definition for the tag.',
-                    'disp': {'hint': 'text'},
-                }),
+                ('doc', ('text', {}), {
+                    'doc': 'A short definition for the tag.'}),
 
                 ('doc:url', ('inet:url', {}), {
                     'doc': 'A URL link to additional documentation about the tag.'}),
@@ -240,18 +238,33 @@ modeldefs = (
                     'doc': 'The synapse type for this tagprop.', 'ro': True}),
             )),
             ('syn:cmd', {'runt': True, 'liftfunc': 'synapse.models.syn._liftRuntSynCmd'}, (
-                ('doc', ('str', {'strip': True}), {
-                    'doc': 'Description of the command.',
-                    'disp': {'hint': 'text'},
-                }),
+
+                ('doc', ('text', {'strip': True}), {
+                    'doc': 'Description of the command.'}),
+
                 ('package', ('str', {'strip': True}), {
                     'doc': 'Storm package which provided the command.'}),
+
                 ('svciden', ('guid', {'strip': True}), {
                     'doc': 'Storm service iden which provided the package.'}),
+
+                ('deprecated', ('bool', {}), {
+                    'doc': 'Set to true if this command is scheduled to be removed.'}),
+
+                ('deprecated:version', ('it:semver', {}), {
+                    'doc': 'The Synapse version when this command will be removed.'}),
+
+                ('deprecated:date', ('time', {}), {
+                    'doc': 'The date when this command will be removed.'}),
+
+                ('deprecated:mesg', ('str', {}), {
+                    'doc': 'Optional description of this deprecation.'}),
             )),
             ('syn:deleted', {'runt': True}, (
+                ('nid', ('int', {}), {
+                    'doc': 'The nid for the node that was deleted.', 'ro': True}),
                 ('sodes', ('data', {}), {
-                    'doc': 'The layer storage nodes for node the which was deleted.', 'ro': True}),
+                    'doc': 'The layer storage nodes for the node that was deleted.', 'ro': True}),
             )),
         ),
     }),

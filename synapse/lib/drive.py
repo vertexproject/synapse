@@ -69,6 +69,9 @@ class Drive(s_base.Base):
 
     def getItemInfo(self, iden, typename=None):
         info = self._getItemInfo(s_common.uhex(iden))
+        if not info:
+            return
+
         if typename is not None:
             self._reqInfoType(info, typename)
         return info
@@ -210,9 +213,9 @@ class Drive(s_base.Base):
 
     def _setItemPerm(self, bidn, perm):
         info = self._reqItemInfo(bidn)
-        info['perm'] = perm
+        info['permissions'] = perm
         s_schemas.reqValidDriveInfo(info)
-        self.slab.put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
+        self.slab._put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
         return info
 
     async def getPathInfo(self, path, reldir=rootdir):
@@ -286,7 +289,7 @@ class Drive(s_base.Base):
         info['kids'] = 0
         info['parent'] = pariden
 
-        info.setdefault('perm', {'users': {}, 'roles': {}})
+        info.setdefault('permissions', {'users': {}, 'roles': {}})
         info.setdefault('version', (0, 0, 0))
 
         s_schemas.reqValidDriveInfo(info)
@@ -447,6 +450,8 @@ class Drive(s_base.Base):
 
         if vers is None:
             info = self._getItemInfo(bidn)
+            if info is None:
+                return None
             vers = info.get('version')
 
         versindx = getVersIndx(vers)
@@ -485,7 +490,7 @@ class Drive(s_base.Base):
             else:
                 info.update(versinfo)
 
-        self.slab.put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
+        self.slab._put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
         return info
 
     def _getLastDataVers(self, bidn):
@@ -517,9 +522,9 @@ class Drive(s_base.Base):
 
         reqValidName(typename)
 
+        curv = self.getTypeSchemaVersion(typename)
         if vers is not None:
             vers = int(vers)
-            curv = self.getTypeSchemaVersion(typename)
             if curv is not None:
                 if vers == curv:
                     return False
@@ -534,11 +539,11 @@ class Drive(s_base.Base):
 
         lkey = LKEY_TYPE + typename.encode()
 
-        self.slab.put(lkey, s_msgpack.en(schema), db=self.dbname)
+        await self.slab.put(lkey, s_msgpack.en(schema), db=self.dbname)
 
         if vers is not None:
             verskey = LKEY_TYPE_VERS + typename.encode()
-            self.slab.put(verskey, s_msgpack.en(vers), db=self.dbname)
+            await self.slab.put(verskey, s_msgpack.en(vers), db=self.dbname)
 
         if callback is not None:
             async for info in self.getItemsByType(typename):
@@ -546,9 +551,9 @@ class Drive(s_base.Base):
                 for lkey, byts in self.slab.scanByPref(LKEY_VERS + bidn, db=self.dbname):
                     versindx = lkey[-9:]
                     databyts = self.slab.get(LKEY_DATA + bidn + versindx, db=self.dbname)
-                    data = await callback(info, s_msgpack.un(byts), s_msgpack.un(databyts))
+                    data = await callback(info, s_msgpack.un(byts), s_msgpack.un(databyts), curv)
                     vtor(data)
-                    self.slab.put(LKEY_DATA + bidn + versindx, s_msgpack.en(data), db=self.dbname)
+                    await self.slab.put(LKEY_DATA + bidn + versindx, s_msgpack.en(data), db=self.dbname)
                     await asyncio.sleep(0)
         return True
 

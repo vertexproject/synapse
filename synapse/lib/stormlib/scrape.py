@@ -59,6 +59,7 @@ class LibScrape(s_stormtypes.Lib):
         genMatches is a generic helper function for constructing scrape interfaces using pure Storm.
 
         It accepts the text, a regex pattern, and produce results that can easily be used to create
+        nodes.
 
         Notes:
             The pattern must have a named regular expression match for the key ``valu`` using the
@@ -68,7 +69,7 @@ class LibScrape(s_stormtypes.Lib):
             A scrape implementation with a regex that matches name keys in text::
 
                 $re="(Name\\:\\s)(?P<valu>[a-z0-9]+)\\s"
-                $form="ps:name"
+                $form="meta:name"
 
                 function scrape(text, form) {
                         $ret = ()
@@ -91,7 +92,7 @@ class LibScrape(s_stormtypes.Lib):
                        'desc': 'Regex flags to use (defaults to IGNORECASE).'},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
-                              'desc': ''}}}
+                              'desc': 'Yields a list of (value, info) tuples scraped from the text.'}}}
     )
     _storm_lib_path = ('scrape', )
 

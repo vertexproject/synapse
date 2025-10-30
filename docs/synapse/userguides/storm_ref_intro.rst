@@ -271,7 +271,7 @@ a format string, such as variables, node properties, tags, or function calls.
 
 ::
 
-  storm> inet:ip=1.2.3.4 $lib.print(`IP {$node.repr()}: asn={:asn} .seen={.seen} foo={#foo}`)
+  storm> inet:ip=1.2.3.4 $lib.print(`IP {$node.repr()}: asn={:asn} :seen={:seen} foo={#foo}`)
 
 - Lift a node using a format string:
 
@@ -286,7 +286,7 @@ Backtick format strings may also span multiple lines, which will include the new
     storm> inet:ip=1.2.3.4 $lib.print(`
     IP {$node.repr()}:
     asn={:asn}
-    .seen={.seen}
+    seen={:seen}
     foo={#foo}`)
 
 Like double quotes, backticks will preserve the literal meaning of all characters

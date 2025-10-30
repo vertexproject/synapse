@@ -16,9 +16,6 @@ class Share(s_base.Base):
 
         self.iden = s_common.guid()
 
-        self.exited = False
-        self.entered = False
-
         sess = link.get('sess')
 
         async def fini():

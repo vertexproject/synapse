@@ -31,8 +31,8 @@ exbibyte = 1024 * pebibyte
 zebibyte = 1024 * exbibyte
 yobibyte = 1024 * zebibyte
 
-# time (in millis) constants
-second = 1000
+# time (in micros) constants
+second = 1000000
 minute = second * 60
 hour = minute * 60
 day = hour * 24
@@ -47,3 +47,7 @@ layer_pdef_csize_max = 1_000
 layer_pdef_qsize_max = 10_000
 assert layer_pdef_csize <= layer_pdef_csize_max
 assert layer_pdef_qsize <= layer_pdef_qsize_max
+
+# HTTP header constants
+MAX_LINE_SIZE = kibibyte * 64
+MAX_FIELD_SIZE = kibibyte * 64

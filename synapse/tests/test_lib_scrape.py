@@ -203,6 +203,10 @@ A bunch of prefixed urls
 
 https://c2server.com/evil/malware/doesnot[care+]aboutstandards{at-all}
 
+beep “https://unicode.doublequote.org/test.php” boop
+
+x ‘https://unicode.singlequote.org/test.php’ z
+
 '''
 
 data3 = '''
@@ -609,7 +613,7 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes = set(s_scrape.scrape(data0))
 
         self.len(83, nodes)
-        nodes.remove(('hash:md5', 'a' * 32))
+        nodes.remove(('crypto:hash:md5', 'a' * 32))
         nodes.remove(('inet:ip', '1.2.3.4'))
         nodes.remove(('inet:ip', '2.3.4.5'))
         nodes.remove(('inet:ip', '5.6.7.8'))
@@ -725,6 +729,8 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:url', 'https://www.thingspace.com/blog/giggles.html'))
         nodes.remove(('inet:url', 'https://testme.org/test.php'))
         nodes.remove(('inet:url', 'https://c2server.com/evil/malware/doesnot[care+]aboutstandards{at-all}'))
+        nodes.remove(('inet:url', 'https://unicode.doublequote.org/test.php'))
+        nodes.remove(('inet:url', 'https://unicode.singlequote.org/test.php'))
 
         nodes = list(s_scrape.scrape(btc_addresses))
         self.len(11, nodes)

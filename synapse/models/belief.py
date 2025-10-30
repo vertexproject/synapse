@@ -6,7 +6,9 @@ modeldefs = (
                 'doc': 'A belief system such as an ideology, philosophy, or religion.'}),
 
             ('belief:system:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of belief system types.'}),
 
             ('belief:tenet', ('guid', {}), {
@@ -19,11 +21,10 @@ modeldefs = (
 
             ('belief:system', {}, (
 
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the belief system.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the belief system.'}),
 
                 ('type', ('belief:system:type:taxonomy', {}), {
@@ -38,27 +39,24 @@ modeldefs = (
 
             ('belief:tenet', {}, (
 
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the tenet.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
+                ('desc', ('text', {}), {
                     'doc': 'A description of the tenet.'}),
             )),
 
             ('belief:subscriber', {}, (
 
-                ('contact', ('ps:contact', {}), {
-                    'doc': 'The contact which subscribes to the belief system.'}),
+                ('contact', ('entity:individual', {}), {
+                    'doc': 'The individual who subscribes to the belief system.'}),
 
                 ('system', ('belief:system', {}), {
                     'doc': 'The belief system to which the contact subscribes.'}),
 
-                ('began', ('time', {}), {
-                    'doc': 'The time that the contact began to be a subscriber to the belief system.'}),
-
-                ('ended', ('time', {}), {
-                    'doc': 'The time when the contact ceased to be a subscriber to the belief system.'}),
+                ('period', ('ival', {}), {
+                    'prevnames': ('began', 'ended'),
+                    'doc': 'The time period when the contact subscribed to the belief system.'}),
             )),
         ),
         'edges': (

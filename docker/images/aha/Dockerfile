@@ -1,5 +1,5 @@
 # vim:set ft=dockerfile:
-FROM vertexproject/vtx-base-image:py311
+FROM vertexproject/vtx-base-image:dev-py313
 
 COPY synapse /build/synapse/synapse
 COPY README.rst /build/synapse/README.rst
@@ -18,4 +18,4 @@ VOLUME /vertex/storage
 
 ENTRYPOINT ["tini", "--", "/vertex/synapse/entrypoint.sh"]
 
-HEALTHCHECK --start-period=10s --retries=1 --timeout=10s --interval=30s CMD python -m synapse.tools.healthcheck -c cell:///vertex/storage/
+HEALTHCHECK --start-period=10s --retries=1 --timeout=10s --interval=30s CMD python -m synapse.tools.service.healthcheck -c cell:///vertex/storage/

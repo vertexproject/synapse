@@ -50,7 +50,7 @@ class AhaLib(s_stormtypes.Lib):
                               'desc': 'The AHA service information dictionary, or ``(null))``.', }}},
         {'name': 'list', 'desc': 'Enumerate all of the AHA services.',
          'type': {'type': 'function', '_funcname': '_methAhaList', 'args': (),
-                  'returns': {'name': 'Yields', 'type': 'list',
+                  'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'The AHA service dictionaries.', }}},
         {'name': 'callPeerApi', 'desc': '''Call an API on all peers (leader and mirrors) of an AHA service and yield the responses from each.
 
@@ -91,7 +91,7 @@ class AhaLib(s_stormtypes.Lib):
                         '''},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
-                             'desc': 'Yields the results of the API calls as tuples of (svcname, (ok, info)).', }}},
+                              'desc': 'Yields the results of the API calls as tuples of (svcname, (ok, info)).', }}},
         {'name': 'callPeerGenr', 'desc': '''Call a generator API on all peers (leader and mirrors) of an AHA service and yield the responses from each.
 
         Examples:
@@ -124,7 +124,7 @@ class AhaLib(s_stormtypes.Lib):
                        '''},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
-                             'desc': 'Yields the results of the API calls as tuples containing (svcname, (ok, info)).', }}}
+                              'desc': 'Yields the results of the API calls as tuples containing (svcname, (ok, info)).', }}}
 
     )
     _storm_lib_path = ('aha',)
@@ -154,7 +154,7 @@ class AhaLib(s_stormtypes.Lib):
         if svc.get('services'):  # It is an AHA Pool!
             mesg = f'Cannot use $lib.aha.del() to remove an AHA Pool. Use $lib.aha.pool.del(); {svcname=}'
             raise s_exc.BadArg(mesg=mesg)
-        return await proxy.delAhaSvc(svc.get('svcname'), network=svc.get('svcnetw'))
+        return await proxy.delAhaSvc(svc.get('name'))
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methAhaGet(self, svcname, filters=None):
@@ -306,7 +306,7 @@ class AhaPoolLib(s_stormtypes.Lib):
             yield AhaPool(self.runt, poolinfo)
 
 @s_stormtypes.registry.registerType
-class AhaPool(s_stormtypes.StormType):
+class AhaPool(s_stormtypes.Prim):
     '''
     Implements the Storm API for an AHA pool.
     '''
@@ -343,9 +343,8 @@ class AhaPool(s_stormtypes.StormType):
     _storm_typename = 'aha:pool'
 
     def __init__(self, runt, poolinfo):
-        s_stormtypes.StormType.__init__(self)
+        s_stormtypes.Prim.__init__(self, poolinfo)
         self.runt = runt
-        self.poolinfo = poolinfo
 
         self.locls.update({
             'add': self._methPoolSvcAdd,
@@ -353,10 +352,10 @@ class AhaPool(s_stormtypes.StormType):
         })
 
     async def stormrepr(self):
-        return f'{self._storm_typename}: {self.poolinfo.get("name")}'
+        return f'{self._storm_typename}: {self.valu.get("name")}'
 
     async def _derefGet(self, name):
-        return self.poolinfo.get(name)
+        return self.valu.get(name)
 
     async def _methPoolSvcAdd(self, svcname):
         self.runt.reqAdmin()
@@ -364,12 +363,12 @@ class AhaPool(s_stormtypes.StormType):
 
         proxy = await self.runt.view.core.reqAhaProxy()
 
-        poolname = self.poolinfo.get('name')
+        poolname = self.valu.get('name')
 
         poolinfo = {'creator': self.runt.user.iden}
         poolinfo = await proxy.addAhaPoolSvc(poolname, svcname, poolinfo)
 
-        self.poolinfo.update(poolinfo)
+        self.valu.update(poolinfo)
 
     async def _methPoolSvcDel(self, svcname):
         self.runt.reqAdmin()
@@ -377,19 +376,19 @@ class AhaPool(s_stormtypes.StormType):
 
         proxy = await self.runt.view.core.reqAhaProxy()
 
-        poolname = self.poolinfo.get('name')
+        poolname = self.valu.get('name')
         newinfo = await proxy.delAhaPoolSvc(poolname, svcname)
 
         tname = svcname
         if tname.endswith('...'):
             tname = tname[:-2]
         deleted_service = None
-        deleted_services = [svc for svc in self.poolinfo.get('services').keys()
+        deleted_services = [svc for svc in self.valu.get('services').keys()
                             if svc not in newinfo.get('services') and svc.startswith(tname)]
         if deleted_services:
             deleted_service = deleted_services[0]
 
-        self.poolinfo = newinfo
+        self.valu = newinfo
 
         return deleted_service
 
@@ -603,10 +602,8 @@ The ready column indicates that a service has entered into the realtime change w
             $leaders = $lib.set()
             for $info in $svcs {
                 $svcinfo = $info.svcinfo
-                if $svcinfo {
-                    if ($info.svcname = $svcinfo.leader) {
-                        $leaders.add($svcinfo.run)
-                    }
+                if $info.svcinfo.isleader {
+                    $leaders.add($svcinfo.run)
                 }
             }
 
@@ -691,6 +688,7 @@ The ready column indicates that a service has entered into the realtime change w
                     {"name": "host", "width": 16},
                     {"name": "port", "width": 8},
                     {"name": "version", "width": 12},
+                    {"name": "synapse", "width": 12},
                     {"name": "nexus idx", "width": 10},
                 ],
                 "separators": {
@@ -732,18 +730,20 @@ The ready column indicates that a service has entered into the realtime change w
                     'host': $svcinfo.urlinfo.host,
                     'port': $svcinfo.urlinfo.port,
                     'version': '<unknown>',
+                    'synapse_version': '<unknown>',
                     'nexs_indx': (0)
                 })
                 if ($cell_infos.$svcname) {
                     $info = $cell_infos.$svcname
                     $cell_info = $info.cell
                     $status.nexs_indx = $cell_info.nexsindx
-                    if ($cell_info.uplink) {
-                        $status.role = 'follower'
-                    } else {
+                    if ($cell_info.active) {
                         $status.role = 'leader'
+                    } else {
+                        $status.role = 'follower'
                     }
-                    $status.version = $info.synapse.verstring
+                    $status.version = $info.cell.verstring
+                    $status.synapse_version = $info.synapse.verstring
                 }
                 $group_status.append($status)
             }
@@ -779,6 +779,7 @@ The ready column indicates that a service has entered into the realtime change w
                     $status.host,
                     $status.port,
                     $status.version,
+                    $status.synapse_version,
                     $status.nexs_indx
                 )
                 $lib.print($printer.row($row))

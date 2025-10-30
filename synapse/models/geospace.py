@@ -224,10 +224,10 @@ class Dist(s_types.Int):
         self.setNormFunc(str, self._normPyStr)
         self.baseoff = self.opts.get('baseoff', 0)
 
-    def _normPyInt(self, valu):
+    async def _normPyInt(self, valu, view=None):
         return valu, {}
 
-    def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
         try:
             valu, off = s_grammar.parse_float(text, 0)
         except Exception:
@@ -277,10 +277,10 @@ class Area(s_types.Int):
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
 
-    def _normPyInt(self, valu):
+    async def _normPyInt(self, valu, view=None):
         return valu, {}
 
-    def _normPyStr(self, text):
+    async def _normPyStr(self, text, view=None):
         try:
             valu, off = s_grammar.parse_float(text, 0)
         except Exception:
@@ -329,43 +329,47 @@ class LatLong(s_types.Type):
             'near=': self._storLiftNear,
         })
 
-    def _normCmprValu(self, valu):
+        self.lattype = self.modl.type('geo:latitude')
+        self.lontype = self.modl.type('geo:longitude')
+
+    async def _normCmprValu(self, valu):
         latlong, dist = valu
-        rlatlong = self.modl.type('geo:latlong').norm(latlong)[0]
-        rdist = self.modl.type('geo:dist').norm(dist)[0]
+        rlatlong = (await self.modl.type('geo:latlong').norm(latlong))[0]
+        rdist = (await self.modl.type('geo:dist').norm(dist))[0]
         return rlatlong, rdist
 
-    def _cmprNear(self, valu):
-        latlong, dist = self._normCmprValu(valu)
+    async def _cmprNear(self, valu):
+        latlong, dist = await self._normCmprValu(valu)
 
-        def cmpr(valu):
+        async def cmpr(valu):
             if s_gis.haversine(valu, latlong) <= dist:
                 return True
             return False
         return cmpr
 
-    def _storLiftNear(self, cmpr, valu):
-        latlong = self.norm(valu[0])[0]
-        dist = self.modl.type('geo:dist').norm(valu[1])[0]
+    async def _storLiftNear(self, cmpr, valu):
+        latlong = (await self.norm(valu[0]))[0]
+        dist = (await self.modl.type('geo:dist').norm(valu[1]))[0]
         return ((cmpr, (latlong, dist), self.stortype),)
 
-    def _normPyStr(self, valu):
+    async def _normPyStr(self, valu, view=None):
         valu = tuple(valu.strip().split(','))
-        return self._normPyTuple(valu)
+        return await self._normPyTuple(valu)
 
-    def _normPyTuple(self, valu):
+    async def _normPyTuple(self, valu, view=None):
         if len(valu) != 2:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Valu must contain valid latitude,longitude')
 
         try:
-            latv = self.modl.type('geo:latitude').norm(valu[0])[0]
-            lonv = self.modl.type('geo:longitude').norm(valu[1])[0]
+            latv, latfo = await self.lattype.norm(valu[0])
+            lonv, lonfo = await self.lontype.norm(valu[1])
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg=str(e)) from None
 
-        return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
+        return (latv, lonv), {'subs': {'lat': (self.lattype.typehash, latv, latfo),
+                                       'lon': (self.lontype.typehash, lonv, lonfo)}}
 
     def repr(self, norm):
         return f'{norm[0]},{norm[1]}'
@@ -387,33 +391,47 @@ modeldefs = (
         ),
 
         'interfaces': (
+
             ('geo:locatable', {
                 'doc': 'Properties common to items and events which may be geolocated.',
-                'template': {'geo:locatable': 'item'},
+                'prefix': 'place',
+                'template': {'title': 'item', 'happened': 'was located'},
                 'props': (
-                    ('place', ('geo:place', {}), {
-                        'doc': 'The place where the {geo:locatable} was located.'}),
+                    ('', ('geo:place', {}), {
+                        'doc': 'The place where the {title} {happened}.'}),
 
-                    ('place:loc', ('loc', {}), {
-                        'doc': 'The geopolitical location of the {geo:locatable}.'}),
+                    ('loc', ('loc', {}), {
+                        'doc': 'The geopolitical location where the {title} {happened}.'}),
 
-                    ('place:name', ('geo:name', {}), {
-                        'doc': 'The name of the place where the {geo:locatable} was located.'}),
+                    ('name', ('meta:name', {}), {
+                        'doc': 'The name where the {title} {happened}.'}),
 
-                    ('place:address', ('geo:address', {}), {
-                        'doc': 'The postal address of the place where the {geo:locatable} was located.'}),
+                    ('address', ('geo:address', {}), {
+                        'doc': 'The postal address where the {title} {happened}.'}),
 
-                    ('place:latlong', ('geo:latlong', {}), {
-                        'doc': 'The latlong where the {geo:locatable} was located.'}),
+                    ('latlong', ('geo:latlong', {}), {
+                        'doc': 'The latlong where the {title} {happened}.'}),
 
-                    ('place:latlong:accuracy', ('geo:dist', {}), {
-                        'doc': 'The accuracy of the latlong where the {geo:locatable} was located.'}),
+                    ('latlong:accuracy', ('geo:dist', {}), {
+                        'doc': 'The accuracy of the latlong where the {title} {happened}.'}),
 
-                    ('place:country', ('pol:country', {}), {
-                        'doc': 'The country where the {geo:locatable} was located.'}),
+                    ('altitude', ('geo:altitude', {}), {
+                        'doc': 'The altitude where the {title} {happened}.'}),
 
-                    ('place:country:code', ('pol:iso2', {}), {
-                        'doc': 'The country code where the {geo:locatable} was located.'}),
+                    ('altitude:accuracy', ('geo:dist', {}), {
+                        'doc': 'The accuracy of the altitude where the {title} {happened}.'}),
+
+                    ('country', ('pol:country', {}), {
+                        'doc': 'The country where the {title} {happened}.'}),
+
+                    ('country:code', ('iso:3166:alpha2', {}), {
+                        'doc': 'The country code where the {title} {happened}.'}),
+
+                    ('bbox', ('geo:bbox', {}), {
+                        'doc': 'A bounding box which encompasses where the {title} {happened}.'}),
+
+                    ('geojson', ('geo:json', {}), {
+                        'doc': 'A GeoJSON representation of where the {title} {happened}.'}),
                 ),
             }),
         ),
@@ -421,21 +439,26 @@ modeldefs = (
         'types': (
 
             ('geo:telem', ('guid', {}), {
-                'interfaces': ('phys:object', 'geo:locatable'),
-                'template': {'phys:object': 'object', 'geo:locatable': 'object'},
+                'interfaces': (
+                    ('phys:object', {'template': {'title': 'object'}}),
+                    ('geo:locatable', {'template': {'title': 'object'}}),
+                ),
                 'doc': 'The geospatial position and physical characteristics of a node at a given time.'}),
 
             ('geo:json', ('data', {'schema': geojsonschema}), {
                 'doc': 'GeoJSON structured JSON data.'}),
 
-            ('geo:name', ('str', {'lower': True, 'onespace': True}), {
-                'doc': 'An unstructured place name or address.'}),
-
             ('geo:place', ('guid', {}), {
-                'doc': 'A GUID for a geographic place.'}),
+                'template': {'title': 'place'},
+                'interfaces': (
+                    ('geo:locatable', {'prefix': ''}),
+                ),
+                'doc': 'A geographic place.'}),
 
             ('geo:place:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of place types.',
             }),
 
@@ -445,24 +468,22 @@ modeldefs = (
             ('geo:longitude', ('float', {'min': -180.0, 'max': 180.0,
                                'minisvalid': False, 'maxisvalid': True}), {
                 'ex': '31.337',
-                'doc': 'A longitude in floating point notation.',
-            }),
+                'doc': 'A longitude in floating point notation.'}),
+
             ('geo:latitude', ('float', {'min': -90.0, 'max': 90.0,
                               'minisvalid': True, 'maxisvalid': True}), {
                 'ex': '31.337',
-                'doc': 'A latitude in floating point notation.',
-            }),
+                'doc': 'A latitude in floating point notation.'}),
 
             ('geo:bbox', ('comp', {'sepr': ',', 'fields': (
                                         ('xmin', 'geo:longitude'),
                                         ('xmax', 'geo:longitude'),
                                         ('ymin', 'geo:latitude'),
                                         ('ymax', 'geo:latitude'))}), {
-                'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.',
-            }),
+                'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.'}),
+
             ('geo:altitude', ('geo:dist', {'baseoff': 6371008800}), {
-                'doc': 'A negative or positive offset from Mean Sea Level (6,371.0088km from Earths core).'
-            }),
+                'doc': "A negative or positive offset from Mean Sea Level (6,371.0088km from Earth's core)."}),
         ),
 
         'edges': (
@@ -471,8 +492,6 @@ modeldefs = (
         ),
 
         'forms': (
-
-            ('geo:name', {}, ()),
 
             ('geo:telem', {}, (
 
@@ -491,39 +510,21 @@ modeldefs = (
 
             ('geo:place', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'A type specific identifier such as an airport ID.'}),
-
-                ('name', ('geo:name', {}), {
-                    'alts': ('names',),
-                    'doc': 'The name of the place.'}),
 
                 ('type', ('geo:place:type:taxonomy', {}), {
                     'doc': 'The type of place.'}),
 
-                ('names', ('array', {'type': 'geo:name', 'sorted': True, 'uniq': True}), {
+                ('name', ('meta:name', {}), {
+                    'alts': ('names',),
+                    'doc': 'The name of the place.'}),
+
+                ('names', ('array', {'type': 'meta:name'}), {
                     'doc': 'An array of alternative place names.'}),
 
-                ('desc', ('str', {}), {
-                    'doc': 'A long form description of the place.'}),
-
-                ('loc', ('loc', {}), {
-                    'doc': 'The geo-political location string for the node.'}),
-
-                ('address', ('geo:address', {}), {
-                    'doc': 'The street/mailing address for the place.'}),
-
-                ('geojson', ('geo:json', {}), {
-                    'doc': 'A GeoJSON representation of the place.'}),
-
-                ('latlong', ('geo:latlong', {}), {
-                    'doc': 'The lat/long position for the place.'}),
-
-                ('bbox', ('geo:bbox', {}), {
-                    'doc': 'A bounding box which encompasses the place.'}),
-
-                ('radius', ('geo:dist', {}), {
-                    'doc': 'An approximate radius to use for bounding box calculation.'}),
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the place.'}),
 
                 ('photo', ('file:bytes', {}), {
                     'doc': 'The image file to use as the primary image of the place.'}),

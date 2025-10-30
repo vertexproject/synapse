@@ -31,38 +31,43 @@ class StormlibModelTest(s_test.SynTest):
             self.eq('123', await core.callStorm('return($lib.model.type(int).repr((1.23 *100)))'))
             self.eq((123, {}), await core.callStorm('return($lib.model.type(int).norm((1.23 *100)))'))
             self.eq((4, 0x01020304), await core.callStorm('return($lib.model.type(inet:ip).norm(1.2.3.4).index(0))'))
-            self.eq({'subs': {'type': 'unicast', 'version': 4}}, await core.callStorm('return($lib.model.type(inet:ip).norm(1.2.3.4).index(1))'))
             self.eq('inet:dns:a:ip', await core.callStorm('return($lib.model.form(inet:dns:a).prop(ip).full)'))
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.prop(inet:dns:a:ip).form.name)'))
+
+            styp = core.model.type('str').typehash
+            ityp = core.model.type('int').clone({'enums': ((4, '4'), (6, '6'))}).typehash
+
+            exp = {'subs': {'type': (styp, 'unicast', {}), 'version': (ityp, 4, {})}}
+            self.eq(exp, await core.callStorm('return($lib.model.type(inet:ip).norm(1.2.3.4).index(1))'))
 
             await core.addTagProp('score', ('int', {}), {})
             self.eq('score', await core.callStorm('return($lib.model.tagprop(score).name)'))
             self.eq('int', await core.callStorm('return($lib.model.tagprop(score).type.name)'))
 
-            self.eq('risk:attack', await core.callStorm('return($lib.model.edge(risk:attack, uses, risk:vuln).n1form)'))
-            self.eq('uses', await core.callStorm('return($lib.model.edge(risk:attack, uses, risk:vuln).verb)'))
-            self.eq('risk:vuln', await core.callStorm('return($lib.model.edge(risk:attack, uses, risk:vuln).n2form)'))
+            self.eq('entity:action', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).n1form)'))
+            self.eq('used', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).verb)'))
+            self.eq('meta:usable', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).n2form)'))
             self.none(await core.callStorm('return($lib.model.edge(risk:attack, newp, risk:vuln))'))
 
             self.true(await core.callStorm('return(($lib.model.prop(".created").form = $lib.null))'))
 
-            mesgs = await core.stormlist('$lib.print($lib.model.form(ou:name))')
-            self.stormIsInPrint("model:form: {'name': 'ou:name'", mesgs)
+            mesgs = await core.stormlist('$lib.print($lib.model.form(meta:name))')
+            self.stormIsInPrint("model:form: {'name': 'meta:name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.pprint($lib.model.form(ou:name))')
-            self.stormIsInPrint("{'name': 'ou:name'", mesgs)
+            mesgs = await core.stormlist('$lib.pprint($lib.model.form(meta:name))')
+            self.stormIsInPrint("{'name': 'meta:name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.print($lib.model.form(ou:name).type)')
-            self.stormIsInPrint("model:type: ('ou:name'", mesgs)
+            mesgs = await core.stormlist('$lib.print($lib.model.form(meta:name).type)')
+            self.stormIsInPrint("model:type: ('meta:name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.pprint($lib.model.form(ou:name).type)')
-            self.stormIsInPrint("('ou:name'", mesgs)
+            mesgs = await core.stormlist('$lib.pprint($lib.model.form(meta:name).type)')
+            self.stormIsInPrint("('meta:name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.print($lib.model.prop(ps:contact:orgname))')
-            self.stormIsInPrint("model:property: {'name': 'orgname'", mesgs)
+            mesgs = await core.stormlist('$lib.print($lib.model.prop(entity:contact:name))')
+            self.stormIsInPrint("model:property: {'name': 'name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.pprint($lib.model.prop(ps:contact:orgname))')
-            self.stormIsInPrint("'type': ('ou:name'", mesgs)
+            mesgs = await core.stormlist('$lib.pprint($lib.model.prop(entity:contact:name))')
+            self.stormIsInPrint("'type': ('meta:name'", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.model.tagprop(score))')
             self.stormIsInPrint("model:tagprop: {'name': 'score'", mesgs)
@@ -79,11 +84,8 @@ class StormlibModelTest(s_test.SynTest):
             mesgs = await core.stormlist("$item=$lib.model.tagprop('score') $lib.print($item.type)")
             self.stormIsInPrint("model:type: ('int', ('base'", mesgs)
 
-            mesgs = await core.stormlist('$lib.print($lib.model.edge(risk:attack, uses, risk:vuln))')
-            self.stormIsInPrint("model:edge: (('risk:attack', 'uses', 'risk:vuln'), {'doc':", mesgs)
-
-            mesgs = await core.stormlist('$lib.pprint($lib.model.edge(risk:attack, uses, risk:vuln))')
-            self.stormIsInPrint("(('risk:attack', 'uses', 'risk:vuln'),\n {'doc':", mesgs)
+            mesgs = await core.stormlist('$lib.print($lib.model.edge(risk:attack, used, risk:vuln))')
+            self.stormIsInPrint("model:edge: (('entity:action', 'used', 'meta:usable'), {'doc':", mesgs)
 
     async def test_stormlib_model_depr(self):
 
@@ -109,12 +111,15 @@ class StormlibModelTest(s_test.SynTest):
                 with self.raises(s_exc.IsDeprLocked):
                     await core.nodes('[test:deprprop=newp]')
 
+                with self.raises(s_exc.IsDeprLocked):
+                    await core.nodes('test:deprform [ :ndefprop={test:deprprop=baz} ]')
+
                 with self.getAsyncLoggerStream('synapse.lib.view',
                                                'Prop test:deprform:deprprop2 is locked due to deprecation') as stream:
                     data = (
                         (('test:deprform', 'depr'), {'props': {'deprprop2': '5678'}}),
                     )
-                    await core.addFeedData(data)
+                    await core.addFeedData(data, reqmeta=False)
                     self.true(await stream.wait(1))
                     nodes = await core.nodes('test:deprform=depr')
                     self.none(nodes[0].get('deprprop2'))
@@ -160,8 +165,8 @@ class StormlibModelTest(s_test.SynTest):
 
             mesgs = await core.stormlist('model.deprecated.check')
 
-            self.stormIsInWarn('.pdep is not yet locked', mesgs)
-            self.stormNotInWarn('test:dep:easy.pdep is not yet locked', mesgs)
+            self.stormIsInWarn(':pdep is not yet locked', mesgs)
+            self.stormNotInWarn('test:dep:easy:pdep is not yet locked', mesgs)
 
     async def test_stormlib_model_migration(self):
 
@@ -247,9 +252,9 @@ class StormlibModelTest(s_test.SynTest):
             ''')
             self.len(1, nodes)
             self.sorteq([
-                ('baz', (None, None)),
-                ('foo', (s_time.parse('2010'), s_time.parse('2012'))),
-                ('foo.bar', (None, None))
+                ('baz', (None, None, None)),
+                ('foo', (s_time.parse('2010'), s_time.parse('2012'), 63072000000000)),
+                ('foo.bar', (None, None, None))
             ], nodes[0].getTags())
             self.eq([], nodes[0].getTagProps('foo'))
             self.eq([], nodes[0].getTagProps('foo.bar'))

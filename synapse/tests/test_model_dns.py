@@ -9,54 +9,77 @@ class DnsModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             typ = core.model.type('inet:dns:name')
             # ipv4 - good and newp
-            norm, info = typ.norm('4.3.2.1.in-addr.ARPA')
+            iptype = core.model.type('inet:ip')
+            ipnorm, ipinfo = await iptype.norm('1.2.3.4')
+            ipsub = (iptype.typehash, (4, 0x01020304), ipinfo)
+
+            norm, info = await typ.norm('4.3.2.1.in-addr.ARPA')
             self.eq(norm, '4.3.2.1.in-addr.arpa')
-            self.eq(info.get('subs'), {'ip': (4, 0x01020304)})
-            norm, info = typ.norm('newp.in-addr.ARPA')
+            self.eq(info.get('subs'), {'ip': ipsub})
+            norm, info = await typ.norm('newp.in-addr.ARPA')
             self.eq(norm, 'newp.in-addr.arpa')
             self.eq(info.get('subs'), {})
 
             # Ipv6 - good, newp, and ipv4 included
+            ipnorm, ipinfo = await iptype.norm('2001:db8::567:89ab')
+            ipsub = (iptype.typehash, (6, 0x20010db80000000000000000056789ab), ipinfo)
+
             ipv6 = 'b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.ARPA'
-            norm, info = typ.norm(ipv6)
+            norm, info = await typ.norm(ipv6)
             self.eq(norm, 'b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa')
-            self.eq(info.get('subs'), {'ip': (6, 0x20010db80000000000000000056789ab)})
+            self.eq(info.get('subs'), {'ip': ipsub})
 
             ipv6 = 'newp.2.ip6.arpa'
-            norm, info = typ.norm(ipv6)
+            norm, info = await typ.norm(ipv6)
             self.eq(norm, 'newp.2.ip6.arpa')
             self.eq(info.get('subs'), {})
 
+            ipnorm, ipinfo = await iptype.norm('::ffff:1.2.3.4')
+            ipsub = (iptype.typehash, (6, 0xffff01020304), ipinfo)
+
             ipv6 = '4.0.3.0.2.0.1.0.f.f.f.f.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa'
-            norm, info = typ.norm(ipv6)
+            norm, info = await typ.norm(ipv6)
             self.eq(norm, ipv6)
-            self.eq(info.get('subs'), {'ip': (6, 0xffff01020304)})
+            self.eq(info.get('subs'), {'ip': ipsub})
 
             # fqdn and a invalid fqdn
-            norm, info = typ.norm('test.vertex.link')
+            fqdntype = core.model.type('inet:fqdn')
+            fqdnnorm, fqdninfo = await fqdntype.norm('test.vertex.link')
+            fqdnsub = (fqdntype.typehash, 'test.vertex.link', fqdninfo)
+
+            norm, info = await typ.norm('test.vertex.link')
             self.eq(norm, 'test.vertex.link')
-            self.eq(info.get('subs'), {'fqdn': 'test.vertex.link'})
+            self.eq(info.get('subs'), {'fqdn': fqdnsub})
 
-            norm, info = typ.norm('1.2.3.4')
+            ipnorm, ipinfo = await iptype.norm('1.2.3.4')
+            ipsub = (iptype.typehash, (4, 0x01020304), ipinfo)
+
+            norm, info = await typ.norm('1.2.3.4')
             self.eq(norm, '1.2.3.4')
-            self.eq(info.get('subs'), {'ip': (4, 0x01020304)})
+            self.eq(info.get('subs'), {'ip': ipsub})
 
-            norm, info = typ.norm('134744072')  # 8.8.8.8 in integer form
+            norm, info = await typ.norm('134744072')  # 8.8.8.8 in integer form
             self.eq(norm, '134744072')
             self.eq(info.get('subs'), {})
 
-            norm, info = typ.norm('::FFFF:1.2.3.4')
-            self.eq(norm, '::ffff:1.2.3.4')
-            self.eq(info.get('subs'), {'ip': (6, 0xffff01020304)})
+            ipnorm, ipinfo = await iptype.norm('::ffff:1.2.3.4')
+            ipsub = (iptype.typehash, (6, 0xffff01020304), ipinfo)
 
-            norm, info = typ.norm('::1')
+            norm, info = await typ.norm('::FFFF:1.2.3.4')
+            self.eq(norm, '::ffff:1.2.3.4')
+            self.eq(info.get('subs'), {'ip': ipsub})
+
+            ipnorm, ipinfo = await iptype.norm('::1')
+            ipsub = (iptype.typehash, (6, 0x1), ipinfo)
+
+            norm, info = await typ.norm('::1')
             self.eq(norm, '::1')
-            self.eq(info.get('subs'), {'ip': (6, 1)})
+            self.eq(info.get('subs'), {'ip': ipsub})
 
     async def test_model_dns_request(self):
 
         async with self.getTestCore() as core:
-            file0 = 'a' * 64
+            file0 = s_common.guid()
             props = {
                 'time': '2018',
                 'query': ('1.2.3.4', 'vertex.link', 255),
@@ -70,14 +93,14 @@ class DnsModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             req_ndef = node.ndef
-            self.eq(node.get('time'), 1514764800000)
+            self.eq(node.get('time'), 1514764800000000)
             self.eq(node.get('reply:code'), 0)
             self.eq(node.get('server'), 'udp://5.6.7.8:53')
             self.eq(node.get('query'), ('tcp://1.2.3.4', 'vertex.link', 255))
             self.eq(node.get('query:name'), 'vertex.link')
             self.eq(node.get('query:name:fqdn'), 'vertex.link')
             self.eq(node.get('query:type'), 255)
-            self.eq(node.get('sandbox:file'), 'sha256:' + file0)
+            self.eq(node.get('sandbox:file'), file0)
             self.none(node.get('query:client'))
             self.len(1, await core.nodes('inet:server="udp://5.6.7.8:53"'))
             self.len(1, await core.nodes('inet:fqdn=vertex.link'))
@@ -144,19 +167,19 @@ class DnsModelTest(s_t_utils.SynTest):
             # IP is unknown
             props = {
                 'time': '2018',
-                'exe': f'guid:{"a" * 32}',
+                'exe': "a" * 32,
                 'query:name': 'notac2.someone.com',
-                'sandbox:file': f'guid:{"b" * 32}',
+                'sandbox:file': "b" * 32,
             }
             q = '''[(inet:dns:request=$valu :time=$p.time :query:name=$p."query:name"
-                    :exe=$p.exe :sandbox:file=$p."sandbox:file")]'''
+                    :client:exe=$p.exe :sandbox:file=$p."sandbox:file")]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': '*', 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
             self.none(node.get('query'))
-            self.eq(node.get('exe'), f'guid:{"a" * 32}')
+            self.eq(node.get('client:exe'), "a" * 32)
             self.eq(node.get('query:name'), 'notac2.someone.com')
-            self.eq(node.get('sandbox:file'), f'guid:{"b" * 32}')
+            self.eq(node.get('sandbox:file'), "b" * 32)
 
             nodes = await core.nodes('[inet:dns:request=(test,) :query:name="::ffff:8.7.6.5"]')
             self.len(1, nodes)
@@ -350,7 +373,7 @@ class DnsModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[inet:dns:answer=* :time=2018]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('time'), 1514764800000)
+            self.eq(node.get('time'), 1514764800000000)
 
     async def test_model_dns_wild(self):
 
@@ -378,7 +401,7 @@ class DnsModelTest(s_t_utils.SynTest):
                 [ inet:dns:dynreg=*
                     :created=202202
                     :fqdn=vertex.dyndns.com
-                    :contact={[ ps:contact=* :name=visi ]}
+                    :contact={[ entity:contact=* :name=visi ]}
                     :client=tcp://1.2.3.4
                     :provider={[ ou:org=* :name=dyndns ]}
                     :provider:name=dyndns
@@ -386,7 +409,7 @@ class DnsModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(1643673600000, nodes[0].get('created'))
+            self.eq(1643673600000000, nodes[0].get('created'))
             self.eq('vertex.dyndns.com', nodes[0].get('fqdn'))
             self.eq('tcp://1.2.3.4', nodes[0].get('client'))
             self.nn(nodes[0].get('contact'))

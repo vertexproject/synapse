@@ -9,7 +9,7 @@ class MatTest(s_t_utils.SynTest):
             place = s_common.guid()
             n0_guid = s_common.guid()
             n1_guid = s_common.guid()
-            f0_valu = f'guid:{s_common.guid()}'
+            f0_valu = s_common.guid()
             nodes = await core.nodes('[mat:spec=$valu :name="F16 Fighter Jet"]', opts={'vars': {'valu': n0_guid}})
             self.len(1, nodes)
             node0 = nodes[0]
@@ -36,20 +36,6 @@ class MatTest(s_t_utils.SynTest):
             self.eq(node1.get('place:loc'), 'us.hehe.haha')
             self.eq(node1.get('place:latlong'), (0.0, 0.0))
 
-            nodes = await core.nodes('[mat:specimage=$valu]', opts={'vars': {'valu': (n0_guid, f0_valu)}})
-            self.len(1, nodes)
-            node2 = nodes[0]
-
-            nodes = await core.nodes('[mat:itemimage=$valu]', opts={'vars': {'valu': (n1_guid, f0_valu)}})
-            self.len(1, nodes)
-            node3 = nodes[0]
-
-            self.eq(node2.get('spec'), n0_guid)
-            self.eq(node2.get('file'), f0_valu)
-
-            self.eq(node3.get('item'), n1_guid)
-            self.eq(node3.get('file'), f0_valu)
-
             self.len(1, await core.nodes('mat:spec:name="f16 fighter jet" -> mat:item'))
 
     async def test_model_material(self):
@@ -67,5 +53,5 @@ class MatTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('object'))
             self.nn(nodes[0].get('container'))
             self.eq('component.', nodes[0].get('type'))
-            self.eq((1704067200000, 9223372036854775807), nodes[0].get('period'))
+            self.eq((1704067200000000, 9223372036854775807, 0xffffffffffffffff), nodes[0].get('period'))
             self.len(1, await core.nodes('phys:contained -> phys:contained:type:taxonomy'))

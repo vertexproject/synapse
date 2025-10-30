@@ -1,5 +1,6 @@
 import gc
 import os
+import sys
 import atexit
 import signal
 import asyncio
@@ -39,7 +40,7 @@ def _fini_atexit():  # pragma: no cover
             if __debug__:
                 logger.debug(f'At exit: Missing fini for {item}')
                 for depth, call in enumerate(item.call_stack[:-2]):
-                    logger.debug(f'{depth+1:3}: {call.strip()}')
+                    logger.debug(f'{depth + 1:3}: {call.strip()}')
             continue
 
         try:
@@ -82,7 +83,7 @@ class Base:
     '''
     def __init__(self):
         self.anitted = False
-        assert inspect.stack()[1].function == 'anit', 'Objects from Base must be constructed solely via "anit"'
+        assert sys._getframe(1).f_code.co_name == 'anit', 'Objects from Base must be constructed solely via "anit"'
 
     @classmethod
     async def anit(cls, *args, **kwargs):
@@ -129,7 +130,6 @@ class Base:
         self.isfini = False
         self.anitted = True  # For assertion purposes
         self.finievt = asyncio.Event()
-        self.entered = False
 
         # hold a weak ref to other bases we should fini if they
         # are still around when we go down...
@@ -205,7 +205,6 @@ class Base:
 
     async def __aenter__(self):
         assert asyncio.get_running_loop() == self.loop
-        self.entered = True
         return self
 
     async def __aexit__(self, exc, cls, tb):
@@ -347,16 +346,12 @@ class Base:
 
             try:
                 ret.append(await s_coro.ornot(func, mesg))
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
             except Exception:
                 logger.exception('base %s error with mesg %s', self, mesg)
 
         for func in self._syn_links:
             try:
                 ret.append(await s_coro.ornot(func, mesg))
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
             except Exception:
                 logger.exception('base %s error with mesg %s', self, mesg)
 

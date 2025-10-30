@@ -3,14 +3,12 @@ import ssl
 import socket
 import asyncio
 import logging
-import threading
 
 from unittest import mock
 
 import cryptography.hazmat.primitives.hashes as c_hashes
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
@@ -110,7 +108,7 @@ class Foo:
 
     def raze(self):
         # test that SynErr makes it through
-        raise s_exc.NoSuchMeth(name='haha')
+        raise s_exc.SynErr(mesg='hehe', key='valu')
 
     async def corovalu(self, x, y):
         return x * 2 + y
@@ -255,12 +253,12 @@ class TeleTest(s_t_utils.SynTest):
 
             # check a generator return channel
             genr = await prox.genr()
-            self.true(isinstance(genr, s_coro.GenrHelp))
-            self.eq((10, 20, 30), await genr.list())
+            self.eq((10, 20, 30), [v async for v in genr])
 
             # check generator explodes channel
             genr = await prox.genrboom()
-            await self.asyncraises(s_exc.SynErr, genr.list())
+            with self.raises(s_exc.SynErr) as cm:
+                [v async for v in genr]
 
             # check an async generator return channel
             genr = prox.corogenr(3)
@@ -271,58 +269,47 @@ class TeleTest(s_t_utils.SynTest):
             genr = prox.agenrboom()
             await self.asyncraises(s_exc.SynErr, genr.list())
 
-            await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
+            with self.raises(s_exc.SynErr) as cm:
+                await prox.raze()
+            self.eq(cm.exception.get('mesg'), 'hehe')
+            self.eq(cm.exception.get('key'), 'valu')
 
-            await self.asyncraises(s_exc.NoSuchMeth, prox.fake())
+            with self.raises(s_exc.NoSuchMeth) as cm:
+                await prox.fake()
+            self.eq(cm.exception.get('mesg'), 'Foo has no method: fake.')
+            self.eq(cm.exception.get('name'), 'fake')
 
-            await self.asyncraises(s_exc.SynErr, prox.boom())
+            with self.raises(s_exc.NoSuchMeth) as cm:
+                await prox._fake()
+            self.eq(cm.exception.get('mesg'), 'Foo has no method: _fake.')
+            self.eq(cm.exception.get('name'), '_fake')
+
+            with self.raises(s_exc.NotMsgpackSafe) as cm:
+                await prox.boom()
+            self.isin("can not serialize 'Boom' object", cm.exception.get('mesg'))
 
         # Fini'ing a daemon fini's proxies connected to it.
         self.true(await s_coro.event_wait(evt, 2))
         self.true(prox.isfini)
         await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
 
-    def test_telepath_sync_genr_break(self):
+    async def test_telepath_openinfo_cell(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
 
-        try:
-            acm = self.getTestCoreAndProxy()
-            core, proxy = s_glob.sync(acm.__aenter__())
+                layr00 = core.getView().layers[0]
 
-            form = 'test:int'
+                async with await s_telepath.openurl(f'cell://root@{dirn}:*', name=f'*/layer/{layr00.iden}') as layer:
+                    self.eq(layr00.iden, await layer.getIden())
 
-            q = '[' + ' '.join([f'{form}={i}' for i in range(10)]) + ' ]'
+    async def test_telepath_openinfo_unix(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
 
-            # This puts a link into the link pool
-            msgs = list(proxy.storm(q, opts={'show': ('node',)}))
-            self.len(12, msgs)
+                layr00 = core.getView().layers[0]
 
-            evt = threading.Event()
-
-            # Get the link from the pool, add the fini callback and put it back
-            link = s_glob.sync(proxy.getPoolLink())
-            link.onfini(evt.set)
-            s_glob.sync(proxy._putPoolLink(link))
-
-            # Grab the fresh link from the pool so our original link is up next again
-            link2 = s_glob.sync(proxy.getPoolLink())
-            s_glob.sync(proxy._putPoolLink(link2))
-
-            q = f'{form} | sleep 0.1'
-
-            # Break from the generator right away, causing a
-            # GeneratorExit in the GenrHelp object __iter__ method.
-            mesg = None
-            for mesg in proxy.storm(q):
-                break
-            # Ensure the query did yield an object
-            self.nn(mesg)
-
-            # Ensure the link we have a reference too was torn down
-            self.true(evt.wait(4))
-            self.true(link.isfini)
-
-        finally:
-            s_glob.sync(acm.__aexit__(None, None, None))
+                async with await s_telepath.openurl(f'unix://root@{dirn}/sock:*', name=f'*/layer/{layr00.iden}') as layer:
+                    self.eq(layr00.iden, await layer.getIden())
 
     async def test_telepath_tls_bad_cert(self):
         self.thisHostMustNot(platform='darwin')
@@ -467,9 +454,10 @@ class TeleTest(s_t_utils.SynTest):
                 bads = '\u01cb\ufffd\ud842\ufffd\u0012'
                 t0 = ('1234', {'key': bads})
 
-                # Shovel a malformed UTF8 string with an unpaired surrogate over telepath
-                ret = await prox.echo(t0)
-                self.eq(ret, t0)
+                with self.raises(s_exc.NotMsgpackSafe):
+                    # Shovel a malformed UTF8 string with an unpaired surrogate over telepath
+                    ret = await prox.echo(t0)
+                    self.eq(ret, t0)
 
     async def test_telepath_async(self):
 
@@ -748,9 +736,20 @@ class TeleTest(s_t_utils.SynTest):
                             {'family': 'unix',
                              'addr': sockpath})
 
+    async def test_url_bad_cell_path(self):
+        with self.getTestDir() as dirn:
+            # Touch the sock path
+            s_common.genfile(dirn, 'newp', 'sock').close()
+            cell_url = f'cell://{dirn}/newp'
+            with self.raises(s_exc.LinkErr) as cm:
+                await s_telepath.openurl(cell_url)
+            self.isin('Cell path is not listening', cm.exception.get('mesg'))
+        with self.raises(s_exc.NoSuchPath) as cm:
+            await s_telepath.openurl(cell_url)
+        self.isin('Cell path does not exist', cm.exception.get('mesg'))
+
     async def test_ipv6(self):
-        if s_common.envbool('CIRCLECI'):
-            self.skip('ipv6 listener is not supported in circleci')
+        self.thisEnvMustNot('CIRCLECI')  # ipv6 listener not supported in circleci
 
         foo = Foo()
 
@@ -885,37 +884,37 @@ class TeleTest(s_t_utils.SynTest):
             # We now have one link - spin up a generator to grab it
             self.len(1, prox.links)
             l0 = prox.links[0]
-            genr = await prox.genr()  # type: s_coro.GenrHelp
-            self.eq(await genr.genr.__anext__(), 10)
+            genr = await prox.genr()
+            self.eq(await genr.__anext__(), 10)
 
             # A new link is in the pool
             self.len(1, prox.links)
 
             # and upon exhuastion, the first link is put back
-            self.eq(await genr.list(), (20, 30))
+            self.eq([x async for x in genr], (20, 30))
             self.len(2, prox.links)
             self.true(prox.links[1] is l0)
 
             # Grabbing a link will still spin up another since we are below low watermark
-            genr = await prox.genr()  # type: s_coro.GenrHelp
-            self.eq(await genr.genr.__anext__(), 10)
+            genr = await prox.genr()
+            self.eq(await genr.__anext__(), 10)
 
             self.len(2, prox.links)
 
-            self.eq(await genr.list(), (20, 30))
+            self.eq([x async for x in genr], (20, 30))
             self.len(3, prox.links)
 
             # Fill up pool above low watermark
             genrs = [await prox.genr() for _ in range(2)]
-            [await genr.list() for genr in genrs]
+            [[x async for x in genr] for genr in genrs]
             self.len(5, prox.links)
 
             # Grabbing a link no longer spins up a replacement
-            genr = await prox.genr()  # type: s_coro.GenrHelp
-            self.eq(await genr.genr.__anext__(), 10)
+            genr = await prox.genr()
+            self.eq(await genr.__anext__(), 10)
             self.len(4, prox.links)
 
-            self.eq(await genr.list(), (20, 30))
+            self.eq([x async for x in genr], (20, 30))
             self.len(5, prox.links)
 
             # Tear down a link by hand and place it back
@@ -943,7 +942,7 @@ class TeleTest(s_t_utils.SynTest):
 
                 # Fill up pool above high watermark
                 genrs = [await prox.genr() for _ in range(13)]
-                [await genr.list() for genr in genrs]
+                [[x async for x in genr] for genr in genrs]
                 self.len(13, prox.links)
 
                 # Add a fini'd proxy for coverage
@@ -954,6 +953,10 @@ class TeleTest(s_t_utils.SynTest):
                 wait = prox.waiter(1, 'pool:link:fini')
                 self.len(1, await wait.wait(timeout=5))
                 self.len(12, prox.links)
+
+                # Cleanup our global state
+                prox2._all_proxies.remove(prox2)
+                await prox.fini()
 
     async def test_link_fini_breaking_tasks(self):
         foo = Foo()
@@ -1231,3 +1234,34 @@ class TeleTest(s_t_utils.SynTest):
             sslctx.set_ciphers('DHE-RSA-AES256-SHA256')
             with self.raises(ConnectionResetError):
                 link = await s_link.connect(hostname, port=port, ssl=sslctx)
+
+    async def test_telepath_exception_logging(self):
+
+        async with self.getTestCore() as core:
+
+            addr, port = await core.dmon.listen('tcp://127.0.0.1:0')
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}', user='root', passwd='secret') as prox:
+
+                with self.getAsyncLoggerStream('synapse.daemon', 'error during task: callStorm') as stream:
+                    task = asyncio.create_task(prox.callStorm('$lib.time.sleep(60)'))
+
+                    await asyncio.sleep(2)
+                    task.cancel()
+
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+
+                    self.false(await stream.wait(timeout=0.5))
+
+                with self.getAsyncLoggerStream('synapse.daemon', 'error during task: callStorm') as stream:
+                    try:
+                        await prox.callStorm('[inet:newp=invalid]')
+                    except Exception:
+                        pass
+
+                    self.true(await stream.wait(timeout=6))

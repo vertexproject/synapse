@@ -1,3 +1,4 @@
+import http
 import os
 import ssl
 import sys
@@ -37,7 +38,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.crypto.passwd as s_passwd
 import synapse.lib.platforms.linux as s_linux
 
-import synapse.tools.backup as s_tools_backup
+import synapse.tools.service.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 
@@ -160,12 +161,38 @@ testDataSchema_v1 = {
         'size': {'type': 'number'},
         'stuff': {'type': ['number', 'null'], 'default': None},
         'woot': {'type': 'string'},
+        'blorp': {
+            'type': 'object',
+            'properties': {
+                'bleep': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'neato': {'type': 'string'}
+                        }
+                    }
+                }
+            }
+        }
     },
     'required': ['type', 'size', 'woot'],
     'additionalProperties': False,
 }
 
 class CellTest(s_t_utils.SynTest):
+
+    async def test_cell_getLocalUrl(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCell(dirn=dirn) as cell:
+                url = cell.getLocalUrl()
+                self.eq(url, f'cell://root@{dirn}')
+
+                url = cell.getLocalUrl(share='*/layer')
+                self.eq(url, f'cell://root@{dirn}:*/layer')
+
+                url = cell.getLocalUrl(user='lowuser', share='*/view')
+                self.eq(url, f'cell://lowuser@{dirn}:*/view')
 
     async def test_cell_drive(self):
 
@@ -205,13 +232,21 @@ class CellTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadVersion):
                     await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0)
 
-                info = {'name': 'win32k.sys', 'type': 'woot'}
+                info = {'name': 'win32k.sys', 'type': 'woot', 'perm': {'users': {}}}
                 info = await cell.addDriveItem(info, reldir=rootdir)
+                self.notin('perm', info)
+                self.eq(info[0]['permissions'], {
+                    'users': {},
+                    'roles': {}
+                })
 
                 iden = info[-1].get('iden')
 
                 tick = s_common.now()
                 rootuser = cell.auth.rootuser.iden
+                fooser = await cell.auth.addUser('foo')
+                neatrole = await cell.auth.addRole('neatrole')
+                await fooser.grant(neatrole.iden)
 
                 with self.raises(s_exc.SchemaViolation):
                     versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
@@ -266,12 +301,48 @@ class CellTest(s_t_utils.SynTest):
                 info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 17, 'stuff': 15})
                 self.eq(versinfo, (await cell.getDriveData(iden))[0])
 
+                await cell.setDriveItemProp(iden, versinfo, ('stuff',), 1234)
+                data = await cell.getDriveData(iden)
+                self.eq(data[1]['stuff'], 1234)
+
                 # This will be done by the cell in a cell storage version migration...
-                async def migrate_v1(info, versinfo, data):
+                async def migrate_v1(info, versinfo, data, curv):
+                    self.eq(curv, 1)
                     data['woot'] = 'woot'
                     return data
 
                 await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
+
+                versinfo['version'] = (1, 1, 1)
+                await cell.setDriveItemProp(iden, versinfo, 'stuff', 3829)
+                data = await cell.getDriveData(iden)
+                self.eq(data[0]['version'], (1, 1, 1))
+                self.eq(data[1]['stuff'], 3829)
+
+                await self.asyncraises(s_exc.NoSuchIden, cell.setDriveItemProp(s_common.guid(), versinfo, ('lolnope',), 'not real'))
+
+                await self.asyncraises(s_exc.BadArg, cell.setDriveItemProp(iden, versinfo, ('blorp', 0, 'neato'), 'my special string'))
+                data[1]['blorp'] = {
+                    'bleep': [{'neato': 'thing'}]
+                }
+                info, versinfo = await cell.setDriveData(iden, versinfo, data[1])
+                now = s_common.now()
+                versinfo['updated'] = now
+                await cell.setDriveItemProp(iden, versinfo, ('blorp', 'bleep', 0, 'neato'), 'my special string')
+                data = await cell.getDriveData(iden)
+                self.eq(now, data[0]['updated'])
+                self.eq('my special string', data[1]['blorp']['bleep'][0]['neato'])
+
+                versinfo['version'] = (1, 2, 1)
+                await cell.delDriveItemProp(iden, versinfo, ('blorp', 'bleep', 0, 'neato'))
+                vers, data = await cell.getDriveData(iden)
+                self.eq((1, 2, 1), vers['version'])
+                self.nn(data['blorp']['bleep'][0])
+                self.notin('neato', data['blorp']['bleep'][0])
+
+                await self.asyncraises(s_exc.NoSuchIden, cell.delDriveItemProp(s_common.guid(), versinfo, 'blorp'))
+
+                self.none(await cell.delDriveItemProp(iden, versinfo, ('lolnope', 'nopath')))
 
                 versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
                 self.eq('woot', data.get('woot'))
@@ -286,10 +357,10 @@ class CellTest(s_t_utils.SynTest):
                     await cell.getDriveInfo(iden, typename='newp')
 
                 self.nn(await cell.getDriveInfo(iden))
-                self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
+                self.len(4, [vers async for vers in cell.getDriveDataVersions(iden)])
 
                 await cell.delDriveData(iden)
-                self.len(1, [vers async for vers in cell.getDriveDataVersions(iden)])
+                self.len(3, [vers async for vers in cell.getDriveDataVersions(iden)])
 
                 await cell.delDriveInfo(iden)
 
@@ -313,8 +384,12 @@ class CellTest(s_t_utils.SynTest):
                 baziden = pathinfo[2].get('iden')
                 self.eq(pathinfo, await cell.drive.getItemPath(baziden))
 
-                info = await cell.setDriveInfoPerm(baziden, {'users': {rootuser: 3}, 'roles': {}})
-                self.eq(3, info['perm']['users'][rootuser])
+                info = await cell.setDriveInfoPerm(baziden, {'users': {rootuser: s_cell.PERM_ADMIN}, 'roles': {}})
+                # make sure drive perms work with easy perms
+                self.true(cell._hasEasyPerm(info, cell.auth.rootuser, s_cell.PERM_ADMIN))
+                # defaults to READ
+                self.true(cell._hasEasyPerm(info, fooser, s_cell.PERM_READ))
+                self.false(cell._hasEasyPerm(info, fooser, s_cell.PERM_EDIT))
 
                 with self.raises(s_exc.NoSuchIden):
                     # s_drive.rootdir is all 00s... ;)
@@ -1398,22 +1473,22 @@ class CellTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
 
-            async with self.getTestCryo(dirn=dirn) as cryo:
+            async with self.getTestCell(dirn=dirn) as cell:
 
-                cryo.certdir.genCaCert('localca')
-                cryo.certdir.genHostCert('localhost', signas='localca')
-                cryo.certdir.genUserCert('root@localhost', signas='localca')
-                cryo.certdir.genUserCert('newp@localhost', signas='localca')
+                cell.certdir.genCaCert('localca')
+                cell.certdir.genHostCert('localhost', signas='localca')
+                cell.certdir.genUserCert('root@localhost', signas='localca')
+                cell.certdir.genUserCert('newp@localhost', signas='localca')
 
-                root = await cryo.auth.addUser('root@localhost')
+                root = await cell.auth.addUser('root@localhost')
                 await root.setAdmin(True)
 
-            async with self.getTestCryo(dirn=dirn) as cryo:
+            async with self.getTestCell(dirn=dirn) as cell:
 
-                addr, port = await cryo.dmon.listen('ssl://0.0.0.0:0?hostname=localhost&ca=localca')
+                addr, port = await cell.dmon.listen('ssl://0.0.0.0:0?hostname=localhost&ca=localca')
 
                 async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=localhost') as proxy:
-                    self.eq(cryo.iden, await proxy.getCellIden())
+                    self.eq(cell.iden, await proxy.getCellIden())
 
                 with self.raises(s_exc.BadCertHost):
                     url = f'ssl://root@127.0.0.1:{port}?hostname=borked.localhost'
@@ -1427,12 +1502,12 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(cm.exception.get('username'), 'newp@localhost')
 
                 # add newp
-                unfo = await cryo.addUser('newp@localhost')
+                unfo = await cell.addUser('newp@localhost')
                 async with await s_telepath.openurl(f'ssl://newp@127.0.0.1:{port}?hostname=localhost') as proxy:
-                    self.eq(cryo.iden, await proxy.getCellIden())
+                    self.eq(cell.iden, await proxy.getCellIden())
 
                 # Lock newp
-                await cryo.setUserLocked(unfo.get('iden'), True)
+                await cell.setUserLocked(unfo.get('iden'), True)
                 with self.raises(s_exc.AuthDeny) as cm:
                     url = f'ssl://newp@127.0.0.1:{port}?hostname=localhost'
                     async with await s_telepath.openurl(url) as proxy:
@@ -1769,7 +1844,7 @@ class CellTest(s_t_utils.SynTest):
                     await asyncio.wait_for(task, 5)
 
             with tarfile.open(bkuppath, 'r:gz') as tar:
-                tar.extractall(path=dirn)
+                tar.extractall(path=dirn, filter='data')
 
             bkupdirn = os.path.join(dirn, 'bkup')
             async with self.getTestCore(dirn=bkupdirn) as core:
@@ -1780,7 +1855,7 @@ class CellTest(s_t_utils.SynTest):
                 self.len(0, nodes)
 
             with tarfile.open(bkuppath2, 'r:gz') as tar:
-                tar.extractall(path=dirn)
+                tar.extractall(path=dirn, filter='data')
 
             bkupdirn2 = os.path.join(dirn, 'bkup2')
             async with self.getTestCore(dirn=bkupdirn2) as core:
@@ -1788,7 +1863,7 @@ class CellTest(s_t_utils.SynTest):
                 self.len(1, nodes)
 
             with tarfile.open(bkuppath3, 'r:gz') as tar:
-                tar.extractall(path=dirn)
+                tar.extractall(path=dirn, filter='data')
 
             bkupdirn3 = os.path.join(dirn, 'bkup3')
             async with self.getTestCore(dirn=bkupdirn3) as core:
@@ -1797,7 +1872,7 @@ class CellTest(s_t_utils.SynTest):
 
             with tarfile.open(bkuppath4, 'r:gz') as tar:
                 bkupname = os.path.commonprefix(tar.getnames())
-                tar.extractall(path=dirn)
+                tar.extractall(path=dirn, filter='data')
 
             bkupdirn4 = os.path.join(dirn, bkupname)
             async with self.getTestCore(dirn=bkupdirn4) as core:
@@ -1820,7 +1895,7 @@ class CellTest(s_t_utils.SynTest):
 
             with tarfile.open(bkuppath5, 'r:gz') as tar:
                 bkupname = os.path.commonprefix(tar.getnames())
-                tar.extractall(path=dirn)
+                tar.extractall(path=dirn, filter='data')
 
             bkupdirn5 = os.path.join(dirn, bkupname)
             async with self.getTestCore(dirn=bkupdirn5) as core:
@@ -2147,7 +2222,7 @@ class CellTest(s_t_utils.SynTest):
                             self.false(core00.isactive)
 
                             modinfo = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
-                            self.isin('01.core', modinfo.get('mirror', ''))
+                            self.eq('aha://root@core...', modinfo.get('mirror', ''))
                             modinfo = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
                             self.none(modinfo.get('mirror'))
 
@@ -2230,7 +2305,7 @@ class CellTest(s_t_utils.SynTest):
                             self.false(core00.isactive)
 
                             modinfo = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
-                            self.isin('01.core', modinfo.get('mirror', ''))
+                            self.eq('aha://root@core...', modinfo.get('mirror', ''))
                             modinfo = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
                             self.none(modinfo.get('mirror'))
 
@@ -2242,7 +2317,7 @@ class CellTest(s_t_utils.SynTest):
                             modinfo = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
                             self.none(modinfo.get('mirror'))
                             modinfo = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
-                            self.isin('00.core', modinfo.get('mirror', ''))
+                            self.eq('aha://root@core...', modinfo.get('mirror', ''))
 
                             # Backup the mirror (core01) which points to the core00
                             async with await axon00.upload() as upfd:
@@ -2422,10 +2497,10 @@ class CellTest(s_t_utils.SynTest):
                     viewiden = view.get('iden')
 
                     opts = {'view': viewiden}
-                    with self.getLoggerStream('synapse.lib.lmdbslab',
-                                              'Error during slab resize callback - foo') as stream:
-                        nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ip=([4, $x])]}', opts=opts)
-                        self.true(stream.wait(1))
+                    with self.getAsyncLoggerStream('synapse.lib.lmdbslab',
+                                                   'Error during slab resize callback - foo') as stream:
+                        msgs = await core.stormlist('for $x in $lib.range(200) {[test:int=$x]}', opts=opts)
+                        self.true(await stream.wait(timeout=30))
 
         async with self.getTestCore() as core:
 
@@ -2747,8 +2822,8 @@ class CellTest(s_t_utils.SynTest):
             # Verify duration arg for expiration is applied
             with self.raises(s_exc.BadArg):
                 await cell.addUserApiKey(root, 'newp', duration=0)
-            rtk1, rtdf1 = await cell.addUserApiKey(root, 'Expiring Token', duration=200)
-            self.eq(rtdf1.get('expires'), rtdf1.get('updated') + 200)
+            rtk1, rtdf1 = await cell.addUserApiKey(root, 'Expiring Token', duration=200000)
+            self.eq(rtdf1.get('expires'), rtdf1.get('updated') + 200000)
 
             isok, info = await cell.checkUserApiKey(rtk1)
             self.true(isok)
@@ -2766,7 +2841,7 @@ class CellTest(s_t_utils.SynTest):
                 headers2 = {'X-API-KEY': rtk1}
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
                                        json={'user': lowuser})
-                self.eq(401, resp.status)
+                self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
@@ -2788,7 +2863,7 @@ class CellTest(s_t_utils.SynTest):
 
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
                                        json={'user': lowuser})
-                self.eq(401, resp.status)
+                self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
@@ -2828,13 +2903,14 @@ class CellTest(s_t_utils.SynTest):
                 await cell.setUserLocked(lowuser, True)
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
                                        json={'passwd': 'secret'})
-                self.eq(401, resp.status)
+                self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
                 await cell.delUser(lowuser)
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
                                        json={'passwd': 'secret'})
+                self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
@@ -3027,6 +3103,7 @@ class CellTest(s_t_utils.SynTest):
                     dirn00 = s_common.genpath(dirn, '00.cell')
                     dirn01 = s_common.genpath(dirn, '01.cell')
                     dirn02 = s_common.genpath(dirn, '02.cell')
+                    dirn0002 = s_common.genpath(dirn, '00.02.cell')
 
                     cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
                     cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
@@ -3043,24 +3120,43 @@ class CellTest(s_t_utils.SynTest):
                         await cell01.handoff('some://url')
                     self.isin('01.cell is not the current leader', cm.exception.get('mesg'))
 
-                    # Note: The following behavior may change when SYN-7659 is addressed and greater
-                    # control over the topology update is available during the promotion process.
-                    # Promote 02.cell -> Promote 01.cell -> Promote 00.cell -> BadState exception
+                    # Promote 02.cell -> Promote 01.cell -> Promote 00.cell, without breaking the configured topology
                     await cell02.promote(graceful=True)
                     self.false(cell00.isactive)
+                    self.eq(cell00.conf.get('mirror'), 'aha://root@cell...')
                     self.false(cell01.isactive)
+                    self.eq(cell01.conf.get('mirror'), 'aha://root@cell...')
                     self.true(cell02.isactive)
+                    self.none(cell02.conf.get('mirror'))
                     await cell02.sync()
 
                     await cell01.promote(graceful=True)
                     self.false(cell00.isactive)
+                    self.eq(cell00.conf.get('mirror'), 'aha://root@cell...')
                     self.true(cell01.isactive)
+                    self.none(cell01.conf.get('mirror'))
                     self.false(cell02.isactive)
+                    self.eq(cell02.conf.get('mirror'), 'aha://root@cell...')
                     await cell02.sync()
 
+                    await cell00.promote(graceful=True)
+                    self.true(cell00.isactive)
+                    self.none(cell00.conf.get('mirror'))
+                    self.false(cell01.isactive)
+                    self.eq(cell01.conf.get('mirror'), 'aha://root@cell...')
+                    self.false(cell02.isactive)
+                    self.eq(cell02.conf.get('mirror'), 'aha://root@cell...')
+                    await cell02.sync()
+
+                    # A follower of a follower cannot be promoted up since its leader is not the active cell.
+                    cell0002 = await base.enter_context(self.addSvcToAha(aha, '00.02.cell', s_cell.Cell, dirn=dirn0002,
+                                                                      provinfo={'mirror': '02.cell'}))
+                    self.false(cell0002.isactive)
+                    self.eq(cell0002.conf.get('mirror'), 'aha://root@02.cell...')
                     with self.raises(s_exc.BadState) as cm:
-                        await cell00.promote(graceful=True)
-                    self.isin('02.cell is not the current leader', cm.exception.get('mesg'))
+                        await cell0002.promote(graceful=True)
+                    mesg = 'ahaname=02.cell is not the current leader and cannot handoff leadership to aha://00.02.cell.synapse.'
+                    self.isin(mesg, cm.exception.get('mesg'))
 
     async def test_cell_get_aha_proxy(self):
 
@@ -3101,11 +3197,15 @@ class CellTest(s_t_utils.SynTest):
         async with self.getTestCell() as cell:
 
             self.none(await cell.getAhaProxy())
-            cell.ahaclient = await s_telepath.Client.anit('cell:///tmp/newp')
 
-            # coverage for failure of aha client to connect
-            with self.raises(TimeoutError):
-                self.none(await cell.getAhaProxy(timeout=0.1))
+            class MockClient:
+                async def proxy(self, timeout=None):
+                    raise s_exc.LinkShutDown(mesg='client connection failed')
+
+            cell.ahaclient = MockClient()
+
+            with self.raises(s_exc.LinkShutDown):
+                self.none(await cell.getAhaProxy())
 
     async def test_stream_backup_exception(self):
 

@@ -427,6 +427,90 @@ class StormLibAuthTest(s_test.SynTest):
                     opts=asuser
                 )
 
+    async def test_stormlib_auth_asroot_ondeny(self):
+        async with self.getTestCore() as core:
+
+            stormpkg = {
+                'name': 'authtest',
+                'version': '0.0.1',
+                'perms': (
+                    {'perm': ('authtest', 'perm'), 'desc': 'Elevate mod', 'gate': 'cortex'},
+                ),
+                'modules': (
+                    {
+                        'name': 'authtest.mod.default',
+                        'asroot:perms': (
+                            ('authtest', 'perm'),
+                        ),
+                        'storm': 'function func() { [ test:guid=* ] return($node) }',
+                    },
+                    {
+                        'name': 'authtest.mod.allow',
+                        'asroot:perms': (
+                            ('authtest', 'perm'),
+                        ),
+                        'asroot:ondeny:import': 'allow',
+                        'storm': '''
+                            function func() { [ test:guid=* ] return($node) }
+                            function func2() { [ test:str=newp ] return($node) }
+                        ''',
+                    },
+                    {
+                        'name': 'authtest.mod.warn',
+                        'asroot:perms': (
+                            ('authtest', 'perm'),
+                        ),
+                        'asroot:ondeny:import': 'warn',
+                        'storm': '''
+                            function func() { [ test:guid=* ] return($node) }
+                            function func2() { [ test:str=newp ] return($node) }
+                        ''',
+                    },
+                    {
+                        'name': 'authtest.mod.deny',
+                        'asroot:perms': (
+                            ('authtest', 'perm'),
+                        ),
+                        'asroot:ondeny:import': 'deny',
+                        'storm': 'function func() { [ test:guid=* ] return($node) }',
+                    },
+                ),
+            }
+
+            await core.stormlist('auth.user.add user')
+            await core.stormlist('auth.user.add lowuser')
+
+            await core.addStormPkg(stormpkg)
+
+            user = await core.auth.getUserByName('user')
+            asuser = {'user': user.iden}
+
+            lowuser = await core.auth.getUserByName('lowuser')
+            aslowuser = {'user': lowuser.iden}
+
+            await core.stormlist('auth.user.addrule user authtest.perm')
+            await core.stormlist('auth.user.addrule lowuser node.add.test:guid')
+
+            # user has no node perms, but has asroot so perms are elevated
+            self.len(1, await core.nodes('yield $lib.import(authtest.mod.default).func()', opts=asuser))
+            self.len(1, await core.nodes('yield $lib.import(authtest.mod.allow).func()', opts=asuser))
+            self.len(1, await core.nodes('yield $lib.import(authtest.mod.deny).func()', opts=asuser))
+            msgs = await core.stormlist('yield $lib.import(authtest.mod.warn).func()', opts=asuser)
+            self.stormHasNoWarnErr(msgs)
+            self.len(1, [m for m in msgs if m[0] == 'node'])
+
+            # lowuser does not have asroot perms and gets denied importing certain modules
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('yield $lib.import(authtest.mod.deny).func()', opts=aslowuser))
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('yield $lib.import(authtest.mod.default).func()', opts=aslowuser))
+            # ...and for modules they can import perms are not elevated so they can only add test:guid nodes
+            self.len(1, await core.nodes('yield $lib.import(authtest.mod.allow).func()', opts=aslowuser))
+            msgs = await core.stormlist('yield $lib.import(authtest.mod.warn).func()', opts=aslowuser)
+            self.stormIsInWarn('permissions will not be elevated.', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'node'])
+            # ...and gets denied on adding test:str nodes
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('yield $lib.import(authtest.mod.allow).func2()', opts=aslowuser))
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('yield $lib.import(authtest.mod.warn).func2()', opts=aslowuser))
+
     async def test_stormlib_auth_userjson(self):
 
         async with self.getTestCore() as core:
@@ -495,6 +579,9 @@ class StormLibAuthTest(s_test.SynTest):
             msgs = await core.stormlist('for $valu in $lib.user.vars { $lib.print($valu) }', opts=asvisi)
             self.stormIsInPrint("('foo', 'foovalu')", msgs)
 
+            self.true(await core.callStorm("return(('foo' in $lib.user.vars))", opts=asvisi))
+            self.false(await core.callStorm("return(('newp' in $lib.user.vars))", opts=asvisi))
+
             q = 'return($lib.auth.users.byname(visi).vars.foo)'
             self.eq('foovalu', await core.callStorm(q, opts=asvisi))
 
@@ -512,6 +599,12 @@ class StormLibAuthTest(s_test.SynTest):
             await core.callStorm('$lib.user.profile.bar = foovalu', opts=asvisi)
 
             self.eq('foovalu', await core.callStorm('return($lib.user.profile.bar)', opts=asvisi))
+
+            self.true(await core.callStorm("return(('bar' in $lib.user.profile))", opts=asvisi))
+            self.false(await core.callStorm("return(('newp' in $lib.user.profile))", opts=asvisi))
+
+            q = "return(('newp' in $lib.auth.users.byname(visi).profile))"
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(q, opts=asothr))
 
             msgs = await core.stormlist('for $valu in $lib.user.profile { $lib.print($valu) }', opts=asvisi)
             self.stormIsInPrint("('bar', 'foovalu')", msgs)

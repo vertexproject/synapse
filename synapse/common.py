@@ -17,6 +17,7 @@ import decimal
 import fnmatch
 import hashlib
 import logging
+import tarfile
 import binascii
 import builtins
 import tempfile
@@ -75,25 +76,25 @@ if Loader == yaml.SafeLoader:  # pragma: no cover
 
 def now():
     '''
-    Get the current epoch time in milliseconds.
+    Get the current epoch time in microseconds.
 
     This relies on time.time_ns(), which is system-dependent in terms of resolution.
 
     Returns:
-        int: Epoch time in milliseconds.
+        int: Epoch time in microseconds.
     '''
-    return time.time_ns() // 1000000
+    return time.time_ns() // 1000
 
 def mononow():
     '''
-    Get the current monotonic clock time in milliseconds.
+    Get the current monotonic clock time in microseconds.
 
     This relies on time.monotonic_ns(), which is a relative time.
 
     Returns:
-        int: Monotonic clock time in milliseconds.
+        int: Monotonic clock time in microseconds.
     '''
-    return time.monotonic_ns() // 1000000
+    return time.monotonic_ns() // 1000
 
 def guid(valu=None):
     '''
@@ -143,7 +144,7 @@ def flatten(item):
         item: The python primitive object to normalize.
 
     Notes:
-        Only None, bool, int, bytes, strings, lists, tuples and dictionaries are acceptable input.
+        Only None, bool, int, bytes, strings, floats, lists, tuples and dictionaries are acceptable input.
         List objects will be converted to tuples.
         Dictionary objects must have keys which can be sorted.
 
@@ -154,7 +155,7 @@ def flatten(item):
     if item is None:
         return None
 
-    if isinstance(item, (str, int, bytes)):
+    if isinstance(item, (str, int, bytes, float)):
         return item
 
     if isinstance(item, (tuple, list)):
@@ -1140,7 +1141,11 @@ def trimText(text: str, n: int = 256, placeholder: str = '...') -> str:
     return f'{text[:mlen]}{placeholder}'
 
 def queryhash(text):
-    return hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
+    try:
+        return hashlib.md5(text.encode(), usedforsecurity=False).hexdigest()
+    except UnicodeEncodeError as exc:
+        mesg = 'Query contains invalid characters and cannot be parsed.'
+        raise s_exc.BadDataValu(mesg=mesg) from exc
 
 def _patch_http_cookies():
     '''
@@ -1166,164 +1171,42 @@ def _patch_tornado_json():
     if hasattr(tornado.escape, 'json_decode'):
         tornado.escape.json_decode = s_json.loads
 
+def _patch_tarfile_count():
+    '''
+    Patch tarfile block size reading from the cpython implementation if
+    the interpreter has not been patched for CVE-2025-8194.
+    See https://mail.python.org/archives/list/security-announce@python.org/thread/ZULLF3IZ726XP5EY7XJ7YIN3K5MDYR2D/
+    '''
+    if sys.version_info.major > 3:
+        return
+
+    # Map of minor versions to micro versions which contain the patch
+    min_patched_micros = {
+        11: 14,
+        12: 12,
+        13: 6,
+    }
+    req_micro = min_patched_micros.get(sys.version_info.minor)
+    if req_micro is None:
+        return
+    if sys.version_info.micro >= req_micro:
+        return
+
+    def _block_patched(self, count):
+        if count < 0:  # pragma: no cover
+            raise tarfile.InvalidHeaderError("invalid offset")
+        return _block_patched._orig_block(self, count)
+
+    _block_patched._orig_block = tarfile.TarInfo._block
+    tarfile.TarInfo._block = _block_patched
+
 _patch_http_cookies()
 _patch_tornado_json()
-
-# TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
-# This is a workaround for a race where asyncio.wait_for can end up
-# ignoring cancellation https://github.com/python/cpython/issues/86296
-async def wait_for(fut, timeout):
-
-    if timeout is not None and timeout <= 0:
-        fut = asyncio.ensure_future(fut)
-
-        if fut.done():
-            return fut.result()
-
-        await _cancel_and_wait(fut)
-        try:
-            return fut.result()
-        except asyncio.CancelledError as exc:
-            raise TimeoutError from exc
-
-    async with _timeout(timeout):
-        return await fut
-
-def _release_waiter(waiter, *args):
-    if not waiter.done():
-        waiter.set_result(None)
-
-async def _cancel_and_wait(fut):
-    """Cancel the *fut* future or task and wait until it completes."""
-
-    loop = asyncio.get_running_loop()
-    waiter = loop.create_future()
-    cb = functools.partial(_release_waiter, waiter)
-    fut.add_done_callback(cb)
-
-    try:
-        fut.cancel()
-        # We cannot wait on *fut* directly to make
-        # sure _cancel_and_wait itself is reliably cancellable.
-        await waiter
-    finally:
-        fut.remove_done_callback(cb)
-
-
-class _State(enum.Enum):
-    CREATED = "created"
-    ENTERED = "active"
-    EXPIRING = "expiring"
-    EXPIRED = "expired"
-    EXITED = "finished"
-
-class _Timeout:
-    """Asynchronous context manager for cancelling overdue coroutines.
-    Use `timeout()` or `timeout_at()` rather than instantiating this class directly.
-    """
-
-    def __init__(self, when):
-        """Schedule a timeout that will trigger at a given loop time.
-        - If `when` is `None`, the timeout will never trigger.
-        - If `when < loop.time()`, the timeout will trigger on the next
-          iteration of the event loop.
-        """
-        self._state = _State.CREATED
-        self._timeout_handler = None
-        self._task = None
-        self._when = when
-
-    def when(self):  # pragma: no cover
-        """Return the current deadline."""
-        return self._when
-
-    def reschedule(self, when):
-        """Reschedule the timeout."""
-        assert self._state is not _State.CREATED
-        if self._state is not _State.ENTERED:  # pragma: no cover
-            raise RuntimeError(
-                f"Cannot change state of {self._state.value} Timeout",
-            )
-        self._when = when
-        if self._timeout_handler is not None:  # pragma: no cover
-            self._timeout_handler.cancel()
-        if when is None:
-            self._timeout_handler = None
-        else:
-            loop = asyncio.get_running_loop()
-            if when <= loop.time():  # pragma: no cover
-                self._timeout_handler = loop.call_soon(self._on_timeout)
-            else:
-                self._timeout_handler = loop.call_at(when, self._on_timeout)
-
-    def expired(self):  # pragma: no cover
-        """Is timeout expired during execution?"""
-        return self._state in (_State.EXPIRING, _State.EXPIRED)
-
-    def __repr__(self):  # pragma: no cover
-        info = ['']
-        if self._state is _State.ENTERED:
-            when = round(self._when, 3) if self._when is not None else None
-            info.append(f"when={when}")
-        info_str = ' '.join(info)
-        return f"<Timeout [{self._state.value}]{info_str}>"
-
-    async def __aenter__(self):
-        self._state = _State.ENTERED
-        self._task = asyncio.current_task()
-        self._cancelling = self._task.cancelling()
-        if self._task is None:  # pragma: no cover
-            raise RuntimeError("Timeout should be used inside a task")
-        self.reschedule(self._when)
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        assert self._state in (_State.ENTERED, _State.EXPIRING)
-        if self._timeout_handler is not None:
-            self._timeout_handler.cancel()
-            self._timeout_handler = None
-        if self._state is _State.EXPIRING:
-            self._state = _State.EXPIRED
-
-            if self._task.uncancel() <= self._cancelling and exc_type is asyncio.CancelledError:
-                # Since there are no new cancel requests, we're
-                # handling this.
-                raise TimeoutError from exc_val
-        elif self._state is _State.ENTERED:
-            self._state = _State.EXITED
-
-        return None
-
-    def _on_timeout(self):
-        assert self._state is _State.ENTERED
-        self._task.cancel()
-        self._state = _State.EXPIRING
-        # drop the reference early
-        self._timeout_handler = None
-
-def _timeout(delay):
-    """Timeout async context manager.
-
-    Useful in cases when you want to apply timeout logic around block
-    of code or in cases when asyncio.wait_for is not suitable. For example:
-
-    >>> async with asyncio.timeout(10):  # 10 seconds timeout
-    ...     await long_running_task()
-
-
-    delay - value in seconds or None to disable timeout logic
-
-    long_running_task() is interrupted by raising asyncio.CancelledError,
-    the top-most affected timeout() context manager converts CancelledError
-    into TimeoutError.
-    """
-    loop = asyncio.get_running_loop()
-    return _Timeout(loop.time() + delay if delay is not None else None)
-# End - Vendored Code from Python 3.12+
+_patch_tarfile_count()
 
 async def waitretn(futu, timeout):
     try:
-        valu = await wait_for(futu, timeout)
+        valu = await asyncio.wait_for(futu, timeout)
         return (True, valu)
     except Exception as e:
         return (False, excinfo(e))

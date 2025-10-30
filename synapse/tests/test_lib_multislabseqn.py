@@ -226,6 +226,28 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 # Iterator exhausted: should have just the cache slab (10) and the tail slab (20)
                 self.len(2, msqn._openslabs)
 
+    async def test_multislabseqn_retnpack(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
+
+                self.eq((0, b'\xa4foo1'), await msqn.addWithPackRetn('foo1'))
+                self.eq((1, b'\xa4foo2'), await msqn.addWithPackRetn('foo2'))
+                self.eq((0, b'\xa4foo3'), await msqn.addWithPackRetn('foo3', indx=0))
+
+                await msqn.addWithPackRetn('foo4', indx=10)
+                await msqn.rotate()
+                await msqn.addWithPackRetn('foo5')
+                await msqn.addWithPackRetn('foo6', indx=7)
+
+                self.true(await msqn.cull(10))
+
+                with self.raises(s_exc.BadIndxValu):
+                    await msqn.addWithPackRetn('foo7', indx=7)
+
+                self.eq((12, b'\xa4foo8'), msqn.tailseqn.addWithPackRetn('foo8'))
+
     async def test_multislabseqn_cull(self):
 
         with self.getTestDir() as dirn:
@@ -382,7 +404,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
             slab20dirn = s_common.genpath(baddirn, f'seqn{"0" * 14}14.lmdb')
             async with await s_lmdbslab.Slab.anit(slab20dirn) as slab:
                 db = slab.initdb('info')
-                slab.put(b'firstindx', s_common.int64en(99), db=db)
+                await slab.put(b'firstindx', s_common.int64en(99), db=db)
 
             with self.raises(s_exc.BadCoreStore):
                 async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:

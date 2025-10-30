@@ -112,7 +112,7 @@ pivot operation requires:
 
 Unless otherwise specified, the target ( *<target>* ) of a pivot can be:
 
-- a form name (e.g., ``hash:md5`` );
+- a form name (e.g., ``crypto:hash:md5`` );
 - a partial form name (wildcard match, e.g., ``hash:*``);
 - a form and property name (e.g., ``file:bytes:md5``);
 - an :ref:`interface` name (e.g., ``it:host:activity``);
@@ -225,7 +225,7 @@ and the **same value**:
 .. TIP::
   
   This includes cases where the secondary property value is the **node definition** (:ref:`gloss-ndef`) of the corresponding
-  primary property (these cases are uncommon, but includes forms such as ``risk:technique:masquerade``).
+  primary property.
 
 Implicit pivot syntax **cannot** be used in the following cases:
 
@@ -307,9 +307,9 @@ that are FQDNs) is ``:query:name:fqdn``. You could optionally use explicit synta
 
 *Pivot from a set of IP addresses (inet:ip nodes) to any network flows (inet:flow nodes) associated with the IPs:*
 
-.. storm-pre:: [ inet:ip=1.1.1.1 inet:ip=2.2.2.2 inet:ip=3.3.3.3 (inet:flow=* :src=tcp://1.1.1.1 :dst=tcp://2.2.2.2:1337) (inet:flow=* :dst=tcp://3.3.3.3:80) ]
+.. storm-pre:: [ inet:ip=1.1.1.1 inet:ip=2.2.2.2 inet:ip=3.3.3.3 (inet:flow=* :client=tcp://1.1.1.1 :server=tcp://2.2.2.2:1337) (inet:flow=* :server=tcp://3.3.3.3:80) ]
 .. storm-pre:: inet:ip -> (inet:server, inet:client) -> inet:flow
-.. storm-pre:: inet:ip -> inet:server -> inet:flow:dst
+.. storm-pre:: inet:ip -> inet:server -> inet:flow:server
 
 ::
   
@@ -317,13 +317,13 @@ that are FQDNs) is ``:query:name:fqdn``. You could optionally use explicit synta
 
 TODO: this should probably work using a *addr virtual prop on the inet:sockaddr type
 The query above uses implicit syntax. Note that because ``inet:flow`` nodes have two target properties of type
-``inet:ip`` (``:src`` and ``:dst``), the result of this query will be all ``inet:flow`` nodes where
+``inet:ip`` (``:client`` and ``:server``), the result of this query will be all ``inet:flow`` nodes where
 the inbound IPs are either the source **or** destination IP. If you only want to see flows where the inbound
 IPs are the destination IP (for example), you must use explicit syntax to clarify this:
 
 ::
   
-  <inet:ip nodes> -> inet:flow:dst*addr
+  <inet:ip nodes> -> inet:flow:server*addr
 
 *Pivot from a set of tags (syn:tag nodes) to the threat clusters (risk:threat nodes) represented by those tags:*
 
@@ -363,10 +363,11 @@ The query above uses the wildcard ( ``*`` ) as a partial match for any form name
 followed by zero or more characters.
 
 *Pivot from a set of files to all host execution nodes (all nodes of all forms that inherit the it:host:activity interface - e.g., it:exec:file:add, it:exec:url, etc.) associated with those files:*
-
-.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (it:exec:file:write=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:mutex=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) ]
-.. storm-pre:: file:bytes -> it:host:activity
-.. storm-pre:: file:bytes -> it:host:activity:exe
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (it:exec:file:write=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:mutex=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) ]
+    .. storm-pre:: file:bytes -> it:host:activity
+    .. storm-pre:: file:bytes -> it:host:activity:exe
 
 ::
   
@@ -406,32 +407,29 @@ you must use explicit syntax.
     
     <inet:user nodes> -> file:path:base tree { -> file:path:dir }
 
-*Pivot from a set of FQDNs (inet:fqdn nodes) to the "masquerade" technique nodes (risk:technique:masquerade nodes) associated with those FQDNs:*
+*Pivot from a set of risk:threat nodes to the entity:relationship nodes associated with the threat:*
 
-.. storm-pre:: [ (risk:technique:masquerade=* :target=(inet:fqdn,nato.int) :node=(inet:fqdn,nato-hq.com) ) ]
-.. storm-pre:: inet:fqdn -> risk:technique:masquerade
-.. storm-pre:: inet:fqdn -> risk:technique:masquerade:node
+.. storm-pre:: [ entity:relationship=* :source={[ risk:threat=* :name=greencat]} ]
+.. storm-pre:: risk:threat:name=greencat -> entity:relationship
+.. storm-pre:: risk:threat:name=greencat -> entity:relationship:source
 
 ::
   
-  <inet:fqdn nodes> -> risk:technique:masquerade
+  <risk:threat nodes> -> entity:relationship
 
 The above query uses implicit pivot syntax.
 
-A ``risk:technique:masquerade`` node represents an object that is purposely crafted to imitate (masquerade as)
-another object, typically for malicious purposes. The node records the relationship between the "original"
-object being imitated (``risk:technique:masquerade:target``) and the object that is imitating it
-(``risk:technique:masquerade:node``). (Both properties are of type "ndef" (node definition), and consist of
-``( <form>, <valu> )`` pairs.)
+A ``entity:relationship`` node represents a specific relationship between entities. The ``:source`` and ``:target``
+properties are a type of ``ndef`` which consists of a ``( <form>, <valu> )`` pair which is limited to nodes which
+implement the ``entity:actor`` interface, such as ``risk:threat``.
 
-Because the query above uses implicit syntax, it will return any ``risk:technique:masquerade`` nodes where
-the inbound FQDNs are either the ``:target`` or ``:node`` value. If (for example) the inbound FQDNs were a
-set of suspicious FQDNs and you wanted to return only those "masquerade" nodes where the inbound FQDNs were
-the ``:node`` masquerading as a valid FQDN, you would need to use explicit syntax:
+Because the query above uses implicit syntax, it will return any ``risk:threat`` nodes which are either the ``:source``
+or ``:target`` property on the ``entity:relationship``. If you wanted to return only relationship nodes which
+have a specific ``risk:threat`` as the ``entity:relationship:source`` you need to use explicit syntax:
 
 ::
   
-  <inet:fqdn nodes> -> risk:technique:masquerade:node
+  <risk:threat nodes> -> entity:relationship:source
 
 
 .. _pivot-secondary-primary:
@@ -508,14 +506,14 @@ pivot to the FQDNs associated with the name server (NS) FQDNs (for example), you
   <inet:dns:ns nodes> :ns -> inet:fqdn
 
 
-*Pivot from a set of X509 certificate metadata nodes (crypto:x509:cert nodes) to the associated SHA1 fingerprints (hash:sha1 nodes) and to any FQDNs (inet:fqdn nodes) associated with the certificates:*
+*Pivot from a set of X509 certificate metadata nodes (crypto:x509:cert nodes) to the associated SHA1 fingerprints (crypto:hash:sha1 nodes) and to any FQDNs (inet:fqdn nodes) associated with the certificates:*
 
 .. storm-pre:: [ crypto:x509:cert=* :md5=6b9fdcadf7ea5de1f1402a1cb62c7a65 :sha1=0008e9f15b9ff20de82c276cc54ec9dc094f54f8 :sha256=b1ee0920c4f4d5ded50732d15186eae5357eb743cbbb98ee935bd0791520b5f7 :identities:fqdns=(aliceplants.com,) ]
-.. storm-pre:: crypto:x509:cert -> ( hash:sha1, inet:fqdn )
+.. storm-pre:: crypto:x509:cert -> ( crypto:hash:sha1, inet:fqdn )
 
 ::
   
-  <crypto:x509:cert nodes> -> ( hash:sha1, inet:fqdn )
+  <crypto:x509:cert nodes> -> ( crypto:hash:sha1, inet:fqdn )
 
 .. TIP::
   
@@ -544,8 +542,7 @@ Secondary to Secondary Property Pivot
 
 When pivoting from a secondary property of a set of source nodes to target nodes with the same secondary
 property (e.g., from the ``:ip`` property of a set of DNS A nodes to a set of network flow nodes with
-TODO: fix this example
-the same IP as a ``:dst`` property), the target can be:
+the same IP as a ``:server`` property), the target can be:
 
 - a form name and property name;
 - a list of form and property names; or
@@ -565,7 +562,9 @@ You must use explicit syntax to specify both the source and target properties.
 
 *Pivot from the WHOIS records (inet:whois:rec nodes) for a set of domains to the DNS A records (inet:dns:a nodes) for the same domains:*
 
-.. storm-pre:: [inet:whois:rec=(woot.com, 2017/07/17 00:00:00.000)] :fqdn -> inet:dns:a:fqdn
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [inet:whois:rec=(woot.com, 2017/07/17 00:00:00.000)] :fqdn -> inet:dns:a:fqdn
 
 ::
   
@@ -581,9 +580,10 @@ You must use explicit syntax to specify both the source and target properties.
     <inet:whois:rec nodes> -> inet:fqdn -> inet:dns:a
 
 *Pivot from a set of DNS requests (inet:dns:request nodes) to all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that share the same file as their :exe property:*
-
-.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (inet:dns:request=* :query:name:fqdn=woot.com :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:file:write=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/scvhost.exe') (it:exec:file:read=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/autoexec.bat') ]
-.. storm-pre:: inet:dns:request :exe -> it:host:activity:exe
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (inet:dns:request=* :query:name:fqdn=woot.com :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:file:write=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/scvhost.exe') (it:exec:file:read=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/autoexec.bat') ]
+    .. storm-pre:: inet:dns:request :exe -> it:host:activity:exe
 
 ::
   
@@ -591,12 +591,12 @@ You must use explicit syntax to specify both the source and target properties.
 
 *Pivot from a set of DNS A records (inet:dns:a nodes) to any network flows (inet:flow) or service banners (inet:banner) associated with the IPs:*
 
-.. storm-pre:: [ inet:dns:a=(woot.com,8.8.8.8) (inet:flow=* :dst=tcp://8.8.8.8) (inet:banner=('tcp://8.8.8.8:1234','woo haha')) ]
-.. storm-pre:: inet:dns:a :ip -> ( inet:flow:dst*ip, inet:banner:server*ip )
+.. storm-pre:: [ inet:dns:a=(woot.com,8.8.8.8) (inet:flow=* :server=tcp://8.8.8.8) (inet:banner=('tcp://8.8.8.8:1234','woo haha')) ]
+.. storm-pre:: inet:dns:a :ip -> ( inet:flow:server.ip, inet:banner:server.ip )
 
 ::
   
-  <inet:dns:a nodes> -> ( inet:flow:dst, inet:banner:server )
+  <inet:dns:a nodes> -> ( inet:flow:server, inet:banner:server )
 
 
 .. _pivot-in:
@@ -644,7 +644,7 @@ Contrast this operation with the "wildcard pivot out", described under :ref:`piv
 
 A wildcard pivot in will return any node with a secondary property value that matches any of the source FQDNs.
 For example, the above query could return various DNS records (``inet:dns:a``, ``inet:dns:mx``), URLs
-(``inet:url``), email addresses (``inet:email``), articles (``media:news``), and so on.
+(``inet:url``), email addresses (``inet:email``), articles (``doc:report``), and so on.
 
 
 .. _raw-pivot-syntax:
@@ -741,7 +741,7 @@ Pivot in ( ``<-`` ) and pivot in and join ( ``<+-`` ) are not supported.
   
   The custom behavior used with tag pivots may lead to counterintuitive results when attempting to pivot
   between tags (``syn:tag`` nodes) and properties that are ``syn:tag`` types (such as ``risk:threat:tag``
-  or ``ou:technique:tag``).
+  or ``meta:technique:tag``).
   
   For example, if you attempt to pivot from a ``syn:tag`` node used to associate nodes with a threat cluster
   to the ``risk:threat`` node representing the cluster, the following Storm query will fail to return
@@ -823,9 +823,10 @@ of the three tags ``#rep``, ``#rep.eset``, and ``#rep.eset.sednit``), all three 
 
 *Pivot from a set of nodes to the tags (syn:tag nodes) for all tags applied to those nodes:*
 
-
-.. storm-pre:: [ file:bytes=sha256:b6e7343b9250ad141db66c7bb2cd18c8a6939ff6cdff616683ba6b6a4ff7aa91 +#cno.mal ]
-.. storm-pre:: file:bytes -> #*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:b6e7343b9250ad141db66c7bb2cd18c8a6939ff6cdff616683ba6b6a4ff7aa91 +#cno.mal ]
+    .. storm-pre:: file:bytes -> #*
 
 ::
   
@@ -846,9 +847,11 @@ double asterisk is used to match **across** tag elements.
 
 *Pivot from a set of nodes to the tags (syn:tag nodes) associated with any third-party reporting where the third tag element is "bisonal":*
 
-.. storm-pre:: [ file:bytes=sha256:89f250599e09f8631040e73cd9ea5e515d87e3d1d989f484686893becec1a9bc +#rep.alienvault.bisonal +#rep.malwarebazaar.bisonal +#rep.malwarebazaar.3p.intezer.bisonal ]
-.. storm-pre:: file:bytes -> #rep.*.bisonal
-.. storm-pre:: file:bytes -+> #rep.**bisonal
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:89f250599e09f8631040e73cd9ea5e515d87e3d1d989f484686893becec1a9bc +#rep.alienvault.bisonal +#rep.malwarebazaar.bisonal +#rep.malwarebazaar.3p.intezer.bisonal ]
+    .. storm-pre:: file:bytes -> #rep.*.bisonal
+    .. storm-pre:: file:bytes -+> #rep.**bisonal
 
 ::
   
@@ -885,8 +888,10 @@ Pivot to the ``syn:tag`` node for a specific tag by specifying the exact tag as 
 
 *Pivot from a set of nodes to the syn:tag node for the tag "cno.ttp.phish.attach":*
 
-.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 +#cno.ttp.phish.attach ]
-.. storm-pre:: file:bytes -> #cno.ttp.phish.attach
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 +#cno.ttp.phish.attach ]
+    .. storm-pre:: file:bytes -> #cno.ttp.phish.attach
 
 ::
   
@@ -1033,17 +1038,17 @@ verb) for the relationship(s) represented by the edge:
 ``<verb>`` can be a single edge, a list of edges, or a wildcard.
 
 Unlike property-to-property relationships, edge relationships have a **direction**. There is a "source" node
-(``n1``) and a "target" node (``n2``) for the relationship itself; an article (``media:news`` node, the ``n1``)
-can reference an indicator such as a hash (``hash:md5`` node, the ``n2``) but it does not make sense for a
+(``n1``) and a "target" node (``n2``) for the relationship itself; an article (``doc:report`` node, the ``n1``)
+can reference an indicator such as a hash (``crypto:hash:md5`` node, the ``n2``) but it does not make sense for a
 hash to "reference" an article.
 
 The pivot operator ( ``->`` ) and its variations "point" from left to right (other than a few specialized cases)
 by convention. In contrast, the traversal operator can "point" in either direction, depending on which nodes
 (which "side" of the edge relationship) are inbound. Both of the syntaxes below are equally valid:
 
-``<media:news nodes> -(refs)> <hash:md5 nodes>``
+``<doc:report nodes> -(refs)> <crypto:hash:md5 nodes>``
 
-``<hash:md5 nodes> <(refs)- <media:news nodes>``
+``<crypto:hash:md5 nodes> <(refs)- <doc:report nodes>``
 
 .. TIP::
   
@@ -1052,13 +1057,13 @@ by convention. In contrast, the traversal operator can "point" in either directi
 
 Unless otherwise specified, the target ( *<target>* ) of an edge traversal can be:
 
-- a form name (e.g., ``hash:md5`` );
+- a form name (e.g., ``crypto:hash:md5`` );
 - a form name, comparison operator, and value (e.g., a primary property value, such as ``inet:fqdn~=news``);
 - a form and property name (e.g., ``inet:url:fqdn``);
 - a form and property name, comparison operator, and value (e.g., a secondary property value, such as ``risk:tool:software:used@=(2018, 2022)``)
 - a partial form name (wildcard match, e.g., ``hash:*``);
 - an interface name (e.g., ``it:host:activity``);
-- a list of form names (e.g., ``( hash:sha256, file:bytes )``); or
+- a list of form names (e.g., ``( crypto:hash:sha256, file:bytes )``); or
 - a wildcard / asterisk ( ``*`` ).
 
 .. NOTE::
@@ -1067,11 +1072,11 @@ Unless otherwise specified, the target ( *<target>* ) of an edge traversal can b
   You can obtain the same result by traversing to a form and property name, and then filtering on the value. For example,
   the following Storm queries are equivalent:
   
-  ``media:news -(refs)> inet:url:fqdn~=justice.gov``
+  ``doc:report -(refs)> inet:url:fqdn~=justice.gov``
   
   and
   
-  ``media:news -(refs)> inet:url:fqdn +:fqdn~=justice.gov``
+  ``doc:report -(refs)> inet:url:fqdn +:fqdn~=justice.gov``
 
 
 .. _walk-single-edge:
@@ -1091,26 +1096,30 @@ Specify the name (verb) of the edge you want to traverse to navigate a single ed
 
 *Traverse the "uses" light edge from a threat cluster (risk:threat node) to the tools or malware (risk:tool:software nodes) used by the cluster:*
 
-.. storm-pre:: [ (risk:threat=* :org:name='vicious wombat' :reporter:name=thesilence) ] [ +(uses)> { [ risk:tool:software=* ] } ]
-.. storm-pre:: risk:threat -(uses)> risk:tool:software
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (risk:threat=* :name='vicious wombat' :reporter:name=thesilence) ] [ +(uses)> { [ risk:tool:software=* ] } ]
+    .. storm-pre:: risk:threat -(uses)> risk:tool:software
 
 ::
   
   <risk:threat> -(uses)> risk:tool:software
 
-*Traverse the "references" (refs) light edge from an article (media:news node) to all of the nodes "referenced" by the article:*
+*Traverse the "references" (refs) light edge from an article (doc:report node) to all of the nodes "referenced" by the article:*
 
-.. storm-pre:: [media:news="*" +(refs)> { inet:fqdn=woot.com } ]
-.. storm-pre:: media:news -(refs)> *
+.. storm-pre:: [doc:report="*" +(refs)> { inet:fqdn=woot.com } ]
+.. storm-pre:: doc:report -(refs)> *
 
 ::
   
-  <media:news> -(refs)> *
+  <doc:report> -(refs)> *
 
 *Traverse the "ipwhois" light edge from a set of IP addresses (inet:ip nodes) to the network registration / network WHOIS records (inet:whois:iprec nodes) the IPs are associated with:*
 
-.. storm-pre:: [ (inet:whois:iprec=* :asof=now :name=LVLT-GOGL-8-8-8 :net:min=8.8.8.0 :net:max=8.8.8.255) ] [ +(ipwhois)> { [ inet:ip=8.8.8.8 ] } ]
-.. storm-pre:: inet:ip <(ipwhois)- inet:whois:iprec
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (inet:whois:iprec=* :asof=now :name=LVLT-GOGL-8-8-8 :net:min=8.8.8.0 :net:max=8.8.8.255) ] [ +(ipwhois)> { [ inet:ip=8.8.8.8 ] } ]
+    .. storm-pre:: inet:ip <(ipwhois)- inet:whois:iprec
 
 ::
   
@@ -1147,9 +1156,9 @@ Specify a list of edge names (verbs) to traverse multiple edges to their targets
 
 **Example:**
 
-*Traverse the "references" (refs) and "seen" light edges from an FQDN to any nodes linked via those light edges (i.e., articles (media:news nodes) that reference the FQDN and data sources (meta:source nodes) that "saw" the FQDN):*
+*Traverse the "references" (refs) and "seen" light edges from an FQDN to any nodes linked via those light edges (i.e., articles (doc:report nodes) that reference the FQDN and data sources (meta:source nodes) that "saw" the FQDN):*
 
-.. storm-pre:: [ inet:fqdn=woot.com ] [ <(refs)+ { [ media:news=* ] } ] [ <(seen)+ { [ meta:source=* ] } ]
+.. storm-pre:: [ inet:fqdn=woot.com ] [ <(refs)+ { [ doc:report=* ] } ] [ <(seen)+ { [ meta:source=* ] } ]
 .. storm-pre:: inet:fqdn <( ( refs, seen ) )- *
 ::
 
@@ -1191,8 +1200,10 @@ Use the wildcard (asterisk) character ( ``*`` ) to traverse any edges present in
 
 *For a vulnerability (risk:vuln node), navigate to any forms that are connected to the vulnerability by any edge:*
 
-.. storm-pre:: [ risk:vuln=* ] [ <(uses)+ { risk:threat:org:name='vicious wombat' } ]
-.. storm-pre:: risk:vuln <(*)- *
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ risk:vuln=* ] [ <(uses)+ { risk:threat:name='vicious wombat' } ]
+    .. storm-pre:: risk:vuln <(*)- *
 
 ::
   
@@ -1254,8 +1265,10 @@ operation ( ``-> *`` ) with a wildcard (any / all edges) edge traversal operatio
 
 *Pivot from a set of IP netblock registration records (inet:whois:iprec nodes) to all nodes associated with the records' secondary properties and all nodes linked to the records by light edges:*
 
-.. storm-pre:: [ (inet:whois:iprec="*" :net:min=89.249.65.0 :net:max=89.249.65.255) ] [ +(ipwhois)> { [ inet:ip=89.249.65.153 ] } ]
-.. storm-pre:: inet:whois:iprec --> *
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (inet:whois:iprec="*" :net:min=89.249.65.0 :net:max=89.249.65.255) ] [ +(ipwhois)> { [ inet:ip=89.249.65.153 ] } ]
+    .. storm-pre:: inet:whois:iprec --> *
 
 ::
   
@@ -1321,8 +1334,10 @@ primary to secondary property, secondary to secondary property, etc.)
 
 *Pivot from a set of organizations (ou:org nodes) to any associated contacts (ps:contact nodes), retaining the organizations in the results:*
 
-.. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name=vertex  :hq=d41d8cd98f00b204e9800998ecf8427e) (ps:contact=d41d8cd98f00b204e9800998ecf8427e :orgname=vertex :org=4b0c2c5671874922ce001d69215d032f) ]
-.. storm-pre:: ou:org -+> ps:contact
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name=vertex  :hq=d41d8cd98f00b204e9800998ecf8427e) (ps:contact=d41d8cd98f00b204e9800998ecf8427e :orgname=vertex :org=4b0c2c5671874922ce001d69215d032f) ]
+    .. storm-pre:: ou:org -+> ps:contact
 
 ::
   
@@ -1339,7 +1354,9 @@ primary to secondary property, secondary to secondary property, etc.)
 
 *Pivot from a set of domain WHOIS records (inet:whois:rec nodes) to the DNS A records (inet:dns:a nodes) associated with the FQDNs, retaining the WHOIS records in the results:*
 
-.. storm-pre:: inet:whois:rec :fqdn -+> inet:dns:a:fqdn
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:rec :fqdn -+> inet:dns:a:fqdn
 
 ::
   
@@ -1403,25 +1420,27 @@ or with a wildcard to represent any / all edges (e.g., ``-(*)+>`` ).
 
 **Examples:**
 
-*Traverse the "refs" light edge from an article (media:news node) and join the article with the FQDNs (inet:fqdn nodes) "referenced" by the article:*
+*Traverse the "refs" light edge from an article (doc:report node) and join the article with the FQDNs (inet:fqdn nodes) "referenced" by the article:*
 
-.. storm-pre:: [ media:news="*" +(refs)> { inet:fqdn=woot.com } ] -(refs)+> inet:fqdn
+.. storm-pre:: [ doc:report="*" +(refs)> { inet:fqdn=woot.com } ] -(refs)+> inet:fqdn
 ::
   
-  <media:news> -(refs)+> inet:fqdn
+  <doc:report> -(refs)+> inet:fqdn
 
-*Join an article (media:news node) with any/all nodes referenced by the article:*
+*Join an article (doc:report node) with any/all nodes referenced by the article:*
 
-.. storm-pre::  media:news -(refs)+> *
+.. storm-pre::  doc:report -(refs)+> *
 ::
   
-  <media:news> -(refs)+> *
+  <doc:report> -(refs)+> *
 
 *Join a threat cluster (risk:threat node) with any nodes used or targeted by the cluster:*
 
-.. storm-pre:: [ ( risk:threat=* :org:name='sparkling unicorn' ) (risk:vuln=* :cve=cve-2012-0158) ]
-.. storm-pre:: risk:threat:org:name='sparkling unicorn' [ +(uses)> { risk:vuln:cve=cve-2012-0158 } ] [ +(targets)> { ou:org:name=vertex } ]
-.. storm-pre:: risk:threat -( (uses, targets) )+> *
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( risk:threat=* :name='sparkling unicorn' ) (risk:vuln=* :cve=cve-2012-0158) ]
+    .. storm-pre:: risk:threat:name='sparkling unicorn' [ +(uses)> { risk:vuln:cve=cve-2012-0158 } ] [ +(targets)> { ou:org:name=vertex } ]
+    .. storm-pre:: risk:threat -( (uses, targets) )+> *
 
 ::
   
@@ -1455,12 +1474,12 @@ navigation, the only valid target for this operation is the wildcard ( ``*`` ).
 
 **Examples:**
 
-*Join a set of articles (media:news nodes) with all nodes representing the articles' secondary properties (pivot out) and all nodes linked by any "right-facing" light edge:*
+*Join a set of articles (doc:report nodes) with all nodes representing the articles' secondary properties (pivot out) and all nodes linked by any "right-facing" light edge:*
 
-.. storm-pre:: media:news --+> *
+.. storm-pre:: doc:report --+> *
 ::
   
-  <media:news> --+> *
+  <doc:report> --+> *
 
 *Join a set of IP addresses (inet:ip nodes) with all nodes that reference the IPs (pivot in) and all nodes linked to the IPs by "left-facing" light edges:*
 

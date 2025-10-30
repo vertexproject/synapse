@@ -68,13 +68,13 @@ class StormCellTest(s_test.SynTest):
             msgs = await core.stormlist('uptime newp')
             self.stormIsInErr('No service with name/iden: newp', msgs)
 
-            svc.starttime = svc.starttime - (1 * s_const.day + 2 * s_const.hour) / 1000
+            svc.starttime = svc.starttime - (1 * s_const.day + 2 * s_const.hour)
             msgs = await core.stormlist('uptime stormvar')
             self.stormIsInPrint('up 1D 02:00:', msgs)
             self.stormIsInPrint(day, msgs)
 
             resp = await core.callStorm('return($lib.cell.uptime())')
-            self.eq(core.startms, resp['starttime'])
+            self.eq(core.startmicros, resp['starttime'])
             self.lt(resp['uptime'], s_const.minute)
 
     async def test_stormlib_cell_getmirrors(self):
@@ -83,7 +83,7 @@ class StormCellTest(s_test.SynTest):
 
             provurl = await aha.addAhaSvcProv('00.cortex')
             coreconf = {'aha:provision': provurl}
-            ahawait = aha.waiter(1, 'aha:svcadd')
+            ahawait = aha.waiter(1, 'aha:svc:add')
 
             async with self.getTestCore(conf=coreconf) as core00:
 
@@ -97,7 +97,7 @@ class StormCellTest(s_test.SynTest):
 
                 provinfo = {'mirror': '00.cortex'}
                 provurl = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
-                ahawait = aha.waiter(1, 'aha:svcadd')
+                ahawait = aha.waiter(1, 'aha:svc:add')
 
                 coreconf = {'aha:provision': provurl}
                 async with self.getTestCore(conf=coreconf) as core01:
@@ -115,7 +115,7 @@ class StormCellTest(s_test.SynTest):
 
                 provurl = await aha.addAhaSvcProv('00.testsvc')
                 svcconf = {'aha:provision': provurl}
-                ahawait = aha.waiter(1, 'aha:svcadd')
+                ahawait = aha.waiter(1, 'aha:svc:add')
 
                 async with self.getTestCell(s_t_stormsvc.StormvarServiceCell, conf=svcconf) as svc00:
 
@@ -130,7 +130,7 @@ class StormCellTest(s_test.SynTest):
 
                     provinfo = {'mirror': '00.testsvc'}
                     provurl = await aha.addAhaSvcProv('01.testsvc', provinfo=provinfo)
-                    ahawait = aha.waiter(1, 'aha:svcadd')
+                    ahawait = aha.waiter(1, 'aha:svc:add')
 
                     svcconf = {'aha:provision': provurl}
                     async with self.getTestCell(s_t_stormsvc.StormvarServiceCell, conf=svcconf) as svc01:

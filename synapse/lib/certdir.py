@@ -1,7 +1,6 @@
 import io
 import os
 import ssl
-import time
 import shutil
 import socket
 import logging
@@ -38,8 +37,8 @@ NSCERTTYPE_CLIENT = b'\x03\x02\x07\x80'   # client
 NSCERTTYPE_SERVER = b'\x03\x02\x06@'      # server
 NSCERTTYPE_OBJSIGN = b'\x03\x02\x04\x10'  # objsign
 
-TEN_YEARS = 10 * s_const.year  # 10 years in milliseconds
-TEN_YEARS_TD = datetime.timedelta(milliseconds=TEN_YEARS)
+TEN_YEARS = 10 * s_const.year  # 10 years in microseconds
+TEN_YEARS_TD = datetime.timedelta(microseconds=TEN_YEARS)
 
 StrOrNone = Union[str | None]
 BytesOrNone = Union[bytes | None]
@@ -186,6 +185,7 @@ def getServerSSLContext() -> ssl.SSLContext:
         ssl.SSLContext: The context object.
     '''
     sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    sslctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
     sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
     sslctx.set_ciphers(TLS_SERVER_CIPHERS)
     # Disable client renegotiation if available.
@@ -396,6 +396,28 @@ class CertDir:
             The bytes of the CSR.
         '''
         return self._genPkeyCsr(name, 'hosts', outp=outp)
+
+    def delHostCsr(self, name: str, outp: OutPutOrNone = None) -> bool:
+        '''
+        Delete an existing host CSR.
+
+        Args:
+            name: The name of the host CSR.
+            outp: The output buffer.
+
+        Returns:
+            bool: True if the CSR is deleted, False if it did not exist.
+        '''
+        path = self.getHostCsrPath(name)
+        if path is None:
+            return False
+        try:
+            os.unlink(path)
+        except Exception as e:  # pragma: no cover
+            raise s_exc.SynErr(mesg=f'Failed to delete CSR {path} - {e}') from e
+        if outp:
+            outp.printf(f'Deleted CSR at {path}')
+        return True
 
     def genUserCert(self,
                     name: str,
@@ -696,6 +718,28 @@ class CertDir:
             The bytes of the CSR.
         '''
         return self._genPkeyCsr(name, 'users', outp=outp)
+
+    def delUserCsr(self, name: str, outp: OutPutOrNone = None) -> bool:
+        '''
+        Delete an existing user CSR.
+
+        Args:
+            name: The name of the user CSR.
+            outp: The output buffer.
+
+        Returns:
+            bool: True if the CSR is deleted, False if it did not exist.
+        '''
+        path = self.getUserCsrPath(name)
+        if path is None:
+            return False
+        try:
+            os.unlink(path)
+        except Exception as e:  # pragma: no cover
+            raise s_exc.SynErr(mesg=f'Failed to delete CSR {path} - {e}') from e
+        if outp:
+            outp.printf(f'Deleted CSR at {path}')
+        return True
 
     def getCaCert(self, name: str) -> CertOrNone:
         '''
@@ -1336,6 +1380,7 @@ class CertDir:
              A SSLContext object.
         '''
         sslctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        sslctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
         sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
         self._loadCasIntoSSLContext(sslctx)
 

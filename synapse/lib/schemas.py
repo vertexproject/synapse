@@ -73,6 +73,8 @@ _LayerPushPullSchema = {
     'properties': {
         'url': {'type': 'string'},
         'time': {'type': 'number'},
+        'soffs': {'type': 'number', 'minval': 0},
+        'offs': {'type': 'number'},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'queue:size': {'type': 'integer', 'default': s_const.layer_pdef_qsize,
@@ -312,11 +314,18 @@ _authRulesSchema = {
         'type': 'array',
         'items': [
             {'type': 'boolean'},
-            {'type': 'array', 'items': {'type': 'string'}},
+            {
+                'type': 'array',
+                'items': {
+                    'type': 'string',
+                    'minLength': 1
+                },
+                'minItems': 1
+            },
         ],
         'minItems': 2,
         'maxItems': 2,
-    }
+    },
 }
 reqValidRules = s_config.getJsValidator(_authRulesSchema)
 
@@ -401,7 +410,6 @@ _changelogTypes = {'migration': 'Automatic Migrations',
                    'note': 'Notes',
                    'doc': 'Improved documentation',
                    'deprecation': 'Deprecations'}
-
 _changelogSchema = {
     'type': 'object',
     'properties': {
@@ -412,6 +420,10 @@ _changelogSchema = {
         'desc': {
             'type': 'string',
             'minLength': 1,
+        },
+        'desc:literal': {
+            'type': 'boolean',
+            'default': False,
         },
         'prs': {
             'type': 'array',
@@ -484,7 +496,7 @@ driveInfoSchema = {
         'parent': {'type': 'string', 'pattern': s_config.re_iden},
         'type': {'type': 'string', 'pattern': re_drivename},
         'name': {'type': 'string', 'pattern': re_drivename},
-        'perm': s_msgpack.deepcopy(easyPermSchema),
+        'permissions': s_msgpack.deepcopy(easyPermSchema),
         'kids': {'type': 'number', 'minimum': 0},
         'created': {'type': 'number'},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
@@ -670,6 +682,7 @@ datamodel_basetypes = [
     'taxon',
     'taxonomy',
     'velocity',
+    'timeprecision',
 ]
 
 _reqValidPkgdefSchema = {
@@ -681,9 +694,18 @@ _reqValidPkgdefSchema = {
             'pattern': s_version.semverstr,
         },
         'build': {
-            'type' 'object'
+            'type': 'object',
             'properties': {
                 'time': {'type': 'number'},
+                'synapse:version': {
+                    'type': 'string',
+                    'pattern': s_version.semverstr
+                },
+                'synapse:commit': {
+                    'type': 'string',
+                    # Note: This pattern allows empty string for dev environments
+                    'pattern': '^[0-9a-fA-F]*$'
+                },
             },
             'required': ['time'],
         },
@@ -731,6 +753,18 @@ _reqValidPkgdefSchema = {
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'onload': {'type': 'string'},
+        'inits': {
+            'type': 'object',
+            'properties': {
+                'versions': {
+                    'type': 'array',
+                    'items': {'$ref': '#/definitions/initdef'},
+                    'minItems': 1,
+                },
+            },
+            'additionalProperties': True,
+            'required': ['versions'],
+        },
         'author': {
             'type': 'object',
             'properties': {
@@ -795,14 +829,29 @@ _reqValidPkgdefSchema = {
                     'type': ['array', 'null'],
                     'items': {'$ref': '#/definitions/apidef'},
                 },
-                'asroot': {'type': 'boolean'},
                 'asroot:perms': {'type': 'array',
                     'items': {'type': 'array',
                         'items': {'type': 'string'}},
                 },
+                'asroot:ondeny:import': {
+                    'type': 'string',
+                    'enum': ['allow', 'warn', 'deny'],
+                },
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
+        },
+        'initdef': {
+            'type': 'object',
+            'properties': {
+                'desc': {'type': 'string'},
+                'inaugural': {'type': 'boolean', 'default': False},
+                'name': {'type': 'string'},
+                'query': {'type': 'string'},
+                'version': {'type': 'integer', 'minimum': 0},
+            },
+            'additionalProperties': False,
+            'required': ['name', 'query', 'version']
         },
         'apidef': {
             'type': 'object',
@@ -916,12 +965,20 @@ _reqValidPkgdefSchema = {
                     'type': ['array', 'null'],
                     'items': {'$ref': '#/definitions/cmdinput'},
                 },
+                'cmdconf': {
+                    'type': 'object',
+                    'properties': {
+                        'svciden': {'type': 'string', 'pattern': s_config.re_iden},
+                    },
+                    'additionalProperties': True,
+                },
                 'storm': {'type': 'string'},
                 'forms': {'$ref': '#/definitions/cmdformhints'},
                 'perms': {'type': 'array',
                     'items': {'type': 'array',
                         'items': {'type': 'string'}},
                 },
+                'deprecated': {'$ref': '#/definitions/deprecatedItem'},
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
@@ -948,6 +1005,7 @@ _reqValidPkgdefSchema = {
                             'type': 'string',
                             'enum': s_msgpack.deepcopy(datamodel_basetypes),
                         },
+                        'deprecated': {'$ref': '#/definitions/deprecatedItem'},
                     },
                 }
             ],
@@ -1143,7 +1201,7 @@ _reqValidOauth2TokenResponseSchema = {
 reqValidOauth2TokenResponse = s_config.getJsValidator(_reqValidOauth2TokenResponseSchema)
 
 tagrestr = r'((\w+|\*|\*\*)\.)*(\w+|\*|\*\*)'  # tag with optional single or double * as segment
-_tagre, _formre, _propre = (f'^{re}$' for re in (tagrestr, s_grammar.formrestr, s_grammar.proporunivrestr))
+_tagre, _formre, _propre = (f'^{re}$' for re in (tagrestr, s_grammar.formrestr, s_grammar.proprestr))
 
 TrigSchema = {
     'type': 'object',
@@ -1199,3 +1257,71 @@ TrigSchema = {
     ],
 }
 reqValidTriggerDef = s_config.getJsValidator(TrigSchema)
+
+_httpLoginV1Schema = {
+    'type': 'object',
+    'properties': {
+        'user': {'type': 'string'},
+        'passwd': {'type': 'string'},
+        },
+    'additionalProperties': False,
+    'required': ['user', 'passwd'],
+}
+reqValidHttpLoginV1 = s_config.getJsValidator(_httpLoginV1Schema)
+
+_exportStormMetaSchema = {
+    'type': 'object',
+    'properties': {
+        'type': {'type': 'string', 'enum': ['meta']},
+        'vers': {'type': 'integer', 'minimum': 1},
+        'forms': {
+            'type': 'object',
+            'patternProperties': {
+                '^.*$': {'type': 'integer', 'minimum': 0}
+            },
+            'description': 'Dictionary mapping form names to their counts in the export.'
+        },
+        'edges': {
+            'type': 'object',
+            'patternProperties': {
+                '^.*$': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^.*$': {
+                            'type': 'array',
+                            'items': {'type': 'string'},
+                        }
+                    }
+                }
+            },
+            'description': 'Mapping of source form to verbs to target forms.'
+        },
+        'count': {'type': 'integer', 'minimum': 0, 'description': 'Number of nodes exported.'},
+        'synapse_ver': {
+            'type': 'string',
+            'description': 'Version of Synapse that exported the data.'
+        },
+        'creatorname': {'type': 'string', 'description': 'User who ran the export.'},
+        'creatoriden': {'type': 'string', 'pattern': s_config.re_iden, 'description': 'User iden who ran the export.'},
+        'created': {'type': 'integer', 'minimum': 0, 'description': 'Timestamp of the export.'},
+        'query': {'type': 'string', 'description': 'The Storm query string.'},
+    },
+    'required': ['type', 'vers', 'forms', 'count', 'synapse_ver'],
+    'additionalProperties': False,
+}
+
+reqValidExportStormMeta = s_config.getJsValidator(_exportStormMetaSchema)
+
+_QueueDefSchema = {
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string', 'minLength': 1},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
+    },
+    'required': ['name', 'creator'],
+    'additionalProperties': False,
+}
+
+reqValidQueueDef = s_config.getJsValidator(_QueueDefSchema)

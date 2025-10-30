@@ -7,19 +7,41 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
+import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
+storvirts = {
+    s_layer.STOR_TYPE_NDEF: {
+        'form': lambda x: x[0]
+    },
+    s_layer.STOR_TYPE_IVAL: {
+        'min': lambda x: x[0],
+        'max': lambda x: x[1],
+        'duration': lambda x: x[2],
+    },
+}
+
 class NodeBase:
 
-    def repr(self, name=None, defv=None, virts=None):
+    def repr(self, name=None, defv=None):
+
+        virts = None
+        if name is not None:
+            parts = name.strip().split('.')
+            if len(parts) > 1:
+                name = parts[0] or None
+                virts = parts[1:]
 
         if name is None:
             typeitem = self.form.type
             if virts is None:
                 return typeitem.repr(self.valu())
+
+            if (mtyp := self.view.core.model.metatypes.get(virts[0])) is not None:
+                return mtyp.repr(self.getMeta(virts[0]))
 
             virtgetr = typeitem.getVirtGetr(virts)
             virttype = typeitem.getVirtType(virts)
@@ -52,6 +74,64 @@ class NodeBase:
         reps = {}
         props = self.getProps()
         return self._getPropReprs(props)
+
+    def protocols(self, name=None):
+
+        retn = []
+
+        pdefs = self.form.info.get('protocols')
+        if pdefs is not None:
+            for pname, pdef in pdefs.items():
+
+                # TODO we could eventually optimize this...
+                if name is not None and name != pname:
+                    continue
+
+                retn.append(self._pdefToProto(pname, pdef, None))
+
+        for prop in self.form.props.values():
+
+            pdefs = prop.info.get('protocols')
+            if pdefs is None:
+                continue
+
+            for pname, pdef in pdefs.items():
+
+                if name is not None and name != pname:
+                    continue
+
+                retn.append(self._pdefToProto(pname, pdef, prop.name))
+
+        return retn
+
+    def protocol(self, name, propname=None):
+        pdef = self.form.reqProtoDef(name, propname=propname)
+        return self._pdefToProto(name, pdef, propname)
+
+    def _pdefToProto(self, name, pdef, propname):
+
+        proto = {
+            'name': name,
+            'vars': {},
+        }
+
+        if propname is not None:
+            proto['prop'] = propname
+
+        for varn, vdef in pdef['vars'].items():
+
+            if vdef.get('type') != 'prop': # pragma: no cover
+                mesg = f'Invalid protocol var type: {pdef.get("type")}.'
+                raise s_exc.BadFormDef(mesg=mesg)
+
+            varprop = vdef.get('name')
+            if varprop is None: # pragma: no cover
+                mesg = 'Protocol variable type "prop" requires a "name" key.'
+                raise s_exc.BadFormDef(mesg=mesg)
+
+            proto['vars'][varn] = self.get(varprop)
+
+        return proto
 
     def _reqValidProp(self, name):
         prop = self.form.prop(name)
@@ -209,7 +289,7 @@ class Node(NodeBase):
                 for prop in props.keys():
                     retn['tagprops'][tag].setdefault(prop, iden)
 
-        return(retn)
+        return dict(retn)
 
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
@@ -274,12 +354,14 @@ class Node(NodeBase):
     def intnid(self):
         return s_common.int64un(self.nid)
 
-    def pack(self, dorepr=False):
+    def pack(self, dorepr=False, virts=False, verbs=True):
         '''
         Return the serializable/packed version of the node.
 
         Args:
             dorepr (bool): Include repr information for human readable versions of properties.
+            virts (bool): Include virtual properties.
+            verbs (bool): Include edge verb counts.
 
         Returns:
             (tuple): An (ndef, info) node tuple.
@@ -288,15 +370,60 @@ class Node(NodeBase):
         pode = (self.ndef, {
             'nid': s_common.int64un(self.nid),
             'iden': self.iden(),
+            'meta': self.getMetaDict(),
             'tags': self._getTagsDict(),
-            'props': self.getProps(),
+            'props': self.getProps(virts=virts),
             'tagprops': self._getTagPropsDict(),
         })
+
+        if verbs:
+            pode[1]['n1verbs'] = self.getEdgeCounts()
+            pode[1]['n2verbs'] = self.getEdgeCounts(n2=True)
 
         if dorepr:
             self._addPodeRepr(pode)
 
         return pode
+
+    def getEdgeCounts(self, verb=None, n2=False):
+
+        if n2:
+            keys = (('n2verbs', 1), ('n2antiverbs', -1))
+        else:
+            keys = (('n1verbs', 1), ('n1antiverbs', -1))
+
+        ecnts = {}
+
+        for sode in self.sodes:
+            if not n2 and sode.get('antivalu') is not None:
+                break
+
+            for (key, inc) in keys:
+                if (verbs := sode.get(key)) is None:
+                    continue
+
+                if verb is not None:
+                    if (forms := verbs.get(verb)) is not None:
+                        if (formcnts := ecnts.get(verb)) is None:
+                            ecnts[verb] = formcnts = {}
+
+                        for form, cnt in forms.items():
+                            formcnts[form] = formcnts.get(form, 0) + (cnt * inc)
+                else:
+                    for vkey, forms in verbs.items():
+                        if (formcnts := ecnts.get(vkey)) is None:
+                            ecnts[vkey] = formcnts = {}
+
+                        for form, cnt in forms.items():
+                            formcnts[form] = formcnts.get(form, 0) + (cnt * inc)
+
+        retn = {}
+        for verb, formcnts in ecnts.items():
+            real = {form: cnt for form, cnt in formcnts.items() if cnt > 0}
+            if real:
+                retn[verb] = real
+
+        return retn
 
     async def getEmbeds(self, embeds):
         '''
@@ -316,7 +443,7 @@ class Node(NodeBase):
 
             if prop.modl.form(prop.type.name) is not None:
                 buid = s_common.buid((prop.type.name, valu))
-            elif prop.type.name == 'ndef':
+            elif 'ndef' in prop.type.types:
                 buid = s_common.buid(valu)
             else:
                 return None
@@ -342,8 +469,10 @@ class Node(NodeBase):
 
             embdnode = retn.get(nodepath)
             if embdnode is None:
-                embdnode = retn[nodepath] = {}
-                embdnode['*'] = s_common.int64un(node.nid)
+                embdnode = retn[nodepath] = {
+                    '$nid': s_common.int64un(node.nid),
+                    '$form': node.form.name,
+                }
 
             for relp in relprops:
                 embdnode[relp] = node.get(relp)
@@ -389,14 +518,14 @@ class Node(NodeBase):
 
         return retn
 
-    async def set(self, name, valu, init=False):
+    async def set(self, name, valu, norminfo=None):
         '''
         Set a property on the node.
 
         Args:
             name (str): The name of the property.
             valu (obj): The value of the property.
-            init (bool): Set to True to disable read-only enforcement
+            norminfo (obj): Norm info for valu if it has already been normalized.
 
         Returns:
             (bool): True if the property was changed.
@@ -406,7 +535,7 @@ class Node(NodeBase):
             raise s_exc.IsReadOnly(mesg=mesg)
 
         async with self.view.getNodeEditor(self) as editor:
-            return await editor.set(name, valu)
+            return await editor.set(name, valu, norminfo=norminfo)
 
     def has(self, name, virts=None):
 
@@ -493,6 +622,14 @@ class Node(NodeBase):
         if name.startswith('#'):
             return self.getTag(name[1:], defval=defv)
 
+        elif name.startswith('.'):
+            virts = name.split('.')[1:]
+            if (mtyp := self.view.core.model.metatypes.get(virts[0])) is not None:
+                return self.getMeta(virts[0])
+
+            virtgetr = self.form.type.getVirtGetr(virts)
+            return self.valu(virts=virtgetr)
+
         for sode in self.sodes:
             if sode.get('antivalu') is not None:
                 return defv
@@ -512,7 +649,32 @@ class Node(NodeBase):
 
         return defv
 
-    def getWithLayer(self, name, defv=None):
+    def getWithVirts(self, name, defv=None):
+        '''
+        Return a secondary property with virtual property information from the Node.
+
+        Args:
+            name (str): The name of a secondary property.
+
+        Returns:
+            (tuple): The secondary property and virtual property information or (defv, None).
+        '''
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return defv, None
+
+            if (proptomb := sode.get('antiprops')) is not None and proptomb.get(name):
+                return defv, None
+
+            if (item := sode.get('props')) is None:
+                continue
+
+            if (valt := item.get(name)) is not None:
+                return valt[0], valt[2]
+
+        return defv, None
+
+    def getWithLayer(self, name, defv=None, virts=None):
         '''
         Return a secondary property value from the Node with the index of the sode.
 
@@ -534,6 +696,10 @@ class Node(NodeBase):
                 continue
 
             if (valt := item.get(name)) is not None:
+                if virts:
+                    for virt in virts:
+                        valt = virt(valt)
+                    return valt, indx
                 return valt[0], indx
 
         return defv, None
@@ -570,7 +736,7 @@ class Node(NodeBase):
 
         return False
 
-    async def pop(self, name, init=False):
+    async def pop(self, name):
         '''
         Remove a property from a node and return the value
         '''
@@ -669,10 +835,31 @@ class Node(NodeBase):
 
         return retn
 
+    def getMeta(self, name):
+        for sode in self.sodes:
+            if (meta := sode.get('meta')) is not None and (valu := meta.get(name)) is not None:
+                return valu[0]
+
+    def getMetaDict(self):
+        retn = {}
+
+        for sode in reversed(self.sodes):
+            if sode.get('antivalu') is not None:
+                retn.clear()
+                continue
+
+            if (meta := sode.get('meta')) is None:
+                continue
+
+            for name, valu in meta.items():
+                retn[name] = valu[0]
+
+        return retn
+
     def getPropNames(self):
         return list(self.getProps().keys())
 
-    def getProps(self):
+    def getProps(self, virts=False):
         retn = {}
 
         for sode in reversed(self.sodes):
@@ -688,7 +875,29 @@ class Node(NodeBase):
                 continue
 
             for name, valt in props.items():
-                retn[name] = valt[0]
+                if virts:
+                    retn[name] = valt
+                else:
+                    retn[name] = valt[0]
+
+        if virts:
+            for name, valt in list(retn.items()):
+                retn[name] = valu = valt[0]
+
+                if (vprops := valt[2]) is not None:
+                    for vname, vval in vprops.items():
+                        retn[f'{name}.{vname}'] = vval[0]
+
+                stortype = valt[1]
+                if stortype & s_layer.STOR_FLAG_ARRAY:
+                    retn[f'{name}.size'] = len(valu)
+                    if (svirts := storvirts.get(stortype & 0x7fff)) is not None:
+                        for vname, getr in svirts.items():
+                            retn[f'{name}.{vname}'] = [getr(v) for v in valu]
+                else:
+                    if (svirts := storvirts.get(stortype)) is not None:
+                        for vname, getr in svirts.items():
+                            retn[f'{name}.{vname}'] = getr(valu)
 
         return retn
 
@@ -736,9 +945,9 @@ class Node(NodeBase):
                 for propname, valt in propvals.items():
                     retn[tagname][propname] = valt[0]
 
-        return retn
+        return dict(retn)
 
-    async def addTag(self, tag, valu=(None, None)):
+    async def addTag(self, tag, valu=(None, None, None), norminfo=None):
         '''
         Add a tag to a node.
 
@@ -746,14 +955,15 @@ class Node(NodeBase):
             tag (str): The tag to add to the node.
             valu: The optional tag value.  If specified, this must be a value that
                   norms as a valid time interval as an ival.
+            norminfo (obj): Norm info for valu if it has already been normalized.
 
         Returns:
             None: This returns None.
         '''
         async with self.view.getNodeEditor(self) as protonode:
-            await protonode.addTag(tag, valu=valu)
+            await protonode.addTag(tag, valu=valu, norminfo=norminfo)
 
-    async def delTag(self, tag, init=False):
+    async def delTag(self, tag):
         '''
         Delete a tag from the node.
         '''
@@ -858,7 +1068,7 @@ class Node(NodeBase):
 
         return False
 
-    def getTagProp(self, tag, prop, defval=None):
+    def getTagProp(self, tag, prop, defval=None, virts=None):
         '''
         Return the value (or defval) of the given tag property.
         '''
@@ -877,9 +1087,43 @@ class Node(NodeBase):
                 continue
 
             if (valt := propvals.get(prop)) is not None:
+                if virts:
+                    for virt in virts:
+                        valt = virt(valt)
+                    return valt
                 return valt[0]
 
         return defval
+
+    def getTagPropWithVirts(self, tag, prop, defval=None):
+        '''
+        Return a tag property with virtual property information from the Node.
+
+        Args:
+            tag (str): The name of the tag.
+            prop (str): The name of the property on the tag.
+
+        Returns:
+            (tuple): The tag property and virtual property information or (defv, None).
+        '''
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return defval, None
+
+            if (antitags := sode.get('antitagprops')) is not None:
+                if (antiprops := antitags.get(tag)) is not None and prop in antiprops:
+                    return defval, None
+
+            if (tagprops := sode.get('tagprops')) is None:
+                continue
+
+            if (propvals := tagprops.get(tag)) is None:
+                continue
+
+            if (valt := propvals.get(prop)) is not None:
+                return valt[0], valt[2]
+
+        return defval, None
 
     def getTagPropWithLayer(self, tag, prop, defval=None):
         '''
@@ -904,12 +1148,12 @@ class Node(NodeBase):
 
         return defval, None
 
-    async def setTagProp(self, tag, name, valu):
+    async def setTagProp(self, tag, name, valu, norminfo=None):
         '''
         Set the value of the given tag property.
         '''
         async with self.view.getNodeEditor(self) as editor:
-            await editor.setTagProp(tag, name, valu)
+            await editor.setTagProp(tag, name, valu, norminfo=norminfo)
 
     async def delTagProp(self, tag, name):
         async with self.view.getNodeEditor(self) as editor:
@@ -950,13 +1194,14 @@ class Node(NodeBase):
                     mesg = 'Nodes still have this tag.'
                     raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
 
-            async for refr in self.view.nodesByPropTypeValu(formname, formvalu):
+            for formtype in self.form.formtypes:
+                async for refr in self.view.nodesByPropTypeValu(formtype, formvalu):
 
-                if refr.nid == self.nid:
-                    continue
+                    if refr.nid == self.nid:
+                        continue
 
-                mesg = 'Other nodes still refer to this node.'
-                raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
+                    mesg = 'Other nodes still refer to this node.'
+                    raise s_exc.CantDelNode(mesg=mesg, form=self.form.name, iden=self.iden())
 
             async for edge in self.iterEdgesN2():
 
@@ -1021,7 +1266,7 @@ class RuntNode(NodeBase):
             return None
         return s_common.int64un(self.nid)
 
-    def pack(self, dorepr=False):
+    def pack(self, dorepr=False, virts=False, verbs=True):
         pode = s_msgpack.deepcopy(self.pode)
         if dorepr:
             self._addPodeRepr(pode)
@@ -1038,14 +1283,14 @@ class RuntNode(NodeBase):
 
     async def set(self, name, valu):
         prop = self._reqValidProp(name)
-        norm = prop.type.norm(valu)[0]
+        norm = (await prop.type.norm(valu))[0]
         return await self.view.core.runRuntPropSet(self, prop, norm)
 
-    async def pop(self, name, init=False):
+    async def pop(self, name):
         prop = self._reqValidProp(name)
         return await self.view.core.runRuntPropDel(self, prop)
 
-    async def addTag(self, name, valu=None):
+    async def addTag(self, name, valu=None, norminfo=None):
         mesg = f'You can not add a tag to a runtime only node (form: {self.form.name})'
         raise s_exc.IsRuntForm(mesg=mesg)
 
@@ -1209,9 +1454,6 @@ def props(pode):
     Args:
         pode (tuple): A packed node.
 
-    Notes:
-        This will include any universal props present on the node.
-
     Returns:
         dict: A dictionary of properties.
     '''
@@ -1284,7 +1526,7 @@ def _tagscommon(pode, leafonly):
     for tag, val in sorted((t for t in pode[1]['tags'].items()), reverse=True, key=lambda x: len(x[0])):
         look = tag + '.'
         val = tuple(val)
-        if (leafonly or val == (None, None)) and any([r.startswith(look) for r in retn]):
+        if (leafonly or val == (None, None, None)) and any([r.startswith(look) for r in retn]):
             continue
         retn.append(tag)
     return retn
@@ -1414,7 +1656,7 @@ def reprTag(pode, tag):
     if valu is None:
         return None
     valu = tuple(valu)
-    if valu == (None, None):
+    if valu == (None, None, None):
         return ''
     mint = s_time.repr(valu[0])
     maxt = s_time.repr(valu[1])

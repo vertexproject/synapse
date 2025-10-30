@@ -57,7 +57,7 @@ import synapse.lib.thisplat as s_thisplat
 
 import synapse.lib.crypto.passwd as s_passwd
 
-import synapse.tools.backup as s_t_backup
+import synapse.tools.service.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
@@ -147,8 +147,7 @@ async def _doIterBackup(path, chunksize=1024):
     link0, file1 = await s_link.linkfile()
 
     def dowrite(fd):
-        # TODO: When we are 3.12+ convert this back to w|gz - see https://github.com/python/cpython/pull/2962
-        with tarfile.open(output_filename, 'w:gz', fileobj=fd, compresslevel=1) as tar:
+        with tarfile.open(output_filename, 'w|gz', fileobj=fd, compresslevel=1) as tar:
             tar.add(path, arcname=os.path.basename(path))
         fd.close()
 
@@ -207,6 +206,10 @@ class CellApi(s_base.Base):
 
     async def initCellApi(self):
         pass
+
+    @adminapi(log=True)
+    async def shutdown(self, *, timeout=None):
+        return await self.cell.shutdown(timeout=timeout)
 
     @adminapi(log=True)
     async def freeze(self, *, timeout=30):
@@ -298,6 +301,7 @@ class CellApi(s_base.Base):
 
     @adminapi()
     def getNexsIndx(self):
+        self.cell.boss.reqNotShut()
         return self.cell.getNexsIndx()
 
     @adminapi()
@@ -380,6 +384,10 @@ class CellApi(s_base.Base):
     async def handoff(self, turl, *, timeout=30):
         return await self.cell.handoff(turl, timeout=timeout)
 
+    @adminapi(log=True)
+    async def demote(self, timeout=None):
+        return await self.cell.demote(timeout=timeout)
+
     def getCellUser(self):
         return self.user.pack()
 
@@ -397,7 +405,7 @@ class CellApi(s_base.Base):
                 - volfree - Volume where cell is running free space
                 - backupvolsize - Backup directory volume total space
                 - backupvolfree - Backup directory volume free space
-                - celluptime - Cell uptime in milliseconds
+                - celluptime - Cell uptime in microseconds
                 - cellrealdisk - Cell's use of disk, equivalent to du
                 - cellapprdisk - Cell's apparent use of disk, equivalent to ls -l
                 - osversion - OS version/architecture
@@ -732,8 +740,8 @@ class CellApi(s_base.Base):
         Returns:
             (dict) It has the following keys:
                 - currduration - If backup currently running, time in ms since backup started, otherwise None
-                - laststart - Last time (in epoch milliseconds) a backup started
-                - lastend - Last time (in epoch milliseconds) a backup ended
+                - laststart - Last time (in epoch microseconds) a backup started
+                - lastend - Last time (in epoch microseconds) a backup ended
                 - lastduration - How long last backup took in ms
                 - lastsize - Disk usage of last backup completed
                 - lastupload - Time a backup was last completed being uploaded via iter(New)BackupArchive
@@ -847,6 +855,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     confdefs = {}  # type: ignore  # This should be a JSONSchema properties list for an object.
     confbase = {
+        'safemode': {
+            'default': False,
+            'description': 'Boot the service in safe-mode.',
+            'type': 'boolean',
+            'hidecmdl': True,
+        },
         'cell:guid': {
             'description': 'An optional hard-coded GUID to store as the permanent GUID for the service.',
             'type': 'string',
@@ -942,6 +956,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'aha:user': {
             'description': 'The username of this service when connecting to others.',
             'type': 'string',
+        },
+        'aha:promotable': {
+            'description': 'Set to false to prevent this service from being promoted to leader.',
+            'type': 'boolean',
+            'default': True,
         },
         'aha:leader': {
             'description': 'The AHA service name to claim as the active instance of a storm service.',
@@ -1074,8 +1093,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if conf is None:
             conf = {}
 
-        self.starttime = time.monotonic()  # Used for uptime calc
-        self.startms = s_common.now()      # Used to report start time
+        self.starttime = time.monotonic_ns() // 1000  # Used for uptime calc
+        self.startmicros = s_common.now()              # Used to report start time
         s_telepath.Aware.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
@@ -1104,6 +1123,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'dynmirror': 1,
             'tasks': 1,
         }
+
+        self.safemode = self.conf.req('safemode')
+        if self.safemode:
+            mesg = f'Booting {self.getCellType()} in safe-mode. Some functionality may be disabled.'
+            logger.warning(mesg)
 
         self.minfree = self.conf.get('limit:disk:free')
         if self.minfree is not None:
@@ -1321,6 +1345,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self._onFiniCellGuid()
         return retn
 
+    async def shutdown(self, timeout=None):
+        '''
+        Execute a graceful shutdown by allowing any promoted boss tasks to complete
+        and prevents the boss from accepting additional tasks.
+        '''
+        extra = await self.getLogExtra()
+        logger.warning('Graceful shutdown initiated...', extra=extra)
+
+        # if we're the leader, lets see if we can handoff...
+        if self.isactive and self.ahaclient is not None:
+            peers = await self._getDemotePeers(timeout=timeout)
+            if peers:
+                if not await self.demote(peers=peers, timeout=timeout): # pragma: no cover
+                    logger.warning('...we are the leader and failed to demote. Aborting shutdown.', extra=extra)
+                    return False
+
+        if not await self.boss.shutdown(timeout=timeout):
+            logger.warning('...tasks did not complete within timeout. Aborting shutdown.', extra=extra)
+            return False
+
+        def syncfini(futu):
+            logger.warning('...all tasks exited. Shutting down.')
+            s_coro.create_task(self.fini())
+
+        asyncio.current_task().add_done_callback(syncfini)
+        return True
+
     def _onFiniCellGuid(self):
         fcntl.lockf(self._cellguidfd, fcntl.LOCK_UN)
         self._cellguidfd.close()
@@ -1368,7 +1419,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             for i, lmdbpath in enumerate(lmdbs):
 
-                logger.warning(f'... {i+1}/{size} {lmdbpath}')
+                logger.warning(f'... {i + 1}/{size} {lmdbpath}')
 
                 with self.getTempDir() as backpath:
 
@@ -1632,6 +1683,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.drive.hasItemInfo(iden): # pragma: no cover
             return await self.drive.getItemPath(iden)
 
+        # TODO: Remove this in synapse-3xx
+        perm = info.pop('perm', None)
+        if perm:
+            perm.setdefault('users', {})
+            perm.setdefault('roles', {})
+            info['permissions'] = perm
+
         return await self.drive.addItemInfo(info, path=path, reldir=reldir)
 
     async def getDriveInfo(self, iden, typename=None):
@@ -1677,7 +1735,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             info = {
                 'name': name,
-                'perm': perm,
+                'permissions': perm,
                 'iden': s_common.guid(),
                 'created': tick,
                 'creator': user,
@@ -1706,6 +1764,50 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPushAuto('drive:set:perm')
     async def setDriveInfoPerm(self, iden, perm):
         return self.drive.setItemPerm(iden, perm)
+
+    @s_nexus.Pusher.onPushAuto('drive:data:path:set')
+    async def setDriveItemProp(self, iden, vers, path, valu):
+        if isinstance(path, str):
+            path = (path,)
+
+        data = await self.getDriveData(iden)
+        if data is None:
+            mesg = f'No drive item with ID {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        _, item = data
+
+        try:
+            step = item
+            for p in path[:-1]:
+                step = step[p]
+            step[path[-1]] = valu
+        except (KeyError, IndexError):
+            raise s_exc.BadArg(mesg=f'Invalid path {path}')
+
+        return await self.drive.setItemData(iden, vers, item)
+
+    @s_nexus.Pusher.onPushAuto('drive:data:path:del')
+    async def delDriveItemProp(self, iden, vers, path):
+        if isinstance(path, str):
+            path = (path,)
+
+        data = await self.getDriveData(iden)
+        if data is None:
+            mesg = f'No drive item with ID {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        _, item = data
+
+        try:
+            step = item
+            for p in path[:-1]:
+                step = step[p]
+            del step[path[-1]]
+        except (KeyError, IndexError):
+            return
+
+        return await self.drive.setItemData(iden, vers, item)
 
     @s_nexus.Pusher.onPushAuto('drive:set:path')
     async def setDriveInfoPath(self, iden, path):
@@ -1823,6 +1925,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'leader': ahalead,
             'urlinfo': urlinfo,
             'ready': ready,
+            'isleader': self.isactive,
+            'promotable': self.conf.get('aha:promotable'),
         }
 
         return ahainfo
@@ -1856,9 +1960,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     proxy = await self.ahaclient.proxy()
 
                     info = await self.getAhaInfo()
-                    await proxy.addAhaSvc(ahaname, info, network=ahanetw)
+                    await proxy.addAhaSvc(f'{ahaname}...', info)
                     if self.isactive and ahalead is not None:
-                        await proxy.addAhaSvc(ahalead, info, network=ahanetw)
+                        await proxy.addAhaSvc(f'{ahalead}...', info)
 
                 except Exception as e:
                     logger.exception(f'Error registering service {self.ahasvcname} with AHA: {e}')
@@ -1940,10 +2044,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             return cullat
 
-    @s_nexus.Pusher.onPushAuto('nexslog:setindex')
-    async def setNexsIndx(self, indx):
-        return await self.nexsroot.setindex(indx)
-
     def getMyUrl(self, user='root'):
         host = self.conf.req('aha:name')
         network = self.conf.req('aha:network')
@@ -2000,13 +2100,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             logger.debug(f'HANDOFF: Connected to {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
 
-            if self.iden != await cell.getCellIden(): # pragma: no cover
+            cellinfo = await cell.getCellInfo()
+            cnfo = cellinfo.get('cell')
+            if self.iden != cnfo.get('iden'):  # pragma: no cover
                 mesg = 'Mirror handoff remote cell iden does not match!'
                 raise s_exc.BadArg(mesg=mesg)
 
-            if self.runid == await cell.getCellRunId(): # pragma: no cover
+            if self.runid == cnfo.get('run'): # pragma: no cover
                 mesg = 'Cannot handoff mirror leadership to myself!'
                 raise s_exc.BadArg(mesg=mesg)
+
+            ahalead = cnfo.get('aha', {}).get('leader')
+            mirror_url = turl
+            if turl.startswith('aha://') and ahalead is not None:
+                ahauser = self.conf.get('aha:user')
+                if ahauser is not None:
+                    ahauser = f'{ahauser}@'
+                mirror_url = f'aha://{ahauser}{ahalead}...'
 
             logger.debug(f'HANDOFF: Obtaining nexus lock{_dispname}.')
 
@@ -2027,8 +2137,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.debug(f'HANDOFF: Setting the service as inactive{_dispname}.')
                 await self.setCellActive(False)
 
-                logger.debug(f'HANDOFF: Configuring service to sync from new leader{_dispname}.')
-                self.modCellConf({'mirror': turl})
+                logger.debug(f'HANDOFF: Configuring service to sync from new leader{_dispname} @ {s_urlhelp.sanitizeUrl(mirror_url)}.')
+                self.modCellConf({'mirror': mirror_url})
 
                 logger.debug(f'HANDOFF: Restarting the nexus{_dispname}.')
                 await self.nexsroot.startup()
@@ -2037,44 +2147,108 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logger.warning(f'HANDOFF: Done performing the leadership handoff with {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
 
-    async def reqAhaProxy(self, timeout=None):
+    async def _getDemotePeers(self, timeout=None):
+
+        ahaproxy = await self.reqAhaProxy(timeout=timeout, feats=[('getAhaSvcsByIden', 1)])
+
+        retn = []
+        async for svcdef in ahaproxy.getAhaSvcsByIden(self.iden, skiprun=self.runid):
+
+            if not svcdef['svcinfo'].get('promotable'): # pragma: no cover
+                continue
+
+            retn.append(svcdef)
+
+        return retn
+
+    async def demote(self, peers=None, timeout=None):
+
+        logger.warning('Service demotion requested. Locating a suitable service for promotion...')
+
+        extra = await self.getLogExtra()
+
+        if not self.isactive:
+            logger.warning('...service is not the leader. Aborting demotion.', extra=extra)
+            return False
+
+        user = self.conf.get('aha:user')
+
+        if peers is None:
+            peers = await self._getDemotePeers(timeout=timeout)
+
+        if not peers:
+            logger.warning('...no suitable services discovered. Aborting demotion.', extra=extra)
+            return False
+
+        try:
+
+            async with await s_base.Base.anit() as base:
+
+                cands = []
+
+                for svcdef in peers:
+
+                    name = svcdef.get('name')
+
+                    try:
+                        svcproxy = await base.enter_context(await s_telepath.openurl(f'aha://{user}@{name}'))
+
+                        svcindx = await svcproxy.getNexsIndx()
+                        cands.append((svcindx, svcproxy))
+
+                    except Exception as e:
+                        logger.warning(f'...error retrieving nexus index for {name}: {s_exc.reprexc(e)}. Skipping.', extra=extra)
+
+                if not cands:
+                    logger.warning('...no suitable services discovered. Aborting demotion.', extra=extra)
+                    return False
+
+                for svcindx, svcproxy in sorted(cands):
+
+                    try:
+                        await svcproxy.promote(graceful=True)
+
+                        logger.warning(f'... successfully promoted: {svcproxy._ahainfo["name"]}', extra=extra)
+                        return True
+
+                    except Exception as e:
+                        logger.warning(f'...error promoting {svcproxy._ahainfo["name"]}. Skipping.', extra=extra)
+
+        except Exception as e:
+            logger.exception(f'...error demoting service: {s_exc.reprexc(e)}', extra=extra)
+            return False
+
+    async def reqAhaProxy(self, timeout=None, feats=None):
+
         if self.ahaclient is None:
             mesg = 'AHA is not configured on this service.'
             raise s_exc.NeedConfValu(mesg=mesg)
-        return await self.ahaclient.proxy(timeout=timeout)
 
-    async def _setAhaActive(self):
+        proxy = await self.ahaclient.proxy(timeout=timeout)
+
+        if feats is not None:
+            for name, vers in feats:
+                if not proxy._hasTeleFeat(name, vers):
+                    mesg = f'AHA server does not support feature: {name} >= {vers}'
+                    raise s_exc.BadVersion(mesg=mesg)
+
+        return proxy
+
+    async def _bumpAhaProxy(self):
 
         if self.ahaclient is None:
             return
 
-        ahainfo = await self.getAhaInfo()
-        if ahainfo is None:
-            return
-
-        ahalead = self.conf.get('aha:leader')
-        if ahalead is None:
-            return
-
+        # force a reconnect to AHA to update service info
         try:
 
-            proxy = await self.ahaclient.proxy(timeout=2)
+            proxy = await self.ahaclient.proxy(timeout=5)
+            if proxy is not None:
+                await proxy.fini()
 
-        except TimeoutError:  # pragma: no cover
-            return None
-
-        # if we went inactive, bump the aha proxy
-        if not self.isactive:
-            await proxy.fini()
-            return
-
-        ahanetw = self.conf.req('aha:network')
-        try:
-            await proxy.addAhaSvc(ahalead, ahainfo, network=ahanetw)
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
-        except Exception as e:  # pragma: no cover
-            logger.warning(f'_setAhaActive failed: {e}')
+        except Exception as e:
+            extra = await self.getLogExtra(name=self.conf.get('aha:name'))
+            logger.exception('Error forcing AHA reconnect.', extra=extra)
 
     def isActiveCoro(self, iden):
         return self.activecoros.get(iden) is not None
@@ -2186,7 +2360,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.activebase = None
             await self.initServicePassive()
 
-        await self._setAhaActive()
+        await self._bumpAhaProxy()
 
     def runActiveTask(self, coro):
         # an API for active coroutines to use when running an
@@ -3235,13 +3409,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         await user.addRule(rule)
 
     @contextlib.asynccontextmanager
-    async def getLocalProxy(self, share='*', user='root'):
+    async def getLocalProxy(self, share=None, user='root'):
         url = self.getLocalUrl(share=share, user=user)
         prox = await s_telepath.openurl(url)
         yield prox
 
-    def getLocalUrl(self, share='*', user='root'):
-        return f'cell://{user}@{self.dirn}:{share}'
+    def getLocalUrl(self, share=None, user='root'):
+        url = f'cell://{user}@{self.dirn}'
+        if share is not None:
+            url = f'{url}:{share}'
+        return url
 
     def _initCellConf(self, conf):
         '''
@@ -3666,7 +3843,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                         content_length = int(resp.headers.get('content-length', 0))
                         if content_length > 100:
-                            logger.warning(f'Downloading {content_length/s_const.megabyte:.3f} MB of data.')
+                            logger.warning(f'Downloading {content_length / s_const.megabyte:.3f} MB of data.')
                             pvals = [int((content_length * 0.01) * i) for i in range(1, 100)]
                         else:  # pragma: no cover
                             logger.warning(f'Odd content-length encountered: {content_length}')
@@ -3682,7 +3859,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                             if pvals and tsize > pvals[0]:
                                 pvals.pop(0)
                                 percentage = (tsize / content_length) * 100
-                                logger.warning(f'Downloaded {tsize/s_const.megabyte:.3f} MB, {percentage:.3f}%')
+                                logger.warning(f'Downloaded {tsize / s_const.megabyte:.3f} MB, {percentage:.3f}%')
 
             logger.warning(f'Extracting {tarpath} to {dirn}')
 
@@ -3692,7 +3869,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         continue
                     memb.name = memb.name.split('/', 1)[1]
                     logger.warning(f'Extracting {memb.name}')
-                    tgz.extract(memb, dirn)
+                    tgz.extract(memb, dirn, filter='data')
 
             # and record the rurliden
             with s_common.genfile(donepath) as fd:
@@ -3772,6 +3949,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 os.unlink(_csr)
             hostcsr = certdir.genHostCsr(hostname)
             certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
+            certdir.delHostCsr(hostname)
 
             userfull = f'{ahauser}@{ahanetw}'
             _crt = certdir.getUserCertPath(userfull)
@@ -3788,6 +3966,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 os.unlink(_csr)
             usercsr = certdir.genUserCsr(userfull)
             certdir.saveUserCertByts(await prov.signUserCsr(usercsr))
+            certdir.delUserCsr(userfull)
 
         with s_common.genfile(self.dirn, 'prov.done') as fd:
             fd.write(providen.encode())
@@ -3891,7 +4070,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         if memb.name.find('/') == -1:
                             continue
                         memb.name = memb.name.split('/', 1)[1]
-                        tgz.extract(memb, self.dirn)
+                        tgz.extract(memb, self.dirn, filter='data')
 
         finally:
 
@@ -3932,6 +4111,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.warning(f'Bootstrap mirror from: {murl} DONE!')
 
     async def getMirrorUrls(self):
+
         if self.ahaclient is None:
             raise s_exc.BadConfValu(mesg='Enumerating mirror URLs is only supported when AHA is configured')
 
@@ -3943,7 +4123,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'Service must be configured with AHA to enumerate mirror URLs'
             raise s_exc.NoSuchName(mesg=mesg, name=self.ahasvcname)
 
-        return [f'aha://{svc["svcname"]}.{svc["svcnetw"]}' for svc in mirrors]
+        return [f'aha://{svc["name"]}' for svc in mirrors]
 
     @classmethod
     async def initFromArgv(cls, argv, outp=None):
@@ -4310,7 +4490,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'iden': self.getCellIden(),
                 'paused': self.paused,
                 'active': self.isactive,
-                'started': self.startms,
+                'started': self.startmicros,
+                'safemode': self.safemode,
                 'ready': self.nexsroot.ready.is_set(),
                 'commit': self.COMMIT,
                 'version': self.VERSION,
@@ -4345,8 +4526,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - volfree - Volume where cell is running free space
                 - backupvolsize - Backup directory volume total space
                 - backupvolfree - Backup directory volume free space
-                - cellstarttime - Cell start time in epoch milliseconds
-                - celluptime - Cell uptime in milliseconds
+                - cellstarttime - Cell start time in epoch microseconds
+                - celluptime - Cell uptime in microseconds
                 - cellrealdisk - Cell's use of disk, equivalent to du
                 - cellapprdisk - Cell's apparent use of disk, equivalent to ls -l
                 - osversion - OS version/architecture
@@ -4356,7 +4537,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - cpucount - Number of CPUs on system
                 - tmpdir - The temporary directory interpreted by the Python runtime.
         '''
-        uptime = int((time.monotonic() - self.starttime) * 1000)
+        uptime = time.monotonic_ns() // 1000 - self.starttime
         disk = shutil.disk_usage(self.dirn)
 
         if self.backdirn:
@@ -4378,8 +4559,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'volfree': disk.free,              # Volume where cell is running free bytes
             'backupvolsize': backupvolsize,    # Cell's backup directory volume total bytes
             'backupvolfree': backupvolfree,    # Cell's backup directory volume free bytes
-            'cellstarttime': self.startms,     # cell start time in epoch millis
-            'celluptime': uptime,              # cell uptime in ms
+            'cellstarttime': self.startmicros, # Cell's start time in epoch micros
+            'celluptime': uptime,              # Cell's uptime in micros
             'cellrealdisk': myusage,           # Cell's use of disk, equivalent to du
             'cellapprdisk': myappusage,        # Cell's apparent use of disk, equivalent to ls -l
             'osversion': platform.platform(),  # OS version/architecture
@@ -4472,7 +4653,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Args:
             useriden (str): User iden value.
             name (str): Name of the API key.
-            duration (int or None): Duration of time for the API key to be valid ( in milliseconds ).
+            duration (int or None): Duration of time for the API key to be valid ( in microseconds ).
 
         Returns:
             tuple: A tuple of the secret API key value and the API key metadata information.
@@ -4509,9 +4690,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _genUserApiKey(self, kdef):
         iden = s_common.uhex(kdef.get('iden'))
         user = s_common.uhex(kdef.get('user'))
-        self.slab.put(iden, user, db=self.apikeydb)
+        await self.slab.put(iden, user, db=self.apikeydb)
         lkey = user + b'apikey' + iden
-        self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
+        await self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
 
     async def getUserApiKey(self, iden):
         '''
@@ -4667,7 +4848,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.NoSuchIden(mesg=f'User API key does not exist: {iden}')
         kdef = s_msgpack.un(buf)
         kdef.update(vals)
-        self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
+        await self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
         return kdef
 
     async def delUserApiKey(self, iden):
@@ -4740,6 +4921,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             sslctx = s_common.getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH)
         else:
             sslctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+
+        sslctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
 
         if not opts['verify']:
             sslctx.check_hostname = False

@@ -1,13 +1,9 @@
-import sys
-import asyncio
-import argparse
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
-import synapse.lib.version as s_version
 
 descr = '''
 Query the Aha server for the service cluster status of mirrors.
@@ -41,6 +37,7 @@ def build_status_list(members, cell_infos):
             'host': svcinfo.get('urlinfo', {}).get('host', ''),
             'port': str(svcinfo.get('urlinfo', {}).get('port', '')),
             'version': '<unknown>',
+            'synapse': '<unknown>',
             'nexs_indx': 0
         }
         if svcname in cell_infos:
@@ -48,8 +45,9 @@ def build_status_list(members, cell_infos):
             cell_info = info.get('cell', {})
             status.update({
                 'nexs_indx': cell_info.get('nexsindx', 0),
-                'role': 'follower' if cell_info.get('uplink') else 'leader',
-                'version': str(info.get('synapse', {}).get('verstring', '')),
+                'role': 'leader' if cell_info.get('active') else 'follower',
+                'version': str(info.get('cell', {}).get('verstring', '')),
+                'synapse': str(info.get('synapse', {}).get('verstring', '')),
                 'online': 'True',
                 'ready': str(cell_info.get('ready', False))
             })
@@ -57,15 +55,15 @@ def build_status_list(members, cell_infos):
     return group_status
 
 def output_status(outp, vname, group_status):
-    header = ' {:<40} {:<10} {:<8} {:<7} {:<16} {:<9} {:<12} {:<10}'.format(
-        'name', 'role', 'online', 'ready', 'host', 'port', 'version', 'nexus idx')
+    header = ' {:<40} {:<10} {:<8} {:<7} {:<16} {:<9} {:<12} {:<12} {:<10}'.format(
+        'name', 'role', 'online', 'ready', 'host', 'port', 'version', 'synapse', 'nexus idx')
     outp.printf(header)
     outp.printf('#' * 120)
     outp.printf(vname)
     for status in group_status:
         if status['nexs_indx'] == 0:
             status['nexs_indx'] = '<unknown>'
-        line = ' {name:<40} {role:<10} {online:<8} {ready:<7} {host:<16} {port:<9} {version:<12} {nexs_indx:<10}'.format(**status)
+        line = ' {name:<40} {role:<10} {online:<8} {ready:<7} {host:<16} {port:<9} {version:<12} {synapse:<12} {nexs_indx:<10}'.format(**status)
         outp.printf(line)
 
 def check_sync_status(group_status):
@@ -84,8 +82,7 @@ def timeout_type(valu):
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.aha.mirror', description=descr,
-                        formatter_class=argparse.RawDescriptionHelpFormatter)
+    pars = s_cmd.Parser(prog='synapse.tools.aha.mirror', outp=outp, description=descr)
 
     pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL to connect to the AHA service.')
     pars.add_argument('--timeout', type=timeout_type, default=10, help='The timeout in seconds for individual service API calls')
@@ -190,4 +187,4 @@ async def main(argv, outp=s_output.stdout):
             return 1
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(main(sys.argv[1:])))
+    s_cmd.exitmain(main)

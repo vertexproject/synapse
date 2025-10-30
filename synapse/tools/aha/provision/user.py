@@ -1,10 +1,7 @@
-import sys
-import asyncio
-import argparse
-
 import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 
 descr = '''
@@ -22,8 +19,7 @@ Examples:
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.aha.provision.user', description=descr,
-                        formatter_class=argparse.RawDescriptionHelpFormatter)
+    pars = s_cmd.Parser(prog='synapse.tools.aha.provision.user', outp=outp, description=descr)
 
     pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL to connect to the AHA service.')
     pars.add_argument('--again', default=False, action='store_true', help='Generate a new enroll URL for an existing user.')
@@ -49,5 +45,6 @@ async def main(argv, outp=s_output.stdout):
             outp.printf(f'ERROR: {mesg}')
             return 1
 
+
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(main(sys.argv[1:])))
+    s_cmd.exitmain(main)

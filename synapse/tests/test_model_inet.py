@@ -8,53 +8,54 @@ logger = logging.getLogger(__name__)
 
 class InetModelTest(s_t_utils.SynTest):
 
-    async def test_model_inet_basics(self):
+    async def test_inet_handshakes(self):
+
         async with self.getTestCore() as core:
-            self.len(1, await core.nodes('[ inet:web:hashtag="#🫠" ]'))
-            self.len(1, await core.nodes('[ inet:web:hashtag="#🫠🫠" ]'))
-            self.len(1, await core.nodes('[ inet:web:hashtag="#·bar"]'))
-            self.len(1, await core.nodes('[ inet:web:hashtag="#foo·"]'))
-            self.len(1, await core.nodes('[ inet:web:hashtag="#foo〜"]'))
-            self.len(1, await core.nodes('[ inet:web:hashtag="#hehe" ]'))
-            self.len(1, await core.nodes('[ inet:web:hashtag="#foo·bar"]'))  # note the interpunct
-            self.len(1, await core.nodes('[ inet:web:hashtag="#foo〜bar"]'))  # note the wave dash
-            self.len(1, await core.nodes('[ inet:web:hashtag="#fo·o·······b·ar"]'))
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ inet:web:hashtag="foo" ]')
 
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ inet:web:hashtag="#foo#bar" ]')
+            nodes = await core.nodes('''
+                [ inet:ssh:handshake=*
+                    :flow=*
+                    :client=5.5.5.5
+                    :server=1.2.3.4:22
+                    :client:key={[ crypto:key:rsa=* ]}
+                    :server:key={[ crypto:key:rsa=* ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('client'), 'tcp://5.5.5.5')
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:22')
 
-            # All unicode whitespace from:
-            # https://www.compart.com/en/unicode/category/Zl
-            # https://www.compart.com/en/unicode/category/Zp
-            # https://www.compart.com/en/unicode/category/Zs
-            whitespace = [
-                '\u0020', '\u00a0', '\u1680', '\u2000', '\u2001', '\u2002', '\u2003', '\u2004',
-                '\u2005', '\u2006', '\u2007', '\u2008', '\u2009', '\u200a', '\u202f', '\u205f',
-                '\u3000', '\u2028', '\u2029',
-            ]
-            for char in whitespace:
-                with self.raises(s_exc.BadTypeValu):
-                    await core.callStorm(f'[ inet:web:hashtag="#foo{char}bar" ]')
+            self.len(1, await core.nodes('inet:ssh:handshake :flow -> inet:flow'))
+            self.len(1, await core.nodes('inet:ssh:handshake :client:key -> crypto:key'))
+            self.len(1, await core.nodes('inet:ssh:handshake :server:key -> crypto:key'))
 
-                with self.raises(s_exc.BadTypeValu):
-                    await core.callStorm(f'[ inet:web:hashtag="#{char}bar" ]')
+            nodes = await core.nodes('''
+                [ inet:rdp:handshake=*
+                    :flow=*
+                    :client=5.5.5.5
+                    :server=1.2.3.4:22
+                    :client:hostname=SYNCODER
+                    :client:keyboard:layout=AZERTY
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('client'), 'tcp://5.5.5.5')
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:22')
+            self.eq(nodes[0].get('client:keyboard:layout'), 'azerty')
 
-                # These are allowed because strip=True
-                await core.callStorm(f'[ inet:web:hashtag="#foo{char}" ]')
-                await core.callStorm(f'[ inet:web:hashtag=" #foo{char}" ]')
+            self.len(1, await core.nodes('inet:rdp:handshake :flow -> inet:flow'))
+            self.len(1, await core.nodes('inet:rdp:handshake :client:hostname -> it:hostname'))
 
     async def test_inet_jarm(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ inet:ssl:jarmsample=(1.2.3.4:443, 07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1) ]')
+            nodes = await core.nodes('[ inet:tls:jarmsample=(1.2.3.4:443, 07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1) ]')
             self.len(1, nodes)
             self.eq('tcp://1.2.3.4:443', nodes[0].get('server'))
             self.eq('07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1', nodes[0].get('jarmhash'))
             self.eq(('tcp://1.2.3.4:443', '07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1'), nodes[0].ndef[1])
 
-            nodes = await core.nodes('inet:ssl:jarmhash=07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1')
+            nodes = await core.nodes('inet:tls:jarmhash=07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1')
             self.len(1, nodes)
             self.eq('07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1', nodes[0].ndef[1])
             self.eq('07d14d16d21d21d07c42d41d00041d', nodes[0].get('ciphers'))
@@ -133,72 +134,86 @@ class InetModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             t = core.model.type(formname)
 
-            # Proto defaults to tcp
-            subs = {'ip': (4, 16909060), 'proto': 'tcp'}
-            virts = {'ip': ((4, 16909060), 26)}
-            self.eq(t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'subs': subs, 'virts': virts}))
+            ipnorm, ipinfo = await t.iptype.norm('1.2.3.4')
+            ipsub = (t.iptype.typehash, (4, 16909060), ipinfo)
 
-            subs = {'ip': (4, 16909060), 'proto': 'tcp', 'port': 80}
+            portsub = (t.porttype.typehash, 80, {})
+
+            tcpsub = (t.prototype.typehash, 'tcp', {})
+            udpsub = (t.prototype.typehash, 'udp', {})
+            icmpsub = (t.prototype.typehash, 'icmp', {})
+
+            # Proto defaults to tcp
+            subs = {'ip': ipsub, 'proto': tcpsub}
+            virts = {'ip': ((4, 16909060), 26)}
+            self.eq(await t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'subs': subs, 'virts': virts}))
+
+            subs = {'ip': ipsub, 'proto': tcpsub, 'port': portsub}
             virts = {'ip': ((4, 16909060), 26), 'port': (80, 9)}
-            self.eq(t.norm('1.2.3.4:80'), ('tcp://1.2.3.4:80', {'subs': subs, 'virts': virts}))
-            self.raises(s_exc.BadTypeValu, t.norm, 'https://192.168.1.1:80')  # bad proto
+            self.eq(await t.norm('1.2.3.4:80'), ('tcp://1.2.3.4:80', {'subs': subs, 'virts': virts}))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('https://192.168.1.1:80'))  # bad proto
 
             # IPv4
-            subs = {'ip': (4, 16909060), 'proto': 'tcp'}
+            subs = {'ip': ipsub, 'proto': tcpsub}
             virts = {'ip': ((4, 16909060), 26)}
-            self.eq(t.norm('tcp://1.2.3.4'), ('tcp://1.2.3.4', {'subs': subs, 'virts': virts}))
-            self.eq(t.norm('tcp://1[.]2.3[.]4'), ('tcp://1.2.3.4', {'subs': subs, 'virts': virts}))
+            self.eq(await t.norm('tcp://1.2.3.4'), ('tcp://1.2.3.4', {'subs': subs, 'virts': virts}))
+            self.eq(await t.norm('tcp://1[.]2.3[.]4'), ('tcp://1.2.3.4', {'subs': subs, 'virts': virts}))
 
-            subs = {'ip': (4, 16909060), 'proto': 'udp', 'port': 80}
+            subs = {'ip': ipsub, 'proto': udpsub, 'port': portsub}
             virts = {'ip': ((4, 16909060), 26), 'port': (80, 9)}
-            self.eq(t.norm('udp://1.2.3.4:80'), ('udp://1.2.3.4:80', {'subs': subs, 'virts': virts}))
-            self.raises(s_exc.BadTypeValu, t.norm, 'tcp://1.2.3.4:-1')
-            self.raises(s_exc.BadTypeValu, t.norm, 'tcp://1.2.3.4:66000')
+            self.eq(await t.norm('udp://1.2.3.4:80'), ('udp://1.2.3.4:80', {'subs': subs, 'virts': virts}))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://1.2.3.4:-1'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://1.2.3.4:66000'))
+
+            ipnorm, ipinfo = await t.iptype.norm('::1')
+            ipsub = (t.iptype.typehash, (6, 1), ipinfo)
+            portsub = (t.porttype.typehash, 2, {})
 
             # IPv6
-            subs = {'ip': (6, 1), 'proto': 'icmp'}
+            subs = {'ip': ipsub, 'proto': icmpsub}
             virts = {'ip': ((6, 1), 26)}
-            self.eq(t.norm('icmp://::1'), ('icmp://::1', {'subs': subs, 'virts': virts}))
+            self.eq(await t.norm('icmp://::1'), ('icmp://::1', {'subs': subs, 'virts': virts}))
 
-            subs = {'ip': (6, 1), 'proto': 'tcp', 'port': 2}
+            subs = {'ip': ipsub, 'proto': tcpsub, 'port': portsub}
             virts = {'ip': ((6, 1), 26), 'port': (2, 9)}
-            self.eq(t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'subs': subs, 'virts': virts}))
+            self.eq(await t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'subs': subs, 'virts': virts}))
 
-            subs = {'ip': (6, 1), 'proto': 'tcp'}
+            subs = {'ip': ipsub, 'proto': tcpsub}
             virts = {'ip': ((6, 1), 26)}
-            self.eq(t.norm('tcp://[::1]'), ('tcp://[::1]', {'subs': subs, 'virts': virts}))
+            self.eq(await t.norm('tcp://[::1]'), ('tcp://[::1]', {'subs': subs, 'virts': virts}))
 
-            subs = {'ip': (6, 0xffff01020304), 'proto': 'tcp', 'port': 2}
+            ipnorm, ipinfo = await t.iptype.norm('::fFfF:0102:0304')
+            ipsub = (t.iptype.typehash, (6, 0xffff01020304), ipinfo)
+
+            subs = {'ip': ipsub, 'proto': tcpsub, 'port': portsub}
             virts = {'ip': ((6, 0xffff01020304), 26), 'port': (2, 9)}
-            self.eq(t.norm('tcp://[::fFfF:0102:0304]:2'),
+            self.eq(await t.norm('tcp://[::fFfF:0102:0304]:2'),
                     ('tcp://[::ffff:1.2.3.4]:2', {'subs': subs, 'virts': virts}))
-            self.raises(s_exc.BadTypeValu, t.norm, 'tcp://[::1')  # bad ipv6 w/ port
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://[::1'))  # bad ipv6 w/ port
 
             # Host
             hstr = 'ffa3e574aa219e553e1b2fc1ccd0180f'
-            self.eq(t.norm('host://vertex.link'), (f'host://{hstr}', {'subs': {'host': hstr, 'proto': 'host'}}))
-            self.eq(t.norm('host://vertex.link:1337'),
-                    (f'host://{hstr}:1337', {'subs': {'host': hstr, 'port': 1337, 'proto': 'host'}}))
-            self.raises(s_exc.BadTypeValu, t.norm, 'vertex.link')  # must use host proto
+            hostsub = (t.hosttype.typehash, hstr, {})
+            portsub = (t.porttype.typehash, 1337, {})
+            protosub = (t.prototype.typehash, 'host', {})
+
+            self.eq(await t.norm('host://vertex.link'), (f'host://{hstr}', {'subs': {'host': hostsub, 'proto': protosub}}))
+            self.eq(await t.norm('host://vertex.link:1337'),
+                    (f'host://{hstr}:1337', {'subs': {'host': hostsub, 'port': portsub, 'proto': protosub}}))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('vertex.link'))  # must use host proto
 
     async def test_asn_collection(self):
+
         async with self.getTestCore() as core:
-            owner = s_common.guid()
-            nodes = await core.nodes('[(inet:asn=123 :name=COOL :owner=$owner)]', opts={'vars': {'owner': owner}})
+
+            nodes = await core.nodes('[ inet:asn=123 :owner:name=COOL :owner={[ ou:org=* ]} ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:asn', 123))
-            self.eq(node.get('name'), 'cool')
-            self.eq(node.get('owner'), owner)
+            self.eq(node.get('owner:name'), 'cool')
+            self.len(1, await core.nodes('inet:asn :owner -> ou:org'))
 
-            nodes = await core.nodes('[(inet:asn=456)]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:asn', 456))
-            self.none(node.get('name'))
-            self.none(node.get('owner'))
-
-            nodes = await core.nodes('[inet:asnet=(54959, (1.2.3.4, 5.6.7.8))]')
+            nodes = await core.nodes('[ inet:asnet=(54959, (1.2.3.4, 5.6.7.8)) ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:asnet', (54959, ((4, 0x01020304), (4, 0x05060708)))))
@@ -230,33 +245,32 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(formname)
 
             valu = '0.0.0.0/24'
-            expected = ('0.0.0.0/24', {'subs': {
-                'broadcast': (4, 255),
-                'network': (4, 0),
-                'mask': 24,
-            }})
-            self.eq(t.norm(valu), expected)
+            norm, info = await t.norm(valu)
+            self.eq(norm, valu)
+            self.eq(info['subs']['broadcast'][1], (4, 255))
+            self.eq(info['subs']['network'][1], (4, 0))
+            self.eq(info['subs']['mask'][1], 24)
 
             valu = '192.168.1.101/24'
-            expected = ('192.168.1.0/24', {'subs': {
-                'broadcast': (4, 3232236031),  # 192.168.1.255
-                'network': (4, 3232235776),    # 192.168.1.0
-                'mask': 24,
-            }})
-            self.eq(t.norm(valu), expected)
+            exp = '192.168.1.0/24'
+            norm, info = await t.norm(valu)
+            self.eq(norm, exp)
+            self.eq(info['subs']['broadcast'][1], (4, 3232236031))  # 192.168.1.255
+            self.eq(info['subs']['network'][1], (4, 3232235776))    # 192.168.1.0
+            self.eq(info['subs']['mask'][1], 24)
 
             valu = '123.123.0.5/30'
-            expected = ('123.123.0.4/30', {'subs': {
-                'broadcast': (4, 2071658503),  # 123.123.0.7
-                'network': (4, 2071658500),    # 123.123.0.4
-                'mask': 30,
-            }})
-            self.eq(t.norm(valu), expected)
+            exp = '123.123.0.4/30'
+            norm, info = await t.norm(valu)
+            self.eq(norm, exp)
+            self.eq(info['subs']['broadcast'][1], (4, 2071658503))  # 123.123.0.7
+            self.eq(info['subs']['network'][1], (4, 2071658500))    # 123.123.0.4
+            self.eq(info['subs']['mask'][1], 30)
 
-            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/-1')
-            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/33')
-            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/foo')
-            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1')
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/-1'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/33'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/foo'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1'))
 
             # Form Tests ======================================================
             valu = '192[.]168.1.123/24'
@@ -278,22 +292,21 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(formname)
 
             valu = '::/0'
-            expected = ('::/0', {'subs': {
-                'broadcast': (6, 0xffffffffffffffffffffffffffffffff),
-                'network': (6, 0),
-                'mask': 0,
-            }})
-            self.eq(t.norm(valu), expected)
+            norm, info = await t.norm(valu)
+            self.eq(norm, valu)
+            self.eq(info['subs']['broadcast'][1], (6, 0xffffffffffffffffffffffffffffffff))
+            self.eq(info['subs']['network'][1], (6, 0))
+            self.eq(info['subs']['mask'][1], 0)
 
             valu = '2001:db8::/59'
-            expected = ('2001:db8::/59', {'subs': {
-                'broadcast': (6, 0x20010db80000001fffffffffffffffff),
-                'network': (6, 0x20010db8000000000000000000000000),
-                'mask': 59,
-            }})
-            self.eq(t.norm(valu), expected)
+            norm, info = await t.norm(valu)
+            self.eq(norm, valu)
+            self.eq(info['subs']['broadcast'][1], (6, 0x20010db80000001fffffffffffffffff))
+            self.eq(info['subs']['network'][1], (6, 0x20010db8000000000000000000000000))
+            self.eq(info['subs']['mask'][1], 59)
 
-            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/-1')
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('10.0.0.1/-1')
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('inet:cidr=0::10.2.1.1/300')
@@ -334,9 +347,10 @@ class InetModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             valu = s_common.guid()
+            file = s_common.guid()
             props = {
                 'time': 0,
-                'file': 64 * 'b',
+                'file': file,
                 'fqdn': 'vertex.link',
                 'client': 'tcp://127.0.0.1:45654',
                 'server': 'tcp://1.2.3.4:80'
@@ -347,7 +361,7 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:download', valu))
             self.eq(node.get('time'), 0)
-            self.eq(node.get('file'), 'sha256:' + 64 * 'b')
+            self.eq(node.get('file'), file)
             self.eq(node.get('fqdn'), 'vertex.link')
             self.eq(node.get('client'), 'tcp://127.0.0.1:45654')
             self.eq(node.get('server'), 'tcp://1.2.3.4:80')
@@ -360,17 +374,23 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(formname)
 
             email = 'UnitTest@Vertex.link'
-            expected = ('unittest@vertex.link', {'subs': {'fqdn': 'vertex.link', 'user': 'unittest'}})
-            self.eq(t.norm(email), expected)
+            expected = ('unittest@vertex.link', {'subs': {
+                            'fqdn': (t.fqdntype.typehash, 'vertex.link', {'subs': {
+                                'domain': (t.fqdntype.typehash, 'link', {'subs': {
+                                    'host': (t.fqdntype.hosttype.typehash, 'link', {}),
+                                    'issuffix': (t.fqdntype.booltype.typehash, 1, {})}}),
+                                'host': (t.fqdntype.hosttype.typehash, 'vertex', {})}}),
+                            'user': (t.usertype.typehash, 'unittest', {})}})
+            self.eq(await t.norm(email), expected)
 
-            valu = t.norm('bob\udcfesmith@woot.com')[0]
+            valu = (await t.norm('bob\udcfesmith@woot.com'))[0]
 
             with self.raises(s_exc.BadTypeValu) as cm:
-                t.norm('hehe')
+                await t.norm('hehe')
             self.isin('Email address expected in <user>@<fqdn> format', cm.exception.get('mesg'))
 
             with self.raises(s_exc.BadTypeValu) as cm:
-                t.norm('hehe@1.2.3.4')
+                await t.norm('hehe@1.2.3.4')
             self.isin('FQDN Got an IP address instead', cm.exception.get('mesg'))
 
             # Form Tests ======================================================
@@ -390,113 +410,73 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_flow(self):
         async with self.getTestCore() as core:
-            valu = s_common.guid()
-            srccert = s_common.guid()
-            dstcert = s_common.guid()
-            shost = s_common.guid()
-            sproc = s_common.guid()
-            sexe = 'sha256:' + 'b' * 64
-            dhost = s_common.guid()
-            dproc = s_common.guid()
-            dexe = 'sha256:' + 'c' * 64
-            pfrom = s_common.guid()
-            sfile = 'sha256:' + 'd' * 64
-            props = {
-                'from': pfrom,
-                'shost': shost,
-                'sproc': sproc,
-                'sexe': sexe,
-                'dhost': dhost,
-                'dproc': dproc,
-                'dexe': dexe,
-                'sfile': sfile,
-                'skey': srccert,
-                'dkey': dstcert,
-                'scrt': srccert,
-                'dcrt': dstcert,
-            }
-            q = '''[(inet:flow=$valu
-                :time=(0)
-                :duration=(1)
-                :from=$p.from
-                :src="tcp://127.0.0.1:45654"
-                :src:host=$p.shost
-                :src:proc=$p.sproc
-                :src:exe=$p.sexe
-                :src:txcount=30
-                :src:txbytes=1
-                :src:handshake="Hello There"
-                :dst="tcp://1.2.3.4:80"
-                :dst:host=$p.dhost
-                :dst:proc=$p.dproc
-                :dst:exe=$p.dexe
-                :dst:txcount=33
-                :dst:txbytes=2
-                :tot:txcount=63
-                :tot:txbytes=3
-                :dst:handshake="OHai!"
-                :src:softnames=(HeHe, haha)
-                :dst:softnames=(FooBar, bazfaz)
-                :src:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
-                :dst:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
-                :ip:proto=6
-                :ip:tcp:flags=(0x20)
-                :sandbox:file=$p.sfile
-                :src:ssh:key=$p.skey
-                :dst:ssh:key=$p.dkey
-                :src:ssl:cert=$p.scrt
-                :dst:ssl:cert=$p.dcrt
-                :src:rdp:hostname=SYNCODER
-                :src:rdp:keyboard:layout=AZERTY
-                :raw=((10), (20))
-                :src:txfiles={[ file:attachment=* :name=foo.exe ]}
-                :dst:txfiles={[ file:attachment=* :name=bar.exe ]}
-                :capture:host=*
-            )]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
+
+            nodes = await core.nodes('''
+                [ inet:flow=*
+
+                    :period=(20250701, 20250702)
+
+                    :server=1.2.3.4:443
+                    :server:host=*
+                    :server:proc=*
+                    :server:txcount=33
+                    :server:txbytes=2
+                    :server:handshake="OHai!"
+                    :server:txfiles={[ file:attachment=* :name=bar.exe ]}
+                    :server:softnames=(FooBar, bazfaz)
+                    :server:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
+
+                    :client=5.5.5.5
+                    :client:host=*
+                    :client:proc=*
+                    :client:txcount=30
+                    :client:txbytes=1
+                    :client:handshake="Hello There"
+                    :client:txfiles={[ file:attachment=* :name=foo.exe ]}
+                    :client:softnames=(HeHe, haha)
+                    :client:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
+
+                    :tot:txcount=63
+                    :tot:txbytes=3
+
+                    :ip:proto=6
+                    :ip:tcp:flags=(0x20)
+
+                    :sandbox:file=*
+                    :capture:host=*
+                ]
+            ''')
+
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:flow', valu))
-            self.eq(node.get('time'), 0)
-            self.eq(node.get('duration'), 1)
-            self.eq(node.get('from'), pfrom)
-            self.eq(node.get('src'), 'tcp://127.0.0.1:45654')
-            self.eq(node.get('src:host'), shost)
-            self.eq(node.get('src:proc'), sproc)
-            self.eq(node.get('src:exe'), sexe)
-            self.eq(node.get('src:txcount'), 30)
-            self.eq(node.get('src:txbytes'), 1)
-            self.eq(node.get('src:handshake'), 'Hello There')
-            self.eq(node.get('dst'), 'tcp://1.2.3.4:80')
-            self.eq(node.get('dst:host'), dhost)
-            self.eq(node.get('dst:proc'), dproc)
-            self.eq(node.get('dst:exe'), dexe)
-            self.eq(node.get('dst:txcount'), 33)
-            self.eq(node.get('dst:txbytes'), 2)
-            self.eq(node.get('dst:handshake'), 'OHai!')
-            self.eq(node.get('tot:txcount'), 63)
-            self.eq(node.get('tot:txbytes'), 3)
-            self.eq(node.get('src:softnames'), ('haha', 'hehe'))
-            self.eq(node.get('dst:softnames'), ('bazfaz', 'foobar'))
-            self.eq(node.get('src:cpes'), ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
-            self.eq(node.get('dst:cpes'), ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
-            self.eq(node.get('ip:proto'), 6)
-            self.eq(node.get('ip:tcp:flags'), 0x20)
-            self.eq(node.get('sandbox:file'), sfile)
-            self.eq(node.get('src:ssh:key'), srccert)
-            self.eq(node.get('dst:ssh:key'), dstcert)
-            self.eq(node.get('src:ssl:cert'), srccert)
-            self.eq(node.get('dst:ssl:cert'), dstcert)
-            self.eq(node.get('src:rdp:hostname'), 'syncoder')
-            self.eq(node.get('src:rdp:keyboard:layout'), 'azerty')
-            self.eq(node.get('raw'), (10, 20))
-            self.nn(node.get('capture:host'))
-            self.len(2, await core.nodes('inet:flow -> crypto:x509:cert'))
-            self.len(1, await core.nodes('inet:flow :src:ssh:key -> crypto:key'))
-            self.len(1, await core.nodes('inet:flow :dst:ssh:key -> crypto:key'))
-            self.len(1, await core.nodes('inet:flow :src:txfiles -> file:attachment +:name=foo.exe'))
-            self.len(1, await core.nodes('inet:flow :dst:txfiles -> file:attachment +:name=bar.exe'))
+            self.eq(nodes[0].get('client'), 'tcp://5.5.5.5')
+            self.eq(nodes[0].get('client:txcount'), 30)
+            self.eq(nodes[0].get('client:txbytes'), 1)
+            self.eq(nodes[0].get('client:handshake'), 'Hello There')
+            self.eq(nodes[0].get('client:softnames'), ('haha', 'hehe'))
+            self.eq(nodes[0].get('client:cpes'), ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
+
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:443')
+            self.eq(nodes[0].get('server:txcount'), 33)
+            self.eq(nodes[0].get('server:txbytes'), 2)
+            self.eq(nodes[0].get('server:handshake'), 'OHai!')
+            self.eq(nodes[0].get('server:softnames'), ('bazfaz', 'foobar'))
+            self.eq(nodes[0].get('server:cpes'), ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
+
+            self.eq(nodes[0].get('tot:txcount'), 63)
+            self.eq(nodes[0].get('tot:txbytes'), 3)
+            self.eq(nodes[0].get('ip:proto'), 6)
+            self.eq(nodes[0].get('ip:tcp:flags'), 0x20)
+
+            self.len(1, await core.nodes('inet:flow :client:host -> it:host'))
+            self.len(1, await core.nodes('inet:flow :server:host -> it:host'))
+            self.len(1, await core.nodes('inet:flow :client:proc -> it:exec:proc'))
+            self.len(1, await core.nodes('inet:flow :server:proc -> it:exec:proc'))
+
+            self.len(1, await core.nodes('inet:flow :client:txfiles -> file:attachment +:name=foo.exe'))
+            self.len(1, await core.nodes('inet:flow :server:txfiles -> file:attachment +:name=bar.exe'))
+
             self.len(1, await core.nodes('inet:flow :capture:host -> it:host'))
+            self.len(1, await core.nodes('inet:flow :sandbox:file -> file:bytes'))
 
     async def test_fqdn(self):
         formname = 'inet:fqdn'
@@ -506,63 +486,122 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(formname)
 
             fqdn = 'example.Vertex.link'
-            expected = ('example.vertex.link', {'subs': {'host': 'example', 'domain': 'vertex.link'}})
-            self.eq(t.norm(fqdn), expected)
-            self.raises(s_exc.BadTypeValu, t.norm, '!@#$%')
+            expected = ('example.vertex.link', {'subs': {
+                'host': (t.hosttype.typehash, 'example', {}),
+                'domain': (t.typehash, 'vertex.link', {'subs': {
+                    'host': (t.hosttype.typehash, 'vertex', {}),
+                    'domain': (t.typehash, 'link', {'subs': {
+                        'host': (t.hosttype.typehash, 'link', {}),
+                        'issuffix': (t.booltype.typehash, 1, {}),
+                    }}),
+                }}),
+            }})
+            self.eq(await t.norm(fqdn), expected)
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('!@#$%'))
 
             # defanging works
-            self.eq(t.norm('example[.]vertex(.)link'), expected)
+            self.eq(await t.norm('example[.]vertex(.)link'), expected)
 
             # Demonstrate Valid IDNA
             fqdn = 'tèst.èxamplè.link'
             ex_fqdn = 'xn--tst-6la.xn--xampl-3raf.link'
-            expected = (ex_fqdn, {'subs': {'domain': 'xn--xampl-3raf.link', 'host': 'xn--tst-6la'}})
-            self.eq(t.norm(fqdn), expected)
+            expected = (ex_fqdn, {'subs': {
+                'domain': (t.typehash, 'xn--xampl-3raf.link', {'subs': {
+                    'host': (t.hosttype.typehash, 'xn--xampl-3raf', {}),
+                    'domain': (t.typehash, 'link', {'subs': {
+                        'host': (t.hosttype.typehash, 'link', {}),
+                        'issuffix': (t.booltype.typehash, 1, {}),
+                    }}),
+                }}),
+                'host': (t.hosttype.typehash, 'xn--tst-6la', {})}})
+            self.eq(await t.norm(fqdn), expected)
             self.eq(t.repr(ex_fqdn), fqdn)  # Calling repr on IDNA encoded domain should result in the unicode
 
             # Use IDNA2008 if possible
             fqdn = "faß.de"
             ex_fqdn = 'xn--fa-hia.de'
-            expected = (ex_fqdn, {'subs': {'domain': 'de', 'host': 'xn--fa-hia'}})
-            self.eq(t.norm(fqdn), expected)
+            expected = (ex_fqdn, {'subs': {
+                'domain': (t.typehash, 'de', {'subs': {
+                    'host': (t.hosttype.typehash, 'de', {}),
+                    'issuffix': (t.booltype.typehash, 1, {}),
+                }}),
+                'host': (t.hosttype.typehash, 'xn--fa-hia', {})}})
+            self.eq(await t.norm(fqdn), expected)
             self.eq(t.repr(ex_fqdn), fqdn)
 
             # Emojis are valid IDNA2003
             fqdn = '👁👄👁.fm'
             ex_fqdn = 'xn--mp8hai.fm'
-            expected = (ex_fqdn, {'subs': {'domain': 'fm', 'host': 'xn--mp8hai'}})
-            self.eq(t.norm(fqdn), expected)
+            expected = (ex_fqdn, {'subs': {
+                'domain': (t.typehash, 'fm', {'subs': {
+                    'host': (t.hosttype.typehash, 'fm', {}),
+                    'issuffix': (t.booltype.typehash, 1, {}),
+                }}),
+                'host': (t.hosttype.typehash, 'xn--mp8hai', {})}})
+            self.eq(await t.norm(fqdn), expected)
             self.eq(t.repr(ex_fqdn), fqdn)
 
             # Variant forms get normalized
             varfqdn = '👁️👄👁️.fm'
-            self.eq(t.norm(varfqdn), expected)
+            self.eq(await t.norm(varfqdn), expected)
             self.ne(varfqdn, fqdn)
 
             # Unicode full stops are okay but get normalized
             fqdn = 'foo(．)bar[。]baz｡lol'
             ex_fqdn = 'foo.bar.baz.lol'
-            expected = (ex_fqdn, {'subs': {'domain': 'bar.baz.lol', 'host': 'foo'}})
-            self.eq(t.norm(fqdn), expected)
+            expected = (ex_fqdn, {'subs': {
+                'domain': (t.typehash, 'bar.baz.lol', {'subs': {
+                    'host': (t.hosttype.typehash, 'bar', {}),
+                    'domain': (t.typehash, 'baz.lol', {'subs': {
+                        'host': (t.hosttype.typehash, 'baz', {}),
+                        'domain': (t.typehash, 'lol', {'subs': {
+                            'host': (t.hosttype.typehash, 'lol', {}),
+                            'issuffix': (t.booltype.typehash, 1, {}),
+                        }}),
+                    }}),
+                }}),
+                'host': (t.hosttype.typehash, 'foo', {})}})
+            self.eq(await t.norm(fqdn), expected)
 
             # Ellipsis shouldn't make it through
-            self.raises(s_exc.BadTypeValu, t.norm, 'vertex…link')
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('vertex…link'))
 
             # Demonstrate Invalid IDNA
             fqdn = 'xn--lskfjaslkdfjaslfj.link'
-            expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'link'}})
-            self.eq(t.norm(fqdn), expected)
+            expected = (fqdn, {'subs': {
+                'host': (t.hosttype.typehash, fqdn.split('.')[0], {}),
+                'domain': (t.typehash, 'link', {'subs': {
+                    'host': (t.hosttype.typehash, 'link', {}),
+                    'issuffix': (t.booltype.typehash, 1, {}),
+                }}),
+            }})
+            self.eq(await t.norm(fqdn), expected)
             self.eq(fqdn, t.repr(fqdn))  # UnicodeError raised and caught and fallback to norm
 
             fqdn = 'xn--cc.bartmp.l.google.com'
-            expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'bartmp.l.google.com'}})
-            self.eq(t.norm(fqdn), expected)
+            expected = (fqdn, {'subs': {
+                'host': (t.hosttype.typehash, fqdn.split('.')[0], {}),
+                'domain': (t.typehash, 'bartmp.l.google.com', {'subs': {
+                    'host': (t.hosttype.typehash, 'bartmp', {}),
+                    'domain': (t.typehash, 'l.google.com', {'subs': {
+                        'host': (t.hosttype.typehash, 'l', {}),
+                        'domain': (t.typehash, 'google.com', {'subs': {
+                            'host': (t.hosttype.typehash, 'google', {}),
+                            'domain': (t.typehash, 'com', {'subs': {
+                                'host': (t.hosttype.typehash, 'com', {}),
+                                'issuffix': (t.booltype.typehash, 1, {}),
+                            }}),
+                        }}),
+                    }}),
+                }}),
+            }})
+            self.eq(await t.norm(fqdn), expected)
             self.eq(fqdn, t.repr(fqdn))
 
-            self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com')
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('www.google\udcfesites.com'))
 
             # IP addresses are NOT valid FQDNs
-            self.raises(s_exc.BadTypeValu, t.norm, '1.2.3.4')
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('1.2.3.4'))
 
             # Form Tests ======================================================
 
@@ -623,6 +662,10 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].get('zone'), 'foo.com')
+
+            nodes = await core.nodes('[inet:fqdn=vertex.link :seen=(2020,2021)]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000, 31622400000000))
 
     async def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
@@ -765,14 +808,16 @@ class InetModelTest(s_t_utils.SynTest):
             server = s_common.guid()
             flow = s_common.guid()
             iden = s_common.guid()
+            body = s_common.guid()
+            sand = s_common.guid()
 
             props = {
-                'body': 64 * 'b',
+                'body': body,
                 'flow': flow,
                 'sess': sess,
                 'client:host': client,
                 'server:host': server,
-                'sandbox:file': 64 * 'c'
+                'sandbox:file': sand,
             }
             q = '''[inet:http:request=$valu
                 :time=2015
@@ -797,18 +842,18 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:http:request', iden))
-            self.eq(node.get('time'), 1420070400000)
+            self.eq(node.get('time'), 1420070400000000)
             self.eq(node.get('flow'), flow)
             self.eq(node.get('method'), 'gEt')
             self.eq(node.get('query'), 'hoho=1&qaz=bar')
             self.eq(node.get('path'), '/woot/hehe/')
-            self.eq(node.get('body'), 'sha256:' + 64 * 'b')
+            self.eq(node.get('body'), body)
             self.eq(node.get('response:code'), 200)
             self.eq(node.get('response:reason'), 'OK')
             self.eq(node.get('response:headers'), (('baz', 'faz'),))
-            self.eq(node.get('response:body'), 'sha256:' + 64 * 'b')
+            self.eq(node.get('response:body'), body)
             self.eq(node.get('session'), sess)
-            self.eq(node.get('sandbox:file'), 'sha256:' + 64 * 'c')
+            self.eq(node.get('sandbox:file'), sand)
             self.eq(node.get('client'), 'tcp://1.2.3.4')
             self.eq(node.get('client:host'), client)
             self.eq(node.get('server'), 'tcp://5.5.5.5:443')
@@ -869,81 +914,81 @@ class InetModelTest(s_t_utils.SynTest):
             ip_str_enfanged2 = '1(.)2(.)3(.)4'
             ip_str_unicode = '1\u200b.\u200b2\u200b.\u200b3\u200b.\u200b4'
 
-            info = {'subs': {'type': 'unicast', 'version': 4}}
-            self.eq(t.norm(ip_tup), (ip_tup, info))
-            self.eq(t.norm(ip_str), (ip_tup, info))
-            self.eq(t.norm(ip_str_enfanged), (ip_tup, info))
-            self.eq(t.norm(ip_str_enfanged2), (ip_tup, info))
-            self.eq(t.norm(ip_str_unicode), (ip_tup, info))
+            info = {'subs': {'type': (t.typetype.typehash, 'unicast', {}),
+                             'version': (t.verstype.typehash, 4, {})}}
+            self.eq(await t.norm(ip_tup), (ip_tup, info))
+            self.eq(await t.norm(ip_str), (ip_tup, info))
+            self.eq(await t.norm(ip_str_enfanged), (ip_tup, info))
+            self.eq(await t.norm(ip_str_enfanged2), (ip_tup, info))
+            self.eq(await t.norm(ip_str_unicode), (ip_tup, info))
             self.eq(t.repr(ip_tup), ip_str)
 
             # Link local test
             ip_str = '169.254.1.1'
-            norm, info = t.norm(ip_str)
+            norm, info = await t.norm(ip_str)
             self.eq((4, 2851995905), norm)
-            self.eq(info.get('subs').get('type'), 'linklocal')
+            self.eq(info.get('subs').get('type')[1], 'linklocal')
 
-            norm, info = t.norm('100.63.255.255')
-            self.eq(info.get('subs').get('type'), 'unicast')
+            norm, info = await t.norm('100.63.255.255')
+            self.eq(info.get('subs').get('type')[1], 'unicast')
 
-            norm, info = t.norm('100.64.0.0')
-            self.eq(info.get('subs').get('type'), 'shared')
+            norm, info = await t.norm('100.64.0.0')
+            self.eq(info.get('subs').get('type')[1], 'shared')
 
-            norm, info = t.norm('100.127.255.255')
-            self.eq(info.get('subs').get('type'), 'shared')
+            norm, info = await t.norm('100.127.255.255')
+            self.eq(info.get('subs').get('type')[1], 'shared')
 
-            norm, info = t.norm('100.128.0.0')
-            self.eq(info.get('subs').get('type'), 'unicast')
+            norm, info = await t.norm('100.128.0.0')
+            self.eq(info.get('subs').get('type')[1], 'unicast')
 
             # Don't allow invalid values
             with self.raises(s_exc.BadTypeValu):
-                t.norm(0x00000000 - 1)
+                await t.norm(0x00000000 - 1)
 
             with self.raises(s_exc.BadTypeValu):
-                t.norm(0xFFFFFFFF + 1)
+                await t.norm(0xFFFFFFFF + 1)
 
             with self.raises(s_exc.BadTypeValu):
-                t.norm('foo-bar.com')
+                await t.norm('foo-bar.com')
 
             with self.raises(s_exc.BadTypeValu):
-                t.norm('bar.com')
+                await t.norm('bar.com')
 
             with self.raises(s_exc.BadTypeValu):
-                t.norm((1, 2, 3))
+                await t.norm((1, 2, 3))
 
             with self.raises(s_exc.BadTypeValu):
-                t.norm((4, -1))
+                await t.norm((4, -1))
 
             with self.raises(s_exc.BadTypeValu):
-                t.norm((6, -1))
+                await t.norm((6, -1))
 
             with self.raises(s_exc.BadTypeValu):
-                t.norm((7, 1))
+                await t.norm((7, 1))
 
             with self.raises(s_exc.BadTypeValu):
                 t.repr((7, 1))
 
             # Form Tests ======================================================
-            place = s_common.guid()
-            props = {
-                'asn': 3,
-                'loc': 'uS',
-                'dns:rev': 'vertex.link',
-                'latlong': '-50.12345, 150.56789',
-                'place': place,
-            }
-            q = '[(inet:ip=$valu :asn=$p.asn :loc=$p.loc :dns:rev=$p."dns:rev" :latlong=$p.latlong :place=$p.place)]'
-            opts = {'vars': {'valu': '1.2.3.4', 'p': props}}
-            nodes = await core.nodes(q, opts=opts)
+            nodes = await core.nodes('''
+                [ inet:ip=1.2.3.4
+
+                    :asn=3
+                    :dns:rev=vertex.link
+
+                    :place=*
+                    :place:loc=us
+                    :place:latlong=(-50.12345, 150.56789)
+                ]
+            ''')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:ip', (4, 0x01020304)))
-            self.eq(node.get('asn'), 3)
-            self.eq(node.get('loc'), 'us')
-            self.eq(node.get('type'), 'unicast')
-            self.eq(node.get('dns:rev'), 'vertex.link')
-            self.eq(node.get('latlong'), (-50.12345, 150.56789))
-            self.eq(node.get('place'), place)
+            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
+            self.eq(nodes[0].get('asn'), 3)
+            self.eq(nodes[0].get('type'), 'unicast')
+            self.eq(nodes[0].get('dns:rev'), 'vertex.link')
+            self.eq(nodes[0].get('place:loc'), 'us')
+            self.eq(nodes[0].get('place:latlong'), (-50.12345, 150.56789))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4 :place -> geo:place'))
 
             # > / < lifts and filters
             self.len(4, await core.nodes('[inet:ip=0.0.0.0 inet:ip=0.0.0.1 inet:ip=0.0.0.2 inet:ip=0.0.0.3]'))
@@ -998,6 +1043,10 @@ class InetModelTest(s_t_utils.SynTest):
             resp = await core.callStorm(q)
             self.eq(resp, ['unicast', 'private', 'private'])
 
+            nodes = await core.nodes('[inet:ip=1.2.3.4 :seen=(2020,2021)]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000, 31622400000000))
+
     async def test_ipv6(self):
         formname = 'inet:ip'
         async with self.getTestCore() as core:
@@ -1005,72 +1054,62 @@ class InetModelTest(s_t_utils.SynTest):
             # Type Tests ======================================================
             t = core.model.type(formname)
 
-            info = {'subs': {'type': 'loopback', 'scope': 'link-local', 'version': 6}}
-            self.eq(t.norm('::1'), ((6, 1), info))
-            self.eq(t.norm('0:0:0:0:0:0:0:1'), ((6, 1), info))
+            info = {'subs': {'type': (t.typetype.typehash, 'loopback', {}),
+                             'scope': (t.scopetype.typehash, 'link-local', {}),
+                             'version': (t.verstype.typehash, 6, {})}}
+            self.eq(await t.norm('::1'), ((6, 1), info))
+            self.eq(await t.norm('0:0:0:0:0:0:0:1'), ((6, 1), info))
 
             addrnorm = (6, 0xff010000000000000000000000000001)
-            info = {'subs': {'type': 'multicast', 'scope': 'interface-local', 'version': 6}}
-            self.eq(t.norm('ff01::1'), (addrnorm, info))
+            info = {'subs': {'type': (t.typetype.typehash, 'multicast', {}),
+                             'scope': (t.scopetype.typehash, 'interface-local', {}),
+                             'version': (t.verstype.typehash, 6, {})}}
+            self.eq(await t.norm('ff01::1'), (addrnorm, info))
 
             addrnorm = (6, 0x20010db8000000000000ff0000428329)
-            info = {'subs': {'type': 'private', 'scope': 'global', 'version': 6}}
-            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), (addrnorm, info))
-            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042\u200b:8329'), (addrnorm, info))
-            self.raises(s_exc.BadTypeValu, t.norm, 'newp')
+            info = {'subs': {'type': (t.typetype.typehash, 'private', {}),
+                             'scope': (t.scopetype.typehash, 'global', {}),
+                             'version': (t.verstype.typehash, 6, {})}}
+            self.eq(await t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), (addrnorm, info))
+            self.eq(await t.norm('2001:0db8:0000:0000:0000:ff00:0042\u200b:8329'), (addrnorm, info))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('newp'))
 
             # Specific examples given in RFC5952
             addrnorm = (6, 0x20010db8000000000001000000000001)
-            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], addrnorm)
-            self.eq(t.norm('2001:0db8:0:0:1:0:0:1')[0], addrnorm)
-            self.eq(t.norm('2001:db8::1:0:0:1')[0], addrnorm)
-            self.eq(t.norm('2001:db8::0:1:0:0:1')[0], addrnorm)
-            self.eq(t.norm('2001:0db8::1:0:0:1')[0], addrnorm)
-            self.eq(t.norm('2001:db8:0:0:1::1')[0], addrnorm)
-            self.eq(t.norm('2001:DB8:0:0:1::1')[0], addrnorm)
-            self.eq(t.norm('2001:DB8:0:0:1:0000:0000:1')[0], addrnorm)
-            self.raises(s_exc.BadTypeValu, t.norm, '::1::')
-            self.eq(t.norm('2001:0db8::0001')[0], (6, 0x20010db8000000000000000000000001))
-            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], (6, 0x20010db8000000000000000000020001))
-            self.eq(t.norm('2001:db8:0:1:1:1:1:1')[0], (6, 0x20010db8000000010001000100010001))
-            self.eq(t.norm('2001:0:0:1:0:0:0:1')[0], (6, 0x20010000000000010000000000000001))
-            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], (6, 0x20010db8000000000001000000000001))
-            self.eq(t.norm('::ffff:1.2.3.4')[0], (6, 0xffff01020304))
-            self.eq(t.norm('2001:db8::0:1')[0], (6, 0x20010db8000000000000000000000001))
-            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], (6, 0x20010db8000000000000000000020001))
-            self.eq(t.norm('2001:db8::')[0], (6, 0x20010db8000000000000000000000000))
+            self.eq((await t.norm('2001:db8:0:0:1:0:0:1'))[0], addrnorm)
+            self.eq((await t.norm('2001:0db8:0:0:1:0:0:1'))[0], addrnorm)
+            self.eq((await t.norm('2001:db8::1:0:0:1'))[0], addrnorm)
+            self.eq((await t.norm('2001:db8::0:1:0:0:1'))[0], addrnorm)
+            self.eq((await t.norm('2001:0db8::1:0:0:1'))[0], addrnorm)
+            self.eq((await t.norm('2001:db8:0:0:1::1'))[0], addrnorm)
+            self.eq((await t.norm('2001:DB8:0:0:1::1'))[0], addrnorm)
+            self.eq((await t.norm('2001:DB8:0:0:1:0000:0000:1'))[0], addrnorm)
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('::1::'))
+            self.eq((await t.norm('2001:0db8::0001'))[0], (6, 0x20010db8000000000000000000000001))
+            self.eq((await t.norm('2001:db8:0:0:0:0:2:1'))[0], (6, 0x20010db8000000000000000000020001))
+            self.eq((await t.norm('2001:db8:0:1:1:1:1:1'))[0], (6, 0x20010db8000000010001000100010001))
+            self.eq((await t.norm('2001:0:0:1:0:0:0:1'))[0], (6, 0x20010000000000010000000000000001))
+            self.eq((await t.norm('2001:db8:0:0:1:0:0:1'))[0], (6, 0x20010db8000000000001000000000001))
+            self.eq((await t.norm('::ffff:1.2.3.4'))[0], (6, 0xffff01020304))
+            self.eq((await t.norm('2001:db8::0:1'))[0], (6, 0x20010db8000000000000000000000001))
+            self.eq((await t.norm('2001:db8:0:0:0:0:2:1'))[0], (6, 0x20010db8000000000000000000020001))
+            self.eq((await t.norm('2001:db8::'))[0], (6, 0x20010db8000000000000000000000000))
 
             # Link local test
             ip_str = 'fe80::1'
-            norm, info = t.norm(ip_str)
+            norm, info = await t.norm(ip_str)
             self.eq(norm, (6, 0xfe800000000000000000000000000001))
-            self.eq(info.get('subs').get('type'), 'linklocal')
+            self.eq(info.get('subs').get('type')[1], 'linklocal')
 
             # Form Tests ======================================================
-            place = s_common.guid()
-            valu = '::fFfF:1.2.3.4'
-            props = {
-                'loc': 'cool',
-                'latlong': '0,2',
-                'dns:rev': 'vertex.link',
-                'place': place,
-            }
-            opts = {'vars': {'valu': valu, 'p': props}}
-            q = '[(inet:ip=$valu :loc=$p.loc :latlong=$p.latlong :dns:rev=$p."dns:rev" :place=$p.place)]'
-            nodes = await core.nodes(q, opts=opts)
+
+            nodes = await core.nodes('[ inet:ip="::fFfF:1.2.3.4" ]')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:ip', (6, 0xffff01020304)))
-            self.eq(node.get('dns:rev'), 'vertex.link')
-            self.eq(node.get('latlong'), (0.0, 2.0))
-            self.eq(node.get('loc'), 'cool')
-            self.eq(node.get('place'), place)
+            self.eq(nodes[0].ndef, ('inet:ip', (6, 0xffff01020304)))
 
             nodes = await core.nodes('[inet:ip="::1"]')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:ip', (6, 1)))
-            self.none(node.get('ipv4'))
+            self.eq(nodes[0].ndef, ('inet:ip', (6, 1)))
 
             self.len(1, await core.nodes('inet:ip=0::1'))
             self.len(1, await core.nodes('inet:ip*range=(0::1, 0::1)'))
@@ -1178,23 +1217,19 @@ class InetModelTest(s_t_utils.SynTest):
             # Type Tests ======================================================
             t = core.model.type(formname)
 
-            self.eq(t.norm('00:00:00:00:00:00'), ('00:00:00:00:00:00', {}))
-            self.eq(t.norm('FF:ff:FF:ff:FF:ff'), ('ff:ff:ff:ff:ff:ff', {}))
-            self.raises(s_exc.BadTypeValu, t.norm, ' FF:ff:FF:ff:FF:ff ')
-            self.raises(s_exc.BadTypeValu, t.norm, 'GG:ff:FF:ff:FF:ff')
+            self.eq(await t.norm('00:00:00:00:00:00'), ('00:00:00:00:00:00', {}))
+            self.eq(await t.norm('FF:ff:FF:ff:FF:ff'), ('ff:ff:ff:ff:ff:ff', {}))
+            self.eq(await t.norm(' FF:ff:FF:ff:FF:ff'), ('ff:ff:ff:ff:ff:ff', {}))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('GG:ff:FF:ff:FF:ff'))
 
             # Form Tests ======================================================
-            nodes = await core.nodes('[inet:mac="00:00:00:00:00:00"]')
+            nodes = await core.nodes('[inet:mac="00:00:00:00:00:00" :vendor=* :vendor:name=Cool]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:mac', '00:00:00:00:00:00'))
-            self.none(node.get('vendor'))
+            self.eq(node.get('vendor:name'), 'cool')
 
-            nodes = await core.nodes('[inet:mac="00:00:00:00:00:00" :vendor=Cool]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:mac', '00:00:00:00:00:00'))
-            self.eq(node.get('vendor'), 'Cool')
+            self.len(1, await core.nodes('inet:mac -> ou:org'))
 
     async def test_net4(self):
         tname = 'inet:net'
@@ -1203,21 +1238,37 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(tname)
 
             valu = ('1.2.3.4', '5.6.7.8')
-            expected = (((4, 16909060), (4, 84281096)), {'subs': {'min': (4, 16909060), 'max': (4, 84281096)}})
-            self.eq(t.norm(valu), expected)
+            minsub = (t.subtype.typehash, (4, 16909060), {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'unicast', {}),
+                        'version': (t.subtype.verstype.typehash, 4, {})}})
+
+            maxsub = (t.subtype.typehash, (4, 84281096), {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'unicast', {}),
+                        'version': (t.subtype.verstype.typehash, 4, {})}})
+
+            expected = (((4, 16909060), (4, 84281096)), {'subs': {'min': minsub, 'max': maxsub}})
+            self.eq(await t.norm(valu), expected)
 
             valu = '1.2.3.4-5.6.7.8'
-            self.eq(t.norm(valu), expected)
+            self.eq(await t.norm(valu), expected)
 
             valu = '1.2.3.0/24'
-            expected = (((4, 0x01020300), (4, 0x010203ff)), {'subs': {'min': (4, 0x01020300), 'max': (4, 0x010203ff)}})
-            self.eq(t.norm(valu), expected)
+            minsub = (t.subtype.typehash, (4, 0x01020300), {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'unicast', {}),
+                        'version': (t.subtype.verstype.typehash, 4, {})}})
+
+            maxsub = (t.subtype.typehash, (4, 0x010203ff), {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'unicast', {}),
+                        'version': (t.subtype.verstype.typehash, 4, {})}})
+
+            expected = (((4, 0x01020300), (4, 0x010203ff)), {'subs': {'min': minsub, 'max': maxsub}})
+            self.eq(await t.norm(valu), expected)
 
             valu = '5.6.7.8-1.2.3.4'
-            self.raises(s_exc.BadTypeValu, t.norm, valu)
+            await self.asyncraises(s_exc.BadTypeValu, t.norm(valu))
 
             valu = ('1.2.3.4', '5.6.7.8', '7.8.9.10')
-            self.raises(s_exc.BadTypeValu, t.norm, valu)
+            await self.asyncraises(s_exc.BadTypeValu, t.norm(valu))
 
     async def test_net6(self):
         tname = 'inet:net'
@@ -1226,43 +1277,63 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(tname)
 
             valu = ('0:0:0:0:0:0:0:0', '::Ff')
-            expected = (((6, 0), (6, 0xff)), {'subs': {'min': (6, 0), 'max': (6, 0xff)}})
-            self.eq(t.norm(valu), expected)
+            minsub = (t.subtype.typehash, (6, 0), {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'private', {}),
+                        'scope': (t.subtype.scopetype.typehash, 'global', {}),
+                        'version': (t.subtype.verstype.typehash, 6, {})}})
+
+            maxsub = (t.subtype.typehash, (6, 255), {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'reserved', {}),
+                        'scope': (t.subtype.scopetype.typehash, 'global', {}),
+                        'version': (t.subtype.verstype.typehash, 6, {})}})
+
+            expected = (((6, 0), (6, 0xff)), {'subs': {'min': minsub, 'max': maxsub}})
+            self.eq(await t.norm(valu), expected)
 
             valu = '0:0:0:0:0:0:0:0-::Ff'
-            self.eq(t.norm(valu), expected)
+            self.eq(await t.norm(valu), expected)
 
             # Test case in which ipaddress ordering is not alphabetical
             minv = (6, 0x33000100000000000000000000000000)
             maxv = (6, 0x3300010000010000000000000000ffff)
             valu = ('3300:100::', '3300:100:1::ffff')
-            expected = ((minv, maxv), {'subs': {'min': minv, 'max': maxv}})
-            self.eq(t.norm(valu), expected)
+            minsub = (t.subtype.typehash, minv, {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'unicast', {}),
+                        'scope': (t.subtype.scopetype.typehash, 'global', {}),
+                        'version': (t.subtype.verstype.typehash, 6, {})}})
+
+            maxsub = (t.subtype.typehash, maxv, {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'unicast', {}),
+                        'scope': (t.subtype.scopetype.typehash, 'global', {}),
+                        'version': (t.subtype.verstype.typehash, 6, {})}})
+
+            expected = ((minv, maxv), {'subs': {'min': minsub, 'max': maxsub}})
+            self.eq(await t.norm(valu), expected)
 
             minv = (6, 0x20010db8000000000000000000000000)
             maxv = (6, 0x20010db8000000000000000007ffffff)
             valu = '2001:db8::/101'
-            expected = ((minv, maxv), {'subs': {'min': minv, 'max': maxv}})
-            self.eq(t.norm(valu), expected)
+            minsub = (t.subtype.typehash, minv, {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'private', {}),
+                        'scope': (t.subtype.scopetype.typehash, 'global', {}),
+                        'version': (t.subtype.verstype.typehash, 6, {})}})
+
+            maxsub = (t.subtype.typehash, maxv, {'subs': {
+                        'type': (t.subtype.typetype.typehash, 'private', {}),
+                        'scope': (t.subtype.scopetype.typehash, 'global', {}),
+                        'version': (t.subtype.verstype.typehash, 6, {})}})
+
+            expected = ((minv, maxv), {'subs': {'min': minsub, 'max': maxsub}})
+            self.eq(await t.norm(valu), expected)
 
             valu = ('fe00::', 'fd00::')
-            self.raises(s_exc.BadTypeValu, t.norm, valu)
+            await self.asyncraises(s_exc.BadTypeValu, t.norm(valu))
 
             valu = ('fd00::', 'fe00::', 'ff00::')
-            self.raises(s_exc.BadTypeValu, t.norm, valu)
+            await self.asyncraises(s_exc.BadTypeValu, t.norm(valu))
 
             with self.raises(s_exc.BadTypeValu):
-                t.norm(((6, 1), (4, 1)))
-
-    async def test_passwd(self):
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:passwd=2Cool4u]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:passwd', '2Cool4u'))
-            self.eq(node.get('md5'), '91112d75297841c12ca655baafc05104')
-            self.eq(node.get('sha1'), '2984ab44774294be9f7a369bbd73b52021bf0bb4')
-            self.eq(node.get('sha256'), '62c7174a99ff0afd4c828fc779d2572abc2438415e3ca9769033d4a36479b14f')
+                await t.norm(((6, 1), (4, 1)))
 
     async def test_port(self):
         tname = 'inet:port'
@@ -1270,13 +1341,13 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Type Tests ======================================================
             t = core.model.type(tname)
-            self.raises(s_exc.BadTypeValu, t.norm, -1)
-            self.eq(t.norm(0), (0, {}))
-            self.eq(t.norm(1), (1, {}))
-            self.eq(t.norm('2'), (2, {}))
-            self.eq(t.norm('0xF'), (15, {}))
-            self.eq(t.norm(65535), (65535, {}))
-            self.raises(s_exc.BadTypeValu, t.norm, 65536)
+            await self.asyncraises(s_exc.BadTypeValu, t.norm(-1))
+            self.eq(await t.norm(0), (0, {}))
+            self.eq(await t.norm(1), (1, {}))
+            self.eq(await t.norm('2'), (2, {}))
+            self.eq(await t.norm('0xF'), (15, {}))
+            self.eq(await t.norm(65535), (65535, {}))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm(65536))
 
     async def test_rfc2822_addr(self):
         formname = 'inet:rfc2822:addr'
@@ -1285,14 +1356,25 @@ class InetModelTest(s_t_utils.SynTest):
             # Type Tests ======================================================
             t = core.model.type(formname)
 
-            self.eq(t.norm('FooBar'), ('foobar', {'subs': {}}))
-            self.eq(t.norm('visi@vertex.link'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
-            self.eq(t.norm('foo bar<visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
-            self.eq(t.norm('foo bar <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
-            self.eq(t.norm('"foo bar "   <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
-            self.eq(t.norm('<visi@vertex.link>'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
+            namesub = (t.metatype.typehash, 'foo bar', {})
+            emailsub = (t.emailtype.typehash, 'visi@vertex.link', {'subs': {
+                            'fqdn': (t.emailtype.fqdntype.typehash, 'vertex.link', {'subs': {
+                                'host': (t.emailtype.fqdntype.hosttype.typehash, 'vertex', {}),
+                                'domain': (t.emailtype.fqdntype.typehash, 'link', {'subs': {
+                                    'host': (t.emailtype.fqdntype.hosttype.typehash, 'link', {}),
+                                    'issuffix': (t.emailtype.fqdntype.booltype.typehash, 1, {}),
+                                }}),
+                            }}),
+                            'user': (t.emailtype.usertype.typehash, 'visi', {})}})
 
-            valu = t.norm('bob\udcfesmith@woot.com')[0]
+            self.eq(await t.norm('FooBar'), ('foobar', {'subs': {}}))
+            self.eq(await t.norm('visi@vertex.link'), ('visi@vertex.link', {'subs': {'email': emailsub}}))
+            self.eq(await t.norm('foo bar<visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': emailsub, 'name': namesub}}))
+            self.eq(await t.norm('foo bar <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': emailsub, 'name': namesub}}))
+            self.eq(await t.norm('"foo bar "   <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': emailsub, 'name': namesub}}))
+            self.eq(await t.norm('<visi@vertex.link>'), ('visi@vertex.link', {'subs': {'email': emailsub}}))
+
+            valu = (await t.norm('bob\udcfesmith@woot.com'))[0]
             self.eq(valu, 'bob\udcfesmith@woot.com')
 
             # Form Tests ======================================================
@@ -1337,6 +1419,10 @@ class InetModelTest(s_t_utils.SynTest):
                 'port': 12345,
                 'proto': 'host',
             }),
+            ((4, 2130706433), 'tcp://127.0.0.1', {
+                'ip': (4, 2130706433),
+                'proto': 'tcp',
+            }),
         )
 
         async with self.getTestCore() as core:
@@ -1348,17 +1434,38 @@ class InetModelTest(s_t_utils.SynTest):
                 for p, v in props.items():
                     self.eq(node.get(p), v)
 
-    async def test_servfile(self):
-        async with self.getTestCore() as core:
-            valu = ('tcp://127.0.0.1:4040', 64 * 'f')
-            nodes = await core.nodes('[(inet:servfile=$valu :server:host=$host)]',
-                                     opts={'vars': {'valu': valu, 'host': 32 * 'a'}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:servfile', ('tcp://127.0.0.1:4040', 'sha256:' + 64 * 'f')))
-            self.eq(node.get('server'), 'tcp://127.0.0.1:4040')
-            self.eq(node.get('server:host'), 32 * 'a')
-            self.eq(node.get('file'), 'sha256:' + 64 * 'f')
+            nodes = await core.nodes('[ it:network=* :dns:resolvers=(([4, 1]),)]')
+            self.eq(nodes[0].get('dns:resolvers'), ('udp://0.0.0.1:53',))
+
+            nodes = await core.nodes('[ it:network=* :dns:resolvers=(([6, 1]),)]')
+            self.eq(nodes[0].get('dns:resolvers'), ('udp://[::1]:53',))
+
+            nodes = await core.nodes('[ it:network=* :dns:resolvers=("::1",)]')
+            self.eq(nodes[0].get('dns:resolvers'), ('udp://[::1]:53',))
+
+            nodes = await core.nodes('[ it:network=* :dns:resolvers=("[::1]",)]')
+            self.eq(nodes[0].get('dns:resolvers'), ('udp://[::1]:53',))
+
+            nodes = await core.nodes('[ inet:server=gre://::1 ]')
+            self.eq(nodes[0].get('proto'), 'gre')
+
+            nodes = await core.nodes('[ inet:server=gre://1.2.3.4 ]')
+            self.eq(nodes[0].get('proto'), 'gre')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server=gre://1.2.3.4:99 ]')
+
+            self.eq(ctx.exception.get('mesg'), 'Protocol gre does not allow specifying ports.')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server="gre://[::1]:99" ]')
+
+            self.eq(ctx.exception.get('mesg'), 'Protocol gre does not allow specifying ports.')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server=newp://1.2.3.4:99 ]')
+
+            self.eq(ctx.exception.get('mesg'), 'inet:sockaddr protocol must be one of: tcp,udp,icmp,host,gre')
 
     async def test_url(self):
         formname = 'inet:url'
@@ -1366,112 +1473,124 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Type Tests ======================================================
             t = core.model.type(formname)
-            self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')
-            self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
-            self.raises(s_exc.BadTypeValu, t.norm, "file://''")  # Missing address/url
-            self.raises(s_exc.BadTypeValu, t.norm, "file://#")  # Missing address/url
-            self.raises(s_exc.BadTypeValu, t.norm, "file://$")  # Missing address/url
-            self.raises(s_exc.BadTypeValu, t.norm, "file://%")  # Missing address/url
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('http:///wat'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('wat'))  # No Protocol
+            await self.asyncraises(s_exc.BadTypeValu, t.norm("file://''"))  # Missing address/url
+            await self.asyncraises(s_exc.BadTypeValu, t.norm("file://#"))  # Missing address/url
+            await self.asyncraises(s_exc.BadTypeValu, t.norm("file://$"))  # Missing address/url
+            await self.asyncraises(s_exc.BadTypeValu, t.norm("file://%"))  # Missing address/url
 
-            self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('www.google\udcfesites.com/hehe.asp'))
 
             for proto in ('http', 'hxxp', 'hXXp'):
                 url = 'http://www.googlesites.com/hehe\udcfestuff.asp'
-                valu = t.norm(f'{proto}://www.googlesites.com/hehe\udcfestuff.asp')
+                valu = await t.norm(f'{proto}://www.googlesites.com/hehe\udcfestuff.asp')
                 expected = (url, {'subs': {
-                    'proto': 'http',
-                    'path': '/hehe\udcfestuff.asp',
-                    'port': 80,
-                    'params': '',
-                    'fqdn': 'www.googlesites.com',
-                    'base': url
+                    'proto': (t.lowstrtype.typehash, 'http', {}),
+                    'path': (t.strtype.typehash, '/hehe\udcfestuff.asp', {}),
+                    'port': (t.porttype.typehash, 80, {}),
+                    'params': (t.strtype.typehash, '', {}),
+                    'fqdn': (t.fqdntype.typehash, 'www.googlesites.com', {'subs': {
+                        'domain': (t.fqdntype.typehash, 'googlesites.com', {'subs': {
+                            'host': (t.fqdntype.hosttype.typehash, 'googlesites', {}),
+                            'domain': (t.fqdntype.typehash, 'com', {'subs': {
+                                'host': (t.fqdntype.hosttype.typehash, 'com', {}),
+                                'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                            }}),
+                        }}),
+                        'host': (t.fqdntype.hosttype.typehash, 'www', {})}}),
+                    'base': (t.strtype.typehash, url, {}),
                 }})
                 self.eq(valu, expected)
 
             for proto in ('https', 'hxxps', 'hXXps'):
                 url = f'https://dummyimage.com/600x400/000/fff.png&text=cat@bam.com'
-                valu = t.norm(f'{proto}://dummyimage.com/600x400/000/fff.png&text=cat@bam.com')
+                valu = await t.norm(f'{proto}://dummyimage.com/600x400/000/fff.png&text=cat@bam.com')
                 expected = (url, {'subs': {
-                    'base': url,
-                    'proto': 'https',
-                    'path': '/600x400/000/fff.png&text=cat@bam.com',
-                    'port': 443,
-                    'params': '',
-                    'fqdn': 'dummyimage.com'
+                    'base': (t.strtype.typehash, url, {}),
+                    'proto': (t.lowstrtype.typehash, 'https', {}),
+                    'path': (t.strtype.typehash, '/600x400/000/fff.png&text=cat@bam.com', {}),
+                    'port': (t.porttype.typehash, 443, {}),
+                    'params': (t.strtype.typehash, '', {}),
+                    'fqdn': (t.fqdntype.typehash, 'dummyimage.com', {'subs': {
+                        'domain': (t.fqdntype.typehash, 'com', {'subs': {
+                            'host': (t.fqdntype.hosttype.typehash, 'com', {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                        }}),
+                        'host': (t.fqdntype.hosttype.typehash, 'dummyimage', {})}}),
                 }})
                 self.eq(valu, expected)
 
+            ipsub = (t.iptype.typehash, (4, 0), {'subs': {
+                        'type': (t.iptype.typetype.typehash, 'private', {}),
+                        'version': (t.iptype.verstype.typehash, 4, {})}})
+
             url = 'http://0.0.0.0/index.html?foo=bar'
-            valu = t.norm(url)
+            valu = await t.norm(url)
             expected = (url, {'subs': {
-                'proto': 'http',
-                'path': '/index.html',
-                'params': '?foo=bar',
-                'ip': (4, 0),
-                'port': 80,
-                'base': 'http://0.0.0.0/index.html'
+                'proto': (t.lowstrtype.typehash, 'http', {}),
+                'path': (t.strtype.typehash, '/index.html', {}),
+                'params': (t.strtype.typehash, '?foo=bar', {}),
+                'ip': ipsub,
+                'port': (t.porttype.typehash, 80, {}),
+                'base': (t.strtype.typehash, 'http://0.0.0.0/index.html', {}),
             }})
             self.eq(valu, expected)
 
             url = '  http://0.0.0.0/index.html?foo=bar  '
-            valu = t.norm(url)
+            valu = await t.norm(url)
             expected = (url.strip(), {'subs': {
-                'proto': 'http',
-                'path': '/index.html',
-                'params': '?foo=bar',
-                'ip': (4, 0),
-                'port': 80,
-                'base': 'http://0.0.0.0/index.html'
+                'proto': (t.lowstrtype.typehash, 'http', {}),
+                'path': (t.strtype.typehash, '/index.html', {}),
+                'params': (t.strtype.typehash, '?foo=bar', {}),
+                'ip': ipsub,
+                'port': (t.porttype.typehash, 80, {}),
+                'base': (t.strtype.typehash, 'http://0.0.0.0/index.html', {}),
             }})
             self.eq(valu, expected)
 
-            url = '  http://0.0.0.0/index.html?foo=bar  '
-            valu = t.norm(url)
-            expected = (url.strip(), {'subs': {
-                'proto': 'http',
-                'path': '/index.html',
-                'params': '?foo=bar',
-                'ip': (4, 0),
-                'port': 80,
-                'base': 'http://0.0.0.0/index.html'
-            }})
-            self.eq(valu, expected)
+            ipsub = (t.iptype.typehash, (6, 1), {'subs': {
+                        'type': (t.iptype.typetype.typehash, 'loopback', {}),
+                        'scope': (t.iptype.scopetype.typehash, 'link-local', {}),
+                        'version': (t.iptype.verstype.typehash, 6, {})}})
 
             unc = '\\\\0--1.ipv6-literal.net\\share\\path\\to\\filename.txt'
             url = 'smb://::1/share/path/to/filename.txt'
-            valu = t.norm(unc)
+            valu = await t.norm(unc)
             expected = (url, {'subs': {
-                'base': url,
-                'proto': 'smb',
-                'params': '',
-                'path': '/share/path/to/filename.txt',
-                'ip': (6, 1),
+                'base': (t.strtype.typehash, url, {}),
+                'proto': (t.lowstrtype.typehash, 'smb', {}),
+                'params': (t.strtype.typehash, '', {}),
+                'path': (t.strtype.typehash, '/share/path/to/filename.txt', {}),
+                'ip': ipsub,
             }})
             self.eq(valu, expected)
 
             unc = '\\\\0--1.ipv6-literal.net@1234\\share\\filename.txt'
             url = 'smb://[::1]:1234/share/filename.txt'
-            valu = t.norm(unc)
+            valu = await t.norm(unc)
             expected = (url, {'subs': {
-                'base': url,
-                'proto': 'smb',
-                'path': '/share/filename.txt',
-                'params': '',
-                'port': 1234,
-                'ip': (6, 1),
+                'base': (t.strtype.typehash, url, {}),
+                'proto': (t.lowstrtype.typehash, 'smb', {}),
+                'path': (t.strtype.typehash, '/share/filename.txt', {}),
+                'params': (t.strtype.typehash, '', {}),
+                'port': (t.porttype.typehash, 1234, {}),
+                'ip': ipsub,
             }})
             self.eq(valu, expected)
 
             unc = '\\\\server@SSL@1234\\share\\path\\to\\filename.txt'
             url = 'https://server:1234/share/path/to/filename.txt'
-            valu = t.norm(unc)
+            valu = await t.norm(unc)
             expected = (url, {'subs': {
-                'base': url,
-                'proto': 'https',
-                'fqdn': 'server',
-                'params': '',
-                'port': 1234,
-                'path': '/share/path/to/filename.txt',
+                'base': (t.strtype.typehash, url, {}),
+                'proto': (t.lowstrtype.typehash, 'https', {}),
+                'fqdn': (t.fqdntype.typehash, 'server', {'subs': {
+                    'host': (t.fqdntype.hosttype.typehash, 'server', {}),
+                    'issuffix': (t.fqdntype.booltype.typehash, 1, {})}}),
+                'params': (t.strtype.typehash, '', {}),
+                'port': (t.porttype.typehash, 1234, {}),
+                'path': (t.strtype.typehash, '/share/path/to/filename.txt', {}),
             }})
             self.eq(valu, expected)
 
@@ -1579,205 +1698,262 @@ class InetModelTest(s_t_utils.SynTest):
 
             t = core.model.type('inet:url')
 
-            self.raises(s_exc.BadTypeValu, t.norm, 'file:////')
-            self.raises(s_exc.BadTypeValu, t.norm, 'file://///')
-            self.raises(s_exc.BadTypeValu, t.norm, 'file://')
-            self.raises(s_exc.BadTypeValu, t.norm, 'file:')
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('file:////'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('file://///'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('file://'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('file:'))
+
+            paramsub = (t.strtype.typehash, '', {})
+            protosub = (t.lowstrtype.typehash, 'file', {})
 
             url = 'file:///'
             expected = (url, {'subs': {
-                'base': url,
-                'path': '/',
-                'proto': 'file',
-                'params': '',
+                'base': (t.strtype.typehash, url, {}),
+                'path': (t.strtype.typehash, '/', {}),
+                'proto': protosub,
+                'params': paramsub,
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             url = 'file:///home/foo/Documents/html/index.html'
             expected = (url, {'subs': {
-                'base': url,
-                'path': '/home/foo/Documents/html/index.html',
-                'proto': 'file',
-                'params': '',
+                'base': (t.strtype.typehash, url, {}),
+                'path': (t.strtype.typehash, '/home/foo/Documents/html/index.html', {}),
+                'proto': protosub,
+                'params': paramsub,
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             url = 'file:///c:/path/to/my/file.jpg'
             expected = (url, {'subs': {
-                'base': url,
-                'path': 'c:/path/to/my/file.jpg',
-                'params': '',
-                'proto': 'file'
+                'base': (t.strtype.typehash, url, {}),
+                'path': (t.strtype.typehash, 'c:/path/to/my/file.jpg', {}),
+                'params': paramsub,
+                'proto': protosub,
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
+            lhostsub = {
+                'host': (t.fqdntype.hosttype.typehash, 'localhost', {}),
+                'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+            }
             url = 'file://localhost/c:/Users/BarUser/stuff/moar/stuff.txt'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'path': 'c:/Users/BarUser/stuff/moar/stuff.txt',
-                'params': '',
-                'fqdn': 'localhost',
-                'base': url,
+                'proto': protosub,
+                'path': (t.strtype.typehash, 'c:/Users/BarUser/stuff/moar/stuff.txt', {}),
+                'params': paramsub,
+                'fqdn': (t.fqdntype.typehash, 'localhost', {'subs': lhostsub}),
+                'base': (t.strtype.typehash, url, {}),
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             url = 'file:///c:/Users/BarUser/stuff/moar/stuff.txt'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'path': 'c:/Users/BarUser/stuff/moar/stuff.txt',
-                'params': '',
-                'base': url,
+                'proto': protosub,
+                'path': (t.strtype.typehash, 'c:/Users/BarUser/stuff/moar/stuff.txt', {}),
+                'params': paramsub,
+                'base': (t.strtype.typehash, url, {}),
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             url = 'file://localhost/home/visi/synapse/README.rst'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'path': '/home/visi/synapse/README.rst',
-                'params': '',
-                'fqdn': 'localhost',
-                'base': url,
+                'proto': protosub,
+                'path': (t.strtype.typehash, '/home/visi/synapse/README.rst', {}),
+                'params': paramsub,
+                'fqdn': (t.fqdntype.typehash, 'localhost', {'subs': lhostsub}),
+                'base': (t.strtype.typehash, url, {}),
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             url = 'file:/C:/invisig0th/code/synapse/README.rst'
             expected = ('file:///C:/invisig0th/code/synapse/README.rst', {'subs': {
-                'proto': 'file',
-                'path': 'C:/invisig0th/code/synapse/README.rst',
-                'params': '',
-                'base': 'file:///C:/invisig0th/code/synapse/README.rst'
+                'proto': protosub,
+                'path': (t.strtype.typehash, 'C:/invisig0th/code/synapse/README.rst', {}),
+                'params': paramsub,
+                'base': (t.strtype.typehash, 'file:///C:/invisig0th/code/synapse/README.rst', {}),
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             url = 'file://somehost/path/to/foo.txt'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'params': '',
-                'path': '/path/to/foo.txt',
-                'fqdn': 'somehost',
-                'base': url
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, '/path/to/foo.txt', {}),
+                'fqdn': (t.fqdntype.typehash, 'somehost', {'subs': {
+                    'host': (t.fqdntype.hosttype.typehash, 'somehost', {}),
+                    'issuffix': (t.fqdntype.booltype.typehash, 1, {})}}),
+                'base': (t.strtype.typehash, url, {}),
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             url = 'file:/c:/foo/bar/baz/single/slash.txt'
             expected = ('file:///c:/foo/bar/baz/single/slash.txt', {'subs': {
-                'proto': 'file',
-                'params': '',
-                'path': 'c:/foo/bar/baz/single/slash.txt',
-                'base': 'file:///c:/foo/bar/baz/single/slash.txt',
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, 'c:/foo/bar/baz/single/slash.txt', {}),
+                'base': (t.strtype.typehash, 'file:///c:/foo/bar/baz/single/slash.txt', {}),
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             url = 'file:c:/foo/bar/baz/txt'
             expected = ('file:///c:/foo/bar/baz/txt', {'subs': {
-                'proto': 'file',
-                'params': '',
-                'path': 'c:/foo/bar/baz/txt',
-                'base': 'file:///c:/foo/bar/baz/txt',
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, 'c:/foo/bar/baz/txt', {}),
+                'base': (t.strtype.typehash, 'file:///c:/foo/bar/baz/txt', {}),
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             url = 'file:/home/visi/synapse/synapse/lib/'
             expected = ('file:///home/visi/synapse/synapse/lib/', {'subs': {
-                'proto': 'file',
-                'params': '',
-                'path': '/home/visi/synapse/synapse/lib/',
-                'base': 'file:///home/visi/synapse/synapse/lib/',
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, '/home/visi/synapse/synapse/lib/', {}),
+                'base': (t.strtype.typehash, 'file:///home/visi/synapse/synapse/lib/', {}),
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             url = 'file://foo.vertex.link/home/bar/baz/biz.html'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'path': '/home/bar/baz/biz.html',
-                'params': '',
-                'fqdn': 'foo.vertex.link',
-                'base': 'file://foo.vertex.link/home/bar/baz/biz.html',
+                'proto': protosub,
+                'path': (t.strtype.typehash, '/home/bar/baz/biz.html', {}),
+                'params': paramsub,
+                'fqdn': (t.fqdntype.typehash, 'foo.vertex.link', {'subs': {
+                    'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
+                        'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
+                        'domain': (t.fqdntype.typehash, 'link', {'subs': {
+                            'host': (t.fqdntype.hosttype.typehash, 'link', {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                        }}),
+                    }}),
+                    'host': (t.fqdntype.hosttype.typehash, 'foo', {})}}),
+                'base': (t.strtype.typehash, 'file://foo.vertex.link/home/bar/baz/biz.html', {}),
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             url = 'file://visi@vertex.link@somehost.vertex.link/c:/invisig0th/code/synapse/'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'fqdn': 'somehost.vertex.link',
-                'base': 'file://visi@vertex.link@somehost.vertex.link/c:/invisig0th/code/synapse/',
-                'path': 'c:/invisig0th/code/synapse/',
-                'user': 'visi@vertex.link',
-                'params': '',
+                'proto': protosub,
+                'fqdn': (t.fqdntype.typehash, 'somehost.vertex.link', {'subs': {
+                    'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
+                        'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
+                        'domain': (t.fqdntype.typehash, 'link', {'subs': {
+                            'host': (t.fqdntype.hosttype.typehash, 'link', {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                        }}),
+                    }}),
+                    'host': (t.fqdntype.hosttype.typehash, 'somehost', {})}}),
+                'base': (t.strtype.typehash, 'file://visi@vertex.link@somehost.vertex.link/c:/invisig0th/code/synapse/', {}),
+                'path': (t.strtype.typehash, 'c:/invisig0th/code/synapse/', {}),
+                'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+                'params': paramsub,
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
-            url = 'file://foo@bar.com:neato@password@7.7.7.7/c:/invisig0th/code/synapse/'
+            url = 'file://foo@bar.com:neato@burrito@7.7.7.7/c:/invisig0th/code/synapse/'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'base': 'file://foo@bar.com:neato@password@7.7.7.7/c:/invisig0th/code/synapse/',
-                'ip': (4, 117901063),
-                'path': 'c:/invisig0th/code/synapse/',
-                'user': 'foo@bar.com',
-                'passwd': 'neato@password',
-                'params': '',
+                'proto': protosub,
+                'base': (t.strtype.typehash, 'file://foo@bar.com:neato@burrito@7.7.7.7/c:/invisig0th/code/synapse/', {}),
+                'ip': (t.iptype.typehash, (4, 117901063), {'subs': {
+                    'type': (t.iptype.typetype.typehash, 'unicast', {}),
+                    'version': (t.iptype.verstype.typehash, 4, {})}}),
+                'path': (t.strtype.typehash, 'c:/invisig0th/code/synapse/', {}),
+                'user': (t.lowstrtype.typehash, 'foo@bar.com', {}),
+                'passwd': (t.passtype.typehash, 'neato@burrito', {'subs': {
+                    'md5': (t.passtype.md5.typehash, 'a8e174c5a70f75a78173b6f056e6391b', {}),
+                    'sha1': (t.passtype.sha1.typehash, '3d7b1484dd08034c00c4194b4b51625b55128982', {}),
+                    'sha256': (t.passtype.sha256.typehash, '4fb24561bf3fa8f5ed05e33ab4d883f0bfae7d61d5d58fe1aec9a347227c0dc3', {})}}),
+                'params': paramsub,
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             # not allowed by the rfc
-            self.raises(s_exc.BadTypeValu, t.norm, 'file:foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/')
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('file:foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/'))
 
             # Also an invalid URL, but doesn't cleanly fall out, because well, it could be a valid filename
             url = 'file:/foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/'
             expected = ('file:///foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/', {'subs': {
-                'proto': 'file',
-                'path': '/foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/',
-                'params': '',
-                'base': 'file:///foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/',
+                'proto': protosub,
+                'path': (t.strtype.typehash, '/foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/', {}),
+                'params': paramsub,
+                'base': (t.strtype.typehash, 'file:///foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/', {}),
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             # https://datatracker.ietf.org/doc/html/rfc8089#appendix-E.2
             url = 'file://visi@vertex.link:password@somehost.vertex.link:9876/c:/invisig0th/code/synapse/'
             expected = (url, {'subs': {
-                'proto': 'file',
-                'path': 'c:/invisig0th/code/synapse/',
-                'user': 'visi@vertex.link',
-                'passwd': 'password',
-                'fqdn': 'somehost.vertex.link',
-                'params': '',
-                'port': 9876,
-                'base': url,
+                'proto': protosub,
+                'path': (t.strtype.typehash, 'c:/invisig0th/code/synapse/', {}),
+                'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+                'passwd': (t.passtype.typehash, 'password', {'subs': {
+                    'md5': (t.passtype.md5.typehash, '5f4dcc3b5aa765d61d8327deb882cf99', {}),
+                    'sha1': (t.passtype.sha1.typehash, '5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8', {}),
+                    'sha256': (t.passtype.sha256.typehash, '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', {})}}),
+                'fqdn': (t.fqdntype.typehash, 'somehost.vertex.link', {'subs': {
+                    'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
+                        'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
+                        'domain': (t.fqdntype.typehash, 'link', {'subs': {
+                            'host': (t.fqdntype.hosttype.typehash, 'link', {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                        }}),
+                    }}),
+                    'host': (t.fqdntype.hosttype.typehash, 'somehost', {})}}),
+                'params': paramsub,
+                'port': (t.porttype.typehash, 9876, {}),
+                'base': (t.strtype.typehash, url, {}),
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             # https://datatracker.ietf.org/doc/html/rfc8089#appendix-E.2.2
             url = 'FILE:c|/synapse/synapse/lib/stormtypes.py'
             expected = ('file:///c|/synapse/synapse/lib/stormtypes.py', {'subs': {
-                'path': 'c|/synapse/synapse/lib/stormtypes.py',
-                'proto': 'file',
-                'params': '',
-                'base': 'file:///c|/synapse/synapse/lib/stormtypes.py',
+                'path': (t.strtype.typehash, 'c|/synapse/synapse/lib/stormtypes.py', {}),
+                'proto': protosub,
+                'params': paramsub,
+                'base': (t.strtype.typehash, 'file:///c|/synapse/synapse/lib/stormtypes.py', {}),
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             # https://datatracker.ietf.org/doc/html/rfc8089#appendix-E.3.2
             url = 'file:////host.vertex.link/SharedDir/Unc/FilePath'
             expected = ('file:////host.vertex.link/SharedDir/Unc/FilePath', {'subs': {
-                'proto': 'file',
-                'params': '',
-                'path': '/SharedDir/Unc/FilePath',
-                'fqdn': 'host.vertex.link',
-                'base': 'file:////host.vertex.link/SharedDir/Unc/FilePath',
+                'proto': protosub,
+                'params': paramsub,
+                'path': (t.strtype.typehash, '/SharedDir/Unc/FilePath', {}),
+                'fqdn': (t.fqdntype.typehash, 'host.vertex.link', {'subs': {
+                    'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
+                        'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
+                        'domain': (t.fqdntype.typehash, 'link', {'subs': {
+                            'host': (t.fqdntype.hosttype.typehash, 'link', {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                        }}),
+                    }}),
+                    'host': (t.fqdntype.hosttype.typehash, 'host', {})}}),
+                'base': (t.strtype.typehash, 'file:////host.vertex.link/SharedDir/Unc/FilePath', {}),
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
             # Firefox's non-standard representation that appears every so often
             # supported because the RFC supports it
             url = 'file://///host.vertex.link/SharedDir/Firefox/Unc/File/Path'
             expected = ('file:////host.vertex.link/SharedDir/Firefox/Unc/File/Path', {'subs': {
-                'proto': 'file',
-                'params': '',
-                'base': 'file:////host.vertex.link/SharedDir/Firefox/Unc/File/Path',
-                'path': '/SharedDir/Firefox/Unc/File/Path',
-                'fqdn': 'host.vertex.link',
+                'proto': protosub,
+                'params': paramsub,
+                'base': (t.strtype.typehash, 'file:////host.vertex.link/SharedDir/Firefox/Unc/File/Path', {}),
+                'path': (t.strtype.typehash, '/SharedDir/Firefox/Unc/File/Path', {}),
+                'fqdn': (t.fqdntype.typehash, 'host.vertex.link', {'subs': {
+                    'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
+                        'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
+                        'domain': (t.fqdntype.typehash, 'link', {'subs': {
+                            'host': (t.fqdntype.hosttype.typehash, 'link', {}),
+                            'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
+                        }}),
+                    }}),
+                    'host': (t.fqdntype.hosttype.typehash, 'host', {})}}),
             }})
-            self.eq(t.norm(url), expected)
+            self.eq(await t.norm(url), expected)
 
     async def test_url_fqdn(self):
 
@@ -1786,44 +1962,55 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type('inet:url')
 
             host = 'Vertex.Link'
-            norm_host = core.model.type('inet:fqdn').norm(host)[0]
-            repr_host = core.model.type('inet:fqdn').repr(norm_host)
+            fqdntype = core.model.type('inet:fqdn')
+            norm_host = await fqdntype.norm(host)
+            repr_host = core.model.type('inet:fqdn').repr(norm_host[0])
 
-            self.eq(norm_host, 'vertex.link')
+            self.eq(norm_host[0], 'vertex.link')
             self.eq(repr_host, 'vertex.link')
 
-            await self._test_types_url_behavior(t, 'fqdn', host, norm_host, repr_host)
+            hostsub = (fqdntype.typehash, norm_host[0], norm_host[1])
+            await self._test_types_url_behavior(t, 'fqdn', host, hostsub, repr_host)
 
     async def test_url_ipv4(self):
         async with self.getTestCore() as core:
             t = core.model.type('inet:url')
 
             host = '192[.]168.1[.]1'
-            norm_host = core.model.type('inet:ip').norm(host)[0]
-            repr_host = core.model.type('inet:ip').repr(norm_host)
-            self.eq(norm_host, (4, 3232235777))
+            iptype = core.model.type('inet:ip')
+            norm_host = await iptype.norm(host)
+            repr_host = core.model.type('inet:ip').repr(norm_host[0])
+            self.eq(norm_host[0], (4, 3232235777))
             self.eq(repr_host, '192.168.1.1')
 
-            await self._test_types_url_behavior(t, 'ipv4', host, norm_host, repr_host)
+            hostsub = (iptype.typehash, norm_host[0], norm_host[1])
+            await self._test_types_url_behavior(t, 'ipv4', host, hostsub, repr_host)
 
     async def test_url_ipv6(self):
         async with self.getTestCore() as core:
             t = core.model.type('inet:url')
 
             host = '::1'
-            norm_host = core.model.type('inet:ip').norm(host)[0]
-            repr_host = core.model.type('inet:ip').repr(norm_host)
-            self.eq(norm_host, (6, 1))
+            iptype = core.model.type('inet:ip')
+            norm_host = await iptype.norm(host)
+            repr_host = core.model.type('inet:ip').repr(norm_host[0])
+            self.eq(norm_host[0], (6, 1))
             self.eq(repr_host, '::1')
 
-            await self._test_types_url_behavior(t, 'ipv6', host, norm_host, repr_host)
+            hostsub = (iptype.typehash, norm_host[0], norm_host[1])
+            await self._test_types_url_behavior(t, 'ipv6', host, hostsub, repr_host)
 
             # IPv6 Port Special Cases
-            weird = t.norm('http://::1:81/hehe')
-            self.eq(weird[1]['subs']['ip'], (6, 0x10081))
-            self.eq(weird[1]['subs']['port'], 80)
+            weird = await t.norm('http://::1:81/hehe')
+            ipsubs = {
+                'type': (iptype.typetype.typehash, 'reserved', {}),
+                'scope': (iptype.scopetype.typehash, 'global', {}),
+                'version': (iptype.verstype.typehash, 6, {})
+            }
+            self.eq(weird[1]['subs']['ip'], (iptype.typehash, (6, 0x10081), {'subs': ipsubs}))
+            self.eq(weird[1]['subs']['port'], (core.model.type('inet:port').typehash, 80, {}))
 
-            self.raises(s_exc.BadTypeValu, t.norm, 'http://0:0:0:0:0:0:0:0:81/')
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('http://0:0:0:0:0:0:0:0:81/'))
 
     async def _test_types_url_behavior(self, t, htype, host, norm_host, repr_host):
 
@@ -1841,127 +2028,179 @@ class InetModelTest(s_t_utils.SynTest):
         # URL with auth and port.
         url = f'https://user:password@{host_port}:1234/a/b/c/'
         expected = (f'https://user:password@{repr_host_port}:1234/a/b/c/', {'subs': {
-            'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 1234,
-            'base': f'https://user:password@{repr_host_port}:1234/a/b/c/',
-            'params': ''
+            'proto': (t.lowstrtype.typehash, 'https', {}),
+            'path': (t.strtype.typehash, '/a/b/c/', {}),
+            'user': (t.lowstrtype.typehash, 'user', {}),
+            'passwd': (t.passtype.typehash, 'password', {'subs': {
+                'md5': (t.passtype.md5.typehash, '5f4dcc3b5aa765d61d8327deb882cf99', {}),
+                'sha1': (t.passtype.sha1.typehash, '5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8', {}),
+                'sha256': (t.passtype.sha256.typehash, '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', {})}}),
+            htype: norm_host,
+            'port': (t.porttype.typehash, 1234, {}),
+            'base': (t.strtype.typehash, f'https://user:password@{repr_host_port}:1234/a/b/c/', {}),
+            'params': (t.strtype.typehash, '', {})
         }})
-        self.eq(t.norm(url), expected)
+        self.eq(await t.norm(url), expected)
 
         # Userinfo user with @ in it
         url = f'lando://visi@vertex.link@{host_port}:40000/auth/gateway'
         expected = (f'lando://visi@vertex.link@{repr_host_port}:40000/auth/gateway', {'subs': {
-            'proto': 'lando', 'path': '/auth/gateway',
-            'user': 'visi@vertex.link',
-            'base': f'lando://visi@vertex.link@{repr_host_port}:40000/auth/gateway',
-            'port': 40000,
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'lando', {}),
+            'path': (t.strtype.typehash, '/auth/gateway', {}),
+            'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+            'base': (t.strtype.typehash, f'lando://visi@vertex.link@{repr_host_port}:40000/auth/gateway', {}),
+            'port': (t.porttype.typehash, 40000, {}),
+            'params': (t.strtype.typehash, '', {}),
             htype: norm_host,
         }})
-        self.eq(t.norm(url), expected)
+        self.eq(await t.norm(url), expected)
 
         # Userinfo password with @
         url = f'balthazar://root:foo@@@bar@{host_port}:1234/'
         expected = (f'balthazar://root:foo@@@bar@{repr_host_port}:1234/', {'subs': {
-            'proto': 'balthazar', 'path': '/',
-            'user': 'root', 'passwd': 'foo@@@bar',
-            'base': f'balthazar://root:foo@@@bar@{repr_host_port}:1234/',
-            'port': 1234,
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'balthazar', {}),
+            'path': (t.strtype.typehash, '/', {}),
+            'user': (t.lowstrtype.typehash, 'root', {}),
+            'passwd': (t.passtype.typehash, 'foo@@@bar', {'subs': {
+                'md5': (t.passtype.md5.typehash, '43947b88f0eb686bfc5c4237ffd36beb', {}),
+                'sha1': (t.passtype.sha1.typehash, 'd29614eb55f9aa29efd8f3105ed60b8881dc81dd', {}),
+                'sha256': (t.passtype.sha256.typehash, 'd5547965c7f16db873d22ddbcc333f002c94913330801d84b2ab899ca76fa101', {})}}),
+            'base': (t.strtype.typehash, f'balthazar://root:foo@@@bar@{repr_host_port}:1234/', {}),
+            'port': (t.porttype.typehash, 1234, {}),
+            'params': (t.strtype.typehash, '', {}),
             htype: norm_host,
         }})
-        self.eq(t.norm(url), expected)
+        self.eq(await t.norm(url), expected)
 
         # rfc3986 compliant Userinfo with @ properly encoded
         url = f'calrissian://visi%40vertex.link:surround%40@{host_port}:44343'
         expected = (f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343', {'subs': {
-            'proto': 'calrissian', 'path': '',
-            'user': 'visi@vertex.link', 'passwd': 'surround@',
-            'base': f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343',
-            'port': 44343,
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'calrissian', {}),
+            'path': (t.strtype.typehash, '', {}),
+            'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+            'passwd': (t.passtype.typehash, 'surround@', {'subs': {
+                'md5': (t.passtype.md5.typehash, '494346410c1c4a4b98feb1b1956a71ae', {}),
+                'sha1': (t.passtype.sha1.typehash, 'ba9b515889b5d7f1bb1d13f13409e1f7518f7c20', {}),
+                'sha256': (t.passtype.sha256.typehash, '5058c40473c5e4e2a174f8837d4295d19ca1542d2fb45017f54d89f80da6897d', {})}}),
+            'base': (t.strtype.typehash, f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343', {}),
+            'port': (t.porttype.typehash, 44343, {}),
+            'params': (t.strtype.typehash, '', {}),
             htype: norm_host,
         }})
-        self.eq(t.norm(url), expected)
+        self.eq(await t.norm(url), expected)
 
         # unencoded query params are handled nicely
         url = f'https://visi@vertex.link:neato@burrito@{host}/?q=@foobarbaz'
         expected = (f'https://visi@vertex.link:neato@burrito@{repr_host}/?q=@foobarbaz', {'subs': {
-            'proto': 'https', 'path': '/',
-            'user': 'visi@vertex.link', 'passwd': 'neato@burrito',
-            'base': f'https://visi@vertex.link:neato@burrito@{repr_host}/',
-            'port': 443,
-            'params': '?q=@foobarbaz',
+            'proto': (t.lowstrtype.typehash, 'https', {}),
+            'path': (t.strtype.typehash, '/', {}),
+            'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+            'passwd': (t.passtype.typehash, 'neato@burrito', {'subs': {
+                'md5': (t.passtype.md5.typehash, 'a8e174c5a70f75a78173b6f056e6391b', {}),
+                'sha1': (t.passtype.sha1.typehash, '3d7b1484dd08034c00c4194b4b51625b55128982', {}),
+                'sha256': (t.passtype.sha256.typehash, '4fb24561bf3fa8f5ed05e33ab4d883f0bfae7d61d5d58fe1aec9a347227c0dc3', {})}}),
+            'base': (t.strtype.typehash, f'https://visi@vertex.link:neato@burrito@{repr_host}/', {}),
+            'port': (t.porttype.typehash, 443, {}),
+            'params': (t.strtype.typehash, '?q=@foobarbaz', {}),
             htype: norm_host,
         }})
-        self.eq(t.norm(url), expected)
+        self.eq(await t.norm(url), expected)
 
         # URL with no port, but default port valu.
         # Port should be in subs, but not normed URL.
         url = f'https://user:password@{host}/a/b/c/?foo=bar&baz=faz'
         expected = (f'https://user:password@{repr_host}/a/b/c/?foo=bar&baz=faz', {'subs': {
-            'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 443,
-            'base': f'https://user:password@{repr_host}/a/b/c/',
-            'params': '?foo=bar&baz=faz',
+            'proto': (t.lowstrtype.typehash, 'https', {}),
+            'path': (t.strtype.typehash, '/a/b/c/', {}),
+            'user': (t.lowstrtype.typehash, 'user', {}),
+            'passwd': (t.passtype.typehash, 'password', {'subs': {
+                'md5': (t.passtype.md5.typehash, '5f4dcc3b5aa765d61d8327deb882cf99', {}),
+                'sha1': (t.passtype.sha1.typehash, '5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8', {}),
+                'sha256': (t.passtype.sha256.typehash, '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', {})}}),
+            htype: norm_host,
+            'port': (t.porttype.typehash, 443, {}),
+            'base': (t.strtype.typehash, f'https://user:password@{repr_host}/a/b/c/', {}),
+            'params': (t.strtype.typehash, '?foo=bar&baz=faz', {})
         }})
-        self.eq(t.norm(url), expected)
+        self.eq(await t.norm(url), expected)
 
         # URL with no port and no default port valu.
         # Port should not be in subs or normed URL.
         url = f'arbitrary://user:password@{host}/a/b/c/'
         expected = (f'arbitrary://user:password@{repr_host}/a/b/c/', {'subs': {
-            'proto': 'arbitrary', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host,
-            'base': f'arbitrary://user:password@{repr_host}/a/b/c/',
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'arbitrary', {}),
+            'path': (t.strtype.typehash, '/a/b/c/', {}),
+            'user': (t.lowstrtype.typehash, 'user', {}),
+            'passwd': (t.passtype.typehash, 'password', {'subs': {
+                'md5': (t.passtype.md5.typehash, '5f4dcc3b5aa765d61d8327deb882cf99', {}),
+                'sha1': (t.passtype.sha1.typehash, '5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8', {}),
+                'sha256': (t.passtype.sha256.typehash, '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', {})}}),
+            htype: norm_host,
+            'base': (t.strtype.typehash, f'arbitrary://user:password@{repr_host}/a/b/c/', {}),
+            'params': (t.strtype.typehash, '', {})
         }})
-        self.eq(t.norm(url), expected)
+        self.eq(await t.norm(url), expected)
 
         # URL with user but no password.
         # User should still be in URL and subs.
         url = f'https://user@{host_port}:1234/a/b/c/'
         expected = (f'https://user@{repr_host_port}:1234/a/b/c/', {'subs': {
-            'proto': 'https', 'path': '/a/b/c/', 'user': 'user', htype: norm_host, 'port': 1234,
-            'base': f'https://user@{repr_host_port}:1234/a/b/c/',
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'https', {}),
+            'path': (t.strtype.typehash, '/a/b/c/', {}),
+            'user': (t.lowstrtype.typehash, 'user', {}),
+            htype: norm_host,
+            'port': (t.porttype.typehash, 1234, {}),
+            'base': (t.strtype.typehash, f'https://user@{repr_host_port}:1234/a/b/c/', {}),
+            'params': (t.strtype.typehash, '', {})
         }})
-        self.eq(t.norm(url), expected)
+        self.eq(await t.norm(url), expected)
 
         # URL with no user/password.
         # User/Password should not be in URL or subs.
         url = f'https://{host_port}:1234/a/b/c/'
         expected = (f'https://{repr_host_port}:1234/a/b/c/', {'subs': {
-            'proto': 'https', 'path': '/a/b/c/', htype: norm_host, 'port': 1234,
-            'base': f'https://{repr_host_port}:1234/a/b/c/',
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'https', {}),
+            'path': (t.strtype.typehash, '/a/b/c/', {}),
+            htype: norm_host,
+            'port': (t.porttype.typehash, 1234, {}),
+            'base': (t.strtype.typehash, f'https://{repr_host_port}:1234/a/b/c/', {}),
+            'params': (t.strtype.typehash, '', {})
         }})
-        self.eq(t.norm(url), expected)
+        self.eq(await t.norm(url), expected)
 
         # URL with no path.
         url = f'https://{host_port}:1234'
         expected = (f'https://{repr_host_port}:1234', {'subs': {
-            'proto': 'https', 'path': '', htype: norm_host, 'port': 1234,
-            'base': f'https://{repr_host_port}:1234',
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'https', {}),
+            'path': (t.strtype.typehash, '', {}),
+            htype: norm_host,
+            'port': (t.porttype.typehash, 1234, {}),
+            'base': (t.strtype.typehash, f'https://{repr_host_port}:1234', {}),
+            'params': (t.strtype.typehash, '', {})
         }})
-        self.eq(t.norm(url), expected)
+        self.eq(await t.norm(url), expected)
 
         # URL with no path or port or default port.
         url = f'a://{host}'
         expected = (f'a://{repr_host}', {'subs': {
-            'proto': 'a', 'path': '', htype: norm_host,
-            'base': f'a://{repr_host}',
-            'params': '',
+            'proto': (t.lowstrtype.typehash, 'a', {}),
+            'path': (t.strtype.typehash, '', {}),
+            htype: norm_host,
+            'base': (t.strtype.typehash, f'a://{repr_host}', {}),
+            'params': (t.strtype.typehash, '', {})
         }})
-        self.eq(t.norm(url), expected)
+        self.eq(await t.norm(url), expected)
 
     async def test_urlfile(self):
         async with self.getTestCore() as core:
-            valu = ('https://vertex.link/a_cool_program.exe', 64 * 'f')
+            file = s_common.guid()
+            valu = ('https://vertex.link/a_cool_program.exe', file)
             nodes = await core.nodes('[inet:urlfile=$valu]', opts={'vars': {'valu': valu}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:urlfile', (valu[0], 'sha256:' + valu[1])))
+            self.eq(node.ndef, ('inet:urlfile', (valu[0], file)))
             self.eq(node.get('url'), 'https://vertex.link/a_cool_program.exe')
-            self.eq(node.get('file'), 'sha256:' + 64 * 'f')
+            self.eq(node.get('file'), file)
 
             url = await core.nodes('inet:url')
             self.len(1, url)
@@ -1994,14 +2233,12 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_urlredir(self):
         async with self.getTestCore() as core:
             valu = ('https://vertex.link/idk', 'https://cool.vertex.newp:443/something_else')
-            nodes = await core.nodes('[inet:urlredir=$valu]', opts={'vars': {'valu': valu}})
+            nodes = await core.nodes('[inet:url:redir=$valu]', opts={'vars': {'valu': valu}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:urlredir', valu))
-            self.eq(node.get('src'), 'https://vertex.link/idk')
-            self.eq(node.get('src:fqdn'), 'vertex.link')
-            self.eq(node.get('dst'), 'https://cool.vertex.newp:443/something_else')
-            self.eq(node.get('dst:fqdn'), 'cool.vertex.newp')
+            self.eq(node.ndef, ('inet:url:redir', valu))
+            self.eq(node.get('source'), 'https://vertex.link/idk')
+            self.eq(node.get('target'), 'https://cool.vertex.newp:443/something_else')
             self.len(1, await core.nodes('inet:fqdn=vertex.link'))
             self.len(1, await core.nodes('inet:fqdn=cool.vertex.newp'))
 
@@ -2010,75 +2247,16 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[inet:user="cool User "]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:user', 'cool user '))
-
-    async def test_whois_contact(self):
-        async with self.getTestCore() as core:
-            valu = (('vertex.link', '@2015'), 'regiStrar')
-            props = {
-                'id': 'ID',
-                'name': 'NAME',
-                'email': 'unittest@vertex.link',
-                'orgname': 'unittest org',
-                'address': '1234 Not Real Road',
-                'city': 'Faketown',
-                'state': 'Stateland',
-                'country': 'US',
-                'phone': '555-555-5555',
-                'fax': '555-555-5556',
-                'url': 'https://vertex.link/contact',
-                'whois:fqdn': 'vertex.link'
-            }
-            q = '''[(inet:whois:contact=$valu :id=$p.id :name=$p.name :email=$p.email :orgname=$p.orgname
-                            :address=$p.address :city=$p.city :state=$p.state :country=$p.country :phone=$p.phone :fax=$p.fax
-                            :url=$p.url :whois:fqdn=$p."whois:fqdn")]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:whois:contact', (('vertex.link', 1420070400000), 'registrar')))
-            self.eq(node.get('rec'), ('vertex.link', 1420070400000))
-            self.eq(node.get('rec:asof'), 1420070400000)
-            self.eq(node.get('rec:fqdn'), 'vertex.link')
-            self.eq(node.get('type'), 'registrar')
-            self.eq(node.get('id'), 'id')
-            self.eq(node.get('name'), 'name')
-            self.eq(node.get('email'), 'unittest@vertex.link')
-            self.eq(node.get('orgname'), 'unittest org')
-            self.eq(node.get('address'), '1234 not real road')
-            self.eq(node.get('city'), 'faketown')
-            self.eq(node.get('state'), 'stateland')
-            self.eq(node.get('country'), 'us')
-            self.eq(node.get('phone'), '5555555555')
-            self.eq(node.get('fax'), '5555555556')
-            self.eq(node.get('url'), 'https://vertex.link/contact')
-            self.eq(node.get('whois:fqdn'), 'vertex.link')
-            self.len(1, await core.nodes('inet:fqdn=vertex.link'))
+            self.eq(node.ndef, ('inet:user', 'cool user'))
 
     async def test_whois_collection(self):
+
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:whois:rar="cool Registrar "]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:whois:rar', 'cool registrar '))
-
-            nodes = await core.nodes('[inet:whois:reg="cool Registrant "]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:whois:reg', 'cool registrant '))
-
-            nodes = await core.nodes('[inet:whois:recns=(ns1.woot.com, (woot.com, "@20501217"))]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:whois:recns', ('ns1.woot.com', ('woot.com', 2554848000000))))
-            self.eq(node.get('ns'), 'ns1.woot.com')
-            self.eq(node.get('rec'), ('woot.com', 2554848000000))
-            self.eq(node.get('rec:fqdn'), 'woot.com')
-            self.eq(node.get('rec:asof'), 2554848000000)
 
             valu = s_common.guid()
             rec = s_common.guid()
             props = {
-                'time': 2554869000000,
+                'time': 2554869000000000,
                 'fqdn': 'arin.whois.net',
                 'ip': (4, 167772160),
                 'success': True,
@@ -2089,7 +2267,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:ipquery', valu))
-            self.eq(node.get('time'), 2554869000000)
+            self.eq(node.get('time'), 2554869000000000)
             self.eq(node.get('fqdn'), 'arin.whois.net')
             self.eq(node.get('success'), True)
             self.eq(node.get('rec'), rec)
@@ -2097,7 +2275,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             valu = s_common.guid()
             props = {
-                'time': 2554869000000,
+                'time': 2554869000000000,
                 'url': 'http://myrdap/rdap/?query=3300%3A100%3A1%3A%3Affff',
                 'ip': '3300:100:1::ffff',
                 'success': False,
@@ -2107,98 +2285,55 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:ipquery', valu))
-            self.eq(node.get('time'), 2554869000000)
+            self.eq(node.get('time'), 2554869000000000)
             self.eq(node.get('url'), 'http://myrdap/rdap/?query=3300%3A100%3A1%3A%3Affff')
             self.eq(node.get('success'), False)
             self.none(node.get('rec'))
             self.eq(node.get('ip'), (6, 0x3300010000010000000000000000ffff))
 
-            contact = s_common.guid()
-            pscontact = s_common.guid()
-            subcontact = s_common.guid()
-            props = {
-                'contact': pscontact,
-                'asof': 2554869000000,
-                'created': 2554858000000,
-                'updated': 2554858000000,
-                'role': 'registrant',
-                'roles': ('abuse', 'administrative', 'technical'),
-                'asn': 123456,
-                'id': 'SPM-3',
-                'links': ('http://myrdap.com/SPM3',),
-                'status': 'active',
-                'contacts': (subcontact,),
-            }
-            q = '''[(inet:whois:ipcontact=$valu :contact=$p.contact
-            :asof=$p.asof :created=$p.created :updated=$p.updated :role=$p.role :roles=$p.roles
-            :asn=$p.asn :id=$p.id :links=$p.links :status=$p.status :contacts=$p.contacts)]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': contact, 'p': props}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:whois:ipcontact', contact))
-            self.eq(node.get('contact'), pscontact)
-            self.eq(node.get('contacts'), (subcontact,))
-            self.eq(node.get('asof'), 2554869000000)
-            self.eq(node.get('created'), 2554858000000)
-            self.eq(node.get('updated'), 2554858000000)
-            self.eq(node.get('role'), 'registrant')
-            self.eq(node.get('roles'), ('abuse', 'administrative', 'technical'))
-            self.eq(node.get('asn'), 123456)
-            self.eq(node.get('id'), 'SPM-3')
-            self.eq(node.get('links'), ('http://myrdap.com/SPM3',))
-            self.eq(node.get('status'), 'active')
-            #  check regid pivot
-            valu = s_common.guid()
-            nodes = await core.nodes('[inet:whois:iprec=$valu :id=$id]',
-                                     opts={'vars': {'valu': valu, 'id': props.get('id')}})
-            self.len(1, nodes)
-            nodes = await core.nodes('inet:whois:ipcontact=$valu :id -> inet:whois:iprec:id',
-                                     opts={'vars': {'valu': contact}})
-            self.len(1, nodes)
-
-    async def test_whois_rec(self):
+    async def test_whois_record(self):
 
         async with self.getTestCore() as core:
-            valu = ('woot.com', '@20501217')
-            props = {
-                'text': 'YELLING AT pennywise@vertex.link LOUDLY',
-                'registrar': ' cool REGISTRAR ',
-                'registrant': ' cool REGISTRANT ',
-            }
-            q = '[(inet:whois:rec=$valu :text=$p.text :registrar=$p.registrar :registrant=$p.registrant)]'
-            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
+            nodes = await core.nodes('''
+                [ inet:whois:record=0c63f6b67c9a3ca40f9f942957a718e9
+                    :fqdn=woot.com
+                    :text="YELLING AT pennywise@vertex.link LOUDLY"
+                    :registrar=' cool REGISTRAR'
+                    :registrant=' cool REGISTRANT'
+                ]
+            ''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:whois:rec', ('woot.com', 2554848000000)))
+            self.eq(node.ndef, ('inet:whois:record', '0c63f6b67c9a3ca40f9f942957a718e9'))
             self.eq(node.get('fqdn'), 'woot.com')
-            self.eq(node.get('asof'), 2554848000000)
             self.eq(node.get('text'), 'yelling at pennywise@vertex.link loudly')
-            self.eq(node.get('registrar'), ' cool registrar ')
-            self.eq(node.get('registrant'), ' cool registrant ')
+            self.eq(node.get('registrar'), 'cool registrar')
+            self.eq(node.get('registrant'), 'cool registrant')
 
             nodes = await core.nodes('inet:whois:email')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:whois:email', ('woot.com', 'pennywise@vertex.link')))
 
-            q = '''
-            [inet:whois:rec=(wellsfargo.com, 2019/11/24 03:30:07.000)
-                :created="1993/02/19 05:00:00.000"]
-            +inet:whois:rec:created < 2017/01/01
-            '''
-            self.len(1, await core.nodes(q))
+            with self.getLoggerStream('synapse.datamodel') as stream:
+                nodes = await core.nodes('[ inet:whois:record=* :text="Contact: pennywise@vertex.link" ]')
+                self.len(1, nodes)
+                self.eq(nodes[0].get('text'), 'contact: pennywise@vertex.link')
+                self.none(nodes[0].get('fqdn'))
 
-    async def test_whois_iprec(self):
+            stream.seek(0)
+            data = stream.read()
+            self.notin('onset() error for inet:whois:record:text', data)
+
+    async def test_whois_iprecord(self):
         async with self.getTestCore() as core:
             contact = s_common.guid()
             addlcontact = s_common.guid()
             rec_ipv4 = s_common.guid()
             props = {
                 'net': '10.0.0.0/28',
-                'asof': 2554869000000,
-                'created': 2554858000000,
-                'updated': 2554858000000,
+                'created': 2554858000000000,
+                'updated': 2554858000000000,
                 'text': 'this is  a bunch of \nrecord text 123123',
-                'desc': 'these are some notes\n about record 123123',
                 'asn': 12345,
                 'id': 'NET-10-0-0-0-1',
                 'name': 'vtx',
@@ -2209,22 +2344,21 @@ class InetModelTest(s_t_utils.SynTest):
                 'type': 'direct allocation',
                 'links': ('http://rdap.com/foo', 'http://rdap.net/bar'),
             }
-            q = '''[(inet:whois:iprec=$valu :net=$p.net :asof=$p.asof :created=$p.created :updated=$p.updated
-                :text=$p.text :desc=$p.desc :asn=$p.asn :id=$p.id :name=$p.name :parentid=$p.parentid
+            q = '''[(inet:whois:iprecord=$valu :net=$p.net :created=$p.created :updated=$p.updated
+                :text=$p.text :asn=$p.asn :id=$p.id :name=$p.name :parentid=$p.parentid
                 :contacts=$p.contacts :country=$p.country :status=$p.status :type=$p.type
                 :links=$p.links)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv4, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:whois:iprec', rec_ipv4))
+            self.eq(node.ndef, ('inet:whois:iprecord', rec_ipv4))
             self.eq(node.get('net'), ((4, 167772160), (4, 167772175)))
-            self.eq(node.get('net:min'), (4, 167772160))
-            self.eq(node.get('net:max'), (4, 167772175))
-            self.eq(node.get('asof'), 2554869000000)
-            self.eq(node.get('created'), 2554858000000)
-            self.eq(node.get('updated'), 2554858000000)
+            # FIXME virtual props
+            # self.eq(node.get('net*min'), (4, 167772160))
+            # self.eq(node.get('net*max'), (4, 167772175))
+            self.eq(node.get('created'), 2554858000000000)
+            self.eq(node.get('updated'), 2554858000000000)
             self.eq(node.get('text'), 'this is  a bunch of \nrecord text 123123')
-            self.eq(node.get('desc'), 'these are some notes\n about record 123123')
             self.eq(node.get('asn'), 12345)
             self.eq(node.get('id'), 'NET-10-0-0-0-1')
             self.eq(node.get('name'), 'vtx')
@@ -2238,9 +2372,8 @@ class InetModelTest(s_t_utils.SynTest):
             rec_ipv6 = s_common.guid()
             props = {
                 'net': '2001:db8::/101',
-                'asof': 2554869000000,
-                'created': 2554858000000,
-                'updated': 2554858000000,
+                'created': 2554858000000000,
+                'updated': 2554858000000000,
                 'text': 'this is  a bunch of \nrecord text 123123',
                 'asn': 12345,
                 'id': 'NET-10-0-0-0-0',
@@ -2253,19 +2386,19 @@ class InetModelTest(s_t_utils.SynTest):
             minv = (6, 0x20010db8000000000000000000000000)
             maxv = (6, 0x20010db8000000000000000007ffffff)
 
-            q = '''[(inet:whois:iprec=$valu :net=$p.net :asof=$p.asof :created=$p.created :updated=$p.updated
+            q = '''[(inet:whois:iprecord=$valu :net=$p.net :created=$p.created :updated=$p.updated
                 :text=$p.text :asn=$p.asn :id=$p.id :name=$p.name
                 :country=$p.country :status=$p.status :type=$p.type)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv6, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:whois:iprec', rec_ipv6))
+            self.eq(node.ndef, ('inet:whois:iprecord', rec_ipv6))
             self.eq(node.get('net'), (minv, maxv))
-            self.eq(node.get('net:min'), minv)
-            self.eq(node.get('net:max'), maxv)
-            self.eq(node.get('asof'), 2554869000000)
-            self.eq(node.get('created'), 2554858000000)
-            self.eq(node.get('updated'), 2554858000000)
+            # FIXME virtual props
+            # self.eq(node.get('net*min'), minv)
+            # self.eq(node.get('net*max'), maxv)
+            self.eq(node.get('created'), 2554858000000000)
+            self.eq(node.get('updated'), 2554858000000000)
             self.eq(node.get('text'), 'this is  a bunch of \nrecord text 123123')
             self.eq(node.get('asn'), 12345)
             self.eq(node.get('id'), 'NET-10-0-0-0-0')
@@ -2275,14 +2408,10 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('type'), 'allocated-by-rir')
 
             # check regid pivot
-            scmd = f'inet:whois:iprec={rec_ipv4} :parentid -> inet:whois:iprec:id'
+            scmd = f'inet:whois:iprecord={rec_ipv4} :parentid -> inet:whois:iprecord:id'
             nodes = await core.nodes(scmd)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:whois:iprec', rec_ipv6))
-
-            # bad country code
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[(inet:whois:iprec=* :country=u9)]')
+            self.eq(nodes[0].ndef, ('inet:whois:iprecord', rec_ipv6))
 
     async def test_wifi_collection(self):
         async with self.getTestCore() as core:
@@ -2291,28 +2420,27 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:wifi:ssid', "The Best SSID"))
 
-            valu = ('The Best SSID2 ', '00:11:22:33:44:55')
-            place = s_common.guid()
-            props = {
-                'accuracy': '10km',
-                'latlong': (20, 30),
-                'place': place,
-                'channel': 99,
-                'encryption': 'wpa2',
-            }
-            q = '''[(inet:wifi:ap=$valu :place=$p.place :channel=$p.channel :latlong=$p.latlong :accuracy=$p.accuracy
-                    :encryption=$p.encryption)]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
+            nodes = await core.nodes('''
+                [ inet:wifi:ap=*
+                    :ssid="The Best SSID2 "
+                    :bssid=00:11:22:33:44:55
+                    :place=*
+                    :channel=99
+                    :place:latlong=(20, 30)
+                    :place:latlong:accuracy=10km
+                    :encryption=wpa2
+                ]
+            ''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:wifi:ap', valu))
-            self.eq(node.get('ssid'), valu[0])
-            self.eq(node.get('bssid'), valu[1])
-            self.eq(node.get('latlong'), (20.0, 30.0))
-            self.eq(node.get('accuracy'), 10000000)
-            self.eq(node.get('place'), place)
+            self.eq(node.get('ssid'), 'The Best SSID2 ')
+            self.eq(node.get('bssid'), '00:11:22:33:44:55')
+            self.eq(node.get('place:latlong'), (20.0, 30.0))
+            self.eq(node.get('place:latlong:accuracy'), 10000000)
             self.eq(node.get('channel'), 99)
             self.eq(node.get('encryption'), 'wpa2')
+
+            self.len(1, await core.nodes('inet:wifi:ap -> geo:place'))
 
     async def test_banner(self):
 
@@ -2450,7 +2578,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :egress=5.5.5.5
                 :type=vpn
                 :anon=$lib.true
-                :operator = {[ ps:contact=* :email=visi@vertex.link ]}
+                :operator = {[ entity:contact=* :email=visi@vertex.link ]}
             ]''')
             self.len(1, nodes)
 
@@ -2459,7 +2587,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq('tcp://5.5.5.5', nodes[0].get('egress'))
             self.eq('tcp://1.2.3.4:443', nodes[0].get('ingress'))
 
-            self.len(1, await core.nodes('inet:tunnel -> ps:contact +:email=visi@vertex.link'))
+            self.len(1, await core.nodes('inet:tunnel -> entity:contact +:email=visi@vertex.link'))
 
     async def test_model_inet_proto(self):
 
@@ -2506,10 +2634,11 @@ class InetModelTest(s_t_utils.SynTest):
                         :flow=*
                         :server=$server
                         :server:cert=*
-                        :server:fingerprint:ja3=$ja3s
+                        :server:ja3s=$ja3s
+                        :server:jarmhash=07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1
                         :client=$client
                         :client:cert=*
-                        :client:fingerprint:ja3=$ja3
+                        :client:ja3=$ja3
                 ]
             ''', opts={'vars': props})
             self.len(1, nodes)
@@ -2517,9 +2646,10 @@ class InetModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('flow'))
             self.nn(nodes[0].get('server:cert'))
             self.nn(nodes[0].get('client:cert'))
+            self.eq(nodes[0].get('server:jarmhash'), '07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1')
 
-            self.eq(props['ja3'], nodes[0].get('client:fingerprint:ja3'))
-            self.eq(props['ja3s'], nodes[0].get('server:fingerprint:ja3'))
+            self.eq(props['ja3'], nodes[0].get('client:ja3'))
+            self.eq(props['ja3s'], nodes[0].get('server:ja3s'))
 
             self.eq(props['client'], nodes[0].get('client'))
             self.eq(props['server'], nodes[0].get('server'))
@@ -2568,20 +2698,62 @@ class InetModelTest(s_t_utils.SynTest):
 
             q = '''
             [ inet:service:platform=(slack,)
+                :id=foo
                 :url="https://slack.com"
+                :urls=(https://slacker.com,)
+                :zones=(slack.com, slacker.com)
                 :name=Slack
+                :names=("slack chat",)
+                :desc=' Slack is a team communication platform.\n\n Be less busy.'
+                :parent={[ inet:service:platform=({"name": "salesforce"}) ]}
+                :status=available
+                :family="  FooFam  "
+                :period=(2022, 2023)
+                :creator={[ inet:service:account=({"id": "bar"}) ]}
+                :remover={[ inet:service:account=({"id": "baz"}) ]}
                 :provider={ ou:org:name=$provname }
                 :provider:name=$provname
+                :type=foo.bar
             ]
             '''
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:platform', s_common.guid(('slack',))))
+            self.eq('foo', nodes[0].get('id'))
+            self.eq('foo.bar.', nodes[0].get('type'))
+            self.eq('foofam', nodes[0].get('family'))
             self.eq(nodes[0].get('url'), 'https://slack.com')
+            self.eq(nodes[0].get('urls'), ('https://slacker.com',))
+            self.eq(nodes[0].get('zones'), ('slack.com', 'slacker.com'))
             self.eq(nodes[0].get('name'), 'slack')
+            self.eq(nodes[0].get('names'), ('slack chat',))
+            self.eq(nodes[0].get('desc'), ' Slack is a team communication platform.\n\n Be less busy.')
+            self.eq(nodes[0].repr('status'), 'available')
+            self.eq(nodes[0].repr('period'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
             self.eq(nodes[0].get('provider'), provider.ndef[1])
             self.eq(nodes[0].get('provider:name'), provname.lower())
             platform = nodes[0]
+
+            nodes = await core.nodes('inet:service:platform=(slack,) :parent -> *')
+            self.eq(['salesforce'], [n.get('name') for n in nodes])
+
+            nodes = await core.nodes('inet:service:platform=(slack,) :creator -> *')
+            self.eq(['bar'], [n.get('id') for n in nodes])
+
+            nodes = await core.nodes('inet:service:platform=(slack,) :remover -> *')
+            self.eq(['baz'], [n.get('id') for n in nodes])
+
+            nodes = await core.nodes('[ inet:service:platform=({"name": "slack chat"}) ]')
+            self.eq(nodes[0].ndef, platform.ndef)
+
+            nodes = await core.nodes('[ inet:service:platform=({"url": "https://slacker.com"}) ]')
+            self.eq(nodes[0].ndef, platform.ndef)
+
+            nodes = await core.nodes('[ inet:service:platform=({"zone": "slacker.com"}) ]')
+            self.eq(nodes[0].ndef, platform.ndef)
+
+            nodes = await core.nodes('inet:service:platform:type:taxonomy')
+            self.sorteq(['foo.', 'foo.bar.'], [n.ndef[1] for n in nodes])
 
             q = '''
             [ inet:service:instance=(vertex, slack)
@@ -2607,62 +2779,59 @@ class InetModelTest(s_t_utils.SynTest):
                 (inet:service:account=(blackout, account, vertex, slack)
                     :id=U7RN51U1J
                     :user=blackout
+                    :users=(zeblackout, blackoutalt, zeblackout)
                     :url=https://vertex.link/users/blackout
                     :email=blackout@vertex.link
-                    :profile={ gen.ps.contact.email vertex.employee blackout@vertex.link }
+                    :banner={[ file:bytes=({"name": "greencat.gif"}) ]}
                     :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
+                    :seen=(2022, 2023)
                 )
 
                 (inet:service:account=(visi, account, vertex, slack)
                     :id=U2XK7PUVB
                     :user=visi
                     :email=visi@vertex.link
-                    :profile={ gen.ps.contact.email vertex.employee visi@vertex.link }
+                    :parent=*
                 )
             ]
             '''
             accounts = await core.nodes(q)
             self.len(2, accounts)
 
+            self.nn(accounts[0].get('banner'))
             self.nn(accounts[0].get('tenant'))
-
-            profiles = await core.nodes('ps:contact')
-            self.len(2, profiles)
-            self.eq(profiles[0].get('email'), 'blackout@vertex.link')
-            self.eq(profiles[1].get('email'), 'visi@vertex.link')
-            blckprof, visiprof = profiles
+            self.eq(accounts[0].repr('seen'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
 
             self.eq(accounts[0].ndef, ('inet:service:account', s_common.guid(('blackout', 'account', 'vertex', 'slack'))))
             self.eq(accounts[0].get('id'), 'U7RN51U1J')
             self.eq(accounts[0].get('user'), 'blackout')
+            self.eq(accounts[0].get('users'), ('blackoutalt', 'zeblackout'))
             self.eq(accounts[0].get('url'), 'https://vertex.link/users/blackout')
             self.eq(accounts[0].get('email'), 'blackout@vertex.link')
-            self.eq(accounts[0].get('profile'), blckprof.ndef[1])
 
             self.eq(accounts[1].ndef, ('inet:service:account', s_common.guid(('visi', 'account', 'vertex', 'slack'))))
             self.eq(accounts[1].get('id'), 'U2XK7PUVB')
             self.eq(accounts[1].get('user'), 'visi')
             self.eq(accounts[1].get('email'), 'visi@vertex.link')
-            self.eq(accounts[1].get('profile'), visiprof.ndef[1])
             blckacct, visiacct = accounts
+
+            self.len(1, await core.nodes('inet:service:account:email=visi@vertex.link :parent -> inet:service:account'))
+
+            nodes = await core.nodes('[ inet:service:account=({"user": "blackoutalt"}) ]')
+            self.len(1, nodes)
+            self.eq(accounts[0].ndef, nodes[0].ndef)
 
             q = '''
             [ inet:service:group=(developers, group, vertex, slack)
                 :id=X1234
                 :name="developers, developers, developers"
-                :profile={ gen.ps.contact.email vertex.slack.group developers@vertex.slack.com }
             ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
-            profiles = await core.nodes('ps:contact:email=developers@vertex.slack.com')
-            self.len(1, profiles)
-            devsprof = profiles[0]
-
             self.eq(nodes[0].get('id'), 'X1234')
             self.eq(nodes[0].get('name'), 'developers, developers, developers')
-            self.eq(nodes[0].get('profile'), devsprof.ndef[1])
             devsgrp = nodes[0]
 
             q = '''
@@ -2692,13 +2861,13 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.eq(nodes[0].get('account'), blckacct.ndef[1])
             self.eq(nodes[0].get('group'), devsgrp.ndef[1])
-            self.eq(nodes[0].get('period'), (1685577600000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1685577600000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('remover'), visiacct.ndef[1])
 
             self.eq(nodes[1].get('account'), visiacct.ndef[1])
             self.eq(nodes[1].get('group'), devsgrp.ndef[1])
-            self.eq(nodes[1].get('period'), (1420070400000, 9223372036854775807))
+            self.eq(nodes[1].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.none(nodes[1].get('creator'))
             self.none(nodes[1].get('remover'))
 
@@ -2714,22 +2883,26 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('http:session'))
             self.eq(nodes[0].get('creator'), blckacct.ndef[1])
-            self.eq(nodes[0].get('period'), (1715850000000, 1715856900000))
+            self.eq(nodes[0].get('period'), (1715850000000000, 1715856900000000, 6900000000))
             blcksess = nodes[0]
             self.len(1, await core.nodes('inet:service:session -> inet:http:session'))
 
             q = '''
             [ inet:service:login=*
                 :method=password
+                :url=https://vertex.link/api/v1/login
                 :session=$blcksess
                 :server=tcp://10.10.10.4:443
                 :client=tcp://192.168.0.10:12345
+                :creds={[auth:passwd=cool]}
             ]
             '''
             opts = {'vars': {'blcksess': blcksess.ndef[1]}}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('method'), 'password.')
+            self.eq(nodes[0].get('creds'), (('auth:passwd', 'cool'),))
+            self.eq(nodes[0].get('url'), 'https://vertex.link/api/v1/login')
 
             server = await core.nodes('inet:server=tcp://10.10.10.4:443')
             self.len(1, server)
@@ -2743,7 +2916,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('client'), client.ndef[1])
 
             q = '''
-            [ inet:service:message:link=(blackout, developers, 1715856900000, https://www.youtube.com/watch?v=dQw4w9WgXcQ, vertex, slack)
+            [ inet:service:message:link=(blackout, developers, 1715856900000000, https://www.youtube.com/watch?v=dQw4w9WgXcQ, vertex, slack)
                 :title="Deadpool & Wolverine | Official Teaser | In Theaters July 26"
                 :url="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
             ]
@@ -2762,6 +2935,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :creator=$visiiden
                 :platform=$platiden
                 :instance=$instiden
+                :topic=' My Topic   '
             ]
             '''
             opts = {'vars': {
@@ -2773,7 +2947,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:channel', s_common.guid(('general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[0].get('name'), 'general')
-            self.eq(nodes[0].get('period'), (1420070400000, 9223372036854775807))
+            self.eq(nodes[0].get('topic'), 'my topic')
+            self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('instance'), platinst.ndef[1])
@@ -2807,12 +2982,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('inet:service:channel:member', s_common.guid(('visi', 'general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[0].get('account'), visiacct.ndef[1])
-            self.eq(nodes[0].get('period'), (1420070400000, 9223372036854775807))
+            self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('channel'), gnrlchan.ndef[1])
 
             self.eq(nodes[1].ndef, ('inet:service:channel:member', s_common.guid(('blackout', 'general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[1].get('account'), blckacct.ndef[1])
-            self.eq(nodes[1].get('period'), (1685577600000, 9223372036854775807))
+            self.eq(nodes[1].get('period'), (1685577600000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[1].get('channel'), gnrlchan.ndef[1])
 
             for node in nodes:
@@ -2820,36 +2995,41 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.get('instance'), platinst.ndef[1])
                 self.eq(node.get('channel'), gnrlchan.ndef[1])
 
-            q = '''
-            [ inet:service:message:attachment=(pbjtime.gif, blackout, developers, 1715856900000, vertex, slack)
-                :file={[ file:bytes=sha256:028241d9116a02059e99cb239c66d966e1b550926575ad7dcf0a8f076a352bcd ]}
+            nodes = await core.nodes('''
+            [ inet:service:message:attachment=(pbjtime.gif, blackout, developers, 1715856900000000, vertex, slack)
+                :file={[ file:bytes=({"sha256": "028241d9116a02059e99cb239c66d966e1b550926575ad7dcf0a8f076a352bcd"}) ]}
                 :name=pbjtime.gif
                 :text="peanut butter jelly time"
             ]
-            '''
-            nodes = await core.nodes(q)
+            ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('file'), 'sha256:028241d9116a02059e99cb239c66d966e1b550926575ad7dcf0a8f076a352bcd')
             self.eq(nodes[0].get('name'), 'pbjtime.gif')
             self.eq(nodes[0].get('text'), 'peanut butter jelly time')
+            self.eq(nodes[0].get('file'), 'ff94f25eddbf0d452ddee5303c8b818e')
             attachment = nodes[0]
 
             q = '''
             [
-                (inet:service:message=(blackout, developers, 1715856900000, vertex, slack)
+                (inet:service:message=(blackout, developers, 1715856900000000, vertex, slack)
                     :type=chat.group
                     :group=$devsiden
                     :public=$lib.false
                     :repost=*
+                    :mentions=(
+                        (inet:service:group, $devsiden),
+                        (inet:service:account, $blckiden),
+                        (inet:service:account, $blckiden),
+                    )
                 )
 
-                (inet:service:message=(blackout, visi, 1715856900000, vertex, slack)
+                (inet:service:message=(blackout, visi, 1715856900000000, vertex, slack)
                     :type=chat.direct
                     :to=$visiiden
                     :public=$lib.false
+                    :mentions?=((inet:service:message:attachment, $atchiden),)
                 )
 
-                (inet:service:message=(blackout, general, 1715856900000, vertex, slack)
+                (inet:service:message=(blackout, general, 1715856900000000, vertex, slack)
                     :type=chat.channel
                     :channel=$gnrliden
                     :public=$lib.true
@@ -2864,7 +3044,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :place = { gen.geo.place nyc }
                 :file=*
 
-                :client:software = {[ it:prod:softver=* :name=woot ]}
+                :client:software = {[ it:software=* :name=woot ]}
                 :client:software:name = woot
             ]
             '''
@@ -2894,10 +3074,15 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('group'), devsgrp.ndef[1])
             self.false(nodes[0].get('public'))
             self.eq(nodes[0].get('type'), 'chat.group.')
+            self.eq(
+                nodes[0].get('mentions'),
+                (('inet:service:account', blckacct.ndef[1]), ('inet:service:group', devsgrp.ndef[1]))
+            )
 
             self.eq(nodes[1].get('to'), visiacct.ndef[1])
             self.false(nodes[1].get('public'))
             self.eq(nodes[1].get('type'), 'chat.direct.')
+            self.none(nodes[1].get('mentions'))
 
             self.eq(nodes[2].get('channel'), gnrlchan.ndef[1])
             self.true(nodes[2].get('public'))
@@ -2919,7 +3104,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('inet:service:message:type:taxonomy=chat.channel -> inet:service:message')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:service:message', 'c0d64c559e2f42d57b37b558458c068b'))
+            self.eq(nodes[0].ndef, ('inet:service:message', 'aa59b0c26bd8ce4af627af6326772384'))
             self.len(1, await core.nodes('inet:service:message:repost :repost -> inet:service:message'))
 
             q = '''
@@ -2967,13 +3152,14 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:service:bucket:name=foobar'))
 
             q = '''
-            [ inet:service:access=(api, blackout, 1715856900000, vertex, slack)
+            [ inet:service:access=(api, blackout, 1715856900000000, vertex, slack)
+                :action=foo.bar
                 :account=$blckiden
                 :instance=$instiden
                 :platform=$platiden
                 :resource=$rsrciden
                 :success=$lib.true
-                :time=(1715856900000)
+                :time=(1715856900000000)
             ]
             '''
             opts = {'vars': {
@@ -2985,16 +3171,18 @@ class InetModelTest(s_t_utils.SynTest):
             }}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
+            self.eq(nodes[0].get('action'), 'foo.bar.')
             self.eq(nodes[0].get('account'), blckacct.ndef[1])
             self.eq(nodes[0].get('instance'), platinst.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('resource'), resource.ndef[1])
             self.true(nodes[0].get('success'))
-            self.eq(nodes[0].get('time'), 1715856900000)
+            self.eq(nodes[0].get('time'), 1715856900000000)
 
             q = '''
             [ inet:service:message=(visi, says, relax)
                 :title="Hehe Haha"
+                :hashtags="#hehe,#haha,#hehe"
                 :thread={[
                     inet:service:thread=*
                         :title="Woot  Woot"
@@ -3008,6 +3196,7 @@ class InetModelTest(s_t_utils.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
+            self.eq(['#haha', '#hehe'], nodes[0].get('hashtags'))
             self.len(1, await core.nodes('inet:service:message=(visi, says, hello) -> inet:service:thread:message'))
             self.len(1, await core.nodes('''
                 inet:service:message:title="hehe haha"
@@ -3055,14 +3244,92 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ inet:service:subscription=*
                     :level=vertex.synapse.enterprise
-                    :pay:instrument={[ econ:bank:account=* :contact={[ ps:contact=* :name=visi]} ]}
+                    :pay:instrument={[ econ:pay:card=* ]}
                     :subscriber={[ inet:service:tenant=({"id": "VS-31337"}) ]}
                 ]
             ''')
             self.len(1, nodes)
             self.eq('vertex.synapse.enterprise.', nodes[0].get('level'))
-            self.eq('econ:bank:account', nodes[0].get('pay:instrument')[0])
+            self.eq('econ:pay:card', nodes[0].get('pay:instrument')[0])
             self.eq('inet:service:tenant', nodes[0].get('subscriber')[0])
             self.len(1, await core.nodes('inet:service:subscription -> inet:service:subscription:level:taxonomy'))
-            self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:bank:account'))
+            self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:pay:card'))
             self.len(1, await core.nodes('inet:service:subscription :subscriber -> inet:service:tenant'))
+
+            nodes = await core.nodes('''
+                [ inet:service:agent=*
+                    :name=woot
+                    :names=(foo, bar)
+                    :desc="Foo Bar"
+                    :software={[ it:software=(hehe, haha) ]}
+                    :platform={inet:service:platform | limit 1}
+
+                    // ensure we got the interface...
+                    :creator={ inet:service:account | limit 1 }
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'woot')
+            self.eq(nodes[0].get('names'), ('bar', 'foo'))
+            self.eq(nodes[0].get('desc'), 'Foo Bar')
+            self.nn(nodes[0].get('creator'))
+            self.nn(nodes[0].get('platform'))
+
+            self.len(1, await core.nodes('inet:service:action | limit 1 | [ :agent={ inet:service:agent } ]'))
+            self.len(1, await core.nodes('inet:service:platform | limit 1 | [ :software={[ it:software=(hehe, haha) ]} ]'))
+
+    async def test_ipv4_fallback(self):
+
+        async with self.getTestCore() as core:
+            self.len(1, await core.nodes('[inet:ip=192.168.1.1]'))
+
+            self.len(1, await core.nodes('[inet:ip=3.0.000.115]'))
+            self.len(1, await core.nodes('[inet:ip=192.168.001.001]'))
+            self.len(1, await core.nodes('[inet:ip=10.0.0.001]'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ip=256.256.256.256]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ip=192.168.001.001.001]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ip=192.168.001.001.abc]')
+
+    async def test_model_inet_tls_ja4(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:tls:ja4:sample=(1.2.3.4, t13d190900_9dc949149365_97f8aa674fd9) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ja4'), 't13d190900_9dc949149365_97f8aa674fd9')
+            self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
+            self.len(1, await core.nodes('inet:tls:ja4:sample -> inet:client'))
+            self.len(1, await core.nodes('inet:tls:ja4:sample -> inet:tls:ja4'))
+
+            nodes = await core.nodes('[ inet:tls:ja4s:sample=(1.2.3.4:443, t130200_1301_a56c5b993250) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ja4s'), 't130200_1301_a56c5b993250')
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:443')
+            self.len(1, await core.nodes('inet:tls:ja4s:sample -> inet:server'))
+            self.len(1, await core.nodes('inet:tls:ja4s:sample -> inet:tls:ja4s'))
+
+            nodes = await core.nodes('''[
+                inet:tls:handshake=*
+                    :client:ja4=t13d190900_9dc949149365_97f8aa674fd9
+                    :server:ja4s=t130200_1301_a56c5b993250
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('client:ja4'), 't13d190900_9dc949149365_97f8aa674fd9')
+            self.eq(nodes[0].get('server:ja4s'), 't130200_1301_a56c5b993250')
+            self.len(1, await core.nodes('inet:tls:handshake :client:ja4 -> inet:tls:ja4'))
+            self.len(1, await core.nodes('inet:tls:handshake :server:ja4s -> inet:tls:ja4s'))
+
+            ja4_t = core.model.type('inet:tls:ja4')
+            ja4s_t = core.model.type('inet:tls:ja4s')
+            self.eq('t13d1909Tg_9dc949149365_97f8aa674fd9', (await ja4_t.norm(' t13d1909Tg_9dc949149365_97f8aa674fd9 '))[0])
+            self.eq('t1302Tg_1301_a56c5b993250', (await ja4s_t.norm(' t1302Tg_1301_a56c5b993250 '))[0])
+            with self.raises(s_exc.BadTypeValu):
+                await ja4_t.norm('t13d190900_9dc949149365_97f8aa674fD9')
+            with self.raises(s_exc.BadTypeValu):
+                await ja4s_t.norm('t130200_1301_a56c5B993250')

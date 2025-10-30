@@ -380,6 +380,12 @@ class ConfTest(s_test.SynTest):
         self.eq(item['key:number'], 123)
         self.notin('key:string', item)
 
+        item = validator({'key:multi': 123})
+        self.eq(item['key:multi'], 123)
+
+        item = validator({'key:multi': '123'})
+        self.eq(item['key:multi'], '123')
+
     async def test_config_ref_handler(self):
 
         filename = pathlib.Path(s_data.path(

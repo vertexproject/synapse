@@ -8,7 +8,6 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.json as s_json
 import synapse.lib.node as s_node
-import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
@@ -28,6 +27,7 @@ class ProtoNode(s_node.NodeBase):
         self.node = node
         self.virts = norminfo.get('virts') if norminfo is not None else None
 
+        self.meta = {}
         self.tags = {}
         self.props = {}
         self.edges = set()
@@ -72,26 +72,25 @@ class ProtoNode(s_node.NodeBase):
         edits = []
         sode = self.node.sodes[0]
 
-        if self.delnode:
-            edits.append((s_layer.EDIT_NODE_DEL, (self.valu, self.form.type.stortype)))
-            if (tags := sode.get('tags')) is not None:
-                for name in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
-                    edits.append((s_layer.EDIT_TAG_DEL, (name, None)))
+        if (tags := sode.get('tags')) is not None:
+            for name in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
+                edits.append((s_layer.EDIT_TAG_DEL, (name,)))
 
-            if (props := sode.get('props')) is not None:
+        if (props := sode.get('props')) is not None:
+            for name in props.keys():
+                prop = self.form.props.get(name)
+                edits.append((s_layer.EDIT_PROP_DEL, (name,)))
+
+        if (tagprops := sode.get('tagprops')) is not None:
+            for tag, props in tagprops.items():
                 for name in props.keys():
-                    prop = self.form.props.get(name)
-                    edits.append((s_layer.EDIT_PROP_DEL, (name, None, prop.type.stortype)))
+                    prop = self.model.getTagProp(name)
+                    edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name)))
 
-            if (tagprops := sode.get('tagprops')) is not None:
-                for tag, props in tagprops.items():
-                    for name in props.keys():
-                        prop = self.model.getTagProp(name)
-                        edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)))
+        if self.delnode:
+            edits.append((s_layer.EDIT_NODE_DEL, ()))
 
         if self.tombnode:
-            edits.append((s_layer.EDIT_NODE_TOMB, ()))
-
             if (tags := sode.get('antitags')) is not None:
                 for tag in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
                     edits.append((s_layer.EDIT_TAG_TOMB_DEL, (tag,)))
@@ -104,6 +103,8 @@ class ProtoNode(s_node.NodeBase):
                 for tag, props in tagprops.items():
                     for name in props.keys():
                         edits.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, name)))
+
+            edits.append((s_layer.EDIT_NODE_TOMB, ()))
 
         if (nid := self.nid) is not None:
             nid = s_common.int64un(nid)
@@ -120,22 +121,25 @@ class ProtoNode(s_node.NodeBase):
         if not self.node or not self.node.hasvalu():
             edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype, self.virts)))
 
+        for name, valu in self.meta.items():
+            edits.append((s_layer.EDIT_META_SET, (name, valu, self.model.metatypes[name].stortype)))
+
         for name, valu in self.props.items():
             prop = self.form.props.get(name)
-            edits.append((s_layer.EDIT_PROP_SET, (name, valu[0], None, prop.type.stortype, valu[1])))
+            edits.append((s_layer.EDIT_PROP_SET, (name, valu[0], prop.type.stortype, valu[1])))
 
         for name in self.propdels:
             prop = self.form.props.get(name)
-            edits.append((s_layer.EDIT_PROP_DEL, (name, None, prop.type.stortype)))
+            edits.append((s_layer.EDIT_PROP_DEL, (name,)))
 
         for name in self.proptombs:
             edits.append((s_layer.EDIT_PROP_TOMB, (name,)))
 
         for name, valu in self.tags.items():
-            edits.append((s_layer.EDIT_TAG_SET, (name, valu, None)))
+            edits.append((s_layer.EDIT_TAG_SET, (name, valu)))
 
         for name in sorted(self.tagdels, key=lambda t: len(t), reverse=True):
-            edits.append((s_layer.EDIT_TAG_DEL, (name, None)))
+            edits.append((s_layer.EDIT_TAG_DEL, (name,)))
 
         for name in self.tagtombs:
             edits.append((s_layer.EDIT_TAG_TOMB, (name,)))
@@ -154,20 +158,20 @@ class ProtoNode(s_node.NodeBase):
 
         for (tag, name), valu in self.tagprops.items():
             prop = self.model.getTagProp(name)
-            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, prop.type.stortype)))
+            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu[0], prop.type.stortype, valu[1])))
 
         for (tag, name) in self.tagpropdels:
             prop = self.model.getTagProp(name)
-            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)))
+            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name)))
 
         for (tag, name) in self.tagproptombs:
             edits.append((s_layer.EDIT_TAGPROP_TOMB, (tag, name)))
 
         for name, valu in self.nodedata.items():
-            edits.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None)))
+            edits.append((s_layer.EDIT_NODEDATA_SET, (name, valu)))
 
         for name in self.nodedatadels:
-            edits.append((s_layer.EDIT_NODEDATA_DEL, (name, None)))
+            edits.append((s_layer.EDIT_NODEDATA_DEL, (name,)))
 
         for name in self.nodedatatombs:
             edits.append((s_layer.EDIT_NODEDATA_TOMB, (name,)))
@@ -411,7 +415,7 @@ class ProtoNode(s_node.NodeBase):
 
     async def _getRealTag(self, tag):
 
-        norm, info = self.editor.view.core.getTagNorm(tag)
+        norm, info = await self.editor.view.core.getTagNorm(tag)
         tagnode = await self.editor.view.getTagNode(norm)
         if tagnode is not s_common.novalu:
             return self.editor.loadNode(tagnode)
@@ -434,7 +438,7 @@ class ProtoNode(s_node.NodeBase):
             if tagnode is not s_common.novalu:
                 return self.editor.loadNode(tagnode)
 
-            norm, info = self.editor.view.core.getTagNorm(realnow)
+            norm, info = await self.editor.view.core.getTagNorm(realnow)
             break
 
         return await self.editor.addNode('syn:tag', norm, norminfo=info)
@@ -451,7 +455,7 @@ class ProtoNode(s_node.NodeBase):
         if self.node is not None:
             return self.node.getTag(tag, defval=defval)
 
-    async def addTag(self, tag, valu=(None, None), tagnode=None):
+    async def addTag(self, tag, valu=(None, None, None), norminfo=None, tagnode=None):
 
         if tagnode is None:
             tagnode = await self._getRealTag(tag)
@@ -459,9 +463,11 @@ class ProtoNode(s_node.NodeBase):
         if isinstance(valu, list):
             valu = tuple(valu)
 
-        if valu != (None, None):
+        ityp = self.model.type('ival')
+
+        if norminfo is None and valu != (None, None, None):
             try:
-                valu, _ = self.model.type('ival').norm(valu)
+                valu, norminfo = await ityp.norm(valu)
             except s_exc.BadTypeValu as e:
                 e.set('tag', tagnode.valu)
                 raise e
@@ -478,7 +484,12 @@ class ProtoNode(s_node.NodeBase):
             self.tags[tagnode.valu] = valu
             return tagnode
 
-        valu = s_time.ival(*valu, *curv)
+        elif valu == (None, None, None):
+            return tagnode
+
+        if curv != (None, None, None) and norminfo.get('merge', True):
+            valu = ityp.merge(valu, curv)
+
         self.tags[tagnode.valu] = valu
         self.tagdels.discard(tagnode.valu)
         self.tagtombs.discard(tagnode.valu)
@@ -596,12 +607,25 @@ class ProtoNode(s_node.NodeBase):
 
         curv = self.tagprops.get((tag, name))
         if curv is not None:
-            return curv
+            return curv[0]
 
         if self.node is not None:
             return self.node.getTagProp(tag, name, defval=defv)
 
         return defv
+
+    def getTagPropWithVirts(self, tag, name, defv=None):
+
+        if (tag, name) in self.tagpropdels or (tag, name) in self.tagproptombs:
+            return defv, None
+
+        if (curv := self.tagprops.get((tag, name))) is not None:
+            return curv
+
+        if self.node is not None:
+            return self.node.getTagPropWithVirts(tag, name, defval=defv)
+
+        return defv, None
 
     def getTagPropWithLayer(self, tag, name, defv=None):
 
@@ -610,7 +634,7 @@ class ProtoNode(s_node.NodeBase):
 
         curv = self.tagprops.get((tag, name))
         if curv is not None:
-            return curv, 0
+            return curv[0], 0
 
         if self.node is not None:
             return self.node.getTagPropWithLayer(tag, name, defval=defv)
@@ -629,26 +653,38 @@ class ProtoNode(s_node.NodeBase):
 
         return False
 
-    async def setTagProp(self, tag, name, valu):
+    async def setTagProp(self, tag, name, valu, norminfo=None):
 
         tagnode = await self.addTag(tag)
         if tagnode is None:
             return False
 
-        prop = self.model.getTagProp(name)
-        if prop is None:
-            raise s_exc.NoSuchTagProp(mesg=f'Tagprop {name} does not exist in this Cortex.')
-
+        prop = self.model.reqTagProp(name)
         if prop.locked:
             raise s_exc.IsDeprLocked(mesg=f'Tagprop {name} is locked.', prop=name)
 
-        norm, info = prop.type.norm(valu)
+        if norminfo is None:
+            valu, norminfo = await prop.type.norm(valu, view=self.editor.view)
 
-        curv = self.getTagProp(tagnode.valu, name)
-        if curv == norm:
+        if not norminfo.get('skipadd'):
+            if (propform := self.model.form(prop.type.name)) is not None:
+                await self.editor.addNode(propform.name, valu, norminfo=norminfo)
+
+            if (propadds := norminfo.get('adds')) is not None:
+                for addname, addvalu, addinfo in propadds:
+                    await self.editor.addNode(addname, addvalu, norminfo=addinfo)
+
+        virts = norminfo.get('virts')
+        curv = self.getTagPropWithVirts(tagnode.valu, name)
+        if curv == (valu, virts):
             return False
 
-        self.tagprops[(tagnode.valu, name)] = norm
+        curv = curv[0]
+
+        if curv is not None and norminfo.get('merge', True):
+            valu = prop.type.merge(curv, valu)
+
+        self.tagprops[(tagnode.valu, name)] = (valu, virts)
         self.tagpropdels.discard((tagnode.valu, name))
         self.tagproptombs.discard((tagnode.valu, name))
 
@@ -656,9 +692,7 @@ class ProtoNode(s_node.NodeBase):
 
     async def delTagProp(self, tag, name):
 
-        prop = self.model.getTagProp(name)
-        if prop is None:
-            raise s_exc.NoSuchTagProp(mesg=f'Tagprop {name} does not exist in this Cortex.', name=name)
+        prop = self.model.reqTagProp(name)
 
         (curv, layr) = self.getTagPropWithLayer(tag, name)
         if curv is None:
@@ -681,8 +715,7 @@ class ProtoNode(s_node.NodeBase):
         if name in self.propdels or name in self.proptombs:
             return defv
 
-        curv = self.props.get(name, s_common.novalu)
-        if curv is not s_common.novalu:
+        if (curv := self.props.get(name)) is not None:
             return curv[0]
 
         if self.node is not None:
@@ -690,14 +723,27 @@ class ProtoNode(s_node.NodeBase):
 
         return defv
 
+    def getWithVirts(self, name, defv=None):
+
+        # get the current value including the pending prop sets
+        if name in self.propdels or name in self.proptombs:
+            return defv, None
+
+        if (curv := self.props.get(name)) is not None:
+            return curv
+
+        if self.node is not None:
+            return self.node.getWithVirts(name, defv=defv)
+
+        return defv, None
+
     def getWithLayer(self, name, defv=None):
 
         # get the current value including the pending prop sets
         if name in self.propdels or name in self.proptombs:
             return defv, None
 
-        curv = self.props.get(name, s_common.novalu)
-        if curv is not s_common.novalu:
+        if (curv := self.props.get(name)) is not None:
             return curv[0], 0
 
         if self.node is not None:
@@ -705,7 +751,14 @@ class ProtoNode(s_node.NodeBase):
 
         return defv, None
 
-    async def _set(self, prop, valu, norminfo=None, ignore_ro=False):
+    async def setMeta(self, name, valu):
+        if self.meta.get(name) == valu or (self.node is not None and self.node.getMeta(name) == valu):
+            return False
+
+        self.meta[name] = valu
+        return True
+
+    async def _set(self, prop, valu, norminfo=None):
 
         if prop.locked:
             raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.', prop=prop.full)
@@ -717,65 +770,65 @@ class ProtoNode(s_node.NodeBase):
 
         if norminfo is None:
             try:
-                valu, norminfo = prop.type.norm(valu)
+                valu, norminfo = await prop.type.norm(valu, view=self.editor.view)
             except s_exc.BadTypeValu as e:
-                oldm = e.get('mesg')
-                e.update({'prop': prop.name,
-                          'form': prop.form.name,
-                          'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})
+                if 'prop' not in e.errinfo:
+                    oldm = e.get('mesg')
+                    e.update({'prop': prop.name,
+                              'form': prop.form.name,
+                              'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})
                 raise e
 
-        if isinstance(prop.type, s_types.Ndef):
-            ndefform = self.model.form(valu[0])
-            if ndefform.locked:
-                raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.', prop=prop.full)
+        virts = norminfo.get('virts')
+        curv = self.getWithVirts(prop.name)
+        if curv == (valu, virts):
+            return False, valu, norminfo
 
-        curv = self.get(prop.name)
-        if curv == valu:
-            return False
+        cval = curv[0]
 
-        if not ignore_ro and prop.info.get('ro') and curv is not None:
+        if prop.info.get('ro') and cval:
             raise s_exc.ReadOnlyProp(mesg=f'Property is read only: {prop.full}.')
+
+        if cval is not None and norminfo.get('merge', True):
+            valu = prop.type.merge(cval, valu)
 
         if self.node is not None:
             await self.editor.view.core._callPropSetHook(self.node, prop, valu)
 
-        self.props[prop.name] = (valu, norminfo.get('virts'))
+        self.props[prop.name] = (valu, virts)
         self.propdels.discard(prop.name)
         self.proptombs.discard(prop.name)
 
-        return valu, norminfo
+        return True, valu, norminfo
 
-    async def set(self, name, valu, norminfo=None, ignore_ro=False):
+    async def set(self, name, valu, norminfo=None):
         prop = self.form.props.get(name)
         if prop is None:
             raise s_exc.NoSuchProp(mesg=f'No property named {name} on form {self.form.name}.')
 
-        retn = await self._set(prop, valu, norminfo=norminfo, ignore_ro=ignore_ro)
-        if retn is False:
-            return False
+        retn, valu, norminfo = await self._set(prop, valu, norminfo=norminfo)
 
-        (valu, norminfo) = retn
+        if not norminfo.get('skipadd'):
+            if (propform := self.model.form(prop.type.name)) is not None:
+                await self.editor.addNode(propform.name, valu, norminfo=norminfo)
 
-        propform = self.model.form(prop.type.name)
-        if propform is not None:
-            await self.editor.addNode(propform.name, valu, norminfo=norminfo)
-
-        # TODO can we mandate any subs are returned pre-normalized?
         propsubs = norminfo.get('subs')
         if propsubs is not None:
-            for subname, subvalu in propsubs.items():
+            for subname, (subhash, subvalu, subinfo) in propsubs.items():
                 full = f'{prop.name}:{subname}'
                 subprop = self.form.props.get(full)
                 if subprop is not None and not subprop.locked:
+                    if subprop.typehash is subhash:
+                        await self.set(full, subvalu, norminfo=subinfo)
+                        continue
                     await self.set(full, subvalu)
 
         propadds = norminfo.get('adds')
-        if propadds is not None:
+        if propadds:
             for addname, addvalu, addinfo in propadds:
                 await self.editor.addNode(addname, addvalu, norminfo=addinfo)
 
-        return True
+        return retn
 
     async def pop(self, name):
 
@@ -806,22 +859,24 @@ class ProtoNode(s_node.NodeBase):
         if prop is None or prop.locked:
             return ()
 
-        retn = await self._set(prop, valu, norminfo=norminfo)
-        if retn is False:
-            return ()
-
-        (valu, norminfo) = retn
+        retn, valu, norminfo = await self._set(prop, valu, norminfo=norminfo)
         ops = []
 
         propform = self.editor.view.core.model.form(prop.type.name)
         if propform is not None:
             ops.append(self.editor.getAddNodeOps(propform.name, valu, norminfo=norminfo))
 
-        # TODO can we mandate any subs are returned pre-normalized?
         propsubs = norminfo.get('subs')
         if propsubs is not None:
-            for subname, subvalu in propsubs.items():
+            for subname, (subhash, subvalu, subinfo) in propsubs.items():
                 full = f'{prop.name}:{subname}'
+                if (subp := self.form.props.get(full)) is None:
+                    continue
+
+                if subp.type.typehash is subhash:
+                    ops.append(self.getSubSetOps(full, subvalu, norminfo=subinfo))
+                    continue
+
                 ops.append(self.getSubSetOps(full, subvalu))
 
         propadds = norminfo.get('adds')
@@ -902,7 +957,7 @@ class NodeEditor:
 
         if norminfo is None:
             try:
-                valu, norminfo = form.type.norm(valu)
+                valu, norminfo = await form.type.norm(valu, view=self.view)
             except s_exc.BadTypeValu as e:
                 e.set('form', form.name)
                 raise e
@@ -939,29 +994,41 @@ class NodeEditor:
 
         norm, norminfo = retn
 
-        ndef = (form.name, norm)
+        subs = norminfo.get('subs')
+        adds = norminfo.get('adds')
 
-        protonode = self.protonodes.get(ndef)
-        if protonode is not None:
-            return ()
+        for name in self.view.core.model.getChildForms(formname):
+            ndef = (name, norm)
+            if (protonode := self.protonodes.get(ndef)) is not None:
+                break
 
-        buid = s_common.buid(ndef)
-        node = await self.view.getNodeByBuid(buid)
-        if node is not None:
-            return ()
+            buid = s_common.buid(ndef)
+            if (node := await self.view.getNodeByBuid(buid)) is not None:
+                if not (adds or subs):
+                    return ()
 
-        protonode = ProtoNode(self, buid, form, norm, node, norminfo)
+                protonode = ProtoNode(self, buid, form, norm, node, norminfo)
+                self.protonodes[ndef] = protonode
+                break
 
-        self.protonodes[ndef] = protonode
+        else:
+            ndef = (form.name, norm)
+            protonode = ProtoNode(self, buid, form, norm, node, norminfo)
+            self.protonodes[ndef] = protonode
 
         ops = []
 
-        subs = norminfo.get('subs')
         if subs is not None:
-            for prop, valu in subs.items():
-                ops.append(protonode.getSubSetOps(prop, valu))
+            for prop, (subhash, subvalu, subinfo) in subs.items():
+                if (subp := form.props.get(prop)) is None:
+                    continue
 
-        adds = norminfo.get('adds')
+                if subp.type.typehash is subhash:
+                    ops.append(protonode.getSubSetOps(prop, subvalu, norminfo=subinfo))
+                    continue
+
+                ops.append(protonode.getSubSetOps(prop, subvalu))
+
         if adds is not None:
             for addname, addvalu, addinfo in adds:
                 ops.append(self.getAddNodeOps(addname, addvalu, norminfo=addinfo))
@@ -978,25 +1045,35 @@ class NodeEditor:
 
     async def _initProtoNode(self, form, norm, norminfo):
 
-        ndef = (form.name, norm)
+        for name in self.view.core.model.getChildForms(form.name):
+            ndef = (name, norm)
+            if (protonode := self.protonodes.get(ndef)) is not None:
+                break
 
-        protonode = self.protonodes.get(ndef)
-        if protonode is not None:
-            return protonode
+            buid = s_common.buid(ndef)
+            if (node := await self.view.getNodeByBuid(buid, tombs=True)) is not None:
+                protonode = ProtoNode(self, buid, form, norm, node, norminfo)
+                self.protonodes[ndef] = protonode
+                break
 
-        buid = s_common.buid(ndef)
-        node = await self.view.getNodeByBuid(buid, tombs=True)
-
-        protonode = ProtoNode(self, buid, form, norm, node, norminfo)
-
-        self.protonodes[ndef] = protonode
+        else:
+            ndef = (form.name, norm)
+            protonode = ProtoNode(self, buid, form, norm, node, norminfo)
+            self.protonodes[ndef] = protonode
 
         ops = collections.deque()
 
         subs = norminfo.get('subs')
         if subs is not None:
-            for prop, valu in subs.items():
-                ops.append(protonode.getSubSetOps(prop, valu))
+            for prop, (subhash, subvalu, subinfo) in subs.items():
+                if (subp := form.props.get(prop)) is None:
+                    continue
+
+                if subp.type.typehash is subhash:
+                    ops.append(protonode.getSubSetOps(prop, subvalu, norminfo=subinfo))
+                    continue
+
+                ops.append(protonode.getSubSetOps(prop, subvalu))
 
             while ops:
                 oset = ops.popleft()

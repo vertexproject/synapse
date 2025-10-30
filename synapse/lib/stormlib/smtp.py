@@ -90,13 +90,13 @@ class SmtpMessage(s_stormtypes.StormType):
                         'desc': 'The user name to use authenticating to the SMTP server.'},
                     {'name': 'passwd', 'type': 'str', 'default': None,
                         'desc': 'The password to use authenticating to the SMTP server.'},
-                    {'name': 'usetls', 'type': 'bool', 'default': False,
+                    {'name': 'usetls', 'type': 'boolean', 'default': False,
                         'desc': 'Initiate a TLS connection to the SMTP server.'},
-                    {'name': 'starttls', 'type': 'bool', 'default': False,
+                    {'name': 'starttls', 'type': 'boolean', 'default': False,
                         'desc': 'Use the STARTTLS directive with the SMTP server.'},
                     {'name': 'timeout', 'type': 'int', 'default': 60,
                         'desc': 'The timeout (in seconds) to wait for message delivery.'},
-                    {'type': 'bool', 'name': 'ssl_verify', 'default': True,
+                    {'type': 'boolean', 'name': 'ssl_verify', 'default': True,
                      'desc': 'Perform SSL/TLS verification.'},
                   ),
                   'returns': {'type': 'list', 'desc': 'An ($ok, $valu) tuple.'}}},
@@ -203,7 +203,7 @@ class SmtpMessage(s_stormtypes.StormType):
                                    tls_context=ctx,
                                    )
 
-            await s_common.wait_for(futu, timeout=timeout)
+            await asyncio.wait_for(futu, timeout=timeout)
 
         except asyncio.CancelledError:  # pragma: no cover
             raise

@@ -42,9 +42,8 @@ class JsonStor(s_base.Base):
     async def _syncDirtyItems(self, mesg):
         todo = list(self.dirty.items())
         for buid, item in todo:
-            self.slab.put(buid, s_msgpack.en(item), db=self.itemdb)
+            self.slab._put(buid, s_msgpack.en(item), db=self.itemdb)
             self.dirty.pop(buid, None)
-            await asyncio.sleep(0)
 
     async def _incRefObj(self, buid, valu=1):
 
@@ -56,7 +55,7 @@ class JsonStor(s_base.Base):
 
         refs += valu
         if refs > 0:
-            self.slab.put(buid + b'refs', s_msgpack.en(refs), db=self.metadb)
+            await self.slab.put(buid + b'refs', s_msgpack.en(refs), db=self.metadb)
             return refs
 
         # remove the meta entries
@@ -91,7 +90,7 @@ class JsonStor(s_base.Base):
         if oldb is not None:
             await self._incRefObj(oldb, -1)
 
-        self.slab.put(buid + b'refs', s_msgpack.en(1), db=self.metadb)
+        self.slab._put(buid + b'refs', s_msgpack.en(1), db=self.metadb)
 
         self.dirty[buid] = item
 
@@ -144,7 +143,7 @@ class JsonStor(s_base.Base):
             await self._incRefObj(oldb, valu=-1)
 
         await self._incRefObj(buid, valu=1)
-        self.slab.put(srcpkey, buid, db=self.pathdb)
+        await self.slab.put(srcpkey, buid, db=self.pathdb)
 
     async def getPathObjProp(self, path, prop):
 
@@ -220,6 +219,7 @@ class JsonStor(s_base.Base):
 
         step[name] = valu
         self.dirty[buid] = item
+        self.slab.dirty = True
         return True
 
     async def delPathObjProp(self, path, prop):
@@ -241,6 +241,7 @@ class JsonStor(s_base.Base):
         step.pop(names[-1], None)
 
         self.dirty[buid] = item
+        self.slab.dirty = True
         return True
 
     async def cmpDelPathObjProp(self, path, prop, valu):
@@ -264,6 +265,7 @@ class JsonStor(s_base.Base):
 
         step.pop(name, None)
         self.dirty[buid] = item
+        self.slab.dirty = True
         return True
 
     async def popPathObjProp(self, path, prop, defv=None):
@@ -285,7 +287,7 @@ class JsonStor(s_base.Base):
 
         retn = step.pop(names[-1], defv)
         self.dirty[buid] = item
-
+        self.slab.dirty = True
         return retn
 
 class JsonStorApi(s_cell.CellApi):
@@ -374,7 +376,7 @@ class JsonStorApi(s_cell.CellApi):
 
     async def addQueue(self, name, info):
         await self._reqUserAllowed(('queue', 'add', name))
-        info['owner'] = self.user.iden
+        info['creator'] = self.user.iden
         info['created'] = s_common.now()
         return await self.cell.addQueue(name, info)
 
@@ -544,8 +546,8 @@ class JsonStorCell(s_cell.Cell):
         timebyts = s_common.int64en(mesgtime)
         typeabrv = self.notif_abrv_type.setBytsToAbrv(mesgtype.encode())
 
-        self.slab.put(userbyts + timebyts, indxbyts, db=self.notif_indx_usertime, dupdata=True)
-        self.slab.put(userbyts + typeabrv + timebyts, indxbyts, db=self.notif_indx_usertype, dupdata=True)
+        await self.slab.put(userbyts + timebyts, indxbyts, db=self.notif_indx_usertime, dupdata=True)
+        await self.slab.put(userbyts + typeabrv + timebyts, indxbyts, db=self.notif_indx_usertype, dupdata=True)
 
         return indx
 

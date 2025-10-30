@@ -62,20 +62,20 @@ from nodes of those forms.
 
 Examples:
     # Adds a tag to every inet:ipv4 added
-    trigger.add node:add --form inet:ipv4 --query {[ +#mytag ]}
+    trigger.add node:add --form inet:ipv4 {[ +#mytag ]}
 
     # Adds a tag #todo to every node as it is tagged #aka
-    trigger.add tag:add --tag aka --query {[ +#todo ]}
+    trigger.add tag:add --tag aka {[ +#todo ]}
 
     # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
-    trigger.add tag:add --form inet:ipv4 --tag aka --query {[ +#todo ]}
+    trigger.add tag:add --form inet:ipv4 --tag aka {[ +#todo ]}
 
     # Adds a tag #todo to the N1 node of every refs edge add
-    trigger.add edge:add --verb refs --query {[ +#todo ]}
+    trigger.add edge:add --verb refs {[ +#todo ]}
 
     # Adds a tag #todo to the N1 node of every seen edge delete, provided that
     # both nodes are of form file:bytes
-    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes --query {[ +#todo ]}
+    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes {[ +#todo ]}
 '''
 
 addcrondescr = '''
@@ -174,6 +174,14 @@ Examples:
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
 '''
 
+viewdeldescr = '''
+Delete a view from the cortex.
+
+Notes:
+    Deleting a view with the `view.del` command does not delete any of the layers in the view.
+    To delete layers, you must use the `layer.del` command separately.
+'''
+
 wgetdescr = '''Retrieve bytes from a URL and store them in the axon. Yields inet:urlfile nodes.
 
 Examples:
@@ -194,28 +202,57 @@ stormcmds = (
         ),
         'storm': '''
             $lib.queue.add($cmdopts.name)
-            $lib.print("queue added: {name}", name=$cmdopts.name)
+            $lib.print(`queue added: {$cmdopts.name}`)
         ''',
     },
     {
         'name': 'queue.del',
         'descr': 'Remove a queue from the cortex.',
         'cmdargs': (
-            ('name', {'help': 'The name of the queue to remove.'}),
+            ('iden', {'help': 'The iden of the queue to remove.'}),
         ),
         'storm': '''
-            $lib.queue.del($cmdopts.name)
-            $lib.print("queue removed: {name}", name=$cmdopts.name)
+            $lib.queue.del($cmdopts.iden)
+            $lib.print(`queue removed: {$cmdopts.iden}`)
         ''',
     },
     {
         'name': 'queue.list',
         'descr': 'List the queues in the cortex.',
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "iden", "width": 32},
+                        {"name": "name", "width": 30},
+                        {"name": "creator", "width": 20},
+                        {"name": "created", "width": 20},
+                        {"name": "size", "width": 10},
+                        {"name": "offs", "width": 10},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                    },
+                })
+                $printer = $lib.tabular.printer($conf)
+            }
             $lib.print('Storm queue list:')
-            for $info in $lib.queue.list() {
-                $name = $info.name.ljust(32)
-                $lib.print("    {name}:  size: {size} offs: {offs}", name=$name, size=$info.size, offs=$info.offs)
+            $queues = $lib.queue.list()
+            $lib.print($printer.header())
+            for $info in $queues {
+                $row = (
+                    $info.iden,
+                    $info.name,
+                    $lib.auth.users.get($info.creator).name,
+                    $lib.time.format($info.created, '%Y-%m-%d %H:%M:%S'),
+                    $info.size,
+                    $info.offs
+                )
+                $lib.print($printer.row($row))
             }
         ''',
     },
@@ -239,9 +276,7 @@ stormcmds = (
         'cmdargs': (
             ('--readonly', {'help': 'Should the layer be readonly.',
                             'action': 'store_true'}),
-            ('--mirror', {'help': 'A telepath URL of an upstream layer/view to mirror.', 'type': 'str'}),
             ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
-            ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
             ('--name', {'help': 'The name of the layer.'}),
         ),
         'storm': '''
@@ -337,21 +372,41 @@ stormcmds = (
             ('layr', {'help': 'Iden of the layer to retrieve pull configurations for.'}),
         ),
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "iden", "width": 40},
+                        {"name": "user", "width": 10},
+                        {"name": "time", "width": 20},
+                        {"name": "soffs", "width": 10},
+                        {"name": "offs", "width": 10},
+                        {"name": "url", "width": 75},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                    },
+                })
+                $printer = $lib.tabular.printer($conf)
+            }
+            $lib.print('Pulls configured:')
             $layr = $lib.layer.get($cmdopts.layr)
-            $lib.print($layr.repr())
-
             $pulls = $layr.get(pulls)
             if $pulls {
-                $lib.print('Pull Iden                        | User                 | Time                |     Offset | URL')
-                $lib.print('------------------------------------------------------------------------------------------------------------------------------------------')
+                $lib.print($printer.header())
                 for ($iden, $pdef) in $pulls {
-                    $user = $lib.auth.users.get($pdef.user)
-                    if $user { $user = $user.name.ljust(20) }
-                    else { $user = $pdef.user }
-
-                    $tstr = $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S')
-                    $ostr = $lib.cast(str, $pdef.offs).rjust(10)
-                    $lib.print("{iden} | {user} | {time} | {offs} | {url}", iden=$iden, time=$tstr, user=$user, offs=$ostr, url=$pdef.url)
+                    $row = (
+                        $iden,
+                        $lib.auth.users.get($pdef.user).name,
+                        $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S'),
+                        $pdef.soffs,
+                        $pdef.offs,
+                        $pdef.url,
+                    )
+                    $lib.print($printer.row($row))
                 }
             } else {
                 $lib.print('No pulls configured.')
@@ -396,40 +451,15 @@ stormcmds = (
             ('layr', {'help': 'Iden of the layer to retrieve push configurations for.'}),
         ),
         'storm': '''
-            $layr = $lib.layer.get($cmdopts.layr)
-            $lib.print($layr.repr())
-
-            $pushs = $layr.get(pushs)
-            if $pushs {
-                $lib.print('Push Iden                        | User                 | Time                |     Offset | URL')
-                $lib.print('------------------------------------------------------------------------------------------------------------------------------------------')
-                for ($iden, $pdef) in $pushs {
-                    $user = $lib.auth.users.get($pdef.user)
-                    if $user { $user = $user.name.ljust(20) }
-                    else { $user = $pdef.user }
-
-                    $tstr = $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S')
-                    $ostr = $lib.cast(str, $pdef.offs).rjust(10)
-                    $lib.print("{iden} | {user} | {time} | {offs} | {url}", iden=$iden, time=$tstr, user=$user, offs=$ostr, url=$pdef.url)
-                }
-            } else {
-                $lib.print('No pushes configured.')
-            }
-        ''',
-    },
-    {
-        'name': 'pkg.list',
-        'descr': 'List the storm packages loaded in the cortex.',
-        'cmdargs': (
-            ('--verbose', {'default': False, 'action': 'store_true',
-                'help': 'Display build time for each package.'}),
-        ),
-        'storm': '''
             init {
                 $conf = ({
                     "columns": [
-                        {"name": "name", "width": 40},
-                        {"name": "vers", "width": 10},
+                        {"name": "iden", "width": 40},
+                        {"name": "user", "width": 10},
+                        {"name": "time", "width": 20},
+                        {"name": "soffs", "width": 10},
+                        {"name": "offs", "width": 10},
+                        {"name": "url", "width": 75},
                     ],
                     "separators": {
                         "row:outline": false,
@@ -439,171 +469,26 @@ stormcmds = (
                         "column": "",
                     },
                 })
-                if $cmdopts.verbose {
-                    $conf.columns.append(({"name": "time", "width": 20}))
-                }
                 $printer = $lib.tabular.printer($conf)
             }
-
-            $pkgs = $lib.pkg.list()
-
-            if $($pkgs.size() > 0) {
-                $lib.print('Loaded storm packages:')
+            $lib.print('Pushes configured:')
+            $layr = $lib.layer.get($cmdopts.layr)
+            $pushs = $layr.get(pushs)
+            if $pushs {
                 $lib.print($printer.header())
-                for $pkg in $pkgs {
+                for ($iden, $pdef) in $pushs {
                     $row = (
-                        $pkg.name, $pkg.version,
+                        $iden,
+                        $lib.auth.users.get($pdef.user).name,
+                        $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S'),
+                        $pdef.soffs,
+                        $pdef.offs,
+                        $pdef.url,
                     )
-                    if $cmdopts.verbose {
-                        try {
-                            $row.append($lib.time.format($pkg.build.time, '%Y-%m-%d %H:%M:%S'))
-                        } catch StormRuntimeError as _ {
-                            $row.append('not available')
-                        }
-                    }
                     $lib.print($printer.row($row))
                 }
             } else {
-                $lib.print('No storm packages installed.')
-            }
-        '''
-    },
-    {
-        'name': 'pkg.perms.list',
-        'descr': 'List any permissions declared by the package.',
-        'cmdargs': (
-            ('name', {'help': 'The name (or name prefix) of the package.', 'type': 'str'}),
-        ),
-        'storm': '''
-            $pdef = $lib.null
-            for $pkg in $lib.pkg.list() {
-                if $pkg.name.startswith($cmdopts.name) {
-                    $pdef = $pkg
-                    break
-                }
-            }
-
-            if (not $pdef) {
-                $lib.warn(`Package ({$cmdopts.name}) not found!`)
-            } else {
-                if $pdef.perms {
-                    $lib.print(`Package ({$cmdopts.name}) defines the following permissions:`)
-                    for $permdef in $pdef.perms {
-                        $defv = $permdef.default
-                        if ( $defv = $lib.null ) {
-                            $defv = $lib.false
-                        }
-                        $text = `{$lib.str.join('.', $permdef.perm).ljust(32)} : {$permdef.desc} ( default: {$defv} )`
-                        $lib.print($text)
-                    }
-                } else {
-                    $lib.print(`Package ({$cmdopts.name}) contains no permissions definitions.`)
-                }
-            }
-        '''
-    },
-    {
-        'name': 'pkg.del',
-        'descr': 'Remove a storm package from the cortex.',
-        'cmdargs': (
-            ('name', {'help': 'The name (or name prefix) of the package to remove.'}),
-        ),
-        'storm': '''
-
-            $pkgs = $lib.set()
-
-            for $pkg in $lib.pkg.list() {
-                if $pkg.name.startswith($cmdopts.name) {
-                    $pkgs.add($pkg.name)
-                }
-            }
-
-            if $($pkgs.size() = 0) {
-
-                $lib.print('No package names match "{name}". Aborting.', name=$cmdopts.name)
-
-            } elif $($pkgs.size() = 1) {
-
-                $name = $pkgs.list().index(0)
-                $lib.print('Removing package: {name}', name=$name)
-                $lib.pkg.del($name)
-
-            } else {
-
-                $lib.print('Multiple package names match "{name}". Aborting.', name=$cmdopts.name)
-
-            }
-        '''
-    },
-    {
-        'name': 'pkg.docs',
-        'descr': 'Display documentation included in a storm package.',
-        'cmdargs': (
-            ('name', {'help': 'The name (or name prefix) of the package.'}),
-        ),
-        'storm': '''
-            $pdef = $lib.null
-            for $pkg in $lib.pkg.list() {
-                if $pkg.name.startswith($cmdopts.name) {
-                    $pdef = $pkg
-                    break
-                }
-            }
-
-            if (not $pdef) {
-                $lib.warn("Package ({name}) not found!", name=$cmdopts.name)
-            } else {
-                if $pdef.docs {
-                    for $doc in $pdef.docs {
-                        $lib.print($doc.content)
-                    }
-                } else {
-                    $lib.print("Package ({name}) contains no documentation.", name=$cmdopts.name)
-                }
-            }
-        '''
-    },
-    {
-        'name': 'pkg.load',
-        'descr': 'Load a storm package from an HTTP URL.',
-        'cmdargs': (
-            ('url', {'help': 'The HTTP URL to load the package from.'}),
-            ('--raw', {'default': False, 'action': 'store_true',
-                'help': 'Response JSON is a raw package definition without an envelope.'}),
-            ('--verify', {'default': False, 'action': 'store_true',
-                'help': 'Enforce code signature verification on the storm package.'}),
-            ('--ssl-noverify', {'default': False, 'action': 'store_true',
-                'help': 'Specify to disable SSL verification of the server.'}),
-        ),
-        'storm': '''
-            init {
-                $ssl = $lib.true
-                if $cmdopts.ssl_noverify { $ssl = $lib.false }
-
-                $headers = ({'X-Synapse-Version': $lib.str.join('.', $lib.version.synapse())})
-
-                $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl, headers=$headers)
-
-                if ($resp.code != 200) {
-                    $lib.warn("pkg.load got HTTP code: {code} for URL: {url}", code=$resp.code, url=$cmdopts.url)
-                    $lib.exit()
-                }
-
-                $reply = $resp.json()
-                if $cmdopts.raw {
-                    $pkg = $reply
-                } else {
-                    if ($reply.status != "ok") {
-                        $lib.warn("pkg.load got JSON error: {code} for URL: {url}", code=$reply.code, url=$cmdopts.url)
-                        $lib.exit()
-                    }
-
-                    $pkg = $reply.result
-                }
-
-                $pkd = $lib.pkg.add($pkg, verify=$cmdopts.verify)
-
-                $lib.print("Loaded Package: {name} @{version}", name=$pkg.name, version=$pkg.version)
+                $lib.print('No pushes configured.')
             }
         ''',
     },
@@ -611,19 +496,19 @@ stormcmds = (
         'name': 'version',
         'descr': 'Show version metadata relating to Synapse.',
         'storm': '''
-            $comm = $lib.version.commit()
-            $synv = $lib.version.synapse()
+            $comm = $lib.version.commit
+            $synv = $lib.version.synapse
 
             if $synv {
-                $synv = $lib.str.join('.', $synv)
+                $synv = ('.').join($synv)
             }
 
             if $comm {
                 $comm = $comm.slice(0,7)
             }
 
-            $lib.print('Synapse Version: {s}', s=$synv)
-            $lib.print('Commit Hash: {c}', c=$comm)
+            $lib.print('Synapse Version: {$synv}')
+            $lib.print('Commit Hash: {$comm}')
         ''',
     },
     {
@@ -642,7 +527,7 @@ stormcmds = (
     },
     {
         'name': 'view.del',
-        'descr': 'Delete a view from the cortex.',
+        'descr': viewdeldescr,
         'cmdargs': (
             ('iden', {'help': 'Iden of the view to delete.'}),
         ),
@@ -731,13 +616,12 @@ stormcmds = (
         'descr': addtriggerdescr,
         'cmdargs': (
             ('condition', {'help': 'Condition for the trigger.'}),
+            ('storm', {'help': 'Storm query for the trigger to execute.'}),
             ('--form', {'help': 'Form to fire on.'}),
             ('--tag', {'help': 'Tag to fire on.'}),
             ('--prop', {'help': 'Property to fire on.'}),
             ('--verb', {'help': 'Edge verb to fire on.'}),
             ('--n2form', {'help': 'The form of the n2 node to fire on.'}),
-            ('--query', {'help': 'Query for the trigger to execute.', 'required': True,
-                         'dest': 'storm', }),
             ('--async', {'default': False, 'action': 'store_true',
                          'help': 'Make the trigger run in the background.'}),
             ('--disabled', {'default': False, 'action': 'store_true',
@@ -768,14 +652,26 @@ stormcmds = (
     },
     {
         'name': 'trigger.mod',
-        'descr': "Modify an existing trigger's query.",
+        'descr': "Modify an existing trigger.",
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-            ('query', {'help': 'New storm query for the trigger.'}),
+            ('--view', {'help': 'View to move the trigger to.'}),
+            ('--storm', {'help': 'New Storm query for the trigger.'}),
+            ('--user', {'help': 'User to run the trigger as.'}),
+            ('--async', {'help': 'Make the trigger run in the background.'}),
+            ('--enabled', {'help': 'Enable the trigger.'}),
+            ('--name', {'help': 'Human friendly name of the trigger.'}),
+            ('--form', {'help': 'Form to fire on.'}),
+            ('--tag', {'help': 'Tag to fire on.'}),
+            ('--prop', {'help': 'Property to fire on.'}),
         ),
         'storm': '''
-            $iden = $lib.trigger.mod($cmdopts.iden, $cmdopts.query)
-            $lib.print("Modified trigger: {iden}", iden=$iden)
+            $iden = $cmdopts.iden
+            $edits = $lib.copy($cmdopts)
+            $edits.help = $lib.undef
+            $edits.iden = $lib.undef
+            $iden = $lib.trigger.mod($iden, $edits)
+            $lib.print(`Modified trigger: {$iden}`)
         ''',
     },
     {
@@ -863,28 +759,6 @@ stormcmds = (
         ''',
     },
     {
-        'name': 'trigger.enable',
-        'descr': 'Enable a trigger in the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-        ),
-        'storm': '''
-            $iden = $lib.trigger.enable($cmdopts.iden)
-            $lib.print("Enabled trigger: {iden}", iden=$iden)
-        ''',
-    },
-    {
-        'name': 'trigger.disable',
-        'descr': 'Disable a trigger in the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-        ),
-        'storm': '''
-            $iden = $lib.trigger.disable($cmdopts.iden)
-            $lib.print("Disabled trigger: {iden}", iden=$iden)
-        ''',
-    },
-    {
         'name': 'cron.add',
         'descr': addcrondescr,
         'cmdargs': (
@@ -918,10 +792,9 @@ stormcmds = (
                                   monthly=$cmdopts.monthly,
                                   yearly=$cmdopts.yearly,
                                   iden=$cmdopts.iden,
-                                  view=$cmdopts.view,)
-
-            if $cmdopts.doc { $cron.set(doc, $cmdopts.doc) }
-            if $cmdopts.name { $cron.set(name, $cmdopts.name) }
+                                  view=$cmdopts.view,
+                                  doc=$cmdopts.doc,
+                                  name=$cmdopts.name)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
@@ -1091,8 +964,8 @@ stormcmds = (
                     $lib.print('entries:         incunit    incval required')
 
                     for $rec in $job.recs {
-                        $incunit = $lib.str.format('{incunit}', incunit=$rec.incunit).ljust(10)
-                        $incval = $lib.str.format('{incval}', incval=$rec.incval).ljust(6)
+                        $incunit = (`{$rec.incunit}`).ljust(10)
+                        $incval = (`{$rec.incval}`).ljust(6)
 
                         $lib.print('                 {incunit} {incval} {reqdict}',
                                    incunit=$incunit, incval=$incval, reqdict=$rec.reqdict)
@@ -1105,6 +978,7 @@ stormcmds = (
     },
     {
         'name': 'ps.list',
+        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``task.list`` instead.'},
         'descr': 'List running tasks in the cortex.',
         'cmdargs': (
             ('--verbose', {'default': False, 'action': 'store_true', 'help': 'Enable verbose output.'}),
@@ -1131,6 +1005,7 @@ stormcmds = (
     },
     {
         'name': 'ps.kill',
+        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``task.kill`` instead.'},
         'descr': 'Kill a running task/query within the cortex.',
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid process iden is accepted.'}),
@@ -1210,7 +1085,7 @@ stormcmds = (
                     for $valu in $resp.msgpack() {
                         $nodes.append($valu)
                     }
-                    yield $lib.feed.genr($nodes)
+                    yield $lib.feed.genr($nodes, (true))
                 } else {
                     $lib.exit("nodes.import got HTTP error code: {code} for {url}", code=$resp.code, url=$url)
                 }
@@ -1284,6 +1159,16 @@ stormcmds = (
     },
 )
 
+def deprmesg(name, depritem):
+    if (mesg := depritem.get('mesg')) is not None:
+        return f'"{name}" is deprecated: {mesg}'
+
+    if (eolvers := depritem.get('eolvers')) is not None:
+        return f'"{name}" is deprecated and will be removed in {eolvers}.'
+
+    eoldate = depritem.get('eoldate')
+    return f'"{name}" is deprecated and will be removed on {eoldate}.'
+
 @s_cache.memoize(size=1024)
 def queryhash(text):
     return s_common.queryhash(text)
@@ -1346,7 +1231,7 @@ class DmonManager(s_base.Base):
         '''
         Start all the dmons.
         '''
-        if self.enabled:
+        if self.enabled or self.core.safemode:
             return
         dmons = list(self.dmons.values())
         if not dmons:
@@ -1439,7 +1324,8 @@ class StormDmon(s_base.Base):
         query = await self.core.getStormQuery(text, mode=opts.get('mode', 'storm'))
 
         info = {'iden': self.iden, 'name': self.ddef.get('name', 'storm dmon'), 'view': viewiden}
-        await self.core.boss.promote('storm:dmon', user=self.user, info=info)
+
+        await self.core.boss.promote('storm:dmon', user=self.user, info=info, background=True)
 
         def dmonPrint(evnt):
             self._runLogAdd(evnt)
@@ -1956,20 +1842,26 @@ class Runtime(s_base.Base):
 
     async def _joinEmbedStor(self, storage, embeds):
         for nodePath, relProps in embeds.items():
+
             await asyncio.sleep(0)
-            if (nid := relProps.get('*')) is None:
+
+            if (nid := relProps.get('$nid')) is None:
                 continue
 
             nid = s_common.int64en(nid)
 
             stor = await self.view.getStorNodes(nid)
             for relProp in relProps.keys():
+
                 await asyncio.sleep(0)
-                if relProp == '*':
+
+                if relProp[0] == '$':
                     continue
 
                 for idx, layrstor in enumerate(stor):
+
                     await asyncio.sleep(0)
+
                     props = layrstor.get('props')
                     if not props:
                         continue
@@ -1996,16 +1888,20 @@ class Runtime(s_base.Base):
         info.update({'mode': self.opts.get('mode', 'storm'), 'view': self.view.iden})
         self.view.core._logStormQuery(self.query.text, self.user, info=info)
 
+        nodeopts = self.opts.get('node:opts', {})
+
         # { form: ( embedprop, ... ) }
-        embeds = self.opts.get('embeds')
-        dorepr = self.opts.get('repr', False)
-        dopath = self.opts.get('path', False)
-        dolink = self.opts.get('links', False)
-        show_storage = self.opts.get('show:storage', False)
+        embeds = nodeopts.get('embeds')
+        dorepr = nodeopts.get('repr', False)
+        dopath = nodeopts.get('path', False)
+        dolink = nodeopts.get('links', False)
+        virts = nodeopts.get('virts', False)
+        verbs = nodeopts.get('verbs', True)
+        show_storage = nodeopts.get('show:storage', False)
 
         async for node, path in self.execute():
 
-            pode = node.pack(dorepr=dorepr)
+            pode = node.pack(dorepr=dorepr, virts=virts, verbs=verbs)
             pode[1]['path'] = await path.pack(path=dopath)
 
             if (nodedata := path.getData(node.nid)) is not None:
@@ -2103,34 +1999,6 @@ class Runtime(s_base.Base):
                 await asyncio.sleep(0)
                 yield item
 
-    async def getOneNode(self, propname, valu, filt=None, cmpr='='):
-        '''
-        Return exactly 1 node by <prop> <cmpr> <valu>
-        '''
-        opts = {'vars': {'propname': propname, 'valu': valu}}
-
-        nodes = []
-        try:
-
-            async for node in self.view.nodesByPropValu(propname, cmpr, valu):
-
-                await asyncio.sleep(0)
-
-                if filt is not None and not await filt(node):
-                    continue
-
-                if len(nodes) == 1:
-                    mesg = 'Ambiguous value for single node lookup: {propname}^={valu}'
-                    raise s_exc.StormRuntimeError(mesg=mesg)
-
-                nodes.append(node)
-
-            if len(nodes) == 1:
-                return nodes[0]
-
-        except s_exc.BadTypeValu:
-            return None
-
 class Parser:
 
     def __init__(self, prog=None, descr=None, root=None, model=None, cdef=None):
@@ -2151,6 +2019,7 @@ class Parser:
         self.root = root
         self.exited = False
         self.mesgs = []
+        self.deprs = {}
 
         self.optargs = {}
         self.posargs = []
@@ -2176,7 +2045,7 @@ class Parser:
 
         choices = opts.get('choices')
         if choices is not None and opts.get('action') in ('store_true', 'store_false'):
-            mesg = f'Argument choices are not supported when action is store_true or store_false'
+            mesg = 'Argument choices are not supported when action is store_true or store_false'
             raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
 
         dest = self._get_dest(names)
@@ -2210,7 +2079,7 @@ class Parser:
             return False
         return self.optargs.get(valu) is not None
 
-    def parse_args(self, argv):
+    async def parse_args(self, argv):
 
         posargs = []
         todo = collections.deque(argv)
@@ -2233,6 +2102,9 @@ class Parser:
 
             dest = argdef.get('dest')
 
+            if (deprecated := argdef.get('deprecated')) is not None:
+                self.deprs[item] = deprecated
+
             oact = argdef.get('action', 'store')
             if oact == 'store_true':
                 opts[dest] = True
@@ -2249,14 +2121,14 @@ class Parser:
                     vals = opts[dest] = []
 
                 fakeopts = {}
-                if not self._get_store(item, argdef, todo, fakeopts):
+                if not await self._get_store(item, argdef, todo, fakeopts):
                     return
 
                 vals.append(fakeopts.get(dest))
                 continue
 
             assert oact == 'store'
-            if not self._get_store(item, argdef, todo, opts):
+            if not await self._get_store(item, argdef, todo, opts):
                 return
 
         # check for help before processing other args
@@ -2271,7 +2143,7 @@ class Parser:
         todo = collections.deque(posargs)
 
         for name, argdef in self.posargs:
-            if not self._get_store(name, argdef, todo, opts):
+            if not await self._get_store(name, argdef, todo, opts):
                 return
 
         if todo:
@@ -2298,7 +2170,7 @@ class Parser:
 
         return retn
 
-    def _get_store(self, name, argdef, todo, opts):
+    async def _get_store(self, name, argdef, todo, opts):
 
         dest = argdef.get('dest')
         nargs = argdef.get('nargs')
@@ -2318,7 +2190,7 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = self.model.type(argtype).norm(valu)[0]
+                    valu = (await self.model.type(argtype).norm(valu))[0]
                 except Exception:
                     mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
@@ -2341,7 +2213,7 @@ class Parser:
                 valu = todo.popleft()
                 if argtype is not None:
                     try:
-                        valu = self.model.type(argtype).norm(valu)[0]
+                        valu = (await self.model.type(argtype).norm(valu))[0]
                     except Exception:
                         mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
@@ -2364,7 +2236,7 @@ class Parser:
 
                 if argtype is not None:
                     try:
-                        valu = self.model.type(argtype).norm(valu)[0]
+                        valu = (await self.model.type(argtype).norm(valu))[0]
                     except Exception:
                         mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
@@ -2393,7 +2265,7 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = self.model.type(argtype).norm(valu)[0]
+                    valu = (await self.model.type(argtype).norm(valu))[0]
                 except Exception:
                     mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
@@ -2422,6 +2294,12 @@ class Parser:
 
         self._printf(f'Usage: {self.prog} [options] {posargs}')
 
+        if self.cdef is not None and (deprecated := self.cdef.get('deprecated')) is not None:
+            dmsg = deprmesg(self.prog, deprecated)
+            self._printf('')
+            self._printf(f'Deprecated: {dmsg}')
+            self._printf('')
+
         if self.cdef is not None and (endpoints := self.cdef.get('endpoints')):
             self._printf('')
             self._printf('Endpoints:')
@@ -2433,7 +2311,7 @@ class Parser:
                 desc = endpoint.get('desc', '')
                 base = f'    {path}'
                 wrap_desc = self._wrap_text(desc, wrap_w) if desc else ['']
-                self._printf(f'{base:<{base_w-2}}: {wrap_desc[0]}')
+                self._printf(f'{base:<{base_w - 2}}: {wrap_desc[0]}')
                 for ln in wrap_desc[1:]:
                     self._printf(f'{"":<{base_w}}{ln}')
 
@@ -2529,7 +2407,11 @@ class Parser:
 
         first = helplst[0][min_space:]
         wrap_first = self._wrap_text(first, wrap_w)
-        self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
+        self._printf(f'{base:<{base_w - 2}}: {wrap_first[0]}')
+
+        if (deprecated := argdef.get('deprecated')) is not None:
+            mesg = deprmesg(names[0], deprecated)
+            self._printf(f'{"":<{base_w - 2}}  Deprecated: {mesg}')
 
         for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
         for ln in helplst[1:]:
@@ -2582,7 +2464,6 @@ class Cmd:
     name = 'cmd'
     pkgname = ''
     svciden = ''
-    asroot = False
     readonly = False
 
     def __init__(self, runt, runtsafe):
@@ -2617,9 +2498,13 @@ class Cmd:
         self.argv = argv
 
         try:
-            self.opts = self.pars.parse_args(self.argv)
+            self.opts = await self.pars.parse_args(self.argv)
         except s_exc.BadSyntax:  # pragma: no cover
             pass
+
+        for item, depr in self.pars.deprs.items():
+            mesg = deprmesg(item, depr)
+            await self.runt.warnonce(mesg)
 
         for line in self.pars.mesgs:
             await self.runt.printf(line)
@@ -2665,7 +2550,6 @@ class PureCmd(Cmd):
     def __init__(self, cdef, runt, runtsafe):
         self.cdef = cdef
         Cmd.__init__(self, runt, runtsafe)
-        self.asroot = cdef.get('asroot', False)
 
     def getDescr(self):
         return self.cdef.get('descr', 'no documentation provided')
@@ -2689,12 +2573,6 @@ class PureCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         name = self.getName()
-        perm = ('asroot', 'cmd') + tuple(name.split('.'))
-
-        asroot = runt.allowed(perm)
-        if self.asroot and not asroot:
-            mesg = f'Command ({name}) elevates privileges.  You need perm: asroot.cmd.{name}'
-            raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
 
         # if a command requires perms, check em!
         # ( used to create more intuitive perm boundaries )
@@ -2716,12 +2594,20 @@ class PureCmd(Cmd):
 
         cmdopts = s_stormtypes.CmdOpts(self)
 
+        cmdconf = self.cdef.get('cmdconf', {})
+        if cmdconf:
+            cmdconf = s_msgpack.deepcopy(cmdconf, use_list=True)
+
         opts = {
             'vars': {
                 'cmdopts': cmdopts,
-                'cmdconf': self.cdef.get('cmdconf', {}),
+                'cmdconf': cmdconf,
             }
         }
+
+        if (deprecated := self.cdef.get('deprecated')) is not None:
+            mesg = deprmesg(name, deprecated)
+            await self.runt.warnonce(mesg)
 
         if self.runtsafe:
             data = {'pathvars': {}}
@@ -2732,15 +2618,12 @@ class PureCmd(Cmd):
                     yield xnode, xpath
 
             async with runt.getCmdRuntime(query, opts=opts) as subr:
-                subr.asroot = asroot
                 async for node, path in subr.execute(genr=genx()):
                     path.finiframe()
                     path.vars.update(data['pathvars'])
                     yield node, path
         else:
             async with runt.getCmdRuntime(query, opts=opts) as subr:
-                subr.asroot = asroot
-
                 async for node, path in genr:
                     pathvars = path.vars.copy()
                     async def genx():
@@ -3298,32 +3181,26 @@ class DiffCmd(Cmd):
 
         if self.opts.prop:
 
+            layr = runt.view.wlyr
             propname = await s_stormtypes.tostr(self.opts.prop)
 
-            prop = self.runt.view.core.model.prop(propname)
-            if prop is None:
+            if (prop := self.runt.view.core.model.prop(propname)) is None:
                 mesg = f'The property {propname} does not exist.'
                 raise s_exc.NoSuchProp(mesg=mesg)
 
             if prop.isform:
                 liftform = prop.name
                 liftprop = None
-            elif prop.isuniv:
-                liftform = None
-                liftprop = prop.name
             else:
                 liftform = prop.form.name
                 liftprop = prop.name
 
-            layr = runt.view.wlyr
             async for _, nid, sode in layr.liftByProp(liftform, liftprop):
-                node = await self.runt.view._joinStorNode(nid)
-                if node is not None:
+                if (node := await self.runt.view._joinStorNode(nid)) is not None:
                     yield node, runt.initPath(node)
 
             async for nid in layr.iterPropTombstones(liftform, liftprop):
-                node = await self.runt.view._joinStorNode(nid)
-                if node is not None:
+                if (node := await self.runt.view._joinStorNode(nid)) is not None:
                     yield node, runt.initPath(node)
 
             return
@@ -3389,14 +3266,12 @@ class CopyToCmd(Cmd):
 
                 proto = await editor.addNode(node.ndef[0], node.ndef[1])
 
+                await proto.setMeta('created', node.getMeta('created'))
+
                 for name, valu in node.getProps().items():
 
                     prop = node.form.prop(name)
                     if prop.info.get('ro'):
-                        if name == '.created':
-                            proto.props['.created'] = (valu, None)
-                            continue
-
                         curv = proto.get(name)
                         if curv is not None and curv != valu:
                             valurepr = prop.type.repr(curv)
@@ -3596,7 +3471,7 @@ class MergeCmd(Cmd):
             tags = []
             tagadds = []
             for tag, valu in sode.get('tags', {}).items():
-                if valu != (None, None):
+                if valu != (None, None, None):
                     tagadds.append(tag)
                     tagperm = tuple(tag.split('.'))
                     if not self.opts.wipe:
@@ -3804,8 +3679,12 @@ class MergeCmd(Cmd):
                         await asyncio.sleep(0)
                         continue
 
+                    ctime = sode['meta']['created'][0]
+
                     if not doapply:
                         await runt.printf(f'{nodeiden} {form} = {node.repr()}')
+                        mtyp = self.runt.model.metatypes['created']
+                        await runt.printf(f'{nodeiden} {form}.created = {mtyp.repr(ctime)}')
                     else:
                         delnode = True
                         try:
@@ -3814,6 +3693,8 @@ class MergeCmd(Cmd):
                             await runt.warn(e.errinfo.get('mesg'))
                             await asyncio.sleep(0)
                             continue
+
+                        await protonode.setMeta('created', ctime)
 
                 elif doapply:
                     try:
@@ -3827,21 +3708,10 @@ class MergeCmd(Cmd):
 
                     prop = node.form.prop(name)
                     if propfilter is not None:
-                        if name[0] == '.':
-                            if propfilter(name):
-                                continue
-                        else:
-                            if propfilter(prop.full):
-                                continue
-
-                    if prop.info.get('ro'):
-                        if name == '.created':
-                            if doapply:
-                                protonode.props['.created'] = (valu, None)
-                                if not self.opts.wipe:
-                                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
+                        if propfilter(prop.full):
                             continue
 
+                    if prop.info.get('ro'):
                         isset = False
                         for undr in sodes[1:]:
                             props = undr.get('props')
@@ -3864,7 +3734,7 @@ class MergeCmd(Cmd):
                     else:
                         await protonode.set(name, valu)
                         if not self.opts.wipe:
-                            subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
+                            subs.append((s_layer.EDIT_PROP_DEL, (name,)))
 
                 for name in sode.get('antiprops', {}).keys():
                     if not doapply:
@@ -3890,14 +3760,14 @@ class MergeCmd(Cmd):
 
                     if not doapply:
                         valurepr = ''
-                        if valu != (None, None):
+                        if valu != (None, None, None):
                             tagrepr = runt.model.type('ival').repr(valu)
                             valurepr = f' = {tagrepr}'
                         await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
                     else:
                         await protonode.addTag(tag, valu)
                         if not self.opts.wipe:
-                            subs.append((s_layer.EDIT_TAG_DEL, (tag, valu)))
+                            subs.append((s_layer.EDIT_TAG_DEL, (tag,)))
 
                 for tag in sode.get('antitags', {}).keys():
 
@@ -3916,14 +3786,14 @@ class MergeCmd(Cmd):
                     if tagfilter is not None and tagfilter(tag):
                         continue
 
-                    for prop, (valu, stortype) in tagdict.items():
+                    for prop, (valu, stortype, virts) in tagdict.items():
                         if not doapply:
                             valurepr = repr(valu)
                             await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
                         else:
                             await protonode.setTagProp(tag, prop, valu)
                             if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype)))
+                                subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop)))
 
                 for tag, tagdict in sode.get('antitagprops', {}).items():
 
@@ -3956,7 +3826,7 @@ class MergeCmd(Cmd):
                         else:
                             await protonode.setData(name, valu)
                             if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu)))
+                                subs.append((s_layer.EDIT_NODEDATA_DEL, (name,)))
 
                 async for abrv, n2nid, tomb in s_coro.pause(layr0.iterNodeEdgesN1(node.nid)):
                     verb = core.getAbrvIndx(abrv)[0]
@@ -3978,7 +3848,7 @@ class MergeCmd(Cmd):
                                 subs.append((s_layer.EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
 
             if delnode and not self.opts.wipe:
-                subs.append((s_layer.EDIT_NODE_DEL, valu))
+                subs.append((s_layer.EDIT_NODE_DEL, ()))
 
             if doapply:
                 await editor.flushEdits()
@@ -4227,6 +4097,7 @@ class MoveNodesCmd(Cmd):
                         else:
                             self.subs[layr].append((s_layer.EDIT_NODE_TOMB_DEL, ()))
 
+            await self._moveMeta(node, sodes, meta, delnode)
             await self._moveProps(node, sodes, meta, delnode)
             await self._moveTags(node, sodes, meta, delnode)
             await self._moveTagProps(node, sodes, meta, delnode)
@@ -4234,25 +4105,25 @@ class MoveNodesCmd(Cmd):
             await self._moveEdges(node, meta, delnode)
 
             for layr, valu in delnodes:
-                edit = [(s_common.int64un(node.nid), node.form.name, [(s_layer.EDIT_NODE_DEL, valu)])]
+                edit = [(s_common.int64un(node.nid), node.form.name, [(s_layer.EDIT_NODE_DEL, ())])]
                 await self.lyrs[layr].saveNodeEdits(edit, meta=meta)
 
             if delnode and destsode.get('antivalu') is None:
                 if (valu := destsode.get('valu')) is not None:
-                    self.adds.append((s_layer.EDIT_NODE_DEL, valu))
+                    self.adds.append((s_layer.EDIT_NODE_DEL, ()))
 
                 if (tags := destsode.get('tags')) is not None:
                     for name in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
-                        self.adds.append((s_layer.EDIT_TAG_DEL, (name, None)))
+                        self.adds.append((s_layer.EDIT_TAG_DEL, (name,)))
 
                 if (props := destsode.get('props')) is not None:
                     for name, stortype in props.items():
-                        self.adds.append((s_layer.EDIT_PROP_DEL, (name, None, stortype)))
+                        self.adds.append((s_layer.EDIT_PROP_DEL, (name,)))
 
                 if (tagprops := destsode.get('tagprops')) is not None:
                     for tag, props in tagprops.items():
                         for name, stortype in props.items():
-                            self.adds.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, stortype)))
+                            self.adds.append((s_layer.EDIT_TAGPROP_DEL, (tag, name)))
 
                 if self.opts.preserve_tombstones:
                     self.adds.append((s_layer.EDIT_NODE_TOMB, ()))
@@ -4294,6 +4165,33 @@ class MoveNodesCmd(Cmd):
                 await self.lyrs[srclayr].saveNodeEdits(subedits, meta=meta)
                 edits.clear()
 
+    async def _moveMeta(self, node, sodes, meta, delnode):
+
+        movevals = {}
+        form = node.form.name
+        nodeiden = node.iden()
+
+        for layr, sode in sodes.items():
+            if (mdict := sode.get('meta')) is None or (valu := mdict.get('created')) is None:
+                continue
+
+            if (oldv := movevals.get('created')) is not s_common.novalu:
+                if oldv is None:
+                    movevals['created'] = valu[0]
+                else:
+                    movevals['created'] = min(valu[0], oldv)
+
+        if not delnode:
+            for name, valu in movevals.items():
+                if not self.opts.apply:
+                    valurepr = self.runt.model.metatypes[name].repr(valu)
+                    await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}.{name} = {valurepr}')
+                else:
+                    stortype = self.runt.model.metatypes[name].stortype
+                    self.adds.append((s_layer.EDIT_META_SET, (name, valu, stortype)))
+
+        await self._sync(node, meta)
+
     async def _moveProps(self, node, sodes, meta, delnode):
 
         movevals = {}
@@ -4326,7 +4224,7 @@ class MoveNodesCmd(Cmd):
                         valurepr = node.form.prop(name).type.repr(valu)
                         await self.runt.printf(f'{layr} delete {nodeiden} {form}:{name} = {valurepr}')
                     else:
-                        self.subs[layr].append((s_layer.EDIT_PROP_DEL, (name, None, stortype)))
+                        self.subs[layr].append((s_layer.EDIT_PROP_DEL, (name,)))
 
             for name in sode.get('antiprops', {}).keys():
 
@@ -4349,14 +4247,14 @@ class MoveNodesCmd(Cmd):
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}:{name} = {valurepr}')
                     else:
                         stortype = node.form.prop(name).type.stortype
-                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype, virtvals.get('name'))))
+                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, stortype, virtvals.get(name))))
                 else:
                     if destprops is not None and (destvalu := destprops.get(name)) is not None:
                         if not self.opts.apply:
                             valurepr = node.form.prop(name).type.repr(destvalu[0])
                             await self.runt.printf(f'{self.destlayr} delete {nodeiden} {form}:{name} = {valurepr}')
                         else:
-                            self.adds.append((s_layer.EDIT_PROP_DEL, (name, None, destvalu[1])))
+                            self.adds.append((s_layer.EDIT_PROP_DEL, (name,)))
 
                     if self.opts.preserve_tombstones:
                         if not self.opts.apply:
@@ -4378,21 +4276,21 @@ class MoveNodesCmd(Cmd):
             for tag, valu in sode.get('tags', {}).items():
 
                 if (oldv := tagvals.get(tag)) is not s_common.novalu:
-                    if (oldv := tagvals.get(tag)) is None or oldv == (None, None):
+                    if (oldv := tagvals.get(tag)) is None or oldv == (None, None, None):
                         tagvals[tag] = valu
-
+                    elif valu == (None, None, None):
+                        tagvals[tag] = oldv
                     else:
-                        allv = oldv + valu
-                        tagvals[tag] = (min(allv), max(allv))
+                        tagvals[tag] = tagtype.merge(oldv, valu)
 
                 if not layr == self.destlayr:
                     if not self.opts.apply:
                         valurepr = ''
-                        if valu != (None, None):
+                        if valu != (None, None, None):
                             valurepr = f' = {tagtype.repr(valu)}'
                         await self.runt.printf(f'{layr} delete {nodeiden} {form}#{tag}{valurepr}')
                     else:
-                        self.subs[layr].append((s_layer.EDIT_TAG_DEL, (tag, None)))
+                        self.subs[layr].append((s_layer.EDIT_TAG_DEL, (tag,)))
 
             for tag in sode.get('antitags', {}).keys():
 
@@ -4412,22 +4310,22 @@ class MoveNodesCmd(Cmd):
                 if valu is not s_common.novalu:
                     if not self.opts.apply:
                         valurepr = ''
-                        if valu != (None, None):
+                        if valu != (None, None, None):
                             valurepr = f' = {tagtype.repr(valu)}'
 
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}#{tag}{valurepr}')
                     else:
-                        self.adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None)))
+                        self.adds.append((s_layer.EDIT_TAG_SET, (tag, valu,)))
 
                 else:
                     if desttags is not None and (destvalu := desttags.get(tag)) is not None:
                         if not self.opts.apply:
                             valurepr = ''
-                            if valu != (None, None):
+                            if valu != (None, None, None):
                                 valurepr = f' = {tagtype.repr(destvalu)}'
                             await self.runt.printf(f'{self.destlayr} delete {nodeiden} {form}#{tag}{valurepr}')
                         else:
-                            self.adds.append((s_layer.EDIT_TAG_DEL, (tag, None)))
+                            self.adds.append((s_layer.EDIT_TAG_DEL, (tag,)))
 
                     if self.opts.preserve_tombstones:
                         if not self.opts.apply:
@@ -4440,14 +4338,17 @@ class MoveNodesCmd(Cmd):
     async def _moveTagProps(self, node, sodes, meta, delnode):
 
         movevals = {}
+        virtvals = {}
         form = node.form.name
         nodeiden = node.iden()
 
         for layr, sode in sodes.items():
 
             for tag, tagdict in sode.get('tagprops', {}).items():
-                for prop, (valu, stortype) in tagdict.items():
+                for prop, (valu, stortype, virts) in tagdict.items():
+
                     name = (tag, prop)
+                    virtvals[name] = virts
 
                     if (oldv := movevals.get(name)) is not s_common.novalu:
                         if oldv is None:
@@ -4470,7 +4371,7 @@ class MoveNodesCmd(Cmd):
                             mesg = f'{layr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}'
                             await self.runt.printf(mesg)
                         else:
-                            self.subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, None, stortype)))
+                            self.subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop)))
 
             for tag, tagdict in sode.get('antitagprops', {}).items():
                 for prop in tagdict.keys():
@@ -4496,7 +4397,8 @@ class MoveNodesCmd(Cmd):
                         mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
                         await self.runt.printf(mesg)
                     else:
-                        self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, tptype.stortype)))
+                        edit = (tag, prop, valu, tptype.stortype, virtvals.get((tag, prop)))
+                        self.adds.append((s_layer.EDIT_TAGPROP_SET, edit))
 
                 else:
                     if destdict is not None and (destprops := destdict.get(tag)) is not None:
@@ -4507,7 +4409,7 @@ class MoveNodesCmd(Cmd):
                                 mesg = f'{self.destlayr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}'
                                 await self.runt.printf(mesg)
                             else:
-                                self.adds.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, None, destvalu[1])))
+                                self.adds.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop)))
 
                     if self.opts.preserve_tombstones:
                         if not self.opts.apply:
@@ -4548,7 +4450,7 @@ class MoveNodesCmd(Cmd):
                     if tomb:
                         self.subs[layr].append((s_layer.EDIT_NODEDATA_TOMB_DEL, (name,)))
                     else:
-                        self.subs[layr].append((s_layer.EDIT_NODEDATA_DEL, (name, None)))
+                        self.subs[layr].append((s_layer.EDIT_NODEDATA_DEL, (name,)))
                     ecnt += 1
 
             if abrv == last:
@@ -4562,7 +4464,7 @@ class MoveNodesCmd(Cmd):
                         if not self.opts.apply:
                             await self.runt.printf(f'{self.destlayr} delete {nodeiden} {form} DATA {name}')
                         else:
-                            self.adds.append((s_layer.EDIT_NODEDATA_DEL, (name, None)))
+                            self.adds.append((s_layer.EDIT_NODEDATA_DEL, (name,)))
                             ecnt += 1
 
                     if self.opts.preserve_tombstones:
@@ -4577,7 +4479,7 @@ class MoveNodesCmd(Cmd):
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form} DATA {name}')
                     else:
                         (_, valu, _) = await self.lyrs[layr].getNodeData(node.nid, name)
-                        self.adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None)))
+                        self.adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu)))
                         ecnt += 1
 
             if ecnt >= 100:
@@ -4751,7 +4653,7 @@ class MaxCmd(Cmd):
         file:bytes#foo.bar | max :size
 
         // Yield the file:bytes node with the highest value for $tick
-        file:bytes#foo.bar +.seen ($tick, $tock) = .seen | max $tick
+        file:bytes#foo.bar +:seen ($tick, $tock) = :seen | max $tick
 
         // Yield the it:dev:str node with the longest length
         it:dev:str | max $lib.len($node.value())
@@ -4780,10 +4682,10 @@ class MaxCmd(Cmd):
                 continue
 
             if isinstance(valu, (list, tuple)):
-                if valu == (None, None):
+                if valu == (None, None, None):
                     continue
 
-                ival, info = ivaltype.norm(valu)
+                ival, info = await ivaltype.norm(valu)
                 valu = ival[1]
 
             valu = s_stormtypes.intify(valu)
@@ -4805,7 +4707,7 @@ class MinCmd(Cmd):
         file:bytes#foo.bar | min :size
 
         // Yield the file:bytes node with the lowest value for $tick
-        file:bytes#foo.bar +.seen ($tick, $tock) = .seen | min $tick
+        file:bytes#foo.bar +:seen ($tick, $tock) = :seen | min $tick
 
         // Yield the it:dev:str node with the shortest length
         it:dev:str | min $lib.len($node.value())
@@ -4833,10 +4735,10 @@ class MinCmd(Cmd):
                 continue
 
             if isinstance(valu, (list, tuple)):
-                if valu == (None, None):
+                if valu == (None, None, None):
                     continue
 
-                ival, info = ivaltype.norm(valu)
+                ival, info = await ivaltype.norm(valu)
                 valu = ival[0]
 
             valu = s_stormtypes.intify(valu)
@@ -4982,7 +4884,7 @@ class MoveTagCmd(Cmd):
         oldparts = oldstr.split('.')
         noldparts = len(oldparts)
 
-        newname, newinfo = view.core.getTagNorm(await s_stormtypes.tostr(self.opts.newtag))
+        newname, newinfo = await view.core.getTagNorm(await s_stormtypes.tostr(self.opts.newtag))
         newparts = newname.split('.')
 
         runt.layerConfirm(('node', 'tag', 'del', *oldparts))
@@ -6241,6 +6143,7 @@ class IntersectCmd(Cmd):
         it:mitre:attack:group*in=(G0006, G0007) | intersect { -> it:mitre:attack:technique }
     '''
     name = 'intersect'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)

@@ -18,34 +18,6 @@ import synapse.lib.msgpack as s_msgpack
 READSIZE = 16 * s_const.mebibyte
 MAXWRITE = 64 * s_const.mebibyte
 
-async def connect(host, port, ssl=None, hostname=None, linkinfo=None):
-    '''
-    Async connect and return a Link().
-    '''
-    info = {'host': host, 'port': port, 'ssl': ssl, 'hostname': hostname, 'tls': bool(ssl)}
-    if linkinfo is not None:
-        info.update(linkinfo)
-
-    ssl = info.get('ssl')
-    hostname = info.get('hostname')
-
-    reader, writer = await asyncio.open_connection(host, port, ssl=ssl, server_hostname=hostname)
-    return await Link.anit(reader, writer, info=info)
-
-async def listen(host, port, onlink, ssl=None):
-    '''
-    Listen on the given host/port and fire onlink(Link).
-
-    Returns a server object that contains the listening sockets
-    '''
-    async def onconn(reader, writer):
-        info = {'tls': bool(ssl)}
-        link = await Link.anit(reader, writer, info=info)
-        link.schedCoro(onlink(link))
-
-    server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
-    return server
-
 async def unixlisten(path, onlink):
     '''
     Start an PF_UNIX server listening on the given path.
@@ -61,7 +33,15 @@ async def unixconnect(path):
     '''
     Connect to a PF_UNIX server listening on the given path.
     '''
-    reader, writer = await asyncio.open_unix_connection(path=path)
+    try:
+        reader, writer = await asyncio.open_unix_connection(path=path)
+    except ConnectionRefusedError as e:
+        mesg = f'Cell path is not listening: {path}'
+        raise s_exc.LinkErr(mesg=mesg) from e
+    except FileNotFoundError as e:
+        mesg = f'Cell path does not exist: {path}'
+        raise s_exc.NoSuchPath(mesg=mesg) from e
+
     info = {'path': path, 'unix': True}
     return await Link.anit(reader, writer, info=info)
 
@@ -157,7 +137,7 @@ class Link(s_base.Base):
         elif self.sock.family == socket.AF_INET6:
             self._addrinfo['ipver'] = 'ipv6'
 
-        self.unpk = s_msgpack.Unpk()
+        self.unpk = s_msgpack.Unpk(strict=True)
 
         async def fini():
             self.writer.close()
@@ -241,28 +221,7 @@ class Link(s_base.Base):
 
         async with self._txlock:
 
-            while offs < size:
-
-                self.writer.write(byts[offs:offs + MAXWRITE])
-                offs += MAXWRITE
-
-                await self.writer.drain()
-
-    async def tx(self, mesg):
-        '''
-        Async transmit routine which will wait for writer drain().
-        '''
-        if self.isfini:
-            raise s_exc.IsFini()
-
-        offs = 0
-        byts = s_msgpack.en(mesg)
-        size = len(byts)
-
-        async with self._txlock:
-
             try:
-
                 while offs < size:
 
                     self.writer.write(byts[offs:offs + MAXWRITE])
@@ -278,6 +237,16 @@ class Link(s_base.Base):
                 logger.debug('link.tx connection trouble %s', einfo)
 
                 raise
+
+    async def tx(self, mesg):
+        '''
+        Async transmit routine which will wait for writer drain().
+        '''
+        if self.isfini:
+            raise s_exc.IsFini()
+
+        byts = await self.pack(mesg)
+        await self.send(byts)
 
     def txfini(self):
         self.sock.shutdown(1)
@@ -321,9 +290,9 @@ class Link(s_base.Base):
                 raise
 
             except Exception as e:
-                mesg = f'rx error {e} link={self.getAddrInfo()}'
+                mesg = f'rx closed unexpectedly {e} link={self.getAddrInfo()}'
                 if isinstance(e, (BrokenPipeError, ConnectionResetError)):
-                    logger.warning(mesg)
+                    logger.debug(mesg)
                 else:
                     logger.exception(mesg)
                 await self.fini()
@@ -345,6 +314,44 @@ class Link(s_base.Base):
 
     def feed(self, byts):
         '''
-        Used by Plex() to unpack bytes.
+        Used by rx() to unpack messages from bytes.
         '''
         return self.unpk.feed(byts)
+
+    async def pack(self, mesg):
+        '''
+        Used by tx() to pack messages into bytes
+        '''
+        return s_msgpack.en(mesg)
+
+async def connect(host, port, ssl=None, hostname=None, linkinfo=None, linkcls=Link):
+    '''
+    Async connect and return a <linkcls>.
+    '''
+    assert issubclass(linkcls, Link)
+
+    info = {'host': host, 'port': port, 'ssl': ssl, 'hostname': hostname, 'tls': bool(ssl)}
+    if linkinfo is not None:
+        info.update(linkinfo)
+
+    ssl = info.get('ssl')
+    hostname = info.get('hostname')
+
+    reader, writer = await asyncio.open_connection(host, port, ssl=ssl, server_hostname=hostname)
+    return await linkcls.anit(reader, writer, info=info)
+
+async def listen(host, port, onlink, ssl=None, linkcls=Link):
+    '''
+    Listen on the given host/port and fire onlink(<linkcls>).
+
+    Returns a server object that contains the listening sockets
+    '''
+    assert issubclass(linkcls, Link)
+
+    async def onconn(reader, writer):
+        info = {'tls': bool(ssl)}
+        link = await linkcls.anit(reader, writer, info=info)
+        link.schedCoro(onlink(link))
+
+    server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
+    return server

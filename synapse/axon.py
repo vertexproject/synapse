@@ -1,3 +1,4 @@
+import os
 import csv
 import struct
 import asyncio
@@ -138,8 +139,8 @@ class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
 
         self.blobsize = await self.getAxon().size(sha256b)
         if self.blobsize is None:
-            self.set_status(404)
-            self.sendRestErr('NoSuchFile', f'SHA-256 not found: {s_common.ehex(sha256b)}')
+            self.sendRestErr('NoSuchFile', f'SHA-256 not found: {s_common.ehex(sha256b)}',
+                             status_code=s_httpapi.HTTPStatus.NOT_FOUND)
             return False
 
         status = 200
@@ -168,7 +169,7 @@ class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
                 return False
 
             # ranges are *inclusive*...
-            self.set_header('Content-Range', f'bytes {soff}-{eoff-1}/{self.blobsize}')
+            self.set_header('Content-Range', f'bytes {soff}-{eoff - 1}/{self.blobsize}')
             self.set_header('Content-Length', str(cont_len))
             # TODO eventually support multi-range returns
         else:
@@ -260,8 +261,8 @@ class AxonHttpBySha256V1(AxonFileHandler):
 
         sha256b = s_common.uhex(sha256)
         if not await self.getAxon().has(sha256b):
-            self.set_status(404)
-            self.sendRestErr('NoSuchFile', f'SHA-256 not found: {sha256}')
+            self.sendRestErr('NoSuchFile', f'SHA-256 not found: {sha256}',
+                             status_code=s_httpapi.HTTPStatus.NOT_FOUND)
             return
 
         resp = await self.getAxon().del_(sha256b)
@@ -482,8 +483,8 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         Yield hash rows for files that existing in the Axon after a given point in time.
 
         Args:
-            tick (int): The starting time (in epoch milliseconds).
-            tock (int): The ending time to stop iterating at (in epoch milliseconds).
+            tick (int): The starting time (in epoch microseconds).
+            tock (int): The ending time to stop iterating at (in epoch microseconds).
 
         Yields:
             (int, (bytes, int)): A tuple containing time of the hash was added and the file SHA-256 and size.
@@ -810,10 +811,11 @@ class Axon(s_cell.Cell):
 
     async def initServiceStorage(self):  # type: ignore
 
-        path = s_common.gendir(self.dirn, 'axon.lmdb')
+        path = s_common.gendir(self.dirn, 'axon_v2.lmdb')
         self.axonslab = await s_lmdbslab.Slab.anit(path)
-        self.sizes = self.axonslab.initdb('sizes')
         self.onfini(self.axonslab.fini)
+        await self._migrateAxonHistory()
+        self.sizes = self.axonslab.initdb('sizes')
 
         self.hashlocks = {}
 
@@ -890,6 +892,38 @@ class Axon(s_cell.Cell):
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
 
+    async def _migrateAxonHistory(self):
+        oldpath = s_common.genpath(self.dirn, 'axon.lmdb')
+        if not os.path.isdir(oldpath):
+            return
+
+        logger.warning('Migrating Axon history')
+
+        async with await s_lmdbslab.Slab.anit(oldpath, readonly=True) as oldslab:
+
+            for name in ['sizes', 'axonseqn', 'metrics']:
+                if oldslab.dbexists(name):
+                    oldslab.initdb(name)
+                    await oldslab.copydb(name, self.axonslab, name)
+
+            oldhist = s_lmdbslab.Hist(oldslab, 'history')
+            newhist = s_lmdbslab.Hist(self.axonslab, 'history')
+            migrated = 0
+            for tick, item in oldhist.carve(0):
+                newtick = tick * 1000
+                newhist.add(item, tick=newtick)
+                migrated += 1
+            logger.warning(f"Migrated {migrated} history rows")
+
+            self.axonslab.forcecommit()
+
+            try:
+                await oldslab.trash(ignore_errors=False)
+            except s_exc.BadCoreStore as e:
+                raise
+
+        logger.warning('...Axon history migration complete!')
+
     async def _initBlobStor(self):
 
         self.byterange = True
@@ -919,8 +953,6 @@ class Axon(s_cell.Cell):
         # TODO: need LMDB to support getting value size without getting value
         for lkey, byts in self.blobslab.scanByFull(db=self.blobs):
 
-            await asyncio.sleep(0)
-
             blobsha = lkey[:32]
 
             if blobsha != cursha:
@@ -929,7 +961,7 @@ class Axon(s_cell.Cell):
 
             offs += len(byts)
 
-            self.blobslab.put(cursha + offs.to_bytes(8, 'big'), lkey[32:], db=self.offsets)
+            await self.blobslab.put(cursha + offs.to_bytes(8, 'big'), lkey[32:], db=self.offsets)
 
         return self._setStorVers(1)
 
@@ -940,7 +972,7 @@ class Axon(s_cell.Cell):
         return int.from_bytes(byts, 'big')
 
     def _setStorVers(self, version):
-        self.blobslab.put(b'version', version.to_bytes(8, 'big'), db=self.metadata)
+        self.blobslab._put(b'version', version.to_bytes(8, 'big'), db=self.metadata)
         return version
 
     def _initAxonHttpApi(self):
@@ -991,8 +1023,8 @@ class Axon(s_cell.Cell):
         Yield hash rows for files that existing in the Axon after a given point in time.
 
         Args:
-            tick (int): The starting time (in epoch milliseconds).
-            tock (int): The ending time to stop iterating at (in epoch milliseconds).
+            tick (int): The starting time (in epoch microseconds).
+            tock (int): The ending time to stop iterating at (in epoch microseconds).
 
         Yields:
             (int, (bytes, int)): A tuple containing time of the hash was added and the file SHA-256 and size.
@@ -1254,7 +1286,7 @@ class Axon(s_cell.Cell):
         self.axonmetrics.inc('file:count')
         self.axonmetrics.inc('size:bytes', valu=size)
 
-        self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
+        await self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
         return True
 
     async def _saveFileGenr(self, sha256, genr, size):
@@ -1276,8 +1308,8 @@ class Axon(s_cell.Cell):
         ikey = indx.to_bytes(8, 'big')
         okey = offs.to_bytes(8, 'big')
 
-        self.blobslab.put(sha256 + ikey, byts, db=self.blobs)
-        self.blobslab.put(sha256 + okey, ikey, db=self.offsets)
+        await self.blobslab.put(sha256 + ikey, byts, db=self.blobs)
+        await self.blobslab.put(sha256 + okey, ikey, db=self.offsets)
 
     def _offsToIndx(self, sha256, offs):
         lkey = sha256 + offs.to_bytes(8, 'big')
@@ -1632,15 +1664,16 @@ class Axon(s_cell.Cell):
                                    filename=field.get('filename'),
                                    content_transfer_encoding=field.get('content_transfer_encoding'))
 
-                async with sess.request(method, url, headers=headers, params=params,
-                                        data=data, ssl=ssl) as resp:
+                async with sess.request(method, url, headers=headers, params=params, data=data, ssl=ssl,
+                                        max_line_size=s_const.MAX_LINE_SIZE,
+                                        max_field_size=s_const.MAX_FIELD_SIZE) as resp:
                     info = {
                         'ok': True,
                         'url': str(resp.url),
                         'code': resp.status,
                         'body': await resp.read(),
                         'reason': s_common.httpcodereason(resp.status),
-                        'headers': dict(resp.headers),
+                        'headers': {str(k): v for k, v in resp.headers.items()},
                     }
                     return info
 
@@ -1679,15 +1712,17 @@ class Axon(s_cell.Cell):
         async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
             try:
                 await self._reqHas(sha256)
-                async with sess.request(method, url, headers=headers, params=params,
-                                        data=self.get(sha256), ssl=ssl) as resp:
+                async with sess.request(method, url, headers=headers, params=params, ssl=ssl,
+                                        data=self.get(sha256),
+                                        max_line_size=s_const.MAX_LINE_SIZE,
+                                        max_field_size=s_const.MAX_FIELD_SIZE) as resp:
 
                     info = {
                         'ok': True,
                         'url': str(resp.url),
                         'code': resp.status,
                         'reason': s_common.httpcodereason(resp.status),
-                        'headers': dict(resp.headers),
+                        'headers': {str(k): v for k, v in resp.headers.items()},
                     }
                     return info
 
@@ -1717,11 +1752,11 @@ class Axon(s_cell.Cell):
             'ok': True,
             'url': str(resp.real_url),
             'code': resp.status,
-            'headers': dict(resp.headers),
+            'headers': {str(k): v for k, v in resp.headers.items()},
             'reason': s_common.httpcodereason(resp.status),
             'request': {
                 'url': str(resp.request_info.real_url),
-                'headers': dict(resp.request_info.headers),
+                'headers': {str(k): v for k, v in resp.request_info.headers.items()},
                 'method': str(resp.request_info.method),
             }
         }
@@ -1807,7 +1842,9 @@ class Axon(s_cell.Cell):
         async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
 
             try:
-                async with sess.request(method, url, headers=headers, params=params, json=json, data=body, ssl=ssl) as resp:
+                async with sess.request(method, url, headers=headers, params=params, json=json, data=body, ssl=ssl,
+                                        max_line_size=s_const.MAX_LINE_SIZE,
+                                        max_field_size=s_const.MAX_FIELD_SIZE) as resp:
 
                     info = self._flatten_clientresponse(resp)
 

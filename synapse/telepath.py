@@ -178,7 +178,7 @@ async def _getAhaSvc(urlinfo, timeout=None):
         try:
             proxy = await client.proxy(timeout=timeout)
 
-            cellinfo = await s_common.wait_for(proxy.getCellInfo(), timeout=5)
+            cellinfo = await asyncio.wait_for(proxy.getCellInfo(), timeout=5)
 
             kwargs = {}
             synvers = cellinfo['synapse']['version']
@@ -188,7 +188,7 @@ async def _getAhaSvc(urlinfo, timeout=None):
                     'mirror': bool(s_common.yamlloads(urlinfo.get('mirror', 'false'))),
                 }
 
-            ahasvc = await s_common.wait_for(proxy.getAhaSvc(host, **kwargs), timeout=5)
+            ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host, **kwargs), timeout=5)
             if ahasvc is None:
                 continue
 
@@ -369,25 +369,6 @@ class Share(s_base.Base):
         setattr(self, name, meth)
         return meth
 
-    def __enter__(self):
-        '''
-        Convenience function to enable using Proxy objects as synchronous context managers.
-
-        Note:
-            This should never be used by synapse core code.  This is for sync client code convenience only.
-        '''
-        if s_threads.iden() == self.tid:
-            raise s_exc.SynErr(mesg='Use of synchronous context manager in async code')
-
-        self._ctxobj = self.schedCoroSafePend(self.__aenter__())
-        return self
-
-    def __exit__(self, *args):
-        '''
-        This should never be used by synapse core code.  This is for sync client code convenience only.
-        '''
-        return self.schedCoroSafePend(self._ctxobj.__aexit__(*args))
-
 class Genr(Share):
 
     async def __anit__(self, proxy, iden):
@@ -413,21 +394,6 @@ class Genr(Share):
 
         finally:
             await self.fini()
-
-    def __iter__(self):
-
-        try:
-            while not self.isfini:
-
-                for retn in s_glob.sync(self.queue.slice()):
-
-                    if retn is None:
-                        return
-
-                    yield s_common.result(retn)
-
-        finally:
-            s_glob.sync(self.fini())
 
 sharetypes = {
     'share': Share,
@@ -472,11 +438,6 @@ class GenrIter:
         async for item in genr:
             yield item
             await asyncio.sleep(0)
-
-    def __iter__(self):
-        genr = s_glob.sync(self.proxy.task(self.todo, name=self.share))
-        for item in genr:
-            yield item
 
 class GenrMethod(Method):
 
@@ -701,25 +662,6 @@ class Proxy(s_base.Base):
 
         self.links.append(link)
 
-    def __enter__(self):
-        '''
-        Convenience function to enable using Proxy objects as synchronous context managers.
-
-        Note:
-            This must not be used from async code, and it should never be used in core synapse code.
-        '''
-        if s_threads.iden() == self.tid:
-            raise s_exc.SynErr(mesg='Use of synchronous context manager in async code')
-        self._ctxobj = self.schedCoroSafePend(self.__aenter__())
-        return self
-
-    def __exit__(self, *args):
-        '''
-        Note:
-            This should never be used by core synapse code.
-        '''
-        return self.schedCoroSafePend(self._ctxobj.__aexit__(*args))
-
     async def _onShareFini(self, mesg):
 
         iden = mesg[1].get('share')
@@ -815,7 +757,7 @@ class Proxy(s_base.Base):
                     # TODO: devise a tx/rx strategy to recover these links...
                     await link.fini()
 
-            return s_coro.GenrHelp(genrloop())
+            return genrloop()
 
         if mesg[0] == 't2:share':
             iden = mesg[1].get('iden')
@@ -864,9 +806,6 @@ class Proxy(s_base.Base):
                         return
 
                     await func(mesg)
-
-                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                    raise
 
                 except Exception:
                     logger.exception('Proxy.rxloop for %r' % (mesg,))
@@ -1003,7 +942,7 @@ class ClientV2(s_base.Base):
                 await self.waitfini(timeout=retrysleep)
 
     async def waitready(self, timeout=None):
-        await s_common.wait_for(self.ready.wait(), timeout=timeout)
+        await asyncio.wait_for(self.ready.wait(), timeout=timeout)
 
     def size(self):
         return len(self.proxies)
@@ -1107,7 +1046,7 @@ class ClientV2(s_base.Base):
                 return self.deque.popleft()
 
         # use an inner function so we can wait overall...
-        return await s_common.wait_for(getNextProxy(), timeout)
+        return await asyncio.wait_for(getNextProxy(), timeout)
 
 class Client(s_base.Base):
     '''
@@ -1250,7 +1189,7 @@ class Client(s_base.Base):
         return await proxy.task(todo, name=name)
 
     async def waitready(self, timeout=10):
-        await s_common.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
+        await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
 
     def __getattr__(self, name):
         if self._t_methinfo is None:
@@ -1444,8 +1383,6 @@ async def openinfo(info):
         # cell://rel/path/to/celldir:share
         path = info.get('path')
 
-        name = info.get('name', '*')
-
         # support cell://<relpath>/<to>/<cell>
         # by detecting host...
         host = info.get('host')
@@ -1453,8 +1390,11 @@ async def openinfo(info):
             path = path.strip('/')
             path = os.path.join(host, path)
 
+        name = '*'
         if ':' in path:
             path, name = path.split(':')
+
+        name = info.get('name', name)
 
         full = os.path.join(path, 'sock')
         link = await s_link.unixconnect(full)
@@ -1465,6 +1405,7 @@ async def openinfo(info):
         path = info.get('path')
         if ':' in path:
             path, name = path.split(':')
+        name = info.get('name', name)
         link = await s_link.unixconnect(path)
 
     elif scheme in ('tcp', 'ssl'):

@@ -24,19 +24,19 @@ class NodeTest(s_t_utils.SynTest):
 
             iden, info = node.pack()
             self.eq(iden, ('test:str', 'cool'))
-            self.eq(info.get('tags'), {'foo': (None, None)})
+            self.eq(info.get('tags'), {'foo': (None, None, None)})
             self.eq(info.get('tagprops'), {'foo': {'score': 10, 'note': 'this is a really cool tag!'}})
             props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
             self.eq(props, {'tick': 12345})
 
             iden, info = node.pack(dorepr=True)
             self.eq(iden, ('test:str', 'cool'))
-            self.eq(info.get('tags'), {'foo': (None, None)})
+            self.eq(info.get('tags'), {'foo': (None, None, None)})
             props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
             self.eq(props, {'tick': 12345})
             self.eq(info.get('repr'), None)
             reprs = {k: v for (k, v) in info.get('reprs', {}).items() if not k.startswith('.')}
-            self.eq(reprs, {'tick': '1970-01-01T00:00:12.345Z'})
+            self.eq(reprs, {'tick': '1970-01-01T00:00:00.012345Z'})
             tagpropreprs = info.get('tagpropreprs')
             self.eq(tagpropreprs, {'foo': {'score': '10'}})
 
@@ -61,6 +61,84 @@ class NodeTest(s_t_utils.SynTest):
             self.none(reprs.get('.newp'))
             self.eq(tagpropreprs, {'foo': {'score': '10'}})
 
+            await core.nodes('test:str=cool [ +(refs)> {[ test:str=n1edge ]} <(refs)+ {[ test:int=2 ]} ]')
+            nodes = await core.nodes('test:str=cool')
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {'refs': {'test:str': 1}})
+            self.eq(info.get('n2verbs'), {'refs': {'test:int': 1}})
+
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+            forkopts = {'view': fork}
+            q = 'test:str=cool [ +(refs)> {[ test:int=1 ]} <(refs)+ {[ test:int=3 ]} ]'
+            nodes = await core.nodes(q, opts=forkopts)
+
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {'refs': {'test:str': 1, 'test:int': 1}})
+            self.eq(info.get('n2verbs'), {'refs': {'test:int': 2}})
+
+            # Tombstoned edges are subtracted from verb counts, but cannot go below 0
+            await core.nodes('''[ test:str=subt
+                +(refs)> {[ test:int=4 test:int=5 test:int=6 ]}
+                <(refs)+ {[ test:int=7 test:int=8 test:int=9 ]}
+            ]''')
+
+            nodes = await core.nodes('test:str=subt [ -(refs)> {test:int=4} <(refs)- {test:int=7} ]', opts=forkopts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {'refs': {'test:int': 2}})
+            self.eq(info.get('n2verbs'), {'refs': {'test:int': 2}})
+            self.eq(nodes[0].getEdgeCounts('refs'), {'refs': {'test:int': 2}})
+            self.eq(nodes[0].getEdgeCounts('refs', n2=True), {'refs': {'test:int': 2}})
+
+            nodes = await core.nodes('test:str=subt [ <(test)+ {test:int=7} ]', opts=forkopts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n2verbs'), {'refs': {'test:int': 2}, 'test': {'test:int': 1}})
+
+            await core.nodes('test:str=subt [ <(test)- {test:int=7} ]', opts=forkopts)
+            await core.nodes('test:str=subt [ -(refs)> {test:int} <(refs)- {test:int} ]')
+
+            nodes = await core.nodes('test:str=subt', opts=forkopts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {})
+            self.eq(info.get('n2verbs'), {})
+
+            fork2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)
+            fork2opts = {'view': fork2}
+
+            # Tombstoning a node clears n1 edges
+            nodes = await core.nodes('test:int=2', opts=fork2opts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {'refs': {'test:str': 1}})
+            self.eq(info.get('n2verbs'), {})
+
+            nodes = await core.nodes('test:int=2 | delnode', opts=forkopts)
+            nodes = await core.nodes('[ test:int=2 ]', opts=fork2opts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {})
+            self.eq(info.get('n2verbs'), {})
+
+            # Tombstoning a node does not clear n2 edges
+            nodes = await core.nodes('test:int=1', opts=fork2opts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {})
+            self.eq(info.get('n2verbs'), {'refs': {'test:str': 1}})
+
+            nodes = await core.nodes('test:int=1 | delnode --force', opts=forkopts)
+            nodes = await core.nodes('[ test:int=1 ]', opts=fork2opts)
+            iden, info = nodes[0].pack()
+            self.eq(info.get('n1verbs'), {})
+            self.eq(info.get('n2verbs'), {'refs': {'test:str': 1}})
+
+            async with core.getLocalProxy() as prox:
+                async for m in prox.storm('test:str=cool'):
+                    if m[0] == 'node':
+                        self.nn(m[1][1].get('n1verbs'))
+                        self.nn(m[1][1].get('n2verbs'))
+
+                async for m in prox.storm('test:str=cool', opts={'node:opts': {'verbs': False}}):
+                    if m[0] == 'node':
+                        self.none(m[1][1].get('n1verbs'))
+                        self.none(m[1][1].get('n2verbs'))
+
     async def test_get_has_pop_repr_set(self):
 
         async with self.getTestCore() as core:
@@ -69,30 +147,25 @@ class NodeTest(s_t_utils.SynTest):
             node = nodes[0]
 
             self.true(node.has('tick'))
-            self.true(node.has('.created'))
             self.false(node.has('nope'))
             self.false(node.has('.nope'))
 
             self.eq(node.get('tick'), 12345)
             self.none(node.get('nope'))
-            self.eq(node.get('#cool'), (1, 2))
+            self.eq(node.get('#cool'), (1, 2, 1))
             self.none(node.get('#newp'))
 
             self.eq('cool', node.repr())
-            self.eq(node.repr('tick'), '1970-01-01T00:00:12.345Z')
+            self.eq(node.repr('tick'), '1970-01-01T00:00:00.012345Z')
 
             self.false(await node.set('tick', 12345))
             self.true(await node.set('tick', 123456))
             with self.raises(s_exc.NoSuchProp):
                 await node.set('notreal', 12345)
-            with self.raises(s_exc.ReadOnlyProp):
-                await node.set('.created', 12345)
 
             # Pop tests - these are destructive to the node
             with self.raises(s_exc.NoSuchProp):
                 await node.pop('nope')
-            with self.raises(s_exc.ReadOnlyProp):
-                await node.pop('.created')
             self.true(await node.pop('tick'))
             self.false(await node.pop('tick'))
 
@@ -111,13 +184,13 @@ class NodeTest(s_t_utils.SynTest):
             node = nodes[0]
 
             await node.addTag('cool', valu=(1, 2))
-            self.eq(node.getTag('cool'), (1, 2))
+            self.eq(node.getTag('cool'), (1, 2, 1))
             await node.addTag('cool', valu=(1, 2))  # Add again
-            self.eq(node.getTag('cool'), (1, 2))
+            self.eq(node.getTag('cool'), (1, 2, 1))
             await node.addTag('cool', valu=(1, 3))  # Add again with different valu
-            self.eq(node.getTag('cool'), (1, 3))
+            self.eq(node.getTag('cool'), (1, 3, 2))
             await node.addTag('cool', valu=(-5, 0))  # Add again with different valu
-            self.eq(node.getTag('cool'), (-5, 3))  # merges...
+            self.eq(node.getTag('cool'), (-5, 3, 8))  # merges...
 
             self.true(node.hasTag('cool'))
             self.true(node.hasTag('#cool'))
@@ -126,8 +199,8 @@ class NodeTest(s_t_utils.SynTest):
 
             # Demonstrate that valu is only applied at the level that addTag is called
             await node.addTag('cool.beans.abc', valu=(1, 8))
-            self.eq(node.getTag('cool.beans.abc'), (1, 8))
-            self.eq(node.getTag('cool.beans'), (None, None))
+            self.eq(node.getTag('cool.beans.abc'), (1, 8, 7))
+            self.eq(node.getTag('cool.beans'), (None, None, None))
 
     async def test_node_helpers(self):
 
@@ -149,7 +222,7 @@ class NodeTest(s_t_utils.SynTest):
             self.len(5, s_node.tagsnice(strpode))
             self.len(6, s_node.tags(strpode))
             self.eq(s_node.reprTag(strpode, '#test.foo.bar'), '')
-            self.eq(s_node.reprTag(strpode, '#test.foo.time'), '(2016-01-01T00:00:00.000Z, 2019-01-01T00:00:00.000Z)')
+            self.eq(s_node.reprTag(strpode, '#test.foo.time'), '(2016-01-01T00:00:00Z, 2019-01-01T00:00:00Z)')
             self.none(s_node.reprTag(strpode, 'test.foo.newp'))
 
             self.eq(s_node.prop(strpode, 'hehe'), 'hehe')
@@ -159,9 +232,9 @@ class NodeTest(s_t_utils.SynTest):
             self.none(s_node.prop(strpode, 'newp'))
 
             self.eq(s_node.reprProp(strpode, 'hehe'), 'hehe')
-            self.eq(s_node.reprProp(strpode, 'tick'), '1970-01-01T00:00:12.345Z')
-            self.eq(s_node.reprProp(strpode, ':tick'), '1970-01-01T00:00:12.345Z')
-            self.eq(s_node.reprProp(strpode, 'test:str:tick'), '1970-01-01T00:00:12.345Z')
+            self.eq(s_node.reprProp(strpode, 'tick'), '1970-01-01T00:00:00.012345Z')
+            self.eq(s_node.reprProp(strpode, ':tick'), '1970-01-01T00:00:00.012345Z')
+            self.eq(s_node.reprProp(strpode, 'test:str:tick'), '1970-01-01T00:00:00.012345Z')
             self.none(s_node.reprProp(strpode, 'newp'))
 
             self.eq(s_node.reprTagProps(strpode, 'test'),
@@ -170,7 +243,6 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(s_node.reprTagProps(strpode, 'test.foo'), [])
 
             props = s_node.props(strpode)
-            self.isin('.created', props)
             self.isin('tick', props)
             self.notin('newp', props)
 
@@ -195,7 +267,7 @@ class NodeTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as prox:
                 telepath_nodes = []
                 async for m in prox.storm('test:str=cool test:int=1234',
-                                          opts={'repr': True}):
+                                          opts={'node:opts': {'repr': True}}):
                     if m[0] == 'node':
                         telepath_nodes.append(m[1])
                 self.len(2, telepath_nodes)
@@ -215,7 +287,7 @@ class NodeTest(s_t_utils.SynTest):
                     self.eq('root', retn['result']['name'])
 
                 body = {'query': 'test:str=cool test:int=1234',
-                        'opts': {'repr': True}}
+                        'opts': {'node:opts': {'repr': True}}}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
                     async for byts, x in resp.content.iter_chunks():
                         if not byts:
@@ -349,14 +421,14 @@ class NodeTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 :place:loc=us ]')
             self.len(1, nodes)
 
             node = nodes[0]
 
             self.eq('1.2.3.4', nodes[0].repr())
 
-            self.eq('us', node.repr('loc'))
+            self.eq('us', node.repr('place:loc'))
 
             with self.raises(s_exc.NoSuchProp):
                 node.repr('newp')
@@ -365,7 +437,7 @@ class NodeTest(s_t_utils.SynTest):
 
     async def test_node_data(self):
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
             self.len(1, nodes)
 
             node = nodes[0]
@@ -391,7 +463,7 @@ class NodeTest(s_t_utils.SynTest):
             self.eq((4, 5, 6), await node.getData('bar'))
 
             await node.delete()
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
             node = nodes[0]
 
             self.none(await node.getData('foo'))

@@ -115,6 +115,7 @@ class BadEdgeDef(SynErr): pass
 class BadTypeDef(SynErr): pass
 class BadTypeValu(SynErr): pass
 class BadJsonText(SynErr): pass
+class BadMsgpackData(SynErr): pass
 class BadDataValu(SynErr):
     '''Cannot process the data as intended.'''
     pass
@@ -154,7 +155,6 @@ class CantDelNode(SynErr): pass
 class CantDelForm(SynErr): pass
 class CantDelProp(SynErr): pass
 class CantDelType(SynErr): pass
-class CantDelUniv(SynErr): pass
 class CantDelView(SynErr): pass
 class CantMergeView(SynErr): pass
 class CantRevLayer(SynErr): pass
@@ -217,6 +217,8 @@ class DupEdgeType(SynErr):
 
 class FileExists(SynErr): pass
 
+class ImapError(SynErr): pass
+
 class InconsistentStorage(SynErr):
     '''
     Stored persistent data is inconsistent
@@ -233,6 +235,7 @@ class IsDeprLocked(SynErr):
         super().__init__(*args, **info)
 
 class IsRuntForm(SynErr): pass
+class ShuttingDown(SynErr): pass
 
 class LayerInUse(SynErr): pass
 
@@ -287,6 +290,14 @@ class NoSuchVirt(SynErr):
             mesg = f'No virtual prop named {name} on type {ptyp.name}.'
         return NoSuchVirt(mesg=mesg, name=name, ptyp=ptyp.name)
 
+class NoSuchIface(SynErr):
+
+    @classmethod
+    def init(cls, name, mesg=None):
+        if mesg is None:
+            mesg = f'No interface named {name}.'
+        return NoSuchIface(mesg=mesg, name=name)
+
 class NoSuchEdge(SynErr):
 
     @classmethod
@@ -315,13 +326,16 @@ class NoSuchImpl(SynErr): pass
 class NoSuchIndx(SynErr): pass
 class NoSuchLayer(SynErr): pass
 class NoSuchLift(SynErr): pass
-class NoSuchMeth(SynErr): pass
+class NoSuchMeth(SynErr):
+    @classmethod
+    def init(cls, name, item):
+        return cls(mesg=f'{item.__class__.__name__} has no method: {name}.', name=name)
+
 class NoSuchName(SynErr): pass
 class NoSuchObj(SynErr): pass
 class NoSuchOpt(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchPivot(SynErr): pass
-class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass
@@ -376,3 +390,10 @@ class FatalErr(SynErr):
     pass
 
 class LmdbLock(SynErr): pass
+
+def reprexc(e):
+    if isinstance(e, SynErr):
+        text = e.get('mesg')
+        if text is not None:
+            return text
+    return repr(e)

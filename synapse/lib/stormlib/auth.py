@@ -83,7 +83,7 @@ stormcmds = (
             ('--email', {'type': 'str', 'help': 'The email address to set for the user.'}),
             ('--passwd', {'type': 'str', 'help': 'The new password for the user. This is best passed into the runtime as a variable.'}),
             ('--admin', {'type': 'bool', 'help': 'True to make the user and admin, false to remove their remove their admin status.'}),
-            ('--gate', {'type': 'str', 'help': 'The auth gate iden to grant or revoke admin status on. Use in conjunction with `--admin <bool>`.'}),
+            ('--gate', {'type': 'str', 'help': 'The auth gate iden to grant or revoke admin status on. Use in conjunction with `--admin <boolean>`.'}),
             ('--locked', {'type': 'bool', 'help': 'True to lock the user, false to unlock them.'}),
         ),
         'storm': '''
@@ -589,7 +589,7 @@ stormcmds = (
         'storm': '''
 
             for $pdef in $lib.auth.getPermDefs() {
-                $perm = $lib.str.join(".", $pdef.perm)
+                $perm = ('.').join($pdef.perm)
 
                 if $cmdopts.find {
                     $find = $cmdopts.find.lower()
@@ -644,6 +644,13 @@ class UserProfile(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.runt = runt
 
+    async def _storm_contains(self, item):
+        item = await s_stormtypes.tostr(item)
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('auth', 'user', 'get', 'profile', item))
+        valu = await self.runt.view.core.getUserProfInfo(self.valu, item, default=s_common.novalu)
+        return valu is not s_common.novalu
+
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
         if self.runt.user.iden != self.valu:
@@ -685,34 +692,34 @@ class UserJson(s_stormtypes.Prim):
         {'name': 'get', 'desc': 'Return a stored JSON object or object property for the user.',
          'type': {'type': 'function', '_funcname': 'get',
                    'args': (
-                        {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
-                        {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                        {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
+                        {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                     ),
                     'returns': {'type': 'prim', 'desc': 'The previously stored value or ``(null)``.'}}},
 
         {'name': 'set', 'desc': 'Set a JSON object or object property for the user.',
          'type': {'type': 'function', '_funcname': 'set',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path elements.'},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path elements.'},
                        {'name': 'valu', 'type': 'prim', 'desc': 'The value to set as the JSON object or object property.'},
-                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                       {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                    ),
                    'returns': {'type': 'boolean', 'desc': 'True if the set operation was successful.'}}},
 
         {'name': 'del', 'desc': 'Delete a stored JSON object or object property for the user.',
          'type': {'type': 'function', '_funcname': '_del',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
-                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
+                       {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                    ),
                    'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
 
         {'name': 'iter', 'desc': 'Yield (<path>, <valu>) tuples for the users JSON objects.',
          'type': {'type': 'function', '_funcname': 'iter',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.', 'default': None},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.', 'default': None},
                    ),
-                   'returns': {'name': 'Yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
+                   'returns': {'name': 'yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
     )
 
     def __init__(self, runt, valu):
@@ -823,6 +830,11 @@ class UserVars(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.runt = runt
 
+    async def _storm_contains(self, item):
+        item = await s_stormtypes.tostr(item)
+        valu = await self.runt.view.core.getUserVarValu(self.valu, item, default=s_common.novalu)
+        return valu is not s_common.novalu
+
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
         return await self.runt.view.core.getUserVarValu(self.valu, name)
@@ -899,19 +911,6 @@ class User(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_methUserRevoke',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'tell', 'desc': 'Send a tell notification to a user.',
-         'type': {'type': 'function', '_funcname': '_methUserTell',
-                  'args': (
-                      {'name': 'text', 'type': 'str', 'desc': 'The text of the message to send.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'notify', 'desc': 'Send an arbitrary user notification.',
-         'type': {'type': 'function', '_funcname': '_methUserNotify',
-                  'args': (
-                      {'name': 'mesgtype', 'type': 'str', 'desc': 'The notification type.', },
-                      {'name': 'mesgdata', 'type': 'dict', 'desc': 'The notification data.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'addRule', 'desc': 'Add a rule to the User.',
@@ -1045,8 +1044,8 @@ class User(s_stormtypes.Prim):
                   'args': (
                       {'name': 'name', 'type': 'str',
                        'desc': 'The name of the API key.'},
-                      {'name': 'duration', 'type': 'integer', 'default': None,
-                       'desc': 'Duration of time for the API key to be valid, in milliseconds.'},
+                      {'name': 'duration', 'type': 'int', 'default': None,
+                       'desc': 'Duration of time for the API key to be valid, in microseconds.'},
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list, containing the secret API key and a dictionary containing metadata about the key.'}}},
@@ -1122,9 +1121,7 @@ class User(s_stormtypes.Prim):
     def getObjLocals(self):
         return {
             'get': self._methUserGet,
-            'tell': self._methUserTell,
             'gates': self._methGates,
-            'notify': self._methUserNotify,
             'roles': self._methUserRoles,
             'allowed': self._methUserAllowed,
             'grant': self._methUserGrant,
@@ -1147,22 +1144,6 @@ class User(s_stormtypes.Prim):
             'modApiKey': self._methModApiKey,
             'delApiKey': self._methDelApiKey,
         }
-
-    async def _methUserTell(self, text):
-        self.runt.confirm(('tell', self.valu), default=True)
-        mesgdata = {
-            'text': await s_stormtypes.tostr(text),
-            'from': self.runt.user.iden,
-        }
-        return await self.runt.view.core.addUserNotif(self.valu, 'tell', mesgdata)
-
-    async def _methUserNotify(self, mesgtype, mesgdata):
-        if not self.runt.isAdmin():
-            mesg = '$user.notify() method requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-        mesgtype = await s_stormtypes.tostr(mesgtype)
-        mesgdata = await s_stormtypes.toprim(mesgdata)
-        return await self.runt.view.core.addUserNotif(self.valu, mesgtype, mesgdata)
 
     async def _storUserName(self, name):
 
@@ -1541,7 +1522,7 @@ class LibAuth(s_stormtypes.Lib):
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'The string to process.', },
                   ),
-                  'returns': {'type': 'list', 'desc': 'A tuple containing a bool and a list of permission parts.', }}},
+                  'returns': {'type': 'list', 'desc': 'A tuple containing a boolean and a list of permission parts.', }}},
         {'name': 'textFromRule', 'desc': 'Return a text string from a rule tuple.',
          'type': {'type': 'function', '_funcname': 'textFromRule',
                   'args': (
