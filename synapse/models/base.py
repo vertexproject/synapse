@@ -242,6 +242,8 @@ class BaseModule(s_module.CoreModule):
 
                 ('meta:feed:type:taxonomy', {}, ()),
                 ('meta:feed', {}, (
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'An identifier for the feed.'}),
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for the feed.'}),
