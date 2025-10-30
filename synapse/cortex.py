@@ -4398,7 +4398,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             logger.debug(f'_syncNodeEdits() running catch-up sync to offs={topoffs}')
 
             genrs = [genrfunc(layr, offsdict.get(layr.iden, 0), endoff=topoffs) for layr in self.layers.values()]
-            async for item in s_common.merggenr(genrs, lambda x, y: x[0] < y[0]):
+            async for item in s_common.merggenr2(genrs, cmprkey=lambda x: x[0]):
                 yield item
 
             catchingup = False
