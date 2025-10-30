@@ -345,6 +345,8 @@ modeldefs = (
 
             ('meta:feed:type:taxonomy', {}, ()),
             ('meta:feed', {}, (
+                ('id', ('meta:id', {}), {
+                    'doc': 'An identifier for the feed.'}),
 
                 ('name', ('meta:name', {}), {
                     'doc': 'A name for the feed.'}),
