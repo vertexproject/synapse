@@ -1346,6 +1346,10 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm('function foo() {} return($lib.dict.fromlist(([["foo", $foo]])))')
             self.eq(exc.exception.get('mesg'), 'Unable to convert object to Storm primitive.')
 
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('return($lib.dict.fromlist(({})))')
+            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() argument must be an array')
+
             # Elements not list/tuple
             with self.raises(s_exc.BadArg) as exc:
                 await core.callStorm('return($lib.dict.fromlist(([{}])))')
