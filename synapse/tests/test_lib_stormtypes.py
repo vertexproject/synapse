@@ -1341,6 +1341,14 @@ class StormTypesTest(s_test.SynTest):
             vals = await core.callStorm('return($lib.dict.fromlist(((a, ({})), (b, ([])))))')
             self.eq(vals, {'a': {}, 'b': []})
 
+            # Duplicate keys
+            vals = await core.callStorm('return($lib.dict.fromlist(((a, b), (a, c), (b, c))))')
+            self.eq(vals, {'a': 'c', 'b': 'c'})
+
+            # Integer keys
+            vals = await core.callStorm('return($lib.dict.fromlist((((1), (2)), ((2), (3)))))')
+            self.eq(vals, {1: 2, 2: 3})
+
             # Non-primitive type
             with self.raises(s_exc.NoSuchType) as exc:
                 await core.callStorm('function foo() {} return($lib.dict.fromlist(([["foo", $foo]])))')
