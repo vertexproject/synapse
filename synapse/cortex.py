@@ -3042,13 +3042,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         onload = pkgdef.get('onload')
         pkgvers = pkgdef.get('version')
 
+        fire = onload or inits
+
         if self.isactive:
             async def _onload():
                 if self.safemode:
                     await self.fire('core:pkg:onload:skipped', pkg=name, reason='safemode')
                     return
 
-                await self.fire('core:pkg:onload:start', pkg=name)
+                if fire:
+                    await self.fire('core:pkg:onload:start', pkg=name)
 
                 logextra = await self.getLogExtra(pkg=name, vers=pkgvers)
 
@@ -3133,7 +3136,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                     logger.info(f'{name} finished onload', extra=logextra)
 
-                await self.fire('core:pkg:onload:complete', pkg=name)
+                if fire:
+                    await self.fire('core:pkg:onload:complete', pkg=name)
 
             self.runActiveTask(_onload())
 

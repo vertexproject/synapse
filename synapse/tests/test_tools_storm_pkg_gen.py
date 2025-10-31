@@ -334,4 +334,5 @@ class TestStormPkgTestNoEvent(s_test.StormPkgTest):
             q = '$lib.time.sleep(0.5) return( $lib.pkg.get(dotstorm_noevents).name)'
             self.eq('dotstorm_noevents', await core.callStorm(q))
         event_names = {e[0] for e in self.events}
+        self.notin('core:pkg:onload:start', event_names)
         self.notin('core:pkg:onload:complete', event_names)
