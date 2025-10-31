@@ -39,7 +39,7 @@ class JsonTest(s_test.SynTest):
             with s_common.genfile(dirn, 'empty') as empty:
                 with self.raises(s_exc.BadJsonText) as exc:
                     s_json.load(empty)
-                self.eq(exc.exception.get('mesg'), 'Expecting value: line 1 column 1 (char 0)')
+                self.eq(exc.exception.get('mesg'), 'Cannot deserialize empty value.')
 
             buf = io.BytesIO(b'{"a": "b"}')
             self.eq({'a': 'b'}, s_json.load(buf))
