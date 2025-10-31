@@ -1,0 +1,7 @@
+---
+desc: Added ``$lib.dict.fromlist()`` function to create dictionaries from arrays of
+  (key, value) tuples.
+desc:literal: false
+prs: []
+type: feat
+...

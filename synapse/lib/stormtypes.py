@@ -1797,6 +1797,12 @@ class LibDict(Lib):
                       {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
                   ),
                   'returns': {'type': 'list', 'desc': 'List of keys in the specified dictionary.', }}},
+        {'name': 'fromlist', 'desc': 'Construct a dictionary from a list of key/value tuples.',
+         'type': {'type': 'function', '_funcname': '_fromlist',
+                  'args': (
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The list of key/value tuples.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'The new dictionary.', }}},
         {'name': 'pop', 'desc': 'Remove specified key and return the corresponding value.',
          'type': {'type': 'function', '_funcname': '_pop',
                   'args': (
@@ -1826,6 +1832,7 @@ class LibDict(Lib):
         return {
             'has': self._has,
             'keys': self._keys,
+            'fromlist': self._fromlist,
             'pop': self._pop,
             'update': self._update,
             'values': self._values,
@@ -1855,6 +1862,28 @@ class LibDict(Lib):
         await self._check_type(valu)
         valu = await toprim(valu)
         return list(valu.keys())
+
+    @stormfunc(readonly=True)
+    async def _fromlist(self, valu):
+        valu = await toprim(valu)
+        if not isinstance(valu, (list, tuple)):
+            mesg = '$lib.dict.fromlist() argument must be an array'
+            raise s_exc.BadArg(mesg=mesg)
+
+        for item in valu:
+            if not isinstance(item, (list, tuple)):
+                mesg = '$lib.dict.fromlist() array elements must be an array'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if len(item) != 2:
+                mesg = '$lib.dict.fromlist() argument must be an array of (key, value) pairs.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if not isinstance(item[0], (str, int)):
+                mesg = '$lib.dict.fromlist() keys must be str or int types.'
+                raise s_exc.BadArg(mesg=mesg)
+
+        return dict(valu)
 
     @stormfunc(readonly=True)
     async def _pop(self, valu, key, default=undef):
