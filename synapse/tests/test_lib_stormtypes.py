@@ -25,6 +25,8 @@ import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.tools.service.backup as s_t_backup
+
 import synapse.tests.utils as s_test
 import synapse.tests.files as s_test_files
 
@@ -3161,6 +3163,96 @@ class StormTypesTest(s_test.SynTest):
                     self.len(2, podes)
                     self.eq({('test:str', '1234'), ('test:int', 1234)},
                             {pode[0] for pode in podes})
+
+    async def test_persistent_vars_mutability(self):
+
+        with self.getTestDir() as dirn:
+            dirn00 = s_common.gendir(dirn, 'core00')
+            dirn01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+                valu = await core00.callStorm('return($lib.globals.get(newp))')
+                self.none(valu)
+
+                valu = await core00.callStorm('return($lib.globals.set(testlist, (foo, bar, baz)))')
+                self.eq(valu, ['foo', 'bar', 'baz'])
+
+                valu = await core00.callStorm('return($lib.globals.set(testdict, ({"foo": "bar"})))')
+                self.eq(valu, {'foo': 'bar'})
+
+                # Can mutate list values?
+                valu = await core00.callStorm('$tl = $lib.globals.get(testlist) $tl.rem(bar) return($tl)')
+                self.eq(valu, ['foo', 'baz'])
+
+                # List mutations don't persist
+                valu = await core00.callStorm('return($lib.globals.get(testlist))')
+                self.eq(valu, ['foo', 'bar', 'baz'])
+
+                # Can mutate dict values?
+                valu = await core00.callStorm('$td = $lib.globals.get(testdict) $td.bar=foo return($td)')
+                self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
+
+                # Dict mutations don't persist
+                valu = await core00.callStorm('return($lib.globals.get(testdict))')
+                self.eq(valu, {'foo': 'bar'})
+
+                # Global list returns mutable objects
+                q = '''
+                    $ret = ({})
+                    for ($key, $val) in $lib.globals.list() {
+                        if ($key = "cortex:runtime:stormfixes") { continue }
+                        $ret.$key = $val
+                    }
+                    $ret.testdict.boo = bar
+                    $ret.testlist.append(moo)
+                    return($ret)
+                '''
+                valu = await core00.callStorm(q)
+                self.eq(valu, {
+                    'testdict': {'boo': 'bar', 'foo': 'bar'},
+                    'testlist': ['foo', 'bar', 'baz', 'moo'],
+                })
+
+                # Pop returns mutable objects
+                q = '''
+                    $tl = $lib.globals.pop(testlist)
+                    $tl.rem(foo)
+                    $ret = ({})
+                    for ($key, $val) in $lib.globals.list() {
+                        if ($key = "cortex:runtime:stormfixes") { continue }
+                        $ret.$key = $val
+                    }
+                    return(($tl, $ret))
+                '''
+                valu = await core00.callStorm(q)
+                self.len(2, valu)
+                self.eq(valu[0], ['bar', 'baz'])
+                self.eq(valu[1], {
+                    'testdict': {'foo': 'bar'},
+                })
+
+            s_t_backup.backup(dirn00, dirn01)
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+
+                url = core00.getLocalUrl()
+
+                conf01 = {'mirror': url}
+
+                async with self.getTestCore(dirn=dirn01, conf=conf01) as core01:
+
+                    q = '''
+                        $default = ({"foo": "bar"})
+                        $valu = $lib.globals.pop(newp01, $default)
+                        $valu.foo01 = bar01
+                        return(($valu, $default))
+                    '''
+                    valu = await core01.callStorm(q)
+                    self.len(2, valu)
+                    self.eq(valu, [
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                    ])
 
     async def test_storm_lib_time(self):
 
