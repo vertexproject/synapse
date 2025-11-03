@@ -3607,6 +3607,7 @@ class Layer(s_nexus.Pusher):
             if self.logedits:
                 offs = self.nodeeditlog.add((flatedits, meta), indx=nexsindx)
                 [(await wind.put((offs, flatedits, meta))) for wind in tuple(self.windows)]
+                [(await wind.put((self.iden, offs, flatedits, meta))) for wind in tuple(self.core.nodeeditwindows)]
 
         await asyncio.sleep(0)
 

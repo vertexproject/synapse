@@ -7338,20 +7338,73 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Avoid races in cleanup
             del genr
 
-    async def test_cortex_syncnodeedits(self):
+    async def test_syncindexevents_edits(self):
+        # NOTE: This test was ported from test_lib_layer
+
+        async with self.getTestCore() as core:
+            layr = core.getLayer()
+            await core.addTagProp('score', ('int', {}), {})
+            offsdict = {
+                layr.iden: await core.getNexsIndx(),
+            }
+
+            nodes = await core.nodes('[ test:str=foo ]')
+            strnode = nodes[0]
+            q = '[ inet:ipv4=1.2.3.4 :asn=42 .seen=(2012,2014) +#mytag:score=99 +#foo.bar=(2012, 2014) ]'
+            nodes = await core.nodes(q)
+            ipv4node = nodes[0]
+
+            await core.nodes('inet:ipv4=1.2.3.4 test:str=foo | delnode')
+
+            mdef = {'forms': ['test:str']}
+            events = [e[3] for e in await alist(core.syncIndexEvents(mdef, offsdict=offsdict, wait=False))]
+            self.eq(events, [
+                (strnode.buid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8), ()),
+                (strnode.buid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8), ()),
+            ])
+
+            mdef = {'props': ['.seen']}
+            events = [e[3] for e in await alist(core.syncIndexEvents(mdef, offsdict=offsdict, wait=False))]
+            ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
+            self.eq(events, [
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('.seen', ival, None, s_layer.STOR_TYPE_IVAL), ()),
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('.seen', ival, s_layer.STOR_TYPE_IVAL), ()),
+            ])
+
+            mdef = {'props': ['inet:ipv4:asn']}
+            events = [e[3] for e in await alist(core.syncIndexEvents(mdef, offsdict=offsdict, wait=False))]
+            self.len(2, events)
+            self.eq(events, [
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64), ()),
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64), ()),
+            ])
+
+            mdef = {'tags': ['foo.bar']}
+            events = [e[3] for e in await alist(core.syncIndexEvents(mdef, offsdict=offsdict, wait=False))]
+            self.eq(events, [
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_SET, ('foo.bar', ival, None), ()),
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_DEL, ('foo.bar', ival), ()),
+            ])
+
+            mdefs = ({'tagprops': ['score']}, {'tagprops': ['mytag:score']})
+            events = [e[3] for e in await alist(core.syncIndexEvents(mdef, offsdict=offsdict, wait=False))]
+            for mdef in mdefs:
+                events = [e[3] for e in await alist(core.syncIndexEvents(mdef, offsdict=offsdict, wait=False))]
+                self.eq(events, [
+                    (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_SET,
+                     ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64), ()),
+                    (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_DEL,
+                     ('mytag', 'score', 99, s_layer.STOR_TYPE_I64), ()),
+                ])
+
+
+    async def test_cortex_synclayersevents_slow(self):
 
         async with self.getTestCore() as core:
 
             layr00 = core.getLayer().iden
             layr01 = (await core.addLayer())['iden']
             view01 = (await core.addView({'layers': (layr01,)}))['iden']
-
-            async def layrgenr(layr, startoff, endoff=None, newlayer=False):
-                wait = endoff is None
-                async for ioff, item, meta in layr.syncNodeEdits2(startoff, wait=wait):
-                    if endoff is not None and ioff >= endoff:
-                        break
-                    yield ioff, item, meta
 
             indx = await core.getNexsIndx()
 
@@ -7370,27 +7423,32 @@ class CortexBasicTest(s_t_utils.SynTest):
                 oldv = s_layer.WINDOW_MAXSIZE
                 s_layer.WINDOW_MAXSIZE = 2
 
-                genr = core._syncNodeEdits(offsdict, layrgenr, wait=True)
+                genr = core.syncLayersEvents(offsdict=offsdict, wait=True)
 
                 nodes = await core.nodes('[ test:str=foo ]')
                 item = await asyncio.wait_for(genr.__anext__(), timeout=2)
-                self.eq(s_common.uhex(nodes[0].iden()), item[1][0][0])
+                self.eq(s_common.uhex(nodes[0].iden()), item[3][0][0])
 
                 # we should now be in live sync
                 # and the empty layer will be pulling from the window
 
                 nodes = await core.nodes('[ test:str=bar ]')
                 item = await asyncio.wait_for(genr.__anext__(), timeout=2)
-                self.eq(s_common.uhex(nodes[0].iden()), item[1][0][0])
+                self.eq(s_common.uhex(nodes[0].iden()), item[3][0][0])
 
                 # add more nodes than the window size without consuming from the genr
 
-                opts = {'view': view01}
-                nodes = await core.nodes('for $s in (baz, bam, cat, dog) { [ test:str=$s ] }', opts=opts)
-                items = [await asyncio.wait_for(genr.__anext__(), timeout=2) for _ in range(4)]
+                opts = {
+                    'view': view01,
+                    'vars': {
+                        'cnt': (cnt := s_layer.WINDOW_MAXSIZE * 2 + 2),
+                    },
+                }
+                nodes = await core.nodes('for $i in $lib.range($cnt) { [ test:str=$i ] }', opts=opts)
+                items = [await asyncio.wait_for(genr.__anext__(), timeout=2) for _ in range(cnt)]
                 self.sorteq(
                     [s_common.uhex(n.iden()) for n in nodes],
-                    [item[1][0][0] for item in items],
+                    [item[3][0][0] for item in items],
                 )
 
             finally:
