@@ -7397,7 +7397,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                      ('mytag', 'score', 99, s_layer.STOR_TYPE_I64), ()),
                 ])
 
-
     async def test_cortex_synclayersevents_slow(self):
 
         async with self.getTestCore() as core:
