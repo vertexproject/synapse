@@ -2881,10 +2881,11 @@ class StormTest(s_t_utils.SynTest):
             await core.addStormPkg(pkg)
 
             events = await waiter.wait(timeout=10)
-            self.eq(events, [
-                ('core:pkg:onload:start', {'pkg': 'testload'}),
-                ('core:pkg:onload:complete', {'pkg': 'testload'}),
-            ])
+            self.len(2, events)
+            self.eq(events[0], ('core:pkg:onload:start', {'pkg': 'testload'}))
+            self.eq(events[1][0], 'core:pkg:onload:complete')
+            self.eq(events[1][1].get('pkg'), 'testload')
+            self.nn(events[1][1].get('storvers'))
 
         async with self.getTestCore() as core:
             pkg = {

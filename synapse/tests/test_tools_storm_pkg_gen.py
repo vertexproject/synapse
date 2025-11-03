@@ -333,6 +333,7 @@ class TestStormPkgTestNoEvent(s_test.StormPkgTest):
         async with self.getTestCore(prepkghook=self._stormpkghook) as core:
             q = '$lib.time.sleep(0.5) return( $lib.pkg.get(dotstorm_noevents).name)'
             self.eq('dotstorm_noevents', await core.callStorm(q))
-        event_names = {e[0] for e in self.events}
-        self.notin('core:pkg:onload:start', event_names)
-        self.notin('core:pkg:onload:complete', event_names)
+        self.len(3, self.events)
+        self.eq(self.events[0][0], 'cell:beholder')
+        self.eq(self.events[1], ('core:pkg:onload:start', {'pkg': 'dotstorm_noevents'}))
+        self.eq(self.events[2], ('core:pkg:onload:complete', {'pkg': 'dotstorm_noevents', 'storvers': -1}))

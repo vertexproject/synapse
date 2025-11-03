@@ -3042,20 +3042,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         onload = pkgdef.get('onload')
         pkgvers = pkgdef.get('version')
 
-        fire = onload or inits
-
         if self.isactive:
             async def _onload():
                 if self.safemode:
                     await self.fire('core:pkg:onload:skipped', pkg=name, reason='safemode')
                     return
 
-                if fire:
-                    await self.fire('core:pkg:onload:start', pkg=name)
+                await self.fire('core:pkg:onload:start', pkg=name)
 
                 logextra = await self.getLogExtra(pkg=name, vers=pkgvers)
 
                 verskey = 'storage:version'
+
+                curvers = -1
 
                 if inits is None:
                     if await self.getStormPkgVar(name, verskey) is None:
@@ -3136,8 +3135,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                     logger.info(f'{name} finished onload', extra=logextra)
 
-                if fire:
-                    await self.fire('core:pkg:onload:complete', pkg=name)
+                await self.fire('core:pkg:onload:complete', pkg=name, storvers=curvers)
 
             self.runActiveTask(_onload())
 
