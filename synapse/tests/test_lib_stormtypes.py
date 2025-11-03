@@ -1356,12 +1356,12 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg) as exc:
                 await core.callStorm('return($lib.dict.fromlist(({})))')
-            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() argument must be an array')
+            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() argument must be an array.')
 
             # Elements not list/tuple
             with self.raises(s_exc.BadArg) as exc:
                 await core.callStorm('return($lib.dict.fromlist(([{}])))')
-            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() array elements must be an array')
+            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() array elements must be an array.')
 
             # Element len != 2
             with self.raises(s_exc.BadArg) as exc:

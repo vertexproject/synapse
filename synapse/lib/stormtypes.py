@@ -1800,9 +1800,9 @@ class LibDict(Lib):
         {'name': 'fromlist', 'desc': 'Construct a dictionary from a list of key/value tuples.',
          'type': {'type': 'function', '_funcname': '_fromlist',
                   'args': (
-                      {'name': 'valu', 'type': 'dict', 'desc': 'The list of key/value tuples.'},
+                      {'name': 'valu', 'type': 'list', 'desc': 'The list of key/value tuples.'},
                   ),
-                  'returns': {'type': 'list', 'desc': 'The new dictionary.', }}},
+                  'returns': {'type': 'dict', 'desc': 'The new dictionary.', }}},
         {'name': 'pop', 'desc': 'Remove specified key and return the corresponding value.',
          'type': {'type': 'function', '_funcname': '_pop',
                   'args': (
@@ -1867,12 +1867,12 @@ class LibDict(Lib):
     async def _fromlist(self, valu):
         valu = await toprim(valu)
         if not isinstance(valu, (list, tuple)):
-            mesg = '$lib.dict.fromlist() argument must be an array'
+            mesg = '$lib.dict.fromlist() argument must be an array.'
             raise s_exc.BadArg(mesg=mesg)
 
         for item in valu:
             if not isinstance(item, (list, tuple)):
-                mesg = '$lib.dict.fromlist() array elements must be an array'
+                mesg = '$lib.dict.fromlist() array elements must be an array.'
                 raise s_exc.BadArg(mesg=mesg)
 
             if len(item) != 2:
