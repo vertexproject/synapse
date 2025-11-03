@@ -2840,7 +2840,7 @@ class StormTest(s_t_utils.SynTest):
                 events = await waiter.wait(timeout=10)
                 self.eq(events, [
                     ('core:pkg:onload:start', {'pkg': 'testload'}),
-                    ('core:pkg:onload:complete', {'pkg': 'testload'}),
+                    ('core:pkg:onload:complete', {'pkg': 'testload', 'storvers': -1}),
                 ])
 
                 self.eq((0, 1), await core00.callStorm('return($lib.queue.gen(onload:test).get((0), cull=(false)))'))
@@ -2864,7 +2864,7 @@ class StormTest(s_t_utils.SynTest):
                     events = await waiter.wait(timeout=10)
                     self.eq(events, [
                         ('core:pkg:onload:start', {'pkg': 'testload'}),
-                        ('core:pkg:onload:complete', {'pkg': 'testload'}),
+                        ('core:pkg:onload:complete', {'pkg': 'testload', 'storvers': -1}),
                     ])
 
                     self.eq((2, 3), await core01.callStorm('return($lib.queue.gen(onload:test).get((2), cull=(false)))'))
