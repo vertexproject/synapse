@@ -4268,20 +4268,30 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 unspecified layers or if offsdict is None.
             wait(bool):  whether to pend and stream value until this layer is fini'd
         '''
+        if link := s_scope.get('link'):
+            addrinfo = link.getAddrInfo()
+        else:
+            addrinfo = None
+
         if offsdict is None:
             offsdict = {}
         else:
             offsdict = copy.deepcopy(offsdict)
 
         async def layrgenr(layr, startoffs):
-            async for ioff, nodeedits, meta in layr.syncNodeEdits2(startoffs, wait=False):
-                yield layr.iden, ioff, nodeedits, meta
+            try:
+                async for ioff, nodeedits, meta in layr.syncNodeEdits2(startoffs, wait=False):
+                    yield ioff, layr.iden, SYNC_NODEEDITS, nodeedits, meta
+            except s_exc.IsFini:
+                if layr.isdeleted:
+                    yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, (), {}
 
         async def windfini():
             self.nodeeditwindows.remove(wind)
 
         async def onlayr(mesg):
-            await wind.put((mesg[1]['iden'], mesg[1]['offs'], None, None))
+            evnt = SYNC_LAYR_ADD if mesg[0] == 'core:layr:add' else SYNC_LAYR_DEL
+            await wind.put((mesg[1]['iden'], mesg[1]['offs'], None, {'event': evnt}))
 
         while not self.isfini:
 
@@ -4295,39 +4305,50 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     self.on('core:layr:add', onlayr, base=base)
                     self.on('core:layr:del', onlayr, base=base)
 
-                # todo: error handling (layer deleted during catch-up; logedits=false mid-stream; other?)
+                logger.debug(f'syncLayersEvents() running catch-up sync link={addrinfo}')
 
-                logger.debug(f'syncLayersEvents() running catch-up sync')
+                genrs = []
+                topoffs = 0
+                for layr in self.layers.values():
+                    topoffs = max(topoffs, layr.nodeeditlog.index())
+                    genrs.append(layrgenr(layr, offsdict.get(layr.iden, 0)))
 
-                # todo: could interrupt this to splice new layer in
-                genrs = [layrgenr(layr, offsdict.get(layr.iden, 0)) for layr in self.layers.values()]
-                async for layriden, ioff, nodeedits, meta in s_common.merggenr2(genrs, cmprkey=lambda x: x[0]):
-                    offsdict[layriden] = ioff + 1
-                    yield ioff, layriden, SYNC_NODEEDITS, nodeedits, meta
+                async for item in s_common.merggenr2(genrs, cmprkey=lambda x: x[0]):
+
+                    if item[2] == SYNC_LAYR_DEL:
+                        offsdict.pop(item[1], None)
+                        yield item
+                        continue
+
+                    if item[0] >= topoffs:
+                        break
+
+                    offsdict[item[1]] = item[0] + 1
+
+                    yield item
                     await asyncio.sleep(0)
 
                 if not wait:
                     return
 
-                logger.debug(f'syncLayersEvents() entering live sync')
+                logger.debug(f'syncLayersEvents() entering live sync link={addrinfo}')
 
                 async for layriden, ioff, nodeedits, meta in wind:
 
                     if nodeedits is not None:
-                        # dont replay edits that were yieled during catch-up
-                        if ioff >= offsdict.get(layriden, 0):
-                            offsdict[layriden] = ioff + 1
-                            yield ioff, layriden, SYNC_NODEEDITS, nodeedits, meta
+                        offsdict[layriden] = ioff + 1
+                        yield ioff, layriden, SYNC_NODEEDITS, nodeedits, meta
                         await asyncio.sleep(0)
                         continue
 
-                    if layriden not in offsdict:
+                    if meta['event'] == SYNC_LAYR_ADD:
                         offsdict[layriden] = ioff + 1
                         yield ioff, layriden, SYNC_LAYR_ADD, (), {}
-                    else:
+                    elif layriden in offsdict:
                         yield ioff, layriden, SYNC_LAYR_DEL, (), {}
                         offsdict.pop(layriden, None)
 
+            logger.debug(f'syncLayersEvents() exited live sync link={addrinfo}')
             await self.waitfini(1)
 
     async def syncIndexEvents(self, matchdef, offsdict=None, wait=True):

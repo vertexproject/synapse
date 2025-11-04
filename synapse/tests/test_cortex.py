@@ -7440,7 +7440,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 opts = {
                     'view': view01,
                     'vars': {
-                        'cnt': (cnt := s_layer.WINDOW_MAXSIZE * 2 + 2),
+                        'cnt': (cnt := s_layer.WINDOW_MAXSIZE * 10 + 2),
                     },
                 }
                 nodes = await core.nodes('for $i in $lib.range($cnt) { [ test:str=$i ] }', opts=opts)
@@ -7454,6 +7454,60 @@ class CortexBasicTest(s_t_utils.SynTest):
                 s_layer.WINDOW_MAXSIZE = oldv
                 if genr is not None:
                     del genr
+
+    async def test_synclayersevents_layerdel_catchup(self):
+
+        genr = None
+
+        async with self.getTestCore() as core:
+
+            layr00 = core.getLayer().iden
+            layr01 = (await core.addLayer())['iden']
+            view01 = (await core.addView({'layers': (layr01,)}))['iden']
+
+            indx = await core.getNexsIndx()
+
+            offsdict = {
+                layr00: indx,
+                layr01: indx,
+            }
+
+            buid00 = await core.callStorm('[ test:str=00 ] return($lib.hex.decode($node.iden()))')
+            buid01 = await core.callStorm('[ test:str=01 ] return($lib.hex.decode($node.iden()))', opts={'view': view01})
+            buid02 = await core.callStorm('[ test:str=02 ] return($lib.hex.decode($node.iden()))', opts={'view': view01})
+            buid03 = await core.callStorm('[ test:str=03 ] return($lib.hex.decode($node.iden()))')
+
+            genr = core.syncLayersEvents(offsdict=offsdict, wait=True)
+
+            # catch-up sync
+
+            item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+            self.eq([layr00, buid00], [item[1], item[3][0][0]])
+
+            item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+            self.eq([layr01, buid01], [item[1], item[3][0][0]])
+
+            await core.delView(view01)
+            await core.delLayer(layr01)
+
+            item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+            self.eq([layr00, buid03], [item[1], item[3][0][0]])
+
+            item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+            self.eq([layr01, s_cortex.SYNC_LAYR_DEL], [item[1], item[2]])
+
+            self.len(1, core.nodeeditwindows[0].linklist)  # the del event
+
+            buid04 = await core.callStorm('[ test:str=04 ] return($lib.hex.decode($node.iden()))')
+            self.len(2, core.nodeeditwindows[0].linklist)  # ...plus the new node
+
+            # live sync
+
+            item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+            self.eq([layr00, buid04], [item[1], item[3][0][0]])
+            self.len(0, core.nodeeditwindows[0].linklist) # del event gets skipped since it was already sent
+
+        del genr
 
     async def test_cortex_all_layr_read(self):
         async with self.getTestCore() as core:

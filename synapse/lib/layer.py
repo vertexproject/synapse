@@ -4765,58 +4765,6 @@ class Layer(s_nexus.Pusher):
         async for offi, nodeedits, _meta in self.syncNodeEdits2(offs, wait=wait, reverse=reverse):
             yield (offi, nodeedits)
 
-    async def syncIndexEvents(self, offs, matchdef, wait=True):
-        '''
-        Yield (offs, (buid, form, ETYPE, VALS, META)) tuples from the nodeedit log starting from the given offset.
-        Only edits that match the filter in matchdef will be yielded.
-
-        Notes:
-
-            ETYPE is an constant EDIT_* above.  VALS is a tuple whose format depends on ETYPE, outlined in the comment
-            next to the constant.  META is a dict that may contain keys 'user' and 'time' to represent the iden of the
-            user that initiated the change, and the time that it took place, respectively.
-
-            Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, (), ())) message is emitted.
-
-            The matchdef dict may contain the following keys:  forms, props, tags, tagprops.  The value must be a
-            sequence of strings.  Each key/val combination is treated as an "or", so each key and value yields more events.
-            forms: EDIT_NODE_ADD and EDIT_NODE_DEL events.  Matches events for nodes with forms in the value list.
-            props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop or .universal form
-            tags:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
-            tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be just the prop or tag:prop.
-
-            Will not yield any values if this layer was not created with logedits enabled
-
-        Args:
-            offs(int): starting nexus/editlog offset
-            matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded
-            wait(bool):  whether to pend and stream value until this layer is fini'd
-        '''
-
-        formm = set(matchdef.get('forms', ()))
-        propm = set(matchdef.get('props', ()))
-        tagm = set(matchdef.get('tags', ()))
-        tagpropm = set(matchdef.get('tagprops', ()))
-        count = 0
-
-        async for curoff, editses in self.syncNodeEdits(offs, wait=wait):
-            for buid, form, edit in editses:
-                for etyp, vals, meta in edit:
-                    if ((form in formm and etyp in (EDIT_NODE_ADD, EDIT_NODE_DEL))
-                            or (etyp in (EDIT_PROP_SET, EDIT_PROP_DEL)
-                                and (vals[0] in propm or f'{form}:{vals[0]}' in propm))
-                            or (etyp in (EDIT_TAG_SET, EDIT_TAG_DEL) and vals[0] in tagm)
-                            or (etyp in (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL)
-                                and (vals[1] in tagpropm or f'{vals[0]}:{vals[1]}' in tagpropm))):
-
-                        yield (curoff, (buid, form, etyp, vals, meta))
-
-            await asyncio.sleep(0)
-
-            count += 1
-            if count % 1000 == 0:
-                yield (curoff, (None, None, EDIT_PROGRESS, (), ()))
-
     @contextlib.asynccontextmanager
     async def getNodeEditWindow(self):
         if not self.logedits:
