@@ -28,6 +28,10 @@ def loads(s: str | bytes) -> Any:
         synapse.exc.BadJsonText: This exception is raised when there is an error
             deserializing the provided data.
     '''
+    if not s:
+        mesg = 'Cannot deserialize empty value.'
+        raise s_exc.BadJsonText(mesg=mesg)
+
     try:
         return yyjson.Document(s, flags=yyjson.ReaderFlags.BIGNUM_AS_RAW).as_obj
     except (ValueError, TypeError) as exc:
