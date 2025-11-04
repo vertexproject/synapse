@@ -617,6 +617,9 @@ class FieldHelper(collections.defaultdict):
         self.setdefault(key, _type)
         return _type
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.tname}, {self.fields})'
+
 class Guid(Type):
 
     stortype = s_layer.STOR_TYPE_GUID

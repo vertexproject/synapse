@@ -841,7 +841,7 @@ class Model:
             custom = mdef.get('custom', False)
             for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
                 typeinfo['custom'] = custom
-                self.addType(typename, basename, typeopts, typeinfo)
+                self.addType(typename, basename, typeopts, typeinfo, checks=False)
 
         # load all the interfaces...
         for _, mdef in mods:
@@ -873,6 +873,9 @@ class Model:
         # now we can check the forms display settings...
         for form in self.forms.values():
             self._checkFormDisplay(form)
+
+        for _type in self.types.values():
+            self._checkTypeDef(_type)
 
     def addEdge(self, edgetype, edgeinfo):
 
@@ -914,7 +917,7 @@ class Model:
             raise s_exc.NoSuchForm.init(name)
         return form
 
-    def addType(self, typename, basename, typeopts, typeinfo):
+    def addType(self, typename, basename, typeopts, typeinfo, checks=True):
         base = self.types.get(basename)
         if base is None:
             raise s_exc.NoSuchType(name=basename)
@@ -926,8 +929,20 @@ class Model:
                    f'will be removed in 3.0.0.'
             logger.warning(mesg)
 
+        if checks:
+            self._checkTypeDef(newtype)
+
         self.types[typename] = newtype
         self._modeldef['types'].append(newtype.getTypeDef())
+
+    def _checkTypeDef(self, typ):
+        if 'comp' in typ.info.get('bases', ()):
+            for fname in typ.fieldoffs.keys():
+                ftype = typ.tcache[fname]
+
+                if ftype.name == 'data' or 'data' in ftype.info.get('bases', ()):
+                    mesg = 'Comp types cannot include data fields.'
+                    raise s_exc.BadTypeDef(mesg=mesg, typename=typ.name, field=fname)
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
 

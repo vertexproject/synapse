@@ -299,6 +299,113 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(1, typ.getCompOffs('bar'))
             self.none(typ.getCompOffs('newp'))
 
+            # Comp type with a direct data field
+            badmodel = ('badmodel', {
+                'types': (
+                    ('bad:comp', ('comp', {'fields': (
+                        ('hehe', 'data'),
+                        ('haha', 'int'))
+                    }), {'doc': 'A fake comp type with a data field.'}),
+                ),
+                'forms': (
+                    ('bad:comp', {}, (
+                        ('hehe', ('data', {}), {}),
+                        ('haha', ('int', {}), {}),
+                    )),
+                ),
+            })
+
+            with self.raises(s_exc.BadTypeDef) as exc:
+                core.model.addDataModels([badmodel])
+            self.eq(exc.exception.errinfo, {
+                'mesg': 'Comp types cannot include data fields.',
+                'typename': 'bad:comp',
+                'field': 'hehe',
+            })
+
+            # Comp type with an indirect data field (and out of order definitions)
+            badmodel = ('badmodel', {
+                'types': (
+                    ('bad:comp', ('comp', {'fields': (
+                        ('hehe', 'bad:data'),
+                        ('haha', 'int'))
+                    }), {'doc': 'A fake comp type with a data field.'}),
+                    ('bad:data', ('data', {}), {}),
+                ),
+                'forms': (
+                    ('bad:comp', {}, (
+                        ('hehe', ('bad:data', {}), {}),
+                        ('haha', ('int', {}), {}),
+                    )),
+                ),
+            })
+
+            with self.raises(s_exc.BadTypeDef) as exc:
+                core.model.addDataModels([badmodel])
+            self.eq(exc.exception.errinfo, {
+                'mesg': 'Comp types cannot include data fields.',
+                'typename': 'bad:comp',
+                'field': 'hehe',
+            })
+
+            # Comp type with double indirect data field
+            badmodel = ('badmodel', {
+                'types': (
+                    ('bad:data00', ('data', {}), {}),
+                    ('bad:data01', ('bad:data00', {}), {}),
+                    ('bad:comp', ('comp', {'fields': (
+                        ('hehe', 'bad:data01'),
+                        ('haha', 'int'))
+                    }), {'doc': 'A fake comp type with a data field.'}),
+                ),
+                'forms': (
+                    ('bad:comp', {}, (
+                        ('hehe', ('bad:data01', {}), {}),
+                        ('haha', ('int', {}), {}),
+                    )),
+                ),
+            })
+
+            with self.raises(s_exc.BadTypeDef) as exc:
+                core.model.addDataModels([badmodel])
+            self.eq(exc.exception.errinfo, {
+                'mesg': 'Comp types cannot include data fields.',
+                'typename': 'bad:comp',
+                'field': 'hehe',
+            })
+
+            # API direct
+            typeopts = {
+                'fields': (
+                    ('hehe', 'data'),
+                    ('haha', 'int'),
+                )
+            }
+
+            with self.raises(s_exc.BadTypeDef) as exc:
+                core.model.addType('bad:comp', 'comp', typeopts, {})
+            self.eq(exc.exception.errinfo, {
+                'mesg': 'Comp types cannot include data fields.',
+                'typename': 'bad:comp',
+                'field': 'hehe',
+            })
+
+            # Extmodel API direct
+            typeopts = {
+                'fields': (
+                    ('hehe', 'data'),
+                    ('haha', 'int'),
+                )
+            }
+
+            with self.raises(s_exc.BadTypeDef) as exc:
+                await core.addType('_bad:comp', 'comp', typeopts, {})
+            self.eq(exc.exception.errinfo, {
+                'mesg': 'Comp types cannot include data fields.',
+                'typename': '_bad:comp',
+                'field': 'hehe',
+            })
+
     def test_guid(self):
         model = s_datamodel.Model()
 
