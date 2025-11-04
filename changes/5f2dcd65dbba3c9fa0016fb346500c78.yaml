@@ -1,0 +1,6 @@
+---
+desc: Fail fast when trying to deserialize an empty value with ``$lib.json.load()``.
+desc:literal: false
+prs: []
+type: feat
+...
