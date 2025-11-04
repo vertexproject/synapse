@@ -627,6 +627,7 @@ workflows:
             branches:
               only:
                 - master
+                - redox/syn9858-all-layer-edit-wind # fixme
 
       - build_docker_tag:
           requires:
