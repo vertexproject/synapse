@@ -4819,6 +4819,12 @@ class EditTagAdd(Edit):
 
         valu = (None, None)
 
+        tryset_assign = False
+        if hasval and isinstance(self.kids[1 + oper_offset], Const):
+            assign_oper = await self.kids[1 + oper_offset].compute(runt, None)
+            if assign_oper == '?=':
+                tryset_assign = True
+
         async for node, path in genr:
 
             try:
@@ -4834,13 +4840,27 @@ class EditTagAdd(Edit):
                     parts = name.split('.')
 
                     runt.layerConfirm(('node', 'tag', 'add', *parts))
-
-                    if hasval:
-                        valu = await self.kids[2 + oper_offset].compute(runt, path)
-                        valu = await s_stormtypes.toprim(valu)
-                    await node.addTag(name, valu=valu)
                 except excignore:
                     pass
+
+                if hasval:
+                    valu = await self.kids[2 + oper_offset].compute(runt, path)
+                    valu = await s_stormtypes.toprim(valu)
+                    if tryset_assign and valu is None:
+                        valu = (None, None)
+
+                if tryset_assign:
+                    try:
+                        await node.addTag(name, valu=valu)
+                    except s_exc.BadTypeValu:
+                        await node.addTag(name, valu=(None, None))
+                elif not hasval and oper_offset == 1:
+                    try:
+                        await node.addTag(name, valu=valu)
+                    except excignore:
+                        pass
+                else:
+                    await node.addTag(name, valu=valu)
 
             yield node, path
 
