@@ -1584,6 +1584,20 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('url'),
                     'https://github.com/vertexproject/synapse/commit/03c71e723bceedb38ef8fc14543c30b9e82e64cf')
 
+            nodes = await core.nodes('''
+                [ it:dev:repo:entry=*
+                    :repo={it:dev:repo | limit 1}
+                    :file=*
+                    :path=foo/bar/baz.exe
+                    <(has)+ { it:dev:repo:commit | limit 1 }
+                ]
+            ''')
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('repo'))
+            self.eq(nodes[0].get('path'), 'foo/bar/baz.exe')
+
+            self.len(1, await core.nodes('it:dev:repo:entry <(has)- it:dev:repo:commit'))
+
             props = {
                 'commit': commit,
                 'file': file,
@@ -1712,7 +1726,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(2, nodes)
 
             nodes = await core.nodes('it:dev:repo <- *')
-            self.len(4, nodes)
+            self.len(5, nodes)
 
             nodes = await core.nodes('it:dev:repo:commit')
             self.len(3, nodes)

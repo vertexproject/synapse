@@ -738,6 +738,9 @@ modeldefs = (
             ('it:dev:repo:diff', ('guid', {}), {
                 'doc': 'A diff of a file being applied in a single commit.'}),
 
+            ('it:dev:repo:entry', ('guid', {}), {
+                'doc': 'A file included in a repository.'}),
+
             ('it:dev:repo:issue:label', ('guid', {}), {
                 'interfaces': (
                     ('inet:service:object', {
@@ -1128,6 +1131,9 @@ modeldefs = (
 
             (('it:dev:repo', 'has', 'inet:url'), {
                 'doc': 'The repo has content hosted at the URL.'}),
+
+            (('it:dev:repo:commit', 'has', 'it:dev:repo:entry'), {
+                'doc': 'The file entry is present in the commit version of the repository.'}),
 
             (('it:log:event', 'about', None), {
                 'doc': 'The it:log:event is about the target node.'}),
@@ -1720,6 +1726,18 @@ modeldefs = (
 
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL where the diff is hosted.'}),
+            )),
+
+            ('it:dev:repo:entry', {}, (
+
+                ('repo', ('it:dev:repo', {}), {
+                    'doc': 'The repository which contains the file.'}),
+
+                ('file', ('file:bytes', {}), {
+                    'doc': 'The file which the repository contains.'}),
+
+                ('path', ('file:path', {}), {
+                    'doc': 'The path to the file in the repository.'}),
             )),
 
             ('it:dev:repo:issue', {}, (
