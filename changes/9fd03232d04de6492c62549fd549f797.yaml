@@ -1,7 +1,0 @@
----
-desc: Updated ``StormPkgTest.getTestCore()`` to wait for the ``core:pkg:onload:complete``
-  event associated with the package being loaded.
-desc:literal: false
-prs: []
-type: note
-...

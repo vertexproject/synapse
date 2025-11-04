@@ -23,10 +23,10 @@ import synapse.tools.aha.provision.service as s_tools_provision_service
 import synapse.tests.utils as s_test
 
 realaddsvc = s_aha.AhaCell.addAhaSvc
-async def mockaddsvc(self, name, info, network=None):
+async def mockaddsvc(self, name, info):
     if getattr(self, 'testerr', False):
         raise s_exc.SynErr(mesg='newp')
-    return await realaddsvc(self, name, info, network=network)
+    return await realaddsvc(self, name, info)
 
 class ExecTeleCallerApi(s_cell.CellApi):
     async def exectelecall(self, url, meth, *args, **kwargs):
@@ -92,32 +92,29 @@ class AhaTest(s_test.SynTest):
 
                     # ensure some basic functionality is being properly mirrored
 
-                    cabyts = await aha0.genCaCert('mirrorca')
-                    await aha1.sync()
-                    mirbyts = await aha1.genCaCert('mirrorca')
-                    self.eq(cabyts, mirbyts)
                     iden = s_common.guid()
                     # Adding, downing, and removing service is also nexusified
                     info = {'urlinfo': {'host': '127.0.0.1', 'port': 8080,
                                         'scheme': 'tcp'},
                             'online': iden}
-                    await aha0.addAhaSvc('test', info, network='example.net')
+
+                    await aha0.addAhaSvc('test...', info)
                     await aha1.sync()
-                    mnfo = await aha1.getAhaSvc('test.example.net')
-                    self.eq(mnfo.get('name'), 'test.example.net')
+                    mnfo = await aha1.getAhaSvc('test...')
+                    self.eq(mnfo.get('name'), 'test.synapse')
 
-                    async with aha0.waiter(1, 'aha:svcdown', timeout=6):
-                        await aha0.setAhaSvcDown('test', iden, network='example.net')
+                    async with aha0.waiter(1, 'aha:svc:down', timeout=6):
+                        await aha0.setAhaSvcDown('test...', iden)
 
                     await aha1.sync()
 
-                    mnfo = await aha1.getAhaSvc('test.example.net')
+                    mnfo = await aha1.getAhaSvc('test...')
                     self.notin('online', mnfo)
 
-                    await aha0.delAhaSvc('test', network='example.net')
+                    await aha0.delAhaSvc('test...')
                     await aha1.sync()
 
-                    mnfo = await aha1.getAhaSvc('test.example.net')
+                    mnfo = await aha1.getAhaSvc('test...')
                     self.none(mnfo)
 
                     self.true(aha0.isactive)
@@ -145,6 +142,7 @@ class AhaTest(s_test.SynTest):
                     self.len(1, urls)
 
     async def test_lib_aha_offon(self):
+
         with self.getTestDir() as dirn:
             cell0_dirn = s_common.gendir(dirn, 'cell0')
             async with self.getTestAha(dirn=dirn) as aha:
@@ -155,11 +153,10 @@ class AhaTest(s_test.SynTest):
 
                 purl = await aha.addAhaSvcProv('0.cell')
 
-                wait00 = aha.waiter(1 * replaymult, 'aha:svcadd')
-
                 conf = {'aha:provision': purl}
                 async with self.getTestCell(dirn=cell0_dirn, conf=conf) as cell:
-                    self.len(1 * replaymult, await wait00.wait(timeout=6))
+
+                    await aha._waitAhaSvcOnline('0.cell...', timeout=10)
 
                     svc = await aha.getAhaSvc('0.cell...')
                     linkiden = svc.get('svcinfo', {}).get('online')
@@ -169,16 +166,21 @@ class AhaTest(s_test.SynTest):
 
             with self.getAsyncLoggerStream('synapse.lib.aha', f'Set [0.cell.synapse] offline.') as stream:
                 async with self.getTestAha(dirn=dirn) as aha:
+
                     self.true(await asyncio.wait_for(stream.wait(), timeout=12))
                     svc = await aha.getAhaSvc('0.cell...')
                     self.notin('online', svc.get('svcinfo'))
 
                     # Try setting something down a second time
-                    await aha.setAhaSvcDown('0.cell', linkiden, network='synapse')
+                    await aha.setAhaSvcDown('0.cell...', linkiden)
                     svc = await aha.getAhaSvc('0.cell...')
                     self.notin('online', svc.get('svcinfo'))
 
     async def test_lib_aha_basics(self):
+
+        replaymult = 1
+        if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
+            replaymult = 2
 
         with self.raises(s_exc.NoSuchName):
             await s_telepath.getAhaProxy({})
@@ -208,16 +210,10 @@ class AhaTest(s_test.SynTest):
 
             ahaurls = await aha.getAhaUrls()
 
-            wait00 = aha.waiter(1, 'aha:svcadd')
-
-            replaymult = 1
-            if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
-                replaymult = 2
-
             conf = {'aha:provision': await aha.addAhaSvcProv('0.cell')}
             async with self.getTestCell(dirn=cell0_dirn, conf=conf) as cell:
 
-                await wait00.wait(timeout=2)
+                await aha._waitAhaSvcOnline('0.cell...', timeout=10)
 
                 with self.raises(s_exc.NoSuchName):
                     await s_telepath.getAhaProxy({'host': 'hehe.haha'})
@@ -234,14 +230,14 @@ class AhaTest(s_test.SynTest):
 
                 # force a reconnect...
                 proxy = await cell.ahaclient.proxy(timeout=2)
-                async with aha.waiter(2 * replaymult, 'aha:svcadd'):
+                async with aha.waiter(2 * replaymult, 'aha:svc:add'):
                     await proxy.fini()
 
                 async with await s_telepath.openurl('aha://cell...') as proxy:
                     self.nn(await proxy.getCellIden())
 
                 # force the service into passive mode...
-                async with aha.waiter(3 * replaymult, 'aha:svcdown', 'aha:svcadd', timeout=6):
+                async with aha.waiter(3 * replaymult, 'aha:svc:down', 'aha:svc:add', timeout=6):
                     await cell.setCellActive(False)
 
                 with self.raises(s_exc.NoSuchName):
@@ -251,13 +247,12 @@ class AhaTest(s_test.SynTest):
                 async with await s_telepath.openurl('aha://0.cell...') as proxy:
                     self.nn(await proxy.getCellIden())
 
-                async with aha.waiter(1 * replaymult, 'aha:svcadd', timeout=6):
+                async with aha.waiter(1 * replaymult, 'aha:svc:add', timeout=6):
                     await cell.setCellActive(True)
 
+                await aha._waitAhaSvcOnline('cell...', timeout=6)
                 async with await s_telepath.openurl('aha://cell...') as proxy:
                     self.nn(await proxy.getCellIden())
-
-            wait01 = aha.waiter(2 * replaymult, 'aha:svcadd')
 
             conf = {'aha:provision': await aha.addAhaSvcProv('0.cell')}
             async with self.getTestCell(ctor=PathAwareCell, conf=conf) as cell:
@@ -267,7 +262,8 @@ class AhaTest(s_test.SynTest):
 
                 self.eq(info['cell']['aha'], {'name': '0.cell', 'leader': 'cell', 'network': 'synapse'})
 
-                await wait01.wait(timeout=2)
+                await aha._waitAhaSvcOnline('cell...', timeout=10)
+                await aha._waitAhaSvcOnline('0.cell...', timeout=10)
 
                 async with await s_telepath.openurl('aha://cell.synapse') as proxy:
                     self.eq(celliden, await proxy.getCellIden())
@@ -281,35 +277,12 @@ class AhaTest(s_test.SynTest):
 
                 async with aha.getLocalProxy() as ahaproxy:
 
-                    svcs = [x async for x in ahaproxy.getAhaSvcs('synapse')]
+                    svcs = [x async for x in ahaproxy.getAhaSvcs()]
                     self.len(2, svcs)
                     names = [s['name'] for s in svcs]
                     self.sorteq(('cell.synapse', '0.cell.synapse'), names)
 
-                    self.none(await ahaproxy.getCaCert('vertex.link'))
-                    cacert0 = await ahaproxy.genCaCert('vertex.link')
-                    cacert1 = await ahaproxy.genCaCert('vertex.link')
-                    self.nn(cacert0)
-                    self.eq(cacert0, cacert1)
-                    self.eq(cacert0, await ahaproxy.getCaCert('vertex.link'))
-
-                    csrpem = cell.certdir.genHostCsr('cell.vertex.link').decode()
-
-                    hostcert00 = await ahaproxy.signHostCsr(csrpem)
-                    hostcert01 = await ahaproxy.signHostCsr(csrpem)
-
-                    self.nn(hostcert00)
-                    self.nn(hostcert01)
-                    self.ne(hostcert00, hostcert01)
-
-                    csrpem = cell.certdir.genUserCsr('visi@vertex.link').decode()
-
-                    usercert00 = await ahaproxy.signUserCsr(csrpem)
-                    usercert01 = await ahaproxy.signUserCsr(csrpem)
-
-                    self.nn(usercert00)
-                    self.nn(usercert01)
-                    self.ne(usercert00, usercert01)
+                    self.nn(await ahaproxy.getCaCert())
 
             # We can use HTTP API to get the registered services
             await aha.addUser('lowuser', passwd='lowuser')
@@ -319,6 +292,7 @@ class AhaTest(s_test.SynTest):
             svcsurl = f'https://localhost:{httpsport}/api/v1/aha/services'
 
             async with self.getHttpSess(auth=('root', 'secret'), port=httpsport) as sess:
+
                 async with sess.get(svcsurl) as resp:
                     self.eq(resp.status, http.HTTPStatus.OK)
                     info = await resp.json()
@@ -328,7 +302,7 @@ class AhaTest(s_test.SynTest):
                     self.eq({'0.cell.synapse', 'cell.synapse'},
                             {svcinfo.get('name') for svcinfo in result})
 
-                async with sess.get(svcsurl, json={'network': 'synapse'}) as resp:
+                async with sess.get(svcsurl) as resp:
                     self.eq(resp.status, http.HTTPStatus.OK)
                     info = await resp.json()
                     self.eq(info.get('status'), 'ok')
@@ -337,25 +311,12 @@ class AhaTest(s_test.SynTest):
                     self.eq({'0.cell.synapse', 'cell.synapse'},
                             {svcinfo.get('name') for svcinfo in result})
 
-                async with sess.get(svcsurl, json={'network': 'newp'}) as resp:
-                    self.eq(resp.status, http.HTTPStatus.OK)
-                    info = await resp.json()
-                    self.eq(info.get('status'), 'ok')
-                    result = info.get('result')
-                    self.len(0, result)
-
                 # Sad path
                 async with sess.get(svcsurl, json={'newp': 'hehe'}) as resp:
                     self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
-                    self.eq(info.get('code'), 'SchemaViolation')
-
-                async with sess.get(svcsurl, json={'network': 'mynet', 'newp': 'hehe'}) as resp:
-                    self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
-                    info = await resp.json()
-                    self.eq(info.get('status'), 'err')
-                    self.eq(info.get('code'), 'SchemaViolation')
+                    self.eq(info.get('code'), 'BadArg')
 
             # Sad path
             async with self.getHttpSess(auth=('lowuser', 'lowuser'), port=httpsport) as sess:
@@ -366,15 +327,11 @@ class AhaTest(s_test.SynTest):
                     self.eq(info.get('code'), 'AuthDeny')
 
             async with aha.getLocalProxy() as ahaproxy:
-                await ahaproxy.delAhaSvc('cell', network='synapse')
-                await ahaproxy.delAhaSvc('0.cell', network='synapse')
+                await ahaproxy.delAhaSvc('cell.synapse')
+                await ahaproxy.delAhaSvc('0.cell.synapse')
                 self.none(await ahaproxy.getAhaSvc('cell.synapse'))
                 self.none(await ahaproxy.getAhaSvc('0.cell.synapse'))
                 self.len(0, [s async for s in ahaproxy.getAhaSvcs()])
-
-                with self.raises(s_exc.BadArg):
-                    info = {'urlinfo': {'host': '127.0.0.1', 'port': 8080, 'scheme': 'tcp'}}
-                    await ahaproxy.addAhaSvc('newp', info, network=None)
 
             # test that services get updated aha server list
             with self.getTestDir() as dirn:
@@ -445,12 +402,11 @@ class AhaTest(s_test.SynTest):
 
         async with self.getTestAha() as aha:
 
-            wait00 = aha.waiter(1, 'aha:svcadd')
             conf = {'aha:provision': await aha.addAhaSvcProv('0.cell')}
 
             async with self.getTestCell(conf=conf) as cell:
 
-                self.true(await wait00.wait(timeout=2))
+                await aha._waitAhaSvcOnline('0.cell...', timeout=10)
 
                 async with await s_telepath.openurl('aha://0.cell...') as proxy:
                     self.nn(await proxy.getCellIden())
@@ -476,20 +432,14 @@ class AhaTest(s_test.SynTest):
                     replaymult = 2
 
                 aha.testerr = True
-                wait00 = aha.waiter(1, 'aha:svcadd')
-
                 conf = {'aha:provision': await aha.addAhaSvcProv('0.cell')}
                 async with self.getTestCell(conf=conf) as cell:
-
-                    self.none(await wait00.wait(timeout=2))
 
                     svc = await aha.getAhaSvc('0.cell...')
                     self.none(svc)
 
-                    wait01 = aha.waiter(1 * replaymult, 'aha:svcadd')
                     aha.testerr = False
-
-                    self.nn(await wait01.wait(timeout=2))
+                    await aha._waitAhaSvcOnline('0.cell...', timeout=10)
 
                     svc = await aha.getAhaSvc('0.cell...')
                     self.nn(svc)
@@ -689,7 +639,6 @@ class AhaTest(s_test.SynTest):
                 # provisioning data
                 overconf = {
                     'dmon:listen': 'tcp://0.0.0.0:0',  # This is removed
-                    'nexslog:async': True,  # just set as a demonstrative value
                 }
                 s_common.yamlsave(overconf, axonpath, 'cell.mods.yaml')
 
@@ -701,7 +650,7 @@ class AhaTest(s_test.SynTest):
                         self.ne(axon.conf.get('dmon:listen'),
                                 'tcp://0.0.0.0:0')
                 overconf2 = s_common.yamlload(axonpath, 'cell.mods.yaml')
-                self.eq(overconf2, {'nexslog:async': True})
+                self.eq(overconf2, {})
 
                 # tests startup logic that recognizes it's already done
                 with self.getAsyncLoggerStream('synapse.lib.cell', ) as stream:
@@ -798,11 +747,11 @@ class AhaTest(s_test.SynTest):
 
                         retn, outp = await self.execToolMain(s_a_list.main, [aha.getLocalUrl()])
                         self.eq(retn, 0)
-                        outp.expect('Service              network                        leader')
-                        outp.expect('00.axon              synapse                        True')
-                        outp.expect('01.axon              synapse                        False')
-                        outp.expect('02.axon              synapse                        False')
-                        outp.expect('axon                 synapse                        True')
+                        outp.expect('Service Leader', whitespace=False)
+                        outp.expect('00.axon.synapse  true', whitespace=False)
+                        outp.expect('01.axon.synapse  false', whitespace=False)
+                        outp.expect('02.axon.synapse  false', whitespace=False)
+                        outp.expect('axon.synapse     true', whitespace=False)
 
                 # Ensure we can provision a service on a given listening ports
                 outp.clear()
@@ -837,7 +786,7 @@ class AhaTest(s_test.SynTest):
                 clonurls = []
                 async with aha.getLocalProxy() as proxy:
                     provurls.append(await proxy.addAhaSvcProv('00.cell'))
-                    provurls.append(await proxy.addAhaSvcProv('01.cell', {'mirror': 'cell'}))
+                    provurls.append(await proxy.addAhaSvcProv('01.cell', provinfo={'mirror': 'cell'}))
                     enrlursl.append(await proxy.addAhaUserEnroll('bob'))
                     enrlursl.append(await proxy.addAhaUserEnroll('alice'))
                     clonurls.append(await proxy.addAhaClone('hehe.haha.com'))
@@ -874,9 +823,12 @@ class AhaTest(s_test.SynTest):
                     self.eq(core00.conf.get('aha:user'), user)
 
                     core01 = await base.enter_context(self.addSvcToAha(aha, '01.cortex', s_cortex.Cortex, dirn=dirn01,
-                                                                       conf={'axon': 'aha://cortex...'},
-                                                                       provinfo={'conf': {'aha:user': user}}))
+                                                                       provinfo={'mirror': '00.cortex', 'conf': {'aha:user': user}}))
+
+                    self.eq(core01.conf.get('mirror'), 'aha://synuser@00.cortex...')
                     self.eq(core01.conf.get('aha:user'), user)
+
+                    await asyncio.wait_for(core01.nexsroot.ready.wait(), timeout=8)
 
                     async with aha.getLocalProxy() as ahaproxy:
                         self.eq(None, await ahaproxy.getAhaSvcMirrors('99.bogus'))
@@ -1019,15 +971,15 @@ class AhaTest(s_test.SynTest):
 
                 async with self.getTestAha(dirn=ahadirn) as aha:
 
-                    async with aha.waiter(3, 'aha:svcadd', timeout=10):
+                    onetime = await aha.addAhaSvcProv('00.svc', provinfo=None)
+                    conf = {'aha:provision': onetime}
+                    svc0 = await cm.enter_context(self.getTestCell(conf=conf))
+                    await aha._waitAhaSvcOnline('00.svc...')
 
-                        onetime = await aha.addAhaSvcProv('00.svc', provinfo=None)
-                        conf = {'aha:provision': onetime}
-                        svc0 = await cm.enter_context(self.getTestCell(conf=conf))
-
-                        onetime = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
-                        conf = {'aha:provision': onetime}
-                        svc1 = await cm.enter_context(self.getTestCell(conf=conf))
+                    onetime = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
+                    conf = {'aha:provision': onetime}
+                    svc1 = await cm.enter_context(self.getTestCell(conf=conf))
+                    await aha._waitAhaSvcOnline('01.svc...')
 
                     # Ensure that services have connected
                     await asyncio.wait_for(svc1.nexsroot._mirready.wait(), timeout=6)
@@ -1105,6 +1057,10 @@ class AhaTest(s_test.SynTest):
                     msgs = await core00.stormlist('$lib.print($lib.aha.pool.get(pool00.synapse))')
                     self.stormIsInPrint('aha:pool: pool00.synapse', msgs)
 
+                    pdef = await core00.callStorm('return($lib.aha.pool.get(pool00.synapse))')
+                    self.eq('pool00.synapse', pdef.get('name'))
+                    self.isin('00.synapse', pdef.get('services'))
+
                     async with await s_telepath.open('aha://pool00...') as pool:
 
                         replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
@@ -1139,11 +1095,13 @@ class AhaTest(s_test.SynTest):
                         run01 = await (await pool.proxy(timeout=3)).getCellRunId()
                         self.ne(run00, run01)
 
-                        waiter = pool.waiter(1, 'pool:reset')
-
                         async with pool.waiter(1, 'pool:reset', timeout=3):
                             ahaproxy = await pool.aha.proxy()
                             await ahaproxy.fini()
+
+                        # ensure we are reconnected before moving on...
+                        async with pool.waiter(1, 'svc:add', timeout=3):
+                            await pool.aha.proxy(timeout=3)
 
                         # wait for the pool to be notified of the topology change
                         async with pool.waiter(1, 'svc:del', timeout=10):
@@ -1209,15 +1167,15 @@ class AhaTest(s_test.SynTest):
 
                     aha = await cm.enter_context(self.getTestAha(dirn=aha00dirn))
 
-                    async with aha.waiter(2, 'aha:svcadd', timeout=6):
-                        purl = await aha.addAhaSvcProv('00.svc')
-                        svc0 = await s_cell.Cell.anit(svc0dirn, conf={'aha:provision': purl})
-                        await cm.enter_context(svc0)
+                    purl = await aha.addAhaSvcProv('00.svc')
+                    svc0 = await s_cell.Cell.anit(svc0dirn, conf={'aha:provision': purl})
+                    await cm.enter_context(svc0)
+                    await aha._waitAhaSvcOnline('00.svc...', timeout=10)
 
-                    async with aha.waiter(1, 'aha:svcadd', timeout=6):
-                        purl = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
-                        svc1 = await s_cell.Cell.anit(svc1dirn, conf={'aha:provision': purl})
-                        await cm.enter_context(svc1)
+                    purl = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
+                    svc1 = await s_cell.Cell.anit(svc1dirn, conf={'aha:provision': purl})
+                    await cm.enter_context(svc1)
+                    await aha._waitAhaSvcOnline('01.svc...', timeout=10)
 
                     await asyncio.wait_for(svc1.nexsroot._mirready.wait(), timeout=6)
                     await svc1.sync()
@@ -1231,15 +1189,15 @@ class AhaTest(s_test.SynTest):
 
                     aha = await cm.enter_context(self.getTestAha(dirn=aha01dirn))
 
-                    async with aha.waiter(2, 'aha:svcadd', timeout=6):
-                        purl = await aha.addAhaSvcProv('00.svc')
-                        svc0 = await s_cell.Cell.anit(svc0dirn, conf={'aha:provision': purl})
-                        await cm.enter_context(svc0)
+                    purl = await aha.addAhaSvcProv('00.svc')
+                    svc0 = await s_cell.Cell.anit(svc0dirn, conf={'aha:provision': purl})
+                    await cm.enter_context(svc0)
+                    await aha._waitAhaSvcOnline('00.svc...', timeout=10)
 
-                    async with aha.waiter(1, 'aha:svcadd', timeout=6):
-                        purl = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
-                        svc1 = await s_cell.Cell.anit(svc1dirn, conf={'aha:provision': purl})
-                        await cm.enter_context(svc1)
+                    purl = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
+                    svc1 = await s_cell.Cell.anit(svc1dirn, conf={'aha:provision': purl})
+                    await cm.enter_context(svc1)
+                    await aha._waitAhaSvcOnline('01.svc...', timeout=10)
 
                     await asyncio.wait_for(svc1.nexsroot._mirready.wait(), timeout=6)
                     await svc1.sync()
@@ -1424,13 +1382,13 @@ class AhaTest(s_test.SynTest):
 
         async with self.getTestAha() as aha:
 
-            async with aha.waiter(3, 'aha:svcadd', timeout=10):
+            conf = {'aha:provision': await aha.addAhaSvcProv('00.cell')}
+            cell00 = await aha.enter_context(self.getTestCell(conf=conf))
+            await aha._waitAhaSvcOnline('00.cell...', timeout=10)
 
-                conf = {'aha:provision': await aha.addAhaSvcProv('00.cell')}
-                cell00 = await aha.enter_context(self.getTestCell(conf=conf))
-
-                conf = {'aha:provision': await aha.addAhaSvcProv('01.cell', {'mirror': 'cell'})}
-                cell01 = await aha.enter_context(self.getTestCell(conf=conf))
+            conf = {'aha:provision': await aha.addAhaSvcProv('01.cell', {'mirror': 'cell'})}
+            cell01 = await aha.enter_context(self.getTestCell(conf=conf))
+            await aha._waitAhaSvcOnline('00.cell...', timeout=10)
 
             await cell01.sync()
 
@@ -1460,7 +1418,7 @@ class AhaTest(s_test.SynTest):
             self.len(nexsindx * 2, items)
 
             # ensure we handle down services correctly
-            async with aha.waiter(1, 'aha:svcdown', timeout=10):
+            async with aha.waiter(1, 'aha:svc:down', timeout=10):
                 await cell01.fini()
 
             # test the call endpoint
@@ -1519,13 +1477,13 @@ class AhaTest(s_test.SynTest):
 
         async with self.getTestAha() as aha0:
 
-            async with aha0.waiter(3, 'aha:svcadd', timeout=10):
+            conf = {'aha:provision': await aha0.addAhaSvcProv('00.cell')}
+            cell00 = await aha0.enter_context(self.getTestCell(conf=conf))
+            await aha0._waitAhaSvcOnline('00.cell...', timeout=10)
 
-                conf = {'aha:provision': await aha0.addAhaSvcProv('00.cell')}
-                cell00 = await aha0.enter_context(self.getTestCell(conf=conf))
-
-                conf = {'aha:provision': await aha0.addAhaSvcProv('01.cell', {'mirror': 'cell'})}
-                cell01 = await aha0.enter_context(self.getTestCell(conf=conf))
+            conf = {'aha:provision': await aha0.addAhaSvcProv('01.cell', {'mirror': 'cell'})}
+            cell01 = await aha0.enter_context(self.getTestCell(conf=conf))
+            await aha0._waitAhaSvcOnline('00.cell...', timeout=10)
 
             await cell01.sync()
 

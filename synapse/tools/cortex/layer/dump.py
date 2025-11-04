@@ -72,7 +72,7 @@ async def exportLayer(opts, outp):
 
         finished = False
 
-        genr = layer.syncNodeEdits2(soffs, wait=False)
+        genr = layer.syncNodeEdits(soffs, wait=False, compat=True, withmeta=True)
 
         nodeiter = aiter(genr)
 
