@@ -2438,16 +2438,18 @@ class StormPkgTest(SynTest):
             for pkgproto in self.pkgprotos:
 
                 pkgdef = s_genpkg.loadPkgProto(pkgproto, no_docs=True, readonly=True)
+                pkgname = pkgdef.get('name')
 
-                waiter = None
-                if (pkgdef.get('onload') is not None or pkgdef.get('inits') is not None):
-                    waiter = core.waiter(1, 'core:pkg:onload:complete')
+                load_event = asyncio.Event()
 
-                await core.addStormPkg(pkgdef)
+                async def func(event):
+                    if event[1].get('pkg') == pkgname:
+                        load_event.set()
 
-                if waiter is not None:
-                    self.nn(await waiter.wait(timeout=ONLOAD_TIMEOUT),
-                            f'Package onload failed to run for {pkgdef.get("name")}')
+                with core.onWith('core:pkg:onload:complete', func):
+                    await core.addStormPkg(pkgdef)
+                    self.nn(await asyncio.wait_for(load_event.wait(), timeout=ONLOAD_TIMEOUT),
+                            f'Package onload failed to run for {pkgname}')
 
             if self.assetdir is not None:
 

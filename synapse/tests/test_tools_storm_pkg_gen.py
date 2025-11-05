@@ -307,3 +307,33 @@ class TestStormPkgTest(s_test.StormPkgTest):
             self.stormHasNoWarnErr(msgs)
             self.eq('boundmethod', await core.callStorm('return($lib.globals.get(stormpkg_preppkghook))'))
             self.eq('frob', await core.callStorm('return($lib.globals.get(inittestcore))'))
+
+class TestStormPkgTestNoEvent(s_test.StormPkgTest):
+    assetdir = s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm_noevents', 'testassets')
+    pkgprotos = (s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm_noevents', 'dotstorm.yaml'),)
+
+    events = []
+    linkfunc = None
+    core = None
+
+    async def _stormpkghook(self, core):
+        async def func(event):
+            self.events.append(event)
+        self.linkfunc = func
+        self.core = core
+        core.link(func)
+
+    def doCleanups(self):
+        self.core.unlink(self.linkfunc)
+        self.core = None
+        self.linkfunc = None
+        self.events.clear()
+
+    async def test_no_load_event(self):
+        async with self.getTestCore(prepkghook=self._stormpkghook) as core:
+            q = '$lib.time.sleep(0.5) return( $lib.pkg.get(dotstorm_noevents).name)'
+            self.eq('dotstorm_noevents', await core.callStorm(q))
+        self.len(3, self.events)
+        self.eq(self.events[0][0], 'cell:beholder')
+        self.eq(self.events[1], ('core:pkg:onload:start', {'pkg': 'dotstorm_noevents'}))
+        self.eq(self.events[2], ('core:pkg:onload:complete', {'pkg': 'dotstorm_noevents', 'storvers': -1}))
