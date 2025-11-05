@@ -978,7 +978,7 @@ class TrigTest(s_t_utils.SynTest):
             await core1.view.addTrigger(tdef)
 
             with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
-                await core1.addFeedData(podes)
+                await core1.addFeedData(podes[1:])
                 self.true(await stream.wait(6))
             valu = stream.getvalue().strip()
             self.isin('f=test:int v=1 u=root', valu)
