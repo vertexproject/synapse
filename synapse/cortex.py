@@ -5597,7 +5597,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for ((form, _), forminfo) in items:
             user.confirm(('node', 'add', form), gateiden=viewiden)
 
-            for propname, _ in info.get('props', {}).items():
+            for propname, _ in forminfo.get('props', {}).items():
                 user.confirm(('node', 'prop', 'set', form, propname), gateiden=viewiden)
 
             for tagname, _ in forminfo.get('tags', {}).items():
