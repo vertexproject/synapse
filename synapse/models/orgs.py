@@ -325,6 +325,10 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The organization is or was in possession of the target node.'}),
                 (('ou:org', 'owns', None), {
                     'doc': 'The organization owns or owned the target node.'}),
+
+                # NOTE: for 3.0 this becomes entity:actor -(referred)> ou:candidate
+                (('ps:contact', 'referred', 'ou:candidate'), {
+                    'doc': 'The contact referred the candidate.'}),
             ),
             'forms': (
                 ('ou:jobtype', {}, ()),
@@ -703,7 +707,12 @@ class OuModule(s_module.CoreModule):
                 ('ou:technique', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The normalized name of the technique.'}),
+                        'doc': 'The name of the technique.'}),
+
+                    # NOTE: This is already in 3.0 via an interface and should be left out on merge
+                    ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True,
+                                         'typeopts': {'lower': True, 'onespace': True}}), {
+                        'doc': 'An array of alternate names for the technique.'}),
 
                     ('type', ('ou:technique:taxonomy', {}), {
                         'doc': 'The taxonomy classification of the technique.'}),
