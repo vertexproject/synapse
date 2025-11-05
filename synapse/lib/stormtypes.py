@@ -3494,17 +3494,25 @@ class LibFeed(Lib):
     async def _libGenr(self, data, reqmeta=False):
         data = await tostor(data)
 
-        self.runt.layerConfirm(('feed:data',))
+        if reqmeta:
+            s_schemas.reqValidExportStormMeta(data[0])
+            data = data[1:]
 
-        async for node in self.runt.view.addNodes(data, user=self.runt.user, reqmeta=reqmeta):
+        self.runt.core.reqFeedDataAllowed(data, self.runt.user, viewiden=self.runt.view.iden)
+
+        async for node in self.runt.view.addNodes(data, user=self.runt.user):
             yield node
 
     async def _libIngest(self, data, reqmeta=False):
         data = await tostor(data)
 
-        self.runt.layerConfirm(('feed:data',))
+        if reqmeta:
+            s_schemas.reqValidExportStormMeta(data[0])
+            data = data[1:]
 
-        async for node in self.runt.view.addNodes(data, user=self.runt.user, reqmeta=reqmeta):
+        self.runt.core.reqFeedDataAllowed(data, self.runt.user, viewiden=self.runt.view.iden)
+
+        async for node in self.runt.view.addNodes(data, user=self.runt.user):
             await asyncio.sleep(0)
 
 @registry.registerLib

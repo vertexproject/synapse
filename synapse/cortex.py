@@ -272,35 +272,21 @@ class CoreApi(s_cell.CellApi):
         view = self.cell.getView()
         self.user.confirm(perms, gateiden=view.wlyr.iden)
 
-    async def importStormMeta(self, meta, *, viewiden=None):
-        view = self.cell.getView(viewiden, user=self.user)
-        if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
-
-        self.user.confirm(('feed:data',), gateiden=view.wlyr.iden)
-
-        self.cell._reqValidExportStormMeta(meta)
-
-        return
-
     async def addFeedData(self, items, *, viewiden=None, reqmeta=True):
 
-        view = self.cell.getView(viewiden, user=self.user)
-        if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
+        if reqmeta:
+            s_schemas.reqValidExportStormMeta(items[0])
+            items = items[1:]
 
-        self.user.confirm(('feed:data',), gateiden=view.wlyr.iden)
+        self.cell.reqFeedDataAllowed(items, self.user, viewiden=viewiden)
 
         await self.cell.boss.promote('feeddata',
                                      user=self.user,
-                                     info={'view': view.iden,
+                                     info={'view': viewiden,
                                            'nitems': len(items),
                                            })
 
-        logger.info(f'User ({self.user.name}) adding feed data: {len(items)}')
-
-        async for node in view.addNodes(items, user=self.user, reqmeta=reqmeta):
-            await asyncio.sleep(0)
+        await self.cell.addFeedData(items, user=self.user, viewiden=viewiden)
 
     async def count(self, text, *, opts=None):
         '''
@@ -1186,9 +1172,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'data', 'del', '<key>'), 'gate': 'layer',
              'ex': 'node.data.del.hehe',
              'desc': 'Permits a user to remove node data in a given layer for a specific key.'},
-
-            {'perm': ('feed', 'data'), 'gate': 'layer',
-             'desc': 'Controls access to feeding/importing data into a layer.'},
 
             {'perm': ('pkg', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding storm packages.'},
@@ -5610,7 +5593,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         }
         return ret
 
-    async def addFeedData(self, items, *, user=None, viewiden=None, reqmeta=True):
+    def reqFeedDataAllowed(self, items, user, viewiden=None):
+        for ((form, _), forminfo) in items:
+            user.confirm(('node', 'add', form), gateiden=viewiden)
+
+            for propname, _ in info.get('props', {}).items():
+                user.confirm(('node', 'prop', 'set', form, propname), gateiden=viewiden)
+
+            for tagname, _ in forminfo.get('tags', {}).items():
+                user.confirm(('node', 'tag', 'add', tagname), gateiden=viewiden)
+
+            for dataname, _ in forminfo.get('nodedata', {}).items():
+                user.confirm(('node', 'data', 'set', dataname), gateiden=viewiden)
+
+            for tagname, _ in forminfo.get('tagprops', {}).items():
+                user.confirm(('node', 'tag', 'add', tagname), gateiden=viewiden)
+
+            for verb, _ in forminfo.get('edges', {}).items():
+                user.confirm(('node', 'edge', 'add', verb), gateiden=viewiden)
+
+    async def addFeedData(self, items, *, user=None, viewiden=None):
         '''
         Add bulk data in nodes format.
 
@@ -5627,9 +5629,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is None:
             user = self.auth.rootuser
 
-        logger.info(f'User (user.name) adding feed data: {len(items)}')
+        logger.info(f'User ({user.name}) adding feed data: {len(items)}')
 
-        async for node in view.addNodes(items, user=user, reqmeta=reqmeta):
+        async for node in view.addNodes(items, user=user):
             await asyncio.sleep(0)
 
     async def getPropNorm(self, prop, valu, typeopts=None):
