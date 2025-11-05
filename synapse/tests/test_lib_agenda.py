@@ -993,7 +993,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             core.schedCoro(task())
 
-            # Put an item into the queue and then block on getting an item
+            # Put an item into the queue and then block forever
             q = '$q = $lib.queue.gen(test) $q.put((0)) $lib.time.sleep(999)'
             guid = s_common.guid()
             cdef = {
