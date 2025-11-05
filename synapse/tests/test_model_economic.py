@@ -135,9 +135,11 @@ class EconTest(s_utils.SynTest):
                     :place:name=myhouse
                     :place:address="123 main street, brooklyn, ny, 11223"
                     :place:latlong=(90,80)
+                    :service:access = *
             ]'''
             nodes = await core.nodes(text)
 
+            self.nn(nodes[0].get('service:access'))
             self.eq('myhouse', nodes[0].get('place:name'))
             self.eq((90, 80), nodes[0].get('place:latlong'))
             self.eq('us.ny.brooklyn', nodes[0].get('place:loc'))
