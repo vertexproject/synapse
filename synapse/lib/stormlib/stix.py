@@ -809,6 +809,35 @@ stixingest = {
                 return($node)
             ''',
         },
+        'ipv4-addr': {
+            'storm': '''
+                [inet:ipv4?=$object.value]
+                $node.data.set(stix:object, $object)
+                return($node)
+            '''
+        },
+        'ipv6-addr': {
+            'storm': '''
+                [inet:ipv6?=$object.value]
+                $node.data.set(stix:object, $object)
+                return($node)
+            '''
+        },
+        'location': {
+            'storm': '''
+                if ($object.longitude and $object.latitude) {
+                    [ geo:place?=({"longitude": $object.longitude, "latitude": $object.latitude}) ]
+                    $node.data.set(stix:object, $object)
+                    return($node)
+                } else if ($object.country) {
+                    $country = $lib.gen.polCountryByIso2($object.country)
+                    if ($country != (null)) {
+                        $country.data.set(stix:object, $object)
+                        return($country)
+                    }
+                }
+            '''
+        }
     },
     'relationships': (
 
