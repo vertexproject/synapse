@@ -552,7 +552,6 @@ class Comp(Type):
                 self.ismutable = True
 
             if _type.deprecated:
-                breakpoint()
                 mesg = f'The type {self.name} field {name} uses a deprecated ' \
                        f'type {_type.name} which will removed in 3.0.0'
                 logger.warning(mesg)
