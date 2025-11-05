@@ -315,7 +315,12 @@ class NexsRoot(s_base.Base):
         mesg = 'Unable to issue Nexus events when readonly is set.'
         raise s_exc.IsReadOnly(mesg=mesg)
 
-    async def issue(self, nexsiden, event, args, kwargs, meta=None):
+    async def issue(self, nexsiden, event, args, kwargs, meta=None, wait=True):
+        if wait:
+            return await self._issue(nexsiden, event, args, kwargs, meta=meta)
+        self.schedCoro(self._issue(nexsiden, event, args, kwargs, meta=meta))
+
+    async def _issue(self, nexsiden, event, args, kwargs, meta=None):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
@@ -344,7 +349,7 @@ class NexsRoot(s_base.Base):
 
         with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
             meta['resp'] = iden
-            await client.issue(nexsiden, event, args, kwargs, meta)
+            await client.issue(nexsiden, event, args, kwargs, meta, wait=False)
             return await s_common.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
     async def eat(self, nexsiden, event, args, kwargs, meta):

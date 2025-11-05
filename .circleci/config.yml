@@ -628,6 +628,7 @@ workflows:
               only:
                 - master
                 - redox/syn9858-all-layer-edit-wind # fixme
+                - redox/syn9858-all-layer-edit-wind-mirror # fixme
 
       - build_docker_tag:
           requires:
