@@ -551,6 +551,12 @@ class Comp(Type):
             if _type.ismutable:
                 self.ismutable = True
 
+            if _type.deprecated:
+                breakpoint()
+                mesg = f'The type {self.name} field {name} uses a deprecated ' \
+                       f'type {_type.name} which will removed in 3.0.0'
+                logger.warning(mesg)
+
             norm, info = _type.norm(valu[i])
 
             subs[name] = norm
@@ -610,10 +616,6 @@ class FieldHelper(collections.defaultdict):
             if not basetype:
                 raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
             _type = basetype.clone(opts)
-        if _type.deprecated:
-            mesg = f'The type {self.tname} field {key} uses a deprecated ' \
-                   f'type {_type.name} which will removed in 3.0.0'
-            logger.warning(mesg)
         self.setdefault(key, _type)
         return _type
 
