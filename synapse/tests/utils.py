@@ -2308,7 +2308,6 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             (True, ('node', 'add')),
             (True, ('node', 'prop', 'set')),
             (True, ('node', 'tag', 'add')),
-            (True, ('feed:data',)),
         ))
 
         deleter = await core.auth.addRole('deleter')

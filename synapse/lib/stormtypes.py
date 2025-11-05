@@ -3495,10 +3495,10 @@ class LibFeed(Lib):
         data = await tostor(data)
 
         if reqmeta:
-            s_schemas.reqValidExportStormMeta(data[0])
-            data = data[1:]
+            meta, *data = data
+            self.runt.view.core._reqValidExportStormMeta(meta)
 
-        self.runt.core.reqFeedDataAllowed(data, self.runt.user, viewiden=self.runt.view.iden)
+        self.runt.view.core.reqFeedDataAllowed(data, self.runt.user, viewiden=self.runt.view.iden)
 
         async for node in self.runt.view.addNodes(data, user=self.runt.user):
             yield node
@@ -3507,10 +3507,10 @@ class LibFeed(Lib):
         data = await tostor(data)
 
         if reqmeta:
-            s_schemas.reqValidExportStormMeta(data[0])
-            data = data[1:]
+            meta, *data = data
+            self.runt.view.core._reqValidExportStormMeta(meta)
 
-        self.runt.core.reqFeedDataAllowed(data, self.runt.user, viewiden=self.runt.view.iden)
+        self.runt.view.core.reqFeedDataAllowed(data, self.runt.user, viewiden=self.runt.view.iden)
 
         async for node in self.runt.view.addNodes(data, user=self.runt.user):
             await asyncio.sleep(0)

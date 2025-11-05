@@ -275,8 +275,8 @@ class CoreApi(s_cell.CellApi):
     async def addFeedData(self, items, *, viewiden=None, reqmeta=True):
 
         if reqmeta:
-            s_schemas.reqValidExportStormMeta(items[0])
-            items = items[1:]
+            meta, *items = items
+            self.cell._reqValidExportStormMeta(meta)
 
         self.cell.reqFeedDataAllowed(items, self.user, viewiden=viewiden)
 
