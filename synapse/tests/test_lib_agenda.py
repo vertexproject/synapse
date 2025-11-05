@@ -1010,7 +1010,7 @@ class AgendaTest(s_t_utils.SynTest):
             opts = {'vars': {'iden': guid}}
             get_cron = 'return($lib.cron.get($iden).pack())'
             cdef = await core.callStorm(get_cron, opts=opts)
-            self.true(cdef.get('isrunning'))
+            self.true(cdef.get('isrunning'), msg=cdef)
 
             self.true(await core.callStorm('return($lib.cron.get($iden).kill())', opts=opts))
 
