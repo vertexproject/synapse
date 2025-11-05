@@ -4820,7 +4820,7 @@ class EditTagAdd(Edit):
         valu = (None, None)
 
         tryset_assign = False
-        if hasval and isinstance(self.kids[1 + oper_offset], Const):
+        if hasval:
             assign_oper = await self.kids[1 + oper_offset].compute(runt, None)
             if assign_oper == '?=':
                 tryset_assign = True
