@@ -1610,8 +1610,9 @@ class StormTest(s_t_utils.SynTest):
             self.eq((None, None), nodes[0][1]['storage'][0]['tags']['foo'])
 
             # test set tag assignment
-            with self.raises(s_exc.BadTypeValu):
-                nodes = await core.nodes('[ test:str=foo +?#baz="dud" ]')
+            nodes = await core.nodes('[ test:str=boo +?#baz="dud" ]')
+            self.len(1, nodes)
+            self.eq([], nodes[0].getTags())
 
             nodes = await core.nodes('[ test:str=foo +?#baz?="dud" ]')
             self.len(1, nodes)

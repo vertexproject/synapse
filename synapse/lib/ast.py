@@ -4840,30 +4840,20 @@ class EditTagAdd(Edit):
                     parts = name.split('.')
 
                     runt.layerConfirm(('node', 'tag', 'add', *parts))
+
+                    if hasval:
+                        valu = await self.kids[2 + oper_offset].compute(runt, path)
+                        valu = await s_stormtypes.toprim(valu)
+                        if tryset_assign:
+                            try:
+                                valu = runt.snap.core.model.type('ival').norm(valu)[0]
+                            except s_exc.BadTypeValu:
+                                valu = (None, None)
+
+                    await node.addTag(name, valu=valu)
+
                 except excignore:
                     pass
-
-                if tryset_assign:
-                    valu = await self.kids[2 + oper_offset].compute(runt, path)
-                    valu = await s_stormtypes.toprim(valu)
-                    try:
-                        valu = runt.snap.core.model.type('ival').norm(valu)[0]
-                    except s_exc.BadTypeValu:
-                        valu = (None, None)
-                    await node.addTag(name, valu=valu)
-
-                elif hasval:
-                    valu = await self.kids[2 + oper_offset].compute(runt, path)
-                    valu = await s_stormtypes.toprim(valu)
-                    await node.addTag(name, valu=valu)
-
-                elif oper_offset == 1:
-                    try:
-                        await node.addTag(name, valu=valu)
-                    except excignore:
-                        pass
-                else:
-                    await node.addTag(name, valu=valu)
 
             yield node, path
 
