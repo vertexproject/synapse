@@ -1278,6 +1278,9 @@ class FeedV1(Handler):
 
             return self.sendRestRetn(None)
 
+        except s_exc.AuthDeny as e:
+            return self.sendRestErr('AuthDeny', e.get('mesg'), status_code=HTTPStatus.FORBIDDEN)
+
         except Exception as e:  # pragma: no cover
             return self.sendRestExc(e, status_code=HTTPStatus.BAD_REQUEST)
 
