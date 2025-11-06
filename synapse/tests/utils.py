@@ -455,6 +455,7 @@ testmodel = (
                 ('pivvirt', ('test:virtiface', {}), {}),
                 ('gprop', ('test:guid', {}), {}),
                 ('inhstr', ('test:inhstr', {}), {}),
+                ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
             )),
 
             ('test:str2', {}, ()),
