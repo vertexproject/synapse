@@ -5594,23 +5594,35 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return ret
 
     def reqFeedDataAllowed(self, items, user, viewiden=None):
+        if user.allowed(('node',), gateiden=viewiden):
+            return
+
+        propset = user.allowed(('node', 'prop', 'set'), gateiden=viewiden)
+        tagadd = user.allowed(('node', 'tag', 'add'), gateiden=viewiden)
+        dataset = user.allowed(('node', 'data', 'set'), gateiden=viewiden)
+        edgeadd = user.allowed(('node', 'edge', 'add'), gateiden=viewiden)
+
         for ((form, _), forminfo) in items:
             user.confirm(('node', 'add', form), gateiden=viewiden)
 
-            for propname, _ in forminfo.get('props', {}).items():
-                user.confirm(('node', 'prop', 'set', form, propname), gateiden=viewiden)
+            if not propset:
+                for propname, _ in forminfo.get('props', {}).items():
+                    user.confirm(('node', 'prop', 'set', form, propname), gateiden=viewiden)
 
-            for tagname, _ in forminfo.get('tags', {}).items():
-                user.confirm(('node', 'tag', 'add', tagname), gateiden=viewiden)
+            if not tagadd:
+                for tagname, _ in forminfo.get('tags', {}).items():
+                    user.confirm(('node', 'tag', 'add', tagname), gateiden=viewiden)
 
-            for dataname, _ in forminfo.get('nodedata', {}).items():
-                user.confirm(('node', 'data', 'set', dataname), gateiden=viewiden)
+                for tagname, _ in forminfo.get('tagprops', {}).items():
+                    user.confirm(('node', 'tag', 'add', tagname), gateiden=viewiden)
 
-            for tagname, _ in forminfo.get('tagprops', {}).items():
-                user.confirm(('node', 'tag', 'add', tagname), gateiden=viewiden)
+            if not dataset:
+                for dataname, _ in forminfo.get('nodedata', {}).items():
+                    user.confirm(('node', 'data', 'set', dataname), gateiden=viewiden)
 
-            for verb, _ in forminfo.get('edges', []):
-                user.confirm(('node', 'edge', 'add', verb), gateiden=viewiden)
+            if not edgeadd:
+                for verb, _ in forminfo.get('edges', []):
+                    user.confirm(('node', 'edge', 'add', verb), gateiden=viewiden)
 
     async def addFeedData(self, items, *, user=None, viewiden=None):
         '''
