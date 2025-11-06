@@ -2478,7 +2478,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         onload = pkgdef.get('onload')
         pkgvers = pkgdef.get('version')
 
-        if self.isactive:
+        if (onload is not None or inits is not None) and self.isactive:
             async def _onload():
                 if self.safemode:
                     await self.fire('core:pkg:onload:skipped', pkg=name, reason='safemode')
@@ -2488,22 +2488,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 logextra = await self.getLogExtra(pkg=name, vers=pkgvers)
 
-                verskey = 'storage:version'
-
-                if inits is None:
-                    await self.setStormPkgVar(name, verskey, -1)
-
-                else:
-                    if (key := inits.get('key')) is not None:
-                        s_common.deprecated('storm package inits.key', eolv='3.0.0')
-                        if key != verskey and (valu := await self.popStormPkgVar(name, key)) is not None:
-                            await self.setStormPkgVar(name, verskey, valu)
-
-                    inaugural = False
-                    curvers = await self.getStormPkgVar(name, verskey)
-                    if curvers is None:
-                        inaugural = True
-                        curvers = -1
+                if inits is not None:
+                    varname = inits['key']
+                    curvers = await self.getStormPkgVar(name, varname, default=-1)
+                    inaugural = curvers == -1
 
                     for initdef in inits['versions']:
 
@@ -2514,7 +2502,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             continue
 
                         if inaugural and not initdef.get('inaugural'):
-                            await self.setStormPkgVar(name, verskey, vers)
+                            await self.setStormPkgVar(name, varname, vers)
                             continue
 
                         logextra['synapse']['initvers'] = vers
@@ -2547,8 +2535,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if not ok:
                             break
 
-                        curvers = max(vers, await self.getStormPkgVar(name, verskey, default=-1))
-                        await self.setStormPkgVar(name, verskey, curvers)
+                        curvers = max(vers, await self.getStormPkgVar(name, varname, default=-1))
+                        await self.setStormPkgVar(name, varname, curvers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 if onload is not None:
@@ -5801,7 +5789,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Delete a cron job
 
         Args:
-            iden (bytes):  The iden of the cron job to be deleted
+            iden (str):  The iden of the cron job to be deleted
         '''
         await self._killCronTask(iden)
         try:
