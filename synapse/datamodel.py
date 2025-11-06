@@ -941,7 +941,7 @@ class Model:
                 ftype = typ.tcache[fname]
 
                 if ftype.ismutable:
-                    s_common.deprdate('Comp type mutable fields', date='2025-12-31')
+                    s_common.deprdate(f'Comp type mutable fields ({typ.name}:{fname})', date='2025-12-31')
                     # mesg = 'Comp types cannot include mutable fields.'
                     # raise s_exc.BadTypeDef(mesg=mesg, typename=typ.name, field=fname)
 
