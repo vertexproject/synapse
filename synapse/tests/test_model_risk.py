@@ -158,8 +158,7 @@ class RiskModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('risk:vuln:id=CVE-2013-0000 -> meta:id +it:sec:cve'))
             self.len(1, await core.nodes('risk:vuln:id=CVE-2013-0000 :id -> it:sec:cve'))
-            # FIXME this needs to work :)
-            # self.len(1, await core.nodes('risk:vuln:id=CVE-2013-0000 -> it:sec:cve'))
+            self.len(1, await core.nodes('risk:vuln:id=CVE-2013-0000 -> it:sec:cve'))
 
             self.len(1, await core.nodes('risk:attack :actor -> entity:contact'))
 
