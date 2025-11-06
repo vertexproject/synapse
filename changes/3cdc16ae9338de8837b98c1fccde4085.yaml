@@ -1,6 +1,6 @@
 ---
-desc: Added restriction to data model to prevent creating comp types with mutable fields.
+desc: Deprecated creating comp types with mutable fields.
 desc:literal: false
 prs: []
-type: feat
+type: deprecation
 ...
