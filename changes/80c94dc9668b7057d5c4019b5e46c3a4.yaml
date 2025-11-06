@@ -1,0 +1,6 @@
+---
+desc: Added additional STIX types to those supported by ``$lib.stix.import.ingest()``.
+desc:literal: false
+prs: []
+type: feat
+...
