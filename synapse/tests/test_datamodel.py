@@ -329,13 +329,18 @@ class DataModelTest(s_t_utils.SynTest):
             ),
         })
 
-        with self.raises(s_exc.BadTypeDef) as exc:
+        with self.assertWarns(DeprecationWarning) as w:
             model.addDataModels([badmodel])
-        self.eq(exc.exception.errinfo, {
-            'mesg': 'Comp types cannot include data fields.',
-            'typename': 'bad:comp',
-            'field': 'hehe',
-        })
+        self.len(1, w.warnings)
+        self.eq(w.warning.args, ('Comp type mutable fields is deprecated and will be removed on 2025-12-31.',))
+
+        # with self.raises(s_exc.BadTypeDef) as exc:
+        #     model.addDataModels([badmodel])
+        # self.eq(exc.exception.errinfo, {
+        #     'mesg': 'Comp types cannot include mutable fields.',
+        #     'typename': 'bad:comp',
+        #     'field': 'hehe',
+        # })
 
         # Comp type with an indirect data field (and out of order definitions)
         badmodel = ('badmodel', {
@@ -354,13 +359,18 @@ class DataModelTest(s_t_utils.SynTest):
             ),
         })
 
-        with self.raises(s_exc.BadTypeDef) as exc:
+        with self.assertWarns(DeprecationWarning) as w:
             model.addDataModels([badmodel])
-        self.eq(exc.exception.errinfo, {
-            'mesg': 'Comp types cannot include data fields.',
-            'typename': 'bad:comp',
-            'field': 'hehe',
-        })
+        self.len(1, w.warnings)
+        self.eq(w.warning.args, ('Comp type mutable fields is deprecated and will be removed on 2025-12-31.',))
+
+        # with self.raises(s_exc.BadTypeDef) as exc:
+        #     model.addDataModels([badmodel])
+        # self.eq(exc.exception.errinfo, {
+        #     'mesg': 'Comp types cannot include mutable fields.',
+        #     'typename': 'bad:comp',
+        #     'field': 'hehe',
+        # })
 
         # Comp type with double indirect data field
         badmodel = ('badmodel', {
@@ -380,13 +390,18 @@ class DataModelTest(s_t_utils.SynTest):
             ),
         })
 
-        with self.raises(s_exc.BadTypeDef) as exc:
+        with self.assertWarns(DeprecationWarning) as w:
             model.addDataModels([badmodel])
-        self.eq(exc.exception.errinfo, {
-            'mesg': 'Comp types cannot include data fields.',
-            'typename': 'bad:comp',
-            'field': 'hehe',
-        })
+        self.len(1, w.warnings)
+        self.eq(w.warning.args, ('Comp type mutable fields is deprecated and will be removed on 2025-12-31.',))
+
+        # with self.raises(s_exc.BadTypeDef) as exc:
+        #     model.addDataModels([badmodel])
+        # self.eq(exc.exception.errinfo, {
+        #     'mesg': 'Comp types cannot include mutable fields.',
+        #     'typename': 'bad:comp',
+        #     'field': 'hehe',
+        # })
 
         # API direct
         typeopts = {
@@ -396,13 +411,18 @@ class DataModelTest(s_t_utils.SynTest):
             )
         }
 
-        with self.raises(s_exc.BadTypeDef) as exc:
-            model.addType('bad:comp', 'comp', typeopts, {})
-        self.eq(exc.exception.errinfo, {
-            'mesg': 'Comp types cannot include data fields.',
-            'typename': 'bad:comp',
-            'field': 'hehe',
-        })
+        with self.assertWarns(DeprecationWarning) as w:
+            model.addDataModels([badmodel])
+        self.len(1, w.warnings)
+        self.eq(w.warning.args, ('Comp type mutable fields is deprecated and will be removed on 2025-12-31.',))
+
+        # with self.raises(s_exc.BadTypeDef) as exc:
+        #     model.addType('bad:comp', 'comp', typeopts, {})
+        # self.eq(exc.exception.errinfo, {
+        #     'mesg': 'Comp types cannot include mutable fields.',
+        #     'typename': 'bad:comp',
+        #     'field': 'hehe',
+        # })
 
     async def test_datamodel_edges(self):
 

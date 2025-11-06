@@ -940,9 +940,10 @@ class Model:
             for fname in typ.fieldoffs.keys():
                 ftype = typ.tcache[fname]
 
-                if ftype.name == 'data' or 'data' in ftype.info.get('bases', ()):
-                    mesg = 'Comp types cannot include data fields.'
-                    raise s_exc.BadTypeDef(mesg=mesg, typename=typ.name, field=fname)
+                if ftype.ismutable:
+                    s_common.deprdate('Comp type mutable fields', date='2025-12-31')
+                    # mesg = 'Comp types cannot include mutable fields.'
+                    # raise s_exc.BadTypeDef(mesg=mesg, typename=typ.name, field=fname)
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
 
