@@ -314,9 +314,6 @@ class EconModule(s_module.CoreModule):
 
                     ('place:latlong', ('geo:latlong', {}), {
                         'doc': 'The latlong where the payment occurred.'}),
-
-                    ('service:access', ('inet:service:access', {}), {
-                        'doc': 'A service access containing details about the payment.'}),
                 )),
 
                 ('econ:acct:balance', {}, (
