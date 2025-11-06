@@ -2742,7 +2742,7 @@ class FormPivot(PivotOper):
 
                 for refsname, refsform in refs.get('prop'):
 
-                    if refsform != destform.name:
+                    if refsform not in destform.formtypes:
                         continue
 
                     found = True
@@ -2751,14 +2751,12 @@ class FormPivot(PivotOper):
                         continue
 
                     link = {'type': 'prop', 'prop': refsname}
-
-                    for formname in runt.model.getChildForms(refsform):
-                        async for pivo in runt.view.nodesByPropValu(formname, '=', refsvalu, norm=False):
-                            yield pivo, link
+                    async for pivo in runt.view.nodesByPropValu(destform.name, '=', refsvalu, norm=False):
+                        yield pivo, link
 
                 for refsname, refsform in refs.get('array'):
 
-                    if refsform != destform.name:
+                    if refsform not in destform.formtypes:
                         continue
 
                     found = True
@@ -2769,9 +2767,8 @@ class FormPivot(PivotOper):
                     link = {'type': 'prop', 'prop': refsname}
 
                     for refselem in refsvalu:
-                        for formname in runt.model.getChildForms(refsform):
-                            async for pivo in runt.view.nodesByPropValu(formname, '=', refselem, norm=False):
-                                yield pivo, link
+                        async for pivo in runt.view.nodesByPropValu(destform.name, '=', refselem, norm=False):
+                            yield pivo, link
 
                 for refsname in refs.get('ndef'):
 
