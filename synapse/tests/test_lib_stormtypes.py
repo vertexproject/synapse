@@ -4212,6 +4212,15 @@ class StormTypesTest(s_test.SynTest):
                 f"node.tag.add.test on object {view.iden} (view)."
             )
 
+            await user.addRule((True, ('node', 'tag', 'add', 'test')), gateiden=view.iden)
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.nodes('yield $lib.feed.genr($data)', opts)
+            self.eq(exc.exception.get('mesg'),
+                f"User '{username}' ({user.iden}) must have permission " +
+                f"node.tag.add.rep.foo on object {view.iden} (view)."
+            )
+
             await user.addRule((True, ('node', 'tag', 'add')), gateiden=view.iden)
 
             with self.raises(s_exc.AuthDeny) as exc:
