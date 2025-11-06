@@ -601,7 +601,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 risk:mitigation=*
                     :vuln=*
                     :name="  FooBar  "
-                    :names = (Foo, 'Bar)
+                    :names = (Foo, Bar)
                     :id="  IDa123  "
                     :type=foo.bar
                     :desc=BazFaz
