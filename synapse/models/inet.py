@@ -1698,18 +1698,12 @@ modeldefs = (
                 ),
                 'doc': 'A generic resource provided by the service architecture.'}),
 
-            ('inet:service:bucket', ('guid', {}), {
+            ('inet:service:bucket', ('inet:service:resource', {}), {
                 'template': {'title': 'bucket'},
-                'interfaces': (
-                    ('inet:service:object', {}),
-                ),
                 'doc': 'A file/blob storage object within a service architecture.'}),
 
-            ('inet:service:bucket:item', ('guid', {}), {
+            ('inet:service:bucket:item', ('inet:service:resource', {}), {
                 'template': {'title': 'bucket item'},
-                'interfaces': (
-                    ('inet:service:object', {}),
-                ),
                 'doc': 'An individual file stored within a bucket.'}),
 
             ('inet:rdp:handshake', ('guid', {}), {
