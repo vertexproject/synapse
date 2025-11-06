@@ -3498,7 +3498,7 @@ class LibFeed(Lib):
             meta, *data = data
             self.runt.view.core.reqValidExportStormMeta(meta)
 
-        self.runt.view.core.reqFeedDataAllowed(data, self.runt.user, viewiden=self.runt.view.iden)
+        await self.runt.view.core.reqFeedDataAllowed(data, self.runt.user, viewiden=self.runt.view.iden)
 
         async for node in self.runt.view.addNodes(data, user=self.runt.user):
             yield node

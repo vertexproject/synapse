@@ -274,11 +274,14 @@ class CoreApi(s_cell.CellApi):
 
     async def addFeedData(self, items, *, viewiden=None, reqmeta=True):
 
+        if viewiden and self.cell.getView(viewiden, user=self.user) is None:
+            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}.', iden=viewiden)
+
         if reqmeta:
             meta, *items = items
             self.cell.reqValidExportStormMeta(meta)
 
-        self.cell.reqFeedDataAllowed(items, self.user, viewiden=viewiden)
+        await self.cell.reqFeedDataAllowed(items, self.user, viewiden=viewiden)
 
         await self.cell.boss.promote('feeddata',
                                      user=self.user,
@@ -5459,7 +5462,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             # feed the items directly to syn.nodes
             async for items in q.slices(size=100):
-                self.reqFeedDataAllowed(items, user, viewiden=view.iden)
+                await self.reqFeedDataAllowed(items, user, viewiden=view.iden)
                 async for node in view.addNodes(items):
                     count += 1
 
@@ -5591,7 +5594,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         }
         return ret
 
-    def reqFeedDataAllowed(self, items, user, viewiden=None):
+    async def reqFeedDataAllowed(self, items, user, viewiden=None):
         if user.allowed(('node',), gateiden=viewiden):
             return
 
@@ -5605,6 +5608,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         for ((form, _), forminfo) in items:
+            await asyncio.sleep(0)
+
             if not nodeadd:
                 user.confirm(('node', 'add', form), gateiden=viewiden)
 

@@ -1269,7 +1269,7 @@ class FeedV1(Handler):
             meta, *items = items
 
             self.cell.reqValidExportStormMeta(meta)
-            self.cell.reqFeedDataAllowed(items, user, viewiden=view.iden)
+            await self.cell.reqFeedDataAllowed(items, user, viewiden=view.iden)
 
             info = {'view': view.iden, 'nitems': len(items)}
             await self.cell.boss.promote('feeddata', user=user, info=info)
