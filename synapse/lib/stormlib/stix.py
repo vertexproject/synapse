@@ -825,17 +825,70 @@ stixingest = {
         },
         'location': {
             'storm': '''
-                if ($object.longitude and $object.latitude) {
-                    [ geo:place?=({"longitude": $object.longitude, "latitude": $object.latitude}) ]
+                if ($object.longitude != null and $object.latitude != null) {
+                    [ geo:place=({"latlong": [$object.latitude, $object.longitude]}) ]
+                    if ($object.name != null) {
+                        [ :name*unset ?= $object.name ]
+                    }
                     $node.data.set(stix:object, $object)
                     return($node)
-                } else if ($object.country) {
+                } elif ($object.country != null) {
                     $country = $lib.gen.polCountryByIso2($object.country)
-                    if ($country != (null)) {
-                        $country.data.set(stix:object, $object)
+                    if ($country != null) {
+                        yield $country
+                        if $object.name {
+                            [ :name*unset ?= $object.name ]
+                        }
+                        $node.data.set(stix:object, $object)
                         return($country)
                     }
                 }
+            '''
+        },
+        'file': {
+            'storm': '''
+                $hashes = $object.hashes
+                if $hashes {
+                    if $hashes."SHA-256" {
+                        [ file:bytes?=$hashes."SHA-256" ]
+                    } else {
+                        if $hashes."SHA-512" {
+                            ($ok, $valu) = $lib.trycast(hash:sha512, $hashes."SHA-512")
+                        } elif $hashes."SHA-1" {
+                            ($ok, $valu) = $lib.trycast(hash:sha1, $hashes."SHA-1")
+                        } elif $hashes.MD5 {
+                            ($ok, $valu) = $lib.trycast(hash:md5, $hashes.MD5)
+                        } else {
+                            return()
+                        }
+
+                        $guid = $lib.guid($valu)
+                        [ file:bytes=`guid:{$guid}` ]
+                    }
+
+                    [ :md5 ?= $hashes."MD5"
+                      :sha1 ?= $hashes."SHA-1"
+                      :sha512 ?= $hashes."SHA512"
+                      :name ?= $object.name
+                      :size ?= $object.size ]
+
+                    $node.data.set(stix:object, $object)
+                    return($node)
+                }
+            '''
+        },
+        'url': {
+            'storm': '''
+                [inet:url?=$object.value]
+                $node.data.set(stix:object, $object)
+                return($node)
+            '''
+        },
+        'domain-name': {
+            'storm': '''
+                [inet:fqdn?=$object.value]
+                $node.data.set(stix:object, $object)
+                return($node)
             '''
         }
     },

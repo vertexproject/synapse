@@ -1,0 +1,67 @@
+{
+    "type": "bundle",
+    "id": "bundle--17b42b6c-12ac-4090-843f-84a580d4d87c",
+    "objects": [
+        {
+            "type": "file",
+            "spec_version": "2.1",
+            "id": "file--51b9ef81-5ebe-5203-8b43-4d5b5c6f4f8d",
+            "hashes": {
+                "SHA-256": "d1347f4dccebf2fcd672dcef9c66c91b9d3f12b9881e3e390626927718fda616"
+            }
+        },
+        {
+            "type": "domain-name",
+            "spec_version": "2.1",
+            "id": "domain-name--67d3e514-b6ab-5cbf-9800-f63c22196ea2",
+            "value": "regsvchst.com"
+        },
+        {
+            "type": "ipv4-addr",
+            "spec_version": "2.1",
+            "id": "ipv4-addr--3da4e927-485f-5da4-a73e-f886449244e7",
+            "value": "86.106.85.36"
+        },
+        {
+            "type": "url",
+            "spec_version": "2.1",
+            "id": "url--00b9abe3-cf43-5aa7-8e7d-93ca2013317a",
+            "value": "https://stoaccinfoniqaveeambkp.blob.core.windows.net/veeam/v2.msi"
+        },
+        {
+            "type": "location",
+            "spec_version": "2.1",
+            "id": "location--a6b6a9b0-797c-56f0-a903-5a0ca7df0687",
+            "created": "2025-10-18T03:01:45.638665Z",
+            "modified": "2025-10-18T03:01:45.638665Z",
+            "name": "China",
+            "country": "CN"
+        },
+        {
+            "type": "file",
+            "id": "file--364fe3e5-b1f4-5ba3-b951-ee5983b3538d",
+            "spec_version": "2.1",
+            "hashes": {
+                "MD5": "1717b7fff97d37a1e1a0029d83492de1",
+                "SHA-1": "c79a326f8411e9488bdc3779753e1e3489aaedea"
+            },
+            "size": 83968,
+            "name": "resume.pdf"
+        },
+        {
+            "type": "location",
+            "spec_version": "2.1",
+            "id": "location--4c00e29a-9c5e-4399-9623-e91b38a77c30",
+            "created": "2025-11-05T18:25:28.618141Z",
+            "modified": "2025-11-05T18:25:28.618141Z",
+            "latitude": 38.889,
+            "longitude": -77.023
+        },
+        {
+            "type": "ipv6-addr",
+            "spec_version": "2.1",
+            "id": "ipv6-addr--3ea59b9c-3577-52a7-ab5c-e4ddc229fd96",
+            "value": "fe80::2421:75ff:feaa:37cb"
+        }
+    ]
+}

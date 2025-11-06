@@ -381,7 +381,7 @@ class StormLibStixTest(s_test.SynTest):
             self.stormIsInWarn('Error during STIX import callback for threat-actor:', msgs)
             self.stormIsInWarn("Error during STIX import callback for (None, 'indicates', None): StormRaise", msgs)
 
-            # NOTE: we mututate the APT1 stix here...
+            # NOTE: we mutate the APT1 stix here...
             stix['objects'].append({
                 'type': 'relationship',
                 'id': 'relationship--6598bf44-1c10-4218-af9f-aaaaaaaaaaaa',
@@ -425,6 +425,52 @@ class StormLibStixTest(s_test.SynTest):
 
             msgs = await core.stormlist('yield $lib.stix.import.ingest(({"objects": 3}), ({}))')
             self.stormIsInErr('data.objects must be array', msgs)
+
+    async def test_stix_import_scos(self):
+        async with self.getTestCore() as core:
+            stix = s_json.jsload(self.getTestFilePath('stix_import', 'scos.json'))
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            q = '''init { $data = ({"id": $stix.id, "type": $stix.type, "objects": $stix.objects}) }
+            yield $lib.stix.import.ingest($data)'''
+            msgs = await core.stormlist(q, opts={'view': viewiden, 'vars': {'stix': stix}})
+
+            opts = {'view': viewiden}
+            self.len(1, await core.nodes('file:bytes=d1347f4dccebf2fcd672dcef9c66c91b9d3f12b9881e3e390626927718fda616', opts=opts))
+
+            files = await core.nodes('file:bytes', opts=opts)
+            self.len(2, files)
+
+            file = await core.nodes('file:bytes:sha1=c79a326f8411e9488bdc3779753e1e3489aaedea', opts=opts)
+            self.len(1, file)
+            self.eq(file[0].props['md5'], '1717b7fff97d37a1e1a0029d83492de1')
+            self.eq(file[0].props['name'], 'resume.pdf')
+            self.eq(file[0].props['size'], 83968)
+
+            ipv4 = await core.nodes('inet:ipv4', opts=opts)
+            self.len(1, ipv4)
+            self.eq(ipv4[0].repr(), '86.106.85.36')
+
+            ipv6 = await core.nodes('inet:ipv6', opts=opts)
+            self.len(1, ipv6)
+            self.eq(ipv6[0].repr(), 'fe80::2421:75ff:feaa:37cb')
+
+            url = await core.nodes('inet:url', opts=opts)
+            self.len(1, url)
+            self.eq(url[0].repr(), 'https://stoaccinfoniqaveeambkp.blob.core.windows.net/veeam/v2.msi')
+
+            gloc = await core.nodes('geo:place', opts=opts)
+            self.len(1, gloc)
+            self.eq(gloc[0].props['latlong'], (38.889, -77.023))
+
+            pcon = await core.nodes('pol:country', opts=opts)
+            self.len(1, pcon)
+            self.eq(pcon[0].props['iso2'], 'cn')
+            self.eq(pcon[0].props['name'], 'china')
+
+            fqdn = await core.nodes('inet:fqdn', opts=opts)
+            self.len(7, fqdn)
+            self.isin('regsvchst.com', [x.repr() for x in fqdn])
 
     async def test_stix_export_custom(self):
 
