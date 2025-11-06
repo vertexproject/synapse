@@ -1,5 +1,5 @@
 ---
-desc: Added restriction to data model to prevent creating comp types with data fields.
+desc: Added restriction to data model to prevent creating comp types with mutable fields.
 desc:literal: false
 prs: []
 type: feat
