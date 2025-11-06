@@ -4117,6 +4117,8 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            # Check 'node' permission optimization
+
             user = await core.auth.addUser(username)
             view = core.view
 
@@ -4141,6 +4143,8 @@ class StormTypesTest(s_test.SynTest):
             )
 
         async with self.getTestCore() as core:
+
+            # Check 'node.*' permission optimization
 
             user = await core.auth.addUser(username)
             view = core.view
@@ -4170,6 +4174,8 @@ class StormTypesTest(s_test.SynTest):
             )
 
         async with self.getTestCore() as core:
+
+            # Check individual permissions
 
             user = await core.auth.addUser(username)
             view = core.view
