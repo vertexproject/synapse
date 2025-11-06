@@ -1609,6 +1609,27 @@ class StormTest(s_t_utils.SynTest):
             self.nn(nodes[0][1]['storage'][1]['props']['.created'])
             self.eq((None, None), nodes[0][1]['storage'][0]['tags']['foo'])
 
+            # test set tag assignment
+            nodes = await core.nodes('[ test:str=boo +?#baz="dud" ]')
+            self.len(1, nodes)
+            self.eq([], nodes[0].getTags())
+
+            nodes = await core.nodes('[ test:str=foo +?#baz?="dud" ]')
+            self.len(1, nodes)
+            self.eq([('baz', (None, None))], nodes[0].getTags())
+
+            nodes = await core.nodes('test:str=foo $seen=.seen [ +#baz?=$seen .seen="2025-11-04T00:00:00Z" ]')
+            self.len(1, nodes)
+            self.eq([('baz', (None, None))], nodes[0].getTags())
+
+            nodes = await core.nodes('test:str=foo $seen=.seen [ +#baz?=$seen ]')
+            self.len(1, nodes)
+            self.eq([('baz', (1762214400000, 1762214400001))], nodes[0].getTags())
+
+            nodes = await core.nodes('test:str=foo [ +#baz?=newp ]')
+            self.len(1, nodes)
+            self.eq([('baz', (1762214400000, 1762214400001))], nodes[0].getTags())
+
     async def test_storm_diff_merge(self):
 
         async with self.getTestCore() as core:
