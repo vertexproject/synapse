@@ -3491,20 +3491,24 @@ class LibFeed(Lib):
         }
         return await self.runt.view.core.feedFromAxon(sha256, opts=opts)
 
-    async def _libGenr(self, data, reqmeta=False):
+    async def _feedCommon(self, data, reqmeta=False):
         data = await tostor(data)
 
-        self.runt.layerConfirm(('feed:data',))
+        if reqmeta:
+            meta, *data = data
+            self.runt.view.core.reqValidExportStormMeta(meta)
 
-        async for node in self.runt.view.addNodes(data, user=self.runt.user, reqmeta=reqmeta):
+        await self.runt.view.core.reqFeedDataAllowed(data, self.runt.user, viewiden=self.runt.view.iden)
+
+        async for node in self.runt.view.addNodes(data, user=self.runt.user):
+            yield node
+
+    async def _libGenr(self, data, reqmeta=False):
+        async for node in self._feedCommon(data, reqmeta=reqmeta):
             yield node
 
     async def _libIngest(self, data, reqmeta=False):
-        data = await tostor(data)
-
-        self.runt.layerConfirm(('feed:data',))
-
-        async for node in self.runt.view.addNodes(data, user=self.runt.user, reqmeta=reqmeta):
+        async for node in self._feedCommon(data, reqmeta=reqmeta):
             await asyncio.sleep(0)
 
 @registry.registerLib
