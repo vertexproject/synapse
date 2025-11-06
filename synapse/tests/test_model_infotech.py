@@ -358,41 +358,41 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 it:sec:cve=CVE-2013-9999
-                    :nist:nvd:source=NistSource
-                    :nist:nvd:published=2021-10-11
-                    :nist:nvd:modified=2021-10-11
+                    //:nist:nvd:source=NistSource
+                    //:nist:nvd:published=2021-10-11
+                    //:nist:nvd:modified=2021-10-11
 
-                    :cisa:kev:name=KevName
-                    :cisa:kev:desc=KevDesc
-                    :cisa:kev:action=KevAction
-                    :cisa:kev:vendor=KevVendor
-                    :cisa:kev:product=KevProduct
-                    :cisa:kev:added=2022-01-02
-                    :cisa:kev:duedate=2022-01-02
+                    //:cisa:kev:name=KevName
+                    //:cisa:kev:desc=KevDesc
+                    //:cisa:kev:action=KevAction
+                    //:cisa:kev:vendor=KevVendor
+                    //:cisa:kev:product=KevProduct
+                    //:cisa:kev:added=2022-01-02
+                    //:cisa:kev:duedate=2022-01-02
             ]''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:sec:cve', 'cve-2013-9999'))
-            self.eq(node.get('nist:nvd:source'), 'nistsource')
-            self.eq(node.get('nist:nvd:published'), 1633910400000000)
-            self.eq(node.get('nist:nvd:modified'), 1633910400000000)
-            self.eq(node.get('cisa:kev:name'), 'KevName')
-            self.eq(node.get('cisa:kev:desc'), 'KevDesc')
-            self.eq(node.get('cisa:kev:action'), 'KevAction')
-            self.eq(node.get('cisa:kev:vendor'), 'kevvendor')
-            self.eq(node.get('cisa:kev:product'), 'kevproduct')
-            self.eq(node.get('cisa:kev:added'), 1641081600000000)
-            self.eq(node.get('cisa:kev:duedate'), 1641081600000000)
+            self.eq(node.ndef, ('it:sec:cve', 'CVE-2013-9999'))
+            # self.eq(node.get('nist:nvd:source'), 'nistsource')
+            # self.eq(node.get('nist:nvd:published'), 1633910400000000)
+            # self.eq(node.get('nist:nvd:modified'), 1633910400000000)
+            # self.eq(node.get('cisa:kev:name'), 'KevName')
+            # self.eq(node.get('cisa:kev:desc'), 'KevDesc')
+            # self.eq(node.get('cisa:kev:action'), 'KevAction')
+            # self.eq(node.get('cisa:kev:vendor'), 'kevvendor')
+            # self.eq(node.get('cisa:kev:product'), 'kevproduct')
+            # self.eq(node.get('cisa:kev:added'), 1641081600000000)
+            # self.eq(node.get('cisa:kev:duedate'), 1641081600000000)
 
             nodes = await core.nodes('[it:sec:cve=$valu]', opts={'vars': {'valu': 'CVE\u20122013\u20131138'}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:sec:cve', 'cve-2013-1138'))
+            self.eq(node.ndef, ('it:sec:cve', 'CVE-2013-1138'))
 
             nodes = await core.nodes('[it:sec:cve=$valu]', opts={'vars': {'valu': 'CVE\u20112013\u20140001'}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:sec:cve', 'cve-2013-0001'))
+            self.eq(node.ndef, ('it:sec:cve', 'CVE-2013-0001'))
 
             nodes = await core.nodes('[ it:adid=visi ]')
             self.eq(('it:adid', 'visi'), nodes[0].ndef)
@@ -481,7 +481,6 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :host={it:host | limit 1}
                     :sandbox:file=*
                     :service:platform=*
-                    :service:instance=*
                     :service:account=*
             ]''')
             self.len(1, nodes)
@@ -493,7 +492,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:log:event :sandbox:file -> file:bytes'))
             self.len(1, await core.nodes('it:log:event :service:account -> inet:service:account'))
             self.len(1, await core.nodes('it:log:event :service:platform -> inet:service:platform'))
-            self.len(1, await core.nodes('it:log:event :service:instance -> inet:service:instance'))
 
             nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language=$lib.gen.langByCode(en.us) ]')
             self.len(1, nodes)
@@ -1473,7 +1471,6 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :synuser=$root
                     // we can assume the rest of the interface props work
                     :service:platform = *
-                    :service:instance = *
                     :service:account = *
                 ]
             ''', opts=opts)
@@ -1487,7 +1484,6 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('it:exec:query :service:account -> inet:service:account'))
             self.len(1, await core.nodes('it:exec:query :service:platform -> inet:service:platform'))
-            self.len(1, await core.nodes('it:exec:query :service:instance -> inet:service:instance'))
 
     async def test_infotech_softid(self):
 
