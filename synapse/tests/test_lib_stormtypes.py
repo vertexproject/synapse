@@ -4040,9 +4040,16 @@ class StormTypesTest(s_test.SynTest):
     async def test_feed(self):
 
         async with self.getTestCore() as core:
+            await core.addTagProp('score', ('int', {}), {})
+
             data = [
-                (('test:str', 'hello'), {'props': {'tick': '2001'},
-                                         'tags': {'test': (None, None, None)}}),
+                (('test:str', 'hello'), {
+                    'props': {'tick': '2001'},
+                    'tags': {'test': (None, None, None)},
+                    'nodedata': {'foo': 'bar'},
+                    'tagprops': {'rep.foo': {'score': 10}},
+                    'edges': [('refs', ('test:str', 'foobarbaz'))],
+                }),
                 (('test:str', 'stars'), {'props': {'tick': '3001'},
                                          'tags': {}}),
             ]
@@ -4051,9 +4058,25 @@ class StormTypesTest(s_test.SynTest):
             q = '$lib.feed.ingest($data)'
             nodes = await core.nodes(q, opts)
             self.eq(nodes, [])
-            self.len(2, await core.nodes('test:str'))
-            self.len(1, await core.nodes('test:str#test'))
+
+            nodes = await core.nodes('test:str')
+            self.len(3, nodes)
+            self.sorteq(
+                [k.ndef for k in nodes],
+                [
+                    ('test:str', 'foobarbaz'),
+                    ('test:str', 'hello'),
+                    ('test:str', 'stars'),
+                ]
+            )
             self.len(1, await core.nodes('test:str:tick=3001'))
+
+            nodes = await core.nodes('test:str=hello')
+            self.eq(nodes[0].get('tick'), s_time.parse('2001'))
+            self.nn(nodes[0].get('#test'))
+            self.eq(await nodes[0].getData('foo'), 'bar')
+            self.eq(nodes[0].getTagProp('rep.foo', 'score'), 10)
+            self.eq(nodes[0].getEdgeCounts(), {'refs': {'test:str': 1}})
 
             data = [
                 (('test:str', 'sup!'), {'props': {'tick': '2001'},

@@ -5609,7 +5609,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for tagname, _ in forminfo.get('tagprops', {}).items():
                 user.confirm(('node', 'tag', 'add', tagname), gateiden=viewiden)
 
-            for verb, _ in forminfo.get('edges', {}).items():
+            for verb, _ in forminfo.get('edges', []):
                 user.confirm(('node', 'edge', 'add', verb), gateiden=viewiden)
 
     async def addFeedData(self, items, *, user=None, viewiden=None):
