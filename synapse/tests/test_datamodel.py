@@ -311,6 +311,8 @@ class DataModelTest(s_t_utils.SynTest):
 
     async def test_model_comp_types_no_data(self):
 
+        warnmesg = 'Comp type mutable fields is deprecated and will be removed on 2025-12-31.'
+
         model = s_datamodel.Model()
 
         # Comp type with a direct data field
@@ -332,7 +334,7 @@ class DataModelTest(s_t_utils.SynTest):
         with self.assertWarns(DeprecationWarning) as w:
             model.addDataModels([badmodel])
         self.len(1, w.warnings)
-        self.eq(w.warning.args, ('Comp type mutable fields is deprecated and will be removed on 2025-12-31.',))
+        self.eq(w.warning.args, (warnmesg,))
 
         # with self.raises(s_exc.BadTypeDef) as exc:
         #     model.addDataModels([badmodel])
@@ -362,7 +364,7 @@ class DataModelTest(s_t_utils.SynTest):
         with self.assertWarns(DeprecationWarning) as w:
             model.addDataModels([badmodel])
         self.len(1, w.warnings)
-        self.eq(w.warning.args, ('Comp type mutable fields is deprecated and will be removed on 2025-12-31.',))
+        self.eq(w.warning.args, (warnmesg,))
 
         # with self.raises(s_exc.BadTypeDef) as exc:
         #     model.addDataModels([badmodel])
@@ -393,7 +395,7 @@ class DataModelTest(s_t_utils.SynTest):
         with self.assertWarns(DeprecationWarning) as w:
             model.addDataModels([badmodel])
         self.len(1, w.warnings)
-        self.eq(w.warning.args, ('Comp type mutable fields is deprecated and will be removed on 2025-12-31.',))
+        self.eq(w.warning.args, (warnmesg,))
 
         # with self.raises(s_exc.BadTypeDef) as exc:
         #     model.addDataModels([badmodel])
@@ -414,7 +416,7 @@ class DataModelTest(s_t_utils.SynTest):
         with self.assertWarns(DeprecationWarning) as w:
             model.addDataModels([badmodel])
         self.len(1, w.warnings)
-        self.eq(w.warning.args, ('Comp type mutable fields is deprecated and will be removed on 2025-12-31.',))
+        self.eq(w.warning.args, (warnmesg,))
 
         # with self.raises(s_exc.BadTypeDef) as exc:
         #     model.addType('bad:comp', 'comp', typeopts, {})
