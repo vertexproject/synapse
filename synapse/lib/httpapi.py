@@ -1268,7 +1268,7 @@ class FeedV1(Handler):
         try:
             meta, *items = items
 
-            self.cell._reqValidExportStormMeta(meta)
+            self.cell.reqValidExportStormMeta(meta)
             self.cell.reqFeedDataAllowed(items, user, viewiden=view.iden)
 
             info = {'view': view.iden, 'nitems': len(items)}

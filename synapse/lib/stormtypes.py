@@ -3496,7 +3496,7 @@ class LibFeed(Lib):
 
         if reqmeta:
             meta, *data = data
-            self.runt.view.core._reqValidExportStormMeta(meta)
+            self.runt.view.core.reqValidExportStormMeta(meta)
 
         self.runt.view.core.reqFeedDataAllowed(data, self.runt.user, viewiden=self.runt.view.iden)
 

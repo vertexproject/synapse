@@ -4102,6 +4102,141 @@ class StormTypesTest(s_test.SynTest):
             errs = [m for m in msgs if m[0] == 'err']
             self.len(0, errs)
 
+    async def test_feed_perms(self):
+        username = 'blackout@vertex.link'
+
+        data = [
+            (('test:str', 'hello'), {
+                'props': {'tick': '2001'},
+                'tags': {'test': (None, None, None)},
+                'nodedata': {'foo': 'bar'},
+                'tagprops': {'rep.foo': {'score': 10}},
+                'edges': [('refs', ('test:str', 'foobarbaz'))],
+            }),
+        ]
+
+        async with self.getTestCore() as core:
+
+            user = await core.auth.addUser(username)
+            view = core.view
+
+            await user.addRule((True, ('node',)), gateiden=view.iden)
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            opts = {
+                'user': user.iden,
+                'vars': {'data': data}
+            }
+
+            nodes = await core.nodes('yield $lib.feed.genr($data)', opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'hello'))
+
+            nodes = await core.nodes('test:str')
+            self.len(2, nodes)
+            self.sorteq(
+                [k.ndef for k in nodes],
+                [('test:str', 'hello'), ('test:str', 'foobarbaz')]
+            )
+
+        async with self.getTestCore() as core:
+
+            user = await core.auth.addUser(username)
+            view = core.view
+
+            await user.addRule((True, ('node', 'add')), gateiden=view.iden)
+            await user.addRule((True, ('node', 'prop', 'set')), gateiden=view.iden)
+            await user.addRule((True, ('node', 'tag', 'add')), gateiden=view.iden)
+            await user.addRule((True, ('node', 'data', 'set')), gateiden=view.iden)
+            await user.addRule((True, ('node', 'edge', 'add')), gateiden=view.iden)
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            opts = {
+                'user': user.iden,
+                'vars': {'data': data}
+            }
+
+            nodes = await core.nodes('yield $lib.feed.genr($data)', opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'hello'))
+
+            nodes = await core.nodes('test:str')
+            self.len(2, nodes)
+            self.sorteq(
+                [k.ndef for k in nodes],
+                [('test:str', 'hello'), ('test:str', 'foobarbaz')]
+            )
+
+        async with self.getTestCore() as core:
+
+            user = await core.auth.addUser(username)
+            view = core.view
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            opts = {
+                'user': user.iden,
+                'vars': {'data': data}
+            }
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.nodes('yield $lib.feed.genr($data)', opts)
+            self.eq(exc.exception.get('mesg'),
+                f"User '{username}' ({user.iden}) must have permission " +
+                f"node.add.test:str on object {view.iden} (view)."
+            )
+
+            await user.addRule((True, ('node', 'add')), gateiden=view.iden)
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.nodes('yield $lib.feed.genr($data)', opts)
+            self.eq(exc.exception.get('mesg'),
+                f"User '{username}' ({user.iden}) must have permission " +
+                f"node.prop.set.test:str.tick on object {view.iden} (view)."
+            )
+
+            await user.addRule((True, ('node', 'prop', 'set')), gateiden=view.iden)
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.nodes('yield $lib.feed.genr($data)', opts)
+            self.eq(exc.exception.get('mesg'),
+                f"User '{username}' ({user.iden}) must have permission " +
+                f"node.tag.add.test on object {view.iden} (view)."
+            )
+
+            await user.addRule((True, ('node', 'tag', 'add')), gateiden=view.iden)
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.nodes('yield $lib.feed.genr($data)', opts)
+            self.eq(exc.exception.get('mesg'),
+                f"User '{username}' ({user.iden}) must have permission " +
+                f"node.data.set.foo on object {view.iden} (view)."
+            )
+
+            await user.addRule((True, ('node', 'data', 'set')), gateiden=view.iden)
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.nodes('yield $lib.feed.genr($data)', opts)
+            self.eq(exc.exception.get('mesg'),
+                f"User '{username}' ({user.iden}) must have permission " +
+                f"node.edge.add.refs on object {view.iden} (view)."
+            )
+
+            await user.addRule((True, ('node', 'edge', 'add')), gateiden=view.iden)
+
+            nodes = await core.nodes('yield $lib.feed.genr($data)', opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'hello'))
+
+            nodes = await core.nodes('test:str')
+            self.len(2, nodes)
+            self.sorteq(
+                [k.ndef for k in nodes],
+                [('test:str', 'hello'), ('test:str', 'foobarbaz')]
+            )
+
     async def test_storm_lib_layer(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):

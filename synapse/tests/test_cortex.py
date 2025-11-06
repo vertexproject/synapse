@@ -6998,13 +6998,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadVersion) as cexc:
                 meta = {'type': 'meta', 'vers': 2, 'forms': {}, 'count': 0, 'synapse_ver': '3.0.0',
                         'creatorname': 'root', 'creatoriden': rootiden, 'created': 1710000000000}
-                await core._reqValidExportStormMeta(meta)
+                await core.reqValidExportStormMeta(meta)
             self.isin('Unsupported export version', cexc.exception.get('mesg'))
 
             with self.raises(s_exc.BadVersion) as cexc:
                 meta = {'type': 'meta', 'vers': 1, 'forms': {}, 'count': 0, 'synapse_ver': '3abc',
                         'creatorname': 'root', 'creatoriden': rootiden, 'created': 1710000000000}
-                await core._reqValidExportStormMeta(meta)
+                await core.reqValidExportStormMeta(meta)
             self.isin('Malformed synapse version', cexc.exception.get('mesg'))
 
     async def test_cortex_lookup_mode(self):

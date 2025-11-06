@@ -276,7 +276,7 @@ class CoreApi(s_cell.CellApi):
 
         if reqmeta:
             meta, *items = items
-            self.cell._reqValidExportStormMeta(meta)
+            self.cell.reqValidExportStormMeta(meta)
 
         self.cell.reqFeedDataAllowed(items, self.user, viewiden=viewiden)
 
@@ -5391,7 +5391,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             size, sha256 = await fd.save()
             return (size, s_common.ehex(sha256))
 
-    def _reqValidExportStormMeta(self, meta, synver_range='>=3.0.0,<4.0.0'):
+    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0,<4.0.0'):
         '''
         Validate an export storm meta dict for schema, version, and synapse version compatibility.
 
@@ -5444,7 +5444,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     first = True
                     async for item in self.axon.iterMpkFile(sha256):
                         if first:
-                            self._reqValidExportStormMeta(item)
+                            self.reqValidExportStormMeta(item)
                             first = False
                             continue
                         await q.put(item)
@@ -5597,13 +5597,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user.allowed(('node',), gateiden=viewiden):
             return
 
+        nodeadd = user.allowed(('node', 'add'), gateiden=viewiden)
         propset = user.allowed(('node', 'prop', 'set'), gateiden=viewiden)
         tagadd = user.allowed(('node', 'tag', 'add'), gateiden=viewiden)
         dataset = user.allowed(('node', 'data', 'set'), gateiden=viewiden)
         edgeadd = user.allowed(('node', 'edge', 'add'), gateiden=viewiden)
 
+        if nodeadd and propset and tagadd and dataset and edgeadd:
+            return
+
         for ((form, _), forminfo) in items:
-            user.confirm(('node', 'add', form), gateiden=viewiden)
+            if not nodeadd:
+                user.confirm(('node', 'add', form), gateiden=viewiden)
 
             if not propset:
                 for propname, _ in forminfo.get('props', {}).items():
