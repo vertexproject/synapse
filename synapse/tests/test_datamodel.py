@@ -456,6 +456,10 @@ class DataModelTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
 
+                nodes = await core.nodes('test:str=prop -> test:inhstr2')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
+
                 nodes = await core.nodes('test:str=prop :inhstr -> test:inhstr')
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
@@ -463,6 +467,16 @@ class DataModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('test:inhstr3 <- *')
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:str', 'tagprop'))
+
+                await core.nodes('[ test:str=prop2 :inhstrarry=(foo, bar) ]')
+                nodes = await core.nodes('test:str=prop2 -> test:inhstr')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr3', 'bar'))
+                self.eq(nodes[1].ndef, ('test:inhstr2', 'foo'))
+
+                nodes = await core.nodes('test:str=prop2 -> test:inhstr3')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr3', 'bar'))
 
                 await core.nodes("$lib.model.ext.addForm(_test:inhstr5, test:inhstr3, ({}), ({}))")
                 await core.nodes("$lib.model.ext.addForm(_test:inhstr4, _test:inhstr5, ({}), ({}))")
