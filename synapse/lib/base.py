@@ -7,6 +7,7 @@ import asyncio
 import inspect
 import logging
 import weakref
+import tempfile
 import contextlib
 import collections
 
@@ -58,6 +59,27 @@ def _fini_atexit():  # pragma: no cover
             logger.exception('atexit fini fail: %r' % (item,))
 
 atexit.register(_fini_atexit)
+
+def _ioWorkProc(todo, sockpath):
+
+    async def workloop():
+
+        import synapse.daemon as s_daemon
+
+        async with await s_daemon.Daemon.anit() as dmon:
+
+            func, args, kwargs = todo
+
+            item = await func(*args, **kwargs)
+
+            dmon.share('dmon', dmon)
+            dmon.share('item', item)
+
+            # bind last so we're ready to go...
+            await dmon.listen(f'unix://{sockpath}')
+            await dmon.waitfini()
+
+    asyncio.run(workloop())
 
 class Base:
     '''
@@ -112,6 +134,37 @@ class Base:
             raise
 
         return self
+
+    @classmethod
+    async def spawn(cls, *args, **kwargs):
+
+        # avoid circular imports... *shrug*
+        import synapse.common as s_common
+        import synapse.telepath as s_telepath
+
+        todo = (cls.anit, args, kwargs)
+
+        iden = s_common.guid()
+
+        tmpdir = tempfile.gettempdir()
+        sockpath = s_common.genpath(tmpdir, iden)
+
+        base = await Base.anit()
+        task = base.schedCoro(s_coro.spawn((_ioWorkProc, (todo, sockpath), {})))
+
+        # FIXME properly await the socket listening...
+        await asyncio.sleep(1)
+
+        proxy = await s_telepath.openurl(f'unix://{sockpath}:item')
+
+        async def fini():
+            async with await s_telepath.openurl(f'unix://{sockpath}:item') as finiproxy:
+                await finiproxy.taskv2(('fini', (), {}))
+            await base.fini()
+
+        proxy.onfini(fini)
+
+        return proxy
 
     async def __anit__(self):
 
