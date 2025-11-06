@@ -1414,6 +1414,7 @@ modeldefs = (
                     'doc': 'Lower case normalized version of the it:dev:str.'}),
 
             )),
+            ('it:sec:cve', {}, ()),
             ('it:sec:cpe', {}, (
 
                 ('v2_2', ('it:sec:cpe:v2_2', {}), {
@@ -1463,7 +1464,6 @@ modeldefs = (
                     'ro': True,
                     'doc': 'The "other" field from the CPE 2.3 string.'}),
             )),
-            ('it:sec:cve', {}, ()),
             ('it:sec:cwe', {}, (
 
                 ('name', ('str', {}), {

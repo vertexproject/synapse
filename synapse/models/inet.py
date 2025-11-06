@@ -2033,11 +2033,11 @@ modeldefs = (
             ('inet:asnip', {}, (
 
                 ('asn', ('inet:asn', {}), {
-                    'readonly': True,
+                    'ro': True,
                     'doc': 'The ASN that the IP was assigned to.'}),
 
                 ('ip', ('inet:ip', {}), {
-                    'readonly': True,
+                    'ro': True,
                     'doc': 'The IP that was assigned to the ASN.'}),
             )),
 
