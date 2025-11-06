@@ -5427,9 +5427,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.boss.promote('feeddata', user=user, info=taskinfo, taskiden=taskiden)
 
-        # ensure that the user can make all node edits in the layer
-        user.confirm(('node',), gateiden=view.wlyr.iden)
-
         q = s_queue.Queue(maxsize=10000)
         feedexc = None
 
@@ -5462,6 +5459,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             # feed the items directly to syn.nodes
             async for items in q.slices(size=100):
+                self.reqFeedDataAllowed(items, user, viewiden=view.iden)
                 async for node in view.addNodes(items):
                     count += 1
 
