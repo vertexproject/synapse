@@ -4819,6 +4819,12 @@ class EditTagAdd(Edit):
 
         valu = (None, None)
 
+        tryset_assign = False
+        if hasval:
+            assign_oper = await self.kids[1 + oper_offset].compute(runt, None)
+            if assign_oper == '?=':
+                tryset_assign = True
+
         async for node, path in genr:
 
             try:
@@ -4838,7 +4844,14 @@ class EditTagAdd(Edit):
                     if hasval:
                         valu = await self.kids[2 + oper_offset].compute(runt, path)
                         valu = await s_stormtypes.toprim(valu)
+                        if tryset_assign:
+                            try:
+                                valu = runt.snap.core.model.type('ival').norm(valu)[0]
+                            except s_exc.BadTypeValu:
+                                valu = (None, None)
+
                     await node.addTag(name, valu=valu)
+
                 except excignore:
                     pass
 

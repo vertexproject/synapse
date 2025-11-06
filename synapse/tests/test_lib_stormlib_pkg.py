@@ -256,7 +256,7 @@ class StormLibPkgTest(s_test.SynTest):
 
             evnts = await waiter.wait(timeout=4)
             exp = [
-                ('core:pkg:onload:complete', {'pkg': 'testload'})
+                ('core:pkg:onload:complete', {'pkg': 'testload', 'storvers': -1})
             ]
             self.eq(exp, evnts)
 
