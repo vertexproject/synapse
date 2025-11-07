@@ -1519,6 +1519,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.warning(f'...Cell ({self.getCellType()}) auth migration complete!')
 
     async def _drivePermMigration(self):
+        pass
         # we might just need to hard-code dbname here and let it ride...
         # for lkey, lval in self.slab.scanByPref(s_drive.LKEY_INFO, db=self.drive.dbname):
         #     info = s_msgpack.un(lval)
