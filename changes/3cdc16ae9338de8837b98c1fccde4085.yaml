@@ -1,5 +1,5 @@
 ---
-desc: Deprecated creating comp types with mutable fields.
+desc: Deprecated invalid comp types such as mutable fields (data and array) and non-existent types.
 desc:literal: false
 prs: []
 type: deprecation
