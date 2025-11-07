@@ -14,7 +14,7 @@
             "type": "domain-name",
             "spec_version": "2.1",
             "id": "domain-name--67d3e514-b6ab-5cbf-9800-f63c22196ea2",
-            "value": "regsvchst.com"
+            "value": "google.com"
         },
         {
             "type": "ipv4-addr",
@@ -26,7 +26,7 @@
             "type": "url",
             "spec_version": "2.1",
             "id": "url--00b9abe3-cf43-5aa7-8e7d-93ca2013317a",
-            "value": "https://stoaccinfoniqaveeambkp.blob.core.windows.net/veeam/v2.msi"
+            "value": "https://foo.bar.baz.vertex.link/myurl.php"
         },
         {
             "type": "location",

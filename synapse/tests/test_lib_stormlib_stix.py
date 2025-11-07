@@ -457,7 +457,7 @@ class StormLibStixTest(s_test.SynTest):
 
             url = await core.nodes('inet:url', opts=opts)
             self.len(1, url)
-            self.eq(url[0].repr(), 'https://stoaccinfoniqaveeambkp.blob.core.windows.net/veeam/v2.msi')
+            self.eq(url[0].repr(), 'https://foo.bar.baz.vertex.link/myurl.php')
 
             gloc = await core.nodes('geo:place', opts=opts)
             self.len(1, gloc)
@@ -470,7 +470,7 @@ class StormLibStixTest(s_test.SynTest):
 
             fqdn = await core.nodes('inet:fqdn', opts=opts)
             self.len(7, fqdn)
-            self.isin('regsvchst.com', [x.repr() for x in fqdn])
+            self.isin('google.com', [x.repr() for x in fqdn])
 
     async def test_stix_export_custom(self):
 
