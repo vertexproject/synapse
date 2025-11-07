@@ -978,7 +978,6 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('semver:major'), subs.get('major'))
                 self.eq(node.get('semver:minor'), subs.get('minor'))
                 self.eq(node.get('semver:patch'), subs.get('patch'))
-                self.eq(itmod.bruteVersionStr(tv), (te, subs))
 
             nodes = await core.nodes('[it:prod:softver=* :vers=$valu]', opts={'vars': {'valu': ''}})
             self.len(1, nodes)

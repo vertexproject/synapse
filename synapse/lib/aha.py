@@ -172,7 +172,8 @@ class AhaApi(s_cell.CellApi):
         if network is None:
             await self._reqUserAllowed(('aha', 'service', 'get'))
         else:
-            s_common.deprecated('getAhaSvcs() network argument', curv='v2.206.0')
+            if network != self.cell.conf.get('aha:network'):
+                s_common.deprecated('getAhaSvcs() network argument', curv='v2.206.0')
             await self._reqUserAllowed(('aha', 'service', 'get', network))
 
         async for info in self.cell.getAhaSvcs(network=network):
@@ -257,14 +258,15 @@ class AhaApi(s_cell.CellApi):
         '''
         Remove an AHA service entry.
         '''
-        if network is not None:
+        if network is not None and network != self.cell.conf.get('aha:network'):
             s_common.deprecated('delAhaSvc() network argument', curv='v2.206.0')
         svcname, svcnetw, svcfull = self.cell._nameAndNetwork(name, network)
         await self._reqUserAllowed(('aha', 'service', 'del', svcnetw, svcname))
         return await self.cell.delAhaSvc(name, network=network)
 
     async def getCaCert(self, network):
-        s_common.deprecated('getCaCert() will no longer accept a network argument', curv='v2.206.0')
+        if network != self.cell.conf.get('aha:network'):
+            s_common.deprecated('getCaCert() will no longer accept a network argument', curv='v2.206.0')
         await self._reqUserAllowed(('aha', 'ca', 'get'))
         return await self.cell.getCaCert(network)
 
