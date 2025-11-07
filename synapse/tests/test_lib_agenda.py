@@ -994,7 +994,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             core.schedCoro(task())
 
-            q = '$q=$lib.queue.gen(test) for $i in $lib.range(60) { $lib.time.sleep(0.1) $q.put($i) }'
+            q = '$q=$lib.queue.gen(test) for $i in $lib.range(60) { $lib.time.sleep(0.1) $q.put($i) } $lib.time.sleep(5)'
             guid = s_common.guid()
             cdef = {
                 'creator': core.auth.rootuser.iden, 'iden': guid,

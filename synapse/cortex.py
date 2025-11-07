@@ -990,6 +990,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (1, self._storUpdateMacros),
             (4, self._storCortexHiveMigration),
             (5, self._storCleanQueueAuthGates),
+            (6, self._storCleanCronAuthGates),
         ), nexs=False)
 
         # Perform module loading
@@ -1144,6 +1145,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             await self.auth.delAuthGate(info.iden)
 
         logger.warning('...Queue AuthGate cleanup complete!')
+
+    async def _storCleanCronAuthGates(self):
+
+        logger.warning('removing AuthGates for CronJobs which no longer exist')
+
+        apptdefs = self.cortexdata.getSubKeyVal('agenda:appt:')
+
+        for info in self.auth.getAuthGates():
+            if info.type == 'cronjob':
+                if apptdefs.get(info.iden) is None:
+                    await self.auth.delAuthGate(info.iden)
+
+        logger.warning('...CronJob AuthGate cleanup complete!')
 
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
