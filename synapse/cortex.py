@@ -1002,7 +1002,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._initCoreAxon()
         await self._initJsonStor()
 
-        self.nodeeditwindows = []
+        self.nodeeditwindows = set()
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
@@ -4270,7 +4270,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.axon:
             await self.axon.fini()
 
-        [await wind.fini() for wind in self.nodeeditwindows]
+        [await wind.fini() for wind in tuple(self.nodeeditwindows)]
 
     async def syncLayerNodeEdits(self, iden, offs, wait=True):
         '''
@@ -4317,7 +4317,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, (), {}
 
         async def windfini():
-            self.nodeeditwindows.remove(wind)
+            self.nodeeditwindows.discard(wind)
 
         async def onlayr(mesg):
             evnt = SYNC_LAYR_ADD if mesg[0] == 'core:layr:add' else SYNC_LAYR_DEL
@@ -4330,7 +4330,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 if wait:
                     wind = await s_queue.Window.anit(maxsize=s_layer.WINDOW_MAXSIZE * 10)
                     wind.onfini(windfini)
-                    self.nodeeditwindows.append(wind)
+                    self.nodeeditwindows.add(wind)
                     base.onfini(wind)
                     self.on('core:layr:add', onlayr, base=base)
                     self.on('core:layr:del', onlayr, base=base)

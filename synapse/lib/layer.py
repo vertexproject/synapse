@@ -1509,7 +1509,7 @@ class Layer(s_nexus.Pusher):
         self.canrev = True
         self.ctorname = f'{self.__class__.__module__}.{self.__class__.__name__}'
 
-        self.windows = []
+        self.windows = set()
         self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
 
         self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
@@ -2847,7 +2847,7 @@ class Layer(s_nexus.Pusher):
         return ret
 
     async def _onLayrFini(self):
-        [(await wind.fini()) for wind in self.windows]
+        [(await wind.fini()) for wind in tuple(self.windows)]
         [futu.cancel() for futu in self.futures.values()]
         if self.leader is not None:
             await self.leader.fini()
@@ -4773,11 +4773,11 @@ class Layer(s_nexus.Pusher):
         async with await s_queue.Window.anit(maxsize=WINDOW_MAXSIZE) as wind:
 
             async def fini():
-                self.windows.remove(wind)
+                self.windows.discard(wind)
 
             wind.onfini(fini)
 
-            self.windows.append(wind)
+            self.windows.add(wind)
 
             yield wind
 

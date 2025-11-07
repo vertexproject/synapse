@@ -7496,16 +7496,17 @@ class CortexBasicTest(s_t_utils.SynTest):
             item = await asyncio.wait_for(genr.__anext__(), timeout=2)
             self.eq([layr01, s_cortex.SYNC_LAYR_DEL], [item[1], item[2]])
 
-            self.len(1, core.nodeeditwindows[0].linklist)  # the del event
+            wind = tuple(core.nodeeditwindows)[0]
+            self.len(1, wind.linklist)  # the del event
 
             buid04 = await core.callStorm('[ test:str=04 ] return($lib.hex.decode($node.iden()))')
-            self.len(2, core.nodeeditwindows[0].linklist)  # ...plus the new node
+            self.len(2, wind.linklist)  # ...plus the new node
 
             # live sync
 
             item = await asyncio.wait_for(genr.__anext__(), timeout=2)
             self.eq([layr00, buid04], [item[1], item[3][0][0]])
-            self.len(0, core.nodeeditwindows[0].linklist) # del event gets skipped since it was already sent
+            self.len(0, wind.linklist) # del event gets skipped since it was already sent
 
         del genr
 
