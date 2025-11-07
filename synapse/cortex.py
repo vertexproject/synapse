@@ -4348,6 +4348,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     if item[2] == SYNC_LAYR_DEL:
                         offsdict.pop(item[1], None)
                         yield item
+                        await asyncio.sleep(0)
                         continue
 
                     if item[0] >= topoffs:
@@ -4377,6 +4378,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     elif layriden in offsdict:
                         yield ioff, layriden, SYNC_LAYR_DEL, (), {}
                         offsdict.pop(layriden, None)
+                    await asyncio.sleep(0)
 
             logger.debug(f'syncLayersEvents() exited live sync link={addrinfo}')
             await self.waitfini(1)
