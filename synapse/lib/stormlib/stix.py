@@ -825,24 +825,46 @@ stixingest = {
         },
         'location': {
             'storm': '''
+                // Deconflict on $id + as many props as it seems reasonable to use for deconfliction
+                $geodict = ({'id': $object.id, '$try': true, '$props': {'desc': $object.desc}})
+
+                // Prefer adding latlong if available
                 if ($object.longitude != null and $object.latitude != null) {
-                    [ geo:place=({"latlong": [$object.latitude, $object.longitude]}) ]
-                    if ($object.name != null) {
-                        [ :name*unset ?= $object.name ]
-                    }
-                    $node.data.set(stix:object, $object)
-                    return($node)
-                } elif ($object.country != null) {
-                    $country = $lib.gen.polCountryByIso2($object.country)
-                    if ($country != null) {
-                        yield $country
-                        if $object.name {
-                            [ :name*unset ?= $object.name ]
-                        }
-                        $node.data.set(stix:object, $object)
-                        return($country)
+                    $geodict.latlong = ([$object.latitude, $object.longitude])
+                    if $object.precision {
+                        // Precision is a float in meters
+                        $geodict.radius = `{$object.precision} m`
                     }
                 }
+
+                // Prefer the country as the 'loc' value when that is available,
+                // then fall back to using the region as the root of the value.
+                if $object.country {
+                    $geodict.loc = $object.country
+                } elif $object.region {
+                    $geodict.loc = $object.region
+                }
+
+                // We ignore the administrative_region since may be duplicativie of
+                // the country value.
+                if $object.city {
+                    if $geodict.loc {
+                        $geodict.loc = `{$geodict.loc}.{$object.city}`
+                    } else {
+                        $geodict.loc = $object.city
+                    }
+                }
+
+                if $object.name {
+                    $geodict.name = $object.name
+                }
+                if $object.street_address {
+                    $geodict.address = $object.street_address
+                }
+
+                [geo:place ?= $geodict]
+                $node.data.set(stix:object, $object)
+                return ($node)
             '''
         },
         'file': {

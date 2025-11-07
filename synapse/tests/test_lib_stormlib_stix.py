@@ -458,13 +458,19 @@ class StormLibStixTest(s_test.SynTest):
             self.eq(url[0].repr(), 'https://foo.bar.baz.vertex.link/myurl.php')
 
             gloc = await core.nodes('geo:place', opts=opts)
-            self.len(1, gloc)
-            self.eq(gloc[0].props['latlong'], (38.889, -77.023))
+            self.len(3, gloc)
 
-            pcon = await core.nodes('pol:country', opts=opts)
-            self.len(1, pcon)
-            self.eq(pcon[0].props['iso2'], 'cn')
-            self.eq(pcon[0].props['name'], 'china')
+            cn = await core.nodes('geo:place:name=china', opts=opts)
+            self.len(1, cn)
+            self.eq(cn[0].props['loc'], 'cn')
+
+            latlong = await core.nodes('geo:place:latlong', opts=opts)
+            self.len(1, latlong)
+
+            pizza = await core.nodes('geo:place:address', opts=opts)
+            self.len(1, pizza)
+            self.eq(pizza[0].props['address'], '1234 jefferson drive')
+            self.eq(pizza[0].props['desc'], "It's a magical place!")
 
             fqdn = await core.nodes('inet:fqdn', opts=opts)
             self.len(7, fqdn)

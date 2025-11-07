@@ -62,6 +62,21 @@
             "spec_version": "2.1",
             "id": "ipv6-addr--3ea59b9c-3577-52a7-ab5c-e4ddc229fd96",
             "value": "fe80::2421:75ff:feaa:37cb"
+        },
+        {
+            "type": "location",
+            "spec_version": "2.1",
+            "id": "location--4c00e29a-9c5e-4399-9623-e91b38a77c31",
+            "created": "2025-11-05T18:25:28.618141Z",
+            "modified": "2025-11-05T18:25:28.618141Z",
+            "latitude": null,
+            "longitude": null,
+            "name": "bobs pizza place",
+            "desc": "It's a magical place!",
+            "region": "northern-america",
+            "city": "seattle",
+            "street_address": "1234 Jefferson Drive",
+            "postal_code": "8180asdf"
         }
     ]
 }
