@@ -533,19 +533,14 @@ class Comp(Type):
 
         self.tcache = FieldHelper(self.modl, self.name, fields)
 
+        # TODO: Remove this whole loop in 3xx
         for fname, ftypename in fields:
             if isinstance(ftypename, (list, tuple)):
                 ftypename = ftypename[0]
 
-            try:
-                ftype = self.modl.type(ftypename)
-            except s_exc.BadTypeDef:
+            if (ftype := self.modl.type(ftypename)) is None:
                 continue
 
-            if ftype is None:
-                continue
-
-            # TODO: Remove me in 3xx
             if ftype.ismutable:
                 self.ismutable = True
 
