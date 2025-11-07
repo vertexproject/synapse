@@ -22,7 +22,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
-import synapse.tools.migrate3x as s_migr
+import synapse.tools.cortex.migrate3x as s_migr
 
 REGR_CORE = '3x-migr3'
 
@@ -117,7 +117,7 @@ class MigrationTest(s_t_utils.SynTest):
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
 
                 # test view has our nodes from the source cortex-view
-                nodes = await core.nodes('ps:contact', opts={'view': '41552988daf582ac7d05813a834e9c26'})
+                nodes = await core.nodes('entity:contact', opts={'view': '41552988daf582ac7d05813a834e9c26'})
                 self.len(3, nodes)
 
                 # test offset is returned from the layer's hotcount

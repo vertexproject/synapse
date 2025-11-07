@@ -647,11 +647,11 @@ modeldefs = (
                 'prevnames': ('it:logon',),
                 'doc': 'A host specific login session.'}),
 
-            ('it:host:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
-                'interfaces': (
-                    ('meta:observable', {'template': {'title': 'host at this URL'}}),
-                ),
-                'doc': 'A URL hosted on or served by a specific host.'}),
+#            ('it:host:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
+#                'interfaces': (
+#                    ('meta:observable', {'template': {'title': 'host at this URL'}}),
+#                ),
+#                'doc': 'A URL hosted on or served by a specific host.'}),
 
             ('it:host:installed', ('guid', {}), {
                 'doc': 'Software installed on a specific host.'}),
@@ -1392,16 +1392,16 @@ modeldefs = (
                 ('flow', ('inet:flow', {}), {
                     'doc': 'The network flow which initiated the login.'}),
             )),
-            ('it:host:url', {}, (
-
-                ('host', ('it:host', {}), {
-                    'ro': True,
-                    'doc': 'Host serving a url.'}),
-
-                ('url', ('inet:url', {}), {
-                    'ro': True,
-                    'doc': 'URL available on the host.'}),
-            )),
+#            ('it:host:url', {}, (
+#
+#                ('host', ('it:host', {}), {
+#                    'ro': True,
+#                    'doc': 'Host serving a url.'}),
+#
+#                ('url', ('inet:url', {}), {
+#                    'ro': True,
+#                    'doc': 'URL available on the host.'}),
+#            )),
             ('it:exec:screenshot', {}, (
 
                 ('image', ('file:bytes', {}), {
