@@ -1,5 +1,5 @@
 ---
-desc: Added additional STIX types to those supported by ``$lib.stix.import.ingest()``.
+desc: Added ``ipv4-addr``, ``ipv6-addr``, ``location``, ``file``, ``url``, and ``domain-name`` to the default STIX types supported by ``$lib.stix.import.ingest()``.
 desc:literal: false
 prs: []
 type: feat

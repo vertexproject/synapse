@@ -426,8 +426,6 @@ class StormLibStixTest(s_test.SynTest):
             msgs = await core.stormlist('yield $lib.stix.import.ingest(({"objects": 3}), ({}))')
             self.stormIsInErr('data.objects must be array', msgs)
 
-    async def test_stix_import_scos(self):
-        async with self.getTestCore() as core:
             stix = s_json.jsload(self.getTestFilePath('stix_import', 'scos.json'))
 
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
