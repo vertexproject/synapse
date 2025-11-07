@@ -189,7 +189,7 @@ class AhaApi(s_cell.CellApi):
         NOTE: In order for the service to remain marked "up" a caller
               must maintain the telepath link.
         '''
-        if network is not None:
+        if network is not None and network != self.cell.conf.get('aha:network'):
             s_common.deprecated('addAhaSvc() network argument', curv='v2.206.0')
         svcname, svcnetw, svcfull = self.cell._nameAndNetwork(name, network)
 
