@@ -533,6 +533,22 @@ class Comp(Type):
 
         self.tcache = FieldHelper(self.modl, self.name, fields)
 
+        for fname, ftypename in fields:
+            if isinstance(ftypename, (list, tuple)):
+                ftypename = ftypename[0]
+
+            try:
+                ftype = self.modl.type(ftypename)
+            except s_exc.BadTypeDef:
+                continue
+
+            if ftype is None:
+                continue
+
+            # TODO: Remove me in 3xx
+            if ftype.ismutable:
+                self.ismutable = True
+
     def _normPyTuple(self, valu):
 
         fields = self.opts.get('fields')
@@ -547,14 +563,6 @@ class Comp(Type):
         for i, (name, _) in enumerate(fields):
 
             _type = self.tcache[name]
-
-            if _type.ismutable:
-                self.ismutable = True
-
-            if _type.deprecated:
-                mesg = f'The type {self.name} field {name} uses a deprecated ' \
-                       f'type {_type.name} which will removed in 3.0.0'
-                logger.warning(mesg)
 
             norm, info = _type.norm(valu[i])
 

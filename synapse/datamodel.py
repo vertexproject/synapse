@@ -937,13 +937,27 @@ class Model:
 
     def _checkTypeDef(self, typ):
         if 'comp' in typ.info.get('bases', ()):
-            for fname in typ.fieldoffs.keys():
-                ftype = typ.tcache[fname]
+            for fname, ftypename in typ.opts.get('fields', ()):
+                extra = {'synapse': {'type': typ.name, 'field': fname}}
+
+                if isinstance(ftypename, (list, tuple)):
+                    ftypename = ftypename[0]
+
+                try:
+                    ftype = typ.tcache[fname]
+                except s_exc.BadTypeDef:
+                    mesg = f'The {typ.name} field {fname} is declared as a type ({ftypename}) that does not exist.'
+                    logger.warning(mesg, extra=extra)
+                    continue
 
                 if ftype.ismutable:
-                    s_common.deprdate(f'Comp type mutable fields ({typ.name}:{fname})', date='2025-12-31')
-                    # mesg = 'Comp types cannot include mutable fields.'
-                    # raise s_exc.BadTypeDef(mesg=mesg, typename=typ.name, field=fname)
+                    mesg = f'Comp types with mutable fields ({typ.name}:{fname}) are deprecated and will be removed in 3.0.0.'
+                    logger.warning(mesg, extra=extra)
+
+                if ftype.deprecated:
+                    mesg = f'The type {typ.name} field {fname} uses a deprecated type {ftype.name}.'
+                    extra['synapse']['field:type'] = ftype.name
+                    logger.warning(mesg, extra=extra)
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
 
