@@ -612,4 +612,3 @@ class FileDrive(Drive):
         import synapse.lib.lmdbslab as s_lmdbslab
         slab = await s_lmdbslab.Slab.anit(path)
         return await Drive.__anit__(self, slab, 'drive')
-
