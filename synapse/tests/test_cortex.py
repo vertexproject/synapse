@@ -9317,3 +9317,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             # return mutable instances without mutating the original prop valu
             valu = await core.callStorm('test:str=foobar ($prop, $valu) = :baz $valu.list.rem(listval0) return((:baz, $valu))')
             self.eq(valu, (('test:guid:data', data), exp))
+
+    async def test_cortex_cron_authgates(self):
+        async with self.getRegrCore('2.225.0-cron-authgates') as core:
+            self.len(1, await core.listCronJobs())
+
+            gates = []
+            for gate in core.auth.getAuthGates():
+                if gate.type == 'cronjob':
+                    gates.append(gate)
+            self.len(1, gates)
