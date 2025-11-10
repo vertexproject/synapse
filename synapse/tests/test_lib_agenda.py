@@ -983,18 +983,18 @@ class AgendaTest(s_t_utils.SynTest):
     async def test_cron_kill(self):
         async with self.getTestCore() as core:
 
-            data = []
             evt = asyncio.Event()
 
+            # Cron task watcher
             async def task():
                 async for mesg in core.behold():
-                    data.append(mesg)
                     if mesg.get('event') == 'cron:stop':
                         evt.set()
 
             core.schedCoro(task())
 
-            q = '$q=$lib.queue.gen(test) for $i in $lib.range(60) { $lib.time.sleep(0.1) $q.put($i) } $lib.time.sleep(5)'
+            # Put an item into the queue and then block forever
+            q = '$q = $lib.queue.gen(test) $q.put((0)) $lib.time.sleep(999)'
             guid = s_common.guid()
             cdef = {
                 'creator': core.auth.rootuser.iden, 'iden': guid,
@@ -1003,19 +1003,24 @@ class AgendaTest(s_t_utils.SynTest):
             }
             await core.addCronJob(cdef)
 
+            # Get the item from the queue to confirm the cron job is running
             q = '$q=$lib.queue.gen(test) for $valu in $q.get((0), wait=(true)) { return ($valu) }'
             valu = await core.callStorm(q)
             self.eq(valu, 0)
 
+            # Get the cron def
             opts = {'vars': {'iden': guid}}
             get_cron = 'return($lib.cron.get($iden).pack())'
             cdef = await core.callStorm(get_cron, opts=opts)
-            self.true(cdef.get('isrunning'))
+            self.true(cdef.get('isrunning'), msg=cdef)
 
+            # Kill the cron job
             self.true(await core.callStorm('return($lib.cron.get($iden).kill())', opts=opts))
 
+            # Wait for the beholder event
             self.true(await asyncio.wait_for(evt.wait(), timeout=12))
 
+            # Check cron job is stopped
             cdef = await core.callStorm(get_cron, opts=opts)
             self.false(cdef.get('isrunning'))
 
