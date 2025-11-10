@@ -475,7 +475,26 @@ class Node(NodeBase):
                 }
 
             for relp in relprops:
-                embdnode[relp] = node.get(relp)
+                valu, virts = node.getWithVirts(relp)
+                embdnode[relp] = valu
+
+                if valu is None:
+                    continue
+
+                if virts is not None:
+                    for vname, vval in virts.items():
+                        embdnode[f'{relp}.{vname}'] = vval[0]
+
+                stortype = node.form.prop(relp).type.stortype
+                if stortype & s_layer.STOR_FLAG_ARRAY:
+                    embdnode[f'{relp}.size'] = len(valu)
+                    if (svirts := storvirts.get(stortype & 0x7fff)) is not None:
+                        for vname, getr in svirts.items():
+                            embdnode[f'{relp}.{vname}'] = [getr(v) for v in valu]
+                else:
+                    if (svirts := storvirts.get(stortype)) is not None:
+                        for vname, getr in svirts.items():
+                            embdnode[f'{relp}.{vname}'] = getr(valu)
 
         return retn
 

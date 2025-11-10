@@ -2082,6 +2082,35 @@ class StormTest(s_t_utils.SynTest):
             self.nn(embeds['payer:instrument']['$nid'])
             self.eq('infime', embeds['payer:instrument']['name'])
 
+            # embeds include virtual prop values
+            await core.nodes('''[
+                test:str=embed
+                  :gprop={[
+                    test:guid=*
+                      :server=1.2.3.4:80
+                      :seen=(2020, 2021)
+                      :name={[ test:str=arrayvirt :ndefs=((test:str, foo), (test:int, 5)) ]}
+                  ]}
+            ]''')
+            opts = {'node:opts': {'embeds': {'test:str': {'gprop': ('server', 'seen'), 'gprop::name': ('ndefs',)}}}}
+            msgs = await core.stormlist('test:str=embed', opts=opts)
+            node = [m[1] for m in msgs if m[0] == 'node'][0]
+            self.eq('test:str', node[0][0])
+
+            embeds = node[1]['embeds']
+            self.eq('tcp://1.2.3.4:80', embeds['gprop']['server'])
+            self.eq((4, 16909060), embeds['gprop']['server.ip'])
+            self.eq(80, embeds['gprop']['server.port'])
+
+            self.eq((1577836800000000, 1609459200000000, 31622400000000), embeds['gprop']['seen'])
+            self.eq(1577836800000000, embeds['gprop']['seen.min'])
+            self.eq(1609459200000000, embeds['gprop']['seen.max'])
+            self.eq(31622400000000, embeds['gprop']['seen.duration'])
+
+            self.eq((('test:str', 'foo'), ('test:int', 5)), embeds['gprop::name']['ndefs'])
+            self.eq(2, embeds['gprop::name']['ndefs.size'])
+            self.eq(['test:str', 'test:int'], embeds['gprop::name']['ndefs.form'])
+
     async def test_storm_wget(self):
 
         async def _getRespFromSha(core, mesgs):
