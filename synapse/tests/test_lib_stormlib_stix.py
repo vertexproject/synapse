@@ -442,6 +442,7 @@ class StormLibStixTest(s_test.SynTest):
             file = await core.nodes('file:bytes:sha1=669a1e53b9dd9df3474300d3d959bb85bad75945', opts=opts)
             self.len(1, file)
             self.eq(file[0].props['md5'], 'fa818a259cbed7ce8bc2a22d35a464fc')
+            self.eq(file[0].props['sha512'], '3069af3e0a19d4c47ebcfe37327b059d1862b60a780a34b9bcd2c42b304efbe6d3ed321cbd1ffbdeabc83537f0cb8b4adeeeaaa262bb745770a5ca671519c52d')
             self.eq(file[0].props['name'], 'license')
             self.eq(file[0].props['size'], 11358)
 

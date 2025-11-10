@@ -812,20 +812,17 @@ stixingest = {
         'ipv4-addr': {
             'storm': '''
                 [inet:ipv4?=$object.value]
-                $node.data.set(stix:object, $object)
                 return($node)
             '''
         },
         'ipv6-addr': {
             'storm': '''
                 [inet:ipv6?=$object.value]
-                $node.data.set(stix:object, $object)
                 return($node)
             '''
         },
         'location': {
             'storm': '''
-                // Deconflict on $id + as many props as it seems reasonable to use for deconfliction
                 $geodict = ({'id': $object.id, '$try': true, '$props': {'desc': $object.desc}})
 
                 // Prefer adding latlong if available
@@ -837,29 +834,11 @@ stixingest = {
                     }
                 }
 
-                // Prefer the country as the 'loc' value when that is available,
-                // then fall back to using the region as the root of the value.
                 if $object.country {
-                    $geodict.loc = $object.country
-                } elif $object.region {
-                    $geodict.loc = $object.region
-                }
-
-                // We ignore the administrative_region since may be duplicativie of
-                // the country value.
-                if $object.city {
-                    if $geodict.loc {
-                        $geodict.loc = `{$geodict.loc}.{$object.city}`
-                    } else {
-                        $geodict.loc = $object.city
+                    $iso = $lib.gen.polCountryByIso2($object.country, try=(true))
+                    if $iso {
+                        $geodict.loc = $iso
                     }
-                }
-
-                if $object.name {
-                    $geodict.name = $object.name
-                }
-                if $object.street_address {
-                    $geodict.address = $object.street_address
                 }
 
                 [geo:place ?= $geodict]
@@ -890,11 +869,11 @@ stixingest = {
 
                     [ :md5 ?= $hashes."MD5"
                       :sha1 ?= $hashes."SHA-1"
-                      :sha512 ?= $hashes."SHA512"
+                      :sha256 ?= $hashes."SHA-256"
+                      :sha512 ?= $hashes."SHA-512"
                       :name ?= $object.name
                       :size ?= $object.size ]
 
-                    $node.data.set(stix:object, $object)
                     return($node)
                 }
             '''
@@ -902,14 +881,12 @@ stixingest = {
         'url': {
             'storm': '''
                 [inet:url?=$object.value]
-                $node.data.set(stix:object, $object)
                 return($node)
             '''
         },
         'domain-name': {
             'storm': '''
                 [inet:fqdn?=$object.value]
-                $node.data.set(stix:object, $object)
                 return($node)
             '''
         }
