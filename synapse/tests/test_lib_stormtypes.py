@@ -3241,6 +3241,7 @@ class StormTypesTest(s_test.SynTest):
 
                 async with self.getTestCore(dirn=dirn01, conf=conf01) as core01:
 
+                    # Check pass by reference of default values works on a mirror
                     q = '''
                         $default = ({"foo": "bar"})
                         $valu = $lib.globals.pop(newp01, $default)
