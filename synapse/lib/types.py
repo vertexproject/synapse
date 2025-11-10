@@ -32,6 +32,8 @@ class Type:
     # ( due to hot-loop needs in the storm runtime )
     isarray = False
 
+    ismutable = False
+
     def __init__(self, modl, name, info, opts):
         '''
         Construct a new Type object.
@@ -369,6 +371,17 @@ class Type:
         topt.update(opts)
         return self.__class__(self.modl, self.name, self.info, topt)
 
+    async def tostorm(self, valu):
+        '''
+        Allows type-specific modifications to values to make them safe for use in the runtime.
+
+        Args:
+            valu (any): The valu to update.
+        '''
+        if self.ismutable:
+            return s_msgpack.deepcopy(valu, use_list=True)
+        return valu
+
     def __eq__(self, othr):
         if self.name != othr.name:
             return False
@@ -415,6 +428,7 @@ class Bool(Type):
 class Array(Type):
 
     isarray = True
+    ismutable = True
 
     def postTypeInit(self):
 
@@ -519,6 +533,17 @@ class Comp(Type):
 
         self.tcache = FieldHelper(self.modl, self.name, fields)
 
+        # TODO: Remove this whole loop in 3xx
+        for fname, ftypename in fields:
+            if isinstance(ftypename, (list, tuple)):
+                ftypename = ftypename[0]
+
+            if (ftype := self.modl.type(ftypename)) is None:
+                continue
+
+            if ftype.ismutable:
+                self.ismutable = True
+
     def _normPyTuple(self, valu):
 
         fields = self.opts.get('fields')
@@ -593,12 +618,11 @@ class FieldHelper(collections.defaultdict):
             if not basetype:
                 raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
             _type = basetype.clone(opts)
-        if _type.deprecated:
-            mesg = f'The type {self.tname} field {key} uses a deprecated ' \
-                   f'type {_type.name} which will removed in 3.0.0'
-            logger.warning(mesg)
         self.setdefault(key, _type)
         return _type
+
+    def __repr__(self): # pragma: no cover
+        return f'{self.__class__.__name__}({self.tname}, {self.fields})'
 
 class Guid(Type):
 
@@ -1623,6 +1647,8 @@ class TimeEdge(Edge):
 
 class Data(Type):
 
+    ismutable = True
+
     stortype = s_layer.STOR_TYPE_MSGP
 
     def postTypeInit(self):
@@ -1643,6 +1669,7 @@ class Data(Type):
 
 class NodeProp(Type):
 
+    ismutable = True
     stortype = s_layer.STOR_TYPE_MSGP
 
     def postTypeInit(self):

@@ -1334,6 +1334,52 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.dict.keys($lib.undef)')
             self.stormIsInErr('valu argument must be a dict, not undef.', msgs)
 
+            vals = await core.callStorm('return($lib.dict.fromlist(((a, 1), (b, 2))))')
+            self.eq(vals, {'a': '1', 'b': '2'})
+
+            vals = await core.callStorm('return($lib.dict.fromlist(((a, (1)), (b, (2)))))')
+            self.eq(vals, {'a': 1, 'b': 2})
+
+            vals = await core.callStorm('return($lib.dict.fromlist(((a, ({})), (b, ([])))))')
+            self.eq(vals, {'a': {}, 'b': []})
+
+            # Duplicate keys
+            vals = await core.callStorm('return($lib.dict.fromlist(((a, b), (a, c), (b, c))))')
+            self.eq(vals, {'a': 'c', 'b': 'c'})
+
+            # Integer keys
+            vals = await core.callStorm('return($lib.dict.fromlist((((1), (2)), ((2), (3)))))')
+            self.eq(vals, {1: 2, 2: 3})
+
+            # Non-primitive type
+            with self.raises(s_exc.NoSuchType) as exc:
+                await core.callStorm('function foo() {} return($lib.dict.fromlist(([["foo", $foo]])))')
+            self.eq(exc.exception.get('mesg'), 'Unable to convert object to Storm primitive.')
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('return($lib.dict.fromlist(({})))')
+            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() argument must be an array.')
+
+            # Elements not list/tuple
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('return($lib.dict.fromlist(([{}])))')
+            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() array elements must be an array.')
+
+            # Element len != 2
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('return($lib.dict.fromlist(([["foo"]])))')
+            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() argument must be an array of (key, value) pairs.')
+
+            # Element len != 2
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('return($lib.dict.fromlist(([["foo", "bar", "baz"]])))')
+            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() argument must be an array of (key, value) pairs.')
+
+            # Non-str/int key type
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('return($lib.dict.fromlist(((([]), (1)), (b, ([])))))')
+            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() keys must be str or int types.')
+
     async def test_storm_lib_str(self):
         async with self.getTestCore() as core:
 
