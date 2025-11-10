@@ -268,6 +268,19 @@ class OuModule(s_module.CoreModule):
                         ),
                     }}),
 
+                ('ou:candidate:referral', ('guid', {}), {
+                    'doc': 'A candidate being referred by a contact.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'referrer::name'}},
+                            {'type': 'prop', 'opts': {'name': 'candidate::contact::name'}},
+                            {'type': 'prop', 'opts': {'name': 'candidate::org::name'}},
+                            {'type': 'prop', 'opts': {'name': 'candidate::opening::jobtitle'}},
+                            {'type': 'prop', 'opts': {'name': 'submitted'}},
+                        ),
+                    }}),
+
+
                 ('ou:jobtype', ('taxonomy', {}), {
                     'ex': 'it.dev.python',
                     'doc': 'A taxonomy of job types.',
@@ -325,10 +338,6 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The organization is or was in possession of the target node.'}),
                 (('ou:org', 'owns', None), {
                     'doc': 'The organization owns or owned the target node.'}),
-
-                # NOTE: for 3.0 this becomes entity:actor -(referred)> ou:candidate
-                (('ps:contact', 'referred', 'ou:candidate'), {
-                    'doc': 'The contact referred the candidate.'}),
             ),
             'forms': (
                 ('ou:jobtype', {}, ()),
@@ -416,6 +425,20 @@ class OuModule(s_module.CoreModule):
                     # TODO: :skills=[<ps:skill>]? vs :contact -> ps:proficiency?
                     # TODO: proj:task to track evaluation of the candidate?
 
+                )),
+                ('ou:candidate:referral', {}, (
+
+                    ('candidate', ('ou:candidate', {}), {
+                        'doc': 'The candidate who was referred.'}),
+
+                    ('referrer', ('ps:contact', {}), {
+                        'doc': 'The individual who referred the candidate to the opening.'}),
+
+                    ('submitted', ('time', {}), {
+                        'doc': 'The time the referral was submitted.'}),
+
+                    ('text', ('str', {}), {
+                        'doc': 'Text of any referrer provided context about the candidate.'}),
                 )),
                 ('ou:vitals', {}, (
 
