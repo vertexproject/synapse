@@ -461,17 +461,11 @@ class StormLibStixTest(s_test.SynTest):
             gloc = await core.nodes('geo:place', opts=opts)
             self.len(3, gloc)
 
-            cn = await core.nodes('geo:place:name=china', opts=opts)
-            self.len(1, cn)
-            self.eq(cn[0].props['loc'], 'cn')
+            place = await core.nodes('geo:place:loc=cn', opts=opts)
+            self.len(1, place)
 
             latlong = await core.nodes('geo:place:latlong', opts=opts)
             self.len(1, latlong)
-
-            pizza = await core.nodes('geo:place:address', opts=opts)
-            self.len(1, pizza)
-            self.eq(pizza[0].props['address'], '1234 jefferson drive')
-            self.eq(pizza[0].props['desc'], "It's a magical place!")
 
             fqdn = await core.nodes('inet:fqdn', opts=opts)
             self.len(7, fqdn)

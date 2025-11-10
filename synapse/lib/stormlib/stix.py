@@ -835,8 +835,8 @@ stixingest = {
                 }
 
                 if $object.country {
-                    $iso = $lib.gen.polCountryByIso2($object.country, try=(true))
-                    if $iso {
+                    ($ok, $iso) = $lib.trycast(pol:iso2, $object.country)
+                    if $ok {
                         $geodict.loc = $iso
                     }
                 }
