@@ -752,6 +752,8 @@ Queries = [
     '$foo=(not $x)',
     '$foo=(not($x))',
     '$foo=(not ($x))',
+    '[test:str=foo +#baz?=(null)]',
+    '$ts="" [test:str=foo +?#bar?=$ts]',
 ]
 
 # Generated with print_parse_list below
@@ -1406,6 +1408,8 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, VarValue: [Const: x]]]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, DollarExpr: [VarValue: [Const: x]]]]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, DollarExpr: [VarValue: [Const: x]]]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditTagAdd: [TagName: [Const: baz], Const: ?=, DollarExpr: [Const: None]]]',
+    'Query: [SetVarOper: [Const: ts, Const: ], EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditTagAdd: [Const: ?, TagName: [Const: bar], Const: ?=, VarValue: [Const: ts]]]'
 ]
 
 class GrammarTest(s_t_utils.SynTest):

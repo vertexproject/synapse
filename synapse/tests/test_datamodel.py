@@ -230,24 +230,15 @@ class DataModelTest(s_t_utils.SynTest):
                     self.getAsyncLoggerStream('synapse.datamodel') as dstream:
                 core = await s_cortex.Cortex.anit(dirn, conf)
 
-            dstream.seek(0)
-            ds = dstream.read()
-            self.isin('universal property .udep is using a deprecated type', ds)
-            self.isin('type test:dep:easy is based on a deprecated type test:dep:easy', ds)
-            tstream.seek(0)
-            ts = tstream.read()
-            self.isin('Array type test:dep:array is based on a deprecated type test:dep:easy', ts)
+            dstream.expect('universal property .udep is using a deprecated type')
+            dstream.expect('type test:dep:easy is based on a deprecated type test:dep:easy')
+            dstream.expect('type test:dep:comp field str uses a deprecated type test:dep:easy')
+            tstream.expect('Array type test:dep:array is based on a deprecated type test:dep:easy')
 
             # Using deprecated forms and props is warned to the user
             msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,)] [:guid=(t2,)]')
             self.stormIsInWarn('The form test:dep:easy is deprecated', msgs)
             self.stormIsInWarn('The property test:dep:easy:guid is deprecated or using a deprecated type', msgs)
-
-            # Comp type warning is logged by the server, not sent back to users
-            mesg = 'type test:dep:comp field str uses a deprecated type test:dep:easy'
-            with self.getAsyncLoggerStream('synapse.lib.types', mesg) as tstream:
-                _ = await core.stormlist('[test:dep:easy=test2 :comp=(1, two)]')
-                self.true(await tstream.wait(6))
 
             msgs = await core.stormlist('[test:str=tehe .pdep=beep]')
             self.stormIsInWarn('property test:str.pdep is deprecated', msgs)
@@ -308,6 +299,120 @@ class DataModelTest(s_t_utils.SynTest):
             mesg = f'Comp forms with secondary properties that are not read-only ' \
                    f'are present in the model: {[n.ndef[1] for n in nodes]}'
             self.len(0, nodes, mesg)
+
+    async def test_model_invalid_comp_types(self):
+
+        mutmesg = 'Comp types with mutable fields (bad:comp:hehe) are deprecated and will be removed in 3.0.0.'
+
+        model = s_datamodel.Model()
+
+        # Comp type with a direct data field
+        badmodel = ('badmodel', {
+            'types': (
+                ('bad:comp', ('comp', {'fields': (
+                    ('hehe', 'data'),
+                    ('haha', 'int'))
+                }), {'doc': 'A fake comp type with a data field.'}),
+            ),
+            'forms': (
+                ('bad:comp', {}, (
+                    ('hehe', ('data', {}), {}),
+                    ('haha', ('int', {}), {}),
+                )),
+            ),
+        })
+
+        with self.getLoggerStream('synapse.datamodel') as stream:
+            model.addDataModels([badmodel])
+        stream.expect(mutmesg)
+
+        # Comp type with an indirect data field (and out of order definitions)
+        badmodel = ('badmodel', {
+            'types': (
+                ('bad:comp', ('comp', {'fields': (
+                    ('hehe', 'bad:data'),
+                    ('haha', 'int'))
+                }), {'doc': 'A fake comp type with a data field.'}),
+                ('bad:data', ('data', {}), {}),
+            ),
+            'forms': (
+                ('bad:comp', {}, (
+                    ('hehe', ('bad:data', {}), {}),
+                    ('haha', ('int', {}), {}),
+                )),
+            ),
+        })
+
+        with self.getLoggerStream('synapse.datamodel') as stream:
+            model.addDataModels([badmodel])
+        stream.expect(mutmesg)
+
+        # Comp type with double indirect data field
+        badmodel = ('badmodel', {
+            'types': (
+                ('bad:data00', ('data', {}), {}),
+                ('bad:data01', ('bad:data00', {}), {}),
+                ('bad:comp', ('comp', {'fields': (
+                    ('hehe', 'bad:data01'),
+                    ('haha', 'int'))
+                }), {'doc': 'A fake comp type with a data field.'}),
+            ),
+            'forms': (
+                ('bad:comp', {}, (
+                    ('hehe', ('bad:data01', {}), {}),
+                    ('haha', ('int', {}), {}),
+                )),
+            ),
+        })
+
+        with self.getLoggerStream('synapse.datamodel') as stream:
+            model.addDataModels([badmodel])
+        stream.expect(mutmesg)
+
+        # API direct
+        typeopts = {
+            'fields': (
+                ('hehe', 'data'),
+                ('haha', 'int'),
+            )
+        }
+
+        with self.getLoggerStream('synapse.datamodel') as stream:
+            model.addType('bad:comp', 'comp', typeopts, {})
+        stream.expect(mutmesg)
+
+        # Non-existent types
+        typeopts = {
+            'fields': (
+                ('hehe', 'newp'),
+                ('haha', 'int'),
+            )
+        }
+
+        with self.getLoggerStream('synapse.datamodel') as stream:
+            model.addType('bad:comp', 'comp', typeopts, {})
+        stream.expect('The bad:comp field hehe is declared as a type (newp) that does not exist.')
+
+        # deprecated types
+        badmodel = ('badmodel', {
+            'types': (
+                ('depr:type', ('int', {}), {'deprecated': True}),
+                ('bad:comp', ('comp', {'fields': (
+                    ('hehe', 'depr:type'),
+                    ('haha', 'int'))
+                }), {'doc': 'A fake comp type with a deprecated field.'}),
+            ),
+            'forms': (
+                ('bad:comp', {}, (
+                    ('hehe', ('depr:type', {}), {}),
+                    ('haha', ('int', {}), {}),
+                )),
+            ),
+        })
+
+        with self.getLoggerStream('synapse.datamodel') as stream:
+            model.addDataModels([badmodel])
+        stream.expect('The type bad:comp field hehe uses a deprecated type depr:type.')
 
     async def test_datamodel_edges(self):
 
