@@ -564,14 +564,14 @@ class Drive(s_base.Base):
 
         async for info in self.getItemsByType(typename):
 
-            iden = info.get('iden')
-            bidn = s_common.uhex(iden)
-
+            bidn = s_common.uhex(info.get('iden'))
             for lkey, byts in self.slab.scanByPref(LKEY_VERS + bidn, db=self.dbname):
-                versindx = lkey[-9:]
-                databyts = self.slab.get(LKEY_DATA + bidn + versindx, db=self.dbname)
+                datakey = LKEY_DATA + bidn + lkey[-9:]
+                databyts = self.slab.get(datakey, db=self.dbname)
+                yield datakey, s_msgpack.un(databyts)
 
-                yield iden, s_msgpack.un(byts), s_msgpack.un(databyts)
+    async def setMigrRow(self, datakey, data):
+        self.slab.put(datakey, s_msgpack.en(data), db=self.dbname)
 
     async def getItemsByType(self, typename):
         tkey = typename.encode() + b'\x00'
