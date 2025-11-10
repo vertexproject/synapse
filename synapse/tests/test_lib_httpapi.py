@@ -1737,7 +1737,12 @@ class HttpApiTest(s_tests.SynTest):
                 body = {'items': [meta, (('inet:ip', (4, 0x01020304)), {})]}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
-                self.eq('AuthDeny', (await resp.json())['code'])
+                data = await resp.json()
+                self.eq('AuthDeny', data['code'])
+                self.isin(s_tests.deguidify(data['mesg']),
+                        "User 'visi' (********************************) must have permission " +
+                        'node.add.inet:ip on object ******************************** (view).'
+                )
                 self.len(0, await core.nodes('inet:ip=1.2.3.4'))
 
     async def test_http_sess_mirror(self):

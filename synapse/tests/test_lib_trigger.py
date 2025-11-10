@@ -945,9 +945,9 @@ class TrigTest(s_t_utils.SynTest):
             self.eq(2, nodes[1].valu())
 
     async def test_trigger_feed_data(self):
-        async with self.getTestCore() as core0:
+        podes = []
 
-            podes = [{'type': 'meta', 'vers': 1, 'forms': {}, 'count': 0, 'synapse_ver': '3.0.0'}]
+        async with self.getTestCore() as core0:
 
             node1 = (await core0.nodes('[ test:int=1 ]'))[0]
             await node1.setData('foo', 'bar')
@@ -963,7 +963,7 @@ class TrigTest(s_t_utils.SynTest):
             node3 = (await core0.nodes('[ test:int=3 ]'))[0]
             podes.append(node3.pack())
 
-            node = (await core0.nodes(f'[ test:int=4 ]'))[0]
+            node = (await core0.nodes('[ test:int=4 ]'))[0]
             pack = node.pack()
             podes.append(pack)
 
