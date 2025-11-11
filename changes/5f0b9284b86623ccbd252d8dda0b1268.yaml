@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where adding a list of tags to a node would compute and apply each tag value
+  individually rather than in a single operation.
+desc:literal: false
+prs: []
+type: bug
+...
