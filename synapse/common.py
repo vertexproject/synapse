@@ -933,24 +933,24 @@ def config(conf, confdefs):
 # Log the first time a deprecated item is used?
 _deprecated_mesgs = {}
 
+# @functools.lru_cache(maxsize=256)
 def deprecated(name, curv='2.x', eolv='3.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
     logger.warning(mesg)
-    _deprecated_mesgs[name] = _deprecated_mesgs.get(name, 0) + 1
+    _deprecated_mesgs[mesg] = _deprecated_mesgs.get(mesg, 0) + 1
     return mesg
 
+# @functools.lru_cache(maxsize=256)
 def deprdate(name, date):  # pragma: no cover
-    if name in _deprecated_mesgs:
-        return
     mesg = f'{name} is deprecated and will be removed on {date}.'
     logger.warning(mesg)
-    _deprecated_mesgs[name] = _deprecated_mesgs.get(name, 0) + 1
+    _deprecated_mesgs[mesg] = _deprecated_mesgs.get(mesg, 0) + 1
     return mesg
 
 def _atexit_deprecations(*args, **kwargs):
     print('Deprecated messages:')
-    for name, valu in _deprecated_mesgs.items():
-        print(f'    {valu}\t{name}')
+    for mesg, valu in _deprecated_mesgs.items():
+        print(f'    {valu}\t{mesg}')
     print('atexit deprecated done')
 
 import atexit
