@@ -274,9 +274,9 @@ class CellTest(s_t_utils.SynTest):
                 neatrole = await cell.auth.addRole('neatrole')
                 await fooser.grant(neatrole.iden)
 
-                #with self.raises(s_exc.SchemaViolation):
-                    #versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
-                    #await cell.setDriveData(iden, versinfo, {'newp': 'newp'})
+                # with self.raises(s_exc.SchemaViolation):
+                #     versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
+                #     await cell.setDriveData(iden, versinfo, {'newp': 'newp'})
 
                 versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updater': rootuser}
                 info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 20, 'stuff': 12})
@@ -336,7 +336,7 @@ class CellTest(s_t_utils.SynTest):
                     data['woot'] = 'woot'
                     return data
 
-                #await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
+                # await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
 
                 await cell.drive.setTypeSchema('woot', testDataSchema_v1)
 
@@ -344,15 +344,15 @@ class CellTest(s_t_utils.SynTest):
                     data['woot'] = 'woot'
                     await cell.drive.setItemData(iden, versinfo, data)
 
-                #async for (info, versinfo, data) in cell.drive.getItemsByType('woot'):
-                #async for info in cell.drive.getItemsByType('woot'):
+                # async for (info, versinfo, data) in cell.drive.getItemsByType('woot'):
+                # async for info in cell.drive.getItemsByType('woot'):
 
-                    #async for versinfo in cell.drive.getItemDataVersions(iden):
-                        #vers = versinfo.get('version')
-                        #_, data = await cell.drive.getItemData(iden, vers=vers)
-                        #print(repr(data))
-                        #data['woot'] = 'woot'
-                        #await cell.drive.setItemData(iden, versinfo, data)
+                #     async for versinfo in cell.drive.getItemDataVersions(iden):
+                #         vers = versinfo.get('version')
+                #         _, data = await cell.drive.getItemData(iden, vers=vers)
+                #         print(repr(data))
+                #         data['woot'] = 'woot'
+                #         await cell.drive.setItemData(iden, versinfo, data)
 
                 await cell.setDriveItemProp(iden, versinfo, 'woot', 'woot')
 
@@ -474,8 +474,8 @@ class CellTest(s_t_utils.SynTest):
 
                 self.none(await cell.drive.getTypeSchema('newp'))
 
-                #cell.drive.validators.pop('woot')
-                #self.nn(cell.drive.getTypeValidator('woot'))
+                # cell.drive.validators.pop('woot')
+                # self.nn(cell.drive.getTypeValidator('woot'))
 
                 # move to root dir
                 pathinfo = await cell.setDriveInfoPath(baziden, 'zipzop')
@@ -491,7 +491,7 @@ class CellTest(s_t_utils.SynTest):
                 # version of the validator, which will be correct and skip the point of this test.
                 s_config._JsValidators.clear()
                 # FIXME
-                #await cell.drive.reqValidData('woot', data)
+                # await cell.drive.reqValidData('woot', data)
 
     async def test_cell_auth(self):
 
