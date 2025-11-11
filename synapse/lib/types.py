@@ -533,6 +533,17 @@ class Comp(Type):
 
         self.tcache = FieldHelper(self.modl, self.name, fields)
 
+        # TODO: Remove this whole loop in 3xx
+        for fname, ftypename in fields:
+            if isinstance(ftypename, (list, tuple)):
+                ftypename = ftypename[0]
+
+            if (ftype := self.modl.type(ftypename)) is None:
+                continue
+
+            if ftype.ismutable:
+                self.ismutable = True
+
     def _normPyTuple(self, valu):
 
         fields = self.opts.get('fields')
@@ -547,9 +558,6 @@ class Comp(Type):
         for i, (name, _) in enumerate(fields):
 
             _type = self.tcache[name]
-
-            if _type.ismutable:
-                self.ismutable = True
 
             norm, info = _type.norm(valu[i])
 
@@ -610,12 +618,11 @@ class FieldHelper(collections.defaultdict):
             if not basetype:
                 raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
             _type = basetype.clone(opts)
-        if _type.deprecated:
-            mesg = f'The type {self.tname} field {key} uses a deprecated ' \
-                   f'type {_type.name} which will removed in 3.0.0'
-            logger.warning(mesg)
         self.setdefault(key, _type)
         return _type
+
+    def __repr__(self): # pragma: no cover
+        return f'{self.__class__.__name__}({self.tname}, {self.fields})'
 
 class Guid(Type):
 

@@ -1,0 +1,7 @@
+---
+desc: Added ``mutable`` property to Storm ``model:type`` types to check if a particular
+  model type is considered mutable.
+desc:literal: false
+prs: []
+type: feat
+...
