@@ -1907,6 +1907,13 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(set(nodes[0].tags.keys()), {'foo', 'bar'})
 
+            nodes = await wcore.nodes('$tags=(foo, bar, baz) [test:str=lol +#$tags=`200{$lib.len($node.tags())}`]')
+            self.len(1, nodes)
+            tags = nodes[0].getTags()
+            self.len(3, tags)
+            for name, valu in tags:
+                self.eq(valu, (946684800000, 946684800001))
+
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag=2020"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=$lib.null #foo.$tag"))
