@@ -1102,6 +1102,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         s_telepath.Aware.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
+        self.sockdirn = s_common.gendir(dirn, 'sockets')
+
         self.runid = s_common.guid()
 
         self.auth = None
@@ -1462,6 +1464,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 shutil.rmtree(path, ignore_errors=True)
                 continue
 
+        # FIXME - recursively remove sockets dir here?
+
     async def _execCellUpdates(self):
         # implement to apply updates to a fully initialized active cell
         # ( and do so using _bumpCellVers )
@@ -1670,7 +1674,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def initCellStorage(self):
 
         path = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
-        self.drive = await s_drive.FileDrive.spawn(path)
+        sockpath = s_common.genpath(self.sockdirn, 'drive')
+
+        self.drive = await s_drive.FileDrive.spawner(sockpath)(path)
 
         await self._bumpCellVers('drive:storage', (
             (1, self._drivePermMigration),

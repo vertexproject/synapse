@@ -138,6 +138,16 @@ class Base:
 
     @classmethod
     async def spawn(cls, *args, **kwargs):
+        return await cls._spawn(args, kwargs)
+
+    @classmethod
+    def spawner(cls, sockpath=None):
+        async def _spawn(*args, **kwargs):
+            return await cls._spawn(args, kwargs, sockpath=sockpath)
+        return _spawn
+
+    @classmethod
+    async def _spawn(cls, args, kwargs, sockpath=None):
 
         # avoid circular imports... *shrug*
         import synapse.common as s_common
@@ -147,8 +157,9 @@ class Base:
 
         iden = s_common.guid()
 
-        tmpdir = tempfile.gettempdir()
-        sockpath = s_common.genpath(tmpdir, iden)
+        if sockpath is None:
+            tmpdir = tempfile.gettempdir()
+            sockpath = s_common.genpath(tmpdir, iden)
 
         base = await Base.anit()
         task = base.schedCoro(s_coro.spawn((_ioWorkProc, (todo, sockpath), {})))
