@@ -80,6 +80,7 @@ def _ioWorkProc(todo, sockpath):
             await item.waitfini()
 
     asyncio.run(workloop())
+    sys.exit(0)
 
 class Base:
     '''
@@ -140,13 +141,13 @@ class Base:
         return await cls._spawn(args, kwargs)
 
     @classmethod
-    def spawner(cls, sockpath=None):
+    def spawner(cls, base=None, sockpath=None):
         async def _spawn(*args, **kwargs):
-            return await cls._spawn(args, kwargs, sockpath=sockpath)
+            return await cls._spawn(args, kwargs, base=base, sockpath=sockpath)
         return _spawn
 
     @classmethod
-    async def _spawn(cls, args, kwargs, sockpath=None):
+    async def _spawn(cls, args, kwargs, base=None, sockpath=None):
 
         # avoid circular imports... *shrug*
         import synapse.common as s_common
@@ -161,16 +162,28 @@ class Base:
             tmpdir = tempfile.gettempdir()
             sockpath = s_common.genpath(tmpdir, iden)
 
-        base = await Base.anit()
-        task = base.schedCoro(s_coro.spawn((_ioWorkProc, (todo, sockpath), {})))
+        if base is None:
+            base = await Base.anit()
+
+        base.schedCoro(s_coro.spawn((_ioWorkProc, (todo, sockpath), {})))
 
         await s_link.unixwait(sockpath)
 
         proxy = await s_telepath.openurl(f'unix://{sockpath}:item')
 
         async def fini():
-            async with await s_telepath.openurl(f'unix://{sockpath}:item') as finiproxy:
-                await finiproxy.taskv2(('fini', (), {}))
+
+            try:
+                async with await s_telepath.openurl(f'unix://{sockpath}:item') as finiproxy:
+                    await finiproxy.taskv2(('fini', (), {}))
+            except Exception:
+                # This can fail if the subprocess was terminated from outside...
+                pass
+
+            if not base.isfini:
+                logger.error(f'IO Worker Socket Closed: {sockpath}')
+
+            # FIXME should we bind the proxy to fini the base (cell?) since it's borked?
             await base.fini()
 
         proxy.onfini(fini)

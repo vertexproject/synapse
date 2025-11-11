@@ -1901,7 +1901,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         path = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
         sockpath = s_common.genpath(self.sockdirn, 'drive')
 
-        self.drive = await s_drive.FileDrive.spawner(sockpath)(path)
+        spawner = s_drive.FileDrive.spawner(base=self, sockpath=sockpath)
+
+        self.drive = await spawner(path)
 
         await self._bumpCellVers('drive:storage', (
             (1, self._drivePermMigration),
