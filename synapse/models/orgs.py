@@ -438,6 +438,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The time the referral was submitted.'}),
 
                     ('text', ('str', {}), {
+                        'disp': {'hint': 'text'},
                         'doc': 'Text of any referrer provided context about the candidate.'}),
                 )),
                 ('ou:vitals', {}, (
