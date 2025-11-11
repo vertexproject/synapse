@@ -45,6 +45,23 @@ async def unixconnect(path):
     info = {'path': path, 'unix': True}
     return await Link.anit(reader, writer, info=info)
 
+async def unixwait(path):
+
+    while True:
+        try:
+
+            reader, writer = await asyncio.open_unix_connection(path=path)
+
+            reader._transport.abort()
+
+            writer.close()
+            await writer.wait_closed()
+
+            return
+
+        except (ConnectionRefusedError, FileNotFoundError):
+            await asyncio.sleep(0.01)
+
 async def linkfile(mode='wb'):
     '''
     Connect a socketpair to a file-object and return (link, file).

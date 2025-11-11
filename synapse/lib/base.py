@@ -78,7 +78,7 @@ def _ioWorkProc(todo, sockpath):
 
             # bind last so we're ready to go...
             await dmon.listen(f'unix://{sockpath}')
-            await dmon.waitfini()
+            await item.waitfini()
 
     asyncio.run(workloop())
 
@@ -152,6 +152,7 @@ class Base:
         # avoid circular imports... *shrug*
         import synapse.common as s_common
         import synapse.telepath as s_telepath
+        import synapse.lib.link as s_link
 
         todo = (cls.anit, args, kwargs)
 
@@ -164,8 +165,7 @@ class Base:
         base = await Base.anit()
         task = base.schedCoro(s_coro.spawn((_ioWorkProc, (todo, sockpath), {})))
 
-        # FIXME properly await the socket listening...
-        await asyncio.sleep(1)
+        await s_link.unixwait(sockpath)
 
         proxy = await s_telepath.openurl(f'unix://{sockpath}:item')
 
