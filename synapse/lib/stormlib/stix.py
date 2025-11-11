@@ -838,6 +838,10 @@ stixingest = {
                     $geodict.name = $object.name
                 }
 
+                if $object.street_address {
+                    $geodict.address = $object.street_address
+                }
+
                 if $object.country {
                     ($ok, $iso) = $lib.trycast(pol:iso2, $object.country)
                     if $ok {
