@@ -1769,11 +1769,15 @@ class StormUserProfileDict(s_stormtypes.Prim):
     @s_stormtypes.stormfunc(readonly=True)
     async def _get(self, name, default=None):
         name = await s_stormtypes.tostr(name)
-        return await self.runt.snap.core.getUserProfInfo(self.valu, name, default=default)
+        valu = await self.runt.snap.core.getUserProfInfo(self.valu, name, default=default)
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _pop(self, name, default=None):
         name = await s_stormtypes.tostr(name)
-        return await self.runt.snap.core.popUserProfInfo(self.valu, name, default=default)
+        valu = await self.runt.snap.core.popUserProfInfo(self.valu, name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _set(self, name, valu):
         if not isinstance(name, str):
@@ -1786,16 +1790,16 @@ class StormUserProfileDict(s_stormtypes.Prim):
         valu = await s_stormtypes.toprim(valu)
 
         await self.runt.snap.core.setUserProfInfo(self.valu, name, valu)
-        return oldv
+        return s_msgpack.deepcopy(oldv, use_list=True)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _list(self):
         valu = await self.value()
-        return list(valu.items())
+        return s_msgpack.deepcopy(list(valu.items()), use_list=True)
 
     async def iter(self):
         async for name, valu in self.runt.snap.core.iterUserProfInfo(self.valu):
-            yield name, valu
+            yield name, s_msgpack.deepcopy(valu, use_list=True)
             await asyncio.sleep(0)
 
     async def value(self):
@@ -1822,7 +1826,7 @@ class LibUser(s_stormtypes.Lib):
         {'name': 'vars', 'desc': "Get a dictionary representing the current user's persistent variables.",
          'type': 'user:vars:dict', },
         {'name': 'profile', 'desc': "Get a dictionary representing the current user's profile information.",
-         'type': 'auth:user:profile', },
+         'type': 'user:profile:dict', },
         {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'str'},
     )
     _storm_lib_path = ('user', )

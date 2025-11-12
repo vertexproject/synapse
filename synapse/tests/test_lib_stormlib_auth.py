@@ -714,6 +714,107 @@ class StormLibAuthTest(s_test.SynTest):
                         {'foo': 'bar', 'foo01': 'bar01'},
                     ])
 
+    async def test_stormlib_auth_user_profile_dict_mutability(self):
+
+        with self.getTestDir() as dirn:
+            dirn00 = s_common.gendir(dirn, 'core00')
+            dirn01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+                visi = await core00.auth.addUser('visi')
+                asvisi = {'user': visi.iden}
+
+                valu = await core00.callStorm('return($lib.user.profile.get(newp))', opts=asvisi)
+                self.none(valu)
+
+                q = '''
+                  $lib.user.profile.set(testlist, (foo, bar, baz))
+                  $lib.user.profile.set(testdict, ({"foo": "bar"}))
+                '''
+                await core00.callStorm(q, opts=asvisi)
+
+                # Can mutate list values?
+                valu = await core00.callStorm('$tl = $lib.user.profile.get(testlist) $tl.rem(bar) return($tl)', opts=asvisi)
+                self.eq(valu, ['foo', 'baz'])
+
+                # List mutations don't persist
+                valu = await core00.callStorm('return($lib.user.profile.get(testlist))', opts=asvisi)
+                self.eq(valu, ['foo', 'bar', 'baz'])
+
+                # Can mutate dict values?
+                valu = await core00.callStorm('$td = $lib.user.profile.get(testdict) $td.bar=foo return($td)', opts=asvisi)
+                self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
+
+                # Dict mutations don't persist
+                valu = await core00.callStorm('return($lib.user.profile.get(testdict))', opts=asvisi)
+                self.eq(valu, {'foo': 'bar'})
+
+                # user profile list returns mutable objects
+                q = '''
+                    $ret = ({})
+                    for ($key, $valu) in $lib.user.profile.list() {
+                      $ret.$key = $valu
+                    }
+                    $ret.testdict.boo = bar
+                    $ret.testlist.append(moo)
+                    return($ret)
+                '''
+                valu = await core00.callStorm(q, opts=asvisi)
+                self.eq(valu, {
+                    'testdict': {'boo': 'bar', 'foo': 'bar'},
+                    'testlist': ['foo', 'bar', 'baz', 'moo'],
+                })
+
+                # Pop returns mutable objects
+                q = '''
+                    $tl = $lib.user.profile.pop(testlist)
+                    $tl.rem(foo)
+                    $ret = ({})
+                    for ($key, $valu) in $lib.user.profile.list() {
+                      $ret.$key = $valu
+                    }
+                    return(($tl, $ret))
+                '''
+                valu = await core00.callStorm(q, opts=asvisi)
+                self.len(2, valu)
+                self.eq(valu[0], ['bar', 'baz'])
+                self.eq(valu[1], {
+                    'testdict': {'foo': 'bar'},
+                })
+
+                # Set returns mutable objects
+                q = '''
+                  $ret = $lib.user.profile.set(testdict, ({"beep": "boop"}))
+                  $ret.bop = zorp
+                  return($ret)
+                '''
+                valu = await core00.callStorm(q, opts=asvisi)
+                self.eq(valu, {'foo': 'bar', 'bop': 'zorp'})
+
+            s_t_backup.backup(dirn00, dirn01)
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+
+                url = core00.getLocalUrl()
+
+                conf01 = {'mirror': url}
+
+                async with self.getTestCore(dirn=dirn01, conf=conf01) as core01:
+
+                    # Check pass by reference of default values works on a mirror
+                    q = '''
+                        $default = ({"foo": "bar"})
+                        $valu = $lib.user.profile.pop(newp01, $default)
+                        $valu.foo01 = bar01
+                        return(($valu, $default))
+                    '''
+                    valu = await core01.callStorm(q, opts=asvisi)
+                    self.len(2, valu)
+                    self.eq(valu, [
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                    ])
+
     async def test_stormlib_auth_auth_user_vars_mutability(self):
 
         with self.getTestDir() as dirn:

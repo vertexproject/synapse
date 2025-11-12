@@ -282,10 +282,20 @@ class Auth(s_nexus.Pusher):
         user = await self.reqUser(iden)
         return user.profile.set(name, valu)
 
-    @s_nexus.Pusher.onPushAuto('user:profile:pop')
     async def popUserProfileValu(self, iden, name, default=None):
+        await self.reqUser(iden)
+        ok, valu = await self._push('user:profile:pop', iden, name)
+        if ok:
+            return valu
+        return default
+
+    @s_nexus.Pusher.onPush('user:profile:pop')
+    async def _popUserProfileValu(self, iden, name, default=None):
         user = await self.reqUser(iden)
-        return user.profile.pop(name, defv=default)
+        valu = user.profile.pop(name, defv=s_common.novalu)
+        if valu is s_common.novalu:
+            return False, None
+        return True, valu
 
     @s_nexus.Pusher.onPushAuto('user:var:set')
     async def setUserVarValu(self, iden, name, valu):
