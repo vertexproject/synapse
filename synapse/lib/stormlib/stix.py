@@ -850,7 +850,6 @@ stixingest = {
                 }
 
                 [geo:place ?= $geodict]
-                $node.data.set(stix:object, $object)
                 return ($node)
             '''
         },
