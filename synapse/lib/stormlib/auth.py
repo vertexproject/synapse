@@ -3,6 +3,8 @@ import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
 stormcmds = (
@@ -1669,11 +1671,17 @@ class StormUserVarsDict(s_stormtypes.Prim):
     @s_stormtypes.stormfunc(readonly=True)
     async def _get(self, name, default=None):
         name = await s_stormtypes.tostr(name)
-        return await self.runt.snap.core.getUserVarValu(self.valu, name, default=default)
+        valu = await self.runt.snap.core.getUserVarValu(self.valu, name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _pop(self, name, default=None):
         name = await s_stormtypes.tostr(name)
-        return await self.runt.snap.core.popUserVarValu(self.valu, name, default=default)
+        valu = await self.runt.snap.core.popUserVarValu(self.valu, name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _set(self, name, valu):
         if not isinstance(name, str):
@@ -1686,16 +1694,16 @@ class StormUserVarsDict(s_stormtypes.Prim):
         valu = await s_stormtypes.toprim(valu)
 
         await self.runt.snap.core.setUserVarValu(self.valu, name, valu)
-        return oldv
+        return s_msgpack.deepcopy(oldv, use_list=True)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _list(self):
         valu = await self.value()
-        return list(valu.items())
+        return s_msgpack.deepcopy(list(valu.items()), use_list=True)
 
     async def iter(self):
         async for name, valu in self.runt.snap.core.iterUserVars(self.valu):
-            yield name, valu
+            yield name, s_msgpack.deepcopy(valu, use_list=True)
             await asyncio.sleep(0)
 
     async def value(self):
