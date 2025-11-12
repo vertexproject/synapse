@@ -1769,7 +1769,9 @@ class StormUserProfileDict(s_stormtypes.Prim):
     @s_stormtypes.stormfunc(readonly=True)
     async def _get(self, name, default=None):
         name = await s_stormtypes.tostr(name)
-        valu = await self.runt.snap.core.getUserProfInfo(self.valu, name, default=default)
+        valu = await self.runt.snap.core.getUserProfInfo(self.valu, name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
         return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _pop(self, name, default=None):

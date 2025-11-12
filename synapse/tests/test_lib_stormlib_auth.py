@@ -703,6 +703,19 @@ class StormLibAuthTest(s_test.SynTest):
                     # Check pass by reference of default values works on a mirror
                     q = '''
                         $default = ({"foo": "bar"})
+                        $valu = $lib.user.vars.get(newp01, $default)
+                        $valu.foo01 = bar01
+                        return(($valu, $default))
+                    '''
+                    valu = await core01.callStorm(q, opts=asvisi)
+                    self.len(2, valu)
+                    self.eq(valu, [
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                    ])
+
+                    q = '''
+                        $default = ({"foo": "bar"})
                         $valu = $lib.user.vars.pop(newp01, $default)
                         $valu.foo01 = bar01
                         return(($valu, $default))
@@ -802,6 +815,19 @@ class StormLibAuthTest(s_test.SynTest):
                 async with self.getTestCore(dirn=dirn01, conf=conf01) as core01:
 
                     # Check pass by reference of default values works on a mirror
+                    q = '''
+                        $default = ({"foo": "bar"})
+                        $valu = $lib.user.profile.get(newp01, $default)
+                        $valu.foo01 = bar01
+                        return(($valu, $default))
+                    '''
+                    valu = await core01.callStorm(q, opts=asvisi)
+                    self.len(2, valu)
+                    self.eq(valu, [
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                    ])
+
                     q = '''
                         $default = ({"foo": "bar"})
                         $valu = $lib.user.profile.pop(newp01, $default)
