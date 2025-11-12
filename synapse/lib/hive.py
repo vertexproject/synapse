@@ -376,7 +376,7 @@ class Hive(s_nexus.Pusher):
                 if dtyp == 'vars':
                     await self.cell.auth._popUserVarValu(iden, name)
                 elif dtyp == 'profile':
-                    await self.cell.auth._hndlpopUserProfileValu(iden, name)
+                    await self.cell.auth._popUserProfileValu(iden, name)
 
         node = self.nodes.get(full)
         if node is None:

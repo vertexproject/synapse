@@ -1350,8 +1350,8 @@ class StormLibAuthTest(s_test.SynTest):
             }
             '''
             msgs = await core.stormlist(q)
-            self.stormIsInPrint("('hehe', 'haha')", msgs)
-            self.stormIsInPrint("('d', {'foo': 'bar'})", msgs)
+            self.stormIsInPrint("['hehe', 'haha']", msgs)
+            self.stormIsInPrint("['d', {'foo': 'bar'}]", msgs)
 
             # lowuser can perform auth auctions with the correct permissions
             lowuser = await core.addUser('lowuser')
