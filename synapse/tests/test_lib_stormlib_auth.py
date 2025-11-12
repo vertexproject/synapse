@@ -764,6 +764,56 @@ class StormLibAuthTest(s_test.SynTest):
                     'testlist': ['foo', 'bar', 'baz', 'moo'],
                 })
 
+    async def test_stormlib_auth_auth_user_profile_mutability(self):
+
+        with self.getTestDir() as dirn:
+            dirn00 = s_common.gendir(dirn, 'core00')
+            dirn01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+                await core00.auth.addUser('visi')
+
+                valu = await core00.callStorm('return($lib.auth.users.byname(visi).profile.newp)')
+                self.none(valu)
+
+                q = '''
+                  $lib.auth.users.byname(visi).profile.testlist = (foo, bar, baz)
+                  $lib.auth.users.byname(visi).profile.testdict = ({"foo": "bar"})
+                '''
+                await core00.callStorm(q)
+
+                # Can mutate list values?
+                valu = await core00.callStorm('$tl = $lib.auth.users.byname(visi).profile.testlist $tl.rem(bar) return($tl)')
+                self.eq(valu, ['foo', 'baz'])
+
+                # List mutations don't persist
+                valu = await core00.callStorm('return($lib.auth.users.byname(visi).profile.testlist)')
+                self.eq(valu, ['foo', 'bar', 'baz'])
+
+                # Can mutate dict values?
+                valu = await core00.callStorm('$td = $lib.auth.users.byname(visi).profile.testdict $td.bar=foo return($td)')
+                self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
+
+                # Dict mutations don't persist
+                valu = await core00.callStorm('return($lib.auth.users.byname(visi).profile.testdict)')
+                self.eq(valu, {'foo': 'bar'})
+
+                # user profile list returns mutable objects
+                q = '''
+                    $ret = ({})
+                    for ($key, $valu) in $lib.auth.users.byname(visi).profile {
+                      $ret.$key = $valu
+                    }
+                    $ret.testdict.boo = bar
+                    $ret.testlist.append(moo)
+                    return($ret)
+                '''
+                valu = await core00.callStorm(q)
+                self.eq(valu, {
+                    'testdict': {'boo': 'bar', 'foo': 'bar'},
+                    'testlist': ['foo', 'bar', 'baz', 'moo'],
+                })
+
     async def test_stormlib_auth_base(self):
 
         async with self.getTestCore() as core:
