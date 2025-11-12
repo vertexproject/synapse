@@ -1,0 +1,6 @@
+---
+desc: Fixed issue where lists in vault secrets/configs (``vault:data`` Storm types) were not mutable.
+desc:literal: false
+prs: []
+type: bug
+...
