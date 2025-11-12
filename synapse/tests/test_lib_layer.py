@@ -2407,7 +2407,6 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             await core.nodes('''[
-                inet:server=host://vertex.link:12341
                 inet:server=tcp://127.0.0.1:12341
                 inet:server=tcp://127.0.0.3:12343
                 inet:server=tcp://127.0.0.2:12342
