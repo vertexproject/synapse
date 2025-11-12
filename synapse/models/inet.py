@@ -1517,6 +1517,9 @@ modeldefs = (
                 'doc': 'A service platform type taxonomy.'}),
 
             ('inet:service:platform', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'platform'}}),
+                ),
                 'doc': 'A network platform which provides services.'}),
 
             ('inet:service:agent', ('guid', {}), {
