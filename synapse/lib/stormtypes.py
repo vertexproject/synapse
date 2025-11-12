@@ -1883,7 +1883,7 @@ class LibDict(Lib):
                 mesg = '$lib.dict.fromlist() keys must be str or int types.'
                 raise s_exc.BadArg(mesg=mesg)
 
-        return s_msgpack.deepcopy(dict(valu), use_list=True)
+        return {k, s_msgpack.deepcopy(v, use_list=True) for (k, v) in valu}
 
     @stormfunc(readonly=True)
     async def _pop(self, valu, key, default=undef):
