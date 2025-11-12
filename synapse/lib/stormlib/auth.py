@@ -823,7 +823,8 @@ class UserVars(s_stormtypes.Prim):
 
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
-        return await self.runt.snap.core.getUserVarValu(self.valu, name)
+        valu = await self.runt.snap.core.getUserVarValu(self.valu, name)
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def setitem(self, name, valu):
         name = await s_stormtypes.tostr(name)
@@ -837,7 +838,7 @@ class UserVars(s_stormtypes.Prim):
 
     async def iter(self):
         async for name, valu in self.runt.snap.core.iterUserVars(self.valu):
-            yield name, valu
+            yield name, s_msgpack.deepcopy(valu, use_list=True)
             await asyncio.sleep(0)
 
 @s_stormtypes.registry.registerType
