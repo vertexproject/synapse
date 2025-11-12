@@ -601,6 +601,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 risk:mitigation=*
                     :vuln=*
                     :name="  FooBar  "
+                    :names = (Foo, Bar)
                     :id="  IDa123  "
                     :type=foo.bar
                     :desc=BazFaz
@@ -611,6 +612,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :mitre:attack:mitigation=M1036
             ]''')
             self.eq('foobar', nodes[0].props['name'])
+            self.eq(('bar', 'foo'), nodes[0].props['names'])
             self.eq('BazFaz', nodes[0].props['desc'])
             self.eq('vertex', nodes[0].get('reporter:name'))
             self.eq('foo.bar.', nodes[0].get('type'))
