@@ -500,15 +500,14 @@ class StormTypesTest(s_test.SynTest):
             self.true(await core.callStorm('return($lib.trycast(inet:ip, 1.2.3.4).0)'))
             self.false(await core.callStorm('return($lib.trycast(inet:ip, asdf).0)'))
 
-            ok, valu = await core.callStorm('return($lib.trycast(inet:ip, asdf))')
+            ok, (name, valu) = await core.callStorm('return($lib.trycast(inet:ip, asdf))')
             self.false(ok)
-            self.eq(valu, {
-                'valu': 'asdf',
-                'type': 'inet:ip',
-                'errinfo': {
-                    'mesg': 'Invalid IP address: asdf',
-                },
-            })
+            self.eq(name, 'BadTypeValu')
+            self.nn(valu['efile'])
+            self.nn(valu['eline'])
+            self.nn(valu['esrc'])
+            self.eq(valu['ename'], '_normPyStr')
+            self.eq(valu['mesg'], 'Invalid IP address: asdf')
 
             self.eq((4, 0x01020304), await core.callStorm('return($lib.trycast(inet:ip, 1.2.3.4).1)'))
 
