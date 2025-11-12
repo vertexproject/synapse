@@ -7077,7 +7077,17 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:ip=1.2.3.4 +#cno.cve.2021.haha ]')
 
-            self.eq((False, None), await core.callStorm('return($lib.trycast(syn:tag, cno.cve.2021.haha))'))
+            ok, valu = await core.callStorm('return($lib.trycast(syn:tag, cno.cve.2021.haha))')
+            self.false(ok)
+            self.eq(valu, {
+                'type': 'syn:tag',
+                'valu': 'cno.cve.2021.haha',
+                'errinfo': {
+                    'mesg': 'Tag part (haha) of tag (cno.cve.2021.haha) does not match the tag model regex: [[0-9]{5}]',
+                    'name': 'syn:tag',
+                    'valu': 'cno.cve.2021.haha',
+                },
+            })
 
             with self.raises(s_exc.BadTypeValu):
                 await core.callStorm('return($lib.cast(syn:tag, cno.cve.2021.haha))')

@@ -13,7 +13,15 @@ class IntlGovTest(s_t_utils.SynTest):
 
             isok, valu = await core.callStorm(q, opts={'vars': {'valu': 0}})
             self.false(isok)
-            self.none(valu)
+            self.eq(valu, {
+                'valu': 0,
+                'type': 'gov:intl:un:m49',
+                'errinfo': {
+                    'valu': '0',
+                    'name': 'gov:intl:un:m49',
+                    'mesg': 'value is below min=1',
+                },
+            })
 
             isok, valu = await core.callStorm(q, opts={'vars': {'valu': '999'}})
             self.true(isok)
@@ -21,4 +29,12 @@ class IntlGovTest(s_t_utils.SynTest):
 
             isok, valu = await core.callStorm(q, opts={'vars': {'valu': 1000}})
             self.false(isok)
-            self.none(valu)
+            self.eq(valu, {
+                'valu': 1000,
+                'type': 'gov:intl:un:m49',
+                'errinfo': {
+                    'valu': '1000',
+                    'name': 'gov:intl:un:m49',
+                    'mesg': 'value is above max=999',
+                },
+            })
