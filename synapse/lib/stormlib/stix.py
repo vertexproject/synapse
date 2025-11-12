@@ -379,7 +379,7 @@ _DefaultConfig = {
                         'description': 'if (:desc) { return (:desc) }',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
-                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() return(([{"source_name": "cve", "external_id": $cve}])) }'
+                        'external_references': '+:id^="CVE-" return(([{"source_name": "cve", "external_id": :id}]))'
                     },
                     'rels': (
 

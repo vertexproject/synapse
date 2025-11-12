@@ -308,8 +308,8 @@ class StormLibStixTest(s_test.SynTest):
 
     async def test_risk_vuln(self):
         async with self.getTestCore() as core:
-            await core.nodes('''[(risk:vuln=(vuln1,) :name=vuln1 :desc="bad vuln" :cve="cve-2013-0000")]
-            [(risk:vuln=(vuln3,) :name="bobs version of cve-2013-001" :cve="cve-2013-0001")]
+            await core.nodes('''[(risk:vuln=(vuln1,) :name=vuln1 :desc="bad vuln" :id={[ it:sec:cve=CVE-2013-0000]} )]
+            [(risk:vuln=(vuln3,) :name="bobs version of CVE-2013-001" :id={[ it:sec:cve=CVE-2013-0001 ]} )]
             [(ou:org=(bob1,) :name="bobs whitehatz")]
             [(entity:campaign=(campaign1,) :name="bob hax" :actor=(ou:org, (bob1,)) )]
             [(risk:attack=(attk1,) +(used)> {risk:vuln=(vuln1,)} :campaign=(campaign1,) )]

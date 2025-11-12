@@ -662,10 +662,11 @@ modeldefs = (
                 ),
                 'doc': 'A screenshot of a host.'}),
 
-            ('it:sec:cve', ('str', {'lower': True, 'replace': s_chop.unicode_dashes_replace,
-                                    'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
-                'ex': 'cve-2012-0158',
-                'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.'}),
+           ('it:sec:cve', ('meta:id', {'upper': True, 'replace': s_chop.unicode_dashes_replace,
+                                   'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
+               'ex': 'CVE-2012-0158',
+               'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.'}),
+
 
             ('it:sec:cwe', ('str', {'regex': r'^CWE-[0-9]{1,8}$'}), {
                 'ex': 'CWE-120',
@@ -1272,9 +1273,6 @@ modeldefs = (
                 ('service:platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which generated the log event.'}),
 
-                ('service:instance', ('inet:service:instance', {}), {
-                    'doc': 'The service instance which generated the log event.'}),
-
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The service account which generated the log event.'}),
 
@@ -1416,38 +1414,7 @@ modeldefs = (
                     'doc': 'Lower case normalized version of the it:dev:str.'}),
 
             )),
-            ('it:sec:cve', {}, (
-
-                ('nist:nvd:source', ('meta:name', {}), {
-                    'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
-
-                ('nist:nvd:published', ('time', {}), {
-                    'doc': 'The date the vulnerability was first published in the NVD.'}),
-
-                ('nist:nvd:modified', ('time', {"ismax": True}), {
-                    'doc': 'The date the vulnerability was last modified in the NVD.'}),
-
-                ('cisa:kev:name', ('str', {}), {
-                    'doc': 'The name of the vulnerability according to the CISA KEV database.'}),
-
-                ('cisa:kev:desc', ('str', {}), {
-                    'doc': 'The description of the vulnerability according to the CISA KEV database.'}),
-
-                ('cisa:kev:action', ('str', {}), {
-                    'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
-
-                ('cisa:kev:vendor', ('meta:name', {}), {
-                    'doc': 'The vendor name listed in the CISA KEV database.'}),
-
-                ('cisa:kev:product', ('meta:name', {}), {
-                    'doc': 'The product name listed in the CISA KEV database.'}),
-
-                ('cisa:kev:added', ('time', {}), {
-                    'doc': 'The date the vulnerability was added to the CISA KEV database.'}),
-
-                ('cisa:kev:duedate', ('time', {}), {
-                    'doc': 'The date the action is due according to the CISA KEV database.'}),
-            )),
+            ('it:sec:cve', {}, ()),
             ('it:sec:cpe', {}, (
 
                 ('v2_2', ('it:sec:cpe:v2_2', {}), {
@@ -2139,9 +2106,6 @@ modeldefs = (
 
                 ('service:platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which was queried.'}),
-
-                ('service:instance', ('inet:service:instance', {}), {
-                    'doc': 'The service instance which was queried.'}),
 
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The service account which ran the query.'}),

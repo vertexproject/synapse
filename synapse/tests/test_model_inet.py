@@ -237,6 +237,11 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:ip="ff::"'))
             self.len(1, await core.nodes('inet:ip="ff::100"'))
 
+            nodes = await core.nodes('[ inet:asnip=(54959, 1.2.3.4) :seen=(2024, 2025) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ip'), (4, 0x01020304))
+            self.eq(nodes[0].get('asn'), 54959)
+
     async def test_cidr4(self):
         formname = 'inet:cidr'
         async with self.getTestCore() as core:
@@ -2756,25 +2761,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.sorteq(['foo.', 'foo.bar.'], [n.ndef[1] for n in nodes])
 
             q = '''
-            [ inet:service:instance=(vertex, slack)
-                :id='T2XK1223Y'
-                :platform={ inet:service:platform=(slack,) }
-                :url="https://v.vtx.lk/slack"
-                :name="Synapse users slack"
-                :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
-            ]
-            '''
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            self.nn(nodes[0].get('tenant'))
-            self.eq(nodes[0].ndef, ('inet:service:instance', s_common.guid(('vertex', 'slack'))))
-            self.eq(nodes[0].get('id'), 'T2XK1223Y')
-            self.eq(nodes[0].get('platform'), platform.ndef[1])
-            self.eq(nodes[0].get('url'), 'https://v.vtx.lk/slack')
-            self.eq(nodes[0].get('name'), 'synapse users slack')
-            platinst = nodes[0]
-
-            q = '''
             [
                 (inet:service:account=(blackout, account, vertex, slack)
                     :id=U7RN51U1J
@@ -2835,18 +2821,19 @@ class InetModelTest(s_t_utils.SynTest):
             devsgrp = nodes[0]
 
             q = '''
+            $group = {[ inet:service:group=$devsiden ]}
             [
-                (inet:service:group:member=(blackout, developers, group, vertex, slack)
+                (inet:service:member=(blackout, developers, group, vertex, slack)
                     :account=$blckiden
-                    :group=$devsiden
+                    :of=$group
                     :period=(20230601, ?)
                     :creator=$visiiden
                     :remover=$visiiden
                 )
 
-                (inet:service:group:member=(visi, developers, group, vertex, slack)
+                (inet:service:member=(visi, developers, group, vertex, slack)
                     :account=$visiiden
-                    :group=$devsiden
+                    :of=$group
                     :period=(20150101, ?)
                 )
             ]
@@ -2860,13 +2847,13 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, nodes)
 
             self.eq(nodes[0].get('account'), blckacct.ndef[1])
-            self.eq(nodes[0].get('group'), devsgrp.ndef[1])
+            self.eq(nodes[0].get('of'), devsgrp.ndef)
             self.eq(nodes[0].get('period'), (1685577600000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('remover'), visiacct.ndef[1])
 
             self.eq(nodes[1].get('account'), visiacct.ndef[1])
-            self.eq(nodes[1].get('group'), devsgrp.ndef[1])
+            self.eq(nodes[1].get('of'), devsgrp.ndef)
             self.eq(nodes[1].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.none(nodes[1].get('creator'))
             self.none(nodes[1].get('remover'))
@@ -2934,14 +2921,12 @@ class InetModelTest(s_t_utils.SynTest):
                 :period=(20150101, ?)
                 :creator=$visiiden
                 :platform=$platiden
-                :instance=$instiden
                 :topic=' My Topic   '
             ]
             '''
             opts = {'vars': {
                 'visiiden': visiacct.ndef[1],
                 'platiden': platform.ndef[1],
-                'instiden': platinst.ndef[1],
             }}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
@@ -2951,24 +2936,22 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.eq(nodes[0].get('creator'), visiacct.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
-            self.eq(nodes[0].get('instance'), platinst.ndef[1])
             gnrlchan = nodes[0]
 
             q = '''
             [
-                (inet:service:channel:member=(visi, general, channel, vertex, slack)
+                (inet:service:member=(visi, general, channel, vertex, slack)
                     :account=$visiiden
                     :period=(20150101, ?)
                 )
 
-                (inet:service:channel:member=(blackout, general, channel, vertex, slack)
+                (inet:service:member=(blackout, general, channel, vertex, slack)
                     :account=$blckiden
                     :period=(20230601, ?)
                 )
 
                 :platform=$platiden
-                :instance=$instiden
-                :channel=$chnliden
+                :of={[ inet:service:channel=$chnliden ]}
             ]
             '''
             opts = {'vars': {
@@ -2976,24 +2959,20 @@ class InetModelTest(s_t_utils.SynTest):
                 'visiiden': visiacct.ndef[1],
                 'chnliden': gnrlchan.ndef[1],
                 'platiden': platform.ndef[1],
-                'instiden': platinst.ndef[1],
             }}
             nodes = await core.nodes(q, opts=opts)
             self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('inet:service:channel:member', s_common.guid(('visi', 'general', 'channel', 'vertex', 'slack'))))
+            self.eq(nodes[0].ndef, ('inet:service:member', s_common.guid(('visi', 'general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[0].get('account'), visiacct.ndef[1])
             self.eq(nodes[0].get('period'), (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
-            self.eq(nodes[0].get('channel'), gnrlchan.ndef[1])
 
-            self.eq(nodes[1].ndef, ('inet:service:channel:member', s_common.guid(('blackout', 'general', 'channel', 'vertex', 'slack'))))
+            self.eq(nodes[1].ndef, ('inet:service:member', s_common.guid(('blackout', 'general', 'channel', 'vertex', 'slack'))))
             self.eq(nodes[1].get('account'), blckacct.ndef[1])
             self.eq(nodes[1].get('period'), (1685577600000000, 9223372036854775807, 0xffffffffffffffff))
-            self.eq(nodes[1].get('channel'), gnrlchan.ndef[1])
 
             for node in nodes:
                 self.eq(node.get('platform'), platform.ndef[1])
-                self.eq(node.get('instance'), platinst.ndef[1])
-                self.eq(node.get('channel'), gnrlchan.ndef[1])
+                self.eq(node.get('of'), gnrlchan.ndef)
 
             nodes = await core.nodes('''
             [ inet:service:message:attachment=(pbjtime.gif, blackout, developers, 1715856900000000, vertex, slack)
@@ -3110,7 +3089,6 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [ inet:service:resource=(web, api, vertex, slack)
                 :desc="The Web API supplies a collection of HTTP methods that underpin the majority of Slack app functionality."
-                :instance=$instiden
                 :name="Slack Web APIs"
                 :platform=$platiden
                 :type=slack.web.api
@@ -3119,12 +3097,10 @@ class InetModelTest(s_t_utils.SynTest):
             '''
             opts = {'vars': {
                 'platiden': platform.ndef[1],
-                'instiden': platinst.ndef[1],
             }}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('desc'), 'The Web API supplies a collection of HTTP methods that underpin the majority of Slack app functionality.')
-            self.eq(nodes[0].get('instance'), platinst.ndef[1])
             self.eq(nodes[0].get('name'), 'slack web apis')
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('type'), 'slack.web.api.')
@@ -3155,7 +3131,6 @@ class InetModelTest(s_t_utils.SynTest):
             [ inet:service:access=(api, blackout, 1715856900000000, vertex, slack)
                 :action=foo.bar
                 :account=$blckiden
-                :instance=$instiden
                 :platform=$platiden
                 :resource=$rsrciden
                 :success=$lib.true
@@ -3164,7 +3139,6 @@ class InetModelTest(s_t_utils.SynTest):
             '''
             opts = {'vars': {
                 'blckiden': blckacct.ndef[1],
-                'instiden': platinst.ndef[1],
                 'visiiden': visiacct.ndef[1],
                 'platiden': platform.ndef[1],
                 'rsrciden': resource.ndef[1],
@@ -3173,7 +3147,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('action'), 'foo.bar.')
             self.eq(nodes[0].get('account'), blckacct.ndef[1])
-            self.eq(nodes[0].get('instance'), platinst.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('resource'), resource.ndef[1])
             self.true(nodes[0].get('success'))

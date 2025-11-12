@@ -212,11 +212,12 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
+        // FIXME remove?
         function vulnByCve(cve, try=$lib.false, reporter=$lib.null) {
             ($ok, $cve) = $__maybeCast($try, it:sec:cve, $cve)
             if (not $ok) { return() }
 
-            risk:vuln:cve=$cve
+            risk:vuln:id={[ it:sec:cve=$cve ]}
             if $reporter {
                 +:reporter:name=$reporter
                 { -:reporter [ :reporter=$orgByName($reporter) ] }
@@ -229,7 +230,7 @@ class LibGen(s_stormtypes.Lib):
                 $guid.append($reporter)
             }
 
-            [ risk:vuln=$guid :cve=$cve ]
+            [ risk:vuln=$guid :id=$cve ]
             if $reporter {
                 [ :reporter:name=$reporter :reporter=$orgByName($reporter) ]
             }
