@@ -370,9 +370,8 @@ class IPAddr(s_types.Type):
 
 class SockAddr(s_types.Str):
 
-    protos = ('tcp', 'udp', 'icmp', 'host', 'gre')
-    # TODO: this should include icmp and host but requires a migration
-    noports = ('gre',)
+    protos = ('tcp', 'udp', 'icmp', 'gre')
+    noports = ('gre', 'icmp')
 
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
@@ -381,7 +380,6 @@ class SockAddr(s_types.Str):
         self.setNormFunc(tuple, self._normPyTuple)
 
         self.iptype = self.modl.type('inet:ip')
-        self.hosttype = self.modl.type('it:host')
         self.porttype = self.modl.type('inet:port')
         self.prototype = self.modl.type('str').clone({'lower': True})
 
@@ -449,18 +447,6 @@ class SockAddr(s_types.Str):
         subs['proto'] = (self.prototype.typehash, proto, {})
 
         valu = valu.strip().strip('/')
-
-        # Treat as host if proto is host
-        if proto == 'host':
-
-            valu, port, pstr = await self._normPort(valu)
-            if port:
-                subs['port'] = (self.porttype.typehash, port, {})
-
-            host = s_common.guid(valu)
-            subs['host'] = (self.hosttype.typehash, host, {})
-
-            return f'host://{host}{pstr}', {'subs': subs}
 
         # Treat as IPv6 if starts with [ or contains multiple :
         if valu.startswith('['):
@@ -2090,15 +2076,12 @@ modeldefs = (
                     'doc': 'The IP of the client.',
                     'prevnames': ('ipv4', 'ipv6')}),
 
-                ('host', ('it:host', {}), {
-                    'ro': True,
-                    'doc': 'The it:host node for the client.'
-                }),
                 ('port', ('inet:port', {}), {
                     'doc': 'The client tcp/udp port.'
                 }),
             )),
 
+            # FIXME - inet:proto:link? Is this really an it:host:fetch?
             ('inet:download', {}, (
                 ('time', ('time', {}), {
                     'doc': 'The time the file was downloaded.'
@@ -2419,10 +2402,6 @@ modeldefs = (
                     'doc': 'The IP of the server.',
                     'prevnames': ('ipv4', 'ipv6')}),
 
-                ('host', ('it:host', {}), {
-                    'ro': True,
-                    'doc': 'The it:host node for the server.'
-                }),
                 ('port', ('inet:port', {}), {
                     'doc': 'The server tcp/udp port.'
                 }),

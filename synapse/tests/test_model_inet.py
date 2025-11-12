@@ -191,17 +191,6 @@ class InetModelTest(s_t_utils.SynTest):
                     ('tcp://[::ffff:1.2.3.4]:2', {'subs': subs, 'virts': virts}))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://[::1'))  # bad ipv6 w/ port
 
-            # Host
-            hstr = 'ffa3e574aa219e553e1b2fc1ccd0180f'
-            hostsub = (t.hosttype.typehash, hstr, {})
-            portsub = (t.porttype.typehash, 1337, {})
-            protosub = (t.prototype.typehash, 'host', {})
-
-            self.eq(await t.norm('host://vertex.link'), (f'host://{hstr}', {'subs': {'host': hostsub, 'proto': protosub}}))
-            self.eq(await t.norm('host://vertex.link:1337'),
-                    (f'host://{hstr}:1337', {'subs': {'host': hostsub, 'port': portsub, 'proto': protosub}}))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('vertex.link'))  # must use host proto
-
     async def test_asn_collection(self):
 
         async with self.getTestCore() as core:
@@ -331,11 +320,6 @@ class InetModelTest(s_t_utils.SynTest):
                 'ip': (6, 1),
                 'port': 12345,
                 'proto': 'tcp',
-            }),
-            ('host://vertex.link:12345', 'host://ffa3e574aa219e553e1b2fc1ccd0180f:12345', {
-                'host': 'ffa3e574aa219e553e1b2fc1ccd0180f',
-                'port': 12345,
-                'proto': 'host',
             }),
         )
 
@@ -1419,11 +1403,6 @@ class InetModelTest(s_t_utils.SynTest):
                 'port': 12345,
                 'proto': 'tcp',
             }),
-            ('host://vertex.link:12345', 'host://ffa3e574aa219e553e1b2fc1ccd0180f:12345', {
-                'host': 'ffa3e574aa219e553e1b2fc1ccd0180f',
-                'port': 12345,
-                'proto': 'host',
-            }),
             ((4, 2130706433), 'tcp://127.0.0.1', {
                 'ip': (4, 2130706433),
                 'proto': 'tcp',
@@ -1470,7 +1449,7 @@ class InetModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu) as ctx:
                 await core.nodes('[ inet:server=newp://1.2.3.4:99 ]')
 
-            self.eq(ctx.exception.get('mesg'), 'inet:sockaddr protocol must be one of: tcp,udp,icmp,host,gre')
+            self.eq(ctx.exception.get('mesg'), 'inet:sockaddr protocol must be one of: tcp,udp,icmp,gre')
 
     async def test_url(self):
         formname = 'inet:url'
