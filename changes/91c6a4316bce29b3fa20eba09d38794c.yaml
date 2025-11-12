@@ -1,5 +1,5 @@
 ---
-desc: Fixed issue where lists retrieved from ``$lib.user.vars`` were not mutable.
+desc: Fixed issue where lists retrieved from ``$lib.user.vars`` (``user:vars:dict`` Storm types) were not mutable.
 desc:literal: false
 prs: []
 type: bug
