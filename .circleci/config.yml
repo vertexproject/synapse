@@ -577,7 +577,6 @@ workflows:
             branches:
               only:
                 - master
-                - blackout/SYN-9823/user-vars-mutable
 
       - python_package_smoketest:
           filters:
