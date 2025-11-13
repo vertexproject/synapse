@@ -41,7 +41,7 @@ class EntityModule(s_module.CoreModule):
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the relationship.'}),
 
-                    ('reporter:name', ('ou:name', {}),
+                    ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the relationship.'}),
                 )),
             ),
