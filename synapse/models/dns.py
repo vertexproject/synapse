@@ -298,7 +298,7 @@ modeldefs = (
                     'doc': 'The client which initiated the DNS query.'}),
 
                 ('name', ('inet:dns:name', {}), {
-                    'readonly': True
+                    'readonly': True,
                     'doc': 'The DNS name which the client queried.'}),
 
                 # FIXME virt?
