@@ -1558,8 +1558,8 @@ class LibBase(Lib):
         try:
             norm, info = await typeitem.norm(valu)
             return (True, fromprim(norm, basetypes=False))
-        except s_exc.BadTypeValu:
-            return (False, None)
+        except s_exc.BadTypeValu as exc:
+            return False, s_common.excinfo(exc)
 
     @stormfunc(readonly=True)
     async def _repr(self, name, valu):
