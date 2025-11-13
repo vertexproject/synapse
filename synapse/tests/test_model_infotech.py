@@ -214,6 +214,18 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1723680000000000, nodes[0].get('valid_from'))
             self.eq(1723680000000000, nodes[0].get('valid_until'))
 
+            nodes = await core.nodes('''
+                [ it:host:hosted:url=({[ it:host=* ]}, https://vertex.link)
+                    :seen=20251113
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('host'))
+            self.eq(nodes[0].get('url'), 'https://vertex.link')
+            self.eq(nodes[0].get('seen'), (1762992000000000, 1762992000000001, 1))
+            self.len(1, await core.nodes('it:host:hosted:url -> it:host'))
+            self.len(1, await core.nodes('it:host:hosted:url -> inet:url'))
+
     async def test_infotech_android(self):
 
         async with self.getTestCore() as core:
