@@ -647,7 +647,7 @@ modeldefs = (
                 'prevnames': ('it:logon',),
                 'doc': 'A host specific login session.'}),
 
-            ('it:host:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
+            ('it:host:hosted:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'host at this URL'}}),
                 ),
@@ -1390,7 +1390,7 @@ modeldefs = (
                 ('flow', ('inet:flow', {}), {
                     'doc': 'The network flow which initiated the login.'}),
             )),
-            ('it:host:url', {}, (
+            ('it:host:hosted:url', {}, (
 
                 ('host', ('it:host', {}), {
                     'ro': True,
