@@ -45,15 +45,11 @@ Features and Enhancements
 Bugfixes
 --------
 - Fixed bug where lists retrieved from ``$lib.globals`` were not mutable.
-  (`#4531 <https://github.com/vertexproject/synapse/pull/4531>`_)
-  (`#4543 <https://github.com/vertexproject/synapse/pull/4543>`_)
   (`#4544 <https://github.com/vertexproject/synapse/pull/4544>`_)
 - Deprecated the ``key`` field in the Storm package ``inits`` dictionary. The
   version key is now automatically set to ``storage:version`` to properly
   identify newly installed packages. If the key was previously set to
   ``version`` it will be migrated to ``storage:version``.
-  (`#4541 <https://github.com/vertexproject/synapse/pull/4541>`_)
-  (`#4550 <https://github.com/vertexproject/synapse/pull/4550>`_)
   (`#4554 <https://github.com/vertexproject/synapse/pull/4554>`_)
 - Fixed a bug where default values passed to ``$lib.globals.pop()`` would
   return a copy of the value instead of the same value when the query was
