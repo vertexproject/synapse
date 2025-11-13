@@ -2057,15 +2057,15 @@ modeldefs = (
                     'prevnames': ('net4', 'net6')}),
 
                 # FIXME virts?
-                # ('net:min', ('inet:ip', {}), {
-                #     'readonly': True,
-                #     'doc': 'The first IP in the range assigned to the ASN.',
-                #     'prevnames': ('net4:min', 'net6:min')}),
+                ('net:min', ('inet:ip', {}), {
+                    'readonly': True,
+                    'doc': 'The first IP in the range assigned to the ASN.',
+                    'prevnames': ('net4:min', 'net6:min')}),
 
-                # ('net:max', ('inet:ip', {}), {
-                #     'readonly': True,
-                #     'doc': 'The last IP in the range assigned to the ASN.',
-                #     'prevnames': ('net4:max', 'net6:max')}),
+                ('net:max', ('inet:ip', {}), {
+                    'readonly': True,
+                    'doc': 'The last IP in the range assigned to the ASN.',
+                    'prevnames': ('net4:max', 'net6:max')}),
             )),
 
             # FIXME unify with inet:net?
