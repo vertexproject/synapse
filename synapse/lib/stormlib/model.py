@@ -498,6 +498,7 @@ class ModelType(s_stormtypes.Prim):
         {'name': 'name', 'desc': 'The name of the Type.', 'type': 'str', },
         {'name': 'stortype', 'desc': 'The storetype of the Type.', 'type': 'int', },
         {'name': 'opts', 'desc': 'The options for the Type.', 'type': 'dict', },
+        {'name': 'mutable', 'desc': 'True if the type is mutable.', 'type': 'boolean', },
         {'name': 'repr', 'desc': 'Get the repr of a value for the Type.',
          'type': {'type': 'function', '_funcname': '_methRepr',
                   'args': (
@@ -519,6 +520,7 @@ class ModelType(s_stormtypes.Prim):
         self.locls.update({'name': valu.name,
                            'opts': valu.opts,
                            'stortype': valu.stortype,
+                           'mutable': valu.ismutable,
                            })
 
     def getObjLocals(self):
@@ -896,7 +898,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
         'type': {'type': 'function', '_funcname': '_riskHasVulnToVulnerable',
                  'args': (
                       {'name': 'n', 'type': 'node', 'desc': 'The risk:hasvuln node to migrate.'},
-                      {'name': 'nodata', 'type': 'bool', 'default': False,
+                      {'name': 'nodata', 'type': 'boolean', 'default': False,
                        'desc': 'Do not copy nodedata to the risk:vulnerable node.'},
                  ),
                  'returns': {'type': 'list', 'desc': 'A list of idens for the risk:vulnerable nodes.'}}},
@@ -912,7 +914,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
         'type': {'type': 'function', '_funcname': '_storm_query',
                  'args': (
                       {'name': 'n', 'type': 'node', 'desc': 'The inet:ssl:cert node to migrate.'},
-                      {'name': 'nodata', 'type': 'bool', 'default': False,
+                      {'name': 'nodata', 'type': 'boolean', 'default': False,
                        'desc': 'Do not copy nodedata to the inet:tls:servercert node.'},
                  ),
                  'returns': {'type': 'node', 'desc': 'The newly created inet:tls:servercert node.'}}},
@@ -1067,7 +1069,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
         {'name': 'listNodes', 'desc': 'Yield queued nodes.',
          'type': {'type': 'function', '_funcname': '_methListNodes',
                   'args': (
-                      {'name': 'form', 'type': 'form', 'default': None,
+                      {'name': 'form', 'type': 'str', 'default': None,
                        'desc': 'Only yield entries matching the specified form.'},
                       {'name': 'source', 'type': 'str', 'default': None,
                        'desc': 'Only yield entries that were seen by the specified source.'},
@@ -1076,12 +1078,12 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                       {'name': 'size', 'type': 'int', 'default': None,
                        'desc': 'Only yield up to this many entries.'},
                   ),
-                  'returns': {'name': 'Yields', 'type': 'list',
+                  'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'A tuple of (offset, form, valu, sources) values for the specified node.', }}},
         {'name': 'printNode', 'desc': 'Print detailed queued node information.',
          'type': {'type': 'function', '_funcname': '_methPrintNode',
                   'args': (
-                      {'name': 'offset', 'type': 'into', 'desc': 'The offset of the queued node to print.'},
+                      {'name': 'offset', 'type': 'int', 'desc': 'The offset of the queued node to print.'},
                   ),
                   'returns': {'type': 'null'}}},
         {'name': 'repairNode', 'desc': 'Repair a queued node.',

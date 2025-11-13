@@ -29,5 +29,9 @@ def getJSON(name):
     with s_datfile.openDatFile(f'synapse.data/{name}.json') as fd:
         return s_json.load(fd)
 
+def getLark(name):
+    with s_datfile.openDatFile(f'synapse.data.lark/{name}.lark') as larkf:
+        return larkf.read().decode()
+
 def path(*names):
     return s_common.genpath(dirname, *names)

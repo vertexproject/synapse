@@ -369,7 +369,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 'vm.dirty_expire_centisecs',
                 'vm.dirty_writeback_centisecs',
                 'vm.dirty_background_ratio',
+                'vm.dirty_background_bytes',
                 'vm.dirty_ratio',
+                'vm.dirty_bytes',
             ], msgs[0].get('sysctls', {}).keys())
 
     async def test_lmdbslab_commit_over_max_xactops(self):

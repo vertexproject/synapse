@@ -87,7 +87,7 @@ You can request a demo instance from our `web site`_.
   cloud-only.
 
 Demo instances provide access to all of Synapse's `Rapid Power-Ups`_, both open-source and commercial.
-Any Rapid Power-Up can be installed in your demo instance (although some Power-Ups may reqiure API keys
+Any Rapid Power-Up can be installed in your demo instance (although some Power-Ups may require API keys
 and / or paid subscriptions from the associated third-party).
 
 Demo instances are updated automatically each week with any new releases of Synapse and Optic. New or
@@ -131,4 +131,4 @@ A **demo instance** is best for:
 
 .. _`web site`: https://vertex.link/request-a-demo
 .. _`Rapid Power-Ups`: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html#rapid-power-ups
-.. _`APT1 Scavenger Hunt`: https://v.vtx.lk/scavenger-hunt
+.. _`APT1 Scavenger Hunt`: https://v.vtx.lk/apt1hunt

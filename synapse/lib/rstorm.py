@@ -1,8 +1,12 @@
 import os
+import sys
 import copy
+import shlex
 import pprint
 import logging
+import argparse
 import contextlib
+import subprocess
 import collections
 
 import vcr
@@ -21,11 +25,11 @@ import synapse.lib.stormhttp as s_stormhttp
 
 import synapse.cmds.cortex as s_cmds_cortex
 
-import synapse.tools.storm as s_storm
-import synapse.tools.genpkg as s_genpkg
+import synapse.tools.storm._cli as s_storm
+import synapse.tools.storm.pkg.gen as s_genpkg
 
 
-re_directive = regex.compile(r'^\.\.\s(storm.*|[^:])::(?:\s(.*)$|$)')
+re_directive = regex.compile(r'^\.\.\s(shell.*|storm.*|[^:])::(?:\s(.*)$|$)')
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +51,6 @@ class OutPutRst(s_output.OutPutStr):
             mesg = '\n'.join((parts[0], mesg0))
 
         return s_output.OutPutStr.printf(self, mesg, addnl)
-
 
 class StormOutput(s_cmds_cortex.StormCmd):
     '''
@@ -329,6 +332,8 @@ class StormRst(s_base.Base):
         self.core = None
 
         self.handlers = {
+            'shell': self._handleShell,
+            'shell-env': self._handleShellEnv,
             'storm': self._handleStorm,
             'storm-cli': self._handleStormCli,
             'storm-pkg': self._handleStormPkg,
@@ -339,6 +344,7 @@ class StormRst(s_base.Base):
             'storm-cortex': self._handleStormCortex,
             'storm-envvar': self._handleStormEnvVar,
             'storm-expect': self._handleStormExpect,
+            'storm-python-path': self._handlePythonPath,
             'storm-multiline': self._handleStormMultiline,
             'storm-mock-http': self._handleStormMockHttp,
             'storm-vcr-opts': self._handleStormVcrOpts,
@@ -368,6 +374,22 @@ class StormRst(s_base.Base):
         if handler is None:
             raise s_exc.NoSuchName(mesg=f'The {directive} directive is not supported', directive=directive)
         return handler
+
+    async def _handlePythonPath(self, text):
+        '''
+        Add the text to sys.path.
+
+        Args:
+            text: The path to add.
+        '''
+        if not os.path.isdir(text):
+            raise s_exc.NoSuchDir(mesg=f'The path {text} is not a directory', path=text)
+        if text not in sys.path:
+            logger.debug(f'Inserting {text} into sys.path')
+            sys.path.insert(0, text)
+            def onfini():
+                sys.path.remove(text)
+            self.onfini(onfini)
 
     async def _handleStorm(self, text):
         '''
@@ -595,6 +617,65 @@ class StormRst(s_base.Base):
         if cb is None:
             raise s_exc.NoSuchCtor(mesg=f'Failed to get callback "{text}"', ctor=text)
         self.context['storm-vcr-callback'] = cb
+
+    async def _handleShell(self, text):
+        '''
+        Execute shell with the supplied arguments.
+        '''
+        parser = argparse.ArgumentParser(add_help=False)
+        parser.add_argument('--include-stderr', action='store_true', help='Include stderr in output.')
+        parser.add_argument('--hide-query', action='store_true', help='Do not include the command in the output.')
+        parser.add_argument('--fail-ok', action='store_true', help='Non-zero return values are non-fatal.')
+        opts, args = parser.parse_known_args(shlex.split(text))
+
+        # Remove any command line arguments
+        query = text
+        query = query.replace('--include-stderr', '')
+        query = query.replace('--hide-query', '')
+        query = query.replace('--fail-ok', '')
+        query = query.strip()
+
+        env = dict(os.environ)
+        env.update(self.context.get('shell-env', {}))
+
+        stderr = None
+        if opts.include_stderr:
+            stderr = subprocess.STDOUT
+
+        proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=stderr, env=env, text=True)
+        if proc.returncode != 0 and not opts.fail_ok:
+            mesg = f'Error when executing shell directive: {text} (rv: {proc.returncode})'
+            raise s_exc.SynErr(mesg=mesg)
+
+        self._printf('::\n\n')
+
+        if not opts.hide_query:
+            self._printf(f'  {query}\n\n')
+
+        for line in proc.stdout.splitlines():
+            self._printf(f'  {line}\n')
+
+        self._printf('\n\n')
+
+    async def _handleShellEnv(self, text):
+        '''
+        Env to use in subsequent shell queries.
+
+        Args:
+            text (str): [KEY=VALUE ...]
+                Note: No arguments will reset the shell environment.
+        '''
+        text = text.strip()
+        if not text:
+            return self.context.pop('shell-env')
+
+        env = {}
+
+        for item in text.split(' '):
+            key, val = item.split('=')
+            env[key] = val
+
+        self.context['shell-env'] = env
 
     async def _readline(self, line):
 

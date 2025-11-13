@@ -1,0 +1,6 @@
+---
+desc: Fixed issue where lists in user vars from ``$lib.auth.users.get()`` (``auth:user:vars`` Storm types) were not mutable.
+desc:literal: false
+prs: []
+type: bug
+...

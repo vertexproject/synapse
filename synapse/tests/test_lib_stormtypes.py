@@ -17,12 +17,15 @@ import synapse.axon as s_axon
 import synapse.common as s_common
 
 import synapse.lib.json as s_json
+import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.storm as s_storm
 import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormtypes as s_stormtypes
+
+import synapse.tools.service.backup as s_t_backup
 
 import synapse.tests.utils as s_test
 import synapse.tests.files as s_test_files
@@ -884,13 +887,32 @@ class StormTypesTest(s_test.SynTest):
             self.eq(2, await core.callStorm('return($lib.len($lib.layer.get().getStorNodes()))', opts=opts))
 
             await core.nodes('[ media:news=c0dc5dc1f7c3d27b725ef3015422f8e2 +(refs)> { inet:ipv4=1.2.3.4 } ]')
+            expN1 = [('refs', '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f')]
+            expN2 = [('refs', 'ddf7f87c0164d760e8e1e5cd2cae2fee96868a3cf184f6dab9154e31ad689528')]
+
             edges = await core.callStorm('''
                 $edges = ([])
                 media:news=c0dc5dc1f7c3d27b725ef3015422f8e2
                 for $i in $lib.layer.get().getEdgesByN1($node.iden()) { $edges.append($i) }
                 fini { return($edges) }
             ''')
-            self.eq([('refs', '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f')], edges)
+            self.eq(expN1, edges)
+
+            edges = await core.callStorm('''
+                $edges = ([])
+                media:news=c0dc5dc1f7c3d27b725ef3015422f8e2
+                for $i in $lib.layer.get().getEdgesByN1($node.iden(), verb=refs) { $edges.append($i) }
+                fini { return($edges) }
+            ''')
+            self.eq(expN1, edges)
+
+            edges = await core.callStorm('''
+                $edges = ([])
+                media:news=c0dc5dc1f7c3d27b725ef3015422f8e2
+                for $i in $lib.layer.get().getEdgesByN1($node.iden(), verb=newp) { $edges.append($i) }
+                fini { return($edges) }
+            ''')
+            self.eq([], edges)
 
             edges = await core.callStorm('''
                 $edges = ([])
@@ -898,7 +920,37 @@ class StormTypesTest(s_test.SynTest):
                 for $i in $lib.layer.get().getEdgesByN2($node.iden()) { $edges.append($i) }
                 fini { return($edges) }
             ''')
-            self.eq([('refs', 'ddf7f87c0164d760e8e1e5cd2cae2fee96868a3cf184f6dab9154e31ad689528')], edges)
+            self.eq(expN2, edges)
+
+            edges = await core.callStorm('''
+                $edges = ([])
+                inet:ipv4=1.2.3.4
+                for $i in $lib.layer.get().getEdgesByN2($node.iden(), verb=refs) { $edges.append($i) }
+                fini { return($edges) }
+            ''')
+            self.eq(expN2, edges)
+
+            edges = await core.callStorm('''
+                $edges = ([])
+                inet:ipv4=1.2.3.4
+                for $i in $lib.layer.get().getEdgesByN2($node.iden(), verb=newp) { $edges.append($i) }
+                fini { return($edges) }
+            ''')
+            self.eq([], edges)
+
+            ret = await core.callStorm('''
+                $n1 = { media:news=c0dc5dc1f7c3d27b725ef3015422f8e2 return($node.iden()) }
+                $n2 = { inet:ipv4=1.2.3.4 return($node.iden()) }
+                return($lib.layer.get().hasEdge($n1, refs, $n2))
+            ''')
+            self.true(ret)
+
+            ret = await core.callStorm('''
+                $n1 = { media:news=c0dc5dc1f7c3d27b725ef3015422f8e2 return($node.iden()) }
+                $n2 = { inet:ipv4=1.2.3.4 return($node.iden()) }
+                return($lib.layer.get().hasEdge($n1, newp, $n2))
+            ''')
+            self.false(ret)
 
             edges = await core.callStorm('''
                 $edges = ([])
@@ -1282,6 +1334,62 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.dict.keys($lib.undef)')
             self.stormIsInErr('valu argument must be a dict, not undef.', msgs)
 
+            vals = await core.callStorm('return($lib.dict.fromlist(((a, 1), (b, 2))))')
+            self.eq(vals, {'a': '1', 'b': '2'})
+
+            vals = await core.callStorm('return($lib.dict.fromlist(((a, (1)), (b, (2)))))')
+            self.eq(vals, {'a': 1, 'b': 2})
+
+            vals = await core.callStorm('return($lib.dict.fromlist(((a, ({})), (b, ([])))))')
+            self.eq(vals, {'a': {}, 'b': []})
+
+            # Duplicate keys
+            vals = await core.callStorm('return($lib.dict.fromlist(((a, b), (a, c), (b, c))))')
+            self.eq(vals, {'a': 'c', 'b': 'c'})
+
+            # Integer keys
+            vals = await core.callStorm('return($lib.dict.fromlist((((1), (2)), ((2), (3)))))')
+            self.eq(vals, {1: 2, 2: 3})
+
+            # Check mutability
+            q = '''
+                $ret = $lib.dict.fromlist(((a, ({})), (b, (foo, bar))))
+                $ret.a.foo = bar
+                $ret.b.append(baz)
+                return($ret)
+            '''
+            vals = await core.callStorm(q)
+            self.eq(vals, {'a': {'foo': 'bar'}, 'b': ['foo', 'bar', 'baz']})
+
+            # Non-primitive type
+            with self.raises(s_exc.NoSuchType) as exc:
+                await core.callStorm('function foo() {} return($lib.dict.fromlist(([["foo", $foo]])))')
+            self.eq(exc.exception.get('mesg'), 'Unable to convert object to Storm primitive.')
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('return($lib.dict.fromlist(({})))')
+            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() argument must be an array.')
+
+            # Elements not list/tuple
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('return($lib.dict.fromlist(([{}])))')
+            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() array elements must be an array.')
+
+            # Element len != 2
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('return($lib.dict.fromlist(([["foo"]])))')
+            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() argument must be an array of (key, value) pairs.')
+
+            # Element len != 2
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('return($lib.dict.fromlist(([["foo", "bar", "baz"]])))')
+            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() argument must be an array of (key, value) pairs.')
+
+            # Non-str/int key type
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('return($lib.dict.fromlist(((([]), (1)), (b, ([])))))')
+            self.eq(exc.exception.get('mesg'), '$lib.dict.fromlist() keys must be str or int types.')
+
     async def test_storm_lib_str(self):
         async with self.getTestCore() as core:
 
@@ -1538,6 +1646,38 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.BadJsonText):
                 await core.callStorm(q, opts={'vars': {'buf': b'lol{newp,', 'encoding': None}})
 
+    async def test_storm_lib_bytes_xor(self):
+        async with self.getTestCore() as core:
+            encval = await core.callStorm("return(('foobar').encode().xor(asdf))")
+            self.eq(encval, b'\x07\x1c\x0b\x04\x00\x01')
+
+            decval = await core.callStorm("return($foo.xor(asdf).decode())", opts={'vars': {'foo': encval}})
+            self.eq(decval, 'foobar')
+
+            encval = await core.callStorm("return(('foofoo').encode().xor(v))")
+            self.eq(encval, b'\x10\x19\x19\x10\x19\x19')
+
+            encval = await core.callStorm("$key=$lib.base64.decode('AA==') return(('foofoo').encode().xor($key))")
+            self.eq(encval, b'foofoo')
+
+            encval = await core.callStorm("$key=$lib.base64.decode('/w==') return(('foofoo').encode().xor($key))")
+            self.eq(encval, b'\x99\x90\x90\x99\x90\x90')
+
+            encval = await core.callStorm("$key=$lib.base64.decode('/w==') return(('foofoo').encode().xor($key).xor($key))")
+            self.eq(encval, b'foofoo')
+
+            encval = await core.callStorm("return(('v').encode().xor(foo))")
+            self.eq(encval, b'\x10')
+
+            encval = await core.callStorm("return(('').encode().xor(foo))")
+            self.eq(encval, b'')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm("return(('foobar').encode().xor(''))")
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm("return(('foobar').encode().xor((123)))")
+
     async def test_storm_lib_list(self):
         async with self.getTestCore() as core:
             # Base List object behavior
@@ -1734,6 +1874,460 @@ class StormTypesTest(s_test.SynTest):
             # check perms the old way...
             await visi.addRule((True, ('layer', 'read')), gateiden=layriden)
             await core.callStorm('return($lib.layer.get($layriden).getStorNode($iden))', opts=opts)
+
+    async def test_storm_layer_getstornodesbyprop(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ test:str=foobar :hehe=foobaz ]')
+            self.len(1, nodes)
+
+            buid00 = nodes[0].iden()
+            sode00 = {
+                'form': 'test:str',
+                'props': {
+                    '.created': (nodes[0].get('.created'), 21),
+                    'hehe': ('foobaz', 1)
+                },
+                'valu': ('foobar', 1),
+            }
+            expval00 = (buid00, sode00)
+
+            nodes = await core.nodes('[ test:str=boobar :hehe=boobaz ]')
+            self.len(1, nodes)
+
+            buid01 = nodes[0].iden()
+            sode01 = {
+                'form': 'test:str',
+                'props': {
+                    '.created': (nodes[0].get('.created'), 21),
+                    'hehe': ('boobaz', 1)
+                },
+                'valu': ('boobar', 1),
+            }
+            expval01 = (buid01, sode01)
+
+            # just prop
+            q = '''
+            $sodes = ([])
+            for ($buid, $sode) in $lib.layer.get().getStorNodesByProp(test:str:hehe) {
+                $sodes.append(($buid, $sode))
+            }
+            return($sodes)
+            '''
+            sodes = await core.callStorm(q)
+            self.len(2, sodes)
+            self.sorteq(sodes, (expval00, expval01))
+
+            # prop with propvalu
+            q = '''
+            $sodes = ([])
+            for ($buid, $sode) in $lib.layer.get().getStorNodesByProp(test:str:hehe, propvalu=foobaz) {
+                $sodes.append(($buid, $sode))
+            }
+            return($sodes)
+            '''
+            sodes = await core.callStorm(q)
+            self.len(1, sodes)
+            self.eq(sodes[0], expval00)
+
+            # just form
+            q = '''
+            $sodes = ([])
+            for ($buid, $sode) in $lib.layer.get().getStorNodesByProp(test:str) {
+                $sodes.append(($buid, $sode))
+            }
+            return($sodes)
+            '''
+            sodes = await core.callStorm(q)
+            self.len(2, sodes)
+            self.sorteq(sodes, (expval00, expval01))
+
+            # form with valu
+            q = '''
+            $sodes = ([])
+            for ($buid, $sode) in $lib.layer.get().getStorNodesByProp(test:str, propvalu=boobar) {
+                $sodes.append(($buid, $sode))
+            }
+            return($sodes)
+            '''
+            sodes = await core.callStorm(q)
+            self.len(1, sodes)
+            self.eq(sodes[0], expval01)
+
+            # Non-existent prop
+            msgs = await core.stormlist('for $item in $lib.layer.get().getStorNodesByProp(test:str:_custom) {}')
+            self.stormIsInErr('The property test:str:_custom does not exist.', msgs)
+
+    async def test_storm_layer_setstornodeprop(self):
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:str=foo :hehe=bar ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'foo')
+            self.eq(nodes[0].get('hehe'), 'bar')
+
+            msgs = await core.stormlist('test:str $lib.layer.get().setStorNodeProp($node.iden(), test:str:hehe, baz)')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'foo')
+            self.eq(nodes[0].get('hehe'), 'baz')
+
+            # no test:str:newp prop
+            q = '''
+                [ test:str=foobar00 ]
+                $lib.layer.get().setStorNodeProp($node.iden(), test:str:newp, bar00)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('No property named test:str:newp.', msgs)
+
+            # Bad type
+            msgs = await core.stormlist('[ test:str=foobar01 ] $lib.layer.get().setStorNodeProp($node.iden(), test:str:tick, newp)')
+            self.stormIsInErr('Unknown time format for newp', msgs)
+
+            # insufficient perms
+            lowuser = await core.auth.addUser('lowuser')
+            await lowuser.addRule((True, ('node', 'add', 'test:str')))
+
+            q = '''
+                [ test:str=foobar02 ]
+                $lib.layer.get().setStorNodeProp($node.iden(), test:str:hehe, baz02)
+            '''
+            msgs = await core.stormlist(q, opts={'user': lowuser.iden})
+            self.stormIsInErr('setStorNodeProp() requires admin privileges.', msgs)
+
+            # readonly layer
+            layer = core.view.layers[0]
+            await layer.setLayerInfo('readonly', True)
+            msgs = await core.stormlist('test:str $lib.layer.get().setStorNodeProp($node.iden(), test:str:hehe, baz)')
+            self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
+
+    async def test_storm_layer_delstornode(self):
+        async with self.getTestCore() as core:
+            await core.addTagProp('score00', ('int', {}), {})
+            await core.addTagProp('score01', ('int', {}), {})
+            q = '''
+                [ test:str=foo
+                    :hehe=bar
+                    +#foo
+                    +#foo.bar=now
+                    +#foo.baz:score00=10
+                    +#foo.baz:score01=20
+
+                    <(seen)+ {[ meta:source=* :name=seen]}
+                    +(refs)> {[ meta:source=* :name=refs]}
+                ]
+
+                $node.data.set(foo, foo)
+                $node.data.set(bar, bar)
+                $node.data.set(baz, baz)
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            opts = {'vars': {'iden': nodes[0].iden()}}
+            created = nodes[0].get('.created')
+            foobar = nodes[0].get('#foo.bar')
+
+            sode = await core.callStorm('return($lib.layer.get().getStorNode($iden))', opts=opts)
+            self.eq(sode, {
+                'form': 'test:str',
+                'props': {'.created': (created, 21), 'hehe': ('bar', 1)},
+                'tagprops': {
+                    'foo.baz': {
+                        'score00': (10, 9),
+                        'score01': (20, 9)
+                    }
+                },
+                'tags': {
+                    'foo': (None, None),
+                    'foo.bar': foobar,
+                    'foo.baz': (None, None)
+                },
+                'valu': ('foo', 1)
+            })
+
+            msgs = await core.stormlist('$lib.layer.get().delStorNode($iden)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            sode = await core.callStorm('return($lib.layer.get().getStorNode($iden))', opts=opts)
+            self.eq(sode, {})
+
+            q = '''
+                $data = ([])
+                for $item in $lib.layer.get().getNodeData($iden) {
+                    $data.append($item)
+                }
+                return($data)
+            '''
+            nodedata = await core.callStorm(q, opts=opts)
+            self.len(0, nodedata)
+
+            q = '''
+                $edges = ([])
+                for $edge in $lib.layer.get().getEdgesByN1($iden) {
+                    $edges.append($edge)
+                }
+                for $edge in $lib.layer.get().getEdgesByN2($iden) {
+                    $edges.append($edge)
+                }
+                return($edges)
+            '''
+            edges = await core.callStorm(q, opts=opts)
+            self.len(0, edges)
+
+            self.false(await core.callStorm('return($lib.layer.get().delStorNode($iden))', opts=opts))
+
+            # insufficient perms
+            lowuser = await core.auth.addUser('lowuser')
+            await lowuser.addRule((True, ('node', 'add', 'test:str')))
+
+            q = '''
+                [ test:str=foobar02 ]
+                $lib.layer.get().delStorNode($node.iden())
+            '''
+            msgs = await core.stormlist(q, opts={'user': lowuser.iden})
+            self.stormIsInErr('delStorNode() requires admin privileges.', msgs)
+
+            # Readonly layer
+            nodes = await core.nodes('[ test:str=foobar ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'foobar')
+            layer = core.view.layers[0]
+            await layer.setLayerInfo('readonly', True)
+            msgs = await core.stormlist('test:str $lib.layer.get().delStorNode($node.iden())')
+            self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
+
+    async def test_storm_layer_delstornodeprop(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ test:str=foo :hehe=bar ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'foo')
+            self.eq(nodes[0].get('hehe'), 'bar')
+
+            msgs = await core.stormlist('test:str $lib.layer.get().delStorNodeProp($node.iden(), test:str:hehe)')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'foo')
+            self.none(nodes[0].get('hehe'))
+
+            async with self.getTestCore() as core2:
+                url = core.getLocalUrl('*/layer')
+
+                layers = set(core2.layers.keys())
+                q = f'layer.add --mirror {url}'
+                await core2.stormlist(q)
+
+                uplayr = list(set(core2.layers.keys()) - layers)[0]
+                vdef = {'layers': [uplayr]}
+
+                view00 = await core2.addView(vdef)
+                opts = {'view': view00.get('iden')}
+
+                nodes = await core.nodes('[ test:str=foo :hehe=bar ]')
+
+                layr = core2.getLayer(uplayr)
+                offs = await core.view.layers[0].getEditOffs()
+                self.true(await layr.waitEditOffs(offs, timeout=10))
+
+                q = 'test:str return($lib.layer.get().delStorNodeProp($node.iden(), test:str:hehe))'
+                self.true(await core2.callStorm(q, opts=opts))
+
+                # attempting to delete a second time should not blow up
+                self.false(await core2.callStorm(q, opts=opts))
+
+            # no test:str:newp prop
+            q = '''
+                [ test:str=foobar00 ]
+                $lib.layer.get().delStorNodeProp($node.iden(), test:str:newp)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('No property named test:str:newp.', msgs)
+
+            # insufficient perms
+            lowuser = await core.auth.addUser('lowuser')
+            await lowuser.addRule((True, ('node', 'add', 'test:str')))
+
+            q = '''
+                [ test:str=foobar02 ]
+                $lib.layer.get().delStorNodeProp($node.iden(), test:str:hehe)
+            '''
+            msgs = await core.stormlist(q, opts={'user': lowuser.iden})
+            self.stormIsInErr('delStorNodeProp() requires admin privileges.', msgs)
+
+            # Readonly layer
+            layer = core.view.layers[0]
+            await layer.setLayerInfo('readonly', True)
+            msgs = await core.stormlist('test:str $lib.layer.get().delStorNodeProp($node.iden(), test:str:hehe)')
+            self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
+
+    async def test_storm_layer_delnodedata(self):
+        async with self.getTestCore() as core:
+            q = '''
+                $_ = { [test:str=foo] $node.data.set(foo, woot) }
+                $_ = { [test:str=bar] $node.data.set(bar00, woot00) $node.data.set(bar01, woot01)}
+                $_ = { [test:str=baz] $node.data.set(baz, woot) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str=foo')
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'foo')
+            self.eq(await s_test.alist(nodes[0].iterData()), [('foo', 'woot')])
+
+            # Delete specific nodedata key
+            msgs = await core.stormlist('test:str $lib.layer.get().delNodeData($node, foo)')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str=foo')
+            self.len(1, nodes)
+            self.len(0, await s_test.alist(nodes[0].iterData()))
+
+            nodes = await core.nodes('test:str=bar')
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'bar')
+            self.eq(await s_test.alist(nodes[0].iterData()), [('bar00', 'woot00'), ('bar01', 'woot01')])
+
+            # Delete all nodedata
+            msgs = await core.stormlist('test:str=bar $lib.layer.get().delNodeData($node)')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str=bar')
+            self.len(1, nodes)
+            self.len(0, await s_test.alist(nodes[0].iterData()))
+
+            # No edits to make
+            self.false(await core.callStorm('test:str=bar return($lib.layer.get().delNodeData($node))'))
+
+            # insufficient perms
+            lowuser = await core.auth.addUser('lowuser')
+            await lowuser.addRule((True, ('node', 'add', 'test:str')))
+
+            q = '''
+                test:str
+                $lib.layer.get().delNodeData($node)
+            '''
+            msgs = await core.stormlist(q, opts={'user': lowuser.iden})
+            self.stormIsInErr('delNodeData() requires admin privileges.', msgs)
+
+            # Readonly layer
+            layer = core.view.layers[0]
+            await layer.setLayerInfo('readonly', True)
+            msgs = await core.stormlist('test:str=baz $lib.layer.get().delNodeData($node)')
+            self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
+
+    async def test_storm_layer_delnodeedge(self):
+        async with self.getTestCore() as core:
+            q = '''
+                $seen00 = { [ meta:source=* :name=delnodeedge00 ] }
+                $seen01 = { [ meta:source=* :name=delnodeedge01 ] }
+                $refs = { [ it:dev:str=foobar ] }
+                $_ = { [test:str=foo <(seen)+ $seen00 <(seen)+ $seen01]}
+                $_ = { [test:str=bar <(seen)+ $seen00 +(refs)> $refs] }
+                $_ = { [test:str=baz] }
+                $_ = { [test:str=woot <(seen)+ $seen00 +(refs)> $refs] }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('meta:source:name=delnodeedge00')
+            self.len(1, nodes)
+            seen00 = nodes[0]
+
+            nodes = await core.nodes('meta:source:name=delnodeedge01')
+            self.len(1, nodes)
+            seen01 = nodes[0]
+
+            nodes = await core.nodes('it:dev:str=foobar')
+            self.len(1, nodes)
+            refs = nodes[0]
+
+            # Delete n2 edge
+            nodes = await core.nodes('test:str=foo')
+            self.len(1, nodes)
+            self.len(0, await s_test.alist(nodes[0].iterEdgesN1()))
+            self.sorteq(await s_test.alist(nodes[0].iterEdgesN2()), [('seen', seen00.iden()), ('seen', seen01.iden())])
+
+            q = '''
+                $seen00 = { meta:source:name=delnodeedge00 }
+                test:str=foo
+                $lib.layer.get().delEdge($seen00, seen, $node)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str=foo')
+            self.len(1, nodes)
+            self.len(0, await s_test.alist(nodes[0].iterEdgesN1()))
+            self.eq(await s_test.alist(nodes[0].iterEdgesN2()), [('seen', seen01.iden())])
+
+            # Delete n1 edge
+            nodes = await core.nodes('test:str=bar')
+            self.len(1, nodes)
+            self.sorteq(await s_test.alist(nodes[0].iterEdgesN1()), [('refs', refs.iden())])
+            self.sorteq(await s_test.alist(nodes[0].iterEdgesN2()), [('seen', seen00.iden())])
+
+            q = '''
+                $refs = { it:dev:str=foobar }
+                test:str=bar
+                $lib.layer.get().delEdge($node, refs, $refs)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str=bar')
+            self.len(1, nodes)
+            self.len(0, await s_test.alist(nodes[0].iterEdgesN1()))
+            self.eq(await s_test.alist(nodes[0].iterEdgesN2()), [('seen', seen00.iden())])
+
+            # No edits to make
+            nodes = await core.nodes('test:str=baz')
+            self.len(1, nodes)
+            self.len(0, await s_test.alist(nodes[0].iterEdgesN1()))
+            self.len(0, await s_test.alist(nodes[0].iterEdgesN2()))
+
+            q = '''
+                $refs = { it:dev:str=foobar }
+                test:str=baz
+                $lib.layer.get().delEdge($node, refs, $refs)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            # insufficient perms
+            lowuser = await core.auth.addUser('lowuser')
+            await lowuser.addRule((True, ('node', 'add', 'test:str')))
+
+            nodes = await core.nodes('test:str=woot')
+            self.len(1, nodes)
+            self.len(1, await s_test.alist(nodes[0].iterEdgesN1()))
+            self.len(1, await s_test.alist(nodes[0].iterEdgesN2()))
+
+            q = '''
+                $seen = { meta:source:name=delnodeedge00 }
+                test:str=woot
+                $lib.layer.get().delEdge($seen, seen, $node)
+            '''
+            msgs = await core.stormlist(q, opts={'user': lowuser.iden})
+            self.stormIsInErr('delEdge() requires admin privileges.', msgs)
+
+            nodes = await core.nodes('test:str=woot')
+            self.len(1, nodes)
+            self.len(1, await s_test.alist(nodes[0].iterEdgesN1()))
+            self.len(1, await s_test.alist(nodes[0].iterEdgesN2()))
+
+            # Readonly layer
+            layer = core.view.layers[0]
+            await layer.setLayerInfo('readonly', True)
+            msgs = await core.stormlist(q)
+            self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
+
+            nodes = await core.nodes('test:str=woot')
+            self.len(1, nodes)
+            self.len(1, await s_test.alist(nodes[0].iterEdgesN1()))
+            self.len(1, await s_test.alist(nodes[0].iterEdgesN2()))
 
     async def test_storm_lib_fire(self):
         async with self.getTestCore() as core:
@@ -2626,6 +3220,97 @@ class StormTypesTest(s_test.SynTest):
                     self.eq({('test:str', '1234'), ('test:int', 1234)},
                             {pode[0] for pode in podes})
 
+    async def test_persistent_vars_mutability(self):
+
+        with self.getTestDir() as dirn:
+            dirn00 = s_common.gendir(dirn, 'core00')
+            dirn01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+                valu = await core00.callStorm('return($lib.globals.get(newp))')
+                self.none(valu)
+
+                valu = await core00.callStorm('return($lib.globals.set(testlist, (foo, bar, baz)))')
+                self.eq(valu, ['foo', 'bar', 'baz'])
+
+                valu = await core00.callStorm('return($lib.globals.set(testdict, ({"foo": "bar"})))')
+                self.eq(valu, {'foo': 'bar'})
+
+                # Can mutate list values?
+                valu = await core00.callStorm('$tl = $lib.globals.get(testlist) $tl.rem(bar) return($tl)')
+                self.eq(valu, ['foo', 'baz'])
+
+                # List mutations don't persist
+                valu = await core00.callStorm('return($lib.globals.get(testlist))')
+                self.eq(valu, ['foo', 'bar', 'baz'])
+
+                # Can mutate dict values?
+                valu = await core00.callStorm('$td = $lib.globals.get(testdict) $td.bar=foo return($td)')
+                self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
+
+                # Dict mutations don't persist
+                valu = await core00.callStorm('return($lib.globals.get(testdict))')
+                self.eq(valu, {'foo': 'bar'})
+
+                # Global list returns mutable objects
+                q = '''
+                    $ret = ({})
+                    for ($key, $val) in $lib.globals.list() {
+                        if ($key = "cortex:runtime:stormfixes") { continue }
+                        $ret.$key = $val
+                    }
+                    $ret.testdict.boo = bar
+                    $ret.testlist.append(moo)
+                    return($ret)
+                '''
+                valu = await core00.callStorm(q)
+                self.eq(valu, {
+                    'testdict': {'boo': 'bar', 'foo': 'bar'},
+                    'testlist': ['foo', 'bar', 'baz', 'moo'],
+                })
+
+                # Pop returns mutable objects
+                q = '''
+                    $tl = $lib.globals.pop(testlist)
+                    $tl.rem(foo)
+                    $ret = ({})
+                    for ($key, $val) in $lib.globals.list() {
+                        if ($key = "cortex:runtime:stormfixes") { continue }
+                        $ret.$key = $val
+                    }
+                    return(($tl, $ret))
+                '''
+                valu = await core00.callStorm(q)
+                self.len(2, valu)
+                self.eq(valu[0], ['bar', 'baz'])
+                self.eq(valu[1], {
+                    'testdict': {'foo': 'bar'},
+                })
+
+            s_t_backup.backup(dirn00, dirn01)
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+
+                url = core00.getLocalUrl()
+
+                conf01 = {'mirror': url}
+
+                async with self.getTestCore(dirn=dirn01, conf=conf01) as core01:
+
+                    # Check pass by reference of default values works on a mirror
+                    q = '''
+                        $default = ({"foo": "bar"})
+                        $valu = $lib.globals.pop(newp01, $default)
+                        $valu.foo01 = bar01
+                        return(($valu, $default))
+                    '''
+                    valu = await core01.callStorm(q)
+                    self.len(2, valu)
+                    self.eq(valu, [
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                    ])
+
     async def test_storm_lib_time(self):
 
         async with self.getTestCore() as core:
@@ -2760,6 +3445,18 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.callStorm(query)
             self.false(mesgs[0])
             self.isin('Ambiguous time', mesgs[1]['errinfo']['mesg'])
+
+            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.iso8601))')
+            self.eq(valu, '2025-10-02T00:00:00Z')
+
+            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.iso8601us))')
+            self.eq(valu, '2025-10-02T00:00:00.000000Z')
+
+            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.rfc2822))')
+            self.eq(valu, '02 Oct 2025 00:00:00 UT')
+
+            valu = await core.callStorm('return($lib.time.format($lib.cast(time, 20251002), $lib.time.formats.synapse))')
+            self.eq(valu, '2025/10/02 00:00:00.000000')
 
     async def test_storm_lib_time_ticker(self):
 
@@ -5639,6 +6336,76 @@ class StormTypesTest(s_test.SynTest):
             q = '$tally = $lib.stats.tally() $tally.inc(foo) $tally.inc(foo) return($tally)'
             self.eq({'foo': 2}, await core.callStorm(q))
 
+    async def test_stormtypes_tobuid(self):
+        async with self.getTestCore() as core:
+
+            buid = s_common.buid()
+            sode = (
+                buid,
+                {
+                    'ndef': ('it:dev:str', 'foobar'),
+                }
+            )
+
+            async with await core.snap() as snap:
+                node = s_node.Node(snap, sode)
+                snode = s_stormtypes.Node(node)
+
+                self.eq(await s_stormtypes.tobuid(node), buid)
+                self.eq(await s_stormtypes.tobuid(snode), buid)
+
+            self.eq(await s_stormtypes.tobuid(buid.hex()), buid)
+            self.eq(await s_stormtypes.tobuid(buid), buid)
+
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuid('newp')
+            self.eq(exc.exception.get('mesg'), 'Invalid buid string: newp')
+
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuid([])
+            self.eq(exc.exception.get('mesg'), 'Invalid buid valu: ()')
+
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuid(b'newp')
+            self.eq(exc.exception.get('mesg'), "Invalid buid valu: b'newp'")
+
+    async def test_stormtypes_tobuidhex(self):
+        async with self.getTestCore() as core:
+
+            self.none(await s_stormtypes.tobuidhex(None, noneok=True))
+
+            buid = s_common.buid()
+            buidhex = s_common.ehex(buid)
+            sode = (
+                buid,
+                {
+                    'ndef': ('it:dev:str', 'foobar'),
+                }
+            )
+
+            async with await core.snap() as snap:
+                node = s_node.Node(snap, sode)
+                snode = s_stormtypes.Node(node)
+
+                self.eq(await s_stormtypes.tobuidhex(node), buidhex)
+                self.eq(await s_stormtypes.tobuidhex(snode), buidhex)
+
+            self.eq(await s_stormtypes.tobuidhex(buidhex), buidhex)
+            self.eq(await s_stormtypes.tobuidhex(buid), buidhex)
+
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuidhex('newp')
+            self.eq(exc.exception.get('mesg'), 'Invalid buid string: newp')
+
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuidhex([])
+            self.eq(exc.exception.get('mesg'), 'Invalid buid valu: ()')
+
+            newp = b'newp'
+            with self.raises(s_exc.BadCast) as exc:
+                await s_stormtypes.tobuidhex(newp)
+            self.eq(exc.exception.get('mesg'), "Invalid buid valu: b'newp'")
+
     async def test_print_warn(self):
         async with self.getTestCore() as core:
             q = '$lib.print(hello)'
@@ -7399,103 +8166,3 @@ words\tword\twrd'''
 
             q = 'return($lib.axon.unpack($sha256, fmt=">Q", offs=24))'
             await self.asyncraises(s_exc.BadDataValu, core.callStorm(q, opts=opts))
-
-    async def test_storm_pkg_vars(self):
-        with self.getTestDir() as dirn:
-
-            async with self.getTestCore(dirn=dirn) as core:
-
-                lowuser = await core.addUser('lowuser')
-                aslow = {'user': lowuser.get('iden')}
-                await core.callStorm('auth.user.addrule lowuser node')
-
-                # basic crud
-
-                self.none(await core.callStorm('return($lib.pkg.vars(pkg0).bar)'))
-                self.none(await core.callStorm('$varz=$lib.pkg.vars(pkg0) $varz.baz=$lib.undef return($varz.baz)'))
-                self.eq([], await core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
-                    return($kvs)
-                '''))
-
-                await core.callStorm('$lib.pkg.vars(pkg0).bar = cat')
-                await core.callStorm('$lib.pkg.vars(pkg0).baz = dog')
-
-                await core.callStorm('$lib.pkg.vars(pkg1).bar = emu')
-                await core.callStorm('$lib.pkg.vars(pkg1).baz = groot')
-
-                self.eq('cat', await core.callStorm('return($lib.pkg.vars(pkg0).bar)'))
-                self.eq('dog', await core.callStorm('return($lib.pkg.vars(pkg0).baz)'))
-                self.eq('emu', await core.callStorm('return($lib.pkg.vars(pkg1).bar)'))
-                self.eq('groot', await core.callStorm('return($lib.pkg.vars(pkg1).baz)'))
-
-                self.sorteq([('bar', 'cat'), ('baz', 'dog')], await core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
-                    return($kvs)
-                '''))
-                self.sorteq([('bar', 'emu'), ('baz', 'groot')], await core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg1) { $kvs.append($kv) }
-                    return($kvs)
-                '''))
-
-                await core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef')
-                self.none(await core.callStorm('return($lib.pkg.vars(pkg0).baz)'))
-
-                # perms
-
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.print($lib.pkg.vars(pkg0))', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('return($lib.pkg.vars(pkg0).baz)', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.pkg.vars(pkg0).baz = cool', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
-                    return($kvs)
-                ''', opts=aslow))
-                await self.asyncraises(s_exc.AuthDeny, core.callStorm('''
-                    [ test:str=foo ]
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
-                    fini { return($kvs) }
-                ''', opts=aslow))
-
-                await core.callStorm('auth.user.addrule lowuser "power-ups.pkg0.admin"')
-
-                self.stormHasNoWarnErr(await core.nodes('$lib.print($lib.pkg.vars(pkg0))', opts=aslow))
-                await core.callStorm('$lib.pkg.vars(pkg0).baz = cool', opts=aslow)
-                self.eq('cool', await core.callStorm('return($lib.pkg.vars(pkg0).baz)', opts=aslow))
-                await core.callStorm('$lib.pkg.vars(pkg0).baz = $lib.undef', opts=aslow)
-                self.eq([('bar', 'cat')], await core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
-                    return($kvs)
-                ''', opts=aslow))
-                self.eq([('bar', 'cat')], await core.callStorm('''
-                    [ test:str=foo ]
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
-                    fini { return($kvs) }
-                ''', opts=aslow))
-
-            async with self.getTestCore(dirn=dirn) as core:
-
-                # data persists
-
-                self.eq('cat', await core.callStorm('return($lib.pkg.vars(pkg0).bar)'))
-                self.none(await core.callStorm('return($lib.pkg.vars(pkg0).baz)'))
-                self.eq('emu', await core.callStorm('return($lib.pkg.vars(pkg1).bar)'))
-                self.eq('groot', await core.callStorm('return($lib.pkg.vars(pkg1).baz)'))
-
-                self.sorteq([('bar', 'cat')], await core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg0) { $kvs.append($kv) }
-                    return($kvs)
-                '''))
-                self.sorteq([('bar', 'emu'), ('baz', 'groot')], await core.callStorm('''
-                    $kvs = ([])
-                    for $kv in $lib.pkg.vars(pkg1) { $kvs.append($kv) }
-                    return($kvs)
-                '''))

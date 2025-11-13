@@ -312,6 +312,18 @@ class StormTypesRegistry:
         locl = getattr(obj, funcname, None)
         assert locl is not None, f'bad _funcname=[{funcname}] for {obj} {info.get("name")}'
         args = rtype.get('args', ())
+        for idx, arg in enumerate(args):
+            argname = arg.get('name')
+            assert argname is not None, f'Argument at index {idx} has no name'
+            argtype = arg.get('type')
+            assert argtype is not None, f'The type for argument {argname} of function {funcname} is unknown'
+            if isinstance(argtype, (list, tuple)):
+                for atyp in argtype:
+                    if atyp not in self.known_types and atyp not in self.undefined_types:
+                        raise s_exc.NoSuchType(mesg=f'The argument type {atyp} for arg {argname} of function {obj.__name__}.{funcname} is unknown.', type=argtype)
+            else:
+                if argtype not in self.known_types and argtype not in self.undefined_types:
+                    raise s_exc.NoSuchType(mesg=f'The argument type {argtype} for arg {argname} of function {obj.__name__}.{funcname} is unknown.', type=argtype)
         callsig = getCallSig(locl)
         # Assert the callsigs match
         callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
@@ -686,117 +698,6 @@ class Lib(StormType):
     async def dyniter(self, iden, todo, gatekeys=()):
         async for item in self.runt.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
-
-@registry.registerLib
-class LibPkg(Lib):
-    '''
-    A Storm Library for interacting with Storm Packages.
-    '''
-    _storm_locals = (
-        {'name': 'add', 'desc': 'Add a Storm Package to the Cortex.',
-         'type': {'type': 'function', '_funcname': '_libPkgAdd',
-                  'args': (
-                      {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
-                      {'name': 'verify', 'type': 'boolean', 'default': False,
-                       'desc': 'Verify storm package signature.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get a Storm Package from the Cortex.',
-         'type': {'type': 'function', '_funcname': '_libPkgGet',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'A Storm Package name.', },
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'The Storm package definition.', }}},
-        {'name': 'has', 'desc': 'Check if a Storm Package is available in the Cortex.',
-         'type': {'type': 'function', '_funcname': '_libPkgHas',
-                  'args': (
-                      {'name': 'name', 'type': 'str',
-                       'desc': 'A Storm Package name to check for the existence of.', },
-                  ),
-                  'returns': {'type': 'boolean',
-                              'desc': 'True if the package exists in the Cortex, False if it does not.', }}},
-        {'name': 'del', 'desc': 'Delete a Storm Package from the Cortex.',
-         'type': {'type': 'function', '_funcname': '_libPkgDel',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the package to delete.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'list', 'desc': 'Get a list of Storm Packages loaded in the Cortex.',
-         'type': {'type': 'function', '_funcname': '_libPkgList',
-                  'returns': {'type': 'list', 'desc': 'A list of Storm Package definitions.', }}},
-        {'name': 'deps', 'desc': 'Verify the dependencies for a Storm Package.',
-         'type': {'type': 'function', '_funcname': '_libPkgDeps',
-                  'args': (
-                      {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary listing dependencies and if they are met.', }}},
-        {'name': 'vars',
-         'desc': "Get a dictionary representing the package's persistent variables.",
-         'type': {'type': 'function', '_funcname': '_libPkgVars',
-                  'args': (
-                      {'name': 'name', 'type': 'str',
-                       'desc': 'A Storm Package name to get vars for.', },
-                  ),
-                  'returns': {'type': 'pkg:vars', 'desc': 'A dictionary representing the package variables.', }}},
-    )
-    _storm_lib_perms = (
-        {'perm': ('power-ups', '<name>', 'admin'), 'gate': 'cortex',
-         'desc': 'Controls the ability to interact with the vars for a Storm Package by name.'},
-    )
-    _storm_lib_path = ('pkg',)
-
-    def getObjLocals(self):
-        return {
-            'add': self._libPkgAdd,
-            'get': self._libPkgGet,
-            'has': self._libPkgHas,
-            'del': self._libPkgDel,
-            'list': self._libPkgList,
-            'deps': self._libPkgDeps,
-            'vars': self._libPkgVars,
-        }
-
-    async def _libPkgAdd(self, pkgdef, verify=False):
-        self.runt.confirm(('pkg', 'add'), None)
-        pkgdef = await toprim(pkgdef)
-        verify = await tobool(verify)
-        await self.runt.snap.core.addStormPkg(pkgdef, verify=verify)
-
-    @stormfunc(readonly=True)
-    async def _libPkgGet(self, name):
-        name = await tostr(name)
-        pkgdef = await self.runt.snap.core.getStormPkg(name)
-        if pkgdef is None:
-            return None
-
-        return Dict(pkgdef)
-
-    @stormfunc(readonly=True)
-    async def _libPkgHas(self, name):
-        name = await tostr(name)
-        pkgdef = await self.runt.snap.core.getStormPkg(name)
-        if pkgdef is None:
-            return False
-        return True
-
-    async def _libPkgDel(self, name):
-        self.runt.confirm(('pkg', 'del'), None)
-        await self.runt.snap.core.delStormPkg(name)
-
-    @stormfunc(readonly=True)
-    async def _libPkgList(self):
-        pkgs = await self.runt.snap.core.getStormPkgs()
-        return list(sorted(pkgs, key=lambda x: x.get('name')))
-
-    @stormfunc(readonly=True)
-    async def _libPkgDeps(self, pkgdef):
-        pkgdef = await toprim(pkgdef)
-        return await self.runt.snap.core.verifyStormPkgDeps(pkgdef)
-
-    async def _libPkgVars(self, name):
-        name = await tostr(name)
-        confirm(('power-ups', name, 'admin'))
-        return PkgVars(self.runt, name)
 
 @registry.registerLib
 class LibDmon(Lib):
@@ -1454,7 +1355,7 @@ class LibBase(Lib):
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to normalize.', },
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'A list of (<bool>, <prim>) for status and normalized value.', }}},
+                              'desc': 'A list of (<boolean>, <prim>) for status and normalized value.', }}},
         {'name': 'repr', 'desc': '''
             Attempt to convert a system mode value to a display mode string.
 
@@ -1583,16 +1484,31 @@ class LibBase(Lib):
 
             if not asroot:
                 permtext = ' or '.join(('.'.join(p) for p in rootperms))
-                mesg = f'Module ({name}) requires permission: {permtext}'
-                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+                match mdef.get('asroot:ondeny:import', 'deny'):
+                    case 'allow':
+                        pass
+                    case 'warn':
+                        mesg = f'Module ({name}) permissions will not be elevated. Missing permission: {permtext}.'
+                        await self.runt.warnonce(mesg, log=False)
+                    case _:
+                        mesg = f'Module ({name}) requires permission: {permtext}'
+                        raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         else:
             perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
             asroot = self.runt.allowed(perm)
 
-            if mdef.get('asroot', False) and not asroot:
-                mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
-                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+            if mdef.get('asroot', False):
+                mesg = f'Module ({name}) requires asroot permission but does not specify any asroot:perms. ' \
+                        'storm.asroot.mod.<modname> style permissons are deprecated and will be removed in v3.0.0.'
+
+                s_common.deprecated('Storm module asroot key', curv='2.226.0', eolv='3.0.0')
+                await self.runt.warnonce(mesg, log=False)
+
+                if not asroot:
+                    mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
+                    raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
         modr.asroot = asroot
@@ -1881,6 +1797,12 @@ class LibDict(Lib):
                       {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
                   ),
                   'returns': {'type': 'list', 'desc': 'List of keys in the specified dictionary.', }}},
+        {'name': 'fromlist', 'desc': 'Construct a dictionary from a list of key/value tuples.',
+         'type': {'type': 'function', '_funcname': '_fromlist',
+                  'args': (
+                      {'name': 'valu', 'type': 'list', 'desc': 'The list of key/value tuples.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The new dictionary.', }}},
         {'name': 'pop', 'desc': 'Remove specified key and return the corresponding value.',
          'type': {'type': 'function', '_funcname': '_pop',
                   'args': (
@@ -1910,6 +1832,7 @@ class LibDict(Lib):
         return {
             'has': self._has,
             'keys': self._keys,
+            'fromlist': self._fromlist,
             'pop': self._pop,
             'update': self._update,
             'values': self._values,
@@ -1939,6 +1862,28 @@ class LibDict(Lib):
         await self._check_type(valu)
         valu = await toprim(valu)
         return list(valu.keys())
+
+    @stormfunc(readonly=True)
+    async def _fromlist(self, valu):
+        valu = await toprim(valu)
+        if not isinstance(valu, (list, tuple)):
+            mesg = '$lib.dict.fromlist() argument must be an array.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        for item in valu:
+            if not isinstance(item, (list, tuple)):
+                mesg = '$lib.dict.fromlist() array elements must be an array.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if len(item) != 2:
+                mesg = '$lib.dict.fromlist() argument must be an array of (key, value) pairs.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if not isinstance(item[0], (str, int)):
+                mesg = '$lib.dict.fromlist() keys must be str or int types.'
+                raise s_exc.BadArg(mesg=mesg)
+
+        return s_msgpack.deepcopy(dict(valu), use_list=True)
 
     @stormfunc(readonly=True)
     async def _pop(self, valu, key, default=undef):
@@ -2001,6 +1946,7 @@ class LibPs(Lib):
          'type': {'type': 'function', '_funcname': '_list',
                   'returns': {'type': 'list', 'desc': 'A list of task definitions.', }}},
     )
+    _storm_lib_deprecation = {'eolvers': 'v3.0.0', 'mesg': 'Use the corresponding ``$lib.task`` function.'}
     _storm_lib_path = ('ps',)
 
     def getObjLocals(self):
@@ -2159,7 +2105,7 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'str'],
                        'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
@@ -2182,7 +2128,7 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'str'],
                        'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
@@ -2212,7 +2158,7 @@ class LibAxon(Lib):
         ''',
          'type': {'type': 'function', '_funcname': 'del_',
                   'args': (
-                      {'name': 'sha256', 'type': 'hash:sha256',
+                      {'name': 'sha256', 'type': 'str',
                        'desc': 'The sha256 of the bytes to remove from the Axon.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the bytes were found and removed.'}}},
@@ -3059,7 +3005,13 @@ class LibTime(Lib):
 
                     storm> $now=$lib.time.now() $str=$lib.time.format($now, '%A %d, %B %Y') $lib.print($str)
 
-                    Tuesday 14, July 2020''',
+                    Tuesday 14, July 2020
+
+                Format a timestamp into a string using included format string::
+
+                    storm> $now=$lib.time.now() $str=$lib.time.format($now, $lib.time.formats.iso8601) $lib.print($str)
+
+                    2025-10-02T09:34:00Z''',
          'type': {'type': 'function', '_funcname': '_format',
                   'args': (
                       {'name': 'valu', 'type': 'int', 'desc': 'A timestamp in epoch milliseconds.', },
@@ -3194,6 +3146,10 @@ class LibTime(Lib):
                       {'name': 'timezone', 'desc': 'A timezone name. See python pytz docs for options.', 'type': 'str'},
                   ),
                   'returns': {'type': 'list', 'desc': 'An ($ok, $valu) tuple.', }}},
+        {'name': 'formats.iso8601', 'desc': 'ISO8601 time format string in UTC timezone (Z).', 'type': 'str'},
+        {'name': 'formats.iso8601us', 'desc': 'ISO8601 time format string (with microseconds) in UTC timezone (Z).', 'type': 'str'},
+        {'name': 'formats.rfc2822', 'desc': 'RFC 2822 time format string in UT timezone.', 'type': 'str'},
+        {'name': 'formats.synapse', 'desc': 'Synapse time format string.', 'type': 'str'},
     )
     _storm_lib_path = ('time',)
 
@@ -3218,6 +3174,13 @@ class LibTime(Lib):
             'dayofyear': self.dayofyear,
             'dayofmonth': self.dayofmonth,
             'monthofyear': self.monthofyear,
+
+            'formats': {
+                'iso8601': '%Y-%m-%dT%H:%M:%SZ',
+                'iso8601us': '%Y-%m-%dT%H:%M:%S.%fZ',
+                'rfc2822': '%d %b %Y %H:%M:%S UT',
+                'synapse': '%Y/%m/%d %H:%M:%S.%f',
+            },
         }
 
     @stormfunc(readonly=True)
@@ -3936,22 +3899,22 @@ class LibQueue(Lib):
         {'name': 'add', 'desc': 'Add a Queue to the Cortex with a given name.',
          'type': {'type': 'function', '_funcname': '_methQueueAdd',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to add.', },
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to add.', },
                   ),
                   'returns': {'type': 'queue', }}},
-        {'name': 'gen', 'desc': 'Add or get a Storm Queue in a single operation.',
+        {'name': 'gen', 'desc': 'Add or get a Queue in a single operation.',
          'type': {'type': 'function', '_funcname': '_methQueueGen',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to add or get.', },
                   ),
                   'returns': {'type': 'queue', }}},
-        {'name': 'del', 'desc': 'Delete a given named Queue.',
+        {'name': 'del', 'desc': 'Delete a given Queue.',
          'type': {'type': 'function', '_funcname': '_methQueueDel',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to delete.', },
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to delete.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get an existing Storm Queue object.',
+        {'name': 'get', 'desc': 'Get an existing Queue.',
          'type': {'type': 'function', '_funcname': '_methQueueGet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to get.', },
@@ -3960,17 +3923,17 @@ class LibQueue(Lib):
         {'name': 'list', 'desc': 'Get a list of the Queues in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methQueueList',
                   'returns': {'type': 'list',
-                              'desc': 'A list of queue definitions the current user is allowed to interact with.', }}},
+                              'desc': 'A list of Queue definitions the current user is allowed to interact with.', }}},
     )
     _storm_lib_perms = (
         {'perm': ('queue', 'add'), 'gate': 'cortex',
-         'desc': 'Permits a user to create a named queue.'},
+         'desc': 'Permits a user to create a Queue.'},
         {'perm': ('queue', 'get'), 'gate': 'queue',
-         'desc': 'Permits a user to access a queue. This allows the user to read from the queue and remove items from it.'},
+         'desc': 'Permits a user to access a Queue. This allows the user to read from the Queue and remove items from it.'},
         {'perm': ('queue', 'put'), 'gate': 'queue',
-         'desc': 'Permits a user to put items into a queue.'},
+         'desc': 'Permits a user to put items into a Queue.'},
         {'perm': ('queue', 'del'), 'gate': 'queue',
-         'desc': 'Permits a user to delete a queue.'},
+         'desc': 'Permits a user to delete a Queue.'},
     )
     _storm_lib_path = ('queue',)
 
@@ -4033,7 +3996,7 @@ class LibQueue(Lib):
 @registry.registerType
 class Queue(StormType):
     '''
-    A StormLib API instance of a named channel in the Cortex multiqueue.
+    A StormLib API instance of a named channel in the Cortex MultiQueue.
     '''
     _storm_locals = (
         {'name': 'name', 'desc': 'The name of the Queue.', 'type': 'str', },
@@ -4047,48 +4010,48 @@ class Queue(StormType):
                        'desc': 'Wait for the offset to be available before returning the item.', },
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'A tuple of the offset and the item from the queue. If wait is false and '
+                              'desc': 'A tuple of the offset and the item from the Queue. If wait is false and '
                                       'the offset is not present, null is returned.', }}},
-        {'name': 'pop', 'desc': 'Pop a item from the Queue at a specific offset.',
+        {'name': 'pop', 'desc': 'Pop an item from the Queue at a specific offset.',
          'type': {'type': 'function', '_funcname': '_methQueuePop',
                   'args': (
                       {'name': 'offs', 'type': 'int', 'default': None,
-                        'desc': 'Offset to pop the item from. If not specified, the first item in the queue will be'
+                        'desc': 'Offset to pop the item from. If not specified, the first item in the Queue will be'
                                 ' popped.', },
                       {'name': 'wait', 'type': 'boolean', 'default': False,
                         'desc': 'Wait for an item to be available to pop.'},
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'The offset and item popped from the queue. If there is no item at the '
-                                      'offset or the  queue is empty and wait is false, it returns null.', }}},
-        {'name': 'put', 'desc': 'Put an item into the queue.',
+                              'desc': 'The offset and item popped from the Queue. If there is no item at the '
+                                      'offset or the Queue is empty and wait is false, it returns null.', }}},
+        {'name': 'put', 'desc': 'Put an item into the Queue.',
          'type': {'type': 'function', '_funcname': '_methQueuePut',
                   'args': (
-                      {'name': 'item', 'type': 'prim', 'desc': 'The item being put into the queue.', },
+                      {'name': 'item', 'type': 'prim', 'desc': 'The item being put into the Queue.', },
                   ),
-                  'returns': {'type': 'int', 'desc': 'The queue offset of the item.'}}},
+                  'returns': {'type': 'int', 'desc': 'The Queue offset of the item.'}}},
         {'name': 'puts', 'desc': 'Put multiple items into the Queue.',
          'type': {'type': 'function', '_funcname': '_methQueuePuts',
                   'args': (
                       {'name': 'items', 'type': 'list', 'desc': 'The items to put into the Queue.', },
                   ),
-                  'returns': {'type': 'int', 'desc': 'The queue offset of the first item.'}}},
+                  'returns': {'type': 'int', 'desc': 'The Queue offset of the first item.'}}},
         {'name': 'gets', 'desc': 'Get multiple items from the Queue as a iterator.',
          'type': {'type': 'function', '_funcname': '_methQueueGets',
                   'args': (
-                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to retrieve an items from.', 'default': 0, },
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to retrieve items from.', 'default': 0, },
                       {'name': 'wait', 'type': 'boolean', 'default': True,
                        'desc': 'Wait for the offset to be available before returning the item.', },
                       {'name': 'cull', 'type': 'boolean', 'default': False,
                        'desc': 'Culls items up to, but not including, the specified offset.', },
-                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of items to yield',
+                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of items to yield.',
                        'default': None, },
                   ),
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Yields tuples of the offset and item.', }}},
-        {'name': 'cull', 'desc': 'Remove items from the queue up to, and including, the offset.',
+        {'name': 'cull', 'desc': 'Remove items from the Queue up to, and including, the offset.',
          'type': {'type': 'function', '_funcname': '_methQueueCull',
                   'args': (
-                      {'name': 'offs', 'type': 'int', 'desc': 'The offset which to cull records from the queue.', },
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset which to cull records from the Queue.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'size', 'desc': 'Get the number of items in the Queue.',
@@ -4967,6 +4930,24 @@ class Bytes(Prim):
                       {'name': 'offset', 'type': 'int', 'desc': 'An offset to begin unpacking from.', 'default': 0},
                   ),
                   'returns': {'type': 'list', 'desc': 'The unpacked primitive values.', }}},
+        {'name': 'xor', 'desc': '''
+            Perform an "exclusive or" bitwise operation on the bytes and another set of bytes.
+
+            Notes:
+                The key bytes provided as an argument will be repeated as needed until all bytes have been
+                xor'd.
+
+                If a string is provided as the key argument, it will be utf8 encoded before being xor'd.
+
+            Examples:
+                Perform an xor operation on the bytes in $encoded using the bytes in $key::
+
+                    $decoded = $encoded.xor($key)''',
+         'type': {'type': 'function', '_funcname': '_methXor',
+                  'args': (
+                      {'name': 'key', 'type': ['str', 'bytes'], 'desc': 'The key bytes to perform the xor operation with.'},
+                  ),
+                  'returns': {'type': 'bytes', 'desc': "The xor'd bytes."}}},
     )
     _storm_typename = 'bytes'
     _ismutable = False
@@ -4977,6 +4958,7 @@ class Bytes(Prim):
 
     def getObjLocals(self):
         return {
+            'xor': self._methXor,
             'decode': self._methDecode,
             'bunzip': self._methBunzip,
             'gunzip': self._methGunzip,
@@ -5064,6 +5046,26 @@ class Bytes(Prim):
 
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(valu))}') from None
+
+    @stormfunc(readonly=True)
+    async def _methXor(self, key):
+        key = await toprim(key)
+        if isinstance(key, str):
+            key = key.encode()
+
+        if not isinstance(key, bytes):
+            raise s_exc.BadArg(mesg='$bytes.xor() key argument must be bytes or a str.')
+
+        if len(key) == 0:
+            raise s_exc.BadArg(mesg='$bytes.xor() key length must be greater than 0.')
+
+        arry = bytearray(self.valu)
+        keylen = len(key)
+
+        for i in range(len(arry)):
+            arry[i] ^= key[i % keylen]
+
+        return bytes(arry)
 
 @registry.registerType
 class Dict(Prim):
@@ -5858,37 +5860,34 @@ class LibGlobals(Lib):
     @stormfunc(readonly=True)
     async def _methGet(self, name, default=None):
         self._reqStr(name)
-
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('globals', 'get', name), None),)
-        todo = s_common.todo('getStormVar', name, default=default)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        confirm(('globals', 'get', name))
+        valu = await self.runt.snap.core.getStormVar(name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _methPop(self, name, default=None):
         self._reqStr(name)
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('globals', 'pop', name), None),)
-        todo = s_common.todo('popStormVar', name, default=default)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        confirm(('globals', 'pop', name))
+        valu = await self.runt.snap.core.popStormVar(name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
         valu = await toprim(valu)
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('globals', 'set', name), None),)
-        todo = s_common.todo('setStormVar', name, valu)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        confirm(('globals', 'set', name))
+        return await self.runt.snap.core.setStormVar(name, valu)
 
     @stormfunc(readonly=True)
     async def _methList(self):
         ret = []
 
-        todo = ('itemsStormVar', (), {})
-
-        async for key, valu in self.runt.dyniter('cortex', todo):
+        async for key, valu in self.runt.snap.core.itemsStormVar():
             if allowed(('globals', 'get', key)):
                 ret.append((key, valu))
-        return ret
+        return s_msgpack.deepcopy(ret, use_list=True)
 
 @registry.registerType
 class StormHiveDict(Prim):
@@ -6036,45 +6035,6 @@ class LibVars(Lib):
     @stormfunc(readonly=True)
     async def _libVarsType(self, valu):
         return await totype(valu)
-
-@registry.registerType
-class PkgVars(Prim):
-    '''
-    The Storm deref/setitem/iter convention on top of pkg vars information.
-    '''
-    _storm_typename = 'pkg:vars'
-    _ismutable = True
-
-    def __init__(self, runt, valu, path=None):
-        Prim.__init__(self, valu, path=path)
-        self.runt = runt
-
-    def _reqPkgAdmin(self):
-        confirm(('power-ups', self.valu, 'admin'))
-
-    @stormfunc(readonly=True)
-    async def deref(self, name):
-        self._reqPkgAdmin()
-        name = await tostr(name)
-        return await self.runt.snap.core.getStormPkgVar(self.valu, name)
-
-    async def setitem(self, name, valu):
-        self._reqPkgAdmin()
-        name = await tostr(name)
-
-        if valu is undef:
-            await self.runt.snap.core.popStormPkgVar(self.valu, name)
-            return
-
-        valu = await toprim(valu)
-        await self.runt.snap.core.setStormPkgVar(self.valu, name, valu)
-
-    @stormfunc(readonly=True)
-    async def iter(self):
-        self._reqPkgAdmin()
-        async for name, valu in self.runt.snap.core.iterStormPkgVars(self.valu):
-            yield name, valu
-            await asyncio.sleep(0)
 
 @registry.registerType
 class Query(Prim):
@@ -7139,11 +7099,11 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'getStorNodesByProp',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The full property name to lift by.'},
-                      {'name': 'propvalu', 'type': 'obj', 'desc': 'The value for the property.', 'default': None},
+                      {'name': 'propvalu', 'type': 'prim', 'desc': 'The value for the property.', 'default': None},
                       {'name': 'propcmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.',
                        'default': '='},
                   ),
-                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of node iden, sode values.', }}},
         {'name': 'setStorNodeProp',
          'desc': 'Set a property on a node in this layer.',
          'type': {'type': 'function', '_funcname': 'setStorNodeProp',
@@ -7153,12 +7113,36 @@ class Layer(Prim):
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to set.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'delStorNode',
+         'desc': 'Delete a storage node, node data, and associated edges from a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delStorNode',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
         {'name': 'delStorNodeProp',
          'desc': 'Delete a property from a node in this layer.',
          'type': {'type': 'function', '_funcname': 'delStorNodeProp',
                   'args': (
                       {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                       {'name': 'prop', 'type': 'str', 'desc': 'The property name to delete.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'delNodeData',
+         'desc': 'Delete node data from a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delNodeData',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'name', 'type': 'str', 'default': None, 'desc': 'The node data key to delete.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
+        {'name': 'delEdge',
+         'desc': 'Delete edges from a node in this layer.',
+         'type': {'type': 'function', '_funcname': 'delEdge',
+                  'args': (
+                      {'name': 'nodeid1', 'type': 'str', 'desc': 'The hex string of the N1 node iden.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to delete.'},
+                      {'name': 'nodeid2', 'type': 'str', 'desc': 'The hex string of the N2 node iden.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Returns true if edits were made.'}}},
         {'name': 'getMirrorStatus', 'desc': '''
@@ -7215,7 +7199,7 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'liftByProp',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The full property name to lift by.'},
-                      {'name': 'propvalu', 'type': 'obj', 'desc': 'The value for the property.', 'default': None},
+                      {'name': 'propvalu', 'type': 'any', 'desc': 'The value for the property.', 'default': None},
                       {'name': 'propcmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
@@ -7257,6 +7241,16 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes.', }}},
 
+        {'name': 'hasEdge', 'desc': 'Check if a light edge between two nodes exists in the layer.',
+         'type': {'type': 'function', '_funcname': 'hasEdge',
+                  'args': (
+                      {'name': 'nodeid1', 'type': 'str', 'desc': 'The hex string of the N1 node iden.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb.'},
+                      {'name': 'nodeid2', 'type': 'str', 'desc': 'The hex string of the N2 node iden.'},
+                  ),
+                  'returns': {'type': 'boolean',
+                              'desc': 'True if the edge exists in the layer, False if it does not.', }}},
+
         {'name': 'getEdges', 'desc': '''
             Yield (n1iden, verb, n2iden) tuples for any light edges in the layer.
 
@@ -7287,6 +7281,7 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'getEdgesByN1',
                   'args': (
                       {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'An optional edge verb to filter by.', 'default': None},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n2iden>) tuples', }}},
@@ -7304,6 +7299,7 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'getEdgesByN2',
                   'args': (
                       {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'An optional edge verb to filter by.', 'default': None},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
@@ -7366,6 +7362,7 @@ class Layer(Prim):
             'delPush': self._delPush,
             'addPull': self._addPull,
             'delPull': self._delPull,
+            'hasEdge': self.hasEdge,
             'getEdges': self.getEdges,
             'liftByTag': self.liftByTag,
             'liftByProp': self.liftByProp,
@@ -7385,7 +7382,10 @@ class Layer(Prim):
             'getNodeData': self.getNodeData,
             'getMirrorStatus': self.getMirrorStatus,
             'setStorNodeProp': self.setStorNodeProp,
+            'delStorNode': self.delStorNode,
             'delStorNodeProp': self.delStorNodeProp,
+            'delNodeData': self.delNodeData,
+            'delEdge': self.delEdge,
         }
 
     @stormfunc(readonly=True)
@@ -7403,8 +7403,7 @@ class Layer(Prim):
         async for _, buid, sode in layr.liftByTag(tagname, form=formname):
             yield await self.runt.snap._joinStorNode(buid, {iden: sode})
 
-    @stormfunc(readonly=True)
-    async def liftByProp(self, propname, propvalu=None, propcmpr='='):
+    async def _liftByProp(self, propname, propvalu=None, propcmpr='='):
 
         propname = await tostr(propname)
         propvalu = await toprim(propvalu)
@@ -7432,12 +7431,18 @@ class Layer(Prim):
 
         if propvalu is None:
             async for _, buid, sode in layr.liftByProp(liftform, liftprop):
-                yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+                yield buid, sode
             return
 
         norm, info = prop.type.norm(propvalu)
         cmprvals = prop.type.getStorCmprs(propcmpr, norm)
         async for _, buid, sode in layr.liftByPropValu(liftform, liftprop, cmprvals):
+            yield buid, sode
+
+    @stormfunc(readonly=True)
+    async def liftByProp(self, propname, propvalu=None, propcmpr='='):
+        iden = self.valu.get('iden')
+        async for buid, sode in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
             yield await self.runt.snap._joinStorNode(buid, {iden: sode})
 
     @stormfunc(readonly=True)
@@ -7460,23 +7465,55 @@ class Layer(Prim):
         return await layr.getMirrorStatus()
 
     async def setStorNodeProp(self, nodeid, prop, valu):
-        iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
-        buid = s_common.uhex(await tostr(nodeid))
+        buid = await tobuid(nodeid)
         prop = await tostr(prop)
         valu = await tostor(valu)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
         self.runt.reqAdmin(mesg='setStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.setStorNodeProp(buid, prop, valu, meta=meta)
 
-    async def delStorNodeProp(self, nodeid, prop):
+    async def delStorNode(self, nodeid):
+        buid = await tobuid(nodeid)
+
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
-        buid = s_common.uhex(await tostr(nodeid))
+        self.runt.reqAdmin(mesg='delStorNode() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delStorNode(buid, meta=meta)
+
+    async def delStorNodeProp(self, nodeid, prop):
+        buid = await tobuid(nodeid)
         prop = await tostr(prop)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
         self.runt.reqAdmin(mesg='delStorNodeProp() requires admin privileges.')
         meta = {'time': s_common.now(), 'user': self.runt.user.iden}
         return await layr.delStorNodeProp(buid, prop, meta=meta)
+
+    async def delNodeData(self, nodeid, name=None):
+        buid = await tobuid(nodeid)
+        name = await tostr(name, noneok=True)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        self.runt.reqAdmin(mesg='delNodeData() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delNodeData(buid, meta=meta, name=name)
+
+    async def delEdge(self, nodeid1, verb, nodeid2):
+        n1buid = await tobuid(nodeid1)
+        verb = await tostr(verb)
+        n2buid = await tobuid(nodeid2)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        self.runt.reqAdmin(mesg='delEdge() requires admin privileges.')
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+        return await layr.delEdge(n1buid, verb, n2buid, meta=meta)
 
     async def _addPull(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
         url = await tostr(url)
@@ -7709,7 +7746,8 @@ class Layer(Prim):
 
         layr = self.runt.snap.core.reqLayer(self.valu.get('iden'))
 
-        self.runt.confirm(('layer', 'edits', 'read'), gateiden=layr.iden)
+        if not self.runt.allowed(('layer', 'edits', 'read'), gateiden=layr.iden):
+            self.runt.confirm(('layer', 'read'), gateiden=layr.iden)
 
         if reverse:
             wait = False
@@ -7733,11 +7771,11 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def getStorNode(self, nodeid):
-        nodeid = await tostr(nodeid)
+        nodeid = await tobuid(nodeid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        return await layr.getStorNode(s_common.uhex(nodeid))
+        return await layr.getStorNode(nodeid)
 
     @stormfunc(readonly=True)
     async def getStorNodes(self):
@@ -7762,25 +7800,18 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def getStorNodesByProp(self, propname, propvalu=None, propcmpr='='):
-        propname = await tostr(propname)
-        propvalu = await tostor(propvalu)
-        propcmpr = await tostr(propcmpr)
+        async for buid, sode in self._liftByProp(propname, propvalu=propvalu, propcmpr=propcmpr):
+            yield s_common.ehex(buid), sode
 
+    @stormfunc(readonly=True)
+    async def hasEdge(self, nodeid1, verb, nodeid2):
+        nodeid1 = await tobuid(nodeid1)
+        verb = await tostr(verb)
+        nodeid2 = await tobuid(nodeid2)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-
-        prop = self.runt.snap.core.model.reqProp(propname)
-
-        if propvalu is not None:
-            norm, info = prop.type.norm(propvalu)
-            cmprvals = prop.type.getStorCmprs(propcmpr, norm)
-            async for _, buid, sode in layr.liftByPropValu(prop.form.name, prop.name, cmprvals):
-                yield (s_common.ehex(buid), sode)
-            return
-
-        async for _, buid, sode in layr.liftByProp(prop.form.name, prop.name):
-            yield (s_common.ehex(buid), sode)
+        return await layr.hasNodeEdge(nodeid1, verb, nodeid2)
 
     @stormfunc(readonly=True)
     async def getEdges(self):
@@ -7791,30 +7822,32 @@ class Layer(Prim):
             yield item
 
     @stormfunc(readonly=True)
-    async def getEdgesByN1(self, nodeid):
-        nodeid = await tostr(nodeid)
+    async def getEdgesByN1(self, nodeid, verb=None):
+        nodeid = await tobuid(nodeid)
+        verb = await tostr(verb, noneok=True)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN1(s_common.uhex(nodeid)):
+        async for item in layr.iterNodeEdgesN1(nodeid, verb=verb):
             yield item
 
     @stormfunc(readonly=True)
-    async def getEdgesByN2(self, nodeid):
-        nodeid = await tostr(nodeid)
+    async def getEdgesByN2(self, nodeid, verb=None):
+        nodeid = await tobuid(nodeid)
+        verb = await tostr(verb, noneok=True)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN2(s_common.uhex(nodeid)):
+        async for item in layr.iterNodeEdgesN2(nodeid, verb=verb):
             yield item
 
     @stormfunc(readonly=True)
     async def getNodeData(self, nodeid):
-        nodeid = await tostr(nodeid)
+        nodeid = await tobuid(nodeid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeData(s_common.uhex(nodeid)):
+        async for item in layr.iterNodeData(nodeid):
             yield item
 
     @stormfunc(readonly=True)
@@ -9115,39 +9148,39 @@ class LibJsonStor(Lib):
         {'name': 'get', 'desc': 'Return a stored JSON object or object property.',
          'type': {'type': 'function', '_funcname': 'get',
                    'args': (
-                        {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
-                        {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                        {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
+                        {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                     ),
                     'returns': {'type': 'prim', 'desc': 'The previously stored value or ``(null)``.'}}},
 
         {'name': 'set', 'desc': 'Set a JSON object or object property.',
          'type': {'type': 'function', '_funcname': 'set',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path elements.'},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path elements.'},
                        {'name': 'valu', 'type': 'prim', 'desc': 'The value to set as the JSON object or object property.'},
-                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                       {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                    ),
                    'returns': {'type': 'boolean', 'desc': 'True if the set operation was successful.'}}},
 
         {'name': 'del', 'desc': 'Delete a stored JSON object or object.',
          'type': {'type': 'function', '_funcname': '_del',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
-                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
+                       {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                    ),
                    'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
 
         {'name': 'iter', 'desc': 'Yield (<path>, <valu>) tuples for the JSON objects.',
          'type': {'type': 'function', '_funcname': 'iter',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.', 'default': None},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.', 'default': None},
                    ),
                    'returns': {'name': 'Yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
         {'name': 'cacheget',
          'desc': 'Retrieve data stored with cacheset() if it was stored more recently than the asof argument.',
          'type': {'type': 'function', '_funcname': 'cacheget',
                   'args': (
-                      {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
+                      {'name': 'path', 'type': ['str', 'list'], 'desc': 'The base path to use for the cache key.', },
                       {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
                       {'name': 'asof', 'type': 'time', 'default': 'now', 'desc': 'The max cache age.'},
                       {'name': 'envl', 'type': 'boolean', 'default': False, 'desc': 'Return the full cache envelope.'},
@@ -9157,7 +9190,7 @@ class LibJsonStor(Lib):
          'desc': 'Set cache data with an envelope that tracks time for cacheget() use.',
          'type': {'type': 'function', '_funcname': 'cacheset',
                   'args': (
-                      {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
+                      {'name': 'path', 'type': ['str', 'list'], 'desc': 'The base path to use for the cache key.', },
                       {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
                       {'name': 'valu', 'type': 'prim', 'desc': 'The data to store.', },
                   ),
@@ -9166,7 +9199,7 @@ class LibJsonStor(Lib):
          'desc': 'Remove cached data set with cacheset.',
          'type': {'type': 'function', '_funcname': 'cachedel',
                   'args': (
-                      {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
+                      {'name': 'path', 'type': ['str', 'list'], 'desc': 'The base path to use for the cache key.', },
                       {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
@@ -9395,7 +9428,7 @@ class LibCron(Lib):
                       {'name': 'prefix', 'type': 'str',
                        'desc': 'A prefix to match in order to identify a cron job to modify. '
                                'Only a single matching prefix will be modified.', },
-                      {'name': 'query', 'type': ['str', 'query'],
+                      {'name': 'query', 'type': ['str', 'storm:query'],
                        'desc': 'The new Storm query for the Cron Job.', }
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was modified.'}}},
@@ -10235,23 +10268,43 @@ async def torepr(valu, usestr=False):
         return str(valu)
     return repr(valu)
 
+async def tobuid(valu):
+
+    if isinstance(valu, Node):
+        return valu.valu.buid
+
+    if isinstance(valu, s_node.Node):
+        return valu.buid
+
+    valu = await toprim(valu)
+
+    if isinstance(valu, str):
+        if not s_common.isbuidhex(valu):
+            mesg = f'Invalid buid string: {valu}'
+            raise s_exc.BadCast(mesg=mesg)
+
+        return s_common.uhex(valu)
+
+    if not isinstance(valu, bytes):
+        mesg = f'Invalid buid valu: {valu}'
+        raise s_exc.BadCast(mesg=mesg)
+
+    if len(valu) != 32:
+        mesg = f'Invalid buid valu: {valu}'
+        raise s_exc.BadCast(mesg=mesg)
+
+    return valu
+
 async def tobuidhex(valu, noneok=False):
 
     if noneok and valu is None:
         return None
 
-    if isinstance(valu, Node):
-        return valu.valu.iden()
+    if isinstance(valu, str) and s_common.isbuidhex(valu):
+        return valu
 
-    if isinstance(valu, s_node.Node):
-        return valu.iden()
-
-    valu = await tostr(valu)
-    if not s_common.isbuidhex(valu):
-        mesg = f'Invalid buid string: {valu}'
-        raise s_exc.BadCast(mesg=mesg)
-
-    return valu
+    buid = await tobuid(valu)
+    return s_common.ehex(buid)
 
 async def totype(valu, basetypes=False) -> str:
     '''
@@ -10296,5 +10349,10 @@ async def totype(valu, basetypes=False) -> str:
 async def typeerr(name, reqt):
     if not isinstance(name, reqt):
         styp = await totype(name, basetypes=True)
-        mesg = f"Expected value of type '{reqt}', got '{styp}' with value {name}."
+
+        reqtname = str(reqt)
+        if (clsname := getattr(reqt, '__name__')):
+            reqtname = clsname
+
+        mesg = f"Expected value of type '{reqtname}', got '{styp}' with value {name}."
         return s_exc.StormRuntimeError(mesg=mesg, name=name, type=styp)

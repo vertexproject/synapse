@@ -12,6 +12,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.json as s_json
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.stormtypes as s_stormtypes
@@ -90,7 +91,7 @@ class LibHttp(s_stormtypes.Lib):
     For APIs that accept an ssl_opts argument, the dictionary may contain the following values::
 
         ({
-            'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl_verify argument.
+            'verify': <boolean> - Perform SSL/TLS verification. Is overridden by the ssl_verify argument.
             'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
             'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
             'ca_cert': <str> - A PEM encoded full chain CA certificate for use when verifying the request.
@@ -116,9 +117,9 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
                        'default': 300},
-                      {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to false, do not follow redirects.',
+                      {'name': 'allow_redirects', 'type': 'boolean', 'desc': 'If set to false, do not follow redirects.',
                        'default': True},
-                      {'name': 'proxy', 'type': ['bool', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'str'],
                        'desc': 'Configure proxy usage. See $lib.inet.http help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.inet.http help for additional details.',
@@ -141,7 +142,7 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
                        'default': 300},
-                      {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to false, do not follow redirects.',
+                      {'name': 'allow_redirects', 'type': 'boolean', 'desc': 'If set to false, do not follow redirects.',
                        'default': True},
                       {'name': 'fields', 'type': 'list',
                        'desc': 'A list of info dictionaries containing the name, value or sha256, '
@@ -150,7 +151,7 @@ class LibHttp(s_stormtypes.Lib):
                                'and the corresponding file will be uploaded as the value for '
                                'the field.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'str'],
                        'desc': 'Configure proxy usage. See $lib.inet.http help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.inet.http help for additional details.',
@@ -170,9 +171,9 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
                        'default': 300, },
-                      {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to true, follow redirects.',
+                      {'name': 'allow_redirects', 'type': 'boolean', 'desc': 'If set to true, follow redirects.',
                        'default': False},
-                      {'name': 'proxy', 'type': ['bool', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'str'],
                        'desc': 'Configure proxy usage. See $lib.inet.http help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.inet.http help for additional details.',
@@ -196,7 +197,7 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
                        'default': 300},
-                      {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to false, do not follow redirects.',
+                      {'name': 'allow_redirects', 'type': 'boolean', 'desc': 'If set to false, do not follow redirects.',
                        'default': True},
                       {'name': 'fields', 'type': 'list',
                        'desc': 'A list of info dictionaries containing the name, value or sha256, '
@@ -205,7 +206,7 @@ class LibHttp(s_stormtypes.Lib):
                                'and the corresponding file will be uploaded as the value for '
                                'the field.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'str'],
                        'desc': 'Configure proxy usage. See $lib.inet.http help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.inet.http help for additional details.',
@@ -226,7 +227,7 @@ class LibHttp(s_stormtypes.Lib):
                        'default': 300},
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the connection request.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'str'],
                        'desc': 'Configure proxy usage. See $lib.inet.http help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.inet.http help for additional details.',
@@ -400,7 +401,12 @@ class LibHttp(s_stormtypes.Lib):
         proxy = await s_stormtypes.toprim(proxy)
         ssl_opts = await s_stormtypes.toprim(ssl_opts)
 
-        kwargs = {'allow_redirects': allow_redirects}
+        kwargs = {
+            'max_line_size': s_const.MAX_LINE_SIZE,
+            'max_field_size': s_const.MAX_FIELD_SIZE,
+            'allow_redirects': allow_redirects,
+        }
+
         if params:
             kwargs['params'] = s_stormtypes.strifyHttpArg(params, multi=True)
 

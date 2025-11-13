@@ -393,7 +393,6 @@ _changelogTypes = {'migration': 'Automatic Migrations',
                    'note': 'Notes',
                    'doc': 'Improved documentation',
                    'deprecation': 'Deprecations'}
-
 _changelogSchema = {
     'type': 'object',
     'properties': {
@@ -404,6 +403,10 @@ _changelogSchema = {
         'desc': {
             'type': 'string',
             'minLength': 1,
+        },
+        'desc:literal': {
+            'type': 'boolean',
+            'default': False,
         },
         'prs': {
             'type': 'array',
@@ -734,6 +737,18 @@ _reqValidPkgdefSchema = {
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'onload': {'type': 'string'},
+        'inits': {
+            'type': 'object',
+            'properties': {
+                'versions': {
+                    'type': 'array',
+                    'items': {'$ref': '#/definitions/initdef'},
+                    'minItems': 1,
+                },
+            },
+            'additionalProperties': True,
+            'required': ['versions'],
+        },
         'author': {
             'type': 'object',
             'properties': {
@@ -803,9 +818,25 @@ _reqValidPkgdefSchema = {
                     'items': {'type': 'array',
                         'items': {'type': 'string'}},
                 },
+                'asroot:ondeny:import': {
+                    'type': 'string',
+                    'enum': ['allow', 'warn', 'deny'],
+                },
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
+        },
+        'initdef': {
+            'type': 'object',
+            'properties': {
+                'desc': {'type': 'string'},
+                'inaugural': {'type': 'boolean', 'default': False},
+                'name': {'type': 'string'},
+                'query': {'type': 'string'},
+                'version': {'type': 'integer', 'minimum': 0},
+            },
+            'additionalProperties': False,
+            'required': ['name', 'query', 'version']
         },
         'apidef': {
             'type': 'object',
@@ -919,12 +950,20 @@ _reqValidPkgdefSchema = {
                     'type': ['array', 'null'],
                     'items': {'$ref': '#/definitions/cmdinput'},
                 },
+                'cmdconf': {
+                    'type': 'object',
+                    'properties': {
+                        'svciden': {'type': 'string', 'pattern': s_config.re_iden},
+                    },
+                    'additionalProperties': True,
+                },
                 'storm': {'type': 'string'},
                 'forms': {'$ref': '#/definitions/cmdformhints'},
                 'perms': {'type': 'array',
                     'items': {'type': 'array',
                         'items': {'type': 'string'}},
                 },
+                'deprecated': {'$ref': '#/definitions/deprecatedItem'},
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
@@ -951,6 +990,7 @@ _reqValidPkgdefSchema = {
                             'type': 'string',
                             'enum': s_msgpack.deepcopy(datamodel_basetypes),
                         },
+                        'deprecated': {'$ref': '#/definitions/deprecatedItem'},
                     },
                 }
             ],

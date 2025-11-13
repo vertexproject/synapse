@@ -269,6 +269,9 @@ class RiskModule(s_module.CoreModule):
 
                 (('risk:outage', 'impacted', None), {
                     'doc': 'The outage event impacted the availability of the target node.'}),
+
+                (('risk:alert', 'about', None), {
+                    'doc': 'The alert is about the target node.'}),
             ),
             'forms': (
 
@@ -414,8 +417,16 @@ class RiskModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for this risk mitigation.'}),
 
+                    # NOTE: This is already in 3.0 via an interface and should be left out on merge
+                    ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True,
+                                         'typeopts': {'lower': True, 'onespace': True}}), {
+                        'doc': 'An array of alternate names for the mitigation.'}),
+
                     ('type', ('risk:mitigation:type:taxonomy', {}), {
                         'doc': 'A taxonomy type entry for the mitigation.'}),
+
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'An identifier for the mitigation.'}),
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
@@ -799,6 +810,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('detected', ('time', {}), {
                         'doc': 'The time the alerted condition was detected.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the alert was most recently modified.'}),
 
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The optional vulnerability that the alert indicates.'}),

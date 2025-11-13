@@ -3,6 +3,8 @@ import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
 stormcmds = (
@@ -83,7 +85,7 @@ stormcmds = (
             ('--email', {'type': 'str', 'help': 'The email address to set for the user.'}),
             ('--passwd', {'type': 'str', 'help': 'The new password for the user. This is best passed into the runtime as a variable.'}),
             ('--admin', {'type': 'bool', 'help': 'True to make the user and admin, false to remove their remove their admin status.'}),
-            ('--gate', {'type': 'str', 'help': 'The auth gate iden to grant or revoke admin status on. Use in conjunction with `--admin <bool>`.'}),
+            ('--gate', {'type': 'str', 'help': 'The auth gate iden to grant or revoke admin status on. Use in conjunction with `--admin <boolean>`.'}),
             ('--locked', {'type': 'bool', 'help': 'True to lock the user, false to unlock them.'}),
         ),
         'storm': '''
@@ -647,7 +649,8 @@ class UserProfile(s_stormtypes.Prim):
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
         self.runt.confirm(('auth', 'user', 'get', 'profile', name))
-        return await self.runt.snap.core.getUserProfInfo(self.valu, name)
+        valu = await self.runt.snap.core.getUserProfInfo(self.valu, name)
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def setitem(self, name, valu):
         name = await s_stormtypes.tostr(name)
@@ -664,7 +667,7 @@ class UserProfile(s_stormtypes.Prim):
     async def iter(self):
         profile = await self.value()
         for item in list(profile.items()):
-            yield item
+            yield s_msgpack.deepcopy(item, use_list=True)
 
     async def value(self):
         self.runt.confirm(('auth', 'user', 'get', 'profile'))
@@ -681,34 +684,34 @@ class UserJson(s_stormtypes.Prim):
         {'name': 'get', 'desc': 'Return a stored JSON object or object property for the user.',
          'type': {'type': 'function', '_funcname': 'get',
                    'args': (
-                        {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
-                        {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                        {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
+                        {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                     ),
                     'returns': {'type': 'prim', 'desc': 'The previously stored value or ``(null)``.'}}},
 
         {'name': 'set', 'desc': 'Set a JSON object or object property for the user.',
          'type': {'type': 'function', '_funcname': 'set',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path elements.'},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path elements.'},
                        {'name': 'valu', 'type': 'prim', 'desc': 'The value to set as the JSON object or object property.'},
-                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                       {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                    ),
                    'returns': {'type': 'boolean', 'desc': 'True if the set operation was successful.'}}},
 
         {'name': 'del', 'desc': 'Delete a stored JSON object or object property for the user.',
          'type': {'type': 'function', '_funcname': '_del',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
-                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
+                       {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                    ),
                    'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
 
         {'name': 'iter', 'desc': 'Yield (<path>, <valu>) tuples for the users JSON objects.',
          'type': {'type': 'function', '_funcname': 'iter',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.', 'default': None},
+                       {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.', 'default': None},
                    ),
-                   'returns': {'name': 'Yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
+                   'returns': {'name': 'yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
     )
 
     def __init__(self, runt, valu):
@@ -821,7 +824,8 @@ class UserVars(s_stormtypes.Prim):
 
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
-        return await self.runt.snap.core.getUserVarValu(self.valu, name)
+        valu = await self.runt.snap.core.getUserVarValu(self.valu, name)
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def setitem(self, name, valu):
         name = await s_stormtypes.tostr(name)
@@ -835,7 +839,7 @@ class UserVars(s_stormtypes.Prim):
 
     async def iter(self):
         async for name, valu in self.runt.snap.core.iterUserVars(self.valu):
-            yield name, valu
+            yield name, s_msgpack.deepcopy(valu, use_list=True)
             await asyncio.sleep(0)
 
 @s_stormtypes.registry.registerType
@@ -1046,7 +1050,7 @@ class User(s_stormtypes.Prim):
                   'args': (
                       {'name': 'name', 'type': 'str',
                        'desc': 'The name of the API key.'},
-                      {'name': 'duration', 'type': 'integer', 'default': None,
+                      {'name': 'duration', 'type': 'int', 'default': None,
                        'desc': 'Duration of time for the API key to be valid, in milliseconds.'},
                   ),
                   'returns': {'type': 'list',
@@ -1569,7 +1573,7 @@ class LibAuth(s_stormtypes.Lib):
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'The string to process.', },
                   ),
-                  'returns': {'type': 'list', 'desc': 'A tuple containing a bool and a list of permission parts.', }}},
+                  'returns': {'type': 'list', 'desc': 'A tuple containing a boolean and a list of permission parts.', }}},
         {'name': 'textFromRule', 'desc': 'Return a text string from a rule tuple.',
          'type': {'type': 'function', '_funcname': 'textFromRule',
                   'args': (
@@ -1669,11 +1673,17 @@ class StormUserVarsDict(s_stormtypes.Prim):
     @s_stormtypes.stormfunc(readonly=True)
     async def _get(self, name, default=None):
         name = await s_stormtypes.tostr(name)
-        return await self.runt.snap.core.getUserVarValu(self.valu, name, default=default)
+        valu = await self.runt.snap.core.getUserVarValu(self.valu, name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _pop(self, name, default=None):
         name = await s_stormtypes.tostr(name)
-        return await self.runt.snap.core.popUserVarValu(self.valu, name, default=default)
+        valu = await self.runt.snap.core.popUserVarValu(self.valu, name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _set(self, name, valu):
         if not isinstance(name, str):
@@ -1686,16 +1696,16 @@ class StormUserVarsDict(s_stormtypes.Prim):
         valu = await s_stormtypes.toprim(valu)
 
         await self.runt.snap.core.setUserVarValu(self.valu, name, valu)
-        return oldv
+        return s_msgpack.deepcopy(oldv, use_list=True)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _list(self):
         valu = await self.value()
-        return list(valu.items())
+        return s_msgpack.deepcopy(list(valu.items()), use_list=True)
 
     async def iter(self):
         async for name, valu in self.runt.snap.core.iterUserVars(self.valu):
-            yield name, valu
+            yield name, s_msgpack.deepcopy(valu, use_list=True)
             await asyncio.sleep(0)
 
     async def value(self):
@@ -1759,11 +1769,17 @@ class StormUserProfileDict(s_stormtypes.Prim):
     @s_stormtypes.stormfunc(readonly=True)
     async def _get(self, name, default=None):
         name = await s_stormtypes.tostr(name)
-        return await self.runt.snap.core.getUserProfInfo(self.valu, name, default=default)
+        valu = await self.runt.snap.core.getUserProfInfo(self.valu, name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _pop(self, name, default=None):
         name = await s_stormtypes.tostr(name)
-        return await self.runt.snap.core.popUserProfInfo(self.valu, name, default=default)
+        valu = await self.runt.snap.core.popUserProfInfo(self.valu, name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _set(self, name, valu):
         if not isinstance(name, str):
@@ -1776,16 +1792,16 @@ class StormUserProfileDict(s_stormtypes.Prim):
         valu = await s_stormtypes.toprim(valu)
 
         await self.runt.snap.core.setUserProfInfo(self.valu, name, valu)
-        return oldv
+        return s_msgpack.deepcopy(oldv, use_list=True)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _list(self):
         valu = await self.value()
-        return list(valu.items())
+        return s_msgpack.deepcopy(list(valu.items()), use_list=True)
 
     async def iter(self):
         async for name, valu in self.runt.snap.core.iterUserProfInfo(self.valu):
-            yield name, valu
+            yield name, s_msgpack.deepcopy(valu, use_list=True)
             await asyncio.sleep(0)
 
     async def value(self):
@@ -1810,9 +1826,9 @@ class LibUser(s_stormtypes.Lib):
                   'returns': {'type': 'boolean',
                               'desc': 'True if the user has the requested permission, false otherwise.', }}},
         {'name': 'vars', 'desc': "Get a dictionary representing the current user's persistent variables.",
-         'type': 'auth:user:vars', },
+         'type': 'user:vars:dict', },
         {'name': 'profile', 'desc': "Get a dictionary representing the current user's profile information.",
-         'type': 'auth:user:profile', },
+         'type': 'user:profile:dict', },
         {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'str'},
     )
     _storm_lib_path = ('user', )

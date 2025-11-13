@@ -1,0 +1,6 @@
+---
+desc: Added ``meta:feed:id`` to capture an identifier for a feed.
+desc:literal: false
+prs: []
+type: model
+...

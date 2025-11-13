@@ -1,4 +1,5 @@
 import os
+import sys
 
 import vcr
 
@@ -223,6 +224,102 @@ A multiline secondary property.
 Bye!
 '''
 
+shell_input00 = '''
+Shell with environment variable.
+
+.. shell-env:: SYN_HEHE_HAHA=BEEP SYN_FOO=BAR
+.. shell:: python3 -c "import os; print('HEHE_HAHA', os.environ.get('SYN_HEHE_HAHA')); print('FOO', os.environ.get('SYN_FOO'))"
+.. shell-env::
+.. shell:: python3 -c "import os; print('HEHE_HAHA', os.environ.get('SYN_HEHE_HAHA')); print('FOO', os.environ.get('SYN_FOO'))"
+'''
+
+shell_output00 = '''
+Shell with environment variable.
+
+::
+
+  python3 -c "import os; print('HEHE_HAHA', os.environ.get('SYN_HEHE_HAHA')); print('FOO', os.environ.get('SYN_FOO'))"
+
+  HEHE_HAHA BEEP
+  FOO BAR
+
+
+::
+
+  python3 -c "import os; print('HEHE_HAHA', os.environ.get('SYN_HEHE_HAHA')); print('FOO', os.environ.get('SYN_FOO'))"
+
+  HEHE_HAHA None
+  FOO None
+
+
+'''
+
+shell_input01 = '''
+Shell hide query.
+
+.. shell:: --hide-query python3 -c "print('WOOT')"
+'''
+
+shell_output01 = '''
+Shell hide query.
+
+::
+
+  WOOT
+
+
+'''
+
+shell_input02 = '''
+Shell include stderr.
+
+.. shell:: --hide-query \
+    python3 -c "import sys; print('FOO00'); sys.stdout.flush(); print('BAR00', file=sys.stderr); print('BAZ00')"
+.. shell:: --hide-query --include-stderr \
+    python3 -c "import sys; print('FOO01'); sys.stdout.flush(); print('BAR01', file=sys.stderr); print('BAZ01')"
+'''
+
+shell_output02 = '''
+Shell include stderr.
+
+::
+
+  FOO00
+  BAZ00
+
+
+::
+
+  FOO01
+  BAR01
+  BAZ01
+
+
+'''
+
+shell_text03 = '''--hide-query python3 -c "import sys; print('WOOT'); sys.exit(1)"'''
+shell_input03 = f'''
+Shell non-zero exit.
+
+.. shell:: {shell_text03}
+'''
+
+shell_text04 = '''--hide-query --fail-ok python3 -c "import sys; print('WOOT'); sys.exit(1)"'''
+shell_input04 = f'''
+Shell non-zero exit.
+
+.. shell:: {shell_text04}
+'''
+shell_output04 = '''
+Shell non-zero exit.
+
+::
+
+  WOOT
+
+
+'''
+
 fail00 = '''
 
 .. storm-cortex:: default
@@ -341,6 +438,42 @@ class RStormLibTest(s_test.SynTest):
             text = await get_rst_text(path)
             text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
             self.eq(text_nocrt, multiline_storm_output)
+
+            # shell and shell-env
+            path = s_common.genpath(dirn, 'shell00.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(shell_input00.encode())
+            text = await get_rst_text(path)
+            self.eq(text, shell_output00)
+
+            # shell --hide-query
+            path = s_common.genpath(dirn, 'shell01.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(shell_input01.encode())
+            text = await get_rst_text(path)
+            self.eq(text, shell_output01)
+
+            # shell --include-stderr
+            path = s_common.genpath(dirn, 'shell02.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(shell_input02.encode())
+            text = await get_rst_text(path)
+            self.eq(text, shell_output02)
+
+            # shell non-zero exit
+            path = s_common.genpath(dirn, 'shell03.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(shell_input03.encode())
+            with self.raises(s_exc.SynErr) as exc:
+                await get_rst_text(path)
+            self.eq(exc.exception.get('mesg'), f'Error when executing shell directive: {shell_text03} (rv: 1)')
+
+            # shell non-zero exit --fail-ok
+            path = s_common.genpath(dirn, 'shell04.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(shell_input04.encode())
+            text = await get_rst_text(path)
+            self.eq(text, shell_output04)
 
             # http
             path = s_common.genpath(dirn, 'http.rst')
@@ -644,3 +777,50 @@ class RStormLibTest(s_test.SynTest):
                 fd.write(fix_input_for_cli(fail02).encode())
             with self.raises(s_exc.StormRuntimeError):
                 await get_rst_text(path)
+
+    async def test_rstorm_python_path(self):
+        content = '''#comment
+import synapse.lib.cell as s_cell
+import synapse.lib.stormsvc as s_stormsvc
+
+class SomeApi(s_stormsvc.StormSvc, s_cell.CellApi):
+    _storm_svc_name = 'someservice'
+    _storm_svc_vers = '0.1.0',
+    _storm_svc_pkgs = ()
+
+class SomeService(s_cell.Cell):
+    cellapi = SomeApi
+'''
+        with self.getTestDir() as dirn:
+            with s_common.genfile(dirn, 'somefile.py') as fd:
+                fd.write(content.encode())
+            pythonpath_rst_in = f'''
+.. storm-cortex:: default
+.. storm-python-path:: {dirn}
+.. storm-svc:: somefile.SomeService fooservice {{"https:port": 0}}
+.. storm:: service.list
+
+hello world
+            '''
+            rst_path = s_common.genpath(dirn, 'test.rst')
+
+            with s_common.genfile(rst_path) as fd:
+                fd.write(pythonpath_rst_in.encode())
+
+            pythonpath_rst_out = await get_rst_text(rst_path)
+            self.notin('storm-python-path', pythonpath_rst_out)
+            self.isin('(fooservice) (someservice @ 0.1.0)', pythonpath_rst_out)
+            self.isin('hello world', pythonpath_rst_out)
+            # Fini handler cleaned up the path manipulation
+            self.notin(dirn, sys.path)
+
+            # Sad path
+            pythonpath_rst_in = f'''
+.. storm-python-path:: {dirn}/{s_common.guid()}
+hello world
+            '''
+            rst_path = s_common.genpath(dirn, 'test.rst')
+            with s_common.genfile(rst_path) as fd:
+                fd.write(pythonpath_rst_in.encode())
+            with self.raises(s_exc.NoSuchDir):
+                await get_rst_text(rst_path)

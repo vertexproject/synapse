@@ -268,6 +268,19 @@ class OuModule(s_module.CoreModule):
                         ),
                     }}),
 
+                ('ou:candidate:referral', ('guid', {}), {
+                    'doc': 'A candidate being referred by a contact.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'referrer::name'}},
+                            {'type': 'prop', 'opts': {'name': 'candidate::contact::name'}},
+                            {'type': 'prop', 'opts': {'name': 'candidate::org::name'}},
+                            {'type': 'prop', 'opts': {'name': 'candidate::opening::jobtitle'}},
+                            {'type': 'prop', 'opts': {'name': 'submitted'}},
+                        ),
+                    }}),
+
+
                 ('ou:jobtype', ('taxonomy', {}), {
                     'ex': 'it.dev.python',
                     'doc': 'A taxonomy of job types.',
@@ -412,6 +425,21 @@ class OuModule(s_module.CoreModule):
                     # TODO: :skills=[<ps:skill>]? vs :contact -> ps:proficiency?
                     # TODO: proj:task to track evaluation of the candidate?
 
+                )),
+                ('ou:candidate:referral', {}, (
+
+                    ('candidate', ('ou:candidate', {}), {
+                        'doc': 'The candidate who was referred.'}),
+
+                    ('referrer', ('ps:contact', {}), {
+                        'doc': 'The individual who referred the candidate to the opening.'}),
+
+                    ('submitted', ('time', {}), {
+                        'doc': 'The time the referral was submitted.'}),
+
+                    ('text', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'Text of any referrer provided context about the candidate.'}),
                 )),
                 ('ou:vitals', {}, (
 
@@ -703,7 +731,12 @@ class OuModule(s_module.CoreModule):
                 ('ou:technique', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The normalized name of the technique.'}),
+                        'doc': 'The name of the technique.'}),
+
+                    # NOTE: This is already in 3.0 via an interface and should be left out on merge
+                    ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True,
+                                         'typeopts': {'lower': True, 'onespace': True}}), {
+                        'doc': 'An array of alternate names for the technique.'}),
 
                     ('type', ('ou:technique:taxonomy', {}), {
                         'doc': 'The taxonomy classification of the technique.'}),
@@ -729,6 +762,9 @@ class OuModule(s_module.CoreModule):
 
                     ('ext:id', ('str', {'strip': True}), {
                         'doc': 'An external identifier for the technique.'}),
+
+                    ('parent', ('ou:technique', {}), {
+                        'doc': 'The parent technique for the technique.'}),
                 )),
                 ('ou:technique:taxonomy', {}, ()),
                 ('ou:orgtype', {}, ()),
