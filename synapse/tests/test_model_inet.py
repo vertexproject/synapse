@@ -2719,6 +2719,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :provider={ ou:org:name=$provname }
                 :provider:name=$provname
                 :type=foo.bar
+                :seen=(2022, 2023)
             ]
             '''
             nodes = await core.nodes(q, opts=opts)
@@ -2737,6 +2738,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].repr('period'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
             self.eq(nodes[0].get('provider'), provider.ndef[1])
             self.eq(nodes[0].get('provider:name'), provname.lower())
+            self.eq(nodes[0].repr('seen'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
             platform = nodes[0]
 
             nodes = await core.nodes('inet:service:platform=(slack,) :parent -> *')
