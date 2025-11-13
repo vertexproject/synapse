@@ -950,6 +950,10 @@ class Model:
                     logger.warning(mesg, extra=extra)
                     continue
 
+                # We're only interested in extended model comp types
+                if not typ.name.startswith('_'):
+                    continue
+
                 if ftype.ismutable:
                     mesg = f'Comp types with mutable fields ({typ.name}:{fname}) are deprecated and will be removed in 3.0.0.'
                     logger.warning(mesg, extra=extra)
