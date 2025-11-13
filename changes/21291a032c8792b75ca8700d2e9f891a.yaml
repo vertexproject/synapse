@@ -1,7 +1,0 @@
----
-desc: Improved the performance of the ``syncLayersEvents`` and ``syncIndexEvents``
-  Cortex APIs when there are a large number of layers.
-desc:literal: false
-prs: []
-type: feat
-...

@@ -1,6 +1,0 @@
----
-desc: Removed AuthGates for CronJobs which no longer exist.
-desc:literal: false
-prs: []
-type: migration
-...

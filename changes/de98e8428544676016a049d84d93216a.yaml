@@ -1,7 +1,0 @@
----
-desc: Fixed a bug where default values passed to ``$lib.globals.pop()`` would return
-  a copy of the value instead of the same value when the query was executed on a mirror.
-desc:literal: false
-prs: []
-type: bug
-...
