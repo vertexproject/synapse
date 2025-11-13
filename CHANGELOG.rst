@@ -6,6 +6,90 @@
 Synapse Changelog
 *****************
 
+v2.227.0 - 2025-11-13
+=====================
+
+Automatic Migrations
+--------------------
+- Removed AuthGates for CronJobs which no longer exist.
+  (`#4559 <https://github.com/vertexproject/synapse/pull/4559>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added ``meta:feed:id`` to capture an identifier for a feed.
+  (`#4555 <https://github.com/vertexproject/synapse/pull/4555>`_)
+- See :ref:`userguide_model_v2_227_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``$lib.dict.fromlist()`` function to create dictionaries from arrays of
+  (key, value) tuples.
+  (`#4557 <https://github.com/vertexproject/synapse/pull/4557>`_)
+- Fail fast when trying to deserialize an empty value with
+  ``$lib.json.load()``.
+  (`#4558 <https://github.com/vertexproject/synapse/pull/4558>`_)
+- Improved the performance of the ``syncLayersEvents`` and ``syncIndexEvents``
+  Cortex APIs when there are a large number of layers.
+  (`#4560 <https://github.com/vertexproject/synapse/pull/4560>`_)
+- Added ``mutable`` property to Storm ``model:type`` types to check if a
+  particular model type is considered mutable.
+  (`#4561 <https://github.com/vertexproject/synapse/pull/4561>`_)
+- Added try syntax ( ``?=`` ) when setting or modifying tag timestamps.
+  (`#4562 <https://github.com/vertexproject/synapse/pull/4562>`_)
+- Added ``ipv4-addr``, ``ipv6-addr``, ``location``, ``file``, ``url``, and
+  ``domain-name`` to the default STIX types supported by
+  ``$lib.stix.import.ingest()``.
+  (`#4568 <https://github.com/vertexproject/synapse/pull/4568>`_)
+
+Bugfixes
+--------
+- Fixed bug where lists retrieved from ``$lib.globals`` were not mutable.
+  (`#4531 <https://github.com/vertexproject/synapse/pull/4531>`_)
+  (`#4543 <https://github.com/vertexproject/synapse/pull/4543>`_)
+  (`#4544 <https://github.com/vertexproject/synapse/pull/4544>`_)
+- Deprecated the ``key`` field in the Storm package ``inits`` dictionary. The
+  version key is now automatically set to ``storage:version`` to properly
+  identify newly installed packages. If the key was previously set to
+  ``version`` it will be migrated to ``storage:version``.
+  (`#4541 <https://github.com/vertexproject/synapse/pull/4541>`_)
+  (`#4550 <https://github.com/vertexproject/synapse/pull/4550>`_)
+  (`#4554 <https://github.com/vertexproject/synapse/pull/4554>`_)
+- Fixed a bug where default values passed to ``$lib.globals.pop()`` would
+  return a copy of the value instead of the same value when the query was
+  executed on a mirror.
+  (`#4544 <https://github.com/vertexproject/synapse/pull/4544>`_)
+- Fixed an issue where adding a list of tags to a node would compute and apply
+  each tag value individually rather than in a single operation.
+  (`#4569 <https://github.com/vertexproject/synapse/pull/4569>`_)
+- Fixed issue where lists retrieved from ``$lib.user.vars`` (``user:vars:dict``
+  Storm types) were not mutable.
+  (`#4570 <https://github.com/vertexproject/synapse/pull/4570>`_)
+- Fixed issue where lists in vault secrets/configs (``vault:data`` Storm types)
+  were not mutable.
+  (`#4570 <https://github.com/vertexproject/synapse/pull/4570>`_)
+- Fixed issue where lists retrieved from ``$lib.user.profile``
+  (``user:profile:dict`` Storm types) were not mutable.
+  (`#4570 <https://github.com/vertexproject/synapse/pull/4570>`_)
+- Fixed issue where lists in user profiles from ``$lib.auth.users.get()``
+  (``auth:user:profile`` Storm types) were not mutable.
+  (`#4570 <https://github.com/vertexproject/synapse/pull/4570>`_)
+- Fixed issue where lists in user vars from ``$lib.auth.users.get()``
+  (``auth:user:vars`` Storm types) were not mutable.
+  (`#4570 <https://github.com/vertexproject/synapse/pull/4570>`_)
+
+Notes
+-----
+- Updated ``StormPkgTest.getTestCore()`` to wait for the
+  ``core:pkg:onload:complete`` event associated with the package being loaded.
+  (`#4552 <https://github.com/vertexproject/synapse/pull/4552>`_)
+
+Deprecations
+------------
+- Deprecated comp types using mutable fields (data and array) and non-existent
+  types.
+  (`#4561 <https://github.com/vertexproject/synapse/pull/4561>`_)
+
 v2.226.0 - 2025-10-24
 =====================
 
