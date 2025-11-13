@@ -282,7 +282,7 @@ class DataModelTest(s_t_utils.SynTest):
                 $v=`{$valu}:{$name}`  syn:prop=$v
             }
             +syn:prop
-            -:ro=1
+            -:readonly=1
             '''
             nodes = await core.nodes(q)
             mesg = f'Comp forms with secondary properties that are not read-only ' \

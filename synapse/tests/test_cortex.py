@@ -1219,7 +1219,7 @@ class CortexTest(s_t_utils.SynTest):
                                          opts=opts))
 
             text = '''
-                syn:form syn:prop:ro=1 syn:prop:ro=0
+                syn:form syn:prop:readonly=1 syn:prop:readonly=0
 
                 $prop = $node.value()
 

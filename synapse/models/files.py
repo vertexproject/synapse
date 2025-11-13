@@ -611,7 +611,21 @@ modeldefs = (
                     'doc': 'The path that the parent uses to refer to the child file.'}),
             )),
 
-            ('file:path', {}, ()),
+            ('file:path', {}, (
+
+                ('dir', ('file:path', {}), {
+                    'readonly': True,
+                    'doc': 'The parent directory.'}),
+
+                ('base', ('file:base', {}), {
+                    'readonly': True,
+                    'doc': 'The file base name.'}),
+
+                ('base:ext', ('str', {}), {
+                    'readonly': True,
+                    'doc': 'The file extension.'}),
+            )),
+
 
             ('file:mime:macho:loadcmd', {}, ()),
             ('file:mime:macho:version', {}, (

@@ -247,7 +247,7 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:prop')
             self.gt(len(nodes), 1)
 
-            nodes = await core.nodes('syn:prop:ro')
+            nodes = await core.nodes('syn:prop:readonly')
             self.gt(len(nodes), 1)
 
             nodes = await core.nodes('syn:prop="test:type10:intprop"')
