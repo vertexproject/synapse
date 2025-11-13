@@ -11,28 +11,30 @@ class IntlGovTest(s_t_utils.SynTest):
             self.true(isok)
             self.eq(valu, 1)
 
-            isok, (name, valu) = await core.callStorm(q, opts={'vars': {'valu': 0}})
+            isok, valu = await core.callStorm(q, opts={'vars': {'valu': 0}})
             self.false(isok)
-            self.eq(name, 'BadTypeValu')
-            self.nn(valu['efile'])
-            self.nn(valu['eline'])
-            self.nn(valu['esrc'])
-            self.eq(valu['ename'], '_normPyInt')
-            self.eq(valu['valu'], '0')
-            self.eq(valu['name'], 'gov:intl:un:m49')
-            self.eq(valu['mesg'], 'value is below min=1')
+            self.eq(valu['err'], 'BadTypeValu')
+            self.true(valu['errfile'].endswith('synapse/lib/types.py'))
+            self.eq(valu['errinfo'], {
+                'mesg': 'value is below min=1',
+                'name': 'gov:intl:un:m49',
+                'valu': '0',
+            })
+            self.gt(valu['errline'], 0)
+            self.eq(valu['errmsg'], "BadTypeValu: mesg='value is below min=1' name='gov:intl:un:m49' valu='0'")
 
             isok, valu = await core.callStorm(q, opts={'vars': {'valu': '999'}})
             self.true(isok)
             self.eq(valu, 999)
 
-            isok, (name, valu) = await core.callStorm(q, opts={'vars': {'valu': 1000}})
+            isok, valu = await core.callStorm(q, opts={'vars': {'valu': 1000}})
             self.false(isok)
-            self.eq(name, 'BadTypeValu')
-            self.nn(valu['efile'])
-            self.nn(valu['eline'])
-            self.nn(valu['esrc'])
-            self.eq(valu['ename'], '_normPyInt')
-            self.eq(valu['valu'], '1000')
-            self.eq(valu['name'], 'gov:intl:un:m49')
-            self.eq(valu['mesg'], 'value is above max=999')
+            self.eq(valu['err'], 'BadTypeValu')
+            self.true(valu['errfile'].endswith('synapse/lib/types.py'))
+            self.eq(valu['errinfo'], {
+                'mesg': 'value is above max=999',
+                'name': 'gov:intl:un:m49',
+                'valu': '1000',
+            })
+            self.gt(valu['errline'], 0)
+            self.eq(valu['errmsg'], "BadTypeValu: mesg='value is above max=999' name='gov:intl:un:m49' valu='1000'")
