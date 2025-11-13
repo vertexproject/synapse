@@ -232,7 +232,7 @@ class DataModelTest(s_t_utils.SynTest):
 
             dstream.expect('universal property .udep is using a deprecated type')
             dstream.expect('type test:dep:easy is based on a deprecated type test:dep:easy')
-            dstream.expect('type test:dep:comp field str uses a deprecated type test:dep:easy')
+            dstream.noexpect('type test:dep:comp field str uses a deprecated type test:dep:easy')
             tstream.expect('Array type test:dep:array is based on a deprecated type test:dep:easy')
 
             # Using deprecated forms and props is warned to the user
