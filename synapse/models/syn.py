@@ -175,7 +175,8 @@ modeldefs = (
 
             ('syn:tag', {}, (
 
-                ('up', ('syn:tag', {}), {'ro': True,
+                ('up', ('syn:tag', {}), {
+                    'readonly': True,
                     'doc': 'The parent tag for the tag.'}),
 
                 ('isnow', ('syn:tag', {}), {
@@ -187,55 +188,87 @@ modeldefs = (
                 ('doc:url', ('inet:url', {}), {
                     'doc': 'A URL link to additional documentation about the tag.'}),
 
-                ('depth', ('int', {}), {'ro': True,
+                ('depth', ('int', {}), {
+                    'readonly': True,
                     'doc': 'How deep the tag is in the hierarchy.'}),
 
                 ('title', ('str', {}), {'doc': 'A display title for the tag.'}),
 
-                ('base', ('str', {}), {'ro': True,
+                ('base', ('str', {}), {
+                    'readonly': True,
                     'doc': 'The tag base name. Eg baz for foo.bar.baz .'}),
             )),
             ('syn:type', {'runt': True, 'liftfunc': 'synapse.models.syn._liftRuntSynType'}, (
+
                 ('doc', ('str', {'strip': True}), {
-                    'doc': 'The docstring for the type.', 'ro': True}),
+                    'readonly': True,
+                    'doc': 'The docstring for the type.'}),
+
                 ('ctor', ('str', {'strip': True}), {
-                    'doc': 'The python ctor path for the type object.', 'ro': True}),
+                    'readonly': True,
+                    'doc': 'The python ctor path for the type object.'}),
+
                 ('subof', ('syn:type', {}), {
-                    'doc': 'Type which this inherits from.', 'ro': True}),
+                    'readonly': True,
+                    'doc': 'Type which this inherits from.'}),
+
                 ('opts', ('data', {}), {
-                    'doc': 'Arbitrary type options.', 'ro': True})
+                    'readonly': True,
+                    'doc': 'Arbitrary type options.'}),
             )),
             ('syn:form', {'runt': True, 'liftfunc': 'synapse.models.syn._liftRuntSynForm'}, (
+
                 ('doc', ('str', {'strip': True}), {
-                    'doc': 'The docstring for the form.', 'ro': True}),
+                    'readonly': True,
+                    'doc': 'The docstring for the form.'}),
+
                 ('type', ('syn:type', {}), {
-                    'doc': 'Synapse type for this form.', 'ro': True}),
+                    'readonly': True,
+                    'doc': 'Synapse type for this form.'}),
+
                 ('runt', ('bool', {}), {
-                    'doc': 'Whether or not the form is runtime only.', 'ro': True})
+                    'readonly': True,
+                    'doc': 'Whether or not the form is runtime only.'}),
             )),
             ('syn:prop', {'runt': True, 'liftfunc': 'synapse.models.syn._liftRuntSynProp'}, (
+
                 ('doc', ('str', {'strip': True}), {
+                    'readonly': True,
                     'doc': 'Description of the property definition.'}),
+
                 ('form', ('syn:form', {}), {
-                    'doc': 'The form of the property.', 'ro': True}),
+                    'readonly': True,
+                    'doc': 'The form of the property.'}),
+
                 ('type', ('syn:type', {}), {
-                    'doc': 'The synapse type for this property.', 'ro': True}),
+                    'readonly': True,
+                    'doc': 'The synapse type for this property.'}),
+
                 ('relname', ('str', {'strip': True}), {
-                    'doc': 'Relative property name.', 'ro': True}),
+                    'readonly': True,
+                    'doc': 'Relative property name.'}),
+
                 ('univ', ('bool', {}), {
-                    'doc': 'Specifies if a prop is universal.', 'ro': True}),
+                    'readonly': True,
+                    'doc': 'Specifies if a prop is universal.'}),
+
                 ('base', ('str', {'strip': True}), {
-                    'doc': 'Base name of the property.', 'ro': True}),
-                ('ro', ('bool', {}), {
-                    'doc': 'If the property is read-only after being set.', 'ro': True}),
+                    'readonly': True,
+                    'doc': 'Base name of the property.'}),
+
+                ('readonly', ('bool', {}), {
+                    'readonly': True,
+                    'doc': 'If the property is read-only after being set.'}),
+
                 ('extmodel', ('bool', {}), {
-                    'doc': 'If the property is an extended model property or not.', 'ro': True}),
+                    'readonly': True,
+                    'doc': 'If the property is an extended model property or not.'}),
             )),
             ('syn:tagprop', {'runt': True, 'liftfunc': 'synapse.models.syn._liftRuntSynTagProp'}, (
                 ('doc', ('str', {'strip': True}), {
                     'doc': 'Description of the tagprop definition.'}),
                 ('type', ('syn:type', {}), {
-                    'doc': 'The synapse type for this tagprop.', 'ro': True}),
+                    'doc': 'The synapse type for this tagprop.', 'readonly': True}),
             )),
             ('syn:cmd', {'runt': True, 'liftfunc': 'synapse.models.syn._liftRuntSynCmd'}, (
 
@@ -261,10 +294,14 @@ modeldefs = (
                     'doc': 'Optional description of this deprecation.'}),
             )),
             ('syn:deleted', {'runt': True}, (
+
                 ('nid', ('int', {}), {
-                    'doc': 'The nid for the node that was deleted.', 'ro': True}),
+                    'readonly': True,
+                    'doc': 'The nid for the node that was deleted.'}),
+
                 ('sodes', ('data', {}), {
-                    'doc': 'The layer storage nodes for the node that was deleted.', 'ro': True}),
+                    'readonly': True,
+                    'doc': 'The layer storage nodes for the node that was deleted.'}),
             )),
         ),
     }),

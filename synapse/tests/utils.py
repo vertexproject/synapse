@@ -390,24 +390,24 @@ testmodel = (
             ('test:type', {}, ()),
 
             ('test:comp', {}, (
-                ('hehe', ('test:int', {}), {'ro': True}),
-                ('haha', ('test:lower', {}), {'ro': True}),
+                ('hehe', ('test:int', {}), {'readonly': True}),
+                ('haha', ('test:lower', {}), {'readonly': True}),
                 ('seen', ('ival', {}), {}),
             )),
 
             ('test:compcomp', {}, (
-                ('comp1', ('test:comp', {}), {'ro': True}),
-                ('comp2', ('test:comp', {}), {'ro': True}),
+                ('comp1', ('test:comp', {}), {'readonly': True}),
+                ('comp2', ('test:comp', {}), {'readonly': True}),
             )),
 
             ('test:complexcomp', {}, (
-                ('foo', ('test:int', {}), {'ro': True}),
-                ('bar', ('str', {'lower': 1}), {'ro': True})
+                ('foo', ('test:int', {}), {'readonly': True}),
+                ('bar', ('str', {'lower': 1}), {'readonly': True})
             )),
 
             ('test:ndefcomp', {}, (
-                ('hehe', ('test:int', {}), {'ro': True}),
-                ('ndef', ('test:ndef', {}), {'ro': True}),
+                ('hehe', ('test:int', {}), {'readonly': True}),
+                ('ndef', ('test:ndef', {}), {'readonly': True}),
             )),
 
             ('test:int', {}, (
@@ -498,8 +498,8 @@ testmodel = (
             )),
 
             ('test:pivcomp', {}, (
-                ('targ', ('test:pivtarg', {}), {'ro': True}),
-                ('lulz', ('test:str', {}), {'ro': True}),
+                ('targ', ('test:pivtarg', {}), {'readonly': True}),
+                ('lulz', ('test:str', {}), {'readonly': True}),
                 ('tick', ('time', {}), {}),
                 ('size', ('test:int', {}), {}),
                 ('width', ('test:int', {}), {}),
@@ -511,12 +511,12 @@ testmodel = (
             )),
 
             ('test:ndef', {}, (
-                ('form', ('str', {}), {'ro': True}),
+                ('form', ('str', {}), {'readonly': True}),
             )),
 
             ('test:ro', {}, (
                 ('writeable', ('str', {}), {'doc': 'writeable property.'}),
-                ('readable', ('str', {}), {'doc': 'ro property.', 'ro': True}),
+                ('readable', ('str', {}), {'doc': 'ro property.', 'readonly': True}),
             )),
 
             ('test:hasiface', {}, ()),

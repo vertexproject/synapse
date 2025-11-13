@@ -308,14 +308,21 @@ modeldefs = (
             )),
 
             ('crypto:currency:block', {}, (
+
                 ('coin', ('econ:currency', {}), {
-                    'doc': 'The coin/blockchain this block resides on.', 'ro': True, }),
+                    'readonly': True,
+                    'doc': 'The coin/blockchain this block resides on.'}),
+
                 ('offset', ('int', {}), {
-                    'doc': 'The index of this block.', 'ro': True, }),
+                    'readonly': True,
+                    'doc': 'The index of this block.'}),
+
                 ('hash', ('hex', {}), {
                     'doc': 'The unique hash for the block.'}),
+
                 ('minedby', ('crypto:currency:address', {}), {
                     'doc': 'The address which mined the block.'}),
+
                 ('time', ('time', {}), {
                     'doc': 'Time timestamp embedded in the block by the miner.'}),
             )),
@@ -338,11 +345,11 @@ modeldefs = (
             ('crypto:smart:token', {}, (
 
                 ('contract', ('crypto:smart:contract', {}), {
-                    'ro': True,
+                    'readonly': True,
                     'doc': 'The smart contract which defines and manages the token.'}),
 
                 ('tokenid', ('hugenum', {}), {
-                    'ro': True,
+                    'readonly': True,
                     'doc': 'The token ID.'}),
 
                 ('owner', ('crypto:currency:address', {}), {
@@ -458,13 +465,15 @@ modeldefs = (
             ('crypto:currency:address', {}, (
 
                 ('coin', ('econ:currency', {}), {
-                    'doc': 'The crypto coin to which the address belongs.', 'ro': True, }),
+                    'readonly': True,
+                    'doc': 'The crypto coin to which the address belongs.'}),
+
+                ('iden', ('str', {}), {
+                    'readonly': True,
+                    'doc': 'The coin specific address identifier.'}),
 
                 ('seed', ('crypto:key', {}), {
                     'doc': 'The cryptographic key and or password used to generate the address.'}),
-
-                ('iden', ('str', {}), {
-                    'doc': 'The coin specific address identifier.', 'ro': True, }),
 
                 ('desc', ('str', {}), {
                     'doc': 'A free-form description of the address.'}),
@@ -542,10 +551,12 @@ modeldefs = (
             ('crypto:currency:client', {}, (
 
                 ('inetaddr', ('inet:client', {}), {
-                    'doc': 'The Internet client address observed using the crypto currency address.', 'ro': True, }),
+                    'readonly': True,
+                    'doc': 'The Internet client address observed using the crypto currency address.'}),
 
                 ('coinaddr', ('crypto:currency:address', {}), {
-                    'doc': 'The crypto currency address observed in use by the Internet client.', 'ro': True, }),
+                    'readonly': True,
+                    'doc': 'The crypto currency address observed in use by the Internet client.'}),
             )),
 
             ('crypto:hash:md5', {}, ()),
@@ -567,24 +578,34 @@ modeldefs = (
             )),
 
             ('crypto:x509:signedfile', {}, (
+
                 ('cert', ('crypto:x509:cert', {}), {
-                    'doc': 'The certificate for the key which signed the file.', 'ro': True, }),
+                    'readonly': True,
+                    'doc': 'The certificate for the key which signed the file.'}),
+
                 ('file', ('file:bytes', {}), {
-                    'doc': 'The file which was signed by the certificates key.', 'ro': True, }),
+                    'readonly': True,
+                    'doc': 'The file which was signed by the certificates key.'}),
             )),
 
             ('crypto:x509:crl', {}, (
+
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file containing the CRL.'}),
+
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL where the CRL was published.'}),
             )),
 
             ('crypto:x509:revoked', {}, (
+
                 ('crl', ('crypto:x509:crl', {}), {
-                    'doc': 'The CRL which revoked the certificate.', 'ro': True, }),
+                    'readonly': True,
+                    'doc': 'The CRL which revoked the certificate.'}),
+
                 ('cert', ('crypto:x509:cert', {}), {
-                    'doc': 'The certificate revoked by the CRL.', 'ro': True, }),
+                    'readonly': True,
+                    'doc': 'The certificate revoked by the CRL.'}),
             )),
 
             ('crypto:x509:cert', {}, (

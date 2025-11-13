@@ -786,7 +786,7 @@ class ProtoNode(s_node.NodeBase):
 
         cval = curv[0]
 
-        if prop.info.get('ro') and cval:
+        if prop.info.get('readonly') and cval:
             raise s_exc.ReadOnlyProp(mesg=f'Property is read only: {prop.full}.')
 
         if cval is not None and norminfo.get('merge', True):
@@ -840,7 +840,7 @@ class ProtoNode(s_node.NodeBase):
         if valu is s_common.novalu:
             return False
 
-        if prop.info.get('ro'):
+        if prop.info.get('readonly'):
             raise s_exc.ReadOnlyProp(mesg=f'Property is read only: {prop.full}.', name=prop.full)
 
         self.props.pop(name, None)

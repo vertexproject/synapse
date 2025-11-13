@@ -213,46 +213,62 @@ modeldefs = (
 
         'forms': (
             ('inet:dns:a', {}, (
-                ('fqdn', ('inet:fqdn', {}), {'ro': True,
+                ('fqdn', ('inet:fqdn', {}), {
+                    'readonly': True,
                     'doc': 'The domain queried for its DNS A record.'}),
-                ('ip', ('inet:ip', {}), {'ro': True,
+                ('ip', ('inet:ip', {}), {
+                    'readonly': True,
                     'doc': 'The IPv4 address returned in the A record.',
                     'prevnames': ('ipv4',)}),
                 ('seen', ('ival', {}), {
                     'doc': 'The time range where the record was observed.'}),
             )),
             ('inet:dns:aaaa', {}, (
-                ('fqdn', ('inet:fqdn', {}), {'ro': True,
+                ('fqdn', ('inet:fqdn', {}), {
+                    'readonly': True,
                     'doc': 'The domain queried for its DNS AAAA record.'}),
-                ('ip', ('inet:ip', {}), {'ro': True,
+                ('ip', ('inet:ip', {}), {
+                    'readonly': True,
                     'doc': 'The IPv6 address returned in the AAAA record.',
                     'prevnames': ('ipv6',)}),
             )),
             ('inet:dns:rev', {'prevnames': ('inet:dns:rev6',)}, (
-                ('ip', ('inet:ip', {}), {'ro': True,
+                ('ip', ('inet:ip', {}), {
+                    'readonly': True,
                     'doc': 'The IP address queried for its DNS PTR record.',
                     'prevnames': ('ipv4', 'ipv6')}),
 
-                ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                     'doc': 'The domain returned in the PTR record.'}),
+                ('fqdn', ('inet:fqdn', {}), {
+                    'readonly': True,
+                    'doc': 'The domain returned in the PTR record.'}),
             )),
             ('inet:dns:ns', {}, (
-                ('zone', ('inet:fqdn', {}), {'ro': True,
-                     'doc': 'The domain queried for its DNS NS record.'}),
-                ('ns', ('inet:fqdn', {}), {'ro': True,
-                     'doc': 'The domain returned in the NS record.'}),
+
+                ('zone', ('inet:fqdn', {}), {
+                    'readonly': True,
+                    'doc': 'The domain queried for its DNS NS record.'}),
+
+                ('ns', ('inet:fqdn', {}), {
+                    'readonly': True,
+                    'doc': 'The domain returned in the NS record.'}),
             )),
             ('inet:dns:cname', {}, (
-                ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                     'doc': 'The domain queried for its CNAME record.'}),
-                ('cname', ('inet:fqdn', {}), {'ro': True,
-                     'doc': 'The domain returned in the CNAME record.'}),
+                ('fqdn', ('inet:fqdn', {}), {
+                    'readonly': True,
+                    'doc': 'The domain queried for its CNAME record.'}),
+                ('cname', ('inet:fqdn', {}), {
+                    'readonly': True,
+                    'doc': 'The domain returned in the CNAME record.'}),
             )),
             ('inet:dns:mx', {}, (
-                ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                     'doc': 'The domain queried for its MX record.'}),
-                ('mx', ('inet:fqdn', {}), {'ro': True,
-                     'doc': 'The domain returned in the MX record.'}),
+
+                ('fqdn', ('inet:fqdn', {}), {
+                    'readonly': True,
+                    'doc': 'The domain queried for its MX record.'}),
+
+                ('mx', ('inet:fqdn', {}), {
+                    'readonly': True,
+                    'doc': 'The domain returned in the MX record.'}),
             )),
 
             ('inet:dns:soa', {}, (
@@ -265,20 +281,35 @@ modeldefs = (
             )),
 
             ('inet:dns:txt', {}, (
-                ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                     'doc': 'The domain queried for its TXT record.'}),
-                ('txt', ('str', {}), {'ro': True,
-                     'doc': 'The string returned in the TXT record.'}),
+
+                ('fqdn', ('inet:fqdn', {}), {
+                    'readonly': True,
+                    'doc': 'The domain queried for its TXT record.'}),
+
+                ('txt', ('str', {}), {
+                    'readonly': True,
+                    'doc': 'The string returned in the TXT record.'}),
             )),
 
             ('inet:dns:query', {}, (
-                ('client', ('inet:client', {}), {'ro': True, }),
-                ('name', ('inet:dns:name', {}), {'ro': True, }),
+
+                ('client', ('inet:client', {}), {
+                    'readonly': True,
+                    'doc': 'The client which initiated the DNS query.'}),
+
+                ('name', ('inet:dns:name', {}), {
+                    'readonly': True
+                    'doc': 'The DNS name which the client queried.'}),
+
+                # FIXME virt?
                 ('name:ip', ('inet:ip', {}), {
                     'prevnames': ('name:ipv4', 'name:ipv6')}),
 
+                # FIXME virt?
                 ('name:fqdn', ('inet:fqdn', {}), {}),
-                ('type', ('int', {}), {'ro': True, }),
+
+                # TODO create type enums
+                ('type', ('int', {}), {'readonly': True}),
             )),
 
             ('inet:dns:request', {}, (
@@ -311,17 +342,25 @@ modeldefs = (
             )),
 
             ('inet:dns:wild:a', {}, (
-                ('fqdn', ('inet:fqdn', {}), {'ro': True,
+
+                ('fqdn', ('inet:fqdn', {}), {
+                    'readonly': True,
                     'doc': 'The domain containing a wild card record.'}),
-                ('ip', ('inet:ip', {}), {'ro': True,
+
+                ('ip', ('inet:ip', {}), {
+                    'readonly': True,
                     'doc': 'The IPv4 address returned by wild card resolutions.',
                     'prevnames': ('ipv4',)}),
             )),
 
             ('inet:dns:wild:aaaa', {}, (
-                ('fqdn', ('inet:fqdn', {}), {'ro': True,
+
+                ('fqdn', ('inet:fqdn', {}), {
+                    'readonly': True,
                     'doc': 'The domain containing a wild card record.'}),
-                ('ip', ('inet:ip', {}), {'ro': True,
+
+                ('ip', ('inet:ip', {}), {
+                    'readonly': True,
                     'doc': 'The IPv6 address returned by wild card resolutions.',
                     'prevnames': ('ipv6',)}),
             )),

@@ -167,7 +167,7 @@ class SynModelTest(s_t_utils.SynTest):
 
         async def addExtModelConfigs(cortex):
             await cortex.addTagProp('beep', ('int', {}), {'doc': 'words'})
-            await cortex.addFormProp('test:str', '_twiddle', ('bool', {}), {'doc': 'hehe', 'ro': True})
+            await cortex.addFormProp('test:str', '_twiddle', ('bool', {}), {'doc': 'hehe', 'readonly': True})
 
         async def delExtModelConfigs(cortex):
             await cortex.delTagProp('beep')
@@ -254,8 +254,8 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', 'test:type10:intprop'), node.ndef)
-            self.nn(node.get('ro'))
-            self.false(node.get('ro'))
+            self.nn(node.get('readonly'))
+            self.false(node.get('readonly'))
             self.eq('int', node.get('type'))
             self.eq('test:type10', node.get('form'))
             self.eq('', node.get('doc'))
@@ -284,7 +284,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(('syn:prop', 'test:type10'), node.ndef)
             self.eq('test:type10', node.get('form'))
 
-            self.none(node.get('ro'))
+            self.none(node.get('readonly'))
             self.none(node.get('base'))
             self.none(node.get('relname'))
 

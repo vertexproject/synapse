@@ -34,7 +34,7 @@ Edges = List[Edge]
 
 poptsToWords = {
     'ex': 'Example',
-    'ro': 'Read Only',
+    'readonly': 'Read Only',
     'deprecated': 'Deprecated',
     'disp': 'Display',
 }

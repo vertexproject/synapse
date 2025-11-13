@@ -292,38 +292,38 @@ modeldefs = (
             ('tel:mob:imei', {}, (
 
                 ('tac', ('tel:mob:tac', {}), {
-                    'ro': True,
+                    'readonly': True,
                     'doc': 'The Type Allocate Code within the IMEI.'}),
 
                 ('serial', ('int', {}), {
-                    'ro': True,
+                    'readonly': True,
                     'doc': 'The serial number within the IMEI.'})
 
             )),
             ('tel:mob:imsi', {}, (
                 ('mcc', ('tel:mob:mcc', {}), {
-                    'ro': True,
+                    'readonly': True,
                     'doc': 'The Mobile Country Code.',
                 }),
             )),
             ('tel:mob:imid', {}, (
 
                 ('imei', ('tel:mob:imei', {}), {
-                    'ro': True,
+                    'readonly': True,
                     'doc': 'The IMEI for the phone hardware.'}),
 
                 ('imsi', ('tel:mob:imsi', {}), {
-                    'ro': True,
+                    'readonly': True,
                     'doc': 'The IMSI for the phone subscriber.'}),
             )),
             ('tel:mob:imsiphone', {}, (
 
                 ('phone', ('tel:phone', {}), {
-                    'ro': True,
+                    'readonly': True,
                     'doc': 'The phone number assigned to the IMSI.'}),
 
                 ('imsi', ('tel:mob:imsi', {}), {
-                    'ro': True,
+                    'readonly': True,
                     'doc': 'The IMSI with the assigned phone number.'}),
             )),
             ('tel:mob:mcc', {}, (
@@ -333,10 +333,10 @@ modeldefs = (
             ('tel:mob:carrier', {}, (
 
                 ('mcc', ('tel:mob:mcc', {}), {
-                    'ro': True}),
+                    'readonly': True}),
 
                 ('mnc', ('tel:mob:mnc', {}), {
-                    'ro': True}),
+                    'readonly': True}),
             )),
             ('tel:mob:cell:radio:type:taxonomy', {}, ()),
             ('tel:mob:cell', {}, (
