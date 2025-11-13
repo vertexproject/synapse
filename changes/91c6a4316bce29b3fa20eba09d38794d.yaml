@@ -1,6 +1,0 @@
----
-desc: Fixed issue where lists retrieved from ``$lib.user.profile`` (``user:profile:dict`` Storm types) were not mutable.
-desc:literal: false
-prs: []
-type: bug
-...
