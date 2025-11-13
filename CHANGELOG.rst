@@ -85,6 +85,7 @@ Deprecations
 - Deprecated comp types using mutable fields (data and array) and non-existent
   types.
   (`#4561 <https://github.com/vertexproject/synapse/pull/4561>`_)
+  (`#4575 <https://github.com/vertexproject/synapse/pull/4575>`_)
 
 v2.226.0 - 2025-10-24
 =====================
