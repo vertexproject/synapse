@@ -1351,6 +1351,16 @@ class StormTypesTest(s_test.SynTest):
             vals = await core.callStorm('return($lib.dict.fromlist((((1), (2)), ((2), (3)))))')
             self.eq(vals, {1: 2, 2: 3})
 
+            # Check mutability
+            q = '''
+                $ret = $lib.dict.fromlist(((a, ({})), (b, (foo, bar))))
+                $ret.a.foo = bar
+                $ret.b.append(baz)
+                return($ret)
+            '''
+            vals = await core.callStorm(q)
+            self.eq(vals, {'a': {'foo': 'bar'}, 'b': ['foo', 'bar', 'baz']})
+
             # Non-primitive type
             with self.raises(s_exc.NoSuchType) as exc:
                 await core.callStorm('function foo() {} return($lib.dict.fromlist(([["foo", $foo]])))')

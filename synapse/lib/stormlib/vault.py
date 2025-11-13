@@ -2,6 +2,8 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
+import synapse.lib.msgpack as s_msgpack
+
 import synapse.lib.stormtypes as s_stormtypes
 
 stormcmds = (
@@ -341,7 +343,7 @@ class LibVault(s_stormtypes.Lib):
                             in the vault.
                        '''},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'The requested vault.'}}},
+                  'returns': {'type': 'vault', 'desc': 'The requested vault.'}}},
         {'name': 'get', 'desc': 'Get a vault by iden.',
          'type': {'type': 'function', '_funcname': '_getByIden',
                   'args': (
@@ -353,7 +355,7 @@ class LibVault(s_stormtypes.Lib):
                             in the vault.
                        '''},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'The requested vault.'}}},
+                  'returns': {'type': 'vault', 'desc': 'The requested vault.'}}},
         {'name': 'bytype', 'desc': 'Get a vault for a specified vault type.',
          'type': {'type': 'function', '_funcname': '_getByType',
                   'args': (
@@ -554,7 +556,8 @@ class VaultConfigs(s_stormtypes.Prim):
         name = await s_stormtypes.tostr(name)
 
         data = vault.get(self._vault_field_name)
-        return data.get(name, None)
+        valu = data.get(name, None)
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def iter(self):
         vault = self.runt.snap.core.reqVault(self.valu)
@@ -564,7 +567,7 @@ class VaultConfigs(s_stormtypes.Prim):
         data = vault.get(self._vault_field_name)
 
         for item in data.items():
-            yield item
+            yield s_msgpack.deepcopy(item, use_list=True)
 
     def __len__(self):
         vault = self.runt.snap.core.reqVault(self.valu)
