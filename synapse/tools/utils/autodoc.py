@@ -1,6 +1,5 @@
 import copy
 import logging
-import textwrap
 import collections
 
 from typing import List, Tuple, Dict, Union
@@ -13,7 +12,6 @@ import synapse.telepath as s_telepath
 import synapse.lib.cmd as s_cmd
 import synapse.lib.json as s_json
 import synapse.lib.storm as s_storm
-import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 import synapse.lib.autodoc as s_autodoc
 import synapse.lib.dyndeps as s_dyndeps
