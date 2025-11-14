@@ -550,7 +550,7 @@ class ItVersion(s_types.Str):
         if (virts := valu[2]) is None:
             return None
 
-        if (valu := virts.get('semver')) is None:
+        if (valu := virts.get('semver')) is None: # pragma: no cover
             return None
 
         return valu[0]

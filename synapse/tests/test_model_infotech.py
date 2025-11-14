@@ -714,7 +714,13 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('it:hardware:model=XPS13 -> it:hardware'))
             self.eq('dell', nodes[0].get('manufacturer:name'))
             self.len(1, await core.nodes('it:hardware:version.semver >= 1.0.0'))
+            self.len(1, await core.nodes('it:hardware:version +:version.semver >= 1.0.0'))
             self.len(1, await core.nodes('it:hardware -> ou:org +:name=dell'))
+
+            # coverage for :version.semver accessors
+            await core.nodes('it:hardware:version [ :version=woot ]')
+            self.len(0, await core.nodes('it:hardware:version.semver >= 1.0.0'))
+            self.len(0, await core.nodes('it:hardware:version +:version.semver >= 1.0.0'))
 
             nodes = await core.nodes('''[
                 it:host:component=*
