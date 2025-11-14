@@ -556,7 +556,7 @@ async def processStormCmds(rst, pkgname, commands):
         lines = ['::\n']
 
         # Generate help from args
-        pars = s_storm.Parser(prog=cname, descr=cdesc)
+        pars = s_storm.Parser(prog=cname, descr=cdesc, cdef=cdef)
         if cargs:
             for (argname, arginfo) in cargs:
                 pars.add_argument(argname, **arginfo)
@@ -570,34 +570,6 @@ async def processStormCmds(rst, pkgname, commands):
                 lines.append(f'    {line}')
 
         lines.append('\n')
-
-        if (cmdinputs := cdef.get('cmdinputs')) is not None:
-            line = 'The command is aware of how to automatically handle the following forms as input nodes:\n'
-            lines.append(line)
-            for item in cmdinputs:
-                if (form := item.get('form')) is None:
-                    continue
-                lines.append(f'- ``{form}``')
-
-                if (help_ := item.get('help', '').strip()):
-                    for line in help_.splitlines():
-                        lines.append(f'  {line}')
-
-            lines.append('\n')
-
-        if (endpoints := cdef.get('endpoints')) is not None:
-            line = 'The command connects to the following endpoints:\n'
-            lines.append(line)
-            for endpoint in endpoints:
-                if (path := endpoint.get('path')) is None:
-                    continue
-
-                lines.append(f'- ``{path}``')
-
-                if (desc := endpoint.get('desc')):
-                    lines.append(f'  {desc}')
-
-            lines.append('\n')
 
         if (perms := cdef.get('perms')) is not None:
             line = 'The command is accessible to users with one or more of the following permissions:\n'
