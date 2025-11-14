@@ -332,6 +332,9 @@ modeldefs = (
                 ('cash', ('bool', {}), {
                     'doc': 'The payment was made with physical currency.'}),
 
+                ('status', ('str', {'lower': True}), {
+                    'doc': 'The status of the payment.'}),
+
                 ('payee', ('entity:actor', {}), {
                     'doc': 'The entity which received the payment.'}),
 
