@@ -530,6 +530,48 @@ class SemVer(s_types.Int):
         valu = s_version.fmtVersion(major, minor, patch)
         return valu
 
+class ItVersion(s_types.Str):
+
+    def postTypeInit(self):
+
+        s_types.Str.postTypeInit(self)
+        self.semver = self.modl.type('it:semver')
+
+        self.virtindx |= {
+            'semver': 'semver',
+        }
+
+        self.virts |= {
+            'semver': (self.semver, self._getSemVer),
+        }
+
+    def _getSemVer(self, valu):
+
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('semver')) is None:
+            return None
+
+        return valu[0]
+
+    async def _normPyStr(self, valu, view=None):
+
+        norm, info = await s_types.Str._normPyStr(self, valu)
+
+        try:
+            semv, semvinfo = await self.semver.norm(norm)
+            subs = info.setdefault('subs', {})
+            virts = info.setdefault('virts', {})
+            subs['semver'] = (self.semver.typehash, semv, semvinfo)
+            virts['semver'] = (semv, self.semver.stortype)
+        except s_exc.BadTypeValu:
+            # It's ok for a version to not be semver compatible.
+            pass
+
+        return norm, info
+
+
 loglevels = (
     (10, 'debug'),
     (20, 'info'),
@@ -589,14 +631,21 @@ modeldefs = (
     ('it', {
         'ctors': (
             ('it:semver', 'synapse.models.infotech.SemVer', {}, {
-                'doc': 'Semantic Version type.',
-            }),
+                'doc': 'Semantic Version type.'}),
+
+            ('it:version', 'synapse.models.infotech.ItVersion', {}, {
+                'virts': (
+                    ('semver', ('it:semver', {}), {
+                        'ro': True,
+                        'doc': 'The semver value if the version string is compatible.'}),
+                ),
+                'doc': 'A version string.'}),
+
             ('it:sec:cpe', 'synapse.models.infotech.Cpe23Str', {}, {
-                'doc': 'A NIST CPE 2.3 Formatted String.',
-            }),
+                'doc': 'A NIST CPE 2.3 Formatted String.'}),
+
             ('it:sec:cpe:v2_2', 'synapse.models.infotech.Cpe22Str', {}, {
-                'doc': 'A NIST CPE 2.2 Formatted String.',
-            }),
+                'doc': 'A NIST CPE 2.2 Formatted String.'}),
         ),
         'types': (
 
@@ -1819,7 +1868,7 @@ modeldefs = (
                 ('model', ('base:name', {}), {
                     'doc': 'The model name or number for this hardware specification.'}),
 
-                ('version', ('it:semver', {}), {
+                ('version', ('it:version', {}), {
                     'doc': 'Version string associated with this hardware specification.'}),
 
                 ('released', ('time', {}), {

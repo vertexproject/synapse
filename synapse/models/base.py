@@ -270,7 +270,7 @@ modeldefs = (
                     ('target', ('{target:type}', {}), {
                         'doc': 'The target node which matched the {rule}.'}),
 
-                    ('version', ('it:semver', {}), {
+                    ('version', ('it:version', {}), {
                         'doc': 'The most recent version of the rule evaluated as a match.'}),
 
                     ('matched', ('time', {}), {
