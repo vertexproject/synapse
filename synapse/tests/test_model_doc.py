@@ -26,7 +26,7 @@ class DocModelTest(s_tests.SynTest):
             self.eq('If you can AAAAAAAA...', nodes[0].get('body'))
             self.eq(1729209600000000, nodes[0].get('created'))
             self.eq(1729209600000000, nodes[0].get('updated'))
-            self.eq(1099513724931, nodes[0].get('version'))
+            self.eq('1.2.3', nodes[0].get('version'))
 
             self.nn(nodes[0].get('file'))
             self.nn(nodes[0].get('author'))

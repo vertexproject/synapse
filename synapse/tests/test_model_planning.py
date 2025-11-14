@@ -21,7 +21,7 @@ class PlanModelTest(s_t_utils.SynTest):
             self.eq('woot cno planner', nodes[0].get('name'))
             self.eq(1706832000000000, nodes[0].get('created'))
             self.eq(1706918400000000, nodes[0].get('updated'))
-            self.eq(1099511627776, nodes[0].get('version'))
+            self.eq('1.0.0', nodes[0].get('version'))
             self.eq('https://vertex.link', nodes[0].get('url'))
 
             self.len(1, await core.nodes('plan:system :author -> entity:contact +:name=visi'))
@@ -95,7 +95,7 @@ class PlanModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('author'))
             self.eq(1706832000000000, nodes[0].get('created'))
             self.eq(1706918400000000, nodes[0].get('updated'))
-            self.eq(1099511627776, nodes[0].get('version'))
+            self.eq('1.0.0', nodes[0].get('version'))
 
             self.len(1, await core.nodes('plan:procedure :type -> plan:procedure:type:taxonomy'))
             self.len(1, await core.nodes('plan:procedure :system -> plan:system +:name="Woot CNO Planner"'))
