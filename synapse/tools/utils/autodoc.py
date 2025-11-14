@@ -1,5 +1,6 @@
 import copy
 import logging
+import textwrap
 import collections
 
 from typing import List, Tuple, Dict, Union
@@ -572,30 +573,39 @@ async def processStormCmds(rst, pkgname, commands):
 
         lines.append('\n')
 
-        forms = cdef.get('forms', {})
-        iforms = forms.get('input')
-        oforms = forms.get('output')
-        nodedata = forms.get('nodedata')
-
-        if iforms:
+        if (cmdinputs := cdef.get('cmdinputs')) is not None:
             line = 'The command is aware of how to automatically handle the following forms as input nodes:\n'
             lines.append(line)
-            for form in iforms:
+            for item in cmdinputs:
+                if (form := item.get('form')) is None:
+                    continue
                 lines.append(f'- ``{form}``')
+
+                if (help_ := item.get('help', '').strip()):
+                    for line in help_.splitlines():
+                        lines.append(f'  {line}')
+
             lines.append('\n')
 
-        if oforms:
-            line = 'The command may make the following types of nodes in the graph as a result of its execution:\n'
+        if (endpoints := cdef.get('endpoints')) is not None:
+            line = 'The command connects to the following endpoints:\n'
             lines.append(line)
-            for form in oforms:
-                lines.append(f'- ``{form}``')
+            for endpoint in endpoints:
+                if (path := endpoint.get('path')) is None:
+                    continue
+
+                lines.append(f'- ``{path}``')
+
+                if (desc := endpoint.get('desc')):
+                    lines.append(f'  {desc}')
+
             lines.append('\n')
 
-        if nodedata:
-            line = 'The command may add nodedata with the following keys to the corresponding forms:\n'
+        if (perms := cdef.get('perms')) is not None:
+            line = 'The command is accessible to users with one or more of the following permissions:\n'
             lines.append(line)
-            for key, form in nodedata:
-                lines.append(f'- ``{key}`` on ``{form}``')
+            for perm in perms:
+                lines.append(f'- ``{".".join(perm)}``')
             lines.append('\n')
 
         rst.addLines(*lines)
