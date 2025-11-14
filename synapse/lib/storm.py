@@ -1911,7 +1911,7 @@ class Parser:
 
         self.prog = prog
         self.descr = descr
-        self.cdef = cdef
+        self.cdef = cdef or {}
 
         self.exc = None
 
@@ -2189,17 +2189,13 @@ class Parser:
         if self.descr is not None:
             self._printf('')
             self._printf(self.descr)
-            self._printf('')
 
-        self._printf(f'Usage: {self.prog} [options] {posargs}')
-
-        if self.cdef is not None and (deprecated := self.cdef.get('deprecated')) is not None:
+        if (deprecated := self.cdef.get('deprecated')) is not None:
             dmsg = deprmesg(self.prog, deprecated)
             self._printf('')
             self._printf(f'Deprecated: {dmsg}')
-            self._printf('')
 
-        if self.cdef is not None and (endpoints := self.cdef.get('endpoints')):
+        if (endpoints := self.cdef.get('endpoints')):
             self._printf('')
             self._printf('Endpoints:')
             self._printf('')
@@ -2208,11 +2204,46 @@ class Parser:
             for endpoint in endpoints:
                 path = endpoint['path']
                 desc = endpoint.get('desc', '')
-                base = f'    {path}'
+                base = f'  {path}'
                 wrap_desc = self._wrap_text(desc, wrap_w) if desc else ['']
-                self._printf(f'{base:<{base_w-2}}: {wrap_desc[0]}')
+                self._printf(f'{base:<{base_w - 2}}: {wrap_desc[0]}')
                 for ln in wrap_desc[1:]:
                     self._printf(f'{"":<{base_w}}{ln}')
+
+        if (cmdinputs := self.cdef.get('cmdinputs')) is not None:
+            self._printf('')
+            self._printf('Command inputs:')
+            self._printf('')
+
+            base_w = 32
+            wrap_w = 120 - base_w
+
+            # Sort by form name
+            cmdinputs = sorted(cmdinputs, key=lambda x: x.get('form'))
+
+            # Print cmdinputs without help first
+            for cmdinput in cmdinputs:
+                form = cmdinput['form']
+                if 'help' in endpoint:
+                    continue
+
+                base = f'  {form}'
+                self._printf(f'{base}')
+
+            # Now print cmdinputs with help
+            for cmdinput in cmdinputs:
+                form = cmdinput['form']
+                if (help_ := endpoint.get('help')) is None:
+                    continue
+
+                base = f'  {form}'
+                wrap_help = self._wrap_text(help_, wrap_w) if help_ else ['']
+                self._printf(f'{base:<{base_w - 2}}: {wrap_help[0]}')
+                for ln in wrap_help[1:]:
+                    self._printf(f'{"":<{base_w}}{ln}')
+
+        self._printf('')
+        self._printf(f'Usage: {self.prog} [options] {posargs}')
 
         options = [x for x in self.allargs if x[0][0].startswith('-')]
 
