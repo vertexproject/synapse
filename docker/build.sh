@@ -24,9 +24,9 @@ TAG=${1:-}
 
 # Build target images
 docker builder prune -a -f
-docker build --no-cache --progress plain --pull -t vertexproject/synapse:$TAG -f docker/images/synapse/Dockerfile .
-docker/build_image.sh aha $TAG
-docker/build_image.sh axon $TAG
-docker/build_image.sh cortex $TAG
-docker/build_image.sh jsonstor $TAG
-docker/build_image.sh stemcell $TAG
+
+docker build --no-cache -t vertexproject/synapse:$TAG --build-arg TAG=${TAG} -f docker/images/synapse/Dockerfile .
+docker build --no-cache -t vertexproject/synapse-aha:$TAG --build-arg TAG=${TAG} -f docker/images/aha/Dockerfile .
+docker build --no-cache -t vertexproject/synapse-axon:$TAG --build-arg TAG=${TAG} -f docker/images/axon/Dockerfile .
+docker build --no-cache -t vertexproject/synapse-cortex:$TAG --build-arg TAG=${TAG} -f docker/images/cortex/Dockerfile .
+docker build --no-cache -t vertexproject/synapse-jsonstor:$TAG --build-arg TAG=${TAG} -f docker/images/jsonstor/Dockerfile .

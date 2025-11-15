@@ -3,17 +3,16 @@
 # This image is only a reference image to use as a base image with
 # synapse and its dependencies pre-installed.  It does not start any
 # services.
+#FROM vertexproject/vtx-base-image:py314
+FROM python:3.14.0-slim-bookworm
 
-FROM vertexproject/vtx-base-image:dev-py313
-
-ENV SYN_LOG_LEVEL="INFO"
+ENV SYN_LOG_LEVEL="WARNING"
 
 COPY synapse /build/synapse/synapse
-COPY README.rst /build/synapse/README.rst
 COPY pyproject.toml /build/synapse/pyproject.toml
 
-COPY docker/rmlist.txt /build/synapse/rmlist.txt
-COPY docker/bootstrap.sh /build/synapse/bootstrap.sh
-RUN /build/synapse/bootstrap.sh
+COPY docker /build/synapse/docker
+
+RUN /build/synapse/docker/images/synapse/bootstrap.sh
 
 VOLUME /vertex/storage
