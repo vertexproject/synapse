@@ -532,6 +532,7 @@ jobs:
       - image: cimg/python:3.13
         environment:
           PYVERS: 3.13
+          NO_COLOR: 1
           RUN_SYNTAX: 1
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
@@ -551,6 +552,7 @@ jobs:
       - image: cimg/python:3.13
         environment:
           PYVERS: 3.13
+          NO_COLOR: 1
           RUN_SYNTAX: 1
           CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
