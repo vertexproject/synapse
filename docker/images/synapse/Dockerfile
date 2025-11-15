@@ -1,9 +1,7 @@
 # vim:set ft=dockerfile:
 
-# This image is only a reference image to use as a base image with
-# synapse and its dependencies pre-installed.  It does not start any
-# services.
-#FROM vertexproject/vtx-base-image:py314
+# This image is only a reference image to use as a base image.
+# It does not start any # services.
 FROM python:3.14.0-slim-bookworm
 
 ENV SYN_LOG_LEVEL="WARNING"
