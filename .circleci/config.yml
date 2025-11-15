@@ -412,11 +412,11 @@ commands:
       - run:
           name: build images
           command: |
-            docker/build_all.sh << parameters.image-tag >>
+            docker/build.sh << parameters.image-tag >>
       - run:
           name: smoke test images
           command: |
-            docker/scripts/test_all.sh << parameters.image-tag >>
+            docker/scripts/test.sh << parameters.image-tag >>
 
   push_docker_image:
     description: "Push a docker image up to a registry"
@@ -443,12 +443,12 @@ commands:
             - run:
                 name: retag images
                 command: |
-                  docker/scripts/retag_all.sh << parameters.source-tag >> << parameters.image-tag >>
+                  docker/scripts/retag.sh << parameters.source-tag >> << parameters.image-tag >>
 
       - run:
           name: push images
           command: |
-            docker/scripts/push_all.sh << parameters.image-tag >> << parameters.registry >> imageDigests.txt
+            docker/scripts/push.sh << parameters.image-tag >> << parameters.registry >> imageDigests.txt
 
       - when:
           condition: << parameters.cosign >>
@@ -501,7 +501,7 @@ commands:
           command: |
             if [ -z $DOCKER_FAILOVER ]
             then
-              docker/scripts/copy_all.sh << parameters.image-tag >> << parameters.registry >> << parameters.secondaryregistry >>
+              docker/scripts/copy.sh << parameters.image-tag >> << parameters.registry >> << parameters.secondaryregistry >>
             else
               echo "Skipping secondary registry copy."
             fi
