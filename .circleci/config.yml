@@ -526,12 +526,12 @@ commands:
 
 jobs:
 
-  python313:
+  python314:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.13
+      - image: cimg/python:3.14
         environment:
-          PYVERS: 3.13
+          PYVERS: 3.14
           NO_COLOR: 1
           RUN_SYNTAX: 1
           SYN_VENDOR_TEST: 1
@@ -546,12 +546,12 @@ jobs:
     steps:
       - test_steps_python
 
-  python313_replay:
+  python314_replay:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.13
+      - image: cimg/python:3.14
         environment:
-          PYVERS: 3.13
+          PYVERS: 3.14
           NO_COLOR: 1
           RUN_SYNTAX: 1
           CODECOV_FLAG: linux_replay
@@ -567,9 +567,9 @@ jobs:
 
   doctests:
     docker:
-      - image: cimg/python:3.13
+      - image: cimg/python:3.14
         environment:
-          PYVERS: 3.13
+          PYVERS: 3.14
 
     working_directory: ~/repo
 
@@ -578,10 +578,10 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.13
+      - image: cimg/python:3.14
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py313
+          PYTHON_TAG: py314
 
     steps:
       - deploy_pypi_prologue
@@ -590,10 +590,10 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: cimg/python:3.13
+      - image: cimg/python:3.14
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py313
+          PYTHON_TAG: py314
 
     steps:
       - deploy_pypi_prologue
@@ -637,7 +637,7 @@ jobs:
 
   devpi_synapse_3xx:
     docker:
-      - image: cimg/python:3.13
+      - image: cimg/python:3.14
     steps:
       - checkout
       - run:
@@ -651,7 +651,7 @@ jobs:
       - deploy_to_devpi:
           devpi_base_url: ${DEVPI_BASE_URL}
           devpi_index: vertex/synapse-3xx
-          python_tag: py313
+          python_tag: py314
           tag_verify: false
           python_smoke_code: import synapse; print(synapse.version)
 
@@ -666,14 +666,14 @@ workflows:
             branches:
                only: /.*/
 
-      - python313:
+      - python314:
           filters:
             tags:
               only: /.*/
             branches:
               only: /.*/
 
-      - python313_replay:
+      - python314_replay:
           filters:
             tags:
               only: /.*/
@@ -693,8 +693,8 @@ workflows:
       - deploy_pypi:
           requires:
             - doctests
-            - python313
-            - python313_replay
+            - python314
+            - python314_replay
             - python_package_smoketest
           context:
             - PublicPypiAccess
@@ -709,8 +709,8 @@ workflows:
             - Devpi00Access
           requires:
             - doctests
-            - python313
-            - python313_replay
+            - python314
+            - python314_replay
             - python_package_smoketest
           filters:
             tags:
@@ -722,8 +722,8 @@ workflows:
       - gh-release/dorelease:
           requires:
             - doctests
-            - python313
-            - python313_replay
+            - python314
+            - python314_replay
             - python_package_smoketest
           context:
             - GithubMachine
@@ -737,7 +737,7 @@ workflows:
       - build_docker_branch:
           requires:
             - doctests
-            - python313
+            - python314
           context:
             - AWSEcrPusherOSS
             - SynapseDockerCloudUpload
@@ -751,7 +751,7 @@ workflows:
       - build_docker_tag:
           requires:
             - doctests
-            - python313
+            - python314
           context:
             - AWSEcrPusherOSS
             - SynapseDockerCloudUpload
@@ -773,7 +773,7 @@ workflows:
                 - master
     jobs:
       - doctests
-      - python313
+      - python314
 
   weekly:
     triggers:
@@ -784,4 +784,4 @@ workflows:
               only:
                 - master
     jobs:
-      - python313_replay
+      - python314_replay
