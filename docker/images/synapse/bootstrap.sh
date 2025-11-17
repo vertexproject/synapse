@@ -22,7 +22,7 @@ chown synuser:synuser /home/synuser
 
 PIP_NO_CACHE_DIR=1
 PIP_ROOT_USER_ACTION=ignore
-python -m pip install --verbose --break-system-packages /build/synapse
+python -m pip install --verbose /build/synapse
 
 # Cleanup build time deps and remove problematic files
 apt-get remove -y --purge curl build-essential
