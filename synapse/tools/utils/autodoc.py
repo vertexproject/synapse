@@ -572,10 +572,14 @@ async def processStormCmds(rst, pkgname, commands):
         lines.append('\n')
 
         if (perms := cdef.get('perms')) is not None:
+
+            perms = [' '.join(perm) for perm in perms]
+            perms.sort()
+
             line = 'The command is accessible to users with one or more of the following permissions:\n'
             lines.append(line)
             for perm in perms:
-                lines.append(f'- ``{".".join(perm)}``')
+                lines.append(f'- ``{perm}``')
             lines.append('\n')
 
         rst.addLines(*lines)
