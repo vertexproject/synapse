@@ -2,7 +2,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.node as s_node
-import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.stormtypes as s_stormtypes
@@ -19,76 +18,6 @@ RISK_HASVULN_VULNPROPS = (
 )
 
 stormcmds = [
-    {
-        'name': 'model.edge.set',
-        'descr': 'Set a key-value for an edge verb that exists in the current view.',
-        'cmdargs': (
-            ('verb', {'help': 'The edge verb to add a key to.'}),
-            ('key', {'help': 'The key name (e.g. doc).'}),
-            ('valu', {'help': 'The string value to set.'}),
-        ),
-        'storm': '''
-            $verb = $cmdopts.verb
-            $key = $cmdopts.key
-            $lib.model.edge.set($verb, $key, $cmdopts.valu)
-            $lib.print('Set edge key: verb={verb} key={key}', verb=$verb, key=$key)
-        ''',
-    },
-    {
-        'name': 'model.edge.get',
-        'descr': 'Retrieve key-value pairs for an edge verb in the current view.',
-        'cmdargs': (
-            ('verb', {'help': 'The edge verb to retrieve.'}),
-        ),
-        'storm': '''
-            $verb = $cmdopts.verb
-            $kvpairs = $lib.model.edge.get($verb)
-            if $kvpairs {
-                $lib.print('verb = {verb}', verb=$verb)
-                for ($key, $valu) in $kvpairs {
-                    $lib.print('    {key} = {valu}', key=$key, valu=$valu)
-                }
-            } else {
-                $lib.print('verb={verb} contains no key-value pairs.', verb=$verb)
-            }
-        ''',
-    },
-    {
-        'name': 'model.edge.del',
-        'descr': 'Delete a global key-value pair for an edge verb in the current view.',
-        'cmdargs': (
-            ('verb', {'help': 'The edge verb to delete documentation for.'}),
-            ('key', {'help': 'The key name (e.g. doc).'}),
-        ),
-        'storm': '''
-            $verb = $cmdopts.verb
-            $key = $cmdopts.key
-            $lib.model.edge.del($verb, $key)
-            $lib.print('Deleted edge key: verb={verb} key={key}', verb=$verb, key=$key)
-        ''',
-    },
-    {
-        'name': 'model.edge.list',
-        'descr': 'List all edge verbs in the current view and their doc key (if set).',
-        'storm': '''
-            $edgelist = $lib.model.edge.list()
-            if $edgelist {
-                $lib.print('\nname       doc')
-                $lib.print('----       ---')
-                for ($verb, $kvdict) in $edgelist {
-                    $verb = $verb.ljust(10)
-
-                    $doc = $kvdict.doc
-                    if ($doc=$lib.null) { $doc = '' }
-
-                    $lib.print('{verb} {doc}', verb=$verb, doc=$doc)
-                }
-                $lib.print('')
-            } else {
-                $lib.print('No edge verbs found in the current view.')
-            }
-        ''',
-    },
     {
         'name': 'model.deprecated.lock',
         'descr': 'Edit lock status of deprecated model elements.',
@@ -158,7 +87,7 @@ stormcmds = [
                     $lib.print("{name}...", name=$name)
 
                     for $layr in $lib.layer.list() {
-                        if $layr.getPropCount($name, maxsize=1) {
+                        if $layr.getPropCount($name) {
                             $lib.warn("Layer {iden} still contains {name}", iden=$layr.iden, name=$name)
                             $ok = $lib.false
                         }
@@ -263,29 +192,29 @@ class LibModelTags(s_stormtypes.Lib):
     async def _delTagModel(self, tagname):
         tagname = await s_stormtypes.tostr(tagname)
         self.runt.confirm(('model', 'tag', 'set'))
-        return await self.runt.snap.core.delTagModel(tagname)
+        return await self.runt.view.core.delTagModel(tagname)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _getTagModel(self, tagname):
         tagname = await s_stormtypes.tostr(tagname)
-        return await self.runt.snap.core.getTagModel(tagname)
+        return await self.runt.view.core.getTagModel(tagname)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _listTagModel(self):
-        return await self.runt.snap.core.listTagModel()
+        return await self.runt.view.core.listTagModel()
 
     async def _popTagModel(self, tagname, propname):
         tagname = await s_stormtypes.tostr(tagname)
         propname = await s_stormtypes.tostr(propname)
         self.runt.confirm(('model', 'tag', 'set'))
-        return await self.runt.snap.core.popTagModel(tagname, propname)
+        return await self.runt.view.core.popTagModel(tagname, propname)
 
     async def _setTagModel(self, tagname, propname, propvalu):
         tagname = await s_stormtypes.tostr(tagname)
         propname = await s_stormtypes.tostr(propname)
         propvalu = await s_stormtypes.toprim(propvalu)
         self.runt.confirm(('model', 'tag', 'set'))
-        await self.runt.snap.core.setTagModel(tagname, propname, propvalu)
+        await self.runt.view.core.setTagModel(tagname, propname, propvalu)
 
 @s_stormtypes.registry.registerLib
 class LibModel(s_stormtypes.Lib):
@@ -326,6 +255,16 @@ class LibModel(s_stormtypes.Lib):
                   'returns': {'type': ['model:tagprop', 'null'],
                               'desc': 'The ``model:tagprop`` instance of the tag prop if present or null.',
                               }}},
+        {'name': 'edge', 'desc': 'Get an edge object by name.',
+         'type': {'type': 'function', '_funcname': '_methEdge',
+                  'args': (
+                      {'name': 'n1form', 'type': 'str', 'desc': 'The form of the n1 node of the edge to retrieve.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The verb of the edge to retrieve.'},
+                      {'name': 'n2form', 'type': 'str', 'desc': 'The form of the n2 node of the edge to retrieve.'},
+                  ),
+                  'returns': {'type': ['model:edge', 'null'],
+                              'desc': 'The ``model:edge`` instance of the edge if present or null.',
+                              }}},
     )
 
     def __init__(self, runt, name=()):
@@ -334,11 +273,21 @@ class LibModel(s_stormtypes.Lib):
 
     def getObjLocals(self):
         return {
+            'edge': self._methEdge,
             'type': self._methType,
             'prop': self._methProp,
             'form': self._methForm,
             'tagprop': self._methTagProp,
         }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _methEdge(self, n1form, verb, n2form):
+        verb = await s_stormtypes.tostr(verb)
+        n1form = await s_stormtypes.tostr(n1form, noneok=True)
+        n2form = await s_stormtypes.tostr(n2form, noneok=True)
+
+        if (edge := self.model.edge((n1form, verb, n2form))) is not None:
+            return ModelEdge(edge)
 
     @s_cache.memoizemethod(size=100)
     @s_stormtypes.stormfunc(readonly=True)
@@ -531,148 +480,43 @@ class ModelType(s_stormtypes.Prim):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methRepr(self, valu):
-        nval = self.valu.norm(valu)
+        valu = await s_stormtypes.tostor(valu)
+        nval = await self.valu.norm(valu)
         return self.valu.repr(nval[0])
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methNorm(self, valu):
-        return self.valu.norm(valu)
+        valu = await s_stormtypes.tostor(valu)
+        return await self.valu.norm(valu)
 
     def value(self):
         return self.valu.getTypeDef()
 
-@s_stormtypes.registry.registerLib
-class LibModelEdge(s_stormtypes.Lib):
+@s_stormtypes.registry.registerType
+class ModelEdge(s_stormtypes.Prim):
     '''
-    A Storm Library for interacting with light edges and manipulating their key-value attributes. This Library is deprecated.
+    Implements the Storm API for an Edge.
     '''
     _storm_locals = (
-        {'name': 'get', 'desc': 'Get the key-value data for a given Edge verb.',
-         'type': {'type': 'function', '_funcname': '_methEdgeGet',
-                  'args': (
-                      {'name': 'verb', 'desc': 'The Edge verb to look up.', 'type': 'str', },
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary representing the key-value data set on a verb.', }}},
-        {'name': 'validkeys', 'desc': 'Get a list of the valid keys that can be set on an Edge verb.',
-         'type': {'type': 'function', '_funcname': '_methValidKeys',
-                  'returns': {'type': 'list', 'desc': 'A list of the valid keys.', }
-                  }
-        },
-        {'name': 'set', 'desc': 'Set a key-value for a given Edge verb.',
-         'type': {'type': 'function', '_funcname': '_methEdgeSet',
-                  'args': (
-                      {'name': 'verb', 'type': 'str', 'desc': 'The Edge verb to set a value for.', },
-                      {'name': 'key', 'type': 'str', 'desc': 'The key to set.', },
-                      {'name': 'valu', 'type': 'str', 'desc': 'The value to set.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'del', 'desc': 'Delete a key from the key-value store for a verb.',
-         'type': {'type': 'function', '_funcname': '_methEdgeDel',
-                  'args': (
-                      {'name': 'verb', 'type': 'str', 'desc': 'The name of the Edge verb to remove a key from.', },
-                      {'name': 'key', 'type': 'str', 'desc': 'The name of the key to remove from the key-value store.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'list', 'desc': 'Get a list of (verb, key-value dictionary) pairs for Edge verbs in the current Cortex View.',
-         'type': {'type': 'function', '_funcname': '_methEdgeList',
-                  'returns': {'type': 'list', 'desc': 'A list of (str, dict) tuples for each verb in the current Cortex View.', }}},
+        {'name': 'n1form', 'type': 'str',
+         'desc': 'The form of the n1 node. May be null to specify "any".'},
+        {'name': 'verb', 'type': 'str', 'desc': 'The edge verb.'},
+        {'name': 'n2form', 'type': 'str',
+         'desc': 'The form of the n2 node. May be null to specify "any".'},
     )
-    # Note: The use of extprops in hive paths in this class is an artifact of the
-    # original implementation which used extended property language which had a
-    # very bad cognitive overload with the cortex extended properties, but we
-    # don't want to change underlying data. epiphyte 20200703
+    _storm_typename = 'model:edge'
+    def __init__(self, edge, path=None):
 
-    # restrict list of keys which we allow to be set/del through this API.
-    validedgekeys = (
-        'doc',
-    )
-    hivepath = ('cortex', 'model', 'edges')
+        s_stormtypes.Prim.__init__(self, edge, path=path)
 
-    _storm_lib_path = ('model', 'edge')
-    _storm_lib_deprecation = {'eolvers': 'v3.0.0'}
+        (n1form, verb, n2form) = edge.edgetype
 
-    def __init__(self, runt, name=()):
-        s_stormtypes.Lib.__init__(self, runt, name)
+        self.locls.update({'n1form': n1form,
+                           'verb': verb,
+                           'n2form': n2form})
 
-    def getObjLocals(self):
-        return {
-            'get': self._methEdgeGet,
-            'set': self._methEdgeSet,
-            'del': self._methEdgeDel,
-            'list': self._methEdgeList,
-            'validkeys': self._methValidKeys,
-        }
-
-    async def _chkEdgeVerbInView(self, verb):
-        async for vverb in self.runt.snap.view.getEdgeVerbs():
-            if vverb == verb:
-                return
-
-        raise s_exc.NoSuchName(mesg=f'No such edge verb in the current view', name=verb)
-
-    async def _chkKeyName(self, key):
-        if key not in self.validedgekeys:
-            raise s_exc.NoSuchProp(mesg=f'The requested key is not valid for light edge metadata.',
-                                   name=key)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    def _methValidKeys(self):
-        s_common.deprecated('model.edge.validkeys', curv='2.165.0')
-        return self.validedgekeys
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _methEdgeGet(self, verb):
-        s_common.deprecated('model.edge.get', curv='2.165.0')
-        verb = await s_stormtypes.tostr(verb)
-        await self._chkEdgeVerbInView(verb)
-
-        path = self.hivepath + (verb, 'extprops')
-        return await self.runt.snap.core.getHiveKey(path) or {}
-
-    async def _methEdgeSet(self, verb, key, valu):
-        s_common.deprecated('model.edge.set', curv='2.165.0')
-        verb = await s_stormtypes.tostr(verb)
-        await self._chkEdgeVerbInView(verb)
-
-        key = await s_stormtypes.tostr(key)
-        await self._chkKeyName(key)
-
-        valu = await s_stormtypes.tostr(valu)
-
-        path = self.hivepath + (verb, 'extprops')
-        kvdict = await self.runt.snap.core.getHiveKey(path) or {}
-
-        kvdict[key] = valu
-        await self.runt.snap.core.setHiveKey(path, kvdict)
-
-    async def _methEdgeDel(self, verb, key):
-        s_common.deprecated('model.edge.del', curv='2.165.0')
-        verb = await s_stormtypes.tostr(verb)
-        await self._chkEdgeVerbInView(verb)
-
-        key = await s_stormtypes.tostr(key)
-        await self._chkKeyName(key)
-
-        path = self.hivepath + (verb, 'extprops')
-        kvdict = await self.runt.snap.core.getHiveKey(path) or {}
-
-        oldv = kvdict.pop(key, None)
-        if oldv is None:
-            raise s_exc.NoSuchProp(mesg=f'Key is not set for this edge verb',
-                                   verb=verb, name=key)
-
-        await self.runt.snap.core.setHiveKey(path, kvdict)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _methEdgeList(self):
-        s_common.deprecated('model.edge.list', curv='2.165.0')
-        retn = []
-        async for verb in self.runt.snap.view.getEdgeVerbs():
-            path = self.hivepath + (verb, 'extprops')
-            kvdict = await self.runt.snap.core.getHiveKey(path) or {}
-            retn.append((verb, kvdict))
-
-        return retn
+    def value(self):
+        return self.valu.pack()
 
 @s_stormtypes.registry.registerLib
 class LibModelDeprecated(s_stormtypes.Lib):
@@ -729,34 +573,35 @@ class MigrationEditorMixin:
 
         verbs = set()
 
-        async for (verb, n2iden) in src.iterEdgesN1():
+        async for (verb, n2nid) in src.iterEdgesN1():
 
             if verb not in verbs:
                 self.runt.layerConfirm(('node', 'edge', 'add', verb))
                 verbs.add(verb)
 
-            if await self.runt.snap.getNodeByBuid(s_common.uhex(n2iden)) is not None:
-                await proto.addEdge(verb, n2iden)
+            if await self.runt.view.getNodeByNid(n2nid) is not None:
+                await proto.addEdge(verb, n2nid)
 
-        dstiden = proto.iden()
+        if (dstnid := proto.nid) is None:
+            return
 
-        async for (verb, n1iden) in src.iterEdgesN2():
+        async for (verb, n1nid) in src.iterEdgesN2():
 
             if verb not in verbs:
                 self.runt.layerConfirm(('node', 'edge', 'add', verb))
                 verbs.add(verb)
 
-            n1proto = await editor.getNodeByBuid(s_common.uhex(n1iden))
+            n1proto = await editor.getNodeByNid(n1nid)
             if n1proto is not None:
-                await n1proto.addEdge(verb, dstiden)
+                await n1proto.addEdge(verb, dstnid)
 
     async def copyTags(self, src, proto, overwrite=False):
 
-        for name, valu in src.tags.items():
+        for name, valu in src._getTagsDict().items():
             self.runt.layerConfirm(('node', 'tag', 'add', *name.split('.')))
             await proto.addTag(name, valu=valu)
 
-        for tagname, tagprops in src.tagprops.items():
+        for tagname, tagprops in src._getTagPropsDict().items():
             for propname, valu in tagprops.items():
                 if overwrite or not proto.hasTagProp(tagname, propname):
                     await proto.setTagProp(tagname, propname, valu) # use tag perms
@@ -765,7 +610,7 @@ class MigrationEditorMixin:
 
         form = src.form
 
-        for name, valu in src.props.items():
+        for name, valu in src.getProps().items():
             prop = form.props.get(name)
             if not prop.isext:
                 continue
@@ -830,7 +675,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
         overwrite = await s_stormtypes.tobool(overwrite)
 
-        async with self.runt.snap.getEditor() as editor:
+        async with self.runt.view.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyData(src, proto, overwrite=overwrite)
 
@@ -841,9 +686,9 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         if not isinstance(dst, s_node.Node):
             raise s_exc.BadArg(mesg='$lib.model.migration.copyEdges() dest argument must be a node.')
 
-        snap = self.runt.snap
+        view = self.runt.view
 
-        async with snap.getEditor() as editor:
+        async with view.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyEdges(editor, src, proto)
 
@@ -856,9 +701,9 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
         overwrite = await s_stormtypes.tobool(overwrite)
 
-        snap = self.runt.snap
+        view = self.runt.view
 
-        async with snap.getEditor() as editor:
+        async with view.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyTags(src, proto, overwrite=overwrite)
 
@@ -869,9 +714,9 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         if not isinstance(dst, s_node.Node):
             raise s_exc.BadArg(mesg='$lib.model.migration.copyExtProps() dest argument must be a node.')
 
-        snap = self.runt.snap
+        view = self.runt.view
 
-        async with snap.getEditor() as editor:
+        async with view.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyExtProps(src, proto)
 
@@ -880,501 +725,8 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
     '''
     A Storm library for selectively migrating nodes in the current view.
     '''
-    _storm_locals = (
-        {'name': 'riskHasVulnToVulnerable', 'desc': '''
-            Create a risk:vulnerable node from the provided risk:hasvuln node.
-
-            Edits will be made to the risk:vulnerable node in the current write layer.
-
-            If multiple vulnerable properties are set on the risk:hasvuln node
-            multiple risk:vulnerable nodes will be created (each with a unique guid).
-            Otherwise, a single risk:vulnerable node will be created with the same guid
-            as the provided risk:hasvuln node. Extended properties will not be migrated.
-
-            Tags, tag properties, edges, and node data will be copied
-            to the risk:vulnerable node. However, existing tag properties and
-            node data will not be overwritten.
-        ''',
-        'type': {'type': 'function', '_funcname': '_riskHasVulnToVulnerable',
-                 'args': (
-                      {'name': 'n', 'type': 'node', 'desc': 'The risk:hasvuln node to migrate.'},
-                      {'name': 'nodata', 'type': 'boolean', 'default': False,
-                       'desc': 'Do not copy nodedata to the risk:vulnerable node.'},
-                 ),
-                 'returns': {'type': 'list', 'desc': 'A list of idens for the risk:vulnerable nodes.'}}},
-        {'name': 'inetSslCertToTlsServerCert', 'desc': '''
-            Create a inet:tls:servercert node from the provided inet:ssl:cert node.
-
-            Edits will be made to the inet:tls:servercert node in the current write layer.
-
-            Tags, tag properties, edges, and node data will be copied
-            to the inet:tls:servercert node. However, existing tag properties and
-            node data will not be overwritten.
-        ''',
-        'type': {'type': 'function', '_funcname': '_storm_query',
-                 'args': (
-                      {'name': 'n', 'type': 'node', 'desc': 'The inet:ssl:cert node to migrate.'},
-                      {'name': 'nodata', 'type': 'boolean', 'default': False,
-                       'desc': 'Do not copy nodedata to the inet:tls:servercert node.'},
-                 ),
-                 'returns': {'type': 'node', 'desc': 'The newly created inet:tls:servercert node.'}}},
-        {'name': 'inetServiceMessageClientAddress', 'desc': '''
-            Migrate the :client:address property to :client on inet:service:message nodes.
-
-            Edits will be made to the inet:service:message node in the current write layer.
-
-            If the :client:address property is set and the :client property is not set,
-            the :client property will be set with the :client:address value. If both
-            properties are set, the value will be moved into nodedata under the key
-            'migration:inet:service:message:address'.
-        ''',
-        'type': {'type': 'function', '_funcname': '_storm_query',
-                 'args': (
-                      {'name': 'n', 'type': 'node', 'desc': 'The inet:sevice:message node to migrate.'},
-                 ),
-                 'returns': {'type': 'null'}}},
-
-    )
+    _storm_locals = ()
     _storm_lib_path = ('model', 'migration', 's')
-    _storm_query = '''
-        function inetSslCertToTlsServerCert(n, nodata=$lib.false) {
-            $form = $n.form()
-            if ($form != 'inet:ssl:cert') {
-                $mesg = `$lib.model.migration.s.inetSslCertToTlsServerCert() only accepts inet:ssl:cert nodes, not {$form}`
-                $lib.raise(BadArg, $mesg)
-            }
-
-            $server = $n.props.server
-            $sha256 = { yield $n -> file:bytes -> hash:sha256 }
-
-            if $sha256 {
-
-                yield $lib.gen.inetTlsServerCertByServerAndSha256($server, $sha256)
-
-            } else {
-
-                // File doesn't have a :sha256, try to lift/create a crypto:x509:node based on the file link
-                $crypto = { yield $n -> file:bytes -> crypto:x509:cert:file }
-                if (not $crypto) {
-                    $crypto = {[ crypto:x509:cert=($n.props.file,) :file=$n.props.file ]}
-                }
-
-                [ inet:tls:servercert=($server, $crypto) ]
-
-            }
-
-            [ .seen ?= $n.props.".seen" ]
-
-            $lib.model.migration.copyTags($n, $node, overwrite=$lib.false)
-            $lib.model.migration.copyEdges($n, $node)
-            if (not $nodata) {
-                $lib.model.migration.copyData($n, $node, overwrite=$lib.false)
-            }
-
-            return($node)
-        }
-
-        function inetServiceMessageClientAddress(n) {
-            $form = $n.form()
-            if ($form != 'inet:service:message') {
-                $mesg = `$lib.model.migration.s.inetServiceMessageClientAddress() only accepts inet:service:message nodes, not {$form}`
-                $lib.raise(BadArg, $mesg)
-            }
-
-            if (not $n.props.'client:address') { return() }
-
-            yield $n
-
-            if :client {
-                $node.data.set(migration:inet:service:message:client:address, :client:address)
-            } else {
-                [ :client = :client:address ]
-            }
-
-            [ -:client:address ]
-
-            return()
-        }
-    '''
 
     def getObjLocals(self):
-        return {
-            'riskHasVulnToVulnerable': self._riskHasVulnToVulnerable,
-        }
-
-    async def _riskHasVulnToVulnerable(self, n, nodata=False):
-
-        nodata = await s_stormtypes.tobool(nodata)
-
-        if not isinstance(n, s_node.Node):
-            raise s_exc.BadArg(mesg='$lib.model.migration.s.riskHasVulnToVulnerable() argument must be a node.')
-
-        if n.form.name != 'risk:hasvuln':
-            mesg = f'$lib.model.migration.s.riskHasVulnToVulnerable() only accepts risk:hasvuln nodes, not {n.form.name}'
-            raise s_exc.BadArg(mesg=mesg)
-
-        retidens = []
-
-        if not (vuln := n.get('vuln')):
-            return retidens
-
-        props = {
-            'vuln': vuln,
-        }
-
-        links = {prop: valu for prop in RISK_HASVULN_VULNPROPS if (valu := n.get(prop)) is not None}
-
-        match len(links):
-            case 0:
-                return retidens
-            case 1:
-                guid = n.ndef[1]
-            case _:
-                guid = None
-
-        riskvuln = self.runt.model.form('risk:vulnerable')
-
-        self.runt.layerConfirm(riskvuln.addperm)
-        self.runt.confirmPropSet(riskvuln.props['vuln'])
-        self.runt.confirmPropSet(riskvuln.props['node'])
-
-        if seen := n.get('.seen'):
-            self.runt.confirmPropSet(riskvuln.props['.seen'])
-            props['.seen'] = seen
-
-        async with self.runt.snap.getEditor() as editor:
-
-            for prop, valu in links.items():
-
-                pguid = guid if guid is not None else s_common.guid((guid, prop))
-                pprops = props | {'node': (n.form.props[prop].type.name, valu)}
-
-                proto = await editor.addNode('risk:vulnerable', pguid, props=pprops)
-                retidens.append(proto.iden())
-
-                await self.copyTags(n, proto, overwrite=False)
-                await self.copyEdges(editor, n, proto)
-
-                if not nodata:
-                    await self.copyData(n, proto, overwrite=False)
-
-        return retidens
-
-@s_stormtypes.registry.registerLib
-class LibModelMigrations_0_2_31(s_stormtypes.Lib):
-    '''
-    A Storm library with helper functions for the 0.2.31 model it:sec:cpe migration.
-    '''
-    _storm_locals = (
-        {'name': 'listNodes', 'desc': 'Yield queued nodes.',
-         'type': {'type': 'function', '_funcname': '_methListNodes',
-                  'args': (
-                      {'name': 'form', 'type': 'str', 'default': None,
-                       'desc': 'Only yield entries matching the specified form.'},
-                      {'name': 'source', 'type': 'str', 'default': None,
-                       'desc': 'Only yield entries that were seen by the specified source.'},
-                      {'name': 'offset', 'type': 'int', 'default': 0,
-                       'desc': 'Skip this many entries.'},
-                      {'name': 'size', 'type': 'int', 'default': None,
-                       'desc': 'Only yield up to this many entries.'},
-                  ),
-                  'returns': {'name': 'yields', 'type': 'list',
-                              'desc': 'A tuple of (offset, form, valu, sources) values for the specified node.', }}},
-        {'name': 'printNode', 'desc': 'Print detailed queued node information.',
-         'type': {'type': 'function', '_funcname': '_methPrintNode',
-                  'args': (
-                      {'name': 'offset', 'type': 'int', 'desc': 'The offset of the queued node to print.'},
-                  ),
-                  'returns': {'type': 'null'}}},
-        {'name': 'repairNode', 'desc': 'Repair a queued node.',
-         'type': {'type': 'function', '_funcname': '_methRepairNode',
-                  'args': (
-                      {'name': 'offset', 'type': 'str', 'desc': 'The node queue offset to repair.'},
-                      {'name': 'newvalu', 'type': 'any', 'desc': 'The new (corrected) node value.'},
-                      {'name': 'remove', 'type': 'boolean', 'default': False,
-                       'desc': 'Specify whether to delete the repaired node from the queue.'},
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'The queue node information'}}},
-    )
-    _storm_lib_path = ('model', 'migration', 's', 'model_0_2_31')
-
-    def getObjLocals(self):
-        return {
-            'listNodes': self._methListNodes,
-            'printNode': self._methPrintNode,
-            'repairNode': self._methRepairNode,
-        }
-
-    async def _hasCoreQueue(self, name):
-        try:
-            await self.runt.snap.core.getCoreQueue(name)
-            return True
-        except s_exc.NoSuchName:
-            return False
-
-    async def _methListNodes(self, form=None, source=None, offset=0, size=None):
-        form = await s_stormtypes.tostr(form, noneok=True)
-        source = await s_stormtypes.tostr(source, noneok=True)
-        offset = await s_stormtypes.toint(offset)
-        size = await s_stormtypes.toint(size, noneok=True)
-
-        if not await self._hasCoreQueue('model_0_2_31:nodes'):
-            await self.runt.printf('Queue model_0_2_31:nodes not found, no nodes to list.')
-            return
-
-        nodes = self.runt.snap.core.coreQueueGets('model_0_2_31:nodes', offs=offset, cull=False, size=size)
-        async for offs, node in nodes:
-            if form is not None and node['formname'] != form:
-                continue
-
-            if source is not None and source not in node['sources']:
-                continue
-
-            yield (offs, node['formname'], node['formvalu'], node['sources'])
-
-    async def _methPrintNode(self, offset):
-        offset = await s_stormtypes.toint(offset)
-
-        if not await self._hasCoreQueue('model_0_2_31:nodes'):
-            await self.runt.printf('Queue model_0_2_31:nodes not found, no nodes to print.')
-            return
-
-        node = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes', offs=offset, cull=False)
-        if not node:
-            await self.runt.warn(f'Queued node with offset {offset} not found.')
-            return
-
-        node = node[1]
-
-        await self.runt.printf(f'{node["formname"]}={repr(node["formvalu"])}')
-
-        for layriden, sode in node['sodes'].items():
-            await self.runt.printf(f'  layer: {layriden}')
-
-            for propname, propvalu in sode.get('props', {}).items():
-                if propname == '.seen':
-                    mintime, maxtime = propvalu[0]
-                    mindt = s_time.repr(mintime)
-                    maxdt = s_time.repr(maxtime)
-                    await self.runt.printf(f'    .seen = ({mindt}, {maxdt})')
-                else:
-                    await self.runt.printf(f'    :{propname} = {propvalu[0]}')
-
-            for tagname, tagvalu in sode.get('tags', {}).items():
-                if tagvalu == (None, None):
-                    await self.runt.printf(f'    #{tagname}')
-                else:
-                    mintime, maxtime = tagvalu
-                    mindt = s_time.repr(mintime)
-                    maxdt = s_time.repr(maxtime)
-                    await self.runt.printf(f'    #{tagname} = ({mindt}, {maxdt})')
-
-            for tagprop, tagpropvalu in sode.get('tagprops', {}).items():
-                for prop, valu in tagpropvalu.items():
-                    await self.runt.printf(f'    #{tagprop}:{prop} = {valu[0]}')
-
-        if sources := node['sources']:
-            await self.runt.printf(f'  sources: {sorted(sources)}')
-
-        if noderefs := node['refs']:
-            await self.runt.printf('  refs:')
-
-            for layriden, reflist in noderefs.items():
-                await self.runt.printf(f'    layer: {layriden}')
-                for iden, refinfo in reflist:
-                    form, prop, *_ = refinfo
-                    await self.runt.printf(f'      - {form}:{prop} (iden: {iden})')
-
-        n1edges = node['n1edges']
-        n2edges = node['n2edges']
-
-        if n1edges or n2edges:
-            await self.runt.printf('  edges:')
-
-        for layriden, edges in n1edges.items():
-            for verb, iden in edges:
-                await self.runt.printf(f'    -({verb})> {iden}')
-
-        for layriden, edges in n2edges.items():
-            for verb, iden, n2form in edges:
-                await self.runt.printf(f'    <({verb})- {iden}')
-
-    async def _repairNode(self, offset, newvalu):
-        item = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes', offset, cull=False)
-        if item is None:
-            await self.runt.warn(f'Queued node with offset {offset} not found.')
-            return False
-
-        node = item[1]
-
-        nodeform = node['formname']
-        form = self.runt.snap.core.model.form(nodeform)
-
-        norm, info = form.type.norm(newvalu)
-
-        buid = s_common.buid((nodeform, norm))
-
-        nodeedits = {}
-
-        for layriden in node['layers']:
-            nodeedits.setdefault(layriden, {})
-
-            layer = self.runt.snap.core.getLayer(layriden)
-            if layer is None: # pragma: no cover
-                await self.runt.warn(f'Layer does not exist to recreate node: {layriden}.')
-                return False
-
-        await self.runt.printf(f'Repairing node at offset {offset} from {node["formvalu"]} -> {norm}')
-
-        # Create the node in the right layers
-        for layriden in node['layers']:
-            nodeedits[layriden][buid] = (
-                buid, nodeform, [
-                (s_layer.EDIT_NODE_ADD, (norm, form.type.stortype), ()),
-            ])
-
-            for propname, propvalu in info.get('subs', {}).items():
-                prop = form.prop(propname)
-                if prop is None:
-                    continue
-
-                stortype = prop.type.stortype
-
-                nodeedits[layriden][buid][2].append(
-                    (s_layer.EDIT_PROP_SET, (propname, propvalu, None, stortype), ()),
-                )
-
-        for layriden, sode in node['sodes'].items():
-            nodeedits.setdefault(layriden, {})
-            nodeedits[layriden].setdefault(buid, (buid, nodeform, []))
-
-            for propname, propvalu in sode.get('props', {}).items():
-                propvalu, stortype = propvalu
-
-                nodeedits[layriden][buid][2].append(
-                    (s_layer.EDIT_PROP_SET, (propname, propvalu, None, stortype), ()),
-                )
-
-            for tagname, tagvalu in sode.get('tags', {}).items():
-                nodeedits[layriden][buid][2].append(
-                    (s_layer.EDIT_TAG_SET, (tagname, tagvalu, None), ()),
-                )
-
-            for tagprop, tagpropvalu in sode.get('tagprops', {}).items():
-                for propname, propvalu in tagpropvalu.items():
-                    propvalu, stortype = propvalu
-                    nodeedits[layriden][buid][2].append(
-                        (s_layer.EDIT_TAGPROP_SET, (tagname, propname, propvalu, None, stortype), ()),
-                    )
-
-        for layriden, data in node['nodedata'].items():
-            nodeedits.setdefault(layriden, {})
-            nodeedits[layriden].setdefault(buid, (buid, nodeform, []))
-
-            for name, valu in data:
-                nodeedits[layriden][buid][2].append(
-                    (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
-                )
-
-        for layriden, edges in node['n1edges'].items():
-            nodeedits.setdefault(layriden, {})
-            nodeedits[layriden].setdefault(buid, (buid, nodeform, []))
-
-            for verb, iden in edges:
-                nodeedits[layriden][buid][2].append(
-                    (s_layer.EDIT_EDGE_ADD, (verb, iden), ()),
-                )
-
-        for layriden, edges in node['n2edges'].items():
-            n1iden = s_common.ehex(buid)
-
-            for verb, iden, n2form in edges:
-                n2buid = s_common.uhex(iden)
-
-                nodeedits.setdefault(layriden, {})
-                nodeedits[layriden].setdefault(n2buid, (n2buid, n2form, []))
-
-                nodeedits[layriden][n2buid][2].append(
-                    (s_layer.EDIT_EDGE_ADD, (verb, n1iden), ()),
-                )
-
-        for layriden, reflist in node['refs'].items():
-            layer = self.runt.snap.core.getLayer(layriden)
-            if layer is None:
-                continue
-
-            for iden, refinfo in reflist:
-                refform, refprop, reftype, isarray, isro = refinfo
-
-                if isro:
-                    continue
-
-                refbuid = s_common.uhex(iden)
-
-                nodeedits.setdefault(layriden, {})
-                nodeedits[layriden].setdefault(refbuid, (refbuid, refform, []))
-
-                if reftype == 'ndef':
-                    propvalu = (nodeform, norm)
-                else:
-                    propvalu = norm
-
-                stortype = self.runt.snap.core.model.type(reftype).stortype
-
-                if isarray:
-
-                    sode = await layer.getStorNode(refbuid)
-                    if not sode:
-                        continue
-
-                    props = sode.get('props', {})
-
-                    curv, _ = props.get(refprop, (None, None))
-                    _curv = curv
-
-                    if _curv is None:
-                        _curv = []
-
-                    newv = list(_curv).copy()
-                    newv.append(propvalu)
-
-                    nodeedits[layriden][refbuid][2].append(
-                        (s_layer.EDIT_PROP_SET, (refprop, newv, curv, stortype | s_layer.STOR_FLAG_ARRAY), ()),
-                    )
-
-                else:
-
-                    nodeedits[layriden][refbuid][2].append(
-                        (s_layer.EDIT_PROP_SET, (refprop, propvalu, None, stortype), ()),
-                    )
-
-        meta = {'time': s_common.now(), 'user': self.runt.snap.core.auth.rootuser.iden}
-
-        # Process all layer edits as a single batch
-        for layriden, edits in nodeedits.items():
-            layer = self.runt.snap.core.getLayer(layriden)
-            if layer is None: # pragma: no cover
-                continue
-
-            await layer.storNodeEditsNoLift(list(edits.values()), meta)
-
-        return True
-
-    async def _methRepairNode(self, offset, newvalu, remove=False):
-        ok = False
-
-        if not await self._hasCoreQueue('model_0_2_31:nodes'):
-            await self.runt.printf('Queue model_0_2_31:nodes not found, no nodes to repair.')
-            return False
-
-        try:
-            ok = await self._repairNode(offset, newvalu)
-        except s_exc.SynErr as exc: # pragma: no cover
-            mesg = exc.get('mesg')
-            await self.runt.warn(f'Error when restoring node {offset}: {mesg}')
-
-        if ok and remove:
-            await self.runt.printf(f'Removing queued node: {offset}.')
-            await self.runt.snap.core.coreQueuePop('model_0_2_31:nodes', offset)
-
-        return ok
+        return {}

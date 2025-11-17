@@ -11,11 +11,11 @@ class VersionLib(s_stormtypes.Lib):
     _storm_locals = (
         {'name': 'synapse',
          'desc': 'The synapse version tuple for the local Cortex.',
-         'type': {'type': 'function', '_funcname': '_getSynVersion',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorSynVersion',
                   'returns': {'type': 'list', 'desc': 'The version triple.', }}},
         {'name': 'commit',
          'desc': 'The synapse commit hash for the local Cortex.',
-         'type': {'type': 'function', '_funcname': '_getSynCommit',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorSynCommit',
                   'returns': {'type': 'str', 'desc': 'The commit hash.', }}},
         {'name': 'matches',
          'desc': '''
@@ -24,7 +24,7 @@ class VersionLib(s_stormtypes.Lib):
             Examples:
                 Check if the synapse version is in a range::
 
-                    $synver = $lib.version.synapse()
+                    $synver = $lib.version.synapse
                     if $lib.version.matches($synver, ">=2.9.0") {
                         $dostuff()
                     }
@@ -38,19 +38,22 @@ class VersionLib(s_stormtypes.Lib):
     )
     _storm_lib_path = ('version',)
 
+    def __init__(self, runt, name=()):
+        s_stormtypes.Lib.__init__(self, runt, name=name)
+        self.gtors |= {
+            'commit': self._gtorSynCommit,
+            'synapse': self._gtorSynVersion,
+        }
+
     def getObjLocals(self):
         return {
             'matches': self.matches,
-            'commit': self._getSynCommit,
-            'synapse': self._getSynVersion,
         }
 
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _getSynVersion(self):
+    async def _gtorSynVersion(self):
         return s_version.version
 
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _getSynCommit(self):
+    async def _gtorSynCommit(self):
         return s_version.commit
 
     @s_stormtypes.stormfunc(readonly=True)

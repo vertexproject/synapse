@@ -1,5 +1,4 @@
 import io
-import json
 
 import yyjson
 
@@ -17,7 +16,7 @@ class JsonTest(s_test.SynTest):
 
         with self.raises(s_exc.BadJsonText) as exc:
             s_json.loads('newp')
-        self.eq(exc.exception.get('mesg'), 'Expecting value: line 1 column 1 (char 0)')
+        self.eq(exc.exception.get('mesg'), "invalid literal, expected a valid literal such as 'null'")
 
         with self.raises(s_exc.BadJsonText) as exc:
             s_json.loads('')
@@ -48,42 +47,26 @@ class JsonTest(s_test.SynTest):
             self.eq({'a': 'b'}, s_json.load(buf))
 
     async def test_lib_json_load_surrogates(self):
-
         inval = '{"a": "😀\ud83d\ude47"}'
-        outval = {'a': '😀\ud83d\ude47'}
 
         # yyjson.loads fails because of the surrogate pairs
         with self.raises(ValueError):
             yyjson.loads(inval)
 
-        # stdlib json.loads passes because of voodoo magic
-        self.eq(outval, json.loads(inval))
-
-        self.eq(outval, s_json.loads(inval))
-
-        buf = io.StringIO(inval)
-        self.eq(outval, s_json.load(buf))
-
-        buf = io.BytesIO(inval.encode('utf8', errors='surrogatepass'))
-        self.eq(outval, s_json.load(buf))
+        with self.raises(s_exc.BadJsonText):
+            buf = io.StringIO(inval)
+            s_json.load(buf)
 
     async def test_lib_json_dump_surrogates(self):
         inval = {'a': '😀\ud83d\ude47'}
-        outval = b'{"a": "\\ud83d\\ude00\\ud83d\\ude47"}'
 
         # yyjson.dumps fails because of the surrogate pairs
         with self.raises(UnicodeEncodeError):
             yyjson.dumps(inval)
 
-        # stdlib json.dumps passes because of voodoo magic
-        self.eq(outval.decode(), json.dumps(inval))
-
-        self.eq(outval, s_json.dumps(inval))
-        self.eq(outval + b'\n', s_json.dumps(inval, newline=True))
-
-        buf = io.BytesIO()
-        s_json.dump(inval, buf)
-        self.eq(outval, buf.getvalue())
+        with self.raises(s_exc.MustBeJsonSafe):
+            buf = io.BytesIO()
+            s_json.dump(inval, buf)
 
     async def test_lib_json_dumps(self):
         self.eq(b'{"c":"d","a":"b"}', s_json.dumps({'c': 'd', 'a': 'b'}))
@@ -236,46 +219,10 @@ class JsonTest(s_test.SynTest):
             s_json.reqjsonsafe(text)
 
         text = ['😀\ud83d\ude47']
-        s_json.reqjsonsafe(text)
         with self.raises(s_exc.MustBeJsonSafe) as exc:
-            s_json.reqjsonsafe(text, strict=True)
+            s_json.reqjsonsafe(text)
         self.eq(exc.exception.get('mesg'), "'utf-8' codec can't encode characters in position 1-2: surrogates not allowed")
 
         with self.raises(s_exc.MustBeJsonSafe) as exc:
-            s_json.reqjsonsafe(b'1234', strict=True)
+            s_json.reqjsonsafe(b'1234')
         self.eq(exc.exception.get('mesg'), 'Object of type bytes is not JSON serializable')
-
-    async def test_lib_json_data_at_rest(self):
-        async with self.getRegrCore('json-data') as core:
-            badjson = {
-                1: 'foo',
-                'foo': '😀\ud83d\ude47',
-            }
-
-            goodjson = {
-                '1': 'foo',
-                'foo': '😀',
-            }
-
-            # We can lift nodes with bad :data
-            nodes = await core.nodes('it:log:event')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('data'), badjson)
-
-            iden = nodes[0].iden()
-
-            # We can't lift nodes with bad data by querying the prop directly
-            opts = {'vars': {'data': badjson}}
-            with self.raises(s_exc.BadTypeValu):
-                await core.callStorm('it:log:event:data=$data', opts=opts)
-
-            # We can't set nodes with bad data
-            with self.raises(s_exc.BadTypeValu):
-                await core.callStorm('[ it:log:event=* :data=$data ]', opts=opts)
-
-            # We can overwrite bad :data props
-            opts = {'vars': {'data': goodjson}}
-            nodes = await core.nodes('it:log:event:data [ :data=$data ]', opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].iden(), iden)
-            self.eq(nodes[0].get('data'), goodjson)
