@@ -1274,6 +1274,27 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0][1]['props']['ndefs.size'], 2)
             self.eq(nodes[0][1]['props']['ndefs.form'], ('test:str', 'test:str'))
 
+            # test set tag assignment
+            nodes = await core.nodes('[ test:str=boo +?#baz="dud" ]')
+            self.len(1, nodes)
+            self.eq([], nodes[0].getTags())
+
+            nodes = await core.nodes('[ test:str=tag +?#baz?="dud" ]')
+            self.len(1, nodes)
+            self.eq([('baz', (None, None, None))], nodes[0].getTags())
+
+            nodes = await core.nodes('test:str=tag $seen=:seen [ +#baz?=$seen :seen="2025-11-04T00:00:00Z" ]')
+            self.len(1, nodes)
+            self.eq([('baz', (None, None, None))], nodes[0].getTags())
+
+            nodes = await core.nodes('test:str=tag $seen=:seen [ +#baz?=$seen ]')
+            self.len(1, nodes)
+            self.eq([('baz', (1762214400000000, 1762214400000001, 1))], nodes[0].getTags())
+
+            nodes = await core.nodes('test:str=tag [ +#baz?=newp ]')
+            self.len(1, nodes)
+            self.eq([('baz', (1762214400000000, 1762214400000001, 1))], nodes[0].getTags())
+
     async def test_storm_diff_merge(self):
 
         async with self.getTestCore() as core:
@@ -2511,10 +2532,10 @@ class StormTest(s_t_utils.SynTest):
 
                 $queue = $lib.queue.gen(onload:test)
 
-                $vers = $lib.globals."testload:version"
+                $vers = $lib.globals."storage:version"
                 if ($vers = null) { $vers = 0 }
                 $vers = ($vers + 1)
-                $lib.globals."testload:version" = $vers
+                $lib.globals."storage:version" = $vers
                 $queue.put($vers)
             '''
         }
@@ -2532,7 +2553,7 @@ class StormTest(s_t_utils.SynTest):
                 events = await waiter.wait(timeout=10)
                 self.eq(events, [
                     ('core:pkg:onload:start', {'pkg': 'testload'}),
-                    ('core:pkg:onload:complete', {'pkg': 'testload'}),
+                    ('core:pkg:onload:complete', {'pkg': 'testload', 'storvers': -1}),
                 ])
 
                 self.eq((0, 1), await core00.callStorm('return($lib.queue.gen(onload:test).get((0), cull=(false)))'))
@@ -2556,7 +2577,7 @@ class StormTest(s_t_utils.SynTest):
                     events = await waiter.wait(timeout=10)
                     self.eq(events, [
                         ('core:pkg:onload:start', {'pkg': 'testload'}),
-                        ('core:pkg:onload:complete', {'pkg': 'testload'}),
+                        ('core:pkg:onload:complete', {'pkg': 'testload', 'storvers': -1}),
                     ])
 
                     self.eq((2, 3), await core01.callStorm('return($lib.queue.gen(onload:test).get((2), cull=(false)))'))
@@ -2573,10 +2594,21 @@ class StormTest(s_t_utils.SynTest):
             await core.addStormPkg(pkg)
 
             events = await waiter.wait(timeout=10)
-            self.eq(events, [
-                ('core:pkg:onload:start', {'pkg': 'testload'}),
-                ('core:pkg:onload:complete', {'pkg': 'testload'}),
-            ])
+            self.len(2, events)
+            self.eq(events[0], ('core:pkg:onload:start', {'pkg': 'testload'}))
+            self.eq(events[1][0], 'core:pkg:onload:complete')
+            self.eq(events[1][1].get('pkg'), 'testload')
+            self.nn(events[1][1].get('storvers'))
+
+        async with self.getTestCore() as core:
+            pkg = {
+                'name': 'testload',
+                'version': '0.1.0',
+            }
+
+            await loadPkg(core, pkg)
+
+            self.eq(-1, await core.getStormPkgVar('testload', 'storage:version'))
 
         with self.getTestDir() as dirn:
 
@@ -2586,7 +2618,6 @@ class StormTest(s_t_utils.SynTest):
                     'name': 'testload',
                     'version': '0.1.0',
                     'inits': {
-                        'key': 'testload:version',
                         'versions': [
                             {
                                 'version': 0,
@@ -2629,9 +2660,11 @@ class StormTest(s_t_utils.SynTest):
 
                 # only inaugural inits run on first load
 
+                await core.setStormPkgVar('testload', 'storage:version', 0)
+
                 await loadPkg(core, pkg)
 
-                self.eq(1, await core.getStormPkgVar('testload', 'testload:version'))
+                self.eq(1, await core.getStormPkgVar('testload', 'storage:version'))
                 self.none(await core.getStormVar('init00'))
                 self.nn(init01 := await core.getStormVar('init01'))
 
@@ -2648,7 +2681,7 @@ class StormTest(s_t_utils.SynTest):
 
                 await loadPkg(core, pkg)
 
-                self.eq(2, await core.getStormPkgVar('testload', 'testload:version'))
+                self.eq(2, await core.getStormPkgVar('testload', 'storage:version'))
                 self.none(await core.getStormVar('init00'))
                 self.eq(init01, await core.getStormVar('init01'))
                 self.nn(init02 := await core.getStormVar('init02'))
@@ -2669,7 +2702,7 @@ class StormTest(s_t_utils.SynTest):
 
                 await loadPkg(core, pkg)
 
-                self.eq(3, await core.getStormPkgVar('testload', 'testload:version'))
+                self.eq(3, await core.getStormPkgVar('testload', 'storage:version'))
                 self.eq(init02, await core.getStormVar('init02'))
                 self.nn(await core.getStormVar('init03'))
 
@@ -2698,7 +2731,7 @@ class StormTest(s_t_utils.SynTest):
                 mesg = 'testload init vers=4 output: (\'SynErr\''
                 with self.getAsyncLoggerStream('synapse.cortex', mesg) as stream:
                     await loadPkg(core, pkg)
-                    self.eq(3, await core.getStormPkgVar('testload', 'testload:version'))
+                    self.eq(3, await core.getStormPkgVar('testload', 'storage:version'))
                     await stream.wait(timeout=10)
 
                 self.none(await core.getStormVar('init04'))
@@ -2712,7 +2745,7 @@ class StormTest(s_t_utils.SynTest):
 
                     # prior versions dont re-run, but a failed one does
 
-                    self.eq(6, await core.getStormPkgVar('testload', 'testload:version'))
+                    self.eq(6, await core.getStormPkgVar('testload', 'storage:version'))
                     self.gt(await core.getStormVar('onload'), onload)
                     self.eq(init02, await core.getStormVar('init02'))
                     self.nn(await core.getStormVar('init04'))
@@ -2730,7 +2763,7 @@ class StormTest(s_t_utils.SynTest):
                     with self.getAsyncLoggerStream('synapse.cortex', 'doing a print') as stream:
                         await loadPkg(core, pkg)
                         await stream.wait(timeout=10)
-                        self.eq(7, await core.getStormPkgVar('testload', 'testload:version'))
+                        self.eq(7, await core.getStormPkgVar('testload', 'storage:version'))
 
                     pkg['version'] = '0.6.0'
                     pkg['inits']['versions'].append({
@@ -2742,7 +2775,7 @@ class StormTest(s_t_utils.SynTest):
                     with self.getAsyncLoggerStream('synapse.cortex', 'doing a warn') as stream:
                         await loadPkg(core, pkg)
                         await stream.wait(timeout=10)
-                        self.eq(8, await core.getStormPkgVar('testload', 'testload:version'))
+                        self.eq(8, await core.getStormPkgVar('testload', 'storage:version'))
 
                     # init that advances the version
 
@@ -2753,7 +2786,7 @@ class StormTest(s_t_utils.SynTest):
                             'name': 'init09',
                             'query': '''
                                 $lib.globals.init09 = $lib.time.now()
-                                $lib.pkg.vars(testload)."testload:version" = (10)
+                                $lib.pkg.vars(testload)."storage:version" = (10)
                             ''',
                         },
                         {
@@ -2770,7 +2803,7 @@ class StormTest(s_t_utils.SynTest):
 
                     await loadPkg(core, pkg)
 
-                    self.eq(11, await core.getStormPkgVar('testload', 'testload:version'))
+                    self.eq(11, await core.getStormPkgVar('testload', 'storage:version'))
                     self.nn(await core.getStormVar('init09'))
                     self.none(await core.getStormVar('init10'))
                     self.nn(await core.getStormVar('init11'))

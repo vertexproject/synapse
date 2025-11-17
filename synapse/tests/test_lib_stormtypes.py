@@ -25,6 +25,8 @@ import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.tools.service.backup as s_t_backup
+
 import synapse.tests.utils as s_test
 import synapse.tests.files as s_test_files
 
@@ -1277,6 +1279,16 @@ class StormTypesTest(s_test.SynTest):
             # Integer keys
             vals = await core.callStorm('return($lib.dict.fromlist((((1), (2)), ((2), (3)))))')
             self.eq(vals, {1: 2, 2: 3})
+
+            # Check mutability
+            q = '''
+                $ret = $lib.dict.fromlist(((a, ({})), (b, (foo, bar))))
+                $ret.a.foo = bar
+                $ret.b.append(baz)
+                return($ret)
+            '''
+            vals = await core.callStorm(q)
+            self.eq(vals, {'a': {'foo': 'bar'}, 'b': ['foo', 'bar', 'baz']})
 
             # Non-primitive type
             with self.raises(s_exc.NoSuchType) as exc:
@@ -2964,7 +2976,7 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('userkey is lessThanSekrit', mesgs)
 
                     rstr = await prox.callStorm('return(`{$lib.globals}`)')
-                    self.eq(rstr, "{'adminkey': 'sekrit', 'bar': {'foo': '1'}, 'cortex:runtime:stormfixes': (4, 0, 0), 'userkey': 'lessThanSekrit'}")
+                    self.eq(rstr, "{'adminkey': 'sekrit', 'bar': {'foo': '1'}, 'cortex:runtime:stormfixes': [4, 0, 0], 'userkey': 'lessThanSekrit'}")
 
                     # Storing a valu gets toprim()'d
                     q = '[test:str=test] $lib.user.vars.mynode = $node return($lib.user.vars.mynode)'
@@ -3082,6 +3094,55 @@ class StormTypesTest(s_test.SynTest):
                     self.len(2, podes)
                     self.eq({('test:str', '1234'), ('test:int', 1234)},
                             {pode[0] for pode in podes})
+
+    async def test_persistent_vars_mutability(self):
+
+        with self.getTestDir() as dirn:
+            dirn00 = s_common.gendir(dirn, 'core00')
+            dirn01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+                valu = await core00.callStorm('return($lib.globals.newp)')
+                self.none(valu)
+
+                valu = await core00.callStorm('$lib.globals.testlist = (foo, bar, baz) return($lib.globals.testlist)')
+                self.eq(valu, ['foo', 'bar', 'baz'])
+
+                valu = await core00.callStorm('$lib.globals.testdict = ({"foo": "bar"}) return($lib.globals.testdict)')
+                self.eq(valu, {'foo': 'bar'})
+
+                # Can mutate list values?
+                valu = await core00.callStorm('$tl = $lib.globals.testlist $tl.rem(bar) return($tl)')
+                self.eq(valu, ['foo', 'baz'])
+
+                # List mutations don't persist
+                valu = await core00.callStorm('return($lib.globals.testlist)')
+                self.eq(valu, ['foo', 'bar', 'baz'])
+
+                # Can mutate dict values?
+                valu = await core00.callStorm('$td = $lib.globals.testdict $td.bar=foo return($td)')
+                self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
+
+                # Dict mutations don't persist
+                valu = await core00.callStorm('return($lib.globals.testdict)')
+                self.eq(valu, {'foo': 'bar'})
+
+                # Global list returns mutable objects
+                q = '''
+                    $ret = ({})
+                    for ($key, $val) in $lib.globals {
+                        if ($key = "cortex:runtime:stormfixes") { continue }
+                        $ret.$key = $val
+                    }
+                    $ret.testdict.boo = bar
+                    $ret.testlist.append(moo)
+                    return($ret)
+                '''
+                valu = await core00.callStorm(q)
+                self.eq(valu, {
+                    'testdict': {'boo': 'bar', 'foo': 'bar'},
+                    'testlist': ['foo', 'bar', 'baz', 'moo'],
+                })
 
     async def test_storm_lib_time(self):
 

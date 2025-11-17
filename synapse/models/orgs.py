@@ -266,6 +266,18 @@ modeldefs = (
                     ),
                 }}),
 
+            ('ou:candidate:referral', ('guid', {}), {
+                'doc': 'A candidate being referred by a contact.',
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'referrer::name'}},
+                        {'type': 'prop', 'opts': {'name': 'candidate::contact::name'}},
+                        {'type': 'prop', 'opts': {'name': 'candidate::org::name'}},
+                        {'type': 'prop', 'opts': {'name': 'candidate::opening::title'}},
+                        {'type': 'prop', 'opts': {'name': 'submitted'}},
+                    ),
+                }}),
+
             ('ou:employment:type:taxonomy', ('taxonomy', {}), {
                 'ex': 'fulltime.salary',
                 'interfaces': (
@@ -391,6 +403,23 @@ modeldefs = (
                 # TODO: proj:task to track evaluation of the candidate?
 
             )),
+
+            ('ou:candidate:referral', {}, (
+
+                ('candidate', ('ou:candidate', {}), {
+                    'doc': 'The candidate who was referred.'}),
+
+                ('referrer', ('entity:contact', {}), {
+                    'doc': 'The individual who referred the candidate to the opening.'}),
+
+                ('submitted', ('time', {}), {
+                    'doc': 'The time the referral was submitted.'}),
+
+                ('text', ('str', {}), {
+                    'disp': {'hint': 'text'},
+                    'doc': 'Text of any referrer provided context about the candidate.'}),
+            )),
+
             ('ou:vitals', {}, (
 
                 ('time', ('time', {}), {

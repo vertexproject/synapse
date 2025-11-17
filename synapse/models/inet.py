@@ -511,18 +511,17 @@ class SockAddr(s_types.Str):
         return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
 
     async def _normPyTuple(self, valu, view=None):
-        ipaddr = (await self.iptype.norm(valu))[0]
+        ipaddr, norminfo = await self.iptype.norm(valu)
 
-        (vers, ip_int) = ipaddr
         ip_repr = self.iptype.repr(ipaddr)
-        subs = {}
-        virts = {}
+        subs = {'ip': (self.iptype.typehash, ipaddr, norminfo)}
+        virts = {'ip': (ipaddr, self.iptype.stortype)}
         proto = self.defproto
 
         if self.defport:
             subs['port'] = (self.porttype.typehash, self.defport, {})
             virts['port'] = (self.defport, self.porttype.stortype)
-            if vers == 6:
+            if ipaddr[0] == 6:
                 return f'{proto}://[{ip_repr}]:{self.defport}', {'subs': subs, 'virts': virts}
             else:
                 return f'{proto}://{ip_repr}:{self.defport}', {'subs': subs, 'virts': virts}

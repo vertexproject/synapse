@@ -124,6 +124,10 @@ class TestUtils(s_t_utils.SynTest):
         with self.raises(s_exc.SynErr):
             stream.expect('does not exist')
 
+        stream.noexpect('newp')
+        with self.raises(s_exc.SynErr):
+            stream.noexpect('ruh roh')
+
         self.eq(str(stream), 'ruh roh i am a new message\n')
         self.true(repr(stream).endswith('valu: ruh roh i am a new message>'))
         self.true(repr(stream).startswith('<synapse.tests.utils.AsyncStreamEvent'))

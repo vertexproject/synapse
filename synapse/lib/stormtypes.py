@@ -1858,7 +1858,7 @@ class LibDict(Lib):
                 mesg = '$lib.dict.fromlist() keys must be str or int types.'
                 raise s_exc.BadArg(mesg=mesg)
 
-        return dict(valu)
+        return s_msgpack.deepcopy(dict(valu), use_list=True)
 
     @stormfunc(readonly=True)
     async def _pop(self, valu, key, default=undef):
@@ -5637,7 +5637,8 @@ class GlobalVars(Prim):
         name = await tostr(name)
         runt = s_scope.get('runt')
         runt.confirm(('globals', 'get', name))
-        return await runt.view.core.getStormVar(name)
+        if (valu := await runt.view.core.getStormVar(name)) is not None:
+            return s_msgpack.deepcopy(valu, use_list=True)
 
     async def setitem(self, name, valu):
         name = await tostr(name)
@@ -5656,7 +5657,7 @@ class GlobalVars(Prim):
         runt = s_scope.get('runt')
         async for name, valu in runt.view.core.itemsStormVar():
             if runt.allowed(('globals', 'get', name)):
-                yield name, valu
+                yield name, s_msgpack.deepcopy(valu, use_list=True)
             await asyncio.sleep(0)
 
     async def stormrepr(self):
