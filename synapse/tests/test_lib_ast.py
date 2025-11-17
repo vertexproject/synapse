@@ -215,7 +215,7 @@ class AstTest(s_test.SynTest):
             self.len(6, ndefs)
 
             opts = {'mode': 'lookup'}
-            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 cve-2021-44228'
+            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 CVE-2021-44228'
             nodes = await core.nodes(q, opts=opts)
             self.eq(ndefs, [n.ndef for n in nodes])
 
@@ -841,6 +841,18 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:guid:size=2 :size -> test:arrayprop:ints')
             self.len(1, nodes)
 
+            fork = await core.view.fork()
+            forkiden = fork.get('iden')
+
+            await core.nodes('[ test:arrayprop=(othr,) ]')
+            await core.nodes('[ test:arrayprop=(self,) :children=((self,), (othr,)) ]', opts={'view': forkiden})
+            nodes = await core.nodes('test:arrayprop=(self,) -> *', opts={'view': forkiden})
+            self.len(1, nodes)
+
+            await core.nodes('test:arrayprop=(othr,) | delnode')
+            nodes = await core.nodes('test:arrayprop=(self,) -> *', opts={'view': forkiden})
+            self.len(0, nodes)
+
     async def test_ast_pivot_ndef(self):
 
         async with self.getTestCore() as core:
@@ -1035,6 +1047,10 @@ class AstTest(s_test.SynTest):
             self.len(4, await core.nodes('.created +it:host:activity'))
             self.len(3, await core.nodes('.created +it:host:activity:host'))
 
+            self.len(4, await core.nodes('it:host:activity.created'))
+            self.len(4, await core.nodes('it:host:activity.created>2000-01-01'))
+            self.len(0, await core.nodes('it:host:activity.created<2000-01-01'))
+
             self.len(4, await core.nodes('inet:dns*'))
             self.len(4, await core.nodes('inet:dns:*'))
             self.len(2, await core.nodes('inet:dns:a*'))
@@ -1089,13 +1105,13 @@ class AstTest(s_test.SynTest):
 
             await core.nodes('[ test:hasiface=foo :sandbox:file=* ]')
             self.len(1, await core.nodes('test:hasiface:sandbox:file'))
-            self.skip('FIXME interface props need tweak due to prefix updates?')
             self.len(1, await core.nodes('test:interface:sandbox:file'))
             self.len(1, await core.nodes('inet:proto:request:sandbox:file'))
-            self.len(1, await core.nodes('it:host:activity:sandbox:file'))
 
-            self.len(1, await core.nodes('[ it:exec:reg:get=* :host=(host,) ]'))
-            self.len(4, await core.nodes('it:host:activity:host=(host,)'))
+            self.len(1, await core.nodes('[ test:hasiface=* :sandbox:file=(host,) ]'))
+            self.len(1, await core.nodes('test:hasiface:sandbox:file=(host,)'))
+            self.len(1, await core.nodes('test:interface:sandbox:file=(host,)'))
+            self.len(1, await core.nodes('inet:proto:request:sandbox:file=(host,)'))
 
     async def test_ast_edge_walknjoin(self):
 
@@ -1944,28 +1960,6 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('arg1 is 445', msgs)
             self.stormIsInPrint('retn is 445', msgs)
 
-            # make sure we can't override the base lib object
-            q = '''
-            function wat(arg1) {
-                $lib.print($arg1)
-                $lib.print("We should have inherited the one true lib")
-                return ("Hi :)")
-            }
-            function override() {
-                $lib = "The new lib"
-                $retn = $wat($lib)
-                return ($retn)
-            }
-
-            $lib.print($override())
-            $lib.print("NO OVERRIDES FOR YOU")
-            '''
-            msgs = await core.stormlist(q)
-            self.stormIsInPrint('The new lib', msgs)
-            self.stormIsInPrint('We should have inherited the one true lib', msgs)
-            self.stormIsInPrint('Hi :)', msgs)
-            self.stormIsInPrint('NO OVERRIDES FOR YOU', msgs)
-
             # yields across an import boundary
             q = '''
             $test = $lib.import(yieldsforever)
@@ -2159,18 +2153,6 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[ inet:ip=1.2.3.4 +#visi ] | foocmd')
             self.eq(nodes[0].ndef, ('test:str', 'visi'))
             self.eq(nodes[1].ndef, ('inet:ip', (4, 0x01020304)))
-
-            msgs = await core.stormlist('''
-                function lolol() {
-                    $lib = "pure lulz"
-                    $lolol = "don't do this"
-                    return ($lolol)
-                }
-                $neato = 0
-                $myvar = $lolol()
-                $lib.print($myvar)
-            ''')
-            self.stormIsInPrint("don't do this", msgs)
 
     async def test_ast_setitem(self):
 
@@ -3090,6 +3072,7 @@ class AstTest(s_test.SynTest):
                     self.len(7, nodes)
                     exp = [
                         ('valu', 'test:int:seen', '@=', '2020'),
+                        ('valu', 'test:str2:seen', '@=', '2020'),
                         ('valu', 'test:str:seen', '@=', '2020'),
                     ]
                     self.eq(calls, exp)
@@ -3108,7 +3091,10 @@ class AstTest(s_test.SynTest):
 
                     nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
                     self.len(1, nodes)
-                    self.eq(calls, [('valu', 'test:str:tick', 'range=', ['19701125', '20151212'])])
+                    self.eq(calls, [
+                        ('valu', 'test:str2:tick', 'range=', ['19701125', '20151212']),
+                        ('valu', 'test:str:tick', 'range=', ['19701125', '20151212'])
+                    ])
                     calls = []
 
                     # Lift by value will fail since stortype is MSGP
@@ -3117,6 +3103,7 @@ class AstTest(s_test.SynTest):
                     self.len(1, nodes)
 
                     exp = [
+                        ('valu', 'test:str2:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
                         ('valu', 'test:str:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
                         ('prop', 'test:str:bar'),
                     ]
@@ -3514,7 +3501,7 @@ class AstTest(s_test.SynTest):
 
             await core.nodes('for $x in $lib.range(1010) {[ it:dev:str=$x ]}')
 
-            strtoffs = await core.getView().layers[0].getEditIndx()
+            strtoffs = core.getView().layers[0].getEditIndx()
 
             q = '''
             [ inet:ip=1.2.3.4
@@ -3525,7 +3512,7 @@ class AstTest(s_test.SynTest):
             self.len(1005, await core.nodes('inet:ip=1.2.3.4 -(refs)> *'))
 
             # node creation + 2 batches of edits
-            nextoffs = await core.getView().layers[0].getEditIndx()
+            nextoffs = core.getView().layers[0].getEditIndx()
             self.eq(strtoffs + 3, nextoffs)
 
             q = '''
@@ -3536,7 +3523,7 @@ class AstTest(s_test.SynTest):
             self.len(0, await core.nodes('inet:ip=1.2.3.4 -(refs)> *'))
 
             # 2 batches of edits
-            self.eq(nextoffs + 2, await core.getView().layers[0].getEditIndx())
+            self.eq(nextoffs + 2, core.getView().layers[0].getEditIndx())
 
             nodes = await core.nodes('syn:prop limit 1')
             await self.asyncraises(s_exc.IsRuntForm, nodes[0].delEdge('foo', 'bar'))
@@ -4334,8 +4321,6 @@ class AstTest(s_test.SynTest):
             ostr = (await core.nodes('test:str=foo [ :bar=(test:ro, "ackbar") :ndefs=((test:int, 176), )]'))[0]
             pstr = (await core.nodes('test:str=bar [ :ndefs=((test:guid, $guid), (test:auto, "auto"), (test:ro, "ackbar"))]', opts=opts))[0]
             rstr = (await core.nodes('test:ro=ackbar', opts=opts))[0]
-            (await core.nodes('[test:arrayform=(1234, 176)]'))[0]
-            (await core.nodes('[test:arrayform=(3245, 678)]'))[0]
 
             await core.nodes('test:int=176 [ <(refs)+ { test:guid } ]')
             await core.nodes('test:int=176 [ <(_someedge)+ { test:guid } ]')
@@ -4487,14 +4472,6 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('test:arrayprop :ints -> test:int', opts=opts)
             _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
             _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'}, nidx=1)
-
-            # PropPivot dst array primary prop
-            msgs = await core.stormlist('test:guid :size -> test:arrayform', opts=opts)
-            _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'size'})
-
-            # PropPivot oops all arrays
-            msgs = await core.stormlist('test:arrayprop :ints -> test:arrayform', opts=opts)
-            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
 
             # PropPivot src ndef array
             msgs = await core.stormlist('test:str=foobar :ndefs -> test:guid', opts=opts)

@@ -443,7 +443,7 @@ class Node(NodeBase):
 
             if prop.modl.form(prop.type.name) is not None:
                 buid = s_common.buid((prop.type.name, valu))
-            elif prop.type.name == 'ndef' or 'ndef' in prop.type.info.get('bases'):
+            elif 'ndef' in prop.type.types:
                 buid = s_common.buid(valu)
             else:
                 return None
@@ -475,7 +475,26 @@ class Node(NodeBase):
                 }
 
             for relp in relprops:
-                embdnode[relp] = node.get(relp)
+                valu, virts = node.getWithVirts(relp)
+                embdnode[relp] = valu
+
+                if valu is None:
+                    continue
+
+                if virts is not None:
+                    for vname, vval in virts.items():
+                        embdnode[f'{relp}.{vname}'] = vval[0]
+
+                stortype = node.form.prop(relp).type.stortype
+                if stortype & s_layer.STOR_FLAG_ARRAY:
+                    embdnode[f'{relp}.size'] = len(valu)
+                    if (svirts := storvirts.get(stortype & 0x7fff)) is not None:
+                        for vname, getr in svirts.items():
+                            embdnode[f'{relp}.{vname}'] = [getr(v) for v in valu]
+                else:
+                    if (svirts := storvirts.get(stortype)) is not None:
+                        for vname, getr in svirts.items():
+                            embdnode[f'{relp}.{vname}'] = getr(valu)
 
         return retn
 
@@ -1194,13 +1213,14 @@ class Node(NodeBase):
                     mesg = 'Nodes still have this tag.'
                     raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
 
-            async for refr in self.view.nodesByPropTypeValu(formname, formvalu):
+            for formtype in self.form.formtypes:
+                async for refr in self.view.nodesByPropTypeValu(formtype, formvalu):
 
-                if refr.nid == self.nid:
-                    continue
+                    if refr.nid == self.nid:
+                        continue
 
-                mesg = 'Other nodes still refer to this node.'
-                raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
+                    mesg = 'Other nodes still refer to this node.'
+                    raise s_exc.CantDelNode(mesg=mesg, form=self.form.name, iden=self.iden())
 
             async for edge in self.iterEdgesN2():
 

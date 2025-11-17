@@ -12,6 +12,147 @@ v3.0.0 - 2025-XX-YY
 Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
 changes.
 
+v2.226.0 - 2025-10-24
+=====================
+
+Model Changes
+-------------
+- Added ``inet:service:platform:type`` taxonomy property to track platform
+  types.
+  (`#4535 <https://github.com/vertexproject/synapse/pull/4535>`_)
+- Added ``inet:service:platform:family`` to capture the family a platform
+  belongs to.
+  (`#4540 <https://github.com/vertexproject/synapse/pull/4540>`_)
+- Added an ``about`` light edge from ``it:log:event`` to any form.
+  (`#4549 <https://github.com/vertexproject/synapse/pull/4549>`_)
+- Added a ``linked`` light edge between any two forms.
+  (`#4549 <https://github.com/vertexproject/synapse/pull/4549>`_)
+- See :ref:`userguide_model_v2_226_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``vm.dirty_bytes`` and ``vm.dirty_background_bytes`` sysctl values to
+  the ``getSystemInfo()`` APIs.
+  (`#4545 <https://github.com/vertexproject/synapse/pull/4545>`_)
+
+Bugfixes
+--------
+- Fixed a bug where assigning array, data, or some comp type node properties to
+  a variable would not make a mutable copy of the value.
+  (`#4527 <https://github.com/vertexproject/synapse/pull/4527>`_)
+- Fixed an issue where the ``aha.svc.mirror`` Storm command and
+  ``synapse.tools.aha.mirror`` CLI tool could incorrectly list followers as
+  additional leaders.
+  (`#4530 <https://github.com/vertexproject/synapse/pull/4530>`_)
+- Fixed an issue where invalid cron jobs were not removed correctly.
+  (`#4548 <https://github.com/vertexproject/synapse/pull/4548>`_)
+- Fixed an issue where ``cron.at`` jobs could cause an error in the scheduler
+  loop on a mirror that was promoted after the job had run.
+  (`#4548 <https://github.com/vertexproject/synapse/pull/4548>`_)
+- Fixed an issue where ``cron.at`` jobs would only partially update their state
+  on mirrors after running, causing them to be removed from the mirror upon
+  restart.
+  (`#4548 <https://github.com/vertexproject/synapse/pull/4548>`_)
+
+Deprecations
+------------
+- Deprecated ``asroot`` option on Storm commands. Functionality requiring
+  elevated permissions should be in Storm modules.
+  (`#4538 <https://github.com/vertexproject/synapse/pull/4538>`_)
+- Deprecated ``storm.asroot.mod.<modname>`` style permissions in favor of
+  ``asroot:perms`` for Storm modules.
+  (`#4538 <https://github.com/vertexproject/synapse/pull/4538>`_)
+
+v2.225.0 - 2025-10-13
+=====================
+
+Model Changes
+-------------
+- Added ``media:news:body`` to capture the body of a news item.
+  (`#4525 <https://github.com/vertexproject/synapse/pull/4525>`_)
+- Added ``risk:mitigation:id`` to capture the identifier for a mitigation.
+  (`#4526 <https://github.com/vertexproject/synapse/pull/4526>`_)
+- Added ``inet:service:account:users`` to capture alternate user names.
+  (`#4528 <https://github.com/vertexproject/synapse/pull/4528>`_)
+- See :ref:`userguide_model_v2_225_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Improved performance by reducing overhead on leader when distributing changes
+  to mirrors which are caught up with the leader.
+  (`#4342 <https://github.com/vertexproject/synapse/pull/4342>`_)
+- Moved several tools hosted under the ``synapse.tools`` namespace into
+  purpose specific modules. The following is a list of all the tools
+  that were moved, with the old and new names available:
+
+  +-------------------+---------------------------+
+  | Old Tool          | New Tool                  |
+  +===================+===========================+
+  | axon2axon         | axon.copy                 |
+  +-------------------+---------------------------+
+  | pullfile          | axon.get                  |
+  +-------------------+---------------------------+
+  | pushfile          | axon.put                  |
+  +-------------------+---------------------------+
+  | csvtool           | cortex.csv                |
+  +-------------------+---------------------------+
+  | feed              | cortex.feed               |
+  +-------------------+---------------------------+
+  | apikey            | service.apikey            |
+  +-------------------+---------------------------+
+  | backup            | service.backup            |
+  +-------------------+---------------------------+
+  | demote            | service.demote            |
+  +-------------------+---------------------------+
+  | healthcheck       | service.healthcheck       |
+  +-------------------+---------------------------+
+  | livebackup        | service.livebackup        |
+  +-------------------+---------------------------+
+  | modrole           | service.modrole           |
+  +-------------------+---------------------------+
+  | moduser           | service.moduser           |
+  +-------------------+---------------------------+
+  | promote           | service.promote           |
+  +-------------------+---------------------------+
+  | reload            | service.reload            |
+  +-------------------+---------------------------+
+  | shutdown          | service.shutdown          |
+  +-------------------+---------------------------+
+  | genpkg            | storm.pkg.gen             |
+  +-------------------+---------------------------+
+  | pkg.gendoc        | storm.pkg.doc             |
+  +-------------------+---------------------------+
+  | autodoc           | utils.autodoc             |
+  +-------------------+---------------------------+
+  | changelog         | utils.changelog           |
+  +-------------------+---------------------------+
+  | easycert          | utils.easycert            |
+  +-------------------+---------------------------+
+  | guid              | utils.guid                |
+  +-------------------+---------------------------+
+  | json2mpk          | utils.json2mpk            |
+  +-------------------+---------------------------+
+  | rstorm            | utils.rstorm              |
+  +-------------------+---------------------------+
+
+  These changes were made in a backwards compatible manner. The tools can
+  still be invoked with their previous names. For example,
+  ``synapse.tools.promote`` can still be be used to invoke the
+  ``synapse.tools.service.promote`` tool.
+
+  The old locations for these tools are considered deprecated.
+  (`#4514 <https://github.com/vertexproject/synapse/pull/4514>`_)
+  (`#4533 <https://github.com/vertexproject/synapse/pull/4533>`_)
+
+Bugfixes
+--------
+- Fixed bug with Storm command cmdconf dictionaries being mutable across
+  invocations.
+  (`#4524 <https://github.com/vertexproject/synapse/pull/4524>`_)
+- Fixed an issue where the maximum size allowed for headers in HTTP client
+  responses was insufficient for some use cases.
+  (`#4529 <https://github.com/vertexproject/synapse/pull/4529>`_)
+
 v2.224.0 - 2025-10-07
 =====================
 

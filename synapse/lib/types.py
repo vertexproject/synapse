@@ -33,6 +33,7 @@ class Type:
     # a fast-access way to determine if the type is an array
     # ( due to hot-loop needs in the storm runtime )
     isarray = False
+    ismutable = False
 
     def __init__(self, modl, name, info, opts, skipinit=False):
         '''
@@ -52,6 +53,7 @@ class Type:
         self.subof = None  # This references the name that a type was extended from.
 
         self.info.setdefault('bases', ('base',))
+        self.types = (self.name,) + self.info['bases'][::-1]
 
         self.opts = dict(self._opt_defs)
         self.opts.update(opts)
@@ -235,7 +237,7 @@ class Type:
 
     async def _normStormNode(self, node, view=None):
         norm, norminfo = await self.norm(node.ndef[1], view=view)
-        if node.form.type.name == self.name:
+        if self.name in node.form.formtypes:
             norminfo['skipadd'] = True
             norminfo.pop('adds', None)
         return norm, norminfo
@@ -443,6 +445,25 @@ class Type:
 
         tifo.update(info)
 
+        ifaces = {}
+        for iname, ifinfo in self.info.get('interfaces', ()):
+            ifaces[iname] = ifinfo
+
+        for iname, newinfo in info.get('interfaces', ()):
+            if (oldinfo := ifaces.get(iname)) is not None:
+                temp = {}
+                temp |= oldinfo.get('template', {})
+                temp |= newinfo.get('template', {})
+
+                ifaces[iname] = oldinfo | newinfo
+                if temp:
+                    ifaces[iname]['template'] = temp
+            else:
+                ifaces[iname] = newinfo
+
+        if ifaces:
+            tifo['interfaces'] = tuple(ifaces.items())
+
         bases = self.info.get('bases') + (self.name,)
         tifo['bases'] = bases
 
@@ -463,6 +484,17 @@ class Type:
         topt = self.opts.copy()
         topt.update(opts)
         return self.__class__(self.modl, self.name, self.info, topt)
+
+    async def tostorm(self, valu):
+        '''
+        Allows type-specific modifications to values to make them safe for use in the runtime.
+
+        Args:
+            valu (any): The valu to update.
+        '''
+        if self.ismutable:
+            return s_msgpack.deepcopy(valu, use_list=True)
+        return valu
 
     def __eq__(self, othr):
         if self.name != othr.name:
@@ -510,6 +542,7 @@ class Bool(Type):
 class Array(Type):
 
     isarray = True
+    ismutable = True
 
     def postTypeInit(self):
 
@@ -704,6 +737,9 @@ class Comp(Type):
         for i, (name, _) in enumerate(fields):
 
             _type = self.tcache[name]
+
+            if _type.ismutable:
+                self.ismutable = True
 
             norm, info = await _type.norm(valu[i], view=view)
 
@@ -2040,7 +2076,7 @@ class Ndef(Type):
 
             def filtfunc(form):
 
-                if self.forms is not None and form.name in forms:
+                if self.forms is not None and any(f in forms for f in form.formtypes):
                     return
 
                 if self.iface is not None and form.implements(self.iface):
@@ -2127,6 +2163,8 @@ class Ndef(Type):
 
 class Data(Type):
 
+    ismutable = True
+
     stortype = s_layer.STOR_TYPE_MSGP
 
     def postTypeInit(self):
@@ -2147,6 +2185,7 @@ class Data(Type):
 
 class NodeProp(Type):
 
+    ismutable = True
     stortype = s_layer.STOR_TYPE_NODEPROP
 
     def postTypeInit(self):

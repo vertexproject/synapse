@@ -1999,34 +1999,6 @@ class Runtime(s_base.Base):
                 await asyncio.sleep(0)
                 yield item
 
-    async def getOneNode(self, propname, valu, filt=None, cmpr='='):
-        '''
-        Return exactly 1 node by <prop> <cmpr> <valu>
-        '''
-        opts = {'vars': {'propname': propname, 'valu': valu}}
-
-        nodes = []
-        try:
-
-            async for node in self.view.nodesByPropValu(propname, cmpr, valu):
-
-                await asyncio.sleep(0)
-
-                if filt is not None and not await filt(node):
-                    continue
-
-                if len(nodes) == 1:
-                    mesg = f'Ambiguous value for single node lookup: {propname}{cmpr}{valu}'
-                    raise s_exc.StormRuntimeError(mesg=mesg)
-
-                nodes.append(node)
-
-            if len(nodes) == 1:
-                return nodes[0]
-
-        except s_exc.BadTypeValu:
-            return None
-
 class Parser:
 
     def __init__(self, prog=None, descr=None, root=None, model=None, cdef=None):
@@ -2492,7 +2464,6 @@ class Cmd:
     name = 'cmd'
     pkgname = ''
     svciden = ''
-    asroot = False
     readonly = False
 
     def __init__(self, runt, runtsafe):
@@ -2579,7 +2550,6 @@ class PureCmd(Cmd):
     def __init__(self, cdef, runt, runtsafe):
         self.cdef = cdef
         Cmd.__init__(self, runt, runtsafe)
-        self.asroot = cdef.get('asroot', False)
 
     def getDescr(self):
         return self.cdef.get('descr', 'no documentation provided')
@@ -2603,12 +2573,6 @@ class PureCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         name = self.getName()
-        perm = ('asroot', 'cmd') + tuple(name.split('.'))
-
-        asroot = runt.allowed(perm)
-        if self.asroot and not asroot:
-            mesg = f'Command ({name}) elevates privileges.  You need perm: asroot.cmd.{name}'
-            raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
 
         # if a command requires perms, check em!
         # ( used to create more intuitive perm boundaries )
@@ -2630,10 +2594,14 @@ class PureCmd(Cmd):
 
         cmdopts = s_stormtypes.CmdOpts(self)
 
+        cmdconf = self.cdef.get('cmdconf', {})
+        if cmdconf:
+            cmdconf = s_msgpack.deepcopy(cmdconf, use_list=True)
+
         opts = {
             'vars': {
                 'cmdopts': cmdopts,
-                'cmdconf': self.cdef.get('cmdconf', {}),
+                'cmdconf': cmdconf,
             }
         }
 
@@ -2650,15 +2618,12 @@ class PureCmd(Cmd):
                     yield xnode, xpath
 
             async with runt.getCmdRuntime(query, opts=opts) as subr:
-                subr.asroot = asroot
                 async for node, path in subr.execute(genr=genx()):
                     path.finiframe()
                     path.vars.update(data['pathvars'])
                     yield node, path
         else:
             async with runt.getCmdRuntime(query, opts=opts) as subr:
-                subr.asroot = asroot
-
                 async for node, path in genr:
                     pathvars = path.vars.copy()
                     async def genx():

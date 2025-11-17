@@ -1,6 +1,7 @@
 import os
 import math
 import asyncio
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -13,7 +14,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 
-import synapse.tools.backup as s_tools_backup
+import synapse.tools.service.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 
@@ -211,32 +212,6 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoNodeForPropIndex')
             self.eq(errors[1][0], 'NoNodeForPropArrayIndex')
             self.eq(errors[2][0], 'NoNodeForPropArrayIndex')
-
-            q = "$lib.model.ext.addForm('_test:array', array, ({'type': 'int'}), ({}))"
-            await core.nodes(q)
-            nodes = await core.nodes('[ _test:array=(1, 2, 3) ]')
-            nid = nodes[0].nid
-            core.getLayer()._testDelFormValuStor(nid, '_test:array')
-
-            scanconf = {'include': [('_test:array', None)]}
-            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
-            self.len(4, errors)
-            self.eq(errors[0][0], 'NoValuForPropIndex')
-            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
-            self.eq(errors[2][0], 'NoValuForPropArrayIndex')
-            self.eq(errors[3][0], 'NoValuForPropArrayIndex')
-
-            scanconf = {'include': [('_test:array', None)], 'autofix': 'index'}
-            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
-            self.len(4, errors)
-            self.eq(errors[0][0], 'NoValuForPropIndex')
-            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
-            self.eq(errors[2][0], 'NoValuForPropArrayIndex')
-            self.eq(errors[3][0], 'NoValuForPropArrayIndex')
-
-            scanconf = {'include': [('_test:array', None)]}
-            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
-            self.len(0, errors)
 
         # test autofix for tagindex verify
         async with self.getTestCore() as core:
@@ -682,35 +657,21 @@ class LayerTest(s_t_utils.SynTest):
             nodelist0 = [node.pack() for node in nodelist0]
 
             editlist = []
-
-            layr = core0.getLayer()
-            async for offs, nodeedits in prox0.syncLayerNodeEdits(0):
+            async for offs, nodeedits in core0.getLayer().syncNodeEdits(0, wait=False, compat=True):
                 editlist.append(nodeedits)
-                if offs == layr.nodeeditlog.index() - 1:
-                    break
 
-            fwdedits = [item async for item in core0.getLayer().syncNodeEdits(0, wait=False)]
-            revedits = [item async for item in core0.getLayer().syncNodeEdits(0xffffffff, wait=False, reverse=True)]
-
-            self.eq(fwdedits, list(reversed(revedits)))
-
-            fwdedit = await core0.callStorm('for $item in $lib.layer.get().edits() { return($item) }')
-            revedit = await core0.callStorm('for $item in $lib.layer.get().edits(reverse=(true)) { return($item) }')
-
-            self.nn(await core0.callStorm('return($lib.layer.get().edited())'))
-
-            self.ne(fwdedit, revedit)
-            self.eq(fwdedits[0], fwdedit)
-            self.eq(revedits[0], revedit)
+            etime = await core0.callStorm('return($lib.layer.get().edited())')
+            self.nn(etime)
+            self.gt(etime, s_time.parse('2020-01-01'))
 
             async with self.getTestCore() as core1:
 
                 url = core1.getLocalUrl('*/layer')
+                offs = await core1.getNexsIndx()
 
                 async with await s_telepath.openurl(url) as layrprox:
-
                     for nodeedits in editlist:
-                        self.nn(await layrprox.saveNodeEdits(nodeedits, {}))
+                        self.nn(await layrprox.saveNodeEdits(nodeedits, {}, compat=True))
 
                     nodelist1 = []
                     nodelist1.extend(await core1.nodes('test:str'))
@@ -727,9 +688,45 @@ class LayerTest(s_t_utils.SynTest):
 
                     self.eq(nodelist0, nodelist1)
 
-                    self.len(4, await alist(layrprox.syncNodeEdits2(0, wait=False)))
+                    self.len(4, await alist(layrprox.syncNodeEdits(0, wait=False)))
 
-                layr = core1.view.layers[0]  # type: s_layer.Layer
+                layr = core1.view.layers[0]
+
+            # Force an edit to be added while constructing a Window
+            orig = s_layer.Layer.getNodeEditWindow
+
+            @contextlib.asynccontextmanager
+            async def slowwindow(self):
+                await core0.nodes('[ test:str=bar ]')
+                async with orig(self) as wind:
+                    await core0.nodes('[ test:str=baz ]')
+                    yield wind
+
+            with mock.patch('synapse.lib.layer.Layer.getNodeEditWindow', slowwindow):
+                genr = core0.getLayer().syncNodeEdits(0, wait=True, compat=True, withmeta=True)
+                for edit in editlist:
+                    offs, nodeedits, meta = await anext(genr)
+
+                    self.eq(edit, nodeedits)
+                    self.eq(core0.auth.rootuser.iden, meta.get('user'))
+
+                offs, nodeedits, meta = await anext(genr)
+                self.eq(6, offs)
+                self.eq(['test:str', 'bar'], nodeedits[0][:2])
+
+                offs, nodeedits, meta = await anext(genr)
+                self.eq(7, offs)
+                self.eq(['test:str', 'baz'], nodeedits[0][:2])
+
+                # Once we've caught back up to the end of the nexus log, we shouldn't get a duplicate from the window
+                task = core0.schedCoro(anext(genr))
+                await core0.nodes('[ test:str=faz ]')
+
+                offs, nodeedits, meta = await task
+                self.eq(8, offs)
+                self.eq(['test:str', 'faz'], nodeedits[0][:2])
+
+                await genr.aclose()
 
             await core0.addTagProp('score', ('int', {}), {})
 
@@ -793,59 +790,6 @@ class LayerTest(s_t_utils.SynTest):
                 nid = nedit[0]
                 sode = layer0.getStorNode(s_common.int64en(nid))
                 self.eq((), await layer0._editMetaSet(nid, None, metaedit[0], sode, None))
-
-    async def test_layer_syncindexevents(self):
-
-        async with self.getTestCore() as core:
-            layr = core.getLayer()
-            await core.addTagProp('score', ('int', {}), {})
-            baseoff = await core.getNexsIndx()
-
-            nodes = await core.nodes('[ test:str=foo ]')
-            strnode = nodes[0]
-            strnid = s_common.int64un(strnode.nid)
-            q = '[ inet:ip=1.2.3.4 :asn=42 +#mytag:score=99 +#foo.bar=(2012, 2014) ]'
-            nodes = await core.nodes(q)
-            ipv4node = nodes[0]
-            ipnid = s_common.int64un(ipv4node.nid)
-
-            await core.nodes('inet:ip=1.2.3.4 test:str=foo | delnode')
-
-            mdef = {'forms': ['test:str']}
-            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
-            self.eq(events, [
-                (strnid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8, None)),
-                (strnid, 'test:str', s_layer.EDIT_NODE_DEL, ()),
-            ])
-
-            mdef = {'props': ['inet:ip:asn']}
-            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
-            self.len(2, events)
-            self.eq(events, [
-                (ipnid, 'inet:ip', s_layer.EDIT_PROP_SET, ('asn', 42, s_layer.STOR_TYPE_I64, None)),
-                (ipnid, 'inet:ip', s_layer.EDIT_PROP_DEL, ('asn',)),
-            ])
-
-            time = [s_time.parse(x) for x in ('2012', '2014')]
-            ival = (time[0], time[1], time[1] - time[0])
-
-            mdef = {'tags': ['foo.bar']}
-            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
-            self.eq(events, [
-                (ipnid, 'inet:ip', s_layer.EDIT_TAG_SET, ('foo.bar', ival)),
-                (ipnid, 'inet:ip', s_layer.EDIT_TAG_DEL, ('foo.bar',)),
-            ])
-
-            mdefs = ({'tagprops': ['score']}, {'tagprops': ['mytag:score']})
-            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
-            for mdef in mdefs:
-                events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
-                self.eq(events, [
-                    (ipnid, 'inet:ip', s_layer.EDIT_TAGPROP_SET,
-                        ('mytag', 'score', 99, s_layer.STOR_TYPE_I64, None)),
-                    (ipnid, 'inet:ip', s_layer.EDIT_TAGPROP_DEL,
-                        ('mytag', 'score')),
-                ])
 
     async def test_layer_tombstone(self):
 
@@ -1651,10 +1595,9 @@ class LayerTest(s_t_utils.SynTest):
             '''
             await core.nodes('[test:str=foo :seen=(2015, 2016)]')
             layr = core.getLayer(None)
-            lbefore = len(await alist(layr.syncNodeEdits2(0, wait=False)))
+            offs = layr.getEditIndx()
             await core.nodes('[test:str=foo :seen=(2015, 2016)]')
-            lafter = len(await alist(layr.syncNodeEdits2(0, wait=False)))
-            self.eq(lbefore, lafter)
+            self.eq(offs, layr.getEditIndx())
 
     async def test_layer_del_then_lift(self):
         '''
@@ -1729,18 +1672,6 @@ class LayerTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.IsReadOnly):
                     await core.nodes('[inet:fqdn=vertex.link]', opts={'view': view['iden']})
-
-    async def test_layer_logedits_default(self):
-        async with self.getTestCore() as core:
-            self.true(core.getLayer().logedits)
-
-    async def test_layer_no_logedits(self):
-
-        async with self.getTestCore() as core:
-            info = await core.addLayer({'logedits': False})
-            layr = core.getLayer(info.get('iden'))
-            self.false(layr.logedits)
-            self.eq(-1, await layr.getEditOffs())
 
     async def test_layer_iter_props(self):
 
@@ -1855,20 +1786,9 @@ class LayerTest(s_t_utils.SynTest):
 
                 self.eq('hehe', await core.callStorm('$layer = $lib.layer.get() $layer.set(name, hehe) return($layer.get(name))'))
 
-                self.eq(False, await core.callStorm('$layer = $lib.layer.get() $layer.set(logedits, $lib.false) return($layer.get(logedits))'))
-                edits0 = [e async for e in layer.syncNodeEdits(0, wait=False)]
-                await core.callStorm('[inet:ip=1.2.3.4]')
-                edits1 = [e async for e in layer.syncNodeEdits(0, wait=False)]
-                self.eq(len(edits0), len(edits1))
-
-                self.eq(True, await core.callStorm('$layer = $lib.layer.get() $layer.set(logedits, $lib.true) return($layer.get(logedits))'))
-                await core.callStorm('[inet:ip=5.5.5.5]')
-                edits2 = [e async for e in layer.syncNodeEdits(0, wait=False)]
-                self.gt(len(edits2), len(edits1))
-
                 self.true(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.true) return($layer.get(readonly))'))
                 await self.asyncraises(s_exc.IsReadOnly, core.nodes('[inet:ip=7.7.7.7]'))
-                await self.asyncraises(s_exc.IsReadOnly, core.nodes('$lib.layer.get().set(logedits, $lib.false)'))
+                await self.asyncraises(s_exc.IsReadOnly, core.nodes('$lib.layer.get().set(desc, foo)'))
 
                 self.false(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.false) return($layer.get(readonly))'))
                 self.len(1, await core.nodes('[inet:ip=7.7.7.7]'))
@@ -1892,14 +1812,12 @@ class LayerTest(s_t_utils.SynTest):
                     $layer.set(readonly, $lib.false)  // so we can set everything else
                     $layer.set(name, foo)
                     $layer.set(desc, foodesc)
-                    $layer.set(logedits, $lib.false)
                     $layer.set(readonly, $lib.true)
                 ''')
 
                 info00 = await core.callStorm('return($lib.layer.get())')
                 self.eq('foo', info00['name'])
                 self.eq('foodesc', info00['desc'])
-                self.false(info00['logedits'])
                 self.true(info00['readonly'])
 
             async with self.getTestCore(dirn=dirn) as core:
@@ -2489,7 +2407,6 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             await core.nodes('''[
-                inet:server=host://vertex.link:12341
                 inet:server=tcp://127.0.0.1:12341
                 inet:server=tcp://127.0.0.3:12343
                 inet:server=tcp://127.0.0.2:12342
@@ -2674,9 +2591,6 @@ class LayerTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('inet:server +.ip*newp=newp')
 
-            await core.nodes('inet:server.ip | delnode')
-            self.len(0, await core.nodes('inet:server.ip'))
-
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('inet:server.newp.ip')
 
@@ -2688,6 +2602,9 @@ class LayerTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('inet:server +.ip.newp=127.0.0.1')
+
+            await core.nodes('inet:server.ip | delnode')
+            self.len(0, await core.nodes('inet:server.ip'))
 
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:virtiface:servers*[newp=127.0.0.1]')
@@ -2748,23 +2665,6 @@ class LayerTest(s_t_utils.SynTest):
             indxby = s_layer.IndxByVirtArray(layr, 'test:virtiface', 'servers', ['ip'])
             self.eq(str(indxby), 'IndxByVirtArray: test:virtiface:servers.ip')
 
-            self.len(0, await core.nodes('test:arrayform.size=2'))
-
-            await core.nodes('[ test:arrayform=([1, 2]) test:arrayform=([2, 3]) test:arrayform=([4, 5, 6]) ]')
-
-            self.len(1, await core.nodes('test:arrayform=([1, 2])'))
-            self.len(1, await core.nodes('reverse(test:arrayform=([1, 2]))'))
-
-            nodes = await core.nodes('test:arrayform.size=2')
-            self.len(2, nodes)
-            self.eq(nodes[::-1], await core.nodes('reverse(test:arrayform.size=2)'))
-
-            self.len(2, await core.nodes('test:arrayform.size*range=(1, 2)'))
-
-            nodes = await core.nodes('test:arrayform.size*range=(2, 3)')
-            self.len(3, nodes)
-            self.eq(nodes[::-1], await core.nodes('reverse(test:arrayform.size*range=(2, 3))'))
-
             indxby = s_layer.IndxByProp(layr, 'test:guid', 'server')
             self.eq(str(indxby), 'IndxByProp: test:guid:server')
 
@@ -2777,28 +2677,11 @@ class LayerTest(s_t_utils.SynTest):
             indxby = s_layer.IndxByPropArrayKeys(layr, 'test:virtiface', 'servers')
             self.eq(str(indxby), 'IndxByPropArrayKeys: test:virtiface:servers')
 
-            indxby = s_layer.IndxByFormArrayValu(layr, 'test:arrayform')
-            self.eq(str(indxby), 'IndxByFormArrayValu: test:arrayform')
-
-            indxby = s_layer.IndxByFormArraySize(layr, 'test:arrayform')
-            self.eq(str(indxby), 'IndxByFormArraySize: test:arrayform')
-
             indxby = s_layer.IndxByPropArrayValu(layr, 'test:virtiface', 'servers')
             self.eq(str(indxby), 'IndxByPropArrayValu: test:virtiface:servers')
 
             indxby = s_layer.IndxByPropArraySize(layr, 'test:virtiface', 'servers')
             self.eq(str(indxby), 'IndxByPropArraySize: test:virtiface:servers')
-
-            with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('test:arrayform.newp*range=(2, 3)')
-
-            with self.raises(s_exc.NoSuchCmpr):
-                await core.nodes('test:arrayform.size*newp=(2, 3)')
-
-            self.len(1, await core.nodes('[ test:arrayvirtform=(2021?, 2022?) ]'))
-            self.len(1, await core.nodes('test:arrayvirtform'))
-            await core.nodes('test:arrayvirtform=(2021, 2022) | delnode')
-            self.len(0, await core.nodes('test:arrayvirtform'))
 
     async def test_layer_readahead(self):
 
@@ -2807,8 +2690,6 @@ class LayerTest(s_t_utils.SynTest):
             layr = core.getLayer()
             self.true(layr.layrslab.readahead)
             self.true(layr.layrslab.lenv.flags()['readahead'])
-            self.false(layr.nodeeditslab.readahead)
-            self.false(layr.nodeeditslab.lenv.flags()['readahead'])
             self.false(layr.dataslab.readahead)
             self.false(layr.dataslab.lenv.flags()['readahead'])
 
@@ -2817,8 +2698,6 @@ class LayerTest(s_t_utils.SynTest):
                 layr = core.getLayer(iden)
                 self.false(layr.layrslab.readahead)
                 self.false(layr.layrslab.lenv.flags()['readahead'])
-                self.false(layr.nodeeditslab.readahead)
-                self.false(layr.nodeeditslab.lenv.flags()['readahead'])
                 self.false(layr.dataslab.readahead)
                 self.false(layr.dataslab.lenv.flags()['readahead'])
 
@@ -3071,18 +2950,8 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:arrayprop:strs*[=foobar]'))
             self.len(3, await core.nodes('test:arrayprop:strs*[~=foo]'))
 
-            self.len(1, await core.nodes('[ test:arrayformtype=(foo, bar, baz, foobar, foobar) ]'))
-            self.len(2, await core.nodes('test:arrayformtype*[=foobar]'))
-            self.len(3, await core.nodes('test:arrayformtype*[~=foo]'))
-
             self.len(1, await core.nodes('[test:str=virts :ndefs={[test:str=foo1 test:int=3 test:str=foo1]}]'))
             self.len(2, await core.nodes('test:str:ndefs*[.form=test:str]'))
-
-            self.len(1, await core.nodes('[ test:arraysrv=(1.2.3.4:80, 3.4.5.6:80, 1.2.3.4:80, 1.2.3.4:90)]'))
-            self.len(3, await core.nodes('test:arraysrv*[.port=80]'))
-            self.len(1, await core.nodes('test:arraysrv*[.port=90]'))
-            self.len(3, await core.nodes('test:arraysrv*[.ip=1.2.3.4]'))
-            self.len(1, await core.nodes('test:arraysrv*[.ip=3.4.5.6]'))
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
             viewopts2 = {'view': viewiden2}
@@ -3099,9 +2968,3 @@ class LayerTest(s_t_utils.SynTest):
             sode['props']['ndefs'] = ((('test:int', 3),), *sode['props']['ndefs'][1:])
             self.len(0, await core.nodes('test:str:ndefs*[.form=test:str]'))
             self.len(1, await core.nodes('test:str:ndefs*[.form=test:int]'))
-
-            nodes = await core.nodes('[ test:arrayformtype=(foo, bar, baz, foobar, foobar) ]')
-            sode = nodes[0].sodes[0]
-            sode['valu'] = None
-            self.len(0, await core.nodes('test:arrayformtype*[=foobar]'))
-            self.len(0, await core.nodes('test:arrayformtype*[~=foo]'))

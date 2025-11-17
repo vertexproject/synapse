@@ -410,6 +410,9 @@ class _Appt:
 
             if name == 'lasterrs' and not isinstance(valu, list):
                 valu = list(valu)
+            elif name == 'nexttime' and valu is None:
+                self.recs.clear()
+                self.stor._delete_appt_from_heap(self)
 
             setattr(self, name, valu)
 
@@ -449,7 +452,6 @@ class Agenda(s_base.Base):
         self.apptheap = []
         self.appts = {}
 
-        to_delete = []
         for iden, info in self.apptdefs.items():
             try:
                 appt = _Appt.unpack(self, info)
@@ -459,17 +461,29 @@ class Agenda(s_base.Base):
                 self._next_indx = max(self._next_indx, appt.indx + 1)
             except (s_exc.InconsistentStorage, s_exc.BadStorageVersion, s_exc.BadTime, TypeError, KeyError,
                     UnicodeDecodeError) as e:
-                logger.warning('Invalid appointment %r found in storage: %r.  Removing.', iden, e)
-                to_delete.append(iden)
-                continue
-
-        for iden in to_delete:
-            self.apptdefs.pop(iden)
+                logger.warning('Invalid appointment %r found in storage: %r. This appointment will be removed.', iden, e)
 
         # Make sure we don't assign the same index to 2 appointments
         if self.appts:
             maxindx = max(appt.indx for appt in self.appts.values())
             self._next_indx = maxindx + 1
+
+    async def _clear_invalid(self):
+
+        to_delete = []
+        for iden, info in self.apptdefs.items():
+            try:
+                appt = _Appt.unpack(self, info)
+                if appt.iden != iden:
+                    raise s_exc.InconsistentStorage(mesg='iden inconsistency')
+
+            except (s_exc.InconsistentStorage, s_exc.BadStorageVersion, s_exc.BadTime, TypeError, KeyError,
+                    UnicodeDecodeError) as e:
+                logger.warning('Removing invalid appointment %r.', iden)
+                to_delete.append(iden)
+
+        for iden in to_delete:
+            await self.core.delCronJob(iden)
 
     def _addappt(self, iden, appt):
         '''
@@ -627,14 +641,13 @@ class Agenda(s_base.Base):
         '''
         Delete an appointment
         '''
-        appt = self.appts.get(iden)
-        if appt is None:
+        if not self.apptdefs.delete(iden):
             mesg = f'No cron job with iden: {iden}'
             raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
-        self._delete_appt_from_heap(appt)
-        del self.appts[iden]
-        self.apptdefs.delete(iden)
+        if (appt := self.appts.get(iden)) is not None:
+            self._delete_appt_from_heap(appt)
+            del self.appts[iden]
 
     def _delete_appt_from_heap(self, appt):
         try:
@@ -671,14 +684,14 @@ class Agenda(s_base.Base):
                 await self.core.addCronEdits(appt.iden, edits)
                 await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
 
-                if appt.nexttime is None:
-                    self._delete_appt_from_heap(appt)
-
     async def runloop(self):
         '''
         Task loop to issue query tasks at the right times.
         '''
         await self.clearRunningStatus()
+
+        await self._clear_invalid()
+
         while not self.isfini:
 
             timeout = None

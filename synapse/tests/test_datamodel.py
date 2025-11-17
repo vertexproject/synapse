@@ -34,6 +34,10 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadFormDef):
                 core.model.addForm('woot:two', {}, ())
 
+            core.model.addType('woot:array', 'array', {'type': 'str'}, {})
+            with self.raises(s_exc.BadFormDef):
+                core.model.addForm('woot:array', {}, ())
+
             with self.raises(s_exc.NoSuchForm):
                 core.model.reqForm('newp:newp')
 
@@ -100,7 +104,7 @@ class DataModelTest(s_t_utils.SynTest):
             }),
         )
 
-        with self.raises(s_exc.NoSuchName):
+        with self.raises(s_exc.NoSuchIface):
             modl.addDataModels(mods)
 
     async def test_datamodel_dynamics(self):
@@ -299,7 +303,7 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model.addEdge(('inet:ip', 10, 'inet:ip'), {})
 
             with self.raises(s_exc.BadArg):
-                core.model.addEdge(('meta:ruleish', 'matches', None), {})
+                core.model.addEdge(('test:interface', 'matches', None), {})
 
             core.model.addEdge(('inet:fqdn', 'zip', 'phys:object'), {})
             edges = core.model.edgesbyn2.get('transport:air:craft')
@@ -322,17 +326,17 @@ class DataModelTest(s_t_utils.SynTest):
             model = await core.getModelDict()
             self.isin('created', [m[0] for m in model['metas']])
             self.isin('updated', [m[0] for m in model['metas']])
-            self.isin(('meta:ruleish', 'matches', None), [e[0] for e in model['edges']])
+            self.isin(('test:interface', 'matches', None), [e[0] for e in model['edges']])
 
             model = (await core.getModelDefs())[0][1]
-            self.isin(('meta:ruleish', 'matches', None), [e[0] for e in model['edges']])
+            self.isin(('test:interface', 'matches', None), [e[0] for e in model['edges']])
 
-            self.nn(core.model.edge(('meta:ruleish', 'matches', None)))
+            self.nn(core.model.edge(('test:interface', 'matches', None)))
 
-            core.model.delEdge(('meta:ruleish', 'matches', None))
-            self.none(core.model.edge(('meta:ruleish', 'matches', None)))
+            core.model.delEdge(('test:interface', 'matches', None))
+            self.none(core.model.edge(('test:interface', 'matches', None)))
 
-            core.model.delEdge(('meta:ruleish', 'matches', None))
+            core.model.delEdge(('test:interface', 'matches', None))
 
     async def test_datamodel_locked_subs(self):
 
@@ -413,3 +417,260 @@ class DataModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchName):
                 await core.callStorm('test:protocol return($node.protocol(newp, propname=otherval))')
+
+    async def test_datamodel_form_inheritance(self):
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+
+                await core.addTagProp('score', ('int', {}), {})
+                await core.addTagProp('inhstr', ('test:inhstr2', {}), {})
+
+                await core.nodes('[ test:inhstr=parent :name=p1]')
+                await core.nodes('[ test:inhstr2=foo :name=foo :child1=subv +#foo=2020 +#foo:score=10]')
+                await core.nodes('[ test:inhstr3=bar :name=bar :child1=subv :child2=specific]')
+
+                await core.nodes('[ test:str=tagprop +#bar:inhstr=bar ]')
+
+                self.len(3, await core.nodes('test:inhstr'))
+                self.len(1, await core.nodes('test:inhstr:name=bar'))
+                self.len(2, await core.nodes('test:inhstr2:child1=subv'))
+                self.len(1, await core.nodes('test:inhstr3'))
+                self.len(1, await core.nodes('test:inhstr3:child2=specific'))
+                self.len(1, await core.nodes('test:inhstr#foo'))
+                self.len(1, await core.nodes('test:inhstr#foo@=2020'))
+                self.len(1, await core.nodes('test:inhstr#(foo).min>2019'))
+                self.len(1, await core.nodes('test:inhstr#foo:score'))
+                self.len(1, await core.nodes('test:inhstr#foo:score=10'))
+
+                await core.nodes('[ test:str=prop :inhstr=foo ]')
+                nodes = await core.nodes('test:str=prop -> *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
+
+                nodes = await core.nodes('test:str=prop :inhstr -> *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
+
+                nodes = await core.nodes('test:str=prop -> test:inhstr')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
+
+                nodes = await core.nodes('test:str=prop -> test:inhstr2')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
+
+                nodes = await core.nodes('test:str=prop :inhstr -> test:inhstr')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr2', 'foo'))
+
+                nodes = await core.nodes('test:inhstr3 <- *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'tagprop'))
+
+                await core.nodes('[ test:str=prop2 :inhstrarry=(foo, bar) ]')
+                nodes = await core.nodes('test:str=prop2 -> test:inhstr')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr3', 'bar'))
+                self.eq(nodes[1].ndef, ('test:inhstr2', 'foo'))
+
+                nodes = await core.nodes('test:str=prop2 -> test:inhstr3')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:inhstr3', 'bar'))
+
+                await core.nodes("$lib.model.ext.addForm(_test:inhstr5, test:inhstr3, ({}), ({}))")
+                await core.nodes("$lib.model.ext.addForm(_test:inhstr4, _test:inhstr5, ({}), ({}))")
+                await core.nodes("$lib.model.ext.addFormProp(test:inhstr3, _xtra, ('test:str', ({})), ({'doc': 'inherited extprop'}))")
+
+                self.len(1, await core.nodes('[ _test:inhstr4=ext :name=bar :_xtra=here ]'))
+                self.len(1, await core.nodes('[ _test:inhstr5=ext2 :name=bar :_xtra=here ]'))
+
+                nodes = await core.nodes('test:inhstr:name=bar')
+                self.len(3, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+                self.eq(nodes[1].ndef, ('_test:inhstr5', 'ext2'))
+                self.eq(nodes[2].ndef, ('test:inhstr3', 'bar'))
+
+                nodes = await core.nodes('test:inhstr:name=bar +_test:inhstr5')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+                self.eq(nodes[1].ndef, ('_test:inhstr5', 'ext2'))
+
+                nodes = await core.nodes('test:inhstr:name=bar +_test:inhstr5:name')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+                self.eq(nodes[1].ndef, ('_test:inhstr5', 'ext2'))
+
+                nodes = await core.nodes('test:inhstr:name=bar +_test:inhstr5:name=bar')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+                self.eq(nodes[1].ndef, ('_test:inhstr5', 'ext2'))
+
+                await core.nodes('[ test:str=extprop :inhstr=ext ]')
+                nodes = await core.nodes('test:str=extprop -> *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+
+                await core.nodes('[ test:str=extprop2 :inhstr=ext2 ]')
+                nodes = await core.nodes('test:str:inhstr::name=bar')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'extprop'))
+                self.eq(nodes[1].ndef, ('test:str', 'extprop2'))
+
+                # Pivot prop lifts can use props on child forms
+                nodes = await core.nodes('test:str:inhstr::_xtra=here')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'extprop'))
+                self.eq(nodes[1].ndef, ('test:str', 'extprop2'))
+
+                await core.nodes('[test:str=here :hehe=foo]')
+                nodes = await core.nodes('test:str:inhstr::_xtra::hehe=foo')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'extprop'))
+                self.eq(nodes[1].ndef, ('test:str', 'extprop2'))
+
+                await core.nodes("$lib.model.ext.addForm(_test:xtra, test:inhstr, ({}), ({}))")
+                await core.nodes("$lib.model.ext.addForm(_test:xtra2, test:inhstr, ({}), ({}))")
+                await core.nodes("$lib.model.ext.addFormProp(_test:xtra, _xtra, ('test:str', ({})), ({}))")
+                await core.nodes("$lib.model.ext.addFormProp(_test:xtra2, _xtra, ('test:int', ({})), ({}))")
+
+                await core.nodes('[ _test:xtra=xtra :_xtra=here ]')
+                await core.nodes('[ _test:xtra2=xtra2 :_xtra=3 ]')
+                await core.nodes('[ test:str=extprop3 :inhstr=xtra ]')
+                await core.nodes('[ test:str=extprop4 :inhstr=xtra2 ]')
+                await core.nodes('[ test:str2=extprop5 :inhstr=xtra ]')
+
+                # Pivot prop lifts when child props have different types work
+                nodes = await core.nodes('test:str:inhstr::_xtra=here')
+                self.len(4, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'extprop'))
+                self.eq(nodes[1].ndef, ('test:str', 'extprop2'))
+                self.eq(nodes[2].ndef, ('test:str2', 'extprop5'))
+                self.eq(nodes[3].ndef, ('test:str', 'extprop3'))
+
+                nodes = await core.nodes('test:str:inhstr::_xtra=3')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'extprop4'))
+
+                nodes = await core.nodes('test:str:inhstr::_xtra::hehe=foo')
+                self.len(4, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'extprop'))
+                self.eq(nodes[1].ndef, ('test:str', 'extprop2'))
+                self.eq(nodes[2].ndef, ('test:str2', 'extprop5'))
+                self.eq(nodes[3].ndef, ('test:str', 'extprop3'))
+
+                await core.nodes('_test:xtra=xtra | delnode --force')
+                nodes = await core.nodes('test:str:inhstr::_xtra::hehe=foo')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef, ('test:str', 'extprop'))
+                self.eq(nodes[1].ndef, ('test:str', 'extprop2'))
+
+                # Cannot add a prop to a parent form which already exists on a child
+                with self.raises(s_exc.DupPropName):
+                    await core.nodes("$lib.model.ext.addFormProp(test:inhstr, _xtra, ('str', ({})), ({}))")
+
+                # Props on child forms of the target are checked during form -> form pivots
+                await core.nodes("$lib.model.ext.addFormProp(_test:inhstr5, _refs, ('test:int', ({})), ({}))")
+                await core.nodes('[ _test:inhstr5=refs :_refs=5 ]')
+                nodes = await core.nodes('test:int=5 -> test:inhstr2')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr5', 'refs'))
+
+                await core.nodes('_test:inhstr5=refs | delnode')
+                await core.nodes("$lib.model.ext.delFormProp(_test:inhstr5, _refs)")
+
+            # Verify extended model reloads correctly
+            async with self.getTestCore(dirn=dirn) as core:
+                nodes = await core.nodes('test:inhstr:name=bar')
+                self.len(3, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+                self.eq(nodes[1].ndef, ('_test:inhstr5', 'ext2'))
+                self.eq(nodes[2].ndef, ('test:inhstr3', 'bar'))
+
+                nodes = await core.nodes('test:str=extprop -> *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'ext'))
+
+                # Lifting gets us all nodes with a value when multiple exist
+                await core.nodes('[ test:inhstr2=dup _test:inhstr4=dup ]')
+                nodes = await core.nodes('test:inhstr=dup')
+                self.len(2, nodes)
+
+                # Pivoting only goes to the most specific form with that value
+                await core.nodes('[ test:str=dup :inhstr=dup ]')
+                nodes = await core.nodes('test:str=dup -> *')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'dup'))
+
+                # Attempting to add a less specific node when a more specific node exists will just
+                # lift the more specific node instead of creating a new node
+                nodes = await core.nodes('[ _test:inhstr5=dup ]')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('_test:inhstr4', 'dup'))
+
+                mdef = await core.callStorm('return($lib.model.ext.getExtModel())')
+
+                with self.raises(s_exc.CantDelNode):
+                    await core.nodes("_test:inhstr5=ext2 | delnode")
+
+                await core.nodes("test:str=extprop2 _test:inhstr5=ext2 | delnode")
+
+                # Can't delete a form with child forms
+                with self.raises(s_exc.CantDelType):
+                    await core.nodes("$lib.model.ext.delForm(_test:inhstr5)")
+
+                # Can't delete a prop which is in use on child forms
+                with self.raises(s_exc.CantDelProp):
+                    await core.nodes("$lib.model.ext.delFormProp(test:inhstr3, _xtra)")
+
+                await core.nodes('test:inhstr3:_xtra [ -:_xtra ]')
+                await core.nodes("$lib.model.ext.delFormProp(test:inhstr3, _xtra)")
+
+                with self.raises(s_exc.NoSuchProp):
+                    await core.nodes('_test:inhstr4:_xtra')
+
+                await core.nodes("test:str _test:inhstr4 | delnode --force")
+                await core.nodes("$lib.model.ext.delForm(_test:inhstr4)")
+                await core.nodes("$lib.model.ext.delForm(_test:inhstr5)")
+
+        async with self.getTestCore() as core:
+            opts = {'vars': {'mdef': mdef}}
+            self.true(await core.callStorm('return($lib.model.ext.addExtModel($mdef))', opts=opts))
+
+            self.len(1, await core.nodes('[ _test:inhstr4=ext :name=bar :_xtra=here ]'))
+            self.len(1, await core.nodes('test:inhstr:name=bar'))
+
+            # Coverage for bad propdefs
+            await core.addType('_test:newp', 'test:inhstr', {}, {})
+
+            with self.raises(s_exc.BadPropDef):
+                core.model.addForm('_test:newp', {}, ((1, 2),))
+
+            with self.raises(s_exc.BadPropDef):
+                core.model.addForm('_test:newp', {}, (('name', ('int', {}), {}),))
+
+            core.model.addForm('_test:newp', {}, (('name', ('str', {}), {}),))
+
+            await core.nodes("$lib.model.ext.addForm(_test:ip, inet:ip, ({}), ({}))")
+            await core.nodes("$lib.model.ext.addFormProp(it:host, _ip2, ('_test:ip', ({})), ({}))")
+
+            await core.nodes('[ it:network=* :net=(1.2.3.4, 1.2.3.6) _test:ip=1.2.3.4 inet:ip=1.2.3.5 ]')
+
+            self.len(1, await core.nodes('it:network :net -> _test:ip'))
+            self.len(2, await core.nodes('it:network :net -> inet:ip'))
+
+            await core.nodes('[ it:host=* :ip=1.2.3.4 ]')
+            await core.nodes('[ it:host=* :ip=1.2.3.5 ]')
+            await core.nodes('[ it:host=* :_ip2=1.2.3.4 ]')
+            await core.nodes('[ it:host=* :_ip2=1.2.3.6 ]')
+
+            self.len(2, await core.nodes('it:network :net -> it:host:ip'))
+            self.len(2, await core.nodes('it:network :net -> it:host:_ip2'))
+
+            await core.nodes('[ inet:cidr=1.0.0.0/8 ]')
+
+            self.len(2, await core.nodes('inet:cidr -> _test:ip'))
+            self.len(5, await core.nodes('inet:cidr -> inet:ip'))
+
+            self.len(2, await core.nodes('inet:cidr -> it:host:ip'))
+            self.len(2, await core.nodes('inet:cidr -> it:host:_ip2'))

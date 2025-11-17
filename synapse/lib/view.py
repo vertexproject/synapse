@@ -51,13 +51,6 @@ class ViewApi(s_cell.CellApi):
 
         return await self.view.storNodeEdits(edits, meta)
 
-    async def syncNodeEdits2(self, offs, *, wait=True, compat=False):
-        await self._reqUserAllowed(('view', 'read'))
-        # present a layer compatible API to remote callers
-        async for item in self.view.wlyr.syncNodeEdits2(offs, wait=wait, compat=compat):
-            yield item
-            await asyncio.sleep(0)
-
     @s_cell.adminapi()
     async def saveNodeEdits(self, edits, meta):
         await self.view.reqValid()
@@ -66,10 +59,6 @@ class ViewApi(s_cell.CellApi):
         if not s_common.isguid(user):
             raise s_exc.BadArg(mesg=f'Meta argument requires user key to be a guid, got {user=}')
         return await self.view.saveNodeEdits(edits, meta)
-
-    async def getEditSize(self):
-        await self._reqUserAllowed(('view', 'read'))
-        return await self.view.wlyr.getEditSize()
 
     async def getCellIden(self):
         return self.view.iden
@@ -626,7 +615,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def setMergeVote(self, vote):
         self.reqParentQuorum()
         vote['created'] = s_common.now()
-        vote['offset'] = await self.wlyr.getEditIndx()
+        vote['offset'] = self.wlyr.getEditIndx()
         return await self._push('merge:vote:set', vote)
 
     def reqValidVoter(self, useriden):
@@ -858,7 +847,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def isMergeReady(self):
         # count the current votes and potentially trigger a merge
 
-        offset = await self.wlyr.getEditIndx()
+        offset = self.wlyr.getEditIndx()
 
         quorum = self.reqParentQuorum()
 
@@ -2132,7 +2121,6 @@ class View(s_nexus.Pusher):  # type: ignore
             'iden': layriden,
             'created': ctime,
             'creator': useriden,
-            'logedits': self.core.conf.get('layers:logedits'),
             'readonly': False
         }
 
@@ -2598,7 +2586,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return await self.getNodeByBuid(node.buid)
 
-    async def addNodes(self, nodedefs, user=None, reqmeta=False):
+    async def addNodes(self, nodedefs, user=None):
         '''
         Add/merge nodes in bulk.
 
@@ -2611,7 +2599,6 @@ class View(s_nexus.Pusher):  # type: ignore
         Args:
             nodedefs (list): A list of nodedef tuples.
             user (User): The user to add the nodes as.
-            reqmeta (bool): If True, the first item in the list is expected to be a meta dict.
 
         Returns:
             (list): A list of xact messages.
@@ -2629,11 +2616,6 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.readonly:
             mesg = 'The view is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
-
-        if reqmeta:
-            meta = nodedefs[0]
-            self.core._reqValidExportStormMeta(meta)
-            nodedefs = nodedefs[1:]
 
         for nodedefn in nodedefs:
 
@@ -3296,15 +3278,15 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def nodesByMeta(self, name, reverse=False):
-        async for nid, srefs in self.liftByMeta(name, reverse=reverse):
+    async def nodesByMeta(self, name, form=None, reverse=False):
+        async for nid, srefs in self.liftByMeta(name, form=form, reverse=reverse):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def liftByMeta(self, name, reverse=False):
+    async def liftByMeta(self, name, form=None, reverse=False):
         if len(self.layers) == 1:
-            async for _, nid, sref in self.wlyr.liftByMeta(name, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByMeta(name, form=form, reverse=reverse):
                 yield nid, [sref]
             return
 
@@ -3314,25 +3296,25 @@ class View(s_nexus.Pusher):  # type: ignore
 
             return meta.get(name) is not None
 
-        genrs = [layr.liftByMeta(name, reverse=reverse) for layr in self.layers]
+        genrs = [layr.liftByMeta(name, form=form, reverse=reverse) for layr in self.layers]
         async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
             yield item
 
-    async def nodesByMetaValu(self, name, cmpr, valu, reverse=False):
+    async def nodesByMetaValu(self, name, cmpr, valu, form=None, reverse=False):
 
         mtyp = self.core.model.reqMetaType(name)
 
         if not (cmprvals := await mtyp.getStorCmprs(cmpr, valu)):
             return
 
-        async for nid, srefs in self.liftByMetaValu(name, cmprvals, reverse=reverse):
+        async for nid, srefs in self.liftByMetaValu(name, cmprvals, form=form, reverse=reverse):
             if (node := await self._joinSodes(nid, srefs)) is not None:
                 yield node
 
-    async def liftByMetaValu(self, name, cmprvals, reverse=False):
+    async def liftByMetaValu(self, name, cmprvals, form=None, reverse=False):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.wlyr.liftByMetaValu(name, cmprvals, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByMetaValu(name, cmprvals, form=form, reverse=reverse):
                 yield nid, [sref]
             return
 
@@ -3343,7 +3325,7 @@ class View(s_nexus.Pusher):  # type: ignore
             return meta.get(name) is not None
 
         for cval in cmprvals:
-            genrs = [layr.liftByMetaValu(name, (cval,), reverse=reverse) for layr in self.layers]
+            genrs = [layr.liftByMetaValu(name, (cval,), form=form, reverse=reverse) for layr in self.layers]
             async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
                 yield item
 

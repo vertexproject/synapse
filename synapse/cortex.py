@@ -110,12 +110,6 @@ A Cortex implements the synapse hypergraph object.
 
 reqver = '>=3.0.0,<4.0.0'
 
-# Constants returned in results from syncLayersEvents and syncIndexEvents
-SYNC_NODEEDITS = 0  # A nodeedits: (<offs>, 0, <etyp>, (<etype args>), {<meta>})
-SYNC_NODEEDIT = 1   # A nodeedit:  (<offs>, 0, <etyp>, (<etype args>))
-SYNC_LAYR_ADD = 3   # A layer was added
-SYNC_LAYR_DEL = 4   # A layer was deleted
-
 MAX_NEXUS_DELTA = 3_600
 
 reqValidTagModel = s_config.getJsValidator({
@@ -278,35 +272,24 @@ class CoreApi(s_cell.CellApi):
         view = self.cell.getView()
         self.user.confirm(perms, gateiden=view.wlyr.iden)
 
-    async def importStormMeta(self, meta, *, viewiden=None):
-        view = self.cell.getView(viewiden, user=self.user)
-        if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
-
-        self.user.confirm(('feed:data',), gateiden=view.wlyr.iden)
-
-        self.cell._reqValidExportStormMeta(meta)
-
-        return
-
     async def addFeedData(self, items, *, viewiden=None, reqmeta=True):
 
-        view = self.cell.getView(viewiden, user=self.user)
-        if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
+        if viewiden and self.cell.getView(viewiden, user=self.user) is None:
+            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}.', iden=viewiden)
 
-        self.user.confirm(('feed:data',), gateiden=view.wlyr.iden)
+        if reqmeta:
+            meta, *items = items
+            self.cell.reqValidExportStormMeta(meta)
+
+        await self.cell.reqFeedDataAllowed(items, self.user, viewiden=viewiden)
 
         await self.cell.boss.promote('feeddata',
                                      user=self.user,
-                                     info={'view': view.iden,
+                                     info={'view': viewiden,
                                            'nitems': len(items),
                                            })
 
-        logger.info(f'User ({self.user.name}) adding feed data: {len(items)}')
-
-        async for node in view.addNodes(items, user=self.user, reqmeta=reqmeta):
-            await asyncio.sleep(0)
+        await self.cell.addFeedData(items, user=self.user, viewiden=viewiden)
 
     async def count(self, text, *, opts=None):
         '''
@@ -349,23 +332,6 @@ class CoreApi(s_cell.CellApi):
             BadSyntaxError: If the query is invalid.
         '''
         return await self.cell.reqValidStorm(text, opts)
-
-    async def syncLayerNodeEdits(self, offs, *, layriden=None, wait=True):
-        '''
-        Yield (indx, mesg) nodeedit sets for the given layer beginning at offset.
-
-        Once caught up, this API will begin yielding nodeedits in real-time.
-        The generator will only terminate on network disconnect or if the
-        consumer falls behind the max window size of 10,000 nodeedit messages.
-        '''
-        layr = self.cell.getLayer(layriden)
-        if layr is None:
-            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
-
-        self.user.confirm(('sync',), gateiden=layr.iden)
-
-        async for item in self.cell.syncLayerNodeEdits(layr.iden, offs, wait=wait):
-            yield item
 
     async def getPropNorm(self, prop, valu, *, typeopts=None):
         '''
@@ -541,16 +507,6 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('globals', 'set', name))
         return await self.cell.setStormVar(name, valu)
 
-    async def syncLayersEvents(self, *, offsdict=None, wait=True):
-        self.user.confirm(('sync',))
-        async for item in self.cell.syncLayersEvents(offsdict=offsdict, wait=wait):
-            yield item
-
-    async def syncIndexEvents(self, matchdef, *, offsdict=None, wait=True):
-        self.user.confirm(('sync',))
-        async for item in self.cell.syncIndexEvents(matchdef, offsdict=offsdict, wait=wait):
-            yield item
-
     async def iterFormRows(self, layriden, form, *, stortype=None, startvalu=None):
         '''
         Yields nid, valu tuples of nodes of a single form, optionally (re)starting at startvalue
@@ -686,11 +642,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         'jsonstor': {
             'description': 'A telepath URL for a remote jsonstor.',
             'type': 'string'
-        },
-        'layers:logedits': {
-            'default': True,
-            'description': 'Whether nodeedits are logged in each layer.',
-            'type': 'boolean'
         },
         'max:nodes': {
             'description': 'Maximum number of nodes which are allowed to be stored in a Cortex.',
@@ -1225,20 +1176,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'ex': 'node.data.del.hehe',
              'desc': 'Permits a user to remove node data in a given layer for a specific key.'},
 
-            {'perm': ('feed', 'data'), 'gate': 'layer',
-             'desc': 'Controls access to feeding/importing data into a layer.'},
-
             {'perm': ('pkg', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding storm packages.'},
             {'perm': ('pkg', 'del'), 'gate': 'cortex',
              'desc': 'Controls access to deleting storm packages.'},
-
-            {'perm': ('asroot', 'cmd', '<cmdname>'), 'gate': 'cortex',
-            'desc': 'Controls running storm commands requiring root privileges.',
-             'ex': 'asroot.cmd.movetag'},
-            {'perm': ('asroot', 'mod', '<modname>'), 'gate': 'cortex',
-            'desc': 'Controls importing modules requiring root privileges.',
-             'ex': 'asroot.cmd.synapse-misp.privsep'},
 
             {'perm': ('graph', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm graph.',
@@ -1300,9 +1241,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
-        if self.isactive:
-            await self._checkNexsIndx()
-
         if self.isactive:
             await self._checkLayerModels()
 
@@ -2981,17 +2919,30 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             except Exception as e:
                 logger.warning(f'Extended type ({typename}) error: {e}')
 
-        for formname, basetype, typeopts, typeinfo in self.extforms.values():
-            try:
-                self.model.addType(formname, basetype, typeopts, typeinfo)
-                form = self.model.addForm(formname, {}, ())
-            except Exception as e:
-                logger.warning(f'Extended form ({formname}) error: {e}')
-            else:
-                if form.type.deprecated:
-                    mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
-                           f' be removed in 4.0.0'
-                    logger.warning(mesg)
+        formchildren = collections.defaultdict(list)
+
+        def addForms(infos):
+            for formname, basetype, typeopts, typeinfo in infos:
+                try:
+                    if self.model.type(basetype) is None:
+                        formchildren[basetype].append((formname, basetype, typeopts, typeinfo))
+                        continue
+
+                    self.model.addType(formname, basetype, typeopts, typeinfo)
+                    form = self.model.addForm(formname, {}, ())
+
+                    if (cinfos := formchildren.pop(formname, None)) is not None:
+                        addForms(cinfos)
+
+                except Exception as e:
+                    logger.warning(f'Extended form ({formname}) error: {e}')
+                else:
+                    if form.type.deprecated:
+                        mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
+                               f' be removed in 4.0.0'
+                        logger.warning(mesg)
+
+        addForms(self.extforms.values())
 
         for form, prop, tdef, info in self.extprops.values():
             try:
@@ -3130,8 +3081,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for typename, basetype, typeopts, typeinfo in amodl['types']:
             await self.addType(typename, basetype, typeopts, typeinfo)
 
-        for formname, basetype, typeopts, typeinfo in amodl['forms']:
-            await self.addForm(formname, basetype, typeopts, typeinfo)
+        formchildren = collections.defaultdict(list)
+
+        async def addForms(infos):
+            for formname, basetype, typeopts, typeinfo in infos:
+                if self.model.type(basetype) is None:
+                    formchildren[basetype].append((formname, basetype, typeopts, typeinfo))
+                    continue
+
+                form = await self.addForm(formname, basetype, typeopts, typeinfo)
+
+                if (cinfos := formchildren.pop(formname, None)) is not None:
+                    await addForms(cinfos)
+
+        await addForms(amodl['forms'])
 
         for form, prop, tdef, info in amodl['props']:
             await self.addFormProp(form, prop, tdef, info)
@@ -3166,7 +3129,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Type already exists: {formname}'
             raise s_exc.DupTypeName.init(formname)
 
-        self.model.getTypeClone((basetype, typeopts))
+        formtype = self.model.getTypeClone((basetype, typeopts))
+
+        if formtype.isarray:
+            mesg = 'Forms may not be array types.'
+            raise s_exc.BadFormDef(mesg=mesg, form=formname)
 
         return await self._push('model:form:add', formname, basetype, typeopts, typeinfo)
 
@@ -3174,16 +3141,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _addForm(self, formname, basetype, typeopts, typeinfo):
         if self.model.form(formname) is not None:
             return
-
-        ifaces = typeinfo.get('interfaces')
-
-        if ifaces and 'taxonomy' in ifaces:
-            logger.warning(f'{formname} is using the deprecated taxonomy interface, updating to meta:taxonomy.')
-
-            ifaces = set(ifaces)
-            ifaces.remove('taxonomy')
-            ifaces.add('meta:taxonomy')
-            typeinfo['interfaces'] = tuple(ifaces)
 
         self.model.addType(formname, basetype, typeopts, typeinfo)
         self.model.addForm(formname, typeinfo, ())
@@ -3254,16 +3211,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.model.type(typename) is not None:
             return
 
-        ifaces = typeinfo.get('interfaces')
-
-        if ifaces and 'taxonomy' in ifaces:
-            logger.warning(f'{typename} is using the deprecated taxonomy interface, updating to meta:taxonomy.')
-
-            ifaces = set(ifaces)
-            ifaces.remove('taxonomy')
-            ifaces.add('meta:taxonomy')
-            typeinfo['interfaces'] = tuple(ifaces)
-
         self.model.addType(typename, basetype, typeopts, typeinfo)
 
         self.exttypes.set(typename, (typename, basetype, typeopts, typeinfo))
@@ -3303,15 +3250,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = 'Form property definitions should be a dict.'
             raise s_exc.BadArg(form=form, mesg=mesg)
 
-        if not prop.startswith('_') and not form.startswith('_'):
-            mesg = 'Extended prop must begin with "_" or be added to an extended form.'
+        if not prop.startswith('_'):
+            mesg = 'Extended prop must begin with "_".'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
-        _form = self.model.form(form)
-        if _form is None:
-            raise s_exc.NoSuchForm.init(form)
-        if _form.prop(prop):
-            raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
-                                     form=form, prop=prop)
+
+        for cform in self.model.getChildForms(form):
+            _form = self.model.form(cform)
+            if _form is None:
+                raise s_exc.NoSuchForm.init(cform)
+            if _form.prop(prop):
+                raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
+                                         form=cform, prop=prop)
 
         self.model.getTypeClone(tdef)
 
@@ -3347,24 +3296,25 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         self.reqExtProp(formname, propname)
 
-        fullname = f'{formname}:{propname}'
-        prop = self.model.prop(fullname)
+        for cform in self.model.getChildForms(formname):
+            fullname = f'{cform}:{propname}'
+            prop = self.model.prop(fullname)
 
-        await self.setPropLocked(fullname, True)
+            await self.setPropLocked(fullname, True)
 
-        for layr in list(self.layers.values()):
+            for layr in list(self.layers.values()):
 
-            genr = layr.iterPropRows(formname, propname)
+                genr = layr.iterPropRows(cform, propname)
 
-            async for rows in s_coro.chunks(genr):
-                nodeedits = []
-                for nid, valu in rows:
-                    nodeedits.append((s_common.int64un(nid), prop.form.name, (
-                        (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
-                    )))
+                async for rows in s_coro.chunks(genr):
+                    nodeedits = []
+                    for nid, valu in rows:
+                        nodeedits.append((s_common.int64un(nid), prop.form.name, (
+                            (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
+                        )))
 
-                await layr.saveNodeEdits(nodeedits, meta)
-                await asyncio.sleep(0)
+                    await layr.saveNodeEdits(nodeedits, meta)
+                    await asyncio.sleep(0)
 
     async def _delAllTagProp(self, propname, meta):
         '''
@@ -3423,10 +3373,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if pdef is None:
             return
 
-        for layr in self.layers.values():
-            async for item in layr.iterPropRows(form, prop):
-                mesg = f'Nodes still exist with prop: {form}:{prop} in layer {layr.iden}'
-                raise s_exc.CantDelProp(mesg=mesg)
+        for formname in self.model.getChildForms(form):
+            for layr in self.layers.values():
+                async for item in layr.iterPropRows(formname, prop):
+                    mesg = f'Nodes still exist with prop: {formname}:{prop} in layer {layr.iden}'
+                    raise s_exc.CantDelProp(mesg=mesg)
 
         self.model.delFormProp(form, prop)
         self.extprops.pop(full, None)
@@ -3552,241 +3503,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         if self.axon:
             await self.axon.fini()
-
-    async def syncLayerNodeEdits(self, iden, offs, wait=True, compat=False):
-        '''
-        Yield (offs, mesg) tuples for nodeedits in a layer.
-        '''
-        layr = self.getLayer(iden)
-        if layr is None:
-            raise s_exc.NoSuchLayer(mesg=f'No such layer {iden}', iden=iden)
-
-        async for item in layr.syncNodeEdits(offs, wait=wait, compat=compat):
-            yield item
-
-    async def syncLayersEvents(self, offsdict=None, wait=True):
-        '''
-        Yield (offs, layriden, STYP, item, meta) tuples for nodeedits for *all* layers, interspersed with add/del
-        layer messages.
-
-        STYP is one of the following constants:
-            SYNC_NODEEDITS:  item is a nodeedits (buid, form, edits)
-            SYNC_LAYR_ADD:   A layer was added (item and meta are empty)
-            SYNC_LAYR_DEL:   A layer was deleted (item and meta are empty)
-
-        Args:
-            offsdict(Optional(Dict[str,int])): starting nexus/editlog offset by layer iden.  Defaults to 0 for
-                unspecified layers or if offsdict is None.
-            wait(bool):  whether to pend and stream value until this layer is fini'd
-        '''
-        async def layrgenr(layr, startoff, endoff=None, newlayer=False):
-            if newlayer:
-                yield layr.addoffs, layr.iden, SYNC_LAYR_ADD, (), {}
-
-            wait = endoff is None
-
-            if not layr.isfini:
-
-                async for ioff, item, meta in layr.syncNodeEdits2(startoff, wait=wait):
-                    if endoff is not None and ioff >= endoff:  # pragma: no cover
-                        break
-
-                    yield ioff, layr.iden, SYNC_NODEEDITS, item, meta
-                    await asyncio.sleep(0)
-
-            if layr.isdeleted:
-                yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, (), {}
-
-        # End of layrgenr
-
-        async for item in self._syncNodeEdits(offsdict, layrgenr, wait=wait):
-            yield item
-
-    async def syncIndexEvents(self, matchdef, offsdict=None, wait=True):
-        '''
-        Yield (offs, layriden, <STYPE>, <item>) tuples from the nodeedit logs of all layers starting
-        from the given nexus/layer offset (they are synchronized).  Only edits that match the filter in matchdef will
-        be yielded, plus EDIT_PROGRESS (see layer.syncIndexEvents) messages.
-
-        The format of the 4th element of the tuple depends on STYPE.  STYPE is one of the following constants:
-
-          SYNC_LAYR_ADD:  item is an empty tuple ()
-          SYNC_LAYR_DEL:  item is an empty tuple ()
-          SYNC_NODEEDIT:  item is (buid, form, ETYPE, VALS)) or (None, None, s_layer.EDIT_PROGRESS, ())
-
-        For edits in the past, events are yielded in offset order across all layers.  For current data (wait=True),
-        events across different layers may be emitted slightly out of offset order.
-
-        Note:
-            Will not yield any values from layers created with logedits disabled
-
-        Args:
-            matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded.  See
-                layer.syncIndexEvents for matchdef specification.
-            offsdict(Optional(Dict[str,int])): starting nexus/editlog offset by layer iden.  Defaults to 0 for
-                unspecified layers or if offsdict is None.
-            wait(bool):  whether to pend and stream value until this layer is fini'd
-        '''
-        async def layrgenr(layr, startoff, endoff=None, newlayer=False):
-            ''' Yields matching results from a single layer '''
-
-            if newlayer:
-                yield layr.addoffs, layr.iden, SYNC_LAYR_ADD, ()
-
-            wait = endoff is None
-            ioff = startoff
-
-            if not layr.isfini:
-
-                async for ioff, item in layr.syncIndexEvents(startoff, matchdef, wait=wait):
-                    if endoff is not None and ioff >= endoff:  # pragma: no cover
-                        break
-
-                    yield ioff, layr.iden, SYNC_NODEEDIT, item
-
-            if layr.isdeleted:
-                yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, ()
-
-        # End of layrgenr
-
-        async for item in self._syncNodeEdits(offsdict, layrgenr, wait=wait):
-            yield item
-
-    async def _syncNodeEdits(self, offsdict, genrfunc, wait=True):
-        '''
-        Common guts between syncIndexEvents and syncLayersEvents
-
-        First, it streams from the layers up to the current offset, sorted by offset.
-        Then it streams from all the layers simultaneously.
-
-        Args:
-            offsdict(Dict[str, int]): starting nexus/editlog offset per layer.  Defaults to 0 if layer not present
-            genrfunc(Callable): an async generator function that yields tuples that start with an offset.  The input
-               parameters are:
-                layr(Layer): a Layer object
-                startoff(int);  the starting offset
-                endoff(Optional[int]):  the ending offset
-                newlayer(bool):  whether to emit a new layer item first
-            wait(bool): when the end of the log is hit, whether to continue to wait for new entries and yield them
-        '''
-        catchingup = True                   # whether we've caught up to topoffs
-        layrsadded = {}                     # layriden -> True.  Captures all the layers added while catching up
-        todo = set()                        # outstanding futures of active live streaming from layers
-        layrgenrs = {}                      # layriden -> genr.  maps active layers to that layer's async generator
-
-        # The offset to start from once the catch-up phase is complete
-        topoffs = max(layr.nodeeditlog.index() for layr in self.layers.values())
-
-        if offsdict is None:
-            offsdict = {}
-
-        newtodoevent = asyncio.Event()
-
-        async with await s_base.Base.anit() as base:
-
-            def addlayr(layr, newlayer=False, startoffs=topoffs):
-                '''
-                A new layer joins the live stream
-                '''
-                genr = genrfunc(layr, startoffs, newlayer=newlayer)
-                layrgenrs[layr.iden] = genr
-                task = base.schedCoro(genr.__anext__())
-                task.iden = layr.iden
-                todo.add(task)
-                newtodoevent.set()
-
-            def onaddlayr(mesg):
-                etyp, event = mesg
-                layriden = event['iden']
-                layr = self.getLayer(layriden)
-                if catchingup:
-                    layrsadded[layr] = True
-                    return
-
-                addlayr(layr, newlayer=True)
-
-            self.on('core:layr:add', onaddlayr, base=base)
-
-            # First, catch up to what was the current offset when we started, guaranteeing order
-
-            logger.debug(f'_syncNodeEdits() running catch-up sync to offs={topoffs}')
-
-            genrs = [genrfunc(layr, offsdict.get(layr.iden, 0), endoff=topoffs) for layr in self.layers.values()]
-            async for item in s_common.merggenr(genrs, lambda x, y: x[0] < y[0]):
-                yield item
-
-            catchingup = False
-
-            if not wait:
-                return
-
-            # After we've caught up, read on genrs from all the layers simultaneously
-
-            logger.debug('_syncNodeEdits() entering into live sync')
-
-            lastoffs = {}
-
-            todo.clear()
-
-            for layr in self.layers.values():
-                if layr not in layrsadded:
-                    addlayr(layr)
-
-            for layr in layrsadded:
-                addlayr(layr, newlayer=True)
-
-            # Also, wake up if we get fini'd
-            finitask = base.schedCoro(self.waitfini())
-            todo.add(finitask)
-
-            newtodotask = base.schedCoro(newtodoevent.wait())
-            todo.add(newtodotask)
-
-            while not self.isfini:
-                newtodoevent.clear()
-                done, _ = await asyncio.wait(todo, return_when=asyncio.FIRST_COMPLETED)
-
-                for donetask in done:
-                    try:
-                        todo.remove(donetask)
-
-                        if donetask is finitask:  # pragma: no cover  # We were fini'd
-                            return
-
-                        if donetask is newtodotask:
-                            newtodotask = base.schedCoro(newtodoevent.wait())
-                            todo.add(newtodotask)
-                            continue
-
-                        layriden = donetask.iden
-
-                        result = donetask.result()
-
-                        yield result
-
-                        lastoffs[layriden] = result[0]
-
-                        # Re-add a task to wait on the next iteration of the generator
-                        genr = layrgenrs[layriden]
-                        task = base.schedCoro(genr.__anext__())
-                        task.iden = layriden
-                        todo.add(task)
-
-                    except StopAsyncIteration:
-
-                        # Help out the garbage collector
-                        del layrgenrs[layriden]
-
-                        layr = self.getLayer(iden=layriden)
-                        if layr is None or not layr.logedits:
-                            logger.debug(f'_syncNodeEdits() removed {layriden=} from sync')
-                            continue
-
-                        startoffs = lastoffs[layriden] + 1 if layriden in lastoffs else topoffs
-                        logger.debug(f'_syncNodeEdits() restarting {layriden=} live sync from offs={startoffs}')
-                        addlayr(layr, startoffs=startoffs)
-
-                        await self.waitfini(1)
 
     async def _initCoreInfo(self):
         self.stormvars = self.cortexdata.getSubKeyVal('storm:vars:')
@@ -4735,7 +4451,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ldef['created'] = s_common.now()
 
         ldef.setdefault('creator', self.auth.rootuser.iden)
-        ldef.setdefault('logedits', self.conf.get('layers:logedits'))
         ldef.setdefault('readonly', False)
 
         s_layer.reqValidLdef(ldef)
@@ -4995,7 +4710,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             taskname = f'layer push: {layr.iden} {iden}'
             async with await self.boss.promote(taskname, self.auth.rootuser, background=True):
                 async with await s_telepath.openurl(url) as proxy:
-                    await self._pushBulkEdits(layr, proxy, pdef)
+                    celliden = await proxy.getCellIden()
+                    compat = celliden == self.iden
+                    await self._pushBulkEdits(layr, proxy, pdef, compat=compat)
 
         self.addActiveCoro(push, iden=iden)
 
@@ -5008,18 +4725,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             taskname = f'layer pull: {layr.iden} {iden}'
             async with await self.boss.promote(taskname, self.auth.rootuser, background=True):
                 async with await s_telepath.openurl(url) as proxy:
-                    await self._pushBulkEdits(proxy, layr, pdef)
+                    celliden = await proxy.getCellIden()
+                    compat = celliden == self.iden
+                    await self._pushBulkEdits(proxy, layr, pdef, compat=compat)
 
         self.addActiveCoro(pull, iden=iden)
 
-    def localToRemoteEdits(self, lnodeedits):
+    async def localToRemoteEdits(self, lnodeedits):
         rnodeedits = []
-        for nid, form, ledits in lnodeedits:
+        async for nid, form, ledits in s_coro.pause(lnodeedits):
             if (ndef := self.getNidNdef(s_common.int64en(nid))) is None:
                 continue
 
             redits = []
-            for edit in ledits:
+            async for edit in s_coro.pause(ledits):
                 if edit[0] in (10, 11):
                     verb, n2nid = edit[1]
                     if (n2ndef := self.getNidNdef(s_common.int64en(n2nid))) is None:
@@ -5037,7 +4756,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def remoteToLocalEdits(self, rnodeedits):
         lnodeedits = []
-        for form, valu, redits in rnodeedits:
+        async for form, valu, redits in s_coro.pause(rnodeedits):
 
             buid = s_common.buid((form, valu))
             if (nid := self.getNidByBuid(buid)) is None:
@@ -5050,7 +4769,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 nid = s_common.int64un(nid)
 
             ledits = []
-            for edit in redits:
+            async for edit in s_coro.pause(redits):
                 if edit[0] in (10, 11):
                     verb, n2ndef = edit[1]
                     n2nid = await self.genNdefNid(n2ndef)
@@ -5063,7 +4782,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return lnodeedits
 
-    async def _pushBulkEdits(self, layr0, layr1, pdef):
+    async def _pushBulkEdits(self, layr0, layr1, pdef, compat):
 
         iden = pdef.get('iden')
         user = pdef.get('user')
@@ -5083,8 +4802,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     else:
                         filloffs = soffs
 
-                    async for (offs, nodeedits) in layr0.syncNodeEdits(filloffs, wait=True, compat=True):
-                        await queue.put((offs, await self.remoteToLocalEdits(nodeedits)))
+                    async for item in layr0.syncNodeEdits(filloffs, compat=compat):
+                        await queue.put(item)
+                        await asyncio.sleep(0)
+
                     await queue.close()
 
                 except asyncio.CancelledError:  # pragma: no cover
@@ -5105,20 +4826,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     # prevent push->push->push nodeedits growth
                     alledits.extend(edits)
                     if len(alledits) > csize:
-                        await layr1.saveNodeEdits(alledits, meta)
+                        await layr1.saveNodeEdits(alledits, meta, compat=compat)
                         await self.setLayrSyncOffs(iden, offs)
                         alledits.clear()
 
                 if alledits:
-                    await layr1.saveNodeEdits(alledits, meta)
+                    await layr1.saveNodeEdits(alledits, meta, compat=compat)
                     await self.setLayrSyncOffs(iden, offs)
-
-    async def _checkNexsIndx(self):
-        layroffs = [await layr.getEditIndx() for layr in list(self.layers.values())]
-        if layroffs:
-            maxindx = max(layroffs)
-            if maxindx > await self.getNexsIndx():
-                await self.setNexsIndx(maxindx)
 
     async def saveLayerNodeEdits(self, layriden, edits, meta):
         layr = self.reqLayer(layriden)
@@ -5378,6 +5092,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 if not isinstance(valu, str):
                     mesg = f"Storm var names must be strings (got {valu} of type {type(valu)})"
                     raise s_exc.BadArg(mesg=mesg)
+
+                if valu in ('lib', 'node', 'path'):
+                    raise s_exc.BadArg(mesg=f'Storm var name {valu} is reserved.')
 
         opts.setdefault('user', self.auth.rootuser.iden)
         return opts
@@ -5677,7 +5394,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             size, sha256 = await fd.save()
             return (size, s_common.ehex(sha256))
 
-    def _reqValidExportStormMeta(self, meta, synver_range='>=3.0.0,<4.0.0'):
+    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0,<4.0.0'):
         '''
         Validate an export storm meta dict for schema, version, and synapse version compatibility.
 
@@ -5713,9 +5430,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.boss.promote('feeddata', user=user, info=taskinfo, taskiden=taskiden)
 
-        # ensure that the user can make all node edits in the layer
-        user.confirm(('node',), gateiden=view.wlyr.iden)
-
         q = s_queue.Queue(maxsize=10000)
         feedexc = None
 
@@ -5730,7 +5444,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     first = True
                     async for item in self.axon.iterMpkFile(sha256):
                         if first:
-                            self._reqValidExportStormMeta(item)
+                            self.reqValidExportStormMeta(item)
                             first = False
                             continue
                         await q.put(item)
@@ -5748,6 +5462,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             # feed the items directly to syn.nodes
             async for items in q.slices(size=100):
+                await self.reqFeedDataAllowed(items, user, viewiden=view.iden)
                 async for node in view.addNodes(items):
                     count += 1
 
@@ -5879,7 +5594,45 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         }
         return ret
 
-    async def addFeedData(self, items, *, user=None, viewiden=None, reqmeta=True):
+    async def reqFeedDataAllowed(self, items, user, viewiden=None):
+        if user.allowed(('node',), gateiden=viewiden):
+            return
+
+        nodeadd = user.allowed(('node', 'add'), gateiden=viewiden)
+        propset = user.allowed(('node', 'prop', 'set'), gateiden=viewiden)
+        tagadd = user.allowed(('node', 'tag', 'add'), gateiden=viewiden)
+        dataset = user.allowed(('node', 'data', 'set'), gateiden=viewiden)
+        edgeadd = user.allowed(('node', 'edge', 'add'), gateiden=viewiden)
+
+        if nodeadd and propset and tagadd and dataset and edgeadd:
+            return
+
+        for ((form, _), forminfo) in items:
+            await asyncio.sleep(0)
+
+            if not nodeadd:
+                user.confirm(('node', 'add', form), gateiden=viewiden)
+
+            if not propset:
+                for propname, _ in forminfo.get('props', {}).items():
+                    user.confirm(('node', 'prop', 'set', form, propname), gateiden=viewiden)
+
+            if not tagadd:
+                for tagname, _ in forminfo.get('tags', {}).items():
+                    user.confirm(('node', 'tag', 'add', tagname), gateiden=viewiden)
+
+                for tagname, _ in forminfo.get('tagprops', {}).items():
+                    user.confirm(('node', 'tag', 'add', tagname), gateiden=viewiden)
+
+            if not dataset:
+                for dataname, _ in forminfo.get('nodedata', {}).items():
+                    user.confirm(('node', 'data', 'set', dataname), gateiden=viewiden)
+
+            if not edgeadd:
+                for verb, _ in forminfo.get('edges', []):
+                    user.confirm(('node', 'edge', 'add', verb), gateiden=viewiden)
+
+    async def addFeedData(self, items, *, user=None, viewiden=None):
         '''
         Add bulk data in nodes format.
 
@@ -5896,9 +5649,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is None:
             user = self.auth.rootuser
 
-        logger.info(f'User (user.name) adding feed data: {len(items)}')
+        logger.info(f'User ({user.name}) adding feed data: {len(items)}')
 
-        async for node in view.addNodes(items, user=user, reqmeta=reqmeta):
+        async for node in view.addNodes(items, user=user):
             await asyncio.sleep(0)
 
     async def getPropNorm(self, prop, valu, typeopts=None):
@@ -6058,7 +5811,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Delete a cron job
 
         Args:
-            iden (bytes):  The iden of the cron job to be deleted
+            iden (str):  The iden of the cron job to be deleted
         '''
         await self._killCronTask(iden)
         try:

@@ -60,3 +60,7 @@ class LinuxTest(s_t_utils.SynTest):
         self.isinstance(ret, dict)
         self.isin('vm.swappiness', ret)
         self.isinstance(ret['vm.swappiness'], int)
+        self.isin('vm.dirty_bytes', ret)
+        self.isinstance(ret['vm.dirty_bytes'], int)
+        self.isin('vm.dirty_background_bytes', ret)
+        self.isinstance(ret['vm.dirty_background_bytes'], int)

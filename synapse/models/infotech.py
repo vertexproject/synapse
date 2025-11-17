@@ -647,7 +647,7 @@ modeldefs = (
                 'prevnames': ('it:logon',),
                 'doc': 'A host specific login session.'}),
 
-            ('it:host:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
+            ('it:host:hosted:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'host at this URL'}}),
                 ),
@@ -662,10 +662,11 @@ modeldefs = (
                 ),
                 'doc': 'A screenshot of a host.'}),
 
-            ('it:sec:cve', ('str', {'lower': True, 'replace': s_chop.unicode_dashes_replace,
-                                    'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
-                'ex': 'cve-2012-0158',
-                'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.'}),
+           ('it:sec:cve', ('meta:id', {'upper': True, 'replace': s_chop.unicode_dashes_replace,
+                                   'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
+               'ex': 'CVE-2012-0158',
+               'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.'}),
+
 
             ('it:sec:cwe', ('str', {'regex': r'^CWE-[0-9]{1,8}$'}), {
                 'ex': 'CWE-120',
@@ -737,6 +738,9 @@ modeldefs = (
 
             ('it:dev:repo:diff', ('guid', {}), {
                 'doc': 'A diff of a file being applied in a single commit.'}),
+
+            ('it:dev:repo:entry', ('guid', {}), {
+                'doc': 'A file included in a repository.'}),
 
             ('it:dev:repo:issue:label', ('guid', {}), {
                 'interfaces': (
@@ -967,11 +971,11 @@ modeldefs = (
                 ),
                 'doc': 'An instance of a host deleting a registry key.', }),
 
-            ('it:app:yara:rule', ('guid', {}), {
+            ('it:app:yara:rule', ('meta:rule', {}), {
 
                 'interfaces': (
-                    ('meta:ruleish', {'template': {
-                        'document': 'YARA rule', 'syntax': 'yara'}}),
+                    ('doc:authorable', {'template': {
+                        'title': 'YARA rule', 'syntax': 'yara'}}),
                 ),
                 'doc': 'A YARA rule unique identifier.'}),
 
@@ -993,9 +997,9 @@ modeldefs = (
             ('it:sec:stix:indicator', ('guid', {}), {
                 'doc': 'A STIX indicator pattern.'}),
 
-            ('it:app:snort:rule', ('guid', {}), {
+            ('it:app:snort:rule', ('meta:rule', {}), {
                 'interfaces': (
-                    ('meta:ruleish', {'template': {'document': 'snort rule'}}),
+                    ('doc:authorable', {'template': {'title': 'snort rule'}}),
                 ),
                 'doc': 'A snort rule.'}),
 
@@ -1128,6 +1132,12 @@ modeldefs = (
 
             (('it:dev:repo', 'has', 'inet:url'), {
                 'doc': 'The repo has content hosted at the URL.'}),
+
+            (('it:dev:repo:commit', 'has', 'it:dev:repo:entry'), {
+                'doc': 'The file entry is present in the commit version of the repository.'}),
+
+            (('it:log:event', 'about', None), {
+                'doc': 'The it:log:event is about the target node.'}),
 
             (('it:software', 'uses', 'it:software'), {
                 'doc': 'The source software uses the target software.'}),
@@ -1263,9 +1273,6 @@ modeldefs = (
                 ('service:platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which generated the log event.'}),
 
-                ('service:instance', ('inet:service:instance', {}), {
-                    'doc': 'The service instance which generated the log event.'}),
-
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The service account which generated the log event.'}),
 
@@ -1383,7 +1390,7 @@ modeldefs = (
                 ('flow', ('inet:flow', {}), {
                     'doc': 'The network flow which initiated the login.'}),
             )),
-            ('it:host:url', {}, (
+            ('it:host:hosted:url', {}, (
 
                 ('host', ('it:host', {}), {
                     'ro': True,
@@ -1407,38 +1414,7 @@ modeldefs = (
                     'doc': 'Lower case normalized version of the it:dev:str.'}),
 
             )),
-            ('it:sec:cve', {}, (
-
-                ('nist:nvd:source', ('meta:name', {}), {
-                    'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
-
-                ('nist:nvd:published', ('time', {}), {
-                    'doc': 'The date the vulnerability was first published in the NVD.'}),
-
-                ('nist:nvd:modified', ('time', {"ismax": True}), {
-                    'doc': 'The date the vulnerability was last modified in the NVD.'}),
-
-                ('cisa:kev:name', ('str', {}), {
-                    'doc': 'The name of the vulnerability according to the CISA KEV database.'}),
-
-                ('cisa:kev:desc', ('str', {}), {
-                    'doc': 'The description of the vulnerability according to the CISA KEV database.'}),
-
-                ('cisa:kev:action', ('str', {}), {
-                    'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
-
-                ('cisa:kev:vendor', ('meta:name', {}), {
-                    'doc': 'The vendor name listed in the CISA KEV database.'}),
-
-                ('cisa:kev:product', ('meta:name', {}), {
-                    'doc': 'The product name listed in the CISA KEV database.'}),
-
-                ('cisa:kev:added', ('time', {}), {
-                    'doc': 'The date the vulnerability was added to the CISA KEV database.'}),
-
-                ('cisa:kev:duedate', ('time', {}), {
-                    'doc': 'The date the action is due according to the CISA KEV database.'}),
-            )),
+            ('it:sec:cve', {}, ()),
             ('it:sec:cpe', {}, (
 
                 ('v2_2', ('it:sec:cpe:v2_2', {}), {
@@ -1719,6 +1695,18 @@ modeldefs = (
                     'doc': 'The URL where the diff is hosted.'}),
             )),
 
+            ('it:dev:repo:entry', {}, (
+
+                ('repo', ('it:dev:repo', {}), {
+                    'doc': 'The repository which contains the file.'}),
+
+                ('file', ('file:bytes', {}), {
+                    'doc': 'The file which the repository contains.'}),
+
+                ('path', ('file:path', {}), {
+                    'doc': 'The path to the file in the repository.'}),
+            )),
+
             ('it:dev:repo:issue', {}, (
 
                 ('repo', ('it:dev:repo', {}), {
@@ -1997,6 +1985,9 @@ modeldefs = (
 
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file containing the command history such as a .bash_history file.'}),
+
+                ('host:account', ('it:host:account', {}), {
+                    'doc': 'The host account which executed the commands in the session.'}),
             )),
             ('it:cmd:history', {}, (
 
@@ -2115,9 +2106,6 @@ modeldefs = (
 
                 ('service:platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which was queried.'}),
-
-                ('service:instance', ('inet:service:instance', {}), {
-                    'doc': 'The service instance which was queried.'}),
 
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The service account which ran the query.'}),

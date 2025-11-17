@@ -72,7 +72,7 @@ import synapse.lib.thishost as s_thishost
 import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.tools.genpkg as s_genpkg
+import synapse.tools.storm.pkg.gen as s_genpkg
 
 logger = logging.getLogger(__name__)
 
@@ -300,6 +300,10 @@ testmodel = (
             ('test:int', ('int', {}), {}),
             ('test:float', ('float', {}), {}),
             ('test:str', ('str', {}), {}),
+            ('test:str2', ('test:str', {}), {}),
+            ('test:inhstr', ('str', {}), {}),
+            ('test:inhstr2', ('test:inhstr', {}), {}),
+            ('test:inhstr3', ('test:inhstr2', {}), {}),
             ('test:strregex', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {}),
             ('test:migr', ('str', {}), {}),
             ('test:auto', ('str', {}), {}),
@@ -313,10 +317,6 @@ testmodel = (
             ('test:hugenum', ('hugenum', {}), {}),
 
             ('test:arrayprop', ('guid', {}), {}),
-            ('test:arrayform', ('array', {'type': 'int'}), {}),
-            ('test:arrayformtype', ('array', {'type': 'test:str', 'uniq': False}), {}),
-            ('test:arrayvirtform', ('array', {'type': 'time'}), {}),
-            ('test:arraysrv', ('array', {'type': 'inet:server', 'uniq': False}), {}),
 
             ('test:comp', ('comp', {'fields': (
                 ('hehe', 'test:int'),
@@ -367,11 +367,8 @@ testmodel = (
                 ('strs', ('array', {'type': 'test:str', 'split': ',', 'uniq': False, 'sorted': False}), {}),
                 ('strsnosplit', ('array', {'type': 'test:str', 'uniq': False, 'sorted': False}), {}),
                 ('strregexs', ('array', {'type': 'test:strregex'}), {}),
+                ('children', ('array', {'type': 'test:arrayprop'}), {}),
             )),
-            ('test:arrayform', {}, ()),
-            ('test:arrayformtype', {}, ()),
-            ('test:arrayvirtform', {}, ()),
-            ('test:arraysrv', {}, ()),
             ('test:taxonomy', {}, ()),
             ('test:type10', {}, (
 
@@ -431,6 +428,7 @@ testmodel = (
                 ('size', ('test:int', {}), {}),
                 ('seen', ('ival', {}), {}),
                 ('tick', ('test:time', {}), {}),
+                ('comp', ('test:comp', {}), {}),
                 ('server', ('inet:server', {}), {}),
                 ('raw', ('data', {}), {}),
                 ('iden', ('guid', {}), {}),
@@ -456,6 +454,22 @@ testmodel = (
                 ('seen', ('ival', {}), {}),
                 ('pivvirt', ('test:virtiface', {}), {}),
                 ('gprop', ('test:guid', {}), {}),
+                ('inhstr', ('test:inhstr', {}), {}),
+                ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
+            )),
+
+            ('test:str2', {}, ()),
+
+            ('test:inhstr', {}, (
+                ('name', ('str', {}), {}),
+            )),
+
+            ('test:inhstr2', {}, (
+                ('child1', ('str', {}), {}),
+            )),
+
+            ('test:inhstr3', {}, (
+                ('child2', ('str', {}), {}),
             )),
 
             ('test:strregex', {}, ()),
@@ -533,6 +547,8 @@ testmodel = (
             )),
         ),
         'edges': (
+            (('test:interface', 'matches', None), {
+                'doc': 'The node matched on the target node.'}),
             ((None, 'test', None), {'doc': 'Test edge'}),
         ),
     }),
@@ -833,6 +849,8 @@ class HttpReflector(s_httpapi.Handler):
         self.sendRestRetn(resp)
 
     async def post(self):
+        self.set_header('Giant', 'x' * 64_000)
+
         resp = {}
         params = self._decode_params()
         if params:
@@ -1377,9 +1395,18 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
             with self.mayTestDir(dirn) as dirn:
 
-                async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                    await core._addDataModels(testmodel)
-                    yield core
+                orig = s_cortex.Cortex._loadModels
+
+                async def _loadTestModel(self):
+                    await orig(self)
+
+                    if not hasattr(self, 'patched'):
+                        self.patched = True
+                        await self._addDataModels(testmodel)
+
+                with mock.patch('synapse.cortex.Cortex._loadModels', _loadTestModel):
+                    async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                        yield core
 
     @contextlib.asynccontextmanager
     async def getTestCoreAndProxy(self, conf=None, dirn=None):
@@ -2282,7 +2309,6 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             (True, ('node', 'add')),
             (True, ('node', 'prop', 'set')),
             (True, ('node', 'tag', 'add')),
-            (True, ('feed:data',)),
         ))
 
         deleter = await core.auth.addRole('deleter')
@@ -2327,16 +2353,21 @@ class StormPkgTest(SynTest):
             for pkgproto in self.pkgprotos:
 
                 pkgdef = s_genpkg.loadPkgProto(pkgproto, no_docs=True, readonly=True)
+                pkgname = pkgdef.get('name')
 
-                waiter = None
-                if (pkgdef.get('onload') is not None or pkgdef.get('inits') is not None):
-                    waiter = core.waiter(1, 'core:pkg:onload:complete')
+                if pkgdef.get('onload') is not None or pkgdef.get('inits') is not None:
+                    load_event = asyncio.Event()
 
-                await core.addStormPkg(pkgdef)
+                    async def func(event):
+                        if event[1].get('pkg') == pkgname:
+                            load_event.set()
 
-                if waiter is not None:
-                    self.nn(await waiter.wait(timeout=ONLOAD_TIMEOUT),
-                            f'Package onload failed to run for {pkgdef.get("name")}')
+                    with core.onWith('core:pkg:onload:complete', func):
+                        await core.addStormPkg(pkgdef)
+                        self.nn(await asyncio.wait_for(load_event.wait(), timeout=ONLOAD_TIMEOUT),
+                                f'Package onload failed to run for {pkgname}')
+                else:
+                    await core.addStormPkg(pkgdef)
 
             if self.assetdir is not None:
 

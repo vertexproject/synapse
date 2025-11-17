@@ -54,8 +54,8 @@ modeldefs = (
                     ('type', ('{type}', {}), {
                         'doc': 'The type of {title}.'}),
 
-                    ('text', ('text', {}), {
-                        'display': {'syntax': '{syntax}'},
+                    ('body', ('text', {}), {
+                        'display': {'hint': 'text', 'syntax': '{syntax}'},
                         'doc': 'The text of the {title}.'}),
 
                     ('title', ('str', {}), {
@@ -132,6 +132,7 @@ modeldefs = (
                 'interfaces': (
                     ('doc:document', {'template': {
                         'title': 'report',
+                        'syntax': 'markdown',
                         'type': 'doc:report:type:taxonomy'}}),
                 ),
                 'doc': 'A report.'}),

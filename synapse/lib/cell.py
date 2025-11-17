@@ -57,7 +57,7 @@ import synapse.lib.thisplat as s_thisplat
 
 import synapse.lib.crypto.passwd as s_passwd
 
-import synapse.tools.backup as s_t_backup
+import synapse.tools.service.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
@@ -2051,10 +2051,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 raise s_exc.SynErr(mesg=mesg, offs=cullat)
 
             return cullat
-
-    @s_nexus.Pusher.onPushAuto('nexslog:setindex')
-    async def setNexsIndx(self, indx):
-        return await self.nexsroot.setindex(indx)
 
     def getMyUrl(self, user='root'):
         host = self.conf.req('aha:name')
