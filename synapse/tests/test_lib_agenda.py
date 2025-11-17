@@ -899,7 +899,7 @@ class AgendaTest(s_t_utils.SynTest):
                     for cron in crons01:
                         self.true(cron.get('isrunning'))
 
-                    tasks00 = await core00.callStorm('return($lib.ps.list())')
+                    tasks00 = await core00.ps(core00.auth.rootuser)
                     # 101 tasks: one for the main task and NUMJOBS for the cronjob instances
                     self.len(NUMJOBS + 1, tasks00)
                     self.eq(tasks00[0]['info']['query'], '[it:dev:str=foo]')
@@ -911,7 +911,7 @@ class AgendaTest(s_t_utils.SynTest):
                         self.eq(task['info']['storm'], '$lib.time.sleep(90)')
 
                     # No tasks running on the follower
-                    tasks01 = await core01.callStorm('return($lib.ps.list())')
+                    tasks01 = await core01.ps(core01.auth.rootuser)
                     self.len(0, tasks01)
 
                     with self.getLoggerStream('synapse.lib.agenda', mesg='name=CRON99') as stream:
@@ -965,12 +965,12 @@ class AgendaTest(s_t_utils.SynTest):
                     for cron in crons01:
                         self.true(cron.get('isrunning'))
 
-                    tasks00 = await core00.callStorm('return($lib.ps.list())')
+                    tasks00 = await core00.ps(core00.auth.rootuser)
                     # This task is the main task from before promotion
                     self.len(1, tasks00)
                     self.eq(tasks00[0]['info']['query'], '[it:dev:str=foo]')
 
-                    tasks01 = await core01.callStorm('return($lib.ps.list())')
+                    tasks01 = await core01.ps(core01.auth.rootuser)
                     # The cronjob instances are the only tasks
                     self.len(NUMJOBS, tasks01)
                     for task in tasks01:

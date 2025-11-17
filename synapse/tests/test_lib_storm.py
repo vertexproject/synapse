@@ -709,7 +709,7 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('background ${ $foo=test $lib.print($foo) }')
 
             await core.nodes('background { $lib.time.sleep(4) }')
-            task = await core.callStorm('for $t in $lib.ps.list() { if $t.info.background { return($t) } }')
+            task = await core.callStorm('for $t in $lib.task.list() { if $t.info.background { return($t) } }')
             self.nn(task)
             self.none(task['info'].get('opts'))
             self.eq(core.view.iden, task['info'].get('view'))
@@ -4783,7 +4783,7 @@ class StormTest(s_t_utils.SynTest):
                 self.stormIsInPrint('tcp://root:****@127.0.0.1', msgs)
 
                 self.eq(2, len(core.activecoros) - actv)
-                tasks = await core.callStorm('return($lib.ps.list())')
+                tasks = await core.callStorm('$tasks = () for $t in $lib.task.list() { $tasks.append($t) } return($tasks)')
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
 
@@ -4860,7 +4860,7 @@ class StormTest(s_t_utils.SynTest):
                     }
                 ''')
                 self.eq(actv - 3, len(core.activecoros))
-                tasks = await core.callStorm('return($lib.ps.list())')
+                tasks = await core.callStorm('$tasks = () for $t in $lib.task.list() { $tasks.append($t) } return($tasks)')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
 
@@ -4930,7 +4930,7 @@ class StormTest(s_t_utils.SynTest):
 
                 await asyncio.sleep(0)
 
-                tasks = await core.callStorm('return($lib.ps.list())')
+                tasks = await core.callStorm('$tasks = () for $t in $lib.task.list() { $tasks.append($t) } return($tasks)')
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
                 self.eq(actv - 1, len(core.activecoros))
@@ -4955,7 +4955,7 @@ class StormTest(s_t_utils.SynTest):
                 for task in [t for t in tasks if t is not None]:
                     self.true(await s_coro.waittask(task, timeout=5))
 
-                tasks = await core.callStorm('return($lib.ps.list())')
+                tasks = await core.callStorm('$tasks = () for $t in $lib.task.list() { $tasks.append($t) } return($tasks)')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
                 self.eq(actv - 3, len(core.activecoros))

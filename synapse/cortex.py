@@ -2483,11 +2483,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         await self.setStormPkgVar(name, verskey, -1)
 
                 else:
-                    if (key := inits.get('key')) is not None:
-                        s_common.deprecated('storm package inits.key', eolv='3.0.0')
-                        if key != verskey and (valu := await self.popStormPkgVar(name, key)) is not None:
-                            await self.setStormPkgVar(name, verskey, valu)
-
                     inaugural = False
                     curvers = await self.getStormPkgVar(name, verskey)
                     if curvers is None:

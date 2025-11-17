@@ -1899,59 +1899,6 @@ class LibDict(Lib):
         return list(valu.values())
 
 @registry.registerLib
-class LibPs(Lib):
-    '''
-    A Storm Library for interacting with running tasks on the Cortex.
-    '''
-    _storm_locals = (  # type:  ignore
-        {'name': 'kill', 'desc': 'Stop a running task on the Cortex.',
-         'type': {'type': 'function', '_funcname': '_kill',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str',
-                       'desc': 'The prefix of the task to stop. '
-                               'Tasks will only be stopped if there is a single prefix match.'},
-                  ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the task was cancelled, False otherwise.', }}},
-        {'name': 'list', 'desc': 'List tasks the current user can access.',
-         'type': {'type': 'function', '_funcname': '_list',
-                  'returns': {'type': 'list', 'desc': 'A list of task definitions.', }}},
-    )
-    _storm_lib_deprecation = {'eolvers': 'v3.0.0', 'mesg': 'Use the corresponding ``$lib.task`` function.'}
-    _storm_lib_path = ('ps',)
-
-    def getObjLocals(self):
-        return {
-            'kill': self._kill,
-            'list': self._list,
-        }
-
-    async def _kill(self, prefix):
-        idens = []
-
-        todo = s_common.todo('ps', self.runt.user)
-        tasks = await self.dyncall('cell', todo)
-        for task in tasks:
-            iden = task.get('iden')
-            if iden.startswith(prefix):
-                idens.append(iden)
-
-        if len(idens) == 0:
-            mesg = 'Provided iden does not match any processes.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
-
-        if len(idens) > 1:
-            mesg = 'Provided iden matches more than one process.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
-
-        todo = s_common.todo('kill', self.runt.user, idens[0])
-        return await self.dyncall('cell', todo)
-
-    @stormfunc(readonly=True)
-    async def _list(self):
-        todo = s_common.todo('ps', self.runt.user)
-        return await self.dyncall('cell', todo)
-
-@registry.registerLib
 class LibAxon(Lib):
     '''
     A Storm library for interacting with the Cortex's Axon.
