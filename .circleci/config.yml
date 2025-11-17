@@ -412,7 +412,7 @@ commands:
       - run:
           name: build images
           command: |
-            docker/build.sh << parameters.image-tag >>
+            docker/scripts/build.sh << parameters.image-tag >>
       - run:
           name: smoke test images
           command: |
