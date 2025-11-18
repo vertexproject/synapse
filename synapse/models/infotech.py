@@ -610,7 +610,7 @@ class ItModule(s_module.CoreModule):
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception:
-            logger.exception('Failed to brute force version string [%s]', prop)
+            pass
 
     def getModelDefs(self):
         modl = {

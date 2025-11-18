@@ -933,13 +933,13 @@ def config(conf, confdefs):
 @functools.lru_cache(maxsize=1024)
 def deprecated(name, curv='2.x', eolv='3.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
-    logger.warning(mesg)
+    logger.warning(mesg, extra={'synapse': {'curv': curv, 'eolv': eolv}})
     return mesg
 
 @functools.lru_cache(maxsize=1024)
 def deprdate(name, date):  # pragma: no cover
     mesg = f'{name} is deprecated and will be removed on {date}.'
-    logger.warning(mesg)
+    logger.warning(mesg, extra={'synapse': {'eold': date}})
     return mesg
 
 def jsonsafe_nodeedits(nodeedits):

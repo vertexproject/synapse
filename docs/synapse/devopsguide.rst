@@ -826,33 +826,19 @@ The Telepath URLs can be provided to the Storm API as follows::
 Viewing Deprecation Warnings
 ----------------------------
 
-When functionality in Synapse is deprecated, it is marked with the standard Python warnings_ mechanism to note
-that it is deprecated. Deprecated functionality is also noted in service changelogs as well. To view these warnings
-in your environment, you can set the ``PYTHONWARNINGS`` environment variable to display them.
-The following shows this being enabled for a Cortex deployment::
+When functionality in Synapse is deprecated, it is marked with the a standard library function is to note that it is
+deprecated. When the deprecated functionality is invoked, it will log a warning message that the deprecated function
+has been utilized.
 
-    services:
-      00.cortex:
-        user: "999"
-        image: vertexproject/synapse-cortex:v2.x.x
-        network_mode: host
-        restart: unless-stopped
-        volumes:
-            - ./storage:/vertex/storage
-        environment:
-            - SYN_CORTEX_AXON=aha://axon...
-            - SYN_CORTEX_JSONSTOR=aha://jsonstor...
-            - PYTHONWARNINGS=default::DeprecationWarning:synapse.common
+For example, if a HTTP caller uses the ``api/v1/storm/nodes`` API, it would log hte following message::
 
-With this set, our deprecation warnings are emitted the first time the deprecated functionality is used. For example,
-if a remote caller uses the ``eval()`` API on a Cortex, it would log the following message::
+    2025-11-18 10:31:33,100 [WARNING] "HTTP API /api/v1/storm/nodes" is deprecated in 2.110.0 and will be removed in 3.0.0 [common.py:deprecated:MainThread:MainProcess]
 
-    /usr/local/lib/python3.8/dist-packages/synapse/common.py:913: DeprecationWarning: "CoreApi.eval" is deprecated in 2.x and will be removed in 3.0.0
-      warnings.warn(mesg, DeprecationWarning)
+Instances of these messages would indicate that there is a procses or user that is utilizing this deprecated
+functionality. This may require updating Synapse components ( such as Rapid Power-Ups ) or working with users to
+remove the usage of deprecated functionality.
 
-This would indicate the use of a deprecated API.
-
-TODO Rewrite this.
+These logs are cached so that they should generally only log once per the lifetime of a given process.
 
 Entrypoint Hooking
 ------------------
