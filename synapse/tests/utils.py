@@ -843,6 +843,12 @@ class _StreamIOMixin(io.StringIO):
             mesg = '%s.expect(%s) not in %s' % (self.__class__.__name__, substr, valu)
             raise s_exc.SynErr(mesg=mesg)
 
+    def noexpect(self, substr: str):
+        valu = self.getvalue()
+        if valu.find(substr) != -1:
+            mesg = '%s.noexpect(%s) in %s' % (self.__class__.__name__, substr, valu)
+            raise s_exc.SynErr(mesg=mesg)
+
 class StreamEvent(_StreamIOMixin, threading.Event):
     '''
     A combination of a io.StringIO object and a threading.Event object.

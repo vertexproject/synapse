@@ -438,3 +438,81 @@ class StormlibVaultTest(s_test.SynTest):
 
             msgs = await core.stormlist('vault.del rvault')
             self.stormIsInPrint('Successfully deleted vault rvault.', msgs)
+
+    async def test_stormlib_vault_data_mutability(self):
+
+        async with self.getTestCore() as core00:
+            q = '''
+                $secrets = ({
+                    "seclist": ["foo", "bar", "baz"],
+                    "secdict": {"foo": "bar"},
+                })
+
+                $configs = ({
+                    "cfglist": ["foo", "bar", "baz"],
+                    "cfgdict": {"foo": "bar"},
+                })
+
+                vault.add --global gvault test-type $secrets $configs
+            '''
+            await core00.callStorm(q)
+
+            # Can mutate list values?
+            valu = await core00.callStorm('$tl = $lib.vault.byname(gvault).secrets.seclist $tl.rem(bar) return($tl)')
+            self.eq(valu, ['foo', 'baz'])
+
+            valu = await core00.callStorm('$tl = $lib.vault.byname(gvault).configs.cfglist $tl.rem(bar) return($tl)')
+            self.eq(valu, ['foo', 'baz'])
+
+            # List mutations don't persist
+            valu = await core00.callStorm('return($lib.vault.byname(gvault).secrets.seclist)')
+            self.eq(valu, ['foo', 'bar', 'baz'])
+
+            valu = await core00.callStorm('return($lib.vault.byname(gvault).configs.cfglist)')
+            self.eq(valu, ['foo', 'bar', 'baz'])
+
+            # Can mutate dict values?
+            valu = await core00.callStorm('$td = $lib.vault.byname(gvault).secrets.secdict $td.bar=foo return($td)')
+            self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
+
+            valu = await core00.callStorm('$td = $lib.vault.byname(gvault).configs.cfgdict $td.bar=foo return($td)')
+            self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
+
+            # Dict mutations don't persist
+            valu = await core00.callStorm('return($lib.vault.byname(gvault).secrets.secdict)')
+            self.eq(valu, {'foo': 'bar'})
+
+            valu = await core00.callStorm('return($lib.vault.byname(gvault).configs.cfgdict)')
+            self.eq(valu, {'foo': 'bar'})
+
+            # secrets list returns mutable objects
+            q = '''
+                $ret = ({})
+                for ($key, $valu) in $lib.vault.byname(gvault).secrets {
+                  $ret.$key = $valu
+                }
+                $ret.secdict.boo = bar
+                $ret.seclist.append(moo)
+                return($ret)
+            '''
+            valu = await core00.callStorm(q)
+            self.eq(valu, {
+                'secdict': {'boo': 'bar', 'foo': 'bar'},
+                'seclist': ['foo', 'bar', 'baz', 'moo'],
+            })
+
+            # configs list returns mutable objects
+            q = '''
+                $ret = ({})
+                for ($key, $valu) in $lib.vault.byname(gvault).configs {
+                  $ret.$key = $valu
+                }
+                $ret.cfgdict.boo = bar
+                $ret.cfglist.append(moo)
+                return($ret)
+            '''
+            valu = await core00.callStorm(q)
+            self.eq(valu, {
+                'cfgdict': {'boo': 'bar', 'foo': 'bar'},
+                'cfglist': ['foo', 'bar', 'baz', 'moo'],
+            })

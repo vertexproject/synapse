@@ -1,6 +1,0 @@
----
-desc: Added try syntax ( ``?=`` ) when setting or modifying tag timestamps.
-desc:literal: false
-prs: []
-type: feat
-...
