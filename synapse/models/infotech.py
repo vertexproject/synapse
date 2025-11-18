@@ -609,7 +609,7 @@ class ItModule(s_module.CoreModule):
                 await node.set(f'semver:{k}', v)
         except asyncio.CancelledError:  # pragma: no cover
             raise
-        except Exception:
+        except s_exc.BadTypeValu:
             pass
 
     def getModelDefs(self):
