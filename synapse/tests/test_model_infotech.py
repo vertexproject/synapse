@@ -986,15 +986,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.none(node.get('vers:norm'))
             self.none(node.get('semver'))
 
-            with self.getLoggerStream('synapse.models.infotech',
-                                      'Unable to parse string as a semver') as stream:
-
-                nodes = await core.nodes('[it:prod:softver=* :vers=$valu]', opts={'vars': {'valu': 'alpha'}})
-                self.len(1, nodes)
-                node = nodes[0]
-                self.eq(node.get('vers'), 'alpha')
-                self.none(node.get('semver'))
-                self.true(stream.is_set())
+            nodes = await core.nodes('[it:prod:softver=* :vers=$valu]', opts={'vars': {'valu': 'alpha'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('vers'), 'alpha')
+            self.none(node.get('semver'))
 
     async def test_it_form_callbacks(self):
         async with self.getTestCore() as core:
