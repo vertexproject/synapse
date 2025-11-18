@@ -830,7 +830,7 @@ When functionality in Synapse is deprecated, it is marked with the a standard li
 deprecated. When the deprecated functionality is invoked, it will log a warning message that the deprecated function
 has been utilized.
 
-For example, if a HTTP caller uses the ``api/v1/storm/nodes`` API, it would log hte following message::
+For example, if a HTTP caller uses the ``api/v1/storm/nodes`` API, it would log the following message::
 
     2025-11-18 10:31:33,100 [WARNING] "HTTP API /api/v1/storm/nodes" is deprecated in 2.110.0 and will be removed in 3.0.0 [common.py:deprecated:MainThread:MainProcess]
 
