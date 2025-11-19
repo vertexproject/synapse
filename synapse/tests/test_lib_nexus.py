@@ -480,7 +480,7 @@ class NexusTest(s_t_utils.SynTest):
                         vdef = {'layers': (deflayr,), 'name': 'nextview'}
                         await core01.addView(vdef)
 
-                        # we can finish handling the view add event on the mirror before the leader
+                        # We can finish handling the view add event on the mirror before the leader
                         self.eq(len(core00.views) + 1, len(core01.views))
 
                         evnt1.set()
@@ -491,7 +491,7 @@ class NexusTest(s_t_utils.SynTest):
                         await core00.getCellNexsRoot().addWriteHold('readonly')
                         strt = await core01.nexsroot.index()
 
-                        # still get exceptions that occur before adding the nexus event
+                        # We still get exceptions that occur before adding the nexus event
                         with self.raises(s_exc.IsReadOnly) as cm:
                             await core01.addView(vdef)
 
