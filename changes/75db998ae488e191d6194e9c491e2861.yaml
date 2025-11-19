@@ -1,6 +1,6 @@
 ---
 desc: Updated mirror writeback behavior to no longer wait for or receive the return
-  value from the leader.
+  value of nexus events from the leader.
 desc:literal: false
 prs: []
 type: feat
