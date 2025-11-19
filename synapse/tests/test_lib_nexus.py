@@ -231,9 +231,10 @@ class NexusTest(s_t_utils.SynTest):
 
     async def test_nexus_safety(self):
 
+        evnt = asyncio.Event()
         orig = s_auth.Auth.reqUser
         async def slowReq(self, iden):
-            await asyncio.sleep(0.3)
+            await evnt.wait()
             return await orig(self, iden)
 
         with self.getTestDir() as dirn:
@@ -277,9 +278,10 @@ class NexusTest(s_t_utils.SynTest):
                         with self.raises(TimeoutError):
                             await s_common.wait_for(core.addView(vdef), 0.1)
 
-                    # This waits long enough to get the lock and succeed
+                    # This will get the lock and succeed
                     vdef = {'layers': (deflayr,), 'name': f'waitview'}
-                    await s_common.wait_for(core.addView(vdef), 2)
+                    core.schedCoro(core.addView(vdef))
+                    evnt.set()
 
                 await core.sync()
 
