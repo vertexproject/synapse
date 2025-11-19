@@ -557,14 +557,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('[it:software=* :version=$valu]', opts={'vars': {'valu': tv}})
                 self.len(1, nodes)
                 node = nodes[0]
-                # FIXME enable once this is plumbed
-                # self.eq(node.get('version.semver'), te)
+                self.eq(node.get('version.semver'), te)
 
             nodes = await core.nodes('[it:software=* :version=$valu]', opts={'vars': {'valu': ''}})
             self.len(1, nodes)
             self.eq(nodes[0].get('version'), '')
-            # FIXME enable once this is plumbed
-            # self.none(nodes[0].get('version.semver'))
+            self.none(nodes[0].get('version.semver'))
 
     async def test_it_form_callbacks(self):
         async with self.getTestCore() as core:
@@ -706,8 +704,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('WootWoot', nodes[0].get('desc'))
             self.eq('xps13', nodes[0].get('model'))
             self.eq('1.2.3', nodes[0].get('version'))
-            # FIXME enable once this gets plumbed...
-            # self.eq(1099513724931, nodes[0].get('version.semver'))
+            self.eq(1099513724931, nodes[0].get('version.semver'))
             self.eq('cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*', nodes[0].get('cpe'))
             self.eq(1643760000000000, nodes[0].get('released'))
             self.len(1, await core.nodes('it:hardware :type -> it:hardware:type:taxonomy'))
@@ -1151,8 +1148,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1648771200000000, nodes[0].get('updated'))
             self.eq('gronk', nodes[0].get('text'))
             self.eq('1.2.3', nodes[0].get('version'))
-            # FIXME enable once it gets plumbed
-            # self.eq(0x10000200003, nodes[0].get('version.semver'))
+            self.eq(0x10000200003, nodes[0].get('version.semver'))
 
             self.len(1, await core.nodes('it:app:yara:rule -> entity:contact'))
 
