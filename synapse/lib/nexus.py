@@ -315,7 +315,7 @@ class NexsRoot(s_base.Base):
         mesg = 'Unable to issue Nexus events when readonly is set.'
         raise s_exc.IsReadOnly(mesg=mesg)
 
-    async def issue(self, nexsiden, event, args, kwargs, meta=None):
+    async def issue(self, nexsiden, event, args, kwargs, meta=None, wait=True):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
@@ -324,7 +324,7 @@ class NexsRoot(s_base.Base):
         client = self.client
 
         if client is None:
-            return await self.eat(nexsiden, event, args, kwargs, meta)
+            return await self.eat(nexsiden, event, args, kwargs, meta, wait=wait)
 
         # check here because we shouldn't be sending an edit upstream if we
         # are in readonly mode because the mirror sync will never complete.
@@ -344,17 +344,19 @@ class NexsRoot(s_base.Base):
 
         with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
             meta['resp'] = iden
-            await client.issue(nexsiden, event, args, kwargs, meta)
+            await client.issue(nexsiden, event, args, kwargs, meta, wait=False)
             return await s_common.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
-    async def eat(self, nexsiden, event, args, kwargs, meta):
+    async def eat(self, nexsiden, event, args, kwargs, meta, wait=True):
         '''
         Actually mutate for the given nexsiden instance.
         '''
         if meta is None:
             meta = {}
 
-        async with self.cell.nexslock:
+        await self.cell.nexslock.acquire()
+
+        try:
             if (nexus := self._nexskids.get(nexsiden)) is None:
                 mesg = f'No Nexus Pusher with iden {nexsiden} {event=} args={s_common.trimText(repr(args))} ' \
                        f'kwargs={s_common.trimText(repr(kwargs))}'
@@ -366,9 +368,17 @@ class NexsRoot(s_base.Base):
                 raise s_exc.NoSuchName(mesg=mesg, iden=nexsiden, event=event)
 
             self.reqNotReadOnly()
+
             # Keep a reference to the shielded task to ensure it isn't GC'd
             self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
-            return await asyncio.shield(self.applytask)
+            task = asyncio.shield(self.applytask)
+
+        except BaseException:
+            self.cell.nexslock.release()
+            raise
+
+        if wait:
+            return await task
 
     async def index(self):
         if self.donexslog:
@@ -401,26 +411,30 @@ class NexsRoot(s_base.Base):
 
     async def _eat(self, item, indx=None):
 
-        if self.donexslog:
-            saveindx, packitem = await self.nexslog.addWithPackRetn(item, indx=indx)
+        try:
+            if self.donexslog:
+                saveindx, packitem = await self.nexslog.addWithPackRetn(item, indx=indx)
 
-            if self._linkmirrors:
-                tupl = (saveindx, YIELD_PREFIX + s_msgpack.en(saveindx) + packitem)
-                for wind in tuple(self._linkmirrors):
-                    await wind.put(tupl)
+                if self._linkmirrors:
+                    tupl = (saveindx, YIELD_PREFIX + s_msgpack.en(saveindx) + packitem)
+                    for wind in tuple(self._linkmirrors):
+                        await wind.put(tupl)
 
-            if self._mirrors:
-                for dist in tuple(self._mirrors):
-                    dist.update()
+                if self._mirrors:
+                    for dist in tuple(self._mirrors):
+                        dist.update()
 
-        else:
-            saveindx = self.nexshot.get('nexs:indx')
-            if indx is not None and indx > saveindx:  # pragma: no cover
-                saveindx = self.nexshot.set('nexs:indx', indx)
+            else:
+                saveindx = self.nexshot.get('nexs:indx')
+                if indx is not None and indx > saveindx:  # pragma: no cover
+                    saveindx = self.nexshot.set('nexs:indx', indx)
 
-            self.nexshot.inc('nexs:indx')
+                self.nexshot.inc('nexs:indx')
 
-        return (saveindx, await self._apply(saveindx, item))
+            return (saveindx, await self._apply(saveindx, item))
+
+        finally:
+            self.cell.nexslock.release()
 
     async def _apply(self, indx, mesg):
 
