@@ -2010,47 +2010,6 @@ The ``pkg.perms.list`` command lists the permissions declared by a Storm package
 .. storm-cli:: pkg.perms.list --help
 
 
-.. _storm-ps:
-
-ps
---
-
-Storm includes ``ps.*`` commands that allow you to work with Storm tasks/queries.
-
-- `ps.list`_
-- `ps.kill`_
-
-Help for individual ``ps.*`` commands can be displayed using:
-
-  ``<command> --help``
-
-.. _storm-ps-list:
-
-ps.list
-+++++++
-
-The ``ps.list`` command lists the currently executing tasks/queries. By default, the command displays
-the first 120 characters of the executing query. The ``--verbose`` option can be used to display the
-full query regardless of length.
-
-**Syntax:**
-
-.. storm-cli:: ps.list --help
-
-
-.. _storm-ps-kill:
-
-ps.kill
-+++++++
-
-The ``ps.kill`` command can be used to terminate an executing task/query. The command requires the
-:ref:`gloss-iden` of the task to be terminated, which can be obtained with :ref:`storm-ps-list`.
-
-**Syntax:**
-
-.. storm-cli:: ps.kill --help
-
-
 .. _storm-queue:
 
 queue
@@ -2346,6 +2305,43 @@ tags that don't have other tags as children.
 
 .. storm-cli:: tag.prune --help
 
+task
+----
+
+Storm includes ``task.*`` commands that allow you to work with Storm tasks.
+
+- `task.list`_
+- `task.kill`_
+
+Help for individual ``task.*`` commands can be displayed using:
+
+  ``<command> --help``
+
+.. _storm-task-list:
+
+task.list
++++++++++
+
+The ``task.list`` command lists the currently executing tasks on a Cortex and any mirrors. By default,
+the command displays the first 120 characters of the executing query. The ``--verbose`` option can be
+used to display the full query regardless of length.
+
+**Syntax:**
+
+.. storm-cli:: task.list --help
+
+
+.. _storm-task-kill:
+
+task.kill
++++++++++
+
+The ``task.kill`` command can be used to terminate an executing task. The command requires the
+:ref:`gloss-iden` of the task to be terminated, which can be obtained with :ref:`storm-task-list`.
+
+**Syntax:**
+
+.. storm-cli:: task.kill --help
 
 .. _storm-tee:
 

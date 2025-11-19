@@ -25,6 +25,8 @@ import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.tools.service.backup as s_t_backup
+
 import synapse.tests.utils as s_test
 import synapse.tests.files as s_test_files
 
@@ -934,107 +936,6 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq('0.0.0.1', await core.callStorm('return($lib.repr(inet:server.ip, ([4, 1])))'))
 
-    async def test_storm_lib_ps(self):
-
-        async with self.getTestCore() as core:
-
-            evnt = asyncio.Event()
-            iden = s_common.guid()
-
-            async def runLongStorm():
-                q = f'[ test:str=foo test:str={"x" * 100} ] | sleep 10 | [ test:str=endofquery ]'
-                async for mesg in core.storm(q, opts={'task': iden}):
-                    if mesg[0] == 'init':
-                        self.true(mesg[1]['task'] == iden)
-                    evnt.set()
-
-            task = core.schedCoro(runLongStorm())
-
-            self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
-
-            with self.raises(s_exc.BadArg):
-                await core.schedCoro(core.stormlist('inet:ip', opts={'task': iden}))
-
-            # Verify that the long query got truncated
-            msgs = await core.stormlist('ps.list')
-
-            for msg in msgs:
-                if msg[0] == 'print' and 'xxx...' in msg[1]['mesg']:
-                    self.eq(120, len(msg[1]['mesg']))
-
-            self.stormIsInPrint('xxx...', msgs)
-            self.stormIsInPrint('name: storm', msgs)
-            self.stormIsInPrint('user: root', msgs)
-            self.stormIsInPrint('status: $lib.null', msgs)
-            self.stormIsInPrint('2 tasks found.', msgs)
-            self.stormIsInPrint('start time: 2', msgs)
-
-            self.stormIsInPrint(f'task iden: {iden}', msgs)
-
-            # Verify we see the whole query
-            msgs = await core.stormlist('ps.list --verbose')
-            self.stormIsInPrint('endofquery', msgs)
-
-            msgs = await core.stormlist(f'ps.kill {iden}')
-            self.stormIsInPrint('kill status: true', msgs)
-            self.true(task.done())
-
-            msgs = await core.stormlist('ps.list')
-            self.stormIsInPrint('1 tasks found.', msgs)
-
-            bond = await core.auth.addUser('bond')
-
-            async with core.getLocalProxy(user='bond') as prox:
-
-                evnt = asyncio.Event()
-                iden = None
-
-                async def runLongStorm():
-                    async for mesg in core.storm('[ test:str=foo test:str=bar ] | sleep 10'):
-                        nonlocal iden
-                        if mesg[0] == 'init':
-                            iden = mesg[1]['task']
-                        evnt.set()
-
-                task = core.schedCoro(runLongStorm())
-                self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
-
-                msgs = await core.stormlist('ps.list')
-                self.stormIsInPrint('2 tasks found.', msgs)
-                self.stormIsInPrint(f'task iden: {iden}', msgs)
-
-                msgs = await alist(prox.storm('ps.list'))
-                self.stormIsInPrint('1 tasks found.', msgs)
-
-                # Try killing from the unprivileged user
-                msgs = await alist(prox.storm(f'ps.kill {iden}'))
-                self.stormIsInErr('Provided iden does not match any processes.', msgs)
-
-                # Try a kill with a numeric identifier - this won't match
-                msgs = await alist(prox.storm(f'ps.kill 123412341234'))
-                self.stormIsInErr('Provided iden does not match any processes.', msgs)
-
-                # Give user explicit permissions to list
-                await core.addUserRule(bond.iden, (True, ('task', 'get')))
-
-                # Match all tasks
-                msgs = await alist(prox.storm(f"ps.kill ''"))
-                self.stormIsInErr('Provided iden matches more than one process.', msgs)
-
-                msgs = await alist(prox.storm('ps.list'))
-                self.stormIsInPrint(f'task iden: {iden}', msgs)
-
-                # Give user explicit license to kill
-                await core.addUserRule(bond.iden, (True, ('task', 'del')))
-
-                # Kill the task as the user
-                msgs = await alist(prox.storm(f'ps.kill {iden}'))
-                self.stormIsInPrint('kill status: true', msgs)
-                self.true(task.done())
-
-                # Kill a task that doesn't exist
-                self.false(await core.kill(bond, 'newp'))
-
     async def test_storm_lib_query(self):
         async with self.getTestCore() as core:
             # basic
@@ -1277,6 +1178,16 @@ class StormTypesTest(s_test.SynTest):
             # Integer keys
             vals = await core.callStorm('return($lib.dict.fromlist((((1), (2)), ((2), (3)))))')
             self.eq(vals, {1: 2, 2: 3})
+
+            # Check mutability
+            q = '''
+                $ret = $lib.dict.fromlist(((a, ({})), (b, (foo, bar))))
+                $ret.a.foo = bar
+                $ret.b.append(baz)
+                return($ret)
+            '''
+            vals = await core.callStorm(q)
+            self.eq(vals, {'a': {'foo': 'bar'}, 'b': ['foo', 'bar', 'baz']})
 
             # Non-primitive type
             with self.raises(s_exc.NoSuchType) as exc:
@@ -2964,7 +2875,7 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('userkey is lessThanSekrit', mesgs)
 
                     rstr = await prox.callStorm('return(`{$lib.globals}`)')
-                    self.eq(rstr, "{'adminkey': 'sekrit', 'bar': {'foo': '1'}, 'cortex:runtime:stormfixes': (4, 0, 0), 'userkey': 'lessThanSekrit'}")
+                    self.eq(rstr, "{'adminkey': 'sekrit', 'bar': {'foo': '1'}, 'cortex:runtime:stormfixes': [4, 0, 0], 'userkey': 'lessThanSekrit'}")
 
                     # Storing a valu gets toprim()'d
                     q = '[test:str=test] $lib.user.vars.mynode = $node return($lib.user.vars.mynode)'
@@ -3082,6 +2993,55 @@ class StormTypesTest(s_test.SynTest):
                     self.len(2, podes)
                     self.eq({('test:str', '1234'), ('test:int', 1234)},
                             {pode[0] for pode in podes})
+
+    async def test_persistent_vars_mutability(self):
+
+        with self.getTestDir() as dirn:
+            dirn00 = s_common.gendir(dirn, 'core00')
+            dirn01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+                valu = await core00.callStorm('return($lib.globals.newp)')
+                self.none(valu)
+
+                valu = await core00.callStorm('$lib.globals.testlist = (foo, bar, baz) return($lib.globals.testlist)')
+                self.eq(valu, ['foo', 'bar', 'baz'])
+
+                valu = await core00.callStorm('$lib.globals.testdict = ({"foo": "bar"}) return($lib.globals.testdict)')
+                self.eq(valu, {'foo': 'bar'})
+
+                # Can mutate list values?
+                valu = await core00.callStorm('$tl = $lib.globals.testlist $tl.rem(bar) return($tl)')
+                self.eq(valu, ['foo', 'baz'])
+
+                # List mutations don't persist
+                valu = await core00.callStorm('return($lib.globals.testlist)')
+                self.eq(valu, ['foo', 'bar', 'baz'])
+
+                # Can mutate dict values?
+                valu = await core00.callStorm('$td = $lib.globals.testdict $td.bar=foo return($td)')
+                self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
+
+                # Dict mutations don't persist
+                valu = await core00.callStorm('return($lib.globals.testdict)')
+                self.eq(valu, {'foo': 'bar'})
+
+                # Global list returns mutable objects
+                q = '''
+                    $ret = ({})
+                    for ($key, $val) in $lib.globals {
+                        if ($key = "cortex:runtime:stormfixes") { continue }
+                        $ret.$key = $val
+                    }
+                    $ret.testdict.boo = bar
+                    $ret.testlist.append(moo)
+                    return($ret)
+                '''
+                valu = await core00.callStorm(q)
+                self.eq(valu, {
+                    'testdict': {'boo': 'bar', 'foo': 'bar'},
+                    'testlist': ['foo', 'bar', 'baz', 'moo'],
+                })
 
     async def test_storm_lib_time(self):
 

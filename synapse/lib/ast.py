@@ -5569,16 +5569,22 @@ class EditTagAdd(Edit):
         if istry:
             self.excignore = (s_exc.BadTypeValu,)
 
+        self.tryset_ignore = ()
+        if len(self.kids) == 3 and self.kids[1].value() == '?=':
+            self.tryset_ignore = (s_exc.BadTypeValu,)
+
     async def run(self, runt, genr):
 
         self.reqNotReadOnly(runt)
 
         namekid = self.kids[0]
 
-        valu = (None, None, None)
         valukid = None
         if len(self.kids) == 3:
             valukid = self.kids[2]
+
+        valu = (None, None, None)
+        norminfo = None
 
         async for node, path in genr:
 
@@ -5589,25 +5595,37 @@ class EditTagAdd(Edit):
                 await asyncio.sleep(0)
                 continue
 
+            if node.form.isrunt:
+                raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.', form=node.form.full, tag=names[0])
+
+            for name in names:
+                parts = name.split('.')
+                runt.layerConfirm(('node', 'tag', 'add', *parts))
+
             if valukid is not None:
                 valu = await valukid.compute(runt, path)
                 valu = await s_stormtypes.toprim(valu)
-
-            for name in names:
-
                 try:
-                    parts = name.split('.')
-                    runt.layerConfirm(('node', 'tag', 'add', *parts))
-
-                    await node.addTag(name, valu=valu)
+                    valu, norminfo = await runt.view.core.model.type('ival').norm(valu)
+                except self.tryset_ignore:
+                    valu = (None, None, None)
                 except self.excignore:
+                    yield node, path
                     await asyncio.sleep(0)
-                    pass
-
+                    continue
                 except s_exc.BadTypeValu as e:
-                    if valukid is not None:
-                        raise self.addExcInfo(e)
-                    raise namekid.addExcInfo(e)
+                    raise valukid.addExcInfo(e)
+
+            async with node.view.getEditor() as editor:
+                proto = editor.loadNode(node)
+                for name in names:
+                    try:
+                        await proto.addTag(name, valu=valu, norminfo=norminfo)
+                    except self.excignore:
+                        pass
+                    except s_exc.BadTypeValu as e:
+                        raise namekid.addExcInfo(e)
+                    await asyncio.sleep(0)
 
             yield node, path
 
@@ -5620,6 +5638,10 @@ class EditTagVirtSet(Edit):
         self.excignore = ()
         if istry:
             self.excignore = (s_exc.BadTypeValu,)
+
+        self.tryset_ignore = ()
+        if self.kids[2].value() == '?=':
+            self.tryset_ignore = (s_exc.BadTypeValu,)
 
     async def run(self, runt, genr):
 
@@ -5640,28 +5662,40 @@ class EditTagVirtSet(Edit):
                 await asyncio.sleep(0)
                 continue
 
+            if node.form.isrunt:
+                raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.', form=node.form.full, tag=names[0])
+
+            for name in names:
+                parts = name.split('.')
+                runt.layerConfirm(('node', 'tag', 'add', *parts))
+
             valu = await valukid.compute(runt, path)
             valu = await s_stormtypes.toprim(valu)
+            norminfo = None
 
             virts = await virtkid.compute(runt, path)
 
-            for name in names:
-
-                try:
-                    parts = name.split('.')
-                    runt.layerConfirm(('node', 'tag', 'add', *parts))
-
-                    oldv = node.getTag(name)
-                    newv, norminfo = await ival.normVirt(virts[0], oldv, valu)
-
-                    await node.addTag(name, valu=newv, norminfo=norminfo)
-
-                except self.excignore:
+            async with node.view.getEditor() as editor:
+                proto = editor.loadNode(node)
+                for name in names:
                     await asyncio.sleep(0)
-                    pass
 
-                except s_exc.BadTypeValu as e:
-                    raise valukid.addExcInfo(e)
+                    try:
+                        oldv = node.getTag(name)
+                        newv, norminfo = await ival.normVirt(virts[0], oldv, valu)
+                    except self.tryset_ignore:
+                        newv = (None, None, None)
+                    except self.excignore:
+                        continue
+                    except s_exc.BadTypeValu as e:
+                        raise valukid.addExcInfo(e)
+
+                    try:
+                        await node.addTag(name, valu=newv, norminfo=norminfo)
+                    except self.excignore:
+                        pass
+                    except s_exc.BadTypeValu as e:
+                        raise namekid.addExcInfo(e)
 
             yield node, path
             await asyncio.sleep(0)

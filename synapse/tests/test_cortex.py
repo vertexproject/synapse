@@ -1934,6 +1934,13 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(set(nodes[0].getTagNames()), {'foo', 'bar'})
 
+            nodes = await wcore.nodes('$tags=(foo, bar, baz) [test:str=lol +#$tags=`200{$lib.len($node.tags())}`]')
+            self.len(1, nodes)
+            tags = nodes[0].getTags()
+            self.len(3, tags)
+            for name, valu in tags:
+                self.eq(valu, (946684800000000, 946684800000001, 1))
+
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag=2020"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=$lib.null #foo.$tag"))
@@ -2681,7 +2688,7 @@ class CortexTest(s_t_utils.SynTest):
             # Sad path
             with self.raises(s_exc.BadTypeValu) as cm:
                 await core.nodes('test:str=hehe [+#newp.tag=(2022,2001)]')
-            self.eq(cm.exception.get('tag'), 'newp.tag')
+            self.eq(cm.exception.get('valu'), ('2022', '2001'))
 
     async def test_cortex_storm_filt_ival(self):
 

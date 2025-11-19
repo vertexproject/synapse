@@ -795,6 +795,8 @@ Queries = [
     'return(#foo:1234)',
     '[ +#foo:var.prec=2020 ]',
     '[ +#foo:var.$var=2020 ]',
+    '[test:str=foo +#baz?=(null)]',
+    '$ts="" [test:str=foo +?#bar?=$ts]',
 ]
 
 # Generated with print_parse_list below
@@ -1490,6 +1492,8 @@ _ParseResults = [
     'Query: [Return: [TagPropValue: [TagProp: [TagName: [Const: foo], Const: 1234]]]]',
     'Query: [EditTagPropVirtSet: [TagProp: [TagName: [Const: foo], Const: var], VirtProps: [Const: prec], Const: =, Const: 2020]]',
     'Query: [EditTagPropVirtSet: [TagProp: [TagName: [Const: foo], Const: var], VirtProps: [VarValue: [Const: var]], Const: =, Const: 2020]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditTagAdd: [TagName: [Const: baz], Const: ?=, DollarExpr: [Const: None]]]',
+    'Query: [SetVarOper: [Const: ts, Const: ], EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditTagAdd: [TagName: [Const: bar], Const: ?=, VarValue: [Const: ts]]]'
 ]
 
 class GrammarTest(s_t_utils.SynTest):

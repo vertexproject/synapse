@@ -798,6 +798,89 @@ stixingest = {
                 return($node)
             ''',
         },
+        'ipv4-addr': {
+            'storm': '''
+                [inet:ip?=$object.value]
+                return($node)
+            '''
+        },
+        'ipv6-addr': {
+            'storm': '''
+                [inet:ip?=$object.value]
+                return($node)
+            '''
+        },
+        'location': {
+            'storm': '''
+                $geodict = ({'id': $object.id, '$try': true, '$props': {'desc': $object.desc}})
+
+                // Prefer adding latlong if available
+                if ($object.longitude != null and $object.latitude != null) {
+                    $geodict.latlong = ([$object.latitude, $object.longitude])
+                    if $object.precision {
+                        // Precision is a float in meters
+                        $geodict.radius = `{$object.precision} m`
+                    }
+                }
+
+                if $object.name {
+                    $geodict.name = $object.name
+                }
+
+                if $object.street_address {
+                    $geodict.address = $object.street_address
+                }
+
+                if $object.country {
+                    ($ok, $iso) = $lib.trycast(iso:3166:alpha2, $object.country)
+                    if $ok {
+                        $geodict.loc = $iso
+                    }
+                }
+
+                [geo:place ?= $geodict]
+                return ($node)
+            '''
+        },
+        'file': {
+            'storm': '''
+                $hashes = $object.hashes
+                if $hashes {
+                    if $hashes."SHA-256" {
+                        [ file:bytes?=({'sha256': $hashes."SHA-256"}) ]
+                    } elif $hashes."SHA-512" {
+                        [ file:bytes?=({'sha512': $hashes."SHA-512"}) ]
+                    } elif $hashes."SHA-1" {
+                        [ file:bytes?=({'sha1': $hashes."SHA-1"}) ]
+                    } elif $hashes.MD5 {
+                        [ file:bytes?=({'md5': $hashes.MD5}) ]
+                    } else {
+                        return()
+                    }
+
+                    [ :md5 ?= $hashes."MD5"
+                      :sha1 ?= $hashes."SHA-1"
+                      :sha256 ?= $hashes."SHA-256"
+                      :sha512 ?= $hashes."SHA-512"
+                      :name ?= $object.name
+                      :size ?= $object.size ]
+
+                    return($node)
+                }
+            '''
+        },
+        'url': {
+            'storm': '''
+                [inet:url?=$object.value]
+                return($node)
+            '''
+        },
+        'domain-name': {
+            'storm': '''
+                [inet:fqdn?=$object.value]
+                return($node)
+            '''
+        }
     },
     'relationships': (
 

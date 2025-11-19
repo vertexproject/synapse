@@ -450,6 +450,7 @@ class RiskModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 risk:mitigation=*
                     :name="  FooBar  "
+                    :names = (Foo, Bar)
                     :id="  IDa123  "
                     :type=foo.bar
                     :desc=BazFaz
@@ -458,6 +459,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     +(addresses)> {[ risk:vuln=* meta:technique=* ]}
             ]''')
             self.eq('foobar', nodes[0].get('name'))
+            self.eq(('bar', 'foo'), nodes[0].get('names'))
             self.eq('BazFaz', nodes[0].get('desc'))
             self.eq('vertex', nodes[0].get('reporter:name'))
             self.eq('foo.bar.', nodes[0].get('type'))
