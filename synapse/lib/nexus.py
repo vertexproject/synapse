@@ -371,14 +371,13 @@ class NexsRoot(s_base.Base):
 
             # Keep a reference to the shielded task to ensure it isn't GC'd
             self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
-            task = asyncio.shield(self.applytask)
 
         except BaseException:
             self.cell.nexslock.release()
             raise
 
         if wait:
-            return await task
+            return await asyncio.shield(self.applytask)
 
     async def index(self):
         if self.donexslog:
