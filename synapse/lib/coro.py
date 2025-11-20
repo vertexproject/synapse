@@ -292,6 +292,8 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
         coro = executor(execspawn)
 
         retn = await s_common.wait_for(coro, timeout=timeout)
+        proc.terminate()
+
         if isinstance(retn, Exception):
             raise retn
 
