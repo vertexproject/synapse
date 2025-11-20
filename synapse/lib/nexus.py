@@ -379,35 +379,6 @@ class NexsRoot(s_base.Base):
         if wait:
             return await asyncio.shield(self.applytask)
 
-    async def index(self):
-        if self.donexslog:
-            return self.nexslog.index()
-        else:
-            return self.nexshot.get('nexs:indx')
-
-    async def cull(self, offs):
-        return await self.nexslog.cull(offs)
-
-    async def rotate(self):
-        return await self.nexslog.rotate()
-
-    async def waitOffs(self, offs, timeout=None):
-        return await self.nexslog.waitForOffset(offs, timeout)
-
-    async def setindex(self, indx):
-
-        nexsindx = await self.index()
-        if indx < nexsindx:
-            logger.error(f'setindex ({indx}) is less than current index ({nexsindx})')
-            return False
-
-        if self.donexslog:
-            self.nexslog.setIndex(indx)
-        else:
-            self.nexshot.set('nexs:indx', indx)
-
-        return True
-
     async def _eat(self, item, indx=None):
 
         try:
@@ -446,6 +417,35 @@ class NexsRoot(s_base.Base):
             return await func(nexus, *args, nexsitem=(indx, mesg), **kwargs)
 
         return await func(nexus, *args, **kwargs)
+
+    async def index(self):
+        if self.donexslog:
+            return self.nexslog.index()
+        else:
+            return self.nexshot.get('nexs:indx')
+
+    async def cull(self, offs):
+        return await self.nexslog.cull(offs)
+
+    async def rotate(self):
+        return await self.nexslog.rotate()
+
+    async def waitOffs(self, offs, timeout=None):
+        return await self.nexslog.waitForOffset(offs, timeout)
+
+    async def setindex(self, indx):
+
+        nexsindx = await self.index()
+        if indx < nexsindx:
+            logger.error(f'setindex ({indx}) is less than current index ({nexsindx})')
+            return False
+
+        if self.donexslog:
+            self.nexslog.setIndex(indx)
+        else:
+            self.nexshot.set('nexs:indx', indx)
+
+        return True
 
     async def iter(self, offs: int, tellready=False, wait=True) -> AsyncIterator[Any]:
         '''
