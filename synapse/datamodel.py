@@ -89,7 +89,6 @@ class Prop:
         self.full = '%s:%s' % (form.name, name)
         self.isext = name.startswith('_')
         self.isrunt = form.isrunt
-        self.compoffs = form.type.getCompOffs(self.name)
 
         self.setperm = ('node', 'prop', 'set', form.name, self.name)
         self.delperm = ('node', 'prop', 'del', form.name, self.name)
@@ -192,12 +191,6 @@ class Prop:
                 raise
             except Exception:
                 logger.exception('ondel() error for %s' % (self.full,))
-
-    def getCompOffs(self):
-        '''
-        Return the offset of this field within the compound primary prop or None.
-        '''
-        return self.compoffs
 
     def pack(self):
         info = {
@@ -984,7 +977,7 @@ class Model:
         # load all the types in order...
         for _, mdef in mods:
             for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
-                self.addType(typename, basename, typeopts, typeinfo, skipinit=True, checks=False)
+                self.addType(typename, basename, typeopts, typeinfo, skipinit=True)
 
         # finish initializing types
         for name, tobj in self.types.items():
@@ -1054,9 +1047,6 @@ class Model:
         # now we can check the forms display settings...
         for form in self.forms.values():
             self._checkFormDisplay(form)
-
-        for _type in self.types.values():
-            self._checkTypeDef(_type)
 
     def _getFormsMaybeIface(self, name):
 
@@ -1137,7 +1127,7 @@ class Model:
             raise s_exc.NoSuchForm.init(name)
         return form
 
-    def addType(self, typename, basename, typeopts, typeinfo, skipinit=False, checks=True):
+    def addType(self, typename, basename, typeopts, typeinfo, skipinit=False):
         assert typename not in self.types, f'{typename} type already present in model'
 
         base = self.types.get(basename)
@@ -1150,9 +1140,6 @@ class Model:
             mesg = f'The type {typename} is based on a deprecated type {newtype.name} which ' \
                    f'will be removed in 4.0.0.'
             logger.warning(mesg)
-
-        if checks:
-            self._checkTypeDef(newtype)
 
         self.types[typename] = newtype
 
@@ -1190,34 +1177,6 @@ class Model:
             virts.append((name, types.get(name), info))
 
         return tuple(virts)
-
-    def _checkTypeDef(self, typ):
-        if 'comp' in typ.info.get('bases', ()):
-            for fname, ftypename in typ.opts.get('fields', ()):
-                extra = {'synapse': {'type': typ.name, 'field': fname}}
-
-                if isinstance(ftypename, (list, tuple)):
-                    ftypename = ftypename[0]
-
-                try:
-                    ftype = typ.tcache[fname]
-                except s_exc.BadTypeDef:
-                    mesg = f'The {typ.name} field {fname} is declared as a type ({ftypename}) that does not exist.'
-                    logger.warning(mesg, extra=extra)
-                    continue
-
-                # We're only interested in extended model comp types
-                if not typ.name.startswith('_'):
-                    continue
-
-                if ftype.ismutable:
-                    mesg = f'Comp types with mutable fields ({typ.name}:{fname}) are deprecated and will be removed in 3.0.0.'
-                    logger.warning(mesg, extra=extra)
-
-                if ftype.deprecated:
-                    mesg = f'The type {typ.name} field {fname} uses a deprecated type {ftype.name}.'
-                    extra['synapse']['field:type'] = ftype.name
-                    logger.warning(mesg, extra=extra)
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
         assert formname not in self.forms, f'{formname} form already present in model'
