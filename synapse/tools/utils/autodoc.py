@@ -538,7 +538,7 @@ async def processStormCmds(rst, pkgname, commands):
     '''
     rst.addHead('Storm Commands', lvl=2)
 
-    rst.addLines(f'This package implements the following Storm Commands.\n')
+    rst.addLines('This package implements the following Storm Commands.\n')
 
     commands = sorted(commands, key=lambda x: x.get('name'))
 
@@ -573,7 +573,7 @@ async def processStormCmds(rst, pkgname, commands):
 
         if (perms := cdef.get('perms')) is not None:
 
-            perms = [' '.join(perm) for perm in perms]
+            perms = ['.'.join(perm) for perm in perms]
             perms.sort()
 
             line = 'The command is accessible to users with one or more of the following permissions:\n'

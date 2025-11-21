@@ -130,6 +130,9 @@ commands:
           host: vertex.link
         - path: /v1/test/three
           desc: endpoint three
+      perms:
+        - [ power-ups, testpkg, user ]
+        - [ power-ups, testpkg, admin ]
 
     - name: testpkg.baz
       descr: |

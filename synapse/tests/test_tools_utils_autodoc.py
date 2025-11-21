@@ -202,6 +202,27 @@ class TestAutoDoc(s_t_utils.SynTest):
             await s_autodoc.processStormModules(rst, 'foo', [])
             self.eq('\nStorm Modules\n=============\n\nThis package does not export any Storm APIs.\n', rst.getRstText())
 
+            pkgdef = s_common.yamlload(ymlpath)
+            await s_autodoc.processStormCmds(rst, 'foo', pkgdef.get('commands'))
+            rsttext = rst.getRstText()
+
+            self.isin('    Endpoints:', rsttext)
+            self.isin('      /v1/test/one\n', rsttext)
+            self.isin('      /v1/test/two\n', rsttext)
+            self.isin('      /v1/test/three              : endpoint three', rsttext)
+
+            self.isin('    Inputs:\n', rsttext)
+            self.isin('      test:int                    : Some integer input\n', rsttext)
+            self.isin('      test:str                    : test:str nodes\n', rsttext)
+
+            exp = textwrap.dedent('''\
+                The command is accessible to users with one or more of the following permissions:
+
+                - ``power-ups.testpkg.admin``
+                - ``power-ups.testpkg.user``
+            '''.rstrip())
+            self.isin(exp, rsttext)
+
     async def test_tools_autodoc_stormtypes(self):
         with self.getTestDir() as path:
 
