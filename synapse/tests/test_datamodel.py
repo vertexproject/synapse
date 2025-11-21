@@ -282,7 +282,7 @@ class DataModelTest(s_t_utils.SynTest):
 
     async def test_model_invalid_comp_types(self):
 
-        mutmesg = 'Comp types with mutable fields (_bad:comp:hehe) are deprecated and will be removed in 3.0.0.'
+        mutmesg = 'Comp types with mutable fields (_bad:comp:hehe) are not allowed'
 
         # Comp type with a direct data field
         badmodel = ('badmodel', {
@@ -300,9 +300,9 @@ class DataModelTest(s_t_utils.SynTest):
             ),
         })
 
-        with self.getLoggerStream('synapse.datamodel') as stream:
+        with self.raises(s_exc.BadTypeDef) as cm:
             s_datamodel.Model().addDataModels([badmodel])
-        stream.expect(mutmesg)
+        self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Comp type with an indirect data field (and out of order definitions)
         badmodel = ('badmodel', {
@@ -321,9 +321,9 @@ class DataModelTest(s_t_utils.SynTest):
             ),
         })
 
-        with self.getLoggerStream('synapse.datamodel') as stream:
+        with self.raises(s_exc.BadTypeDef) as cm:
             s_datamodel.Model().addDataModels([badmodel])
-        stream.expect(mutmesg)
+        self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Comp type with double indirect data field
         badmodel = ('badmodel', {
@@ -343,9 +343,9 @@ class DataModelTest(s_t_utils.SynTest):
             ),
         })
 
-        with self.getLoggerStream('synapse.datamodel') as stream:
+        with self.raises(s_exc.BadTypeDef) as cm:
             s_datamodel.Model().addDataModels([badmodel])
-        stream.expect(mutmesg)
+        self.isin(mutmesg, cm.exception.get('mesg'))
 
         # API direct
         typeopts = {
@@ -355,9 +355,9 @@ class DataModelTest(s_t_utils.SynTest):
             )
         }
 
-        with self.getLoggerStream('synapse.datamodel') as stream:
+        with self.raises(s_exc.BadTypeDef) as cm:
             s_datamodel.Model().addType('_bad:comp', 'comp', typeopts, {})
-        stream.expect(mutmesg)
+        self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Non-existent types
         typeopts = {
@@ -367,9 +367,9 @@ class DataModelTest(s_t_utils.SynTest):
             )
         }
 
-        with self.getLoggerStream('synapse.datamodel') as stream:
+        with self.raises(s_exc.BadTypeDef) as cm:
             s_datamodel.Model().addType('_bad:comp', 'comp', typeopts, {})
-        stream.expect('The _bad:comp field hehe is declared as a type (newp) that does not exist.')
+        self.isin('Type newp is not present in datamodel.', cm.exception.get('mesg'))
 
         # deprecated types
         badmodel = ('badmodel', {
@@ -388,29 +388,9 @@ class DataModelTest(s_t_utils.SynTest):
             ),
         })
 
-        with self.getLoggerStream('synapse.datamodel') as stream:
+        with self.getLoggerStream('synapse.lib.types') as stream:
             s_datamodel.Model().addDataModels([badmodel])
-        stream.expect('The type _bad:comp field hehe uses a deprecated type depr:type.')
-
-        # Comp type not extended does not gen mutable warning
-        badmodel = ('badmodel', {
-            'types': (
-                ('bad:comp', ('comp', {'fields': (
-                    ('hehe', 'data'),
-                    ('haha', 'int'))
-                }), {'doc': 'A fake comp type with a data field.'}),
-            ),
-            'forms': (
-                ('bad:comp', {}, (
-                    ('hehe', ('data', {}), {}),
-                    ('haha', ('int', {}), {}),
-                )),
-            ),
-        })
-
-        with self.getLoggerStream('synapse.datamodel') as stream:
-            s_datamodel.Model().addDataModels([badmodel])
-        stream.noexpect('Comp types with mutable fields')
+        stream.expect('The type _bad:comp field hehe uses a deprecated type depr:type which will be removed in 4.0.0.')
 
         # Comp type not extended does not gen deprecated warning
         badmodel = ('badmodel', {
@@ -429,7 +409,7 @@ class DataModelTest(s_t_utils.SynTest):
             ),
         })
 
-        with self.getLoggerStream('synapse.datamodel') as stream:
+        with self.getLoggerStream('synapse.lib.types') as stream:
             s_datamodel.Model().addDataModels([badmodel])
         stream.noexpect('uses a deprecated type')
 
