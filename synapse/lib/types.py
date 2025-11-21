@@ -732,7 +732,7 @@ class Comp(Type):
                 raise s_exc.BadTypeDef(valu=ftypename, mesg=f'Type {ftypename} is not present in datamodel.')
 
             if ftype.ismutable:
-                mesg = f'Comp types with mutable fields ({self.name}:{ftypename}) are not allowed.'
+                mesg = f'Comp types with mutable fields ({self.name}:{fname}) are not allowed.'
                 raise s_exc.BadTypeDef(valu=ftypename, mesg=mesg)
 
             elif isinstance(ftype, Comp):

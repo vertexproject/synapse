@@ -282,6 +282,8 @@ class DataModelTest(s_t_utils.SynTest):
 
     async def test_model_invalid_comp_types(self):
 
+        mutmesg = 'Comp types with mutable fields (_bad:comp:hehe) are not allowed'
+
         # Comp type with a direct data field
         badmodel = ('badmodel', {
             'types': (
@@ -300,7 +302,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.raises(s_exc.BadTypeDef) as cm:
             s_datamodel.Model().addDataModels([badmodel])
-        self.isin('Comp types with mutable fields (_bad:comp:data) are not allowed.', cm.exception.get('mesg'))
+        self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Comp type with an indirect data field (and out of order definitions)
         badmodel = ('badmodel', {
@@ -321,7 +323,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.raises(s_exc.BadTypeDef) as cm:
             s_datamodel.Model().addDataModels([badmodel])
-        self.isin('Comp types with mutable fields (_bad:comp:bad:data) are not allowed.', cm.exception.get('mesg'))
+        self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Comp type with double indirect data field
         badmodel = ('badmodel', {
@@ -343,7 +345,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.raises(s_exc.BadTypeDef) as cm:
             s_datamodel.Model().addDataModels([badmodel])
-        self.isin('Comp types with mutable fields (_bad:comp:bad:data01) are not allowed.', cm.exception.get('mesg'))
+        self.isin(mutmesg, cm.exception.get('mesg'))
 
         # API direct
         typeopts = {
@@ -355,7 +357,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.raises(s_exc.BadTypeDef) as cm:
             s_datamodel.Model().addType('_bad:comp', 'comp', typeopts, {})
-        self.isin('Comp types with mutable fields (_bad:comp:data) are not allowed.', cm.exception.get('mesg'))
+        self.isin(mutmesg, cm.exception.get('mesg'))
 
         # Non-existent types
         typeopts = {
