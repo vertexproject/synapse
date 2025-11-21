@@ -641,13 +641,22 @@ class Node(NodeBase):
         if name.startswith('#'):
             return self.getTag(name[1:], defval=defv)
 
-        elif name.startswith('.'):
-            virts = name.split('.')[1:]
-            if (mtyp := self.view.core.model.metatypes.get(virts[0])) is not None:
-                return self.getMeta(virts[0])
+        elif '.' in name:
+            parts = name.split('.')
+            name = parts[0]
+            vnames = parts[1:]
 
-            virtgetr = self.form.type.getVirtGetr(virts)
-            return self.valu(virts=virtgetr)
+            if not name:
+                if (mtyp := self.view.core.model.metatypes.get(vnames[0])) is not None:
+                    return self.getMeta(vnames[0])
+
+                virtgetr = self.form.type.getVirtGetr(vnames)
+                return self.valu(virts=virtgetr)
+            else:
+                if (prop := self.form.props.get(name)) is None:
+                    raise s_exc.NoSuchProp.init(name)
+
+                virts = prop.type.getVirtGetr(vnames)
 
         for sode in self.sodes:
             if sode.get('antivalu') is not None:
