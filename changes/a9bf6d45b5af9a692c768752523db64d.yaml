@@ -1,5 +1,5 @@
 ---
-desc: Updated autodoc to improve Storm package command documentation.
+desc: Updated autodoc functionality to improve command help in Storm package documentation.
 desc:literal: false
 prs: []
 type: feat
