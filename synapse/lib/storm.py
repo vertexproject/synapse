@@ -2412,8 +2412,7 @@ class Cmd:
     def getDescr(self):
         return self.__class__.__doc__
 
-    def getArgParser(self):
-        cdef = getattr(self, 'cdef', None)
+    def getArgParser(self, cdef=None):
         return Parser(prog=self.getName(), descr=self.getDescr(), model=self.runt.model, cdef=cdef)
 
     async def setArgv(self, argv):
@@ -2502,7 +2501,7 @@ class PureCmd(Cmd):
 
     def getArgParser(self):
 
-        pars = Cmd.getArgParser(self)
+        pars = Cmd.getArgParser(self, cdef=self.cdef)
         for name, opts in self.cdef.get('cmdargs', ()):
             pars.add_argument(name, **opts)
 
