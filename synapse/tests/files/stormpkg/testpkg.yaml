@@ -113,13 +113,10 @@ commands:
     - name: testpkgcmd
       descr: |
         testpkgcmd does some stuff.
-      forms:
-        input:
-          - test:str
-        output:
-          - test:int
-        nodedata:
-          - [testnd, inet:ipv4]
+      cmdinputs:
+        - form: test:str
+        - form: test:int
+          help: Some integer input
       cmdargs:
         - - foo
           - help: Help on foo opt
@@ -133,6 +130,9 @@ commands:
           host: vertex.link
         - path: /v1/test/three
           desc: endpoint three
+      perms:
+        - [ power-ups, testpkg, user ]
+        - [ power-ups, testpkg, admin ]
 
     - name: testpkg.baz
       descr: |
