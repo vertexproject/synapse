@@ -29,5 +29,4 @@ docker tag vertexproject/synapse:${CURRENT_TAG} vertexproject/synapse:${NEW_TAG}
 docker tag vertexproject/synapse-aha:${CURRENT_TAG} vertexproject/synapse-aha:${NEW_TAG}
 docker tag vertexproject/synapse-axon:${CURRENT_TAG} vertexproject/synapse-axon:${NEW_TAG}
 docker tag vertexproject/synapse-cortex:${CURRENT_TAG} vertexproject/synapse-cortex:${NEW_TAG}
-docker tag vertexproject/synapse-stemcell:${CURRENT_TAG} vertexproject/synapse-stemcell:${NEW_TAG}
 docker tag vertexproject/synapse-jsonstor:${CURRENT_TAG} vertexproject/synapse-jsonstor:${NEW_TAG}
