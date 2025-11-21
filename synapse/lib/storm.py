@@ -2413,7 +2413,7 @@ class Cmd:
         return self.__class__.__doc__
 
     def getArgParser(self, cdef=None):
-        return Parser(prog=self.getName(), descr=self.getDescr(), model=self.runt.model, cdef=self.cdef)
+        return Parser(prog=self.getName(), descr=self.getDescr(), model=self.runt.model, cdef=cdef)
 
     async def setArgv(self, argv):
 
