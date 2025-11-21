@@ -121,6 +121,7 @@ class EntityModelTest(s_t_utils.SynTest):
                 [ meta:technique=*
                     :id=Foo
                     :name=Woot
+                    :names=(Foo, Bar)
                     :type=lol.woot
                     :desc=Hehe
                     :tag=woot.woot
@@ -133,6 +134,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('reporter'))
             self.eq('woot', nodes[0].get('name'))
+            self.eq(('bar', 'foo'), nodes[0].get('names'))
             self.eq('Hehe', nodes[0].get('desc'))
             self.eq('lol.woot.', nodes[0].get('type'))
             self.eq('woot.woot', nodes[0].get('tag'))
@@ -187,12 +189,18 @@ class EntityModelTest(s_t_utils.SynTest):
                 entity:relationship=*
                     :type=tasks
                     :period=(2022, ?)
-                    :reporter={[ ou:org=({"name": "China Ministry of State Security (MSS)"}) ]}
+                    :reporter={[ ou:org=({"name": "vertex"}) ]}
+                    :reporter:name=vertex
+                    :source={[ ou:org=({"name": "China Ministry of State Security (MSS)"}) ]}
                     :target={[ risk:threat=({"name": "APT34", "reporter:name": "vertex"}) ]}
             ]''')
 
             self.len(1, nodes)
             self.eq(nodes[0].get('type'), 'tasks.')
             self.eq(nodes[0].get('period'), (1640995200000000, 9223372036854775807, 0xffffffffffffffff))
-            self.eq(nodes[0].get('reporter'), ('ou:org', '3332a704ed21dc3274d5731acc54a0ee'))
+            self.eq(nodes[0].get('source'), ('ou:org', '3332a704ed21dc3274d5731acc54a0ee'))
             self.eq(nodes[0].get('target'), ('risk:threat', 'c0b2aeb72e61e692bdee1554bf931819'))
+
+            self.nn(nodes[0].get('reporter'))
+            self.eq(nodes[0].get('reporter:name'), 'vertex')
+            self.len(1, await core.nodes('entity:relationship :reporter -> ou:org'))

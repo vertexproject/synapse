@@ -381,7 +381,7 @@ class StormLibStixTest(s_test.SynTest):
             self.stormIsInWarn('Error during STIX import callback for threat-actor:', msgs)
             self.stormIsInWarn("Error during STIX import callback for (None, 'indicates', None): StormRaise", msgs)
 
-            # NOTE: we mututate the APT1 stix here...
+            # NOTE: we mutate the APT1 stix here...
             stix['objects'].append({
                 'type': 'relationship',
                 'id': 'relationship--6598bf44-1c10-4218-af9f-aaaaaaaaaaaa',
@@ -426,6 +426,57 @@ class StormLibStixTest(s_test.SynTest):
 
             msgs = await core.stormlist('yield $lib.stix.import.ingest(({"objects": 3}), ({}))')
             self.stormIsInErr('data.objects must be array', msgs)
+
+            stix = s_json.jsload(self.getTestFilePath('stix_import', 'scos.json'))
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            q = '''init { $data = ({"id": $stix.id, "type": $stix.type, "objects": $stix.objects}) }
+            yield $lib.stix.import.ingest($data)'''
+            msgs = await core.stormlist(q, opts={'view': viewiden, 'vars': {'stix': stix}})
+
+            opts = {'view': viewiden}
+            self.len(1, await core.nodes('file:bytes:sha256=71935c8b268ebbd1dfee73198e1767a2e02c85b1780c6a7322445520484ebba3', opts=opts))
+
+            files = await core.nodes('file:bytes', opts=opts)
+            self.len(2, files)
+
+            file = await core.nodes('file:bytes:sha1=669a1e53b9dd9df3474300d3d959bb85bad75945', opts=opts)
+            self.len(1, file)
+            self.eq(file[0].get('md5'), 'fa818a259cbed7ce8bc2a22d35a464fc')
+            self.eq(file[0].get('sha512'), '3069af3e0a19d4c47ebcfe37327b059d1862b60a780a34b9bcd2c42b304efbe6d3ed321cbd1ffbdeabc83537f0cb8b4adeeeaaa262bb745770a5ca671519c52d')
+            self.eq(file[0].get('name'), 'license')
+            self.eq(file[0].get('size'), 11358)
+
+            ipv4 = await core.nodes('inet:ip +:version=4', opts=opts)
+            self.len(1, ipv4)
+            self.eq(ipv4[0].repr(), '10.147.20.97')
+
+            ipv6 = await core.nodes('inet:ip +:version=6', opts=opts)
+            self.len(1, ipv6)
+            self.eq(ipv6[0].repr(), 'fe80::2421:75ff:feaa:37cb')
+
+            url = await core.nodes('inet:url', opts=opts)
+            self.len(1, url)
+            self.eq(url[0].repr(), 'https://foo.bar.baz.vertex.link/myurl.php')
+
+            gloc = await core.nodes('geo:place', opts=opts)
+            self.len(3, gloc)
+
+            place = await core.nodes('geo:place:loc=cn', opts=opts)
+            self.len(1, place)
+            self.eq(place[0].get('name'), 'china')
+
+            addr = await core.nodes('geo:place:address', opts=opts)
+            self.len(1, addr)
+            self.eq(addr[0].get('address'), '1234 jefferson drive')
+            self.eq(addr[0].get('desc'), "It's a magical place!")
+
+            latlong = await core.nodes('geo:place:latlong', opts=opts)
+            self.len(1, latlong)
+
+            fqdn = await core.nodes('inet:fqdn', opts=opts)
+            self.len(7, fqdn)
+            self.isin('google.com', [x.repr() for x in fqdn])
 
     async def test_stix_export_custom(self):
 

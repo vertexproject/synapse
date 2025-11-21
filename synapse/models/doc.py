@@ -30,7 +30,7 @@ modeldefs = (
                     ('contributors', ('array', {'type': 'entity:actor'}), {
                         'doc': 'An array of contacts which contributed to the {title}.'}),
 
-                    ('version', ('it:semver', {}), {
+                    ('version', ('it:version', {}), {
                         'doc': 'The version of the {title}.'}),
 
                     ('supersedes', ('array', {'type': '$self'}), {

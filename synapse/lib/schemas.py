@@ -717,11 +717,6 @@ _reqValidPkgdefSchema = {
             },
             'required': ['cert', 'sign'],
         },
-        # TODO: Remove me after Synapse 3.0.0.
-        'synapse_minversion': {
-            'type': ['array', 'null'],
-            'items': {'type': 'number'}
-        },
         'synapse_version': {
             'type': 'string',
         },
@@ -756,7 +751,6 @@ _reqValidPkgdefSchema = {
         'inits': {
             'type': 'object',
             'properties': {
-                'key': {'type': 'string'},
                 'versions': {
                     'type': 'array',
                     'items': {'$ref': '#/definitions/initdef'},
@@ -764,7 +758,7 @@ _reqValidPkgdefSchema = {
                 },
             },
             'additionalProperties': True,
-            'required': ['key', 'versions'],
+            'required': ['versions'],
         },
         'author': {
             'type': 'object',

@@ -89,7 +89,6 @@ class Prop:
         self.full = '%s:%s' % (form.name, name)
         self.isext = name.startswith('_')
         self.isrunt = form.isrunt
-        self.compoffs = form.type.getCompOffs(self.name)
 
         self.setperm = ('node', 'prop', 'set', form.name, self.name)
         self.delperm = ('node', 'prop', 'del', form.name, self.name)
@@ -192,12 +191,6 @@ class Prop:
                 raise
             except Exception:
                 logger.exception('ondel() error for %s' % (self.full,))
-
-    def getCompOffs(self):
-        '''
-        Return the offset of this field within the compound primary prop or None.
-        '''
-        return self.compoffs
 
     def pack(self):
         info = {
@@ -1136,6 +1129,7 @@ class Model:
 
     def addType(self, typename, basename, typeopts, typeinfo, skipinit=False):
         assert typename not in self.types, f'{typename} type already present in model'
+
         base = self.types.get(basename)
         if base is None:
             raise s_exc.NoSuchType(name=basename)

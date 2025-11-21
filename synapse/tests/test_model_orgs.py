@@ -443,6 +443,20 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:candidate :method -> ou:candidate:method:taxonomy'))
             self.len(1, await core.nodes('ou:candidate :attachments -> file:attachment'))
 
+            nodes = await core.nodes('''
+                [ ou:candidate:referral=*
+                    :referrer={ entity:contact:name=visi | limit 1 }
+                    :candidate={ ou:candidate }
+                    :text="def a great candidate"
+                    :submitted=20241104
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('referrer'))
+            self.nn(nodes[0].get('candidate'))
+            self.eq(nodes[0].get('text'), 'def a great candidate')
+            self.eq(1730678400000000, nodes[0].get('submitted'))
+
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()
         guid1 = s_common.guid()

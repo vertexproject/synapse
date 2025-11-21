@@ -118,6 +118,9 @@ modeldefs = (
                 ('period', ('ival', {}), {
                     'prevnames': ('started', 'ended', 'duration'),
                     'doc': 'The period of time that the contact worked for the organization.'}),
+
+                ('desc', ('str', {}), {
+                    'doc': 'A description of the work done as part of the job.'}),
             )),
             ('edu:course', {}, (
 

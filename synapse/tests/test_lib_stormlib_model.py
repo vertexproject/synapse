@@ -87,6 +87,11 @@ class StormlibModelTest(s_test.SynTest):
             mesgs = await core.stormlist('$lib.print($lib.model.edge(risk:attack, used, risk:vuln))')
             self.stormIsInPrint("model:edge: (('entity:action', 'used', 'meta:usable'), {'doc':", mesgs)
 
+            self.false(await core.callStorm('return($lib.model.type(int).mutable)'))
+            self.false(await core.callStorm('return($lib.model.type(str).mutable)'))
+            self.true(await core.callStorm('return($lib.model.type(data).mutable)'))
+            self.true(await core.callStorm('return($lib.model.type(array).mutable)'))
+
     async def test_stormlib_model_depr(self):
 
         with self.getTestDir() as dirn:
