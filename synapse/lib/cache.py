@@ -1,7 +1,7 @@
 '''
 A few speed optimized (lockless) cache helpers.  Use carefully.
 '''
-import asyncio
+import inspect
 import weakref
 import functools
 import collections
@@ -40,7 +40,7 @@ class FixedCache:
     def __init__(self, callback, size=10000):
         self.size = size
         self.callback = callback
-        self.iscorocall = asyncio.iscoroutinefunction(self.callback)
+        self.iscorocall = inspect.iscoroutinefunction(self.callback)
 
         self.cache = {}
         self.fifo = collections.deque()
