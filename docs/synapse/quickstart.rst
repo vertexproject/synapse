@@ -13,11 +13,11 @@ you to deploy and test. Both versions include the **same key features,** includi
 architecture and functionality, our extensive data model, and the full capabilities of the Storm query
 language and libraries.
 
+Demo instances of Synapse Enterprise include Synapse's **web-based UI**, also known as **Optic.**
+
 Open-source versions of Synapse provide a **command-line interface** (the `Storm CLI`_) to interact with
 Synapse and its data. You can download :ref:`syn-open` from our Github repository or use :ref:`syn-quick` to
 easily load a basic instance of Synapse.
-
-Demo instances of Synapse Enterprise include Synapse's **web-based UI**, also known as **Optic.**
 
 - If you want to get started with Synapse as quickly as possible, then a :ref:`syn-demo` or :ref:`syn-quick`
   are right for you.
@@ -26,68 +26,23 @@ Demo instances of Synapse Enterprise include Synapse's **web-based UI**, also kn
 
 We'll explain each option in more detail below.
 
-.. _syn-quick:
-
-Synapse Quickstart
-==================
-
-**Synapse Quickstart** is a `Docker container`_ that includes everything you need to start using Synapse
-and the Storm CLI right away. Because Synapse Quickstart is self-contained, you can easily install and
-launch this basic Synapse instance on Linux, Windows, or MacOS.
-
-You can find the instructions to download and install Synapse Quickstart here_.
-
-**Synapse Quickstart** is best for:
-
-- Individual users.
-- Users who want to test Synapse without the need for a formal deployment.
-- Users who are most interested in learning about Synapse's data and analytical models and the Storm query
-  langauge (vs. deployment or development tasks).
-- Users who want to test or use Synapse with proprietary or sensitive data that must be hosted locally.
-
-Synapse Quickstart is **not** pre-loaded with any data.
-
-.. _syn-open:
-
-Open-Source Synapse
-===================
-
-The full open-source version of Synapse is available from our `Github repository`_. Instructions for
-deploying a test or production environment are available in the :ref:`deploymentguide`.
-
-**Open-source Synapse** is best for:
-
-- Users who want to work with or try out a full version of Synapse.
-- Supporting multiple users and / or networked users, including the (optional) ability to configure 
-  roles and permissions.
-- Developers who want to build on or integrate with Synapse.
-- Users who want to test or use Synapse with proprietary or sensitive data that must be hosted locally.
-
-Open-source Synapse is **not** pre-loaded with any data. However, some of Synapse's `Power-Ups`_ are
-available as open source and can help you automate adding data to Synapse:
-
-- `Synapse-MISP`_
-- `Synapse-MITRE-ATTACK`_
-- `Synapse-TOR`_
-
 .. _syn-demo:
 
 Synapse Demo Instance
 =====================
 
-Commercial Synapse (Synapse Enterprise) and our commercial demo instances include the web-based Synapse
-UI (Optic). **Demo instances** are **cloud-hosted,** so there is nothing for you configure or deploy to
-get started - all you need is a web browser (we recommend Chrome).
+Commercial Synapse (Synapse Enterprise) and our demo instances include the web-based Synapse UI (Optic).
+**Demo instances** are **cloud-hosted,** so there is nothing for you configure or deploy to get started -
+all you need is a web browser (we recommend Chrome).
 
 You can request a demo instance from our `web site`_.
 
 .. NOTE::
   
-  Synapse Enterprise can be deployed either on premises or in the cloud. Only the demo instances are
-  cloud-only.
+  Synapse Enterprise can be deployed either on premises or in the cloud. The demo instances are **cloud-only**.
 
 Demo instances provide access to all of Synapse's `Rapid Power-Ups`_, both open-source and commercial.
-Any Rapid Power-Up can be installed in your demo instance (although some Power-Ups may reqiure API keys
+Any Rapid Power-Up can be installed in your demo instance (although some Power-Ups may require API keys
 and / or paid subscriptions from the associated third-party).
 
 Demo instances are updated automatically each week with any new releases of Synapse and Optic. New or
@@ -114,6 +69,53 @@ A **demo instance** is best for:
   
   Because demo instances are cloud-based, they are **not suitable** for hosting any sensitive or
   proprietary data.
+
+.. _syn-quick:
+
+Synapse Quickstart
+==================
+
+**Synapse Quickstart** is a `Docker container`_ that includes everything you need to start using Synapse
+and the Storm CLI right away. Because Synapse Quickstart is self-contained, you can easily install and
+launch this basic Synapse instance on Linux, Windows, or MacOS.
+
+You can find the instructions to download and install Synapse Quickstart here_.
+
+**Synapse Quickstart** is best for:
+
+- Individual users.
+- Users who want to test Synapse without the need for a formal deployment.
+- Users who are most interested in learning about Synapse's data and analytical models and the Storm query
+  language (vs. deployment or development tasks).
+- Users who are not concerned with access to the Synapse UI (Optic) or UI-based features.
+- Users who want to test or use Synapse with proprietary or sensitive data that must be hosted locally.
+
+Synapse Quickstart is **not** pre-loaded with any data.
+
+.. _syn-open:
+
+Open-Source Synapse
+===================
+
+The full open-source version of Synapse is available from our `Github repository`_. Instructions for
+deploying a test or production environment are available in the :ref:`deploymentguide`.
+
+**Open-source Synapse** is best for:
+
+- Users who want to work with or try out a full version of Synapse.
+- Supporting multiple users and / or networked users, including the (optional) ability to configure 
+  roles and permissions.
+- Developers who want to build on or integrate with Synapse.
+- Users who are not concerned with access to the Synapse UI (Optic) or UI-based features.
+- Users who want to test or use Synapse with proprietary or sensitive data that must be hosted locally.
+
+Open-source Synapse is **not** pre-loaded with any data. However, some of Synapse's `Power-Ups`_ are
+available as open source and can help you automate adding data to Synapse:
+
+- `Synapse-MISP`_
+- `Synapse-MITRE-ATTACK`_
+- `Synapse-TOR`_
+
 
 
 .. _Index:              ../index.html
