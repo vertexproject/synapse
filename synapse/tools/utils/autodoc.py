@@ -12,7 +12,6 @@ import synapse.telepath as s_telepath
 import synapse.lib.cmd as s_cmd
 import synapse.lib.json as s_json
 import synapse.lib.storm as s_storm
-import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 import synapse.lib.autodoc as s_autodoc
 import synapse.lib.dyndeps as s_dyndeps
@@ -539,7 +538,7 @@ async def processStormCmds(rst, pkgname, commands):
     '''
     rst.addHead('Storm Commands', lvl=2)
 
-    rst.addLines(f'This package implements the following Storm Commands.\n')
+    rst.addLines('This package implements the following Storm Commands.\n')
 
     commands = sorted(commands, key=lambda x: x.get('name'))
 
@@ -557,7 +556,7 @@ async def processStormCmds(rst, pkgname, commands):
         lines = ['::\n']
 
         # Generate help from args
-        pars = s_storm.Parser(prog=cname, descr=cdesc)
+        pars = s_storm.Parser(prog=cname, descr=cdesc, cdef=cdef)
         if cargs:
             for (argname, arginfo) in cargs:
                 pars.add_argument(argname, **arginfo)
@@ -572,30 +571,15 @@ async def processStormCmds(rst, pkgname, commands):
 
         lines.append('\n')
 
-        forms = cdef.get('forms', {})
-        iforms = forms.get('input')
-        oforms = forms.get('output')
-        nodedata = forms.get('nodedata')
+        if (perms := cdef.get('perms')) is not None:
 
-        if iforms:
-            line = 'The command is aware of how to automatically handle the following forms as input nodes:\n'
-            lines.append(line)
-            for form in iforms:
-                lines.append(f'- ``{form}``')
-            lines.append('\n')
+            perms = ['.'.join(perm) for perm in perms]
+            perms.sort()
 
-        if oforms:
-            line = 'The command may make the following types of nodes in the graph as a result of its execution:\n'
+            line = 'The command is accessible to users with one or more of the following permissions:\n'
             lines.append(line)
-            for form in oforms:
-                lines.append(f'- ``{form}``')
-            lines.append('\n')
-
-        if nodedata:
-            line = 'The command may add nodedata with the following keys to the corresponding forms:\n'
-            lines.append(line)
-            for key, form in nodedata:
-                lines.append(f'- ``{key}`` on ``{form}``')
+            for perm in perms:
+                lines.append(f'- ``{perm}``')
             lines.append('\n')
 
         rst.addLines(*lines)
