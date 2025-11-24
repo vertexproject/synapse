@@ -580,7 +580,7 @@ jobs:
     docker:
       - image: cimg/python:3.14
         environment:
-          PYVERS: 3.13
+          PYVERS: 3.14
           RUN_SYNTAX: 1
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
