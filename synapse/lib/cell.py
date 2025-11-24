@@ -973,7 +973,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'aha:registry': {
             'description': 'The telepath URL of the aha service registry.',
             'type': ['string', 'array'],
-            'items': {'type': 'string'},
+            'items': {
+                'type': 'string',
+                'pattern': '^ssl://.+$'
+            },
+            'pattern': '^ssl://.+$'
         },
         'aha:provision': {
             'description': 'The telepath URL of the aha provisioning service.',
@@ -1599,15 +1603,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         ahaurls = self.conf.get('aha:registry')
         if ahaurls is not None:
-
-            if isinstance(ahaurls, str):
-                ahaurls = (ahaurls,)
-            elif isinstance(ahaurls, list):
-                ahaurls = tuple(ahaurls)
-
-            for ahaurl in ahaurls:
-                if ahaurl.startswith('tcp://'):
-                    raise s_exc.BadConfValu(mesg='aha:registry: tcp:// client values.')
 
             await s_telepath.addAhaUrl(ahaurls)
             if self.ahaclient is not None:

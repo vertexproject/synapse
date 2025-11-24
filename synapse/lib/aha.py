@@ -496,6 +496,7 @@ class AhaCell(s_cell.Cell):
         'provision:listen': {
             'description': 'A telepath URL for the AHA provisioning listener.',
             'type': ['string', 'null'],
+            'pattern': '^ssl://.+$'
         },
     }
 
@@ -821,6 +822,8 @@ class AhaCell(s_cell.Cell):
 
         lisn = self.conf.get('dmon:listen', s_common.novalu)
         if lisn is not s_common.novalu:
+            if not lisn.startswith('ssl://'):
+                raise s_exc.BadConfValu(mesg='dmon:listen: AHA bind URLs must begin with ssl://')
             return lisn
 
         network = self.conf.req('aha:network')

@@ -367,7 +367,25 @@ class AhaTest(s_test.SynTest):
                     s_common.yamlsave({'aha:registry': 'tcp://newp'}, dirn, 'cell.mods.yaml')
                     async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
                         pass
-                self.isin('tcp:// client values', cm.exception.get('mesg'))
+                self.isin('Invalid config for aha:registry', cm.exception.get('mesg'))
+
+                with self.raises(s_exc.BadConfValu) as cm:
+                    s_common.yamlsave({'aha:registry': ['ssl://okay.com', 'tcp://newp']}, dirn, 'cell.mods.yaml')
+                    async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
+                        pass
+                self.isin('Invalid config for aha:registry', cm.exception.get('mesg'))
+
+                with self.raises(s_exc.BadConfValu) as cm:
+                    s_common.yamlsave({'dmon:listen': 'tcp://newp'}, dirn, 'cell.mods.yaml')
+                    async with self.getTestCell(s_aha.AhaCell, conf=conf, dirn=dirn) as cell:
+                        pass
+                self.isin('AHA bind URLs must begin with ssl://', cm.exception.get('mesg'))
+
+                with self.raises(s_exc.BadConfValu) as cm:
+                    s_common.yamlsave({'provision:listen': 'tcp://newp'}, dirn, 'cell.mods.yaml')
+                    async with self.getTestCell(s_aha.AhaCell, conf=conf, dirn=dirn) as cell:
+                        pass
+                self.isin('Invalid config for provision:listen', cm.exception.get('mesg'))
 
     async def test_lib_aha_loadenv(self):
 
