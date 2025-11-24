@@ -277,7 +277,7 @@ commands:
             twine upload dist/*
 
   deploy_to_devpi:
-    description: "Publish wheel packages to devpi"
+    description: "Publish wheel + sdist packages to devpi"
     parameters:
       devpi_base_url:
         description: Base URL for the devpi service
@@ -335,6 +335,7 @@ commands:
             export DIST_EXTRA_CONFIG=/tmp/build-opts.cfg
             echo -e "[bdist_wheel]\npython_tag=<< parameters.python_tag >>" > $DIST_EXTRA_CONFIG
             python -m build --wheel
+            python -m build --sdist
 
       - run:
           name: smoke packages
@@ -343,6 +344,17 @@ commands:
             python3 -m venv /tmp/wheeltest/venv
             cp dist/*.whl /tmp/wheeltest
             cd /tmp/wheeltest
+            . ./venv/bin/activate
+            python3 -m pip install -U wheel pip twine
+            python3 -m twine check *.whl
+            python3 -m pip install *.whl
+            python3 -c "<< parameters.python_smoke_code >>"
+            deactivate
+
+            mkdir -p /tmp/sdisttest
+            python3 -m venv /tmp/sdisttest/venv
+            cp dist/*.tar.gz /tmp/sdisttest
+            cd /tmp/sdisttest
             . ./venv/bin/activate
             python3 -m pip install -U wheel pip twine
             python3 -m twine check *.whl
@@ -582,6 +594,24 @@ jobs:
     steps:
       - test_steps_python
 
+  python314_replay:
+    resource_class: xlarge
+    docker:
+      - image: cimg/python:3.14
+        environment:
+          PYVERS: 3.14
+          RUN_SYNTAX: 1
+          CODECOV_FLAG: linux_replay
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse
+          SYNDEV_NEXUS_REPLAY: 1
+          COVERAGE_CORE: sysmon
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python
+
   doctests:
     docker:
       - image: cimg/python:3.13
@@ -735,6 +765,8 @@ workflows:
             - doctests
             - python313
             - python313_replay
+            - python314
+            - python314_replay
             - python_package_smoketest
           filters:
             tags:
