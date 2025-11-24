@@ -899,7 +899,7 @@ class AgendaTest(s_t_utils.SynTest):
                     for cron in crons01:
                         self.true(cron.get('isrunning'))
 
-                    tasks00 = await core00.callStorm('return($lib.ps.list())')
+                    tasks00 = await core00.ps(core00.auth.rootuser)
                     # 101 tasks: one for the main task and NUMJOBS for the cronjob instances
                     self.len(NUMJOBS + 1, tasks00)
                     self.eq(tasks00[0]['info']['query'], '[it:dev:str=foo]')
@@ -911,7 +911,7 @@ class AgendaTest(s_t_utils.SynTest):
                         self.eq(task['info']['storm'], '$lib.time.sleep(90)')
 
                     # No tasks running on the follower
-                    tasks01 = await core01.callStorm('return($lib.ps.list())')
+                    tasks01 = await core01.ps(core01.auth.rootuser)
                     self.len(0, tasks01)
 
                     with self.getLoggerStream('synapse.lib.agenda', mesg='name=CRON99') as stream:
@@ -965,12 +965,12 @@ class AgendaTest(s_t_utils.SynTest):
                     for cron in crons01:
                         self.true(cron.get('isrunning'))
 
-                    tasks00 = await core00.callStorm('return($lib.ps.list())')
+                    tasks00 = await core00.ps(core00.auth.rootuser)
                     # This task is the main task from before promotion
                     self.len(1, tasks00)
                     self.eq(tasks00[0]['info']['query'], '[it:dev:str=foo]')
 
-                    tasks01 = await core01.callStorm('return($lib.ps.list())')
+                    tasks01 = await core01.ps(core01.auth.rootuser)
                     # The cronjob instances are the only tasks
                     self.len(NUMJOBS, tasks01)
                     for task in tasks01:
@@ -980,18 +980,18 @@ class AgendaTest(s_t_utils.SynTest):
     async def test_cron_kill(self):
         async with self.getTestCore() as core:
 
-            data = []
             evt = asyncio.Event()
 
+            # Cron task watcher
             async def task():
                 async for mesg in core.behold():
-                    data.append(mesg)
                     if mesg.get('event') == 'cron:stop':
                         evt.set()
 
             core.schedCoro(task())
 
-            q = '$q=$lib.queue.gen(test) for $i in $lib.range(60) { $lib.time.sleep(0.1) $q.put($i) }'
+            # Put an item into the queue and then block forever
+            q = '$q = $lib.queue.gen(test) $q.put((0)) $lib.time.sleep(999)'
             guid = s_common.guid()
             cdef = {
                 'creator': core.auth.rootuser.iden, 'iden': guid,
@@ -1001,19 +1001,24 @@ class AgendaTest(s_t_utils.SynTest):
             }
             await core.addCronJob(cdef)
 
+            # Get the item from the queue to confirm the cron job is running
             q = '$q=$lib.queue.gen(test) for $valu in $q.get((0), wait=(true)) { return ($valu) }'
             valu = await core.callStorm(q)
             self.eq(valu, 0)
 
+            # Get the cron def
             opts = {'vars': {'iden': guid}}
             get_cron = 'return($lib.cron.get($iden))'
             cdef = await core.callStorm(get_cron, opts=opts)
-            self.true(cdef.get('isrunning'))
+            self.true(cdef.get('isrunning'), msg=cdef)
 
+            # Kill the cron job
             self.true(await core.callStorm('return($lib.cron.get($iden).kill())', opts=opts))
 
+            # Wait for the beholder event
             self.true(await asyncio.wait_for(evt.wait(), timeout=12))
 
+            # Check cron job is stopped
             cdef = await core.callStorm(get_cron, opts=opts)
             self.false(cdef.get('isrunning'))
 

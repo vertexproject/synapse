@@ -3474,7 +3474,7 @@ class AstTest(s_test.SynTest):
 
             await highlighteq('#$foo', '$foo=(1) [ test:str=foo +#$foo ]')
 
-            await highlighteq('+#foo=newp', '[ test:str=foo +#foo=newp ]')
+            await highlighteq('newp', '[ test:str=foo +#foo=newp ]')
 
             await core.nodes('''
                 $regx = ($lib.null, $lib.null, "[0-9]{4}")
@@ -3482,8 +3482,8 @@ class AstTest(s_test.SynTest):
             ''')
 
             await highlighteq('#cno.cve.foo', '[ test:str=foo +#cno.cve.foo ]')
-            await highlighteq('+#cno.cve.foo=2024', '[ test:str=foo +#cno.cve.foo=2024 ]')
-            await highlighteq('+#cno.cve.1234=newp', '[ test:str=foo +#cno.cve.1234=newp ]')
+            await highlighteq('#cno.cve.foo', '[ test:str=foo +#cno.cve.foo=2024 ]')
+            await highlighteq('newp', '[ test:str=foo +#cno.cve.1234=newp ]')
 
             await highlighteq('#$foo', '$foo=(1) #$foo')
             await highlighteq('#$foo', '$foo=(1) test:str=foo +#$foo')
