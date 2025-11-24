@@ -358,6 +358,16 @@ class AhaTest(s_test.SynTest):
                 async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
                     await cell.ahaclient.proxy()
                     self.len(ahacount, cell.conf.get('aha:registry'))
+                    s_common.yamlsave({'aha:registry': cell.conf.get('aha:registry')[0]}, dirn, 'cell.mods.yaml')
+
+                async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
+                    await cell.ahaclient.proxy()
+
+                with self.raises(s_exc.BadConfValu) as cm:
+                    s_common.yamlsave({'aha:registry': 'tcp://newp'}, dirn, 'cell.mods.yaml')
+                    async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
+                        pass
+                self.isin('tcp:// client values', cm.exception.get('mesg'))
 
     async def test_lib_aha_loadenv(self):
 
@@ -1229,13 +1239,6 @@ class AhaTest(s_test.SynTest):
                     aha = await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
                     await cm.enter_context(aha)
 
-                    addr, port = aha.provdmon.addr
-                    # update the config to reflect the dynamically bound port
-                    aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
-
-                    # do this config ex-post-facto due to port binding...
-                    host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
-
                     with self.raises(s_exc.BadArg) as errcm:
                         await aha.addAhaSvcProv('00.svc', provinfo=None)
                     self.isin('Hostname value must not exceed 64 characters in length.',
@@ -1244,10 +1247,6 @@ class AhaTest(s_test.SynTest):
 
                     # We can generate a 64 character names though.
                     onetime = await aha.addAhaSvcProv('00.sv', provinfo=None)
-                    sconf = {'aha:provision': onetime}
-                    s_common.yamlsave(sconf, svc0dirn, 'cell.yaml')
-                    svc0 = await s_cell.Cell.anit(svc0dirn, conf=sconf)
-                    await cm.enter_context(svc0)
 
                     # Cannot generate a user cert that would be a problem for signing
                     with self.raises(s_exc.BadArg) as errcm:
