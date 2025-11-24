@@ -1600,6 +1600,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahaurls = self.conf.get('aha:registry')
         if ahaurls is not None:
 
+            if isinstance(ahaurls, str):
+                ahaurls = (ahaurls,)
+            elif isinstance(ahaurls, list):
+                ahaurls = tuple(ahaurls)
+
+            for ahaurl in ahaurls:
+                if ahaurl.startswith('tcp://'):
+                    raise s_exc.BadConfValu(mesg='aha:registry: tcp:// client values.')
+
             await s_telepath.addAhaUrl(ahaurls)
             if self.ahaclient is not None:
                 await self.ahaclient.fini()
@@ -1613,11 +1622,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 elif isinstance(oldurls, list):
                     oldurls = tuple(oldurls)
                 if newurls and newurls != oldurls:
-                    if oldurls[0].startswith('tcp://'):
-                        s_common.deprecated('aha:registry: tcp:// client values.')
-                        logger.warning('tcp:// based aha:registry options are deprecated and will be removed in Synapse v3.0.0')
-                        return
-
                     self.modCellConf({'aha:registry': newurls})
                     self.ahaclient.setBootUrls(newurls)
 
