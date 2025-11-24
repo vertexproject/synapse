@@ -736,6 +736,15 @@ workflows:
             branches:
               only: /.*/
 
+      - python314_replay:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only:
+                - master
+                - synapse-3xx
+
       - python_package_smoketest:
           filters:
             tags:
