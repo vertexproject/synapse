@@ -1,6 +1,6 @@
 import copy
 import asyncio
-import datetime
+import textwrap
 import itertools
 import urllib.parse as u_parse
 import unittest.mock as mock
@@ -17,11 +17,12 @@ import synapse.lib.storm as s_storm
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
-import synapse.tools.backup as s_tools_backup
+import synapse.tools.service.backup as s_tools_backup
 
 class StormTest(s_t_utils.SynTest):
 
@@ -147,6 +148,12 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             orgn = nodes[0].ndef
             self.eq(orgn, nodes11[0].ndef)
+
+            self.len(1, await core.nodes('ou:org?=({"name": "the vertex project", "type": "lulz"})'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org=({"logo": "newp"})')
+            self.len(0, await core.nodes('ou:org?=({"logo": "newp"})'))
 
             q = '[ ps:contact=* :org={ ou:org=({"name": "the vertex project", "type": "lulz"}) } ]'
             nodes = await core.nodes(q)
@@ -732,12 +739,16 @@ class StormTest(s_t_utils.SynTest):
                 [(ou:org=* :names=(foo, baz))]
                 [(ou:org=* :names=(foo, hehe))]
             ''')
-            nodes = await core.nodes('ou:org | intersect { -> ou:name }')
+            nodes = await core.nodes('ou:org | intersect { -> ou:name }', opts={'readonly': True})
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'foo')
 
             msgs = await core.stormlist('ou:org $foo=$node.value() | intersect $foo')
             self.stormIsInErr('intersect arguments must be runtsafe', msgs)
+
+            with self.raises(s_exc.IsReadOnly) as exc:
+                await core.nodes('ou:org | intersect { [ou:org=*] }', opts={'readonly': True})
+            self.eq(exc.exception.get('mesg'), 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.')
 
     async def test_lib_storm_trycatch(self):
 
@@ -1085,6 +1096,9 @@ class StormTest(s_t_utils.SynTest):
 
             await visi.addRule((True, ('storm', 'asroot', 'cmd', 'asroot', 'yep')))
 
+            msgs = await core.stormlist('asroot.yep', opts=opts)
+            self.stormIsInWarn('Command (asroot.yep) requires asroot permission which is deprecated', msgs)
+
             nodes = await core.nodes('asroot.yep', opts=opts)
             self.len(1, nodes)
             self.eq('false', nodes[0].ndef[1])
@@ -1174,6 +1188,9 @@ class StormTest(s_t_utils.SynTest):
             await visi.addRule((True, ('storm', 'asroot', 'mod', 'foo')))
             self.len(1, await core.nodes('yield $lib.import(foo.baz).lol()', opts=opts))
 
+            msgs = await core.stormlist('$lib.import(foo.bar)')
+            self.stormIsInWarn('Module (foo.bar) requires asroot permission but does not specify any asroot:perms', msgs)
+
             # coverage for dyncall/dyniter with asroot...
             await core.nodes('$lib.import(foo.bar).dyncall()', opts=opts)
             await core.nodes('$lib.import(foo.bar).dyniter()', opts=opts)
@@ -1209,33 +1226,6 @@ class StormTest(s_t_utils.SynTest):
                 return(:email)
             ''')
             self.eq(email, 'visi@vertex.link')
-
-            pkg0 = {'name': 'hehe', 'version': '1.2.3'}
-            await core.addStormPkg(pkg0)
-            self.eq('1.2.3', await core.callStorm('return($lib.pkg.get(hehe).version)'))
-
-            self.eq(None, await core.callStorm('return($lib.pkg.get(nopkg))'))
-
-            pkg1 = {'name': 'haha', 'version': '1.2.3'}
-            await core.addStormPkg(pkg1)
-            msgs = await core.stormlist('pkg.list')
-            self.stormIsInPrint('haha', msgs)
-            self.stormIsInPrint('hehe', msgs)
-
-            self.true(await core.callStorm('return($lib.pkg.has(haha))'))
-
-            await core.delStormPkg('haha')
-            self.none(await core.callStorm('return($lib.pkg.get(haha))'))
-            self.false(await core.callStorm('return($lib.pkg.has(haha))'))
-
-            msgs = await core.stormlist('pkg.list --verbose')
-            self.stormIsInPrint('not available', msgs)
-
-            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000}}
-            await core.addStormPkg(pkg2)
-            self.eq('4.5.6', await core.callStorm('return($lib.pkg.get(hoho).version)'))
-            msgs = await core.stormlist('pkg.list --verbose')
-            self.stormIsInPrint('2024-11-19 12:00:00', msgs)
 
             # test for $lib.queue.gen()
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
@@ -1565,161 +1555,6 @@ class StormTest(s_t_utils.SynTest):
                 nodes = [x for x in msgs if x[0] == 'node']
                 self.len(0, nodes)
 
-            pkgdef = {
-                'name': 'foobar',
-                'version': '1.2.3',
-            }
-
-            await core.addStormPkg(pkgdef)
-
-            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
-            self.eq({
-                'requires': (),
-                'conflicts': (),
-            }, deps)
-
-            pkgdef = {
-                'name': 'bazfaz',
-                'version': '2.2.2',
-                'depends': {
-                    'conflicts': (
-                        {'name': 'foobar'},
-                    ),
-                }
-            }
-
-            with self.raises(s_exc.StormPkgConflicts):
-                await core.addStormPkg(pkgdef)
-
-            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
-            self.eq({
-                'requires': (),
-                'conflicts': (
-                    {'name': 'foobar', 'version': None, 'desc': None, 'ok': False, 'actual': '1.2.3'},
-                )
-            }, deps)
-
-            pkgdef = {
-                'name': 'bazfaz',
-                'version': '2.2.2',
-                'depends': {
-                    'conflicts': (
-                        {'name': 'foobar', 'version': '>=1.0.0', 'desc': 'foo'},
-                    ),
-                }
-            }
-
-            with self.raises(s_exc.StormPkgConflicts):
-                await core.addStormPkg(pkgdef)
-
-            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
-            self.eq({
-                'requires': (),
-                'conflicts': (
-                    {'name': 'foobar', 'version': '>=1.0.0', 'desc': 'foo', 'ok': False, 'actual': '1.2.3'},
-                )
-            }, deps)
-
-            pkgdef = {
-                'name': 'bazfaz',
-                'version': '2.2.2',
-                'depends': {
-                    'requires': (
-                        {'name': 'foobar', 'version': '>=2.0.0,<3.0.0'},
-                    ),
-                }
-            }
-
-            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz requirement') as stream:
-                await core.addStormPkg(pkgdef)
-                self.true(await stream.wait(timeout=1))
-
-            pkgdef = {
-                'name': 'bazfaz',
-                'version': '2.2.2',
-                'depends': {
-                    'requires': (
-                        {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'optional': True},
-                    ),
-                }
-            }
-
-            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz optional requirement') as stream:
-                await core.addStormPkg(pkgdef)
-                self.true(await stream.wait(timeout=1))
-
-            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
-            self.eq({
-                'requires': (
-                    {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'desc': None,
-                     'ok': False, 'actual': '1.2.3', 'optional': True},
-                ),
-                'conflicts': ()
-            }, deps)
-
-            pkgdef = {
-                'name': 'lolzlolz',
-                'version': '1.2.3',
-            }
-
-            await core.addStormPkg(pkgdef)
-
-            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
-            self.eq({
-                'requires': (),
-                'conflicts': (),
-            }, deps)
-
-            pkgdef = {
-                'name': 'bazfaz',
-                'version': '2.2.2',
-                'depends': {
-                    'requires': (
-                        {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0', 'desc': 'lol'},
-                    ),
-                    'conflicts': (
-                        {'name': 'foobar', 'version': '>=3.0.0'},
-                    ),
-                }
-            }
-
-            await core.addStormPkg(pkgdef)
-
-            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
-            self.eq({
-                'requires': (
-                    {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0', 'desc': 'lol', 'ok': True, 'actual': '1.2.3'},
-                ),
-                'conflicts': (
-                    {'name': 'foobar', 'version': '>=3.0.0', 'desc': None, 'ok': True, 'actual': '1.2.3'},
-                )
-            }, deps)
-
-            pkgdef = {
-                'name': 'zoinkszoinks',
-                'version': '2.2.2',
-                'depends': {
-                    'requires': (
-                        {'name': 'newpnewp', 'version': '1.2.3'},
-                    ),
-                    'conflicts': (
-                        {'name': 'newpnewp'},
-                    ),
-                }
-            }
-
-            await core.addStormPkg(pkgdef)
-
-            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
-            self.eq({
-                'requires': (
-                    {'name': 'newpnewp', 'version': '1.2.3', 'desc': None, 'ok': False, 'actual': None},
-                ),
-                'conflicts': (
-                    {'name': 'newpnewp', 'version': None, 'desc': None, 'ok': True, 'actual': None},
-                )
-            }, deps)
-
             # force old-cron behavior which lacks a view
             await core.nodes('cron.add --hourly 03 { inet:ipv4 }')
             for (iden, cron) in core.agenda.list():
@@ -1774,6 +1609,27 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0][1]['storage'][1]['props']['.created'])
             self.eq((None, None), nodes[0][1]['storage'][0]['tags']['foo'])
+
+            # test set tag assignment
+            nodes = await core.nodes('[ test:str=boo +?#baz="dud" ]')
+            self.len(1, nodes)
+            self.eq([], nodes[0].getTags())
+
+            nodes = await core.nodes('[ test:str=foo +?#baz?="dud" ]')
+            self.len(1, nodes)
+            self.eq([('baz', (None, None))], nodes[0].getTags())
+
+            nodes = await core.nodes('test:str=foo $seen=.seen [ +#baz?=$seen .seen="2025-11-04T00:00:00Z" ]')
+            self.len(1, nodes)
+            self.eq([('baz', (None, None))], nodes[0].getTags())
+
+            nodes = await core.nodes('test:str=foo $seen=.seen [ +#baz?=$seen ]')
+            self.len(1, nodes)
+            self.eq([('baz', (1762214400000, 1762214400001))], nodes[0].getTags())
+
+            nodes = await core.nodes('test:str=foo [ +#baz?=newp ]')
+            self.len(1, nodes)
+            self.eq([('baz', (1762214400000, 1762214400001))], nodes[0].getTags())
 
     async def test_storm_diff_merge(self):
 
@@ -2970,72 +2826,6 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVar):
                 await core.callStorm('$foo = 10 $foo = $lib.undef return($foo)')
 
-    async def test_storm_pkg_load(self):
-        cont = s_common.guid()
-        pkg = {
-            'name': 'testload',
-            'version': '0.3.0',
-            'modules': (
-                {
-                    'name': 'testload',
-                    'storm': 'function x() { return((0)) }',
-                },
-            ),
-            'onload': f'[ ps:contact={cont} ] $lib.print(teststring) $lib.warn(testwarn, key=valu) return($path.vars.newp)'
-        }
-        class PkgHandler(s_httpapi.Handler):
-
-            async def get(self, name):
-                assert self.request.headers.get('X-Synapse-Version') == s_version.verstring
-
-                if name == 'notok':
-                    self.sendRestErr('FooBar', 'baz faz')
-                    return
-
-                self.sendRestRetn(pkg)
-
-        class PkgHandlerRaw(s_httpapi.Handler):
-            async def get(self, name):
-                assert self.request.headers.get('X-Synapse-Version') == s_version.verstring
-
-                self.set_header('Content-Type', 'application/json')
-                return self.write(pkg)
-
-        async with self.getTestCore() as core:
-            core.addHttpApi('/api/v1/pkgtest/(.*)', PkgHandler, {'cell': core})
-            core.addHttpApi('/api/v1/pkgtestraw/(.*)', PkgHandlerRaw, {'cell': core})
-            port = (await core.addHttpsPort(0, host='127.0.0.1'))[1]
-
-            msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/newp/newp')
-            self.stormIsInWarn('pkg.load got HTTP code: 404', msgs)
-
-            msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/notok')
-            self.stormIsInWarn('pkg.load got JSON error: FooBar', msgs)
-
-            # onload will on fire once. all other pkg.load events will effectively bounce
-            # because the pkg hasn't changed so no loading occurs
-            waiter = core.waiter(1, 'core:pkg:onload:complete')
-
-            with self.getAsyncLoggerStream('synapse.cortex') as stream:
-                msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
-                self.stormIsInPrint('testload @0.3.0', msgs)
-
-                msgs = await core.stormlist(f'pkg.load --ssl-noverify --raw https://127.0.0.1:{port}/api/v1/pkgtestraw/yep')
-                self.stormIsInPrint('testload @0.3.0', msgs)
-
-            stream.seek(0)
-            buf = stream.read()
-            self.isin("testload onload output: teststring", buf)
-            self.isin("testload onload output: testwarn", buf)
-            self.isin("No var with name: newp", buf)
-            self.len(1, await core.nodes(f'ps:contact={cont}'))
-
-            evnts = await waiter.wait(timeout=4)
-            exp = [
-                ('core:pkg:onload:complete', {'pkg': 'testload'})
-            ]
-            self.eq(exp, evnts)
-
     async def test_storm_pkg_onload_active(self):
         pkg = {
             'name': 'testload',
@@ -3072,7 +2862,7 @@ class StormTest(s_t_utils.SynTest):
                 events = await waiter.wait(timeout=10)
                 self.eq(events, [
                     ('core:pkg:onload:start', {'pkg': 'testload'}),
-                    ('core:pkg:onload:complete', {'pkg': 'testload'}),
+                    ('core:pkg:onload:complete', {'pkg': 'testload', 'storvers': -1}),
                 ])
 
                 self.eq((0, 1), await core00.callStorm('return($lib.queue.gen(onload:test).get((0), cull=(false)))'))
@@ -3096,7 +2886,7 @@ class StormTest(s_t_utils.SynTest):
                     events = await waiter.wait(timeout=10)
                     self.eq(events, [
                         ('core:pkg:onload:start', {'pkg': 'testload'}),
-                        ('core:pkg:onload:complete', {'pkg': 'testload'}),
+                        ('core:pkg:onload:complete', {'pkg': 'testload', 'storvers': -1}),
                     ])
 
                     self.eq((2, 3), await core01.callStorm('return($lib.queue.gen(onload:test).get((2), cull=(false)))'))
@@ -3104,6 +2894,232 @@ class StormTest(s_t_utils.SynTest):
                 await core01.waitfini()
 
             await core00.waitfini()
+
+    async def test_storm_pkg_inits(self):
+
+        async def loadPkg(core, pkg):
+            waiter = core.waiter(2, 'core:pkg:onload:start', 'core:pkg:onload:complete')
+
+            await core.addStormPkg(pkg)
+
+            events = await waiter.wait(timeout=10)
+            self.len(2, events)
+            self.eq(events[0], ('core:pkg:onload:start', {'pkg': 'testload'}))
+            self.eq(events[1][0], 'core:pkg:onload:complete')
+            self.eq(events[1][1].get('pkg'), 'testload')
+            self.nn(events[1][1].get('storvers'))
+
+        async with self.getTestCore() as core:
+            pkg = {
+                'name': 'testload',
+                'version': '0.1.0',
+            }
+
+            await loadPkg(core, pkg)
+
+            self.eq(-1, await core.getStormPkgVar('testload', 'storage:version'))
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                pkg = {
+                    'name': 'testload',
+                    'version': '0.1.0',
+                    'inits': {
+                        'key': 'testload:version',
+                        'versions': [
+                            {
+                                'version': 0,
+                                'name': 'init00',
+                                'query': '$lib.globals.set(init00, $lib.time.now())',
+                            },
+                            {
+                                'version': 1,
+                                'name': 'init01',
+                                'inaugural': True,
+                                'query': '$lib.globals.set(init01, $lib.time.now())',
+                            },
+                        ]
+                    },
+                }
+
+                # bad init queries fail on load
+
+                pkg['inits']['versions'].append({
+                    'version': 2,
+                    'name': 'bad',
+                    'query': '...',
+                })
+
+                await self.asyncraises(s_exc.BadSyntax, core.addStormPkg(pkg))
+
+                pkg['inits']['versions'].pop(2)
+
+                # non-increasing init versions fail on load
+
+                pkg['inits']['versions'].append({
+                    'version': 0,
+                    'name': 'bad',
+                    'query': '$lib.print("")',
+                })
+
+                await self.asyncraises(s_exc.BadPkgDef, core.addStormPkg(pkg))
+
+                pkg['inits']['versions'].pop(2)
+
+                # only inaugural inits run on first load
+
+                await core.setStormPkgVar('testload', 'testload:version', 0)
+
+                await loadPkg(core, pkg)
+
+                self.none(await core.getStormPkgVar('testload', 'testload:version'))
+                self.eq(1, await core.getStormPkgVar('testload', 'storage:version'))
+                self.none(await core.getStormVar('init00'))
+                self.nn(init01 := await core.getStormVar('init01'))
+
+                pkg['inits'].pop('key')
+
+                # non-inaugural inits run on reload
+                # inits always run before onload
+
+                pkg['version'] = '0.2.0'
+                pkg['onload'] = '$lib.time.sleep((0.1)) $lib.globals.set(onload, $lib.time.now())'
+                pkg['inits']['versions'].append({
+                    'version': 2,
+                    'name': 'init02',
+                    'query': '$lib.globals.set(init02, $lib.time.now())',
+                })
+
+                await loadPkg(core, pkg)
+
+                self.eq(2, await core.getStormPkgVar('testload', 'storage:version'))
+                self.none(await core.getStormVar('init00'))
+                self.eq(init01, await core.getStormVar('init01'))
+                self.nn(init02 := await core.getStormVar('init02'))
+                self.nn(onload := await core.getStormVar('onload'))
+                self.gt(onload, init02)
+
+                # inits run even if onload fails
+                # prior inits do not re-run
+
+                pkg['version'] = '0.3.0'
+                pkg['onload'] = '$lib.raise(SynErr, whoopsie)'
+                pkg['inits']['versions'].append({
+                    'version': 3,
+                    'name': 'init03',
+                    'inaugural': True,
+                    'query': '$lib.globals.set(init03, $lib.time.now())',
+                })
+
+                await loadPkg(core, pkg)
+
+                self.eq(3, await core.getStormPkgVar('testload', 'storage:version'))
+                self.eq(init02, await core.getStormVar('init02'))
+                self.nn(await core.getStormVar('init03'))
+
+                # init failure stops progression
+
+                await core.setStormVar('dofail', True)
+
+                pkg['version'] = '0.4.0'
+                pkg['onload'] = '$lib.globals.set(onload, $lib.time.now()) $lib.time.sleep((0.1))'
+                pkg['inits']['versions'].extend([
+                    {
+                        'version': 4,
+                        'name': 'init04',
+                        'query': '''
+                            if $lib.globals.get(dofail) { $lib.raise(SynErr, newp) }
+                            $lib.globals.set(init04, $lib.time.now())
+                        ''',
+                    },
+                    {
+                        'version': 6,
+                        'name': 'init06',
+                        'query': '$lib.globals.set(init06, $lib.time.now())',
+                    },
+                ])
+
+                mesg = 'testload init vers=4 output: (\'SynErr\''
+                with self.getAsyncLoggerStream('synapse.cortex', mesg) as stream:
+                    await loadPkg(core, pkg)
+                    self.eq(3, await core.getStormPkgVar('testload', 'storage:version'))
+                    await stream.wait(timeout=10)
+
+                self.none(await core.getStormVar('init04'))
+                self.none(await core.getStormVar('init06'))
+
+                await core.setStormVar('dofail', False)
+
+            with self.getAsyncLoggerStream('synapse.cortex', 'testload finished onload') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    await stream.wait(timeout=10)
+
+                    # prior versions dont re-run, but a failed one does
+
+                    self.eq(6, await core.getStormPkgVar('testload', 'storage:version'))
+                    self.gt(await core.getStormVar('onload'), onload)
+                    self.eq(init02, await core.getStormVar('init02'))
+                    self.nn(await core.getStormVar('init04'))
+                    self.nn(await core.getStormVar('init06'))
+
+                    # coverage for prints and warns
+
+                    pkg['version'] = '0.5.0'
+                    pkg['inits']['versions'].append({
+                        'version': 7,
+                        'name': 'init07',
+                        'query': '$lib.print("doing a print")',
+                    })
+
+                    with self.getAsyncLoggerStream('synapse.cortex', 'doing a print') as stream:
+                        await loadPkg(core, pkg)
+                        await stream.wait(timeout=10)
+                        self.eq(7, await core.getStormPkgVar('testload', 'storage:version'))
+
+                    pkg['version'] = '0.6.0'
+                    pkg['inits']['versions'].append({
+                        'version': 8,
+                        'name': 'init08',
+                        'query': '$lib.warn("doing a warn")',
+                    })
+
+                    with self.getAsyncLoggerStream('synapse.cortex', 'doing a warn') as stream:
+                        await loadPkg(core, pkg)
+                        await stream.wait(timeout=10)
+                        self.eq(8, await core.getStormPkgVar('testload', 'storage:version'))
+
+                    # init that advances the version
+
+                    pkg['version'] = '0.7.0'
+                    pkg['inits']['versions'].extend([
+                        {
+                            'version': 9,
+                            'name': 'init09',
+                            'query': '''
+                                $lib.globals.set(init09, $lib.time.now())
+                                $lib.pkg.vars(testload)."storage:version" = (10)
+                            ''',
+                        },
+                        {
+                            'version': 10,
+                            'name': 'init10',
+                            'query': '$lib.globals.set(init10, $lib.time.now())',
+                        },
+                        {
+                            'version': 11,
+                            'name': 'init11',
+                            'query': '$lib.globals.set(init11, $lib.time.now())',
+                        },
+                    ])
+
+                    await loadPkg(core, pkg)
+
+                    self.eq(11, await core.getStormPkgVar('testload', 'storage:version'))
+                    self.nn(await core.getStormVar('init09'))
+                    self.none(await core.getStormVar('init10'))
+                    self.nn(await core.getStormVar('init11'))
 
     async def test_storm_tree(self):
 
@@ -4113,6 +4129,29 @@ class StormTest(s_t_utils.SynTest):
             view = await core.callStorm('return( $lib.view.get().iden )')
             fork = await core.callStorm('return( $lib.view.get().fork().iden )')
 
+            q = '''view.exec $view {
+                $lib.print(foo)
+                $lib.warn(bar)
+                [ it:dev:str=nomsg ]
+             }'''
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInWarn('bar', msgs)
+
+            q = '''
+                [ it:dev:str=woot ] $valu=$node.repr()
+                view.exec $view {
+                    $lib.print(foo)
+                    $lib.print($valu)
+                    $lib.warn(bar)
+                    [ it:dev:str=nomsg ]
+                }
+            '''
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInPrint('woot', msgs)
+            self.stormIsInWarn('bar', msgs)
+
             await core.addStormPkg({
                 'name': 'testpkg',
                 'version': (0, 0, 1),
@@ -4364,9 +4403,9 @@ class StormTest(s_t_utils.SynTest):
 
         pars.mesgs.clear()
         pars.help()
-        self.eq('  --bar <bar>                 : barhelp (choices: baz, bam)', pars.mesgs[5])
-        self.eq('  --cam <cam>                 : camhelp (choices: cat, cool)', pars.mesgs[6])
-        self.eq('  <foo>                       : foohelp (choices: 3, 1, 2)', pars.mesgs[10])
+        self.eq('  --bar <bar>                 : barhelp (choices: baz, bam)', pars.mesgs[6])
+        self.eq('  --cam <cam>                 : camhelp (choices: cat, cool)', pars.mesgs[7])
+        self.eq('  <foo>                       : foohelp (choices: 3, 1, 2)', pars.mesgs[11])
 
         # choices - default does not have to be in choices
         pars = s_storm.Parser()
@@ -4426,15 +4465,15 @@ class StormTest(s_t_utils.SynTest):
              This is the final line with no leading spaces.''')
         pars.add_argument('--taz', type='bool', default=True, help='Taz option')
         pars.help()
-        self.eq('  --baz <baz>                 : This is the top line, nothing special.', pars.mesgs[5])
-        self.eq('                                This is my second line with sublines that should have some leading spaces:', pars.mesgs[6])
-        self.eq('                                   subline 1: this is a line which has three spaces.', pars.mesgs[7])
-        self.eq('                                     subline 2: this is another line with five leading spaces.', pars.mesgs[8])
-        self.eq('                                  subline 3: yet another line with only two leading spaces.', pars.mesgs[9])
-        self.eq('                                 subline 4: this line has one space and is long which should wrap around because it', pars.mesgs[10])
-        self.eq('                                 exceeds the default display width.', pars.mesgs[11])
-        self.eq('                                This is the final line with no leading spaces.', pars.mesgs[12])
-        self.eq('  --taz <taz>                 : Taz option (default: True)', pars.mesgs[13])
+        self.eq('  --baz <baz>                 : This is the top line, nothing special.', pars.mesgs[6])
+        self.eq('                                This is my second line with sublines that should have some leading spaces:', pars.mesgs[7])
+        self.eq('                                   subline 1: this is a line which has three spaces.', pars.mesgs[8])
+        self.eq('                                     subline 2: this is another line with five leading spaces.', pars.mesgs[9])
+        self.eq('                                  subline 3: yet another line with only two leading spaces.', pars.mesgs[10])
+        self.eq('                                 subline 4: this line has one space and is long which should wrap around because it', pars.mesgs[11])
+        self.eq('                                 exceeds the default display width.', pars.mesgs[12])
+        self.eq('                                This is the final line with no leading spaces.', pars.mesgs[13])
+        self.eq('  --taz <taz>                 : Taz option (default: True)', pars.mesgs[14])
 
     async def test_storm_cmd_help(self):
 
@@ -4443,22 +4482,52 @@ class StormTest(s_t_utils.SynTest):
                 'name': 'testpkg',
                 'version': '0.0.1',
                 'commands': (
-                    {'name': 'woot', 'cmdinputs': (
-                        {'form': 'hehe:haha'},
-                        {'form': 'hoho:lol', 'help': 'We know whats up'}
-                    ), 'endpoints': (
-                        {'path': '/v1/test/one', 'desc': 'My multi-line endpoint description which spans multiple lines and has a second line. This is the second line of the description.'},
-                        {'path': '/v1/test/two', 'host': 'vertex.link', 'desc': 'Single line endpoint description.'},
-                    )},
+                    {
+                        'name': 'woot',
+                        'cmdinputs': (
+                            {'form': 'hehe:haha'},
+                            {'form': 'hoho:lol', 'help': 'We know whats up'}
+                        ),
+                        'endpoints': (
+                            {
+                                'path': '/v1/test/one',
+                                'desc': 'My multi-line endpoint description which spans multiple lines and has a second line. This is the second line of the description.'
+                            },
+                            {
+                                'path': '/v1/test/two',
+                                'host': 'vertex.link',
+                                'desc': 'Single line endpoint description.'
+                            },
+                        ),
+                        'perms': (
+                            ['power-ups', 'testpkg', 'user'],
+                            ['power-ups', 'testpkg', 'admin'],
+                        ),
+                    },
                 ),
             }
             core.loadStormPkg(pdef)
             msgs = await core.stormlist('woot --help')
             helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
-            self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
-            self.isin('Endpoints:\n\n    /v1/test/one              : My multi-line endpoint description which spans multiple lines and has a second line.', helptext)
-            self.isin('This is the second line of the description.', helptext)
-            self.isin('/v1/test/two              : Single line endpoint description.', helptext)
+
+            self.isin('Usage: woot [options]', helptext)
+
+            exp = textwrap.dedent('''\
+                Endpoints:
+
+                  /v1/test/one                : My multi-line endpoint description which spans multiple lines and has a second line.
+                                                This is the second line of the description.
+                  /v1/test/two                : Single line endpoint description.
+            ''').rstrip()
+            self.isin(exp, helptext)
+
+            exp = textwrap.dedent('''\
+                Inputs:
+
+                  hehe:haha                   : hehe:haha nodes
+                  hoho:lol                    : We know whats up
+            ''').rstrip()
+            self.isin(exp, helptext)
 
     async def test_storm_help_cmd(self):
 
@@ -4632,6 +4701,161 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('$lib.bytes.hashset`` has been deprecated and will be removed in version v3.0.0', msgs)
             self.stormIsInPrint('Use the corresponding ``$lib.axon`` function.', msgs)
 
+    async def test_storm_cmd_deprecations(self):
+
+        async with self.getTestCore() as core:
+
+            deprpkg = {
+                'name': 'testdepr',
+                'version': '0.0.1',
+                'synapse_version': '>=2.8.0,<3.0.0',
+                'commands': (
+                    {
+                        'name': 'deprmesg',
+                        'descr': 'deprecated command',
+                        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Please use something else.'},
+                        'storm': '[ inet:ipv4=1.2.3.4 ]',
+                    },
+                    {
+                        'name': 'deprnomesg',
+                        'descr': 'deprecated command',
+                        'deprecated': {'eoldate': '2099-01-01'},
+                        'storm': '[ inet:ipv4=1.2.3.4 ]',
+                    },
+                    {
+                        'name': 'deprargs',
+                        'descr': 'deprecated command',
+                        'storm': '[ inet:ipv4=1.2.3.4 ]',
+                        'cmdargs': (
+                            ('--start-time', {
+                                'type': 'time',
+                                'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use --period instead.'},
+                            }),
+                            ('--end-time', {
+                                'type': 'time',
+                                'deprecated': {'eolvers': 'v3.0.0'},
+                            }),
+                            ('--period', {
+                                'type': 'time',
+                            }),
+                        ),
+                    },
+                ),
+            }
+
+            self.none(await core.addStormPkg(deprpkg))
+
+            # Deprecation message shows up in command help
+            deprmesg = '"deprmesg" is deprecated: Please use something else.'
+            msgs = await core.stormlist('deprmesg -h')
+            self.stormIsInPrint(f'Deprecated: {deprmesg}', msgs)
+            self.stormHasNoWarnErr(msgs)
+
+            # Deprecation message shows up in command execution as warning
+            msgs = await core.stormlist('deprmesg')
+            self.stormIsInWarn(deprmesg, msgs)
+
+            # Deprecation message shows up in command help (with no message specified)
+            deprmesg = '"deprnomesg" is deprecated and will be removed on 2099-01-01.'
+            msgs = await core.stormlist('deprnomesg -h')
+            self.stormIsInPrint(f'Deprecated: {deprmesg}', msgs)
+            self.stormHasNoWarnErr(msgs)
+
+            # Deprecation message shows up in command execution as warning (with no message specified)
+            msgs = await core.stormlist('deprnomesg')
+            self.stormIsInWarn(deprmesg, msgs)
+
+            # Deprecation message shows up in help for command args
+            msgs = await core.stormlist('deprargs -h')
+            self.stormIsInPrint('  Deprecated: "--start-time" is deprecated: Use --period instead.', msgs)
+            self.stormIsInPrint('  Deprecated: "--end-time" is deprecated and will be removed in v3.0.0.', msgs)
+            self.stormHasNoWarnErr(msgs)
+
+            # Deprecation message doesn't show up in command execution when not using deprecated args
+            msgs = await core.stormlist('deprargs')
+            self.stormHasNoWarnErr(msgs)
+
+            # Deprecation message shows up in command execution as warning
+            msgs = await core.stormlist('deprargs --start-time now')
+            self.stormIsInWarn('"--start-time" is deprecated: Use --period instead.', msgs)
+            self.stormNotInWarn('"--end-time" is deprecated and will be removed in v3.0.0.', msgs)
+
+            msgs = await core.stormlist('deprargs --end-time now')
+            self.stormNotInWarn('"--start-time" is deprecated: Use --period instead.', msgs)
+            self.stormIsInWarn('"--end-time" is deprecated and will be removed in v3.0.0.', msgs)
+
+            msgs = await core.stormlist('deprargs --start-time now --end-time now')
+            self.stormIsInWarn('"--start-time" is deprecated: Use --period instead.', msgs)
+            self.stormIsInWarn('"--end-time" is deprecated and will be removed in v3.0.0.', msgs)
+
+            # Deprecation message only appears once per runtime
+            msgs = await core.stormlist('[ inet:ipv4=10.0.0.0/28 ] | deprmesg')
+            self.stormIsInWarn('"deprmesg" is deprecated: Please use something else.', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'warn'])
+
+            msgs = await core.stormlist('[ inet:ipv4=10.0.0.0/28 ] | deprargs --start-time now --end-time now')
+            self.stormIsInWarn('"--start-time" is deprecated: Use --period instead.', msgs)
+            self.stormIsInWarn('"--end-time" is deprecated and will be removed in v3.0.0.', msgs)
+            self.len(2, [m for m in msgs if m[0] == 'warn'])
+
+    async def test_storm_cmd_cmdconf(self):
+        pkgdef = {
+            'name': 'testpkg',
+            'version': '1.0.0',
+            'commands': [
+                {
+                    'name': 'getcmdconf',
+                    'cmdconf': {
+                        'valu': 0,
+                        'sub': {
+                            'valu': 0,
+                        },
+                    },
+                    'storm': '''
+                        $lib.print(`VALU: {$cmdconf.valu}.`)
+                        $lib.print(`SUBVALU: {$cmdconf.sub.valu}.`)
+                        $cmdconf.valu = ($cmdconf.valu + 1)
+                        $cmdconf.sub.valu = ($cmdconf.sub.valu + 1)
+                    ''',
+                },
+            ],
+        }
+
+        async with self.getTestCore() as core:
+            await core.addStormPkg(pkgdef)
+
+            msgs = await core.stormlist('getcmdconf')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('VALU: 0.', msgs)
+            self.stormIsInPrint('SUBVALU: 0.', msgs)
+
+            msgs = await core.stormlist('getcmdconf | getcmdconf')
+            self.stormHasNoWarnErr(msgs)
+            msgs = [k for k in msgs if k[0] == 'print']
+            self.len(4, msgs)
+            self.sorteq(
+                ['VALU: 0.', 'VALU: 0.', 'SUBVALU: 0.', 'SUBVALU: 0.'],
+                [msg[1].get('mesg') for msg in msgs]
+            )
+
+            msgs = await core.stormlist('for $i in $lib.range(16) {[test:int=$i]} | getcmdconf')
+            self.stormHasNoWarnErr(msgs)
+
+            self.stormIsInPrint('VALU: 0.', msgs)
+            self.stormIsInPrint('VALU: 1.', msgs)
+            self.stormIsInPrint('VALU: 15.', msgs)
+            self.stormNotInPrint('VALU: 16.', msgs)
+
+            self.stormIsInPrint('SUBVALU: 0.', msgs)
+            self.stormIsInPrint('SUBVALU: 1.', msgs)
+            self.stormIsInPrint('SUBVALU: 15.', msgs)
+            self.stormNotInPrint('SUBVALU: 16.', msgs)
+
+            msgs = await core.stormlist('getcmdconf')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('VALU: 0.', msgs)
+            self.stormIsInPrint('SUBVALU: 0.', msgs)
+
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
 
@@ -4661,6 +4885,79 @@ class StormTest(s_t_utils.SynTest):
             links = nodes[2][1]['links']
             self.len(1, links)
             self.eq({'type': 'runtime'}, links[0][1])
+
+    async def test_storm_derefprops(self):
+        async with self.getTestCore() as core:
+            await core.addTagProp('score', ('int', {}), {})
+
+            mesg = "Expected value of type 'str', got '"
+
+            # editnodeadd
+            msgs = await core.stormlist('$form = inet:fqdn [ *$form=foobar.com ]')
+            self.stormHasNoWarnErr(msgs)
+
+            invals = [10, None, False, [], {}]
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('[ *$form=valu ]', opts=opts)
+                self.true(exc.exception.get('mesg').startswith(mesg))
+
+            # liftprop
+            msgs = await core.stormlist('$form = inet:fqdn *$form')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form', opts=opts)
+                self.true(exc.exception.get('mesg').startswith(mesg))
+
+            # liftpropby
+            msgs = await core.stormlist('$form = inet:fqdn *$form=foobar.com')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form=newp', opts=opts)
+                self.true(exc.exception.get('mesg').startswith(mesg))
+
+            # liftformtag
+            msgs = await core.stormlist('$form = inet:fqdn *$form#foo')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form#newp', opts=opts)
+                self.true(exc.exception.get('mesg').startswith(mesg))
+
+            # liftbyarray
+            msgs = await core.stormlist('$form = test:arrayform *$form*[=(10)]')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form*[="newp"]', opts=opts)
+                self.true(exc.exception.get('mesg').startswith(mesg))
+
+            # formtagprop
+            msgs = await core.stormlist('$form = inet:fqdn *$form#foo:score')
+            self.stormHasNoWarnErr(msgs)
+
+            for inval in invals:
+                opts = {'vars': {'form': inval}}
+                with self.raises(s_exc.StormRuntimeError) as exc:
+                    await core.nodes('*$form#newp:score', opts=opts)
+                self.true(exc.exception.get('mesg').startswith(mesg))
+
+            # Check Storm Str types
+            name = s_stormtypes.Str('inet:fqdn')
+            msgs = await core.stormlist('*$form', opts={'vars': {'form': name}})
+            self.stormHasNoWarnErr(msgs)
 
     async def test_storm_nested_root(self):
         async with self.getTestCore() as core:
@@ -4805,16 +5102,19 @@ class StormTest(s_t_utils.SynTest):
                 view1, layr1 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
                 view2, layr2 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
                 view3, layr3 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
+                view4, layr4 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
 
                 opts = {'vars': {
                     'view0': view0,
                     'view1': view1,
                     'view2': view2,
                     'view3': view3,
+                    'view4': view4,
                     'layr0': layr0,
                     'layr1': layr1,
                     'layr2': layr2,
                     'layr3': layr3,
+                    'layr4': layr4,
                 }}
 
                 # lets get some auth denies...
@@ -4867,13 +5167,26 @@ class StormTest(s_t_utils.SynTest):
                 self.len(3, await core.nodes('ps:contact', opts={'view': view1}))
                 self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
 
-                # Check offset reporting
+                # Check offset reporting from pack()
                 q = '$layer=$lib.layer.get($layr0) return ($layer.pack())'
                 layrinfo = await core.callStorm(q, opts=opts)
                 pushs = layrinfo.get('pushs')
                 self.len(1, pushs)
                 pdef = list(pushs.values())[0]
-                self.lt(10, pdef.get('offs', 0))
+                eoffs = pdef.get('offs', 0)
+                self.lt(10, eoffs)
+
+                # check offset reporting from list()
+                msgs = await core.stormlist('layer.push.list $layr0', opts=opts)
+                self.stormIsInPrint(f'{eoffs}', msgs)
+
+                # Pull from layr0 using a custom offset (skip first node)
+                await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr4}", offs={offs})', opts=opts)
+                await core.layers.get(layr4).waitEditOffs(offs, timeout=3)
+                self.len(2, await core.nodes('ps:contact', opts={'view': view4}))
+
+                # Clean up
+                self.none(await core.callStorm('$lib.layer.get($layr0).delPush($layr4)', opts=opts))
 
                 q = '$layer=$lib.layer.get($layr2) return ($layer.pack())'
                 layrinfo = await core.callStorm(q, opts=opts)
@@ -4914,7 +5227,7 @@ class StormTest(s_t_utils.SynTest):
                         }
                     }
                 ''')
-                self.eq(actv - 2, len(core.activecoros))
+                self.eq(actv - 3, len(core.activecoros))
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
@@ -4984,7 +5297,7 @@ class StormTest(s_t_utils.SynTest):
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
-                self.eq(actv, len(core.activecoros))
+                self.eq(actv - 1, len(core.activecoros))
 
                 pushpulls = set()
                 for ldef in await core.getLayerDefs():
@@ -5009,7 +5322,7 @@ class StormTest(s_t_utils.SynTest):
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
-                self.eq(actv - 2, len(core.activecoros))
+                self.eq(actv - 3, len(core.activecoros))
 
                 with self.raises(s_exc.SchemaViolation):
                     await core.addLayrPush('newp', {})
@@ -5353,6 +5666,32 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
             for node in nodes:
                 self.none(node.tags.get('btag'))
+
+            q = '''runas visi {
+                $lib.print(foo)
+                $lib.warn(bar)
+                [ it:dev:str=nomsg ]
+             }'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInWarn('bar', msgs)
+
+            q = '''
+                [it:dev:str=woot] $valu=$node.repr()
+                runas visi {
+                    $lib.print(foo)
+                    $lib.warn(bar)
+                    $lib.print($valu)
+                    [ it:dev:str=nomsg ]
+                }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInPrint('woot', msgs)
+            self.stormIsInWarn('bar', msgs)
+
+            msgs = await core.stormlist('runas visi {$lib.raise(Foo, asdf)}')
+            self.stormIsInErr('asdf', msgs)
 
     async def test_storm_batch(self):
         async with self.getTestCore() as core:

@@ -1363,6 +1363,27 @@ class InetModelTest(s_t_utils.SynTest):
                 for p, v in props.items():
                     self.eq(node.get(p), v)
 
+            nodes = await core.nodes('[ inet:server=gre://::1 ]')
+            self.eq(nodes[0].get('proto'), 'gre')
+
+            nodes = await core.nodes('[ inet:server=gre://1.2.3.4 ]')
+            self.eq(nodes[0].get('proto'), 'gre')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server=gre://1.2.3.4:99 ]')
+
+            self.eq(ctx.exception.get('mesg'), 'Protocol gre does not allow specifying ports.')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server="gre://[::1]:99" ]')
+
+            self.eq(ctx.exception.get('mesg'), 'Protocol gre does not allow specifying ports.')
+
+            with self.raises(s_exc.BadTypeValu) as ctx:
+                await core.nodes('[ inet:server=newp://1.2.3.4:99 ]')
+
+            self.eq(ctx.exception.get('mesg'), 'inet:addr protocol must be one of: tcp,udp,icmp,host,gre')
+
     async def test_servfile(self):
         async with self.getTestCore() as core:
             valu = ('tcp://127.0.0.1:4040', 64 * 'f')
@@ -2970,30 +2991,60 @@ class InetModelTest(s_t_utils.SynTest):
 
             q = '''
             [ inet:service:platform=(slack,)
+                :id=foo
                 :url="https://slack.com"
                 :urls=(https://slacker.com,)
+                :zones=(slack.com, slacker.com)
                 :name=Slack
                 :names=("slack chat",)
+                :parent={[ inet:service:platform=({"name": "salesforce"}) ]}
+                :status=available
+                :family="  FooFam  "
+                :period=(2022, 2023)
+                :creator={[ inet:service:account=({"id": "bar"}) ]}
+                :remover={[ inet:service:account=({"id": "baz"}) ]}
                 :provider={ ou:org:name=$provname }
                 :provider:name=$provname
+                :type=foo.bar
             ]
             '''
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:platform', s_common.guid(('slack',))))
+            self.eq('foo', nodes[0].get('id'))
+            self.eq('foo.bar.', nodes[0].get('type'))
+            self.eq('foofam', nodes[0].get('family'))
             self.eq(nodes[0].get('url'), 'https://slack.com')
             self.eq(nodes[0].get('urls'), ('https://slacker.com',))
+            self.eq(nodes[0].get('zones'), ('slack.com', 'slacker.com'))
             self.eq(nodes[0].get('name'), 'slack')
             self.eq(nodes[0].get('names'), ('slack chat',))
+            self.eq(nodes[0].repr('status'), 'available')
+            self.eq(nodes[0].repr('period'), ('2022/01/01 00:00:00.000', '2023/01/01 00:00:00.000'))
             self.eq(nodes[0].get('provider'), provider.ndef[1])
             self.eq(nodes[0].get('provider:name'), provname.lower())
             platform = nodes[0]
+
+            nodes = await core.nodes('inet:service:platform=(slack,) :parent -> *')
+            self.eq(['salesforce'], [n.get('name') for n in nodes])
+
+            nodes = await core.nodes('inet:service:platform=(slack,) :creator -> *')
+            self.eq(['bar'], [n.get('id') for n in nodes])
+
+            nodes = await core.nodes('inet:service:platform=(slack,) :remover -> *')
+            self.eq(['baz'], [n.get('id') for n in nodes])
 
             nodes = await core.nodes('[ inet:service:platform=({"name": "slack chat"}) ]')
             self.eq(nodes[0].ndef, platform.ndef)
 
             nodes = await core.nodes('[ inet:service:platform=({"url": "https://slacker.com"}) ]')
             self.eq(nodes[0].ndef, platform.ndef)
+
+            nodes = await core.nodes('[ inet:service:platform=({"zone": "slacker.com"}) ]')
+            self.eq(nodes[0].ndef, platform.ndef)
+
+            nodes = await core.nodes('inet:service:platform:type:taxonomy')
+            self.sorteq(['foo.', 'foo.bar.'], [n.ndef[1] for n in nodes])
 
             q = '''
             [ inet:service:instance=(vertex, slack)
@@ -3017,11 +3068,14 @@ class InetModelTest(s_t_utils.SynTest):
             platinst = nodes[0]
             app00 = nodes[0].get('app')
 
+            self.len(1, await core.nodes('inet:service:instance:id=T2XK1223Y -> inet:service:app [ :provider=* :provider:name=vertex ] :provider -> ou:org'))
+
             q = '''
             [
                 (inet:service:account=(blackout, account, vertex, slack)
                     :id=U7RN51U1J
                     :user=blackout
+                    :users=(zeblackout, blackoutalt, zeblackout)
                     :url=https://vertex.link/users/blackout
                     :email=blackout@vertex.link
                     :profile={ gen.ps.contact.email vertex.employee blackout@vertex.link }
@@ -3033,6 +3087,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :id=U2XK7PUVB
                     :user=visi
                     :email=visi@vertex.link
+                    :parent=*
                     :profile={ gen.ps.contact.email vertex.employee visi@vertex.link }
                 )
             ]
@@ -3052,6 +3107,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(accounts[0].ndef, ('inet:service:account', s_common.guid(('blackout', 'account', 'vertex', 'slack'))))
             self.eq(accounts[0].get('id'), 'U7RN51U1J')
             self.eq(accounts[0].get('user'), 'blackout')
+            self.eq(accounts[0].get('users'), ('blackoutalt', 'zeblackout'))
             self.eq(accounts[0].get('url'), 'https://vertex.link/users/blackout')
             self.eq(accounts[0].get('email'), 'blackout@vertex.link')
             self.eq(accounts[0].get('profile'), blckprof.ndef[1])
@@ -3062,6 +3118,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(accounts[1].get('email'), 'visi@vertex.link')
             self.eq(accounts[1].get('profile'), visiprof.ndef[1])
             blckacct, visiacct = accounts
+
+            self.len(1, await core.nodes('inet:service:account:email=visi@vertex.link :parent -> inet:service:account'))
+
+            nodes = await core.nodes('[ inet:service:account=({"user": "blackoutalt"}) ]')
+            self.len(1, nodes)
+            self.eq(accounts[0].ndef, nodes[0].ndef)
 
             q = '''
             [ inet:service:group=(developers, group, vertex, slack)
@@ -3138,6 +3200,7 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [ inet:service:login=*
                 :method=password
+                :url=https://vertex.link/api/v1/login
                 :session=$blcksess
                 :server=tcp://10.10.10.4:443
                 :client=tcp://192.168.0.10:12345
@@ -3147,6 +3210,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('method'), 'password.')
+            self.eq(nodes[0].get('url'), 'https://vertex.link/api/v1/login')
 
             server = await core.nodes('inet:server=tcp://10.10.10.4:443')
             self.len(1, server)
@@ -3505,6 +3569,28 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:service:subscription -> inet:service:subscription:level:taxonomy'))
             self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:bank:account'))
             self.len(1, await core.nodes('inet:service:subscription :subscriber -> inet:service:tenant'))
+
+            nodes = await core.nodes('''
+                [ inet:service:agent=*
+                    :name=woot
+                    :names=(foo, bar)
+                    :desc="Foo Bar"
+                    :software={[ it:prod:softver=(hehe, haha) ]}
+                    :platform={inet:service:platform | limit 1}
+
+                    // ensure we got the interface...
+                    :creator={ inet:service:account | limit 1 }
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'woot')
+            self.eq(nodes[0].get('names'), ('bar', 'foo'))
+            self.eq(nodes[0].get('desc'), 'Foo Bar')
+            self.nn(nodes[0].get('creator'))
+            self.nn(nodes[0].get('platform'))
+
+            self.len(1, await core.nodes('inet:service:action | limit 1 | [ :agent={ inet:service:agent } ]'))
+            self.len(1, await core.nodes('inet:service:platform | limit 1 | [ :software={[ it:prod:softver=(hehe, haha) ]} ]'))
 
     async def test_model_inet_tls_ja4(self):
 

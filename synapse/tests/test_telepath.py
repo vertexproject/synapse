@@ -862,8 +862,7 @@ class TeleTest(s_t_utils.SynTest):
         self.isin('Cell path does not exist', cm.exception.get('mesg'))
 
     async def test_ipv6(self):
-        if s_common.envbool('CIRCLECI'):
-            self.skip('ipv6 listener is not supported in circleci')
+        self.thisEnvMustNot('CIRCLECI')  # ipv6 listener not supported in circleci
 
         foo = Foo()
 
@@ -1393,3 +1392,34 @@ class TeleTest(s_t_utils.SynTest):
             sslctx.set_ciphers('DHE-RSA-AES256-SHA256')
             with self.raises(ConnectionResetError):
                 link = await s_link.connect(hostname, port=port, ssl=sslctx)
+
+    async def test_telepath_exception_logging(self):
+
+        async with self.getTestCore() as core:
+
+            addr, port = await core.dmon.listen('tcp://127.0.0.1:0')
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}', user='root', passwd='secret') as prox:
+
+                with self.getAsyncLoggerStream('synapse.daemon', 'error during task: callStorm') as stream:
+                    task = asyncio.create_task(prox.callStorm('$lib.time.sleep(60)'))
+
+                    await asyncio.sleep(2)
+                    task.cancel()
+
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+
+                    self.false(await stream.wait(timeout=0.5))
+
+                with self.getAsyncLoggerStream('synapse.daemon', 'error during task: callStorm') as stream:
+                    try:
+                        await prox.callStorm('[inet:newp=invalid]')
+                    except Exception:
+                        pass
+
+                    self.true(await stream.wait(timeout=6))

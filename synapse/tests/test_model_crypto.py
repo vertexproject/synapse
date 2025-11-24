@@ -61,7 +61,9 @@ class CryptoModelTest(s_t_utils.SynTest):
                         :public:sha256=$sha256
                         :public:text=haha
                         :seed:passwd=s3cret
-                        :seed:algorithm=pbkdf2 ]
+                        :seed:algorithm=pbkdf2
+                        +(decrypts)> {[ file:bytes=* ]}
+                    ]
                 }]
             ''', opts={'vars': {'md5': TEST_MD5, 'sha1': TEST_SHA1, 'sha256': TEST_SHA256}})
 

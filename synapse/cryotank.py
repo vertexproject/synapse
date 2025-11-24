@@ -39,7 +39,7 @@ class CryoTank(s_base.Base):
     A CryoTank implements a stream of structured data.
     '''
     async def __anit__(self, dirn, iden, conf=None):
-
+        s_common.deprecated('synapse.cryotank.CryoTank', curv='2.223.0')
         await s_base.Base.__anit__(self)
 
         if conf is None:

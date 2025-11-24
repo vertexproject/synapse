@@ -176,6 +176,9 @@ class BaseModule(s_module.CoreModule):
                 ((None, 'refs', None), {
                     'doc': 'The source node contains a reference to the target node.'}),
 
+                ((None, 'linked', None), {
+                    'doc': 'The source node is linked to the target node.'}),
+
                 (('meta:source', 'seen', None), {
                     'doc': 'The meta:source observed the target node.'}),
 
@@ -239,6 +242,8 @@ class BaseModule(s_module.CoreModule):
 
                 ('meta:feed:type:taxonomy', {}, ()),
                 ('meta:feed', {}, (
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'An identifier for the feed.'}),
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for the feed.'}),

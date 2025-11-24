@@ -1,5 +1,0 @@
----
-desc: Fixed bug where auth rules could be specified without any rule text.
-prs: []
-type: bug
-...

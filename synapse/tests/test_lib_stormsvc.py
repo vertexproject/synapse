@@ -9,7 +9,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.share as s_share
 import synapse.lib.stormsvc as s_stormsvc
 
-import synapse.tools.backup as s_tools_backup
+import synapse.tools.service.backup as s_tools_backup
 
 old_pkg = {
     'name': 'old',
@@ -293,13 +293,11 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
                         ('name', {}),
                         ('--debug', {'default': False, 'action': 'store_true'})
                     ),
-                    'forms': {
-                        'input': ('test:str', 'test:int'),
-                        'output': ('test:comp', 'inet:ipv4'),
-                        'nodedata': (
-                            ('foo', 'inet:ipv4'),
-                        ),
-                    },
+                    'cmdinputs': [
+                        {'form': 'test:str'},
+                        {'form': 'test:int'},
+                    ],
+
                     'storm': '''
                     $fooz = $cmdopts.name
                     if $cmdopts.debug {

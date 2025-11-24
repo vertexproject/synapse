@@ -17,6 +17,7 @@ import decimal
 import fnmatch
 import hashlib
 import logging
+import tarfile
 import binascii
 import builtins
 import tempfile
@@ -143,7 +144,7 @@ def flatten(item):
         item: The python primitive object to normalize.
 
     Notes:
-        Only None, bool, int, bytes, strings, lists, tuples and dictionaries are acceptable input.
+        Only None, bool, int, bytes, strings, floats, lists, tuples and dictionaries are acceptable input.
         List objects will be converted to tuples.
         Dictionary objects must have keys which can be sorted.
 
@@ -154,7 +155,7 @@ def flatten(item):
     if item is None:
         return None
 
-    if isinstance(item, (str, int, bytes)):
+    if isinstance(item, (str, int, bytes, float)):
         return item
 
     if isinstance(item, (tuple, list)):
@@ -1189,8 +1190,38 @@ def _patch_tornado_json():
     if hasattr(tornado.escape, 'json_decode'):
         tornado.escape.json_decode = s_json.loads
 
+def _patch_tarfile_count():
+    '''
+    Patch tarfile block size reading from the cpython implementation if
+    the interpreter has not been patched for CVE-2025-8194.
+    See https://mail.python.org/archives/list/security-announce@python.org/thread/ZULLF3IZ726XP5EY7XJ7YIN3K5MDYR2D/
+    '''
+    if sys.version_info.major > 3:
+        return
+
+    # Map of minor versions to micro versions which contain the patch
+    min_patched_micros = {
+        11: 14,
+        12: 12,
+        13: 6,
+    }
+    req_micro = min_patched_micros.get(sys.version_info.minor)
+    if req_micro is None:
+        return
+    if sys.version_info.micro >= req_micro:
+        return
+
+    def _block_patched(self, count):
+        if count < 0:  # pragma: no cover
+            raise tarfile.InvalidHeaderError("invalid offset")
+        return _block_patched._orig_block(self, count)
+
+    _block_patched._orig_block = tarfile.TarInfo._block
+    tarfile.TarInfo._block = _block_patched
+
 _patch_http_cookies()
 _patch_tornado_json()
+_patch_tarfile_count()
 
 # TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
 # This is a workaround for a race where asyncio.wait_for can end up

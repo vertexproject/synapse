@@ -17,6 +17,7 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ ou:technique=*
                     :name=Woot
+                    :names=(Foo, Bar)
                     :type=lol.woot
                     :desc=Hehe
                     :tag=woot.woot
@@ -25,11 +26,13 @@ class OuModelTest(s_t_utils.SynTest):
                     :reporter=$lib.gen.orgByName(vertex)
                     :reporter:name=vertex
                     :ext:id=Foo
+                    :parent={[ ou:technique=* :name=metawoot ]}
                 ]
             ''')
             self.len(1, nodes)
             self.nn('reporter')
             self.eq('woot', nodes[0].get('name'))
+            self.eq(('bar', 'foo'), nodes[0].get('names'))
             self.eq('Hehe', nodes[0].get('desc'))
             self.eq('lol.woot.', nodes[0].get('type'))
             self.eq('woot.woot', nodes[0].get('tag'))
@@ -37,10 +40,14 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('T0001', nodes[0].get('mitre:attack:technique'))
             self.eq(40, nodes[0].get('sophistication'))
             self.eq('vertex', nodes[0].get('reporter:name'))
+            self.nn(nodes[0].get('parent'))
             self.len(1, await core.nodes('ou:technique -> syn:tag'))
             self.len(1, await core.nodes('ou:technique -> ou:technique:taxonomy'))
             self.len(1, await core.nodes('ou:technique -> it:mitre:attack:technique'))
-            self.len(1, await core.nodes('ou:technique :reporter -> ou:org'))
+
+            nodes = await core.nodes('ou:technique :parent -> *')
+            self.len(1, nodes)
+            self.eq('metawoot', nodes[0].get('name'))
 
             props = {
                 'name': 'MyGoal',
@@ -810,6 +817,20 @@ class OuModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('ou:candidate :method -> ou:candidate:method:taxonomy'))
             self.len(1, await core.nodes('ou:candidate :attachments -> file:attachment'))
+
+            nodes = await core.nodes('''
+                [ ou:candidate:referral=*
+                    :referrer={ ps:contact:name=visi | limit 1 }
+                    :candidate={ ou:candidate }
+                    :text="def a great candidate"
+                    :submitted=20241104
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('referrer'))
+            self.nn(nodes[0].get('candidate'))
+            self.eq(nodes[0].get('text'), 'def a great candidate')
+            self.eq(1730678400000, nodes[0].get('submitted'))
 
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()

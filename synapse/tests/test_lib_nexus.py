@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 from unittest import mock
 
 import synapse.exc as s_exc
@@ -7,6 +8,8 @@ import synapse.common as s_common
 import synapse.lib.auth as s_auth
 import synapse.lib.cell as s_cell
 import synapse.lib.nexus as s_nexus
+
+import synapse.tools.service.backup as s_backup
 
 import synapse.tests.utils as s_t_utils
 
@@ -61,7 +64,7 @@ class SampleNexus2(SampleNexus, SampleMixin):
 
 class NexusTest(s_t_utils.SynTest):
 
-    async def test_nexus(self):
+    async def test_nexus_base(self):
 
         with self.getTestDir() as dirn:
             dir1 = s_common.genpath(dirn, 'nexus1')
@@ -110,6 +113,19 @@ class NexusTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     self.isin('while replaying log', stream.read())
+
+                    nexsindx = nexus1.nexsroot.nexslog.index()
+
+                    async def listen():
+                        async for item in nexus1.getNexusChanges(nexsindx, wait=True):
+                            break
+                        return item
+
+                    task = nexus1.schedCoro(listen())
+                    self.eq('foo', await nexus1.doathing(eventdict))
+                    offs, item = await asyncio.wait_for(task, timeout=12)
+                    self.eq(offs, nexsindx)
+                    self.eq(item[1], 'thing:doathing')
 
     async def test_nexus_modroot(self):
 
@@ -215,9 +231,10 @@ class NexusTest(s_t_utils.SynTest):
 
     async def test_nexus_safety(self):
 
+        evnt = asyncio.Event()
         orig = s_auth.Auth.reqUser
         async def slowReq(self, iden):
-            await asyncio.sleep(0.2)
+            await evnt.wait()
             return await orig(self, iden)
 
         with self.getTestDir() as dirn:
@@ -254,23 +271,30 @@ class NexusTest(s_t_utils.SynTest):
                 strt = await core.nexsroot.index()
 
                 with mock.patch('synapse.lib.auth.Auth.reqUser', slowReq):
+
+                    # Two of these should time out before acquiring nexslock and fail to happen
                     for x in range(3):
                         vdef = {'layers': (deflayr,), 'name': f'someview{x}'}
                         with self.raises(TimeoutError):
                             await s_common.wait_for(core.addView(vdef), 0.1)
 
-                await core.nexsroot.waitOffs(strt + 3, timeout=2)
+                    # This will get the lock and succeed
+                    vdef = {'layers': (deflayr,), 'name': f'waitview'}
+                    core.schedCoro(core.addView(vdef))
+                    evnt.set()
 
-                viewadds = 0
+                await core.sync()
+
+                viewadds = []
                 async for item in core.nexsroot.nexslog.iter(strt):
                     if item[1][1] == 'view:add':
-                        viewadds += 1
+                        viewadds.append(item[1][2][0]['name'])
 
-                self.eq(3, viewadds)
-                self.len(vcnt + viewadds, core.views)
+                self.eq(viewadds, ['someview0', 'waitview'])
+                self.len(vcnt + len(viewadds), core.views)
 
             async with self.getTestCore(dirn=dirn) as core:
-                self.len(vcnt + viewadds, core.views)
+                self.len(vcnt + len(viewadds), core.views)
 
     async def test_mirror_version(self):
 
@@ -395,3 +419,82 @@ class NexusTest(s_t_utils.SynTest):
                 await core.nodes('[ it:dev:str=foo ]', opts={'view': forkiden})
 
             core.nexsroot._nexskids[layriden] = layr
+
+    async def test_nexus_iter(self):
+        async with self.getTestCell(conf={'nexslog:en': True}) as cell:
+            await cell.sync()
+
+            # Force nexus events to be added while constructing a Window
+            orig = s_nexus.NexsRoot.getMirrorWindow
+
+            @contextlib.asynccontextmanager
+            async def slowwindow(self):
+                await cell.sync()
+                async with orig(self) as wind:
+                    await cell.sync()
+                    yield wind
+
+            items = []
+            with mock.patch('synapse.lib.nexus.NexsRoot.getMirrorWindow', slowwindow):
+                async with cell.getLocalProxy() as prox:
+                    async for indx, item in prox.getNexusChanges(0):
+                        items.append(indx)
+                        if indx == 2:
+                            await cell.sync()
+                        elif indx == 3:
+                            break
+
+            # We didn't miss or duplicate items added during window construction
+            self.eq([0, 1, 2, 3], items)
+
+    async def test_nexus_mirror_nowait(self):
+
+        with self.getTestDir() as dirn:
+            path00 = s_common.genpath(dirn, 'core00')
+            path01 = s_common.genpath(dirn, 'core01')
+            conf00 = {'nexslog:en': True}
+
+            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
+                pass
+
+            s_backup.backup(path00, path01)
+
+            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
+                conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+                async with self.getTestCore(dirn=path01, conf=conf01) as core01:
+
+                    evnt1 = asyncio.Event()
+                    evnt2 = asyncio.Event()
+                    orig = core00.auth.reqUser
+
+                    async def slowReq(iden):
+                        await evnt1.wait()
+                        valu = await orig(iden)
+                        evnt2.set()
+                        return valu
+
+                    with mock.patch.object(core00.auth, 'reqUser', slowReq):
+
+                        self.eq(len(core00.views), len(core01.views))
+
+                        deflayr = (await core00.getLayerDef()).get('iden')
+
+                        vdef = {'layers': (deflayr,), 'name': 'nextview'}
+                        await core01.addView(vdef)
+
+                        # We can finish handling the view add event on the mirror before the leader
+                        self.eq(len(core00.views) + 1, len(core01.views))
+
+                        evnt1.set()
+                        await evnt2.wait()
+
+                        self.eq(len(core00.views), len(core01.views))
+
+                        await core00.getCellNexsRoot().addWriteHold('readonly')
+                        strt = await core01.nexsroot.index()
+
+                        # We still get exceptions that occur before adding the nexus event
+                        with self.raises(s_exc.IsReadOnly) as cm:
+                            await core01.addView(vdef)
+
+                        self.eq(strt, await core01.nexsroot.index())

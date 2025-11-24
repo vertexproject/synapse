@@ -108,6 +108,10 @@ def getAddrScope(ipv6):
 
 class Addr(s_types.Str):
 
+    protos = ('tcp', 'udp', 'icmp', 'host', 'gre')
+    # TODO: this should include icmp and host but requires a migration
+    noports = ('gre',)
+
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
@@ -140,9 +144,11 @@ class Addr(s_types.Str):
         if len(parts) == 2:
             proto, valu = parts
 
-        if proto not in ('tcp', 'udp', 'icmp', 'host'):
-            raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
+        if proto not in self.protos:
+            protostr = ','.join(self.protos)
+            mesg = f'inet:addr protocol must be one of: {protostr}'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=orig, name=self.name)
+
         subs['proto'] = proto
 
         valu = valu.strip().strip('/')
@@ -181,6 +187,10 @@ class Addr(s_types.Str):
                     subs['port'] = port
                     portstr = f':{port}'
 
+                if port and proto in self.noports:
+                    mesg = f'Protocol {proto} does not allow specifying ports.'
+                    raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
+
                 return f'{proto}://[{ipv6}]{portstr}', {'subs': subs}
 
             mesg = f'Invalid IPv6 w/port ({orig})'
@@ -195,6 +205,10 @@ class Addr(s_types.Str):
         valu, port, pstr = self._getPort(valu)
         if port:
             subs['port'] = port
+
+        if port and proto in self.noports:
+            mesg = f'Protocol {proto} does not allow specifying ports.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=orig)
 
         ipv4 = self.modl.type('inet:ipv4').norm(valu)[0]
         ipv4_repr = self.modl.type('inet:ipv4').repr(ipv4)
@@ -1546,13 +1560,23 @@ class InetModule(s_module.CoreModule):
                     ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
                         'doc': 'A JARM hash sample taken from a server.'}),
 
+                    ('inet:service:platform:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A service platform type taxonomy.'}),
+
                     ('inet:service:platform', ('guid', {}), {
                         'doc': 'A network platform which provides services.'}),
+
+                    ('inet:service:agent', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {'service:base': 'agent'},
+                        'doc': 'An instance of a deployed agent or software integration which is part of the service architecture.'}),
 
                     ('inet:service:app', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
                         'template': {'service:base': 'application'},
-                        'doc': 'A platform specific application.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:service:agent for autonomous agents.'}),
 
                     ('inet:service:instance', ('guid', {}), {
                         'doc': 'An instance of the platform such as Slack or Discord instances.'}),
@@ -1791,7 +1815,8 @@ class InetModule(s_module.CoreModule):
                                 'doc': 'The service account which removed or decommissioned the {service:base}.'}),
 
                             ('app', ('inet:service:app', {}), {
-                                'doc': 'The app which contains the {service:base}.'}),
+                                'deprecated': True,
+                                'doc': 'Deprecated. Objects are no longer scoped to an application or agent.'}),
                         ),
                     }),
 
@@ -1812,7 +1837,11 @@ class InetModule(s_module.CoreModule):
                         'props': (
 
                             ('app', ('inet:service:app', {}), {
-                                'doc': 'The app which handled the action.'}),
+                                'deprecated': True,
+                                'doc': 'Deprecated. Please use :agent / inet:service:agent.'}),
+
+                            ('agent', ('inet:service:agent', {}), {
+                                'doc': 'The service agent which performed the action potentially on behalf of an account.'}),
 
                             ('time', ('time', {}), {
                                 'doc': 'The time that the account initiated the action.'}),
@@ -1847,8 +1876,12 @@ class InetModule(s_module.CoreModule):
                             ('client:host', ('it:host', {}), {
                                 'doc': 'The client host which initiated the action.'}),
 
+                            ('client:software', ('it:prod:softver', {}), {
+                                'doc': 'The client software used to initiate the action.'}),
+
                             ('client:app', ('inet:service:app', {}), {
-                                'doc': 'The client service app which initiated the action.'}),
+                                'deprecated': True,
+                                'doc': 'Deprecated. Please use :client:software.'}),
 
                             ('server', ('inet:server', {}), {
                                 'doc': 'The network address of the server which handled the action.'}),
@@ -3695,7 +3728,12 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The x509 certificate sent by the client.'})
                     )),
+
+                    ('inet:service:platform:type:taxonomy', {}, ()),
                     ('inet:service:platform', {}, (
+
+                        ('id', ('str', {'strip': True}), {
+                            'doc': 'An ID which identifies the platform.'}),
 
                         ('url', ('inet:url', {}), {
                             'ex': 'https://twitter.com',
@@ -3704,6 +3742,13 @@ class InetModule(s_module.CoreModule):
 
                         ('urls', ('array', {'type': 'inet:url', 'sorted': True, 'uniq': True}), {
                             'doc': 'An array of alternate URLs for the platform.'}),
+
+                        ('zone', ('inet:fqdn', {}), {
+                            'alts': ('zones',),
+                            'doc': 'The primary zone for the platform.'}),
+
+                        ('zones', ('array', {'type': 'inet:fqdn', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of alternate zones for the platform.'}),
 
                         ('name', ('str', {'onespace': True, 'lower': True}), {
                             'ex': 'twitter',
@@ -3719,11 +3764,35 @@ class InetModule(s_module.CoreModule):
                             'disp': {'hint': 'text'},
                             'doc': 'A description of the service platform.'}),
 
+                        ('type', ('inet:service:platform:type:taxonomy', {}), {
+                            'doc': 'The type of service platform.'}),
+
+                        ('family', ('str', {'onespace': True, 'lower': True}), {
+                            'doc': 'A family designation for use with instanced platforms such as Slack, Discord, or Mastodon.'}),
+
+                        ('parent', ('inet:service:platform', {}), {
+                            'doc': 'A parent platform which owns this platform.'}),
+
+                        ('status', ('inet:service:object:status', {}), {
+                            'doc': 'The status of the platform.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The period when the platform existed.'}),
+
+                        ('creator', ('inet:service:account', {}), {
+                            'doc': 'The service account which created the platform.'}),
+
+                        ('remover', ('inet:service:account', {}), {
+                            'doc': 'The service account which removed or decommissioned the platform.'}),
+
                         ('provider', ('ou:org', {}), {
                             'doc': 'The organization which operates the platform.'}),
 
                         ('provider:name', ('ou:name', {}), {
                             'doc': 'The name of the organization which operates the platform.'}),
+
+                        ('software', ('it:prod:softver', {}), {
+                            'doc': 'The latest known software version that the platform is running.'}),
                     )),
 
                     ('inet:service:instance', {}, (
@@ -3763,7 +3832,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The tenant which contains the instance.'}),
 
                         ('app', ('inet:service:app', {}), {
-                            'doc': 'The app which contains the instance.'}),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instances are no longer scoped to applications.'}),
                     )),
 
                     ('inet:service:app', {}, (
@@ -3780,12 +3850,44 @@ class InetModule(s_module.CoreModule):
                         ('desc', ('str', {}), {
                             'disp': {'hint': 'text'},
                             'doc': 'A description of the platform specific application.'}),
+
+                        ('provider', ('ou:org', {}), {
+                            'doc': 'The organization which provides the application.'}),
+
+                        ('provider:name', ('ou:name', {}), {
+                            'doc': 'The name of the organization which provides the application.'}),
+                    )),
+
+                    ('inet:service:agent', {}, (
+
+                        ('name', ('str', {'lower': True, 'onespace': True}), {
+                            'alts': ('names',),
+                            'doc': 'The name of the service agent instance.'}),
+
+                        ('names', ('array', {'type': 'str',
+                                             'typeopts': {'onespace': True, 'lower': True},
+                                             'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of alternate names for the service agent instance.'}),
+
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A description of the deployed service agent instance.'}),
+
+                        ('software', ('it:prod:softver', {}), {
+                            'doc': 'The latest known software version running on the service agent instance.'}),
                     )),
 
                     ('inet:service:account', {}, (
 
                         ('user', ('inet:user', {}), {
+                            'alts': ('users',),
                             'doc': 'The current user name of the account.'}),
+
+                        ('users', ('array', {'type': 'inet:user', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of alternate user names for this account.'}),
+
+                        ('parent', ('inet:service:account', {}), {
+                            'doc': 'A parent account which owns this account.'}),
 
                         ('email', ('inet:email', {}), {
                             'doc': 'The current email address associated with the account.'}),
@@ -3869,6 +3971,9 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:service:login', {}, (
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL of the login endpoint used for this login attempt.'}),
 
                         ('method', ('inet:service:login:method:taxonomy', {}), {
                             'doc': 'The type of authentication used for the login. For example "password" or "multifactor.sms".'}),

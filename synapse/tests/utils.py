@@ -76,7 +76,7 @@ import synapse.lib.thishost as s_thishost
 import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.tools.genpkg as s_genpkg
+import synapse.tools.storm.pkg.gen as s_genpkg
 
 logger = logging.getLogger(__name__)
 
@@ -341,6 +341,10 @@ testmodel = {
             ('foo', 'test:int'),
             ('bar', ('str', {'lower': True}),),
         )}), {'doc': 'A complex comp type.'}),
+        ('test:mutcomp', ('comp', {'fields': (
+            ('str', 'str'),
+            ('list', 'array'))
+        }), {'doc': 'A mutable comp type.'}),
         ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
         ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
         ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
@@ -420,6 +424,11 @@ testmodel = {
             ('bar', ('str', {'lower': 1}), {'ro': True})
         )),
 
+        ('test:mutcomp', {}, (
+            ('str', ('str', {}), {'ro': True}),
+            ('list', ('array', {'type': 'int'}), {'ro': True}),
+        )),
+
         ('test:int', {}, (
             ('loc', ('loc', {}), {}),
             ('int2', ('int', {}), {}),
@@ -441,6 +450,9 @@ testmodel = {
             ('size', ('test:int', {}), {}),
             ('name', ('test:str', {}), {}),
             ('tick', ('test:time', {}), {}),
+            ('data', ('data', {}), {}),
+            ('comp', ('test:comp', {}), {}),
+            ('mutcomp', ('test:mutcomp', {}), {}),
             ('posneg', ('test:sub', {}), {}),
             ('posneg:isbig', ('bool', {}), {}),
         )),
@@ -831,6 +843,12 @@ class _StreamIOMixin(io.StringIO):
             mesg = '%s.expect(%s) not in %s' % (self.__class__.__name__, substr, valu)
             raise s_exc.SynErr(mesg=mesg)
 
+    def noexpect(self, substr: str):
+        valu = self.getvalue()
+        if valu.find(substr) != -1:
+            mesg = '%s.noexpect(%s) in %s' % (self.__class__.__name__, substr, valu)
+            raise s_exc.SynErr(mesg=mesg)
+
 class StreamEvent(_StreamIOMixin, threading.Event):
     '''
     A combination of a io.StringIO object and a threading.Event object.
@@ -906,6 +924,8 @@ class HttpReflector(s_httpapi.Handler):
         self.sendRestRetn(resp)
 
     async def post(self):
+        self.set_header('Giant', 'x' * 64_000)
+
         resp = {}
         params = self._decode_params()
         if params:
@@ -2425,16 +2445,18 @@ class StormPkgTest(SynTest):
             for pkgproto in self.pkgprotos:
 
                 pkgdef = s_genpkg.loadPkgProto(pkgproto, no_docs=True, readonly=True)
+                pkgname = pkgdef.get('name')
 
-                waiter = None
-                if pkgdef.get('onload') is not None:
-                    waiter = core.waiter(1, 'core:pkg:onload:complete')
+                load_event = asyncio.Event()
 
-                await core.addStormPkg(pkgdef)
+                async def func(event):
+                    if event[1].get('pkg') == pkgname:
+                        load_event.set()
 
-                if waiter is not None:
-                    self.nn(await waiter.wait(timeout=ONLOAD_TIMEOUT),
-                            f'Package onload failed to run for {pkgdef.get("name")}')
+                with core.onWith('core:pkg:onload:complete', func):
+                    await core.addStormPkg(pkgdef)
+                    self.nn(await asyncio.wait_for(load_event.wait(), timeout=ONLOAD_TIMEOUT),
+                            f'Package onload failed to run for {pkgname}')
 
             if self.assetdir is not None:
 

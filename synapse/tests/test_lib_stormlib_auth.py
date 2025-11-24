@@ -5,6 +5,8 @@ import synapse.common as s_common
 
 import synapse.lib.json as s_json
 
+import synapse.tools.service.backup as s_t_backup
+
 import synapse.tests.utils as s_test
 
 visishow = '''
@@ -427,6 +429,90 @@ class StormLibAuthTest(s_test.SynTest):
                     opts=asuser
                 )
 
+    async def test_stormlib_auth_asroot_ondeny(self):
+        async with self.getTestCore() as core:
+
+            stormpkg = {
+                'name': 'authtest',
+                'version': '0.0.1',
+                'perms': (
+                    {'perm': ('authtest', 'perm'), 'desc': 'Elevate mod', 'gate': 'cortex'},
+                ),
+                'modules': (
+                    {
+                        'name': 'authtest.mod.default',
+                        'asroot:perms': (
+                            ('authtest', 'perm'),
+                        ),
+                        'storm': 'function func() { [ test:guid=* ] return($node) }',
+                    },
+                    {
+                        'name': 'authtest.mod.allow',
+                        'asroot:perms': (
+                            ('authtest', 'perm'),
+                        ),
+                        'asroot:ondeny:import': 'allow',
+                        'storm': '''
+                            function func() { [ test:guid=* ] return($node) }
+                            function func2() { [ test:str=newp ] return($node) }
+                        ''',
+                    },
+                    {
+                        'name': 'authtest.mod.warn',
+                        'asroot:perms': (
+                            ('authtest', 'perm'),
+                        ),
+                        'asroot:ondeny:import': 'warn',
+                        'storm': '''
+                            function func() { [ test:guid=* ] return($node) }
+                            function func2() { [ test:str=newp ] return($node) }
+                        ''',
+                    },
+                    {
+                        'name': 'authtest.mod.deny',
+                        'asroot:perms': (
+                            ('authtest', 'perm'),
+                        ),
+                        'asroot:ondeny:import': 'deny',
+                        'storm': 'function func() { [ test:guid=* ] return($node) }',
+                    },
+                ),
+            }
+
+            await core.stormlist('auth.user.add user')
+            await core.stormlist('auth.user.add lowuser')
+
+            await core.addStormPkg(stormpkg)
+
+            user = await core.auth.getUserByName('user')
+            asuser = {'user': user.iden}
+
+            lowuser = await core.auth.getUserByName('lowuser')
+            aslowuser = {'user': lowuser.iden}
+
+            await core.stormlist('auth.user.addrule user authtest.perm')
+            await core.stormlist('auth.user.addrule lowuser node.add.test:guid')
+
+            # user has no node perms, but has asroot so perms are elevated
+            self.len(1, await core.nodes('yield $lib.import(authtest.mod.default).func()', opts=asuser))
+            self.len(1, await core.nodes('yield $lib.import(authtest.mod.allow).func()', opts=asuser))
+            self.len(1, await core.nodes('yield $lib.import(authtest.mod.deny).func()', opts=asuser))
+            msgs = await core.stormlist('yield $lib.import(authtest.mod.warn).func()', opts=asuser)
+            self.stormHasNoWarnErr(msgs)
+            self.len(1, [m for m in msgs if m[0] == 'node'])
+
+            # lowuser does not have asroot perms and gets denied importing certain modules
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('yield $lib.import(authtest.mod.deny).func()', opts=aslowuser))
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('yield $lib.import(authtest.mod.default).func()', opts=aslowuser))
+            # ...and for modules they can import perms are not elevated so they can only add test:guid nodes
+            self.len(1, await core.nodes('yield $lib.import(authtest.mod.allow).func()', opts=aslowuser))
+            msgs = await core.stormlist('yield $lib.import(authtest.mod.warn).func()', opts=aslowuser)
+            self.stormIsInWarn('permissions will not be elevated.', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'node'])
+            # ...and gets denied on adding test:str nodes
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('yield $lib.import(authtest.mod.allow).func2()', opts=aslowuser))
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('yield $lib.import(authtest.mod.warn).func2()', opts=aslowuser))
+
     async def test_stormlib_auth_userjson(self):
 
         async with self.getTestCore() as core:
@@ -526,6 +612,326 @@ class StormLibAuthTest(s_test.SynTest):
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('$lib.user.profile.set((1), newp)')
+
+    async def test_stormlib_auth_user_vars_dict_mutability(self):
+
+        with self.getTestDir() as dirn:
+            dirn00 = s_common.gendir(dirn, 'core00')
+            dirn01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+                visi = await core00.auth.addUser('visi')
+                asvisi = {'user': visi.iden}
+
+                valu = await core00.callStorm('return($lib.user.vars.get(newp))', opts=asvisi)
+                self.none(valu)
+
+                q = '''
+                  $lib.user.vars.set(testlist, (foo, bar, baz))
+                  $lib.user.vars.set(testdict, ({"foo": "bar"}))
+                '''
+                await core00.callStorm(q, opts=asvisi)
+
+                # Can mutate list values?
+                valu = await core00.callStorm('$tl = $lib.user.vars.get(testlist) $tl.rem(bar) return($tl)', opts=asvisi)
+                self.eq(valu, ['foo', 'baz'])
+
+                # List mutations don't persist
+                valu = await core00.callStorm('return($lib.user.vars.get(testlist))', opts=asvisi)
+                self.eq(valu, ['foo', 'bar', 'baz'])
+
+                # Can mutate dict values?
+                valu = await core00.callStorm('$td = $lib.user.vars.get(testdict) $td.bar=foo return($td)', opts=asvisi)
+                self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
+
+                # Dict mutations don't persist
+                valu = await core00.callStorm('return($lib.user.vars.get(testdict))', opts=asvisi)
+                self.eq(valu, {'foo': 'bar'})
+
+                # user vars list returns mutable objects
+                q = '''
+                    $ret = ({})
+                    for ($key, $valu) in $lib.user.vars.list() {
+                      $ret.$key = $valu
+                    }
+                    $ret.testdict.boo = bar
+                    $ret.testlist.append(moo)
+                    return($ret)
+                '''
+                valu = await core00.callStorm(q, opts=asvisi)
+                self.eq(valu, {
+                    'testdict': {'boo': 'bar', 'foo': 'bar'},
+                    'testlist': ['foo', 'bar', 'baz', 'moo'],
+                })
+
+                # Pop returns mutable objects
+                q = '''
+                    $tl = $lib.user.vars.pop(testlist)
+                    $tl.rem(foo)
+                    $ret = ({})
+                    for ($key, $valu) in $lib.user.vars.list() {
+                      $ret.$key = $valu
+                    }
+                    return(($tl, $ret))
+                '''
+                valu = await core00.callStorm(q, opts=asvisi)
+                self.len(2, valu)
+                self.eq(valu[0], ['bar', 'baz'])
+                self.eq(valu[1], {
+                    'testdict': {'foo': 'bar'},
+                })
+
+                # Set returns mutable objects
+                q = '''
+                  $ret = $lib.user.vars.set(testdict, ({"beep": "boop"}))
+                  $ret.bop = zorp
+                  return($ret)
+                '''
+                valu = await core00.callStorm(q, opts=asvisi)
+                self.eq(valu, {'foo': 'bar', 'bop': 'zorp'})
+
+            s_t_backup.backup(dirn00, dirn01)
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+
+                url = core00.getLocalUrl()
+
+                conf01 = {'mirror': url}
+
+                async with self.getTestCore(dirn=dirn01, conf=conf01) as core01:
+
+                    # Check pass by reference of default values works on a mirror
+                    q = '''
+                        $default = ({"foo": "bar"})
+                        $valu = $lib.user.vars.get(newp01, $default)
+                        $valu.foo01 = bar01
+                        return(($valu, $default))
+                    '''
+                    valu = await core01.callStorm(q, opts=asvisi)
+                    self.len(2, valu)
+                    self.eq(valu, [
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                    ])
+
+                    q = '''
+                        $default = ({"foo": "bar"})
+                        $valu = $lib.user.vars.pop(newp01, $default)
+                        $valu.foo01 = bar01
+                        return(($valu, $default))
+                    '''
+                    valu = await core01.callStorm(q, opts=asvisi)
+                    self.len(2, valu)
+                    self.eq(valu, [
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                    ])
+
+    async def test_stormlib_auth_user_profile_dict_mutability(self):
+
+        with self.getTestDir() as dirn:
+            dirn00 = s_common.gendir(dirn, 'core00')
+            dirn01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+                visi = await core00.auth.addUser('visi')
+                asvisi = {'user': visi.iden}
+
+                valu = await core00.callStorm('return($lib.user.profile.get(newp))', opts=asvisi)
+                self.none(valu)
+
+                q = '''
+                  $lib.user.profile.set(testlist, (foo, bar, baz))
+                  $lib.user.profile.set(testdict, ({"foo": "bar"}))
+                '''
+                await core00.callStorm(q, opts=asvisi)
+
+                # Can mutate list values?
+                valu = await core00.callStorm('$tl = $lib.user.profile.get(testlist) $tl.rem(bar) return($tl)', opts=asvisi)
+                self.eq(valu, ['foo', 'baz'])
+
+                # List mutations don't persist
+                valu = await core00.callStorm('return($lib.user.profile.get(testlist))', opts=asvisi)
+                self.eq(valu, ['foo', 'bar', 'baz'])
+
+                # Can mutate dict values?
+                valu = await core00.callStorm('$td = $lib.user.profile.get(testdict) $td.bar=foo return($td)', opts=asvisi)
+                self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
+
+                # Dict mutations don't persist
+                valu = await core00.callStorm('return($lib.user.profile.get(testdict))', opts=asvisi)
+                self.eq(valu, {'foo': 'bar'})
+
+                # user profile list returns mutable objects
+                q = '''
+                    $ret = ({})
+                    for ($key, $valu) in $lib.user.profile.list() {
+                      $ret.$key = $valu
+                    }
+                    $ret.testdict.boo = bar
+                    $ret.testlist.append(moo)
+                    return($ret)
+                '''
+                valu = await core00.callStorm(q, opts=asvisi)
+                self.eq(valu, {
+                    'testdict': {'boo': 'bar', 'foo': 'bar'},
+                    'testlist': ['foo', 'bar', 'baz', 'moo'],
+                })
+
+                # Pop returns mutable objects
+                q = '''
+                    $tl = $lib.user.profile.pop(testlist)
+                    $tl.rem(foo)
+                    $ret = ({})
+                    for ($key, $valu) in $lib.user.profile.list() {
+                      $ret.$key = $valu
+                    }
+                    return(($tl, $ret))
+                '''
+                valu = await core00.callStorm(q, opts=asvisi)
+                self.len(2, valu)
+                self.eq(valu[0], ['bar', 'baz'])
+                self.eq(valu[1], {
+                    'testdict': {'foo': 'bar'},
+                })
+
+                # Set returns mutable objects
+                q = '''
+                  $ret = $lib.user.profile.set(testdict, ({"beep": "boop"}))
+                  $ret.bop = zorp
+                  return($ret)
+                '''
+                valu = await core00.callStorm(q, opts=asvisi)
+                self.eq(valu, {'foo': 'bar', 'bop': 'zorp'})
+
+            s_t_backup.backup(dirn00, dirn01)
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+
+                url = core00.getLocalUrl()
+
+                conf01 = {'mirror': url}
+
+                async with self.getTestCore(dirn=dirn01, conf=conf01) as core01:
+
+                    # Check pass by reference of default values works on a mirror
+                    q = '''
+                        $default = ({"foo": "bar"})
+                        $valu = $lib.user.profile.get(newp01, $default)
+                        $valu.foo01 = bar01
+                        return(($valu, $default))
+                    '''
+                    valu = await core01.callStorm(q, opts=asvisi)
+                    self.len(2, valu)
+                    self.eq(valu, [
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                    ])
+
+                    q = '''
+                        $default = ({"foo": "bar"})
+                        $valu = $lib.user.profile.pop(newp01, $default)
+                        $valu.foo01 = bar01
+                        return(($valu, $default))
+                    '''
+                    valu = await core01.callStorm(q, opts=asvisi)
+                    self.len(2, valu)
+                    self.eq(valu, [
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                        {'foo': 'bar', 'foo01': 'bar01'},
+                    ])
+
+    async def test_stormlib_auth_auth_user_vars_mutability(self):
+
+        async with self.getTestCore() as core00:
+            await core00.auth.addUser('visi')
+
+            valu = await core00.callStorm('return($lib.auth.users.byname(visi).vars.newp)')
+            self.none(valu)
+
+            q = '''
+              $lib.auth.users.byname(visi).vars.testlist = (foo, bar, baz)
+              $lib.auth.users.byname(visi).vars.testdict = ({"foo": "bar"})
+            '''
+            await core00.callStorm(q)
+
+            # Can mutate list values?
+            valu = await core00.callStorm('$tl = $lib.auth.users.byname(visi).vars.testlist $tl.rem(bar) return($tl)')
+            self.eq(valu, ['foo', 'baz'])
+
+            # List mutations don't persist
+            valu = await core00.callStorm('return($lib.auth.users.byname(visi).vars.testlist)')
+            self.eq(valu, ['foo', 'bar', 'baz'])
+
+            # Can mutate dict values?
+            valu = await core00.callStorm('$td = $lib.auth.users.byname(visi).vars.testdict $td.bar=foo return($td)')
+            self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
+
+            # Dict mutations don't persist
+            valu = await core00.callStorm('return($lib.auth.users.byname(visi).vars.testdict)')
+            self.eq(valu, {'foo': 'bar'})
+
+            # user vars list returns mutable objects
+            q = '''
+                $ret = ({})
+                for ($key, $valu) in $lib.auth.users.byname(visi).vars {
+                  $ret.$key = $valu
+                }
+                $ret.testdict.boo = bar
+                $ret.testlist.append(moo)
+                return($ret)
+            '''
+            valu = await core00.callStorm(q)
+            self.eq(valu, {
+                'testdict': {'boo': 'bar', 'foo': 'bar'},
+                'testlist': ['foo', 'bar', 'baz', 'moo'],
+            })
+
+    async def test_stormlib_auth_auth_user_profile_mutability(self):
+
+        async with self.getTestCore() as core00:
+            await core00.auth.addUser('visi')
+
+            valu = await core00.callStorm('return($lib.auth.users.byname(visi).profile.newp)')
+            self.none(valu)
+
+            q = '''
+              $lib.auth.users.byname(visi).profile.testlist = (foo, bar, baz)
+              $lib.auth.users.byname(visi).profile.testdict = ({"foo": "bar"})
+            '''
+            await core00.callStorm(q)
+
+            # Can mutate list values?
+            valu = await core00.callStorm('$tl = $lib.auth.users.byname(visi).profile.testlist $tl.rem(bar) return($tl)')
+            self.eq(valu, ['foo', 'baz'])
+
+            # List mutations don't persist
+            valu = await core00.callStorm('return($lib.auth.users.byname(visi).profile.testlist)')
+            self.eq(valu, ['foo', 'bar', 'baz'])
+
+            # Can mutate dict values?
+            valu = await core00.callStorm('$td = $lib.auth.users.byname(visi).profile.testdict $td.bar=foo return($td)')
+            self.eq(valu, {'foo': 'bar', 'bar': 'foo'})
+
+            # Dict mutations don't persist
+            valu = await core00.callStorm('return($lib.auth.users.byname(visi).profile.testdict)')
+            self.eq(valu, {'foo': 'bar'})
+
+            # user profile list returns mutable objects
+            q = '''
+                $ret = ({})
+                for ($key, $valu) in $lib.auth.users.byname(visi).profile {
+                  $ret.$key = $valu
+                }
+                $ret.testdict.boo = bar
+                $ret.testlist.append(moo)
+                return($ret)
+            '''
+            valu = await core00.callStorm(q)
+            self.eq(valu, {
+                'testdict': {'boo': 'bar', 'foo': 'bar'},
+                'testlist': ['foo', 'bar', 'baz', 'moo'],
+            })
 
     async def test_stormlib_auth_base(self):
 
@@ -970,8 +1376,8 @@ class StormLibAuthTest(s_test.SynTest):
             }
             '''
             msgs = await core.stormlist(q)
-            self.stormIsInPrint("('hehe', 'haha')", msgs)
-            self.stormIsInPrint("('d', {'foo': 'bar'})", msgs)
+            self.stormIsInPrint("['hehe', 'haha']", msgs)
+            self.stormIsInPrint("['d', {'foo': 'bar'}]", msgs)
 
             # lowuser can perform auth auctions with the correct permissions
             lowuser = await core.addUser('lowuser')

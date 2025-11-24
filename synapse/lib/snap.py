@@ -1123,22 +1123,30 @@ class Snap(s_base.Base):
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
 
-        if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid) and cmpr == '=':
-            if prop.isform:
-                if (node := await self._getGuidNodeByDict(prop, valu)) is not None:
-                    yield node
+        if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid) and cmpr in ('=', '?='):
+            excignore = ()
+            if cmpr == '?=':
+                excignore = (s_exc.BadTypeValu,)
+
+            try:
+                if prop.isform:
+                    if (node := await self._getGuidNodeByDict(prop, valu)) is not None:
+                        yield node
+                    return
+
+                fname = prop.type.name
+                if (form := prop.modl.form(fname)) is None:
+                    mesg = f'The property "{full}" type "{fname}" is not a form and cannot be lifted using a dictionary.'
+                    raise s_exc.BadTypeValu(mesg=mesg)
+
+                if (node := await self._getGuidNodeByDict(form, valu)) is None:
+                    return
+
+                norm = False
+                valu = node.ndef[1]
+
+            except excignore:
                 return
-
-            fname = prop.type.name
-            if (form := prop.modl.form(fname)) is None:
-                mesg = f'The property "{full}" type "{fname}" is not a form and cannot be lifted using a dictionary.'
-                raise s_exc.BadTypeValu(mesg=mesg)
-
-            if (node := await self._getGuidNodeByDict(form, valu)) is None:
-                return
-
-            norm = False
-            valu = node.ndef[1]
 
         if norm:
             cmprvals = prop.type.getStorCmprs(cmpr, valu)
@@ -1297,6 +1305,11 @@ class Snap(s_base.Base):
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
+        useriden = meta.get('user')
+        if useriden is None:
+            mesg = 'meta is missing user key. Cannot process edits.'
+            raise s_exc.BadArg(mesg=mesg, name='user')
+
         wlyr = self.wlyr
         nodes = []
         callbacks = []
@@ -1336,12 +1349,12 @@ class Snap(s_base.Base):
                 if etyp == s_layer.EDIT_NODE_ADD:
                     node.bylayer['ndef'] = wlyr.iden
                     callbacks.append((node.form.wasAdded, (node,)))
-                    callbacks.append((self.view.runNodeAdd, (node,)))
+                    callbacks.append((self.view.runNodeAdd, (node, useriden)))
                     continue
 
                 if etyp == s_layer.EDIT_NODE_DEL:
                     callbacks.append((node.form.wasDeleted, (node,)))
-                    callbacks.append((self.view.runNodeDel, (node,)))
+                    callbacks.append((self.view.runNodeDel, (node, useriden)))
                     continue
 
                 if etyp == s_layer.EDIT_PROP_SET:
@@ -1357,7 +1370,7 @@ class Snap(s_base.Base):
                     node.bylayer['props'][name] = wlyr.iden
 
                     callbacks.append((prop.wasSet, (node, oldv)))
-                    callbacks.append((self.view.runPropSet, (node, prop, oldv)))
+                    callbacks.append((self.view.runPropSet, (node, prop, oldv, useriden)))
                     continue
 
                 if etyp == s_layer.EDIT_PROP_DEL:
@@ -1373,7 +1386,7 @@ class Snap(s_base.Base):
                     node.bylayer['props'].pop(name, None)
 
                     callbacks.append((prop.wasDel, (node, oldv)))
-                    callbacks.append((self.view.runPropSet, (node, prop, oldv)))
+                    callbacks.append((self.view.runPropSet, (node, prop, oldv, useriden)))
                     continue
 
                 if etyp == s_layer.EDIT_TAG_SET:
@@ -1383,7 +1396,7 @@ class Snap(s_base.Base):
                     node.tags[tag] = valu
                     node.bylayer['tags'][tag] = wlyr.iden
 
-                    callbacks.append((self.view.runTagAdd, (node, tag, valu)))
+                    callbacks.append((self.view.runTagAdd, (node, tag, valu, useriden,)))
                     continue
 
                 if etyp == s_layer.EDIT_TAG_DEL:
@@ -1393,7 +1406,7 @@ class Snap(s_base.Base):
                     node.tags.pop(tag, None)
                     node.bylayer['tags'].pop(tag, None)
 
-                    callbacks.append((self.view.runTagDel, (node, tag, oldv)))
+                    callbacks.append((self.view.runTagDel, (node, tag, oldv, useriden)))
                     continue
 
                 if etyp == s_layer.EDIT_TAGPROP_SET:
@@ -1428,14 +1441,15 @@ class Snap(s_base.Base):
                 if etyp == s_layer.EDIT_EDGE_ADD:
                     verb, n2iden = parms
                     n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
-                    callbacks.append((self.view.runEdgeAdd, (node, verb, n2)))
+                    callbacks.append((self.view.runEdgeAdd, (node, verb, n2, useriden)))
 
                 if etyp == s_layer.EDIT_EDGE_DEL:
                     verb, n2iden = parms
                     n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
-                    callbacks.append((self.view.runEdgeDel, (node, verb, n2)))
+                    callbacks.append((self.view.runEdgeDel, (node, verb, n2, useriden)))
 
-        [await func(*args) for (func, args) in callbacks]
+        for func, args in callbacks:
+            await func(*args)
 
         if actualedits:
             await self.fire('node:edits', edits=actualedits)

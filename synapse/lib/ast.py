@@ -2,7 +2,6 @@ import types
 import asyncio
 import decimal
 import fnmatch
-import hashlib
 import logging
 import binascii
 import itertools
@@ -1081,64 +1080,65 @@ class ForLoop(Oper):
             if valu is None:
                 valu = ()
 
-            async with contextlib.aclosing(s_coro.agen(valu)) as agen:
-
-                try:
-                    agen, _ = await pullone(agen)
-                except TypeError:
-                    styp = await s_stormtypes.totype(valu, basetypes=True)
-                    mesg = f"'{styp}' object is not iterable: {s_common.trimText(repr(valu))}"
-                    raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=styp)) from None
-
-                async for item in agen:
-
-                    if isinstance(name, (list, tuple)):
-
-                        try:
-                            numitems = len(item)
-                        except TypeError:
-                            mesg = f'Number of items to unpack does not match the number of variables: {s_common.trimText(repr(item))}'
-                            exc = s_exc.StormVarListError(mesg=mesg, names=name)
-                            raise self.kids[1].addExcInfo(exc)
-
-                        if len(name) != numitems:
-                            mesg = f'Number of items to unpack does not match the number of variables: {s_common.trimText(repr(item))}'
-                            exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
-                            raise self.kids[1].addExcInfo(exc)
-
-                        if isinstance(item, s_stormtypes.Prim):
-                            item = await item.value()
-
-                        for x, y in itertools.zip_longest(name, item):
-                            await path.setVar(x, y)
-                            await runt.setVar(x, y)
-
-                    else:
-                        # set both so inner subqueries have it in their runtime
-                        await path.setVar(name, item)
-                        await runt.setVar(name, item)
+            with s_scope.enter({'runt': runt}):
+                async with contextlib.aclosing(s_coro.agen(valu)) as agen:
 
                     try:
+                        agen, _ = await pullone(agen)
+                    except TypeError:
+                        styp = await s_stormtypes.totype(valu, basetypes=True)
+                        mesg = f"'{styp}' object is not iterable: {s_common.trimText(repr(valu))}"
+                        raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=styp)) from None
 
-                        # since it's possible to "multiply" the (node, path)
-                        # we must make a clone of the path to prevent yield-then-use.
-                        newg = s_common.agen((node, path.clone()))
-                        async for item in subq.inline(runt, newg):
-                            yield item
+                    async for item in agen:
 
-                    except s_stormctrl.StormBreak as e:
-                        if (eitem := e.get('item')) is not None:
-                            yield eitem
-                        break
+                        if isinstance(name, (list, tuple)):
 
-                    except s_stormctrl.StormContinue as e:
-                        if (eitem := e.get('item')) is not None:
-                            yield eitem
-                        continue
+                            try:
+                                numitems = len(item)
+                            except TypeError:
+                                mesg = f'Number of items to unpack does not match the number of variables: {s_common.trimText(repr(item))}'
+                                exc = s_exc.StormVarListError(mesg=mesg, names=name)
+                                raise self.kids[1].addExcInfo(exc)
 
-                    finally:
-                        # for loops must yield per item they iterate over
-                        await asyncio.sleep(0)
+                            if len(name) != numitems:
+                                mesg = f'Number of items to unpack does not match the number of variables: {s_common.trimText(repr(item))}'
+                                exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
+                                raise self.kids[1].addExcInfo(exc)
+
+                            if isinstance(item, s_stormtypes.Prim):
+                                item = await item.value()
+
+                            for x, y in itertools.zip_longest(name, item):
+                                await path.setVar(x, y)
+                                await runt.setVar(x, y)
+
+                        else:
+                            # set both so inner subqueries have it in their runtime
+                            await path.setVar(name, item)
+                            await runt.setVar(name, item)
+
+                        try:
+
+                            # since it's possible to "multiply" the (node, path)
+                            # we must make a clone of the path to prevent yield-then-use.
+                            newg = s_common.agen((node, path.clone()))
+                            async for item in subq.inline(runt, newg):
+                                yield item
+
+                        except s_stormctrl.StormBreak as e:
+                            if (eitem := e.get('item')) is not None:
+                                yield eitem
+                            break
+
+                        except s_stormctrl.StormContinue as e:
+                            if (eitem := e.get('item')) is not None:
+                                yield eitem
+                            continue
+
+                        finally:
+                            # for loops must yield per item they iterate over
+                            await asyncio.sleep(0)
 
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[1].isRuntSafe(runt):
@@ -1155,56 +1155,57 @@ class ForLoop(Oper):
             if valu is None:
                 valu = ()
 
-            async with contextlib.aclosing(s_coro.agen(valu)) as agen:
-                try:
-                    agen, _ = await pullone(agen)
-                except TypeError:
-                    styp = await s_stormtypes.totype(valu, basetypes=True)
-                    mesg = f"'{styp}' object is not iterable: {s_common.trimText(repr(valu))}"
-                    raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=styp)) from None
+            with s_scope.enter({'runt': runt}):
+                async with contextlib.aclosing(s_coro.agen(valu)) as agen:
+                    try:
+                        agen, _ = await pullone(agen)
+                    except TypeError:
+                        styp = await s_stormtypes.totype(valu, basetypes=True)
+                        mesg = f"'{styp}' object is not iterable: {s_common.trimText(repr(valu))}"
+                        raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=styp)) from None
 
-                async for item in agen:
+                    async for item in agen:
 
-                    if isinstance(name, (list, tuple)):
+                        if isinstance(name, (list, tuple)):
+
+                            try:
+                                numitems = len(item)
+                            except TypeError:
+                                mesg = f'Number of items to unpack does not match the number of variables: {s_common.trimText(repr(item))}'
+                                exc = s_exc.StormVarListError(mesg=mesg, names=name)
+                                raise self.kids[1].addExcInfo(exc)
+
+                            if len(name) != numitems:
+                                mesg = f'Number of items to unpack does not match the number of variables: {s_common.trimText(repr(item))}'
+                                exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
+                                raise self.kids[1].addExcInfo(exc)
+
+                            if isinstance(item, s_stormtypes.Prim):
+                                item = await item.value()
+
+                            for x, y in itertools.zip_longest(name, item):
+                                await runt.setVar(x, y)
+
+                        else:
+                            await runt.setVar(name, item)
 
                         try:
-                            numitems = len(item)
-                        except TypeError:
-                            mesg = f'Number of items to unpack does not match the number of variables: {s_common.trimText(repr(item))}'
-                            exc = s_exc.StormVarListError(mesg=mesg, names=name)
-                            raise self.kids[1].addExcInfo(exc)
+                            async for jtem in subq.inline(runt, s_common.agen()):
+                                yield jtem
 
-                        if len(name) != numitems:
-                            mesg = f'Number of items to unpack does not match the number of variables: {s_common.trimText(repr(item))}'
-                            exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
-                            raise self.kids[1].addExcInfo(exc)
+                        except s_stormctrl.StormBreak as e:
+                            if (eitem := e.get('item')) is not None:
+                                yield eitem
+                            break
 
-                        if isinstance(item, s_stormtypes.Prim):
-                            item = await item.value()
+                        except s_stormctrl.StormContinue as e:
+                            if (eitem := e.get('item')) is not None:
+                                yield eitem
+                            continue
 
-                        for x, y in itertools.zip_longest(name, item):
-                            await runt.setVar(x, y)
-
-                    else:
-                        await runt.setVar(name, item)
-
-                    try:
-                        async for jtem in subq.inline(runt, s_common.agen()):
-                            yield jtem
-
-                    except s_stormctrl.StormBreak as e:
-                        if (eitem := e.get('item')) is not None:
-                            yield eitem
-                        break
-
-                    except s_stormctrl.StormContinue as e:
-                        if (eitem := e.get('item')) is not None:
-                            yield eitem
-                        continue
-
-                    finally:
-                        # for loops must yield per item they iterate over
-                        await asyncio.sleep(0)
+                        finally:
+                            # for loops must yield per item they iterate over
+                            await asyncio.sleep(0)
 
 class WhileLoop(Oper):
 
@@ -1831,7 +1832,7 @@ class LiftProp(LiftOper):
 
         assert len(self.kids) == 1
 
-        name = await tostr(await self.kids[0].compute(runt, path))
+        name = await self.kids[0].compute(runt, path)
 
         prop = runt.model.props.get(name)
         if prop is not None:
@@ -3451,10 +3452,6 @@ class PropValue(Value):
                 raise self.kids[0].addExcInfo(exc)
 
             valu = path.node.get(name)
-            if isinstance(valu, (dict, list, tuple)):
-                # these get special cased because changing them affects the node
-                # while it's in the pipeline but the modification doesn't get stored
-                valu = s_msgpack.deepcopy(valu)
             return prop, valu
 
         # handle implicit pivot properties
@@ -3478,10 +3475,6 @@ class PropValue(Value):
                 raise self.kids[0].addExcInfo(exc)
 
             if i >= imax:
-                if isinstance(valu, (dict, list, tuple)):
-                    # these get special cased because changing them affects the node
-                    # while it's in the pipeline but the modification doesn't get stored
-                    valu = s_msgpack.deepcopy(valu)
                 return prop, valu
 
             form = runt.model.forms.get(prop.type.name)
@@ -3494,6 +3487,10 @@ class PropValue(Value):
 
     async def compute(self, runt, path):
         prop, valu = await self.getPropAndValu(runt, path)
+
+        if prop:
+            valu = await prop.type.tostorm(valu)
+
         return valu
 
 class RelPropValue(PropValue):
@@ -4027,6 +4024,13 @@ class FormName(Value):
     async def compute(self, runt, path):
         return await self.kids[0].compute(runt, path)
 
+class DerefProps(Value):
+    async def compute(self, runt, path):
+        valu = await toprim(await self.kids[0].compute(runt, path))
+        if (exc := await s_stormtypes.typeerr(valu, str)) is not None:
+            raise self.kids[0].addExcInfo(exc)
+        return valu
+
 class RelProp(PropName):
     pass
 
@@ -4519,9 +4523,6 @@ class N1Walk(Oper):
 
     def buildfilter(self, runt, destforms, cmpr):
 
-        if not isinstance(destforms, (tuple, list)):
-            destforms = (destforms,)
-
         if '*' in destforms:
             if cmpr is not None:
                 mesg = 'Wild card walk operations do not support comparison.'
@@ -4605,6 +4606,11 @@ class N1Walk(Oper):
             if destfilt is None or not self.kids[1].isconst:
                 dest = await self.kids[1].compute(runt, path)
                 dest = await s_stormtypes.toprim(dest)
+
+                if isinstance(dest, (tuple, list)):
+                    dest = [await s_stormtypes.tostr(form) for form in dest]
+                else:
+                    dest = (await s_stormtypes.tostr(dest),)
 
                 destfilt = self.buildfilter(runt, dest, cmpr)
 
@@ -4813,6 +4819,12 @@ class EditTagAdd(Edit):
 
         valu = (None, None)
 
+        tryset_assign = False
+        if hasval:
+            assign_oper = await self.kids[1 + oper_offset].compute(runt, None)
+            if assign_oper == '?=':
+                tryset_assign = True
+
         async for node, path in genr:
 
             try:
@@ -4822,19 +4834,30 @@ class EditTagAdd(Edit):
                 await asyncio.sleep(0)
                 continue
 
+            if node.form.isrunt:
+                raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.', form=node.form.full, tag=names[0])
+
+            if hasval:
+                valu = await self.kids[2 + oper_offset].compute(runt, path)
+                valu = await s_stormtypes.toprim(valu)
+                if tryset_assign:
+                    try:
+                        valu = runt.snap.core.model.type('ival').norm(valu)[0]
+                    except s_exc.BadTypeValu:
+                        valu = (None, None)
+
             for name in names:
+                parts = name.split('.')
+                runt.layerConfirm(('node', 'tag', 'add', *parts))
 
-                try:
-                    parts = name.split('.')
-
-                    runt.layerConfirm(('node', 'tag', 'add', *parts))
-
-                    if hasval:
-                        valu = await self.kids[2 + oper_offset].compute(runt, path)
-                        valu = await s_stormtypes.toprim(valu)
-                    await node.addTag(name, valu=valu)
-                except excignore:
-                    pass
+            async with node.snap.getEditor() as editor:
+                proto = editor.loadNode(node)
+                for name in names:
+                    try:
+                        await proto.addTag(name, valu=valu)
+                    except excignore:
+                        pass
+                    await asyncio.sleep(0)
 
             yield node, path
 

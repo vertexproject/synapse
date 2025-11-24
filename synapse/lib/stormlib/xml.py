@@ -20,8 +20,8 @@ class XmlElement(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': 'find',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the XML tag.'},
-                      {'name': 'nested', 'type': 'bool', 'default': True,
-                        'desc': 'Set to ``(false)`` to only find direct children.'},
+                      {'name': 'nested', 'type': 'boolean', 'default': True,
+                       'desc': 'Set to ``(false)`` to only find direct children.'},
                   ),
                   'returns': {'type': 'generator', 'desc': 'A generator which yields xml:elements.'}}},
 
