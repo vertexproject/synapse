@@ -2133,6 +2133,10 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('', opts=opts)
 
+            opts = {'idens': (None,)}
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('', opts=opts)
+
             # init / fini messages contain tick/tock/took/count information
             msgs = await core.stormlist('{}')
             self.len(2, msgs)
