@@ -28,6 +28,5 @@ docker build --no-cache --progress plain --pull -t vertexproject/synapse:$TAG -f
 docker/build_image.sh aha $TAG
 docker/build_image.sh axon $TAG
 docker/build_image.sh cortex $TAG
-docker/build_image.sh cryotank $TAG
 docker/build_image.sh jsonstor $TAG
 docker/build_image.sh stemcell $TAG

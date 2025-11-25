@@ -22,7 +22,7 @@ class ApiKeyTest(s_test.SynTest):
 
             # Add API keys
             argv = (
-                '--svcurl', rooturl,
+                '--url', rooturl,
                 'add',
                 'rootkey00',
                 '-d', '120',
@@ -39,10 +39,10 @@ class ApiKeyTest(s_test.SynTest):
             self.isin(f'  Created: {s_time.repr(rootkey00.get("created"))}', str(outp))
             self.isin(f'  Updated: {s_time.repr(rootkey00.get("updated"))}', str(outp))
             self.isin(f'  Expires: {s_time.repr(rootkey00.get("expires"))}', str(outp))
-            self.eq(rootkey00.get('expires'), rootkey00.get('created') + 120000)
+            self.eq(rootkey00.get('expires'), rootkey00.get('created') + 120000000)
 
             argv = (
-                '--svcurl', rooturl,
+                '--url', rooturl,
                 'add',
                 '-u', 'blackout',
                 'blckkey00',
@@ -61,7 +61,7 @@ class ApiKeyTest(s_test.SynTest):
             self.notin('  Expires: ', str(outp))
 
             argv = (
-                '--svcurl', blckurl,
+                '--url', blckurl,
                 'add',
                 'blckkey01',
             )
@@ -80,7 +80,7 @@ class ApiKeyTest(s_test.SynTest):
 
             # List API keys
             argv = (
-                '--svcurl', rooturl,
+                '--url', rooturl,
                 'list',
             )
             outp = s_output.OutPutStr()
@@ -92,10 +92,10 @@ class ApiKeyTest(s_test.SynTest):
             self.isin(f'  Created: {s_time.repr(rootkey00.get("created"))}', str(outp))
             self.isin(f'  Updated: {s_time.repr(rootkey00.get("updated"))}', str(outp))
             self.isin(f'  Expires: {s_time.repr(rootkey00.get("expires"))}', str(outp))
-            self.eq(rootkey00.get('expires'), rootkey00.get('created') + 120000)
+            self.eq(rootkey00.get('expires'), rootkey00.get('created') + 120000000)
 
             argv = (
-                '--svcurl', rooturl,
+                '--url', rooturl,
                 'list',
                 '-u', 'blackout',
             )
@@ -117,7 +117,7 @@ class ApiKeyTest(s_test.SynTest):
             self.notin('  Expires: ', str(outp))
 
             argv = (
-                '--svcurl', blckurl,
+                '--url', blckurl,
                 'list',
             )
             outp = s_output.OutPutStr()
@@ -140,7 +140,7 @@ class ApiKeyTest(s_test.SynTest):
             # Delete API keys
             rootiden00 = rootkey00.get('iden')
             argv = (
-                '--svcurl', rooturl,
+                '--url', rooturl,
                 'del',
                 rootiden00,
             )
@@ -150,7 +150,7 @@ class ApiKeyTest(s_test.SynTest):
 
             blckiden00 = blckkey00.get('iden')
             argv = (
-                '--svcurl', rooturl,
+                '--url', rooturl,
                 'del',
                 blckiden00,
             )
@@ -160,7 +160,7 @@ class ApiKeyTest(s_test.SynTest):
 
             blckiden01 = blckkey01.get('iden')
             argv = (
-                '--svcurl', blckurl,
+                '--url', blckurl,
                 'del',
                 blckiden01,
             )
@@ -170,7 +170,7 @@ class ApiKeyTest(s_test.SynTest):
 
             # List API keys again
             argv = (
-                '--svcurl', rooturl,
+                '--url', rooturl,
                 'list',
             )
             outp = s_output.OutPutStr()
@@ -178,7 +178,7 @@ class ApiKeyTest(s_test.SynTest):
             self.isin('No API keys found.', str(outp))
 
             argv = (
-                '--svcurl', rooturl,
+                '--url', rooturl,
                 'list',
                 '-u', 'blackout',
             )
@@ -187,7 +187,7 @@ class ApiKeyTest(s_test.SynTest):
             self.isin('No API keys found.', str(outp))
 
             argv = (
-                '--svcurl', blckurl,
+                '--url', blckurl,
                 'list',
             )
             outp = s_output.OutPutStr()
@@ -196,7 +196,7 @@ class ApiKeyTest(s_test.SynTest):
 
             # Check errors
             argv = (
-                '--svcurl', rooturl,
+                '--url', rooturl,
                 'list',
                 '-u', 'newp',
             )
@@ -205,7 +205,7 @@ class ApiKeyTest(s_test.SynTest):
             self.isin('ERROR: NoSuchUser: No user named newp.', str(outp))
 
             argv = (
-                '--svcurl', blckurl,
+                '--url', blckurl,
                 'list',
                 '-u', 'root',
             )
@@ -215,7 +215,7 @@ class ApiKeyTest(s_test.SynTest):
 
             newpiden = s_common.guid()
             argv = (
-                '--svcurl', rooturl,
+                '--url', rooturl,
                 'del',
                 newpiden,
             )

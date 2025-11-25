@@ -180,55 +180,6 @@ class NexusTest(s_t_utils.SynTest):
                     self.eq(guid2, eventdict.get('happened'))
                     self.eq(3, eventdict.get('gotindex'))
 
-    async def test_nexus_migration(self):
-        with self.getRegrDir('cortexes', 'reindex-byarray3') as regrdirn:
-            slabsize00 = s_common.getDirSize(regrdirn)
-            async with self.getTestCore(dirn=regrdirn) as core00:
-                slabsize01 = s_common.getDirSize(regrdirn)
-                # Ensure that realsize hasn't grown wildly. That would be indicative
-                # of a sparse file copy and not a directory move.
-                self.lt(slabsize01[0], 3 * slabsize00[0])
-
-                nexsindx = await core00.getNexsIndx()
-                layrindx = max([await layr.getEditIndx() for layr in core00.layers.values()])
-                self.gt(nexsindx, layrindx)
-
-                retn = await core00.nexsroot.nexslog.get(0)
-                self.nn(retn)
-                self.eq([0], core00.nexsroot.nexslog._ranges)
-                items = await s_t_utils.alist(core00.nexsroot.nexslog.iter(0))
-                self.ge(len(items), 62)
-
-    async def test_nexus_setindex(self):
-
-        async with self.getRegrCore('migrated-nexuslog') as core00:
-
-            nexsindx = await core00.getNexsIndx()
-            layrindx = max([await layr.getEditIndx() for layr in core00.layers.values()])
-            self.ge(nexsindx, layrindx)
-
-            # Make sure a mirror gets updated to the correct index
-            url = core00.getLocalUrl()
-            core01conf = {'mirror': url}
-
-            async with self.getRegrCore('migrated-nexuslog', conf=core01conf) as core01:
-
-                await core01.sync()
-
-                layrindx = max([await layr.getEditIndx() for layr in core01.layers.values()])
-                self.ge(nexsindx, layrindx)
-
-            # Can only move index forward
-            self.false(await core00.setNexsIndx(0))
-
-        # Test with nexuslog disabled
-        nologconf = {'nexslog:en': False}
-        async with self.getRegrCore('migrated-nexuslog', conf=nologconf) as core:
-
-            nexsindx = await core.getNexsIndx()
-            layrindx = max([await layr.getEditIndx() for layr in core.layers.values()])
-            self.ge(nexsindx, layrindx)
-
     async def test_nexus_safety(self):
 
         evnt = asyncio.Event()
@@ -276,7 +227,7 @@ class NexusTest(s_t_utils.SynTest):
                     for x in range(3):
                         vdef = {'layers': (deflayr,), 'name': f'someview{x}'}
                         with self.raises(TimeoutError):
-                            await s_common.wait_for(core.addView(vdef), 0.1)
+                            await asyncio.wait_for(core.addView(vdef), 0.1)
 
                     # This will get the lock and succeed
                     vdef = {'layers': (deflayr,), 'name': f'waitview'}
@@ -473,9 +424,6 @@ class NexusTest(s_t_utils.SynTest):
                         evnt2.set()
                         return valu
 
-                    await core01.sync()
-                    self.true(core01.nexsroot.issuewait)
-
                     with mock.patch.object(core00.auth, 'reqUser', slowReq):
 
                         self.eq(len(core00.views), len(core01.views))
@@ -501,11 +449,3 @@ class NexusTest(s_t_utils.SynTest):
                             await core01.addView(vdef)
 
                         self.eq(strt, await core01.nexsroot.index())
-
-                        await core00.getCellNexsRoot().delWriteHold('readonly')
-
-                core00.features.pop('issuewait')
-                async with self.getTestCore(dirn=path01, conf=conf01) as core01:
-
-                    await core01.sync()
-                    self.false(core01.nexsroot.issuewait)
