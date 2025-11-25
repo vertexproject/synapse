@@ -168,7 +168,7 @@ class RiskModule(s_module.CoreModule):
                             {'type': 'prop', 'opts': {'name': 'owner::name'}},
                             {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         ),
-                    },                
+                    },
                     'doc': 'An event where information was disclosed without permission.'}),
 
                 ('risk:leak:type:taxonomy', ('taxonomy', {}), {
