@@ -2188,6 +2188,18 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('', opts=opts)
 
+            opts = {'idens': (None,)}
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('', opts=opts)
+
+            opts = {'idens': (True,)}
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('', opts=opts)
+
+            opts = {'idens': (None,)}
+            msgs = await core.stormlist('', opts=opts)
+            self.stormIsInErr('Iden must be 64 hex digits', msgs)
+
             # init / fini messages contain tick/tock/took/count information
             msgs = await core.stormlist('{}')
             self.len(2, msgs)
