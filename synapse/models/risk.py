@@ -445,8 +445,16 @@ class RiskModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for this risk mitigation.'}),
 
+                    # NOTE: This is already in 3.0 via an interface and should be left out on merge
+                    ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True,
+                                         'typeopts': {'lower': True, 'onespace': True}}), {
+                        'doc': 'An array of alternate names for the mitigation.'}),
+
                     ('type', ('risk:mitigation:type:taxonomy', {}), {
                         'doc': 'A taxonomy type entry for the mitigation.'}),
+
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'An identifier for the mitigation.'}),
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},

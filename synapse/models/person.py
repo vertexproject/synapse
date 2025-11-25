@@ -160,6 +160,8 @@ class PsModule(s_module.CoreModule):
                     ('currency', ('econ:currency', {}), {
                         'doc': 'The currency that the yearly pay was delivered in.',
                     }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the work done as part of the job.'}),
                 )),
                 ('edu:course', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {

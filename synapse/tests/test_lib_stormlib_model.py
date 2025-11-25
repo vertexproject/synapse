@@ -74,6 +74,11 @@ class StormlibModelTest(s_test.SynTest):
             mesgs = await core.stormlist("$item=$lib.model.tagprop('score') $lib.print($item.type)")
             self.stormIsInPrint("model:type: ('int', ('base'", mesgs)
 
+            self.false(await core.callStorm('return($lib.model.type(int).mutable)'))
+            self.false(await core.callStorm('return($lib.model.type(str).mutable)'))
+            self.true(await core.callStorm('return($lib.model.type(data).mutable)'))
+            self.true(await core.callStorm('return($lib.model.type(array).mutable)'))
+
     async def test_stormlib_model_edge(self):
 
         with self.getTestDir() as dirn:

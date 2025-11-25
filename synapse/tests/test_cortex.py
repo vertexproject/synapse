@@ -28,8 +28,8 @@ import synapse.lib.version as s_version
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
-import synapse.tools.backup as s_tools_backup
-import synapse.tools.promote as s_tools_promote
+import synapse.tools.service.backup as s_tools_backup
+import synapse.tools.service.promote as s_tools_promote
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -1907,6 +1907,13 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(set(nodes[0].tags.keys()), {'foo', 'bar'})
 
+            nodes = await wcore.nodes('$tags=(foo, bar, baz) [test:str=lol +#$tags=`200{$lib.len($node.tags())}`]')
+            self.len(1, nodes)
+            tags = nodes[0].getTags()
+            self.len(3, tags)
+            for name, valu in tags:
+                self.eq(valu, (946684800000, 946684800001))
+
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag=2020"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=$lib.null #foo.$tag"))
@@ -2125,6 +2132,18 @@ class CortexTest(s_t_utils.SynTest):
             opts = {'idens': ('deadb33f',)}
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('', opts=opts)
+
+            opts = {'idens': (None,)}
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('', opts=opts)
+
+            opts = {'idens': (True,)}
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('', opts=opts)
+
+            opts = {'idens': (None,)}
+            msgs = await core.stormlist('', opts=opts)
+            self.stormIsInErr('Iden must be 64 hex digits', msgs)
 
             # init / fini messages contain tick/tock/took/count information
             msgs = await core.stormlist('{}')
@@ -7338,20 +7357,72 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Avoid races in cleanup
             del genr
 
-    async def test_cortex_syncnodeedits(self):
+    async def test_syncindexevents_edits(self):
+        # NOTE: This test was ported from test_lib_layer
+
+        async with self.getTestCore() as core:
+            layr = core.getLayer()
+            await core.addTagProp('score', ('int', {}), {})
+            offsdict = {
+                layr.iden: await core.getNexsIndx(),
+            }
+
+            nodes = await core.nodes('[ test:str=foo ]')
+            strnode = nodes[0]
+            q = '[ inet:ipv4=1.2.3.4 :asn=42 .seen=(2012,2014) +#mytag:score=99 +#foo.bar=(2012, 2014) ]'
+            nodes = await core.nodes(q)
+            ipv4node = nodes[0]
+
+            await core.nodes('inet:ipv4=1.2.3.4 test:str=foo | delnode')
+
+            mdef = {'forms': ['test:str']}
+            events = [e[3] for e in await alist(core.syncIndexEvents(mdef, offsdict=offsdict, wait=False))]
+            self.eq(events, [
+                (strnode.buid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8), ()),
+                (strnode.buid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8), ()),
+            ])
+
+            mdef = {'props': ['.seen']}
+            events = [e[3] for e in await alist(core.syncIndexEvents(mdef, offsdict=offsdict, wait=False))]
+            ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
+            self.eq(events, [
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('.seen', ival, None, s_layer.STOR_TYPE_IVAL), ()),
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('.seen', ival, s_layer.STOR_TYPE_IVAL), ()),
+            ])
+
+            mdef = {'props': ['inet:ipv4:asn']}
+            events = [e[3] for e in await alist(core.syncIndexEvents(mdef, offsdict=offsdict, wait=False))]
+            self.len(2, events)
+            self.eq(events, [
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64), ()),
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64), ()),
+            ])
+
+            mdef = {'tags': ['foo.bar']}
+            events = [e[3] for e in await alist(core.syncIndexEvents(mdef, offsdict=offsdict, wait=False))]
+            self.eq(events, [
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_SET, ('foo.bar', ival, None), ()),
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_DEL, ('foo.bar', ival), ()),
+            ])
+
+            mdefs = ({'tagprops': ['score']}, {'tagprops': ['mytag:score']})
+            events = [e[3] for e in await alist(core.syncIndexEvents(mdef, offsdict=offsdict, wait=False))]
+            for mdef in mdefs:
+                events = [e[3] for e in await alist(core.syncIndexEvents(mdef, offsdict=offsdict, wait=False))]
+                self.eq(events, [
+                    (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_SET,
+                     ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64), ()),
+                    (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_DEL,
+                     ('mytag', 'score', 99, s_layer.STOR_TYPE_I64), ()),
+                ])
+
+    async def test_cortex_synclayersevents_slow(self):
 
         async with self.getTestCore() as core:
 
             layr00 = core.getLayer().iden
             layr01 = (await core.addLayer())['iden']
             view01 = (await core.addView({'layers': (layr01,)}))['iden']
-
-            async def layrgenr(layr, startoff, endoff=None, newlayer=False):
-                wait = endoff is None
-                async for ioff, item, meta in layr.syncNodeEdits2(startoff, wait=wait):
-                    if endoff is not None and ioff >= endoff:
-                        break
-                    yield ioff, item, meta
 
             indx = await core.getNexsIndx()
 
@@ -7370,33 +7441,93 @@ class CortexBasicTest(s_t_utils.SynTest):
                 oldv = s_layer.WINDOW_MAXSIZE
                 s_layer.WINDOW_MAXSIZE = 2
 
-                genr = core._syncNodeEdits(offsdict, layrgenr, wait=True)
+                genr = core.syncLayersEvents(offsdict=offsdict, wait=True)
 
                 nodes = await core.nodes('[ test:str=foo ]')
                 item = await asyncio.wait_for(genr.__anext__(), timeout=2)
-                self.eq(s_common.uhex(nodes[0].iden()), item[1][0][0])
+                self.eq(s_common.uhex(nodes[0].iden()), item[3][0][0])
 
                 # we should now be in live sync
                 # and the empty layer will be pulling from the window
 
                 nodes = await core.nodes('[ test:str=bar ]')
                 item = await asyncio.wait_for(genr.__anext__(), timeout=2)
-                self.eq(s_common.uhex(nodes[0].iden()), item[1][0][0])
+                self.eq(s_common.uhex(nodes[0].iden()), item[3][0][0])
 
                 # add more nodes than the window size without consuming from the genr
 
-                opts = {'view': view01}
-                nodes = await core.nodes('for $s in (baz, bam, cat, dog) { [ test:str=$s ] }', opts=opts)
-                items = [await asyncio.wait_for(genr.__anext__(), timeout=2) for _ in range(4)]
+                opts = {
+                    'view': view01,
+                    'vars': {
+                        'cnt': (cnt := s_layer.WINDOW_MAXSIZE * 10 + 2),
+                    },
+                }
+                nodes = await core.nodes('for $i in $lib.range($cnt) { [ test:str=$i ] }', opts=opts)
+                items = [await asyncio.wait_for(genr.__anext__(), timeout=2) for _ in range(cnt)]
                 self.sorteq(
                     [s_common.uhex(n.iden()) for n in nodes],
-                    [item[1][0][0] for item in items],
+                    [item[3][0][0] for item in items],
                 )
 
             finally:
                 s_layer.WINDOW_MAXSIZE = oldv
                 if genr is not None:
                     del genr
+
+    async def test_synclayersevents_layerdel_catchup(self):
+
+        genr = None
+
+        async with self.getTestCore() as core:
+
+            layr00 = core.getLayer().iden
+            layr01 = (await core.addLayer())['iden']
+            view01 = (await core.addView({'layers': (layr01,)}))['iden']
+
+            indx = await core.getNexsIndx()
+
+            offsdict = {
+                layr00: indx,
+                layr01: indx,
+            }
+
+            buid00 = await core.callStorm('[ test:str=00 ] return($lib.hex.decode($node.iden()))')
+            buid01 = await core.callStorm('[ test:str=01 ] return($lib.hex.decode($node.iden()))', opts={'view': view01})
+            buid02 = await core.callStorm('[ test:str=02 ] return($lib.hex.decode($node.iden()))', opts={'view': view01})
+            buid03 = await core.callStorm('[ test:str=03 ] return($lib.hex.decode($node.iden()))')
+
+            genr = core.syncLayersEvents(offsdict=offsdict, wait=True)
+
+            # catch-up sync
+
+            item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+            self.eq([layr00, buid00], [item[1], item[3][0][0]])
+
+            item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+            self.eq([layr01, buid01], [item[1], item[3][0][0]])
+
+            await core.delView(view01)
+            await core.delLayer(layr01)
+
+            item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+            self.eq([layr00, buid03], [item[1], item[3][0][0]])
+
+            item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+            self.eq([layr01, s_cortex.SYNC_LAYR_DEL], [item[1], item[2]])
+
+            wind = tuple(core.nodeeditwindows)[0]
+            self.len(1, wind.linklist)  # the del event
+
+            buid04 = await core.callStorm('[ test:str=04 ] return($lib.hex.decode($node.iden()))')
+            self.len(2, wind.linklist)  # ...plus the new node
+
+            # live sync
+
+            item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+            self.eq([layr00, buid04], [item[1], item[3][0][0]])
+            self.len(0, wind.linklist) # del event gets skipped since it was already sent
+
+        del genr
 
     async def test_cortex_all_layr_read(self):
         async with self.getTestCore() as core:
@@ -9093,3 +9224,126 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getRegrCore('2.213.0-queue-authgates') as core:
             self.nn(await core.getAuthGate('queue:stillhere'))
             self.none(await core.getAuthGate('queue:authtest'))
+
+    async def test_cortex_prop_copy(self):
+        async with self.getTestCore() as core:
+            q = '[test:arrayprop=(ap0,) :strs=(foo, bar, baz)]'
+            self.len(1, await core.nodes(q))
+
+            q = 'test:arrayprop=(ap0,) $l=:strs $r=$l.rem(baz) return(($r, $l))'
+            valu = await core.callStorm(q)
+            self.true(valu[0])
+            self.sorteq(valu[1], ['foo', 'bar'])
+
+            # modifying the property value shouldn't update the node
+            nodes = await core.nodes('test:arrayprop=(ap0,) $l=:strs $l.rem(baz)')
+            self.len(1, nodes)
+            self.sorteq(nodes[0].get('strs'), ['foo', 'bar', 'baz'])
+
+            data = {
+                'str': 'strval',
+                'int': 1,
+                'dict': {'dictkey': 'dictval'},
+                'list': ('listval0', 'listval1'),
+                'tuple': ('tupleval0', 'tupleval1'),
+            }
+
+            opts = {
+                'vars': {
+                    'data': data,
+                }
+            }
+            q = '''
+                [ test:guid=(d0,)
+                    :data=$data
+                    :comp=(1, foo)
+                    :mutcomp=(foo, (1, 2, 3))
+                ]
+            '''
+            self.len(1, await core.nodes(q, opts=opts))
+
+            q = '''
+                test:guid=(d0,)
+                $d=:data
+                $d.list.rem(listval0)
+                $d.str = foo
+                $d.int = ($d.int + 1)
+                $d.dict.foo = bar
+                $d.tuple.append(tupleval2)
+                return($d)
+            '''
+            valu = await core.callStorm(q)
+            self.eq(valu, {
+                    'str': 'foo',
+                    'int': 2,
+                    'dict': {'dictkey': 'dictval', 'foo': 'bar'},
+                    'list': ('listval1',),
+                    'tuple': ('tupleval0', 'tupleval1', 'tupleval2'),
+            })
+
+            # modifying the property value shouldn't update the node
+            q = '''
+                test:guid=(d0,)
+                $d=:data
+                $d.dict = $lib.undef
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('data')['dict'], {'dictkey': 'dictval'})
+
+            q = '''
+                test:guid=(d0,)
+                $c=:comp
+                $c.rem((1))
+                $m=:mutcomp
+                $m.1.rem((3))
+                return(($c, :comp, $m, :mutcomp))
+            '''
+            valu = await core.callStorm(q)
+            self.eq(valu, (
+                (1, 'foo'),
+                (1, 'foo'),
+                ('foo', (1, 2)),
+                ('foo', (1, 2, 3)),
+            ))
+
+            # Nodeprops could have mutable types in them so make sure modifying
+            # them doesn't cause modifications to the node
+            q = '''
+                $data = { test:guid=(d0,) return(:data) }
+                [ test:str=foobar :baz=(test:guid:data, $data) ]
+                ($prop, $valu) = :baz
+                $valu.list.rem(listval0)
+                return((:baz, $valu))
+            '''
+            valu = await core.callStorm(q)
+
+            exp = {
+                'str': 'strval',
+                'int': 1,
+                'dict': {'dictkey': 'dictval'},
+                'list': ('listval1',),
+                'tuple': ('tupleval0', 'tupleval1'),
+            }
+
+            self.eq(valu, (('test:guid:data', data), exp))
+
+            # Make sure $node.props aren't modifiable either
+            nodes = await core.nodes('test:str=foobar $node.props.baz.1.list.rem(listval0)')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('baz'), ('test:guid:data', data))
+
+            # Dereferencing mutable types from $node.props should
+            # return mutable instances without mutating the original prop valu
+            valu = await core.callStorm('test:str=foobar ($prop, $valu) = :baz $valu.list.rem(listval0) return((:baz, $valu))')
+            self.eq(valu, (('test:guid:data', data), exp))
+
+    async def test_cortex_cron_authgates(self):
+        async with self.getRegrCore('2.225.0-cron-authgates') as core:
+            self.len(1, await core.listCronJobs())
+
+            gates = []
+            for gate in core.auth.getAuthGates():
+                if gate.type == 'cronjob':
+                    gates.append(gate)
+            self.len(1, gates)

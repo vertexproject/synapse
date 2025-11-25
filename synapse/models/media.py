@@ -35,6 +35,10 @@ class MediaModule(s_module.CoreModule):
                     'disp': {'hint': 'text'},
                     'doc': 'A brief summary of the news item.'}),
 
+                ('body', ('str', {}), {
+                    'disp': {'hint': 'text', 'syntax': 'markdown'},
+                    'doc': 'The body of the news item.'}),
+
                 ('publisher', ('ou:org', {}), {
                     'doc': 'The organization which published the news.'}),
 
@@ -68,6 +72,10 @@ class MediaModule(s_module.CoreModule):
 
                 ('topics', ('array', {'type': 'media:topic', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of relevant topics discussed in the report.'}),
+
+                ('version', ('str', {'onespace': True}), {
+                    'doc': 'The version of the news item.',
+                }),
             )),
 
             ('media:topic', {}, (

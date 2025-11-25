@@ -38,7 +38,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.crypto.passwd as s_passwd
 import synapse.lib.platforms.linux as s_linux
 
-import synapse.tools.backup as s_tools_backup
+import synapse.tools.service.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 

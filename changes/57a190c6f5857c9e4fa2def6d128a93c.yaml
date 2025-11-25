@@ -1,5 +1,0 @@
----
-desc: Added support for deprecating Storm commands and command args in the command definitions.
-prs: []
-type: feat
-...

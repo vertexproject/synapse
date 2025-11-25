@@ -990,6 +990,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (1, self._storUpdateMacros),
             (4, self._storCortexHiveMigration),
             (5, self._storCleanQueueAuthGates),
+            (6, self._storCleanCronAuthGates),
         ), nexs=False)
 
         # Perform module loading
@@ -1001,6 +1002,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._initCoreAxon()
         await self._initJsonStor()
 
+        self.nodeeditwindows = set()
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
@@ -1144,6 +1146,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             await self.auth.delAuthGate(info.iden)
 
         logger.warning('...Queue AuthGate cleanup complete!')
+
+    async def _storCleanCronAuthGates(self):
+
+        logger.warning('removing AuthGates for CronJobs which no longer exist')
+
+        apptdefs = self.cortexdata.getSubKeyVal('agenda:appt:')
+
+        for info in self.auth.getAuthGates():
+            if info.type == 'cronjob':
+                if apptdefs.get(info.iden) is None:
+                    await self.auth.delAuthGate(info.iden)
+
+        logger.warning('...CronJob AuthGate cleanup complete!')
 
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
@@ -1538,11 +1553,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to deleting storm packages.'},
 
             {'perm': ('storm', 'asroot', 'cmd', '<cmdname>'), 'gate': 'cortex',
-            'desc': 'Controls running storm commands requiring root privileges.',
-             'ex': 'storm.asroot.cmd.movetag'},
+            'desc': 'Deprecated. Please use Storm modules to implement functionality requiring root privileges.'},
             {'perm': ('storm', 'asroot', 'mod', '<modname>'), 'gate': 'cortex',
-            'desc': 'Controls importing modules requiring root privileges.',
-             'ex': 'storm.asroot.cmd.synapse-misp.privsep'},
+            'desc': 'Deprecated. Storm modules should use the asroot:perms key to specify the permissions they require.'},
 
             {'perm': ('storm', 'graph', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm graph.',
@@ -3044,7 +3057,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         onload = pkgdef.get('onload')
         pkgvers = pkgdef.get('version')
 
-        if (onload is not None or inits is not None) and self.isactive:
+        if self.isactive:
             async def _onload():
                 if self.safemode:
                     await self.fire('core:pkg:onload:skipped', pkg=name, reason='safemode')
@@ -3054,10 +3067,25 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 logextra = await self.getLogExtra(pkg=name, vers=pkgvers)
 
-                if inits is not None:
-                    varname = inits['key']
-                    curvers = await self.getStormPkgVar(name, varname, default=-1)
-                    inaugural = curvers == -1
+                verskey = 'storage:version'
+
+                curvers = -1
+
+                if inits is None:
+                    if await self.getStormPkgVar(name, verskey) is None:
+                        await self.setStormPkgVar(name, verskey, -1)
+
+                else:
+                    if (key := inits.get('key')) is not None:
+                        s_common.deprecated('storm package inits.key', eolv='3.0.0')
+                        if key != verskey and (valu := await self.popStormPkgVar(name, key)) is not None:
+                            await self.setStormPkgVar(name, verskey, valu)
+
+                    inaugural = False
+                    curvers = await self.getStormPkgVar(name, verskey)
+                    if curvers is None:
+                        inaugural = True
+                        curvers = -1
 
                     for initdef in inits['versions']:
 
@@ -3068,7 +3096,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             continue
 
                         if inaugural and not initdef.get('inaugural'):
-                            await self.setStormPkgVar(name, varname, vers)
+                            await self.setStormPkgVar(name, verskey, vers)
                             continue
 
                         logextra['synapse']['initvers'] = vers
@@ -3101,8 +3129,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if not ok:
                             break
 
-                        curvers = max(vers, await self.getStormPkgVar(name, varname, default=-1))
-                        await self.setStormPkgVar(name, varname, curvers)
+                        curvers = max(vers, stored := await self.getStormPkgVar(name, verskey, default=-1))
+                        if curvers != stored:
+                            await self.setStormPkgVar(name, verskey, curvers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 if onload is not None:
@@ -3122,7 +3151,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                     logger.info(f'{name} finished onload', extra=logextra)
 
-                await self.fire('core:pkg:onload:complete', pkg=name)
+                await self.fire('core:pkg:onload:complete', pkg=name, storvers=curvers)
 
             self.runActiveTask(_onload())
 
@@ -3349,9 +3378,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def getStormVar(self, name, default=None):
         return self.stormvars.get(name, defv=default)
 
-    @s_nexus.Pusher.onPushAuto('stormvar:pop')
     async def popStormVar(self, name, default=None):
-        return self.stormvars.pop(name, defv=default)
+        ok, valu = await self._push('stormvar:pop', name)
+        if not ok:
+            return default
+        return valu
+
+    @s_nexus.Pusher.onPush('stormvar:pop')
+    async def _popStormVar(self, name, default=None):
+        valu = self.stormvars.pop(name, defv=s_common.novalu)
+        if valu is s_common.novalu:
+            return False, None
+        return True, valu
 
     @s_nexus.Pusher.onPushAuto('stormvar:set')
     async def setStormVar(self, name, valu):
@@ -4241,6 +4279,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.axon:
             await self.axon.fini()
 
+        [await wind.fini() for wind in tuple(self.nodeeditwindows)]
+
     async def syncLayerNodeEdits(self, iden, offs, wait=True):
         '''
         Yield (offs, mesg) tuples for nodeedits in a layer.
@@ -4267,28 +4307,90 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 unspecified layers or if offsdict is None.
             wait(bool):  whether to pend and stream value until this layer is fini'd
         '''
-        async def layrgenr(layr, startoff, endoff=None, newlayer=False):
-            if newlayer:
-                yield layr.addoffs, layr.iden, SYNC_LAYR_ADD, (), {}
+        if link := s_scope.get('link'):
+            addrinfo = link.getAddrInfo()
+        else:
+            addrinfo = None
 
-            wait = endoff is None
+        if offsdict is None:
+            offsdict = {}
+        else:
+            offsdict = copy.deepcopy(offsdict)
 
-            if not layr.isfini:
+        async def layrgenr(layr, startoffs):
+            try:
+                async for ioff, nodeedits, meta in layr.syncNodeEdits2(startoffs, wait=False):
+                    yield ioff, layr.iden, SYNC_NODEEDITS, nodeedits, meta
+            except s_exc.IsFini:
+                if layr.isdeleted:
+                    yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, (), {}
 
-                async for ioff, item, meta in layr.syncNodeEdits2(startoff, wait=wait):
-                    if endoff is not None and ioff >= endoff:  # pragma: no cover
+        async def windfini():
+            self.nodeeditwindows.discard(wind)
+
+        async def onlayr(mesg):
+            evnt = SYNC_LAYR_ADD if mesg[0] == 'core:layr:add' else SYNC_LAYR_DEL
+            await wind.put((mesg[1]['iden'], mesg[1]['offs'], None, {'event': evnt}))
+
+        while not self.isfini:
+
+            async with await s_base.Base.anit() as base:
+
+                if wait:
+                    wind = await s_queue.Window.anit(maxsize=s_layer.WINDOW_MAXSIZE * 10)
+                    wind.onfini(windfini)
+                    self.nodeeditwindows.add(wind)
+                    base.onfini(wind)
+                    self.on('core:layr:add', onlayr, base=base)
+                    self.on('core:layr:del', onlayr, base=base)
+
+                logger.debug(f'syncLayersEvents() running catch-up sync link={addrinfo}')
+
+                genrs = []
+                topoffs = 0
+                for layr in self.layers.values():
+                    topoffs = max(topoffs, layr.nodeeditlog.index())
+                    genrs.append(layrgenr(layr, offsdict.get(layr.iden, 0)))
+
+                async for item in s_common.merggenr2(genrs, cmprkey=lambda x: x[0]):
+
+                    if item[2] == SYNC_LAYR_DEL:
+                        offsdict.pop(item[1], None)
+                        yield item
+                        await asyncio.sleep(0)
+                        continue
+
+                    if item[0] >= topoffs:
                         break
 
-                    yield ioff, layr.iden, SYNC_NODEEDITS, item, meta
+                    offsdict[item[1]] = item[0] + 1
+
+                    yield item
                     await asyncio.sleep(0)
 
-            if layr.isdeleted:
-                yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, (), {}
+                if not wait:
+                    return
 
-        # End of layrgenr
+                logger.debug(f'syncLayersEvents() entering live sync link={addrinfo}')
 
-        async for item in self._syncNodeEdits(offsdict, layrgenr, wait=wait):
-            yield item
+                async for layriden, ioff, nodeedits, meta in wind:
+
+                    if nodeedits is not None:
+                        offsdict[layriden] = ioff + 1
+                        yield ioff, layriden, SYNC_NODEEDITS, nodeedits, meta
+                        await asyncio.sleep(0)
+                        continue
+
+                    if meta['event'] == SYNC_LAYR_ADD:
+                        offsdict[layriden] = ioff + 1
+                        yield ioff, layriden, SYNC_LAYR_ADD, (), {}
+                    elif layriden in offsdict:
+                        yield ioff, layriden, SYNC_LAYR_DEL, (), {}
+                        offsdict.pop(layriden, None)
+                    await asyncio.sleep(0)
+
+            logger.debug(f'syncLayersEvents() exited live sync link={addrinfo}')
+            await self.waitfini(1)
 
     async def syncIndexEvents(self, matchdef, offsdict=None, wait=True):
         '''
@@ -4315,166 +4417,40 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 unspecified layers or if offsdict is None.
             wait(bool):  whether to pend and stream value until this layer is fini'd
         '''
-        async def layrgenr(layr, startoff, endoff=None, newlayer=False):
-            ''' Yields matching results from a single layer '''
 
-            if newlayer:
-                yield layr.addoffs, layr.iden, SYNC_LAYR_ADD, ()
+        formm = set(matchdef.get('forms', ()))
+        propm = set(matchdef.get('props', ()))
+        tagsm = set(matchdef.get('tags', ()))
+        tagpm = set(matchdef.get('tagprops', ()))
 
-            wait = endoff is None
-            ioff = startoff
+        edit_node = set((s_layer.EDIT_NODE_ADD, s_layer.EDIT_NODE_DEL))
+        edit_prop = set((s_layer.EDIT_PROP_SET, s_layer.EDIT_PROP_DEL))
+        edit_tags = set((s_layer.EDIT_TAG_SET, s_layer.EDIT_TAG_DEL))
+        edit_tagp = set((s_layer.EDIT_TAGPROP_SET, s_layer.EDIT_TAGPROP_DEL))
 
-            if not layr.isfini:
+        count = 0
 
-                async for ioff, item in layr.syncIndexEvents(startoff, matchdef, wait=wait):
-                    if endoff is not None and ioff >= endoff:  # pragma: no cover
-                        break
+        async for ioff, layriden, evnt, nodeedits, _meta in self.syncLayersEvents(offsdict=offsdict, wait=wait):
 
-                    yield ioff, layr.iden, SYNC_NODEEDIT, item
+            if evnt == SYNC_NODEEDITS:
+                for buid, form, edit in nodeedits:
+                    for etyp, vals, meta in edit:
+                        if (
+                            (etyp in edit_node and form in formm) or
+                            (etyp in edit_prop and (vals[0] in propm or f'{form}:{vals[0]}' in propm)) or
+                            (etyp in edit_tags and vals[0] in tagsm) or
+                            (etyp in edit_tagp and (vals[1] in tagpm or f'{vals[0]}:{vals[1]}' in tagpm))
+                        ):
+                            yield ioff, layriden, SYNC_NODEEDIT, (buid, form, etyp, vals, meta)
+                        await asyncio.sleep(0)
 
-            if layr.isdeleted:
-                yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, ()
+                count += 1
+                if count % 1000 == 0:
+                    yield ioff, layriden, SYNC_NODEEDIT, (None, None, s_layer.EDIT_PROGRESS, (), ())
 
-        # End of layrgenr
+                continue
 
-        async for item in self._syncNodeEdits(offsdict, layrgenr, wait=wait):
-            yield item
-
-    async def _syncNodeEdits(self, offsdict, genrfunc, wait=True):
-        '''
-        Common guts between syncIndexEvents and syncLayersEvents
-
-        First, it streams from the layers up to the current offset, sorted by offset.
-        Then it streams from all the layers simultaneously.
-
-        Args:
-            offsdict(Dict[str, int]): starting nexus/editlog offset per layer.  Defaults to 0 if layer not present
-            genrfunc(Callable): an async generator function that yields tuples that start with an offset.  The input
-               parameters are:
-                layr(Layer): a Layer object
-                startoff(int);  the starting offset
-                endoff(Optional[int]):  the ending offset
-                newlayer(bool):  whether to emit a new layer item first
-            wait(bool): when the end of the log is hit, whether to continue to wait for new entries and yield them
-        '''
-        catchingup = True                   # whether we've caught up to topoffs
-        layrsadded = {}                     # layriden -> True.  Captures all the layers added while catching up
-        todo = set()                        # outstanding futures of active live streaming from layers
-        layrgenrs = {}                      # layriden -> genr.  maps active layers to that layer's async generator
-
-        # The offset to start from once the catch-up phase is complete
-        topoffs = max(layr.nodeeditlog.index() for layr in self.layers.values())
-
-        if offsdict is None:
-            offsdict = {}
-
-        newtodoevent = asyncio.Event()
-
-        async with await s_base.Base.anit() as base:
-
-            def addlayr(layr, newlayer=False, startoffs=topoffs):
-                '''
-                A new layer joins the live stream
-                '''
-                genr = genrfunc(layr, startoffs, newlayer=newlayer)
-                layrgenrs[layr.iden] = genr
-                task = base.schedCoro(genr.__anext__())
-                task.iden = layr.iden
-                todo.add(task)
-                newtodoevent.set()
-
-            def onaddlayr(mesg):
-                etyp, event = mesg
-                layriden = event['iden']
-                layr = self.getLayer(layriden)
-                if catchingup:
-                    layrsadded[layr] = True
-                    return
-
-                addlayr(layr, newlayer=True)
-
-            self.on('core:layr:add', onaddlayr, base=base)
-
-            # First, catch up to what was the current offset when we started, guaranteeing order
-
-            logger.debug(f'_syncNodeEdits() running catch-up sync to offs={topoffs}')
-
-            genrs = [genrfunc(layr, offsdict.get(layr.iden, 0), endoff=topoffs) for layr in self.layers.values()]
-            async for item in s_common.merggenr(genrs, lambda x, y: x[0] < y[0]):
-                yield item
-
-            catchingup = False
-
-            if not wait:
-                return
-
-            # After we've caught up, read on genrs from all the layers simultaneously
-
-            logger.debug('_syncNodeEdits() entering into live sync')
-
-            lastoffs = {}
-
-            todo.clear()
-
-            for layr in self.layers.values():
-                if layr not in layrsadded:
-                    addlayr(layr)
-
-            for layr in layrsadded:
-                addlayr(layr, newlayer=True)
-
-            # Also, wake up if we get fini'd
-            finitask = base.schedCoro(self.waitfini())
-            todo.add(finitask)
-
-            newtodotask = base.schedCoro(newtodoevent.wait())
-            todo.add(newtodotask)
-
-            while not self.isfini:
-                newtodoevent.clear()
-                done, _ = await asyncio.wait(todo, return_when=asyncio.FIRST_COMPLETED)
-
-                for donetask in done:
-                    try:
-                        todo.remove(donetask)
-
-                        if donetask is finitask:  # pragma: no cover  # We were fini'd
-                            return
-
-                        if donetask is newtodotask:
-                            newtodotask = base.schedCoro(newtodoevent.wait())
-                            todo.add(newtodotask)
-                            continue
-
-                        layriden = donetask.iden
-
-                        result = donetask.result()
-
-                        yield result
-
-                        lastoffs[layriden] = result[0]
-
-                        # Re-add a task to wait on the next iteration of the generator
-                        genr = layrgenrs[layriden]
-                        task = base.schedCoro(genr.__anext__())
-                        task.iden = layriden
-                        todo.add(task)
-
-                    except StopAsyncIteration:
-
-                        # Help out the garbage collector
-                        del layrgenrs[layriden]
-
-                        layr = self.getLayer(iden=layriden)
-                        if layr is None or not layr.logedits:
-                            logger.debug(f'_syncNodeEdits() removed {layriden=} from sync')
-                            continue
-
-                        startoffs = lastoffs[layriden] + 1 if layriden in lastoffs else topoffs
-                        logger.debug(f'_syncNodeEdits() restarting {layriden=} live sync from offs={startoffs}')
-                        addlayr(layr, startoffs=startoffs)
-
-                        await self.waitfini(1)
+            yield ioff, layriden, evnt, ()
 
     async def _initCoreInfo(self):
         self.stormvars = self.cortexdata.getSubKeyVal('storm:vars:')
@@ -5258,6 +5234,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for pdef in layr.layrinfo.get('pulls', {}).values():
                 await self.delActiveCoro(pdef.get('iden'))
 
+            await self.fire('core:layr:del', iden=layr.iden, offs=nexsitem[0])
             await self.feedBeholder('layer:del', {'iden': layriden}, gates=[layriden])
             await self.auth.delAuthGate(layriden)
             self.dynitems.pop(layriden)
@@ -5329,6 +5306,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for pdef in layr.layrinfo.get('pulls', {}).values():
             await self.delActiveCoro(pdef.get('iden'))
 
+        await self.fire('core:layr:del', iden=layr.iden, offs=nexsitem[0])
         await self.feedBeholder('layer:del', {'iden': iden}, gates=[iden])
         await self.auth.delAuthGate(iden)
         self.dynitems.pop(iden)
@@ -5606,7 +5584,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for pdef in layrinfo.get('pulls', {}).values():
             await self.runLayrPull(layr, pdef)
 
-        await self.fire('core:layr:add', iden=layr.iden)
+        await self.fire('core:layr:add', iden=layr.iden, offs=layr.addoffs)
 
         return layr
 
@@ -6914,7 +6892,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Delete a cron job
 
         Args:
-            iden (bytes):  The iden of the cron job to be deleted
+            iden (str):  The iden of the cron job to be deleted
         '''
         await self._killCronTask(iden)
         try:
@@ -6931,7 +6909,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Change an existing cron job's query
 
         Args:
-            iden (bytes):  The iden of the cron job to be changed
+            iden (str):  The iden of the cron job to be changed
         '''
         await self.agenda.mod(iden, query)
         await self.feedBeholder('cron:edit:query', {'iden': iden, 'query': query}, gates=[iden])
@@ -6942,7 +6920,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Enable a cron job
 
         Args:
-            iden (bytes):  The iden of the cron job to be changed
+            iden (str):  The iden of the cron job to be changed
         '''
         await self.agenda.enable(iden)
         await self.feedBeholder('cron:enable', {'iden': iden}, gates=[iden])
@@ -6954,7 +6932,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Enable a cron job
 
         Args:
-            iden (bytes):  The iden of the cron job to be changed
+            iden (str):  The iden of the cron job to be changed
         '''
         await self.agenda.disable(iden)
         await self._killCronTask(iden)

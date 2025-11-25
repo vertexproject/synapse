@@ -1499,9 +1499,16 @@ class LibBase(Lib):
             perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
             asroot = self.runt.allowed(perm)
 
-            if mdef.get('asroot', False) and not asroot:
-                mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
-                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+            if mdef.get('asroot', False):
+                mesg = f'Module ({name}) requires asroot permission but does not specify any asroot:perms. ' \
+                        'storm.asroot.mod.<modname> style permissons are deprecated and will be removed in v3.0.0.'
+
+                s_common.deprecated('Storm module asroot key', curv='2.226.0', eolv='3.0.0')
+                await self.runt.warnonce(mesg, log=False)
+
+                if not asroot:
+                    mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
+                    raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
         modr.asroot = asroot
@@ -1790,6 +1797,12 @@ class LibDict(Lib):
                       {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
                   ),
                   'returns': {'type': 'list', 'desc': 'List of keys in the specified dictionary.', }}},
+        {'name': 'fromlist', 'desc': 'Construct a dictionary from a list of key/value tuples.',
+         'type': {'type': 'function', '_funcname': '_fromlist',
+                  'args': (
+                      {'name': 'valu', 'type': 'list', 'desc': 'The list of key/value tuples.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The new dictionary.', }}},
         {'name': 'pop', 'desc': 'Remove specified key and return the corresponding value.',
          'type': {'type': 'function', '_funcname': '_pop',
                   'args': (
@@ -1819,6 +1832,7 @@ class LibDict(Lib):
         return {
             'has': self._has,
             'keys': self._keys,
+            'fromlist': self._fromlist,
             'pop': self._pop,
             'update': self._update,
             'values': self._values,
@@ -1848,6 +1862,28 @@ class LibDict(Lib):
         await self._check_type(valu)
         valu = await toprim(valu)
         return list(valu.keys())
+
+    @stormfunc(readonly=True)
+    async def _fromlist(self, valu):
+        valu = await toprim(valu)
+        if not isinstance(valu, (list, tuple)):
+            mesg = '$lib.dict.fromlist() argument must be an array.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        for item in valu:
+            if not isinstance(item, (list, tuple)):
+                mesg = '$lib.dict.fromlist() array elements must be an array.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if len(item) != 2:
+                mesg = '$lib.dict.fromlist() argument must be an array of (key, value) pairs.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if not isinstance(item[0], (str, int)):
+                mesg = '$lib.dict.fromlist() keys must be str or int types.'
+                raise s_exc.BadArg(mesg=mesg)
+
+        return s_msgpack.deepcopy(dict(valu), use_list=True)
 
     @stormfunc(readonly=True)
     async def _pop(self, valu, key, default=undef):
@@ -5824,37 +5860,34 @@ class LibGlobals(Lib):
     @stormfunc(readonly=True)
     async def _methGet(self, name, default=None):
         self._reqStr(name)
-
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('globals', 'get', name), None),)
-        todo = s_common.todo('getStormVar', name, default=default)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        confirm(('globals', 'get', name))
+        valu = await self.runt.snap.core.getStormVar(name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _methPop(self, name, default=None):
         self._reqStr(name)
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('globals', 'pop', name), None),)
-        todo = s_common.todo('popStormVar', name, default=default)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        confirm(('globals', 'pop', name))
+        valu = await self.runt.snap.core.popStormVar(name, default=s_common.novalu)
+        if valu is s_common.novalu:
+            return default
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
         valu = await toprim(valu)
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('globals', 'set', name), None),)
-        todo = s_common.todo('setStormVar', name, valu)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        confirm(('globals', 'set', name))
+        return await self.runt.snap.core.setStormVar(name, valu)
 
     @stormfunc(readonly=True)
     async def _methList(self):
         ret = []
 
-        todo = ('itemsStormVar', (), {})
-
-        async for key, valu in self.runt.dyniter('cortex', todo):
+        async for key, valu in self.runt.snap.core.itemsStormVar():
             if allowed(('globals', 'get', key)):
                 ret.append((key, valu))
-        return ret
+        return s_msgpack.deepcopy(ret, use_list=True)
 
 @registry.registerType
 class StormHiveDict(Prim):

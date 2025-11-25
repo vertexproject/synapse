@@ -393,7 +393,6 @@ _changelogTypes = {'migration': 'Automatic Migrations',
                    'note': 'Notes',
                    'doc': 'Improved documentation',
                    'deprecation': 'Deprecations'}
-
 _changelogSchema = {
     'type': 'object',
     'properties': {
@@ -404,6 +403,10 @@ _changelogSchema = {
         'desc': {
             'type': 'string',
             'minLength': 1,
+        },
+        'desc:literal': {
+            'type': 'boolean',
+            'default': False,
         },
         'prs': {
             'type': 'array',
@@ -737,7 +740,6 @@ _reqValidPkgdefSchema = {
         'inits': {
             'type': 'object',
             'properties': {
-                'key': {'type': 'string'},
                 'versions': {
                     'type': 'array',
                     'items': {'$ref': '#/definitions/initdef'},
@@ -745,7 +747,7 @@ _reqValidPkgdefSchema = {
                 },
             },
             'additionalProperties': True,
-            'required': ['key', 'versions'],
+            'required': ['versions'],
         },
         'author': {
             'type': 'object',
@@ -947,6 +949,13 @@ _reqValidPkgdefSchema = {
                 'cmdinputs': {
                     'type': ['array', 'null'],
                     'items': {'$ref': '#/definitions/cmdinput'},
+                },
+                'cmdconf': {
+                    'type': 'object',
+                    'properties': {
+                        'svciden': {'type': 'string', 'pattern': s_config.re_iden},
+                    },
+                    'additionalProperties': True,
                 },
                 'storm': {'type': 'string'},
                 'forms': {'$ref': '#/definitions/cmdformhints'},

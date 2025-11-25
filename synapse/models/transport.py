@@ -457,6 +457,10 @@ class TransportModule(s_module.CoreModule):
                     ('name', ('entity:name', {}), {
                         'doc': 'The name of the vessel.'}),
 
+                    # NOTE: 3.0 convert to meta:id
+                    ('callsign', ('str', {'strip': True}), {
+                        'doc': 'The callsign of the vessel.'}),
+
                     ('length', ('geo:dist', {}), {
                         'deprecated': True,
                         'doc': 'Deprecated. Please use :phys:length.'}),
