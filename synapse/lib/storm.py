@@ -1649,7 +1649,7 @@ class Runtime(s_base.Base):
 
         for iden in self.opts.get('idens', ()):
 
-            if not iden or not s_common.isbuidhex(iden):
+            if not iden or not isinstance(iden, str) or not s_common.isbuidhex(iden):
                 raise s_exc.NoSuchIden(mesg='Iden must be 64 hex digits', iden=iden)
 
             buid = s_common.uhex(iden)
