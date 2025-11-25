@@ -577,7 +577,12 @@ class NexsRoot(s_base.Base):
 
     async def _onTeleLink(self, proxy):
         self.miruplink.set()
-        proxy.onfini(self.miruplink.clear)
+
+        def onfini():
+            self.miruplink.clear()
+            self.issuewait = False
+
+        proxy.onfini(onfini)
         proxy.schedCoro(self.runMirrorLoop(proxy))
 
     async def runMirrorLoop(self, proxy):
