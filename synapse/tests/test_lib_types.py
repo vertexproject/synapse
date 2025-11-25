@@ -20,7 +20,6 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         t = model.type('bool')
         self.eq(t.info.get('bases'), ('base',))
-        self.none(t.getCompOffs('newp'))
         with self.raises(s_exc.NoSuchCmpr):
             await t.cmpr(val1=1, name='newp', val2=0)
 
@@ -300,10 +299,6 @@ class TypesTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 await typ.norm((123, 'haha', 'newp'))
-
-            self.eq(0, typ.getCompOffs('foo'))
-            self.eq(1, typ.getCompOffs('bar'))
-            self.none(typ.getCompOffs('newp'))
 
     async def test_guid(self):
         model = s_datamodel.Model()
@@ -2211,14 +2206,9 @@ class TypesTest(s_t_utils.SynTest):
         mdef = {
             'types': (
                 ('test:array', ('array', {'type': 'inet:ip'}), {}),
-                ('test:arraycomp', ('comp', {'fields': (('ips', 'test:array'), ('int', 'test:int'))}), {}),
                 ('test:witharray', ('guid', {}), {}),
             ),
             'forms': (
-                ('test:arraycomp', {}, (
-                    ('ips', ('test:array', {}), {}),
-                    ('int', ('test:int', {}), {}),
-                )),
                 ('test:witharray', {}, (
                     ('ips', ('test:array', {}), {}),
                     ('fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True, 'split': ','}), {}),
@@ -2251,15 +2241,6 @@ class TypesTest(s_t_utils.SynTest):
             self.len(0, nodes)
 
             nodes = await core.nodes('test:witharray | delnode')
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ test:arraycomp=("1.2.3.4, 5.6.7.8", 10) ]')
-
-            nodes = await core.nodes('[ test:arraycomp=((1.2.3.4, 5.6.7.8), 10) ]')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:arraycomp', (((4, 0x01020304), (4, 0x05060708)), 10)))
-            self.eq(nodes[0].get('int'), 10)
-            self.eq(nodes[0].get('ips'), ((4, 0x01020304), (4, 0x05060708)))
 
             # make sure "adds" got added
             nodes = await core.nodes('inet:ip=1.2.3.4 inet:ip=5.6.7.8')

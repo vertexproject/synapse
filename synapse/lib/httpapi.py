@@ -1265,14 +1265,11 @@ class FeedV1(Handler):
             return self.sendRestErr('NoSuchView', 'The specified view does not exist.',
                                     status_code=HTTPStatus.NOT_FOUND)
 
-        perm = ('feed:data',)
-
-        if not user.allowed(perm, gateiden=view.wlyr.iden):
-            permtext = '.'.join(perm)
-            mesg = f'User does not have {permtext} permission on gate: {view.wlyr.iden}.'
-            return self.sendRestErr('AuthDeny', mesg, status_code=HTTPStatus.FORBIDDEN)
-
         try:
+            meta, *items = items
+
+            self.cell.reqValidExportStormMeta(meta)
+            await self.cell.reqFeedDataAllowed(items, user, viewiden=view.iden)
 
             info = {'view': view.iden, 'nitems': len(items)}
             await self.cell.boss.promote('feeddata', user=user, info=info)
@@ -1280,6 +1277,9 @@ class FeedV1(Handler):
             await self.cell.addFeedData(items, user=user, viewiden=view.iden)
 
             return self.sendRestRetn(None)
+
+        except s_exc.AuthDeny as e:
+            return self.sendRestErr('AuthDeny', e.get('mesg'), status_code=HTTPStatus.FORBIDDEN)
 
         except Exception as e:  # pragma: no cover
             return self.sendRestExc(e, status_code=HTTPStatus.BAD_REQUEST)

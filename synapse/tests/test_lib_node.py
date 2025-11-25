@@ -155,6 +155,12 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(node.get('#cool'), (1, 2, 1))
             self.none(node.get('#newp'))
 
+            with self.raises(s_exc.NoSuchProp):
+                await node.get('notreal.nope')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await node.get('tick.nope')
+
             self.eq('cool', node.repr())
             self.eq(node.repr('tick'), '1970-01-01T00:00:00.012345Z')
 

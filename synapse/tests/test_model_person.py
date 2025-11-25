@@ -96,6 +96,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :org = *
                     :org:name = WootCorp
                     :org:fqdn = wootwoot.com
+                    :desc = "Wooting."
                     :contact = {[ entity:contact=* ]}
                     :job:type = it.dev
                     :employment:type = fulltime.salary
@@ -107,6 +108,7 @@ class PsModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('org:name'), 'wootcorp')
             self.eq(nodes[0].get('org:fqdn'), 'wootwoot.com')
+            self.eq(nodes[0].get('desc'), 'Wooting.')
             self.eq(nodes[0].get('job:type'), 'it.dev.')
             self.eq(nodes[0].get('employment:type'), 'fulltime.salary.')
             self.eq(nodes[0].get('title'), 'python developer')

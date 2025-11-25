@@ -214,6 +214,18 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1723680000000000, nodes[0].get('valid_from'))
             self.eq(1723680000000000, nodes[0].get('valid_until'))
 
+            nodes = await core.nodes('''
+                [ it:host:hosted:url=({[ it:host=* ]}, https://vertex.link)
+                    :seen=20251113
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('host'))
+            self.eq(nodes[0].get('url'), 'https://vertex.link')
+            self.eq(nodes[0].get('seen'), (1762992000000000, 1762992000000001, 1))
+            self.len(1, await core.nodes('it:host:hosted:url -> it:host'))
+            self.len(1, await core.nodes('it:host:hosted:url -> inet:url'))
+
     async def test_infotech_android(self):
 
         async with self.getTestCore() as core:
@@ -358,41 +370,41 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 it:sec:cve=CVE-2013-9999
-                    :nist:nvd:source=NistSource
-                    :nist:nvd:published=2021-10-11
-                    :nist:nvd:modified=2021-10-11
+                    //:nist:nvd:source=NistSource
+                    //:nist:nvd:published=2021-10-11
+                    //:nist:nvd:modified=2021-10-11
 
-                    :cisa:kev:name=KevName
-                    :cisa:kev:desc=KevDesc
-                    :cisa:kev:action=KevAction
-                    :cisa:kev:vendor=KevVendor
-                    :cisa:kev:product=KevProduct
-                    :cisa:kev:added=2022-01-02
-                    :cisa:kev:duedate=2022-01-02
+                    //:cisa:kev:name=KevName
+                    //:cisa:kev:desc=KevDesc
+                    //:cisa:kev:action=KevAction
+                    //:cisa:kev:vendor=KevVendor
+                    //:cisa:kev:product=KevProduct
+                    //:cisa:kev:added=2022-01-02
+                    //:cisa:kev:duedate=2022-01-02
             ]''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:sec:cve', 'cve-2013-9999'))
-            self.eq(node.get('nist:nvd:source'), 'nistsource')
-            self.eq(node.get('nist:nvd:published'), 1633910400000000)
-            self.eq(node.get('nist:nvd:modified'), 1633910400000000)
-            self.eq(node.get('cisa:kev:name'), 'KevName')
-            self.eq(node.get('cisa:kev:desc'), 'KevDesc')
-            self.eq(node.get('cisa:kev:action'), 'KevAction')
-            self.eq(node.get('cisa:kev:vendor'), 'kevvendor')
-            self.eq(node.get('cisa:kev:product'), 'kevproduct')
-            self.eq(node.get('cisa:kev:added'), 1641081600000000)
-            self.eq(node.get('cisa:kev:duedate'), 1641081600000000)
+            self.eq(node.ndef, ('it:sec:cve', 'CVE-2013-9999'))
+            # self.eq(node.get('nist:nvd:source'), 'nistsource')
+            # self.eq(node.get('nist:nvd:published'), 1633910400000000)
+            # self.eq(node.get('nist:nvd:modified'), 1633910400000000)
+            # self.eq(node.get('cisa:kev:name'), 'KevName')
+            # self.eq(node.get('cisa:kev:desc'), 'KevDesc')
+            # self.eq(node.get('cisa:kev:action'), 'KevAction')
+            # self.eq(node.get('cisa:kev:vendor'), 'kevvendor')
+            # self.eq(node.get('cisa:kev:product'), 'kevproduct')
+            # self.eq(node.get('cisa:kev:added'), 1641081600000000)
+            # self.eq(node.get('cisa:kev:duedate'), 1641081600000000)
 
             nodes = await core.nodes('[it:sec:cve=$valu]', opts={'vars': {'valu': 'CVE\u20122013\u20131138'}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:sec:cve', 'cve-2013-1138'))
+            self.eq(node.ndef, ('it:sec:cve', 'CVE-2013-1138'))
 
             nodes = await core.nodes('[it:sec:cve=$valu]', opts={'vars': {'valu': 'CVE\u20112013\u20140001'}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:sec:cve', 'cve-2013-0001'))
+            self.eq(node.ndef, ('it:sec:cve', 'CVE-2013-0001'))
 
             nodes = await core.nodes('[ it:adid=visi ]')
             self.eq(('it:adid', 'visi'), nodes[0].ndef)
@@ -481,7 +493,6 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :host={it:host | limit 1}
                     :sandbox:file=*
                     :service:platform=*
-                    :service:instance=*
                     :service:account=*
             ]''')
             self.len(1, nodes)
@@ -493,7 +504,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:log:event :sandbox:file -> file:bytes'))
             self.len(1, await core.nodes('it:log:event :service:account -> inet:service:account'))
             self.len(1, await core.nodes('it:log:event :service:platform -> inet:service:platform'))
-            self.len(1, await core.nodes('it:log:event :service:instance -> inet:service:instance'))
 
             nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language=$lib.gen.langByCode(en.us) ]')
             self.len(1, nodes)
@@ -522,8 +532,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('desc'), "Pennywise's patented balloon blower upper")
             self.eq(node.get('url'), 'https://vertex.link/products/balloonmaker')
             self.eq(node.get('released'), 1522745062000000)
-            # FIXME resiliant semver
-            # self.eq(node.get('version'), 'V1.0.1-beta+exp.sha.5114f85')
+            self.eq(node.get('version'), 'V1.0.1-beta+exp.sha.5114f85')
             self.len(1, await core.nodes('it:software:name="balloon maker" -> it:software:type:taxonomy'))
             self.len(2, await core.nodes('meta:name="balloon maker" -> it:software -> meta:name'))
 
@@ -548,24 +557,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('[it:software=* :version=$valu]', opts={'vars': {'valu': tv}})
                 self.len(1, nodes)
                 node = nodes[0]
-                self.eq(node.get('version'), te)
+                self.eq(node.get('version.semver'), te)
 
-            # FIXME resiliant semver
-            # nodes = await core.nodes('[it:software=* :version=$valu]', opts={'vars': {'valu': ''}})
-            # self.len(1, nodes)
-            # node = nodes[0]
-            # self.eq(node.get('version'), '')
-            # self.none(node.get('semver'))
-
-            # with self.getLoggerStream('synapse.models.infotech',
-            #                           'Unable to parse string as a semver') as stream:
-
-            #     nodes = await core.nodes('[it:software=* :version=$valu]', opts={'vars': {'valu': 'alpha'}})
-            #     self.len(1, nodes)
-            #     node = nodes[0]
-            #     self.eq(node.get('version'), 'alpha')
-            #     #self.none(node.get('semver'))
-            #     self.true(stream.is_set())
+            nodes = await core.nodes('[it:software=* :version=$valu]', opts={'vars': {'valu': ''}})
+            self.len(1, nodes)
+            self.eq(nodes[0].get('version'), '')
+            self.none(nodes[0].get('version.semver'))
 
     async def test_it_form_callbacks(self):
         async with self.getTestCore() as core:
@@ -706,13 +703,21 @@ class InfotechModelTest(s_t_utils.SynTest):
             ]''')
             self.eq('WootWoot', nodes[0].get('desc'))
             self.eq('xps13', nodes[0].get('model'))
-            self.eq(1099513724931, nodes[0].get('version'))
+            self.eq('1.2.3', nodes[0].get('version'))
+            self.eq(1099513724931, nodes[0].get('version.semver'))
             self.eq('cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*', nodes[0].get('cpe'))
             self.eq(1643760000000000, nodes[0].get('released'))
             self.len(1, await core.nodes('it:hardware :type -> it:hardware:type:taxonomy'))
             self.len(2, await core.nodes('it:hardware:model=XPS13 -> it:hardware'))
             self.eq('dell', nodes[0].get('manufacturer:name'))
+            self.len(1, await core.nodes('it:hardware:version.semver >= 1.0.0'))
+            self.len(1, await core.nodes('it:hardware:version +:version.semver >= 1.0.0'))
             self.len(1, await core.nodes('it:hardware -> ou:org +:name=dell'))
+
+            # coverage for :version.semver accessors
+            await core.nodes('it:hardware:version [ :version=woot ]')
+            self.len(0, await core.nodes('it:hardware:version.semver >= 1.0.0'))
+            self.len(0, await core.nodes('it:hardware:version +:version.semver >= 1.0.0'))
 
             nodes = await core.nodes('''[
                 it:host:component=*
@@ -1142,7 +1147,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1580601600000000, nodes[0].get('created'))
             self.eq(1648771200000000, nodes[0].get('updated'))
             self.eq('gronk', nodes[0].get('text'))
-            self.eq(0x10000200003, nodes[0].get('version'))
+            self.eq('1.2.3', nodes[0].get('version'))
+            self.eq(0x10000200003, nodes[0].get('version.semver'))
 
             self.len(1, await core.nodes('it:app:yara:rule -> entity:contact'))
 
@@ -1157,7 +1163,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('rule'))
             self.nn(nodes[0].get('target'))
-            self.eq(nodes[0].get('version'), 0x10000200003)
+            self.eq(nodes[0].get('version'), '1.2.3')
             self.eq(nodes[0].get('matched'), 1580601600000000)
 
     async def test_it_app_snort(self):
@@ -1183,7 +1189,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('name'), 'foo')
             self.eq(nodes[0].get('text'), 'gronk')
             self.eq(nodes[0].get('enabled'), True)
-            self.eq(nodes[0].get('version'), 0x10000200003)
+            self.eq(nodes[0].get('version'), '1.2.3')
             self.eq(nodes[0].get('created'), 1325376000000000)
             self.eq(nodes[0].get('updated'), 1640995200000000)
             self.nn(nodes[0].get('author'))
@@ -1204,7 +1210,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('sensor'))
             self.true(nodes[0].get('dropped'))
             self.eq(nodes[0].get('rule'), rule)
-            self.eq(nodes[0].get('version'), 0x10000200003)
+            self.eq(nodes[0].get('version'), '1.2.3')
             self.eq(nodes[0].get('matched'), 1420070400000000)
 
     async def test_it_function(self):
@@ -1473,7 +1479,6 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :synuser=$root
                     // we can assume the rest of the interface props work
                     :service:platform = *
-                    :service:instance = *
                     :service:account = *
                 ]
             ''', opts=opts)
@@ -1487,7 +1492,6 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('it:exec:query :service:account -> inet:service:account'))
             self.len(1, await core.nodes('it:exec:query :service:platform -> inet:service:platform'))
-            self.len(1, await core.nodes('it:exec:query :service:instance -> inet:service:instance'))
 
     async def test_infotech_softid(self):
 

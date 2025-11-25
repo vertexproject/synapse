@@ -2407,7 +2407,6 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             await core.nodes('''[
-                inet:server=host://vertex.link:12341
                 inet:server=tcp://127.0.0.1:12341
                 inet:server=tcp://127.0.0.3:12343
                 inet:server=tcp://127.0.0.2:12342
@@ -2592,9 +2591,6 @@ class LayerTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('inet:server +.ip*newp=newp')
 
-            await core.nodes('inet:server.ip | delnode')
-            self.len(0, await core.nodes('inet:server.ip'))
-
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('inet:server.newp.ip')
 
@@ -2606,6 +2602,9 @@ class LayerTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('inet:server +.ip.newp=127.0.0.1')
+
+            await core.nodes('inet:server.ip | delnode')
+            self.len(0, await core.nodes('inet:server.ip'))
 
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:virtiface:servers*[newp=127.0.0.1]')

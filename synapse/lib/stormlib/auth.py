@@ -3,6 +3,8 @@ import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
 stormcmds = (
@@ -655,7 +657,8 @@ class UserProfile(s_stormtypes.Prim):
         name = await s_stormtypes.tostr(name)
         if self.runt.user.iden != self.valu:
             self.runt.confirm(('auth', 'user', 'get', 'profile', name))
-        return await self.runt.view.core.getUserProfInfo(self.valu, name)
+        valu = await self.runt.view.core.getUserProfInfo(self.valu, name)
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def setitem(self, name, valu):
         name = await s_stormtypes.tostr(name)
@@ -674,7 +677,7 @@ class UserProfile(s_stormtypes.Prim):
     async def iter(self):
         profile = await self.value()
         for item in list(profile.items()):
-            yield item
+            yield s_msgpack.deepcopy(item, use_list=True)
 
     async def value(self):
         if self.runt.user.iden != self.valu:
@@ -837,7 +840,8 @@ class UserVars(s_stormtypes.Prim):
 
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
-        return await self.runt.view.core.getUserVarValu(self.valu, name)
+        valu = await self.runt.view.core.getUserVarValu(self.valu, name)
+        return s_msgpack.deepcopy(valu, use_list=True)
 
     async def setitem(self, name, valu):
         name = await s_stormtypes.tostr(name)
@@ -851,7 +855,7 @@ class UserVars(s_stormtypes.Prim):
 
     async def iter(self):
         async for name, valu in self.runt.view.core.iterUserVars(self.valu):
-            yield name, valu
+            yield name, s_msgpack.deepcopy(valu, use_list=True)
             await asyncio.sleep(0)
 
 @s_stormtypes.registry.registerType

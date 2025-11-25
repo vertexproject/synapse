@@ -272,35 +272,24 @@ class CoreApi(s_cell.CellApi):
         view = self.cell.getView()
         self.user.confirm(perms, gateiden=view.wlyr.iden)
 
-    async def importStormMeta(self, meta, *, viewiden=None):
-        view = self.cell.getView(viewiden, user=self.user)
-        if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
-
-        self.user.confirm(('feed:data',), gateiden=view.wlyr.iden)
-
-        self.cell._reqValidExportStormMeta(meta)
-
-        return
-
     async def addFeedData(self, items, *, viewiden=None, reqmeta=True):
 
-        view = self.cell.getView(viewiden, user=self.user)
-        if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
+        if viewiden and self.cell.getView(viewiden, user=self.user) is None:
+            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}.', iden=viewiden)
 
-        self.user.confirm(('feed:data',), gateiden=view.wlyr.iden)
+        if reqmeta:
+            meta, *items = items
+            self.cell.reqValidExportStormMeta(meta)
+
+        await self.cell.reqFeedDataAllowed(items, self.user, viewiden=viewiden)
 
         await self.cell.boss.promote('feeddata',
                                      user=self.user,
-                                     info={'view': view.iden,
+                                     info={'view': viewiden,
                                            'nitems': len(items),
                                            })
 
-        logger.info(f'User ({self.user.name}) adding feed data: {len(items)}')
-
-        async for node in view.addNodes(items, user=self.user, reqmeta=reqmeta):
-            await asyncio.sleep(0)
+        await self.cell.addFeedData(items, user=self.user, viewiden=viewiden)
 
     async def count(self, text, *, opts=None):
         '''
@@ -1186,9 +1175,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'data', 'del', '<key>'), 'gate': 'layer',
              'ex': 'node.data.del.hehe',
              'desc': 'Permits a user to remove node data in a given layer for a specific key.'},
-
-            {'perm': ('feed', 'data'), 'gate': 'layer',
-             'desc': 'Controls access to feeding/importing data into a layer.'},
 
             {'perm': ('pkg', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding storm packages.'},
@@ -2477,7 +2463,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         onload = pkgdef.get('onload')
         pkgvers = pkgdef.get('version')
 
-        if (onload is not None or inits is not None) and self.isactive:
+        if self.isactive:
             async def _onload():
                 if self.safemode:
                     await self.fire('core:pkg:onload:skipped', pkg=name, reason='safemode')
@@ -2487,10 +2473,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 logextra = await self.getLogExtra(pkg=name, vers=pkgvers)
 
-                if inits is not None:
-                    varname = inits['key']
-                    curvers = await self.getStormPkgVar(name, varname, default=-1)
-                    inaugural = curvers == -1
+                verskey = 'storage:version'
+
+                curvers = -1
+
+                if inits is None:
+                    if await self.getStormPkgVar(name, verskey) is None:
+                        await self.setStormPkgVar(name, verskey, -1)
+
+                else:
+                    inaugural = False
+                    curvers = await self.getStormPkgVar(name, verskey)
+                    if curvers is None:
+                        inaugural = True
+                        curvers = -1
 
                     for initdef in inits['versions']:
 
@@ -2501,7 +2497,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                             continue
 
                         if inaugural and not initdef.get('inaugural'):
-                            await self.setStormPkgVar(name, varname, vers)
+                            await self.setStormPkgVar(name, verskey, vers)
                             continue
 
                         logextra['synapse']['initvers'] = vers
@@ -2534,8 +2530,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if not ok:
                             break
 
-                        curvers = max(vers, await self.getStormPkgVar(name, varname, default=-1))
-                        await self.setStormPkgVar(name, varname, curvers)
+                        curvers = max(vers, stored := await self.getStormPkgVar(name, verskey, default=-1))
+                        if curvers != stored:
+                            await self.setStormPkgVar(name, verskey, curvers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 if onload is not None:
@@ -2555,7 +2552,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                     logger.info(f'{name} finished onload', extra=logextra)
 
-                await self.fire('core:pkg:onload:complete', pkg=name)
+                await self.fire('core:pkg:onload:complete', pkg=name, storvers=curvers)
 
             self.runActiveTask(_onload())
 
@@ -2778,9 +2775,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def getStormVar(self, name, default=None):
         return self.stormvars.get(name, defv=default)
 
-    @s_nexus.Pusher.onPushAuto('stormvar:pop')
     async def popStormVar(self, name, default=None):
-        return self.stormvars.pop(name, defv=default)
+        ok, valu = await self._push('stormvar:pop', name)
+        if not ok:
+            return default
+        return valu
+
+    @s_nexus.Pusher.onPush('stormvar:pop')
+    async def _popStormVar(self, name, default=None):
+        valu = self.stormvars.pop(name, defv=s_common.novalu)
+        if valu is s_common.novalu:
+            return False, None
+        return True, valu
 
     @s_nexus.Pusher.onPushAuto('stormvar:set')
     async def setStormVar(self, name, valu):
@@ -4264,6 +4270,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for pdef in layr.layrinfo.get('pulls', {}).values():
                 await self.delActiveCoro(pdef.get('iden'))
 
+            await self.fire('core:layr:del', iden=layr.iden, offs=nexsitem[0])
             await self.feedBeholder('layer:del', {'iden': layriden}, gates=[layriden])
             await self.auth.delAuthGate(layriden)
             self.dynitems.pop(layriden)
@@ -4335,6 +4342,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for pdef in layr.layrinfo.get('pulls', {}).values():
             await self.delActiveCoro(pdef.get('iden'))
 
+        await self.fire('core:layr:del', iden=layr.iden, offs=nexsitem[0])
         await self.feedBeholder('layer:del', {'iden': iden}, gates=[iden])
         await self.auth.delAuthGate(iden)
         self.dynitems.pop(iden)
@@ -4595,7 +4603,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for pdef in layrinfo.get('pulls', {}).values():
             await self.runLayrPull(layr, pdef)
 
-        await self.fire('core:layr:add', iden=layr.iden)
+        await self.fire('core:layr:add', iden=layr.iden, offs=layr.addoffs)
 
         return layr
 
@@ -5407,7 +5415,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             size, sha256 = await fd.save()
             return (size, s_common.ehex(sha256))
 
-    def _reqValidExportStormMeta(self, meta, synver_range='>=3.0.0,<4.0.0'):
+    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0,<4.0.0'):
         '''
         Validate an export storm meta dict for schema, version, and synapse version compatibility.
 
@@ -5443,9 +5451,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.boss.promote('feeddata', user=user, info=taskinfo, taskiden=taskiden)
 
-        # ensure that the user can make all node edits in the layer
-        user.confirm(('node',), gateiden=view.wlyr.iden)
-
         q = s_queue.Queue(maxsize=10000)
         feedexc = None
 
@@ -5460,7 +5465,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     first = True
                     async for item in self.axon.iterMpkFile(sha256):
                         if first:
-                            self._reqValidExportStormMeta(item)
+                            self.reqValidExportStormMeta(item)
                             first = False
                             continue
                         await q.put(item)
@@ -5478,6 +5483,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             # feed the items directly to syn.nodes
             async for items in q.slices(size=100):
+                await self.reqFeedDataAllowed(items, user, viewiden=view.iden)
                 async for node in view.addNodes(items):
                     count += 1
 
@@ -5609,7 +5615,45 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         }
         return ret
 
-    async def addFeedData(self, items, *, user=None, viewiden=None, reqmeta=True):
+    async def reqFeedDataAllowed(self, items, user, viewiden=None):
+        if user.allowed(('node',), gateiden=viewiden):
+            return
+
+        nodeadd = user.allowed(('node', 'add'), gateiden=viewiden)
+        propset = user.allowed(('node', 'prop', 'set'), gateiden=viewiden)
+        tagadd = user.allowed(('node', 'tag', 'add'), gateiden=viewiden)
+        dataset = user.allowed(('node', 'data', 'set'), gateiden=viewiden)
+        edgeadd = user.allowed(('node', 'edge', 'add'), gateiden=viewiden)
+
+        if nodeadd and propset and tagadd and dataset and edgeadd:
+            return
+
+        for ((form, _), forminfo) in items:
+            await asyncio.sleep(0)
+
+            if not nodeadd:
+                user.confirm(('node', 'add', form), gateiden=viewiden)
+
+            if not propset:
+                for propname, _ in forminfo.get('props', {}).items():
+                    user.confirm(('node', 'prop', 'set', form, propname), gateiden=viewiden)
+
+            if not tagadd:
+                for tagname, _ in forminfo.get('tags', {}).items():
+                    user.confirm(('node', 'tag', 'add', tagname), gateiden=viewiden)
+
+                for tagname, _ in forminfo.get('tagprops', {}).items():
+                    user.confirm(('node', 'tag', 'add', tagname), gateiden=viewiden)
+
+            if not dataset:
+                for dataname, _ in forminfo.get('nodedata', {}).items():
+                    user.confirm(('node', 'data', 'set', dataname), gateiden=viewiden)
+
+            if not edgeadd:
+                for verb, _ in forminfo.get('edges', []):
+                    user.confirm(('node', 'edge', 'add', verb), gateiden=viewiden)
+
+    async def addFeedData(self, items, *, user=None, viewiden=None):
         '''
         Add bulk data in nodes format.
 
@@ -5626,9 +5670,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is None:
             user = self.auth.rootuser
 
-        logger.info(f'User (user.name) adding feed data: {len(items)}')
+        logger.info(f'User ({user.name}) adding feed data: {len(items)}')
 
-        async for node in view.addNodes(items, user=user, reqmeta=reqmeta):
+        async for node in view.addNodes(items, user=user):
             await asyncio.sleep(0)
 
     async def getPropNorm(self, prop, valu, typeopts=None):

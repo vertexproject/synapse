@@ -1558,8 +1558,8 @@ class LibBase(Lib):
         try:
             norm, info = await typeitem.norm(valu)
             return (True, fromprim(norm, basetypes=False))
-        except s_exc.BadTypeValu:
-            return (False, None)
+        except s_exc.BadTypeValu as exc:
+            return False, s_common.excinfo(exc)
 
     @stormfunc(readonly=True)
     async def _repr(self, name, valu):
@@ -1858,7 +1858,7 @@ class LibDict(Lib):
                 mesg = '$lib.dict.fromlist() keys must be str or int types.'
                 raise s_exc.BadArg(mesg=mesg)
 
-        return dict(valu)
+        return s_msgpack.deepcopy(dict(valu), use_list=True)
 
     @stormfunc(readonly=True)
     async def _pop(self, valu, key, default=undef):
@@ -1897,59 +1897,6 @@ class LibDict(Lib):
 
         valu = await toprim(valu)
         return list(valu.values())
-
-@registry.registerLib
-class LibPs(Lib):
-    '''
-    A Storm Library for interacting with running tasks on the Cortex.
-    '''
-    _storm_locals = (  # type:  ignore
-        {'name': 'kill', 'desc': 'Stop a running task on the Cortex.',
-         'type': {'type': 'function', '_funcname': '_kill',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str',
-                       'desc': 'The prefix of the task to stop. '
-                               'Tasks will only be stopped if there is a single prefix match.'},
-                  ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the task was cancelled, False otherwise.', }}},
-        {'name': 'list', 'desc': 'List tasks the current user can access.',
-         'type': {'type': 'function', '_funcname': '_list',
-                  'returns': {'type': 'list', 'desc': 'A list of task definitions.', }}},
-    )
-    _storm_lib_deprecation = {'eolvers': 'v3.0.0', 'mesg': 'Use the corresponding ``$lib.task`` function.'}
-    _storm_lib_path = ('ps',)
-
-    def getObjLocals(self):
-        return {
-            'kill': self._kill,
-            'list': self._list,
-        }
-
-    async def _kill(self, prefix):
-        idens = []
-
-        todo = s_common.todo('ps', self.runt.user)
-        tasks = await self.dyncall('cell', todo)
-        for task in tasks:
-            iden = task.get('iden')
-            if iden.startswith(prefix):
-                idens.append(iden)
-
-        if len(idens) == 0:
-            mesg = 'Provided iden does not match any processes.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
-
-        if len(idens) > 1:
-            mesg = 'Provided iden matches more than one process.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
-
-        todo = s_common.todo('kill', self.runt.user, idens[0])
-        return await self.dyncall('cell', todo)
-
-    @stormfunc(readonly=True)
-    async def _list(self):
-        todo = s_common.todo('ps', self.runt.user)
-        return await self.dyncall('cell', todo)
 
 @registry.registerLib
 class LibAxon(Lib):
@@ -3491,20 +3438,24 @@ class LibFeed(Lib):
         }
         return await self.runt.view.core.feedFromAxon(sha256, opts=opts)
 
-    async def _libGenr(self, data, reqmeta=False):
+    async def _feedCommon(self, data, reqmeta=False):
         data = await tostor(data)
 
-        self.runt.layerConfirm(('feed:data',))
+        if reqmeta:
+            meta, *data = data
+            self.runt.view.core.reqValidExportStormMeta(meta)
 
-        async for node in self.runt.view.addNodes(data, user=self.runt.user, reqmeta=reqmeta):
+        await self.runt.view.core.reqFeedDataAllowed(data, self.runt.user, viewiden=self.runt.view.iden)
+
+        async for node in self.runt.view.addNodes(data, user=self.runt.user):
+            yield node
+
+    async def _libGenr(self, data, reqmeta=False):
+        async for node in self._feedCommon(data, reqmeta=reqmeta):
             yield node
 
     async def _libIngest(self, data, reqmeta=False):
-        data = await tostor(data)
-
-        self.runt.layerConfirm(('feed:data',))
-
-        async for node in self.runt.view.addNodes(data, user=self.runt.user, reqmeta=reqmeta):
+        async for node in self._feedCommon(data, reqmeta=reqmeta):
             await asyncio.sleep(0)
 
 @registry.registerLib
@@ -5633,7 +5584,8 @@ class GlobalVars(Prim):
         name = await tostr(name)
         runt = s_scope.get('runt')
         runt.confirm(('globals', 'get', name))
-        return await runt.view.core.getStormVar(name)
+        if (valu := await runt.view.core.getStormVar(name)) is not None:
+            return s_msgpack.deepcopy(valu, use_list=True)
 
     async def setitem(self, name, valu):
         name = await tostr(name)
@@ -5652,7 +5604,7 @@ class GlobalVars(Prim):
         runt = s_scope.get('runt')
         async for name, valu in runt.view.core.itemsStormVar():
             if runt.allowed(('globals', 'get', name)):
-                yield name, valu
+                yield name, s_msgpack.deepcopy(valu, use_list=True)
             await asyncio.sleep(0)
 
     async def stormrepr(self):

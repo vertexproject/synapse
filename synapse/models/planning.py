@@ -58,7 +58,7 @@ modeldefs = (
                 ('updated', ('time', {}), {
                     'doc': 'The time the planning system was last updated.'}),
 
-                ('version', ('it:semver', {}), {
+                ('version', ('it:version', {}), {
                     'doc': 'The version of the planning system.'}),
 
                 ('url', ('inet:url', {}), {

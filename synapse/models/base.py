@@ -270,7 +270,7 @@ modeldefs = (
                     ('target', ('{target:type}', {}), {
                         'doc': 'The target node which matched the {rule}.'}),
 
-                    ('version', ('it:semver', {}), {
+                    ('version', ('it:version', {}), {
                         'doc': 'The most recent version of the rule evaluated as a match.'}),
 
                     ('matched', ('time', {}), {
@@ -345,6 +345,8 @@ modeldefs = (
 
             ('meta:feed:type:taxonomy', {}, ()),
             ('meta:feed', {}, (
+                ('id', ('meta:id', {}), {
+                    'doc': 'An identifier for the feed.'}),
 
                 ('name', ('meta:name', {}), {
                     'doc': 'A name for the feed.'}),

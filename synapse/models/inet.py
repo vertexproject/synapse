@@ -370,9 +370,8 @@ class IPAddr(s_types.Type):
 
 class SockAddr(s_types.Str):
 
-    protos = ('tcp', 'udp', 'icmp', 'host', 'gre')
-    # TODO: this should include icmp and host but requires a migration
-    noports = ('gre',)
+    protos = ('tcp', 'udp', 'icmp', 'gre')
+    noports = ('gre', 'icmp')
 
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
@@ -381,7 +380,6 @@ class SockAddr(s_types.Str):
         self.setNormFunc(tuple, self._normPyTuple)
 
         self.iptype = self.modl.type('inet:ip')
-        self.hosttype = self.modl.type('it:host')
         self.porttype = self.modl.type('inet:port')
         self.prototype = self.modl.type('str').clone({'lower': True})
 
@@ -450,18 +448,6 @@ class SockAddr(s_types.Str):
 
         valu = valu.strip().strip('/')
 
-        # Treat as host if proto is host
-        if proto == 'host':
-
-            valu, port, pstr = await self._normPort(valu)
-            if port:
-                subs['port'] = (self.porttype.typehash, port, {})
-
-            host = s_common.guid(valu)
-            subs['host'] = (self.hosttype.typehash, host, {})
-
-            return f'host://{host}{pstr}', {'subs': subs}
-
         # Treat as IPv6 if starts with [ or contains multiple :
         if valu.startswith('['):
             match = srv6re.match(valu)
@@ -525,18 +511,17 @@ class SockAddr(s_types.Str):
         return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
 
     async def _normPyTuple(self, valu, view=None):
-        ipaddr = (await self.iptype.norm(valu))[0]
+        ipaddr, norminfo = await self.iptype.norm(valu)
 
-        (vers, ip_int) = ipaddr
         ip_repr = self.iptype.repr(ipaddr)
-        subs = {}
-        virts = {}
+        subs = {'ip': (self.iptype.typehash, ipaddr, norminfo)}
+        virts = {'ip': (ipaddr, self.iptype.stortype)}
         proto = self.defproto
 
         if self.defport:
             subs['port'] = (self.porttype.typehash, self.defport, {})
             virts['port'] = (self.defport, self.porttype.stortype)
-            if vers == 6:
+            if ipaddr[0] == 6:
                 return f'{proto}://[{ip_repr}]:{self.defport}', {'subs': subs, 'virts': virts}
             else:
                 return f'{proto}://{ip_repr}:{self.defport}', {'subs': subs, 'virts': virts}
@@ -1295,6 +1280,13 @@ modeldefs = (
             ('inet:proto', ('str', {'lower': True, 'regex': '^[a-z0-9+-]+$'}), {
                 'doc': 'A network protocol name.'}),
 
+            ('inet:asnip', ('comp', {'fields': (('asn', 'inet:asn'), ('ip', 'inet:ip'))}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'IP ASN assignment'}}),
+                ),
+                'ex': '(54959, 1.2.3.4)',
+                'doc': 'A historical record of an IP address being assigned to an AS.'}),
+
             ('inet:asnet', ('comp', {'fields': (('asn', 'inet:asn'), ('net', 'inet:net'))}), {
                 'ex': '(54959, (1.2.3.4, 1.2.3.20))',
                 'doc': 'An Autonomous System Number (ASN) and its associated IP address range.'}),
@@ -1510,6 +1502,9 @@ modeldefs = (
                 'doc': 'A service platform type taxonomy.'}),
 
             ('inet:service:platform', ('guid', {}), {
+                'interfaces': (
+                    ('meta:observable', {'template': {'title': 'platform'}}),
+                ),
                 'doc': 'A network platform which provides services.'}),
 
             ('inet:service:agent', ('guid', {}), {
@@ -1519,9 +1514,6 @@ modeldefs = (
                 'template': {'service:base': 'agent'},
                 'doc': 'An instance of a deployed agent or software integration which is part of the service architecture.',
                 'prevnames': ('inet:service:app',)}),
-
-            ('inet:service:instance', ('guid', {}), {
-                'doc': 'An instance of the platform such as Slack or Discord instances.'}),
 
             ('inet:service:object:status', ('int', {'enums': svcobjstatus}), {
                 'doc': 'An object status enumeration.'}),
@@ -1588,24 +1580,22 @@ modeldefs = (
                 ),
                 'doc': 'An authenticated session.'}),
 
+            ('inet:service:joinable', ('ndef', {'interface': 'inet:service:joinable'}), {
+                'doc': 'A node which implements the inet:service:joinable interface.'}),
+
             ('inet:service:group', ('guid', {}), {
                 'template': {'title': 'service group'},
                 'interfaces': (
                     ('inet:service:object', {}),
+                    ('inet:service:joinable', {}),
                 ),
                 'doc': 'A group or role which contains member accounts.'}),
-
-            ('inet:service:group:member', ('guid', {}), {
-                'template': {'title': 'group membership'},
-                'interfaces': (
-                    ('inet:service:object', {}),
-                ),
-                'doc': 'Represents a service account being a member of a group.'}),
 
             ('inet:service:channel', ('guid', {}), {
                 'template': {'title': 'channel'},
                 'interfaces': (
                     ('inet:service:object', {}),
+                    ('inet:service:joinable', {}),
                 ),
                 'doc': 'A channel used to distribute messages.'}),
 
@@ -1616,12 +1606,12 @@ modeldefs = (
                 ),
                 'doc': 'A message thread.'}),
 
-            ('inet:service:channel:member', ('guid', {}), {
-                'template': {'title': 'channel membership'},
+            ('inet:service:member', ('guid', {}), {
+                'template': {'title': 'membership'},
                 'interfaces': (
                     ('inet:service:object', {}),
                 ),
-                'doc': 'Represents a service account being a member of a channel.'}),
+                'doc': 'Represents a service account being a member of a channel or group.'}),
 
             ('inet:service:message', ('guid', {}), {
                 'interfaces': (
@@ -1696,18 +1686,12 @@ modeldefs = (
                 ),
                 'doc': 'A generic resource provided by the service architecture.'}),
 
-            ('inet:service:bucket', ('guid', {}), {
+            ('inet:service:bucket', ('inet:service:resource', {}), {
                 'template': {'title': 'bucket'},
-                'interfaces': (
-                    ('inet:service:object', {}),
-                ),
                 'doc': 'A file/blob storage object within a service architecture.'}),
 
-            ('inet:service:bucket:item', ('guid', {}), {
+            ('inet:service:bucket:item', ('inet:service:resource', {}), {
                 'template': {'title': 'bucket item'},
-                'interfaces': (
-                    ('inet:service:object', {}),
-                ),
                 'doc': 'An individual file stored within a bucket.'}),
 
             ('inet:rdp:handshake', ('guid', {}), {
@@ -1843,9 +1827,6 @@ modeldefs = (
 
                     ('platform', ('inet:service:platform', {}), {
                         'doc': 'The platform which defines the {title}.'}),
-
-                    ('instance', ('inet:service:instance', {}), {
-                        'doc': 'The platform instance which defines the {title}.'}),
                 ),
             }),
 
@@ -1875,6 +1856,9 @@ modeldefs = (
                         'doc': 'The service account which removed or decommissioned the {title}.'}),
                 ),
             }),
+
+            ('inet:service:joinable', {
+                'doc': 'An interface common to nodes which can have accounts as members.'}),
 
             ('inet:service:subscriber', {
                 'doc': 'Properties common to the nodes which subscribe to services.',
@@ -1922,9 +1906,6 @@ modeldefs = (
 
                     ('platform', ('inet:service:platform', {}), {
                         'doc': 'The platform where the action was initiated.'}),
-
-                    ('instance', ('inet:service:instance', {}), {
-                        'doc': 'The platform instance where the action was initiated.'}),
 
                     ('session', ('inet:service:session', {}), {
                         'doc': 'The session which initiated the action.'}),
@@ -2037,6 +2018,17 @@ modeldefs = (
                     'doc': 'The name of the entity which registered the ASN.'}),
             )),
 
+            ('inet:asnip', {}, (
+
+                ('asn', ('inet:asn', {}), {
+                    'ro': True,
+                    'doc': 'The ASN that the IP was assigned to.'}),
+
+                ('ip', ('inet:ip', {}), {
+                    'ro': True,
+                    'doc': 'The IP that was assigned to the ASN.'}),
+            )),
+
             ('inet:asnet', {
                 'prevnames': ('inet:asnet4', 'inet:asnet6')}, (
 
@@ -2086,15 +2078,12 @@ modeldefs = (
                     'doc': 'The IP of the client.',
                     'prevnames': ('ipv4', 'ipv6')}),
 
-                ('host', ('it:host', {}), {
-                    'ro': True,
-                    'doc': 'The it:host node for the client.'
-                }),
                 ('port', ('inet:port', {}), {
                     'doc': 'The client tcp/udp port.'
                 }),
             )),
 
+            # FIXME - inet:proto:link? Is this really an it:host:fetch?
             ('inet:download', {}, (
                 ('time', ('time', {}), {
                     'doc': 'The time the file was downloaded.'
@@ -2415,10 +2404,6 @@ modeldefs = (
                     'doc': 'The IP of the server.',
                     'prevnames': ('ipv4', 'ipv6')}),
 
-                ('host', ('it:host', {}), {
-                    'ro': True,
-                    'doc': 'The it:host node for the server.'
-                }),
                 ('port', ('inet:port', {}), {
                     'doc': 'The server tcp/udp port.'
                 }),
@@ -2806,7 +2791,7 @@ modeldefs = (
             ('inet:service:platform:type:taxonomy', {}, ()),
             ('inet:service:platform', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'An ID which identifies the platform.'}),
 
                 ('url', ('inet:url', {}), {
@@ -2824,13 +2809,12 @@ modeldefs = (
                 ('zones', ('array', {'type': 'inet:fqdn'}), {
                     'doc': 'An array of alternate zones for the platform.'}),
 
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+                ('name', ('meta:name', {}), {
                     'ex': 'twitter',
                     'alts': ('names',),
                     'doc': 'A friendly name for the platform.'}),
 
-                ('names', ('array', {'type': 'str',
-                                     'typeopts': {'onespace': True, 'lower': True}}), {
+                ('names', ('array', {'type': 'meta:name'}), {
                     'doc': 'An array of alternate names for the platform.'}),
 
                 ('desc', ('text', {}), {
@@ -2867,41 +2851,6 @@ modeldefs = (
                     'doc': 'The latest known software version that the platform is running.'}),
             )),
 
-            ('inet:service:instance', {}, (
-
-                ('id', ('meta:id', {}), {
-                    'ex': 'B8ZS2',
-                    'doc': 'A platform specific ID to identify the service instance.'}),
-
-                ('platform', ('inet:service:platform', {}), {
-                    'doc': 'The platform which defines the service instance.'}),
-
-                ('url', ('inet:url', {}), {
-                    'ex': 'https://v.vtx.lk/slack',
-                    'doc': 'The primary URL which identifies the service instance.'}),
-
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'ex': 'synapse users slack',
-                    'doc': 'The name of the service instance.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the service instance.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period where the instance existed.'}),
-
-                ('status', ('inet:service:object:status', {}), {
-                    'doc': 'The status of this instance.'}),
-
-                ('creator', ('inet:service:account', {}), {
-                    'doc': 'The service account which created the instance.'}),
-
-                ('owner', ('inet:service:account', {}), {
-                    'doc': 'The service account which owns the instance.'}),
-
-                ('tenant', ('inet:service:tenant', {}), {
-                    'doc': 'The tenant which contains the instance.'}),
-            )),
 
             ('inet:service:agent', {}, (
 
@@ -2949,18 +2898,6 @@ modeldefs = (
 
                 ('profile', ('entity:contact', {}), {
                     'doc': 'Current detailed contact information for this group.'}),
-            )),
-
-            ('inet:service:group:member', {}, (
-
-                ('account', ('inet:service:account', {}), {
-                    'doc': 'The account that is a member of the group.'}),
-
-                ('group', ('inet:service:group', {}), {
-                    'doc': 'The group that the account is a member of.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period when the account was a member of the group.'}),
             )),
 
             ('inet:service:permission:type:taxonomy', {}, ()),
@@ -3141,16 +3078,16 @@ modeldefs = (
                     'doc': 'The message which initiated the thread.'}),
             )),
 
-            ('inet:service:channel:member', {}, (
+            ('inet:service:member', {}, (
 
-                ('channel', ('inet:service:channel', {}), {
-                    'doc': 'The channel that the account was a member of.'}),
+                ('of', ('inet:service:joinable', {}), {
+                    'doc': 'The channel or group that the account was a member of.'}),
 
                 ('account', ('inet:service:account', {}), {
-                    'doc': 'The account that was a member of the channel.'}),
+                    'doc': 'The account that was a member of the channel or group.'}),
 
                 ('period', ('ival', {}), {
-                    'doc': 'The time period where the account was a member of the channel.'}),
+                    'doc': 'The time period where the account was a member.'}),
             )),
 
             ('inet:service:resource:type:taxonomy', {}, {}),

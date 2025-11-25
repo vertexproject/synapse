@@ -112,6 +112,9 @@ class FeedTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             await self.addCreatorDeleterRoles(core)
 
+            icanadd = await core.auth.getUserByName('icanadd')
+            creator = await core.auth.getRoleByName('creator')
+
             host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
             curl = f'tcp://icanadd:secret@{host}:{port}/'
 
@@ -141,15 +144,18 @@ class FeedTest(s_t_utils.SynTest):
 
                 argv = base + ['--view', newview, mpkfp]
                 outp = self.getTestOutp()
+
                 # perms are still a thing
+                await icanadd.revoke(creator.iden)
                 with self.raises(s_exc.AuthDeny):
                     await s_feed.main(argv, outp=outp)
+                await icanadd.grant(creator.iden)
+
                 nodes = await core.nodes('test:int', opts={'view': newview})
                 self.len(0, nodes)
                 nodes = await core.nodes('test:int', opts={'view': oldview})
                 self.len(0, nodes)
 
-                icanadd = await core.auth.getUserByName('icanadd')
                 await icanadd.addRule((True, ('view', 'read')))
 
                 # now actually do the ingest w/chunking

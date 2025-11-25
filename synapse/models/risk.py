@@ -434,9 +434,6 @@ modeldefs = (
                 ('tag', ('syn:tag', {}), {
                     'doc': 'A tag used to annotate the presence or use of the vulnerability.'}),
 
-                ('cve', ('it:sec:cve', {}), {
-                    'doc': 'The CVE ID of the vulnerability.'}),
-
                 # FIXME cvss / vuln scoring
                 ('cvss:v2', ('cvss:v2', {}), {
                     'doc': 'The CVSS v2 vector for the vulnerability.'}),
@@ -569,9 +566,6 @@ modeldefs = (
 
                 ('service:platform', ('inet:service:platform', {}), {
                     'doc': 'The service platform which generated the alert.'}),
-
-                ('service:instance', ('inet:service:instance', {}), {
-                    'doc': 'The service instance which generated the alert.'}),
 
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The service account which generated the alert.'}),

@@ -2232,7 +2232,7 @@ class Layer(s_nexus.Pusher):
         self.canrev = True
         self.ctorname = f'{self.__class__.__module__}.{self.__class__.__name__}'
 
-        self.windows = []
+        self.windows = set()
 
         self.nidcache = s_cache.LruDict(NID_CACHE_SIZE)
         self.weakcache = weakref.WeakValueDictionary()
@@ -2871,7 +2871,7 @@ class Layer(s_nexus.Pusher):
         return ret
 
     async def _onLayrFini(self):
-        [(await wind.fini()) for wind in self.windows]
+        [(await wind.fini()) for wind in tuple(self.windows)]
 
     async def getFormCounts(self):
         formcounts = {}
@@ -5868,11 +5868,11 @@ class Layer(s_nexus.Pusher):
         async with await s_queue.Window.anit(maxsize=WINDOW_MAXSIZE) as wind:
 
             async def fini():
-                self.windows.remove(wind)
+                self.windows.discard(wind)
 
             wind.onfini(fini)
 
-            self.windows.append(wind)
+            self.windows.add(wind)
 
             yield wind
 

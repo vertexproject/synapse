@@ -72,6 +72,7 @@ class TransportTest(s_test.SynTest):
             vessel = (await core.nodes('''[
                 transport:sea:vessel=*
                     :mmsi=123456789
+                    :callsign=V123
                     :name="Slice of Life"
                     :flag=us
                     :type=cargo.tanker.oil
@@ -82,6 +83,7 @@ class TransportTest(s_test.SynTest):
                 ]'''))[0]
             self.eq('123456789', vessel.get('mmsi'))
             self.eq('slice of life', vessel.get('name'))
+            self.eq('V123', vessel.get('callsign'))
             self.eq('cargo.tanker.oil.', vessel.get('type'))
             self.eq('speed boat 9000', vessel.get('model'))
             self.eq('us', vessel.get('flag'))

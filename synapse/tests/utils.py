@@ -455,6 +455,7 @@ testmodel = (
                 ('pivvirt', ('test:virtiface', {}), {}),
                 ('gprop', ('test:guid', {}), {}),
                 ('inhstr', ('test:inhstr', {}), {}),
+                ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
             )),
 
             ('test:str2', {}, ()),
@@ -771,6 +772,12 @@ class _StreamIOMixin(io.StringIO):
         valu = self.getvalue()
         if valu.find(substr) == -1:
             mesg = '%s.expect(%s) not in %s' % (self.__class__.__name__, substr, valu)
+            raise s_exc.SynErr(mesg=mesg)
+
+    def noexpect(self, substr: str):
+        valu = self.getvalue()
+        if valu.find(substr) != -1:
+            mesg = '%s.noexpect(%s) in %s' % (self.__class__.__name__, substr, valu)
             raise s_exc.SynErr(mesg=mesg)
 
 class StreamEvent(_StreamIOMixin, threading.Event):
@@ -2308,7 +2315,6 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             (True, ('node', 'add')),
             (True, ('node', 'prop', 'set')),
             (True, ('node', 'tag', 'add')),
-            (True, ('feed:data',)),
         ))
 
         deleter = await core.auth.addRole('deleter')
@@ -2355,19 +2361,16 @@ class StormPkgTest(SynTest):
                 pkgdef = s_genpkg.loadPkgProto(pkgproto, no_docs=True, readonly=True)
                 pkgname = pkgdef.get('name')
 
-                if pkgdef.get('onload') is not None or pkgdef.get('inits') is not None:
-                    load_event = asyncio.Event()
+                load_event = asyncio.Event()
 
-                    async def func(event):
-                        if event[1].get('pkg') == pkgname:
-                            load_event.set()
+                async def func(event):
+                    if event[1].get('pkg') == pkgname:
+                        load_event.set()
 
-                    with core.onWith('core:pkg:onload:complete', func):
-                        await core.addStormPkg(pkgdef)
-                        self.nn(await asyncio.wait_for(load_event.wait(), timeout=ONLOAD_TIMEOUT),
-                                f'Package onload failed to run for {pkgname}')
-                else:
+                with core.onWith('core:pkg:onload:complete', func):
                     await core.addStormPkg(pkgdef)
+                    self.nn(await asyncio.wait_for(load_event.wait(), timeout=ONLOAD_TIMEOUT),
+                            f'Package onload failed to run for {pkgname}')
 
             if self.assetdir is not None:
 

@@ -251,7 +251,7 @@ modeldefs = (
                 ('deprecated', ('bool', {}), {
                     'doc': 'Set to true if this command is scheduled to be removed.'}),
 
-                ('deprecated:version', ('it:semver', {}), {
+                ('deprecated:version', ('it:version', {}), {
                     'doc': 'The Synapse version when this command will be removed.'}),
 
                 ('deprecated:date', ('time', {}), {
