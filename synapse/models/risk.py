@@ -47,6 +47,15 @@ class RiskModule(s_module.CoreModule):
             ),
             'types': (
                 ('risk:vuln', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'cve'}},
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'cvss:v3_1:score'}},
+                            {'type': 'prop', 'opts': {'name': 'type'}},
+                        ),
+                    },
                     'doc': 'A unique vulnerability.'}),
 
                 ('risk:vulnname', ('str', {'lower': True, 'onespace': True}), {
@@ -91,6 +100,8 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'A compromise and its aggregate impact. The compromise is the result of a successful attack.',
                     'display': {
                         'columns': (
+                            {'type': 'prop', 'opts': {'name': 'time'}},
+                            {'type': 'prop', 'opts': {'name': 'lasttime'}},
                             {'type': 'prop', 'opts': {'name': 'name'}},
                             {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         ),
@@ -150,6 +161,14 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'A taxonomy of threat types.'}),
 
                 ('risk:leak', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'disclosed'}},
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'owner::name'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        ),
+                    },                
                     'doc': 'An event where information was disclosed without permission.'}),
 
                 ('risk:leak:type:taxonomy', ('taxonomy', {}), {
@@ -157,6 +176,15 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'A taxonomy of leak event types.'}),
 
                 ('risk:extortion', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'demanded'}},
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'target::name'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'deadline'}},
+                        ),
+                    },
                     'doc': 'An event where an attacker attempted to extort a victim.'}),
 
                 ('risk:outage:cause:taxonomy', ('taxonomy', {}), {
@@ -170,12 +198,12 @@ class RiskModule(s_module.CoreModule):
                 ('risk:outage', ('guid', {}), {
                     'display': {
                         'columns': (
-                            {'type': 'prop', 'opts': {'name': 'name'}},
-                            {'type': 'prop', 'opts': {'name': 'type'}},
-                            {'type': 'prop', 'opts': {'name': 'cause'}},
                             {'type': 'prop', 'opts': {'name': 'period'}},
+                            {'type': 'prop', 'opts': {'name': 'name'}},
                             {'type': 'prop', 'opts': {'name': 'provider:name'}},
                             {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'cause'}},
+                            {'type': 'prop', 'opts': {'name': 'type'}},
                         ),
                     },
                     'doc': 'An outage event which affected resource availability.'}),
