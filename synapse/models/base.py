@@ -30,6 +30,13 @@ class BaseModule(s_module.CoreModule):
             'types': (
 
                 ('meta:feed', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'source::name'}},
+                            {'type': 'prop', 'opts': {'name': 'type'}},
+                        ),
+                    },
                     'doc': 'A data feed provided by a specific source.'}),
 
                 ('meta:feed:type:taxonomy', ('taxonomy', {}), {
@@ -130,6 +137,7 @@ class BaseModule(s_module.CoreModule):
                 ('meta:aggregate', ('guid', {}), {
                     'display': {
                         'columns': (
+                            {'type': 'prop', 'opts': {'name': 'time'}},
                             {'type': 'prop', 'opts': {'name': 'type'}},
                             {'type': 'prop', 'opts': {'name': 'count'}},
                         ),
