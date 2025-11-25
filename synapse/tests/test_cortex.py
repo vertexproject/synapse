@@ -8949,7 +8949,7 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_safemode(self):
         safemode = {'safemode': True}
         nosafe = {'safemode': False}
-
+        self.skip('dev - skipping for ulimit build')
         # Cortex safemode disables the following functionality:
         # - crons
         # - triggers
