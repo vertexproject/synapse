@@ -16,6 +16,7 @@ import platform
 import tempfile
 import functools
 import contextlib
+import subprocess
 import multiprocessing
 
 import aiohttp
@@ -193,6 +194,26 @@ def _iterBackupProc(path, linkinfo):
 
     logger.info(f'Backup streaming process for [{path}] starting.')
     asyncio.run(_iterBackupWork(path, linkinfo))
+
+def getUlimits():
+    cmds = (
+        ('/bin/bash', '-c', 'ulimit -Sa'),
+        ('/bin/bash', '-c', 'ulimit -Ha'),
+    )
+    for cmd in cmds:
+        r = subprocess.run(cmd, capture_output=True)
+        logger.info(f'ulimits: {" ".join(cmd)}')
+        for line in r.stdout.decode().splitlines():
+            logger.info(line)
+
+def getOpenFiles():
+    pid = os.getpid()
+    cmd = ('/bin/bash', '-c', f'ls -ltha /proc/{pid}/fd')
+    r = subprocess.run(cmd, capture_output=True)
+    logger.info(f'Open files: {" ".join(cmd)}')
+    for line in r.stdout.decode().splitlines():
+        logger.info(line)
+
 
 class CellApi(s_base.Base):
 
@@ -1376,25 +1397,35 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.conf.get('health:sysctl:checks'):
             self.schedCoro(self._runSysctlLoop())
 
+        getOpenFiles()
+
         # initialize network backend infrastructure
         await self._initAhaRegistry()
 
+        getOpenFiles()
         # phase 2 - service storage
         await self.initCellStorage()
+
+        getOpenFiles()
         await self.initServiceStorage()
 
         # phase 3 - nexus subsystem
+        getOpenFiles()
         await self.initNexusSubsystem()
 
         await self.configNexsVers()
 
         # We can now do nexus-safe operations
+        getOpenFiles()
         await self._initInauguralConfig()
 
         # phase 4 - service logic
+        getOpenFiles()
         await self.initServiceRuntime()
         # phase 5 - service networking
+        getOpenFiles()
         await self.initServiceNetwork()
+        getOpenFiles()
 
     async def _storCellHiveMigration(self):
         logger.warning(f'migrating Cell ({self.getCellType()}) info out of hive')
@@ -4446,6 +4477,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.info(f'Starting {cls.getCellType()} version {cls.VERSTRING}, Synapse version: {s_version.verstring}',
                     extra={'synapse': {'svc_type': cls.getCellType(), 'svc_version': cls.VERSTRING,
                                        'synapse_version': s_version.verstring}})
+
+        getUlimits()
 
         await cls._initBootRestore(opts.dirn)
 
