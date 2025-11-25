@@ -473,6 +473,9 @@ class NexusTest(s_t_utils.SynTest):
                         evnt2.set()
                         return valu
 
+                    await core01.sync()
+                    self.true(core01.nexsroot.issuewait)
+
                     with mock.patch.object(core00.auth, 'reqUser', slowReq):
 
                         self.eq(len(core00.views), len(core01.views))
@@ -498,3 +501,11 @@ class NexusTest(s_t_utils.SynTest):
                             await core01.addView(vdef)
 
                         self.eq(strt, await core01.nexsroot.index())
+
+                        await core00.getCellNexsRoot().delWriteHold('readonly')
+
+                core00.features.pop('issuewait')
+                async with self.getTestCore(dirn=path01, conf=conf01) as core01:
+
+                    await core01.sync()
+                    self.false(core01.nexsroot.issuewait)

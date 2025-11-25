@@ -1204,6 +1204,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'tellready': 1,
             'dynmirror': 1,
             'tasks': 1,
+            'issuewait': 1
         }
 
         self.safemode = self.conf.req('safemode')
