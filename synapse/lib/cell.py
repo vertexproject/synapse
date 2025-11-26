@@ -1839,7 +1839,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 if newurls and newurls != oldurls:
                     if oldurls[0].startswith('tcp://'):
                         s_common.deprecated('aha:registry: tcp:// client values.')
-                        logger.warning('tcp:// based aha:registry options are deprecated and will be removed in Synapse v3.0.0')
                         return
 
                     self.modCellConf({'aha:registry': newurls})
