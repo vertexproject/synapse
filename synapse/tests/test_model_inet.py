@@ -231,80 +231,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('ip'), (4, 0x01020304))
             self.eq(nodes[0].get('asn'), 54959)
 
-    async def test_cidr4(self):
-        formname = 'inet:cidr'
-        async with self.getTestCore() as core:
-
-            # Type Tests ======================================================
-            t = core.model.type(formname)
-
-            valu = '0.0.0.0/24'
-            norm, info = await t.norm(valu)
-            self.eq(norm, valu)
-            self.eq(info['subs']['broadcast'][1], (4, 255))
-            self.eq(info['subs']['network'][1], (4, 0))
-            self.eq(info['subs']['mask'][1], 24)
-
-            valu = '192.168.1.101/24'
-            exp = '192.168.1.0/24'
-            norm, info = await t.norm(valu)
-            self.eq(norm, exp)
-            self.eq(info['subs']['broadcast'][1], (4, 3232236031))  # 192.168.1.255
-            self.eq(info['subs']['network'][1], (4, 3232235776))    # 192.168.1.0
-            self.eq(info['subs']['mask'][1], 24)
-
-            valu = '123.123.0.5/30'
-            exp = '123.123.0.4/30'
-            norm, info = await t.norm(valu)
-            self.eq(norm, exp)
-            self.eq(info['subs']['broadcast'][1], (4, 2071658503))  # 123.123.0.7
-            self.eq(info['subs']['network'][1], (4, 2071658500))    # 123.123.0.4
-            self.eq(info['subs']['mask'][1], 30)
-
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/-1'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/33'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/foo'))
-            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1'))
-
-            # Form Tests ======================================================
-            valu = '192[.]168.1.123/24'
-            expected_ndef = (formname, '192.168.1.0/24')  # ndef is network/mask, not ip/mask
-
-            nodes = await core.nodes('[inet:cidr=$valu]', opts={'vars': {'valu': valu}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, expected_ndef)
-            self.eq(node.get('network'), (4, 3232235776))  # 192.168.1.0
-            self.eq(node.get('broadcast'), (4, 3232236031))  # 192.168.1.255
-            self.eq(node.get('mask'), 24)
-
-    async def test_cidr6(self):
-        formname = 'inet:cidr'
-        async with self.getTestCore() as core:
-
-            # Type Tests ======================================================
-            t = core.model.type(formname)
-
-            valu = '::/0'
-            norm, info = await t.norm(valu)
-            self.eq(norm, valu)
-            self.eq(info['subs']['broadcast'][1], (6, 0xffffffffffffffffffffffffffffffff))
-            self.eq(info['subs']['network'][1], (6, 0))
-            self.eq(info['subs']['mask'][1], 0)
-
-            valu = '2001:db8::/59'
-            norm, info = await t.norm(valu)
-            self.eq(norm, valu)
-            self.eq(info['subs']['broadcast'][1], (6, 0x20010db80000001fffffffffffffffff))
-            self.eq(info['subs']['network'][1], (6, 0x20010db8000000000000000000000000))
-            self.eq(info['subs']['mask'][1], 59)
-
-            with self.raises(s_exc.BadTypeValu):
-                await t.norm('10.0.0.1/-1')
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('inet:cidr=0::10.2.1.1/300')
-
     async def test_client(self):
         data = (
             ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
@@ -1239,7 +1165,10 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(await t.norm(valu), expected)
 
             valu = '1.2.3.4-5.6.7.8'
-            self.eq(await t.norm(valu), expected)
+            norm = await t.norm(valu)
+            self.eq(norm, expected)
+
+            self.eq(('1.2.3.4', '5.6.7.8'), t.repr(norm[0]))
 
             valu = '1.2.3.0/24'
             minsub = (t.subtype.typehash, (4, 0x01020300), {'subs': {
@@ -1258,6 +1187,24 @@ class InetModelTest(s_t_utils.SynTest):
 
             valu = ('1.2.3.4', '5.6.7.8', '7.8.9.10')
             await self.asyncraises(s_exc.BadTypeValu, t.norm(valu))
+
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/-1'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/33'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1/foo'))
+            await self.asyncraises(s_exc.BadTypeValu, t.norm('10.0.0.1'))
+
+            # Form Tests ======================================================
+            valu = '192[.]168.1.123/24'
+            expected_ndef = ('inet:net', ((4, 3232235776), (4, 3232236031)))
+
+            nodes = await core.nodes('[inet:net=$valu]', opts={'vars': {'valu': valu}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, expected_ndef)
+            self.eq(node.get('min'), (4, 3232235776))  # 192.168.1.0
+            self.eq(node.get('max'), (4, 3232236031))  # 192.168.1.255
+
+            self.eq('192.168.1.0/24', await core.callStorm('inet:net return($node.repr())'))
 
     async def test_net6(self):
         tname = 'inet:net'
@@ -1323,6 +1270,23 @@ class InetModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 await t.norm(((6, 1), (4, 1)))
+
+            valu = '::/0'
+            norm, info = await t.norm(valu)
+            self.eq(norm, ((6, 0), (6, 0xffffffffffffffffffffffffffffffff)))
+            self.eq(t.repr(norm), valu)
+            self.eq(info['subs']['min'][1], (6, 0))
+            self.eq(info['subs']['max'][1], (6, 0xffffffffffffffffffffffffffffffff))
+
+            valu = '2001:db8::/59'
+            norm, info = await t.norm(valu)
+            self.eq(norm, ((6, 0x20010db8000000000000000000000000), (6, 0x20010db80000001fffffffffffffffff)))
+            self.eq(t.repr(norm), valu)
+            self.eq(info['subs']['min'][1], (6, 0x20010db8000000000000000000000000))
+            self.eq(info['subs']['max'][1], (6, 0x20010db80000001fffffffffffffffff))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('inet:net=0::10.2.1.1/300')
 
     async def test_port(self):
         tname = 'inet:port'

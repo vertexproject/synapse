@@ -449,7 +449,7 @@ testmodel = (
                 ('hehe', ('str', {}), {}),
                 ('ndefs', ('array', {'type': 'ndef', 'uniq': False, 'sorted': False}), {}),
                 ('pdefs', ('array', {'type': 'nodeprop', 'uniq': False, 'sorted': False}), {}),
-                ('cidr', ('inet:cidr', {}), {}),
+                ('net', ('inet:net', {}), {}),
                 ('somestr', ('test:str', {}), {}),
                 ('seen', ('ival', {}), {}),
                 ('pivvirt', ('test:virtiface', {}), {}),
