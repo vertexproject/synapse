@@ -2709,6 +2709,7 @@ class FormPivot(PivotOper):
                                 cmpr, func = tpiv
                                 if func is not None:
                                     valu = await func(valu)
+                                break
 
                     norm = ptyp.typehash is not node.form.typehash
                     ngenr = runt.view.nodesByPropValu(prop.full, cmpr, valu, norm=norm, virts=virts)
