@@ -348,7 +348,7 @@ class NexsRoot(s_base.Base):
                 await client.issue(nexsiden, event, args, kwargs, meta)
             return
 
-        with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
+        with self._getResponseFuture() as (iden, futu):
             meta['resp'] = iden
             if self.issuewait:
                 await client.issue(nexsiden, event, args, kwargs, meta, wait=False)
