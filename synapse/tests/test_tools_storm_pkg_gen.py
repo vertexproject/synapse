@@ -84,6 +84,14 @@ class GenPkgTest(s_test.SynTest):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badinits.yaml')
             await s_genpkg.main((ymlpath,))
 
+        with self.raises(s_exc.SchemaViolation):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badvaultskeys.yaml')
+            await s_genpkg.main((ymlpath,))
+
+        with self.raises(s_exc.SchemaViolation):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badvaultsschema.yaml')
+            await s_genpkg.main((ymlpath,))
+
         ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
         async with self.getTestCore() as core:
 
@@ -146,6 +154,20 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['configvars'][1]['default'], 'rep.testpkg')
             self.eq(pdef['configvars'][1]['workflowconfig'], True)
             self.eq(pdef['configvars'][1]['type'], ['inet:fqdn', ['str', 'inet:url']])
+
+            self.maxDiff = None
+            pvault = pdef['vaults']['testpkg']
+            self.eq(pvault['schemas']['configs']['properties']['foo']['type'], 'string')
+            self.eq(pvault['schemas']['configs']['properties']['foo']['default'], 'hehe haha')
+            self.eq(pvault['schemas']['configs']['properties']['bar']['oneOf'][0]['type'], 'boolean')
+            self.eq(pvault['schemas']['configs']['properties']['bar']['oneOf'][1]['type'], 'string')
+            self.eq(pvault['schemas']['configs']['properties']['bar']['default'], True)
+            self.eq(pvault['schemas']['configs']['properties']['baz']['type'], 'boolean')
+            self.eq(pvault['schemas']['configs']['properties']['baz']['default'], False)
+            self.eq(pvault['schemas']['configs']['additionalProperties'], False)
+            self.eq(pvault['schemas']['secrets']['properties']['quux']['type'], 'string')
+            self.eq(pvault['schemas']['secrets']['properties']['quux']['minLength'], 2)
+            self.eq(pvault['schemas']['secrets']['required'], ('quux',))
 
             self.eq(pdef['optic']['files']['index.html']['file'], 'aGkK')
 

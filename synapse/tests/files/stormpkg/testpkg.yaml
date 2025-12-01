@@ -109,6 +109,37 @@ configvars:
       workflowconfig: true
       type: [inet:fqdn, [str, inet:url]]
 
+vaults:
+  testpkg:
+    schemas:
+      configs:
+        type: object
+        properties:
+          foo:
+            type: string
+            default: hehe haha
+          bar:
+            oneOf:
+              - { type: boolean }
+              - { type: string }
+            default: true
+          baz:
+            type: boolean
+            default: false
+        additionalProperties: false
+        required:
+          - bar
+          - baz
+      secrets:
+        type: object
+        properties:
+          quux:
+            type: string
+            minLength: 2
+        additionalProperties: false
+        required:
+          - quux
+
 commands:
     - name: testpkgcmd
       descr: |
