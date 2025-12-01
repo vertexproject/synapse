@@ -20,12 +20,12 @@ set -x # debugging
 
 TAG=${1:-}
 
-[ ! $TAG ] && TAG=3.x.x-dev && echo "Tag not provided, defaulting tag to ${TAG}"
+[ -z ${TAG} ] && TAG=3.x.x-dev && echo "Tag not provided, defaulting tag to ${TAG}"
 
 # Build target images
 docker builder prune -a -f
 
-BUILDARGS=--build-arg TAG=${TAG}
+BUILDARGS="--build-arg TAG=${TAG}"
 
 docker build --no-cache -t vertexproject/synapse:$TAG ${BUILDARGS} -f docker/images/synapse/Dockerfile .
 docker build --no-cache -t vertexproject/synapse-aha:$TAG ${BUILDARGS} -f docker/images/aha/Dockerfile .

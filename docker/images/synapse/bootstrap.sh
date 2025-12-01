@@ -32,7 +32,7 @@ apt-get clean
 apt-get purge
 
 rm -rf /build
-rm -rf /usr/local/lib/python3.14/site-packages/synapse/tests/files/certdir/
-rm -rf /usr/local/lib/python3.14/site-packages/synapse/tests/files/aha/certs/
-rm -rf /usr/local/lib/python3.14/site-packages/tornado/test/test.key
-rm -rf /var/lib/apt/lists/*
+rm -r /usr/local/lib/python3.14/site-packages/synapse/tests/files/certdir/
+rm -r /usr/local/lib/python3.14/site-packages/synapse/tests/files/aha/certs/
+rm -r /var/lib/apt/lists/*
+rm /usr/local/lib/python3.14/site-packages/tornado/test/test.key
