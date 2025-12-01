@@ -1,5 +1,6 @@
 import copy
 import asyncio
+import textwrap
 import itertools
 import urllib.parse as u_parse
 import unittest.mock as mock
@@ -2606,6 +2607,10 @@ class StormTest(s_t_utils.SynTest):
                 'version': '0.1.0',
             }
 
+            # TODO: this sync isn't ideal but without it we can potentially add the package before the _runMigrations
+            # task in initServiceActive has gotten to running onloads and end up running the onloads twice
+
+            await core.sync()
             await loadPkg(core, pkg)
 
             self.eq(-1, await core.getStormPkgVar('testload', 'storage:version'))
@@ -4075,9 +4080,9 @@ class StormTest(s_t_utils.SynTest):
 
         pars.mesgs.clear()
         pars.help()
-        self.eq('  --bar <bar>                 : barhelp (choices: baz, bam)', pars.mesgs[5])
-        self.eq('  --cam <cam>                 : camhelp (choices: cat, cool)', pars.mesgs[6])
-        self.eq('  <foo>                       : foohelp (choices: 3, 1, 2)', pars.mesgs[10])
+        self.eq('  --bar <bar>                 : barhelp (choices: baz, bam)', pars.mesgs[6])
+        self.eq('  --cam <cam>                 : camhelp (choices: cat, cool)', pars.mesgs[7])
+        self.eq('  <foo>                       : foohelp (choices: 3, 1, 2)', pars.mesgs[11])
 
         # choices - default does not have to be in choices
         pars = s_storm.Parser()
@@ -4137,15 +4142,15 @@ class StormTest(s_t_utils.SynTest):
              This is the final line with no leading spaces.''')
         pars.add_argument('--taz', type='bool', default=True, help='Taz option')
         pars.help()
-        self.eq('  --baz <baz>                 : This is the top line, nothing special.', pars.mesgs[5])
-        self.eq('                                This is my second line with sublines that should have some leading spaces:', pars.mesgs[6])
-        self.eq('                                   subline 1: this is a line which has three spaces.', pars.mesgs[7])
-        self.eq('                                     subline 2: this is another line with five leading spaces.', pars.mesgs[8])
-        self.eq('                                  subline 3: yet another line with only two leading spaces.', pars.mesgs[9])
-        self.eq('                                 subline 4: this line has one space and is long which should wrap around because it', pars.mesgs[10])
-        self.eq('                                 exceeds the default display width.', pars.mesgs[11])
-        self.eq('                                This is the final line with no leading spaces.', pars.mesgs[12])
-        self.eq('  --taz <taz>                 : Taz option (default: True)', pars.mesgs[13])
+        self.eq('  --baz <baz>                 : This is the top line, nothing special.', pars.mesgs[6])
+        self.eq('                                This is my second line with sublines that should have some leading spaces:', pars.mesgs[7])
+        self.eq('                                   subline 1: this is a line which has three spaces.', pars.mesgs[8])
+        self.eq('                                     subline 2: this is another line with five leading spaces.', pars.mesgs[9])
+        self.eq('                                  subline 3: yet another line with only two leading spaces.', pars.mesgs[10])
+        self.eq('                                 subline 4: this line has one space and is long which should wrap around because it', pars.mesgs[11])
+        self.eq('                                 exceeds the default display width.', pars.mesgs[12])
+        self.eq('                                This is the final line with no leading spaces.', pars.mesgs[13])
+        self.eq('  --taz <taz>                 : Taz option (default: True)', pars.mesgs[14])
 
     async def test_storm_cmd_help(self):
 
@@ -4154,22 +4159,52 @@ class StormTest(s_t_utils.SynTest):
                 'name': 'testpkg',
                 'version': '0.0.1',
                 'commands': (
-                    {'name': 'woot', 'cmdinputs': (
-                        {'form': 'hehe:haha'},
-                        {'form': 'hoho:lol', 'help': 'We know whats up'}
-                    ), 'endpoints': (
-                        {'path': '/v1/test/one', 'desc': 'My multi-line endpoint description which spans multiple lines and has a second line. This is the second line of the description.'},
-                        {'path': '/v1/test/two', 'host': 'vertex.link', 'desc': 'Single line endpoint description.'},
-                    )},
+                    {
+                        'name': 'woot',
+                        'cmdinputs': (
+                            {'form': 'hehe:haha'},
+                            {'form': 'hoho:lol', 'help': 'We know whats up'}
+                        ),
+                        'endpoints': (
+                            {
+                                'path': '/v1/test/one',
+                                'desc': 'My multi-line endpoint description which spans multiple lines and has a second line. This is the second line of the description.'
+                            },
+                            {
+                                'path': '/v1/test/two',
+                                'host': 'vertex.link',
+                                'desc': 'Single line endpoint description.'
+                            },
+                        ),
+                        'perms': (
+                            ['power-ups', 'testpkg', 'user'],
+                            ['power-ups', 'testpkg', 'admin'],
+                        ),
+                    },
                 ),
             }
             core.loadStormPkg(pdef)
             msgs = await core.stormlist('woot --help')
             helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
-            self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
-            self.isin('Endpoints:\n\n    /v1/test/one              : My multi-line endpoint description which spans multiple lines and has a second line.', helptext)
-            self.isin('This is the second line of the description.', helptext)
-            self.isin('/v1/test/two              : Single line endpoint description.', helptext)
+
+            self.isin('Usage: woot [options]', helptext)
+
+            exp = textwrap.dedent('''\
+                Endpoints:
+
+                  /v1/test/one                : My multi-line endpoint description which spans multiple lines and has a second line.
+                                                This is the second line of the description.
+                  /v1/test/two                : Single line endpoint description.
+            ''').rstrip()
+            self.isin(exp, helptext)
+
+            exp = textwrap.dedent('''\
+                Inputs:
+
+                  hehe:haha                   : hehe:haha nodes
+                  hoho:lol                    : We know whats up
+            ''').rstrip()
+            self.isin(exp, helptext)
 
     async def test_storm_help_cmd(self):
 

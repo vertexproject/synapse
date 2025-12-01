@@ -528,8 +528,8 @@ class CellApi(s_base.Base):
             yield item
 
     @adminapi()
-    async def issue(self, nexsiden: str, event: str, args, kwargs, *, meta=None):
-        return await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
+    async def issue(self, nexsiden: str, event: str, args, kwargs, *, meta=None, wait=True):
+        return await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta, wait=wait)
 
     @adminapi(log=True)
     async def delAuthUser(self, name):
@@ -973,7 +973,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'aha:registry': {
             'description': 'The telepath URL of the aha service registry.',
             'type': ['string', 'array'],
-            'items': {'type': 'string'},
+            'items': {
+                'type': 'string',
+                'pattern': '^ssl://.+$'
+            },
+            'pattern': '^ssl://.+$'
         },
         'aha:provision': {
             'description': 'The telepath URL of the aha provisioning service.',
@@ -1613,11 +1617,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 elif isinstance(oldurls, list):
                     oldurls = tuple(oldurls)
                 if newurls and newurls != oldurls:
-                    if oldurls[0].startswith('tcp://'):
-                        s_common.deprecated('aha:registry: tcp:// client values.')
-                        logger.warning('tcp:// based aha:registry options are deprecated and will be removed in Synapse v3.0.0')
-                        return
-
                     self.modCellConf({'aha:registry': newurls})
                     self.ahaclient.setBootUrls(newurls)
 

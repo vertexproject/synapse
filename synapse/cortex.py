@@ -229,8 +229,8 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.getCoreInfoV2()
 
     @s_cell.adminapi()
-    async def saveLayerNodeEdits(self, layriden, edits, meta):
-        return await self.cell.saveLayerNodeEdits(layriden, edits, meta)
+    async def saveLayerNodeEdits(self, layriden, edits, meta, *, waitiden=None):
+        return await self.cell.saveLayerNodeEdits(layriden, edits, meta, waitiden=waitiden)
 
     def _reqValidStormOpts(self, opts):
 
@@ -3695,7 +3695,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async def fini():
                 self.axready.clear()
 
-            self.axoninfo = await proxy.getCellInfo()
+            axoninfo = await proxy.getCellInfo()
+            if (axonvers := axoninfo['synapse']['version']) < (3, 0, 0):
+                mesg = f'Axon at {s_urlhelp.sanitizeUrl(turl)} is running Synapse {axonvers} and must be updated to >= 3.0.0'
+                logger.error(mesg)
+                raise s_exc.BadVersion(mesg=mesg)
+
+            self.axoninfo = axoninfo
 
             proxy.onfini(fini)
             self.axready.set()
@@ -4856,9 +4862,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     await layr1.saveNodeEdits(alledits, meta, compat=compat)
                     await self.setLayrSyncOffs(iden, offs)
 
-    async def saveLayerNodeEdits(self, layriden, edits, meta):
+    async def saveLayerNodeEdits(self, layriden, edits, meta, waitiden=None):
         layr = self.reqLayer(layriden)
-        return await layr.saveNodeEdits(edits, meta)
+        return await layr.saveNodeEdits(edits, meta, waitiden=waitiden)
 
     async def cloneLayer(self, iden, ldef=None):
         '''
