@@ -2,7 +2,7 @@ name: badvaultskeys
 version: 0.0.1
 
 vaults:
-  badschemakeys:
+  badvaultskeys:
     schemas:
       newpconfigs:
         type: object
