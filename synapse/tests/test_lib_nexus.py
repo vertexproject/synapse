@@ -72,32 +72,32 @@ class NexusTest(s_t_utils.SynTest):
             guid1 = s_common.guid('nexus1')
             guid2 = s_common.guid('nexus2')
 
-            conf1 = {'cell:guid': guid1, 'nexslog:en': True}
+            conf1 = {'nexslog:en': True}
             async with await SampleNexus.anit(conf=conf1, dirn=dir1) as nexus1:
                 nexsroot = nexus1.nexsroot
 
                 eventdict = {'specialpush': 0}
                 self.eq('foo', await nexus1.doathing(eventdict))
-                self.eq(guid1, eventdict.get('happened'))
+                self.eq(nexus1.iden, eventdict.get('happened'))
 
                 self.eq('foo', await nexus1.doathingauto(eventdict, 'foo'))
-                self.eq(guid1, eventdict.get('autohappened'))
+                self.eq(nexus1.iden, eventdict.get('autohappened'))
 
                 self.eq('foo', await nexus1.doathingauto2(eventdict, 'foo'))
-                self.eq(guid1, eventdict.get('autohappened2'))
+                self.eq(nexus1.iden, eventdict.get('autohappened2'))
 
                 self.eq('doc', nexus1.doathingauto2.__doc__)
 
                 self.eq(3, await nexsroot.index())
 
-                conf2 = {'cell:guid': guid2, 'nexslog:en': True}
+                conf2 = {'nexslog:en': True}
                 async with await SampleNexus2.anit(conf=conf2, dirn=dir2, parent=nexus1) as nexus2:
 
                     eventdict = {'specialpush': 0}
                     # Tricky inheriting handler funcs themselves
                     self.eq('foo', await nexus1.doathing(eventdict))
                     self.eq('bar', await nexus2.doathing(eventdict))
-                    self.eq(guid2, eventdict.get('happened'))
+                    self.eq(nexus2.iden, eventdict.get('happened'))
 
                     # Check offset passing
                     self.eq('foo', await nexus2.doathing2(eventdict))

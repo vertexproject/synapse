@@ -861,16 +861,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'boolean',
             'hidecmdl': True,
         },
-        'cell:guid': {
-            'description': 'An optional hard-coded GUID to store as the permanent GUID for the service.',
-            'type': 'string',
-            'hideconf': True,
-        },
-        'cell:ctor': {
-            'description': 'An optional python path to the Cell class.  Used by stemcell.',
-            'type': 'string',
-            'hideconf': True,
-        },
         'mirror': {
             'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
             'type': ['string', 'null'],
@@ -884,16 +874,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'auth:anon': {
             'description': 'Allow anonymous telepath access by mapping to the given user name.',
             'type': 'string',
-        },
-        'auth:ctor': {
-            'description': 'Allow the construction of the cell auth object to be hooked at runtime.',
-            'type': 'string',
-            'hideconf': True,
-        },
-        'auth:conf': {
-            'description': 'Extended configuration to be used by an alternate auth constructor.',
-            'type': 'object',
-            'hideconf': True,
         },
         'auth:passwd:policy': {
             'description': 'Specify password policy/complexity requirements.',
@@ -923,6 +903,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'object',
             'hidecmdl': True,
         },
+        # FIXME discuss removing this
         'https:parse:proxy:remoteip': {
             'description': 'Enable the HTTPS server to parse X-Forwarded-For and X-Real-IP headers to determine requester IP addresses.',
             'type': 'boolean',
@@ -988,24 +969,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'An AHA client certificate CN to register as a local admin user.',
             'type': 'string',
         },
-        'aha:svcinfo': {
-            'description': 'An AHA svcinfo object. If set, this overrides self discovered Aha service information.',
-            'type': 'object',
-            'properties': {
-                'urlinfo': {
-                    'type': 'object',
-                    'properties': {
-                        'host': {'type': 'string'},
-                        'port': {'type': 'integer'},
-                        'schema': {'type': 'string'}
-                    },
-                    'required': ('host', 'port', 'scheme', )
-                }
-            },
-            'required': ('urlinfo', ),
-            'hidedocs': True,
-            'hidecmdl': True,
-        },
+        # FIXME discuss removing
         'inaugural': {
             'description': 'Data used to drive configuration of the service upon first startup.',
             'type': 'object',
@@ -1069,6 +1033,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             },
             'hidedocs': True,
         },
+        # FIXME this feels like a shoe horned one-off?
         '_log_conf': {
             'description': 'Opaque structure used for logging by spawned processes.',
             'type': 'object',
@@ -1162,15 +1127,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # generate a guid file if needed
         if not os.path.isfile(path):
-
             self.inaugural = True
-
-            guid = conf.get('cell:guid')
-            if guid is None:
-                guid = s_common.guid()
-
             with open(path, 'w') as fd:
-                fd.write(guid)
+                fd.write(s_common.guid())
 
         # read & lock our guid file
         self._cellguidfd = s_common.genfile(path)
