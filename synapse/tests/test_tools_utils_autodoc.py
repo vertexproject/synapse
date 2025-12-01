@@ -1,3 +1,5 @@
+import textwrap
+
 import synapse.common as s_common
 
 import synapse.tests.files as s_t_files
@@ -147,6 +149,9 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('magic\n-----', s)
             self.isin('Test stormvar support', s)
 
+            self.isin('test:int                    : test:int nodes', s)
+            self.isin('test:str                    : test:str nodes', s)
+
             self.isin('.. _stormmod-stormvar-apimod', s)
             self.isin('status()', s)
             self.notin('testmod', s)
@@ -176,6 +181,9 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('Help on foo opt', s)
             self.isin('Help on bar opt', s)
 
+            self.isin('test:int                    : Some integer input', s)
+            self.isin('test:str                    : test:str nodes', s)
+
             # Tuplelized output
             self.isin('testpkg.baz', s)
             self.isin("Help on baz opt (default: ('-7days', 'now'))", s)
@@ -202,6 +210,27 @@ class TestAutoDoc(s_t_utils.SynTest):
             rst = s_l_autodoc.RstHelp()
             await s_autodoc.processStormModules(rst, 'foo', [])
             self.eq('\nStorm Modules\n=============\n\nThis package does not export any Storm APIs.\n', rst.getRstText())
+
+            pkgdef = s_common.yamlload(ymlpath)
+            await s_autodoc.processStormCmds(rst, 'foo', pkgdef.get('commands'))
+            rsttext = rst.getRstText()
+
+            self.isin('    Endpoints:', rsttext)
+            self.isin('      /v1/test/one\n', rsttext)
+            self.isin('      /v1/test/two\n', rsttext)
+            self.isin('      /v1/test/three              : endpoint three', rsttext)
+
+            self.isin('    Inputs:\n', rsttext)
+            self.isin('      test:int                    : Some integer input\n', rsttext)
+            self.isin('      test:str                    : test:str nodes\n', rsttext)
+
+            exp = textwrap.dedent('''\
+                The command is accessible to users with one or more of the following permissions:
+
+                - ``power-ups.testpkg.admin``
+                - ``power-ups.testpkg.user``
+            '''.rstrip())
+            self.isin(exp, rsttext)
 
     async def test_tools_autodoc_stormtypes(self):
         with self.getTestDir() as path:
