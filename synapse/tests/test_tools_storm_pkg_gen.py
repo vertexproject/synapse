@@ -155,7 +155,6 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['configvars'][1]['workflowconfig'], True)
             self.eq(pdef['configvars'][1]['type'], ['inet:fqdn', ['str', 'inet:url']])
 
-            self.maxDiff = None
             pvault = pdef['vaults']['testpkg']
             self.eq(pvault['schemas']['configs']['properties']['foo']['type'], 'string')
             self.eq(pvault['schemas']['configs']['properties']['foo']['default'], 'hehe haha')
