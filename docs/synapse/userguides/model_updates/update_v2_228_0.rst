@@ -37,6 +37,6 @@ Light Edges
 ***********
 
 ``decrypts``
-    When used with a ``crypto:key`` and an ``file:bytes`` node, the edge
-    indicates The key is used to decrypt the file.
+    When used with a ``crypto:key`` and a ``file:bytes`` node, the edge
+    indicates the key is used to decrypt the file.
 
