@@ -3695,7 +3695,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async def fini():
                 self.axready.clear()
 
-            self.axoninfo = await proxy.getCellInfo()
+            axoninfo = await proxy.getCellInfo()
+            if (axonvers := axoninfo['synapse']['version']) < (3, 0, 0):
+                mesg = f'Axon at {s_urlhelp.sanitizeUrl(turl)} is running Synapse {axonvers} and must be updated to >= 3.0.0'
+                logger.error(mesg)
+                raise s_exc.BadVersion(mesg=mesg)
+
+            self.axoninfo = axoninfo
 
             proxy.onfini(fini)
             self.axready.set()
