@@ -1,0 +1,7 @@
+---
+desc: '- Added ``vaults`` to the Storm package definition schema, which enables declaring
+  vaults and their associated schemas.'
+desc:literal: false
+prs: []
+type: feat
+...
