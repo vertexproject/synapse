@@ -579,43 +579,6 @@ jobs:
     steps:
       - test_steps_python
 
-  python314:
-    resource_class: xlarge
-    docker:
-      - image: cimg/python:3.14
-        environment:
-          PYVERS: 3.14
-          RUN_SYNTAX: 1
-          SYN_VENDOR_TEST: 1
-          CODECOV_FLAG: linux
-          SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_FILE: test-reports/<< pipeline.git.revision >>/.coverage
-          COVERAGE_ARGS: --cov synapse --cov-append
-          COVERAGE_CORE: sysmon
-
-    working_directory: ~/repo
-
-    steps:
-      - test_steps_python
-
-  python314_replay:
-    resource_class: xlarge
-    docker:
-      - image: cimg/python:3.14
-        environment:
-          PYVERS: 3.14
-          RUN_SYNTAX: 1
-          CODECOV_FLAG: linux_replay
-          SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse
-          SYNDEV_NEXUS_REPLAY: 1
-          COVERAGE_CORE: sysmon
-
-    working_directory: ~/repo
-
-    steps:
-      - test_steps_python
-
   doctests:
     docker:
       - image: cimg/python:3.14
@@ -716,22 +679,6 @@ workflows:
               only: /.*/
             branches:
                only: /.*/
-
-      - python314:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only: /.*/
-
-      - python314_replay:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only:
-                - master
-                - synapse-3xx
 
       - python314:
           filters:
