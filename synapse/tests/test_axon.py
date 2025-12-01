@@ -1252,3 +1252,20 @@ bar baz",vv
                         pass
                 self.isin('Failed to trash slab', str(cm.exception))
             self.true(os.path.isdir(oldpath))
+
+    async def test_axon_oldvers(self):
+
+        async with self.getTestAxon() as axon:
+            orig = axon.getCellInfo
+
+            async def oldCellInfo():
+                realinfo = await orig()
+                realinfo['synapse']['version'] = (2, 0, 0)
+                return realinfo
+
+            with mock.patch.object(axon, 'getCellInfo', oldCellInfo):
+                url = axon.getLocalUrl()
+
+                with self.getAsyncLoggerStream('synapse.cortex', 'running Synapse (2, 0, 0)') as stream:
+                    async with self.getTestCore(conf={'axon': url}) as core:
+                        self.true(await asyncio.wait_for(stream.wait(), timeout=12))
