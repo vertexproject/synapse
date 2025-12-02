@@ -733,14 +733,80 @@ class IPRange(s_types.Range):
         s_types.Range.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
+        self.masktype = self.modl.type('int').clone({'size': 1, 'signed': False})
+        self.sizetype = self.modl.type('int').clone({'size': 16, 'signed': False})
+
+        # Offset size values by 1 so we can store ::/0 in 16 bytes and there is always at least 1 IP in the range
+        self.sizetype.minval += 1
+        self.sizetype.maxval += 1
+
         self.pivs |= {
             'inet:ip': ('range=', None),
         }
 
+        self.virtindx |= {
+            'mask': 'mask',
+            'size': 'size',
+        }
+
+        self.virts |= {
+            'mask': (self.masktype, self._getMask),
+            'size': (self.sizetype, self._getSize),
+        }
+
+        self.virtlifts = {
+            'size': {
+                'in=': self._storLiftSizeIn,
+                'range=': self._storLiftSizeRange
+            },
+        }
+
+        for oper in ('=', '<', '>', '<=', '>='):
+            self.virtlifts['size'][oper] = self._storLiftSize
+
+    async def _storLiftSize(self, cmpr, valu):
+        norm, _ = await self.sizetype.norm(valu)
+        return (
+            (cmpr, norm - 1, self.sizetype.stortype),
+        )
+
+    async def _storLiftSizeIn(self, cmpr, valu):
+        retn = []
+        for realvalu in valu:
+            retn.extend(await self._storLiftSize('=', realvalu))
+        return retn
+
+    async def _storLiftSizeRange(self, cmpr, valu):
+        minx = (await self.sizetype.norm(valu[0]))[0]
+        maxx = (await self.sizetype.norm(valu[1]))[0]
+        return (
+            (cmpr, (minx - 1, maxx - 1), self.sizetype.stortype),
+        )
+
+    def _getMask(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('mask')) is None:
+            return None
+
+        return valu[0]
+
+    def _getSize(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('size')) is None:
+            return None
+
+        return valu[0] + 1
+
     def repr(self, norm):
         if (cidr := self._getCidr(norm)) is not None:
             return str(cidr)
-        return s_types.Range.repr(self, norm)
+
+        minv, maxv = s_types.Range.repr(self, norm)
+        return f'{minv}-{maxv}'
 
     def _getCidr(self, norm):
         (minv, maxv) = norm
@@ -761,8 +827,15 @@ class IPRange(s_types.Range):
         return cidr
 
     async def _normPyStr(self, valu, view=None):
+
         if '-' in valu:
-            return await super()._normPyStr(valu)
+            norm, info = await super()._normPyStr(valu)
+            info['virts'] = {'size': (norm[1][1] - norm[0][1], self.sizetype.stortype)}
+
+            if (cidr := self._getCidr(norm)) is not None:
+                info['virts']['mask'] = (cidr.prefixlen, self.masktype.stortype)
+
+            return norm, info
 
         try:
             ip_str, mask_str = valu.split('/', 1)
@@ -792,7 +865,9 @@ class IPRange(s_types.Range):
             broadcast, binfo = await self.subtype.norm((6, int(netw.broadcast_address)))
 
         return (network, broadcast), {'subs': {'min': (self.subtype.typehash, network, netinfo),
-                                               'max': (self.subtype.typehash, broadcast, binfo)}}
+                                               'max': (self.subtype.typehash, broadcast, binfo)},
+                                      'virts': {'mask': (mask_int, self.masktype.stortype),
+                                                'size': (broadcast[1] - network[1], self.sizetype.stortype)}}
 
     async def _normPyTuple(self, valu, view=None):
         if len(valu) != 2:
@@ -810,8 +885,14 @@ class IPRange(s_types.Range):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='minval cannot be greater than maxval')
 
-        return (minv, maxv), {'subs': {'min': (self.subtype.typehash, minv, minfo),
-                                       'max': (self.subtype.typehash, maxv, maxfo)}}
+        info = {'subs': {'min': (self.subtype.typehash, minv, minfo),
+                         'max': (self.subtype.typehash, maxv, maxfo)},
+                'virts': {'size': (maxv[1] - minv[1], self.sizetype.stortype)}}
+
+        if (cidr := self._getCidr((minv, maxv))) is not None:
+            info['virts']['mask'] = (cidr.prefixlen, self.masktype.stortype)
+
+        return (minv, maxv), info
 
 class Rfc2822Addr(s_types.Str):
     '''
@@ -1191,8 +1272,17 @@ modeldefs = (
                 'ex': '1.2.3.4',
                 'doc': 'An IPv4 or IPv6 address.'}),
 
-            ('inet:iprange', 'synapse.models.inet.IPRange', {}, {
+            ('inet:net', 'synapse.models.inet.IPRange', {}, {
                 'ex': '1.2.3.4-1.2.3.8',
+                'virts': (
+                    ('mask', ('int', {}), {
+                        'ro': True,
+                        'doc': 'The mask if the range can be represented in CIDR notation.'}),
+
+                    ('size', ('int', {}), {
+                        'ro': True,
+                        'doc': 'The number of addresses in the range.'}),
+                ),
                 'doc': 'An IPv4 or IPv6 address range.'}),
 
             ('inet:sockaddr', 'synapse.models.inet.SockAddr', {}, {
@@ -1351,10 +1441,6 @@ modeldefs = (
                 ),
                 'ex': 'aa:bb:cc:dd:ee:ff',
                 'doc': 'A 48-bit Media Access Control (MAC) address.'}),
-
-            ('inet:net', ('inet:iprange', {}), {
-                'ex': '(1.2.3.4, 1.2.3.20)',
-                'doc': 'An IP address range.'}),
 
             ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
                 'ex': '80',
@@ -2039,11 +2125,11 @@ modeldefs = (
 
                 ('min', ('inet:ip', {}), {
                     'ro': True,
-                    'doc': 'The network IP address from the CIDR notation.'}),
+                    'doc': 'The first IP address in the network range.'}),
 
                 ('max', ('inet:ip', {}), {
                     'ro': True,
-                    'doc': 'The broadcast IP address from the CIDR notation.'}),
+                    'doc': 'The last IP address in the network range.'}),
             )),
 
             ('inet:client', {}, (

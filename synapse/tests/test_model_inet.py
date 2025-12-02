@@ -1161,14 +1161,18 @@ class InetModelTest(s_t_utils.SynTest):
                         'type': (t.subtype.typetype.typehash, 'unicast', {}),
                         'version': (t.subtype.verstype.typehash, 4, {})}})
 
-            expected = (((4, 16909060), (4, 84281096)), {'subs': {'min': minsub, 'max': maxsub}})
+            expected = (((4, 16909060), (4, 84281096)), {
+                'subs': {'min': minsub, 'max': maxsub},
+                'virts': {'size': (67372036, 19)}
+            })
+
             self.eq(await t.norm(valu), expected)
 
             valu = '1.2.3.4-5.6.7.8'
             norm = await t.norm(valu)
             self.eq(norm, expected)
 
-            self.eq(('1.2.3.4', '5.6.7.8'), t.repr(norm[0]))
+            self.eq('1.2.3.4-5.6.7.8', t.repr(norm[0]))
 
             valu = '1.2.3.0/24'
             minsub = (t.subtype.typehash, (4, 0x01020300), {'subs': {
@@ -1179,7 +1183,10 @@ class InetModelTest(s_t_utils.SynTest):
                         'type': (t.subtype.typetype.typehash, 'unicast', {}),
                         'version': (t.subtype.verstype.typehash, 4, {})}})
 
-            expected = (((4, 0x01020300), (4, 0x010203ff)), {'subs': {'min': minsub, 'max': maxsub}})
+            expected = (((4, 0x01020300), (4, 0x010203ff)), {
+                'subs': {'min': minsub, 'max': maxsub},
+                'virts': {'mask': (24, 2), 'size': (255, 19)}
+            })
             self.eq(await t.norm(valu), expected)
 
             valu = '5.6.7.8-1.2.3.4'
@@ -1206,6 +1213,19 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.eq('192.168.1.0/24', await core.callStorm('inet:net return($node.repr())'))
 
+            await core.nodes('[ inet:net=10.0.0.0/18 ]')
+
+            self.len(1, await core.nodes('inet:net.mask=24'))
+            self.len(1, await core.nodes('inet:net.mask>18'))
+            self.len(2, await core.nodes('inet:net.mask>17'))
+            self.len(1, await core.nodes('inet:net.size=256'))
+            self.len(2, await core.nodes('inet:net.size>255'))
+            self.len(1, await core.nodes('inet:net.size*in=(1, 256)'))
+            self.len(2, await core.nodes('inet:net.size*in=(256, 16384)'))
+            self.len(1, await core.nodes('inet:net.size*range=(1, 256)'))
+            self.len(1, await core.nodes('inet:net.size*range=(1, 16383)'))
+            self.len(2, await core.nodes('inet:net.size*range=(1, 16384)'))
+
     async def test_net6(self):
         tname = 'inet:net'
         async with self.getTestCore() as core:
@@ -1223,7 +1243,10 @@ class InetModelTest(s_t_utils.SynTest):
                         'scope': (t.subtype.scopetype.typehash, 'global', {}),
                         'version': (t.subtype.verstype.typehash, 6, {})}})
 
-            expected = (((6, 0), (6, 0xff)), {'subs': {'min': minsub, 'max': maxsub}})
+            expected = (((6, 0), (6, 0xff)), {
+                'subs': {'min': minsub, 'max': maxsub},
+                'virts': {'mask': (120, 2), 'size': (255, 19)}
+            })
             self.eq(await t.norm(valu), expected)
 
             valu = '0:0:0:0:0:0:0:0-::Ff'
@@ -1243,7 +1266,10 @@ class InetModelTest(s_t_utils.SynTest):
                         'scope': (t.subtype.scopetype.typehash, 'global', {}),
                         'version': (t.subtype.verstype.typehash, 6, {})}})
 
-            expected = ((minv, maxv), {'subs': {'min': minsub, 'max': maxsub}})
+            expected = ((minv, maxv), {
+                'subs': {'min': minsub, 'max': maxsub},
+                'virts': {'size': (1208925819614629174771711, 19)}
+            })
             self.eq(await t.norm(valu), expected)
 
             minv = (6, 0x20010db8000000000000000000000000)
@@ -1259,7 +1285,10 @@ class InetModelTest(s_t_utils.SynTest):
                         'scope': (t.subtype.scopetype.typehash, 'global', {}),
                         'version': (t.subtype.verstype.typehash, 6, {})}})
 
-            expected = ((minv, maxv), {'subs': {'min': minsub, 'max': maxsub}})
+            expected = ((minv, maxv), {
+                'subs': {'min': minsub, 'max': maxsub},
+                'virts': {'mask': (101, 2), 'size': (134217727, 19)}
+            })
             self.eq(await t.norm(valu), expected)
 
             valu = ('fe00::', 'fd00::')
@@ -1287,6 +1316,24 @@ class InetModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('inet:net=0::10.2.1.1/300')
+
+            await core.nodes('''[
+                inet:net="::/0"
+                inet:net=([[6, 0], [6, 0]])
+                inet:net=([[6, 0], [6, 0xff]])
+                inet:net=([[6, 0], [6, 0xfe]])
+            ]''')
+
+            self.len(1, await core.nodes('inet:net -.mask'))
+            self.len(3, await core.nodes('inet:net +.mask'))
+
+            self.len(1, await core.nodes('inet:net.mask=0'))
+            self.len(1, await core.nodes('inet:net.mask=128'))
+            self.len(2, await core.nodes('inet:net.mask>18'))
+            self.len(0, await core.nodes('inet:net.size=0xffffffffffffffffffffffffffffffff'))
+            self.len(1, await core.nodes('inet:net.size=0x100000000000000000000000000000000'))
+            self.len(1, await core.nodes('inet:net.size=1'))
+            self.len(3, await core.nodes('inet:net.size>254'))
 
     async def test_port(self):
         tname = 'inet:port'
