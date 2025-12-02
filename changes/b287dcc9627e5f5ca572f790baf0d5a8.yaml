@@ -1,7 +1,0 @@
----
-desc: Fixed bug where Python exceptions were being leaked into the Storm runtime when
-  invalid idens were passed in with the ``idens`` option.
-desc:literal: false
-prs: []
-type: bug
-...
