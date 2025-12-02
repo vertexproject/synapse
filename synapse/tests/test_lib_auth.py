@@ -982,14 +982,16 @@ class AuthTest(s_test.SynTest):
 
             user00 = await core.auth.addUser('user00')
             user01 = await core.auth.addUser('user01')
+            user02 = await core.auth.addUser('user02')
             role00 = await core.auth.addRole('role00')
 
             await user00.addRule(nodeadd, gateiden=core.view.iden)
             await user01.addRule(nodeadd, gateiden=core.view.iden)
             await role00.addRule(tagadd, gateiden=core.view.iden)
 
-            # Make user01 an admin so it doesn't get removed when we remove all the rules
+            # Make user01/02 admins so they don't get removed when we remove all the rules
             await user01.setAdmin(True, gateiden=core.view.iden)
+            await user02.setAdmin(True, gateiden=core.view.iden)
 
             viewgate = core.auth.getAuthGate(core.view.iden)
             gate = viewgate.pack()
@@ -1025,6 +1027,11 @@ class AuthTest(s_test.SynTest):
                     'iden': user01.iden,
                     'rules': (nodeadd,),
                 },
+                {
+                    'admin': True,
+                    'iden': user02.iden,
+                    'rules': (),
+                },
             ], key=lambda x: x.get('iden'))
 
             await user00.delRule(nodeadd, gateiden=core.view.iden)
@@ -1035,7 +1042,7 @@ class AuthTest(s_test.SynTest):
             gate = viewgate.pack()
 
             # The auth gate should not list the user00/role00 at all since
-            # there are no rules and user00/role00 are not admin
+            # there are no rules
             self.eq(gate.get('iden'), core.view.iden)
             self.eq(gate.get('type'), 'view')
             self.sorteq(gate.get('roles'), [
@@ -1054,6 +1061,55 @@ class AuthTest(s_test.SynTest):
                 {
                     'admin': True,
                     'iden': user01.iden,
+                    'rules': (),
+                },
+                {
+                    'admin': True,
+                    'iden': user02.iden,
+                    'rules': (),
+                },
+            ], key=lambda x: x.get('iden'))
+
+            await user00.addRule(nodeadd, gateiden=core.view.iden)
+            await role00.addRule(tagadd, gateiden=core.view.iden)
+
+            viewgate = core.auth.getAuthGate(core.view.iden)
+            gate = viewgate.pack()
+
+            # The auth gate should show the new user/role rules
+            self.eq(gate.get('iden'), core.view.iden)
+            self.eq(gate.get('type'), 'view')
+            self.sorteq(gate.get('roles'), [
+                {
+                    'admin': False,
+                    'iden': allrole.iden,
+                    'rules': (viewread,),
+                },
+                {
+                    'admin': False,
+                    'iden': role00.iden,
+                    'rules': (tagadd,),
+                },
+            ], key=lambda x: x.get('iden'))
+            self.sorteq(gate.get('users'), [
+                {
+                    'admin': True,
+                    'iden': rootuser.iden,
+                    'rules': (),
+                },
+                {
+                    'admin': False,
+                    'iden': user00.iden,
+                    'rules': (nodeadd,),
+                },
+                {
+                    'admin': True,
+                    'iden': user01.iden,
+                    'rules': (),
+                },
+                {
+                    'admin': True,
+                    'iden': user02.iden,
                     'rules': (),
                 },
             ], key=lambda x: x.get('iden'))

@@ -422,17 +422,20 @@ class Auth(s_nexus.Pusher):
             self.checkUserLimit()
 
         if gateiden is not None:
-            info = user.genGateInfo(gateiden)
-            info[name] = s_msgpack.deepcopy(valu)
             gate = self.reqAuthGate(gateiden)
 
-            admin = gate.gateusers.get(iden).get('admin', False)
-            if name == 'rules' and not valu and not admin:
-                await gate._delGateUser(iden)
-            else:
-                gate.users.set(iden, info)
+            admin = gate.gateusers.get(iden, {}).get('admin', False)
 
-            user.info['authgates'][gateiden] = info
+            if name == 'rules' and not valu and not admin:
+                user.authgates.pop(gateiden, None)
+                await gate._delGateUser(iden)
+                user.info['authgates'].pop(gateiden, None)
+            else:
+                info = user.genGateInfo(gateiden)
+                info[name] = s_msgpack.deepcopy(valu)
+                gate.users.set(iden, info)
+                user.info['authgates'][gateiden] = info
+
             self.userdefs.set(iden, user.info)
         else:
             user.info[name] = s_msgpack.deepcopy(valu)
@@ -459,16 +462,18 @@ class Auth(s_nexus.Pusher):
         role = await self.reqRole(iden)
 
         if gateiden is not None:
-            info = role.genGateInfo(gateiden)
-            info[name] = s_msgpack.deepcopy(valu)
             gate = self.reqAuthGate(gateiden)
 
             if name == 'rules' and not valu:
+                role.authgates.pop(gateiden, None)
                 await gate._delGateRole(iden)
+                role.info['authgates'].pop(gateiden, None)
             else:
+                info = role.genGateInfo(gateiden)
+                info[name] = s_msgpack.deepcopy(valu)
                 gate.roles.set(iden, info)
+                role.info['authgates'][gateiden] = info
 
-            role.info['authgates'][gateiden] = info
             self.roledefs.set(iden, role.info)
         else:
             role.info[name] = s_msgpack.deepcopy(valu)
