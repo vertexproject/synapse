@@ -771,7 +771,7 @@ class Auth(s_nexus.Pusher):
         self.roleidenbynamecache.clear()
         self.authgates.clear()
 
-class AuthGate():
+class AuthGate:
     '''
     The storage object for object specific rules for users/roles.
     '''
@@ -860,7 +860,7 @@ class AuthGate():
             'roles': roles,
         }
 
-class Ruler():
+class Ruler:
     '''
     An object that holds a list of rules.  This includes Users, Roles, and the AuthGate variants of those
     '''
