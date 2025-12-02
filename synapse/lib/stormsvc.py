@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
@@ -202,6 +203,13 @@ class StormSvcClient(s_base.Base):
         clss = proxy._getClasses()
 
         names = [c.rsplit('.', 1)[-1] for c in clss]
+
+        if 'CellApi' in names:
+            cellinfo = await proxy.getCellInfo()
+            if (cellvers := cellinfo['synapse']['version']) < (3, 0, 0):
+                mesg = f'Service {self.name} ({self.iden}) is running Synapse {cellvers} and must be updated to >= 3.0.0'
+                logger.error(mesg)
+                raise s_exc.BadVersion(mesg=mesg)
 
         if 'StormSvc' in names:
             self.info = await proxy.getStormSvcInfo()

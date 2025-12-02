@@ -159,7 +159,7 @@ class View(s_nexus.Pusher):  # type: ignore
         # hold a reference to  all the nodes about to be edited...
         nodes = {e[0]: await self.getNodeByNid(s_common.int64en(e[0])) for e in edits if e[0] is not None}
 
-        saveoff, nodeedits = await wlyr.saveNodeEdits(edits, meta)
+        nodeedits = await wlyr.saveNodeEdits(edits, meta)
 
         ecnt = 0
         fireedits = None
@@ -373,7 +373,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if fireedits:
             await bus.fire('node:edits', edits=fireedits, time=meta.get('time'), count=ecnt)
 
-        return saveoff, nodeedits
+        return nodeedits
 
     @contextlib.asynccontextmanager
     async def getNodeEditor(self, node, runt=None, transaction=False, user=None):

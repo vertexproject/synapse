@@ -134,9 +134,7 @@ class LayerApi(s_cell.CellApi):
     @s_cell.adminapi()
     async def saveNodeEdits(self, edits, meta, compat=False):
         '''
-        Save node edits to the layer and return a tuple of (nexsoffs, changes).
-
-        Note: nexsoffs will be None if there are no changes.
+        Save node edits to the layer and return the applied changes.
         '''
         meta['link:user'] = self.user.iden
         return await self.layr.saveNodeEdits(edits, meta, compat=compat)
@@ -3396,7 +3394,7 @@ class Layer(s_nexus.Pusher):
         set_edit = (EDIT_PROP_SET, (newp_name, newp_valu, newp_stortype, info.get('virts')))
         nodeedits = [(s_common.int64un(nid), newp_formname, [set_edit])]
 
-        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        changes = await self.saveNodeEdits(nodeedits, meta)
         return bool(changes)
 
     async def delStorNode(self, nid, meta):
@@ -3474,7 +3472,7 @@ class Layer(s_nexus.Pusher):
             if len(nodeedits) < size:
                 return changed
 
-            _, changes = await self.saveNodeEdits(nodeedits, meta)
+            changes = await self.saveNodeEdits(nodeedits, meta)
 
             nodeedits.clear()
 
@@ -3508,7 +3506,7 @@ class Layer(s_nexus.Pusher):
         del_edit = (EDIT_PROP_DEL, (oldp_name,))
         nodeedits = [(s_common.int64un(nid), oldp_formname, [del_edit])]
 
-        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        changes = await self.saveNodeEdits(nodeedits, meta)
         return bool(changes)
 
     async def delNodeData(self, nid, meta, name=None):
@@ -3539,7 +3537,7 @@ class Layer(s_nexus.Pusher):
 
         nodeedits = [(s_common.int64un(nid), sode.get('form'), edits)]
 
-        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        changes = await self.saveNodeEdits(nodeedits, meta)
 
         return bool(changes)
 
@@ -3557,14 +3555,12 @@ class Layer(s_nexus.Pusher):
 
         nodeedits = [(s_common.int64un(n1nid), sode.get('form'), edits)]
 
-        _, changes = await self.saveNodeEdits(nodeedits, meta)
+        changes = await self.saveNodeEdits(nodeedits, meta)
         return bool(changes)
 
-    async def saveNodeEdits(self, edits, meta, compat=False):
+    async def saveNodeEdits(self, edits, meta, compat=False, waitiden=None):
         '''
-        Save node edits to the layer and return a tuple of (nexsoffs, changes).
-
-        Note: nexsoffs will be None if there are no changes.
+        Save node edits to the layer and return the applied changes.
         '''
         self._reqNotReadOnly()
 
@@ -3577,19 +3573,34 @@ class Layer(s_nexus.Pusher):
 
         if not self.core.isactive:
             proxy = await self.core.nexsroot.getIssueProxy()
-            indx, changes = await proxy.saveLayerNodeEdits(self.iden, edits, meta)
-            if indx is not None:
-                await self.core.nexsroot.waitOffs(indx)
-            return indx, changes
 
-        async with self.core.nexsroot.cell.nexslock:
+            if waitiden is not None:
+                return await proxy.saveLayerNodeEdits(self.iden, edits, meta, waitiden=waitiden)
+
+            with self.core.nexsroot._getResponseFuture() as (iden, futu):
+                if (retn := await proxy.saveLayerNodeEdits(self.iden, edits, meta, waitiden=iden)) is not None:
+                    return retn
+                return (await futu)[1]
+
+        await self.core.nexsroot.cell.nexslock.acquire()
+
+        try:
             if self.isdeleted:
                 mesg = f'Layer {self.iden} has been deleted!'
                 raise s_exc.NoSuchLayer(mesg=mesg)
 
             if (realedits := await self.calcEdits(edits, meta)):
-                return await self.saveToNexs('edits', realedits, meta)
-            return None, ()
+                if (retn := await self.saveToNexs('edits', realedits, meta, waitiden=waitiden)) is not None:
+                    return retn[1]
+                return
+
+        except:
+            if self.core.nexsroot.cell.nexslock.locked():
+                self.core.nexsroot.cell.nexslock.release()
+            raise
+
+        self.core.nexsroot.cell.nexslock.release()
+        return ()
 
     async def calcEdits(self, nodeedits, meta):
 

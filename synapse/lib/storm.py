@@ -1655,9 +1655,10 @@ class Runtime(s_base.Base):
 
         for iden in self.opts.get('idens', ()):
 
+            if not isinstance(iden, str) or not s_common.isbuidhex(iden):
+                raise s_exc.NoSuchIden(mesg='Iden must be 64 hex digits', iden=iden)
+
             buid = s_common.uhex(iden)
-            if len(buid) != 32:
-                raise s_exc.NoSuchIden(mesg='Iden must be 32 bytes', iden=iden)
 
             node = await self.view.getNodeByBuid(buid)
             if node is not None:
@@ -1973,7 +1974,7 @@ class Parser:
 
         self.prog = prog
         self.descr = descr
-        self.cdef = cdef
+        self.cdef = cdef or {}
 
         self.exc = None
 
@@ -1986,14 +1987,9 @@ class Parser:
         self.posargs = []
         self.allargs = []
 
-        self.inputs = None
-
         self.reqopts = []
 
         self.add_argument('--help', '-h', action='store_true', default=False, help='Display the command usage.')
-
-    def set_inputs(self, idefs):
-        self.inputs = list(idefs)
 
     def add_argument(self, *names, **opts):
 
@@ -2248,33 +2244,38 @@ class Parser:
 
         posargs = ' '.join(posnames)
 
-        if self.descr is not None:
-            self._printf('')
-            self._printf(self.descr)
-            self._printf('')
-
-        self._printf(f'Usage: {self.prog} [options] {posargs}')
-
-        if self.cdef is not None and (deprecated := self.cdef.get('deprecated')) is not None:
-            dmsg = deprmesg(self.prog, deprecated)
-            self._printf('')
-            self._printf(f'Deprecated: {dmsg}')
-            self._printf('')
-
-        if self.cdef is not None and (endpoints := self.cdef.get('endpoints')):
-            self._printf('')
-            self._printf('Endpoints:')
-            self._printf('')
+        def printItemDesc(item, desc=None):
             base_w = 32
             wrap_w = 120 - base_w
-            for endpoint in endpoints:
-                path = endpoint['path']
-                desc = endpoint.get('desc', '')
-                base = f'    {path}'
+            base = f'  {item}'
+            if desc:
                 wrap_desc = self._wrap_text(desc, wrap_w) if desc else ['']
                 self._printf(f'{base:<{base_w - 2}}: {wrap_desc[0]}')
                 for ln in wrap_desc[1:]:
                     self._printf(f'{"":<{base_w}}{ln}')
+            else:
+                self._printf(f'{base}')
+
+        if self.descr is not None:
+            self._printf('')
+            self._printf(self.descr)
+
+        if (deprecated := self.cdef.get('deprecated')) is not None:
+            dmsg = deprmesg(self.prog, deprecated)
+            self._printf('')
+            self._printf(f'Deprecated: {dmsg}')
+
+        if (endpoints := self.cdef.get('endpoints')):
+            self._printf('')
+            self._printf('Endpoints:')
+            self._printf('')
+            for endpoint in endpoints:
+                path = endpoint['path']
+                desc = endpoint.get('desc')
+                printItemDesc(path, desc)
+
+        self._printf('')
+        self._printf(f'Usage: {self.prog} [options] {posargs}')
 
         options = [x for x in self.allargs if x[0][0].startswith('-')]
 
@@ -2294,18 +2295,15 @@ class Parser:
             for name, argdef in self.posargs:
                 self._print_posarg(name, argdef)
 
-        if self.inputs:
+        if (cmdinputs := self.cdef.get('cmdinputs')) is not None:
             self._printf('')
             self._printf('Inputs:')
             self._printf('')
-            formsize = max([len(idef['form']) for idef in self.inputs])
-            for idef in self.inputs:
-                form = idef.get('form').ljust(formsize)
-                text = f'    {form}'
-                desc = idef.get('help')
-                if desc:
-                    text += f' - {desc}'
-                self._printf(text)
+
+            for cmdinput in sorted(cmdinputs, key=lambda x: x.get('form')):
+                form = cmdinput.get('form')
+                desc = cmdinput.get('help', f'{form} nodes')
+                printItemDesc(form, desc)
 
         if mesg is not None:
             self.exc = s_exc.BadArg(mesg=mesg)
@@ -2451,8 +2449,8 @@ class Cmd:
     def getDescr(self):
         return self.__class__.__doc__
 
-    def getArgParser(self):
-        return Parser(prog=self.getName(), descr=self.getDescr(), model=self.runt.model)
+    def getArgParser(self, cdef=None):
+        return Parser(prog=self.getName(), descr=self.getDescr(), model=self.runt.model, cdef=cdef)
 
     async def setArgv(self, argv):
 
@@ -2520,15 +2518,10 @@ class PureCmd(Cmd):
 
     def getArgParser(self):
 
-        pars = Cmd.getArgParser(self)
+        pars = Cmd.getArgParser(self, cdef=self.cdef)
         for name, opts in self.cdef.get('cmdargs', ()):
             pars.add_argument(name, **opts)
 
-        inputs = self.cdef.get('cmdinputs')
-        if inputs:
-            pars.set_inputs(inputs)
-
-        pars.cdef = self.cdef
         return pars
 
     async def execStormCmd(self, runt, genr):
