@@ -7,6 +7,7 @@ import synapse.tests.utils as s_test
 
 import synapse.lib.cell as s_cell
 import synapse.lib.share as s_share
+import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.service.backup as s_tools_backup
@@ -113,6 +114,14 @@ class ChangingService(s_cell.Cell):
             return await NewServiceAPI.anit(self, link, user)
         else:
             return await OldServiceAPI.anit(self, link, user)
+
+class OldService(s_cell.Cell):
+    cellapi = OldServiceAPI
+
+    async def getCellInfo(self):
+        realinfo = await s_cell.Cell.getCellInfo(self)
+        realinfo['synapse']['version'] = (2, 0, 0)
+        return realinfo
 
 class RealService(s_stormsvc.StormSvc):
     _storm_svc_name = 'real'
@@ -787,6 +796,25 @@ class StormSvcTest(s_test.SynTest):
                         await core.delStormSvc(svci.get('iden'))
                     self.len(1, badiden)
                     self.eq(svci.get('iden'), badiden[0])
+
+    async def test_storm_svc_oldvers(self):
+
+        async with self.getTestCore() as core:
+            with self.getTestDir() as svcd:
+                async with await OldService.anit(svcd) as olds:
+                    olds.dmon.share('olds', olds)
+
+                    root = await olds.auth.getUserByName('root')
+                    await root.setPasswd('root')
+
+                    info = await olds.dmon.listen('tcp://127.0.0.1:0/')
+                    host, port = info
+
+                    curl = f'tcp://root:root@127.0.0.1:{port}/olds'
+
+                    with self.getAsyncLoggerStream('synapse.lib.stormsvc', 'running Synapse (2, 0, 0)') as stream:
+                        await core.nodes(f'service.add olds {curl}')
+                        self.true(await asyncio.wait_for(stream.wait(), timeout=12))
 
     async def test_storm_svc_restarts(self):
 
