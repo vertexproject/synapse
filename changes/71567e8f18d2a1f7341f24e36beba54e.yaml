@@ -1,5 +1,5 @@
 ---
-desc: Fixed a bug where the ``auth.role.show`` command would show empty auth gates
+desc: Fixed a bug where the ``auth.role.show`` command would show empty AuthGates
   after all rules were removed from the gate.
 desc:literal: false
 prs: []
