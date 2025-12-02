@@ -493,14 +493,10 @@ class AhaCell(s_cell.Cell):
             'description': 'The registered DNS name used to reach the AHA service.',
             'type': ['string', 'null'],
         },
-        'aha:urls': {
-            'description': 'Deprecated. AHA servers can now manage this automatically.',
-            'type': ['string', 'array'],
-            'items': {'type': 'string'},
-        },
         'provision:listen': {
             'description': 'A telepath URL for the AHA provisioning listener.',
             'type': ['string', 'null'],
+            'pattern': '^ssl://.+$'
         },
     }
 
@@ -826,6 +822,8 @@ class AhaCell(s_cell.Cell):
 
         lisn = self.conf.get('dmon:listen', s_common.novalu)
         if lisn is not s_common.novalu:
+            if not lisn.startswith('ssl://'):
+                raise s_exc.BadConfValu(mesg='dmon:listen: AHA bind URLs must begin with ssl://')
             return lisn
 
         network = self.conf.req('aha:network')
@@ -1331,11 +1329,6 @@ class AhaCell(s_cell.Cell):
         return self.certdir._certToByts(cert).decode()
 
     async def getAhaUrls(self, user='root'):
-
-        # for backward compat...
-        urls = self.conf.get('aha:urls')
-        if urls is not None:
-            return urls
 
         network = self.conf.req('aha:network')
 
