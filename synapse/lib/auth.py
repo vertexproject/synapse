@@ -425,7 +425,12 @@ class Auth(s_nexus.Pusher):
             info = user.genGateInfo(gateiden)
             info[name] = s_msgpack.deepcopy(valu)
             gate = self.reqAuthGate(gateiden)
-            gate.users.set(iden, info)
+
+            admin = gate.gateusers.get(iden).get('admin', False)
+            if name == 'rules' and not valu and not admin:
+                await gate._delGateUser(iden)
+            else:
+                gate.users.set(iden, info)
 
             user.info['authgates'][gateiden] = info
             self.userdefs.set(iden, user.info)
@@ -457,7 +462,11 @@ class Auth(s_nexus.Pusher):
             info = role.genGateInfo(gateiden)
             info[name] = s_msgpack.deepcopy(valu)
             gate = self.reqAuthGate(gateiden)
-            gate.roles.set(iden, info)
+
+            if name == 'rules' and not valu:
+                await gate._delGateRole(iden)
+            else:
+                gate.roles.set(iden, info)
 
             role.info['authgates'][gateiden] = info
             self.roledefs.set(iden, role.info)

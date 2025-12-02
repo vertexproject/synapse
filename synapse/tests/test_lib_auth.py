@@ -970,7 +970,7 @@ class AuthTest(s_test.SynTest):
             self.false(user.allowed(('hehe', 'something', 'else', 'very'), deepdeny=True))
             self.false(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), deepdeny=True))
 
-    async def test_lib_auth_gate_cache(self):
+    async def test_lib_auth_gate_mod_rules(self):
         async with self.getTestCore() as core:
 
             nodeadd = (True, ('node', 'add'))
@@ -981,10 +981,15 @@ class AuthTest(s_test.SynTest):
             rootuser = await core.auth.getUserByName('root')
 
             user00 = await core.auth.addUser('user00')
+            user01 = await core.auth.addUser('user01')
             role00 = await core.auth.addRole('role00')
 
             await user00.addRule(nodeadd, gateiden=core.view.iden)
+            await user01.addRule(nodeadd, gateiden=core.view.iden)
             await role00.addRule(tagadd, gateiden=core.view.iden)
+
+            # Make user01 an admin so it doesn't get removed when we remove all the rules
+            await user01.setAdmin(True, gateiden=core.view.iden)
 
             viewgate = core.auth.getAuthGate(core.view.iden)
             gate = viewgate.pack()
@@ -1015,15 +1020,22 @@ class AuthTest(s_test.SynTest):
                     'iden': user00.iden,
                     'rules': (nodeadd,),
                 },
+                {
+                    'admin': True,
+                    'iden': user01.iden,
+                    'rules': (nodeadd,),
+                },
             ], key=lambda x: x.get('iden'))
 
             await user00.delRule(nodeadd, gateiden=core.view.iden)
+            await user01.delRule(nodeadd, gateiden=core.view.iden)
             await role00.delRule(tagadd, gateiden=core.view.iden)
 
             viewgate = core.auth.getAuthGate(core.view.iden)
             gate = viewgate.pack()
 
-            # The auth gate should not list the new user/role at all since there are no rules and the user/role are not admin
+            # The auth gate should not list the user00/role00 at all since
+            # there are no rules and user00/role00 are not admin
             self.eq(gate.get('iden'), core.view.iden)
             self.eq(gate.get('type'), 'view')
             self.sorteq(gate.get('roles'), [
@@ -1037,6 +1049,11 @@ class AuthTest(s_test.SynTest):
                 {
                     'admin': True,
                     'iden': rootuser.iden,
+                    'rules': (),
+                },
+                {
+                    'admin': True,
+                    'iden': user01.iden,
                     'rules': (),
                 },
             ], key=lambda x: x.get('iden'))
