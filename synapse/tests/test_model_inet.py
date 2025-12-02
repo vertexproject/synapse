@@ -1226,6 +1226,20 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:net.size*range=(1, 16383)'))
             self.len(2, await core.nodes('inet:net.size*range=(1, 16384)'))
 
+            self.eq(16384, await core.callStorm('inet:net.size>256 return(.size)'))
+
+            # Remove virts from a sode for coverage
+            nodes = await core.nodes('inet:net.mask=24')
+            valu = nodes[0].sodes[0]['valu']
+            valu[2].pop('size')
+
+            self.none(await core.callStorm('inet:net.mask=24 return(.size)'))
+
+            nodes[0].sodes[0]['valu'] = (valu[0], valu[1], None)
+
+            self.none(await core.callStorm('inet:net.mask=24 return(.mask)'))
+            self.none(await core.callStorm('inet:net.mask=24 return(.size)'))
+
     async def test_net6(self):
         tname = 'inet:net'
         async with self.getTestCore() as core:
