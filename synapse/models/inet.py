@@ -754,7 +754,7 @@ class IPRange(s_types.Range):
             'size': (self.sizetype, self._getSize),
         }
 
-        self.virtlifts = {
+        self.virtlifts |= {
             'size': {
                 'in=': self._storLiftSizeIn,
                 'range=': self._storLiftSizeRange
