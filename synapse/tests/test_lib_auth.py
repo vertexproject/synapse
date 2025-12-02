@@ -1041,7 +1041,7 @@ class AuthTest(s_test.SynTest):
                 },
             ], key=lambda x: x.get('iden'))
 
-    async def test_auth_gate_double_add(self):
+    async def test_lib_auth_gate_double_add(self):
         async with self.getTestCore() as core:
             nodeadd = (True, ('node', 'add'))
             tagadd = (True, ('node', 'tag', 'add'))
