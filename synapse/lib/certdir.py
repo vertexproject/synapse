@@ -1513,28 +1513,32 @@ class CertDir:
             fd.write(byts)
 
     def saveCaCertByts(self, byts: bytes) -> str:
-        cert = self._loadCertByts(byts)
+        certs = self._loadAllCertByts(byts)
+        cert = certs[0]
         attr = cert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
         name = attr.value
-        return self._saveCertTo(cert, 'cas', f'{name}.crt')
+        return self._saveCertsTo(certs, 'cas', f'{name}.crt')
 
     def saveHostCertByts(self, byts: bytes) -> str:
-        cert = self._loadCertByts(byts)
+        certs = self._loadAllCertByts(byts)
+        cert = certs[0]
         attr = cert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
         name = attr.value
-        return self._saveCertTo(cert, 'hosts', f'{name}.crt')
+        return self._saveCertsTo(certs, 'hosts', f'{name}.crt')
 
     def saveUserCertByts(self, byts: bytes) -> str:
-        cert = self._loadCertByts(byts)
+        certs = self._loadAllCertByts(byts)
+        cert = certs[0]
         attr = cert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
         name = attr.value
-        return self._saveCertTo(cert, 'users', f'{name}.crt')
+        return self._saveCertsTo(certs, 'users', f'{name}.crt')
 
     def saveCodeCertBytes(self, byts: bytes) -> str:
-        cert = self._loadCertByts(byts)
+        certs = self._loadAllCertByts(byts)
+        cert = certs[0]
         attr = cert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
         name = attr.value
-        return self._saveCertTo(cert, 'code', f'{name}.crt')
+        return self._saveCertsTo(certs, 'code', f'{name}.crt')
 
     def _checkDupFile(self, path) -> None:
         if os.path.isfile(path):
@@ -1631,6 +1635,12 @@ class CertDir:
         except Exception as e:
             raise s_exc.BadCertBytes(mesg=f'Failed to load bytes: {e}') from None
 
+    def _loadAllCertByts(self, byts: bytes) -> list[c_x509.Certificate]:
+        try:
+            return c_x509.load_pem_x509_certificates(byts)
+        except Exception as e:
+            raise s_exc.BadCertBytes(mesg=f'Failed to load bytes: {e}') from None
+
     def _loadCsrPath(self, path: str) -> Union[c_x509.CertificateSigningRequest | None]:
         byts = self._getPathBytes(path)
         if byts:
@@ -1654,6 +1664,16 @@ class CertDir:
             p12 = c_pkcs12.load_pkcs12(byts, password=None)
             return p12
 
+    def _saveCertsTo(self, certs: list[c_x509.Certificate], *paths: str) -> str:
+        path = self._getPathJoin(*paths)
+        self._checkDupFile(path)
+
+        with s_common.genfile(path) as fd:
+            fd.truncate(0)
+            fd.write(self._certsToByts(certs))
+
+        return path
+
     def _saveCertTo(self, cert: c_x509.Certificate, *paths: str) -> str:
         path = self._getPathJoin(*paths)
         self._checkDupFile(path)
@@ -1664,7 +1684,11 @@ class CertDir:
 
         return path
 
-    def _certToByts(self, cert: c_x509.Certificate):
+    def _certsToByts(self, certs: list[c_x509.Certificate]) -> bytes:
+        ret = b'\n'.join([self._certToByts(cert) for cert in certs])
+        return ret
+
+    def _certToByts(self, cert: c_x509.Certificate) -> bytes:
         return cert.public_bytes(encoding=c_serialization.Encoding.PEM)
 
     def _pkeyToByts(self, pkey: Pkey) -> bytes:
