@@ -1,0 +1,16 @@
+name: badvaultsschema
+version: 0.0.1
+
+vaults:
+  badvaultsschema:
+    schemas:
+      configs:
+        type: newpobject
+        properties:
+          foo:
+            type: string
+      secrets:
+        type: object
+        properties:
+          quux:
+            type: string
