@@ -919,8 +919,6 @@ class Ruler:
     async def addRule(self, rule, indx=None, gateiden=None, nexs=True):
         s_schemas.reqValidRules((rule,))
         rules = self.getRules(gateiden=gateiden)
-        if rule in rules:
-            return
 
         mesg = {
             'name': 'rule:add',
