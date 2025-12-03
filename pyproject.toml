@@ -10,7 +10,7 @@ authors = [
 ]
 description = 'Synapse Intelligence Analysis Framework'
 readme = 'README.rst'
-requires-python = '>=3.14'
+requires-python = '>=3.14,<3.15'
 license = 'Apache-2.0'
 classifiers = [
     'Development Status :: 5 - Production/Stable',
