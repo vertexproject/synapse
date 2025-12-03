@@ -1114,6 +1114,45 @@ class AuthTest(s_test.SynTest):
                 },
             ], key=lambda x: x.get('iden'))
 
+            # Removing admin status and having no rules should remove the entry
+            await user02.setAdmin(False, gateiden=core.view.iden)
+
+            viewgate = core.auth.getAuthGate(core.view.iden)
+            gate = viewgate.pack()
+
+            # The auth gate should show the new user/role rules
+            self.eq(gate.get('iden'), core.view.iden)
+            self.eq(gate.get('type'), 'view')
+            self.sorteq(gate.get('roles'), [
+                {
+                    'admin': False,
+                    'iden': allrole.iden,
+                    'rules': (viewread,),
+                },
+                {
+                    'admin': False,
+                    'iden': role00.iden,
+                    'rules': (tagadd,),
+                },
+            ], key=lambda x: x.get('iden'))
+            self.sorteq(gate.get('users'), [
+                {
+                    'admin': True,
+                    'iden': rootuser.iden,
+                    'rules': (),
+                },
+                {
+                    'admin': False,
+                    'iden': user00.iden,
+                    'rules': (nodeadd,),
+                },
+                {
+                    'admin': True,
+                    'iden': user01.iden,
+                    'rules': (),
+                },
+            ], key=lambda x: x.get('iden'))
+
     async def test_lib_auth_gate_double_add(self):
         async with self.getTestCore() as core:
             nodeadd = (True, ('node', 'add'))

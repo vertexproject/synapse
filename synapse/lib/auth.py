@@ -424,9 +424,19 @@ class Auth(s_nexus.Pusher):
         if gateiden is not None:
             gate = self.reqAuthGate(gateiden)
 
-            admin = gate.gateusers.get(iden, {}).get('admin', False)
+            if (gateuser := gate.gateusers.get(iden)) is None:
+                admin = False
+                rules = None
+            else:
+                admin = gateuser.get('admin', False)
+                rules = gateuser.get('rules')
 
-            if name == 'rules' and not valu and not admin:
+            delgate = (
+                (name == 'rules' and not valu and not admin) or
+                (name == 'admin' and not valu and not rules)
+            )
+
+            if delgate:
                 user.authgates.pop(gateiden, None)
                 await gate._delGateUser(iden)
                 user.info['authgates'].pop(gateiden, None)
