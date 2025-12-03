@@ -402,6 +402,20 @@ class NodeTest(s_t_utils.SynTest):
             with self.raises(s_exc.MustBeJsonSafe):
                 await node.setData('newp', {1, 2, 3})
 
+            # The emoji here is 4-bytes so we only need 128 of them to bust the 510 byte limit
+            for bigkey in ('A' * 512, '😁' * 128):
+                self.none(await node.getData(bigkey))
+
+                with self.raises(s_exc.BadArg) as exc:
+                    await node.setData(bigkey, 'foo')
+                self.eq(exc.exception.get('mesg'), 'node data keys must be < 511 bytes.')
+                self.eq(exc.exception.get('name'), bigkey)
+
+                with self.raises(s_exc.BadArg) as exc:
+                    await node.popData(bigkey)
+                self.eq(exc.exception.get('mesg'), 'node data keys must be < 511 bytes.')
+                self.eq(exc.exception.get('name'), bigkey)
+
     async def test_node_tagprops(self):
         async with self.getTestCore() as core:
             await core.addTagProp('score', ('int', {}), {})

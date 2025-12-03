@@ -182,7 +182,7 @@ class SafeKeyVal:
 
         if self.preflen > 510:
             mesg = 'SafeKeyVal prefix lengths must be < 511 bytes.'
-            raise s_exc.BadArg(mesg, prefix=self._prefix[:1024])
+            raise s_exc.BadArg(mesg=mesg, prefix=self._prefix[:1024])
 
         self.name = name
         self.slab = slab
@@ -192,7 +192,7 @@ class SafeKeyVal:
 
         if not prefix or not isinstance(prefix, str):
             mesg = 'SafeKeyVal.getSubKeyVal() requires a string prefix of at least one character.'
-            raise s_exc.BadArg(mesg, prefix=prefix)
+            raise s_exc.BadArg(mesg=mesg, prefix=prefix)
 
         if self.prefix:
             prefix = self.prefix + prefix
@@ -209,7 +209,7 @@ class SafeKeyVal:
         if len(_name) > 511:
             maxlen = 511 - self.preflen
             mesg = f'SafeKeyVal keys with prefix {self.prefix} must be less < {maxlen} bytes in length.'
-            raise s_exc.BadArg(mesg, prefix=self.prefix, name=name[:1024])
+            raise s_exc.BadArg(mesg=mesg, prefix=self.prefix, name=name[:1024])
         return _name
 
     def get(self, name, defv=None):

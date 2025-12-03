@@ -701,10 +701,19 @@ class Node:
         return await self.snap.getNodeData(self.buid, name, defv=defv)
 
     async def setData(self, name, valu):
+        breakpoint()
+        if len(name.encode()) > 510:
+            mesg = 'node data keys must be < 511 bytes.'
+            raise s_exc.BadArg(mesg=mesg, name=name)
+
         async with self.snap.getNodeEditor(self) as protonode:
             await protonode.setData(name, valu)
 
     async def popData(self, name):
+        if len(name.encode()) > 510:
+            mesg = 'node data keys must be < 511 bytes.'
+            raise s_exc.BadArg(mesg=mesg, name=name)
+
         retn = await self.snap.getNodeData(self.buid, name)
 
         edits = (
