@@ -642,25 +642,25 @@ information to set the listed properties, including normalizing the values if ne
   Let's say you want to deconflict an ``ou:org`` node using the organization's FQDN (from the ``:dns:mx`` array property).
   Consider the following existing node:
   
-  .. storm-cli:: ou:org:name='the vertex project' [ :dns:mx=( vertex.link, vtx.lk ) ]
-  
+.. storm-cli:: ou:org:name='the vertex project' [ :dns:mx=( vertex.link, vtx.lk ) ]
+    
   The following dictionary syntax identifies and lifts the node:
   
-  .. storm-cli:: [ ou:org = ( { "name": "the vertex project", "dns:mx": [ "vtx.lk", "vertex.link" ] } ) ]
+.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "dns:mx": [ "vtx.lk", "vertex.link" ] } ) ]
   
   (Note that the **order** of the array elements in the dictionary does not matter, but **all** elements must be present.)
   
   The following dictionary syntax only contains one of the ``:dns:mx`` values, so fails to deconflict and creates a new node:
   
-  .. storm-cli:: [ ou:org = ( { "name": "the vertex project", "dns:mx": [ "vertex.link" ] } )  ] ou:org:name='the vertex project' | uniq
+.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "dns:mx": [ "vertex.link" ] } )  ] ou:org:name='the vertex project' | uniq
 
 - You can use literals or variables within the JSON dictionary. For example:
   
-  .. storm-pre:: ou:org:name='the vertex project' | delnode
+.. storm-pre:: ou:org:name='the vertex project' | delnode
   
-  .. storm-cli:: [ ou:org = ( { "name": "the vertex project", "url": "https://vertex.link/" } ) ]
+.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "url": "https://vertex.link/" } ) ]
   
-  .. storm-cli:: $name='the vertex project' $url=https://vertex.link/ [ ou:org = ( { "name": $name, "url": $url } ) ]
+.. storm-cli:: $name='the vertex project' $url=https://vertex.link/ [ ou:org = ( { "name": $name, "url": $url } ) ]
 
 - When creating a new node using dictionary syntax, Synapse uses an algorithm (the guid generator or "guid grinder")
   to generate a predictable guid using the dictionary content as input. (The same algorithm is implemented in the ``$lib.guid()``
@@ -669,11 +669,11 @@ information to set the listed properties, including normalizing the values if ne
   The dictionary is converted to a sorted (alphabetical) list of ``(<key>, <normalized value>)`` tuples that are fed to the
   algorithm. Given the following query:
   
-  .. storm-cli:: [ ou:org = ( { "name": "The Vertex Project", "url": "https://vertex.link/" } ) ]
+.. storm-cli:: [ ou:org = ( { "name": "The Vertex Project", "url": "https://vertex.link/" } ) ]
   
   ...the dictionary is "converted" to the following for purposes of creating a predictable guid:
   
-  .. storm-cli:: [ ou:org = ( (name, 'the vertex project'), (url, https://vertex.link/) ) ]
+.. storm-cli:: [ ou:org = ( (name, 'the vertex project'), (url, https://vertex.link/) ) ]
   
   The tuples within the outermost parentheses are fed to the algorithm to create the guid. Note that second query
   generated the same guid as the dictionary syntax in our first query. 
@@ -734,17 +734,17 @@ predictable guids may be useful when:
 - You can specify input values as literals or variables. The guid is generated using the same algorithm implemented by
   the ``$lib.guid()`` library (see :ref:`stormlibs-lib-guid`). All of the following are valid:
   
-  .. storm-pre:: ou:org:name='the vertex project' | delnode
+.. storm-pre:: ou:org:name='the vertex project' | delnode
   
-  .. storm-cli:: [ ou:org = ('the vertex project', https://vertex.link/) ]
+.. storm-cli:: [ ou:org = ('the vertex project', https://vertex.link/) ]
   
-  .. storm-cli:: $name='the vertex project' $url=https://vertex.link/ [ ou:org = ($name, $url) ]
+.. storm-cli:: $name='the vertex project' $url=https://vertex.link/ [ ou:org = ($name, $url) ]
   
-  .. storm-cli:: $guid = $lib.guid('the vertex project', https://vertex.link/) [ ou:org = $guid ]
+.. storm-cli:: $guid = $lib.guid('the vertex project', https://vertex.link/) [ ou:org = $guid ]
   
-  .. storm-cli:: $name='the vertex project' $url=https://vertex.link/ $guid = $lib.guid($name, $url) [ ou:org = $guid ]
+.. storm-cli:: $name='the vertex project' $url=https://vertex.link/ $guid = $lib.guid($name, $url) [ ou:org = $guid ]
   
-  .. storm-cli:: $name='the vertex project' $url=https://vertex.link/ [ ou:org = ( $lib.guid($name, $url) ) ]
+.. storm-cli:: $name='the vertex project' $url=https://vertex.link/ [ ou:org = ( $lib.guid($name, $url) ) ]
   
 - The input to the algorithm is interpreted as a structured list of **string values** (i.e., ``(str_0, str_1, str_2...str_n)``).
   To consistently generate the same guid, each string must be **identical** (note that strings are case sensitive) and in the
