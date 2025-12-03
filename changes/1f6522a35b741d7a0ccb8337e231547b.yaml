@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where the maximum value allowed for unsigned integer types was
+  lower than the actual maximum value possible for the size.
+desc:literal: false
+prs: []
+type: bug
+...
