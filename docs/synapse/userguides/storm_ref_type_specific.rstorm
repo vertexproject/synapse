@@ -404,8 +404,6 @@ is obtained, the node can be updated with the additional properties based on dec
 GUID Value
 ~~~~~~~~~~
 
-==== FIX ME ====
-
 The asterisk can be used to generate a ``file:bytes`` node with an arbitrary guid value:
 
 .. storm-cli:: [ file:bytes = * ]
@@ -420,8 +418,9 @@ Synapse does not recognize any strings passed to the ``guid`` generator as speci
 not use values used to generate the ``guid`` to set any secondary property values; those properties must be
 explicitly set (e.g., the ``:md5`` property in the example above).
 
-See the section on type-specific behavior for :ref:`type-guid` types for additional discussion of arbitrary
-vs. predictable ``guids`` (as well as dictionary syntax for creating guid values).
+See the section on type-specific behavior for :ref:`type-guid` types for additional discussion of the methods
+used to create ``guid`` forms. (Note that `Dictionary Syntax`_ cannot be used to create guid-based ``file:bytes``
+nodes.)
 
 .. NOTE::
   
