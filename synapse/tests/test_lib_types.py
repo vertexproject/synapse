@@ -624,6 +624,10 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(uint64.norm(-0)[0], 0)
         self.raises(s_exc.BadTypeValu, uint64.norm, -1)
 
+        maxv = 2 ** (8 * 8) - 1
+        self.eq(uint64.norm(maxv)[0], maxv)
+        self.raises(s_exc.BadTypeValu, uint64.norm, maxv + 1)
+
         # Test size, 8bit signed
         int8 = model.type('int').clone({'size': 1})
         self.eq(int8.norm(127)[0], 127)
