@@ -431,9 +431,9 @@ class Auth(s_nexus.Pusher):
                 admin = gateuser.get('admin', False)
                 rules = gateuser.get('rules')
 
-            delgate = (
-                (name == 'rules' and not valu and not admin) or
-                (name == 'admin' and not valu and not rules)
+            delgate = not valu and (
+                (name == 'rules' and not admin) or
+                (name == 'admin' and not rules)
             )
 
             if delgate:
