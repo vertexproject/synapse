@@ -1362,28 +1362,24 @@ class Int(IntBase):
                 raise s_exc.BadTypeDef(mesg=mesg,
                                        name=self.name)
 
-        minval = self.opts.get('min')
-        maxval = self.opts.get('max')
+        if not self.signed:
+            minmin = 0
+            maxmax = 2 ** (self.size * 8) - 1
+        else:
+            minmin = -2 ** ((self.size * 8) - 1)
+            maxmax = 2 ** ((self.size * 8) - 1) - 1
 
-        minmin = -2 ** ((self.size * 8) - 1)
-        if minval is None:
+        if (minval := self.opts.get('min')) is None:
             minval = minmin
 
-        maxmax = 2 ** ((self.size * 8) - 1) - 1
-        if maxval is None:
+        if (maxval := self.opts.get('max')) is None:
             maxval = maxmax
 
         if minval < minmin or maxval > maxmax or maxval < minval:
             raise s_exc.BadTypeDef(self.opts, name=self.name)
 
-        if not self.signed:
-            self._indx_offset = 0
-            self.minval = 0
-            self.maxval = min(2 * maxval, maxval)
-        else:
-            self._indx_offset = maxmax + 1
-            self.minval = max(minmin, minval)
-            self.maxval = min(maxmax, maxval)
+        self.minval = minval
+        self.maxval = maxval
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
