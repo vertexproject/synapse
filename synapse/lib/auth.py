@@ -415,12 +415,30 @@ class Auth(s_nexus.Pusher):
             self.checkUserLimit()
 
         if gateiden is not None:
-            info = user.genGateInfo(gateiden)
-            info[name] = s_msgpack.deepcopy(valu)
             gate = self.reqAuthGate(gateiden)
-            gate.users.set(iden, info)
 
-            user.info['authgates'][gateiden] = info
+            if (gateuser := gate.gateusers.get(iden)) is None:
+                admin = False
+                rules = None
+            else:
+                admin = gateuser.get('admin', False)
+                rules = gateuser.get('rules')
+
+            delgate = not valu and (
+                (name == 'rules' and not admin) or
+                (name == 'admin' and not rules)
+            )
+
+            if delgate:
+                user.authgates.pop(gateiden, None)
+                await gate._delGateUser(iden)
+                user.info['authgates'].pop(gateiden, None)
+            else:
+                info = user.genGateInfo(gateiden)
+                info[name] = s_msgpack.deepcopy(valu)
+                gate.users.set(iden, info)
+                user.info['authgates'][gateiden] = info
+
             self.userdefs.set(iden, user.info)
         else:
             user.info[name] = s_msgpack.deepcopy(valu)
@@ -447,12 +465,18 @@ class Auth(s_nexus.Pusher):
         role = await self.reqRole(iden)
 
         if gateiden is not None:
-            info = role.genGateInfo(gateiden)
-            info[name] = s_msgpack.deepcopy(valu)
             gate = self.reqAuthGate(gateiden)
-            gate.roles.set(iden, info)
 
-            role.info['authgates'][gateiden] = info
+            if name == 'rules' and not valu:
+                role.authgates.pop(gateiden, None)
+                await gate._delGateRole(iden)
+                role.info['authgates'].pop(gateiden, None)
+            else:
+                info = role.genGateInfo(gateiden)
+                info[name] = s_msgpack.deepcopy(valu)
+                gate.roles.set(iden, info)
+                role.info['authgates'][gateiden] = info
+
             self.roledefs.set(iden, role.info)
         else:
             role.info[name] = s_msgpack.deepcopy(valu)
@@ -764,7 +788,7 @@ class Auth(s_nexus.Pusher):
         self.roleidenbynamecache.clear()
         self.authgates.clear()
 
-class AuthGate():
+class AuthGate:
     '''
     The storage object for object specific rules for users/roles.
     '''
@@ -853,7 +877,7 @@ class AuthGate():
             'roles': roles,
         }
 
-class Ruler():
+class Ruler:
     '''
     An object that holds a list of rules.  This includes Users, Roles, and the AuthGate variants of those
     '''

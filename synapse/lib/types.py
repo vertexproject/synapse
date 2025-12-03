@@ -1367,8 +1367,8 @@ class Int(IntBase):
         if minval < minmin or maxval > maxmax or maxval < minval:
             raise s_exc.BadTypeDef(self.opts, name=self.name)
 
-        self.minval = max(minval, minmin)
-        self.maxval = min(maxval, maxmax)
+        self.minval = minval
+        self.maxval = maxval
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
