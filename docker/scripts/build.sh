@@ -6,7 +6,7 @@
 #
 # This is expected to be executed from the root of the repository; eg:
 #
-# ./docker/build_all.sh
+# ./docker/scripts/build.sh
 #
 # The first argument may be provided, including the tag to build.
 # A default tag will be used if one is not provided.
