@@ -1,7 +1,0 @@
----
-desc: Updated mirror writeback behavior to no longer wait for or receive the return
-  value of Nexus event execution on the leader.
-desc:literal: false
-prs: []
-type: feat
-...

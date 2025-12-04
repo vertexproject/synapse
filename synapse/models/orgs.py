@@ -83,6 +83,8 @@ class OuModule(s_module.CoreModule):
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'names'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         ),
                     },
                 }),
@@ -142,6 +144,13 @@ class OuModule(s_module.CoreModule):
                     'doc': 'An informal meeting of people which has no title or sponsor.  See also: ou:conference.',
                 }),
                 ('ou:preso', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'time'}},
+                            {'type': 'prop', 'opts': {'name': 'title'}},
+                            {'type': 'prop', 'opts': {'name': 'conference::name'}},
+                        ),
+                    },
                     'doc': 'A webinar, conference talk, or other type of presentation.',
                 }),
                 ('ou:meet:attendee', ('comp', {'fields': (('meet', 'ou:meet'), ('person', 'ps:person'))}), {
@@ -152,8 +161,10 @@ class OuModule(s_module.CoreModule):
                     'doc': 'A conference with a name and sponsoring org.',
                     'display': {
                         'columns': (
-                            {'type': 'prop', 'opts': {'name': 'name'}},
                             {'type': 'prop', 'opts': {'name': 'start'}},
+                            {'type': 'prop', 'opts': {'name': 'end'}},
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'url'}},
                         ),
                     },
                 }),
@@ -162,6 +173,14 @@ class OuModule(s_module.CoreModule):
                     'doc': 'Deprecated. Please use ou:attendee.',
                 }),
                 ('ou:conference:event', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'start'}},
+                            {'type': 'prop', 'opts': {'name': 'end'}},
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'conference::name'}},
+                        ),
+                    },
                     'doc': 'A conference event with a name and associated conference.',
                 }),
                 ('ou:conference:event:attendee', ('comp', {'fields': (('conference', 'ou:conference:event'), ('person', 'ps:person'))}), {
@@ -208,6 +227,7 @@ class OuModule(s_module.CoreModule):
                             {'type': 'prop', 'opts': {'name': 'names'}},
                             {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                             {'type': 'prop', 'opts': {'name': 'tag'}},
+                            {'type': 'prop', 'opts': {'name': 'period'}},
                         ),
                     }}),
 
@@ -250,6 +270,13 @@ class OuModule(s_module.CoreModule):
                     'doc': 'Vital statistics about an org for a given time period.',
                 }),
                 ('ou:opening', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'posted'}},
+                            {'type': 'prop', 'opts': {'name': 'jobtitle'}},
+                            {'type': 'prop', 'opts': {'name': 'orgname'}},
+                        ),
+                    },
                     'doc': 'A job/work opening within an org.'}),
 
                 ('ou:candidate:method:taxonomy', ('taxonomy', {}), {

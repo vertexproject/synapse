@@ -1,6 +1,0 @@
----
-desc: Added ``media:news:version`` to track the version of the news item.
-desc:literal: false
-prs: []
-type: model
-...
