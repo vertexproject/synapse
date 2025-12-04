@@ -702,7 +702,7 @@ To create a predictable guid, provide a list of ordered inputs (enclosed in pare
 .. storm-cli:: [ ou:org = ('the vertex project', 'https://vertex.link/') ]
 
 Note that this is a "blank" node with no secondary properties set. Unlike dictionary syntax where the JSON dictionary
-lists properties and values and ``key:value`` pairs, the syntax for predictable guids simply provides a list of strings
+lists properties and values as ``key:value`` pairs, the syntax for predictable guids simply provides a list of strings
 to the algorithm. You can set the properties once the node has been created, or set them as part of your original query:
 
 .. storm-cli:: [ ou:org = ('the vertex project', 'https://vertex.link/') :name='the vertex project' :url=https://vertex.link/ ]
