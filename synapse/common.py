@@ -840,8 +840,11 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True, datefmt=Non
         def logfini():
             # On shutdown, stop the QueueListener, remove QueueHandler from the
             # logger, and add the StreamHandler so we don't lose messages that
-            # are logged after the StreamHandler has shutdown. Messages already
-            # sent to the QueueHandler should continue to flush.
+            # are logged after the QueueListener has shutdown. Messages already
+            # in the QueueListener will flush as part of the stop(). This is all
+            # required because atexit handlers are called in reverse order of
+            # when they were registered. So, we want to make sure to have
+            # functional logging until the process is completely gone.
             listener.stop()
             logging.root.removeHandler(handler)
             logging.root.addHandler(stream)
