@@ -623,7 +623,7 @@ information to set the listed properties, including normalizing the values if ne
   in the query above, Synapse will check both the ``:name`` and ``:names`` properties of existing ``ou:org`` nodes for the
   value ``'the vertex project'``, even though only ``"name"`` is included in the dictionary.
 
-- When choosing a secondary properties to deconflict on (particularly for automated or bulk ingest), you should:
+- When choosing secondary properties to deconflict on (particularly for automated or bulk ingest), you should:
   
   - Select properties that are unique enough to allow deconfliction. For example, an organization's name is reasonably unique;
     its location (``:loc``) is probably not.
