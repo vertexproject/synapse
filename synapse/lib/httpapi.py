@@ -70,7 +70,6 @@ class HandlerBase:
     def initialize(self, cell):
         self.cell = cell
         self._web_sess = None
-        self._web_user = None  # Deprecated for new handlers
         self.web_useriden = None  # The user iden at the time of authentication.
         self.web_username = None  # The user name at the time of authentication.
 
@@ -280,6 +279,14 @@ class HandlerBase:
             return False
 
         return True
+
+    async def reqNoBody(self):
+
+        if not self.request.body:
+            return True
+
+        self.sendRestErr('BadArg', 'This API does not take any HTTP body data.', status_code=HTTPStatus.BAD_REQUEST)
+        return False
 
     async def sess(self, gen=True):
         '''
@@ -558,43 +565,6 @@ class StormHandler(Handler):
             return self.sendRestExc(err, status_code=HTTPStatus.NOT_FOUND)
         return self.sendRestExc(err, status_code=HTTPStatus.BAD_REQUEST)
 
-class StormNodesV1(StormHandler):
-
-    async def post(self):
-        return await self.get()
-
-    async def get(self):
-
-        user, body = await self.getUseridenBody()
-        if body is s_common.novalu:
-            return
-
-        s_common.deprecated('HTTP API /api/v1/storm/nodes', curv='2.110.0')
-
-        opts = body.get('opts')
-        query = body.get('query')
-        stream = body.get('stream')
-        jsonlines = stream == 'jsonlines'
-
-        opts = await self._reqValidOpts(opts)
-        if opts is None:
-            return
-
-        flushed = False
-        try:
-            view = self.cell._viewFromOpts(opts)
-
-            taskinfo = {'query': query, 'view': view.iden}
-            await self.cell.boss.promote('storm', user=user, info=taskinfo)
-
-            async for pode in view.iterStormPodes(query, opts=opts):
-                self.write(s_json.dumps(pode, newline=jsonlines))
-                await self.flush()
-                flushed = True
-        except Exception as e:
-            if not flushed:
-                return self._handleStormErr(e)
-
 class StormV1(StormHandler):
 
     async def post(self):
@@ -736,9 +706,6 @@ class BeholdSockV1(WebSocket):
         except s_exc.SynErr as e:
             text = e.get('mesg', str(e))
             await self.xmit('errx', code=e.__class__.__name__, mesg=text)
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
 
         except Exception as e:
             await self.xmit('errx', code=e.__class__.__name__, mesg=str(e))
@@ -1216,7 +1183,7 @@ class StormVarsPopV1(Handler):
         varname = str(body.get('name'))
         defvalu = body.get('default')
 
-        if not await self.allowed(('globals', 'pop', varname)):
+        if not await self.allowed(('globals', 'del', varname)):
             return
 
         valu = await self.cell.popStormVar(varname, default=defvalu)
@@ -1275,7 +1242,6 @@ class FeedV1(Handler):
         Example data::
 
             {
-                'name': 'syn.nodes',
                 'view': null,
                 'items': [...],
             }
@@ -1291,12 +1257,6 @@ class FeedV1(Handler):
             return
 
         items = body.get('items')
-        name = body.get('name', 'syn.nodes')
-
-        func = self.cell.getFeedFunc(name)
-        if func is None:
-            return self.sendRestErr('NoSuchFunc', f'The feed type {name} does not exist.',
-                                    status_code=HTTPStatus.BAD_REQUEST)
 
         user = self.cell.auth.user(self.web_useriden)
 
@@ -1305,24 +1265,21 @@ class FeedV1(Handler):
             return self.sendRestErr('NoSuchView', 'The specified view does not exist.',
                                     status_code=HTTPStatus.NOT_FOUND)
 
-        wlyr = view.layers[0]
-        perm = ('feed:data', *name.split('.'))
-
-        if not user.allowed(perm, gateiden=wlyr.iden):
-            permtext = '.'.join(perm)
-            mesg = f'User does not have {permtext} permission on gate: {wlyr.iden}.'
-            return self.sendRestErr('AuthDeny', mesg, status_code=HTTPStatus.FORBIDDEN)
-
         try:
+            meta, *items = items
 
-            info = {'name': name, 'view': view.iden, 'nitems': len(items)}
+            self.cell.reqValidExportStormMeta(meta)
+            await self.cell.reqFeedDataAllowed(items, user, viewiden=view.iden)
+
+            info = {'view': view.iden, 'nitems': len(items)}
             await self.cell.boss.promote('feeddata', user=user, info=info)
 
-            async with await self.cell.snap(user=user, view=view) as snap:
-                snap.strict = False
-                await snap.addFeedData(name, items)
+            await self.cell.addFeedData(items, user=user, viewiden=view.iden)
 
             return self.sendRestRetn(None)
+
+        except s_exc.AuthDeny as e:
+            return self.sendRestErr('AuthDeny', e.get('mesg'), status_code=HTTPStatus.FORBIDDEN)
 
         except Exception as e:  # pragma: no cover
             return self.sendRestExc(e, status_code=HTTPStatus.BAD_REQUEST)
