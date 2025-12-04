@@ -19,8 +19,8 @@ even over large and complex data sets.
 
 .. note::
 
-    A :ref:`gloss-cortex` may easily grow to billions of nodes, but is **not** designed to consume and create billions of
-    nodes **per day**. In other words, Synapse is not meant to replace your big-data/data-lake storage; Synapse is
+    A :ref:`gloss-cortex` may easily grow to billions of nodes, but is not designed to consume and create billions of
+    nodes per day. In other words, Synapse is not meant to replace your big-data/data-lake storage; Synapse is
     designed to connect to your data sources on demand in order to ingest data relevant for your analysis into the
     Synapse intelligence platform.
 
@@ -133,18 +133,17 @@ What's Next?
 +----------------------+-----------------------------------------------+
 | **Admins**           | - :ref:`adminguide`                           |
 +----------------------+-----------------------------------------------+
-| **Synapse UI**       | - `Synapse UI`_ (Optic) documentation         |
+| **Synapse UI**       | - `Synapse UI`_ ("Optic") documentation       |
 | (commercial)         |   (includes guides for users, devops, and     |
 |                      |   developers)                                 |
 +----------------------+-----------------------------------------------+
-| **Learn More**       | - Upcoming Webinars_                          |
-|                      | - Video Library_                              |
+| **Learn More**       | - Video Library_                              |
 |                      | - Visit The Vertex Project Website_           |
 +----------------------+-----------------------------------------------+
 | **Connect With Us!** | - Slack_                                      |
-|                      | - `X (Twitter)`_                              |
-|                      | - Bluesky_                                    |
 |                      | - LinkedIn_                                   |
+|                      | - `X/Twitter`_                                |
+|                      | - Bluesky_                                    |
 |                      | - "Star" us on Github_                        |
 +----------------------+-----------------------------------------------+
 
@@ -156,15 +155,14 @@ What's Next?
 .. _Changelog: https://synapse.docs.vertex.link/en/latest/synapse/changelog.html
 .. _Slack: https://v.vtx.lk/join-slack
 
-.. _`sizing guide`: https://docsend.com/view/kmbkkq9pjhtjsbmk
+.. _`sizing guide`: https://vertex.link/files/docs/synapse/Synapse-Sizing-Guidance.pdf
 
 .. _`Synapse UI`: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
 
-.. _Webinars: https://v.vtx.lk/luma
 .. _Library: https://v.vtx.lk/youtube
 .. _Website: https://vertex.link/
 
-.. _`X (Twitter)`: https://v.vtx.lk/twitter
-.. _Bluesky: https://bsky.app/profile/vertexproject.bsky.social
 .. _LinkedIn: https://v.vtx.lk/linkedin
+.. _`X/Twitter`: https://v.vtx.lk/twitter
+.. _Bluesky: https://v.vtx.lk/bluesky
 .. _Github: https://github.com/vertexproject/synapse
