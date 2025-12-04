@@ -230,6 +230,17 @@ Within Synapse, a constructor is code that defines how a :ref:`gloss-prop` value
 constructed to ensure that the value is well-formed for its type. Also known as a :ref:`gloss-ctor` for short.
 Constructors support :ref:`gloss-type-norm` and :ref:`gloss-type-enforce`.
 
+.. _gloss-constructor-guid:
+
+Constructor, Guid
+-----------------
+
+A :ref:`gloss-constructor` used to create :ref:`gloss-guid` values. Sometimes shortened to :ref:`gloss-gutor`, the
+term refers specifically to the use of a JSON dictionary to deconflict guid nodes and construct a predictable guid
+value (i.e., "dictionary guid constructor syntax" or "dictionary syntax"). See the `insertion`_ section under :ref:`type-guid`
+in the :ref:`storm-ref-type-specific` for a detailed discussion of guids, guid form deconfliction, and methods for
+generating guid values.
+
 .. _gloss-cortex:
 
 Cortex
@@ -302,7 +313,7 @@ creation, Synapse can determine whether the node already exists within a Cortex 
 deconflicted against existing nodes). For example, on attempting to create the node ``inet:fqdn=woot.com`` Synapse can
 deconflict the node by checking whether a node of the same form with the same primary property already exists.
 
-Most primary properties are sufficiently unique to be readily deconflictable. GUID forms (see :ref:`gloss-form-guid`)
+Most primary properties are sufficiently unique to be readily deconflictable. Guid forms (see :ref:`gloss-form-guid`)
 require additional considerations for deconfliction. See the :ref:`type-guid` section of the :ref:`storm-ref-type-specific`
 document for additional detail.
 
@@ -571,12 +582,12 @@ extended forms.
 
 .. _gloss-form-guid:
 
-Form, GUID
+Form, Guid
 ----------
 
 In the Synpase :ref:`gloss-data-model`, a specialized case of a :ref:`gloss-simple-form` whose primary property is a
-:ref:`gloss-guid`. The GUID can be either arbitrary or constructed from a specified set of values. GUID forms have
-additional considerations as to whether or not they are :ref:`gloss-deconflictable` in Synapse. Examples of GUID
+:ref:`gloss-guid`. The guid can be either arbitrary or constructed from a specified set of values. Guid forms have
+additional considerations as to whether or not they are :ref:`gloss-deconflictable` in Synapse. Examples of Guid
 forms include file execution data (e.g., ``it:file:exec:read``) or articles (``media:news``).
 
 .. _gloss-form-simple:
@@ -667,21 +678,33 @@ See :ref:`bkd-graphs-hypergraphs` for additional detail on graphs and hypergraph
 
 .. _gloss-guid:
 
-GUID
+Guid
 ----
 
-Short for Globally Unique Identifier. Within Synapse, a GUID is a :ref:`gloss-type` specified as a 128-bit value that
-is unique within a given :ref:`gloss-cortex`. GUIDs are used as primary properties for forms that cannot be uniquely
+Short for Globally Unique Identifier. Within Synapse, a guid is a :ref:`gloss-type` specified as a 128-bit value that
+is unique within a given :ref:`gloss-cortex`. Guids are used as primary properties for forms that cannot be uniquely
 represented by a specific value or set of values.
+
+.. _gloss-guid-constructor:
+
+Guid Constructor
+----------------
+
+See :ref:`gloss-constructor-guid`.
 
 .. _gloss-guid-form:
 
-GUID Form
+Guid Form
 ---------
 
 See :ref:`gloss-form-guid`.
 
 .. _gloss-gutor:
+
+Gutor
+-----
+
+Pronounced "goo-tore". Short for "guid constructor". See :ref:`gloss-constructor-guid`.
 
 H
 =
