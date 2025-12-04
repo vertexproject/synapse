@@ -708,7 +708,7 @@ class Node:
     async def popData(self, name):
         if len(name.encode()) > s_lmdbslab.MAX_MDB_KEYLEN:
             mesg = f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN} bytes.'
-            raise s_exc.BadArg(mesg=mesg, name=name)
+            raise s_exc.BadArg(mesg=mesg, name=name[:1024])
 
         retn = await self.snap.getNodeData(self.buid, name)
 
