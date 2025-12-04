@@ -578,7 +578,7 @@ This method will:
   
   Dictionary guid constructor syntax is referred to as "dictionary syntax" for simplicity. You may also encounter the term
   **guid constructor** or its shortened form, **gutor**. Although there are multiple ways to construct a guid (as described
-  below), the terms "guid constructor" and "gutor" refer specifically to  dictionary guid constructor syntax.
+  below), the terms "guid constructor" and "gutor" refer specifically to dictionary guid constructor syntax.
 
 Dictionary syntax uses a JSON dictionary with a set of ``key:value`` pairs to deconflict and create guid nodes. The ``key:value``
 pairs are secondary property names and values to deconflict on.
