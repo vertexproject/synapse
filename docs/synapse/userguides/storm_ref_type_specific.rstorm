@@ -769,7 +769,7 @@ been created, or set them as part of your original query:
   
   The guid values are truly arbitrary; they are only guaranteed to be unique values. No other deconfliction is
   performed. If you run the query above a second time, Synapse will create a second ``ou:org`` node with the same
-  ``:name`` but a **new** unique, arbitrary guid.
+  ``:name`` but a **new** arbitrary guid.
 
 Arbitrary guids are the simplest to create (so are often favored for one-off, manual node creation). However,
 they are the most risky from a deconfliction standpoint. No secondary property deconfliction is used, and
