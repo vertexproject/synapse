@@ -32,7 +32,7 @@ Synapse Demo Instance
 =====================
 
 Commercial Synapse (Synapse Enterprise) and our demo instances include the web-based Synapse UI (Optic).
-**Demo instances** are **cloud-hosted,** so there is nothing for you configure or deploy to get started -
+**Demo instances** are **cloud-hosted,** so there is nothing for you to configure or deploy to get started -
 all you need is a web browser (we recommend Chrome).
 
 You can request a demo instance from our `web site`_.
