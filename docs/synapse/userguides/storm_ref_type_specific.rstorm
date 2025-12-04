@@ -121,7 +121,7 @@ Add multiple values to the array of names associated with an organization:
 
 Remove multiple values from the array of names associated with an organization:
 
-.. storm-cli:: ou:org:name=vertex [ :names --= ('The Spanish Inquisition', "Monty Python's Flying Circus") ]
+.. storm-cli:: ou:org:name="Monty Python" [ :names --= ('The Spanish Inquisition', "Monty Python's Flying Circus") ]
 
 .. TIP::
   
