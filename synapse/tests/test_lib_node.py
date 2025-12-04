@@ -5,6 +5,7 @@ import synapse.common as s_common
 
 import synapse.lib.json as s_json
 import synapse.lib.node as s_node
+import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -408,12 +409,12 @@ class NodeTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.BadArg) as exc:
                     await node.setData(bigkey, 'foo')
-                self.eq(exc.exception.get('mesg'), 'node data keys must be < 511 bytes.')
+                self.eq(exc.exception.get('mesg'), f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN} bytes.')
                 self.eq(exc.exception.get('name'), bigkey)
 
                 with self.raises(s_exc.BadArg) as exc:
                     await node.popData(bigkey)
-                self.eq(exc.exception.get('mesg'), 'node data keys must be < 511 bytes.')
+                self.eq(exc.exception.get('mesg'), f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN} bytes.')
                 self.eq(exc.exception.get('name'), bigkey)
 
     async def test_node_tagprops(self):

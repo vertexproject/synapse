@@ -9,6 +9,7 @@ import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -701,16 +702,12 @@ class Node:
         return await self.snap.getNodeData(self.buid, name, defv=defv)
 
     async def setData(self, name, valu):
-        if len(name.encode()) > 510:
-            mesg = 'node data keys must be < 511 bytes.'
-            raise s_exc.BadArg(mesg=mesg, name=name)
-
         async with self.snap.getNodeEditor(self) as protonode:
             await protonode.setData(name, valu)
 
     async def popData(self, name):
-        if len(name.encode()) > 510:
-            mesg = 'node data keys must be < 511 bytes.'
+        if len(name.encode()) > s_lmdbslab.MAX_MDB_KEYLEN:
+            mesg = f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN} bytes.'
             raise s_exc.BadArg(mesg=mesg, name=name)
 
         retn = await self.snap.getNodeData(self.buid, name)

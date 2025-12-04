@@ -29,6 +29,8 @@ PROGRESS_PERIOD = COPY_CHUNKSIZE * 1024
 # By default, double the map size each time we run out of space, until this amount, and then we only increase by that
 MAX_DOUBLE_SIZE = 100 * s_const.gibibyte
 
+MAX_MDB_KEYLEN = 511
+
 int64min = s_common.int64en(0)
 int64max = s_common.int64en(0xffffffffffffffff)
 
@@ -180,8 +182,8 @@ class SafeKeyVal:
         self._prefix = prefix.encode('utf8')
         self.preflen = len(self._prefix)
 
-        if self.preflen > 510:
-            mesg = 'SafeKeyVal prefix lengths must be < 511 bytes.'
+        if self.preflen >= MAX_MDB_KEYLEN:
+            mesg = f'SafeKeyVal prefix lengths must be < {MAX_MDB_KEYLEN} bytes.'
             raise s_exc.BadArg(mesg=mesg, prefix=self._prefix[:1024])
 
         self.name = name
@@ -206,8 +208,8 @@ class SafeKeyVal:
         if self._prefix:
             _name = self._prefix + _name
 
-        if len(_name) > 511:
-            maxlen = 511 - self.preflen
+        if len(_name) > MAX_MDB_KEYLEN:
+            maxlen = MAX_MDB_KEYLEN - self.preflen
             mesg = f'SafeKeyVal keys with prefix {self.prefix} must be less < {maxlen} bytes in length.'
             raise s_exc.BadArg(mesg=mesg, prefix=self.prefix, name=name[:1024])
         return _name
