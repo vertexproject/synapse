@@ -11,9 +11,25 @@ class PsModule(s_module.CoreModule):
                     'doc': 'An instance of an edu:course taught at a given time.',
                 }),
                 ('ps:education', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'student::name'}},
+                            {'type': 'prop', 'opts': {'name': 'institution::orgname'}},
+                            {'type': 'prop', 'opts': {'name': 'attended:first'}},
+                            {'type': 'prop', 'opts': {'name': 'attended:last'}},
+                        ),
+                    },
                     'doc': 'A period of education for an individual.',
                 }),
                 ('ps:achievement', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'awardee::name'}},
+                            {'type': 'prop', 'opts': {'name': 'award::name'}},
+                            {'type': 'prop', 'opts': {'name': 'award::org::name'}},
+                            {'type': 'prop', 'opts': {'name': 'awarded'}},
+                        ),
+                    },
                     'doc': 'An instance of an individual receiving an award.',
                 }),
                 ('ps:tokn', ('str', {'lower': True, 'strip': True}), {
@@ -44,9 +60,9 @@ class PsModule(s_module.CoreModule):
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
-                            {'type': 'prop', 'opts': {'name': 'type'}},
                             {'type': 'prop', 'opts': {'name': 'orgname'}},
                             {'type': 'prop', 'opts': {'name': 'email'}},
+                            {'type': 'prop', 'opts': {'name': 'type'}},
                         ),
                     }}),
 
@@ -58,6 +74,15 @@ class PsModule(s_module.CoreModule):
                     'doc': 'A GUID for a list of associated contacts.',
                 }),
                 ('ps:workhist', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'contact::name'}},
+                            {'type': 'prop', 'opts': {'name': 'jobtitle'}},
+                            {'type': 'prop', 'opts': {'name': 'orgname'}},
+                            {'type': 'prop', 'opts': {'name': 'started'}},
+                            {'type': 'prop', 'opts': {'name': 'ended'}},
+                        ),
+                    },
                     'doc': "An entry in a contact's work history."}),
 
                 ('ps:vitals', ('guid', {}), {
@@ -135,6 +160,8 @@ class PsModule(s_module.CoreModule):
                     ('currency', ('econ:currency', {}), {
                         'doc': 'The currency that the yearly pay was delivered in.',
                     }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the work done as part of the job.'}),
                 )),
                 ('edu:course', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {

@@ -341,13 +341,13 @@ Connection information:
 
                 async def mockCellInfo():
                     return {
-                        'cell': {'ready': True, 'nexsindx': 10, 'uplink': None},
+                        'cell': {'ready': True, 'nexsindx': 10, 'active': True},
                         'synapse': {'verstring': '2.190.0'},
                     }
 
                 async def mockOutOfSyncCellInfo():
                     return {
-                        'cell': {'ready': True, 'nexsindx': 5, 'uplink': cell00.iden},
+                        'cell': {'ready': True, 'nexsindx': 5, 'active': False},
                         'synapse': {'verstring': '2.190.0'},
                     }
 
@@ -377,6 +377,10 @@ Connection information:
                     with mock.patch.object(cell01, 'getCellInfo', mockOutOfSyncCellInfo):
                         msgs = await core00.stormlist('aha.svc.mirror --timeout 1')
                         self.stormIsInPrint('Group Status: Out of Sync', msgs)
+
+                await cell01.nexsroot.client.fini()
+                msgs = await core00.stormlist('aha.svc.mirror')
+                self.stormIsInPrint('follower', msgs)
 
                 await aha.delAhaSvc('00.cell', network='synapse')
                 msgs = await core00.stormlist('aha.svc.mirror')

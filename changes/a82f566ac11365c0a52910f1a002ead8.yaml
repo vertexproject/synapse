@@ -1,6 +1,0 @@
----
-desc: Fixed an issue where adding extended model elements to a mirror on a newer version
-  than the leader could fail on the leader.
-prs: []
-type: bug
-...

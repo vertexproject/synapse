@@ -83,6 +83,8 @@ class OuModule(s_module.CoreModule):
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'names'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         ),
                     },
                 }),
@@ -142,6 +144,13 @@ class OuModule(s_module.CoreModule):
                     'doc': 'An informal meeting of people which has no title or sponsor.  See also: ou:conference.',
                 }),
                 ('ou:preso', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'time'}},
+                            {'type': 'prop', 'opts': {'name': 'title'}},
+                            {'type': 'prop', 'opts': {'name': 'conference::name'}},
+                        ),
+                    },
                     'doc': 'A webinar, conference talk, or other type of presentation.',
                 }),
                 ('ou:meet:attendee', ('comp', {'fields': (('meet', 'ou:meet'), ('person', 'ps:person'))}), {
@@ -152,8 +161,10 @@ class OuModule(s_module.CoreModule):
                     'doc': 'A conference with a name and sponsoring org.',
                     'display': {
                         'columns': (
-                            {'type': 'prop', 'opts': {'name': 'name'}},
                             {'type': 'prop', 'opts': {'name': 'start'}},
+                            {'type': 'prop', 'opts': {'name': 'end'}},
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'url'}},
                         ),
                     },
                 }),
@@ -162,6 +173,14 @@ class OuModule(s_module.CoreModule):
                     'doc': 'Deprecated. Please use ou:attendee.',
                 }),
                 ('ou:conference:event', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'start'}},
+                            {'type': 'prop', 'opts': {'name': 'end'}},
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'conference::name'}},
+                        ),
+                    },
                     'doc': 'A conference event with a name and associated conference.',
                 }),
                 ('ou:conference:event:attendee', ('comp', {'fields': (('conference', 'ou:conference:event'), ('person', 'ps:person'))}), {
@@ -208,6 +227,7 @@ class OuModule(s_module.CoreModule):
                             {'type': 'prop', 'opts': {'name': 'names'}},
                             {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                             {'type': 'prop', 'opts': {'name': 'tag'}},
+                            {'type': 'prop', 'opts': {'name': 'period'}},
                         ),
                     }}),
 
@@ -250,6 +270,13 @@ class OuModule(s_module.CoreModule):
                     'doc': 'Vital statistics about an org for a given time period.',
                 }),
                 ('ou:opening', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'posted'}},
+                            {'type': 'prop', 'opts': {'name': 'jobtitle'}},
+                            {'type': 'prop', 'opts': {'name': 'orgname'}},
+                        ),
+                    },
                     'doc': 'A job/work opening within an org.'}),
 
                 ('ou:candidate:method:taxonomy', ('taxonomy', {}), {
@@ -267,6 +294,19 @@ class OuModule(s_module.CoreModule):
                             {'type': 'prop', 'opts': {'name': 'opening::jobtitle'}},
                         ),
                     }}),
+
+                ('ou:candidate:referral', ('guid', {}), {
+                    'doc': 'A candidate being referred by a contact.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'referrer::name'}},
+                            {'type': 'prop', 'opts': {'name': 'candidate::contact::name'}},
+                            {'type': 'prop', 'opts': {'name': 'candidate::org::name'}},
+                            {'type': 'prop', 'opts': {'name': 'candidate::opening::jobtitle'}},
+                            {'type': 'prop', 'opts': {'name': 'submitted'}},
+                        ),
+                    }}),
+
 
                 ('ou:jobtype', ('taxonomy', {}), {
                     'ex': 'it.dev.python',
@@ -412,6 +452,21 @@ class OuModule(s_module.CoreModule):
                     # TODO: :skills=[<ps:skill>]? vs :contact -> ps:proficiency?
                     # TODO: proj:task to track evaluation of the candidate?
 
+                )),
+                ('ou:candidate:referral', {}, (
+
+                    ('candidate', ('ou:candidate', {}), {
+                        'doc': 'The candidate who was referred.'}),
+
+                    ('referrer', ('ps:contact', {}), {
+                        'doc': 'The individual who referred the candidate to the opening.'}),
+
+                    ('submitted', ('time', {}), {
+                        'doc': 'The time the referral was submitted.'}),
+
+                    ('text', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'Text of any referrer provided context about the candidate.'}),
                 )),
                 ('ou:vitals', {}, (
 
@@ -703,7 +758,12 @@ class OuModule(s_module.CoreModule):
                 ('ou:technique', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The normalized name of the technique.'}),
+                        'doc': 'The name of the technique.'}),
+
+                    # NOTE: This is already in 3.0 via an interface and should be left out on merge
+                    ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True,
+                                         'typeopts': {'lower': True, 'onespace': True}}), {
+                        'doc': 'An array of alternate names for the technique.'}),
 
                     ('type', ('ou:technique:taxonomy', {}), {
                         'doc': 'The taxonomy classification of the technique.'}),

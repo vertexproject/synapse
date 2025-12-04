@@ -3452,10 +3452,6 @@ class PropValue(Value):
                 raise self.kids[0].addExcInfo(exc)
 
             valu = path.node.get(name)
-            if isinstance(valu, (dict, list, tuple)):
-                # these get special cased because changing them affects the node
-                # while it's in the pipeline but the modification doesn't get stored
-                valu = s_msgpack.deepcopy(valu)
             return prop, valu
 
         # handle implicit pivot properties
@@ -3479,10 +3475,6 @@ class PropValue(Value):
                 raise self.kids[0].addExcInfo(exc)
 
             if i >= imax:
-                if isinstance(valu, (dict, list, tuple)):
-                    # these get special cased because changing them affects the node
-                    # while it's in the pipeline but the modification doesn't get stored
-                    valu = s_msgpack.deepcopy(valu)
                 return prop, valu
 
             form = runt.model.forms.get(prop.type.name)
@@ -3495,6 +3487,10 @@ class PropValue(Value):
 
     async def compute(self, runt, path):
         prop, valu = await self.getPropAndValu(runt, path)
+
+        if prop:
+            valu = await prop.type.tostorm(valu)
+
         return valu
 
 class RelPropValue(PropValue):
@@ -4823,6 +4819,12 @@ class EditTagAdd(Edit):
 
         valu = (None, None)
 
+        tryset_assign = False
+        if hasval:
+            assign_oper = await self.kids[1 + oper_offset].compute(runt, None)
+            if assign_oper == '?=':
+                tryset_assign = True
+
         async for node, path in genr:
 
             try:
@@ -4832,19 +4834,30 @@ class EditTagAdd(Edit):
                 await asyncio.sleep(0)
                 continue
 
+            if node.form.isrunt:
+                raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.', form=node.form.full, tag=names[0])
+
+            if hasval:
+                valu = await self.kids[2 + oper_offset].compute(runt, path)
+                valu = await s_stormtypes.toprim(valu)
+                if tryset_assign:
+                    try:
+                        valu = runt.snap.core.model.type('ival').norm(valu)[0]
+                    except s_exc.BadTypeValu:
+                        valu = (None, None)
+
             for name in names:
+                parts = name.split('.')
+                runt.layerConfirm(('node', 'tag', 'add', *parts))
 
-                try:
-                    parts = name.split('.')
-
-                    runt.layerConfirm(('node', 'tag', 'add', *parts))
-
-                    if hasval:
-                        valu = await self.kids[2 + oper_offset].compute(runt, path)
-                        valu = await s_stormtypes.toprim(valu)
-                    await node.addTag(name, valu=valu)
-                except excignore:
-                    pass
+            async with node.snap.getEditor() as editor:
+                proto = editor.loadNode(node)
+                for name in names:
+                    try:
+                        await proto.addTag(name, valu=valu)
+                    except excignore:
+                        pass
+                    await asyncio.sleep(0)
 
             yield node, path
 

@@ -30,6 +30,13 @@ class BaseModule(s_module.CoreModule):
             'types': (
 
                 ('meta:feed', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'source::name'}},
+                            {'type': 'prop', 'opts': {'name': 'type'}},
+                        ),
+                    },
                     'doc': 'A data feed provided by a specific source.'}),
 
                 ('meta:feed:type:taxonomy', ('taxonomy', {}), {
@@ -130,6 +137,7 @@ class BaseModule(s_module.CoreModule):
                 ('meta:aggregate', ('guid', {}), {
                     'display': {
                         'columns': (
+                            {'type': 'prop', 'opts': {'name': 'time'}},
                             {'type': 'prop', 'opts': {'name': 'type'}},
                             {'type': 'prop', 'opts': {'name': 'count'}},
                         ),
@@ -175,6 +183,9 @@ class BaseModule(s_module.CoreModule):
             'edges': (
                 ((None, 'refs', None), {
                     'doc': 'The source node contains a reference to the target node.'}),
+
+                ((None, 'linked', None), {
+                    'doc': 'The source node is linked to the target node.'}),
 
                 (('meta:source', 'seen', None), {
                     'doc': 'The meta:source observed the target node.'}),
@@ -239,6 +250,8 @@ class BaseModule(s_module.CoreModule):
 
                 ('meta:feed:type:taxonomy', {}, ()),
                 ('meta:feed', {}, (
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'An identifier for the feed.'}),
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for the feed.'}),

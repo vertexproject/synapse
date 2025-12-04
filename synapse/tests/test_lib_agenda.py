@@ -9,7 +9,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
-import synapse.tools.backup as s_tools_backup
+import synapse.tools.service.backup as s_tools_backup
 
 import synapse.lib.agenda as s_agenda
 from synapse.lib.agenda import TimeUnit as s_tu
@@ -295,7 +295,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Cancel the Wednesday/Friday appt
                 await agenda.delete(guid)
-                await self.asyncraises(s_exc.NoSuchIden, agenda.delete(b'1234'))
+                await self.asyncraises(s_exc.NoSuchIden, agenda.delete('1234'))
 
                 # Then Dec 25
                 unixtime = datetime.datetime(year=2018, month=12, day=25, hour=10, minute=16, tzinfo=tz.utc).timestamp()
@@ -983,18 +983,18 @@ class AgendaTest(s_t_utils.SynTest):
     async def test_cron_kill(self):
         async with self.getTestCore() as core:
 
-            data = []
             evt = asyncio.Event()
 
+            # Cron task watcher
             async def task():
                 async for mesg in core.behold():
-                    data.append(mesg)
                     if mesg.get('event') == 'cron:stop':
                         evt.set()
 
             core.schedCoro(task())
 
-            q = '$q=$lib.queue.gen(test) for $i in $lib.range(60) { $lib.time.sleep(0.1) $q.put($i) }'
+            # Put an item into the queue and then block forever
+            q = '$q = $lib.queue.gen(test) $q.put((0)) $lib.time.sleep(999)'
             guid = s_common.guid()
             cdef = {
                 'creator': core.auth.rootuser.iden, 'iden': guid,
@@ -1003,19 +1003,24 @@ class AgendaTest(s_t_utils.SynTest):
             }
             await core.addCronJob(cdef)
 
+            # Get the item from the queue to confirm the cron job is running
             q = '$q=$lib.queue.gen(test) for $valu in $q.get((0), wait=(true)) { return ($valu) }'
             valu = await core.callStorm(q)
             self.eq(valu, 0)
 
+            # Get the cron def
             opts = {'vars': {'iden': guid}}
             get_cron = 'return($lib.cron.get($iden).pack())'
             cdef = await core.callStorm(get_cron, opts=opts)
-            self.true(cdef.get('isrunning'))
+            self.true(cdef.get('isrunning'), msg=cdef)
 
+            # Kill the cron job
             self.true(await core.callStorm('return($lib.cron.get($iden).kill())', opts=opts))
 
+            # Wait for the beholder event
             self.true(await asyncio.wait_for(evt.wait(), timeout=12))
 
+            # Check cron job is stopped
             cdef = await core.callStorm(get_cron, opts=opts)
             self.false(cdef.get('isrunning'))
 
@@ -1205,32 +1210,6 @@ class AgendaTest(s_t_utils.SynTest):
                     self.false(cron01[0].get('isrunning'))
                     self.eq(cron01[0].get('lasterrs')[0], 'aborted')
 
-    async def test_agenda_clear_running_none_nexttime(self):
-
-        async with self.getTestCore() as core:
-
-            cdef = {
-                'creator': core.auth.rootuser.iden,
-                'iden': s_common.guid(),
-                'storm': '$lib.log.info("test")',
-                'reqs': {},
-                'incunit': 'minute',
-                'incvals': 1
-            }
-            await core.addCronJob(cdef)
-
-            appt = core.agenda.appts[cdef['iden']]
-            self.true(appt in core.agenda.apptheap)
-
-            appt.isrunning = True
-            appt.nexttime = None
-
-            await core.agenda.clearRunningStatus()
-            self.false(appt in core.agenda.apptheap)
-
-            crons = await core.callStorm('return($lib.cron.list())')
-            self.len(1, crons)
-
     async def test_agenda_lasterrs(self):
 
         async with self.getTestCore() as core:
@@ -1262,3 +1241,142 @@ class AgendaTest(s_t_utils.SynTest):
             appt = await core.agenda.get('test')
             self.true(isinstance(appt.lasterrs, list))
             self.eq(appt.lasterrs, ['error1', 'error2'])
+
+    async def test_cron_at_mirror_cleanup(self):
+
+        with self.getTestDir() as dirn:
+
+            dirn00 = s_common.genpath(dirn, 'core00')
+            dirn01 = s_common.genpath(dirn, 'core01')
+
+            async with self.getTestAha() as aha:
+
+                conf = {'aha:provision': await aha.addAhaSvcProv('00.cortex')}
+                core00 = await aha.enter_context(self.getTestCore(conf=conf, dirn=dirn00))
+
+                conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex', {'mirror': 'cortex'})}
+                core01 = await aha.enter_context(self.getTestCore(conf=conf, dirn=dirn01))
+
+                msgs = await core00.stormlist('cron.at --minute +1 { $lib.log.info(cronran) }')
+                await core01.sync()
+
+                with self.getAsyncLoggerStream('synapse.storm.log', 'cronran') as stream:
+                    core00.agenda._addTickOff(60)
+                    self.true(await stream.wait(timeout=12))
+
+                await core01.sync()
+
+                # appt.recs should be cleared on both leader and mirror
+                appt = list(core00.agenda.appts.values())[0]
+                self.len(0, appt.recs)
+
+                appt = list(core01.agenda.appts.values())[0]
+                self.len(0, appt.recs)
+
+                # apptheap should also now be empty on both
+                self.len(0, core00.agenda.apptheap)
+                self.len(0, core01.agenda.apptheap)
+
+                await core00.fini()
+                core00 = await aha.enter_context(self.getTestCore(dirn=dirn00))
+
+                await core01.fini()
+                core01 = await aha.enter_context(self.getTestCore(dirn=dirn01))
+
+                # Job still exists on leader and mirror, wasn't removed due to being invalid
+                cron00 = await core00.listCronJobs()
+                cron01 = await core01.listCronJobs()
+                self.len(1, cron00)
+                self.eq(cron00, cron01)
+
+                await core00.delCronJob(cron00[0]['iden'])
+
+                # Add a job that is past due that will be deleted on startup
+                xmas = {'dayofmonth': 25, 'month': 12, 'year': 2099}
+                cdef = {'creator': core00.auth.rootuser.iden,
+                        'storm': '#happyholidays',
+                        'reqs': (xmas,)}
+                guid = s_common.guid()
+                cdef['iden'] = guid
+
+                await core00.addCronJob(cdef)
+                await core01.sync()
+
+                # Move the year back to the past
+                apptdef = core01.agenda.apptdefs.get(guid)
+                apptdef['recs'][0][0]['year'] = 1999
+
+                core00.agenda.apptdefs.set(guid, apptdef)
+                core01.agenda.apptdefs.set(guid, apptdef)
+
+                with self.getAsyncLoggerStream('synapse.lib.agenda', 'This appointment will be removed') as stream:
+                    await core01.fini()
+                    core01 = await aha.enter_context(self.getTestCore(dirn=dirn01))
+                    self.true(await stream.wait(timeout=12))
+
+                # Mirror warns about the invalid appointment but does not remove it
+                self.nn(core01.agenda.apptdefs.get(guid))
+                self.nn(await core01.getAuthGate(guid))
+
+                with self.getAsyncLoggerStream('synapse.lib.agenda', 'Removing invalid appointment') as stream:
+                    await core00.fini()
+                    core00 = await aha.enter_context(self.getTestCore(dirn=dirn00))
+                    self.true(await stream.wait(timeout=12))
+
+                await core01.sync()
+
+                # Leader removes the appointment via delCronJob which cleans up properly
+                self.none(core00.agenda.apptdefs.get(guid))
+                self.none(core01.agenda.apptdefs.get(guid))
+
+                self.none(await core00.getAuthGate(guid))
+                self.none(await core01.getAuthGate(guid))
+
+                # Add a job with iden mismatch for coverage
+                cdef = {'creator': core00.auth.rootuser.iden,
+                        'storm': '#happyholidays',
+                        'reqs': (xmas,)}
+                guid = s_common.guid()
+                cdef['iden'] = guid
+
+                await core00.addCronJob(cdef)
+                await core01.sync()
+
+                apptdef = core01.agenda.apptdefs.get(guid)
+                apptdef['iden'] = s_common.guid()
+
+                core00.agenda.apptdefs.set(guid, apptdef)
+                core01.agenda.apptdefs.set(guid, apptdef)
+
+                with self.getAsyncLoggerStream('synapse.lib.agenda', 'Removing invalid appointment') as stream:
+                    await core00.fini()
+                    core00 = await aha.enter_context(self.getTestCore(dirn=dirn00))
+
+                    await core01.fini()
+                    core01 = await aha.enter_context(self.getTestCore(dirn=dirn01))
+                    self.true(await stream.wait(timeout=12))
+
+                await core01.sync()
+
+                self.none(core00.agenda.apptdefs.get(guid))
+                self.none(core01.agenda.apptdefs.get(guid))
+
+                with self.getAsyncLoggerStream('synapse.storm.log', 'I AM A ERROR') as stream:
+                    q = "cron.at --now ${ while((true)) { $lib.log.error('I AM A ERROR') $lib.time.sleep(6) }  }"
+                    await core00.nodes(q)
+                    self.true(await stream.wait(timeout=12))
+                await core01.sync()
+
+                await core01.promote(graceful=True)
+                await core00.sync()
+
+                cron00 = await core00.listCronJobs()
+                cron01 = await core01.listCronJobs()
+
+                self.len(1, cron00)
+                self.false(cron00[0].get('isrunning'))
+                self.eq(cron00[0].get('lasterrs')[0], 'aborted')
+                self.eq(cron00, cron01)
+
+                self.len(0, core00.agenda.apptheap)
+                self.len(0, core01.agenda.apptheap)

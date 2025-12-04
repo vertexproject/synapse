@@ -328,6 +328,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :org = *
                     :orgname = WootCorp
                     :orgfqdn = wootwoot.com
+                    :desc = "Wooting."
                     :contact = *
                     :jobtype = it.dev
                     :employment = fulltime.salary
@@ -339,6 +340,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :currency = usd
             ]''')
             self.len(1, nodes)
+            self.eq(nodes[0].get('desc'), 'Wooting.')
             self.eq(nodes[0].get('orgname'), 'wootcorp')
             self.eq(nodes[0].get('orgfqdn'), 'wootwoot.com')
             self.eq(nodes[0].get('jobtype'), 'it.dev.')

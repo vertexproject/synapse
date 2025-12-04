@@ -37,6 +37,12 @@ class EntityModule(s_module.CoreModule):
 
                     ('target', ('entity:actor', {}), {
                         'doc': 'The target entity in the relationship.'}),
+
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the relationship.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the relationship.'}),
                 )),
             ),
         }),)

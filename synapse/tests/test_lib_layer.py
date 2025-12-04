@@ -13,7 +13,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 
-import synapse.tools.backup as s_tools_backup
+import synapse.tools.service.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 
@@ -1118,62 +1118,6 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, flatedits)
 
             self.len(2, await core0.nodes('.created'))
-
-    async def test_layer_syncindexevents(self):
-
-        async with self.getTestCore() as core:
-            layr = core.getLayer()
-            await core.addTagProp('score', ('int', {}), {})
-            baseoff = await core.getNexsIndx()
-
-            nodes = await core.nodes('[ test:str=foo ]')
-            strnode = nodes[0]
-            q = '[ inet:ipv4=1.2.3.4 :asn=42 .seen=(2012,2014) +#mytag:score=99 +#foo.bar=(2012, 2014) ]'
-            nodes = await core.nodes(q)
-            ipv4node = nodes[0]
-
-            await core.nodes('inet:ipv4=1.2.3.4 test:str=foo | delnode')
-
-            mdef = {'forms': ['test:str']}
-            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
-            self.eq(events, [
-                (strnode.buid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8), ()),
-                (strnode.buid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8), ()),
-            ])
-
-            mdef = {'props': ['.seen']}
-            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
-            ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
-            self.eq(events, [
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('.seen', ival, None, s_layer.STOR_TYPE_IVAL), ()),
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('.seen', ival, s_layer.STOR_TYPE_IVAL), ()),
-            ])
-
-            mdef = {'props': ['inet:ipv4:asn']}
-            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
-            self.len(2, events)
-            self.eq(events, [
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64), ()),
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64), ()),
-            ])
-
-            mdef = {'tags': ['foo.bar']}
-            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
-            self.eq(events, [
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_SET, ('foo.bar', ival, None), ()),
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_DEL, ('foo.bar', ival), ()),
-            ])
-
-            mdefs = ({'tagprops': ['score']}, {'tagprops': ['mytag:score']})
-            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
-            for mdef in mdefs:
-                events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
-                self.eq(events, [
-                    (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_SET,
-                        ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64), ()),
-                    (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_DEL,
-                        ('mytag', 'score', 99, s_layer.STOR_TYPE_I64), ()),
-                ])
 
     async def test_layer_form_by_buid(self):
 

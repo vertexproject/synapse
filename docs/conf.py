@@ -29,6 +29,7 @@ WARNINGS_IGNORE = [
     r'The form edge:refs is deprecated or using a deprecated type',
     r'The form edge:has is deprecated or using a deprecated type',
     r'The property media:news:author is deprecated or using a deprecated type', # storm_ref_automation Cron Example
+    r'The type [a-z:]+ field [a-z:]+ uses a deprecated type [a-z:]+.',
 ]
 
 # List of warning patterns to convert to errors
@@ -237,7 +238,7 @@ def run_modeldoc(_):
     abssynf = os.path.abspath(synapse.__file__)
     synbd = os.path.split(abssynf)[0]  # Split off __init__
     synpd = os.path.split(synbd)[0]  # split off the synapse module directory
-    args = ['python', '-m', 'synapse.tools.autodoc', '--doc-model',
+    args = ['python', '-m', 'synapse.tools.utils.autodoc', '--doc-model',
             '--savedir', './docs/synapse/autodocs']
     subprocess.run(args, cwd=synpd)
 
@@ -247,7 +248,7 @@ def run_confdocs(_):
     abssynf = os.path.abspath(synapse.__file__)
     synbd = os.path.split(abssynf)[0]  # Split off __init__
     synpd = os.path.split(synbd)[0]  # split off the synapse module directory
-    baseargs = ['python', '-m', 'synapse.tools.autodoc', '--savedir',
+    baseargs = ['python', '-m', 'synapse.tools.utils.autodoc', '--savedir',
                 './docs/synapse/autodocs', '--doc-conf']
     svcargs = (
         ('synapse.axon.Axon',),
@@ -266,7 +267,7 @@ def run_stormtypes(_):
     abssynf = os.path.abspath(synapse.__file__)
     synbd = os.path.split(abssynf)[0]  # Split off __init__
     synpd = os.path.split(synbd)[0]  # split off the synapse module directory
-    args = ['python', '-m', 'synapse.tools.autodoc', '--doc-stormtypes',
+    args = ['python', '-m', 'synapse.tools.utils.autodoc', '--doc-stormtypes',
             '--savedir', './docs/synapse/autodocs']
     r = subprocess.run(args, cwd=synpd)
     assert r.returncode == 0, f'Failed to convert stormtypes.'
@@ -307,7 +308,7 @@ def convert_rstorm(_):
 
                 tick = s_common.now()
 
-                args = ['python', '-m', 'synapse.tools.rstorm', '--save', ofile, sfile]
+                args = ['python', '-m', 'synapse.tools.utils.rstorm', '--save', ofile, sfile]
                 result = subprocess.run(args, cwd=synpd, env=env, capture_output=True, text=True)
 
                 if result.stdout:
