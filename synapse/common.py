@@ -838,10 +838,10 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True, datefmt=Non
         listener.start()
 
         def logfini():
-            # On shutdown, stop the QueueListener, remove it from the logger,
-            # and add the stream handler so we don't lose messages that are
-            # logged after the stream handler has shutdown. Messages already
-            # sent to the QueueListener should continue to flush.
+            # On shutdown, stop the QueueListener, remove QueueHandler from the
+            # logger, and add the StreamHandler so we don't lose messages that
+            # are logged after the StreamHandler has shutdown. Messages already
+            # sent to the QueueHandler should continue to flush.
             listener.stop()
             logging.root.removeHandler(handler)
             logging.root.addHandler(stream)
