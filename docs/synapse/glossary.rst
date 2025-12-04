@@ -445,6 +445,14 @@ A number of data model elements in Synapse are designed to support entity resolu
   of a name (e.g., "finance", "financial", "financial services", "banking and finance") to a single ``ou:industry``
   via the ``ou:industry:name`` and ``ou:industry:names`` properties.
 
+.. _gloss-exrpession-syntax:
+
+Expression Syntax
+-----------------
+
+In Storm, expression syntax refers to the use of parentheses ( ``( ) `` ) to enclose an expression to be evaluated
+by the Storm syntax parser. The expression may contain numbers, quoted strings, arithmetic or boolean operators,
+JSON values, and other Storm values.
 
 .. _gloss-extended-comp-op:
 
@@ -569,7 +577,7 @@ Form, GUID
 In the Synpase :ref:`gloss-data-model`, a specialized case of a :ref:`gloss-simple-form` whose primary property is a
 :ref:`gloss-guid`. The GUID can be either arbitrary or constructed from a specified set of values. GUID forms have
 additional considerations as to whether or not they are :ref:`gloss-deconflictable` in Synapse. Examples of GUID
-forms include file execution data (e.g., ``inet:file:exec:read``) or articles (``media:news``).
+forms include file execution data (e.g., ``it:file:exec:read``) or articles (``media:news``).
 
 .. _gloss-form-simple:
 
@@ -672,6 +680,8 @@ GUID Form
 ---------
 
 See :ref:`gloss-form-guid`.
+
+.. _gloss-gutor:
 
 H
 =
@@ -1773,7 +1783,7 @@ Workspaces Tool
 
 See :ref:`gloss-tool-workspaces`.
 
-
+.. _insertion: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_type_specific.html#id11
 .. _node:data: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_prims.html#node-data
 
 .. _`Docker containers`: https://www.docker.com/resources/what-container/
