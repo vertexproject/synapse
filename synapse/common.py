@@ -836,7 +836,17 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True, datefmt=Non
 
         listener = logging.handlers.QueueListener(logq, stream)
         listener.start()
-        atexit.register(listener.stop)
+
+        def logfini():
+            # On shutdown, stop the QueueListener, remove it from the logger,
+            # and add the stream handler so we don't lose messages that are
+            # logged after the stream handler has shutdown. Messages already
+            # sent to the QueueListener should continue to flush.
+            listener.stop()
+            logging.root.removeHandler(handler)
+            logging.root.addHandler(stream)
+
+        atexit.register(logfini)
 
         if log_struct:
             formatter = s_structlog.JsonFormatter(datefmt=datefmt)
