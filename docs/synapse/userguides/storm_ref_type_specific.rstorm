@@ -527,65 +527,65 @@ is best for your use case is how (or whether) you can **deconflict** guid nodes.
 Deconfliction
 ~~~~~~~~~~~~~
 
-Synapse uses **deconfliction*** to ensure that nodes are unique within a Cortex. Deconfliction occurs when nodes are
-created. Synapse deconflicts nodes based on their primary property value. When you attempt to create a node such as
-an email address, Synapse checks to see whether an ``inet:email`` node with that value already exists. If so, Synapse
-simply returns the existing node; otherwise, Synapse creates a new node:
+Synapse uses **deconfliction** when nodes are created to ensure that all nodes are unique within a Cortex. Deconfliction
+is based on a node's primary property value. When you attempt to create a node such as an email address, Synapse checks
+to see whether an ``inet:email`` node with the specified value already exists. If so, Synapse simply returns the existing
+node; otherwise, Synapse creates a new node:
 
 .. storm-cli:: [ inet:email = training@vertex.link ]
 
-Guid forms are also deconflicted based on their primary property - the guid value. However, guid forms are unique in
-that the guid value has no obvious relationship to whatever the form represents. For example, the primary property of
+Guid nodes are also deconflicted based on their primary property (i.e., the guid value). However, these forms are unique in
+that the guid value itself has no obvious relationship to whatever the form represents. For example, the primary property of
 an organization node (e.g., ``ou:org = 0efcf9b86fa373fab26112f2b29b94ca``) does not tell you anything about the organization
 itself, such as its name, location, or URL.
 
-Synapse guarantees that two ``ou:org`` nodes will never have the same guid. But since the guid value has no relationship to
-the node's details (its secondary properties), it is possible for users (or processes) to inadvertently create multiple
-guid nodes that represent the same thing:
+Synapse guarantees that no two ``ou:org`` nodes in a Cortex will ever have the same guid. But since the guid value has no
+relationship to the node's details (its secondary properties), it is possible for users (or processes) to inadvertently create
+multiple guid nodes that represent the same thing:
 
 .. storm-pre:: ou:name=vertex -> ou:org | delnode
 
 .. storm-pre:: [ ou:org=* ou:org=* :name='the vertex project' :url=https://vertex.link/ ]
 
-.. storm-cli:: ou:org:name='the vertex project'
+.. storm-cli:: ou:org:name = 'the vertex project'
 
-The nodes above have different guid values - the nodes are unique, and have been deduplicated based on their primary property.
+The nodes above have different guid values - they are unique and have been deconflicted based on their primary property.
 But looking at the secondary properties, it is clear (to a human) that both ``ou:org`` nodes are meant to represent The Vertex
 Project - this is a problem, because we do not want two different nodes for one organization.
 
-To avoid creating two guid nodes that represent the same thing, you may **also** need to check the secondary properties of
+To avoid creating two guid nodes that represent the same thing, you may need to check the secondary properties of
 existing nodes before creating new ones. This process is called **secondary property deconfliction**.
 
 .. NOTE::
   
-  When creating guid nodes, where possible you want to choose a method that performs secondary property deconfliction for you -
-  specifically, `Dictionary Syntax`_ is preferred where possible. `Predictable Guids`_ and `Arbitrary Guids`_ can also be used,
-  but you should consider their pros / cons and appropriate use cases.
+  When creating guid nodes, choose a method that performs secondary property deconfliction for you - `Dictionary Syntax`_
+  is preferred where possible. `Predictable Guids`_ and `Arbitrary Guids`_ can also be used, but you should consider their
+  pros / cons and appropriate use cases.
 
 .. _guid-dictionary:
 
 Dictionary Syntax
 ~~~~~~~~~~~~~~~~~
 
-Dictionary guid constructor syntax ("dictionary syntax" for short) is the preferred method for creating guid nodes where
-possible. This method will:
+Dictionary guid constructor syntax ("dictionary syntax" for short) is the preferred method for creating guid nodes.
+This method will:
 
-- perform secondary property deconfliction;
+- perform secondary property deconfliction using specified values;
 - generate a predictable guid; and
-- automatically set set secondary property values when creating a new node.
+- automatically set some secondary property values when creating a new node.
 
 .. TIP::
   
-  Dictionary guid constructor syntax is referred to as "dictionary syntax" here (it's easier to type or say). You may also
-  encounter the term **guid constructor**, which is sometimes shortened to **gutor**. Although there are multiple ways to construct
-  a guid (as described below), the terms "guid constructor" and "gutor" refer specifically to  dictionary guid constructor syntax.
+  Dictionary guid constructor syntax is referred to as "dictionary syntax" for simplicity. You may also encounter the term
+  **guid constructor** or its shortened form, **gutor**. Although there are multiple ways to construct a guid (as described
+  below), the terms "guid constructor" and "gutor" refer specifically to  dictionary guid constructor syntax.
 
-Dictionary syntax uses a JSON dictionary with a set of key:value pairs to deconflict and create guid nodes. The key:value pairs are
-secondary property names and values to deconflict on.
+Dictionary syntax uses a JSON dictionary with a set of ``key:value`` pairs to deconflict and create guid nodes. The ``key:value``
+pairs are secondary property names and values to deconflict on.
 
 Synapse will perform secondary property deconfliction using the property names and values in the dictionary, and will return the node
-if found. Otherwise, Synapse creates a new node (using the dictionary as input to generate a predictable guid) and sets the property
-values specified in the dictionary.
+if found. Otherwise, Synapse creates a new node (using the dictionary to generate a predictable guid) and sets the property values
+specified in the dictionary.
 
 .. NOTE::
   
@@ -601,11 +601,14 @@ You want to create an organization node for The Vertex Project, deconflicting on
 .. storm-cli:: [ ou:org = ( { "name": "the vertex project", "url": "https://vertex.link" } ) ]
 
 In the query above:
-- the curly braces ( ``{ }`` ) enclose the key:value pairs in the JSON dictionary;
+
+- the curly braces ( ``{ }`` ) enclose the ``key:value`` pairs in the JSON dictionary;
+
 - the parentheses ( ``( )`` ) enclose the information used to deconflict the node and / or create the guid (i.e., the dictionary); and
+
 - the square brackets ( ``[ ]`` ) are the Storm edit brackets.
 
-Note that dictionary syntax is "model aware" - because the key:value pairs are property names and values, Synapse can use this
+Note that dictionary syntax is "model aware" - because the ``key:value`` pairs are property names and values, Synapse can use this
 information to set the listed properties, including normalizing the values if necessary.
 
 .. TIP::
@@ -616,69 +619,72 @@ information to set the listed properties, including normalizing the values if ne
 
 **Notes:**
 
-- Dictionary syntax will automatically deconflict on "primary" and "alternate" secondary properties, where appropriate. For example,
+- Dictionary syntax will automatically deconflict on "primary" and "alternate" secondary properties, where appropriate. For example
   in the query above, Synapse will check both the ``:name`` and ``:names`` properties of existing ``ou:org`` nodes for the
-  value ``'the vertex project'``.
+  value ``'the vertex project'``, even though only ``"name"`` is included in the dictionary.
 
 - When choosing a secondary properties to deconflict on (particularly for automated or bulk ingest), you should:
   
   - Select properties that are unique enough to allow deconfliction. For example, an organization's name is reasonably unique;
-    its location (``:loc``) is not.
+    its location (``:loc``) is probably not.
   - Select properties that will always be present in your source data. If a property is not present, you can't use it to deconflict
     or create a node.
   - If you ingest data about the same objects (for example, organizations or TLS certificates) from multiple data sources and need
     to deconflict across all of them, select properties that will be present in all of the sources. 
 
 - Deconfliction is performed using the full set of properties provided in the JSON dictionary; Synapse will look for
-  an existing node that has **all** of the listed values. When choosing key:value pairs for the dictionary, we recommend using
-  the minimum number of entries needed to uniquely identify / deconflict a node. (If you use too many values, you may fail to
-  identify an existing node if it has only some of those values set.)
-  
-- You can use the values of ``array`` type properties for deconfliction, but the value to deconflict on must match **all**
-  values present in the array. In other words, if your dictionary includes one array value in the key:value pair but the
-  existing node has three values for that property, deconfliction will fail.
-  
-  Let's say you want to deconflict an ``ou:org`` node using the organization's FQDN (from the ``:dns:mx`` array property).
-  Consider the following existing node:
-  
-.. storm-cli:: ou:org:name='the vertex project' [ :dns:mx=( vertex.link, vtx.lk ) ]
-    
-  The following dictionary syntax identifies and lifts the node:
-  
-.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "dns:mx": [ "vtx.lk", "vertex.link" ] } ) ]
-  
-  (Note that the **order** of the array elements in the dictionary does not matter, but **all** elements must be present.)
-  
-  The following dictionary syntax only contains one of the ``:dns:mx`` values, so fails to deconflict and creates a new node:
-  
-.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "dns:mx": [ "vertex.link" ] } )  ] ou:org:name='the vertex project' | uniq
+  an existing node that has **all** of the listed values. When choosing ``key:value`` pairs for the dictionary, we recommend using
+  the minimum number of entries needed to uniquely identify / deconflict a node. If you use too many values, you may fail to
+  identify an existing node if it has only some of those values set.
 
-- You can use literals or variables within the JSON dictionary. For example:
-  
+- You can use literals or variables within the JSON dictionary:
+
 .. storm-pre:: ou:org:name='the vertex project' | delnode
-  
 .. storm-cli:: [ ou:org = ( { "name": "the vertex project", "url": "https://vertex.link/" } ) ]
-  
+
 .. storm-cli:: $name='the vertex project' $url=https://vertex.link/ [ ou:org = ( { "name": $name, "url": $url } ) ]
 
 - When creating a new node using dictionary syntax, Synapse uses an algorithm (the guid generator or "guid grinder")
-  to generate a predictable guid using the dictionary content as input. (The same algorithm is implemented in the ``$lib.guid()``
-  library (see :ref:`stormlibs-lib-guid`.)
+  to generate a predictable guid using the dictionary content as input. The dictionary is converted to a sorted (alphabetical) list
+  of ``(<key>, <normalized value>)`` tuples that are fed to the algorithm (the same algorithm is implemented by
+  the ``$lib.guid()`` library (see :ref:`stormlibs-lib-guid`).
   
-  The dictionary is converted to a sorted (alphabetical) list of ``(<key>, <normalized value>)`` tuples that are fed to the
-  algorithm. Given the following query:
+  Given the following query in dictionary syntax:
   
-.. storm-cli:: [ ou:org = ( { "name": "The Vertex Project", "url": "https://vertex.link/" } ) ]
+  ::
+    
+    [ ou:org = ( { "name": "The Vertex Project", "url": "https://vertex.link/" } ) ]
   
-  ...the dictionary is "converted" to the following for purposes of creating a predictable guid:
+  ...the dictionary is converted to the following list of tuples for purposes of creating a predictable guid:
   
-.. storm-cli:: [ ou:org = ( (name, 'the vertex project'), (url, https://vertex.link/) ) ]
+  ::
+    
+    [ ou:org = ( (name, 'the vertex project'), (url, https://vertex.link/) ) ]
   
-  The tuples within the outermost parentheses are fed to the algorithm to create the guid. Note that second query
-  generated the same guid as the dictionary syntax in our first query. 
+  The tuples within the outermost parentheses are fed to the algorithm to create the guid. The dictionary values are
+  **normalized** based on their type ("The Vertex Project" is normalized to lowercase in the tuple) and the tuples are
+  sorted alphabetically by key. The algorithm simply interprets the tuples as a set of ordered strings for purposes of
+  generating the guid value.
+
+- You can use the values of ``array`` type properties for deconfliction, but the dictionary value to deconflict on must include
+  **all** values present in the array. In other words, if your dictionary includes one array value in the ``key:value`` pair but
+  the existing node has three values for that property, deconfliction will fail.
   
-  Note that the dictionary values are **normalized** based on their type. In the above example the value "The Vertex Project" is
-  normalized to lowercase when used to generate the guid. 
+Let's say you want to deconflict an ``ou:org`` node using the organization's FQDN (from the ``:dns:mx`` array property).
+Consider the following existing node:
+
+.. storm-pre:: ou:org:name='the vertex project' [ :dns:mx=(vertex.link, vtx.lk) ]
+.. storm-cli:: ou:org:name = 'the vertex project'
+
+The following dictionary syntax identifies and lifts the existing node (the **order** of the array elements in the
+JSON dictionary does not matter with respect to the node's properties, but **all** elements must be present.):
+
+.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "dns:mx": [ "vtx.lk", "vertex.link" ] } ) ]
+
+In contrast, the following dictionary syntax only contains one of the ``:dns:mx`` values, so fails to deconflict and creates
+a new node with a different guid:
+
+.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "dns:mx": [ "vertex.link" ] } )  ] ou:org:name='the vertex project' | uniq
 
 
 .. _guid-predictable:
@@ -695,16 +701,11 @@ To create a predictable guid, provide a list of ordered inputs (enclosed in pare
 
 .. storm-cli:: [ ou:org = ('the vertex project', 'https://vertex.link/') ]
 
-Note that this is a "blank" node with no secondary properties set. You can set the properties once the node has been
-created, or set them as part of your original query:
+Note that this is a "blank" node with no secondary properties set. Unlike dictionary syntax where the JSON dictionary
+lists properties and values and ``key:value`` pairs, the syntax for predictable guids simply provides a list of strings
+to the algorithm. You can set the properties once the node has been created, or set them as part of your original query:
 
 .. storm-cli:: [ ou:org = ('the vertex project', 'https://vertex.link/') :name='the vertex project' :url=https://vertex.link/ ]
-
-.. NOTE::
-  
-  Secondary property values are commonly used as inputs, but this method does **not** perform any secondary property deconfliction.
-  The query above creates a predictable guid, but does not check whether an ``ou:org`` node with ``:name='the vertex project'
-  or ``:url=https://vertex.link/`` already exists.
 
 Secondary property deconfliction (provided by dictionary syntax) is almost always desirable to avoid duplicate nodes. However,
 predictable guids may be useful when:
@@ -716,8 +717,8 @@ predictable guids may be useful when:
 - you have a unique data source. In this case, you can use predictable guids to ensure that individual nodes are created
   in a repeatable way (in case you need to reingest the same data) without worrying about deconfliction (because there is
   no alternate source for the same data to deconflict with). Examples of this type of unique data include internal log or
-  alert data or reporter-specific data (e.g., nodes with ``:reporter`` or ``:reporter:name`` properties) where the
-  reporter is - by definition- the unique source for that information).
+  alert data or reporter-specific data (e.g., nodes with ``:reporter`` or ``:reporter:name`` properties) where by definition
+  the reporter is the unique source for that information).
 
 **Notes:**
 
@@ -730,7 +731,7 @@ predictable guids may be useful when:
 - When using this method to deconflict data from a unique (single) data source, we recommend that you include the source
   (e.g., the name of the data source) as one of the inputs.
 
-- You can specify input values as literals or variables. The guid is generated using the same algorithm implemented by
+- You can specify input values as literals or variables. The guid is generated using the algorithm implemented by
   the ``$lib.guid()`` library (see :ref:`stormlibs-lib-guid`). All of the following are valid:
   
 .. storm-pre:: ou:org:name='the vertex project' | delnode
@@ -784,17 +785,17 @@ Using arbitrary guids may be acceptable when:
 In particular users (who are most likely to make use of this method due to its simplicity) should understand
 the risks and trade-offs with respect to deconfliction. Alternatively, users may be able to:
 
-- make use of Storm generator ("gen") commands, where available. (See the :ref:`storm-gen` section in the
+- Make use of Storm generator ("gen") commands, where available. (See the :ref:`storm-gen` section in the
   :ref:`storm-ref-cmd` for available generator commands (or run ``help`` from your Synapse CLI).)
 
-- create other types of automation (macros, node actions, etc.) as appropriate to help users create nodes
-  without needing to know the Storm syntax for dictionary syntax or predictable guids.
+- Create other types of automation (macros, node actions, etc.) as appropriate to assist with node creation
+  without needing to know the correct Storm for dictionary syntax or predictable guid syntax.
   
-- if these options are not available, train users to manually check for duplicate nodes before creating a
-  new, arbitrary guid form. (This is not foolproof as users will not be able to discover duplicate nodes that
-  may exist in forks or other views that are not visible to the user.)
+- If these options are not available, train users to manually check for duplicate nodes before creating a
+  new, arbitrary guid form. (This is "best effort" - even if users remember to check, they will not be able
+  to discover duplicate nodes that may exist in forks or other views that are not visible to the user.)
 
-- decide to live with any risk. The number of user-created nodes is likely to be small compared to the volume
+- Decide to live with the risk. The number of user-created nodes is likely to be small compared to the volume
   of data ingested through Power-Ups or other automation. Nodes initially created with arbitrary guids may
   later be "recognized" (and deconflicted appropriately) by automation that uses other guid node creation
   strategies.
