@@ -534,14 +534,11 @@ node; otherwise, Synapse creates a new node:
 
 .. storm-cli:: [ inet:email = training@vertex.link ]
 
-Guid nodes are also deconflicted based on their primary property (i.e., the guid value). However, these forms are unique in
+Guid nodes are also deconflicted based on their primary property (i.e., the guid value). However, these forms are notable in
 that the guid value itself has no obvious relationship to whatever the form represents. For example, the primary property of
 an organization node (e.g., ``ou:org = 0efcf9b86fa373fab26112f2b29b94ca``) does not tell you anything about the organization
-itself, such as its name, location, or URL.
-
-Synapse guarantees that no two ``ou:org`` nodes in a Cortex will ever have the same guid. But since the guid value has no
-relationship to the node's details (its secondary properties), it is possible for users (or processes) to inadvertently create
-multiple guid nodes that represent the same thing:
+itself, such as its name, location, or URL. This means that even though Synapse deconflicts guid values, it is still
+possible for users or processes to inadvertently create multiple guid nodes that represent the same thing:
 
 .. storm-pre:: ou:name=vertex -> ou:org | delnode
 
@@ -602,11 +599,10 @@ You want to create an organization node for The Vertex Project, deconflicting on
 
 In the query above:
 
-- the curly braces ( ``{ }`` ) enclose the ``key:value`` pairs in the JSON dictionary;
-
-- the parentheses ( ``( )`` ) enclose the information used to deconflict the node and / or create the guid (i.e., the dictionary); and
-
 - the square brackets ( ``[ ]`` ) are the Storm edit brackets.
+- the parentheses ( ``( )`` ) denote Storm :ref:`gloss-expression-syntax` - that the contents are an expression that should be evaluated in
+  some way. In this case, it causes the content to be parsed as a JSON dictionary.
+- the curly braces ( ``{ }`` ) and their contents are the JSON dictionary.
 
 Note that dictionary syntax is "model aware" - because the ``key:value`` pairs are property names and values, Synapse can use this
 information to set the listed properties, including normalizing the values if necessary.
@@ -676,8 +672,7 @@ Consider the following existing node:
 .. storm-pre:: ou:org:name='the vertex project' [ :dns:mx=(vertex.link, vtx.lk) ]
 .. storm-cli:: ou:org:name = 'the vertex project'
 
-The following dictionary syntax identifies and lifts the existing node (the **order** of the array elements in the
-JSON dictionary does not matter with respect to the node's properties, but **all** elements must be present.):
+The following dictionary syntax identifies and lifts the existing node:
 
 .. storm-cli:: [ ou:org = ( { "name": "the vertex project", "dns:mx": [ "vtx.lk", "vertex.link" ] } ) ]
 
@@ -744,7 +739,7 @@ predictable guids may be useful when:
   
 .. storm-cli:: $name='the vertex project' $url=https://vertex.link/ $guid = $lib.guid($name, $url) [ ou:org = $guid ]
   
-.. storm-cli:: $name='the vertex project' $url=https://vertex.link/ [ ou:org = ( $lib.guid($name, $url) ) ]
+.. storm-cli:: $name='the vertex project' $url=https://vertex.link/ [ ou:org = $lib.guid($name, $url) ]
   
 - The input to the algorithm is interpreted as a structured list of **string values** (i.e., ``(str_0, str_1, str_2...str_n)``).
   To consistently generate the same guid, each string must be **identical** (note that strings are case sensitive) and in the
@@ -756,7 +751,7 @@ Arbitrary Guids
 ~~~~~~~~~~~~~~~
 
 You can specify the asterisk ( ``*`` ) as the primary property value when creating a guid node. This tells
-Synapse to generate a unique, **arbitrary** guid for the node. For example:
+Synapse to generate an **arbitrary** guid for the node. For example:
 
 .. storm-cli:: [ ou:org = * ]
 
@@ -767,9 +762,8 @@ been created, or set them as part of your original query:
 
 .. WARNING::
   
-  The guid values are truly arbitrary; they are only guaranteed to be unique values. No other deconfliction is
-  performed. If you run the query above a second time, Synapse will create a second ``ou:org`` node with the same
-  ``:name`` but a **new** arbitrary guid.
+  The guid values are truly arbitrary and no other deconfliction is performed. If you run the query above a second time,
+  Synapse will create a second ``ou:org`` node with the same ``:name`` but a **new** arbitrary guid.
 
 Arbitrary guids are the simplest to create (so are often favored for one-off, manual node creation). However,
 they are the most risky from a deconfliction standpoint. No secondary property deconfliction is used, and
