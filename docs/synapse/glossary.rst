@@ -445,12 +445,12 @@ A number of data model elements in Synapse are designed to support entity resolu
   of a name (e.g., "finance", "financial", "financial services", "banking and finance") to a single ``ou:industry``
   via the ``ou:industry:name`` and ``ou:industry:names`` properties.
 
-.. _gloss-exrpession-syntax:
+.. _gloss-expression-syntax:
 
 Expression Syntax
 -----------------
 
-In Storm, expression syntax refers to the use of parentheses ( ``( ) `` ) to enclose an expression to be evaluated
+In Storm, expression syntax refers to the use of parentheses ( ``( )`` ) to enclose an expression to be evaluated
 by the Storm syntax parser. The expression may contain numbers, quoted strings, arithmetic or boolean operators,
 JSON values, and other Storm values.
 
