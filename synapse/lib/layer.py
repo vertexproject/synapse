@@ -2777,10 +2777,9 @@ class Layer(s_nexus.Pusher):
 
         if self.fresh:
             self.editindx.set('edit:indx', -1)
-            self.editindx.set('edit:time', -1)
 
         self.lastindx = self.editindx.get('edit:indx')
-        self.lastedittime = self.editindx.get('edit:time')
+        self.lastedittime = self.editindx.get('edit:time', defv=None)
 
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)

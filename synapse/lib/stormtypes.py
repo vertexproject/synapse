@@ -7441,9 +7441,7 @@ class Layer(Prim):
     @stormfunc(readonly=True)
     async def _methLayerEdited(self):
         layr = self.runt.view.core.reqLayer(self.valu.get('iden'))
-
-        if (etime := layr.lastedittime) != -1:
-            return etime
+        return layr.lastedittime
 
     @stormfunc(readonly=True)
     async def getStorNode(self, nid):
