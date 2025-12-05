@@ -68,6 +68,7 @@ class Type:
             'updated': 'updated'
         }
         self.virtstor = {}
+        self.virtlifts = {}
 
         self.pivs = {}
 
@@ -150,10 +151,13 @@ class Type:
 
     async def getStorCmprs(self, cmpr, valu, virts=None):
 
-        if virts:
-            return await self.getVirtType(virts).getStorCmprs(cmpr, valu)
+        lifts = self.storlifts
 
-        func = self.storlifts.get(cmpr)
+        if virts:
+            if (lifts := self.virtlifts.get(virts[0])) is None:
+                return await self.getVirtType(virts).getStorCmprs(cmpr, valu)
+
+        func = lifts.get(cmpr)
         if func is None:
             mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
             raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
@@ -579,27 +583,12 @@ class Array(Type):
             'size': (self.inttype, self._getSize),
         }
 
-        self.virtlifts = {
+        self.virtlifts |= {
             'size': {'range=': self._storLiftSizeRange}
         }
 
         for oper in ('=', '<', '>', '<=', '>='):
             self.virtlifts['size'][oper] = self._storLiftSize
-
-    async def getStorCmprs(self, cmpr, valu, virts=None):
-        if virts:
-            lifts = self.virtlifts
-            for virt in virts:
-                if (lifts := lifts.get(virt)) is None:
-                    raise s_exc.NoSuchVirt.init(virt, self)
-        else:
-            lifts = self.storlifts
-
-        if (func := lifts.get(cmpr)) is None:
-            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
-            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
-
-        return await func(cmpr, valu)
 
     def _getSize(self, valu):
         return len(valu[0])
