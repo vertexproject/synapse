@@ -830,7 +830,7 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True, datefmt=Non
         log_level = normLogLevel(log_level)
 
         # See https://docs.python.org/3/howto/logging-cookbook.html#blocking-handlers for info on this configuration
-        logq = queue.SimpleQueue()
+        logq = queue.Queue()
         handler = logging.handlers.QueueHandler(logq)
         stream = logging.StreamHandler()
 
