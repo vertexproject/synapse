@@ -1,0 +1,8 @@
+---
+desc: Removed log message indicating that the attempt to brute force the ``it:prod:softver:vers``
+  as a semver string failed. This log message was misleading, since this functionality
+  changed in ``v2.128.0``.
+desc:literal: false
+prs: []
+type: note
+...
