@@ -1678,18 +1678,18 @@ class GrammarTest(s_t_utils.SynTest):
 
         query = '''
 
-        { inet:cidr4#rep.some.body
+        { inet:net#rep.some.body
         $lib.print('weee')
-        tee { -> :network } }
+        tee { -> :min } }
         '''
         parser = s_parser.Parser(query)
         with self.raises(s_exc.BadSyntax) as cm:
             parser.query()
         errinfo = cm.exception.errinfo
-        self.eq(errinfo.get('at'), 81)
+        self.eq(errinfo.get('at'), 79)
         self.eq(errinfo.get('line'), 5)
         self.eq(errinfo.get('column'), 18)
-        self.eq(errinfo.get('token'), ':network')
+        self.eq(errinfo.get('token'), ':min')
         self.true(errinfo.get('mesg').startswith("Unexpected token 'relative property name' at line 5, column 18"))
 
         query = 'inet:ip | tee { -> foo '
