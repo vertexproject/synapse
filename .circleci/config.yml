@@ -581,7 +581,7 @@ jobs:
 
   doctests:
     docker:
-      - image: cimg/python:3.14
+      - image: cimg/python:3.14.0
         environment:
           PYVERS: 3.14
 
@@ -592,7 +592,7 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.14
+      - image: cimg/python:3.14.0
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py314
@@ -651,7 +651,7 @@ jobs:
 
   devpi_synapse_3xx:
     docker:
-      - image: cimg/python:3.14
+      - image: cimg/python:3.14.0
     steps:
       - checkout
       - run:
