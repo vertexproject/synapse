@@ -155,7 +155,7 @@ What's Next?
 .. _Changelog: https://synapse.docs.vertex.link/en/latest/synapse/changelog.html
 .. _Slack: https://v.vtx.lk/join-slack
 
-.. _`sizing guide`: https://docsend.com/view/kmbkkq9pjhtjsbmk
+.. _`sizing guide`: https://vertex.link/files/docs/synapse/Synapse-Sizing-Guidance.pdf
 
 .. _`Synapse UI`: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
 
