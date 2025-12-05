@@ -5,6 +5,7 @@ import synapse.common as s_common
 
 import synapse.lib.json as s_json
 import synapse.lib.node as s_node
+import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -401,6 +402,20 @@ class NodeTest(s_t_utils.SynTest):
             # Add sad path for setting invalid node data
             with self.raises(s_exc.MustBeJsonSafe):
                 await node.setData('newp', {1, 2, 3})
+
+            # The emoji here is 4-bytes so we only need 128 of them to bust the 510 byte limit
+            for bigkey in ('A' * 512, '😁' * 128):
+                self.none(await node.getData(bigkey))
+
+                with self.raises(s_exc.BadArg) as exc:
+                    await node.setData(bigkey, 'foo')
+                self.eq(exc.exception.get('mesg'), f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN} bytes.')
+                self.eq(exc.exception.get('name'), bigkey)
+
+                with self.raises(s_exc.BadArg) as exc:
+                    await node.popData(bigkey)
+                self.eq(exc.exception.get('mesg'), f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN} bytes.')
+                self.eq(exc.exception.get('name'), bigkey)
 
     async def test_node_tagprops(self):
         async with self.getTestCore() as core:
