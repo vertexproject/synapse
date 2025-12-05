@@ -1,0 +1,8 @@
+---
+desc: Fixed an issue with the ``Certdir.save*bytes()`` APIs. Previously they would
+  only save the first PEM encoded certificate in a byte string. Now all PEM encoded
+  certificates are parsed and stored.
+desc:literal: false
+prs: []
+type: bug
+...
