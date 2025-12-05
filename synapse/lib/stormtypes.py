@@ -7442,9 +7442,8 @@ class Layer(Prim):
     async def _methLayerEdited(self):
         layr = self.runt.view.core.reqLayer(self.valu.get('iden'))
 
-        if (indx := layr.getEditIndx()) != -1:
-            item = await self.runt.view.core.nexsroot.nexslog.get(indx)
-            return item[2][-1].get('time')
+        if (etime := layr.lastedittime) != -1:
+            return etime
 
     @stormfunc(readonly=True)
     async def getStorNode(self, nid):
