@@ -2697,8 +2697,22 @@ class FormPivot(PivotOper):
                         norm = prop.arraytypehash is not node.form.typehash
                         ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef[1], norm=norm, virts=virts)
                 else:
-                    norm = prop.typehash is not node.form.typehash
-                    ngenr = runt.view.nodesByPropValu(prop.full, '=', node.ndef[1], norm=norm, virts=virts)
+                    cmpr = '='
+                    valu = node.ndef[1]
+                    ptyp = prop.type
+                    if virts is not None:
+                        ptyp = ptyp.getVirtType(virts)
+
+                    if (pivs := node.form.type.pivs) is not None:
+                        for tname in ptyp.types:
+                            if (tpiv := pivs.get(tname)) is not None:
+                                cmpr, func = tpiv
+                                if func is not None:
+                                    valu = await func(valu)
+                                break
+
+                    norm = ptyp.typehash is not node.form.typehash
+                    ngenr = runt.view.nodesByPropValu(prop.full, cmpr, valu, norm=norm, virts=virts)
 
                 link = {'type': 'prop', 'prop': prop.name, 'reverse': True}
                 async for pivo in ngenr:

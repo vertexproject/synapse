@@ -12,6 +12,32 @@ v3.0.0 - 2025-XX-YY
 Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
 changes.
 
+v2.228.0 - 2025-12-02
+=====================
+
+Model Changes
+-------------
+- Added ``media:news:version`` to track the version of the news item.
+  (`#4581 <https://github.com/vertexproject/synapse/pull/4581>`_)
+- See :ref:`userguide_model_v2_228_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated autodoc functionality to improve command help in Storm package
+  documentation.
+  (`#4579 <https://github.com/vertexproject/synapse/pull/4579>`_)
+- Updated mirror writeback behavior to no longer wait for or receive the return
+  value of Nexus event execution on the leader.
+  (`#4583 <https://github.com/vertexproject/synapse/pull/4583>`_)
+  (`#4588 <https://github.com/vertexproject/synapse/pull/4588>`_)
+  (`#4592 <https://github.com/vertexproject/synapse/pull/4592>`_)
+
+Bugfixes
+--------
+- Fixed bug where Python exceptions were being leaked into the Storm runtime
+  when invalid idens were passed in with the ``idens`` option.
+  (`#4589 <https://github.com/vertexproject/synapse/pull/4589>`_)
+
 v2.227.0 - 2025-11-13
 =====================
 
