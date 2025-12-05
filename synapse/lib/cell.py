@@ -1447,24 +1447,31 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         tdir = s_common.gendir(self.dirn, 'tmp')
 
         names = os.listdir(tdir)
-        if not names:
-            return
+        if names:
+            logger.info(f'Removing {len(names)} temporary files/folders in: {tdir}')
 
-        logger.warning(f'Removing {len(names)} temporary files/folders in: {tdir}')
+            for name in names:
 
-        for name in names:
+                path = os.path.join(tdir, name)
 
-            path = os.path.join(tdir, name)
+                if os.path.isfile(path):
+                    os.unlink(path)
+                    continue
 
-            if os.path.isfile(path):
-                os.unlink(path)
-                continue
+                if os.path.isdir(path):
+                    shutil.rmtree(path, ignore_errors=True)
+                    continue
 
-            if os.path.isdir(path):
-                shutil.rmtree(path, ignore_errors=True)
-                continue
-
-        # FIXME - recursively remove sockets dir here?
+        names = os.listdir(self.sockdirn)
+        if names:
+            logger.info(f'Removing {len(names)} old sockets in: {self.sockdirn}')
+            for name in names:
+                path = os.path.join(self.sockdirn, name)
+                try:
+                    if stat.S_ISSOCK(os.stat(path).st_mode):
+                        os.unlink(path)
+                except OSError: # pragma: no cover
+                    pass
 
     async def _execCellUpdates(self):
         # implement to apply updates to a fully initialized active cell
