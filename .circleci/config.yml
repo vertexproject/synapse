@@ -580,7 +580,7 @@ jobs:
   python314:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.14
+      - image: cimg/python:3.14.0
         environment:
           PYVERS: 3.14
           RUN_SYNTAX: 1
@@ -599,7 +599,7 @@ jobs:
   python314_replay:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.14
+      - image: cimg/python:3.14.0
         environment:
           PYVERS: 3.14
           RUN_SYNTAX: 1
