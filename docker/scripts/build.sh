@@ -8,7 +8,6 @@
 #
 # ./docker/scripts/build.sh
 #
-# The first argument may be provided, including the tag to build.
 # A default tag will be used if one is not provided.
 #
 ##############################################################################
