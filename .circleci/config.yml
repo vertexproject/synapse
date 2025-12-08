@@ -604,7 +604,7 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: cimg/python:3.14
+      - image: cimg/python:3.14.0
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py314
