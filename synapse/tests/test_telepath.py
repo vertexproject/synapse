@@ -1486,15 +1486,13 @@ class TeleTest(s_t_utils.SynTest):
             default_certdir = s_certdir.CertDir(path=path2)
             default_certdir.genCaCert(caname)
             default_certdir.genHostCert(default, signas=caname)
-            default_context = default_certdir.getServerSSLContext(default, caname=caname)
 
-            # defaine our SNI callback
-            # Setup our SNI callback
+            # Setup our SNI callback.
+            # By default we will use the original context; but if the SNI name matches the sni
+            # var, then we will use the sni_context instead.
             def sni_callback(ssl_sock: ssl.SSLObject, sni_name, ssl_ctx):
                 if sni_name == sni:
                     ssl_sock.context = sni_context
-                else:
-                    ssl_sock.context = default_context
                 return None
 
             async with await s_daemon.Daemon.anit(certdir=default_certdir) as dmon:
