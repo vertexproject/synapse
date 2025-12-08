@@ -733,6 +733,7 @@ class Snap(s_base.Base):
         if user is None:
             user = self.user
 
+        sudo = False
         if opts is not None:
             varz = opts.get('vars')
             if varz is not None:
@@ -741,7 +742,12 @@ class Snap(s_base.Base):
                         mesg = f"Storm var names must be strings (got {valu} of type {type(valu)})"
                         raise s_exc.BadArg(mesg=mesg)
 
+            if (sudo := opts.get('sudo')):
+                user.confirm(('storm', 'sudo'))
+
         async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
+            if sudo:
+                runt.asroot = True
             yield runt
 
     async def addStormRuntime(self, query, opts=None, user=None):
