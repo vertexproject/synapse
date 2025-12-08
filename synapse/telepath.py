@@ -790,8 +790,8 @@ class Proxy(s_base.Base):
             ssl = self.link.get('ssl')
             host = self.link.get('host')
             port = self.link.get('port')
-
-            link = await s_link.connect(host, port, ssl=ssl)
+            info = {'certhash': self.link.get('certhash'), 'hostname': self.link.get('hostname'), }
+            link = await s_link.connect(host, port, ssl=ssl, linkinfo=info)
 
         self.alllinks.append(link)
         async def fini():
