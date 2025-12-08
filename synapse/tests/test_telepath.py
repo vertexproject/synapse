@@ -476,6 +476,14 @@ class TeleTest(s_t_utils.SynTest):
 
                 # still not, but we specify a certhash for the exact server certificate
                 async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=port, certhash=certhash) as foo:
+
+                    foo.link.set('certhash', 'deadb33f')
+                    # Ensure that the certhash for the pool link creation matches ( and fails here! )
+                    with self.raises(s_exc.LinkBadCert):
+                        await foo.echo('woot')
+
+                    # With the correct certhash on link.info it works as expected.
+                    foo.link.set('certhash', certhash)
                     self.eq('woot', await foo.echo('woot'))
 
     async def test_telepath_ssl_client_cert(self):
@@ -1423,3 +1431,98 @@ class TeleTest(s_t_utils.SynTest):
                         pass
 
                     self.true(await stream.wait(timeout=6))
+
+    async def test_telepath_hostname_synerr(self):
+        self.thisHostMustNot(platform='darwin')
+
+        foo = Foo()
+
+        with self.getTestDir() as dirn:
+            path = (s_common.gendir(dirn, 'dmoncerts'),)
+            certdir = s_certdir.CertDir(path=path)
+
+            async with await s_daemon.Daemon.anit(certdir=certdir) as dmon:
+                hostname = socket.gethostname()
+                sni = 'some.sni.local'
+                certdir.genCaCert('loopy')
+                certdir.genHostCert(sni, signas='loopy')
+
+                host, port = await dmon.listen(f'ssl://0.0.0.0:0/?hostname={sni}')
+                dmon.share('foo', foo)
+
+                # Figure out were to find the ssl context to set the SNI callback...
+                async with await s_telepath.openurl(f'ssl://{hostname}/foo',
+                                                    port=port, hostname=sni, certdir=certdir) as foo:
+
+                    foo.link.set('hostname', 'deadb33f')
+                    # Ensure that the hostname for the subsequent link creation matches
+                    with self.raises(s_exc.BadCertHost):
+                        await foo.echo('woot')
+
+                    # With the correct hostname on link.info we validate the subsequent link creation.
+                    foo.link.set('hostname', sni)
+                    self.eq('woot', await foo.echo('woot'))
+
+    async def test_telepath_hostname_sni(self):
+        self.thisHostMustNot(platform='darwin')
+
+        foo = Foo()
+
+        hostname = socket.gethostname()
+        caname = 'loopy'
+        default = 'default.sni.local'
+        sni = 'some.sni.local'
+
+        with self.getTestDir() as dirn:
+
+            # This Certdir that works via SNI
+            path = (s_common.gendir(dirn, 'actualcerts'),)
+            certdir = s_certdir.CertDir(path=path)
+            certdir.genCaCert(caname)
+            certdir.genHostCert(sni, signas=caname)
+            sni_context = certdir.getServerSSLContext(sni, caname=caname)
+
+            # Actual disparate CA / cotent served by the server via the SNI callback for mismatches
+            path2 = (s_common.gendir(dirn, 'defaultcerts'),)
+            default_certdir = s_certdir.CertDir(path=path2)
+            default_certdir.genCaCert(caname)
+            default_certdir.genHostCert(default, signas=caname)
+            default_context = default_certdir.getServerSSLContext(default, caname=caname)
+
+            # defaine our SNI callback
+            # Setup our SNI callback
+            def sni_callback(ssl_sock: ssl.SSLObject, sni_name, ssl_ctx):
+                if sni_name == sni:
+                    ssl_sock.context = sni_context
+                else:
+                    ssl_sock.context = default_context
+                return None
+
+            async with await s_daemon.Daemon.anit(certdir=default_certdir) as dmon:
+                host, port = await dmon.listen(f'ssl://0.0.0.0:0/?hostname={default}')
+
+                # Setup the SNI callback on the listening context
+                dmon.listenservers[0]._ssl_context.sni_callback = sni_callback
+
+                dmon.share('foo', foo)
+
+                # Figure out were to find the ssl context to set the SNI callback...
+                async with await s_telepath.openurl(f'ssl://{hostname}/foo',
+                                                    port=port, hostname=sni, certdir=certdir) as foo:
+
+
+                    # Without SNI, the client context gets a mismatch between host vs default.sni.local
+                    # and the client sslctx cannot validate that the default cert
+                    foo.link.set('hostname', None)
+                    with self.raises(ssl.SSLCertVerificationError):
+                        await foo.echo('woot')
+
+                    # With a different SNI value, the client still gets a certificate the does not match
+                    # what it expects to get.
+                    foo.link.set('hostname', 'deadb33f')
+                    with self.raises(ssl.SSLCertVerificationError):
+                        await foo.echo('woot')
+
+                    # With the correct hostname on link.info we validate the subsequent link creation.
+                    foo.link.set('hostname', sni)
+                    self.eq('woot', await foo.echo('woot'))
