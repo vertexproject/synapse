@@ -1450,7 +1450,6 @@ class TeleTest(s_t_utils.SynTest):
                 host, port = await dmon.listen(f'ssl://0.0.0.0:0/?hostname={sni}')
                 dmon.share('foo', foo)
 
-                # Figure out were to find the ssl context to set the SNI callback...
                 async with await s_telepath.openurl(f'ssl://{hostname}/foo',
                                                     port=port, hostname=sni, certdir=certdir) as foo:
 
@@ -1506,7 +1505,6 @@ class TeleTest(s_t_utils.SynTest):
 
                 dmon.share('foo', foo)
 
-                # Figure out were to find the ssl context to set the SNI callback...
                 async with await s_telepath.openurl(f'ssl://{hostname}/foo',
                                                     port=port, hostname=sni, certdir=certdir) as foo:
 
