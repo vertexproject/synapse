@@ -318,7 +318,8 @@ _authRulesSchema = {
                 'type': 'array',
                 'items': {
                     'type': 'string',
-                    'minLength': 1
+                    'minLength': 1,
+                    'pattern': '^[^.]+$'
                 },
                 'minItems': 1
             },
