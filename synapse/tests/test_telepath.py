@@ -1481,7 +1481,7 @@ class TeleTest(s_t_utils.SynTest):
             certdir.genHostCert(sni, signas=caname)
             sni_context = certdir.getServerSSLContext(sni, caname=caname)
 
-            # Actual disparate CA / cotent served by the server via the SNI callback for mismatches
+            # Actual disparate CA / content served by the server when there is not an SNI match
             path2 = (s_common.gendir(dirn, 'defaultcerts'),)
             default_certdir = s_certdir.CertDir(path=path2)
             default_certdir.genCaCert(caname)
