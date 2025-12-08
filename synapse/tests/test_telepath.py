@@ -1506,7 +1506,6 @@ class TeleTest(s_t_utils.SynTest):
                 async with await s_telepath.openurl(f'ssl://{hostname}/foo',
                                                     port=port, hostname=sni, certdir=certdir) as foo:
 
-
                     # Without SNI, the client context gets a mismatch between host vs default.sni.local
                     # and the client sslctx cannot validate that the default cert
                     foo.link.set('hostname', None)
