@@ -626,7 +626,6 @@ workflows:
             branches:
               only:
                 - master
-                - bug_certdir_savebyts_apis
 
       - build_docker_tag:
           requires:
