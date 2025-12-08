@@ -1,0 +1,7 @@
+---
+desc: Added storm.sudo permission which allows users to optionally run Storm queries
+  as a global admin.
+desc:literal: false
+prs: []
+type: feat
+...
