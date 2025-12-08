@@ -704,7 +704,7 @@ sudo
 ----
 
 A boolean option which attempts to invoke the Storm runtime as a global admin. This option requires the user or one of their
-roles to allow the ``storm.sudo`` permisson.
+roles to allow the ``storm.sudo`` permission.
 
 Example:
 
