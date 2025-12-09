@@ -4748,7 +4748,7 @@ Features and Enhancements
   (`#3077 <https://github.com/vertexproject/synapse/pull/3077>`_)
 - Update ``it:semver`` string normalization to attempt parsing
   improperly formatted semver values.
-  (`#3080 <https://github.com/vertexproject/synapse/pull/3080>`_)
+  (`#3081 <https://github.com/vertexproject/synapse/pull/3081>`_)
 - Update Axon to always pass size value when saving bytes.
   (`#3084 <https://github.com/vertexproject/synapse/pull/3084>`_)
 

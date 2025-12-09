@@ -86,9 +86,9 @@ class CortexTest(s_t_utils.SynTest):
 
             conf = {'modules': [('NewpModule', {})]}
             warn = '''"'modules' Cortex config value" is deprecated'''
-            with self.assertWarnsRegex(DeprecationWarning, warn) as cm:
+            with self.getAsyncLoggerStream('synapse.common', warn) as stream:
                 async with self.getTestCore(dirn=dirn, conf=conf) as core:
-                    pass
+                    self.true(await stream.wait(timeout=12))
 
     async def test_cortex_cellguid(self):
         iden = s_common.guid()
