@@ -1,5 +1,5 @@
 ---
-desc: Fixed a bug where nodedata keys longer than 511 bytes would fail to set the
+desc: Fixed a bug where nodedata keys longer than 506 bytes would fail to set the
   data and leak a Python exception into the Storm runtime.
 desc:literal: false
 prs: []

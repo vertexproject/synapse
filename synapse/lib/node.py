@@ -706,9 +706,9 @@ class Node:
             await protonode.setData(name, valu)
 
     async def popData(self, name):
-        if len(name.encode()) > s_lmdbslab.MAX_MDB_KEYLEN:
-            mesg = f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN} bytes.'
-            raise s_exc.BadArg(mesg=mesg, name=name[:1024])
+        if (size := len(name.encode())) > s_lmdbslab.MAX_MDB_KEYLEN - 5:
+            mesg = f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN - 4} bytes, got {size}.'
+            raise s_exc.BadArg(mesg=mesg, name=name[:1024], size=size)
 
         retn = await self.snap.getNodeData(self.buid, name)
 
