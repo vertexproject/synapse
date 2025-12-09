@@ -18,6 +18,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
+import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +215,9 @@ class ProtoNode:
         return False
 
     async def setData(self, name, valu):
+        if (size := len(name.encode())) > s_lmdbslab.MAX_MDB_KEYLEN - 5:
+            mesg = f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN - 4} bytes, got {size}.'
+            raise s_exc.BadArg(mesg=mesg, name=name[:1024], size=size)
 
         if await self.getData(name) == valu:
             return
