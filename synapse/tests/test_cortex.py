@@ -1271,7 +1271,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.len(0, await prox.getStormDmonLog('newp'))
 
-    async def test_storm_impersonate(self):
+    async def test_storm_impersonate_and_sudo(self):
 
         async with self.getTestCore() as core:
 
@@ -1293,6 +1293,17 @@ class CortexTest(s_t_utils.SynTest):
 
                 opts = {'user': core.auth.rootuser.iden}
                 self.eq(1, await proxy.count('[ inet:ipv4=1.2.3.4 ]', opts=opts))
+
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.callStorm('return({[ it:dev:str=woot ]})')
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm('return((null))', opts={'user': visi.iden, 'sudo': True})
+
+                await visi.addRule((True, ('storm', 'sudo')))
+
+                opts = {'sudo': True}
+                self.nn(await proxy.callStorm('return({[ it:dev:str=woot ]})', opts=opts))
 
     async def test_nodes(self):
 
