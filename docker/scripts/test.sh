@@ -20,7 +20,7 @@ set -x # debugging
 
 TAG=${1:-}
 
-[ ! $TAG ] && echo "Tag not provided, defaulting tag to dev_build" && TAG=dev_build
+[ -z ${TAG} ] && TAG=3.x.x-dev && echo "Tag not provided, defaulting tag to ${TAG}"
 
 # Spin up our containers
 echo "Spinning up images"
