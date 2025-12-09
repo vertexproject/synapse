@@ -426,11 +426,11 @@ commands:
       - run:
           name: build images
           command: |
-            docker/build_all.sh << parameters.image-tag >>
+            docker/scripts/build.sh << parameters.image-tag >>
       - run:
           name: smoke test images
           command: |
-            docker/scripts/test_all.sh << parameters.image-tag >>
+            docker/scripts/test.sh << parameters.image-tag >>
 
   push_docker_image:
     description: "Push a docker image up to a registry"
@@ -457,12 +457,12 @@ commands:
             - run:
                 name: retag images
                 command: |
-                  docker/scripts/retag_all.sh << parameters.source-tag >> << parameters.image-tag >>
+                  docker/scripts/retag.sh << parameters.source-tag >> << parameters.image-tag >>
 
       - run:
           name: push images
           command: |
-            docker/scripts/push_all.sh << parameters.image-tag >> << parameters.registry >> imageDigests.txt
+            docker/scripts/push.sh << parameters.image-tag >> << parameters.registry >> imageDigests.txt
 
       - when:
           condition: << parameters.cosign >>
@@ -515,7 +515,7 @@ commands:
           command: |
             if [ -z $DOCKER_FAILOVER ]
             then
-              docker/scripts/copy_all.sh << parameters.image-tag >> << parameters.registry >> << parameters.secondaryregistry >>
+              docker/scripts/copy.sh << parameters.image-tag >> << parameters.registry >> << parameters.secondaryregistry >>
             else
               echo "Skipping secondary registry copy."
             fi
@@ -540,49 +540,13 @@ commands:
 
 jobs:
 
-  python313:
-    resource_class: xlarge
-    docker:
-      - image: cimg/python:3.13
-        environment:
-          PYVERS: 3.13
-          RUN_SYNTAX: 1
-          SYN_VENDOR_TEST: 1
-          CODECOV_FLAG: linux
-          SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_FILE: test-reports/<< pipeline.git.revision >>/.coverage
-          COVERAGE_ARGS: --cov synapse --cov-append
-          COVERAGE_CORE: sysmon
-
-    working_directory: ~/repo
-
-    steps:
-      - test_steps_python
-
-  python313_replay:
-    resource_class: xlarge
-    docker:
-      - image: cimg/python:3.13
-        environment:
-          PYVERS: 3.13
-          RUN_SYNTAX: 1
-          CODECOV_FLAG: linux_replay
-          SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse
-          SYNDEV_NEXUS_REPLAY: 1
-          COVERAGE_CORE: sysmon
-
-    working_directory: ~/repo
-
-    steps:
-      - test_steps_python
-
   python314:
     resource_class: xlarge
     docker:
       - image: cimg/python:3.14.0
         environment:
           PYVERS: 3.14
+          NO_COLOR: 1
           RUN_SYNTAX: 1
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
@@ -602,6 +566,7 @@ jobs:
       - image: cimg/python:3.14.0
         environment:
           PYVERS: 3.14
+          NO_COLOR: 1
           RUN_SYNTAX: 1
           CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
@@ -616,9 +581,9 @@ jobs:
 
   doctests:
     docker:
-      - image: cimg/python:3.13
+      - image: cimg/python:3.14.0
         environment:
-          PYVERS: 3.13
+          PYVERS: 3.14
 
     working_directory: ~/repo
 
@@ -627,10 +592,10 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.13
+      - image: cimg/python:3.14.0
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py313
+          PYTHON_TAG: py314
 
     steps:
       - deploy_pypi_prologue
@@ -639,10 +604,10 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: cimg/python:3.13
+      - image: cimg/python:3.14.0
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py313
+          PYTHON_TAG: py314
 
     steps:
       - deploy_pypi_prologue
@@ -686,7 +651,7 @@ jobs:
 
   devpi_synapse_3xx:
     docker:
-      - image: cimg/python:3.13
+      - image: cimg/python:3.14.0
     steps:
       - checkout
       - run:
@@ -700,7 +665,7 @@ jobs:
       - deploy_to_devpi:
           devpi_base_url: ${DEVPI_BASE_URL}
           devpi_index: vertex/synapse-3xx
-          python_tag: py313
+          python_tag: py314
           tag_verify: false
           python_smoke_code: import synapse; print(synapse.version)
 
@@ -714,22 +679,6 @@ workflows:
               only: /.*/
             branches:
                only: /.*/
-
-      - python313:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only: /.*/
-
-      - python313_replay:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only:
-                - master
-                - synapse-3xx
 
       - python314:
           filters:
@@ -758,8 +707,8 @@ workflows:
       - deploy_pypi:
           requires:
             - doctests
-            - python313
-            - python313_replay
+            - python314
+            - python314_replay
             - python_package_smoketest
           context:
             - PublicPypiAccess
@@ -774,8 +723,6 @@ workflows:
             - Devpi00Access
           requires:
             - doctests
-            - python313
-            - python313_replay
             - python314
             - python314_replay
             - python_package_smoketest
@@ -789,8 +736,8 @@ workflows:
       - gh-release/dorelease:
           requires:
             - doctests
-            - python313
-            - python313_replay
+            - python314
+            - python314_replay
             - python_package_smoketest
           context:
             - GithubMachine
@@ -804,7 +751,7 @@ workflows:
       - build_docker_branch:
           requires:
             - doctests
-            - python313
+            - python314
           context:
             - AWSEcrPusherOSS
             - SynapseDockerCloudUpload
@@ -818,7 +765,7 @@ workflows:
       - build_docker_tag:
           requires:
             - doctests
-            - python313
+            - python314
           context:
             - AWSEcrPusherOSS
             - SynapseDockerCloudUpload
@@ -840,7 +787,7 @@ workflows:
                 - master
     jobs:
       - doctests
-      - python313
+      - python314
 
   weekly:
     triggers:
@@ -851,4 +798,4 @@ workflows:
               only:
                 - master
     jobs:
-      - python313_replay
+      - python314_replay
