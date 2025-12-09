@@ -1,6 +1,6 @@
 # vim:set ft=dockerfile:
 ARG TAG
-FROM vertexproject/synapse:$TAG
+FROM vertexproject/synapse:${TAG:-3.x.x-dev}
 
 COPY docker/images/jsonstor/entrypoint.sh /vertex/synapse/entrypoint.sh
 
