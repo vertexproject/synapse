@@ -20,7 +20,7 @@ set -x # debugging
 
 TAG=${1:-}
 
-[ ! $TAG ] && echo "Tag not provided, defaulting tag to dev_build" && TAG=dev_build
+[ -z ${TAG} ] && TAG=3.x.x-dev && echo "Tag not provided, defaulting tag to ${TAG}"
 
 # Spin up our containers
 echo "Spinning up images"
@@ -50,7 +50,7 @@ docker logs test-jsonstor
 dstatus01=`docker inspect test-aha --format '{{.State.Health.Status}}'`
 dstatus02=`docker inspect test-axon --format '{{.State.Health.Status}}'`
 dstatus03=`docker inspect test-cortex --format '{{.State.Health.Status}}'`
-dstatus06=`docker inspect test-jsonstor --format '{{.State.Health.Status}}'`
+dstatus04=`docker inspect test-jsonstor --format '{{.State.Health.Status}}'`
 
 docker stop test-aha
 docker stop test-axon
@@ -60,7 +60,6 @@ docker stop test-jsonstor
 if [ $dstatus01 != "healthy" ]; then exit 1; fi
 if [ $dstatus02 != "healthy" ]; then exit 1; fi
 if [ $dstatus03 != "healthy" ]; then exit 1; fi
-if [ $dstatus05 != "healthy" ]; then exit 1; fi
-if [ $dstatus06 != "healthy" ]; then exit 1; fi
+if [ $dstatus04 != "healthy" ]; then exit 1; fi
 
 exit 0
