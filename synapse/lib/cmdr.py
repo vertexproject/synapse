@@ -43,7 +43,7 @@ async def getItemCmdr(cell, outp=None, color=False, **opts):
         s_cli.Cli: A Cli instance with Cmds loaeded into it.
 
     '''
-    mesg = s_common.deprecated('cmdr CLI', curv='2.164.0')
+    mesg = s_common.deprecated('cmdr', curv='2.164.0')
 
     if outp is None:
         outp = s_output.OutPut()
