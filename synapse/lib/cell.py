@@ -530,8 +530,8 @@ class CellApi(s_base.Base):
             yield item
 
     @adminapi()
-    async def issue(self, nexsiden: str, event: str, args, kwargs, meta=None):
-        return await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
+    async def issue(self, nexsiden: str, event: str, args, kwargs, meta=None, wait=True):
+        return await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta, wait=wait)
 
     @adminapi(log=True)
     async def delAuthUser(self, name):
@@ -1204,6 +1204,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'tellready': 1,
             'dynmirror': 1,
             'tasks': 1,
+            'issuewait': 1
         }
 
         self.safemode = self.conf.req('safemode')

@@ -72,6 +72,10 @@ class MediaModule(s_module.CoreModule):
 
                 ('topics', ('array', {'type': 'media:topic', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of relevant topics discussed in the report.'}),
+
+                ('version', ('str', {'onespace': True}), {
+                    'doc': 'The version of the news item.',
+                }),
             )),
 
             ('media:topic', {}, (
