@@ -154,7 +154,7 @@ Interface
 ---------
 
 An **interface** defines a set of secondary properties that should be present on a particular subset of forms.
-Instead of explicitly defining each secondary property on each form, the forms can be defined as **inheriting**
+Instead of explicitly defining each secondary property on each form, the forms can be defined as **implementing**
 a particular interface and its associated properties. This both simplifies and ensures consistency in the
 data model.
 
@@ -162,10 +162,10 @@ For example, Synapse uses several forms to represent activity occurring on a hos
 (``it:exec:file:add``) or a process being executed (``it:exec:proc``). These forms represent similar operations,
 so they all share a subset of secondary properties such as the time of execution (``:time``) or the file
 (``:exe``) or process (``:proc``) responsible for the activity. These properties are defined as an
-``it:host:activity`` **interface** which is then declared / inherited for each form.
+``it:host:activity`` **interface** which is then declared / implemented for each form.
 
-Interfaces can be inherited by other interfaces. For example, the ``inet:proto:request`` interface, which
-represents a client (host) requesting a network connection, inherits the ``it:host:activity`` interface.
+Interfaces can be implemented by other interfaces. For example, the ``inet:proto:request`` interface, which
+represents a client (host) requesting a network connection, implements the ``it:host:activity`` interface.
 
 Interfaces can be used in Storm lift, filter, and pivot operations to make it easier to work with nodes
 of all forms that share the interface (vs. specifying each kind of node separately). See the appropriate
@@ -498,12 +498,13 @@ form. For example, a ``meta:seen`` node (now replaced by a ``seen`` light edge) 
 ``meta:source`` (using the node's guid value) to an arbitrary node that was "seen" by the source (such as the
 domain "woot.com", using the ndef value ``inet:fqdn, woot.com``).
 
-Edge forms predate the introduction of light edges to the Synapse data model; light edges were added in order
-to address some of the performance overhead incurred by edge forms (i.e., it is easier and faster to create
-a light edge for simple relationships vs. creating an entire node simply to link two other nodes).
-
-Edge forms may be appropriate for particular use cases, but light edges are generally preferred where possible.
-
+.. TIP::
+  
+  Edge forms predate the introduction of light edges to the Synapse data model; light edges were added in order
+  to address some of the performance overhead incurred by edge forms (i.e., it is easier and faster to create
+  a light edge for simple relationships vs. creating an entire node simply to link two other nodes).
+  
+  Edge forms may be appropriate for particular use cases, but light edges are generally preferred where possible.
 
 .. _form-generic:
 
@@ -519,10 +520,10 @@ the moment" without waiting for model updates. Alternatively, some data may be "
 be represented, but does not necessarily require its own form for a limited or unique use case.
 
 In the above cases, generic forms may be used to capture data where a more specific form does not exist. Generic
-forms reside in two primary parts of the data model: ``meta:*`` forms and ``graph:*`` forms.
+forms typically reside in the ``meta:*`` portion of the data model.
 
 The ``meta:rule`` form is an example of a generic form. Synapse includes more specific forms to represent common
-detection logic such as antivirus (``it:av:sig`` and ``it:av:filehit``) or YARA rules (``it:app:yara:rule`` and 
+detection logic such as antivirus (``it:av:signame`` and ``it:av:scan:result``) or YARA rules (``it:app:yara:rule`` and 
 ``it:app:yara:match``). Other technologies or organizations may have their own specific (and often "black box")
 detection logic.
 
@@ -539,7 +540,7 @@ also represent more abstract objects such as industries, risks, attacks, or goal
 represent relationships or specific time-based events. You can think of a node generically as a "thing" - most "things"
 you want to model within Synapse are nodes.
 
-Broadly speaking, nodes can be thought of in terms of some generic categories:
+Broadly speaking, nodes can be thought of in terms of a few broad categories:
 
 .. _node-object:
 

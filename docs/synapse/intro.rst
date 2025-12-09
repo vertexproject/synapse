@@ -137,13 +137,13 @@ What's Next?
 | (commercial)         |   (includes guides for users, devops, and     |
 |                      |   developers)                                 |
 +----------------------+-----------------------------------------------+
-| **Learn More**       | - Upcoming Webinars_                          |
-|                      | - Video Library_                              |
+| **Learn More**       | - Video Library_                              |
 |                      | - Visit The Vertex Project Website_           |
 +----------------------+-----------------------------------------------+
 | **Connect With Us!** | - Slack_                                      |
-|                      | - Twitter_                                    |
 |                      | - LinkedIn_                                   |
+|                      | - `X/Twitter`_                                |
+|                      | - Bluesky_                                    |
 |                      | - "Star" us on Github_                        |
 +----------------------+-----------------------------------------------+
 
@@ -155,14 +155,14 @@ What's Next?
 .. _Changelog: https://synapse.docs.vertex.link/en/latest/synapse/changelog.html
 .. _Slack: https://v.vtx.lk/join-slack
 
-.. _`sizing guide`: https://docsend.com/view/kmbkkq9pjhtjsbmk
+.. _`sizing guide`: https://vertex.link/files/docs/synapse/Synapse-Sizing-Guidance.pdf
 
 .. _`Synapse UI`: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
 
-.. _Webinars: https://v.vtx.lk/luma
 .. _Library: https://v.vtx.lk/youtube
 .. _Website: https://vertex.link/
 
-.. _Twitter: https://v.vtx.lk/twitter
 .. _LinkedIn: https://v.vtx.lk/linkedin
+.. _`X/Twitter`: https://v.vtx.lk/twitter
+.. _Bluesky: https://v.vtx.lk/bluesky
 .. _Github: https://github.com/vertexproject/synapse
