@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue with Telepath links not inheriting ``certhash`` and ``hostname``
+  options from their parent link.
+desc:literal: false
+prs: []
+type: bug
+...
