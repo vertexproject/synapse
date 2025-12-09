@@ -1,0 +1,6 @@
+---
+desc: "Update the\n  ``aiohttp-socks`` library constraints to ``>=0.11.0,<0.12.0``"
+desc:literal: false
+prs: []
+type: feat
+...
