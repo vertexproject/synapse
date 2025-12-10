@@ -15,7 +15,7 @@ Writing Changelog Entries
 
 Pull requests should have changelog entries associated with them. These entries can be generated via the
 ``synapse.tools.utils.changelog`` tool. These should generally be written in past tense, with the intended audience as
-users of Synapse. The usage of engineering terminology discouraged.
+users of Synapse. The usage of engineering terminology is discouraged.
 
 A changelog can be generated like the following::
 
@@ -60,7 +60,7 @@ Each key in the ``.yaml`` file has the following purposes:
 The changelog tool ``gen`` command supports creating entries with the following ``--type`` values:
 
 ``migration``
-    This category should be used for any changes which will cause a automatic migration to occur for data stored in
+    This type should be used for any changes which will cause an automatic migration to occur for data stored in
     Synapse.
 
 ``model``
@@ -81,11 +81,11 @@ The changelog tool ``gen`` command supports creating entries with the following 
     This category should be used for any changes related to the documentation of Synapse.
 
 ``deprecation``
-    This category should be used for any changes related to the documentation of Synapse.
+    This category should be used for any changes that deprecate existing functionality within Synapse.
 
 A given PR should have as many changelog entries as it needs to convey the changes being made as a result of the work.
 Small, internal changes which are not user facing may not require a changelog entry.
-Small model changes may not need a ``model`` entry either, as those changes should be picked up with the model differ.
+Small model changes may not need a ``model`` entry either, as those changes can often be picked up with the model differ.
 
 Cutting the Release
 -------------------
@@ -107,7 +107,7 @@ Using the script in ``./scripts/image_check.sh``, we can run it to generate imag
 Items found in this script should be triaged and addressed as needed.
 
 .. note::
-    This scripts requires additional tools to execute. These are not bundled in this repository.
+    This script requires additional tools to execute which are not bundled in this repository.
 
 Github Milestone checking
 *************************
@@ -121,7 +121,7 @@ For each PR in the commit history do the following:
 
 #. Ensure it has been added to the next release milestone.
 #. Ensure it has a changelog file, if needed. Sometimes large PRs may miss a changelog entry and entries will have to
-   be written for them during the release proces.
+   be written for them during the release process.
 #. If the PR is changing something that was changed in another PR it may not have a changelog entry. Note it so that PR
    can be added to the links during the release process.
 
@@ -139,7 +139,7 @@ First, checkout a new branch::
     git checkout -b docs_changelog_`date +%Y%m%d`
     Switched to a new branch 'docs_changelog_20251209'
 
-To test the generation you can need to with the changelog too, you need to specify the release version and the path to
+To test the model diff generation you use the changelog too, simply specify the release version and the path to
 the previous model entry. The following is an example of that::
 
     python -m synapse.tools.utils.changelog format --version v2.229.0 --model-ref ./changes/modelrefs/model_2.228.0_c75a6ca0b5678ebdb4dc4f840be23852462bbb5b.yaml.gz
@@ -172,19 +172,19 @@ the previous model entry. The following is an example of that::
       (`#4608 <https://github.com/vertexproject/synapse/pull/4608>`_)
 
 In this example, no model changes were detected. If model differences are detected, then there will also be a changelog
-entry added about that those findings and generated model update will be written to
+entry added about those findings and the generated model update will be written to
 ``./docs/synapse/userguides/model_updates/``.
 
-When that output is sufficient, you can re-run the changelog tool with ``--rm`` to also ``git rm`` the ``.yaml`` files
+When the changelog output is correct, you can re-run the changelog tool with ``--rm`` to also ``git rm`` the ``.yaml`` files
 used to generate the changelog::
 
     python -m synapse.tools.utils.changelog format --version v2.229.0 --rm --model-ref ./changes/modelrefs/model_2.228.0_c75a6ca0b5678ebdb4dc4f840be23852462bbb5b.yaml.gz
 
 Then the changelog can be copied to the top of the ``./CHANGELOG.rst`` file at the root of the repository.
 
-Ensure that any notable PRs missing entries get entries written here in the appropriate category.
+Ensure that any notable PRs missing changelog entries get entries written under the appropriate type (feature, bug, etc).
 
-Ensure that any PRs which amended an existing change get linked to the relavent changed here as well. For example, if
+Ensure that any PRs which amend an existing change get linked to the relevant change here as well. For example, if
 PR 4500 modified the work on PR 4490, the original log may look like this::
 
     - Made the foo objects extra fast.
@@ -196,7 +196,7 @@ Adding PR 4500 would look like this::
       (`#4490 <https://github.com/vertexproject/synapse/pull/4490>`_)
       (`#4500 <https://github.com/vertexproject/synapse/pull/4500>`_)
 
-Any model doc output should be reviewed as well for grammar and structural differences. Some of the differ output may
+Any model documentation output should be reviewed for grammar and structural differences. Some of the differ output may
 be opaque data structure changes that need to be rewritten as prose. The original model doc update ``.rst`` file will
 be automatically added to the ``git`` staging area; so additional changes should be quick to add via ``git add -p``.
 
@@ -215,7 +215,7 @@ Push the branch and open a PR for review and merge. This PR should be added to t
 Tagging the Release
 *******************
 
-Version tagging in Synapse is managed by ``bump2version``. This handles updating the .py files containing the version
+Version tagging in Synapse is managed by ``bump2version`` which handles updating the .py files containing the version
 number in them, as well as creating git tags and commit messages.  There should not be a need to manually edit
 version numbers or do git commits.
 
@@ -227,7 +227,7 @@ bump2version is a python application, and can be installed via pip::
 
     python -m pip install -e .[dev]
 
-Bumpversion is designed for projects which do semantic versioning. This can be done via the following (assuming the vertexproject/synapse
+Bump2version is designed for projects which do semantic versioning. This can be done via the following (assuming the vertexproject/synapse
 remote is called 'upstream')::
 
     # Ensure we're on master with the latest version
@@ -248,8 +248,8 @@ The release in Github will be created automatically as a CI step.
 Making a record of the model
 ****************************
 
-If there were data model changes in the release, we copy of the data model needs to be saved. This can be done with the
-changelog tool. This should be done immediately after the tag commit; so the commit embedded in the model file matches
+If there were data model changes in the release, a copy of the data model needs to be saved. This can be done with the
+changelog tool and should be done immediately after the tag commit; so the commit embedded in the model file matches
 that of the release. For example::
 
     python -m synapse.tools.utils.changelog model --save
