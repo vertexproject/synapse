@@ -56,17 +56,18 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('tel:mob:mcc', '611'))
             self.eq(node.get('place:country:code'), 'gn')
 
-            nodes = await core.nodes('[ tel:mob:carrier=(001, 02) ]')
+            nodes = await core.nodes("[ tel:mob:carrier=({'mcc': '001', 'mnc': '02'}) ]")
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('tel:mob:carrier', ('001', '02')))
+            cguid = node.ndef[1]
+            self.eq(node.ndef[0], 'tel:mob:carrier')
             self.eq(node.get('mcc'), '001')
             self.eq(node.get('mnc'), '02')
 
             nodes = await core.nodes('''
                 [ tel:mob:cell=*
                     :radio="Pirate "
-                    :carrier=(001, 02)
+                    :carrier=({'mcc': '001', 'mnc': '02'})
                     :lac=3
                     :cid=4
                     :place=*
@@ -75,7 +76,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('carrier'), ('001', '02'))
+            self.eq(nodes[0].get('carrier'), cguid)
             self.eq(nodes[0].get('lac'), 3)
             self.eq(nodes[0].get('cid'), 4)
             self.eq(nodes[0].get('radio'), 'pirate.')
