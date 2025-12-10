@@ -59,25 +59,25 @@ Each key in the ``.yaml`` file has the following purposes:
 
 The changelog tool ``gen`` command supports creating entries with the following ``--type`` values:
 
-migration
+``migration``
     This category should be used for any changes which will cause a automatic migration to occur for data stored in
     Synapse.
 
-model
+``model``
     This category should be used for any changes related to the Synapse data model. This should especially be used when
     the changes will not be included in the model differ, such as changing the norm functionality of a built in type.
 
-feat
+``feat``
     This category should be used for any changes related to new functionality being added to Synapse.
 
-bug
+``bug``
     This category should be used for any changes related to erroneous or incorrect behaviors.
 
-note
+``note``
     This category should be used for any changes that are more engineering oriented that should not be the first things
     presented to a user.
 
-doc
+``doc``
     This category should be used for any changes related to the documentation of Synapse.
 
 ``deprecation``
@@ -143,7 +143,6 @@ To test the generation you can need to with the changelog too, you need to speci
 the previous model entry. The following is an example of that::
 
     python -m synapse.tools.utils.changelog format --version v2.229.0 --model-ref ./changes/modelrefs/model_2.228.0_c75a6ca0b5678ebdb4dc4f840be23852462bbb5b.yaml.gz
-    Detected 304 deprecated properties unlocked and not in use, recommend locking (https://v.vtx.lk/deprlock).
     No model changes detected.
     CHANGELOG ENTRY:
 
@@ -254,7 +253,6 @@ changelog tool. This should be done immediately after the tag commit; so the com
 that of the release. For example::
 
     $ python -m synapse.tools.utils.changelog model --save
-    Detected 304 deprecated properties unlocked and not in use, recommend locking (https://v.vtx.lk/deprlock).
     Saved model to /home/work/synapse/changes/modelrefs/model_2.228.0_783329e059c437fbe27d012b72aa52f1fb942324.yaml.gz
 
 Then add the model file, commit it, and push that up to the release branch as well::
