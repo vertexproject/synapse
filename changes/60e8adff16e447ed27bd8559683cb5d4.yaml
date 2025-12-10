@@ -1,7 +1,0 @@
----
-desc: Updated Python logging configuration to write messages in a separate thread
-  for better performance.
-desc:literal: false
-prs: []
-type: feat
-...

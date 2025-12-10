@@ -6,6 +6,49 @@
 Synapse Changelog
 *****************
 
+v2.229.0 - 2025-12-10
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated deprecation warnings to be included in standard log messages instead
+  of using the Python ``warnings`` module.
+  (`#4582 <https://github.com/vertexproject/synapse/pull/4582>`_)
+- Updated Python logging configuration to write messages in a separate thread
+  for better performance.
+  (`#4601 <https://github.com/vertexproject/synapse/pull/4601>`_)
+- Added ``storm.sudo`` permission which allows users to optionally run Storm
+  queries as a global admin.
+  (`#4607 <https://github.com/vertexproject/synapse/pull/4607>`_)
+
+Bugfixes
+--------
+- Fixed a bug where the ``auth.role.show`` command would show empty AuthGates
+  after all rules were removed from the gate.
+  (`#4597 <https://github.com/vertexproject/synapse/pull/4597>`_)
+- Fixed an issue where the maximum value allowed for unsigned integer types was
+  lower than the actual maximum value possible for the size.
+  (`#4598 <https://github.com/vertexproject/synapse/pull/4598>`_)
+- Fixed a bug where nodedata keys longer than 506 bytes would fail to set the
+  data and leak a Python exception into the Storm runtime.
+  (`#4599 <https://github.com/vertexproject/synapse/pull/4599>`_)
+- Fixed an issue with Telepath links not inheriting ``certhash`` and
+  ``hostname`` options from their parent link.
+  (`#4608 <https://github.com/vertexproject/synapse/pull/4608>`_)
+
+Improved documentation
+----------------------
+- Updated Storm type specific documentation to add information about the
+  dictionary based ``guid`` constructor syntax.
+  (`#4600 <https://github.com/vertexproject/synapse/pull/4600>`_)
+
+Notes
+-----
+- Removed log message indicating that the attempt to brute force the
+  ``it:prod:softver:vers`` as a semver string failed. This log message was
+  misleading, since this functionality changed in ``v2.128.0``.
+  (`#4582 <https://github.com/vertexproject/synapse/pull/4582>`_)
+
 v2.228.0 - 2025-12-02
 =====================
 
