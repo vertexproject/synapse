@@ -14,7 +14,7 @@ Writing Changelog Entries
 -------------------------
 
 Pull requests should have changelog entries associated with them. These entries can be generated via the
-``synapse.tools.utils.changelog`` tool. These should generally be written in past tense, with the intended audiance as
+``synapse.tools.utils.changelog`` tool. These should generally be written in past tense, with the intended audience as
 users of Synapse. The usage of engineering terminology discouraged.
 
 A changelog can be generated like the following::
@@ -29,7 +29,7 @@ That will store a ``.yaml`` file in ``./changes/`` in the root of the repo and s
 randomly generated. The contents can be inspected and edited as needed. For example, the above command would have
 generated the following file::
 
-    $ cat ./changes/e1e8443ed479483e1e9501541be9ad08.yaml
+    cat ./changes/e1e8443ed479483e1e9501541be9ad08.yaml
     ---
     desc: Added a cool new feature to Synapse!
     desc:literal: false
@@ -136,7 +136,7 @@ generated changelog can be made with the ``synapse.tools.utils.changelog`` tool.
 
 First, checkout a new branch::
 
-    $ git checkout -b docs_changelog_`date +%Y%m%d`
+    git checkout -b docs_changelog_`date +%Y%m%d`
     Switched to a new branch 'docs_changelog_20251209'
 
 To test the generation you can need to with the changelog too, you need to specify the release version and the path to
@@ -252,13 +252,13 @@ If there were data model changes in the release, we copy of the data model needs
 changelog tool. This should be done immediately after the tag commit; so the commit embedded in the model file matches
 that of the release. For example::
 
-    $ python -m synapse.tools.utils.changelog model --save
+    python -m synapse.tools.utils.changelog model --save
     Saved model to /home/work/synapse/changes/modelrefs/model_2.228.0_783329e059c437fbe27d012b72aa52f1fb942324.yaml.gz
 
 Then add the model file, commit it, and push that up to the release branch as well::
 
-    $ git commit -m "Added model ref from v2.228.0"
-    $ git push
+    git commit -m "Added model ref from v2.228.0"
+    git push
 
 Closing Milestone in Github
 ***************************
