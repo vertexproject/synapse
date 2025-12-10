@@ -1576,6 +1576,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('task', 'del'), 'gate': 'cortex',
              'desc': 'Controls access to terminate other users tasks.'},
 
+            {'perm': ('trigger', 'set', 'user'), 'gate': 'cortex',
+             'desc': 'Controls access to change the user which a trigger runs as.'},
+
+            {'perm': ('trigger', 'set', 'doc'), 'gate': 'view',
+             'desc': 'Controls access to set the doc property of a trigger.'},
+            {'perm': ('trigger', 'set', 'name'), 'gate': 'view',
+             'desc': 'Controls access to set the name property of a trigger.'},
+            {'perm': ('trigger', 'set', 'async'), 'gate': 'view',
+             'desc': 'Controls access to set the async property of a trigger.'},
+            {'perm': ('trigger', 'set', 'storm'), 'gate': 'view',
+             'desc': 'Controls access to set the storm property of a trigger.'},
+            {'perm': ('trigger', 'set', 'enabled'), 'gate': 'view',
+             'desc': 'Controls access to set the enabled property of a trigger.'},
+
             {'perm': ('view',), 'gate': 'cortex',
              'desc': 'Controls all view permissions.'},
             {'perm': ('view', 'add'), 'gate': 'cortex',

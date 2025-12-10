@@ -322,6 +322,7 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormIsInPrint('node.add.<form>', msgs)
             self.stormIsInPrint('Controls access to add a new view including forks.', msgs)
             self.stormIsInPrint('default: false', msgs)
+            self.stormIsInPrint('Controls access to set the enabled property of a trigger.', msgs)
 
             msgs = await core.stormlist('auth.perms.list --find macro.')
             self.stormIsInPrint('storm.macro.add', msgs)
