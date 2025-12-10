@@ -13,7 +13,7 @@ async def main(argv, outp=s_output.stdout):
     opts = pars.parse_args(argv)
 
     if opts.network:
-        s_common.deprecated('--network option.', curv='v2.206.0')
+        s_common.deprecated('synapse.tools.aha.easycert --network option.', curv='v2.206.0')
 
     cdir = s_certdir.CertDir(path=opts.certdir)
     async with s_telepath.withTeleEnv():
