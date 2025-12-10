@@ -36,6 +36,12 @@ Bugfixes
   ``hostname`` options from their parent link.
   (`#4608 <https://github.com/vertexproject/synapse/pull/4608>`_)
 
+Improved documentation
+----------------------
+- Updated Storm type specific documentation to add information about the
+  dictionary based ``guid`` constructor syntax.
+  (`#4600 <https://github.com/vertexproject/synapse/pull/4600>`_)
+
 Notes
 -----
 - Removed log message indicating that the attempt to brute force the
