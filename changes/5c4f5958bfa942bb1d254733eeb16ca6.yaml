@@ -1,7 +1,0 @@
----
-desc: Updated deprecation warnings to be included in standard log messages instead
-  of using the Python ``warnings`` module.
-desc:literal: false
-prs: []
-type: feat
-...
