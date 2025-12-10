@@ -233,15 +233,15 @@ remote is called 'upstream')::
     # Ensure we're on master with the latest version
     git checkout master && git fetch --all && git merge master
     # Do a dry-run to ensure that we're updating things properly
-    bumpversion --dry-run --verbose patch
+    bumpversion --dry-run --verbose minor
     # Bump the patch version
-    bumpversion --verbose patch
-    # Ensure that no erroneous changes were introduced by bumvpersion
+    bumpversion --verbose minor
+    # Ensure that no erroneous changes were introduced by bumpversion
     git show HEAD
     # Push the new commit and tag up to github
-    git push upstream
+    git push
     # Push the new tag up explicitly. Do not use --tags
-    git push upstream <the new tag>
+    git push <the new tag>
 
 The release in Github will be created automatically as a CI step.
 
