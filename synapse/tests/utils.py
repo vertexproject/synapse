@@ -1066,12 +1066,13 @@ class SynTest(unittest.TestCase):
     '''
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
-
         for s in dir(self):
             attr = getattr(self, s, None)
             # If s is an instance method and starts with 'test_', synchelp wrap it
             if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
                 setattr(self, s, s_glob.synchelp(attr))
+                s_common.deprecated('synchelp decorated test methods are deprecated. SynTest in Synapse 3.x.x '
+                                    'uses unittest.IsolatedAsyncioTestCase to run async test methods.')
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
