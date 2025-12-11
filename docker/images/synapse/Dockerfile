@@ -2,7 +2,7 @@
 
 # This image is only a reference image to use as a base image.
 # It does not start any services.
-FROM python:3.14.0-slim-trixie
+FROM python:3.14.2-slim-trixie
 
 ENV SYN_LOG_LEVEL="WARNING"
 

@@ -1179,8 +1179,39 @@ class TeleTest(s_t_utils.SynTest):
                 self.eq(await proxy.echo('oh hi mark!'), 'oh hi mark!')
 
     async def test_tls_large_blocks(self):
-        self.skip('SYN-10001: This test crashes xdist workers. Possible process corruption?')
+        # self.skip('SYN-10001: This test crashes xdist workers. Possible process corruption?')
 
+        self.thisHostMustNot(platform='darwin')
+
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+            # As a workaround to a Python bug (https://bugs.python.org/issue30945) that prevents localhost:0 from
+            # being connected via TLS, make a certificate for whatever my hostname is and sign it with the test CA
+            # key.
+            hostname = socket.gethostname()
+
+            dmon.certdir.genHostCert(hostname, signas='ca')
+
+            _, port = await dmon.listen(f'ssl://{hostname}:0')
+
+            dmon.share('foo', foo)
+
+            async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=port) as prox:
+
+                # This will generate a large msgpack object which can cause
+                # openssl to have malloc failures. Prior to the write chunking
+                # changes, this would cause a generally fatal error to any
+                # processes which rely on the calls work, such as mirror loops.
+                blob = b'V' * s_const.mebibyte * 256
+                nblobs = 8
+                total = nblobs * len(blob)
+                blobarray = []
+                for i in range(nblobs):
+                    blobarray.append(blob)
+                self.eq(await prox.echosize(blobarray), total)
+
+    async def test_tls_ciphers(self):
         self.thisHostMustNot(platform='darwin')
 
         foo = Foo()
@@ -1200,29 +1231,6 @@ class TeleTest(s_t_utils.SynTest):
             # Ensure tls listener is working before trying downgraded versions
             async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=port) as prox:
                 self.eq(30, await prox.bar(10, 20))
-
-                # This will generate a large msgpack object which can cause
-                # openssl to have malloc failures. Prior to the write chunking
-                # changes, this would cause a generally fatal error to any
-                # processes which rely on the calls work, such as mirror loops.
-                blob = b'V' * s_const.mebibyte * 256
-                nblobs = 8
-                total = nblobs * len(blob)
-                blobarray = []
-                for i in range(nblobs):
-                    blobarray.append(blob)
-                self.eq(await prox.echosize(blobarray), total)
-
-    async def test_tls_ciphers(self):
-        self.thisHostMustNot(platform='darwin')
-
-        async with self.getTestDmon() as dmon:
-            # As a workaround to a Python bug (https://bugs.python.org/issue30945) that prevents localhost:0 from
-            # being connected via TLS, make a certificate for whatever my hostname is and sign it with the test CA
-            # key.
-            hostname = socket.gethostname()
-
-            dmon.certdir.genHostCert(hostname, signas='ca')
 
             _, port = await dmon.listen(f'ssl://{hostname}:0')
 
