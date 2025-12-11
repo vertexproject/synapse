@@ -9098,7 +9098,7 @@ class Trigger(Prim):
         if name == 'user':
             self.runt.confirm(('trigger', 'set', 'user'))
         else:
-            self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
+            self.runt.confirm(('trigger', 'set', name), gateiden=trigiden)
 
         await view.setTriggerInfo(trigiden, name, valu)
 
