@@ -1,0 +1,7 @@
+---
+desc: Added ``:reporter`` and ``:reporter:name`` properties to ``ou:goal`` to record
+  information about a reporter of the goal.
+desc:literal: false
+prs: []
+type: model
+...
