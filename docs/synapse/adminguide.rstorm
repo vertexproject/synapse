@@ -1444,9 +1444,9 @@ To add a property named ``_score`` to the ``_foocorp:name`` form which contains 
     $lib.model.ext.addFormProp(_foocorp:name, _score, (int, $typeopts), $propinfo)
 
 To add a property named ``_aliases`` to the ``_foocorp:name`` form which contains a unique array of
-``ou:name`` values::
+``meta:name`` values::
 
-    $typeopts = ({'type': 'ou:name', 'uniq': $lib.true})
+    $typeopts = ({'type': 'meta:name', 'uniq': $lib.true})
     $propinfo = ({'doc': 'Aliases for this name.'})
 
     $lib.model.ext.addFormProp(_foocorp:name, _aliases, (array, $typeopts), $propinfo)

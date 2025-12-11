@@ -38,16 +38,20 @@ These features give Synapse the following advantages:
   have to refer to long-form reporting (or rely on the unquestioned word of a subject matter expert) to trace a
   line of analytical reasoning.
 
-- Synapse allows analysts to better review and validate their findings. Conflicting analysis is highlighted through
+- Because data and relationships are represented in Synapse's knowledge graph, all analysis is **decomposable**.
+  That is, analytical assessments can be traced through the knowledge graph to the "ground truth" observations
+  that informed those conclusions.
+
+- Synapse allows analysts to better review and validate their findings. Conflicting analysis is made apparent through
   the structure of the data itself. Analysis can readily be questioned, reviewed, deconflicted, and ultimately improved.
 
 - Because Synapse's knowledge store is continually expanded, updated, and revised, it always represents the
   current, combined understanding of its data and analysis. Unlike prose reports or tickets, Synapse is never stale
   or outdated.
   
-Synapse's hypergraph design addresses many of the shortcomings we identified with earlier directed graph and prototype
-hypergraph systems. In addition, because our experience taught us the power of a flexible analysis platform over
-any large and disparate data set, Synapse has been designed to be flexible, modular, and adaptable to **any**
+Synapse's hypergraph-based design addresses many of the shortcomings we identified with earlier directed graph and
+prototype hypergraph systems. In addition, because our experience taught us the power of a flexible analysis platform
+over any large and disparate data set, Synapse has been designed to be flexible, modular, and adaptable to **any**
 knowledge domain - not just cyber threat data.
 
 Many of the real-world examples in this User Guide reference data from the fields of information technology or
@@ -88,10 +92,11 @@ roads. If abstracted into graph format, each city would be a vertex or node and 
 would be an edge. Since you can travel from City A to City B or from City B to City A on the same road, the
 graph is **directionless** or **undirected.**
 
-**Social Networks.** Another example is social networks based on "connections", such as LinkedIn. In this case,
-each person would be a node and the connection between two people would be an edge. In most cases, LinkedIn
-requires a mutual connection (you must request a connection and the other party must accept); in this sense it can
-be considered a directionless graph. (This is a simplification, but serves our purpose as an example.)
+**Social Networks.** Another example is social networks based on mutual "connections", such as LinkedIn. In this
+case, each person would be a node and the connection between two people would be an edge. In most cases, LinkedIn
+requires you to request a connection that the other party must accept. Once accepted, both parties are connected
+to each other. In this sense it can be considered a directionless graph. (This is a simplification, but serves our
+purpose as an example.)
 
 .. _bkd-directed-graphs:
 
@@ -110,7 +115,7 @@ a straight line, an edge in a directed graph is represented by an arrow.
 all one-way streets: in this case you can use a particular road to go from City A to City B, but not from City
 B to City A.
 
-**Social Networks.** Social networks that support a "follows" relationship (such as Twitter) can be represented
+**Social Networks.** Social networks that support a "follows" relationship (such as X or Bluesky) can be represented
 as directed graphs. Each person is still a node, but the "follows" relationship is one way – I can "follow" you,
 but you don’t have to follow me. If you choose to follow me, that would be a second, independent one-way edge
 in the opposite direction. (This is also a simplification but works for a basic illustration.)
@@ -139,11 +144,11 @@ Many tools exist to visually represent various types of data in a directed graph
 Analysis with Graphs
 --------------------
 
-When working with graphs and directed graphs, analysts typically select (or lift) objects (nodes) and
-navigate the graph by traversing the edges (relationships) that connect those nodes. A key limitation to
-this approach is that all relationships (edges) between objects must be explicitly defined. You must know
-all of the relationships that you want to represent in advance, which makes the discovery of novel relationships
-among the data extremely difficult.
+When working with graphs and directed graphs, analysts typically select objects (in Synapse, you **lift nodes**)
+and navigate the graph by traversing the edges (relationships) that connect those nodes. A key limitation to
+this approach is that all relationships (edges) between objects must be explicitly defined within the graph model.
+You must know all of the relationships that you want to represent in advance, which makes the discovery of novel
+relationships among the data extremely difficult.
 
 .. _bkd-hypergraphs:
 
@@ -189,9 +194,9 @@ So, in Synapse to understand the relationship between an FQDN and the IPv4 it re
 (pivot) from the FQDN to the DNS A node to the IPv4 node using those nodes' shared property values.
 
 This means that in Synapse, you are not limited to navigating the data using explicitly defined edges; you primarily
-navigate (**pivot**) among nodes with shared property values. Synapse can readily identify these shared values, which both
-simplifies navigation (Synapse can "show you" the relationships; you don't need to know them in advance) and
-help users discover novel relationships that you may not know existed.
+navigate (**pivot**) among nodes with **shared property values**. Synapse can readily identify these shared values,
+which both simplifies navigation (Synapse can "show you" the relationships; you don't need to know them in advance)
+and helps users discover novel relationships they may not know exist.
 
 Synapse uses mechanisms such as **type enforcement** to ensure that properties conform to their expected values
 (e.g., Synapse does its best to prevent you from entering an email address where you need a URL, and that any
@@ -199,7 +204,7 @@ URL you enter looks reasonably like a URL) and **property normalization** to ens
 consistently (e.g., in many cases Synapse converts string-based values to all lowercase for consistency). These
 methods make the data as consistent and "clean" as possible to facilitate navigation and discovery.
 
-.. _APT1: https://www.mandiant.com/media/9941/download
+.. _APT1: https://v.vtx.lk/apt1-report
 
 .. |graph| image:: https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Undirected_graph_no_background.svg/320px-Undirected_graph_no_background.svg.png 
 .. |directedgraph| image:: https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Directed_acyclic_graph_3.svg/320px-Directed_acyclic_graph_3.svg.png
