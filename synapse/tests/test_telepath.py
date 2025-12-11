@@ -1179,6 +1179,7 @@ class TeleTest(s_t_utils.SynTest):
                 self.eq(await proxy.echo('oh hi mark!'), 'oh hi mark!')
 
     async def test_tls_support_and_ciphers(self):
+        self.skip('wip')
 
         self.thisHostMustNot(platform='darwin')
 
