@@ -735,7 +735,6 @@ class CertDirTest(s_t_utils.SynTest):
                 cdir.getServerSSLContext(hostname, 'newpca')
 
     async def test_certdir_codesign(self):
-        self.skip('wip')
 
         with self.getCertDir() as cdir:
             caname = 'The Vertex Project ROOT CA'
@@ -808,7 +807,6 @@ class CertDirTest(s_t_utils.SynTest):
             cdir.valCodeCert(byts3)
 
     async def test_cortex_codesign(self):
-        self.skip('wip')
 
         async with self.getTestCore() as core:
 
