@@ -8839,7 +8839,7 @@ class LibTrigger(Lib):
         {'perm': ('trigger', 'get'), 'gate': 'trigger',
          'desc': 'Controls listing/retrieving triggers.'},
         {'perm': ('trigger', 'set'), 'gate': 'trigger',
-         'desc': 'Controls modifying any user editiable property of a trigger.'},
+         'desc': 'Controls modifying any user editable property of a trigger.'},
         {'perm': ('trigger', 'set', 'user'), 'gate': 'cortex',
          'desc': 'Controls modifying the user property of any trigger.'},
         {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
