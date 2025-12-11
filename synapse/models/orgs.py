@@ -603,6 +603,12 @@ class OuModule(s_module.CoreModule):
                     ('prev', ('ou:goal', {}), {
                         'deprecated': True,
                         'doc': 'Deprecated. Please use ou:goal:type taxonomy.'}),
+
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the goal.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the goal.'}),
                 )),
                 ('ou:hasgoal', {}, (
                     ('org', ('ou:org', {}), {

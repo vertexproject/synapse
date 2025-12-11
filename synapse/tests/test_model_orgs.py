@@ -55,8 +55,19 @@ class OuModelTest(s_t_utils.SynTest):
                 'type': 'foo.bar',
                 'desc': 'MyDesc',
                 'prev': goal,
+                'reporter': 'vertex',
             }
-            q = '[(ou:goal=$valu :name=$p.name :names=$p.names :type=$p.type :desc=$p.desc :prev=$p.prev)]'
+            q = '''
+            [ ou:goal=$valu
+                :name=$p.name
+                :names=$p.names
+                :type=$p.type
+                :desc=$p.desc
+                :prev=$p.prev
+                :reporter={ ou:org:name=$p.reporter }
+                :reporter:name=$p.reporter
+            ]
+            '''
             nodes = await core.nodes(q, opts={'vars': {'valu': goal, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -66,6 +77,8 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('type'), 'foo.bar.')
             self.eq(node.get('desc'), 'MyDesc')
             self.eq(node.get('prev'), goal)
+            self.nn(node.get('reporter'))
+            self.eq(node.get('reporter:name'), 'vertex')
 
             self.len(1, nodes := await core.nodes('[ ou:goal=({"name": "foo goal"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
