@@ -1179,7 +1179,7 @@ class TeleTest(s_t_utils.SynTest):
                 self.eq(await proxy.echo('oh hi mark!'), 'oh hi mark!')
 
     async def test_tls_large_blocks(self):
-        self.skip('This test crashes xdist workers. Possible process corruption?')
+        self.skip('SYN-10001: This test crashes xdist workers. Possible process corruption?')
 
         self.thisHostMustNot(platform='darwin')
 
