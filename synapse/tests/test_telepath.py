@@ -1178,8 +1178,7 @@ class TeleTest(s_t_utils.SynTest):
                 self.isin('synapse.tests.test_telepath.Foo', proxy._getClasses())
                 self.eq(await proxy.echo('oh hi mark!'), 'oh hi mark!')
 
-    async def test_tls_support_and_ciphers(self):
-        self.skip('wip')
+    async def test_tls_large_blocks(self):
 
         self.thisHostMustNot(platform='darwin')
 
@@ -1213,28 +1212,41 @@ class TeleTest(s_t_utils.SynTest):
                     blobarray.append(blob)
                 self.eq(await prox.echosize(blobarray), total)
 
+    async def test_tls_ciphers(self):
+        self.thisHostMustNot(platform='darwin')
+
+        async with self.getTestDmon() as dmon:
+            # As a workaround to a Python bug (https://bugs.python.org/issue30945) that prevents localhost:0 from
+            # being connected via TLS, make a certificate for whatever my hostname is and sign it with the test CA
+            # key.
+            hostname = socket.gethostname()
+
+            dmon.certdir.genHostCert(hostname, signas='ca')
+
+            _, port = await dmon.listen(f'ssl://{hostname}:0')
+
             sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1)
             with self.raises((ssl.SSLError, ConnectionResetError)):
-                link = await s_link.connect(hostname, port=port, ssl=sslctx)
+                await s_link.connect(hostname, port=port, ssl=sslctx)
 
             sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_1)
             with self.raises((ssl.SSLError, ConnectionResetError)):
-                link = await s_link.connect(hostname, port=port, ssl=sslctx)
+                await s_link.connect(hostname, port=port, ssl=sslctx)
 
             sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
             sslctx.set_ciphers('ADH-AES256-SHA')
             with self.raises(ssl.SSLError):
-                link = await s_link.connect(hostname, port=port, ssl=sslctx)
+                await s_link.connect(hostname, port=port, ssl=sslctx)
 
             sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
             sslctx.set_ciphers('AES256-GCM-SHA384')
             with self.raises(ConnectionResetError):
-                link = await s_link.connect(hostname, port=port, ssl=sslctx)
+                await s_link.connect(hostname, port=port, ssl=sslctx)
 
             sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
             sslctx.set_ciphers('DHE-RSA-AES256-SHA256')
             with self.raises(ConnectionResetError):
-                link = await s_link.connect(hostname, port=port, ssl=sslctx)
+                await s_link.connect(hostname, port=port, ssl=sslctx)
 
     async def test_telepath_exception_logging(self):
 
