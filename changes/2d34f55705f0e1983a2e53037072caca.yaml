@@ -1,0 +1,7 @@
+---
+desc: Updated ``synapse.tools.utils.changelog`` tool to replace the ``--prs-from-git``
+  option with ``--no-prs-from-git``.
+desc:literal: false
+prs: []
+type: note
+...
