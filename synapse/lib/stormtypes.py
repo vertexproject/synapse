@@ -8832,22 +8832,26 @@ class LibTrigger(Lib):
     )
     _storm_lib_path = ('trigger',)
     _storm_lib_perms = (
-        {'perm': ('trigger', 'add'), 'gate': 'cortex',
+        {'perm': ('trigger', 'add'), 'gate': 'view',
          'desc': 'Controls adding triggers.'},
         {'perm': ('trigger', 'del'), 'gate': 'view',
          'desc': 'Controls deleting triggers.'},
         {'perm': ('trigger', 'get'), 'gate': 'trigger',
          'desc': 'Controls listing/retrieving triggers.'},
-        {'perm': ('trigger', 'set'), 'gate': 'view',
-         'desc': 'Controls enabling, disabling, and modifying the query of a trigger.'},
-        {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
-         'desc': 'Controls modifying the doc property of triggers.'},
-        {'perm': ('trigger', 'set', 'name'), 'gate': 'trigger',
-         'desc': 'Controls modifying the name property of triggers.'},
+        {'perm': ('trigger', 'set'), 'gate': 'trigger',
+         'desc': 'Controls modifying any user editiable property of a trigger.'},
         {'perm': ('trigger', 'set', 'user'), 'gate': 'cortex',
-         'desc': 'Controls modifying the user property of triggers.'},
-        {'perm': ('trigger', 'set', '<property>'), 'gate': 'view',
-         'desc': 'Controls modifying specific trigger properties.'},
+         'desc': 'Controls modifying the user property of any trigger.'},
+        {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
+         'desc': 'Controls modifying the doc property of a trigger.'},
+        {'perm': ('trigger', 'set', 'name'), 'gate': 'trigger',
+         'desc': 'Controls modifying the name property of a trigger.'},
+        {'perm': ('trigger', 'set', 'async'), 'gate': 'trigger',
+         'desc': 'Controls modifying the async property of a trigger.'},
+        {'perm': ('trigger', 'set', 'storm'), 'gate': 'trigger',
+         'desc': 'Controls modifying the storm property of a trigger.'},
+        {'perm': ('trigger', 'set', 'enabled'), 'gate': 'trigger',
+         'desc': 'Controls modifying the enabled property of a trigger.'},
     )
 
     def getObjLocals(self):
@@ -8958,7 +8962,7 @@ class LibTrigger(Lib):
         query = await tostr(query)
         trig = await self._matchIdens(prefix)
         iden = trig.iden
-        gatekeys = ((useriden, ('trigger', 'set'), iden),)
+        gatekeys = ((useriden, ('trigger', 'set', 'storm'), iden),)
         todo = s_common.todo('setTriggerInfo', iden, 'storm', query)
         await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
 
@@ -9014,7 +9018,7 @@ class LibTrigger(Lib):
         iden = trig.iden
 
         useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('trigger', 'set'), iden),)
+        gatekeys = ((useriden, ('trigger', 'set', 'enabled'), iden),)
         todo = s_common.todo('setTriggerInfo', iden, 'enabled', state)
         await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
 
@@ -9086,9 +9090,9 @@ class Trigger(Prim):
         view = self.runt.snap.core.reqView(viewiden)
 
         name = await tostr(name)
-        if name in ('async', 'enabled', ):
+        if name in ('async', 'enabled'):
             valu = await tobool(valu)
-        if name in ('user', 'doc', 'name', 'storm', ):
+        if name in ('user', 'doc', 'name', 'storm'):
             valu = await tostr(valu)
 
         if name == 'user':
