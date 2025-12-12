@@ -1,5 +1,5 @@
 ---
-desc: Deprecated the ``path`` Storm option. The ``links`` option may be used to retrieve
+desc: Deprecated the ``path`` Storm option. The ``links`` option should be used to retrieve
   this data instead.
 desc:literal: false
 prs: []

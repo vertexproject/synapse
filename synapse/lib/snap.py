@@ -829,7 +829,7 @@ class Snap(s_base.Base):
             show_storage = opts.get('show:storage', False)
 
             if dopath:
-                mesg = "The 'path' option is deprecated in 2.230.0 and will be removed, the 'links' option may " \
+                mesg = "The 'path' option is deprecated in 2.230.0 and will be removed, the 'links' option should " \
                        "be used to retrieve this data instead."
                 await self.warn(mesg)
 
