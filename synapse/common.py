@@ -7,7 +7,9 @@ import http
 import stat
 import time
 import heapq
+import queue
 import types
+import atexit
 import base64
 import shutil
 import struct
@@ -31,6 +33,7 @@ import collections
 
 import http.cookies
 import tornado.escape
+import logging.handlers
 
 import yaml
 import regex
@@ -826,13 +829,38 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True, datefmt=Non
 
         log_level = normLogLevel(log_level)
 
+        # See https://docs.python.org/3/howto/logging-cookbook.html#blocking-handlers for info on this configuration
+        logq = queue.SimpleQueue()
+        handler = logging.handlers.QueueHandler(logq)
+        stream = logging.StreamHandler()
+
+        listener = logging.handlers.QueueListener(logq, stream)
+        listener.start()
+
+        def logfini():
+            # On shutdown, stop the QueueListener, remove QueueHandler from the
+            # logger, and add the StreamHandler so we don't lose messages that
+            # are logged after the QueueListener has shutdown. Messages already
+            # in the QueueListener will flush as part of the stop(). This is all
+            # required because atexit handlers are called in reverse order of
+            # when they were registered. So, we want to make sure to have
+            # functional logging until the process is completely gone.
+            listener.stop()
+            logging.root.removeHandler(handler)
+            logging.root.addHandler(stream)
+
+        atexit.register(logfini)
+
         if log_struct:
-            handler = logging.StreamHandler()
             formatter = s_structlog.JsonFormatter(datefmt=datefmt)
-            handler.setFormatter(formatter)
-            logging.basicConfig(level=log_level, handlers=(handler,))
         else:
-            logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT, datefmt=datefmt)
+            formatter = logging.Formatter(fmt=s_const.LOG_FORMAT, datefmt=datefmt)
+
+        stream.setFormatter(formatter)
+
+        logging.root.setLevel(log_level)
+        logging.root.addHandler(handler)
+
         if log_setup:
             mlogger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(log_level))
 
@@ -930,14 +958,17 @@ def config(conf, confdefs):
 
     return conf
 
+@functools.lru_cache(maxsize=1024)
 def deprecated(name, curv='3.x', eolv='4.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
-    warnings.warn(mesg, DeprecationWarning)
+    logger.warning(mesg, extra={'synapse': {'curv': curv, 'eolv': eolv}})
     return mesg
 
+@functools.lru_cache(maxsize=1024)
 def deprdate(name, date):  # pragma: no cover
     mesg = f'{name} is deprecated and will be removed on {date}.'
-    warnings.warn(mesg, DeprecationWarning)
+    logger.warning(mesg, extra={'synapse': {'eold': date}})
+    return mesg
 
 def reprauthrule(rule):
     text = '.'.join(rule[1])
