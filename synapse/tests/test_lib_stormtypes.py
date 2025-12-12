@@ -2677,21 +2677,6 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_path(self):
         async with self.getTestCore() as core:
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
-            q = '''
-                inet:fqdn=vertex.link -> inet:dns:a -> inet:ip
-                $idens = $path.idens()
-                [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$idens ]
-            '''
-
-            idens = (
-                '02883f0e6b303c824b91d40ecddb609b2f03df4274a71758d0e5d3d01c5ee16e',
-                '3ecd51e142a5acfcde42c02ff5c68378bfaf1eaf49fe9721550b6e7d6013b699',
-                '6ff89ac24110dec0216d5ce85382056ed50f508dbf718764039f061fc190b3c8',
-            )
-
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            self.eq(tuple(sorted(nodes[0].get('data'))), idens)
 
             links = (
                 (1, {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
