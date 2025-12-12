@@ -315,7 +315,6 @@ that are FQDNs) is ``:query:name:fqdn``. You could optionally use explicit synta
   
   <inet:ip nodes> -> inet:flow
 
-TODO: this should probably work using a *addr virtual prop on the inet:sockaddr type
 The query above uses implicit syntax. Note that because ``inet:flow`` nodes have two target properties of type
 ``inet:ip`` (``:client`` and ``:server``), the result of this query will be all ``inet:flow`` nodes where
 the inbound IPs are either the source **or** destination IP. If you only want to see flows where the inbound
@@ -323,7 +322,7 @@ IPs are the destination IP (for example), you must use explicit syntax to clarif
 
 ::
   
-  <inet:ip nodes> -> inet:flow:server*addr
+  <inet:ip nodes> -> inet:flow:server.ip
 
 *Pivot from a set of tags (syn:tag nodes) to the threat clusters (risk:threat nodes) represented by those tags:*
 
