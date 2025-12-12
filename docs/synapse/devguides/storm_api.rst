@@ -125,7 +125,7 @@ This example is very simple - it does not include repr information, or things re
        'tags': {'aka': (None, None),
                 'aka.beep': (None, None),}}))
 
-For path and repr information, see the examples in the opts documentation :ref:`dev_storm_opts`.
+For repr information, see the examples in the opts documentation :ref:`dev_storm_opts`.
 
 ping
 ----
@@ -455,7 +455,7 @@ Example:
 keepalive
 ---------
 
-This is the period ( in seconds ) in which to send a ``ping`` message from a Storm query which is streamiing results,
+This is the period ( in seconds ) in which to send a ``ping`` message from a Storm query which is streaming results,
 such as the Telepath ``.storm()`` API or the HTTP ``/v1/api/storm`` API endpoint. This may be used with long-running
 Storm queries when behind a network proxy or load balancer which may terminate idle connections.
 
@@ -586,36 +586,6 @@ Example:
     .. code:: python3
 
         opts = {'mirror': False}
-
-path
-----
-
-.. warning::
-
-    This option is deprecated in Synapse ``v2.230.0`` and will be removed in a future version. The ``links`` option
-    should be used to retrieve this data instead.
-
-If this is set to True, the ``path`` key in the packed nodes will contain a ``nodes`` key, which contains a list of
-the node iden hashes that were used in pivot operations to get to the node.
-
-Example:
-
-.. code:: python3
-
-    opts = {'path': True}
-
-    # A Storm node message with a node path added to it, from the query inet:ip -> inet:asn.
-
-    ('node',
-     (('inet:asn', 1),
-      {'iden': '371bfbcd479fec0582d55e8cf1011c91c97f306cf66ceea994ac9c37e475a537',
-       'nodedata': {},
-       'path': {'nodes': ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
-                          '371bfbcd479fec0582d55e8cf1011c91c97f306cf66ceea994ac9c37e475a537')},
-       'props': {'.created': 1662493825668},
-       'tagprops': {},
-       'tags': {}}))
-
 
 readonly
 --------
