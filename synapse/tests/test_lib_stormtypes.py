@@ -2693,6 +2693,12 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(tuple(sorted(nodes[0].get('data'))), idens)
 
+            links = (
+                (1, {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
+                (0, {'type': 'prop', 'prop': 'ip'})
+            )
+            self.eq(links, await core.callStorm('inet:fqdn=vertex.link -> inet:dns:a -> inet:ip return($path.links())'))
+
             opts = {'vars': {'testvar': 'test'}}
             text = "[ test:str='123' ] $testkey=testvar [ test:str=$path.vars.$testkey ]"
             nodes = await core.nodes(text, opts=opts)
