@@ -612,21 +612,6 @@ attack_flow_schema_2_0_0 = s_data.getJSON('attack-flow/attack-flow-schema-2.0.0'
 async def _onFormItDevStr(node):
     await node.set('norm', node.ndef[1])
 
-# async def _onPropSoftverVers(node, oldv):
-#     # Set vers:norm and make its normed valu
-#     prop = node.get('vers')
-#     if not prop:
-#         return
-#
-#     await node.set('vers:norm', prop)
-#
-#     # form the semver properly or bruteforce parts
-#     try:
-#         valu, info = node.view.core.model.type('it:semver').norm(prop)
-#         await node.set('semver', valu)
-#     except Exception:
-#         logger.exception('Failed to brute force version string [%s]', prop)
-
 modeldefs = (
     ('it', {
         'ctors': (

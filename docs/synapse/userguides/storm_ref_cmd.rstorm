@@ -2518,13 +2518,12 @@ specified value or combination of values.
 
 
 - Lift a set of network flow (``inet:flow``) nodes and unique (de-duplicate) them based on the source IP address:
-TODO: update to use *addr virtual prop
 
 .. storm-pre:: [ ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://2.2.2.2 ) ( inet:flow=* :client=tcp://11.11.11.11 :server=tcp://3.3.3.3 ) ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://4.4.4.4 ) ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://4.4.4.4 ) ( inet:flow=* :client=tcp://121.121.121.121 :server=tcp://2.2.2.2 ) ]
-.. storm-pre:: inet:flow | uniq :client
+.. storm-pre:: inet:flow | uniq :client.ip
 ::
   
-  inet:flow | uniq :client
+  inet:flow | uniq :client.ip
 
 
 - Lift a set of network flow (``inet:flow``) nodes and de-duplicate them based on each unique combination of source and destination IP addresses:

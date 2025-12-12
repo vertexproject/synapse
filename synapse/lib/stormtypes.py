@@ -8505,20 +8505,26 @@ class LibTrigger(Lib):
     )
     _storm_lib_path = ('trigger',)
     _storm_lib_perms = (
-        {'perm': ('trigger', 'add'), 'gate': 'cortex',
+        {'perm': ('trigger', 'add'), 'gate': 'view',
          'desc': 'Controls adding triggers.'},
-        {'perm': ('trigger', 'del'), 'gate': 'view',
-         'desc': 'Controls deleting triggers.'},
+        {'perm': ('trigger', 'del'), 'gate': 'trigger',
+         'desc': 'Controls deleting a trigger.'},
         {'perm': ('trigger', 'get'), 'gate': 'trigger',
          'desc': 'Controls listing/retrieving triggers.'},
-        {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
-         'desc': 'Controls modifying the doc property of triggers.'},
-        {'perm': ('trigger', 'set', 'name'), 'gate': 'trigger',
-         'desc': 'Controls modifying the name property of triggers.'},
+        {'perm': ('trigger', 'set'), 'gate': 'trigger',
+         'desc': 'Controls modifying any user editable property of a trigger.'},
         {'perm': ('trigger', 'set', 'user'), 'gate': 'cortex',
-         'desc': 'Controls modifying the user property of triggers.'},
-        {'perm': ('trigger', 'set', '<property>'), 'gate': 'view',
-         'desc': 'Controls modifying specific trigger properties.'},
+         'desc': 'Controls modifying the user property of any trigger.'},
+        {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
+         'desc': 'Controls modifying the doc property of a trigger.'},
+        {'perm': ('trigger', 'set', 'name'), 'gate': 'trigger',
+         'desc': 'Controls modifying the name property of a trigger.'},
+        {'perm': ('trigger', 'set', 'async'), 'gate': 'trigger',
+         'desc': 'Controls modifying the async property of a trigger.'},
+        {'perm': ('trigger', 'set', 'storm'), 'gate': 'trigger',
+         'desc': 'Controls modifying the storm property of a trigger.'},
+        {'perm': ('trigger', 'set', 'enabled'), 'gate': 'trigger',
+         'desc': 'Controls modifying the enabled property of a trigger.'},
     )
 
     def getObjLocals(self):
@@ -8628,7 +8634,7 @@ class LibTrigger(Lib):
             if name == 'user':
                 self.runt.confirm(('trigger', 'set', 'user'))
             else:
-                self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
+                self.runt.confirm(('trigger', 'set', name), gateiden=iden)
 
         if edits:
             trigview = self.runt.view.core.getView(viewiden)
@@ -8722,6 +8728,7 @@ class Trigger(Prim):
 
     async def setitem(self, name, valu):
         viewiden = self.valu.get('view')
+        trigiden = self.valu.get('iden')
 
         name = await tostr(name)
         if name in ('async', 'enabled'):
@@ -8734,10 +8741,10 @@ class Trigger(Prim):
         elif name == 'user':
             self.runt.confirm(('trigger', 'set', 'user'))
         else:
-            self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
+            self.runt.confirm(('trigger', 'set', name), gateiden=trigiden)
 
         view = self.runt.view.core.reqView(viewiden)
-        await view.setTriggerInfo(self.valu.get('iden'), {name: valu})
+        await view.setTriggerInfo(trigiden, {name: valu})
 
         self.valu[name] = valu
 
