@@ -76,7 +76,7 @@ Filter by Form Name
 
 *Filter the current working set to only include domains (inet:fqdn nodes):*
 
-.. storm-pre:: [ inet:fqdn=woot.com inet:fqdn=vertex.link  inet:fqdn=google.com inet:ipv4=127.0.0.1 ] +inet:fqdn
+.. storm-pre:: [ inet:fqdn=woot.com inet:fqdn=vertex.link  inet:fqdn=google.com inet:ip=127.0.0.1 ] +inet:fqdn
 ::
   
   <query> +inet:fqdn
@@ -117,8 +117,9 @@ of the wildcard is not limited to form namespace boundaries.
 **Examples:**
 
 *Filter the current working set to exclude PE metadata nodes (e.g., file:mime:pe:resource, file:mime:pe:section, etc.):*
-
-.. storm-pre:: [ file:mime:pe:vsvers:info=(sha256:86570d92983f1a55ec9e12b7185bf966f5294b13a2d1ab185896145eb52ffb58, (FileDescriptions, Xenum)) file:mime:pe:export=(sha256:95d2d427251bd10427f078255981bee74ed39b9fde78e0e7f1fc5c7c38ad4a10, DllInstall) inet:fqdn=woot.com ] -file:mime:pe:*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:mime:pe:vsvers:info=(sha256:86570d92983f1a55ec9e12b7185bf966f5294b13a2d1ab185896145eb52ffb58, (FileDescriptions, Xenum)) file:mime:pe:export=(sha256:95d2d427251bd10427f078255981bee74ed39b9fde78e0e7f1fc5c7c38ad4a10, DllInstall) inet:fqdn=woot.com ] -file:mime:pe:*
 
 ::
   
@@ -153,7 +154,9 @@ You can use the name of an interface to filter all forms that inherit that inter
 
 *Filter the current working set to only include host activity nodes (all nodes of all forms that inherit the it:host:activity interface):*
 
-.. storm-pre:: [ inet:fqdn=woot.com file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 it:exec:file:add=* it:exec:reg:set=* ] +it:host:activity
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ inet:fqdn=woot.com file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 it:exec:file:add=* it:exec:windows:registry:set=* ] +it:host:activity
 
 ::
   
@@ -161,7 +164,9 @@ You can use the name of an interface to filter all forms that inherit that inter
 
 *Filter the current working set to exclude taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface):*
 
-.. storm-pre:: [ risk:threat=* risk:compromise=* risk:attacktype=very.bad risk:threat:type:taxonomy=pranksters ] -meta:taxonomy
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ risk:threat=* risk:compromise=* risk:attack:type:taxonomy=very.bad risk:threat:type:taxonomy=pranksters ] -meta:taxonomy
 
 ::
   
@@ -174,13 +179,13 @@ Filter by Property
 ------------------
 
 A "filter by property" operation modifies your working set to include (or exclude) all forms that **have**
-the specified property (secondary, universal, or extended), regardless of the property value.
+the specified property (secondary or extended), regardless of the property value.
 
 .. TIP::
   
   When filtering by property, you can specify the property using either the **full** property name (i.e.,
-  the combined form and property, such as ``inet:dns:a:ipv4``) or the **relative** property name (i.e.,
-  the property name alone, including its separator character, such as ``:ipv4``).
+  the combined form and property, such as ``inet:dns:a:ip``) or the **relative** property name (i.e.,
+  the property name alone, including its separator character, such as ``:ip``).
   
   Using the relative property name allows for simplified syntax and more efficient data entry ("less
   typing"). Full property names can be used for clarity (i.e., specifying **exactly** what you want to
@@ -188,7 +193,7 @@ the specified property (secondary, universal, or extended), regardless of the pr
   
   Full property names are **required** when filtering on a property using an interface. They may also be required
   in cases where multiple nodes in the inbound working set have the same relative property name (e.g.,
-  ``inet:dns:a:ipv4`` and ``inet:url:ipv4``) and you only wish to filter based on the property of one of
+  ``inet:dns:a:ip`` and ``inet:url:ip``) and you only wish to filter based on the property of one of
   the forms.
   
   Each example below is shown using both the full property name (*<form>:<prop>*) and the relative
@@ -208,25 +213,31 @@ Filter by Secondary Property
 
 *Filter the current working set to only include threats (risk:threat nodes) that have an assessed country of origin (:country:code property):*
 
-.. storm-pre:: [ (risk:threat=* :org:name=unc1234 ) (risk:threat=* :org:name='peach sandstorm' :country:code=ir) (risk:threat=* :org:name='bronze butler' :country:code=cn) ] +risk:threat:country:code
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (risk:threat=* :org:name=unc1234 ) (risk:threat=* :org:name='peach sandstorm' :country:code=ir) (risk:threat=* :org:name='bronze butler' :country:code=cn) ] +risk:threat:country:code
+
 ::
   
   <query> +risk:threat:country:code
 
-.. storm-pre:: [ (risk:threat=* :org:name=unc1234 ) (risk:threat=* :org:name='peach sandstorm' :country:code=ir) (risk:threat=* :org:name='bronze butler' :country:code=cn) ] +:country:code
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (risk:threat=* :org:name=unc1234 ) (risk:threat=* :org:name='peach sandstorm' :country:code=ir) (risk:threat=* :org:name='bronze butler' :country:code=cn) ] +:country:code
+
 ::
   
   <query> +:country:code
 
 
-*Filter the current working set to exclude articles (media:news nodes) that have a publisher name (:publisher:name property):*
+*Filter the current working set to exclude articles (doc:report nodes) that have a publisher name (:publisher:name property):*
 
-.. storm-pre:: [ (media:news=* :publisher:name=microsoft) (media:news=* :publisher:name=eset) (media:news=* ) ] -media:news:publisher:name
+.. storm-pre:: [ (doc:report=* :publisher:name=microsoft) (doc:report=* :publisher:name=eset) (doc:report=* ) ] -doc:report:publisher:name
 ::
   
-  <query> -media:news:publisher:name
+  <query> -doc:report:publisher:name
 
-.. storm-pre:: media:news -:publisher:name=mitre
+.. storm-pre::doc:report -:publisher:name=mitre
 ::
   
   <query> -:publisher:name
@@ -258,30 +269,6 @@ property by specifying the full name of the interface and its property.
   
   When filtering using an interface property, you must use full property syntax (i.e., the combined interface
   and property name).
-
-
-.. _filter-prop-univ:
-
-Filter by Universal Property
-++++++++++++++++++++++++++++
-
-**Syntax:**
-
-*<query>* **+** | **-** [ *<form>* ] **.** *<prop>*
-
-**Example:**
-
-*Filter the current working set to only include DNS A records (inet:dns:a nodes) that have a .seen property:*
-
-.. storm-pre:: [ (inet:dns:a=(vertex.link,1.1.1.1) .seen=('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')) (inet:dns:a=(vertex.link,2.2.2.2)) ] +inet:dns:a.seen
-::
-  
-  <query> +inet:dns:a.seen
-
-.. storm-pre:: [ (inet:dns:a=(vertex.link,1.1.1.1) .seen=(2016/06/01,2020/06/01)) (inet:dns:a=(vertex.link,2.2.2.2)) ] +.seen
-::
-  
-  <query> +.seen
 
 
 .. _filter-prop-extend:
@@ -326,7 +313,7 @@ property matches the specified value. This type of filter requires:
 - a :ref:`gloss-comp-operator` to specify how the property value should be evaluated; and
 - the property value.
 
-A "filter by property value" can be performed using primary, secondary, universal, or extended properties.
+A "filter by property value" can be performed using primary, secondary, or extended properties.
 
 In Synapse, we define **standard comparison operators** as the following set of operators:
 
@@ -339,11 +326,9 @@ In Synapse, we define **standard comparison operators** as the following set of 
 For filter operations, the not equal ( ``!=`` ) operator is also supported.
 
 When filtering by secondary or extended property value, you can specify the property using either the
-**full** property name (i.e., the combined form and property, such as ``inet:dns:a:ipv4``) or the
+**full** property name (i.e., the combined form and property, such as ``inet:dns:a:ip``) or the
 **relative** property name (i.e., the property name alone, including its separator character, such as
-``:ipv4``).
-
-When filtering by universal property value, only the relative property name is required.
+``:ip``).
 
 Using the relative property name allows for simplified syntax and more efficient data entry ("less
 typing"). Full property names can be used for clarity (i.e., specifying **exactly** what you want to
@@ -353,7 +338,7 @@ Full property names are **required**:
 
 - when filtering based on an interface property value.
 - in cases where multiple nodes in the inbound working set have the same relative property name (e.g.,
-  ``inet:dns:a:ipv4`` and ``inet:url:ipv4``, or a universal property such as ``.seen``) and you only wish to
+  ``inet:dns:a:ip`` and ``inet:url:ip``, or a meta property such as ``.created``) and you only wish to
   filter based on the property of one of the forms.
 
 Each example below is shown using both the full property name (*<form>:<prop>*) and the relative
@@ -378,17 +363,17 @@ Filter by Primary Property Value
 *<query>* **+** | **-** *<form>* *<operator>* *<valu>*
 
 
-*Filter the current working set to exclude the loopback IPv4 address (127.0.0.1):*
+*Filter the current working set to exclude the loopback IP address (127.0.0.1):*
 
-.. storm-pre:: [ inet:ipv4=127.0.0.1 inet:ipv4=8.8.8.8 ] -inet:ipv4 = 127.0.0.1
+.. storm-pre:: [ inet:ip=127.0.0.1 inet:ip=8.8.8.8 ] -inet:ip = 127.0.0.1
 ::
   
-  <query> -inet:ipv4 = 127.0.0.1
+  <query> -inet:ip = 127.0.0.1
 
-.. storm-pre:: [ inet:ipv4=127.0.0.1 inet:ipv4=8.8.8.8 ] +inet:ipv4 != 127.0.0.1
+.. storm-pre:: [ inet:ip=127.0.0.1 inet:ip=8.8.8.8 ] +inet:ip != 127.0.0.1
 ::
   
-  <query> +inet:ipv4 != 127.0.0.1
+  <query> +inet:ip != 127.0.0.1
 
 
 .. _filter-prop-std-secondary:
@@ -416,12 +401,16 @@ Filter by Secondary Property Value
 
 *Filter the current working set to exclude any files (file:bytes nodes) with a PE compiled time of 1992-06-19 22:22:17:*
 
-.. storm-pre:: [ (file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17") (file:bytes=sha256:f85e153151e2d8379d57e66047fa65fff537db0f455effa92a2abb09a70e52fb :mime:pe:compiled="2024/01/08 04:30:16") ] -file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17") (file:bytes=sha256:f85e153151e2d8379d57e66047fa65fff537db0f455effa92a2abb09a70e52fb :mime:pe:compiled="2024/01/08 04:30:16") ] -file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
+
 ::
   
   <query> -file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
-  
-.. storm-pre:: [ (file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000") ] -:mime:pe:compiled = '1992/06/19 22:22:17'
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000") ] -:mime:pe:compiled = '1992/06/19 22:22:17'
 ::
   
   <query> -:mime:pe:compiled = '1992/06/19 22:22:17'
@@ -429,12 +418,18 @@ Filter by Secondary Property Value
 
 *Filter the current working set to include only those files (file:bytes nodes) compiled in 2019:*
 
-.. storm-pre:: [ (file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/03/14 11:14:00.000') ] +file:bytes:mime:pe:compiled = 2019*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/03/14 11:14:00.000') ] +file:bytes:mime:pe:compiled = 2019*
+
 ::
   
   <query> +file:bytes:mime:pe:compiled = 2019*
 
-.. storm-pre:: [ (file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/03/14 11:14:00.000') ] +:mime:pe:compiled = 2019*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/03/14 11:14:00.000') ] +:mime:pe:compiled = 2019*
+
 ::
   
   <query> +:mime:pe:compiled = 2019*
@@ -442,12 +437,18 @@ Filter by Secondary Property Value
 
 *Filter thet current working set to exclude those files (file:bytes nodes) whose size is greater than or equal to 1MB:*
 
-.. storm-pre:: [ (file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :size=16384) (file:bytes=sha256:ec04b04e079ff54e73faf7ef72e69b8919fb24eecba521b65788c47eac0baf41 :size=1000054 ) ] -file:bytes:size >= 1000000
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :size=16384) (file:bytes=sha256:ec04b04e079ff54e73faf7ef72e69b8919fb24eecba521b65788c47eac0baf41 :size=1000054 ) ] -file:bytes:size >= 1000000
+
 ::
   
   <query> -file:bytes:size >= 1000000
 
-.. storm-pre:: [ (file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :size=16384) (file:bytes=sha256:ec04b04e079ff54e73faf7ef72e69b8919fb24eecba521b65788c47eac0baf41 :size=1000054 ) ] -:size >= 1000000
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :size=16384) (file:bytes=sha256:ec04b04e079ff54e73faf7ef72e69b8919fb24eecba521b65788c47eac0baf41 :size=1000054 ) ] -:size >= 1000000
+
 ::
   
   <query> -:size >= 1000000
@@ -484,28 +485,23 @@ property value by using the name of the interface.
   <query> -it:host:activity:time < 2024/01/01
 
 
-.. _filter-prop-std-universal:
+.. _filter-prop-std-meta:
 
-Filter by Universal Property Value
-++++++++++++++++++++++++++++++++++
+Filter by Meta Property Value
++++++++++++++++++++++++++++++
 
-Synapse has two built-in universal properties:
+Synapse has one built-in meta property:
 
-- ``.created`` (a time) which represents the date and time a node was created in Synapse; and
-- ``.seen`` (an interval), a pair of date / time values that can optionally be used to represent
-  when the object represented by a node existed or was observed.
+- ``.created`` (a time) which represents the date and time a node was created in Synapse.
 
-Times (date / time values) are stored as integers (epoch milliseconds) in Synapse and can be filtered using any
+Times (date / time values) are stored as integers (epoch microseconds) in Synapse and can be filtered using any
 standard comparison operator.
-
-Because intervals are a pair of date / time values, they can only be filtered using the equal to ( ``=`` )
-standard comparison operator to specify an **exact** match for the interval values.
 
 The :ref:`filter-interval` and :ref:`filter-range` extended comparison operators provide additional flexibility
 when filtering by times and intervals.
 
-See the :ref:`type-time` and :ref:`type-ival` sections of the :ref:`storm-ref-type-specific` guide for
-additional details on working with times and intervals in Synapse.
+See the :ref:`type-time` section of the :ref:`storm-ref-type-specific` guide for additional details on working
+with times in Synapse.
 
 **Syntax:**
 
@@ -525,19 +521,6 @@ additional details on working with times and intervals in Synapse.
 ::
   
   <query> +inet:fqdn.created >= 2024/01/01
-
-
-*Filter the current working set to include only the DNS A records (inet:dns:a nodes) whose .seen property exactly matches the specified interval:*
-
-.. storm-pre:: [ (inet:dns:a=(vertex.link,1.1.1.1) .seen=('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')) (inet:dns:a=(vertex.link,2.2.2.2)) ] +inet:dns:a.seen = ('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')
-::
-  
-  <query> +inet:dns:a.seen = ('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')
-
-.. storm-pre:: [ (inet:dns:a=(vertex.link,1.1.1.1) .seen=('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')) (inet:dns:a=(vertex.link,2.2.2.2)) ] +.seen = ('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')
-::
-  
-  <query> +.seen = ('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')
 
 
 .. filter-prop-std-extended
@@ -571,12 +554,18 @@ operator is supported. If the extended property is an integer, any of the standa
 
 *Filter the current working set to incldue only those files whose VirusTotal "reputation" score is less than -100:*
 
-.. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ] +file:bytes:_virustotal:reputation < -100
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ] +file:bytes:_virustotal:reputation < -100
+
 ::
   
   <query> +file:bytes:_virustotal:reputation < -100
 
-.. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ] +:_virustotal:reputation < -100
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ] +:_virustotal:reputation < -100
+
 ::
   
   <query> +:_virustotal:reputation < -100
@@ -598,7 +587,7 @@ In most cases, the same extended comparators are available for both lifting and 
 - `Filter by Proximity (*near=)`_
 - `Filter by (Arrays) (*[ ])`_
 
-Each extended comparision operator can be used with any kind of property (primary, secondary, universal, or
+Each extended comparision operator can be used with any kind of property (primary, secondary, or
 extended) whose :ref:`gloss-type` is appropriate for the comparison used. When filtering by secondary property
 value, you can optionally specify an :ref:`interface` name and property to filter based on all forms that
 inherit that interface.
@@ -630,12 +619,18 @@ The extended comparator ``~=`` is used to filter nodes based on PCRE-compatible 
 
 *Filter the current working set to include only files (file:bytes nodes) with a PDB path containing the string 'tekide':*
 
-.. storm-pre:: [ (file:bytes=sha256:1a287331e2bfb4df9cfe2dab1b77c9b5522e923e52998a2b1934ed8a8e52f3a8 :mime='application/vnd.microsoft.portable-executable' :mime:pe:pdbpath='C:\Users\mr.tekide\Documents\Visual Studio 2013\Projects\njrat7stubsoures – Copy\njrat7stubsoures\obj\Debug\dvvm.pdb') ] +file:bytes:mime:pe:pdbpath ~= tekide
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:1a287331e2bfb4df9cfe2dab1b77c9b5522e923e52998a2b1934ed8a8e52f3a8 :mime='application/vnd.microsoft.portable-executable' :mime:pe:pdbpath='C:\Users\mr.tekide\Documents\Visual Studio 2013\Projects\njrat7stubsoures – Copy\njrat7stubsoures\obj\Debug\dvvm.pdb') ] +file:bytes:mime:pe:pdbpath ~= tekide
+
 ::
   
   <query> +file:bytes:mime:pe:pdbpath ~= tekide
 
-.. storm-pre:: [ (file:bytes=sha256:1a287331e2bfb4df9cfe2dab1b77c9b5522e923e52998a2b1934ed8a8e52f3a8 :mime='application/vnd.microsoft.portable-executable' :mime:pe:pdbpath='C:\Users\mr.tekide\Documents\Visual Studio 2013\Projects\njrat7stubsoures – Copy\njrat7stubsoures\obj\Debug\dvvm.pdb') ] +:mime:pe:pdbpath ~= tekide
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (file:bytes=sha256:1a287331e2bfb4df9cfe2dab1b77c9b5522e923e52998a2b1934ed8a8e52f3a8 :mime='application/vnd.microsoft.portable-executable' :mime:pe:pdbpath='C:\Users\mr.tekide\Documents\Visual Studio 2013\Projects\njrat7stubsoures – Copy\njrat7stubsoures\obj\Debug\dvvm.pdb') ] +:mime:pe:pdbpath ~= tekide
+
 ::
   
   <query> +:mime:pe:pdbpath ~= tekide
@@ -648,14 +643,14 @@ The extended comparator ``~=`` is used to filter nodes based on PCRE-compatible 
   
   <query> -ou:org:name ~= '^v.*x'
 
-.. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project" :names=(vertex,)) (ou:org=ad8de4b5da0fccb2caadb0d425e35847 :name=vxunderground) ] -:name ~= '^v.*x'
+.. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project") (ou:org=ad8de4b5da0fccb2caadb0d425e35847 :name=vxunderground) ] -:name ~= '^v.*x'
 ::
   
   <query> -:name ~= '^v.*x'
 
 *Filter the current working set to only include taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface) whose description (:desc property) includes the string 'credential':*
 
-.. storm-pre:: [ risk:attack=* (risk:attacktype=foo.bar :desc='credential phishing') (ou:goal:type:taxonomy=baz.faz :desc='obtain admin credentials') (belief:system:type:taxonomy=hurr.derp :desc='hand out uncs like candy') ] +meta:taxonomy:desc ~= credential
+.. storm-pre:: [ risk:attack=* (risk:attack:type:taxonomy=foo.bar :desc='credential phishing') (entity:goal:type:taxonomy=baz.faz :desc='obtain admin credentials') (belief:system:type:taxonomy=hurr.derp :desc='hand out uncs like candy') ] +meta:taxonomy:desc ~= credential
 
 ::
   
@@ -747,17 +742,17 @@ of times and intervals.
 
 **Examples:**
 
-*Filter the current working set to include only those DNS A records (inet:dns:a nodes) whose .seen values fall between July 1, 2022 and and August 1, 2022:*
+*Filter the current working set to include only those DNS A records (inet:dns:a nodes) whose :seen values fall between July 1, 2022 and and August 1, 2022:*
 
-.. storm-pre:: [ inet:dns:a=(easymathpath.com, 135.125.78.187) .seen=(2021/09/12 00:00:00, 2023/08/08 01:50:54.001) ] +inet:dns:a.seen @= ( 2022/07/01, 2022/08/01 )
+.. storm-pre:: [ inet:dns:a=(easymathpath.com, 135.125.78.187) :seen=(2021/09/12 00:00:00, 2023/08/08 01:50:54.001) ] +inet:dns:a:seen @= ( 2022/07/01, 2022/08/01 )
 ::
   
-  +inet:dns:a.seen @= ( 2022/07/01, 2022/08/01 )
+  +inet:dns:a:seen @= ( 2022/07/01, 2022/08/01 )
 
-.. storm-pre:: [ inet:dns:a=(easymathpath.com, 135.125.78.187) .seen=(2021/09/12 00:00:00, 2023/08/08 01:50:54.001) ] +.seen @= ( 2022/07/01, 2022/08/01 )
+.. storm-pre:: [ inet:dns:a=(easymathpath.com, 135.125.78.187) :seen=(2021/09/12 00:00:00, 2023/08/08 01:50:54.001) ] +:seen @= ( 2022/07/01, 2022/08/01 )
 ::
   
-  +.seen @= ( 2022/07/01, 2022/08/01 )
+  +:seen @= ( 2022/07/01, 2022/08/01 )
 
 *Filter the current working set to only include DNS requests (inet:dns:request nodes) that occurred on May 3, 2023 (between 05/03/2023 00:00:00 and 05/03/2023 23:59:59):*
 
@@ -782,26 +777,33 @@ of times and intervals.
 
 *Filter the current working set to only include DNS A records (inet:dns:a nodes) whose resolution time window includes the date December 1, 2023:*
 
-.. storm-pre:: inet:dns:a +inet:dns:a.seen @= 2023/12/01
+.. storm-pre:: inet:dns:a +inet:dns:a:seen @= 2023/12/01
 ::
   
-  <query> +inet:dns:a.seen @= 2023/12/01
+  <query> +inet:dns:a:seen @= 2023/12/01
 
-.. storm-pre:: inet:dns:a +.seen @= 2023/12/01
+.. storm-pre:: inet:dns:a +:seen @= 2023/12/01
 ::
   
-  <query> +.seen @= 2023/12/01
+  <query> +:seen @= 2023/12/01
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
 
 *Filter results to include only those domain WHOIS records (inet:whois:rec nodes) where the domain was registered (created) exactly on March 19, 2019 at 5:00 UTC:*
 
-.. storm-pre:: inet:whois:rec +inet:whois:rec:created @= '2019/03/19 05:00:00'
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:rec +inet:whois:rec:created @= '2019/03/19 05:00:00'
+
 ::
   
   <query> +inet:whois:rec:created @= '2019/03/19 05:00:00'
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:rec +:created @= '2019/03/19 05:00:00'
 
-.. storm-pre:: inet:whois:rec +:created @= '2019/03/19 05:00:00'
 ::
   
   <query> +:created @= '2019/03/19 05:00:00'
@@ -812,29 +814,17 @@ of times and intervals.
   equal to ( ``=`` ) operator.
 
 
-*Filter the current working set to only include WHOIS email nodes (inet:whois:email) that were observed between July 1, 2023 and the present:*
+*Filter the current working set to only include the reports (doc:report nodes) that were published within the past day:*
 
-.. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +inet:whois:email.seen @= ( 2023/07/01, now )
+.. storm-pre:: [ doc:report=* :published=now ] +doc:report:published @= ( now, '-1 day' )
 ::
   
-  <query> +inet:whois:email.seen @= ( 2023/07/01, now )
+  <query> +doc:report:published @= ( now, '-1 day' )
 
-.. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +.seen @= ( 2023/07/01, now )
+.. storm-pre:: [ doc:report=* :published=now ] +:published @= ( now, '-1 day' )
 ::
   
-  <query> +.seen @= ( 2023/07/01, now )
-
-*Filter the current working set to only include the network flows (inet:flow nodes) that occurred within the past day:*
-
-.. storm-pre:: [ inet:flow="*" :time=now ] +inet:flow:time @= ( now, '-1 day' )
-::
-  
-  <query> +inet:flow:time @= ( now, '-1 day' )
-
-.. storm-pre:: [ inet:flow="*" :time=now ] +:time @= ( now, '-1 day' )
-::
-  
-  <query> +:time @= ( now, '-1 day' )
+  <query> +:published @= ( now, '-1 day' )
 
 
 *Filter the current working set to only include the host activity nodes (all nodes of all forms that inherit the it:host:activity interface) whose :time value is within the past three hours:*
@@ -867,6 +857,10 @@ of times and intervals.
 - **Comparing times to times:** When using a time with the ``@=`` operator to filter nodes based on a time property,
   Synapse returns nodes whose timestamp is an **exact match** of the specified time. In other words, in this case
   the interval comparator ( ``@=`` ) behaves like the equal to comparator ( ``=`` ).
+
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 - When specifying date / time and interval values, Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``),
   and wildcard values (e.g., ``YYYY/MM*``). Wildcard time syntax may provide a simpler and more intuitive means to specify
   some intervals. For example ``inet:whois:rec:asof=2018*`` is equivalent to ``inet:whois:rec:asof@=('2018/01/01', '2019/01/01')``.
@@ -885,18 +879,18 @@ fall within a specified range of values. The comparator can be used with types s
 
 .. NOTE::
   
-  The ``*range=`` operator can be used to filter both ``inet:ipv4`` and ``inet:ipv6`` values (which are stored
-  as decimal integers and strings, respectively). However, ranges of :ref:`type-inet-ipv4` and inet:ipv6
-  nodes can also be filtered directly by specifying the lower and upper addresses in the range using
+  The ``*range=`` operator can be used to filter ``inet:ip`` values.
+  However, ranges of :ref:`type-inet-ip` nodes can also be filtered directly
+  by specifying the lower and upper addresses in the range using
   ``<min>-<max>`` format. For example:
   
-  - ``+inet:ipv4 = 192.168.0.0-192.168.0.10``
-  - ``+:ipv4 = 192.168.0.0-192.168.0.10``
+  - ``+inet:ip = 192.168.0.0-192.168.0.10``
+  - ``+:ip = 192.168.0.0-192.168.0.10``
   
-  Because IPv6 nodes are stored as strings, the range must be enclosed in quotes:
+  For IPv6 values, the range must be enclosed in quotes:
   
-  - ``+inet:ipv6 = "::0-ff::ff"``
-  - ``+:ipv6 = "::0-ff::ff"``
+  - ``+inet:ip = "::0-ff::ff"``
+  - ``+:ip = "::0-ff::ff"``
     
   The ``*range=`` operator cannot be used to compare a time range with a property value that is an interval
   (``ival`` type). The interval ( ``@=`` ) operator should be used instead.
@@ -913,36 +907,53 @@ fall within a specified range of values. The comparator can be used with types s
 
 *Filter the current working set to exclude files (file:bytes nodes) whose size is between 1000 and 100000 bytes:*
 
-.. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=2000] -file:bytes:size *range= ( 1000, 100000 )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=2000] -file:bytes:size *range= ( 1000, 100000 )
+
 ::
   
   <query> -file:bytes:size *range= ( 1000, 100000 )
 
-.. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=2000] -:size *range= ( 1000, 100000 )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=2000] -:size *range= ( 1000, 100000 )
+
 ::
   
   <query> -:size *range= ( 1000, 100000 )
 
 *Filter the current working set to only include files (file:bytes nodes) whose VirusTotal "reputation" score is between -20 and 20:*
 
-.. storm-pre:: [ ( file:bytes=sha256:d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f :_virustotal:reputation=-16 ) ( file:bytes=sha256:d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac :_virustotal:reputation=8 ) ] +file:bytes:_virustotal:reputation *range= ( -20, 20 )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( file:bytes=sha256:d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f :_virustotal:reputation=-16 ) ( file:bytes=sha256:d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac :_virustotal:reputation=8 ) ] +file:bytes:_virustotal:reputation *range= ( -20, 20 )
+
 ::
   
   <query> +file:bytes:_virustotal:reputation *range= ( -20, 20 )
 
-.. storm-pre:: [ ( file:bytes=sha256:d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f :_virustotal:reputation=-16 ) ( file:bytes=sha256:d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac :_virustotal:reputation=8 ) ] +:_virustotal:reputation *range= ( -20, 20 )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( file:bytes=sha256:d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f :_virustotal:reputation=-16 ) ( file:bytes=sha256:d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac :_virustotal:reputation=8 ) ] +:_virustotal:reputation *range= ( -20, 20 )
+
 ::
   
   <query> +:_virustotal:reputation *range= ( -20, 20 )
 
 *Filter the current working set to exclude domain WHOIS records (inet:whois:rec nodes) that were captured / retrieved between November 29, 2013 and June 14, 2016:*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ] -inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 
-.. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ] -inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 ::
   
   <query> -inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 
-.. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ] -:asof *range= ( 2013/11/29, 2016/06/14 )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ] -:asof *range= ( 2013/11/29, 2016/06/14 )
+
 ::
   
   <query> -:asof *range= ( 2013/11/29, 2016/06/14 )
@@ -962,7 +973,7 @@ fall within a specified range of values. The comparator can be used with types s
 
 *Filter the current working set to only include taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface) whose :depth is between 1 and 3 (i.e., between 2 and 4 taxonomy elements):*
 
-.. storm-pre:: [ risk:attacktype=bad risk:attacktype=bad.sorta risk:attacktype=bad.very risk:attacktype=bad.pretty.darn.bad ] +meta:taxonomy:depth *range= (1, 3)
+.. storm-pre:: [ risk:attack:type:taxonomy=bad risk:attack:type:taxonomy=bad.sorta risk:attack:type:taxonomy=bad.very risk:attack:type:taxonomy=bad.pretty.darn.bad ] +meta:taxonomy:depth *range= (1, 3)
 
 ::
   
@@ -975,6 +986,10 @@ fall within a specified range of values. The comparator can be used with types s
   range (the equivalent of "greater than or equal to *<min>* and less than or equal to *<max>*").
   This behavior is slightly different than that for time interval (``@=``), which includes the minimum
   but not the maximum.
+
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
 - When specifying a range of time values, Synapse allows you to use either lower resolution values
   (e.g., ``YYYY/MM/DD``) or wildcard values (e.g., ``YYYY/MM*``) for the minimum and/or maximum range
   values. In some cases, plain wildcard time syntax may provide a simpler and more intuitive means to specify
@@ -1010,20 +1025,23 @@ The set membership extended comparator (``*in=``) supports filtering nodes whose
 
 *Filter the current working set to exclude organization names (ou:name nodes) matching any of the specified values:*
 
-.. storm-pre:: [ ou:name=fsb ou:name=gru ou:name=svr ] -ou:name *in= ( fsb, gru, svr )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ou:name=fsb ou:name=gru ou:name=svr ] -ou:name *in= ( fsb, gru, svr )
+
 ::
   
   <query> -ou:name *in= ( fsb, gru, svr )
 
-*Filter the current working set to only include IPv4 addresses associated with any of the specified Autonomous System (AS) numbers:*
+*Filter the current working set to only include IP addresses associated with any of the specified Autonomous System (AS) numbers:*
 
-.. storm-pre:: [ (inet:asn=44477 :name='stark industries solutions ltd') (inet:asn=20473 :name=as-choopa) (inet:asn=9009 :name='m247 europe srl') ]
-.. storm-pre:: [ ( inet:ipv4=45.67.34.75 :asn=44477 ) ( inet:ipv4=149.248.1.50 :asn=20473 ) ( inet:ipv4=89.249.66.255 :asn=9009 ) ] +inet:ipv4:asn *in= ( 9009, 20473, 44477 )
+.. storm-pre:: [ (inet:asn=44477 :owner:name='stark industries solutions ltd') (inet:asn=20473 :owner:name=as-choopa) (inet:asn=9009 :owner:name='m247 europe srl') ]
+.. storm-pre:: [ ( inet:ip=45.67.34.75 :asn=44477 ) ( inet:ip=149.248.1.50 :asn=20473 ) ( inet:ip=89.249.66.255 :asn=9009 ) ] +inet:ip:asn *in= ( 9009, 20473, 44477 )
 ::
   
-  <query> +inet:ipv4:asn *in= ( 9009, 20473, 44477 )
+  <query> +inet:ip:asn *in= ( 9009, 20473, 44477 )
 
-.. storm-pre:: [ ( inet:ipv4=45.67.34.75 :asn=44477 ) ( inet:ipv4=149.248.1.50 :asn=20473 ) ( inet:ipv4=89.249.66.255 :asn=9009 ) ] +inet:ipv4:asn *in= ( 9009, 20473, 44477 )
+.. storm-pre:: [ ( inet:ip=45.67.34.75 :asn=44477 ) ( inet:ip=149.248.1.50 :asn=20473 ) ( inet:ip=89.249.66.255 :asn=9009 ) ] +inet:ip:asn *in= ( 9009, 20473, 44477 )
 ::
   
   <query> +:asn *in= ( 9009, 20473, 44477 )
@@ -1110,10 +1128,13 @@ without needing to know the exact order or values of the array itself.
 
 *Filter the current working set to exclude the MITRE ATT&CK groups (it:mitre:attack:group nodes) whose names include the string 'bear':*
 
-.. storm-pre:: [ (it:mitre:attack:group=G0035 :names=(berserk bear, crouching yeti, dragonfly, dymalloy, energetic bear, iron liberty, temp.isotope, tg-4192)) (it:mitre:attack:group=G0074 :names=(berserk bear, dragonfly 2.0, dymalloy, iron liberty)) ] -:names *[ ~= bear ]
-::
-  
-  <query> -:names *[ ~= bear ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+
+    .. storm-pre:: [ (it:mitre:attack:group=G0035 :names=(berserk bear, crouching yeti, dragonfly, dymalloy, energetic bear, iron liberty, temp.isotope, tg-4192)) (it:mitre:attack:group=G0074 :names=(berserk bear, dragonfly 2.0, dymalloy, iron liberty)) ] -:names *[ ~= bear ]
+    ::
+
+      <query> -:names *[ ~= bear ]
 
 
 **Usage Notes:**
@@ -1157,14 +1178,14 @@ the specified tag.
 
 *Filter the current working set to exclude all nodes that ESET associates with Sednit:*
 
-.. storm-pre:: [ inet:fqdn=kg-news.org inet:ipv4=92.114.92.125 +#rep.eset.sednit ] -#rep.eset.sednit
+.. storm-pre:: [ inet:fqdn=kg-news.org inet:ip=92.114.92.125 +#rep.eset.sednit ] -#rep.eset.sednit
 ::
   
   <query> -#rep.eset.sednit
 
 *Filter the current working set to only include nodes associated with anonymized infrastructure:*
 
-.. storm-pre:: [ (inet:fqdn=ca2.vpn.airdns.org +#cno.infra.anon.vpn) (inet:ipv4=104.244.73.193 +#cno.infra.anon.tor.exit) ] +#cno.infra.anon
+.. storm-pre:: [ (inet:fqdn=ca2.vpn.airdns.org +#cno.infra.anon.vpn) (inet:ip=104.244.73.193 +#cno.infra.anon.tor.exit) ] +#cno.infra.anon
 ::
   
   <query> +#cno.infra.anon
@@ -1223,7 +1244,7 @@ The tag glob filter above uses the single asterisk to match any tag element in t
 
 *Filter the current working set to include any nodes tagged as "cobaltstrike" by any third-party reporting organization whose name begins with 'm':*
 
-.. storm-pre:: [ ( inet:fqdn=woot.com +#rep.mandiant.cobaltstrike ) ( inet:fqdn=evil.com +#rep.microsoft.cobaltstrike ) ( inet:ipv4=1.1.1.1 +#rep.malwarebazaar.cobaltstrike ) ] +#rep.m*.cobaltstrike
+.. storm-pre:: [ ( inet:fqdn=woot.com +#rep.mandiant.cobaltstrike ) ( inet:fqdn=evil.com +#rep.microsoft.cobaltstrike ) ( inet:ip=1.1.1.1 +#rep.malwarebazaar.cobaltstrike ) ] +#rep.m*.cobaltstrike
 ::
   
   <query> +#rep.m*.cobaltstrike
@@ -1282,7 +1303,7 @@ that ends in "blizzard", regardless of tag depth. The filter will match all of t
 
 *Filter the current working set to exclude any nodes tagged with any tag that starts with "cno" and is followed by any string:*
 
-.. storm-pre:: [ ( inet:ipv4=93.90.223.185 +#cno.infra.dns.sink.hole ) ( inet:fqdn=vertex.link +#cno ) ] -#cno**
+.. storm-pre:: [ ( inet:ip=93.90.223.185 +#cno.infra.dns.sink.hole ) ( inet:fqdn=vertex.link +#cno ) ] -#cno**
 ::
   
   <query> -#cno**
@@ -1303,7 +1324,10 @@ the following:
 
 *Filter the current working set to include any nodes tagged by any third-party reporting organization where the tag contains the string "2017":*
 
-.. storm-pre:: [ ( file:bytes=sha256:f0aa64e048ba6e054e31b86ae0dfdaee0dcdab73e324e7bb926c9dccdee63a14 +#rep.vt.cve_2017_11882 ) ( hash:md5=806fad8aac92164f971c04bb4877c00f +#rep.alienvault.cve20178291 ) ( file:bytes=sha256:de6389e89062e049423ef018612df0734b94dfd9d9a4f3880ca6b8ff0bbbc4cc +#rep.malwarebazaar.3p.reversinglabs.document_ole_exploit_cve_2017_11182 ) ] +#rep.*.**2017**
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( file:bytes=sha256:f0aa64e048ba6e054e31b86ae0dfdaee0dcdab73e324e7bb926c9dccdee63a14 +#rep.vt.cve_2017_11882 ) ( crypto:hash:md5=806fad8aac92164f971c04bb4877c00f +#rep.alienvault.cve20178291 ) ( file:bytes=sha256:de6389e89062e049423ef018612df0734b94dfd9d9a4f3880ca6b8ff0bbbc4cc +#rep.malwarebazaar.3p.reversinglabs.document_ole_exploit_cve_2017_11182 ) ] +#rep.*.**2017**
+
 ::
   
   <query> +#rep.*.**2017**
@@ -1342,7 +1366,7 @@ See :ref:`filter-interval` for additional detail on the use of the ``@=`` operat
 
 *Filter the current result set to only include nodes that were associated with anonymous VPN infrastructure between December 1, 2023 and January 1, 2024:*
 
-.. storm-pre:: [ (inet:fqdn=wazn.airservers.org +#cno.infra.anon.vpn=(2023/05/24 23:16:51.423, 2023/12/05 23:12:40.626)) (inet:ipv6=2607:9000:0:85:68a3:75b4:13ab:770a +#cno.infra.anon.vpn=(2023/08/15 00:12:15,2023/12/05 23:12:54) ) ] +#cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
+.. storm-pre:: [ (inet:fqdn=wazn.airservers.org +#cno.infra.anon.vpn=(2023/05/24 23:16:51.423, 2023/12/05 23:12:40.626)) (inet:ip=2607:9000:0:85:68a3:75b4:13ab:770a +#cno.infra.anon.vpn=(2023/08/15 00:12:15,2023/12/05 23:12:54) ) ] +#cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
 ::
   
   <query> +#cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
@@ -1376,14 +1400,14 @@ whose tags have a specific tag property (regardless of the value of the property
 
 *Filter the current working set to only include nodes with a ":risk" property reported by Symantec:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#rep.symantec:risk
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#rep.symantec:risk
 ::
   
   <query> +#rep.symantec:risk
 
 *Filter the current working set to include nodes with a ":risk" property associated with any tag:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#**:risk
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#**:risk
 ::
   
   <query> +#**:risk
@@ -1423,21 +1447,21 @@ by integers.
 
 *Filter the current working set to include nodes with a ":risk" property value of 100 as reported by ESET:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42) (inet:fqdn=vertex.link +#rep.eset:risk=100) ] +#rep.eset:risk = 100
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42) (inet:fqdn=vertex.link +#rep.eset:risk=100) ] +#rep.eset:risk = 100
 ::
   
   <query> +#rep.eset:risk = 100
 
 *Filter the current working set to exclude nodes with a ":risk" property value less than 90 as reported by domaintools:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) (inet:fqdn=vertex.link +#rep.vertex:risk=100) ] -#rep.domaintools:risk < 90
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) (inet:fqdn=vertex.link +#rep.vertex:risk=100) ] -#rep.domaintools:risk < 90
 ::
   
   <query> -#rep.domaintools:risk < 90
 
 *Filter the current working set to include nodes with a ":risk" property with a value between 45 and 70 as reported by Symantec:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#rep.symantec:risk *range= ( 45, 70 )
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#rep.symantec:risk *range= ( 45, 70 )
 ::
   
   <query> +#rep.symantec:risk *range= ( 45, 70 )
@@ -1468,7 +1492,10 @@ and clarify logical operations when evaluating the filter.
 
 *Filter the current working set to exclude files (file:bytes nodes) that are less than or equal to 16384 bytes in size and were compiled prior to January 1, 2014:*
 
-.. storm-pre:: [file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000"] -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000"] -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)
+
 ::
   
   <query> -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)
@@ -1531,37 +1558,37 @@ Refer to the :ref:`storm-ref-subquery` guide for additional information on subqu
 
 **Examples:**
 
-*Filter the current working set of FQDNs (inet:fqdn nodes) to only FQDNs that have resolved to an IPv4 address that Trend Micro associates with Pawn Storm (i.e., an IP address tagged #rep.trend.pawnstorm):*
+*Filter the current working set of FQDNs (inet:fqdn nodes) to only FQDNs that have resolved to an IP address that Trend Micro associates with Pawn Storm (i.e., an IP address tagged #rep.trend.pawnstorm):*
 
-.. storm-pre:: inet:fqdn +{ -> inet:dns:a -> inet:ipv4 +#rep.trend.pawnstorm }
+.. storm-pre:: inet:fqdn +{ -> inet:dns:a -> inet:ip +#rep.trend.pawnstorm }
 ::
   
-  <inet:fqdn> +{ -> inet:dns:a -> inet:ipv4 +#rep.trend.pawnstorm }
+  <inet:fqdn> +{ -> inet:dns:a -> inet:ip +#rep.trend.pawnstorm }
 
 The subquery filter above takes the inbound ``inet:fqdn`` nodes and (within the subquery):
 
 - pivots to the associated DNS A records (``inet:dns:a`` nodes);
-- pivots to the asssociated IPv4 addresses (``inet:ipv4`` nodes);
-- checks the IPv4 for the presence of a ``#rep.trend.pawnstorm`` tag.
+- pivots to the asssociated IP addresses (``inet:ip`` nodes);
+- checks the IP for the presence of a ``#rep.trend.pawnstorm`` tag.
 
 The subquery filter returns only those ``inet:fqdn`` nodes where, if you performed the operations
-within the subquery, **would** (based on the inclusive filter) result in an ``inet:ipv4`` node with a
+within the subquery, **would** (based on the inclusive filter) result in an ``inet:ip`` node with a
 ``#rep.trend.pawnstorm`` tag.
 
 
-*Filter the current working set of IPv4 addresses (inet:ipv4 nodes) to exclude any IPv4 associated with an Autonomous System (AS) whose name starts with "makonix":*
+*Filter the current working set of IP addresses (inet:ip nodes) to exclude any IP associated with an Autonomous System (AS) whose name starts with "makonix":*
 
-.. storm-pre:: inet:ipv4 -{ :asn -> inet:asn +:name ^= makonix }
+.. storm-pre:: inet:ip -{ :asn -> inet:asn +:owner:name ^= makonix }
 ::
   
-  <inet:ipv4> -{ :asn -> inet:asn +:name ^= makonix }
+  <inet:ip> -{ :asn -> inet:asn +:owner:name ^= makonix }
 
-The subquery filter above takes the inbound ``inet:ipv4`` nodes and (within the subquery):
+The subquery filter above takes the inbound ``inet:ip`` nodes and (within the subquery):
 
 - pivots to the associated ``inet:asn`` nodes; and
-- checks the ``inet:asn`` nodes for a ``:name`` value that starts with "makonix".
+- checks the ``inet:asn`` nodes for a ``:owner:name`` value that starts with "makonix".
 
-The subquery filter returns only those ``inet:ipv4`` nodes where, if you performed the operations
+The subquery filter returns only those ``inet:ip`` nodes where, if you performed the operations
 within the subquery, **would not** (based on the exclusive filter) result in an ``inet:asn`` node
 with a ``:name`` value starting with "makonix".
 
@@ -1656,17 +1683,17 @@ and checks to see if the result is greater than 1.
     in performance is negligible for small data sets but more pronounced when working with large numbers
     of nodes.
 
-*Filter the current working set of network flows (inet:flow nodes) to only include flows where the total number of bytes transferred in the flow between the source (inet:flow:src:txbytes) and destination (inet:flow:dst:txbytes) is greater than 100MB (~100,000,000 bytes):*
+*Filter the current working set of network flows (inet:flow nodes) to only include flows where the total number of bytes transferred in the flow between the source (inet:flow:client:txbytes) and destination (inet:flow:server:txbytes) is greater than 100MB (~100,000,000 bytes):*
 
-.. storm-pre:: [ ( inet:flow=* :src:txbytes=60000000 :dst:txbytes=60000000 ) ( inet:flow=* :src:txbytes=1024 :dst:txbytes=4096 ) ] +$( :src:txbytes + :dst:txbytes >=100000000 )
+.. storm-pre:: [ ( inet:flow=* :client:txbytes=60000000 :server:txbytes=60000000 ) ( inet:flow=* :client:txbytes=1024 :server:txbytes=4096 ) ] +$( :client:txbytes + :server:txbytes >=100000000 )
 ::
   
-  <inet:flow> +$( :src:txbytes + :dst:txbytes >=100000000 )
+  <inet:flow> +$( :client:txbytes + :server:txbytes >=100000000 )
 
 
 *Filter the current set of nodes associated with any threat group or threat cluster (e.g., tagged ``#cno.threat.<threat_name>``), to include only those nodes that are attributed to more than one threat (e.g., that have more than one #cno.threat.<threat_name> tag):*
 
-.. storm-pre:: [ ( inet:ipv4=4.4.4.4 +#cno.threat.foo ) ( inet:ipv4=7.7.7.7 +#cno.threat.hurr +#cno.threat.derp ) ] +$( $node.globtags(cno.threat.*).size() > 1 )
+.. storm-pre:: [ ( inet:ip=4.4.4.4 +#cno.threat.foo ) ( inet:ip=7.7.7.7 +#cno.threat.hurr +#cno.threat.derp ) ] +$( $node.globtags(cno.threat.*).size() > 1 )
 ::
   
   #cno.threat +$( $node.globtags(cno.threat.*).size() > 1 )
@@ -1678,25 +1705,25 @@ of activity).
 This example uses the :ref:`meth-node-globtags` method to select the set of tags on each node that match
 the specified expression (``cno.threat.*``) and :ref:`stormprims-list-size` to count the number of matches.
 
-*Filter the current working set of DNS A records (inet:dns:a nodes) to only include those whose .seen interval falls WITHIN the past 30 day window (e.g., where the <min> value of the .seen interval is greater than or equal to the date 30 days in the past:*
+*Filter the current working set of DNS A records (inet:dns:a nodes) to only include those whose :seen interval falls WITHIN the past 30 day window (e.g., where the <min> value of the :seen interval is greater than or equal to the date 30 days in the past:*
 
-.. storm-pre:: [ ( inet:dns:a = ( woot.com, 4.4.4.4 ) .seen = now ) ] $ival = $lib.cast( ival, ( now, -30 days ) ) ( $start, $stop ) = $ival inet:dns:a.seen @= $ival ( $min, $max ) = .seen +$( $min >= $start )
+.. storm-pre:: [ ( inet:dns:a = ( woot.com, 4.4.4.4 ) :seen = now ) ] $ival = $lib.cast( ival, ( now, -30 days ) ) ( $start, $stop ) = $ival inet:dns:a:seen @= $ival ( $min, $max ) = :seen +$( $min >= $start )
 ::
   
   $ival = $lib.cast( ival, ( now, -30 days ) )
   ( $start, $stop ) = $ival
-  inet:dns:a.seen @= $ival
-  ( $min, $max ) = .seen
+  inet:dns:a:seen @= $ival
+  ( $min, $max ) = :seen
   +$( $min >= $start )
 
-The interval comparison operator ( ``@=`` ) will lift or filter interval properties (such as ``.seen``) if
+The interval comparison operator ( ``@=`` ) will lift or filter interval properties (such as ``:seen``) if
 the node's interval has **any overlap** with the comparison value. Using current Storm syntax, this means
 it is not possible to directly lift or filter for interval values that fall **within** the comparison interval
 value.
 
 The above query uses **variables** (see :ref:`storm-adv-vars`) to calculate the date/time exactly 30 days
 prior to the current date/time ( ``$start`` and ``$stop`` ) and uses an expression filter to ensure that the
-*<min>* value of the node's ``.seen`` property is more recent than "30 days ago".
+*<min>* value of the node's ``:seen`` property is more recent than "30 days ago".
 
 The query is repeated here with inline comments to note what each line is doing:
 
@@ -1706,12 +1733,12 @@ The query is repeated here with inline comments to note what each line is doing:
                                                 // using the keyword "now" and the relative value "-30 days".
   ( $start, $stop ) = $ival                     // Set the variables $start and $stop to the individual date/times
                                                 // from $ival.                                               
-  inet:dns:a.seen @= $ival                      // Lift all inet:dns:a nodes whose .seen property has any **overlap**
+  inet:dns:a:seen @= $ival                      // Lift all inet:dns:a nodes whose :seen property has any **overlap**
                                                 // with the past 30 days.
-  ( $min, $max ) = .seen                        // Set the variables $min and $max to the individual date/times of the
-                                                // .seen interval
+  ( $min, $max ) = :seen                        // Set the variables $min and $max to the individual date/times of the
+                                                // :seen interval
   +$( $min >= $start )                          // Use an expression filter to ensure that the $min time of the node's
-                                                // .seen value is greater than or equal to the $start time of "30 days ago".
+                                                // :seen value is greater than or equal to the $start time of "30 days ago".
 
 
 .. _embed_prop_syntax:
@@ -1726,9 +1753,9 @@ property value from a nearby node, it is known as "embedded property syntax".
 Embedded property syntax expresses something that is similar (in concept, though not in practice) to a
 secondary-to-secondary property pivot (see :ref:`storm-ref-pivot`). The syntax expresses navigation:
 
-- From a **secondary property** of a form (such as ``inet:ipv4:asn``), to
+- From a **secondary property** of a form (such as ``inet:ip:asn``), to
 - The **form** for that secondary property (i.e., ``inet:asn``), to
-- A **secondary property** (or property value) of that **target form** (such as ``inet:asn:name``).
+- A **secondary property** (or property value) of that **target form** (such as ``inet:asn:owner:name``).
 
 .. TIP::
   
@@ -1761,12 +1788,12 @@ Despite its similarity to a pivot operation, embedded property syntax is commonl
 
 The examples below illustrate the use of embedded property syntax in a filter expresssion.
 
-*Filter the current working set of IPv4 addresses (inet:ipv4 nodes) to exclude any IPv4 associated with an Autonomous System (AS) whose name starts with "makonix":*
+*Filter the current working set of IP addresses (inet:ip nodes) to exclude any IP associated with an Autonomous System (AS) whose name starts with "makonix":*
 
-.. storm-pre:: [ (inet:ipv4=185.86.150.67 :asn=52173) (inet:asn=52173 :name="makonix, lv") ] -:asn::name ^= makonix
+.. storm-pre:: [ (inet:ip=185.86.150.67 :asn=52173) (inet:asn=52173 :owner:name="makonix, lv") ] -:asn::owner:name ^= makonix
 ::
   
-  <inet:ipv4> -:asn::name ^= makonix
+  <inet:ip> -:asn::owner:name ^= makonix
 
 .. TIP::
   
@@ -1775,12 +1802,14 @@ The examples below illustrate the use of embedded property syntax in a filter ex
   
   ::
     
-    <inet:ipv4> -{ :asn -> inet:asn +:name ^= makonix }
+    <inet:ip> -{ :asn -> inet:asn +:owner:name ^= makonix }
   
 
 *Filter the current working set of sandbox "file add" operations (it:exec:file:add nodes) to only those "add" operations performed by a file that has a PDB path (:mime:pe:pdbpath property):*
 
-.. storm-pre:: [ ( it:exec:file:add=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 ) ( file:bytes=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 :mime:pe:pdbpath='d:/projects/winrar/sfx/build/sfxrar32/release/sfxrar.pdb' ) ] +:sandbox:file::mime:pe:pdbpath
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( it:exec:file:add=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 ) ( file:bytes=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 :mime:pe:pdbpath='d:/projects/winrar/sfx/build/sfxrar32/release/sfxrar.pdb' ) ] +:sandbox:file::mime:pe:pdbpath
 
 ::
   
@@ -1800,7 +1829,9 @@ Instead, embedded property syntax is used to represent the pivot from the ``:san
 
 *Filter the current working set of sandbox "file add" operations (it:exec:file:add nodes) to only those "add" operations performed by a self-extracting RAR file (i.e., a file with a PDB path whose base file name is sfxrar.pdb):*
 
-.. storm-pre:: [ ( it:exec:file:add=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 ) ( file:bytes=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 :mime:pe:pdbpath='d:/projects/winrar/sfx/build/sfxrar32/release/sfxrar.pdb' ) ] +:sandbox:file::mime:pe:pdbpath::base = sfxrar.pdb
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( it:exec:file:add=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 ) ( file:bytes=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 :mime:pe:pdbpath='d:/projects/winrar/sfx/build/sfxrar32/release/sfxrar.pdb' ) ] +:sandbox:file::mime:pe:pdbpath::base = sfxrar.pdb
 ::
   
   <it:exec:file:add> +:sandbox:file::mime:pe:pdbpath::base = sfxrar.pdb
@@ -1822,15 +1853,15 @@ Instead, embedded property syntax is used to represent the pivots from:
 
 Embedded property syntax can also be used when assigning variables (see :ref:`storm-adv-vars`).
 
-*Set the variable $name to the name of the Autonomous System (AS) associated with a given IPv4 address:*
+*Set the variable $name to the name of the Autonomous System (AS) associated with a given IP address:*
 
-.. storm-pre:: inet:ipv4 $name=:asn::name
+.. storm-pre:: inet:ip $name=:asn::owner:name
 ::
   
-  <inet:ipv4> $name=:asn::name
+  <inet:ip> $name=:asn::owner:name
 
-This example uses embedded property syntax to pivot from the inbound ``inet:ipv4`` node, to the ASN (``inet:asn`` node)
-associated with the IPv4's ``:asn`` property, and assigns the value of the ASN's ``:name`` property to the variable ``$name``.
+This example uses embedded property syntax to pivot from the inbound ``inet:ip`` node, to the ASN (``inet:asn`` node)
+associated with the IP's ``:asn`` property, and assigns the value of the ASN's ``:owner:name`` property to the variable ``$name``.
 
    
 .. _Vertex-Threat-Intel: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/vertex-threat-intel/index.html

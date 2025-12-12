@@ -1,7 +1,0 @@
----
-desc: Deprecated the ``idens()`` method on Storm ``path`` objects. The ``links()`` method
-  should be used to retrieve this information instead.
-desc:literal: false
-prs: []
-type: deprecation
-...

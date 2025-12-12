@@ -1,7 +1,0 @@
----
-desc: Deprecated the ``path`` Storm option. The ``links`` option should be used to retrieve
-  this data instead.
-desc:literal: false
-prs: []
-type: deprecation
-...

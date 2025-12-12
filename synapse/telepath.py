@@ -137,7 +137,7 @@ def mergeAhaInfo(info0, info1):
 
     return info0
 
-async def open(url, onlink=None):
+async def open(url, *, onlink=None):
     '''
     Open a new telepath ClientV2 object based on the given URL.
 
@@ -178,7 +178,7 @@ async def _getAhaSvc(urlinfo, timeout=None):
         try:
             proxy = await client.proxy(timeout=timeout)
 
-            cellinfo = await s_common.wait_for(proxy.getCellInfo(), timeout=5)
+            cellinfo = await asyncio.wait_for(proxy.getCellInfo(), timeout=5)
 
             kwargs = {}
             synvers = cellinfo['synapse']['version']
@@ -188,7 +188,7 @@ async def _getAhaSvc(urlinfo, timeout=None):
                     'mirror': bool(s_common.yamlloads(urlinfo.get('mirror', 'false'))),
                 }
 
-            ahasvc = await s_common.wait_for(proxy.getAhaSvc(host, **kwargs), timeout=5)
+            ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host, **kwargs), timeout=5)
             if ahasvc is None:
                 continue
 
@@ -329,23 +329,6 @@ class Aware:
     def onTeleShare(self, dmon, name):
         pass
 
-class Task:
-    '''
-    A telepath Task is used to internally track calls/responses.
-    '''
-    def __init__(self):
-        self.retn = None
-        self.iden = s_common.guid()
-        self.done = asyncio.Event()
-
-    async def result(self):
-        await self.done.wait()
-        return self.retn
-
-    def reply(self, retn):
-        self.retn = retn
-        self.done.set()
-
 class Share(s_base.Base):
     '''
     The telepath client side of a dynamically shared object.
@@ -386,25 +369,6 @@ class Share(s_base.Base):
         setattr(self, name, meth)
         return meth
 
-    def __enter__(self):
-        '''
-        Convenience function to enable using Proxy objects as synchronous context managers.
-
-        Note:
-            This should never be used by synapse core code.  This is for sync client code convenience only.
-        '''
-        if s_threads.iden() == self.tid:
-            raise s_exc.SynErr(mesg='Use of synchronous context manager in async code')
-
-        self._ctxobj = self.schedCoroSafePend(self.__aenter__())
-        return self
-
-    def __exit__(self, *args):
-        '''
-        This should never be used by synapse core code.  This is for sync client code convenience only.
-        '''
-        return self.schedCoroSafePend(self._ctxobj.__aexit__(*args))
-
 class Genr(Share):
 
     async def __anit__(self, proxy, iden):
@@ -431,21 +395,6 @@ class Genr(Share):
         finally:
             await self.fini()
 
-    def __iter__(self):
-
-        try:
-            while not self.isfini:
-
-                for retn in s_glob.sync(self.queue.slice()):
-
-                    if retn is None:
-                        return
-
-                    yield s_common.result(retn)
-
-        finally:
-            s_glob.sync(self.fini())
-
 sharetypes = {
     'share': Share,
     'genr': Genr,
@@ -464,7 +413,6 @@ class Method:
         self.__name__ = name
         self.__self__ = proxy
 
-    @s_glob.synchelp
     async def __call__(self, *args, **kwargs):
         todo = (self.name, args, kwargs)
         return await self.proxy.task(todo, name=self.share)
@@ -491,83 +439,11 @@ class GenrIter:
             yield item
             await asyncio.sleep(0)
 
-    def __iter__(self):
-        genr = s_glob.sync(self.proxy.task(self.todo, name=self.share))
-        for item in genr:
-            yield item
-
 class GenrMethod(Method):
 
     def __call__(self, *args, **kwargs):
         todo = (self.name, args, kwargs)
         return GenrIter(self.proxy, todo, self.share)
-
-class Pipeline(s_base.Base):
-
-    async def __anit__(self, proxy, genr, name=None):
-        s_common.deprecated('Telepath.Pipeline', curv='2.167.0')
-
-        await s_base.Base.__anit__(self)
-
-        self.genr = genr
-        self.name = name
-        self.proxy = proxy
-
-        self.count = 0
-
-        self.link = await proxy.getPoolLink()
-        self.task = self.schedCoro(self._runGenrLoop())
-        self.taskexc = None
-
-    async def _runGenrLoop(self):
-
-        try:
-            async for todo in self.genr:
-
-                mesg = ('t2:init', {
-                        'todo': todo,
-                        'name': self.name,
-                        'sess': self.proxy.sess})
-
-                await self.link.tx(mesg)
-                self.count += 1
-
-        except asyncio.CancelledError:
-            raise
-
-        except Exception as e:
-            self.taskexc = e
-            await self.link.fini()
-            raise
-
-    async def __aiter__(self):
-
-        taskdone = False
-        while not self.isfini:
-
-            if not taskdone and self.task.done():
-                taskdone = True
-                self.task.result()
-
-            if taskdone and self.count == 0:
-                if not self.link.isfini:
-                    await self.proxy._putPoolLink(self.link)
-                await self.fini()
-                return
-
-            mesg = await self.link.rx()
-            if self.taskexc:
-                raise self.taskexc
-
-            if mesg is None:
-                raise s_exc.LinkShutDown(mesg='Remote peer disconnected')
-
-            if mesg[0] == 't2:fini':
-                self.count -= 1
-                yield mesg[1].get('retn')
-                continue
-
-            logger.warning(f'Pipeline got unhandled message: {mesg!r}.')  # pragma: no cover
 
 class Proxy(s_base.Base):
     '''
@@ -604,7 +480,6 @@ class Proxy(s_base.Base):
         self.link = link
         self.name = name
 
-        self.tasks = {}
         self.shares = {}
 
         self._ahainfo = {}
@@ -625,7 +500,6 @@ class Proxy(s_base.Base):
         self.synack = None
 
         self.handlers = {
-            'task:fini': self._onTaskFini,
             'share:data': self._onShareData,
             'share:fini': self._onShareFini,
         }
@@ -634,11 +508,6 @@ class Proxy(s_base.Base):
 
             for item in list(self.shares.values()):
                 await item.fini()
-
-            mesg = ('task:fini', {'retn': (False, ('IsFini', {}))})
-            for iden, task in list(self.tasks.items()):  # pragma: no cover
-                task.reply(mesg)
-                del self.tasks[iden]
 
             # fini all the links from a different task to prevent
             # delaying the proxy shutdown...
@@ -756,28 +625,6 @@ class Proxy(s_base.Base):
         self.links.append(link)
         self._link_add -= 1
 
-    async def getPipeline(self, genr, name=None):
-        '''
-        Construct a proxy API call pipeline in order to make
-        multiple telepath API calls while minimizing round trips.
-
-        Args:
-            genr (async generator): An async generator that yields todo tuples.
-            name (str): The name of the shared object on the daemon.
-
-        Example:
-
-            def genr():
-                yield s_common.todo('getFooByBar', 10)
-                yield s_common.todo('getFooByBar', 20)
-
-            for retn in proxy.getPipeline(genr()):
-                valu = s_common.result(retn)
-        '''
-        async with await Pipeline.anit(self, genr, name=name) as pipe:
-            async for retn in pipe:
-                yield retn
-
     async def _initPoolLink(self):
 
         if self.link.get('unix'):
@@ -814,25 +661,6 @@ class Proxy(s_base.Base):
             return
 
         self.links.append(link)
-
-    def __enter__(self):
-        '''
-        Convenience function to enable using Proxy objects as synchronous context managers.
-
-        Note:
-            This must not be used from async code, and it should never be used in core synapse code.
-        '''
-        if s_threads.iden() == self.tid:
-            raise s_exc.SynErr(mesg='Use of synchronous context manager in async code')
-        self._ctxobj = self.schedCoroSafePend(self.__aenter__())
-        return self
-
-    def __exit__(self, *args):
-        '''
-        Note:
-            This should never be used by core synapse code.
-        '''
-        return self.schedCoroSafePend(self._ctxobj.__aexit__(*args))
 
     async def _onShareFini(self, mesg):
 
@@ -874,7 +702,10 @@ class Proxy(s_base.Base):
         todo = (methname, args, kwargs)
         return await self.task(todo)
 
-    async def taskv2(self, todo, name=None):
+    async def task(self, todo, name=None):
+
+        if self.isfini:
+            raise s_exc.IsFini(mesg='Telepath Proxy isfini')
 
         mesg = ('t2:init', {
                 'todo': todo,
@@ -926,41 +757,13 @@ class Proxy(s_base.Base):
                     # TODO: devise a tx/rx strategy to recover these links...
                     await link.fini()
 
-            return s_coro.GenrHelp(genrloop())
+            return genrloop()
 
         if mesg[0] == 't2:share':
             iden = mesg[1].get('iden')
             sharinfo = mesg[1].get('sharinfo')
             await self._putPoolLink(link)
             return await Share.anit(self, iden, sharinfo)
-
-    async def task(self, todo, name=None):
-
-        if self.isfini:
-            raise s_exc.IsFini(mesg='Telepath Proxy isfini')
-
-        if self.sess is not None:
-            return await self.taskv2(todo, name=name)
-
-        s_common.deprecated('Telepath task with no session', curv='2.166.0')
-
-        task = Task()
-
-        mesg = ('task:init', {
-                'task': task.iden,
-                'todo': todo,
-                'name': name, })
-
-        self.tasks[task.iden] = task
-
-        try:
-
-            await self.link.tx(mesg)
-            retn = await task.result()
-            return s_common.result(retn)
-
-        finally:
-            self.tasks.pop(task.iden, None)
 
     async def handshake(self, auth=None):
 
@@ -1004,9 +807,6 @@ class Proxy(s_base.Base):
 
                     await func(mesg)
 
-                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                    raise
-
                 except Exception:
                     logger.exception('Proxy.rxloop for %r' % (mesg,))
 
@@ -1022,27 +822,6 @@ class Proxy(s_base.Base):
         await self.link.tx(
             ('share:fini', {'share': iden, 'isexc': True})
         )
-
-    async def _onTaskFini(self, mesg):
-
-        # handle task:fini message
-        iden = mesg[1].get('task')
-
-        task = self.tasks.pop(iden, None)
-        if task is None:
-            logger.warning('task:fini for invalid task: %r' % (iden,))
-            return
-
-        retn = mesg[1].get('retn')
-        type = mesg[1].get('type')
-
-        if type is None:
-            return task.reply(retn)
-
-        ctor = sharetypes.get(type, Share)
-        item = await ctor.anit(self, retn[1])
-
-        return task.reply((True, item))
 
     def __getattr__(self, name):
 
@@ -1163,7 +942,7 @@ class ClientV2(s_base.Base):
                 await self.waitfini(timeout=retrysleep)
 
     async def waitready(self, timeout=None):
-        await s_common.wait_for(self.ready.wait(), timeout=timeout)
+        await asyncio.wait_for(self.ready.wait(), timeout=timeout)
 
     def size(self):
         return len(self.proxies)
@@ -1267,7 +1046,7 @@ class ClientV2(s_base.Base):
                 return self.deque.popleft()
 
         # use an inner function so we can wait overall...
-        return await s_common.wait_for(getNextProxy(), timeout)
+        return await asyncio.wait_for(getNextProxy(), timeout)
 
 class Client(s_base.Base):
     '''
@@ -1285,7 +1064,7 @@ class Client(s_base.Base):
             }
 
     '''
-    async def __anit__(self, urlinfo, opts=None, conf=None, onlink=None):
+    async def __anit__(self, urlinfo, *, opts=None, conf=None, onlink=None):
 
         await s_base.Base.__anit__(self)
 
@@ -1410,7 +1189,7 @@ class Client(s_base.Base):
         return await proxy.task(todo, name=name)
 
     async def waitready(self, timeout=10):
-        await s_common.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
+        await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
 
     def __getattr__(self, name):
         if self._t_methinfo is None:
@@ -1510,7 +1289,6 @@ def alias(name):
 
     return url
 
-@s_glob.synchelp
 async def openurl(url, **opts):
     '''
     Open a URL to a remote telepath object.

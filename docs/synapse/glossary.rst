@@ -553,21 +553,8 @@ Form, Composite
 ---------------
 
 A category of form whose primary property is an ordered set of two or more comma-separated typed values. Examples
-include DNS A records (``inet:dns:a``) and web-based accounts (``inet:web:acct``).
+include DNS A records (``inet:dns:a``) and HTTP headers (``inet:http:header``).
 
-.. _gloss-form-digraph:
-
-See also :ref:`gloss-form-edge`.
-
-.. _gloss-form-edge:
-
-Form, Edge
-----------
-
-A specialized **composite form** (:ref:`gloss-form-comp`) whose primary property consists of two :ref:`gloss-ndef`
-values. Edge forms can be used to link two arbitrary forms via a generic relationship where additional information
-needs to be captured about that relationship (i.e., via secondary properties and/or tags). Contrast with
-:ref:`gloss-edge-light`.
 
 .. _gloss-form-extended:
 
@@ -715,14 +702,6 @@ Help Tool
 ---------
 
 See :ref:`gloss-tool-help`.
-
-.. _gloss-hive:
-
-Hive
-----
-
-The Hive is a key/value storage mechanism which is used to persist various data structures required for operating a
-Synapse :ref:`gloss-cell`.
 
 .. _gloss-hyperedge:
 
@@ -971,8 +950,7 @@ Node, Runt
 
 Short for "runtime node". A runt node is a node that does not persist within a Cortex but is created at runtime when
 a Cortex is initiated. Runt nodes are commonly used to represent metadata associated with Synapse, such as data model
-elements like forms (``syn:form``) and properties (``syn:prop``) or automation elements like triggers (``syn:trigger``)
-or cron jobs (``syn:cron``).
+elements like forms (``syn:form``) and properties (``syn:prop``).
 
 .. _gloss-node-storage:
 
@@ -1131,7 +1109,7 @@ Property, Derived
 Within Synapse, a derived property is a secondary property that can be extracted (derived) from a node's primary
 property. For example, the domain ``inet:fqdn=www.google.com`` can be used to derive ``inet:fqdn:domain=google.com``
 and ``inet:fqdn:host=www``; the DNS A record ``inet:dns:a=(woot.com, 1.2.3.4)`` can be used to derive 
-``inet:dns:a:fqdn=woot.com`` and ``inet:dns:a:ipv4=1.2.3.4``. 
+``inet:dns:a:fqdn=woot.com`` and ``inet:dns:a:ip=1.2.3.4``. 
 
 Synapse will automatically set (:ref:`gloss-autoadd`) any secondary properties that can be derived from a node's
 primary property. Because derived properties are based on primary property values, derived
@@ -1234,7 +1212,7 @@ Repr
 
 Short for "representation". The repr of a :ref:`gloss-prop` defines how the property should be displayed in cases where
 the display format differs from the storage format. For example, date/time values in Synapse are stored in epoch
-milliseconds but are displayed in human-friendly "yyyy/mm/dd hh:mm:ss.mmm" format.
+microseconds but are displayed in ISO 8601 "yyyy-mm-ddThh:mm:ss.mmmmmmZ" format.
 
 .. _gloss-research-tool:
 
@@ -1361,15 +1339,6 @@ Sode
 ----
 
 Short for "storage node". See :ref:`gloss-node-storage`.
-
-.. _gloss-splice:
-
-Splice
-------
-
-A splice is an atomic change made to data within a Cortex, such as node creation or deletion, adding or removing a tag,
-or setting, modifying, or removing a property. All changes within a Cortex may be retrieved as individual splices within
-the Cortex's splice log.
 
 .. _gloss-spotlight-tool:
 
@@ -1667,9 +1636,9 @@ of common types.
 Type, Model-Specific
 --------------------
 
-Within Synapse, knowledge-domain-specific forms may themselves be specialized types. For example, an IPv4 address
-(``inet:ipv4``) is its own specialized type. While an IPv4 address is ultimately stored as an integer, the type has
-additional constraints, e.g., IPv4 values must fall within the allowable IPv4 address space.
+Within Synapse, knowledge-domain-specific forms may themselves be specialized types. For example, an IP address
+(``inet:ip``) is its own specialized type. While an IP address is ultimately stored as a tuple of integers, the type has
+additional constraints, e.g., IP values must fall within the allowable IP address space.
 
 .. _gloss-type-aware:
 
