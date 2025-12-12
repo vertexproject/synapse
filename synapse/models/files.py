@@ -398,6 +398,9 @@ modeldefs = (
             (('file:bytes', 'refs', 'it:dev:str'), {
                 'doc': 'The source file contains the target string.'}),
 
+            (('file:bytes', 'uses', 'meta:technique'), {
+                'doc': 'The source file uses the target technique.'}),
+
             # FIXME picturable?
             # (('file:mime:image', 'imageof', None), {
         ),
