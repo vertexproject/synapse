@@ -1563,7 +1563,7 @@ class Runtime(s_base.Base):
         self.task.cancel()
 
     def initPath(self, node):
-        return s_node.Path(dict(self.vars), [node])
+        return s_node.Path(dict(self.vars), node)
 
     def getOpt(self, name, defval=None):
         return self.opts.get(name, defval)
@@ -1841,7 +1841,6 @@ class Runtime(s_base.Base):
         Yield packed node tuples for the given storm query text.
         '''
         dorepr = False
-        dopath = False
         dolink = False
 
         show_storage = False
@@ -1855,7 +1854,6 @@ class Runtime(s_base.Base):
         # { form: ( embedprop, ... ) }
         embeds = nodeopts.get('embeds')
         dorepr = nodeopts.get('repr', False)
-        dopath = nodeopts.get('path', False)
         dolink = nodeopts.get('links', False)
         virts = nodeopts.get('virts', False)
         verbs = nodeopts.get('verbs', True)
@@ -1864,7 +1862,7 @@ class Runtime(s_base.Base):
         async for node, path in self.execute():
 
             pode = node.pack(dorepr=dorepr, virts=virts, verbs=verbs)
-            pode[1]['path'] = await path.pack(path=dopath)
+            pode[1]['path'] = await path.pack()
 
             if (nodedata := path.getData(node.nid)) is not None:
                 pode[1]['nodedata'] = nodedata
