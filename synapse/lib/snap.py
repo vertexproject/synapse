@@ -828,6 +828,11 @@ class Snap(s_base.Base):
             dolink = opts.get('links', False)
             show_storage = opts.get('show:storage', False)
 
+            if dopath:
+                mesg = "The 'path' option is deprecated in 2.230.0 and will be removed, the 'links' option should " \
+                       "be used to retrieve this data instead."
+                await self.warn(mesg)
+
         async for node, path in self.storm(text, opts=opts, user=user):
 
             pode = node.pack(dorepr=dorepr)
