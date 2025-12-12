@@ -292,7 +292,7 @@ class FileTest(s_t_utils.SynTest):
             self.none(node.get('base:ext'))
             self.none(node.get('dir'))
 
-            nodes = await core.nodes('[ file:bytes=* file:bytes=* ]')
+            nodes = await core.nodes('[ file:bytes=* file:bytes=* +(uses)> {[ meta:technique=* ]} ]')
             self.len(2, nodes)
 
             node0 = nodes[0]
