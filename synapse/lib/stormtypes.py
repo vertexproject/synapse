@@ -6749,8 +6749,12 @@ class Path(Prim):
         {'name': 'vars', 'desc': 'The PathVars object for the Path.', 'type': 'node:path:vars', },
         {'name': 'meta', 'desc': 'The PathMeta object for the Path.', 'type': 'node:path:meta', },
         {'name': 'idens', 'desc': 'The list of Node idens which this Path has been forked from during pivot operations.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_methPathIdens',
                   'returns': {'type': 'list', 'desc': 'A list of node idens.', }}},
+        {'name': 'links', 'desc': 'The list of links which this Path has been forked from during pivot operations.',
+         'type': {'type': 'function', '_funcname': '_methPathLinks',
+                  'returns': {'type': 'list', 'desc': 'A list of (node iden, link info) tuples.'}}},
         {'name': 'listvars', 'desc': 'List variables available in the path of a storm query.',
          'type': {'type': 'function', '_funcname': '_methPathListVars',
                   'returns': {'type': 'list',
@@ -6770,12 +6774,17 @@ class Path(Prim):
     def getObjLocals(self):
         return {
             'idens': self._methPathIdens,
+            'links': self._methPathLinks,
             'listvars': self._methPathListVars,
         }
 
     @stormfunc(readonly=True)
     async def _methPathIdens(self):
         return [n.iden() for n in self.valu.nodes]
+
+    @stormfunc(readonly=True)
+    async def _methPathLinks(self):
+        return copy.deepcopy(self.valu.links)
 
     @stormfunc(readonly=True)
     async def _methPathListVars(self):
@@ -8832,22 +8841,26 @@ class LibTrigger(Lib):
     )
     _storm_lib_path = ('trigger',)
     _storm_lib_perms = (
-        {'perm': ('trigger', 'add'), 'gate': 'cortex',
+        {'perm': ('trigger', 'add'), 'gate': 'view',
          'desc': 'Controls adding triggers.'},
-        {'perm': ('trigger', 'del'), 'gate': 'view',
-         'desc': 'Controls deleting triggers.'},
+        {'perm': ('trigger', 'del'), 'gate': 'trigger',
+         'desc': 'Controls deleting a trigger.'},
         {'perm': ('trigger', 'get'), 'gate': 'trigger',
          'desc': 'Controls listing/retrieving triggers.'},
-        {'perm': ('trigger', 'set'), 'gate': 'view',
-         'desc': 'Controls enabling, disabling, and modifying the query of a trigger.'},
-        {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
-         'desc': 'Controls modifying the doc property of triggers.'},
-        {'perm': ('trigger', 'set', 'name'), 'gate': 'trigger',
-         'desc': 'Controls modifying the name property of triggers.'},
+        {'perm': ('trigger', 'set'), 'gate': 'trigger',
+         'desc': 'Controls modifying any user editable property of a trigger.'},
         {'perm': ('trigger', 'set', 'user'), 'gate': 'cortex',
-         'desc': 'Controls modifying the user property of triggers.'},
-        {'perm': ('trigger', 'set', '<property>'), 'gate': 'view',
-         'desc': 'Controls modifying specific trigger properties.'},
+         'desc': 'Controls modifying the user property of any trigger.'},
+        {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
+         'desc': 'Controls modifying the doc property of a trigger.'},
+        {'perm': ('trigger', 'set', 'name'), 'gate': 'trigger',
+         'desc': 'Controls modifying the name property of a trigger.'},
+        {'perm': ('trigger', 'set', 'async'), 'gate': 'trigger',
+         'desc': 'Controls modifying the async property of a trigger.'},
+        {'perm': ('trigger', 'set', 'storm'), 'gate': 'trigger',
+         'desc': 'Controls modifying the storm property of a trigger.'},
+        {'perm': ('trigger', 'set', 'enabled'), 'gate': 'trigger',
+         'desc': 'Controls modifying the enabled property of a trigger.'},
     )
 
     def getObjLocals(self):
@@ -8958,7 +8971,7 @@ class LibTrigger(Lib):
         query = await tostr(query)
         trig = await self._matchIdens(prefix)
         iden = trig.iden
-        gatekeys = ((useriden, ('trigger', 'set'), iden),)
+        gatekeys = ((useriden, ('trigger', 'set', 'storm'), iden),)
         todo = s_common.todo('setTriggerInfo', iden, 'storm', query)
         await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
 
@@ -9014,7 +9027,7 @@ class LibTrigger(Lib):
         iden = trig.iden
 
         useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('trigger', 'set'), iden),)
+        gatekeys = ((useriden, ('trigger', 'set', 'enabled'), iden),)
         todo = s_common.todo('setTriggerInfo', iden, 'enabled', state)
         await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
 
@@ -9086,15 +9099,15 @@ class Trigger(Prim):
         view = self.runt.snap.core.reqView(viewiden)
 
         name = await tostr(name)
-        if name in ('async', 'enabled', ):
+        if name in ('async', 'enabled'):
             valu = await tobool(valu)
-        if name in ('user', 'doc', 'name', 'storm', ):
+        if name in ('user', 'doc', 'name', 'storm'):
             valu = await tostr(valu)
 
         if name == 'user':
             self.runt.confirm(('trigger', 'set', 'user'))
         else:
-            self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
+            self.runt.confirm(('trigger', 'set', name), gateiden=trigiden)
 
         await view.setTriggerInfo(trigiden, name, valu)
 

@@ -18,6 +18,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
+import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +215,9 @@ class ProtoNode:
         return False
 
     async def setData(self, name, valu):
+        if (size := len(name.encode())) > s_lmdbslab.MAX_MDB_KEYLEN - 5:
+            mesg = f'node data keys must be < {s_lmdbslab.MAX_MDB_KEYLEN - 4} bytes, got {size}.'
+            raise s_exc.BadArg(mesg=mesg, name=name[:1024], size=size)
 
         if await self.getData(name) == valu:
             return
@@ -733,6 +737,7 @@ class Snap(s_base.Base):
         if user is None:
             user = self.user
 
+        sudo = False
         if opts is not None:
             varz = opts.get('vars')
             if varz is not None:
@@ -741,7 +746,12 @@ class Snap(s_base.Base):
                         mesg = f"Storm var names must be strings (got {valu} of type {type(valu)})"
                         raise s_exc.BadArg(mesg=mesg)
 
+            if (sudo := opts.get('sudo')):
+                user.confirm(('storm', 'sudo'))
+
         async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
+            if sudo:
+                runt.asroot = True
             yield runt
 
     async def addStormRuntime(self, query, opts=None, user=None):
@@ -817,6 +827,11 @@ class Snap(s_base.Base):
             dopath = opts.get('path', False)
             dolink = opts.get('links', False)
             show_storage = opts.get('show:storage', False)
+
+            if dopath:
+                mesg = "The 'path' option is deprecated in 2.230.0 and will be removed, the 'links' option should " \
+                       "be used to retrieve this data instead."
+                await self.warn(mesg)
 
         async for node, path in self.storm(text, opts=opts, user=user):
 

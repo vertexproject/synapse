@@ -1557,6 +1557,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('storm', 'asroot', 'mod', '<modname>'), 'gate': 'cortex',
             'desc': 'Deprecated. Storm modules should use the asroot:perms key to specify the permissions they require.'},
 
+            {'perm': ('storm', 'sudo'), 'gate': 'cortex',
+            'desc': 'Allows the user to run Storm as a global admin. This allows the user to bypass all permission checks.'},
+
             {'perm': ('storm', 'graph', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm graph.',
              'default': True},
@@ -3106,7 +3109,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         ok = True
 
                         try:
-                            async for mesg in self.storm(initdef['query']):
+                            async for mesg in self.storm(initdef['query'], opts={'mirror': False}):
                                 match mesg[0]:
                                     case 'print':
                                         msg = f'{name} init vers={vers} output: {mesg[1].get("mesg")}'
@@ -3136,7 +3139,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 if onload is not None:
                     try:
-                        async for mesg in self.storm(onload):
+                        async for mesg in self.storm(onload, opts={'mirror': False}):
                             if mesg[0] == 'print':
                                 logger.info(f'{name} onload output: {mesg[1].get("mesg")}', extra=logextra)
                             if mesg[0] == 'warn':
