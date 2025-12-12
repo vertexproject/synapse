@@ -1406,7 +1406,7 @@ class Path:
         '''
         self.metadata[name] = valu
 
-    async def pack(self, path=False):
+    async def pack(self):
         return await s_stormtypes.toprim(dict(self.metadata))
 
     def setData(self, nid, name, valu):
