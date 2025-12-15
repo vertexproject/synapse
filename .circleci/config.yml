@@ -42,9 +42,8 @@ commands:
           command: |
             python3 -m venv --copies venv
             . venv/bin/activate
-            python3 -m pip uninstall pytest-cov
             python3 -m pip install -U wheel pip setuptools
-            python3 -m pip install -U -r requirements_dev.txt pytest-rerunfailures
+            python3 -m pip install -U -r requirements_dev.txt
 
       - run:
           name: install synapse
@@ -59,21 +58,11 @@ commands:
           name: run tests
           command: |
             . venv/bin/activate
-            mkdir -p test-reports
+            mkdir test-reports
             circleci tests glob synapse/tests/test_*.py synapse/vendor/**/test_*.py | \
               circleci tests run \
                 --timings-type=name \
-                --command="
-                  xargs \
-                  coverage run -m pytest \
-                  -n 8 --dist worksteal \
-                  --reruns 1 \
-                  -v -rs \
-                  --durations 6 \
-                  -p no:logging \
-                  --junitxml=test-reports/junit.xml \
-                  -o junit_family=xunit1 \
-                "
+                --command="xargs python -m pytest -n 8 --dist worksteal -v -rs --durations 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}"
 
   test_steps_doc:
     description: "Documentation test steps"
@@ -554,7 +543,7 @@ jobs:
   python314:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.14.2
+      - image: cimg/python:3.13.3
         environment:
           PYVERS: 3.14
           NO_COLOR: 1
@@ -562,9 +551,9 @@ jobs:
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --cov-append
           COVERAGE_FILE: test-reports/<< pipeline.git.revision >>/.coverage
           COVERAGE_CORE: sysmon
-          COVERAGE_PROCESS_START: .coveragerc
 
     working_directory: ~/repo
 
@@ -574,7 +563,7 @@ jobs:
   python314_replay:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.14.2
+      - image: cimg/python:3.13.3
         environment:
           PYVERS: 3.14
           NO_COLOR: 1
@@ -590,7 +579,7 @@ jobs:
 
   doctests:
     docker:
-      - image: cimg/python:3.14.2
+      - image: cimg/python:3.13.3
         environment:
           PYVERS: 3.14
 
@@ -601,7 +590,7 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.14.2
+      - image: cimg/python:3.13.3
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py314
@@ -613,7 +602,7 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: cimg/python:3.14.2
+      - image: cimg/python:3.13.3
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py314
@@ -660,7 +649,7 @@ jobs:
 
   devpi_synapse_3xx:
     docker:
-      - image: cimg/python:3.14.2
+      - image: cimg/python:3.13.3
     steps:
       - checkout
       - run:
