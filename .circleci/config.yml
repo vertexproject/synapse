@@ -64,7 +64,7 @@ commands:
                 --timings-type=name \
                 --command="
                   xargs \
-                  python -m pytest \
+                  coverage run -m pytest \
                   -n 8 --dist worksteal \
                   --reruns 1 \
                   -v -rs \
