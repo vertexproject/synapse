@@ -65,7 +65,6 @@ commands:
                 --command="
                   xargs \
                   python -m pytest \
-                  --assert=plain \
                   -n 8 --dist worksteal \
                   --reruns 1 \
                   -v -rs \
