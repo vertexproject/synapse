@@ -43,7 +43,7 @@ commands:
             python3 -m venv --copies venv
             . venv/bin/activate
             python3 -m pip install -U wheel pip setuptools
-            python3 -m pip install -U -r requirements_dev.txt pytest-rerunfailures pytest-sugar
+            python3 -m pip install -U -r requirements_dev.txt pytest-rerunfailures
 
       - run:
           name: install synapse
@@ -66,13 +66,13 @@ commands:
                   xargs \
                   python3 -m pytest \
                   -n 8 --dist worksteal \
+                  --max-worker-restart 0 \
                   --reruns 1 \
                   -v -rs \
                   --durations 6 \
                   -p no:logging \
                   --junitxml=test-reports/junit.xml \
                   -o junit_family=xunit1 \
-                  --cov-append \
                   ${COVERAGE_ARGS} \
                 "
 
@@ -558,7 +558,7 @@ jobs:
       - image: cimg/python:3.14.2
         environment:
           PYVERS: 3.14
-          NO_COLOR: 1
+          PYTHON_COLORS: 0
           RUN_SYNTAX: 1
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
@@ -578,7 +578,7 @@ jobs:
       - image: cimg/python:3.14.2
         environment:
           PYVERS: 3.14
-          NO_COLOR: 1
+          PYTHON_COLORS: 0
           RUN_SYNTAX: 1
           CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
