@@ -59,7 +59,7 @@ commands:
           name: run tests
           command: |
             . venv/bin/activate
-            mkdir test-reports
+            mkdir -p test-reports
             circleci tests glob synapse/tests/test_*.py synapse/vendor/**/test_*.py | \
               circleci tests run \
                 --timings-type=name \
