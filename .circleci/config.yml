@@ -563,7 +563,7 @@ jobs:
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_FILE: test-reports/<< pipeline.git.revision >>/.coverage
-          COVERAGE_ARGS: --cov synapse
+          COVERAGE_ARGS: --cov synapse --cov-append
           COVERAGE_CORE: sysmon
 
     working_directory: ~/repo
