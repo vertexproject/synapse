@@ -160,9 +160,7 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pvault['schemas']['configs']['properties']['foo']['default'], 'hehe haha')
             self.eq(pvault['schemas']['configs']['properties']['bar']['oneOf'][0]['type'], 'boolean')
             self.eq(pvault['schemas']['configs']['properties']['bar']['oneOf'][1]['type'], 'string')
-            self.eq(pvault['schemas']['configs']['properties']['bar']['default'], True)
             self.eq(pvault['schemas']['configs']['properties']['baz']['type'], 'boolean')
-            self.eq(pvault['schemas']['configs']['properties']['baz']['default'], False)
             self.eq(pvault['schemas']['configs']['additionalProperties'], False)
             self.eq(pvault['schemas']['secrets']['properties']['quux']['type'], 'string')
             self.eq(pvault['schemas']['secrets']['properties']['quux']['minLength'], 2)
@@ -192,6 +190,22 @@ class GenPkgTest(s_test.SynTest):
             self.nn(build.get('time'))
             self.eq(build.get('synapse:version'), s_version.verstring)
             self.eq(build.get('synapse:commit'), s_version.commit)
+
+            ret = await core.callStorm('''
+                $s = $lib.pkg.get(testpkg).vaults.testpkg.schemas.configs
+                return($lib.json.schema($s).validate(({"bar": true, "baz": true})))
+            ''')
+            self.eq([True, {
+                'foo': 'hehe haha',
+                'bar': True,
+                'baz': True,
+            }], ret)
+
+            ret = await core.callStorm('''
+                $s = $lib.pkg.get(testpkg).vaults.testpkg.schemas.secrets
+                return($lib.json.schema($s).validate(({"quux": "foo"})))
+            ''')
+            self.eq([True, {'quux': 'foo'}], ret)
 
             # nodocs
             nodocspath = s_common.genpath(core.dirn, 'testpkg_nodocs.json')
