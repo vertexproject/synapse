@@ -64,7 +64,8 @@ commands:
                 --timings-type=name \
                 --command="
                   xargs \
-                  python3 -m pytest \
+                  coverage run --append --parallel-mode --source=synapse \
+                  -m pytest \
                   -n 8 --dist worksteal \
                   --max-worker-restart 0 \
                   --reruns 1 \
@@ -73,7 +74,6 @@ commands:
                   -p no:logging \
                   --junitxml=test-reports/junit.xml \
                   -o junit_family=xunit1 \
-                  ${COVERAGE_ARGS} \
                 "
 
   test_steps_doc:
@@ -558,7 +558,7 @@ jobs:
       - image: cimg/python:3.14.2
         environment:
           PYVERS: 3.14
-          PYTHON_COLORS: 0
+          NO_COLOR: 1
           RUN_SYNTAX: 1
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
@@ -578,7 +578,7 @@ jobs:
       - image: cimg/python:3.14.2
         environment:
           PYVERS: 3.14
-          PYTHON_COLORS: 0
+          NO_COLOR: 1
           RUN_SYNTAX: 1
           CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
