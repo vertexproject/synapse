@@ -63,16 +63,16 @@ commands:
               circleci tests run \
                 --timings-type=name \
                 --command="
-                  xargs
-                  python3 -m pytest
-                  -n 8 --dist worksteal
-                  --reruns 1
-                  -v -rs
-                  --durations 6
-                  -p no:logging
-                  --junitxml=test-reports/junit.xml
-                  -o junit_family=xunit1
-                  ${COVERAGE_ARGS}
+                  xargs \
+                  python3 -m pytest \
+                  -n 8 --dist worksteal \
+                  --reruns 1 \
+                  -v -rs \
+                  --durations 6 \
+                  -p no:logging \
+                  --junitxml=test-reports/junit.xml \
+                  -o junit_family=xunit1 \
+                  ${COVERAGE_ARGS} \
                 "
 
   test_steps_doc:
