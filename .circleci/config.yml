@@ -553,6 +553,7 @@ commands:
 jobs:
 
   python314:
+    parallelism: 2
     resource_class: xlarge
     docker:
       - image: cimg/python:3.14.2
