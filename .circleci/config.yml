@@ -65,7 +65,7 @@ commands:
                 --timings-type=name \
                 --command="
                   xargs \
-                  coverage run --append --source=synapse \
+                  coverage run --parallel-mode --source=synapse \
                   -m pytest \
                   -n 8 --dist worksteal \
                   --reruns 1 \
@@ -564,7 +564,6 @@ jobs:
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_FILE: test-reports/<< pipeline.git.revision >>/.coverage
-          COVERAGE_ARGS: --cov synapse --cov-append
           COVERAGE_CORE: sysmon
 
     working_directory: ~/repo
@@ -582,9 +581,7 @@ jobs:
           RUN_SYNTAX: 1
           CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse
           SYNDEV_NEXUS_REPLAY: 1
-          COVERAGE_CORE: sysmon
 
     working_directory: ~/repo
 
