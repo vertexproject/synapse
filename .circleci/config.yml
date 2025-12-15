@@ -64,7 +64,7 @@ commands:
                 --timings-type=name \
                 --command="
                   xargs \
-                  pytest -m pytest \
+                  python -m pytest \
                   -n 8 \
                   --reruns 1 \
                   -v -rs \
