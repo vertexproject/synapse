@@ -8,7 +8,7 @@
 # By default, this will pull the latest vertexproject/synapse:master image
 # to check, and compare it against the previous stable release image.
 #
-# A single parameter ( a image name ) can be provided to check an arbitrary
+# A single parameter ( an image name ) can be provided to check an arbitrary
 # image. Example:
 #
 # ./scripts/image_check.sh vertexproject/synapse-foobar:master

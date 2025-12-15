@@ -6,7 +6,7 @@ This doc details the release process we use for Synapse.
 Github Milestone Management
 ---------------------------
 
-The next milestone should be created in github.  For example, if the current release is v2.220.0, we should have a
+The next milestone should be created in github. For example, if the current release is v2.220.0, we should have a
 v2.22x.x milestone created. When PRs are created or issues are addressed (via PR), they should be added to the
 milestone before merge time. This allows us to easily group PRs that will go into the release.
 
@@ -45,7 +45,7 @@ Each key in the ``.yaml`` file has the following purposes:
     The ``desc`` key contains the text of the changelog entry.
 
 ``desc:literal``
-    This is boolean value which indicates the ``desc`` value should be inserted as-is into the RST output when
+    This is a boolean value which indicates the ``desc`` value should be inserted as-is into the RST output when
     formatting the changelog. That is only neccesary if the changelog entry needs to be more complex than a simple
     line wrapped string.
 
@@ -65,7 +65,7 @@ The changelog tool ``gen`` command supports creating entries with the following 
 
 ``model``
     This category should be used for any changes related to the Synapse data model. This should especially be used when
-    the changes will not be included in the model differ, such as changing the norm functionality of a built in type.
+    the changes will not be included in the model differ, such as changing the norm functionality of a built-in type.
 
 ``feat``
     This category should be used for any changes related to new functionality being added to Synapse.
