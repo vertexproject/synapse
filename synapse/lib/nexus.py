@@ -351,10 +351,12 @@ class NexsRoot(s_base.Base):
         if meta is None:
             meta = {}
 
-        # If this issue came from a downstream mirror, just in case I'm forwarding to upstream mirror,
-        # make my response iden the same as what's coming from downstream
+        # If this issue came from a downstream mirror, just forward the request
+        if 'resp' in meta:
+            await client.issue(nexsiden, event, args, kwargs, meta=meta, wait=False)
+            return
 
-        with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
+        with self._getResponseFuture() as (iden, futu):
             meta['resp'] = iden
             await client.issue(nexsiden, event, args, kwargs, meta=meta, wait=False)
             return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)

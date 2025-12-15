@@ -449,3 +449,74 @@ class NexusTest(s_t_utils.SynTest):
                             await core01.addView(vdef)
 
                         self.eq(strt, await core01.nexsroot.index())
+
+    async def test_nexus_mirror_of_mirror_nowait(self):
+
+        with self.getTestDir() as dirn:
+            path00 = s_common.genpath(dirn, 'core00')
+            path01 = s_common.genpath(dirn, 'core01')
+            path02 = s_common.genpath(dirn, 'core02')
+            conf00 = {'nexslog:en': True}
+
+            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
+                pass
+
+            s_backup.backup(path00, path01)
+            s_backup.backup(path00, path02)
+
+            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
+
+                conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+                async with self.getTestCore(dirn=path01, conf=conf01) as core01:
+
+                    conf02 = {'nexslog:en': True, 'mirror': core01.getLocalUrl()}
+                    async with self.getTestCore(dirn=path02, conf=conf02) as core02:
+
+                        evnt1 = asyncio.Event()
+                        evnt2 = asyncio.Event()
+                        evnt3 = asyncio.Event()
+                        orig0 = core00.auth.reqUser
+                        orig1 = core01.auth.reqUser
+
+                        async def slowReq0(iden):
+                            await evnt1.wait()
+                            valu = await orig0(iden)
+                            evnt2.set()
+                            return valu
+
+                        async def slowReq1(iden):
+                            await evnt1.wait()
+                            valu = await orig1(iden)
+                            evnt3.set()
+                            return valu
+
+                        with (mock.patch.object(core00.auth, 'reqUser', slowReq0),
+                              mock.patch.object(core01.auth, 'reqUser', slowReq1)):
+
+                            self.eq(len(core00.views), len(core01.views))
+                            self.eq(len(core00.views), len(core02.views))
+
+                            deflayr = (await core00.getLayerDef()).get('iden')
+
+                            vdef = {'layers': (deflayr,), 'name': 'nextview'}
+                            await core02.addView(vdef)
+
+                            # We can finish handling the view add event on the mirror leaf mirror first
+                            self.eq(len(core00.views) + 1, len(core02.views))
+                            self.eq(len(core01.views) + 1, len(core02.views))
+
+                            evnt1.set()
+                            await evnt2.wait()
+                            await evnt3.wait()
+
+                            self.eq(len(core00.views), len(core01.views))
+                            self.eq(len(core00.views), len(core02.views))
+
+                            await core00.getCellNexsRoot().addWriteHold('readonly')
+                            strt = await core02.nexsroot.index()
+
+                            # We still get exceptions that occur before adding the nexus event
+                            with self.raises(s_exc.IsReadOnly) as cm:
+                                await core02.addView(vdef)
+
+                            self.eq(strt, await core02.nexsroot.index())

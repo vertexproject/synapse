@@ -1692,7 +1692,7 @@ class View(s_nexus.Pusher):  # type: ignore
             mode = opts.get('mode', 'storm')
 
             query = await self.core.getStormQuery(text, mode=mode)
-            async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
+            async with self.core.getStormRuntime(query, opts=opts, view=self, user=user) as runt:
                 async for node, path in runt.execute():
                     yield node
 
@@ -1797,7 +1797,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 with s_scope.enter({'user': user}):
 
-                    async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
+                    async with self.core.getStormRuntime(query, opts=opts, view=self, user=user) as runt:
 
                         if keepalive:
                             runt.schedCoro(runt.keepalive(keepalive))
@@ -1902,7 +1902,7 @@ class View(s_nexus.Pusher):  # type: ignore
         query = await self.core.getStormQuery(text, mode=mode)
 
         with s_scope.enter({'user': user}):
-            async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
+            async with self.core.getStormRuntime(query, opts=opts, view=self, user=user) as runt:
                 async for pode in runt.iterStormPodes():
                     yield pode
 

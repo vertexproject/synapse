@@ -2779,6 +2779,7 @@ class Layer(s_nexus.Pusher):
             self.editindx.set('edit:indx', -1)
 
         self.lastindx = self.editindx.get('edit:indx')
+        self.lastedittime = self.editindx.get('edit:time', defv=None)
 
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
@@ -3686,6 +3687,10 @@ class Layer(s_nexus.Pusher):
             if nexsoffs > self.lastindx:
                 self.lastindx = nexsoffs
                 self.editindx.set('edit:indx', nexsoffs)
+
+                self.lastedittime = utime
+                self.editindx.set('edit:time', utime)
+
                 if self.windows:
                     for wind in tuple(self.windows):
                         await wind.put((nexsoffs, nodeedits, meta))

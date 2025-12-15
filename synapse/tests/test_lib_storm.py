@@ -5241,7 +5241,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             msgs = await core.stormlist('version')
-            self.stormIsInPrint('Synapse Version:', msgs)
+            self.stormIsInPrint(f'Synapse Version: {s_version.verstring}', msgs)
             self.stormIsInPrint('Commit Hash:', msgs)
 
     async def test_storm_runas(self):

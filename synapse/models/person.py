@@ -14,9 +14,26 @@ modeldefs = (
                 'doc': 'An instance of an edu:course taught at a given time.'}),
 
             ('ps:education', ('guid', {}), {
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'student::name'}},
+                        {'type': 'prop', 'opts': {'name': 'institution::name'}},
+                        # TODO allow columns to use virtual props
+                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
+                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
+                    ),
+                },
                 'doc': 'A period of education for an individual.'}),
 
             ('ps:achievement', ('guid', {}), {
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'awardee::name'}},
+                        {'type': 'prop', 'opts': {'name': 'award::name'}},
+                        {'type': 'prop', 'opts': {'name': 'award::org::name'}},
+                        {'type': 'prop', 'opts': {'name': 'awarded'}},
+                    ),
+                },
                 'doc': 'An instance of an individual receiving an award.'}),
 
             ('ps:person', ('guid', {}), {
@@ -28,6 +45,16 @@ modeldefs = (
                 'doc': 'A person or persona.'}),
 
             ('ps:workhist', ('guid', {}), {
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'contact::name'}},
+                        {'type': 'prop', 'opts': {'name': 'title'}},
+                        {'type': 'prop', 'opts': {'name': 'org:name'}},
+                        # TODO allow columns to use virtual props
+                        # {'type': 'prop', 'opts': {'name': 'period.min'}},
+                        # {'type': 'prop', 'opts': {'name': 'period.max'}},
+                    ),
+                },
                 'doc': "An entry in a contact's work history."}),
 
             ('ps:vitals', ('guid', {}), {

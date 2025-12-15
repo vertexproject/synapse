@@ -781,7 +781,7 @@ class DataModelTest(s_t_utils.SynTest):
             await core.nodes('[ it:network=* :net=(1.2.3.4, 1.2.3.6) _test:ip=1.2.3.4 inet:ip=1.2.3.5 ]')
 
             self.len(1, await core.nodes('it:network :net -> _test:ip'))
-            self.len(2, await core.nodes('it:network :net -> inet:ip'))
+            self.len(4, await core.nodes('it:network :net -> inet:ip'))
 
             await core.nodes('[ it:host=* :ip=1.2.3.4 ]')
             await core.nodes('[ it:host=* :ip=1.2.3.5 ]')
@@ -791,10 +791,10 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('it:network :net -> it:host:ip'))
             self.len(2, await core.nodes('it:network :net -> it:host:_ip2'))
 
-            await core.nodes('[ inet:cidr=1.0.0.0/8 ]')
+            await core.nodes('[ inet:net=1.0.0.0/8 ]')
 
-            self.len(2, await core.nodes('inet:cidr -> _test:ip'))
-            self.len(5, await core.nodes('inet:cidr -> inet:ip'))
+            self.len(2, await core.nodes('inet:net=1.0.0.0/8 -> _test:ip'))
+            self.len(7, await core.nodes('inet:net=1.0.0.0/8 -> inet:ip'))
 
-            self.len(2, await core.nodes('inet:cidr -> it:host:ip'))
-            self.len(2, await core.nodes('inet:cidr -> it:host:_ip2'))
+            self.len(2, await core.nodes('inet:net=1.0.0.0/8 -> it:host:ip'))
+            self.len(2, await core.nodes('inet:net=1.0.0.0/8 -> it:host:_ip2'))

@@ -528,69 +528,6 @@ class SockAddr(s_types.Str):
 
         return f'{proto}://{ip_repr}', {'subs': subs, 'virts': virts}
 
-class Cidr(s_types.Str):
-
-    def postTypeInit(self):
-        s_types.Str.postTypeInit(self)
-        self.setNormFunc(str, self._normPyStr)
-
-        self.iptype = self.modl.type('inet:ip')
-        self.inttype = self.modl.type('int')
-
-        self.pivs |= {
-            'inet:ip': ('range=', self.iptype.getCidrRange),
-        }
-
-    async def _normPyStr(self, valu, view=None):
-
-        try:
-            ip_str, mask_str = valu.split('/', 1)
-            mask_int = int(mask_str)
-        except ValueError:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Invalid/Missing CIDR Mask')
-
-        (vers, ip_int) = (await self.iptype.norm(ip_str))[0]
-
-        if vers == 4:
-            if mask_int > 32 or mask_int < 0:
-                raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                        mesg='Invalid CIDR Mask')
-
-            mask = cidrmasks[mask_int]
-            network, netinfo = await self.iptype.norm((4, ip_int & mask[0]))
-            broadcast, binfo = await self.iptype.norm((4, network[1] + mask[1] - 1))
-            network_str = self.iptype.repr(network)
-
-            norm = f'{network_str}/{mask_int}'
-            info = {
-                'subs': {
-                    'broadcast': (self.iptype.typehash, broadcast, binfo),
-                    'mask': (self.inttype.typehash, mask_int, {}),
-                    'network': (self.iptype.typehash, network, netinfo),
-                }
-            }
-
-        else:
-            try:
-                netw = ipaddress.IPv6Network(valu)
-            except Exception as e:
-                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
-
-            network, netinfo = await self.iptype.norm((6, int(netw.network_address)))
-            broadcast, binfo = await self.iptype.norm((6, int(netw.broadcast_address)))
-
-            norm = str(netw)
-            info = {
-                'subs': {
-                    'broadcast': (self.iptype.typehash, broadcast, binfo),
-                    'mask': (self.inttype.typehash, netw.prefixlen, {}),
-                    'network': (self.iptype.typehash, network, netinfo),
-                }
-            }
-
-        return norm, info
-
 class Email(s_types.Str):
 
     def postTypeInit(self):
@@ -795,18 +732,142 @@ class IPRange(s_types.Range):
         self.opts['type'] = ('inet:ip', {})
         s_types.Range.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-        self.cidrtype = self.modl.type('inet:cidr')
+
+        self.masktype = self.modl.type('int').clone({'size': 1, 'signed': False})
+        self.sizetype = self.modl.type('int').clone({'size': 16, 'signed': False})
+
+        # Offset size values by 1 so we can store ::/0 in 16 bytes and there is always at least 1 IP in the range
+        self.sizetype.minval += 1
+        self.sizetype.maxval += 1
 
         self.pivs |= {
             'inet:ip': ('range=', None),
         }
 
+        self.virtindx |= {
+            'mask': 'mask',
+            'size': 'size',
+        }
+
+        self.virts |= {
+            'mask': (self.masktype, self._getMask),
+            'size': (self.sizetype, self._getSize),
+        }
+
+        self.virtlifts |= {
+            'size': {
+                'in=': self._storLiftSizeIn,
+                'range=': self._storLiftSizeRange
+            },
+        }
+
+        for oper in ('=', '<', '>', '<=', '>='):
+            self.virtlifts['size'][oper] = self._storLiftSize
+
+    async def _storLiftSize(self, cmpr, valu):
+        norm, _ = await self.sizetype.norm(valu)
+        return (
+            (cmpr, norm - 1, self.sizetype.stortype),
+        )
+
+    async def _storLiftSizeIn(self, cmpr, valu):
+        retn = []
+        for realvalu in valu:
+            retn.extend(await self._storLiftSize('=', realvalu))
+        return retn
+
+    async def _storLiftSizeRange(self, cmpr, valu):
+        minx = (await self.sizetype.norm(valu[0]))[0]
+        maxx = (await self.sizetype.norm(valu[1]))[0]
+        return (
+            (cmpr, (minx - 1, maxx - 1), self.sizetype.stortype),
+        )
+
+    def _getMask(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('mask')) is None:
+            return None
+
+        return valu[0]
+
+    def _getSize(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('size')) is None:
+            return None
+
+        return valu[0] + 1
+
+    def repr(self, norm):
+        if (cidr := self._getCidr(norm)) is not None:
+            return str(cidr)
+
+        minv, maxv = s_types.Range.repr(self, norm)
+        return f'{minv}-{maxv}'
+
+    def _getCidr(self, norm):
+        (minv, maxv) = norm
+
+        if minv[0] == 4:
+            minv = ipaddress.IPv4Address(minv[1])
+            maxv = ipaddress.IPv4Address(maxv[1])
+        else:
+            minv = ipaddress.IPv6Address(minv[1])
+            maxv = ipaddress.IPv6Address(maxv[1])
+
+        cidr = None
+        for iprange in ipaddress.summarize_address_range(minv, maxv):
+            if cidr is not None:
+                return
+            cidr = iprange
+
+        return cidr
+
     async def _normPyStr(self, valu, view=None):
+
         if '-' in valu:
-            return await super()._normPyStr(valu)
-        cidrnorm = await self.cidrtype._normPyStr(valu)
-        tupl = cidrnorm[1]['subs']['network'][1], cidrnorm[1]['subs']['broadcast'][1]
-        return await self._normPyTuple(tupl)
+            norm, info = await super()._normPyStr(valu)
+            info['virts'] = {'size': (norm[1][1] - norm[0][1], self.sizetype.stortype)}
+
+            if (cidr := self._getCidr(norm)) is not None:
+                info['virts']['mask'] = (cidr.prefixlen, self.masktype.stortype)
+
+            return norm, info
+
+        try:
+            ip_str, mask_str = valu.split('/', 1)
+            mask_int = int(mask_str)
+        except ValueError:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Invalid/Missing CIDR Mask')
+
+        (vers, ip_int) = (await self.subtype.norm(ip_str))[0]
+
+        if vers == 4:
+            if mask_int > 32 or mask_int < 0:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                        mesg='Invalid CIDR Mask')
+
+            mask = cidrmasks[mask_int]
+            network, netinfo = await self.subtype.norm((4, ip_int & mask[0]))
+            broadcast, binfo = await self.subtype.norm((4, network[1] + mask[1] - 1))
+
+        else:
+            try:
+                netw = ipaddress.IPv6Network(valu)
+            except Exception as e:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
+
+            network, netinfo = await self.subtype.norm((6, int(netw.network_address)))
+            broadcast, binfo = await self.subtype.norm((6, int(netw.broadcast_address)))
+
+        return (network, broadcast), {'subs': {'min': (self.subtype.typehash, network, netinfo),
+                                               'max': (self.subtype.typehash, broadcast, binfo)},
+                                      'virts': {'mask': (mask_int, self.masktype.stortype),
+                                                'size': (broadcast[1] - network[1], self.sizetype.stortype)}}
 
     async def _normPyTuple(self, valu, view=None):
         if len(valu) != 2:
@@ -824,8 +885,14 @@ class IPRange(s_types.Range):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='minval cannot be greater than maxval')
 
-        return (minv, maxv), {'subs': {'min': (self.subtype.typehash, minv, minfo),
-                                       'max': (self.subtype.typehash, maxv, maxfo)}}
+        info = {'subs': {'min': (self.subtype.typehash, minv, minfo),
+                         'max': (self.subtype.typehash, maxv, maxfo)},
+                'virts': {'size': (maxv[1] - minv[1], self.sizetype.stortype)}}
+
+        if (cidr := self._getCidr((minv, maxv))) is not None:
+            info['virts']['mask'] = (cidr.prefixlen, self.masktype.stortype)
+
+        return (minv, maxv), info
 
 class Rfc2822Addr(s_types.Str):
     '''
@@ -1205,8 +1272,17 @@ modeldefs = (
                 'ex': '1.2.3.4',
                 'doc': 'An IPv4 or IPv6 address.'}),
 
-            ('inet:iprange', 'synapse.models.inet.IPRange', {}, {
+            ('inet:net', 'synapse.models.inet.IPRange', {}, {
                 'ex': '1.2.3.4-1.2.3.8',
+                'virts': (
+                    ('mask', ('int', {}), {
+                        'ro': True,
+                        'doc': 'The mask if the range can be represented in CIDR notation.'}),
+
+                    ('size', ('int', {}), {
+                        'ro': True,
+                        'doc': 'The number of addresses in the range.'}),
+                ),
                 'doc': 'An IPv4 or IPv6 address range.'}),
 
             ('inet:sockaddr', 'synapse.models.inet.SockAddr', {}, {
@@ -1221,10 +1297,6 @@ modeldefs = (
                         'doc': 'The port contained in the socket address URL.'}),
                 ),
                 'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.'}),
-
-            ('inet:cidr', 'synapse.models.inet.Cidr', {}, {
-                'ex': '1.2.3.0/24',
-                'doc': 'An IP address block in Classless Inter-Domain Routing (CIDR) notation.'}),
 
             ('inet:email', 'synapse.models.inet.Email', {}, {
                 'interfaces': (
@@ -1262,8 +1334,8 @@ modeldefs = (
             (('inet:whois:iprecord', 'has', 'inet:ip'), {
                 'doc': 'The IP whois record describes the IP address.'}),
 
-            (('inet:cidr', 'has', 'inet:ip'), {
-                'doc': 'The CIDR block contains the IP address.'}),
+            (('inet:net', 'has', 'inet:ip'), {
+                'doc': 'The IP address range contains the IP address.'}),
         ),
 
         'types': (
@@ -1369,10 +1441,6 @@ modeldefs = (
                 ),
                 'ex': 'aa:bb:cc:dd:ee:ff',
                 'doc': 'A 48-bit Media Access Control (MAC) address.'}),
-
-            ('inet:net', ('inet:iprange', {}), {
-                'ex': '(1.2.3.4, 1.2.3.20)',
-                'doc': 'An IP address range.'}),
 
             ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
                 'ex': '80',
@@ -2052,20 +2120,16 @@ modeldefs = (
                     'prevnames': ('net4:max', 'net6:max')}),
             )),
 
-            ('inet:cidr', {
+            ('inet:net', {
                 'prevnames': ('inet:cidr4', 'inet:cidr6')}, (
 
-                ('broadcast', ('inet:ip', {}), {
+                ('min', ('inet:ip', {}), {
                     'ro': True,
-                    'doc': 'The broadcast IP address from the CIDR notation.'}),
+                    'doc': 'The first IP address in the network range.'}),
 
-                ('mask', ('int', {}), {
+                ('max', ('inet:ip', {}), {
                     'ro': True,
-                    'doc': 'The mask from the CIDR notation.'}),
-
-                ('network', ('inet:ip', {}), {
-                    'ro': True,
-                    'doc': 'The network IP address from the CIDR notation.'}),
+                    'doc': 'The last IP address in the network range.'}),
             )),
 
             ('inet:client', {}, (

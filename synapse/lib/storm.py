@@ -507,8 +507,8 @@ stormcmds = (
                 $comm = $comm.slice(0,7)
             }
 
-            $lib.print('Synapse Version: {$synv}')
-            $lib.print('Commit Hash: {$comm}')
+            $lib.print(`Synapse Version: {$synv}`)
+            $lib.print(`Commit Hash: {$comm}`)
         ''',
     },
     {

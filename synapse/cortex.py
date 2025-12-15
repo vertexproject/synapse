@@ -1181,6 +1181,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('pkg', 'del'), 'gate': 'cortex',
              'desc': 'Controls access to deleting storm packages.'},
 
+            {'perm': ('storm', 'sudo'), 'gate': 'cortex',
+            'desc': 'Allows the user to run Storm as a global admin. This allows the user to bypass all permission checks.'},
+
             {'perm': ('graph', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm graph.',
              'default': True},
@@ -2507,7 +2510,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         ok = True
 
                         try:
-                            async for mesg in self.storm(initdef['query']):
+                            async for mesg in self.storm(initdef['query'], opts={'mirror': False}):
                                 match mesg[0]:
                                     case 'print':
                                         msg = f'{name} init vers={vers} output: {mesg[1].get("mesg")}'
@@ -2537,7 +2540,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 if onload is not None:
                     try:
-                        async for mesg in self.storm(onload):
+                        async for mesg in self.storm(onload, opts={'mirror': False}):
                             if mesg[0] == 'print':
                                 logger.info(f'{name} onload output: {mesg[1].get("mesg")}', extra=logextra)
                             if mesg[0] == 'warn':
@@ -5538,14 +5541,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return await self.querycache.aget((text, mode))
 
     @contextlib.asynccontextmanager
-    async def getStormRuntime(self, query, opts=None):
+    async def getStormRuntime(self, query, opts=None, view=None, user=None):
 
         opts = self._initStormOpts(opts)
 
-        view = self._viewFromOpts(opts)
-        user = self._userFromOpts(opts)
+        if view is None:
+            view = self._viewFromOpts(opts)
+
+        if user is None:
+            user = self._userFromOpts(opts)
+
+        if (sudo := opts.get('sudo')):
+            user.confirm(('storm', 'sudo'))
 
         async with await s_storm.Runtime.anit(query, view, opts=opts, user=user) as runt:
+            if sudo:
+                runt.asroot = True
             yield runt
 
     async def reqValidStorm(self, text, opts=None):

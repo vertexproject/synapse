@@ -200,8 +200,8 @@ modeldefs = (
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
-                        {'type': 'prop', 'opts': {'name': 'type'}},
                         {'type': 'prop', 'opts': {'name': 'email'}},
+                        {'type': 'prop', 'opts': {'name': 'type'}},
                     ),
                 },
 
@@ -281,6 +281,7 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'names'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         {'type': 'prop', 'opts': {'name': 'tag'}},
+                        {'type': 'prop', 'opts': {'name': 'period'}},
                     ),
                 },
                 'doc': 'Activity in pursuit of a goal.'}),

@@ -1305,6 +1305,9 @@ class Model:
                                f' but {curf.full} has no property named {partname}.')
                         raise s_exc.BadFormDef(mesg=mesg)
 
+                    if isinstance(prop.type, s_types.Ndef):
+                        break
+
                     curf = self.form(prop.type.name)
 
             else:
