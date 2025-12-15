@@ -24,6 +24,7 @@ commands:
             chmod +x codecov
             # Activate our venv and generate a xml report
             . venv/bin/activate
+            python -m coverage combine
             python -m coverage xml
             # Execute the binary...
             ./codecov \
@@ -64,10 +65,9 @@ commands:
                 --timings-type=name \
                 --command="
                   xargs \
-                  coverage run --parallel-mode --source=synapse \
+                  coverage run --append --source=synapse \
                   -m pytest \
                   -n 8 --dist worksteal \
-                  --max-worker-restart 0 \
                   --reruns 1 \
                   -v -rs \
                   --durations 6 \
