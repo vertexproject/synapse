@@ -42,6 +42,7 @@ commands:
           command: |
             python3 -m venv --copies venv
             . venv/bin/activate
+            python3 -m pip uninstall pytest-cov
             python3 -m pip install -U wheel pip setuptools
             python3 -m pip install -U -r requirements_dev.txt pytest-rerunfailures
 
@@ -64,7 +65,7 @@ commands:
                 --timings-type=name \
                 --command="
                   xargs \
-                  python -m pytest \
+                  coverage run -m pytest \
                   -n 8 --dist worksteal \
                   --reruns 1 \
                   -v -rs \
@@ -72,7 +73,6 @@ commands:
                   -p no:logging \
                   --junitxml=test-reports/junit.xml \
                   -o junit_family=xunit1 \
-                  ${COVERAGE_ARGS} \
                 "
 
   test_steps_doc:
@@ -552,7 +552,6 @@ commands:
 jobs:
 
   python314:
-    parallelism: 2
     resource_class: xlarge
     docker:
       - image: cimg/python:3.14.2
@@ -564,8 +563,8 @@ jobs:
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_FILE: test-reports/<< pipeline.git.revision >>/.coverage
-          COVERAGE_ARGS: --cov synapse --cov-append
           COVERAGE_CORE: sysmon
+          COVERAGE_PROCESS_START: .coveragerc
 
     working_directory: ~/repo
 
