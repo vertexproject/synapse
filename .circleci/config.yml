@@ -64,8 +64,8 @@ commands:
                 --timings-type=name \
                 --command="
                   xargs \
-                  coverage run --source synapse -m pytest \
-                  -n 8 --dist worksteal \
+                  pytest -m pytest \
+                  -n 8 \
                   --reruns 1 \
                   -v -rs \
                   --durations 6 \
