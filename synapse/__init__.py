@@ -3,7 +3,7 @@ The synapse intelligence analysis framework.
 '''
 
 import sys
-if (sys.version_info.major, sys.version_info.minor) < (3, 14):  # pragma: no cover
+if (sys.version_info.major, sys.version_info.minor) < (3, 13):  # pragma: no cover
     raise Exception('synapse is not supported on Python versions < 3.14')
 
 # checking maximum *signed* integer size to determine the interpreter arch
