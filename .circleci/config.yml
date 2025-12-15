@@ -64,7 +64,7 @@ commands:
                 --timings-type=name \
                 --command="
                   xargs \
-                  coverage run --append --parallel-mode --source=synapse \
+                  coverage run --parallel-mode --source=synapse \
                   -m pytest \
                   -n 8 --dist worksteal \
                   --max-worker-restart 0 \
