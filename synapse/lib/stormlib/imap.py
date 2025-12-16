@@ -465,6 +465,15 @@ async def run_imap_coro(coro, timeout):
 class ImapLib(s_stormtypes.Lib):
     '''
     A Storm library to connect to an IMAP server.
+
+    For APIs that accept an ssl argument, the dictionary may contain the following values::
+
+        ({
+            'verify': <bool> - Perform SSL/TLS verification. Default is True.
+            'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+            'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+            'ca_cert': <str> - A PEM encoded full chain CA certificate for use when verifying the request.
+        })
     '''
     _storm_locals = (
         {
@@ -478,16 +487,16 @@ class ImapLib(s_stormtypes.Lib):
             'type': {
                 'type': 'function', '_funcname': 'connect',
                 'args': (
-                    {'type': 'str', 'name': 'host',
-                     'desc': 'The IMAP hostname.'},
-                    {'type': 'int', 'name': 'port', 'default': 993,
-                     'desc': 'The IMAP server port.'},
-                    {'type': 'int', 'name': 'timeout', 'default': 30,
-                     'desc': 'The time to wait for all commands on the server to execute.'},
-                    {'type': 'boolean', 'name': 'ssl', 'default': True,
-                     'desc': 'Use SSL to connect to the IMAP server.'},
-                    {'type': 'boolean', 'name': 'ssl_verify', 'default': True,
-                     'desc': 'Perform SSL/TLS verification.'},
+
+                    {'name': 'host', 'type': 'str', 'desc': 'The IMAP hostname.'},
+                    {'name': 'port', 'type': 'int', 'desc': 'The IMAP server port.',
+                     'default': 993},
+                    {'name': 'timeout', 'type': 'int',
+                     'desc': 'The time to wait for all commands on the server to execute.',
+                     'default': 30},
+                    {'name': 'ssl', 'type': 'dict',
+                     'desc': 'Optional SSL/TLS options. See $lib.inet.imap help for additional details.',
+                     'default': None},
                 ),
                 'returns': {
                     'type': 'inet:imap:server',
@@ -507,19 +516,18 @@ class ImapLib(s_stormtypes.Lib):
             'connect': self.connect,
         }
 
-    async def connect(self, host, port=imaplib.IMAP4_SSL_PORT, timeout=30, ssl=True, ssl_verify=True):
+    async def connect(self, host, port=imaplib.IMAP4_SSL_PORT, timeout=30, ssl=None):
 
         self.runt.confirm(('inet', 'imap', 'connect'))
 
-        ssl = await s_stormtypes.tobool(ssl)
+        ssl = await s_stormtypes.toprim(ssl)
         host = await s_stormtypes.tostr(host)
         port = await s_stormtypes.toint(port)
-        ssl_verify = await s_stormtypes.tobool(ssl_verify)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
 
         ctx = None
         if ssl:
-            ctx = self.runt.view.core.getCachedSslCtx(opts=None, verify=ssl_verify)
+            ctx = self.runt.view.core.getCachedSslCtx(opts=ssl)
 
         coro = s_link.connect(host=host, port=port, ssl=ctx, linkcls=IMAPClient)
 

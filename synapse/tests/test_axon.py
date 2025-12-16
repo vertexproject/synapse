@@ -944,7 +944,7 @@ bar baz",vv
             async with axon.getLocalProxy() as proxy:
 
                 resp = await proxy.wget(f'https://visi:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{sha2}',
-                                        ssl=False)
+                                        ssl={'verify': False})
                 self.eq(True, resp['ok'])
                 self.eq(200, resp['code'])
                 self.eq(8, resp['size'])
@@ -961,7 +961,7 @@ bar baz",vv
                     await asyncio.sleep(2)
                 with mock.patch.object(s_httpapi.ActiveV1, 'get', timeout):
                     resp = await proxy.wget(f'https://visi:secret@127.0.0.1:{port}/api/v1/active', timeout=1,
-                                            ssl=False)
+                                            ssl={'verify': False})
                     self.eq(False, resp['ok'])
                     self.eq('TimeoutError', resp['mesg'])
 
@@ -996,18 +996,18 @@ bar baz",vv
 
             async with axon.getLocalProxy() as proxy:
 
-                resp = await proxy.wput(sha256, f'https://127.0.0.1:{port}/api/v1/pushfile', method='PUT', ssl=False)
+                resp = await proxy.wput(sha256, f'https://127.0.0.1:{port}/api/v1/pushfile', method='PUT', ssl={'verify': False})
                 self.eq(True, resp['ok'])
                 self.eq(200, resp['code'])
                 self.eq('OK', resp['reason'])
 
-            opts = {'vars': {'sha256': s_common.ehex(sha256)}}
-            q = f'return($lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0)))'
+            opts = {'vars': {'sha256': s_common.ehex(sha256), 'port': port}}
+            q = 'return( $lib.axon.wput( $sha256, `https://127.0.0.1:{$port}/api/v1/pushfile`, ssl=({"verify": false}) ) )'
             resp = await core.callStorm(q, opts=opts)
             self.eq(True, resp['ok'])
             self.eq(200, resp['code'])
 
-            jsonq = f'''$resp = $lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0))
+            jsonq = '''$resp = $lib.axon.wput($sha256, `https://127.0.0.1:{$port}/api/v1/pushfile`, ssl=({"verify": false}))
             return ( $lib.json.save($resp) )
             '''
             resp = await core.callStorm(jsonq, opts=opts)
@@ -1016,7 +1016,7 @@ bar baz",vv
             self.eq(True, resp['ok'])
             self.eq(200, resp['code'])
 
-            opts = {'vars': {'sha256': s_common.ehex(s_common.buid())}}
+            opts = {'vars': {'sha256': s_common.ehex(s_common.buid()), 'port': port}}
             resp = await core.callStorm(q, opts=opts)
             self.eq(False, resp['ok'])
             self.eq(-1, resp['code'])
@@ -1024,29 +1024,29 @@ bar baz",vv
             self.isin('Exception occurred during request: NoSuchFile', resp.get('reason'))
             self.isinstance(resp.get('err'), tuple)
 
-            q = f'''
+            q = '''
             $fields = ([
-                {{'name':'file', 'sha256':$sha256, 'filename':'file'}},
-                {{'name':'zip_password', 'value':'test'}},
-                {{'name':'dict', 'value':{{'foo':'bar'}} }},
-                {{'name':'bytes', 'value':$bytes}}
+                ({'name':'file', 'sha256':$sha256, 'filename':'file'}),
+                ({'name':'zip_password', 'value':'test'}),
+                ({'name':'dict', 'value':({'foo':'bar'})}),
+                ({'name':'bytes', 'value':$bytes})
             ])
-            $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
-                                        fields=$fields, ssl_verify=(0))
+            $resp = $lib.inet.http.post(`https://127.0.0.1:{$port}/api/v1/pushfile`,
+                                        fields=$fields, ssl=({"verify": false}))
             return($resp)
             '''
-            opts = {'vars': {'sha256': s_common.ehex(sha256), 'bytes': b'coolbytes'}}
+            opts = {'vars': {'sha256': s_common.ehex(sha256), 'bytes': b'coolbytes', 'port': port}}
             resp = await core.callStorm(q, opts=opts)
             self.true(resp['ok'])
             self.eq(200, resp['code'])
 
-            opts = {'vars': {'sha256': s_common.ehex(s_common.buid()), 'bytes': ''}}
+            opts = {'vars': {'sha256': s_common.ehex(s_common.buid()), 'bytes': '', 'port': port}}
             resp = await core.callStorm(q, opts=opts)
             self.false(resp['ok'])
             self.isin('Axon does not contain the requested file.', resp.get('reason'))
 
             async with axon.getLocalProxy() as proxy:
-                resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
+                resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl={'verify': False})
                 self.true(resp['ok'])
                 self.eq(200, resp['code'])
 
@@ -1062,12 +1062,12 @@ bar baz",vv
             host, port = await axon.addHttpsPort(0, host='127.0.0.1')
 
             async with axon.getLocalProxy() as proxy:
-                resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
+                resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl={'verify': False})
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
 
                 with self.raises(s_exc.BadArg):
-                    resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False, proxy=None)
+                    resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl={'verify': False}, proxy=None)
 
             resp = await proxy.wput(sha256, 'vertex.link')
             self.false(resp.get('ok'))
@@ -1080,21 +1080,21 @@ bar baz",vv
             # Bypass the Axon proxy configuration from Storm
             url = axon.getLocalUrl()
             async with self.getTestCore(conf={'axon': url}) as core:
-                q = f'''
-                $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
-                                            fields=$fields, ssl_verify=(0))
+                q = '''
+                $resp = $lib.inet.http.post(`https://127.0.0.1:{$port}/api/v1/pushfile`,
+                                            fields=$fields, ssl=({"verify": false}))
                 return($resp)
                 '''
-                resp = await core.callStorm(q, opts={'vars': {'fields': fields}})
+                resp = await core.callStorm(q, opts={'vars': {'fields': fields, 'port': port}})
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
 
-                q = f'''
-                $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
-                                            fields=$fields, ssl_verify=(0), proxy=$lib.false)
+                q = '''
+                $resp = $lib.inet.http.post(`https://127.0.0.1:{$port}/api/v1/pushfile`,
+                                            fields=$fields, ssl=({"verify": false}), proxy=(false))
                 return($resp)
                 '''
-                resp = await core.callStorm(q, opts={'vars': {'fields': fields}})
+                resp = await core.callStorm(q, opts={'vars': {'fields': fields, 'port': port}})
                 self.true(resp.get('ok'))
                 self.eq(resp.get('code'), 200)
 

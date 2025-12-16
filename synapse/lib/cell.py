@@ -4974,13 +4974,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return sslctx
 
-    def getCachedSslCtx(self, opts=None, verify=None):
+    def getCachedSslCtx(self, opts=None):
 
+        # Default to verifying SSL/TLS certificates
         if opts is None:
-            opts = {}
-
-        if verify is not None:
-            opts['verify'] = verify
+            opts = {'verify': True}
+        else:
+            if opts.get('verify') is None:
+                opts['verify'] = True
 
         opts = s_schemas.reqValidSslCtxOpts(opts)
 

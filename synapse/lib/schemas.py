@@ -1164,7 +1164,7 @@ _reqValidOauth2ProviderSchema = {
         'client_secret': {'type': 'string'},
         'client_assertion': _client_assertion_schema,
         'scope': {'type': 'string'},
-        'ssl_verify': {'type': 'boolean', 'default': True},
+        'ssl': {'type': 'object', 'properties': {'verify': {'type': 'boolean', 'default': True}}},
         'auth_uri': {'type': 'string'},
         'token_uri': {'type': 'string'},
         'redirect_uri': {'type': 'string'},
