@@ -1165,7 +1165,7 @@ _reqValidOauth2ProviderSchema = {
         'client_secret': {'type': 'string'},
         'client_assertion': _client_assertion_schema,
         'scope': {'type': 'string'},
-        'ssl': _sslCtxOptsSchema,
+        'ssl': s_msgpack.deepcopy(_sslCtxOptsSchema, use_list=True),
         'auth_uri': {'type': 'string'},
         'token_uri': {'type': 'string'},
         'redirect_uri': {'type': 'string'},
