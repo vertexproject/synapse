@@ -465,8 +465,8 @@ class OAuthTest(s_test.SynTest):
                     self.stormIsInErr('certificate verify failed', mesgs)
 
                     # test disabling SSL verification
-                    providerconf00['ssl'] = {"verify": False}
-                    expconf00['ssl'] = {"verify": False}
+                    providerconf00['ssl'] = {'verify': False}
+                    expconf00['ssl'] = {'verify': False, 'ca_cert': None, 'client_cert': None, 'client_key': None}
                     await core01.nodes('''
                         $lib.inet.http.oauth.v2.delProvider($providerconf.iden)
                         $lib.inet.http.oauth.v2.addProvider($providerconf)

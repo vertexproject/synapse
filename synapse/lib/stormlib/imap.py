@@ -3,6 +3,7 @@ import asyncio
 import imaplib
 import logging
 
+import ssl
 import lark
 import regex
 
@@ -188,6 +189,14 @@ class IMAPBase(s_link.Link):
         return ret
 
 class IMAPClient(IMAPBase):
+    async def __anit__(self, reader, writer, info=None, forceclose=False):
+        if info and info.get('ssl'):
+            ctx = info.get('ssl')
+            if isinstance(ctx, ssl.SSLContext) and not ctx.check_hostname:
+                if 'hostname' in info:
+                    del info['hostname']
+        await IMAPBase.__anit__(self, reader, writer, info=info, forceclose=forceclose)
+
     async def postAnit(self):
         self._tagval = random.randint(TAGVAL_MIN, TAGVAL_MAX)
         self.readonly = False
@@ -481,6 +490,8 @@ class ImapLib(s_stormtypes.Lib):
             'desc': '''
             Open a connection to an IMAP server.
 
+            If the port is 993, SSL/TLS is enabled by default with verification.
+
             This method will wait for a "hello" response from the server
             before returning the ``inet:imap:server`` instance.
             ''',
@@ -526,10 +537,16 @@ class ImapLib(s_stormtypes.Lib):
         timeout = await s_stormtypes.toint(timeout, noneok=True)
 
         ctx = None
-        if ssl and ssl.get('verify', True):
+        hostname = None
+        if ssl:
             ctx = self.runt.view.core.getCachedSslCtx(opts=ssl)
+            hostname = host
 
-        coro = s_link.connect(host=host, port=port, ssl=ctx, linkcls=IMAPClient)
+        elif port == imaplib.IMAP4_SSL_PORT:
+            ctx = self.runt.view.core.getCachedSslCtx(opts={})
+            hostname = host
+
+        coro = s_link.connect(host=host, port=port, ssl=ctx, hostname=hostname, linkcls=IMAPClient)
 
         try:
             imap = await asyncio.wait_for(coro, timeout)

@@ -476,6 +476,24 @@ class ImapTest(s_test.SynTest):
             async with self.getTestCore(*args, **kwargs) as core:
                 yield core, port
 
+    @contextlib.asynccontextmanager
+    async def getTestCoreAndImapPortSsl(self, *args, **kwargs):
+        with self.getTestDir() as dirn:
+            with self.getTestCertDir(dirn) as certdir:
+                certdir.genCaCert('myca')
+                certdir.genHostCert('localhost', signas='myca')
+                sslctx = certdir.getServerSSLContext('localhost')
+                coro = s_link.listen('127.0.0.1', 0, self._imapserv, linkcls=IMAPServer, ssl=sslctx)
+                with contextlib.closing(await coro) as server:
+                    port = server.sockets[0].getsockname()[1]
+
+                    if 'conf' not in kwargs:
+                        kwargs['conf'] = {}
+                    kwargs['conf']['tls:ca:dir'] = s_common.genpath(certdir.certdirs[0], 'cas')
+
+                    async with self.getTestCore(*args, **kwargs) as core:
+                        yield core, port
+
     async def test_storm_imap_basic(self):
 
         async with self.getTestCoreAndImapPort() as (core, port):
@@ -484,7 +502,7 @@ class ImapTest(s_test.SynTest):
 
             # list mailboxes
             scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                 $server.login($user, "pass00")
                 return($server.list())
             '''
@@ -499,7 +517,7 @@ class ImapTest(s_test.SynTest):
 
             # search for UIDs
             scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                 $server.login($user, "pass00")
                 $server.select("INBOX")
                 return($server.search("SEEN", charset="utf-8"))
@@ -515,7 +533,7 @@ class ImapTest(s_test.SynTest):
 
             # mark seen
             scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                 $server.login($user, "pass00")
                 $server.select("INBOX")
                 return($server.markSeen("1:7"))
@@ -534,7 +552,7 @@ class ImapTest(s_test.SynTest):
 
             # delete
             scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                 $server.login($user, "pass00")
                 $server.select("INBOX")
                 return($server.delete("1:7"))
@@ -553,7 +571,7 @@ class ImapTest(s_test.SynTest):
 
             # fetch and save a message
             scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                 $server.login($user, "pass00")
                 $server.select("INBOX")
                 yield $server.fetch("1")
@@ -570,7 +588,7 @@ class ImapTest(s_test.SynTest):
 
             # fetch must only be for a single message
             scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                 $server.login($user, "pass00")
                 $server.select("INBOX")
                 $server.fetch("1:*")
@@ -579,7 +597,7 @@ class ImapTest(s_test.SynTest):
             self.stormIsInErr('Failed to make an integer', mesgs)
 
             scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                 $server.login($user, "pass00")
                 $server.select("INBOX")
                 return($server.fetch(10))
@@ -592,13 +610,53 @@ class ImapTest(s_test.SynTest):
             function foo(s) {
                 return($s.login($user, "pass00"))
             }
-            $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+            $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
             $ret00 = $foo($server)
             $ret01 = $server.list()
             return(($ret00, $ret01))
             '''
             retn = await core.callStorm(scmd, opts=opts)
             self.eq(((True, None), (True, ('deleted', 'drafts', 'inbox', 'sent'))), retn)
+
+    async def test_storm_imap_ssl_verify_false(self):
+        async with self.getTestCoreAndImapPortSsl() as (core, port):
+            user = 'user00@vertex.link'
+            opts = {'vars': {'port': port, 'user': user}}
+
+            scmd = '''
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                $server.login($user, "pass00")
+                return($server.list())
+            '''
+            retn = await core.callStorm(scmd, opts=opts)
+            mailboxes = sorted(
+                [
+                    k[0] for k in self.imap.mail[user]['mailboxes'].items()
+                    if k[1]['parent'] is None
+                ]
+            )
+            self.eq((True, mailboxes), retn)
+
+    async def test_storm_imap_implicit_ssl(self):
+        async with self.getTestCoreAndImapPortSsl() as (core, port):
+            user = 'user00@vertex.link'
+            opts = {'vars': {'port': port, 'user': user}}
+
+            # Mock IMAP4_SSL_PORT to trigger the implicit SSL logic
+            with mock.patch('imaplib.IMAP4_SSL_PORT', port):
+                scmd = '''
+                    $server = $lib.inet.imap.connect(localhost, port=$port)
+                    $server.login($user, "pass00")
+                    return($server.list())
+                '''
+                retn = await core.callStorm(scmd, opts=opts)
+                mailboxes = sorted(
+                    [
+                        k[0] for k in self.imap.mail[user]['mailboxes'].items()
+                        if k[1]['parent'] is None
+                    ]
+                )
+                self.eq((True, mailboxes), retn)
 
     async def test_storm_imap_greet(self):
         async with self.getTestCoreAndImapPort() as (core, port):
@@ -607,7 +665,7 @@ class ImapTest(s_test.SynTest):
 
             # Normal greeting
             scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                 $server.select("INBOX")
             '''
             mesgs = await core.stormlist(scmd, opts=opts)
@@ -637,7 +695,7 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'greet', greet_capabilities):
                 scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                     $server.login($user, pass00)
                 '''
                 mesgs = await core.stormlist(scmd, opts=opts)
@@ -649,7 +707,7 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'greet', greet_timeout):
                 mesgs = await core.stormlist('''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}), timeout=(1))
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, timeout=(1))
                 ''', opts=opts)
                 self.stormIsInErr('Timed out waiting for IMAP server hello', mesgs)
 
@@ -666,7 +724,7 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'capability', capability_no):
                 mesgs = await core.stormlist('''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                 ''', opts=opts)
                 self.stormIsInErr('No capabilities for you.', mesgs)
 
@@ -677,7 +735,7 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'capability', capability_invalid):
                 mesgs = await core.stormlist('''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                 ''', opts=opts)
                 self.stormIsInErr('Invalid server response.', mesgs)
 
@@ -693,7 +751,7 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'login', login_w_capability):
                 scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                     $server.login($user, pass00)
                 '''
                 mesgs = await core.stormlist(scmd, opts=opts)
@@ -708,7 +766,7 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'capability', capability_noauth):
                 scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                     $server.login($user, pass00)
                 '''
                 mesgs = await core.stormlist(scmd, opts=opts)
@@ -721,7 +779,7 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'capability', capability_login_disabled):
                 scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                     $server.login($user, pass00)
                 '''
                 mesgs = await core.stormlist(scmd, opts=opts)
@@ -734,7 +792,7 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'login', login_no):
                 scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                     $server.login($user, pass00)
                 '''
                 mesgs = await core.stormlist(scmd, opts=opts)
@@ -742,7 +800,7 @@ class ImapTest(s_test.SynTest):
 
             # Bad creds
             scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                 $server.login($user, "secret")
             '''
             mesgs = await core.stormlist(scmd, opts=opts)
@@ -754,7 +812,7 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'login', login_timeout):
                 scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}), timeout=(1))
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, timeout=(1))
                     $server.login($user, "secret")
                 '''
                 mesgs = await core.stormlist(scmd, opts=opts)
@@ -767,7 +825,7 @@ class ImapTest(s_test.SynTest):
             opts = {'vars': {'port': port, 'user': user}}
 
             scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                 $server.login(user00@vertex.link, pass00)
                 $server.select("status reports")
             '''
@@ -781,7 +839,7 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'select', select_no):
                 scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                     $server.login($user, 'spaces lol')
                     $server.select(INBOX)
                 '''
@@ -790,7 +848,7 @@ class ImapTest(s_test.SynTest):
 
             # Readonly mailbox
             scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                 $server.login($user, 'spaces lol')
                 $server.select(INBOX)
                 $server.delete(1)
@@ -811,7 +869,7 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'list', list_no):
                 scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                     $server.login($user, 'spaces lol')
                     $server.select(INBOX)
                     $server.list()
@@ -832,7 +890,7 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'uid', uid_no):
                 scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                     $server.login($user, pass00)
                     $server.select(INBOX)
                     $server.delete(1)
@@ -853,7 +911,7 @@ class ImapTest(s_test.SynTest):
 
             with mock.patch.object(IMAPServer, 'expunge', expunge_no):
                 scmd = '''
-                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                     $server.login($user, pass00)
                     $server.select(INBOX)
                     $server.delete(1)
@@ -942,7 +1000,7 @@ class ImapTest(s_test.SynTest):
 
             # Check state tracking
             scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=({'verify': false}))
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
                 $server.select("INBOX")
             '''
             mesgs = await core.stormlist(scmd, opts=opts)
