@@ -526,7 +526,7 @@ class ImapLib(s_stormtypes.Lib):
         timeout = await s_stormtypes.toint(timeout, noneok=True)
 
         ctx = None
-        if ssl:
+        if ssl and ssl.get('verify', True):
             ctx = self.runt.view.core.getCachedSslCtx(opts=ssl)
 
         coro = s_link.connect(host=host, port=port, ssl=ctx, linkcls=IMAPClient)
