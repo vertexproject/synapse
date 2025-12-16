@@ -538,12 +538,8 @@ class ImapLib(s_stormtypes.Lib):
 
         ctx = None
         hostname = None
-        if ssl:
+        if ssl or port == imaplib.IMAP4_SSL_PORT:
             ctx = self.runt.view.core.getCachedSslCtx(opts=ssl)
-            hostname = host
-
-        elif port == imaplib.IMAP4_SSL_PORT:
-            ctx = self.runt.view.core.getCachedSslCtx(opts={})
             hostname = host
 
         coro = s_link.connect(host=host, port=port, ssl=ctx, hostname=hostname, linkcls=IMAPClient)
