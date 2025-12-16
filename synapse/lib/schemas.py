@@ -287,7 +287,7 @@ _cellUserApiKeySchema = {
 }
 reqValidUserApiKeyDef = s_config.getJsValidator(_cellUserApiKeySchema)
 
-reqValidSslCtxOpts = s_config.getJsValidator({
+_sslCtxOptsSchema = {
     'type': 'object',
     'properties': {
         'verify': {'type': 'boolean', 'default': True},
@@ -296,7 +296,8 @@ reqValidSslCtxOpts = s_config.getJsValidator({
         'ca_cert': {'type': ['string', 'null'], 'default': None},
     },
     'additionalProperties': False,
-})
+}
+reqValidSslCtxOpts = s_config.getJsValidator(_sslCtxOptsSchema)
 
 _stormPoolOptsSchema = {
     'type': 'object',
@@ -1164,7 +1165,7 @@ _reqValidOauth2ProviderSchema = {
         'client_secret': {'type': 'string'},
         'client_assertion': _client_assertion_schema,
         'scope': {'type': 'string'},
-        'ssl': {'type': 'object', 'properties': {'verify': {'type': 'boolean', 'default': True}}},
+        'ssl': _sslCtxOptsSchema,
         'auth_uri': {'type': 'string'},
         'token_uri': {'type': 'string'},
         'redirect_uri': {'type': 'string'},

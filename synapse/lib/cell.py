@@ -4978,10 +4978,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # Default to verifying SSL/TLS certificates
         if opts is None:
-            opts = {'verify': True}
-        else:
-            if opts.get('verify') is None:
-                opts['verify'] = True
+            opts = {}
 
         opts = s_schemas.reqValidSslCtxOpts(opts)
 
