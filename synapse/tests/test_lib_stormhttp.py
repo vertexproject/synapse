@@ -699,24 +699,6 @@ class StormHttpTest(s_test.SynTest):
             self.false(resp.get('ok'))
             self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
 
-            host, port = await core.addHttpsPort(0)
-            opts = {
-                'vars': {
-                    'url': f'https://loop.vertex.link:{port}',
-                    'proxy': 'socks5://user:pass@127.0.0.1:1',
-                }
-            }
-            try:
-                oldv = core.axoninfo['synapse']['version']
-                minver = s_stormtypes.AXON_MINVERS_PROXY
-                core.axoninfo['synapse']['version'] = minver[2], minver[1] - 1, minver[0]
-                q = '$resp=$lib.axon.wget($url, ssl=({"verify": false}), proxy=$proxy) $lib.print(`code={$resp.code}`)'
-                mesgs = await core.stormlist(q, opts=opts)
-                self.stormIsInWarn('Axon version does not support proxy argument', mesgs)
-                self.stormIsInErr('The ssl argument requires an Axon Synapse version', mesgs)
-            finally:
-                core.axoninfo['synapse']['version'] = oldv
-
         async with self.getTestCore(conf=conf) as core:
             # Proxy permission tests in this section
 
@@ -956,23 +938,6 @@ class StormHttpTest(s_test.SynTest):
                     'wput': 'return($lib.axon.wput($sha256, $url, method=POST, ssl=$sslopts).code)',
                     'urlfile': 'yield $lib.axon.urlfile($url, ssl=$sslopts)',
                 }
-
-                ## version check fails
-                try:
-                    oldv = core.axoninfo['synapse']['version']
-                    core.axoninfo['synapse']['version'] = (2, 161, 0)
-                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['postfile'], opts=opts))
-                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['wget'], opts=opts))
-                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['wput'], opts=opts))
-                    await self.asyncraises(s_exc.BadVersion, core.nodes(axon_queries['urlfile'], opts=opts))
-                finally:
-                    core.axoninfo['synapse']['version'] = oldv
-
-                ## version check succeeds
-                self.eq(200, await core.callStorm(axon_queries['postfile'], opts=opts))
-                self.eq(200, await core.callStorm(axon_queries['wget'], opts=opts))
-                self.eq(200, await core.callStorm(axon_queries['wput'], opts=opts))
-                self.len(1, await core.nodes(axon_queries['urlfile'], opts=opts))
 
                 # verify arg precedence
 

@@ -2344,12 +2344,6 @@ class LibAxon(Lib):
         if ok:
             kwargs['proxy'] = proxy
 
-        if ssl is not None:
-            axonvers = self.runt.view.core.axoninfo['synapse']['version']
-            mesg = f'The ssl argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
-                   f'but the Axon is running {axonvers}'
-            s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
-
         axon = self.runt.view.core.axon
         resp = await axon.wget(url, headers=headers, params=params, method=method, json=json, body=body,
                                ssl=ssl, timeout=timeout, **kwargs)
@@ -2381,12 +2375,6 @@ class LibAxon(Lib):
         ok, proxy = await resolveAxonProxyArg(proxy)
         if ok:
             kwargs['proxy'] = proxy
-
-        if ssl is not None:
-            axonvers = self.runt.view.core.axoninfo['synapse']['version']
-            mesg = f'The ssl argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
-                   f'but the Axon is running {axonvers}'
-            s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
 
         axon = self.runt.view.core.axon
         sha256byts = s_common.uhex(sha256)

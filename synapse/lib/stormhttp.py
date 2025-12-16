@@ -409,12 +409,6 @@ class LibHttp(s_stormtypes.Lib):
                 if ok:
                     kwargs['proxy'] = proxy
 
-                if ssl is not None:
-                    axonvers = self.runt.view.core.axoninfo['synapse']['version']
-                    mesg = f'The ssl argument requires an Axon Synapse version {s_stormtypes.AXON_MINVERS_SSLOPTS}, ' \
-                           f'but the Axon is running {axonvers}'
-                    s_version.reqVersion(axonvers, s_stormtypes.AXON_MINVERS_SSLOPTS, mesg=mesg)
-
                 axon = self.runt.view.core.axon
                 info = await axon.postfiles(fields, url, headers=headers, params=params, method=meth,
                                             ssl=ssl, timeout=timeout, **kwargs)
