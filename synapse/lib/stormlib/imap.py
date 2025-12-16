@@ -193,8 +193,7 @@ class IMAPClient(IMAPBase):
         if info and info.get('ssl'):
             ctx = info.get('ssl')
             if isinstance(ctx, ssl.SSLContext) and not ctx.check_hostname:
-                if 'hostname' in info:
-                    del info['hostname']
+                info.pop('hostname', None)
         await IMAPBase.__anit__(self, reader, writer, info=info, forceclose=forceclose)
 
     async def postAnit(self):
