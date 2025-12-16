@@ -1109,6 +1109,12 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq(None, await core.callStorm('[ inet:flow=* ] return($node.repr(server.ip))'))
 
+            self.true(await core.callStorm('[ test:inhstr2=foo ] return($node.isform(test:inhstr))'))
+            self.true(await core.callStorm('test:inhstr2=foo return($node.isform((test:inhstr3, test:inhstr2)))'))
+
+            self.false(await core.callStorm('test:inhstr2=foo return($node.isform(test:inhstr3))'))
+            self.false(await core.callStorm('test:inhstr2=foo return($node.isform((test:inhstr3, newp)))'))
+
     async def test_storm_lib_dict(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('$blah = ({"foo": "vertex.link"}) [ inet:fqdn=$blah.foo ]')
