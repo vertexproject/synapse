@@ -590,6 +590,11 @@ Example:
 path
 ----
 
+.. warning::
+
+    This option is deprecated in Synapse ``v2.230.0`` and will be removed in a future version. The ``links`` option
+    should be used to retrieve this data instead.
+
 If this is set to True, the ``path`` key in the packed nodes will contain a ``nodes`` key, which contains a list of
 the node iden hashes that were used in pivot operations to get to the node.
 

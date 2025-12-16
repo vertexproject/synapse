@@ -1336,6 +1336,12 @@ modeldefs = (
 
             (('inet:net', 'has', 'inet:ip'), {
                 'doc': 'The IP address range contains the IP address.'}),
+
+            (('inet:fqdn', 'uses', 'meta:technique'), {
+                'doc': 'The source FQDN was selected or created using the target technique.'}),
+
+            (('inet:url', 'uses', 'meta:technique'), {
+                'doc': 'The source URL was created using the target technique.'}),
         ),
 
         'types': (

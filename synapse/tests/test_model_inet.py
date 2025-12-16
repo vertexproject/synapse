@@ -582,6 +582,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('seen'), (1577836800000000, 1609459200000000, 31622400000000))
 
+            self.len(1, await core.nodes('[ inet:fqdn=vertex.link +(uses)> {[ meta:technique=* ]} ]'))
+
     async def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
 
@@ -1703,6 +1705,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[6].get('params'), '')
             self.eq(nodes[6].get('ip'), (6, 0x2010836b4179000000000000836b4179))
             self.eq(nodes[6].get('port'), 443)
+
+            self.len(1, await core.nodes('[ inet:url=https://vertex.link +(uses)> {[ meta:technique=* ]} ]'))
 
     async def test_url_file(self):
 
