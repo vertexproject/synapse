@@ -6112,9 +6112,10 @@ class Node(Prim):
         {'name': 'isform', 'desc': 'Check if a Node is a given form.',
          'type': {'type': 'function', '_funcname': '_methNodeIsForm',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The form to compare the Node against.', },
+                      {'name': 'name', 'type': ['str', 'list'], 'desc': 'The form or forms to compare the Node against.'},
                   ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the form matches, false otherwise.', }}},
+                  'returns': {'desc': 'True if the node is at least one of the forms specified, false otherwise.',
+                              'type': 'boolean'}}},
 
         {'name': 'protocol', 'desc': 'Return a protocol object for the given property.',
          'type': {'type': 'function', '_funcname': '_methNodeProtocol',
@@ -6250,7 +6251,16 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methNodeIsForm(self, name):
-        return self.valu.form.name == name
+        names = await toprim(name)
+
+        if not isinstance(names, (list, tuple)):
+            names = (name,)
+
+        for name in names:
+            if name in self.valu.form.formtypes:
+                return True
+
+        return False
 
     @stormfunc(readonly=True)
     async def _methNodeProtocol(self, name, propname=None):
@@ -6473,8 +6483,12 @@ class Path(Prim):
         {'name': 'vars', 'desc': 'The PathVars object for the Path.', 'type': 'node:path:vars', },
         {'name': 'meta', 'desc': 'The PathMeta object for the Path.', 'type': 'node:path:meta', },
         {'name': 'idens', 'desc': 'The list of Node idens which this Path has been forked from during pivot operations.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_methPathIdens',
                   'returns': {'type': 'list', 'desc': 'A list of node idens.', }}},
+        {'name': 'links', 'desc': 'The list of links which this Path has been forked from during pivot operations.',
+         'type': {'type': 'function', '_funcname': '_methPathLinks',
+                  'returns': {'type': 'list', 'desc': 'A list of (node iden, link info) tuples.'}}},
         {'name': 'listvars', 'desc': 'List variables available in the path of a storm query.',
          'type': {'type': 'function', '_funcname': '_methPathListVars',
                   'returns': {'type': 'list',
@@ -6494,12 +6508,17 @@ class Path(Prim):
     def getObjLocals(self):
         return {
             'idens': self._methPathIdens,
+            'links': self._methPathLinks,
             'listvars': self._methPathListVars,
         }
 
     @stormfunc(readonly=True)
     async def _methPathIdens(self):
         return [n.iden() for n in self.valu.nodes]
+
+    @stormfunc(readonly=True)
+    async def _methPathLinks(self):
+        return copy.deepcopy(self.valu.links)
 
     @stormfunc(readonly=True)
     async def _methPathListVars(self):
