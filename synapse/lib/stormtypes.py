@@ -42,7 +42,6 @@ logger = logging.getLogger(__name__)
 
 AXON_MINVERS_PROXY = (2, 97, 0)
 AXON_MINVERS_PROXYTRUE = (2, 192, 0)
-AXON_MINVERS_SSLOPTS = '>=2.162.0'
 
 class Undef:
     _storm_typename = 'undef'
