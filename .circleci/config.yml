@@ -569,7 +569,6 @@ jobs:
           PYVERS: 3.14
           NO_COLOR: 1
           RUN_SYNTAX: 1
-          CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           SYNDEV_NEXUS_REPLAY: 1
 
