@@ -14,6 +14,7 @@ commands:
       - run:
           name: Upload Coverage Results
           command: |
+            if [ -z "${COVERAGE_ARGS}" ]; then exit 0; fi
             # Download and verify the codecov binary
             curl https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --import # One-time step
             curl -Os https://uploader.codecov.io/latest/linux/codecov
@@ -568,7 +569,6 @@ jobs:
           PYVERS: 3.14
           NO_COLOR: 1
           RUN_SYNTAX: 1
-          CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           SYNDEV_NEXUS_REPLAY: 1
 
