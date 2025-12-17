@@ -14,6 +14,7 @@ commands:
       - run:
           name: Upload Coverage Results
           command: |
+            if [ -z "${COVERAGE_ARGS}" ]; then exit 0; fi
             # Download and verify the codecov binary
             curl https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --import # One-time step
             curl -Os https://uploader.codecov.io/latest/linux/codecov
@@ -693,6 +694,7 @@ workflows:
               only:
                 - master
                 - synapse-3xx
+                - blackout/fix-replay
 
       - python_package_smoketest:
           filters:
