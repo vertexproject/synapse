@@ -289,38 +289,38 @@ modeldefs = (
             ('tel:mob:imei', {}, (
 
                 ('tac', ('tel:mob:tac', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The Type Allocate Code within the IMEI.'}),
 
                 ('serial', ('int', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The serial number within the IMEI.'})
 
             )),
             ('tel:mob:imsi', {}, (
                 ('mcc', ('tel:mob:mcc', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The Mobile Country Code.',
                 }),
             )),
             ('tel:mob:imid', {}, (
 
                 ('imei', ('tel:mob:imei', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The IMEI for the phone hardware.'}),
 
                 ('imsi', ('tel:mob:imsi', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The IMSI for the phone subscriber.'}),
             )),
             ('tel:mob:imsiphone', {}, (
 
                 ('phone', ('tel:phone', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The phone number assigned to the IMSI.'}),
 
                 ('imsi', ('tel:mob:imsi', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The IMSI with the assigned phone number.'}),
             )),
             ('tel:mob:mcc', {}, (
