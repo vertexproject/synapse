@@ -82,7 +82,7 @@ commands:
 
       - restore_cache:
           keys:
-            - v5-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
+            - v6-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
           name: setup venv
@@ -100,7 +100,7 @@ commands:
       - save_cache:
           paths:
             - ./venv
-          key: v5-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
+          key: v6-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
           name: executing docs test / build
@@ -543,7 +543,7 @@ jobs:
   python314:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.14.0
+      - image: cimg/python:3.14.2
         environment:
           PYVERS: 3.14
           NO_COLOR: 1
@@ -563,16 +563,14 @@ jobs:
   python314_replay:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.14.0
+      - image: cimg/python:3.14.2
         environment:
           PYVERS: 3.14
           NO_COLOR: 1
           RUN_SYNTAX: 1
           CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse
           SYNDEV_NEXUS_REPLAY: 1
-          COVERAGE_CORE: sysmon
 
     working_directory: ~/repo
 
@@ -581,7 +579,7 @@ jobs:
 
   doctests:
     docker:
-      - image: cimg/python:3.14.0
+      - image: cimg/python:3.14.2
         environment:
           PYVERS: 3.14
 
@@ -592,7 +590,7 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.14.0
+      - image: cimg/python:3.14.2
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py314
@@ -604,7 +602,7 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: cimg/python:3.14.0
+      - image: cimg/python:3.14.2
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py314
@@ -651,7 +649,7 @@ jobs:
 
   devpi_synapse_3xx:
     docker:
-      - image: cimg/python:3.14.0
+      - image: cimg/python:3.14.2
     steps:
       - checkout
       - run:
