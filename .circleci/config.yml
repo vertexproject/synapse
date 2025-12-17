@@ -694,7 +694,6 @@ workflows:
               only:
                 - master
                 - synapse-3xx
-                - blackout/fix-replay
 
       - python_package_smoketest:
           filters:
