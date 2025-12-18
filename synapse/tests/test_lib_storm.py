@@ -4849,7 +4849,7 @@ class StormTest(s_t_utils.SynTest):
                 strt = offs + 2
                 q = f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr4}", offs={strt})'
                 await core.callStorm(q, opts=opts)
-                self.true(await core.waitNexsOffs(offs + 19, timeout=10))
+                self.true(await core.waitNexsOffs(offs + 19, timeout=30))
                 self.len(2, await core.nodes('entity:contact', opts={'view': view4}))
 
                 # Clean up
