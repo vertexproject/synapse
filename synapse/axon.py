@@ -596,7 +596,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         return await self.cell.dels(sha256s)
 
     async def wget(self, url, *, params=None, headers=None, json=None, body=None, method='GET',
-                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
+                   ssl=None, timeout=None, proxy=True):
         '''
         Stream a file download directly into the Axon.
 
@@ -607,19 +607,18 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             json: A JSON body which is included with the request.
             body: The body to be included in the request.
             method (str): The HTTP method to use.
-            ssl (bool): Perform SSL verification.
+            ssl (dict|None): SSL/TLS options.
             timeout (int): The timeout of the request, in seconds.
             proxy (str|bool): The proxy value.
-            ssl_opts (dict): Additional SSL/TLS options.
 
         Notes:
             The response body will be stored, regardless of the response code. The ``ok`` value in the response does not
             reflect that a status code, such as a 404, was encountered when retrieving the URL.
 
-            The ssl_opts dictionary may contain the following values::
+            The ssl dictionary may contain the following values::
 
                 {
-                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'verify': <bool> - Perform SSL/TLS verification. Default is True.
                     'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
                     'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
                 }
@@ -660,19 +659,19 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         '''
         await self._reqUserAllowed(('axon', 'wget'))
         return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method,
-                                    ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
+                                    ssl=ssl, timeout=timeout, proxy=proxy)
 
     async def postfiles(self, fields, url, *, params=None, headers=None, method='POST',
-                        ssl=True, timeout=None, proxy=True, ssl_opts=None):
+                        ssl=None, timeout=None, proxy=True):
         await self._reqUserAllowed(('axon', 'wput'))
         return await self.cell.postfiles(fields, url, params=params, headers=headers, method=method,
-                                         ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
+                                         ssl=ssl, timeout=timeout, proxy=proxy)
 
     async def wput(self, sha256, url, *, params=None, headers=None, method='PUT',
-                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
+                   ssl=None, timeout=None, proxy=True):
         await self._reqUserAllowed(('axon', 'wput'))
         return await self.cell.wput(sha256, url, params=params, headers=headers, method=method,
-                                    ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
+                                    ssl=ssl, timeout=timeout, proxy=proxy)
 
     async def metrics(self):
         '''
@@ -1572,7 +1571,7 @@ class Axon(s_cell.Cell):
             raise s_exc.BadArg(mesg=mesg) from None
 
     async def postfiles(self, fields, url, params=None, headers=None, method='POST',
-                        ssl=True, timeout=None, proxy=True, ssl_opts=None):
+                        ssl=None, timeout=None, proxy=True):
         '''
         Send files from the axon as fields in a multipart/form-data HTTP request.
 
@@ -1582,10 +1581,9 @@ class Axon(s_cell.Cell):
             params (dict): Additional parameters to add to the URL.
             headers (dict): Additional HTTP headers to add in the request.
             method (str): The HTTP method to use.
-            ssl (bool): Perform SSL verification.
+            ssl (dict|None): SSL/TLS options.
             timeout (int): The timeout of the request, in seconds.
             proxy (str|bool): The proxy value.
-            ssl_opts (dict): Additional SSL/TLS options.
 
         Notes:
             The dictionaries in the fields list may contain the following values::
@@ -1599,10 +1597,10 @@ class Axon(s_cell.Cell):
                     'content_transfer_encoding': <str> - Optional content-transfer-encoding header for the field.
                 }
 
-            The ssl_opts dictionary may contain the following values::
+            The ssl dictionary may contain the following values::
 
                 {
-                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'verify': <bool> - Perform SSL/TLS verification. Default is True.
                     'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
                     'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
                 }
@@ -1628,7 +1626,7 @@ class Axon(s_cell.Cell):
         Returns:
             dict: An information dictionary containing the results of the request.
         '''
-        ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
+        ssl = self.getCachedSslCtx(opts=ssl)
 
         connector = None
         if proxyurl := await self._resolveProxyUrl(proxy):
@@ -1696,12 +1694,12 @@ class Axon(s_cell.Cell):
                     'headers': dict(),
                 }
 
-    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None,
-                   filename=None, filemime=None, proxy=True, ssl_opts=None):
+    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=None, timeout=None,
+                   filename=None, filemime=None, proxy=True):
         '''
         Stream a blob from the axon as the body of an HTTP request.
         '''
-        ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
+        ssl = self.getCachedSslCtx(opts=ssl)
 
         connector = None
         if proxyurl := await self._resolveProxyUrl(proxy):
@@ -1767,7 +1765,7 @@ class Axon(s_cell.Cell):
         return info
 
     async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET',
-                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
+                   ssl=None, timeout=None, proxy=True):
         '''
         Stream a file download directly into the Axon.
 
@@ -1778,19 +1776,18 @@ class Axon(s_cell.Cell):
             json: A JSON body which is included with the request.
             body: The body to be included in the request.
             method (str): The HTTP method to use.
-            ssl (bool): Perform SSL verification.
+            ssl (dict|None): SSL/TLS options.
             timeout (int): The timeout of the request, in seconds.
             proxy (str|bool): The proxy value.
-            ssl_opts (dict): Additional SSL/TLS options.
 
         Notes:
             The response body will be stored, regardless of the response code. The ``ok`` value in the response does not
             reflect that a status code, such as a 404, was encountered when retrieving the URL.
 
-            The ssl_opts dictionary may contain the following values::
+            The ssl dictionary may contain the following values::
 
                 {
-                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'verify': <bool> - Perform SSL/TLS verification. Default is True.
                     'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
                     'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
                 }
@@ -1831,7 +1828,7 @@ class Axon(s_cell.Cell):
         '''
         logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=s_urlhelp.sanitizeUrl(url)))
 
-        ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
+        ssl = self.getCachedSslCtx(opts=ssl)
 
         connector = None
         if proxyurl := await self._resolveProxyUrl(proxy):

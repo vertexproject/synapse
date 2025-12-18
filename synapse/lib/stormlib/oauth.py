@@ -148,7 +148,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
                         $conf.extensions = ({"pkce": true})
 
                         // Optionally disable SSL verification
-                        $conf.ssl_verify = (false)
+                        $conf.ssl = ({"verify": false})
 
                         // Optionally provide additional key-val parameters
                         // to include when calling the auth URI
@@ -181,7 +181,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
                         $conf.extensions = ({"pkce": true})
 
                         // Optionally disable SSL verification
-                        $conf.ssl_verify = (false)
+                        $conf.ssl = ({"verify": false})
 
                         // Optionally provide additional key-val parameters
                         // to include when calling the auth URI
@@ -218,7 +218,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
                         // Example callback
                         $callbackQuery = ${
                             $url = `{$baseurl}/api/oauth/getAssertion`
-                            $resp = $lib.inet.http.get($url, ssl_verify=$ssl_verify)
+                            $resp = $lib.inet.http.get($url, ssl=$ssl)
                             if ($resp.code = 200) {
                                 $resp = ([true, {'token': $resp.json().assertion}])
                             } else {
@@ -230,7 +230,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
                         // Specify any variables that need to be provided to $callbackQuery
                         $myCallbackVars = ({
                             'baseurl': 'https://local.assertion.provider.corp',
-                            'ssl_verify': true,
+                            'ssl': ({"verify": true}),
                         })
 
                         // Specify the view the callback is run in.

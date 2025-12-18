@@ -1003,7 +1003,7 @@ stormcmds = (
             if $cmdopts.no_headers { $headers = $lib.null }
         }
 
-        $ssl = (not $cmdopts.no_ssl_verify)
+        $ssl = ({"verify": (not $cmdopts.no_ssl_verify)})
         $timeout = $cmdopts.timeout
 
         if $node {
@@ -1040,7 +1040,7 @@ stormcmds = (
         init {
             $count = (0)
             function fetchnodes(url, ssl) {
-                $resp = $lib.inet.http.get($url, ssl_verify=$ssl)
+                $resp = $lib.inet.http.get($url, ssl=$ssl)
                 if ($resp.code = 200) {
                     $nodes = ()
                     for $valu in $resp.msgpack() {
@@ -1053,7 +1053,7 @@ stormcmds = (
             }
         }
 
-        $ssl = (not $cmdopts.no_ssl_verify)
+        $ssl = ({"verify": (not $cmdopts.no_ssl_verify)})
 
         if $node {
             $count = ($count + 1)
