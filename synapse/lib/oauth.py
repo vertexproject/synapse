@@ -178,7 +178,7 @@ class OAuthMixin(s_nexus.Pusher):
             return ok, data
 
         token_uri = providerconf['token_uri']
-        ssl_verify = providerconf['ssl_verify']
+        ssl = providerconf.get('ssl', None)
 
         auth, formdata = self._unpackAuthData(data)
 
@@ -189,7 +189,7 @@ class OAuthMixin(s_nexus.Pusher):
         if code_verifier is not None:
             formdata.add_field('code_verifier', code_verifier)
 
-        return await self._fetchOAuthToken(token_uri, auth, formdata, ssl_verify=ssl_verify)
+        return await self._fetchOAuthToken(token_uri, auth, formdata, ssl=ssl)
 
     async def _refreshOAuthAccessToken(self, providerconf, clientconf, useriden):
 
@@ -198,7 +198,7 @@ class OAuthMixin(s_nexus.Pusher):
             return ok, data
 
         token_uri = providerconf['token_uri']
-        ssl_verify = providerconf['ssl_verify']
+        ssl = providerconf.get('ssl', None)
         refresh_token = clientconf['refresh_token']
 
         auth, formdata = self._unpackAuthData(data)
@@ -206,7 +206,7 @@ class OAuthMixin(s_nexus.Pusher):
         formdata.add_field('grant_type', 'refresh_token')
         formdata.add_field('refresh_token', refresh_token)
 
-        ok, data = await self._fetchOAuthToken(token_uri, auth, formdata, ssl_verify=ssl_verify, retries=3)
+        ok, data = await self._fetchOAuthToken(token_uri, auth, formdata, ssl=ssl, retries=3)
         if ok and not data.get('refresh_token'):
             # if a refresh_token is not provided in the response persist the existing token
             data['refresh_token'] = refresh_token
@@ -284,7 +284,7 @@ class OAuthMixin(s_nexus.Pusher):
             formdata.add_field(k, v)
         return auth, formdata
 
-    async def _fetchOAuthToken(self, url, auth, formdata, ssl_verify=True, retries=1):
+    async def _fetchOAuthToken(self, url, auth, formdata, ssl=None, retries=1):
 
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -296,7 +296,7 @@ class OAuthMixin(s_nexus.Pusher):
 
         timeout = aiohttp.ClientTimeout(total=DEFAULT_TIMEOUT)
 
-        ssl = self.getCachedSslCtx(verify=ssl_verify)
+        ssl = self.getCachedSslCtx(opts=ssl)
 
         async with aiohttp.ClientSession(timeout=timeout) as sess:
 

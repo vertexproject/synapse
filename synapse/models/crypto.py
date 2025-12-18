@@ -309,9 +309,9 @@ modeldefs = (
 
             ('crypto:currency:block', {}, (
                 ('coin', ('econ:currency', {}), {
-                    'doc': 'The coin/blockchain this block resides on.', 'ro': True, }),
+                    'doc': 'The coin/blockchain this block resides on.', 'computed': True, }),
                 ('offset', ('int', {}), {
-                    'doc': 'The index of this block.', 'ro': True, }),
+                    'doc': 'The index of this block.', 'computed': True, }),
                 ('hash', ('hex', {}), {
                     'doc': 'The unique hash for the block.'}),
                 ('minedby', ('crypto:currency:address', {}), {
@@ -338,11 +338,11 @@ modeldefs = (
             ('crypto:smart:token', {}, (
 
                 ('contract', ('crypto:smart:contract', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The smart contract which defines and manages the token.'}),
 
                 ('tokenid', ('hugenum', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The token ID.'}),
 
                 ('owner', ('crypto:currency:address', {}), {
@@ -458,13 +458,13 @@ modeldefs = (
             ('crypto:currency:address', {}, (
 
                 ('coin', ('econ:currency', {}), {
-                    'doc': 'The crypto coin to which the address belongs.', 'ro': True, }),
+                    'doc': 'The crypto coin to which the address belongs.', 'computed': True, }),
 
                 ('seed', ('crypto:key', {}), {
                     'doc': 'The cryptographic key and or password used to generate the address.'}),
 
                 ('iden', ('str', {}), {
-                    'doc': 'The coin specific address identifier.', 'ro': True, }),
+                    'doc': 'The coin specific address identifier.', 'computed': True, }),
 
                 ('desc', ('str', {}), {
                     'doc': 'A free-form description of the address.'}),
@@ -542,10 +542,10 @@ modeldefs = (
             ('crypto:currency:client', {}, (
 
                 ('inetaddr', ('inet:client', {}), {
-                    'doc': 'The Internet client address observed using the crypto currency address.', 'ro': True, }),
+                    'doc': 'The Internet client address observed using the crypto currency address.', 'computed': True, }),
 
                 ('coinaddr', ('crypto:currency:address', {}), {
-                    'doc': 'The crypto currency address observed in use by the Internet client.', 'ro': True, }),
+                    'doc': 'The crypto currency address observed in use by the Internet client.', 'computed': True, }),
             )),
 
             ('crypto:hash:md5', {}, ()),
@@ -568,9 +568,9 @@ modeldefs = (
 
             ('crypto:x509:signedfile', {}, (
                 ('cert', ('crypto:x509:cert', {}), {
-                    'doc': 'The certificate for the key which signed the file.', 'ro': True, }),
+                    'doc': 'The certificate for the key which signed the file.', 'computed': True, }),
                 ('file', ('file:bytes', {}), {
-                    'doc': 'The file which was signed by the certificates key.', 'ro': True, }),
+                    'doc': 'The file which was signed by the certificates key.', 'computed': True, }),
             )),
 
             ('crypto:x509:crl', {}, (
@@ -582,9 +582,9 @@ modeldefs = (
 
             ('crypto:x509:revoked', {}, (
                 ('crl', ('crypto:x509:crl', {}), {
-                    'doc': 'The CRL which revoked the certificate.', 'ro': True, }),
+                    'doc': 'The CRL which revoked the certificate.', 'computed': True, }),
                 ('cert', ('crypto:x509:cert', {}), {
-                    'doc': 'The certificate revoked by the CRL.', 'ro': True, }),
+                    'doc': 'The certificate revoked by the CRL.', 'computed': True, }),
             )),
 
             ('crypto:x509:cert', {}, (

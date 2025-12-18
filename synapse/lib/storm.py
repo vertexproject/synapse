@@ -1003,7 +1003,7 @@ stormcmds = (
             if $cmdopts.no_headers { $headers = $lib.null }
         }
 
-        $ssl = (not $cmdopts.no_ssl_verify)
+        $ssl = ({"verify": (not $cmdopts.no_ssl_verify)})
         $timeout = $cmdopts.timeout
 
         if $node {
@@ -1040,7 +1040,7 @@ stormcmds = (
         init {
             $count = (0)
             function fetchnodes(url, ssl) {
-                $resp = $lib.inet.http.get($url, ssl_verify=$ssl)
+                $resp = $lib.inet.http.get($url, ssl=$ssl)
                 if ($resp.code = 200) {
                     $nodes = ()
                     for $valu in $resp.msgpack() {
@@ -1053,7 +1053,7 @@ stormcmds = (
             }
         }
 
-        $ssl = (not $cmdopts.no_ssl_verify)
+        $ssl = ({"verify": (not $cmdopts.no_ssl_verify)})
 
         if $node {
             $count = ($count + 1)
@@ -3225,7 +3225,7 @@ class CopyToCmd(Cmd):
                 for name, valu in node.getProps().items():
 
                     prop = node.form.prop(name)
-                    if prop.info.get('ro'):
+                    if prop.info.get('computed'):
                         curv = proto.get(name)
                         if curv is not None and curv != valu:
                             valurepr = prop.type.repr(curv)
@@ -3665,7 +3665,7 @@ class MergeCmd(Cmd):
                         if propfilter(prop.full):
                             continue
 
-                    if prop.info.get('ro'):
+                    if prop.info.get('computed'):
                         isset = False
                         for undr in sodes[1:]:
                             props = undr.get('props')

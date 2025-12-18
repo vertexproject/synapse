@@ -621,7 +621,7 @@ modeldefs = (
             ('it:version', 'synapse.models.infotech.ItVersion', {}, {
                 'virts': (
                     ('semver', ('it:semver', {}), {
-                        'ro': True,
+                        'computed': True,
                         'doc': 'The semver value if the version string is compatible.'}),
                 ),
                 'doc': 'A version string.'}),
@@ -1427,11 +1427,11 @@ modeldefs = (
             ('it:host:hosted:url', {}, (
 
                 ('host', ('it:host', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'Host serving a url.'}),
 
                 ('url', ('inet:url', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'URL available on the host.'}),
             )),
             ('it:exec:screenshot', {}, (
@@ -1455,47 +1455,47 @@ modeldefs = (
                     'doc': 'The CPE 2.2 string which is equivalent to the primary property.'}),
 
                 ('part', ('str', {'lower': True, 'strip': True}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The "part" field from the CPE 2.3 string.'}),
 
                 ('vendor', ('meta:name', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The "vendor" field from the CPE 2.3 string.'}),
 
                 ('product', ('str', {'lower': True, 'strip': True}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The "product" field from the CPE 2.3 string.'}),
 
                 ('version', ('str', {'lower': True, 'strip': True}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The "version" field from the CPE 2.3 string.'}),
 
                 ('update', ('str', {'lower': True, 'strip': True}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The "update" field from the CPE 2.3 string.'}),
 
                 ('edition', ('str', {'lower': True, 'strip': True}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The "edition" field from the CPE 2.3 string.'}),
 
                 ('language', ('str', {'lower': True, 'strip': True}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The "language" field from the CPE 2.3 string.'}),
 
                 ('sw_edition', ('str', {'lower': True, 'strip': True}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The "sw_edition" field from the CPE 2.3 string.'}),
 
                 ('target_sw', ('str', {'lower': True, 'strip': True}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The "target_sw" field from the CPE 2.3 string.'}),
 
                 ('target_hw', ('str', {'lower': True, 'strip': True}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The "target_hw" field from the CPE 2.3 string.'}),
 
                 ('other', ('str', {'lower': True, 'strip': True}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The "other" field from the CPE 2.3 string.'}),
             )),
             ('it:sec:cwe', {}, (
@@ -1897,28 +1897,28 @@ modeldefs = (
 
             ('it:os:android:reqperm', {}, (
 
-                ('app', ('it:software', {}), {'ro': True,
+                ('app', ('it:software', {}), {'computed': True,
                     'doc': 'The android app which requests the permission.'}),
 
-                ('perm', ('it:os:android:perm', {}), {'ro': True,
+                ('perm', ('it:os:android:perm', {}), {'computed': True,
                     'doc': 'The android permission requested by the app.'}),
             )),
 
             ('it:os:android:ilisten', {}, (
 
-                ('app', ('it:software', {}), {'ro': True,
+                ('app', ('it:software', {}), {'computed': True,
                     'doc': 'The app software which listens for the android intent.'}),
 
-                ('intent', ('it:os:android:intent', {}), {'ro': True,
+                ('intent', ('it:os:android:intent', {}), {'computed': True,
                     'doc': 'The android intent which is listened for by the app.'}),
             )),
 
             ('it:os:android:ibroadcast', {}, (
 
-                ('app', ('it:software', {}), {'ro': True,
+                ('app', ('it:software', {}), {'computed': True,
                     'doc': 'The app software which broadcasts the android intent.'}),
 
-                ('intent', ('it:os:android:intent', {}), {'ro': True,
+                ('intent', ('it:os:android:intent', {}), {'computed': True,
                     'doc': 'The android intent which is broadcast by the app.'}),
 
             )),

@@ -218,7 +218,7 @@ class Prop:
                 'form': self.form.name,
                 'relname': self.name,
                 'base': self.name.split(':')[-1],
-                'ro': int(self.info.get('ro', False)),
+                'computed': int(self.info.get('computed', False)),
                 'extmodel': self.isext,
             },
         })
@@ -627,7 +627,7 @@ class Model:
         info = {
             'virts': (
                 ('form', ('syn:form', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The form of node which is referenced.'}),
             ),
             'doc': 'The node definition type for a (form,valu) compound field.',
@@ -638,7 +638,7 @@ class Model:
         info = {
             'virts': (
                 ('size', ('int', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The number of elements in the array.'}),
             ),
             'doc': 'A typed array which indexes each field.'

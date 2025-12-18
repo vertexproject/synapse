@@ -392,7 +392,6 @@ class OAuthTest(s_test.SynTest):
 
                     expconf00 = {
                         # default values
-                        'ssl_verify': True,
                         **providerconf00,
                         # default values currently not configurable by the user
                         'flow_type': 'authorization_code',
@@ -465,12 +464,16 @@ class OAuthTest(s_test.SynTest):
                     ''', opts=opts)
                     self.stormIsInErr('certificate verify failed', mesgs)
 
-                    providerconf00['ssl_verify'] = False
-                    expconf00['ssl_verify'] = False
+                    # test disabling SSL verification
+                    providerconf00['ssl'] = {'verify': False}
+                    expconf00['ssl'] = {'verify': False, 'ca_cert': None, 'client_cert': None, 'client_key': None}
                     await core01.nodes('''
                         $lib.inet.http.oauth.v2.delProvider($providerconf.iden)
                         $lib.inet.http.oauth.v2.addProvider($providerconf)
                     ''', opts=opts)
+                    ret = await core01.callStorm('return($lib.inet.http.oauth.v2.getProvider($providerconf.iden))',
+                                                 opts=opts)
+                    self.eq(ret['ssl']['verify'], False)
 
                     # set the user auth code
                     core00._oauth_sched_ran.clear()
@@ -786,7 +789,7 @@ class OAuthTest(s_test.SynTest):
                         $lib.raise(BadAssertion, 'I am supposed to raise.')
                     }
                     $params = ({"getassertion": $valid})
-                    $resp = $lib.inet.http.get($url, params=$params, ssl_verify=(false))
+                    $resp = $lib.inet.http.get($url, params=$params, ssl=({"verify": false}))
                     if ($resp.code = 200) {
                         $resp = ( (true), ({'token': $resp.json().assertion}))
                     } else {
@@ -822,7 +825,6 @@ class OAuthTest(s_test.SynTest):
 
                     expconf00 = {
                         # default values
-                        'ssl_verify': True,
                         **providerconf00,
                         # default values currently not configurable by the user
                         'flow_type': 'authorization_code',
@@ -858,12 +860,15 @@ class OAuthTest(s_test.SynTest):
                     ''', opts=opts)
                     self.eq(expconf00, ret)
 
-                    providerconf00['ssl_verify'] = False
-                    expconf00['ssl_verify'] = False
+                    # test disabling SSL verification
+                    providerconf00['ssl'] = {"verify": False}
                     await core01.nodes('''
                         $lib.inet.http.oauth.v2.delProvider($providerconf.iden)
                         $lib.inet.http.oauth.v2.addProvider($providerconf)
                     ''', opts=opts)
+                    ret = await core01.callStorm('return($lib.inet.http.oauth.v2.getProvider($providerconf.iden))',
+                                                 opts=opts)
+                    self.eq(ret['ssl']['verify'], False)
 
                     # set the user auth code
                     core00._oauth_sched_ran.clear()
@@ -1025,7 +1030,6 @@ class OAuthTest(s_test.SynTest):
 
                         expconf00 = {
                             # default values
-                            'ssl_verify': True,
                             **providerconf00,
                             # default values currently not configurable by the user
                             'flow_type': 'authorization_code',
@@ -1052,12 +1056,15 @@ class OAuthTest(s_test.SynTest):
                                                      opts=opts)
                         self.eq(expconf00, ret)
 
-                        providerconf00['ssl_verify'] = False
-                        expconf00['ssl_verify'] = False
+                        # test disabling SSL verification
+                        providerconf00['ssl'] = {"verify": False}
                         await core01.nodes('''
                             $lib.inet.http.oauth.v2.delProvider($providerconf.iden)
                             $lib.inet.http.oauth.v2.addProvider($providerconf)
                         ''', opts=opts)
+                        ret = await core01.callStorm('return($lib.inet.http.oauth.v2.getProvider($providerconf.iden))',
+                                                     opts=opts)
+                        self.eq(ret['ssl']['verify'], False)
 
                         # set the user auth code
                         core00._oauth_sched_ran.clear()

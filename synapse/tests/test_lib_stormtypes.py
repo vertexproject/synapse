@@ -6871,7 +6871,7 @@ class StormTypesTest(s_test.SynTest):
             opts = {'user': visi.iden, 'vars': {'port': port}}
             wget = '''
                $url = `https://visi:secret@127.0.0.1:{$port}/api/v1/healthcheck`
-               return($lib.axon.wget($url, ssl=$lib.false))
+               return($lib.axon.wget($url, ssl=({"verify": false})))
            '''
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm(wget, opts=opts)
@@ -7106,7 +7106,7 @@ words\tword\twrd'''
 
             # wget
 
-            scmd = 'return($lib.axon.wget($url, ssl=$lib.false).code)'
+            scmd = 'return($lib.axon.wget($url, ssl=({"verify": false})).code)'
             await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
 
             await visi.addRule((True, ('axon', 'upload')))
@@ -7115,7 +7115,7 @@ words\tword\twrd'''
 
             # wput
 
-            scmd = 'return($lib.axon.wput($sha256, $url, method=post, ssl=$lib.false).code)'
+            scmd = 'return($lib.axon.wput($sha256, $url, method=post, ssl=({"verify": false})).code)'
             await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
 
             await visi.addRule((True, ('axon', 'get')))
@@ -7125,7 +7125,7 @@ words\tword\twrd'''
             # urlfile
 
             opts['view'] = mainview
-            scmd = 'yield $lib.axon.urlfile($url, ssl=$lib.false) return($node)'
+            scmd = 'yield $lib.axon.urlfile($url, ssl=({"verify": false})) return($node)'
             await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
 
             await visi.addRule((True, ('axon', 'upload')))
