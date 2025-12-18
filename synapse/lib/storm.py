@@ -3225,7 +3225,7 @@ class CopyToCmd(Cmd):
                 for name, valu in node.getProps().items():
 
                     prop = node.form.prop(name)
-                    if prop.info.get('ro'):
+                    if prop.info.get('computed'):
                         curv = proto.get(name)
                         if curv is not None and curv != valu:
                             valurepr = prop.type.repr(curv)
@@ -3665,7 +3665,7 @@ class MergeCmd(Cmd):
                         if propfilter(prop.full):
                             continue
 
-                    if prop.info.get('ro'):
+                    if prop.info.get('computed'):
                         isset = False
                         for undr in sodes[1:]:
                             props = undr.get('props')

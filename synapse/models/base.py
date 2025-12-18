@@ -250,15 +250,15 @@ modeldefs = (
                         'doc': 'A display sort order for siblings.'}),
 
                     ('base', ('taxon', {}), {
-                        'ro': True,
+                        'computed': True,
                         'doc': 'The base taxon.'}),
 
                     ('depth', ('int', {}), {
-                        'ro': True,
+                        'computed': True,
                         'doc': 'The depth indexed from 0.'}),
 
                     ('parent', ('$self', {}), {
-                        'ro': True,
+                        'computed': True,
                         'doc': 'The taxonomy parent.'}),
                 ),
             }),

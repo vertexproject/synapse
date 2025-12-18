@@ -146,15 +146,15 @@ modeldefs = (
             ('file:path', 'synapse.models.files.FilePath', {}, {
                 'virts': (
                     ('ext', ('str', {}), {
-                        'ro': True,
+                        'computed': True,
                         'doc': 'The file extension from the path.'}),
 
                     ('dir', ('file:path', {}), {
-                        'ro': True,
+                        'computed': True,
                         'doc': 'The directory from the path.'}),
 
                     ('base', ('file:base', {}), {
-                        'ro': True,
+                        'computed': True,
                         'doc': 'The file base name from the path.'}),
                 ),
                 'doc': 'A normalized file path.',
@@ -517,27 +517,27 @@ modeldefs = (
             ('file:mime:pe:vsvers:keyval', {}, (
 
                 ('name', ('str', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The key for the VS_VERSIONINFO keyval pair.'}),
 
                 ('value', ('str', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The value for the VS_VERSIONINFO keyval pair.'}),
             )),
 
             ('file:base', {}, (
-                ('ext', ('str', {}), {'ro': True,
+                ('ext', ('str', {}), {'computed': True,
                     'doc': 'The file extension (if any).'}),
             )),
 
             ('file:filepath', {}, (
 
                 ('file', ('file:bytes', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The file seen at a path.'}),
 
                 ('path', ('file:path', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The path a file was seen at.'}),
 
             )),
@@ -601,11 +601,11 @@ modeldefs = (
 
             ('file:subfile', {}, (
                 ('parent', ('file:bytes', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The parent file containing the child file.'}),
 
                 ('child', ('file:bytes', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The child file contained in the parent file.'}),
 
                 ('path', ('file:path', {}), {
@@ -613,13 +613,13 @@ modeldefs = (
             )),
 
             ('file:path', {}, (
-                ('dir', ('file:path', {}), {'ro': True,
+                ('dir', ('file:path', {}), {'computed': True,
                     'doc': 'The parent directory.'}),
 
-                ('base', ('file:base', {}), {'ro': True,
+                ('base', ('file:base', {}), {'computed': True,
                     'doc': 'The file base name.'}),
 
-                ('base:ext', ('str', {}), {'ro': True,
+                ('base:ext', ('str', {}), {'computed': True,
                     'doc': 'The file extension.'}),
             )),
 
