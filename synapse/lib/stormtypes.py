@@ -42,7 +42,6 @@ logger = logging.getLogger(__name__)
 
 AXON_MINVERS_PROXY = (2, 97, 0)
 AXON_MINVERS_PROXYTRUE = (2, 192, 0)
-AXON_MINVERS_SSLOPTS = '>=2.162.0'
 
 class Undef:
     _storm_typename = 'undef'
@@ -1903,10 +1902,10 @@ class LibAxon(Lib):
     '''
     A Storm library for interacting with the Cortex's Axon.
 
-    For APIs that accept an ssl_opts argument, the dictionary may contain the following values::
+    For APIs that accept an ssl argument, the dictionary may contain the following values::
 
         ({
-            'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+            'verify': <bool> - Perform SSL/TLS verification. Default is True.
             'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
             'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
         })
@@ -1944,16 +1943,16 @@ class LibAxon(Lib):
                       {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'GET'},
                       {'name': 'json', 'type': 'dict', 'desc': 'A JSON object to send as the body.',
                        'default': None},
-                      {'name': 'body', 'type': 'bytes', 'desc': 'Bytes to send as the body.', 'default': None},
-                      {'name': 'ssl', 'type': 'boolean',
-                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
+                      {'name': 'body', 'type': 'bytes', 'desc': 'Bytes to send as the body.',
+                       'default': None},
+                      {'name': 'ssl', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
+                       'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
                       {'name': 'proxy', 'type': ['boolean', 'str'],
-                       'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
-                      {'name': 'ssl_opts', 'type': 'dict',
-                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
-                       'default': None},
+                       'desc': 'Configure proxy usage. See $lib.axon help for additional details.',
+                       'default': True},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'wput', 'desc': """
@@ -1967,16 +1966,16 @@ class LibAxon(Lib):
                        'default': None},
                       {'name': 'params', 'type': 'dict', 'desc': 'An optional dictionary of URL parameters to add.',
                        'default': None},
-                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'PUT'},
-                      {'name': 'ssl', 'type': 'boolean',
-                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
+                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.',
+                       'default': 'PUT'},
+                      {'name': 'ssl', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
+                       'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
                       {'name': 'proxy', 'type': ['boolean', 'str'],
-                       'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
-                      {'name': 'ssl_opts', 'type': 'dict',
-                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
-                       'default': None},
+                       'desc': 'Configure proxy usage. See $lib.axon help for additional details.',
+                       'default': True},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'urlfile', 'desc': '''
@@ -2318,21 +2317,20 @@ class LibAxon(Lib):
         return await axon.del_(sha256b)
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None,
-                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
+                   ssl=None, timeout=None, proxy=True):
 
         self.runt.confirm(('axon', 'upload'))
 
         url = await tostr(url)
         method = await tostr(method)
 
-        ssl = await tobool(ssl)
+        ssl = await toprim(ssl)
         body = await toprim(body)
         json = await toprim(json)
         params = await toprim(params)
         headers = await toprim(headers)
         timeout = await toprim(timeout)
         proxy = await toprim(proxy)
-        ssl_opts = await toprim(ssl_opts)
 
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
@@ -2345,34 +2343,26 @@ class LibAxon(Lib):
         if ok:
             kwargs['proxy'] = proxy
 
-        if ssl_opts is not None:
-            axonvers = self.runt.view.core.axoninfo['synapse']['version']
-            mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
-                   f'but the Axon is running {axonvers}'
-            s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
-            kwargs['ssl_opts'] = ssl_opts
-
         axon = self.runt.view.core.axon
-        resp = await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
-                               timeout=timeout, **kwargs)
+        resp = await axon.wget(url, headers=headers, params=params, method=method, json=json, body=body,
+                               ssl=ssl, timeout=timeout, **kwargs)
         resp['original_url'] = url
         return resp
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT',
-                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
+                   ssl=None, timeout=None, proxy=True):
 
         self.runt.confirm(('axon', 'get'))
 
         url = await tostr(url)
+        ssl = await toprim(ssl)
         sha256 = await tostr(sha256)
         method = await tostr(method)
         proxy = await toprim(proxy)
 
-        ssl = await tobool(ssl)
         params = await toprim(params)
         headers = await toprim(headers)
         timeout = await toprim(timeout)
-        ssl_opts = await toprim(ssl_opts)
 
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
@@ -2384,13 +2374,6 @@ class LibAxon(Lib):
         ok, proxy = await resolveAxonProxyArg(proxy)
         if ok:
             kwargs['proxy'] = proxy
-
-        if ssl_opts is not None:
-            axonvers = self.runt.view.core.axoninfo['synapse']['version']
-            mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
-                   f'but the Axon is running {axonvers}'
-            s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
-            kwargs['ssl_opts'] = ssl_opts
 
         axon = self.runt.view.core.axon
         sha256byts = s_common.uhex(sha256)

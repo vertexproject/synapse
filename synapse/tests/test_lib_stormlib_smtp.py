@@ -57,7 +57,7 @@ class SmtpTest(s_test.SynTest):
                     $message.sender = visi@vertex.link
                     $message.headers.Subject = woot
                     $message.recipients.append(visi@vertex.link)
-                    return($message.send('smtp.gmail.com', port=465, starttls=true, ssl_verify=(false)))
+                    return($message.send('smtp.gmail.com', port=465, starttls=true, ssl=({"verify": false})))
                 ''')
                 self.eq(retn, (True, {}))
                 mesg = called_args[-1][0][0]  # type: e_muiltipart.MIMEMultipart
