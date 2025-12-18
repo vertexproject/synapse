@@ -1279,7 +1279,7 @@ modeldefs = (
                         'ro': True,
                         'doc': 'The mask if the range can be represented in CIDR notation.'}),
 
-                    ('size', ('int', {}), {
+                    ('size', ('int', {'repr:offset': 1}), {
                         'ro': True,
                         'doc': 'The number of addresses in the range.'}),
                 ),
