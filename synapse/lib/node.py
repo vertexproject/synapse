@@ -393,11 +393,11 @@ class Node(NodeBase):
 
                     if vprops is not None:
                         for vname, vval in vprops.items():
-                            vvals[f'.{vname}'] = vval[0]
+                            vvals[vname}] = vval[0]
 
                     if (svirts := storvirts.get(stortype)) is not None:
                         for vname, getr in svirts.items():
-                            vvals[f'.{vname}'] = getr(valu)
+                            vvals[vname] = getr(valu)
                     break
 
         if dorepr:
