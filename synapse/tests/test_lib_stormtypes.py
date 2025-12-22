@@ -6134,8 +6134,8 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('yield $lib.lift.byPropsDict(test:guid, ({"size": "foo"}))')
 
-            msgs = await core.stormlist('yield $lib.lift.byPropsDict(test:guid, ({"size": "foo"}), errok=(true))')
-            self.stormIsInWarn('Bad value for prop test:guid:size', msgs)
+            nodes = await core.nodes('yield $lib.lift.byPropsDict(test:guid, ({"size": "foo"}), errok=(true))')
+            self.len(0, nodes)
 
     async def test_stormtypes_node(self):
 

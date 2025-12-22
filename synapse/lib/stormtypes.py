@@ -2735,9 +2735,6 @@ class LibLift(Lib):
             except s_exc.BadTypeValu as e:
                 if not errok:
                     raise
-
-                mesg = e.get('mesg')
-                await self.runt.warn(f'Bad value for prop {form.name}:{propname}: {mesg}', log=False)
                 return
 
         for formname in self.runt.model.getChildForms(form.name):
