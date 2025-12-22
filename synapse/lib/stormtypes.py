@@ -2626,6 +2626,8 @@ class LibLift(Lib):
                   'args': (
                       {'name': 'form', 'desc': 'The name of the form to lift.', 'type': 'str'},
                       {'name': 'props', 'desc': 'A dictionary of properties and values.', 'type': 'dict'},
+                      {'name': 'errok', 'desc': 'If set, norming failures will not raise an exception.',
+                       'type': 'boolean', 'default': False},
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes to the pipeline. '
@@ -2714,10 +2716,11 @@ class LibLift(Lib):
             yield await self.runt.view.getNodeByNdef((form, valu))
 
     @stormfunc(readonly=True)
-    async def _byPropsDict(self, form, props):
+    async def _byPropsDict(self, form, props, errok=False):
 
         form = await tostr(form)
         props = await tostor(props)
+        errok = await tobool(errok)
 
         form = self.runt.model.reqForm(form)
         norms = {}
@@ -2730,6 +2733,9 @@ class LibLift(Lib):
                 norms[propname] = norm
 
             except s_exc.BadTypeValu as e:
+                if not errok:
+                    raise
+
                 mesg = e.get('mesg')
                 await self.runt.warn(f'Bad value for prop {form.name}:{propname}: {mesg}', log=False)
                 return
