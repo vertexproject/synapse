@@ -2629,7 +2629,7 @@ class LibLift(Lib):
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+                                      'This must be used in conjunction with the ``yield`` keyword.'}}},
     )
     _storm_lib_path = ('lift',)
 
