@@ -6107,13 +6107,14 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('''[
                 (test:guid=* :size=5)
                 (test:guid=* :size=6 :tick=2020)
+                (test:guid=* :size=6 :tick=2021)
                 (test:guid=* :size=7 :tick=2020)
                 (test:guidchild=* :size=8 :tick=2020)
                 :name=foo
             ]''')
 
             nodes = await core.nodes('yield $lib.lift.byPropsDict(test:guid, ({"name": "foo"}))')
-            self.len(4, nodes)
+            self.len(5, nodes)
             for node in nodes:
                 self.eq(node.get('name'), 'foo')
 
