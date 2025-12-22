@@ -912,7 +912,7 @@ class Guid(Type):
 
             # ensure we still match the property deconf criteria
             for (prop, norm, info) in norms.values():
-                if not self._filtByPropAlts(node, prop, norm):
+                if not node.hasPropAltsValu(prop, norm):
                     guid = s_common.guid()
                     break
             else:
@@ -940,26 +940,12 @@ class Guid(Type):
 
             # filter on the remaining props/alts
             for count, prop, norm in counts[1:]:
-                if not self._filtByPropAlts(node, prop, norm):
+                if not node.hasPropAltsValu(prop, norm):
                     break
             else:
                 return node.valu(), True
 
         return guid, False
-
-    def _filtByPropAlts(self, node, prop, valu):
-        # valu must be normalized in advance
-        proptype = prop.type
-        for prop in prop.getAlts():
-            if prop.type.isarray and prop.type.arraytype == proptype:
-                arryvalu = node.get(prop.name)
-                if arryvalu is not None and valu in arryvalu:
-                    return True
-            else:
-                if node.get(prop.name) == valu:
-                    return True
-
-        return False
 
 class Hex(Type):
 

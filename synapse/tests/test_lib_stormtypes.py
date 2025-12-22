@@ -6104,6 +6104,35 @@ class StormTypesTest(s_test.SynTest):
             ]
             self.eq(exp, [n.ndef for n in nodes])
 
+            nodes = await core.nodes('''[
+                (test:guid=* :size=5)
+                (test:guid=* :size=6 :tick=2020)
+                (test:guid=* :size=7 :tick=2020)
+                (test:guidchild=* :size=8 :tick=2020)
+                :name=foo
+            ]''')
+
+            nodes = await core.nodes('yield $lib.lift.byPropsDict(test:guid, ({"name": "foo"}))')
+            self.len(4, nodes)
+            for node in nodes:
+                self.eq(node.get('name'), 'foo')
+
+            nodes = await core.nodes('yield $lib.lift.byPropsDict(test:guid, ({"name": "foo", "tick": "2020"}))')
+            self.len(3, nodes)
+            for node in nodes:
+                self.eq(node.get('name'), 'foo')
+                self.eq(node.get('tick'), 1577836800000000)
+
+            nodes = await core.nodes('yield $lib.lift.byPropsDict(test:guid, ({"name": "foo", "tick": "2020", "size": 6}))')
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq(node.get('name'), 'foo')
+                self.eq(node.get('tick'), 1577836800000000)
+                self.eq(node.get('size'), 6)
+
+            msgs = await core.stormlist('yield $lib.lift.byPropsDict(test:guid, ({"size": "foo"}))')
+            self.stormIsInWarn('Bad value for prop test:guid:size', msgs)
+
     async def test_stormtypes_node(self):
 
         async with self.getTestCore() as core:
