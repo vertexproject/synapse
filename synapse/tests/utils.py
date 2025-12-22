@@ -309,6 +309,7 @@ testmodel = (
             ('test:migr', ('str', {}), {}),
             ('test:auto', ('str', {}), {}),
             ('test:guid', ('guid', {}), {}),
+            ('test:guidchild', ('test:guid', {}), {}),
             ('test:data', ('data', {}), {}),
             ('test:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -434,6 +435,8 @@ testmodel = (
                 ('raw', ('data', {}), {}),
                 ('iden', ('guid', {}), {}),
             )),
+
+            ('test:guidchild', {}, ()),
 
             ('test:data', {}, (
                 ('data', ('test:data', {}), {}),

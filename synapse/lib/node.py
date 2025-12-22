@@ -222,6 +222,20 @@ class NodeBase:
     def getByLayer(self):
         return {}
 
+    def hasPropAltsValu(self, prop, valu):
+        # valu must be normalized in advance
+        proptype = prop.type
+        for prop in prop.getAlts():
+            if prop.type.isarray and prop.type.arraytype == proptype:
+                arryvalu = self.get(prop.name)
+                if arryvalu is not None and valu in arryvalu:
+                    return True
+            else:
+                if self.get(prop.name) == valu:
+                    return True
+
+        return False
+
 class Node(NodeBase):
     '''
     A Cortex hypergraph node.
