@@ -400,7 +400,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:sec:cve', 'CVE-2010-9998'))
 
-            nodes = await core.nodes('it:sec:cve=cve-2010-9998')
+            nodes = await core.nodes('it:sec:cve^=cve-2010')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:sec:cve', 'CVE-2010-9998'))
 
