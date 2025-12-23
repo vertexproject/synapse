@@ -2258,6 +2258,7 @@ class Str(Type):
         ('regex', None),
         ('lower', False),
         ('strip', True),
+        ('upper', False),
         ('replace', ()),
         ('onespace', False),
         ('globsuffix', False),
@@ -2281,6 +2282,10 @@ class Str(Type):
         })
 
         self.strtype = self.modl.type('str')
+
+        if self.opts.get('lower') and self.opts.get('upper'):
+            mesg = f'Str type ({self.name}) has both lower and upper set.'
+            raise s_exc.BadTypeDef(mesg=mesg)
 
         self.regex = None
         restr = self.opts.get('regex')
@@ -2313,6 +2318,8 @@ class Str(Type):
         # doesnt have to be normable...
         if self.opts.get('lower'):
             valu = valu.lower()
+        elif self.opts.get('upper'):
+            valu = valu.upper()
 
         for look, repl in self.opts.get('replace', ()):
             valu = valu.replace(look, repl)
@@ -2353,6 +2360,8 @@ class Str(Type):
 
         if self.opts['lower']:
             norm = norm.lower()
+        elif self.opts['upper']:
+            norm = norm.upper()
 
         for look, repl in self.opts.get('replace', ()):
             norm = norm.replace(look, repl)
