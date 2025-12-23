@@ -1699,6 +1699,12 @@ class TypesTest(s_t_utils.SynTest):
         lowr = model.type('str').clone({'lower': True})
         self.eq('foo', (await lowr.norm('FOO'))[0])
 
+        uppr = model.type('str').clone({'upper': True})
+        self.eq('FOO', (await uppr.norm('foo'))[0])
+
+        with self.raises(s_exc.BadTypeDef):
+            model.type('str').clone({'upper': True, 'lower': True})
+
         self.eq(True, await lowr.cmpr('xxherexx', '~=', 'here'))
         self.eq(False, await lowr.cmpr('xxherexx', '~=', '^here'))
 
