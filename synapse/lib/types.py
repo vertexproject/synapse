@@ -2023,7 +2023,7 @@ class Ndef(Type):
     stortype = s_layer.STOR_TYPE_NDEF
 
     _opt_defs = (
-        ('forms', None),  # type: ignore
+        ('forms', None),      # type: ignore
         ('interface', None),  # type: ignore
     )
 
