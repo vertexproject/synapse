@@ -66,7 +66,7 @@ modeldefs = (
                 ),
                 'doc': 'A US Social Security Number (SSN).'}),
 
-            ('gov:us:zip', ('int', {}), {
+            ('gov:us:zip', ('int', {'min': 0, 'max': 99999}), {
                 'doc': 'A US Postal Zip Code.'}),
 
             ('gov:us:cage', ('str', {'lower': True}), {
