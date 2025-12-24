@@ -73,7 +73,7 @@ modeldefs = (
             ('econ:invoice', ('guid', {}), {
                 'doc': 'An invoice issued requesting payment.'}),
 
-            ('econ:price', ('hugenum', {'norm': False}), {
+            ('econ:price', ('hugenum', {}), {
                 'doc': 'The amount of money expected, required, or given in payment for something.',
                 'ex': '2.20'}),
 

@@ -110,6 +110,10 @@ class IPAddr(s_types.Type):
 
     stortype = s_layer.STOR_TYPE_IPADDR
 
+    _opt_defs = (
+        ('version', None),   # type: ignore
+    )
+
     def postTypeInit(self):
 
         self.setCmprCtor('>=', self._ctorCmprGe)
@@ -370,6 +374,11 @@ class IPAddr(s_types.Type):
 
 class SockAddr(s_types.Str):
 
+    _opt_defs = (
+        ('defport', None),     # type: ignore
+        ('defproto', 'tcp'),   # type: ignore
+    ) + s_types.Str._opt_defs
+
     protos = ('tcp', 'udp', 'icmp', 'gre')
     noports = ('gre', 'icmp')
 
@@ -383,8 +392,8 @@ class SockAddr(s_types.Str):
         self.porttype = self.modl.type('inet:port')
         self.prototype = self.modl.type('str').clone({'lower': True})
 
-        self.defport = self.opts.get('defport', None)
-        self.defproto = self.opts.get('defproto', 'tcp')
+        self.defport = self.opts.get('defport')
+        self.defproto = self.opts.get('defproto')
 
         self.virtindx |= {
             'ip': 'ip',

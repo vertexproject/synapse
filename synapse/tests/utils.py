@@ -288,7 +288,7 @@ testmodel = (
             }),
         ),
         'types': (
-            ('test:type10', ('test:type', {'foo': 10}), {
+            ('test:type10', ('test:type', {}), {
                 'doc': 'A fake type.'}),
 
             ('test:lower', ('str', {'lower': True}), {}),
@@ -377,7 +377,7 @@ testmodel = (
                 ('intprop', ('int', {'min': 20, 'max': 30}), {}),
                 ('int2', ('int', {}), {}),
                 ('strprop', ('str', {'lower': 1}), {}),
-                ('guidprop', ('guid', {'lower': 1}), {}),
+                ('guidprop', ('guid', {}), {}),
                 ('locprop', ('loc', {}), {}),
             )),
 
@@ -493,7 +493,7 @@ testmodel = (
             ('test:zeropad', {}, ()),
             ('test:ival', {}, (
                 ('interval', ('ival', {}), {}),
-                ('daymax', ('ival', {'precision': 'day', 'maxfill': True}), {}),
+                ('daymax', ('ival', {'precision': 'day'}), {}),
             )),
 
             ('test:pivtarg', {}, (
