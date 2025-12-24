@@ -62,7 +62,7 @@ modeldefs = (
                 'ex': '0111',
                 'doc': 'The four digit Standard Industrial Classification Code.'}),
 
-            ('ou:naics', ('str', {'regex': r'^[1-9][0-9]{1,5}?$', 'strip': True}), {
+            ('ou:naics', ('str', {'regex': r'^[1-9][0-9]{1,5}?$'}), {
                 'ex': '541715',
                 'doc': 'North American Industry Classification System codes and prefixes.'}),
 
@@ -406,7 +406,7 @@ modeldefs = (
                 ('submitted', ('time', {}), {
                     'doc': 'The time the candidate was submitted for consideration.'}),
 
-                ('intro', ('str', {'strip': True}), {
+                ('intro', ('str', {}), {
                     'doc': 'An introduction or cover letter text submitted by the candidate.'}),
 
                 ('resume', ('doc:resume', {}), {
