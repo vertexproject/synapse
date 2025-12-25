@@ -3109,7 +3109,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         ok = True
 
                         try:
-                            async for mesg in self.storm(initdef['query']):
+                            async for mesg in self.storm(initdef['query'], opts={'mirror': False}):
                                 match mesg[0]:
                                     case 'print':
                                         msg = f'{name} init vers={vers} output: {mesg[1].get("mesg")}'
@@ -3139,7 +3139,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 if onload is not None:
                     try:
-                        async for mesg in self.storm(onload):
+                        async for mesg in self.storm(onload, opts={'mirror': False}):
                             if mesg[0] == 'print':
                                 logger.info(f'{name} onload output: {mesg[1].get("mesg")}', extra=logextra)
                             if mesg[0] == 'warn':

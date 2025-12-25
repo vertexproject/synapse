@@ -1,0 +1,6 @@
+---
+desc: Updated Storm package onload/inits to always run directly on the leader even when a Storm query pool is in use.
+desc:literal: false
+prs: []
+type: feat
+...
