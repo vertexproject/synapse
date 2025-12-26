@@ -1566,7 +1566,7 @@ modeldefs = (
             ('inet:email:message:link', ('guid', {}), {
                 'doc': 'A url/link embedded in an email message.'}),
 
-            ('inet:tls:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
+            ('inet:tls:jarmhash', ('str', {'lower': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'JARM fingerprint'}}),
                 ),
@@ -1795,13 +1795,13 @@ modeldefs = (
                 ),
                 'doc': 'An instance of a TLS handshake between a client and server.'}),
 
-            ('inet:tls:ja4', ('str', {'strip': True, 'regex': ja4_regex}), {
+            ('inet:tls:ja4', ('str', {'regex': ja4_regex}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'JA4 fingerprint'}}),
                 ),
                 'doc': 'A JA4 TLS client fingerprint.'}),
 
-            ('inet:tls:ja4s', ('str', {'strip': True, 'regex': ja4s_regex}), {
+            ('inet:tls:ja4s', ('str', {'regex': ja4s_regex}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'JA4S fingerprint'}}),
                 ),
@@ -1981,10 +1981,10 @@ modeldefs = (
                     ('rule', ('inet:service:rule', {}), {
                         'doc': 'The rule which allowed or denied the action.'}),
 
-                    ('error:code', ('str', {'strip': True}), {
+                    ('error:code', ('str', {}), {
                         'doc': 'The platform specific error code if the action was unsuccessful.'}),
 
-                    ('error:reason', ('str', {'strip': True}), {
+                    ('error:reason', ('str', {}), {
                         'doc': 'The platform specific friendly error reason if the action was unsuccessful.'}),
 
                     ('platform', ('inet:service:platform', {}), {
@@ -2397,7 +2397,7 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The guid of the host the interface is associated with.'}),
 
-                ('name', ('str', {'strip': True}), {
+                ('name', ('str', {}), {
                     'ex': 'eth0',
                     'doc': 'The interface name.'}),
 
@@ -2729,7 +2729,7 @@ modeldefs = (
                 ('channel', ('int', {}), {
                     'doc': 'The WIFI channel that the AP was last observed operating on.'}),
 
-                ('encryption', ('str', {'lower': True, 'strip': True}), {
+                ('encryption', ('str', {'lower': True}), {
                     'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
 
                 # FIXME ownable interface?
@@ -2740,10 +2740,10 @@ modeldefs = (
             ('inet:wifi:ssid', {}, ()),
 
             ('inet:tls:jarmhash', {}, (
-                ('ciphers', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{30}$'}), {
+                ('ciphers', ('str', {'lower': True, 'regex': '^[0-9a-f]{30}$'}), {
                     'computed': True,
                     'doc': 'The encoded cipher and TLS version of the server.'}),
-                ('extensions', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{32}$'}), {
+                ('extensions', ('str', {'lower': True, 'regex': '^[0-9a-f]{32}$'}), {
                     'computed': True,
                     'doc': 'The truncated SHA256 of the TLS server extensions.'}),
             )),
@@ -3104,7 +3104,7 @@ modeldefs = (
 
             ('inet:service:message:link', {}, (
 
-                ('title', ('str', {'strip': True}), {
+                ('title', ('str', {}), {
                     'doc': 'The displayed hyperlink text if it was not the URL.'}),
 
                 ('url', ('inet:url', {}), {
@@ -3128,7 +3128,7 @@ modeldefs = (
                 ('about', ('inet:service:object', {}), {
                     'doc': 'The node that the emote is about.'}),
 
-                ('text', ('str', {'strip': True}), {
+                ('text', ('str', {}), {
                     'ex': ':partyparrot:',
                     'doc': 'The unicode or emote text of the reaction.'}),
             )),

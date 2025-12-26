@@ -432,7 +432,7 @@ modeldefs = (
                 ('exchange', ('econ:fin:exchange', {}), {
                     'doc': 'The exchange on which the security is traded.'}),
 
-                ('ticker', ('str', {'lower': True, 'strip': True}), {
+                ('ticker', ('str', {'lower': True}), {
                     'doc': 'The identifier for this security within the exchange.'}),
 
                 ('type', ('econ:fin:security:type:taxonomy', {}), {

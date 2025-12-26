@@ -616,7 +616,7 @@ modeldefs = (
                     'doc': 'The version integer in the certificate. (ex. 2 == v3 ).',
                 }),
 
-                ('subject:cn', ('str', {'strip': True}), {
+                ('subject:cn', ('str', {}), {
                     'doc': 'The Common Name (CN) attribute of the x509 Subject.',
                 }),
 

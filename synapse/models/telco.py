@@ -202,10 +202,10 @@ modeldefs = (
                 ),
                 'doc': 'A single mobile telemetry measurement.'}),
 
-            ('tel:mob:mcc', ('str', {'regex': '^[0-9]{3}$', 'strip': True}), {
+            ('tel:mob:mcc', ('str', {'regex': '^[0-9]{3}$'}), {
                 'doc': 'ITU Mobile Country Code.'}),
 
-            ('tel:mob:mnc', ('str', {'regex': '^[0-9]{2,3}$', 'strip': True}), {
+            ('tel:mob:mnc', ('str', {'regex': '^[0-9]{2,3}$'}), {
                 'doc': 'ITU Mobile Network Code.'}),
 
             ('tel:mob:carrier', ('guid', {}), {
@@ -228,7 +228,7 @@ modeldefs = (
 
             # TODO - eventually break out ISO-3 country code into a sub
             # https://en.wikipedia.org/wiki/TADIG_code
-            ('tel:mob:tadig', ('str', {'regex': '^[A-Z0-9]{5}$', 'strip': True}), {
+            ('tel:mob:tadig', ('str', {'regex': '^[A-Z0-9]{5}$'}), {
                 'interfaces': (
                     ('entity:identifier', {}),
                 ),
