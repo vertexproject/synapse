@@ -9068,7 +9068,7 @@ Features and Enhancements
   ``$lib.bytes.hashset()`` API.
   (`#2327 <https://github.com/vertexproject/synapse/pull/2327>`_)
 - Add the ``synapse.servers.stemcell`` server and a new Docker image,
-  ``vertexproject/synaspe-stemcell``. The Stemcell server is similar to the
+  ``vertexproject/synapse-stemcell``. The Stemcell server is similar to the
   ``synapse.servers.cell`` server, except it resolves the Cell ctor from the
   ``cell:ctor`` key from the ``cell.yaml`` file, or from the
   ``SYN_STEM_CELL_CTOR`` environment variable.
