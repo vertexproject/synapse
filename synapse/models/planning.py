@@ -99,7 +99,7 @@ modeldefs = (
             )),
             ('plan:procedure:variable', {}, (
 
-                ('name', ('str', {'strip': True}), {
+                ('name', ('str', {}), {
                     'doc': 'The name of the variable.'}),
 
                 ('type', ('str', {}), {
