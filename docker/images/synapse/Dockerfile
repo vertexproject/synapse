@@ -4,7 +4,7 @@
 # It does not start any services.
 FROM python:3.14.2-slim-trixie
 
-ENV SYN_LOG_LEVEL="WARNING"
+ENV SYN_LOG_LEVEL="INFO"
 
 COPY synapse /build/synapse/synapse
 COPY pyproject.toml /build/synapse/pyproject.toml
