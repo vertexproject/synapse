@@ -30,10 +30,6 @@ class LangModuleTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('lang:translation -> it:software'))
             self.len(2, await core.nodes('lang:translation -> lang:language'))
 
-            self.none(await core.callStorm('return($lib.gen.langByCode(neeeeewp, try=$lib.true))'))
-            with self.raises(s_exc.BadTypeValu):
-                await core.callStorm('return($lib.gen.langByCode(neeeeewp))')
-
             nodes = await core.nodes('[ lang:phrase="For   The  People" ]')
             self.len(1, nodes)
             self.eq('For   The  People', nodes[0].repr())

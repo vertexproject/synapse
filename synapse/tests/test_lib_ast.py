@@ -3435,19 +3435,19 @@ class AstTest(s_test.SynTest):
             self.eq('obj.put(foo, bar, baz)', text[off:end])
             self.stormIsInErr('pipe.put()', msgs)
 
-            text = '$lib.gen.campaign(foo, bar, baz)'
+            text = '$lib.lift.byNodeData(foo, bar, baz)'
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
-            self.eq('lib.gen.campaign(foo, bar, baz)', text[off:end])
-            self.stormIsInErr('$lib.gen.campaign()', msgs)
+            self.eq('lib.lift.byNodeData(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('$lib.lift.byNodeData()', msgs)
 
-            text = '$gen = $lib.gen.campaign $gen(foo, bar, baz)'
+            text = '$lft = $lib.lift.byNodeData $lft(foo, bar, baz)'
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
-            self.eq('gen(foo, bar, baz)', text[off:end])
-            self.stormIsInErr('$lib.gen.campaign()', msgs)
+            self.eq('lft(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('$lib.lift.byNodeData()', msgs)
 
             async def highlighteq(exp, text):
                 msgs = await core.stormlist(text)

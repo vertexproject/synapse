@@ -2596,7 +2596,7 @@ class LibLift(Lib):
         {'name': 'byNodeData', 'desc': 'Lift nodes which have a given nodedata name set on them.',
          'type': {'type': 'function', '_funcname': '_byNodeData',
                   'args': (
-                      {'name': 'name', 'desc': 'The name to of the nodedata key to lift by.', 'type': 'str', },
+                      {'name': 'name', 'desc': 'The name of the nodedata key to lift by.', 'type': 'str', },
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes to the pipeline. '
