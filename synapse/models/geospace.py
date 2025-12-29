@@ -218,11 +218,15 @@ geojsonschema = {
 
 class Dist(s_types.Int):
 
+    _opt_defs = (
+        ('baseoff', 0),  # type: ignore
+    ) + s_types.Int._opt_defs
+
     def postTypeInit(self):
         s_types.Int.postTypeInit(self)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
-        self.baseoff = self.opts.get('baseoff', 0)
+        self.baseoff = self.opts.get('baseoff')
 
     async def _normPyInt(self, valu, view=None):
         return valu, {}

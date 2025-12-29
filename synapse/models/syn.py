@@ -245,7 +245,7 @@ modeldefs = (
                 ('package', ('str', {}), {
                     'doc': 'Storm package which provided the command.'}),
 
-                ('svciden', ('guid', {'strip': True}), {
+                ('svciden', ('guid', {}), {
                     'doc': 'Storm service iden which provided the package.'}),
 
                 ('deprecated', ('bool', {}), {

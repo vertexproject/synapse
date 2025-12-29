@@ -56,6 +56,12 @@ class Type:
         self.types = (self.name,) + self.info['bases'][::-1]
 
         self.opts = dict(self._opt_defs)
+
+        for optn in opts.keys():
+            if optn not in self.opts:
+                mesg = f'Type option {optn} is not valid for type {self.name}.'
+                raise s_exc.BadTypeDef(mesg=mesg)
+
         self.opts.update(opts)
 
         self._type_norms = {}   # python type to norm function map str: _norm_str
@@ -541,18 +547,27 @@ class Array(Type):
     isarray = True
     ismutable = True
 
+    _opt_defs = (
+        ('type', None),       # type: ignore
+        ('uniq', True),       # type: ignore
+        ('split', None),      # type: ignore
+        ('sorted', True),     # type: ignore
+        ('typeopts', None),   # type: ignore
+    )
+
     def postTypeInit(self):
 
-        self.isuniq = self.opts.get('uniq', True)
-        self.issorted = self.opts.get('sorted', True)
-        self.splitstr = self.opts.get('split', None)
+        self.isuniq = self.opts.get('uniq')
+        self.issorted = self.opts.get('sorted')
+        self.splitstr = self.opts.get('split')
 
         typename = self.opts.get('type')
         if typename is None:
             mesg = 'Array type requires type= option.'
             raise s_exc.BadTypeDef(mesg=mesg)
 
-        typeopts = self.opts.get('typeopts', {})
+        if (typeopts := self.opts.get('typeopts')) is None:
+            typeopts = {}
 
         basetype = self.modl.type(typename)
         if basetype is None:
@@ -687,6 +702,11 @@ class Comp(Type):
 
     stortype = s_layer.STOR_TYPE_MSGP
 
+    _opt_defs = (
+        ('sepr', None),   # type: ignore
+        ('fields', ()),   # type: ignore
+    )
+
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
@@ -698,7 +718,7 @@ class Comp(Type):
         self._checkMutability()
 
         self.fieldtypes = {}
-        for fname, ftypename in self.opts.get('fields', ()):
+        for fname, ftypename in self.opts.get('fields'):
             if isinstance(ftypename, str):
                 _type = self.modl.type(ftypename)
             else:
@@ -713,7 +733,7 @@ class Comp(Type):
             self.fieldtypes[fname] = _type
 
     def _checkMutability(self):
-        for fname, ftypename in self.opts.get('fields', ()):
+        for fname, ftypename in self.opts.get('fields'):
             if isinstance(ftypename, (list, tuple)):
                 ftypename = ftypename[0]
 
@@ -1296,6 +1316,7 @@ class Int(IntBase):
     _opt_defs = (
         ('size', 8),  # type: ignore # Set the storage size of the integer type in bytes.
         ('signed', True),
+        ('enums', None),
         ('enums:strict', True),
 
         ('fmt', '%d'),  # Set to an integer compatible format string to control repr.
@@ -1314,6 +1335,13 @@ class Int(IntBase):
         self.stortype = intstors.get((self.size, self.signed))
         if self.stortype is None:
             mesg = f'Invalid integer size ({self.size})'
+            raise s_exc.BadTypeDef(mesg=mesg)
+
+        self.ismin = self.opts.get('ismin')
+        self.ismax = self.opts.get('ismax')
+
+        if self.opts.get('ismin') and self.opts.get('ismax'):
+            mesg = f'Int type ({self.name}) has both ismin and ismax set.'
             raise s_exc.BadTypeDef(mesg=mesg)
 
         self.enumnorm = {}
@@ -1363,10 +1391,10 @@ class Int(IntBase):
 
     def merge(self, oldv, newv):
 
-        if self.opts.get('ismin'):
+        if self.ismin:
             return min(oldv, newv)
 
-        if self.opts.get('ismax'):
+        if self.ismax:
             return max(oldv, newv)
 
         return newv
@@ -1994,6 +2022,11 @@ class Ndef(Type):
 
     stortype = s_layer.STOR_TYPE_NDEF
 
+    _opt_defs = (
+        ('forms', None),      # type: ignore
+        ('interface', None),  # type: ignore
+    )
+
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
@@ -2117,6 +2150,10 @@ class Data(Type):
     ismutable = True
 
     stortype = s_layer.STOR_TYPE_MSGP
+
+    _opt_defs = (
+        ('schema', None),  # type: ignore
+    )
 
     def postTypeInit(self):
         self.validator = None
@@ -2744,6 +2781,10 @@ class Time(IntBase):
 
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')
+
+        if self.ismin and self.ismax:
+            mesg = f'Time type ({self.name}) has both ismin and ismax set.'
+            raise s_exc.BadTypeDef(mesg=mesg)
 
         precstr = self.opts.get('precision')
         self.prec = s_time.precisions.get(precstr)

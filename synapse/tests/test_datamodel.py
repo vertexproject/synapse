@@ -73,6 +73,10 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model.addFormProp('test:str', 'bar', ('newp', {}), {})
             self.isin('No type named newp while declaring prop test:str:bar.', cm.exception.get('mesg'))
 
+            with self.raises(s_exc.BadTypeDef) as cm:
+                core.model.addType('_foo:type', 'int', {'foo': 'bar'}, {})
+            self.isin('Type option foo is not valid', cm.exception.get('mesg'))
+
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
         mods = (
