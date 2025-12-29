@@ -1554,7 +1554,8 @@ class LiftOper(Oper):
                 virts.append(piv)
                 continue
 
-            pivlifts.append((plist, virts))
+            if not props[0].isform:
+                pivlifts.append((plist, virts))
 
             if (pivprop := runt.model.prop(f'{ptyp.name}:{piv}')) is None:
                 found = False
