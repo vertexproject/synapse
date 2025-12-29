@@ -850,6 +850,7 @@ class IPRange(s_types.Range):
         if minv[0] != maxv[0]:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg=f'IP address version mismatch in range "{valu}"')
+
         if minv[1] > maxv[1]:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='minval cannot be greater than maxval')
