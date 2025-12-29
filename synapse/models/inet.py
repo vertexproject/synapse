@@ -288,6 +288,10 @@ class Email(s_types.Str):
             mesg = f'Email address expected in <user>@<fqdn> format, got "{valu}"'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
+        plus = None
+        if len(parts := user.split('+', 1)) == 2:
+            user, plus = parts
+
         try:
             fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
             usernorm, userinfo = self.modl.type('inet:user').norm(user)
@@ -301,6 +305,11 @@ class Email(s_types.Str):
                 'user': usernorm,
             }
         }
+
+        if plus:
+            info['subs']['plus'] = plus
+            info['subs']['base'] = f'{usernorm}@{fqdnnorm}'
+
         return norm, info
 
 class Fqdn(s_types.Type):
@@ -2117,12 +2126,22 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:email', {}, (
+
                         ('user', ('inet:user', {}), {
                             'ro': True,
                             'doc': 'The username of the email address.'}),
+
                         ('fqdn', ('inet:fqdn', {}), {
                             'ro': True,
                             'doc': 'The domain of the email address.'}),
+
+                        ('plus', ('str', {'lower': True, 'strip': True}), {
+                            'ro': True,
+                            'doc': 'The optional email address "tag".'}),
+
+                        ('base', ('inet:email', {}), {
+                            'ro': True,
+                            'doc': 'The base email address which is populated if the email address contains a user with a +<tag>.'}),
                     )),
 
                     ('inet:flow', {}, (

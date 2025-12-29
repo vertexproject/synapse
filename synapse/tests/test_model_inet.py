@@ -417,6 +417,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('fqdn'), 'vertex.link')
             self.eq(node.get('user'), 'unittest')
 
+            nodes = await core.nodes('[ inet:email=visi+Synapse@vertex.link ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('plus'), 'synapse')
+            self.eq(nodes[0].get('base'), 'visi@vertex.link')
+            self.len(1, await core.nodes('inet:email=visi+synapse@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
+
     async def test_flow(self):
         async with self.getTestCore() as core:
             valu = s_common.guid()
