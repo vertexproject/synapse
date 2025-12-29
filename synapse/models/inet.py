@@ -291,6 +291,7 @@ class Email(s_types.Str):
         plus = None
         if len(parts := user.split('+', 1)) == 2:
             user, plus = parts
+            plus = plus.lower()
 
         try:
             fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
