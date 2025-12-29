@@ -143,6 +143,13 @@ class NexsRoot(s_base.Base):
         self.nexslog.setIndex(maxindx)
 
         async def fini():
+
+            if self.applytask is not None and not self.applytask.done():
+                try:
+                    await self.applytask
+                except:
+                    logger.exception(f'Error when awaiting applytask during Nexus shutdown')
+
             for wind in self._linkmirrors:
                 await wind.fini()
 
@@ -389,6 +396,8 @@ class NexsRoot(s_base.Base):
             return await asyncio.shield(self.applytask)
 
     async def _eat(self, item, indx=None):
+        if self.isfini:
+            raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot apply {s_common.trimText(str(item))}')
 
         try:
             if self.donexslog:
@@ -472,7 +481,7 @@ class NexsRoot(s_base.Base):
             return
 
         if self.isfini:
-            raise s_exc.IsFini()
+            raise s_exc.IsFini(mesg='Cannot iterate over a fini Nexus')
 
         maxoffs = offs
 

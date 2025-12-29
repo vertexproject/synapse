@@ -1302,6 +1302,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.setNexsRoot(nexsroot)
 
         async def fini():
+            # Tear down the nexus root - this will prevent additional writes to the service.
             await self.nexsroot.fini()
 
         self.onfini(fini)
