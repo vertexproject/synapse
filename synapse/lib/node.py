@@ -1365,18 +1365,14 @@ class Path:
     '''
     A path context tracked through the storm runtime.
     '''
-    def __init__(self, vars, nodes, links=None):
+    def __init__(self, vars, node, links=None):
 
-        self.node = None
-        self.nodes = nodes
+        self.node = node
 
         if links is not None:
             self.links = links
         else:
             self.links = []
-
-        if len(nodes):
-            self.node = nodes[-1]
 
         self.vars = vars
         self.frames = []
@@ -1424,12 +1420,8 @@ class Path:
         '''
         self.metadata[name] = valu
 
-    async def pack(self, path=False):
-        info = await s_stormtypes.toprim(dict(self.metadata))
-        if path:
-            info['nodes'] = [node.iden() for node in self.nodes]
-
-        return info
+    async def pack(self):
+        return await s_stormtypes.toprim(dict(self.metadata))
 
     def setData(self, nid, name, valu):
         self.nodedata[nid][name] = valu
@@ -1455,15 +1447,10 @@ class Path:
         if self.node is not None and link is not None:
             links.append((self.node.intnid(), link))
 
-        nodes = list(self.nodes)
-        nodes.append(node)
-
-        path = Path(self.vars.copy(), nodes, links=links)
-
-        return path
+        return Path(self.vars.copy(), node, links=links)
 
     def clone(self):
-        path = Path(copy.copy(self.vars), copy.copy(self.nodes), copy.copy(self.links))
+        path = Path(copy.copy(self.vars), self.node, copy.copy(self.links))
         path.frames = [v.copy() for v in self.frames]
         return path
 
