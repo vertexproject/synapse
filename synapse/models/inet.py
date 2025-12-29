@@ -736,10 +736,6 @@ class IPRange(s_types.Range):
         self.masktype = self.modl.type('int').clone({'size': 1, 'signed': False})
         self.sizetype = self.modl.type('int').clone({'size': 16, 'signed': False})
 
-        # Offset size values by 1 so we can store ::/0 in 16 bytes and there is always at least 1 IP in the range
-        self.sizetype.minval += 1
-        self.sizetype.maxval += 1
-
         self.pivs |= {
             'inet:ip': ('range=', None),
         }
@@ -753,35 +749,6 @@ class IPRange(s_types.Range):
             'mask': (self.masktype, self._getMask),
             'size': (self.sizetype, self._getSize),
         }
-
-        self.virtlifts |= {
-            'size': {
-                'in=': self._storLiftSizeIn,
-                'range=': self._storLiftSizeRange
-            },
-        }
-
-        for oper in ('=', '<', '>', '<=', '>='):
-            self.virtlifts['size'][oper] = self._storLiftSize
-
-    async def _storLiftSize(self, cmpr, valu):
-        norm, _ = await self.sizetype.norm(valu)
-        return (
-            (cmpr, norm - 1, self.sizetype.stortype),
-        )
-
-    async def _storLiftSizeIn(self, cmpr, valu):
-        retn = []
-        for realvalu in valu:
-            retn.extend(await self._storLiftSize('=', realvalu))
-        return retn
-
-    async def _storLiftSizeRange(self, cmpr, valu):
-        minx = (await self.sizetype.norm(valu[0]))[0]
-        maxx = (await self.sizetype.norm(valu[1]))[0]
-        return (
-            (cmpr, (minx - 1, maxx - 1), self.sizetype.stortype),
-        )
 
     def _getMask(self, valu):
         if (virts := valu[2]) is None:
@@ -799,7 +766,7 @@ class IPRange(s_types.Range):
         if (valu := virts.get('size')) is None:
             return None
 
-        return valu[0] + 1
+        return valu[0]
 
     def repr(self, norm):
         if (cidr := self._getCidr(norm)) is not None:
@@ -830,7 +797,8 @@ class IPRange(s_types.Range):
 
         if '-' in valu:
             norm, info = await super()._normPyStr(valu)
-            info['virts'] = {'size': (norm[1][1] - norm[0][1], self.sizetype.stortype)}
+            size = (await self.sizetype.norm(norm[1][1] - norm[0][1] + 1))[0]
+            info['virts'] = {'size': (size, self.sizetype.stortype)}
 
             if (cidr := self._getCidr(norm)) is not None:
                 info['virts']['mask'] = (cidr.prefixlen, self.masktype.stortype)
@@ -864,10 +832,12 @@ class IPRange(s_types.Range):
             network, netinfo = await self.subtype.norm((6, int(netw.network_address)))
             broadcast, binfo = await self.subtype.norm((6, int(netw.broadcast_address)))
 
+        size = (await self.sizetype.norm(broadcast[1] - network[1] + 1))[0]
+
         return (network, broadcast), {'subs': {'min': (self.subtype.typehash, network, netinfo),
                                                'max': (self.subtype.typehash, broadcast, binfo)},
                                       'virts': {'mask': (mask_int, self.masktype.stortype),
-                                                'size': (broadcast[1] - network[1], self.sizetype.stortype)}}
+                                                'size': (size, self.sizetype.stortype)}}
 
     async def _normPyTuple(self, valu, view=None):
         if len(valu) != 2:
@@ -880,14 +850,15 @@ class IPRange(s_types.Range):
         if minv[0] != maxv[0]:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg=f'IP address version mismatch in range "{valu}"')
-
-        if ipaddress.ip_address(minv[1]) > ipaddress.ip_address(maxv[1]):
+        if minv[1] > maxv[1]:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='minval cannot be greater than maxval')
 
+        size = (await self.sizetype.norm(maxv[1] - minv[1] + 1))[0]
+
         info = {'subs': {'min': (self.subtype.typehash, minv, minfo),
                          'max': (self.subtype.typehash, maxv, maxfo)},
-                'virts': {'size': (maxv[1] - minv[1], self.sizetype.stortype)}}
+                'virts': {'size': (size, self.sizetype.stortype)}}
 
         if (cidr := self._getCidr((minv, maxv))) is not None:
             info['virts']['mask'] = (cidr.prefixlen, self.masktype.stortype)
@@ -1279,7 +1250,7 @@ modeldefs = (
                         'computed': True,
                         'doc': 'The mask if the range can be represented in CIDR notation.'}),
 
-                    ('size', ('int', {'repr:offset': 1}), {
+                    ('size', ('int', {}), {
                         'computed': True,
                         'doc': 'The number of addresses in the range.'}),
                 ),

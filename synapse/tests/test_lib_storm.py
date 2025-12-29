@@ -1278,7 +1278,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('[ inet:net=10.0.0.0/24 ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
             self.eq(nodes[0][1]['virts'].get('mask'), 24)
-            self.eq(nodes[0][1]['virts'].get('size'), 255)
+            self.eq(nodes[0][1]['virts'].get('size'), 256)
 
             msgs = await core.stormlist('[ test:ival=(2020, 2021) ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
