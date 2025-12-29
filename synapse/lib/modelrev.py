@@ -827,6 +827,7 @@ class ModelRev:
 
     async def revModel_0_2_34(self, layers):
         await self._normFormSubs(layers, 'inet:email')
+        await self._propToForm(layers, 'inet:email:base', 'inet:email')
 
     async def runStorm(self, text, opts=None):
         '''

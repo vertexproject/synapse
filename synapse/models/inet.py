@@ -298,7 +298,11 @@ class Email(s_types.Str):
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
-        norm = f'{usernorm}@{fqdnnorm}'
+        if plus:
+            norm = f'{usernorm}+{plus}@{fqdnnorm}'
+        else:
+            norm = f'{usernorm}@{fqdnnorm}'
+
         info = {
             'subs': {
                 'fqdn': fqdnnorm,
