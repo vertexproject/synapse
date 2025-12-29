@@ -24,7 +24,7 @@ import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.cortex.migrate3x as s_migr
 
-REGR_CORE = '3x-migr3'
+REGR_CORE = '2.x.x-3.0.0-migr'
 
 class MigrationTest(s_t_utils.SynTest):
 
@@ -52,6 +52,100 @@ class MigrationTest(s_t_utils.SynTest):
 
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
 
+                pretrim = []
+                async for item in core.nexsroot.iter(0):
+                    if item[1][1] == 'nexslog:cull':
+                        break
+                    pretrim.append(item[1])
+                    self.eq(item[1][1], 'edits')
+
+                self.len(4, pretrim)
+
+                self.eq(core.nexsvers, s_cell.NEXUS_VERSION)
+
+                oldp = await core.auth.getUserByName('oldpass')
+                self.none(oldp.info.get('passwd'))
+                self.none(oldp.info.get('onepass'))
+
+                visi = await core.auth.getUserByName('visi')
+                self.true(visi.allowed(('node', 'data', 'del')))
+                self.true(visi.allowed(('node', 'prop', 'set', 'inet:ip')))
+                self.true(visi.allowed(('node', 'prop', 'set', 'inet:ip', 'asn')))
+
+                self.true(visi.allowed(('storm', 'macro', 'add')))
+                self.true(visi.allowed(('storm', 'macro', 'edit')))
+                self.true(visi.allowed(('storm', 'macro', 'admin')))
+
+                self.true(visi.allowed(('auth', 'user', 'del', 'profile')))
+                self.true(visi.allowed(('auth', 'user', 'add')))
+                self.true(visi.allowed(('auth', 'role', 'add')))
+
+                self.true(visi.allowed(('httpapi', 'set')))
+                self.true(visi.allowed(('log', 'warning')))
+                self.true(visi.allowed(('inet', 'imap', 'connect')))
+
+                self.true(visi.allowed(('globals', 'del')))
+                self.true(visi.allowed(('graph', 'add')))
+                self.true(visi.allowed(('cron', 'set', 'user')))
+                self.none(visi.allowed(('depr', '.newp')))
+
+                layriden = core.getLayer().iden
+                rusr = await core.auth.getUserByName('roleuser')
+                self.false(rusr.allowed(('node', 'data', 'del')))
+                self.false(rusr.allowed(('node', 'data', 'del', 'bar')))
+                self.false(rusr.allowed(('node', 'data', 'del'), gateiden=layriden))
+                self.true(rusr.allowed(('node', 'data', 'del', 'bar'), gateiden=layriden))
+
+                self.false(rusr.allowed(('node', 'prop', 'set', 'inet:ip'), gateiden=layriden))
+                self.true(rusr.allowed(('node', 'prop', 'set', 'inet:ip', 'asn'), gateiden=layriden))
+
+                self.true(rusr.allowed(('auth', 'user', 'del')))
+                self.true(rusr.allowed(('auth', 'role', 'del')))
+                self.true(rusr.allowed(('cron', 'set', 'user')))
+                self.none(rusr.allowed(('depr', '.newp'), gateiden=layriden))
+
+                crons = core.agenda.list()
+                self.len(3, crons)
+
+                for appt in crons:
+                    self.false(appt[1].enabled)
+
+                cron = [appt[1] for appt in crons if appt[1].storm == '$foo=userview'][0]
+                userview = core.auth.user(cron.user).profile.get('cortex:view')
+                self.nn(cron.view)
+                self.eq(cron.view, userview)
+
+                cron = [appt[1] for appt in crons if appt[1].storm == '$foo=ok'][0]
+                self.eq(cron.user, core.auth.rootuser.iden)
+                self.nn(cron.view)
+                self.ne(cron.view, core.view.iden)
+
+                cron = [appt[1] for appt in crons if appt[1].storm == '$foo=coreview'][0]
+                userview = core.auth.user(cron.user).profile.get('cortex:view')
+                self.none(userview)
+                self.nn(cron.view)
+                self.eq(cron.view, core.view.iden)
+
+                self.len(1, [trig for trig in core.view.trigdict.values() if trig['creator'] == core.auth.rootuser.iden])
+                self.len(1, [trig for trig in core.view.trigdict.values() if trig['creator'] == visi.iden])
+
+                # Triggers are disabled
+                for trig in core.view.trigdict.values():
+                    self.false(trig['enabled'])
+
+                # Async trigger queues are cleared
+                self.eq(0, core.view.trigqueue.size)
+
+                # Old layer config values are removed
+                for layr in core.layers.values():
+                    self.none(layr.layrinfo.get('mirror'))
+                    self.none(layr.layrinfo.get('upstream'))
+
+                q = f"return($lib.inet.http.oauth.v2.getProvider({s_common.guid('providerconf00')}))"
+                conf = await core.callStorm(q)
+                self.none(conf.get('ssl_verify'))
+                self.eq(conf.get('ssl'), {'verify': False})
+
                 nodes = await core.nodes('inet:url -(refs)> meta:event:type:taxonomy')
                 self.len(2, nodes)
                 self.eq(nodes[0].ndef[1], 'nowhitespace.url.')
@@ -67,13 +161,13 @@ class MigrationTest(s_t_utils.SynTest):
 
                 nodes = await core.nodes('inet:url=http://whitespace.trigger')
                 self.len(1, nodes)
-                self.nn(nodes[0].get('#trig.migr'))
+                self.none(nodes[0].get('#trig.migr'))
 
                 nodes = await core.nodes('inet:ip')
-                self.len(3, nodes)
+                self.len(2, nodes)
 
                 self.len(1, await core.nodes('inet:ip:version=4'))
-                self.len(2, await core.nodes('inet:ip:version=6'))
+                self.len(1, await core.nodes('inet:ip:version=6'))
 
                 nodes = await core.nodes('risk:attack')
                 self.len(1, nodes)
@@ -96,13 +190,34 @@ class MigrationTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('risk:attack -(uses)> inet:ip +:version=4'))
                 self.len(1, await core.nodes('risk:attack -(uses)> inet:ip +:version=6'))
 
-                nodes = await core.nodes('lang:translation')
+                nodes = await core.nodes('lang:translation=(lang:trans, notenglish)')
                 self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('lang:translation', s_common.guid(('notenglish',))))
+                self.eq(nodes[0].ndef, ('lang:translation', s_common.guid(('lang:trans', 'notenglish'))))
                 self.eq(nodes[0].get('desc'), 'somedesc')
-                self.eq(nodes[0].get('input'), 'notenglish')
+                self.eq(nodes[0].get('input'), ('lang:phrase', 'notenglish'))
                 self.eq(nodes[0].get('output'), 'english')
-                self.eq(nodes[0].get('output:lang'), 'en')
+                self.eq(nodes[0].get('output:lang'), '1551445c4c921443a28e145007a01ab7')
+
+                nodes = await core.nodes('lang:translation=(lang:trans, notenglish) -> lang:language')
+                self.len(1, nodes)
+                self.eq(nodes[0].get('code'), 'en')
+
+                nodes = await core.nodes('lang:translation=(wasguid,)')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('lang:translation', s_common.guid(('wasguid',))))
+                self.eq(nodes[0].get('desc'), 'guiddesc')
+                self.eq(nodes[0].get('input'), ('lang:phrase', 'green'))
+                self.eq(nodes[0].get('input:lang'), '1551445c4c921443a28e145007a01ab7')
+                self.eq(nodes[0].get('output'), 'vert')
+                self.eq(nodes[0].get('output:lang'), '3b62218b11431099f96dd99dc4bf5083')
+
+                nodes = await core.nodes('lang:translation=(wasguid,) :input:lang -> *')
+                self.len(1, nodes)
+                self.eq(nodes[0].get('code'), 'en')
+
+                nodes = await core.nodes('lang:translation=(wasguid,) :output:lang -> *')
+                self.len(1, nodes)
+                self.eq(nodes[0].get('code'), 'fr')
 
     async def test_migr_layeroffs(self):
         conf = {

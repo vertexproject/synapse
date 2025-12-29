@@ -61,7 +61,7 @@ import synapse.tools.service.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
-NEXUS_VERSION = (2, 198)
+NEXUS_VERSION = (3, 0)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
