@@ -1,0 +1,7 @@
+---
+desc: Migrated email addresses with +<tag> user names to properly populate ``:user``,
+``:plus``, and ``:base``.
+desc:literal: false
+prs: []
+type: migration
+...

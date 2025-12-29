@@ -1,0 +1,6 @@
+---
+desc: Added ``:plus`` and ``:base`` properties to ``inet:email``.
+desc:literal: false
+prs: []
+type: model
+...
