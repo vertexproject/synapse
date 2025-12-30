@@ -548,10 +548,7 @@ class AhaTest(s_test.SynTest):
 
             conf = {'dns:name': 'aha.loop.vertex.link'}
             async with self.getTestAha(dirn=dirn, conf=conf) as aha:
-
-                ahaport = aha.sockaddr[1]
-
-                url = aha.getLocalUrl()
+                await aha.enter_context(self.withSetLoggingMock())
 
                 outp = self.getTestOutp()
                 await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'foobar'), outp=outp)
