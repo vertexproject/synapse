@@ -308,7 +308,7 @@ class Email(s_types.Str):
             }
         }
 
-        if plus:
+        if plus is not None:
             info['subs']['plus'] = plus
             info['subs']['base'] = f'{baseuser}@{fqdnnorm}'
 
