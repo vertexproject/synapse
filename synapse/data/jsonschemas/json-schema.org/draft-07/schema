@@ -169,8 +169,7 @@
 			},
 			"propertyNames": {
 				"format": "regex"
-			},
-			"default": {}
+			}
 		},
 		"dependencies": {
 			"type": "object",

@@ -122,10 +122,8 @@ vaults:
             oneOf:
               - { type: boolean }
               - { type: string }
-            default: true
           baz:
             type: boolean
-            default: false
         additionalProperties: false
         required:
           - bar
