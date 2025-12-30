@@ -290,7 +290,7 @@ class Email(s_types.Str):
 
         plus = None
         if len(parts := user.split('+', 1)) == 2:
-            user, plus = parts
+            baseuser, plus = parts
             plus = plus.strip().lower()
 
         try:
@@ -299,10 +299,7 @@ class Email(s_types.Str):
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
-        if plus:
-            norm = f'{usernorm}+{plus}@{fqdnnorm}'
-        else:
-            norm = f'{usernorm}@{fqdnnorm}'
+        norm = f'{usernorm}@{fqdnnorm}'
 
         info = {
             'subs': {
@@ -313,7 +310,7 @@ class Email(s_types.Str):
 
         if plus:
             info['subs']['plus'] = plus
-            info['subs']['base'] = f'{usernorm}@{fqdnnorm}'
+            info['subs']['base'] = f'{baseuser}@{fqdnnorm}'
 
         return norm, info
 

@@ -419,6 +419,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ inet:email=visi+Synapse@vertex.link ]')
             self.len(1, nodes)
+            self.eq(nodes[0].get('user'), 'visi+synapse')
             self.eq(nodes[0].get('plus'), 'synapse')
             self.eq(nodes[0].get('base'), 'visi@vertex.link')
             self.len(1, await core.nodes('inet:email=visi+synapse@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
