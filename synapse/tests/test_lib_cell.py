@@ -3492,7 +3492,7 @@ class CellTest(s_t_utils.SynTest):
         async with self.getTestCell() as cell:
 
             self.none(await cell.getAhaProxy())
-            cell.ahaclient = await s_telepath.Client.anit('cell:///tmp/newp')
+            cell.ahaclient = await cell.enter_context(await s_telepath.Client.anit('cell:///tmp/newp'))
 
             # coverage for failure of aha client to connect
             with self.raises(TimeoutError):
