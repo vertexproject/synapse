@@ -1799,8 +1799,8 @@ class LiftByArray(LiftOper):
         try:
             if pivs:
                 if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
-                    if not props[0].isform:
-                        pivs.insert(0, relname)
+
+                    pivs.insert(0, relname)
 
                     async for node in self.pivfilter(runt, props, pivs, cmpr, valu, array=True):
                         yield node
