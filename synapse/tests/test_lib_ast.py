@@ -3125,12 +3125,21 @@ class AstTest(s_test.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.len(0, calls)
 
-                    await core.nodes('[test:str=foo test:str=bar :somestr=prop]')
-                    self.len(2, await core.nodes('test:str::somestr=prop'))
+                    await core.nodes('[test:int=1 test:int=2 :type=foo]')
+                    self.len(2, await core.nodes('test:int::type=foo'))
 
                     self.eq(calls, [
-                        ('valu', 'test:str2:somestr', '=', 'prop'),
-                        ('valu', 'test:str:somestr', '=', 'prop')
+                        ('valu', 'test:int:type', '=', 'foo')
+                    ])
+
+                    await core.nodes('[test:str=foo :somestr=bar]')
+                    calls = []
+
+                    self.len(2, await core.nodes('test:int::type::somestr=bar'))
+                    self.eq(calls, [
+                        ('valu', 'test:str2:somestr', '=', 'bar'),
+                        ('valu', 'test:str:somestr', '=', 'bar'),
+                        ('valu', 'test:int:type', '=', 'foo')
                     ])
 
     async def test_ast_tag_optimization(self):

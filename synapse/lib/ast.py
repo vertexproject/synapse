@@ -1539,11 +1539,16 @@ class LiftOper(Oper):
         self.reverse = True
 
     def getPivLifts(self, runt, props, pivs):
-        plist = [prop.full for prop in props]
         virts = []
         pivlifts = []
 
-        ptyp = props[-1].type
+        if props[0].isform and (prop := props[0].prop(pivs[0])) is not None:
+            pivs.pop(0)
+            ptyp = prop.type
+            plist = [prop.full for prop in runt.model.getChildProps(prop)]
+        else:
+            ptyp = props[-1].type
+            plist = [prop.full for prop in props]
 
         for piv in pivs:
             if isinstance(ptyp, s_types.Ndef):
@@ -1554,8 +1559,7 @@ class LiftOper(Oper):
                 virts.append(piv)
                 continue
 
-            if not props[0].isform:
-                pivlifts.append((plist, virts))
+            pivlifts.append((plist, virts))
 
             if (pivprop := runt.model.prop(f'{ptyp.name}:{piv}')) is None:
                 found = False
