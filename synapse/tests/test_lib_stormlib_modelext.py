@@ -80,6 +80,10 @@ class StormtypesModelextTest(s_test.SynTest):
             await core._delAllFormProp('_visi:int', '_tick', {})
             self.len(0, await core.nodes('_visi:int:_tick'))
 
+            # Add a tagprop to a node with a long form name so the abrv is indexed after the
+            # form=None abrvs to get _delAllTagProp coverage
+            await core.nodes('[ crypto:smart:effect:edittokensupply=* +#foo:score=99 ]')
+
             self.len(1, await core.nodes('#lol:score'))
             await core._delAllTagProp('score', {})
             self.len(0, await core.nodes('#lol:score'))
