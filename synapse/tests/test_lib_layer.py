@@ -500,7 +500,6 @@ class LayerTest(s_t_utils.SynTest):
             vals = [math.nan, -math.inf, -99999.9, -0.0000000001, -42.1, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf]
 
             indxby = s_layer.IndxBy(layr, b'', tmpdb)
-            # TODO self.raises(s_exc.NoSuchImpl, indxby.getNodeValu, s_common.guid())
 
             for key, val in ((stor.indx(v), s_msgpack.en(v)) for v in vals):
                 await layr.layrslab.put(key[0], val, db=tmpdb)
