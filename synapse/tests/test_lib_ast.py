@@ -3127,11 +3127,11 @@ class AstTest(s_test.SynTest):
 
                     await core.nodes('[test:str=foo test:str=bar :somestr=prop]')
                     self.len(2, await core.nodes('test:str::somestr=prop'))
-                    exp = [
+
+                    self.eq(calls, [
                         ('valu', 'test:str2:somestr', '=', 'prop'),
                         ('valu', 'test:str:somestr', '=', 'prop')
-                    ]
-                    self.eq(calls, exp)
+                    ])
 
     async def test_ast_tag_optimization(self):
         calls = []
