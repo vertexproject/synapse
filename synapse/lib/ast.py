@@ -1542,10 +1542,10 @@ class LiftOper(Oper):
         virts = []
         pivlifts = []
 
-        if props[0].isform and (prop := props[0].prop(pivs[0])) is not None:
+        if props[0].isform and (pivprop := props[0].prop(pivs[0])) is not None:
             pivs.pop(0)
-            ptyp = prop.type
-            plist = [prop.full for prop in runt.model.getChildProps(prop)]
+            ptyp = pivprop.type
+            plist = [prop.full for prop in runt.model.getChildProps(pivprop)]
         else:
             ptyp = props[-1].type
             plist = [prop.full for prop in props]
