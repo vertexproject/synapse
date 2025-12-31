@@ -1538,16 +1538,29 @@ class LiftOper(Oper):
         self.astinfo = astinfo
         self.reverse = True
 
+    def getPivProps(self, runt, name):
+
+        if name.find('::') != -1:
+            parts = name.split('::')
+            name, pivs = parts[0], parts[1:]
+
+            prop = runt.model.reqProp(name, extra=self.kids[0].addExcInfo)
+            if prop.isform:
+                pivname = pivs.pop(0)
+                prop = prop.reqProp(pivname, extra=self.kids[0].addExcInfo)
+
+            props = runt.model.getChildProps(prop)
+            return props, pivs
+
+        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+        return props, None
+
     def getPivLifts(self, runt, props, pivs):
+        plist = [prop.full for prop in props]
         virts = []
         pivlifts = []
 
-        if props[0].isform and (pivprop := props[0].prop(pivs[0])) is not None:
-            pivs.pop(0)
-            props = runt.model.getChildProps(pivprop)
-
         ptyp = props[-1].type
-        plist = [prop.full for prop in props]
 
         for piv in pivs:
             if isinstance(ptyp, s_types.Ndef):
@@ -1780,19 +1793,14 @@ class LiftByArray(LiftOper):
         cmpr = self.kids[1].value()
         valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
-        pivs = None
-        if name.find('::') != -1:
-            parts = name.split('::')
-            name, pivs = parts[0], parts[1:]
-
-        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+        props, pivs = self.getPivProps(runt, name)
         relname = props[0].name
 
         try:
-            if pivs is not None:
+            if pivs:
                 if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
-
-                    pivs.insert(0, relname)
+                    if not props[0].isform:
+                        pivs.insert(0, relname)
 
                     async for node in self.pivfilter(runt, props, pivs, cmpr, valu, array=True):
                         yield node
@@ -1852,16 +1860,11 @@ class LiftByArrayVirt(LiftOper):
         cmpr = self.kids[2].value()
         valu = await s_stormtypes.tostor(await self.kids[3].compute(runt, path))
 
-        pivs = None
-        if name.find('::') != -1:
-            parts = name.split('::')
-            name, pivs = parts[0], parts[1:]
-
-        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+        props, pivs = self.getPivProps(runt, name)
         relname = props[0].name
 
         try:
-            if pivs is not None:
+            if pivs:
                 if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
                     pivs.insert(0, relname)
 
@@ -2273,16 +2276,11 @@ class LiftPropBy(LiftOper):
         valu = await self.kids[2].compute(runt, path)
         valu = await s_stormtypes.tostor(valu)
 
-        pivs = None
-        if name.find('::') != -1:
-            parts = name.split('::')
-            name, pivs = parts[0], parts[1:]
-
-        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+        props, pivs = self.getPivProps(runt, name)
         relname = props[0].name
 
         try:
-            if pivs is not None:
+            if pivs:
                 if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
 
                     pivs.insert(0, relname)
@@ -2339,16 +2337,11 @@ class LiftPropVirtBy(LiftOper):
         valu = await self.kids[3].compute(runt, path)
         valu = await s_stormtypes.tostor(valu)
 
-        pivs = None
-        if name.find('::') != -1:
-            parts = name.split('::')
-            name, pivs = parts[0], parts[1:]
-
-        props = runt.model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
+        props, pivs = self.getPivProps(runt, name)
         relname = props[0].name
 
         try:
-            if pivs is not None:
+            if pivs:
                 if (pivlifts := self.getPivLifts(runt, props, pivs)) is None:
                     pivs.insert(0, relname)
 
