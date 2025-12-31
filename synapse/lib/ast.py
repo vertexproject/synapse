@@ -1538,7 +1538,7 @@ class LiftOper(Oper):
         self.astinfo = astinfo
         self.reverse = True
 
-    def getPivProps(self, runt, name):
+    def getPivProps(self, runt, name, lookup=False):
 
         if name.find('::') != -1:
             parts = name.split('::')
@@ -1552,7 +1552,11 @@ class LiftOper(Oper):
             props = runt.model.getChildProps(prop)
             return props, pivs
 
-        props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+        if lookup:
+            props = runt.model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
+        else:
+            props = runt.model.reqPropList(name, extra=self.kids[0].addExcInfo)
+
         return props, None
 
     def getPivLifts(self, runt, props, pivs):
@@ -2337,7 +2341,7 @@ class LiftPropVirtBy(LiftOper):
         valu = await self.kids[3].compute(runt, path)
         valu = await s_stormtypes.tostor(valu)
 
-        props, pivs = self.getPivProps(runt, name)
+        props, pivs = self.getPivProps(runt, name, lookup=True)
         relname = props[0].name
 
         try:
