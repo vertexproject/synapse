@@ -540,9 +540,8 @@ class StormtypesModelextTest(s_test.SynTest):
             self.isin('_test:iface', core.model.formsbyiface['inet:proto:link'])
             self.isin('_test:iface', core.model.formsbyiface['inet:proto:request'])
             self.isin('_test:iface:flow', core.model.ifaceprops['inet:proto:request:flow'])
-            # FIXME discuss... is this correct behavior?
-            # self.isin('_test:iface:proc', core.model.ifaceprops['test:interface:proc'])
-            # self.isin('_test:iface:proc', core.model.ifaceprops['inet:proto:request:proc'])
+            self.isin('_test:iface:client:proc', core.model.ifaceprops['test:interface:client:proc'])
+            self.isin('_test:iface:client:proc', core.model.ifaceprops['inet:proto:request:client:proc'])
             self.isin('_test:iface:server', core.model.ifaceprops['inet:proto:link:server'])
 
             q = '$lib.model.ext.delForm(_test:iface)'
