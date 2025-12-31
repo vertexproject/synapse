@@ -3171,9 +3171,6 @@ class CortexTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
 
-            await core.nodes('[test:str=foo test:str=bar :somestr=prop]')
-            self.len(2, await core.nodes('test:str::somestr=prop'))
-
             # When pivoting through mixed types, don't raise BadTypeValu for incompatible operations
             # since they could be valid in some cases
             self.len(0, await core.nodes('test:str:bar::seen*[=tcp]'))

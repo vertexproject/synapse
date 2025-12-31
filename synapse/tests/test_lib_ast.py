@@ -3006,9 +3006,9 @@ class AstTest(s_test.SynTest):
             async for node in origprop(self, name, reverse=reverse, virts=virts):
                 yield node
 
-        async def checkValu(self, name, cmpr, valu, reverse=False):
+        async def checkValu(self, name, cmpr, valu, reverse=False, virts=None):
             calls.append(('valu', name, cmpr, valu))
-            async for node in origvalu(self, name, cmpr, valu, reverse=reverse):
+            async for node in origvalu(self, name, cmpr, valu, reverse=reverse, virts=virts):
                 yield node
 
         with mock.patch('synapse.lib.view.View.nodesByProp', checkProp):
@@ -3124,6 +3124,14 @@ class AstTest(s_test.SynTest):
                     msgs = await core.stormlist('test:int +:name')
                     self.stormHasNoWarnErr(msgs)
                     self.len(0, calls)
+
+                    await core.nodes('[test:str=foo test:str=bar :somestr=prop]')
+                    self.len(2, await core.nodes('test:str::somestr=prop'))
+                    exp = [
+                        ('valu', 'test:str2:somestr', '=', 'prop'),
+                        ('valu', 'test:str:somestr', '=', 'prop')
+                    ]
+                    self.eq(calls, exp)
 
     async def test_ast_tag_optimization(self):
         calls = []
