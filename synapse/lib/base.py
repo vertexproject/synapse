@@ -384,7 +384,16 @@ class Base:
         '''
         assert self.anitted, f'{self.__class__.__name__} initialized improperly.  Must use Base.anit class method.'
 
+        iscortex = False
+        if self.__class__.__name__ == 'Cortex':
+            iscortex = True
+
+        if iscortex:
+            logger.info(f'Entering fini for Cortex at {self.dirn} {self.conf.get("aha:name")}')
+
         if self.isfini:
+            if iscortex:
+                logger.info(f'Cortex already fini {self.dirn} {self.conf.get("aha:name")}')
             return
 
         if __debug__:
@@ -398,6 +407,8 @@ class Base:
         self.isfini = True
 
         for base in list(self.tofini):
+            if iscortex:
+                logger.info(f'Cortex @ {self.dirn} fini base {base}')
             await base.fini()
 
         await self._kill_active_tasks()

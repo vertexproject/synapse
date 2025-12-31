@@ -146,11 +146,12 @@ class NexsRoot(s_base.Base):
 
         async def fini():
 
-            if self.applytask is not None and not self.applytask.done():
-                try:
-                    await s_common.wait_for(self.applytask, NEXUSROOT_APPLYTASK_WAIT_S)
-                except:
-                    logger.exception(f'Error when awaiting applytask during Nexus shutdown')
+            # if self.applytask is not None and not self.applytask.done():
+            #     try:
+            #         logger.warning(f'Awaiting applytask {self.cell.dirn} {self.applytask}')
+            #         await s_common.wait_for(self.applytask, NEXUSROOT_APPLYTASK_WAIT_S)
+            #     except:
+            #         logger.exception(f'Error when awaiting applytask during Nexus shutdown')
 
             for wind in self._linkmirrors:
                 await wind.fini()
@@ -698,6 +699,12 @@ class NexsRoot(s_base.Base):
 
             except s_exc.LinkShutDown:
                 logger.warning(f'mirror loop: leader closed the connection.')
+            #     await self.waitfini(timeout=1)
+            #
+            # except s_exc.IsFini:
+            #     logger.warning(f'mirror loop: leader is shutdown.')
+            #     import synapse.lib.coro as s_coro
+            #     s_coro.create_task(proxy.fini())
 
             except Exception as exc:  # pragma: no cover
                 logger.exception(f'error in mirror loop: {exc}')
