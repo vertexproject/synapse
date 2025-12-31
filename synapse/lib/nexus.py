@@ -23,6 +23,8 @@ leaderversion = 'Leader is a higher version than we are.'
 # As a mirror follower, amount of time before giving up on a write request
 FOLLOWER_WRITE_WAIT_S = 30.0
 
+NEXUSROOT_APPLYTASK_WAIT_S = float(os.environ.get('SYN_APPLYTASK_WAIT', 6.0))
+
 WINDOW_MAXSIZE = 10_000
 YIELD_PREFIX = b'\x92\xa8t2:yield\x81\xa4retn\x92\xc3\x92'
 
@@ -146,7 +148,7 @@ class NexsRoot(s_base.Base):
 
             if self.applytask is not None and not self.applytask.done():
                 try:
-                    await self.applytask
+                    await s_common.wait_for(self.applytask, NEXUSROOT_APPLYTASK_WAIT_S)
                 except:
                     logger.exception(f'Error when awaiting applytask during Nexus shutdown')
 
@@ -371,6 +373,9 @@ class NexsRoot(s_base.Base):
             meta = {}
 
         await self.cell.nexslock.acquire()
+
+        if self.isfini:
+            raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot propose {s_common.trimText(str((nexsiden, event, args, kwargs, meta)))}')
 
         try:
             if (nexus := self._nexskids.get(nexsiden)) is None:
