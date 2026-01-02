@@ -583,7 +583,7 @@ class Base:
         loop.add_signal_handler(signal.SIGINT, sigint)
         loop.add_signal_handler(signal.SIGTERM, sigterm)
 
-    async def main(self): # pragma: no cover
+    async def main(self, timeout=BASE_MAIN_BG_TASK_TIMEOUT): # pragma: no cover
         '''
         Helper function to setup signal handlers for this base as the main object.
         ( use base.waitfini() to block )
@@ -592,7 +592,8 @@ class Base:
             This API may only be used when the ioloop is *also* the main thread.
         '''
         await self.addSignalHandlers()
-        return await self.waitfini()
+        await self.waitfini()
+        await s_coro.await_bg_tasks(timeout)
 
     def waiter(self, count, *names, timeout=None):
         '''
@@ -819,9 +820,8 @@ async def schedGenr(genr, maxsize=100):
             await task
             return
 
-async def main(coro, timeout=BASE_MAIN_BG_TASK_TIMEOUT):  # pragma: no cover
+async def main(coro):  # pragma: no cover
     base = await coro
     if isinstance(base, Base):
         async with base:
             await base.main()
-    await s_coro.await_bg_tasks(timeout)
