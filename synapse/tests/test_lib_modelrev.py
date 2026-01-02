@@ -1772,3 +1772,12 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('entity:name')
             self.len(1, nodes)
             self.eq('foo bar', nodes[0].repr())
+
+    async def test_modelrev_0_2_34(self):
+        async with self.getRegrCore('model-0.2.34') as core:
+            nodes = await core.nodes('inet:email=visi+synapse@vertex.link')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('user'), 'visi+synapse')
+            self.eq(nodes[0].get('plus'), 'synapse')
+            self.eq(nodes[0].get('base'), 'visi@vertex.link')
+            self.len(1, await core.nodes('inet:email=visi+synapse@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
