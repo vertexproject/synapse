@@ -1,0 +1,7 @@
+---
+desc: Allow background tasks the opportunity to execute before shutting down a service
+  main function.
+desc:literal: false
+prs: []
+type: note
+...

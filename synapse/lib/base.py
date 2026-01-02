@@ -22,6 +22,7 @@ import synapse.lib.scope as s_scope
 logger = logging.getLogger(__name__)
 
 OMIT_FINI_WARNS = os.environ.get('SYNDEV_OMIT_FINI_WARNS', False)
+BASE_MAIN_BG_TASK_TIMEOUT = int(os.environ.get('SYNDEV_BASE_MAIN_BG_TASK_TIMEOUT', 3))
 
 def _fini_atexit():  # pragma: no cover
 
@@ -818,8 +819,9 @@ async def schedGenr(genr, maxsize=100):
             await task
             return
 
-async def main(coro):  # pragma: no cover
+async def main(coro, timeout=BASE_MAIN_BG_TASK_TIMEOUT):  # pragma: no cover
     base = await coro
     if isinstance(base, Base):
         async with base:
             await base.main()
+    await s_coro.await_bg_tasks(timeout)
