@@ -14,8 +14,9 @@ class LangModuleTest(s_t_utils.SynTest):
                     :output:lang={[ lang:language=({"code": "en.us"}) ]}
                     :desc=Greetings
                     :engine=*
+                lang:phrase=Hola
             ]''')
-            self.len(1, nodes)
+            self.len(2, nodes)
 
             self.eq(nodes[0].get('input'), ('lang:phrase', 'Hola'))
             self.eq(nodes[0].get('output'), 'Hi')
@@ -23,9 +24,12 @@ class LangModuleTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('output:lang'), 'a8eeae81da6c305c9cf6e4962bd106b2')
             self.eq(nodes[0].get('desc'), 'Greetings')
 
-            # FIXME nodeprop indexing...
-            # self.len(1, await core.nodes('lang:phrase <- *'))
-            # self.len(1, await core.nodes('lang:translation -> lang:phrase'))
+            self.len(1, await core.nodes('lang:phrase <- *'))
+            self.len(1, await core.nodes('lang:translation -> lang:phrase'))
+            self.len(1, await core.nodes('lang:phrase -> lang:translation'))
+
+            self.len(1, await core.nodes('lang:translation :input -> *'))
+            self.len(1, await core.nodes('lang:translation :input -> lang:phrase'))
 
             self.len(1, await core.nodes('lang:translation -> it:software'))
             self.len(2, await core.nodes('lang:translation -> lang:language'))

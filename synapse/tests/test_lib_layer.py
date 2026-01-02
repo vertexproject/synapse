@@ -2412,6 +2412,47 @@ class LayerTest(s_t_utils.SynTest):
             self.len(4, await core.nodes('test:str=faz -> *', opts=viewopts2))
             self.len(4, await core.nodes('test:str=faz :pdefs -> *', opts=viewopts2))
 
+            await core.nodes('[ test:int=3 (test:str=ndef1 test:str=ndef2 :baz=(test:int, 3)) ]')
+            nodes = await core.nodes('test:int=3 <- *')
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'ndef1'))
+            self.eq(nodes[1].ndef, ('test:str', 'ndef2'))
+
+            nodes = await core.nodes('test:int=3 -> test:str:baz')
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'ndef1'))
+            self.eq(nodes[1].ndef, ('test:str', 'ndef2'))
+
+            nodes = await core.nodes('test:str=ndef1 -> test:int')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 3))
+
+            nodes = await core.nodes('test:str=ndef1 :baz -> test:int')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 3))
+
+            await core.nodes('[ test:str=ndefarry1 test:str=ndefarry2 :pdefs=((test:int, 3),) ]')
+
+            nodes = await core.nodes('test:int=3 -> test:str:pdefs')
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'ndefarry1'))
+            self.eq(nodes[1].ndef, ('test:str', 'ndefarry2'))
+
+            nodes = await core.nodes('test:int=3 -> test:str')
+            self.len(4, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'ndef1'))
+            self.eq(nodes[1].ndef, ('test:str', 'ndef2'))
+            self.eq(nodes[2].ndef, ('test:str', 'ndefarry1'))
+            self.eq(nodes[3].ndef, ('test:str', 'ndefarry2'))
+
+            nodes = await core.nodes('test:str=ndefarry1 -> test:int')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 3))
+
+            nodes = await core.nodes('test:str=ndefarry1 :pdefs -> test:int')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 3))
+
     async def test_layer_virt_indexes(self):
 
         async with self.getTestCore() as core:

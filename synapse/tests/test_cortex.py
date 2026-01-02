@@ -3118,12 +3118,22 @@ class CortexTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
 
+            nodes = await core.nodes('test:str::pivvirt::server::proto=tcp')
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
+
             nodes = await core.nodes('test:str:pivvirt::server::proto*in=(tcp, udp)')
             self.len(2, nodes)
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
 
             nodes = await core.nodes('test:str:pivvirt::servers*[=tcp://1.2.3.4]')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
+
+            nodes = await core.nodes('test:str::pivvirt::servers*[=tcp://1.2.3.4]')
             self.len(2, nodes)
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
@@ -3159,6 +3169,11 @@ class CortexTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
 
+            nodes = await core.nodes('test:str::bar::seen.min>2020')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
+
             await core.nodes('test:guid:seen.min>2021 | delnode')
             self.len(1, await core.nodes('test:str:bar::seen.min>2020'))
 
@@ -3167,6 +3182,11 @@ class CortexTest(s_t_utils.SynTest):
             await core.nodes('[test:str=avirt3 :bar={[test:virtiface=* :servers=(tcp://4.5.6.7, udp://7.8.4.5)]}]')
 
             nodes = await core.nodes('test:str:bar::servers*[.ip=1.2.3.4]')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('test:str', node.ndef[0])
+
+            nodes = await core.nodes('test:str::bar::servers*[.ip=1.2.3.4]')
             self.len(2, nodes)
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
