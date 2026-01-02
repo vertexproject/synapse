@@ -1,6 +1,6 @@
 ---
-desc: Allow background tasks the opportunity to execute before shutting down a service
-  main function.
+desc: Updated service main function behavior to allow background tasks the opportunity to
+  execute before shutting down.
 desc:literal: false
 prs: []
 type: note
