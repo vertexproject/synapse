@@ -27,7 +27,7 @@ class EntityModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('websites'), ('https://vertex.link',))
             self.eq(nodes[0].get('birth:place:country:code'), 'us')
             self.eq(nodes[0].get('death:place:country:code'), 'zz')
-            self.eq(nodes[0].get(':place:address:city'), 'new york city')
+            self.eq(nodes[0].get('place:address:city'), 'new york city')
             self.len(1, nodes[0].get('social:accounts'))
             self.len(1, await core.nodes('entity:contact -> inet:service:account'))
 
