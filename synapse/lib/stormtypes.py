@@ -2621,6 +2621,17 @@ class LibLift(Lib):
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes to the pipeline. '
                                       'This must be used in conjunction with the ``yield`` keyword.', }}},
+        {'name': 'byPropsDict', 'desc': 'Lift all nodes of a form which have a set of properties with specific values.',
+         'type': {'type': 'function', '_funcname': '_byPropsDict',
+                  'args': (
+                      {'name': 'form', 'desc': 'The name of the form to lift.', 'type': 'str'},
+                      {'name': 'props', 'desc': 'A dictionary of properties and values.', 'type': 'dict'},
+                      {'name': 'errok', 'desc': 'If set, norming failures will not raise an exception.',
+                       'type': 'boolean', 'default': False},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes to the pipeline. '
+                                      'This must be used in conjunction with the ``yield`` keyword.'}}},
     )
     _storm_lib_path = ('lift',)
 
@@ -2629,6 +2640,7 @@ class LibLift(Lib):
             'byNodeData': self._byNodeData,
             'byPropAlts': self._byPropAlts,
             'byPropRefs': self._byPropRefs,
+            'byPropsDict': self._byPropsDict,
             'byTypeValue': self._byTypeValue,
         }
 
@@ -2702,6 +2714,50 @@ class LibLift(Lib):
 
             lastvalu = valu
             yield await self.runt.view.getNodeByNdef((form, valu))
+
+    @stormfunc(readonly=True)
+    async def _byPropsDict(self, form, props, errok=False):
+
+        form = await tostr(form)
+        props = await tostor(props)
+        errok = await tobool(errok)
+
+        form = self.runt.model.reqForm(form)
+        norms = {}
+
+        for propname, valu in list(props.items()):
+            prop = form.reqProp(propname)
+
+            try:
+                norm, _ = await prop.type.norm(valu, view=self.runt.view)
+                norms[propname] = norm
+
+            except s_exc.BadTypeValu as e:
+                if not errok:
+                    raise
+                return
+
+        for formname in self.runt.model.getChildForms(form.name):
+
+            form = self.runt.model.form(formname)
+
+            counts = []
+            for propname, norm in norms.items():
+                prop = form.reqProp(propname)
+                count = await self.runt.view.getPropAltCount(prop, norm)
+                counts.append((count, prop, norm))
+
+            counts.sort(key=lambda x: x[0])
+
+            count, prop, norm = counts[0]
+            async for node in self.runt.view.nodesByPropAlts(prop, '=', norm, norm=False):
+                await asyncio.sleep(0)
+
+                for count, prop, norm in counts[1:]:
+                    if not node.hasPropAltsValu(prop, norm):
+                        break
+                else:
+                    yield node
 
     @stormfunc(readonly=True)
     async def _byTypeValue(self, name, valu, cmpr='='):
@@ -6465,13 +6521,9 @@ class Path(Prim):
     _storm_locals = (
         {'name': 'vars', 'desc': 'The PathVars object for the Path.', 'type': 'node:path:vars', },
         {'name': 'meta', 'desc': 'The PathMeta object for the Path.', 'type': 'node:path:meta', },
-        {'name': 'idens', 'desc': 'The list of Node idens which this Path has been forked from during pivot operations.',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_methPathIdens',
-                  'returns': {'type': 'list', 'desc': 'A list of node idens.', }}},
         {'name': 'links', 'desc': 'The list of links which this Path has been forked from during pivot operations.',
          'type': {'type': 'function', '_funcname': '_methPathLinks',
-                  'returns': {'type': 'list', 'desc': 'A list of (node iden, link info) tuples.'}}},
+                  'returns': {'type': 'list', 'desc': 'A list of (node id, link info) tuples.', }}},
         {'name': 'listvars', 'desc': 'List variables available in the path of a storm query.',
          'type': {'type': 'function', '_funcname': '_methPathListVars',
                   'returns': {'type': 'list',
@@ -6490,14 +6542,9 @@ class Path(Prim):
 
     def getObjLocals(self):
         return {
-            'idens': self._methPathIdens,
             'links': self._methPathLinks,
             'listvars': self._methPathListVars,
         }
-
-    @stormfunc(readonly=True)
-    async def _methPathIdens(self):
-        return [n.iden() for n in self.valu.nodes]
 
     @stormfunc(readonly=True)
     async def _methPathLinks(self):

@@ -70,7 +70,7 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('''* - ``:md5``
         - :ref:`dm-type-crypto-hash-md5`
         - The MD5 hash of the password.
-        - Read Only: ``True``''', s)
+        - Computed: ``True``''', s)
 
             # Refs edges def
             self.isin('''      * - ``*``

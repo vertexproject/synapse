@@ -73,6 +73,10 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model.addFormProp('test:str', 'bar', ('newp', {}), {})
             self.isin('No type named newp while declaring prop test:str:bar.', cm.exception.get('mesg'))
 
+            with self.raises(s_exc.BadTypeDef) as cm:
+                core.model.addType('_foo:type', 'int', {'foo': 'bar'}, {})
+            self.isin('Type option foo is not valid', cm.exception.get('mesg'))
+
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
         mods = (
@@ -273,10 +277,10 @@ class DataModelTest(s_t_utils.SynTest):
                 $v=`{$valu}:{$name}`  syn:prop=$v
             }
             +syn:prop
-            -:ro=1
+            -:computed=1
             '''
             nodes = await core.nodes(q)
-            mesg = f'Comp forms with secondary properties that are not read-only ' \
+            mesg = f'Comp forms with secondary properties that are not computed ' \
                    f'are present in the model: {[n.ndef[1] for n in nodes]}'
             self.len(0, nodes, mesg)
 
@@ -497,10 +501,10 @@ class DataModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            vdef = ('ip', ('inet:ip', {}), {'doc': 'The IP address of the server.', 'ro': True})
+            vdef = ('ip', ('inet:ip', {}), {'doc': 'The IP address of the server.', 'computed': True})
             self.eq(core.model.form('inet:server').info['virts'][0], vdef)
 
-            vdef = ('ip', ('inet:ip', {}), {'doc': 'The IP address contained in the socket address URL.', 'ro': True})
+            vdef = ('ip', ('inet:ip', {}), {'doc': 'The IP address contained in the socket address URL.', 'computed': True})
             self.eq(core.model.type('inet:sockaddr').info['virts'][0], vdef)
 
             vdef = ('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'})

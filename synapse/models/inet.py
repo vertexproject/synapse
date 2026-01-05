@@ -110,6 +110,10 @@ class IPAddr(s_types.Type):
 
     stortype = s_layer.STOR_TYPE_IPADDR
 
+    _opt_defs = (
+        ('version', None),   # type: ignore
+    )
+
     def postTypeInit(self):
 
         self.setCmprCtor('>=', self._ctorCmprGe)
@@ -370,6 +374,11 @@ class IPAddr(s_types.Type):
 
 class SockAddr(s_types.Str):
 
+    _opt_defs = (
+        ('defport', None),     # type: ignore
+        ('defproto', 'tcp'),   # type: ignore
+    ) + s_types.Str._opt_defs
+
     protos = ('tcp', 'udp', 'icmp', 'gre')
     noports = ('gre', 'icmp')
 
@@ -383,8 +392,8 @@ class SockAddr(s_types.Str):
         self.porttype = self.modl.type('inet:port')
         self.prototype = self.modl.type('str').clone({'lower': True})
 
-        self.defport = self.opts.get('defport', None)
-        self.defproto = self.opts.get('defproto', 'tcp')
+        self.defport = self.opts.get('defport')
+        self.defproto = self.opts.get('defproto')
 
         self.virtindx |= {
             'ip': 'ip',
@@ -1276,11 +1285,11 @@ modeldefs = (
                 'ex': '1.2.3.4-1.2.3.8',
                 'virts': (
                     ('mask', ('int', {}), {
-                        'ro': True,
+                        'computed': True,
                         'doc': 'The mask if the range can be represented in CIDR notation.'}),
 
                     ('size', ('int', {}), {
-                        'ro': True,
+                        'computed': True,
                         'doc': 'The number of addresses in the range.'}),
                 ),
                 'doc': 'An IPv4 or IPv6 address range.'}),
@@ -1289,11 +1298,11 @@ modeldefs = (
                 'ex': 'tcp://1.2.3.4:80',
                 'virts': (
                     ('ip', ('inet:ip', {}), {
-                        'ro': True,
+                        'computed': True,
                         'doc': 'The IP address contained in the socket address URL.'}),
 
                     ('port', ('inet:port', {}), {
-                        'ro': True,
+                        'computed': True,
                         'doc': 'The port contained in the socket address URL.'}),
                 ),
                 'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.'}),
@@ -1557,7 +1566,7 @@ modeldefs = (
             ('inet:email:message:link', ('guid', {}), {
                 'doc': 'A url/link embedded in an email message.'}),
 
-            ('inet:tls:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
+            ('inet:tls:jarmhash', ('str', {'lower': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'JARM fingerprint'}}),
                 ),
@@ -1786,13 +1795,13 @@ modeldefs = (
                 ),
                 'doc': 'An instance of a TLS handshake between a client and server.'}),
 
-            ('inet:tls:ja4', ('str', {'strip': True, 'regex': ja4_regex}), {
+            ('inet:tls:ja4', ('str', {'regex': ja4_regex}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'JA4 fingerprint'}}),
                 ),
                 'doc': 'A JA4 TLS client fingerprint.'}),
 
-            ('inet:tls:ja4s', ('str', {'strip': True, 'regex': ja4s_regex}), {
+            ('inet:tls:ja4s', ('str', {'regex': ja4s_regex}), {
                 'interfaces': (
                     ('meta:observable', {'template': {'title': 'JA4S fingerprint'}}),
                 ),
@@ -1972,10 +1981,10 @@ modeldefs = (
                     ('rule', ('inet:service:rule', {}), {
                         'doc': 'The rule which allowed or denied the action.'}),
 
-                    ('error:code', ('str', {'strip': True}), {
+                    ('error:code', ('str', {}), {
                         'doc': 'The platform specific error code if the action was unsuccessful.'}),
 
-                    ('error:reason', ('str', {'strip': True}), {
+                    ('error:reason', ('str', {}), {
                         'doc': 'The platform specific friendly error reason if the action was unsuccessful.'}),
 
                     ('platform', ('inet:service:platform', {}), {
@@ -2062,10 +2071,10 @@ modeldefs = (
 
             ('inet:email:header', {}, (
                 ('name', ('inet:email:header:name', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The name of the email header.'}),
                 ('value', ('str', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The value of the email header.'}),
             )),
 
@@ -2095,11 +2104,11 @@ modeldefs = (
             ('inet:asnip', {}, (
 
                 ('asn', ('inet:asn', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The ASN that the IP was assigned to.'}),
 
                 ('ip', ('inet:ip', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The IP that was assigned to the ASN.'}),
             )),
 
@@ -2107,21 +2116,21 @@ modeldefs = (
                 'prevnames': ('inet:asnet4', 'inet:asnet6')}, (
 
                 ('asn', ('inet:asn', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The Autonomous System Number (ASN) of the netblock.'
                 }),
                 ('net', ('inet:net', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The IP address range assigned to the ASN.',
                     'prevnames': ('net4', 'net6')}),
 
                 ('net:min', ('inet:ip', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The first IP in the range assigned to the ASN.',
                     'prevnames': ('net4:min', 'net6:min')}),
 
                 ('net:max', ('inet:ip', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The last IP in the range assigned to the ASN.',
                     'prevnames': ('net4:max', 'net6:max')}),
             )),
@@ -2130,21 +2139,21 @@ modeldefs = (
                 'prevnames': ('inet:cidr4', 'inet:cidr6')}, (
 
                 ('min', ('inet:ip', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The first IP address in the network range.'}),
 
                 ('max', ('inet:ip', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The last IP address in the network range.'}),
             )),
 
             ('inet:client', {}, (
                 ('proto', ('str', {'lower': True}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The network protocol of the client.'
                 }),
                 ('ip', ('inet:ip', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The IP of the client.',
                     'prevnames': ('ipv4', 'ipv6')}),
 
@@ -2180,10 +2189,10 @@ modeldefs = (
 
             ('inet:email', {}, (
                 ('user', ('inet:user', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The username of the email address.'}),
                 ('fqdn', ('inet:fqdn', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The domain of the email address.'}),
             )),
 
@@ -2280,11 +2289,11 @@ modeldefs = (
 
             ('inet:fqdn', {}, (
                 ('domain', ('inet:fqdn', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The parent domain for the FQDN.',
                 }),
                 ('host', ('str', {'lower': True}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The host part of the FQDN.',
                 }),
                 ('issuffix', ('bool', {}), {
@@ -2302,30 +2311,30 @@ modeldefs = (
 
             ('inet:http:request:header', {}, (
 
-                ('name', ('inet:http:header:name', {}), {'ro': True,
+                ('name', ('inet:http:header:name', {}), {'computed': True,
                     'doc': 'The name of the HTTP request header.'}),
 
-                ('value', ('str', {}), {'ro': True,
+                ('value', ('str', {}), {'computed': True,
                     'doc': 'The value of the HTTP request header.'}),
 
             )),
 
             ('inet:http:response:header', {}, (
 
-                ('name', ('inet:http:header:name', {}), {'ro': True,
+                ('name', ('inet:http:header:name', {}), {'computed': True,
                     'doc': 'The name of the HTTP response header.'}),
 
-                ('value', ('str', {}), {'ro': True,
+                ('value', ('str', {}), {'computed': True,
                     'doc': 'The value of the HTTP response header.'}),
 
             )),
 
             ('inet:http:param', {}, (
 
-                ('name', ('str', {'lower': True}), {'ro': True,
+                ('name', ('str', {'lower': True}), {'computed': True,
                     'doc': 'The name of the HTTP query parameter.'}),
 
-                ('value', ('str', {}), {'ro': True,
+                ('value', ('str', {}), {'computed': True,
                     'doc': 'The value of the HTTP query parameter.'}),
 
             )),
@@ -2388,7 +2397,7 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The guid of the host the interface is associated with.'}),
 
-                ('name', ('str', {'strip': True}), {
+                ('name', ('str', {}), {
                     'ex': 'eth0',
                     'doc': 'The interface name.'}),
 
@@ -2455,22 +2464,22 @@ modeldefs = (
 
             ('inet:rfc2822:addr', {}, (
                 ('name', ('meta:name', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The name field parsed from an RFC 2822 address string.'
                 }),
                 ('email', ('inet:email', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The email field parsed from an RFC 2822 address string.'
                 }),
             )),
 
             ('inet:server', {}, (
                 ('proto', ('str', {'lower': True}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The network protocol of the server.'
                 }),
                 ('ip', ('inet:ip', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The IP of the server.',
                     'prevnames': ('ipv4', 'ipv6')}),
 
@@ -2481,51 +2490,51 @@ modeldefs = (
 
             ('inet:banner', {}, (
 
-                ('server', ('inet:server', {}), {'ro': True,
+                ('server', ('inet:server', {}), {'computed': True,
                     'doc': 'The server which presented the banner string.'}),
 
-                ('text', ('it:dev:str', {}), {'ro': True,
+                ('text', ('it:dev:str', {}), {'computed': True,
                     'doc': 'The banner text.'}),
             )),
 
             ('inet:url', {}, (
 
                 ('fqdn', ('inet:fqdn', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
 
                 ('ip', ('inet:ip', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The IP address used in the URL (e.g., http://1.2.3.4/page.html).',
                     'prevnames': ('ipv4', 'ipv6')}),
 
                 ('passwd', ('auth:passwd', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The optional password used to access the URL.'}),
 
                 ('base', ('str', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The base scheme, user/pass, fqdn, port and path w/o parameters.'}),
 
                 ('path', ('str', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The path in the URL w/o parameters.'}),
 
                 ('params', ('str', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The URL parameter string.'}),
 
                 ('port', ('inet:port', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
                            'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
 
                 ('proto', ('str', {'lower': True}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The protocol in the URL.'}),
 
                 ('user', ('inet:user', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The optional username used to access the URL.'}),
 
             )),
@@ -2533,32 +2542,32 @@ modeldefs = (
             ('inet:urlfile', {}, (
 
                 ('url', ('inet:url', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The URL where the file was hosted.'}),
 
                 ('file', ('file:bytes', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The file that was hosted at the URL.'}),
             )),
 
             ('inet:url:redir', {}, (
                 ('source', ('inet:url', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The original/source URL before redirect.'}),
 
                 ('target', ('inet:url', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The redirected/destination URL.'}),
             )),
 
             ('inet:url:mirror', {}, (
 
                 ('of', ('inet:url', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The URL being mirrored.'}),
 
                 ('at', ('inet:url', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The URL of the mirror.'}),
             )),
 
@@ -2634,10 +2643,10 @@ modeldefs = (
 
             ('inet:whois:email', {}, (
 
-                ('fqdn', ('inet:fqdn', {}), {'ro': True,
+                ('fqdn', ('inet:fqdn', {}), {'computed': True,
                     'doc': 'The domain with a whois record containing the email address.'}),
 
-                ('email', ('inet:email', {}), {'ro': True,
+                ('email', ('inet:email', {}), {'computed': True,
                     'doc': 'The email address associated with the domain whois record.'}),
             )),
 
@@ -2712,15 +2721,15 @@ modeldefs = (
             ('inet:wifi:ap', {}, (
 
                 ('ssid', ('inet:wifi:ssid', {}), {
-                    'doc': 'The SSID for the wireless access point.', 'ro': True, }),
+                    'doc': 'The SSID for the wireless access point.', 'computed': True, }),
 
                 ('bssid', ('inet:mac', {}), {
-                    'doc': 'The MAC address for the wireless access point.', 'ro': True, }),
+                    'doc': 'The MAC address for the wireless access point.', 'computed': True, }),
 
                 ('channel', ('int', {}), {
                     'doc': 'The WIFI channel that the AP was last observed operating on.'}),
 
-                ('encryption', ('str', {'lower': True, 'strip': True}), {
+                ('encryption', ('str', {'lower': True}), {
                     'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
 
                 # FIXME ownable interface?
@@ -2731,19 +2740,19 @@ modeldefs = (
             ('inet:wifi:ssid', {}, ()),
 
             ('inet:tls:jarmhash', {}, (
-                ('ciphers', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{30}$'}), {
-                    'ro': True,
+                ('ciphers', ('str', {'lower': True, 'regex': '^[0-9a-f]{30}$'}), {
+                    'computed': True,
                     'doc': 'The encoded cipher and TLS version of the server.'}),
-                ('extensions', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{32}$'}), {
-                    'ro': True,
+                ('extensions', ('str', {'lower': True, 'regex': '^[0-9a-f]{32}$'}), {
+                    'computed': True,
                     'doc': 'The truncated SHA256 of the TLS server extensions.'}),
             )),
             ('inet:tls:jarmsample', {}, (
                 ('jarmhash', ('inet:tls:jarmhash', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The JARM hash computed from the server responses.'}),
                 ('server', ('inet:server', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The server that was sampled to compute the JARM hash.'}),
             )),
 
@@ -2753,22 +2762,22 @@ modeldefs = (
             ('inet:tls:ja4:sample', {}, (
 
                 ('ja4', ('inet:tls:ja4', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The JA4 TLS client fingerprint.'}),
 
                 ('client', ('inet:client', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The client which initiated the TLS handshake with a JA4 fingerprint.'}),
             )),
 
             ('inet:tls:ja4s:sample', {}, (
 
                 ('ja4s', ('inet:tls:ja4s', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The JA4S TLS server fingerprint.'}),
 
                 ('server', ('inet:server', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The server which responded to the TLS handshake with a JA4S fingerprint.'}),
             )),
 
@@ -2817,44 +2826,44 @@ modeldefs = (
             ('inet:tls:ja3s:sample', {}, (
 
                 ('server', ('inet:server', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The server that was sampled to produce the JA3S hash.'}),
 
                 ('ja3s', ('crypto:hash:md5', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': "The JA3S hash computed from the server's TLS hello packet."})
             )),
 
             ('inet:tls:ja3:sample', {}, (
 
                 ('client', ('inet:client', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The client that was sampled to produce the JA3 hash.'}),
 
                 ('ja3', ('crypto:hash:md5', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': "The JA3 hash computed from the client's TLS hello packet."})
             )),
 
             ('inet:tls:servercert', {}, (
 
                 ('server', ('inet:server', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The server associated with the x509 certificate.'}),
 
                 ('cert', ('crypto:x509:cert', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The x509 certificate sent by the server.'})
             )),
 
             ('inet:tls:clientcert', {}, (
 
                 ('client', ('inet:client', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The client associated with the x509 certificate.'}),
 
                 ('cert', ('crypto:x509:cert', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The x509 certificate sent by the client.'})
             )),
 
@@ -3095,7 +3104,7 @@ modeldefs = (
 
             ('inet:service:message:link', {}, (
 
-                ('title', ('str', {'strip': True}), {
+                ('title', ('str', {}), {
                     'doc': 'The displayed hyperlink text if it was not the URL.'}),
 
                 ('url', ('inet:url', {}), {
@@ -3119,7 +3128,7 @@ modeldefs = (
                 ('about', ('inet:service:object', {}), {
                     'doc': 'The node that the emote is about.'}),
 
-                ('text', ('str', {'strip': True}), {
+                ('text', ('str', {}), {
                     'ex': ':partyparrot:',
                     'doc': 'The unicode or emote text of the reaction.'}),
             )),

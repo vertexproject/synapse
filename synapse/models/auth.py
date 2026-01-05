@@ -50,15 +50,15 @@ modeldefs = (
         'forms': (
             ('auth:passwd', {}, (
                 ('md5', ('crypto:hash:md5', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The MD5 hash of the password.'}),
 
                 ('sha1', ('crypto:hash:sha1', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The SHA1 hash of the password.'}),
 
                 ('sha256', ('crypto:hash:sha256', {}), {
-                    'ro': True,
+                    'computed': True,
                     'doc': 'The SHA256 hash of the password.'}),
             )),
         ),

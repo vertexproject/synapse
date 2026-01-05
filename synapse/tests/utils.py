@@ -288,7 +288,7 @@ testmodel = (
             }),
         ),
         'types': (
-            ('test:type10', ('test:type', {'foo': 10}), {
+            ('test:type10', ('test:type', {}), {
                 'doc': 'A fake type.'}),
 
             ('test:lower', ('str', {'lower': True}), {}),
@@ -309,6 +309,7 @@ testmodel = (
             ('test:migr', ('str', {}), {}),
             ('test:auto', ('str', {}), {}),
             ('test:guid', ('guid', {}), {}),
+            ('test:guidchild', ('test:guid', {}), {}),
             ('test:data', ('data', {}), {}),
             ('test:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -376,7 +377,7 @@ testmodel = (
                 ('intprop', ('int', {'min': 20, 'max': 30}), {}),
                 ('int2', ('int', {}), {}),
                 ('strprop', ('str', {'lower': 1}), {}),
-                ('guidprop', ('guid', {'lower': 1}), {}),
+                ('guidprop', ('guid', {}), {}),
                 ('locprop', ('loc', {}), {}),
             )),
 
@@ -391,24 +392,24 @@ testmodel = (
             ('test:type', {}, ()),
 
             ('test:comp', {}, (
-                ('hehe', ('test:int', {}), {'ro': True}),
-                ('haha', ('test:lower', {}), {'ro': True}),
+                ('hehe', ('test:int', {}), {'computed': True}),
+                ('haha', ('test:lower', {}), {'computed': True}),
                 ('seen', ('ival', {}), {}),
             )),
 
             ('test:compcomp', {}, (
-                ('comp1', ('test:comp', {}), {'ro': True}),
-                ('comp2', ('test:comp', {}), {'ro': True}),
+                ('comp1', ('test:comp', {}), {'computed': True}),
+                ('comp2', ('test:comp', {}), {'computed': True}),
             )),
 
             ('test:complexcomp', {}, (
-                ('foo', ('test:int', {}), {'ro': True}),
-                ('bar', ('str', {'lower': 1}), {'ro': True})
+                ('foo', ('test:int', {}), {'computed': True}),
+                ('bar', ('str', {'lower': 1}), {'computed': True})
             )),
 
             ('test:ndefcomp', {}, (
-                ('hehe', ('test:int', {}), {'ro': True}),
-                ('ndef', ('test:ndef', {}), {'ro': True}),
+                ('hehe', ('test:int', {}), {'computed': True}),
+                ('ndef', ('test:ndef', {}), {'computed': True}),
             )),
 
             ('test:int', {}, (
@@ -434,6 +435,8 @@ testmodel = (
                 ('raw', ('data', {}), {}),
                 ('iden', ('guid', {}), {}),
             )),
+
+            ('test:guidchild', {}, ()),
 
             ('test:data', {}, (
                 ('data', ('test:data', {}), {}),
@@ -490,7 +493,7 @@ testmodel = (
             ('test:zeropad', {}, ()),
             ('test:ival', {}, (
                 ('interval', ('ival', {}), {}),
-                ('daymax', ('ival', {'precision': 'day', 'maxfill': True}), {}),
+                ('daymax', ('ival', {'precision': 'day'}), {}),
             )),
 
             ('test:pivtarg', {}, (
@@ -499,8 +502,8 @@ testmodel = (
             )),
 
             ('test:pivcomp', {}, (
-                ('targ', ('test:pivtarg', {}), {'ro': True}),
-                ('lulz', ('test:str', {}), {'ro': True}),
+                ('targ', ('test:pivtarg', {}), {'computed': True}),
+                ('lulz', ('test:str', {}), {'computed': True}),
                 ('tick', ('time', {}), {}),
                 ('size', ('test:int', {}), {}),
                 ('width', ('test:int', {}), {}),
@@ -512,12 +515,12 @@ testmodel = (
             )),
 
             ('test:ndef', {}, (
-                ('form', ('str', {}), {'ro': True}),
+                ('form', ('str', {}), {'computed': True}),
             )),
 
             ('test:ro', {}, (
                 ('writeable', ('str', {}), {'doc': 'writeable property.'}),
-                ('readable', ('str', {}), {'doc': 'ro property.', 'ro': True}),
+                ('readable', ('str', {}), {'doc': 'computed property.', 'computed': True}),
             )),
 
             ('test:hasiface', {}, ()),

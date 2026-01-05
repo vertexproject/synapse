@@ -167,7 +167,7 @@ class SynModelTest(s_t_utils.SynTest):
 
         async def addExtModelConfigs(cortex):
             await cortex.addTagProp('beep', ('int', {}), {'doc': 'words'})
-            await cortex.addFormProp('test:str', '_twiddle', ('bool', {}), {'doc': 'hehe', 'ro': True})
+            await cortex.addFormProp('test:str', '_twiddle', ('bool', {}), {'doc': 'hehe', 'computed': True})
 
         async def delExtModelConfigs(cortex):
             await cortex.delTagProp('beep')
@@ -192,7 +192,7 @@ class SynModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(('syn:type', 'comp'), node.ndef)
             self.none(node.get('subof'))
-            self.none(node.get('opts'))
+            self.eq({'sepr': None, 'fields': ()}, node.get('opts'))
             self.eq('synapse.lib.types.Comp', node.get('ctor'))
             self.eq('The base type for compound node fields.', node.get('doc'))
 
@@ -200,7 +200,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:type', 'test:comp'), node.ndef)
-            self.eq({'fields': (('hehe', 'test:int'), ('haha', 'test:lower'))},
+            self.eq({'fields': (('hehe', 'test:int'), ('haha', 'test:lower')), 'sepr': None},
                     node.get('opts'))
             self.eq('comp', node.get('subof'))
             self.eq('synapse.lib.types.Comp', node.get('ctor'))
@@ -247,15 +247,15 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:prop')
             self.gt(len(nodes), 1)
 
-            nodes = await core.nodes('syn:prop:ro')
+            nodes = await core.nodes('syn:prop:computed')
             self.gt(len(nodes), 1)
 
             nodes = await core.nodes('syn:prop="test:type10:intprop"')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', 'test:type10:intprop'), node.ndef)
-            self.nn(node.get('ro'))
-            self.false(node.get('ro'))
+            self.nn(node.get('computed'))
+            self.false(node.get('computed'))
             self.eq('int', node.get('type'))
             self.eq('test:type10', node.get('form'))
             self.eq('', node.get('doc'))
@@ -284,7 +284,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(('syn:prop', 'test:type10'), node.ndef)
             self.eq('test:type10', node.get('form'))
 
-            self.none(node.get('ro'))
+            self.none(node.get('computed'))
             self.none(node.get('base'))
             self.none(node.get('relname'))
 

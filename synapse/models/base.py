@@ -22,7 +22,7 @@ modeldefs = (
             ('date', ('time', {'precision': 'day'}), {
                 'doc': 'A date precision time value.'}),
 
-            ('base:id', ('str', {'strip': True}), {
+            ('base:id', ('str', {}), {
                 'doc': 'A base type for ID strings.'}),
 
             ('meta:id', ('base:id', {}), {
@@ -250,15 +250,15 @@ modeldefs = (
                         'doc': 'A display sort order for siblings.'}),
 
                     ('base', ('taxon', {}), {
-                        'ro': True,
+                        'computed': True,
                         'doc': 'The base taxon.'}),
 
                     ('depth', ('int', {}), {
-                        'ro': True,
+                        'computed': True,
                         'doc': 'The depth indexed from 0.'}),
 
                     ('parent', ('$self', {}), {
-                        'ro': True,
+                        'computed': True,
                         'doc': 'The taxonomy parent.'}),
                 ),
             }),
@@ -383,7 +383,7 @@ modeldefs = (
                 ('offset', ('int', {}), {
                     'doc': 'The offset of the last record consumed from the feed.'}),
 
-                ('cursor', ('str', {'strip': True}), {
+                ('cursor', ('str', {}), {
                     'doc': 'A cursor used to track ingest offset within the feed.'}),
             )),
 
