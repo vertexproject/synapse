@@ -229,8 +229,8 @@ _DefaultConfig = {
                         ''',
                         'credential': ':creds -> * { +auth:passwd return($node.repr()) } { +crypto:salthash +:value return((:value).1) }',
                         'account_created': '+:period return($lib.stix.export.timestamp(:period.min))',
-                        'account_last_login': '+:period return($lib.stix.export.timestamp(:seen.max))',
-                        'account_first_login': '+:period return($lib.stix.export.timestamp(:seen.min))',
+                        'account_last_login': '+:seen return($lib.stix.export.timestamp(:seen.max))',
+                        'account_first_login': '+:seen return($lib.stix.export.timestamp(:seen.min))',
                     },
                 }
             },
