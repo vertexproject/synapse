@@ -355,7 +355,8 @@ modeldefs = (
 
             ('tel:mob:telem', {}, (
 
-                ('time', ('time', {}), {}),
+                ('time', ('time', {}), {
+                    'doc': 'The time that the telemetry sample was taken.'}),
 
                 ('http:request', ('inet:http:request', {}), {
                     'doc': 'The HTTP request that the telemetry was extracted from.'}),
@@ -364,17 +365,28 @@ modeldefs = (
                     'doc': 'The host that generated the mobile telemetry data.'}),
 
                 # telco specific data
-                ('cell', ('tel:mob:cell', {}), {}),
-                ('imsi', ('tel:mob:imsi', {}), {}),
-                ('imei', ('tel:mob:imei', {}), {}),
-                ('phone', ('tel:phone', {}), {}),
+                ('cell', ('tel:mob:cell', {}), {
+                    'doc': 'The mobile cell site where the telemetry sample was taken.'}),
+
+                ('imsi', ('tel:mob:imsi', {}), {
+                    'doc': 'The IMSI of the device associated with the mobile telemetry sample.'}),
+
+                ('imei', ('tel:mob:imei', {}), {
+                    'doc': 'The IMEI of the device associated with the mobile telemetry sample.'}),
+
+                ('phone', ('tel:phone', {}), {
+                    'doc': 'The phone number of the device associated with the mobile telemetry sample.'}),
 
                 # inet protocol addresses
-                ('mac', ('inet:mac', {}), {}),
+                ('mac', ('inet:mac', {}), {
+                    'doc': 'The MAC address of the device associated with the mobile telemetry sample.'}),
+
                 ('ip', ('inet:ip', {}), {
+                    'doc': 'The IP address of the device associated with the mobile telemetry sample.',
                     'prevnames': ('ipv4', 'ipv6')}),
 
                 ('wifi:ap', ('inet:wifi:ap', {}), {
+                    'doc': 'The Wi-Fi AP associated with the mobile telemetry sample.',
                     'prevnames': ('wifi',)}),
 
                 # host specific data
@@ -383,16 +395,21 @@ modeldefs = (
 
                 # FIXME contact prop or interface?
                 # User related data
-                ('name', ('meta:name', {}), {}),
-                ('email', ('inet:email', {}), {}),
+                ('name', ('meta:name', {}), {
+                    'doc': 'The user name associated with the mobile telemetry sample.'}),
+
+                ('email', ('inet:email', {}), {
+                    'doc': 'The email address associated with the mobile telemetry sample.'}),
 
                 ('account', ('inet:service:account', {}), {
                     'doc': 'The service account which is associated with the tracked device.'}),
 
                 # reporting related data
-                ('app', ('it:software', {}), {}),
+                ('app', ('it:software', {}), {
+                    'doc': 'The app used to report the mobile telemetry sample.'}),
 
-                ('data', ('data', {}), {}),
+                ('data', ('data', {}), {
+                    'doc': 'Data from the mobile telemetry sample.'}),
                 # any other fields may be refs...
             )),
         )
