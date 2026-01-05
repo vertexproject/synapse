@@ -626,6 +626,7 @@ workflows:
             branches:
               only:
                 - master
+                - pkg-vaults-schema-redox-docker-build # fixme
 
       - build_docker_tag:
           requires:
