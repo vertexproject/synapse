@@ -48,15 +48,15 @@ _DefaultConfig = {
                     'props': {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'description': '+:desc return(:desc)',
-                        'objective': '+:goal :goal -> entity:goal +:name return(:name)',
+                        'objective': '-(had)> entity:goal +:name return(:name)',
                         'created': 'return($lib.stix.export.timestamp(.created))',
-                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.updated))',
                     },
                     'rels': (
                         ('attributed-to', 'threat-actor', ':actor -> ou:org'),
                         ('originates-from', 'location', ':actor -> ou:org -> geo:place'),
-                        ('targets', 'identity', '-> risk:attack -(targets)> ou:org'),
-                        ('targets', 'identity', '-> risk:attack -(targets)> ps:person'),
+                        ('targets', 'identity', '-> risk:attack -(targeted)> ou:org'),
+                        ('targets', 'identity', '-> risk:attack -(targeted)> ps:person'),
                         ('targets', 'vulnerability', '-> risk:attack -(used)> risk:vuln'),
                     ),
                 },
@@ -71,7 +71,7 @@ _DefaultConfig = {
                         'name': '{-:name return($node.repr())} return(:name)',
                         'identity_class': 'return(organization)',
                         'created': 'return($lib.stix.export.timestamp(.created))',
-                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.updated))',
                         'sectors': '''
                             init { $list = () }
                             -> ou:industry +:name $list.append(:name)
@@ -83,20 +83,19 @@ _DefaultConfig = {
                     'props': {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'created': 'return($lib.stix.export.timestamp(.created))',
-                        'modified': 'return($lib.stix.export.timestamp(.created))',
-# TODO: update this after modeling is updated
-#                        'first_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.0))',
-#                        'last_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.1))',
+                        'modified': 'return($lib.stix.export.timestamp(.updated))',
+                        'first_seen': '+:period return($lib.stix.export.timestamp(:period.min))',
+                        'last_seen': '+:period return($lib.stix.export.timestamp(:period.max))',
                         'goals': '''
                             init { $goals = () }
-                            -> entity:campaign:actor -> entity:goal | uniq | +:name $goals.append(:name)
+                            -> entity:campaign:actor -(had)> entity:goal | uniq | +:name $goals.append(:name)
                             fini { if $goals { return($goals) } }
                         ''',
                     },
                     'rels': (
                         ('attributed-to', 'identity', ''),
                         ('located-at', 'location', '-> geo:place'),
-                        ('targets', 'identity', '-> entity:campaign -> risk:attack -(targets)> ou:org'),
+                        ('targets', 'identity', '-> entity:campaign -> risk:attack -(targeted)> ou:org'),
                         ('targets', 'vulnerability', '-> entity:campaign -> risk:attack -(used)> risk:vuln'),
                         # ('impersonates', 'identity', ''),
                     ),
@@ -111,7 +110,7 @@ _DefaultConfig = {
                     'props': {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'created': 'return($lib.stix.export.timestamp(.created))',
-                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.updated))',
                         'identity_class': 'return(individual)',
                     }
                 },
@@ -125,7 +124,7 @@ _DefaultConfig = {
                     'props': {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'created': 'return($lib.stix.export.timestamp(.created))',
-                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.updated))',
                         'identity_class': 'return(individual)',
                     }
                 },
@@ -139,7 +138,7 @@ _DefaultConfig = {
                     'props': {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'created': 'return($lib.stix.export.timestamp(.created))',
-                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.updated))',
                         'country': '+:loc $loc = :loc return($loc.split(".").0)',
                         'latitude': '+:latlong $latlong = :latlong return($latlong.0)',
                         'longitude': '+:latlong $latlong = :latlong return($latlong.1)',
@@ -197,7 +196,7 @@ _DefaultConfig = {
             'stix': {
                 'autonomous-system': {
                     'props': {
-                        'name': '+:name return(:name)',
+                        'name': '+:owner:name return(:owner:name)',
                         'number': 'return($node.value())',
                     },
                 }
@@ -228,11 +227,10 @@ _DefaultConfig = {
                             {+:name=twitter return(twitter)}
                             {+:name=facebook return(facebook)}
                         ''',
-                        'credential': '-> auth:creds return(:passwd)',
-                        'account_created': 'return($lib.stix.export.timestamp(:period.min))',
-# TODO: update this modeling?
-                        'account_last_login': 'return($lib.stix.export.timestamp(:period.max))',
-                        'account_first_login': 'return($lib.stix.export.timestamp(:period.min))',
+                        'credential': ':creds -> * { +auth:passwd return($node.repr()) } { +crypto:salthash +:value return((:value).1) }',
+                        'account_created': '+:period return($lib.stix.export.timestamp(:period.min))',
+                        'account_last_login': '+:period return($lib.stix.export.timestamp(:seen.max))',
+                        'account_first_login': '+:period return($lib.stix.export.timestamp(:seen.min))',
                     },
                 }
             },
@@ -304,11 +302,11 @@ _DefaultConfig = {
                     'props': {
                         'name': '{+:title return(:title)} return($node.repr())',
                         'is_family': 'return($lib.true)',
-# TODO: update this after model update
+# Should these just be the smallest .min and largest .max values that the tag has on any node?
 #                        'first_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.0))',
 #                        'last_seen': '+:seen $seen=:seen return($lib.stix.export.timestamp($seen.1))',
                         'created': 'return($lib.stix.export.timestamp(.created))',
-                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.updated))',
                         'sample_refs': '''
                             init { $refs = () }
                             -> file:bytes $refs.append($bundle.add($node))
@@ -350,7 +348,7 @@ _DefaultConfig = {
                     'props': {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'created': 'return($lib.stix.export.timestamp(.created))',
-                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.updated))',
                         'tool_version': '+:version return(:version)',
                     },
                     'rels': (
@@ -378,7 +376,7 @@ _DefaultConfig = {
                         'name': '{+:name return (:name)} return ($node.repr())',
                         'description': 'if (:desc) { return (:desc) }',
                         'created': 'return($lib.stix.export.timestamp(.created))',
-                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.updated))',
                         'external_references': '+:id^="CVE-" return(([{"source_name": "cve", "external_id": :id}]))'
                     },
                     'rels': (
@@ -422,7 +420,7 @@ _DefaultConfig = {
                     'props': {
                         'name': 'return(:title)',
                         'created': 'return($lib.stix.export.timestamp(.created))',
-                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.updated))',
                         'published': 'return($lib.stix.export.timestamp(:published))',
                         'object_refs': '''
                             init { $refs = () }
@@ -446,7 +444,7 @@ _DefaultConfig = {
                         'pattern': '+:text return(:text)',
                         'pattern_type': 'return(yara)',
                         'created': 'return($lib.stix.export.timestamp(.created))',
-                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.updated))',
                         'valid_from': 'return($lib.stix.export.timestamp(.created))',
                     },
                 },
@@ -463,7 +461,7 @@ _DefaultConfig = {
                         'pattern': '+:text return(:text)',
                         'pattern_type': 'return(snort)',
                         'created': 'return($lib.stix.export.timestamp(.created))',
-                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.updated))',
                         'valid_from': 'return($lib.stix.export.timestamp(.created))',
                     },
                 },
@@ -704,8 +702,8 @@ stixingest = {
         'identity': {
             'storm': '''
                 switch $object.identity_class {
-                    group: {[ entity:contact=(stix, identity, $object.id) :orgname?=$object.name ]}
-                    organization: {[ entity:contact=(stix, identity, $object.id) :orgname?=$object.name ]}
+                    group: {[ entity:contact=(stix, identity, $object.id) :org:name?=$object.name ]}
+                    organization: {[ entity:contact=(stix, identity, $object.id) :org:name?=$object.name ]}
                     individual: {[ entity:contact=(stix, identity, $object.id) :name?=$object.name ]}
                     system: {[ it:host=(stix, identity, $object.id) :name?=$object.name ]}
                 }
@@ -723,7 +721,7 @@ stixingest = {
             'storm': '''
                 [ entity:contact=(stix, threat-actor, $object.id)
                     :name?=$object.name
-                    :desc?=$object.description
+                    :bio?=$object.description
                     :names?=$object.aliases
                 ]
                 $node.data.set(stix:object, $object)
@@ -894,7 +892,7 @@ stixingest = {
         '''},
 
         {'type': (None, 'uses', None), 'storm': 'yield $n1node [ +(used)> { yield $n2node } ]'},
-        {'type': (None, 'indicates', None), 'storm': 'yield $n1node [ +(indicates)> { yield $n2node } ]'},
+        {'type': (None, 'indicates', None), 'storm': 'yield $n1node [ +(refs)> { yield $n2node } ]'},
 
         # nothing to do... they are the same for us...
         {'type': ('threat-actor', 'attributed-to', 'identity'), 'storm': ''}
@@ -1166,15 +1164,15 @@ class LibStixExport(s_stormtypes.Lib):
                                     "props": {
                                         "name": "{+:name return(:name)} return($node.repr())",
                                         "description": "+:desc return(:desc)",
-                                        "objective": "+:goal :goal -> entity:goal +:name return(:name)",
+                                        "objective": "-(had)> entity:goal +:name return(:name)",
                                         "created": "return($lib.stix.export.timestamp(.created))",
-                                        "modified": "return($lib.stix.export.timestamp(.created))",
+                                        "modified": "return($lib.stix.export.timestamp(.updated))",
                                     },
                                     "rels": (
                                         ("attributed-to", "threat-actor", ":org -> ou:org"),
                                         ("originates-from", "location", ":org -> ou:org -> geo:place"),
-                                        ("targets", "identity", "-> risk:attack -(targets)> ou:org"),
-                                        ("targets", "identity", "-> risk:attack -(targets)> ps:person"),
+                                        ("targets", "identity", "-> risk:attack -(targeted)> ou:org"),
+                                        ("targets", "identity", "-> risk:attack -(targeted)> ps:person"),
                                     ),
                                 },
                             },
