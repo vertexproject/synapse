@@ -1275,6 +1275,25 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0][1]['props']['ndefs.size'], 2)
             self.eq(nodes[0][1]['props']['ndefs.form'], ('test:str', 'test:str'))
 
+            msgs = await core.stormlist('[ inet:net=10.0.0.0/24 ]', opts=opts)
+            nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
+            self.eq(nodes[0][1]['virts'].get('mask'), 24)
+            self.eq(nodes[0][1]['virts'].get('size'), 256)
+
+            msgs = await core.stormlist('[ test:ival=(2020, 2021) ]', opts=opts)
+            nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
+            self.eq(nodes[0][1]['virts'].get('min'), 1577836800000000)
+            self.eq(nodes[0][1]['virts'].get('max'), 1609459200000000)
+            self.eq(nodes[0][1]['virts'].get('duration'), 31622400000000)
+
+            fork = await core.callStorm('return($lib.view.get().fork().iden)', opts=opts)
+            opts['view'] = fork
+
+            nodes = await core.nodes('inet:net=10.0.0.0/24', opts=opts)
+            await core.nodes('inet:net=10.0.0.0/24 | delnode', opts=opts)
+            pode = nodes[0].pack(virts=True)
+            self.eq(pode[1]['virts'], {})
+
             # test set tag assignment
             nodes = await core.nodes('[ test:str=boo +?#baz="dud" ]')
             self.len(1, nodes)
