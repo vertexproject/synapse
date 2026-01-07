@@ -2865,7 +2865,7 @@ class LibBytes(Lib):
             ''',
          'type': {'type': 'function', '_funcname': '_libBytesFromInts',
                   'args': (
-                      {'name': 'ints', 'type': 'iter', 'desc': 'An iterable source of integers.', },
+                      {'name': 'ints', 'type': 'generator', 'desc': 'An iterable source of integers.', },
                   ),
                   'returns': {'type': 'bytes', 'desc': 'The bytes from processing the integers.'}}},
     )
